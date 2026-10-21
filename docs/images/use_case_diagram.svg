@@ -1,0 +1,425 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1780 1280" width="1780" height="1280" style="background-color: #ffffff; font-family: 'Segoe UI', Arial, sans-serif;">
+  <defs>
+    <!-- Arrowhead for dependency, include, extend -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+    </marker>
+    <!-- Hollow Triangle for Generalization -->
+    <marker id="hollow-triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <polygon points="1,1 11,6 1,11" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+    </marker>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="2" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <style>
+    .title { font-size: 20px; font-weight: bold; fill: #1e293b; }
+    .subtitle { font-size: 13px; fill: #64748b; }
+    .boundary-title { font-size: 16px; font-weight: bold; fill: #0f172a; letter-spacing: 0.5px; }
+    .actor-name { font-size: 13px; font-weight: 600; fill: #1e293b; text-anchor: middle; }
+    .actor-sub { font-size: 11px; fill: #64748b; text-anchor: middle; }
+    .usecase-text { font-size: 12.5px; font-weight: 500; fill: #0f172a; text-anchor: middle; dominant-baseline: central; }
+    .usecase-id { font-size: 10px; font-weight: bold; fill: #2563eb; text-anchor: middle; }
+    .rel-label { font-size: 11px; font-style: italic; font-weight: 600; fill: #334155; text-anchor: middle; }
+    .note-text { font-size: 11px; font-weight: 600; fill: #1e293b; text-anchor: middle; }
+    .assoc-line { stroke: #334155; stroke-width: 1.4; }
+    .dashed-line { stroke: #475569; stroke-width: 1.4; stroke-dasharray: 5,4; }
+    .note-line { stroke: #94a3b8; stroke-width: 1.2; stroke-dasharray: 3,3; }
+    .usecase-oval { fill: #ffffff; stroke: #1e293b; stroke-width: 1.6; filter: url(#shadow); }
+    .note-box { fill: #fefce8; stroke: #ca8a04; stroke-width: 1.2; filter: url(#shadow); }
+  </style>
+
+  <!-- Document Header -->
+  <text x="50" y="42" class="title">UML USE CASE DIAGRAM - SISTEM TRACER STUDY (SERU - UKDW)</text>
+  <text x="50" y="64" class="subtitle">Diagram Tunggal Terpadu (Single Process Diagram) Berdasarkan Standar UML &amp; Implementasi Pengendali Nyata Sistem</text>
+
+  <!-- ============================================================ -->
+  <!-- SYSTEM BOUNDARY -->
+  <!-- ============================================================ -->
+  <rect x="310" y="85" width="1120" height="1165" rx="8" fill="#f8fafc" stroke="#334155" stroke-width="2.2"/>
+  <text x="1410" y="115" text-anchor="end" class="boundary-title">System: Tracer Study UKDW (SERU)</text>
+
+  <!-- ============================================================ -->
+  <!-- ACTORS (STICK FIGURES) -->
+  <!-- ============================================================ -->
+
+  <!-- 1. Left Actor: Publik / Tamu -->
+  <g id="actor-guest">
+    <circle cx="140" cy="140" r="14" fill="#ffffff" stroke="#1e293b" stroke-width="2"/>
+    <line x1="140" y1="154" x2="140" y2="190" stroke="#1e293b" stroke-width="2"/>
+    <line x1="115" y1="168" x2="165" y2="168" stroke="#1e293b" stroke-width="2"/>
+    <line x1="140" y1="190" x2="120" y2="225" stroke="#1e293b" stroke-width="2"/>
+    <line x1="140" y1="190" x2="160" y2="225" stroke="#1e293b" stroke-width="2"/>
+    <text x="140" y="246" class="actor-name">Publik / Tamu</text>
+    <text x="140" y="260" class="actor-sub">(Guest)</text>
+  </g>
+
+  <!-- 2. Left Actor: Alumni / Lulusan -->
+  <g id="actor-alumni">
+    <circle cx="140" cy="460" r="14" fill="#ffffff" stroke="#1e293b" stroke-width="2"/>
+    <line x1="140" y1="474" x2="140" y2="510" stroke="#1e293b" stroke-width="2"/>
+    <line x1="115" y1="488" x2="165" y2="488" stroke="#1e293b" stroke-width="2"/>
+    <line x1="140" y1="510" x2="120" y2="545" stroke="#1e293b" stroke-width="2"/>
+    <line x1="140" y1="510" x2="160" y2="545" stroke="#1e293b" stroke-width="2"/>
+    <text x="140" y="566" class="actor-name">Alumni / Lulusan</text>
+    <text x="140" y="580" class="actor-sub">(User Mahasiswa Lulus)</text>
+  </g>
+
+  <!-- 3. Left Actor: Atasan Langsung (Employer) -->
+  <g id="actor-employer">
+    <circle cx="140" cy="980" r="14" fill="#ffffff" stroke="#1e293b" stroke-width="2"/>
+    <line x1="140" y1="994" x2="140" y2="1030" stroke="#1e293b" stroke-width="2"/>
+    <line x1="115" y1="1008" x2="165" y2="1008" stroke="#1e293b" stroke-width="2"/>
+    <line x1="140" y1="1030" x2="120" y2="1065" stroke="#1e293b" stroke-width="2"/>
+    <line x1="140" y1="1030" x2="160" y2="1065" stroke="#1e293b" stroke-width="2"/>
+    <text x="140" y="1086" class="actor-name">Atasan Langsung</text>
+    <text x="140" y="1100" class="actor-sub">(Pengguna Lulusan / Token)</text>
+  </g>
+
+  <!-- 4. Right Actor: Admin Program Studi -->
+  <g id="actor-prodi">
+    <circle cx="1600" cy="220" r="14" fill="#ffffff" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1600" y1="234" x2="1600" y2="270" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1575" y1="248" x2="1625" y2="248" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1600" y1="270" x2="1580" y2="305" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1600" y1="270" x2="1620" y2="305" stroke="#1e293b" stroke-width="2"/>
+    <text x="1600" y="326" class="actor-name">Admin Program Studi</text>
+    <text x="1600" y="340" class="actor-sub">(Admin Prodi)</text>
+  </g>
+
+  <!-- 5. Right Actor: Admin Fakultas -->
+  <g id="actor-fakultas">
+    <circle cx="1600" cy="480" r="14" fill="#ffffff" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1600" y1="494" x2="1600" y2="530" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1575" y1="508" x2="1625" y2="508" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1600" y1="530" x2="1580" y2="565" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1600" y1="530" x2="1620" y2="565" stroke="#1e293b" stroke-width="2"/>
+    <text x="1600" y="586" class="actor-name">Admin Fakultas</text>
+    <text x="1600" y="600" class="actor-sub">(Dekanat / GKM)</text>
+  </g>
+
+  <!-- 6. Right Actor: Admin Biro III -->
+  <g id="actor-biro3">
+    <circle cx="1600" cy="750" r="14" fill="#ffffff" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1600" y1="764" x2="1600" y2="800" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1575" y1="778" x2="1625" y2="778" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1600" y1="800" x2="1580" y2="835" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1600" y1="800" x2="1620" y2="835" stroke="#1e293b" stroke-width="2"/>
+    <text x="1600" y="856" class="actor-name">Admin Biro III</text>
+    <text x="1600" y="870" class="actor-sub">(Kemahasiswaan &amp; Alumni)</text>
+  </g>
+
+  <!-- 7. Right Actor: Superadmin -->
+  <g id="actor-superadmin">
+    <circle cx="1600" cy="1030" r="14" fill="#ffffff" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1600" y1="1044" x2="1600" y2="1080" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1575" y1="1058" x2="1625" y2="1058" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1600" y1="1080" x2="1580" y2="1115" stroke="#1e293b" stroke-width="2"/>
+    <line x1="1600" y1="1080" x2="1620" y2="1115" stroke="#1e293b" stroke-width="2"/>
+    <text x="1600" y="1136" class="actor-name">Superadmin</text>
+    <text x="1600" y="1150" class="actor-sub">(Otoritas Tertinggi Sistem)</text>
+  </g>
+
+  <!-- ============================================================ -->
+  <!-- USE CASES (OVALS) -->
+  <!-- ============================================================ -->
+
+  <!-- UC-01: Mengakses Beranda Publik -->
+  <g id="uc-01">
+    <ellipse cx="480" cy="140" rx="110" ry="26" class="usecase-oval"/>
+    <text x="480" y="135" class="usecase-id">UC-01</text>
+    <text x="480" y="148" class="usecase-text">Mengakses Beranda Publik</text>
+  </g>
+
+  <!-- UC-02: Melakukan Autentikasi (Login) -->
+  <g id="uc-02">
+    <ellipse cx="480" cy="240" rx="100" ry="27" class="usecase-oval"/>
+    <text x="480" y="234" class="usecase-id">UC-02</text>
+    <text x="480" y="248" class="usecase-text">Melakukan Login</text>
+  </g>
+
+  <!-- UC-03: Memulihkan Kata Sandi (Reset Password) -->
+  <g id="uc-03">
+    <ellipse cx="480" cy="335" rx="115" ry="26" class="usecase-oval"/>
+    <text x="480" y="330" class="usecase-id">UC-03</text>
+    <text x="480" y="343" class="usecase-text">Memulihkan Kata Sandi</text>
+  </g>
+
+  <!-- UC-04: Mengubah Kata Sandi Wajib -->
+  <g id="uc-04">
+    <ellipse cx="730" cy="240" rx="115" ry="26" class="usecase-oval"/>
+    <text x="730" y="234" class="usecase-id">UC-04</text>
+    <text x="730" y="248" class="usecase-text">Ubah Kata Sandi Wajib</text>
+  </g>
+
+  <!-- UC-05: Mengakhiri Sesi (Logout) -->
+  <g id="uc-05">
+    <ellipse cx="480" cy="425" rx="90" ry="25" class="usecase-oval"/>
+    <text x="480" y="420" class="usecase-id">UC-05</text>
+    <text x="480" y="433" class="usecase-text">Mengakhiri Sesi (Logout)</text>
+  </g>
+
+  <!-- UC-06: Mengakses Dashboard Alumni -->
+  <g id="uc-06">
+    <ellipse cx="480" cy="515" rx="105" ry="26" class="usecase-oval"/>
+    <text x="480" y="510" class="usecase-id">UC-06</text>
+    <text x="480" y="523" class="usecase-text">Akses Dashboard Alumni</text>
+  </g>
+
+  <!-- UC-07: Mengelola Profil & Riwayat Karir -->
+  <g id="uc-07">
+    <ellipse cx="480" cy="610" rx="118" ry="28" class="usecase-oval"/>
+    <text x="480" y="604" class="usecase-id">UC-07</text>
+    <text x="480" y="618" class="usecase-text">Kelola Profil &amp; Pekerjaan</text>
+  </g>
+
+  <!-- UC-08: Mendaftarkan Instansi Perusahaan Baru -->
+  <g id="uc-08">
+    <ellipse cx="740" cy="610" rx="115" ry="26" class="usecase-oval"/>
+    <text x="740" y="604" class="usecase-id">UC-08</text>
+    <text x="740" y="618" class="usecase-text">Daftar Perusahaan Baru</text>
+  </g>
+
+  <!-- UC-09: Mengisi Kuesioner Universitas (Kemdikbud) -->
+  <g id="uc-09">
+    <ellipse cx="480" cy="715" rx="120" ry="28" class="usecase-oval"/>
+    <text x="480" y="709" class="usecase-id">UC-09</text>
+    <text x="480" y="723" class="usecase-text">Isi Kuesioner Universitas</text>
+  </g>
+
+  <!-- UC-10: Mengisi Kuesioner Khusus Prodi -->
+  <g id="uc-10">
+    <ellipse cx="480" cy="815" rx="115" ry="27" class="usecase-oval"/>
+    <text x="480" y="809" class="usecase-id">UC-10</text>
+    <text x="480" y="823" class="usecase-text">Isi Kuesioner Prodi</text>
+  </g>
+
+  <!-- UC-11: Mengisi Evaluasi Kinerja Lulusan (Token-Based) -->
+  <g id="uc-11">
+    <ellipse cx="480" cy="990" rx="125" ry="30" class="usecase-oval"/>
+    <text x="480" y="983" class="usecase-id">UC-11</text>
+    <text x="480" y="998" class="usecase-text">Evaluasi Kinerja (Atasan)</text>
+  </g>
+
+  <!-- UC-12: Monitoring & KPI Dashboard (Shared Admin Use Case) -->
+  <g id="uc-12">
+    <ellipse cx="1040" cy="190" rx="125" ry="27" class="usecase-oval"/>
+    <text x="1040" y="184" class="usecase-id">UC-12</text>
+    <text x="1040" y="198" class="usecase-text">Monitoring &amp; KPI Dashboard</text>
+  </g>
+
+  <!-- UC-13: Kelola Direktori Alumni & Audit -->
+  <g id="uc-13">
+    <ellipse cx="1040" cy="300" rx="125" ry="28" class="usecase-oval"/>
+    <text x="1040" y="294" class="usecase-id">UC-13</text>
+    <text x="1040" y="308" class="usecase-text">Kelola Direktori Alumni</text>
+  </g>
+
+  <!-- UC-14: Ekspor Rekap Excel -->
+  <g id="uc-14">
+    <ellipse cx="750" cy="300" rx="100" ry="25" class="usecase-oval"/>
+    <text x="750" y="294" class="usecase-id">UC-14</text>
+    <text x="750" y="307" class="usecase-text">Ekspor Rekap Excel</text>
+  </g>
+
+  <!-- UC-15: Verifikasi Perusahaan Baru (3 Role: Prodi, Fak, Superadmin) -->
+  <g id="uc-15">
+    <ellipse cx="1040" cy="410" rx="125" ry="28" class="usecase-oval"/>
+    <text x="1040" y="404" class="usecase-id">UC-15 (3 Role)</text>
+    <text x="1040" y="418" class="usecase-text">Verifikasi Perusahaan Baru</text>
+  </g>
+
+  <!-- UC-16: Manajemen Akun & Reset Sandi Default (3 Role: Prodi, Fak, Superadmin) -->
+  <g id="uc-16">
+    <ellipse cx="1040" cy="520" rx="130" ry="28" class="usecase-oval"/>
+    <text x="1040" y="514" class="usecase-id">UC-16 (3 Role)</text>
+    <text x="1040" y="528" class="usecase-text">Manajemen Akun &amp; Reset</text>
+  </g>
+
+  <!-- UC-17: Sinkronisasi Profil LinkedIn Alumni (3 Role Terpadu + Biro III) -->
+  <g id="uc-17">
+    <ellipse cx="1040" cy="640" rx="135" ry="29" class="usecase-oval"/>
+    <text x="1040" y="633" class="usecase-id">UC-17 (3 Role Utama)</text>
+    <text x="1040" y="648" class="usecase-text">Sinkronisasi LinkedIn Alumni</text>
+  </g>
+
+  <!-- UC-18: Kelola Kuesioner Prodi (Section) -->
+  <g id="uc-18">
+    <ellipse cx="1040" cy="760" rx="130" ry="28" class="usecase-oval"/>
+    <text x="1040" y="754" class="usecase-id">UC-18</text>
+    <text x="1040" y="768" class="usecase-text">Kelola Section Kuesioner Prodi</text>
+  </g>
+
+  <!-- UC-19: Kelola Pertanyaan & Opsi Prodi -->
+  <g id="uc-19">
+    <ellipse cx="750" cy="760" rx="120" ry="27" class="usecase-oval"/>
+    <text x="750" y="754" class="usecase-id">UC-19</text>
+    <text x="750" y="768" class="usecase-text">Kelola Soal &amp; Opsi Prodi</text>
+  </g>
+
+  <!-- UC-20: Kelola Kuesioner Universitas & Branching -->
+  <g id="uc-20">
+    <ellipse cx="1040" cy="875" rx="135" ry="28" class="usecase-oval"/>
+    <text x="1040" y="869" class="usecase-id">UC-20</text>
+    <text x="1040" y="883" class="usecase-text">Kelola Kuesioner Univ &amp; Branch</text>
+  </g>
+
+  <!-- UC-21: Kelola Instrumen Evaluasi Atasan -->
+  <g id="uc-21">
+    <ellipse cx="1040" cy="980" rx="130" ry="28" class="usecase-oval"/>
+    <text x="1040" y="974" class="usecase-id">UC-21</text>
+    <text x="1040" y="988" class="usecase-text">Kelola Soal Evaluasi Atasan</text>
+  </g>
+
+  <!-- UC-22: Log Aktivitas & Audit Trail -->
+  <g id="uc-22">
+    <ellipse cx="1040" cy="1085" rx="125" ry="28" class="usecase-oval"/>
+    <text x="1040" y="1079" class="usecase-id">UC-22</text>
+    <text x="1040" y="1093" class="usecase-text">Log Aktivitas &amp; Audit Trail</text>
+  </g>
+
+
+  <!-- ============================================================ -->
+  <!-- ASSOCIATIONS (SOLID LINES) -->
+  <!-- ============================================================ -->
+
+  <!-- Guest Associations -->
+  <line x1="165" y1="168" x2="370" y2="140" class="assoc-line"/>
+  <line x1="165" y1="168" x2="380" y2="240" class="assoc-line"/>
+
+  <!-- Alumni Associations -->
+  <line x1="165" y1="488" x2="380" y2="240" class="assoc-line"/>
+  <line x1="165" y1="488" x2="390" y2="425" class="assoc-line"/>
+  <line x1="165" y1="488" x2="375" y2="515" class="assoc-line"/>
+  <line x1="165" y1="488" x2="362" y2="610" class="assoc-line"/>
+  <line x1="165" y1="488" x2="360" y2="715" class="assoc-line"/>
+  <line x1="165" y1="488" x2="365" y2="815" class="assoc-line"/>
+
+  <!-- Employer Association -->
+  <line x1="165" y1="1008" x2="355" y2="990" class="assoc-line"/>
+
+  <!-- Admin Prodi Associations (Includes UC-17 LinkedIn Sync!) -->
+  <line x1="1575" y1="248" x2="1165" y2="195" class="assoc-line"/>
+  <line x1="1575" y1="248" x2="1165" y2="300" class="assoc-line"/>
+  <line x1="1575" y1="248" x2="1165" y2="410" class="assoc-line"/>
+  <line x1="1575" y1="248" x2="1170" y2="520" class="assoc-line"/>
+  <line x1="1575" y1="248" x2="1175" y2="630" class="assoc-line"/>
+  <line x1="1575" y1="248" x2="1170" y2="755" class="assoc-line"/>
+
+  <!-- Admin Fakultas Associations (Includes UC-17 LinkedIn Sync!) -->
+  <line x1="1575" y1="508" x2="1165" y2="200" class="assoc-line"/>
+  <line x1="1575" y1="508" x2="1165" y2="305" class="assoc-line"/>
+  <line x1="1575" y1="508" x2="1165" y2="415" class="assoc-line"/>
+  <line x1="1575" y1="508" x2="1170" y2="525" class="assoc-line"/>
+  <line x1="1575" y1="508" x2="1175" y2="640" class="assoc-line"/>
+
+  <!-- Admin Biro III Associations -->
+  <line x1="1575" y1="778" x2="1165" y2="205" class="assoc-line"/>
+  <line x1="1575" y1="778" x2="1165" y2="310" class="assoc-line"/>
+  <line x1="1575" y1="778" x2="1175" y2="650" class="assoc-line"/>
+
+  <!-- Superadmin Associations -->
+  <line x1="1575" y1="1058" x2="1165" y2="210" class="assoc-line"/>
+  <line x1="1575" y1="1058" x2="1165" y2="315" class="assoc-line"/>
+  <line x1="1575" y1="1058" x2="1165" y2="420" class="assoc-line"/>
+  <line x1="1575" y1="1058" x2="1170" y2="530" class="assoc-line"/>
+  <line x1="1575" y1="1058" x2="1175" y2="660" class="assoc-line"/>
+  <line x1="1575" y1="1058" x2="1170" y2="765" class="assoc-line"/>
+  <line x1="1575" y1="1058" x2="1175" y2="875" class="assoc-line"/>
+  <line x1="1575" y1="1058" x2="1170" y2="980" class="assoc-line"/>
+  <line x1="1575" y1="1058" x2="1165" y2="1085" class="assoc-line"/>
+
+
+  <!-- ============================================================ -->
+  <!-- INCLUDE & EXTEND RELATIONSHIPS (DASHED WITH ARROW) -->
+  <!-- ============================================================ -->
+
+  <!-- Login <<include>> Ubah Sandi Wajib -->
+  <line x1="580" y1="240" x2="615" y2="240" class="dashed-line" marker-end="url(#arrow)"/>
+  <text x="598" y="230" class="rel-label">&lt;&lt;include&gt;&gt;</text>
+
+  <!-- Lupa Sandi <<extend>> Login -->
+  <line x1="480" y1="309" x2="480" y2="267" class="dashed-line" marker-end="url(#arrow)"/>
+  <text x="532" y="292" class="rel-label">&lt;&lt;extend&gt;&gt;</text>
+
+  <!-- Daftar Perusahaan Baru <<extend>> Kelola Profil -->
+  <line x1="625" y1="610" x2="598" y2="610" class="dashed-line" marker-end="url(#arrow)"/>
+  <text x="612" y="600" class="rel-label">&lt;&lt;extend&gt;&gt;</text>
+
+  <!-- Ekspor Excel <<extend>> Direktori Alumni -->
+  <line x1="850" y1="300" x2="915" y2="300" class="dashed-line" marker-end="url(#arrow)"/>
+  <text x="882" y="290" class="rel-label">&lt;&lt;extend&gt;&gt;</text>
+
+  <!-- Kelola Pertanyaan & Opsi <<include>> Kelola Section Prodi -->
+  <line x1="870" y1="760" x2="910" y2="760" class="dashed-line" marker-end="url(#arrow)"/>
+  <text x="890" y="750" class="rel-label">&lt;&lt;include&gt;&gt;</text>
+
+  <!-- Kelola Profil Alumni memicu Evaluasi Atasan Token (Dependency) -->
+  <path d="M 480 638 L 480 960" class="dashed-line" marker-end="url(#arrow)"/>
+  <text x="525" y="875" class="rel-label">&lt;&lt;memicu token&gt;&gt;</text>
+
+
+  <!-- ============================================================ -->
+  <!-- CALLOUT NOTES (DOG-EARED RECTANGLES) -->
+  <!-- ============================================================ -->
+
+  <!-- 1. Note: Actor -->
+  <g id="note-actor">
+    <path d="M 45 360 L 95 360 L 105 370 L 105 395 L 45 395 Z" class="note-box"/>
+    <path d="M 95 360 L 95 370 L 105 370 Z" fill="#ca8a04"/>
+    <text x="75" y="382" class="note-text">Actor</text>
+    <line x1="105" y1="380" x2="135" y2="440" class="note-line"/>
+  </g>
+
+  <!-- 2. Note: Association -->
+  <g id="note-association">
+    <path d="M 195 370 L 275 370 L 285 380 L 285 405 L 195 405 Z" class="note-box"/>
+    <path d="M 275 370 L 275 380 L 285 380 Z" fill="#ca8a04"/>
+    <text x="240" y="392" class="note-text">Association</text>
+    <line x1="240" y1="405" x2="250" y2="450" class="note-line"/>
+  </g>
+
+  <!-- 3. Note: System Boundary -->
+  <g id="note-boundary">
+    <path d="M 1240 45 L 1355 45 L 1365 55 L 1365 80 L 1240 80 Z" class="note-box"/>
+    <path d="M 1355 45 L 1355 55 L 1365 55 Z" fill="#ca8a04"/>
+    <text x="1302" y="67" class="note-text">System Boundary</text>
+    <line x1="1302" y1="80" x2="1302" y2="105" class="note-line"/>
+  </g>
+
+  <!-- 4. Note: Include -->
+  <g id="note-include">
+    <path d="M 645 165 L 705 165 L 715 175 L 715 200 L 645 200 Z" class="note-box"/>
+    <path d="M 705 165 L 705 175 L 715 175 Z" fill="#ca8a04"/>
+    <text x="680" y="187" class="note-text">Include</text>
+    <line x1="680" y1="200" x2="600" y2="235" class="note-line"/>
+  </g>
+
+  <!-- 5. Note: Extend -->
+  <g id="note-extend">
+    <path d="M 645 535 L 705 535 L 715 545 L 715 570 L 645 570 Z" class="note-box"/>
+    <path d="M 705 535 L 705 545 L 715 545 Z" fill="#ca8a04"/>
+    <text x="680" y="557" class="note-text">Extend</text>
+    <line x1="680" y1="570" x2="615" y2="605" class="note-line"/>
+  </g>
+
+  <!-- 6. Note: Unified Process (1 Use Case untuk 3 Role) -->
+  <g id="note-unified">
+    <path d="M 1330 575 L 1490 575 L 1500 585 L 1500 625 L 1330 625 Z" class="note-box"/>
+    <path d="M 1490 575 L 1490 585 L 1500 585 Z" fill="#ca8a04"/>
+    <text x="1415" y="595" class="note-text">1 Unified Use Case</text>
+    <text x="1415" y="612" style="font-size: 10px; fill: #475569; text-anchor: middle;">(3 Role: Prodi, Fak, Super)</text>
+    <line x1="1330" y1="600" x2="1175" y2="640" class="note-line"/>
+  </g>
+
+  <!-- 7. Note: Usecase -->
+  <g id="note-usecase">
+    <path d="M 220 755 L 285 755 L 295 765 L 295 790 L 220 790 Z" class="note-box"/>
+    <path d="M 285 755 L 285 765 L 295 765 Z" fill="#ca8a04"/>
+    <text x="257" y="777" class="note-text">Usecase</text>
+    <line x1="295" y1="772" x2="365" y2="725" class="note-line"/>
+  </g>
+
+</svg>

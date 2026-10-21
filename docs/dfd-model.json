@@ -1,0 +1,1003 @@
+{
+  "revision": "2026-10-21",
+  "basis": "Implementasi lokal; integrasi langsung SIAKAD tidak diasumsikan",
+  "entities": {
+    "E1": "Alumni",
+    "E2": "Atasan / Pengguna Lulusan",
+    "E3": "Admin Program Studi",
+    "E4": "Admin Fakultas",
+    "E5": "Admin Biro III",
+    "E6": "Superadmin",
+    "E7": "Publik / Tamu",
+    "E8": "Penyedia Data LinkedIn"
+  },
+  "processes": {
+    "P1": "Kelola Autentikasi dan Akun",
+    "P2": "Kelola Profil dan Integrasi Karier",
+    "P3": "Kelola Perusahaan dan Data Referensi",
+    "P4": "Kelola Kuesioner Universitas",
+    "P5": "Kelola Kuesioner Program Studi",
+    "P6": "Kelola Evaluasi Pengguna Lulusan",
+    "P7": "Sajikan Informasi dan Laporan"
+  },
+  "stores": {
+    "D1": {
+      "name": "Akun dan Pemulihan Sandi",
+      "tables": "users, password_reset_tokens"
+    },
+    "D2": {
+      "name": "Profil Alumni dan Atasan",
+      "tables": "biodata, atasan"
+    },
+    "D3": {
+      "name": "Perusahaan",
+      "tables": "perusahaan"
+    },
+    "D4": {
+      "name": "Instrumen Universitas",
+      "tables": "kuesioner, kelompok_pertanyaan, ref_subpertanyaan2021, ref_subpertanyaan_detil"
+    },
+    "D5": {
+      "name": "Jawaban Universitas",
+      "tables": "tracer"
+    },
+    "D6": {
+      "name": "Instrumen Program Studi",
+      "tables": "prodi_question_section, prodi_question, prodi_question_option"
+    },
+    "D7": {
+      "name": "Jawaban Program Studi",
+      "tables": "prodi_response"
+    },
+    "D8": {
+      "name": "Instrumen Evaluasi Atasan",
+      "tables": "pertanyaan_evaluasi_atasan"
+    },
+    "D9": {
+      "name": "Undangan dan Jawaban Evaluasi",
+      "tables": "evaluasi_atasan, respon_evaluasi_atasan"
+    },
+    "D10": {
+      "name": "Hasil dan Peninjauan LinkedIn",
+      "tables": "linkedin_sync_results"
+    },
+    "D11": {
+      "name": "Catatan Aktivitas",
+      "tables": "log_activities"
+    },
+    "D12": {
+      "name": "Referensi Akademik dan Kelulusan",
+      "tables": "data_akademik, yudisium, data_orang_tua"
+    },
+    "D13": {
+      "name": "Referensi Organisasi dan Wilayah",
+      "tables": "prodi, ref_fakultas, propinsi, kabupaten, ref_negara, ump"
+    }
+  },
+  "flows": [
+    {
+      "id": "F001",
+      "source": "E1",
+      "target": "P1",
+      "label": "Kredensial dan data pemulihan sandi"
+    },
+    {
+      "id": "F002",
+      "source": "P1",
+      "target": "E1",
+      "label": "Status akses dan hasil pemulihan sandi"
+    },
+    {
+      "id": "F003",
+      "source": "E3",
+      "target": "P1",
+      "label": "Kredensial dan data pemulihan sandi"
+    },
+    {
+      "id": "F004",
+      "source": "P1",
+      "target": "E3",
+      "label": "Status akses dan hasil pemulihan sandi"
+    },
+    {
+      "id": "F005",
+      "source": "E4",
+      "target": "P1",
+      "label": "Kredensial dan data pemulihan sandi"
+    },
+    {
+      "id": "F006",
+      "source": "P1",
+      "target": "E4",
+      "label": "Status akses dan hasil pemulihan sandi"
+    },
+    {
+      "id": "F007",
+      "source": "E5",
+      "target": "P1",
+      "label": "Kredensial dan data pemulihan sandi"
+    },
+    {
+      "id": "F008",
+      "source": "P1",
+      "target": "E5",
+      "label": "Status akses dan hasil pemulihan sandi"
+    },
+    {
+      "id": "F009",
+      "source": "E6",
+      "target": "P1",
+      "label": "Kredensial dan data pemulihan sandi"
+    },
+    {
+      "id": "F010",
+      "source": "P1",
+      "target": "E6",
+      "label": "Status akses dan hasil pemulihan sandi"
+    },
+    {
+      "id": "F011",
+      "source": "E3",
+      "target": "P1",
+      "label": "Data pengelolaan akun sesuai lingkup"
+    },
+    {
+      "id": "F012",
+      "source": "P1",
+      "target": "E3",
+      "label": "Daftar akun dan hasil pengelolaan"
+    },
+    {
+      "id": "F013",
+      "source": "E4",
+      "target": "P1",
+      "label": "Data pengelolaan akun sesuai lingkup"
+    },
+    {
+      "id": "F014",
+      "source": "P1",
+      "target": "E4",
+      "label": "Daftar akun dan hasil pengelolaan"
+    },
+    {
+      "id": "F015",
+      "source": "E6",
+      "target": "P1",
+      "label": "Data pengelolaan akun sesuai lingkup"
+    },
+    {
+      "id": "F016",
+      "source": "P1",
+      "target": "E6",
+      "label": "Daftar akun dan hasil pengelolaan"
+    },
+    {
+      "id": "F017",
+      "source": "E1",
+      "target": "P2",
+      "label": "Data profil dan karier pribadi"
+    },
+    {
+      "id": "F018",
+      "source": "P2",
+      "target": "E1",
+      "label": "Profil dan hasil penyimpanan"
+    },
+    {
+      "id": "F019",
+      "source": "E3",
+      "target": "P2",
+      "label": "Data pembaruan profil, permintaan LinkedIn dan keputusan peninjauan"
+    },
+    {
+      "id": "F020",
+      "source": "P2",
+      "target": "E3",
+      "label": "Hasil pembaruan profil dan peninjauan LinkedIn"
+    },
+    {
+      "id": "F021",
+      "source": "E4",
+      "target": "P2",
+      "label": "Data pembaruan profil, permintaan LinkedIn dan keputusan peninjauan"
+    },
+    {
+      "id": "F022",
+      "source": "P2",
+      "target": "E4",
+      "label": "Hasil pembaruan profil dan peninjauan LinkedIn"
+    },
+    {
+      "id": "F023",
+      "source": "E6",
+      "target": "P2",
+      "label": "Data pembaruan profil, permintaan LinkedIn dan keputusan peninjauan"
+    },
+    {
+      "id": "F024",
+      "source": "P2",
+      "target": "E6",
+      "label": "Hasil pembaruan profil dan peninjauan LinkedIn"
+    },
+    {
+      "id": "F025",
+      "source": "P2",
+      "target": "E8",
+      "label": "URL profil dan permintaan data LinkedIn"
+    },
+    {
+      "id": "F026",
+      "source": "E8",
+      "target": "P2",
+      "label": "Data profil LinkedIn atau informasi kegagalan"
+    },
+    {
+      "id": "F027",
+      "source": "E1",
+      "target": "P3",
+      "label": "Data perusahaan baru"
+    },
+    {
+      "id": "F028",
+      "source": "P3",
+      "target": "E1",
+      "label": "Hasil pencatatan perusahaan"
+    },
+    {
+      "id": "F029",
+      "source": "E3",
+      "target": "P3",
+      "label": "Data perusahaan baru"
+    },
+    {
+      "id": "F030",
+      "source": "P3",
+      "target": "E3",
+      "label": "Hasil pencatatan perusahaan"
+    },
+    {
+      "id": "F031",
+      "source": "E4",
+      "target": "P3",
+      "label": "Data perusahaan baru"
+    },
+    {
+      "id": "F032",
+      "source": "P3",
+      "target": "E4",
+      "label": "Hasil pencatatan perusahaan"
+    },
+    {
+      "id": "F033",
+      "source": "E5",
+      "target": "P3",
+      "label": "Data perusahaan baru"
+    },
+    {
+      "id": "F034",
+      "source": "P3",
+      "target": "E5",
+      "label": "Hasil pencatatan perusahaan"
+    },
+    {
+      "id": "F035",
+      "source": "E6",
+      "target": "P3",
+      "label": "Data perusahaan baru"
+    },
+    {
+      "id": "F036",
+      "source": "P3",
+      "target": "E6",
+      "label": "Hasil pencatatan perusahaan"
+    },
+    {
+      "id": "F037",
+      "source": "E3",
+      "target": "P3",
+      "label": "Data koreksi dan keputusan verifikasi perusahaan"
+    },
+    {
+      "id": "F038",
+      "source": "P3",
+      "target": "E3",
+      "label": "Daftar perusahaan, rekomendasi dan hasil verifikasi"
+    },
+    {
+      "id": "F039",
+      "source": "E4",
+      "target": "P3",
+      "label": "Data koreksi dan keputusan verifikasi perusahaan"
+    },
+    {
+      "id": "F040",
+      "source": "P3",
+      "target": "E4",
+      "label": "Daftar perusahaan, rekomendasi dan hasil verifikasi"
+    },
+    {
+      "id": "F041",
+      "source": "E6",
+      "target": "P3",
+      "label": "Data koreksi dan keputusan verifikasi perusahaan"
+    },
+    {
+      "id": "F042",
+      "source": "P3",
+      "target": "E6",
+      "label": "Daftar perusahaan, rekomendasi dan hasil verifikasi"
+    },
+    {
+      "id": "F043",
+      "source": "E6",
+      "target": "P3",
+      "label": "Data pengelolaan wilayah dan UMP"
+    },
+    {
+      "id": "F044",
+      "source": "P3",
+      "target": "E6",
+      "label": "Daftar referensi dan hasil pengelolaan"
+    },
+    {
+      "id": "F045",
+      "source": "E1",
+      "target": "P4",
+      "label": "Jawaban kuesioner universitas"
+    },
+    {
+      "id": "F046",
+      "source": "P4",
+      "target": "E1",
+      "label": "Instrumen, jawaban tersimpan dan progres universitas"
+    },
+    {
+      "id": "F047",
+      "source": "E6",
+      "target": "P4",
+      "label": "Data pengaturan instrumen universitas"
+    },
+    {
+      "id": "F048",
+      "source": "P4",
+      "target": "E6",
+      "label": "Instrumen dan hasil pengaturan universitas"
+    },
+    {
+      "id": "F049",
+      "source": "E1",
+      "target": "P5",
+      "label": "Jawaban kuesioner program studi"
+    },
+    {
+      "id": "F050",
+      "source": "P5",
+      "target": "E1",
+      "label": "Instrumen, jawaban tersimpan dan progres prodi"
+    },
+    {
+      "id": "F051",
+      "source": "E3",
+      "target": "P5",
+      "label": "Data pengaturan instrumen prodi"
+    },
+    {
+      "id": "F052",
+      "source": "P5",
+      "target": "E3",
+      "label": "Instrumen dan hasil pengaturan prodi"
+    },
+    {
+      "id": "F053",
+      "source": "E6",
+      "target": "P5",
+      "label": "Data pengaturan instrumen prodi"
+    },
+    {
+      "id": "F054",
+      "source": "P5",
+      "target": "E6",
+      "label": "Instrumen dan hasil pengaturan prodi"
+    },
+    {
+      "id": "F055",
+      "source": "E1",
+      "target": "P6",
+      "label": "Identitas alumni dan permintaan undangan evaluasi"
+    },
+    {
+      "id": "F056",
+      "source": "P6",
+      "target": "E1",
+      "label": "Status pengiriman undangan evaluasi"
+    },
+    {
+      "id": "F057",
+      "source": "E3",
+      "target": "P6",
+      "label": "Identitas alumni dan permintaan undangan evaluasi"
+    },
+    {
+      "id": "F058",
+      "source": "P6",
+      "target": "E3",
+      "label": "Status pengiriman undangan evaluasi"
+    },
+    {
+      "id": "F059",
+      "source": "E4",
+      "target": "P6",
+      "label": "Identitas alumni dan permintaan undangan evaluasi"
+    },
+    {
+      "id": "F060",
+      "source": "P6",
+      "target": "E4",
+      "label": "Status pengiriman undangan evaluasi"
+    },
+    {
+      "id": "F061",
+      "source": "E5",
+      "target": "P6",
+      "label": "Identitas alumni dan permintaan undangan evaluasi"
+    },
+    {
+      "id": "F062",
+      "source": "P6",
+      "target": "E5",
+      "label": "Status pengiriman undangan evaluasi"
+    },
+    {
+      "id": "F063",
+      "source": "E6",
+      "target": "P6",
+      "label": "Identitas alumni dan permintaan undangan evaluasi"
+    },
+    {
+      "id": "F064",
+      "source": "P6",
+      "target": "E6",
+      "label": "Status pengiriman undangan evaluasi"
+    },
+    {
+      "id": "F065",
+      "source": "P6",
+      "target": "E2",
+      "label": "Undangan bertoken dan formulir evaluasi"
+    },
+    {
+      "id": "F066",
+      "source": "E2",
+      "target": "P6",
+      "label": "Token, data instansi, data atasan dan jawaban evaluasi"
+    },
+    {
+      "id": "F067",
+      "source": "P6",
+      "target": "E2",
+      "label": "Hasil validasi dan konfirmasi evaluasi"
+    },
+    {
+      "id": "F068",
+      "source": "E6",
+      "target": "P6",
+      "label": "Data pengaturan instrumen evaluasi"
+    },
+    {
+      "id": "F069",
+      "source": "P6",
+      "target": "E6",
+      "label": "Instrumen dan hasil pengaturan evaluasi"
+    },
+    {
+      "id": "F070",
+      "source": "E1",
+      "target": "P7",
+      "label": "Kriteria informasi sesuai hak akses"
+    },
+    {
+      "id": "F071",
+      "source": "P7",
+      "target": "E1",
+      "label": "Informasi, dashboard atau laporan sesuai hak akses"
+    },
+    {
+      "id": "F072",
+      "source": "E3",
+      "target": "P7",
+      "label": "Kriteria informasi sesuai hak akses"
+    },
+    {
+      "id": "F073",
+      "source": "P7",
+      "target": "E3",
+      "label": "Informasi, dashboard atau laporan sesuai hak akses"
+    },
+    {
+      "id": "F074",
+      "source": "E4",
+      "target": "P7",
+      "label": "Kriteria informasi sesuai hak akses"
+    },
+    {
+      "id": "F075",
+      "source": "P7",
+      "target": "E4",
+      "label": "Informasi, dashboard atau laporan sesuai hak akses"
+    },
+    {
+      "id": "F076",
+      "source": "E5",
+      "target": "P7",
+      "label": "Kriteria informasi sesuai hak akses"
+    },
+    {
+      "id": "F077",
+      "source": "P7",
+      "target": "E5",
+      "label": "Informasi, dashboard atau laporan sesuai hak akses"
+    },
+    {
+      "id": "F078",
+      "source": "E6",
+      "target": "P7",
+      "label": "Kriteria informasi sesuai hak akses"
+    },
+    {
+      "id": "F079",
+      "source": "P7",
+      "target": "E6",
+      "label": "Informasi, dashboard atau laporan sesuai hak akses"
+    },
+    {
+      "id": "F080",
+      "source": "E7",
+      "target": "P7",
+      "label": "Kriteria informasi sesuai hak akses"
+    },
+    {
+      "id": "F081",
+      "source": "P7",
+      "target": "E7",
+      "label": "Informasi, dashboard atau laporan sesuai hak akses"
+    },
+    {
+      "id": "F082",
+      "source": "E3",
+      "target": "P7",
+      "label": "Identitas penerima dan permintaan pengingat kuesioner"
+    },
+    {
+      "id": "F083",
+      "source": "P7",
+      "target": "E3",
+      "label": "Status pengiriman pengingat kuesioner"
+    },
+    {
+      "id": "F084",
+      "source": "E4",
+      "target": "P7",
+      "label": "Identitas penerima dan permintaan pengingat kuesioner"
+    },
+    {
+      "id": "F085",
+      "source": "P7",
+      "target": "E4",
+      "label": "Status pengiriman pengingat kuesioner"
+    },
+    {
+      "id": "F086",
+      "source": "E5",
+      "target": "P7",
+      "label": "Identitas penerima dan permintaan pengingat kuesioner"
+    },
+    {
+      "id": "F087",
+      "source": "P7",
+      "target": "E5",
+      "label": "Status pengiriman pengingat kuesioner"
+    },
+    {
+      "id": "F088",
+      "source": "E6",
+      "target": "P7",
+      "label": "Identitas penerima dan permintaan pengingat kuesioner"
+    },
+    {
+      "id": "F089",
+      "source": "P7",
+      "target": "E6",
+      "label": "Status pengiriman pengingat kuesioner"
+    },
+    {
+      "id": "F090",
+      "source": "P7",
+      "target": "E1",
+      "label": "Email pengingat pengisian kuesioner"
+    },
+    {
+      "id": "F091",
+      "source": "D1",
+      "target": "P1",
+      "label": "Data akun dan token pemulihan"
+    },
+    {
+      "id": "F092",
+      "source": "P1",
+      "target": "D1",
+      "label": "Akun dan token pemulihan terbarui"
+    },
+    {
+      "id": "F093",
+      "source": "D12",
+      "target": "P1",
+      "label": "Tanggal lahir referensi reset sandi"
+    },
+    {
+      "id": "F094",
+      "source": "D13",
+      "target": "P1",
+      "label": "Lingkup program studi dan fakultas"
+    },
+    {
+      "id": "F095",
+      "source": "D12",
+      "target": "P2",
+      "label": "Identitas, akademik, yudisium dan orang tua"
+    },
+    {
+      "id": "F096",
+      "source": "P2",
+      "target": "D12",
+      "label": "Pembaruan kelulusan dan data orang tua yang diizinkan"
+    },
+    {
+      "id": "F097",
+      "source": "D1",
+      "target": "P2",
+      "label": "Akun alumni"
+    },
+    {
+      "id": "F098",
+      "source": "P2",
+      "target": "D1",
+      "label": "Akun alumni hasil inisialisasi biodata"
+    },
+    {
+      "id": "F099",
+      "source": "D2",
+      "target": "P2",
+      "label": "Profil dan atasan tersimpan"
+    },
+    {
+      "id": "F100",
+      "source": "P2",
+      "target": "D2",
+      "label": "Profil, atasan dan karier terbarui"
+    },
+    {
+      "id": "F101",
+      "source": "D3",
+      "target": "P2",
+      "label": "Perusahaan terkait profil"
+    },
+    {
+      "id": "F102",
+      "source": "P2",
+      "target": "D3",
+      "label": "Data perusahaan hasil pemetaan karier"
+    },
+    {
+      "id": "F103",
+      "source": "D10",
+      "target": "P2",
+      "label": "Hasil LinkedIn dan riwayat peninjauan"
+    },
+    {
+      "id": "F104",
+      "source": "P2",
+      "target": "D10",
+      "label": "Hasil penarikan dan keputusan peninjauan"
+    },
+    {
+      "id": "F105",
+      "source": "D13",
+      "target": "P2",
+      "label": "Referensi pilihan profil"
+    },
+    {
+      "id": "F106",
+      "source": "D3",
+      "target": "P3",
+      "label": "Perusahaan tersimpan dan status verifikasi"
+    },
+    {
+      "id": "F107",
+      "source": "P3",
+      "target": "D3",
+      "label": "Perusahaan baru, terverifikasi atau terkonsolidasi"
+    },
+    {
+      "id": "F108",
+      "source": "D2",
+      "target": "P3",
+      "label": "Relasi alumni dan perusahaan"
+    },
+    {
+      "id": "F109",
+      "source": "P3",
+      "target": "D2",
+      "label": "Relasi perusahaan pengganti"
+    },
+    {
+      "id": "F110",
+      "source": "P3",
+      "target": "D9",
+      "label": "Relasi perusahaan pengganti pada evaluasi"
+    },
+    {
+      "id": "F111",
+      "source": "P3",
+      "target": "D5",
+      "label": "Jawaban terkait perusahaan pengganti"
+    },
+    {
+      "id": "F112",
+      "source": "D13",
+      "target": "P3",
+      "label": "Referensi wilayah, organisasi dan UMP"
+    },
+    {
+      "id": "F113",
+      "source": "P3",
+      "target": "D13",
+      "label": "Wilayah dan UMP terbarui"
+    },
+    {
+      "id": "F114",
+      "source": "D4",
+      "target": "P4",
+      "label": "Instrumen universitas tersimpan"
+    },
+    {
+      "id": "F115",
+      "source": "P4",
+      "target": "D4",
+      "label": "Instrumen universitas terbarui"
+    },
+    {
+      "id": "F116",
+      "source": "D5",
+      "target": "P4",
+      "label": "Jawaban universitas tersimpan"
+    },
+    {
+      "id": "F117",
+      "source": "P4",
+      "target": "D5",
+      "label": "Jawaban universitas tervalidasi"
+    },
+    {
+      "id": "F118",
+      "source": "D2",
+      "target": "P4",
+      "label": "Profil dan lingkup alumni"
+    },
+    {
+      "id": "F119",
+      "source": "D6",
+      "target": "P5",
+      "label": "Instrumen prodi tersimpan"
+    },
+    {
+      "id": "F120",
+      "source": "P5",
+      "target": "D6",
+      "label": "Instrumen prodi terbarui"
+    },
+    {
+      "id": "F121",
+      "source": "D7",
+      "target": "P5",
+      "label": "Jawaban prodi tersimpan"
+    },
+    {
+      "id": "F122",
+      "source": "P5",
+      "target": "D7",
+      "label": "Jawaban prodi tervalidasi"
+    },
+    {
+      "id": "F123",
+      "source": "D2",
+      "target": "P5",
+      "label": "Profil dan lingkup alumni"
+    },
+    {
+      "id": "F124",
+      "source": "D13",
+      "target": "P5",
+      "label": "Referensi program studi"
+    },
+    {
+      "id": "F125",
+      "source": "D8",
+      "target": "P6",
+      "label": "Instrumen evaluasi aktif"
+    },
+    {
+      "id": "F126",
+      "source": "P6",
+      "target": "D8",
+      "label": "Instrumen evaluasi terbarui"
+    },
+    {
+      "id": "F127",
+      "source": "D9",
+      "target": "P6",
+      "label": "Token dan jawaban evaluasi tersimpan"
+    },
+    {
+      "id": "F128",
+      "source": "P6",
+      "target": "D9",
+      "label": "Token undangan, jawaban dan status pengisian"
+    },
+    {
+      "id": "F129",
+      "source": "D2",
+      "target": "P6",
+      "label": "Kontak alumni dan atasan"
+    },
+    {
+      "id": "F130",
+      "source": "P6",
+      "target": "D2",
+      "label": "Data atasan terkonfirmasi"
+    },
+    {
+      "id": "F131",
+      "source": "D3",
+      "target": "P6",
+      "label": "Identitas perusahaan"
+    },
+    {
+      "id": "F132",
+      "source": "P6",
+      "target": "D3",
+      "label": "Data perusahaan terkonfirmasi"
+    },
+    {
+      "id": "F133",
+      "source": "D1",
+      "target": "P7",
+      "label": "Data akun dan pemulihan sandi untuk penyajian"
+    },
+    {
+      "id": "F134",
+      "source": "D2",
+      "target": "P7",
+      "label": "Data profil alumni dan atasan untuk penyajian"
+    },
+    {
+      "id": "F135",
+      "source": "D3",
+      "target": "P7",
+      "label": "Data perusahaan untuk penyajian"
+    },
+    {
+      "id": "F136",
+      "source": "D4",
+      "target": "P7",
+      "label": "Data instrumen universitas untuk penyajian"
+    },
+    {
+      "id": "F137",
+      "source": "D5",
+      "target": "P7",
+      "label": "Data jawaban universitas untuk penyajian"
+    },
+    {
+      "id": "F138",
+      "source": "D6",
+      "target": "P7",
+      "label": "Data instrumen program studi untuk penyajian"
+    },
+    {
+      "id": "F139",
+      "source": "D7",
+      "target": "P7",
+      "label": "Data jawaban program studi untuk penyajian"
+    },
+    {
+      "id": "F140",
+      "source": "D8",
+      "target": "P7",
+      "label": "Data instrumen evaluasi atasan untuk penyajian"
+    },
+    {
+      "id": "F141",
+      "source": "D9",
+      "target": "P7",
+      "label": "Data undangan dan jawaban evaluasi untuk penyajian"
+    },
+    {
+      "id": "F142",
+      "source": "D10",
+      "target": "P7",
+      "label": "Data hasil dan peninjauan linkedin untuk penyajian"
+    },
+    {
+      "id": "F143",
+      "source": "D11",
+      "target": "P7",
+      "label": "Data catatan aktivitas untuk penyajian"
+    },
+    {
+      "id": "F144",
+      "source": "D12",
+      "target": "P7",
+      "label": "Data referensi akademik dan kelulusan untuk penyajian"
+    },
+    {
+      "id": "F145",
+      "source": "D13",
+      "target": "P7",
+      "label": "Data referensi organisasi dan wilayah untuk penyajian"
+    },
+    {
+      "id": "F146",
+      "source": "P1",
+      "target": "D11",
+      "label": "Catatan aktivitas yang direkam implementasi"
+    },
+    {
+      "id": "F147",
+      "source": "P2",
+      "target": "D11",
+      "label": "Catatan aktivitas yang direkam implementasi"
+    },
+    {
+      "id": "F148",
+      "source": "P3",
+      "target": "D11",
+      "label": "Catatan aktivitas yang direkam implementasi"
+    },
+    {
+      "id": "F149",
+      "source": "P4",
+      "target": "D11",
+      "label": "Catatan aktivitas yang direkam implementasi"
+    },
+    {
+      "id": "F150",
+      "source": "P5",
+      "target": "D11",
+      "label": "Catatan aktivitas yang direkam implementasi"
+    },
+    {
+      "id": "F151",
+      "source": "P6",
+      "target": "D11",
+      "label": "Catatan aktivitas yang direkam implementasi"
+    },
+    {
+      "id": "F152",
+      "source": "P2",
+      "target": "P4",
+      "label": "Data profil untuk sinkronisasi jawaban universitas"
+    },
+    {
+      "id": "F153",
+      "source": "P4",
+      "target": "P2",
+      "label": "Data jawaban yang dipetakan ke profil"
+    },
+    {
+      "id": "F154",
+      "source": "P2",
+      "target": "P6",
+      "label": "Identitas alumni, perusahaan dan atasan untuk penyiapan evaluasi"
+    }
+  ]
+}
