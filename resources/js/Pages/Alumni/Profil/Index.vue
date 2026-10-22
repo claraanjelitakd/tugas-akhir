@@ -40,6 +40,7 @@ const props = defineProps({
     negaras: Array,
     companies: Array,
     refOptions: Object,
+    profileQuestions: Array,
     evaluasiAtasan: Object,
 });
 
@@ -95,6 +96,25 @@ const form = useForm(JSON.parse(JSON.stringify(props.formData || {}))).transform
 
     return dataWithoutExistingPhoto;
 });
+
+const isOtherProfileOption = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+
+    return normalized.includes('lainnya') || normalized.includes('tuliskan') || normalized.includes('...');
+};
+
+const hasDynamicProfileAnswer = (question) => {
+    const selected = form.profile_answers?.[question.id];
+    if (!selected || !String(selected).trim()) {
+        return false;
+    }
+
+    if (!isOtherProfileOption(selected)) {
+        return true;
+    }
+
+    return Boolean(form.profile_answer_custom?.[question.id]?.trim());
+};
 
 // Sinkronkan data form jika props berubah dari backend (misal setelah simpan)
 watch(() => props.formData, (newData) => {
@@ -202,6 +222,12 @@ const tabCompleteness = computed(() => {
         if (!form.nama_atasan || !String(form.nama_atasan).trim()) missingKarier.push('Nama Atasan / Pemilik Usaha');
         if (!form.email_atasan || !isValidEmail(form.email_atasan)) missingKarier.push('Email Atasan / Pemilik Usaha');
         if (!form.telepon_atasan || !isValidPhone(form.telepon_atasan)) missingKarier.push('Nomor Telepon Atasan / Pemilik Usaha');
+    }
+
+    for (const question of props.profileQuestions || []) {
+        if (question.wajib && !hasDynamicProfileAnswer(question)) {
+            missingKarier.push(question.subpertanyaan);
+        }
     }
 
     // Validasi studi lanjut jika alumni mengaktifkan studi lanjut
@@ -404,13 +430,9 @@ const submit = (nextTabId = null, redirectTo = null) => {
                                 <p class="text-[11px] text-amber-700">Anda telah mengubah data profil. Jangan lupa simpan perubahan agar data tersimpan di sistem.</p>
                             </div>
                         </div>
-                        <button 
-                            type="submit" 
-                            :disabled="form.processing"
-                            class="px-5 py-2.5 bg-[#0D542B] hover:bg-[#093d1f] text-white text-xs font-bold rounded-xl shadow-xs transition-all shrink-0 cursor-pointer disabled:opacity-50"
-                        >
-                            {{ form.processing ? 'Menyimpan...' : 'Simpan Sekarang' }}
-                        </button>
+                        <span class="text-[11px] font-semibold text-amber-800 shrink-0">
+                            Gunakan tombol simpan di bagian bawah formulir.
+                        </span>
                     </div>
                 </transition>
 
@@ -433,6 +455,7 @@ const submit = (nextTabId = null, redirectTo = null) => {
                             :companies="companies" 
                             :alumniData="alumniData" 
                             :refOptions="refOptions" 
+                            :profileQuestions="profileQuestions"
                             :evaluasiAtasan="evaluasiAtasan" 
                         />
                     </div>

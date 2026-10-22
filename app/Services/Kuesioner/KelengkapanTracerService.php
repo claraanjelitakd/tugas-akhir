@@ -30,7 +30,7 @@ class KelengkapanTracerService
         'BIO_TEMPAT_LAHIR', 'BIO_TANGGAL_LAHIR', 'BIO_JK', 'BIO_TGL_LULUS', 'BIO_JUDUL_TA', 'BIO_NIK', 'BIO_NPWP',
         'F5A1', 'F5A2', 'F510', 'F5B', 'F5C', 'F5D',
         'F2E', 'F2E1', 'F2E2', 'F2E3', 'F2F', 'F2G', 'F2H',
-        'F11', 'F505',
+        'F11', 'F505', 'BIO_PEND_TINGKAT', 'BIO_BIDANG_DIVISI',
     ];
 
     /**
@@ -44,6 +44,10 @@ class KelengkapanTracerService
 
         return RefSubpertanyaan2021::where('wajib', true)
             ->where('type', '!=', 'header')
+            ->where(function ($query) {
+                $query->whereNull('tampil_di')
+                    ->orWhereNotIn('tampil_di', ['profil', 'profile']);
+            })
             ->whereNotIn(DB::raw('UPPER(kode_pertanyaan)'), $profileCodesUpper)
             ->pluck('kode_pertanyaan')
             ->all();
@@ -122,6 +126,18 @@ class KelengkapanTracerService
             'Facebook Profil URL' => $summary?->facebook_url ?? $biodata->facebook_url,
             'Kode Pos Perusahaan (Zipcode)' => $summary?->kode_pos ?? $biodata->zipcode,
         ];
+
+        $dynamicProfileQuestions = KuesionerSyncService::getDynamicProfileQuestions()
+            ->filter(fn (RefSubpertanyaan2021 $question): bool => (bool) $question->wajib);
+        $dynamicProfileResponses = Tracer::where('biodata_id', $biodata->id)
+            ->whereIn('question_id', $dynamicProfileQuestions->modelKeys())
+            ->get()
+            ->keyBy('question_id');
+
+        foreach ($dynamicProfileQuestions as $question) {
+            $response = $dynamicProfileResponses->get($question->id);
+            $fields['Pertanyaan Profil: '.$question->subpertanyaan] = $response?->answer;
+        }
 
         $isTeologi = ($biodata->prodi?->kode_prodi === '31' || substr((string) $biodata->nim, 0, 2) === '31');
         if ($isTeologi) {
@@ -340,8 +356,12 @@ class KelengkapanTracerService
         // Ambil seluruh butir pertanyaan wajib (wajib = 1, non-header, dan bukan bagian profil)
         $mandatoryQuestions = $allQuestions->filter(function ($q) use ($profileCodesUpper) {
             $code = strtoupper(trim((string) $q->kode_pertanyaan));
+            $displayLocation = strtolower(trim((string) $q->tampil_di));
 
-            return $q->wajib && $q->type !== 'header' && ! in_array($code, $profileCodesUpper);
+            return $q->wajib
+                && $q->type !== 'header'
+                && ! in_array($code, $profileCodesUpper)
+                && ! in_array($displayLocation, ['profil', 'profile']);
         });
 
         $missing = [];
@@ -377,8 +397,11 @@ class KelengkapanTracerService
         // Evaluasi Keterisian Seluruh Butir Instrumen Relevan (Wajib + Opsional)
         $allApplicableQuestions = $allQuestions->filter(function ($q) use ($profileCodesUpper) {
             $code = strtoupper(trim((string) $q->kode_pertanyaan));
+            $displayLocation = strtolower(trim((string) $q->tampil_di));
 
-            return $q->type !== 'header' && ! in_array($code, $profileCodesUpper);
+            return $q->type !== 'header'
+                && ! in_array($code, $profileCodesUpper)
+                && ! in_array($displayLocation, ['profil', 'profile']);
         });
 
         $totalApplicableQuestions = 0;

@@ -742,6 +742,26 @@ class RefSubpertanyaan2021Seeder extends Seeder
                 'wajib' => 0,
                 'order' => 70,
             ],
+            [
+                'section_kode' => '1',
+                'kelompok' => 'BIO',
+                'kode_pertanyaan' => 'BIO_BIDANG_DIVISI',
+                'subpertanyaan' => 'Bidang pekerjaan atau divisi',
+                'type' => 'dropdown',
+                'keterangan' => 'Pilihan bidang/divisi pekerjaan pada profil alumni',
+                'wajib' => 0,
+                'order' => 91,
+            ],
+            [
+                'section_kode' => '1',
+                'kelompok' => 'BIO',
+                'kode_pertanyaan' => 'BIO_PEND_TINGKAT',
+                'subpertanyaan' => 'Jenjang pendidikan studi lanjut',
+                'type' => 'dropdown',
+                'keterangan' => 'Nilai dari LinkedIn atau sumber eksternal yang tidak cocok masuk Lainnya',
+                'wajib' => 0,
+                'order' => 92,
+            ],
         ];
 
         RefSubpertanyaan2021::where('kode_pertanyaan', 'F18a')->delete();

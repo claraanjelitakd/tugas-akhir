@@ -9,6 +9,7 @@ use App\Models\DataOrangTua;
 use App\Models\Prodi;
 use App\Models\RefFakultas;
 use App\Models\RefSubpertanyaan2021;
+use App\Models\RefSubpertanyaanDetil;
 use App\Models\Tracer;
 use App\Models\User;
 use App\Services\Alumni\AdminAlumniProfileService;
@@ -318,6 +319,90 @@ class AlumniProfileEnhancementTest extends TestCase
         $tracerF5C = Tracer::where('biodata_id', $this->biodata->id)->where('kode_pertanyaan', 'F5C')->first();
         $this->assertNotNull($tracerF5C);
         $this->assertEquals('Chief Executive Officer', $tracerF5C->answer);
+    }
+
+    public function test_dynamic_profile_dropdown_saves_other_text_to_tracer(): void
+    {
+        $question = RefSubpertanyaan2021::create([
+            'kelompok' => 'BIO',
+            'kode_pertanyaan' => 'BIO_BIDANG_TEST',
+            'subpertanyaan' => 'Bidang pekerjaan atau divisi',
+            'type' => 'dropdown',
+            'wajib' => 1,
+            'tampil_di' => 'profile',
+            'order' => 90,
+        ]);
+
+        RefSubpertanyaanDetil::create([
+            'pertanyaan_id' => $question->id,
+            'kode_pertanyaan' => $question->kode_pertanyaan,
+            'kode_opsi' => '1',
+            'option_text' => 'Teknologi Informasi',
+            'order' => 1,
+        ]);
+        RefSubpertanyaanDetil::create([
+            'pertanyaan_id' => $question->id,
+            'kode_pertanyaan' => $question->kode_pertanyaan,
+            'kode_opsi' => '2',
+            'option_text' => 'Lainnya',
+            'order' => 2,
+        ]);
+
+        $page = $this->actingAs($this->alumniUser)->get(route('alumni.profile'));
+        $page->assertInertia(fn ($assertion) => $assertion
+            ->where('profileQuestions.0.id', $question->id)
+            ->where('formData.profile_answers', [])
+        );
+
+        $response = $this->actingAs($this->alumniUser)->post(route('alumni.profile.simpan'), [
+            'profile_answers' => [$question->id => 'Lainnya'],
+            'profile_answer_custom' => [$question->id => 'Konsultan Independen'],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('tracer', [
+            'biodata_id' => $this->biodata->id,
+            'question_id' => $question->id,
+            'answer' => 'Lainnya: Konsultan Independen',
+        ]);
+
+        $saved = Tracer::where('biodata_id', $this->biodata->id)
+            ->where('question_id', $question->id)
+            ->firstOrFail();
+        $this->assertSame('Lainnya', $saved->answer_json['selected']);
+        $this->assertSame('Konsultan Independen', $saved->answer_json['input']);
+    }
+
+    public function test_bidang_pekerjaan_dropdown_saves_to_biodata(): void
+    {
+        $question = RefSubpertanyaan2021::where('kode_pertanyaan', 'BIO_BIDANG_DIVISI')->firstOrFail();
+
+        RefSubpertanyaanDetil::updateOrCreate(
+            ['pertanyaan_id' => $question->id, 'kode_opsi' => '5'],
+            ['kode_pertanyaan' => $question->kode_pertanyaan, 'option_text' => 'Teknologi Informasi', 'order' => 1]
+        );
+        RefSubpertanyaanDetil::updateOrCreate(
+            ['pertanyaan_id' => $question->id, 'kode_opsi' => '15'],
+            ['kode_pertanyaan' => $question->kode_pertanyaan, 'option_text' => 'Lainnya', 'order' => 2]
+        );
+
+        $page = $this->actingAs($this->alumniUser)->get(route('alumni.profile'));
+        $page->assertInertia(fn ($assertion) => $assertion
+            ->where('refOptions.BIO_BIDANG_DIVISI.0.option_text', 'Akademik / Pendidikan')
+            ->where('profileQuestions', [])
+        );
+
+        $response = $this->actingAs($this->alumniUser)->post(route('alumni.profile.simpan'), [
+            'bidang_pekerjaan' => 'Lainnya',
+            'bidang_pekerjaan_lainnya' => 'Konsultan Independen',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame('Konsultan Independen', $this->biodata->fresh()->bidang_pekerjaan);
+        $this->assertDatabaseMissing('tracer', [
+            'biodata_id' => $this->biodata->id,
+            'kode_pertanyaan' => 'BIO_BIDANG_DIVISI',
+        ]);
     }
 
     /**

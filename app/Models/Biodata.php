@@ -148,6 +148,7 @@ class Biodata extends Model
         'perusahaan_id',
         'atasan_id',
         'posisi_jabatan',
+        'bidang_pekerjaan',
         'kategori_pekerjaan',
         'posisi_wiraswasta',
         'pendidikan_tingkat',

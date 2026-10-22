@@ -192,19 +192,22 @@ class LinkedinTraceHelper
         ];
         $handledKeys = array_merge($handledKeys, ['education', 'school_name', 'li_school_url']);
 
-        // 11. Lokasi / Domisili
+        // 11. Lokasi Profil LinkedIn
+        // Lokasi profil bukan alamat rumah atau alamat kantor. Nilai ini hanya
+        // disimpan sebagai bagian dari histori scraping dan tidak boleh diberi
+        // status tersinkron hanya karena alamat biodata sudah terisi.
         $scrapedLocation = $item['location'] ?? ($item['locationName'] ?? ($item['geoCountryName'] ?? null));
-        $dbLocation = $alumni->perusahaan?->alamat ?: $alumni->alamat;
+        $hasScrapedLocation = ! empty($scrapedLocation);
         $rows[] = [
             'key' => 'location',
-            'label' => 'Lokasi / Wilayah Pekerjaan',
+            'label' => 'Lokasi Profil LinkedIn',
             'scraped_value' => $scrapedLocation ?: '(Tidak tercantum)',
-            'target_table' => 'perusahaan / biodata',
-            'target_column' => 'alamat',
-            'db_value' => $dbLocation ?: '(Belum terisi)',
-            'status' => ! empty($dbLocation) ? 'Tersinkron' : 'Belum Disinkron',
-            'badge' => ! empty($dbLocation) ? 'emerald' : 'amber',
-            'note' => 'Dipetakan ke alamat perusahaan atau domisili',
+            'target_table' => 'linkedin_sync_results',
+            'target_column' => 'scraped_data->location',
+            'db_value' => $scrapedLocation ?: '(Tidak tersimpan)',
+            'status' => $hasScrapedLocation ? 'Tersimpan di Histori' : 'Tidak Ditemukan',
+            'badge' => $hasScrapedLocation ? 'emerald' : 'slate',
+            'note' => 'Lokasi umum profil LinkedIn; tidak digunakan sebagai alamat rumah atau alamat perusahaan.',
         ];
         $handledKeys = array_merge($handledKeys, ['location', 'locationName', 'geoCountryName', 'li_profile_country']);
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Atasan;
 use App\Models\EvaluasiAtasan;
 use App\Models\PertanyaanEvaluasiAtasan;
 use App\Models\ResponEvaluasiAtasan;
@@ -184,6 +185,26 @@ class EvaluasiAtasanController extends Controller
                     'nilai' => $value,
                     'catatan' => $validated['catatan_lainnya'] ?? null,
                 ]);
+            }
+
+            $atasanData = array_filter([
+                'nama' => $validated['nama_atasan'] ?? null,
+                'email' => $validated['email_atasan'] ?? null,
+                'telepon' => $validated['telepon_atasan'] ?? null,
+            ], static fn (?string $value): bool => $value !== null && trim($value) !== '');
+
+            if ($atasanData !== []) {
+                $atasan = $lockedEvaluation->atasan;
+                if ($atasan) {
+                    $atasan->update($atasanData);
+                } else {
+                    $atasan = Atasan::create($atasanData);
+                    $lockedEvaluation->atasan_id = $atasan->id;
+                }
+
+                if ($lockedEvaluation->biodata && $lockedEvaluation->biodata->atasan_id !== $atasan->id) {
+                    $lockedEvaluation->biodata->update(['atasan_id' => $atasan->id]);
+                }
             }
 
             $lockedEvaluation->update([

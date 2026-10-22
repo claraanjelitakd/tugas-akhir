@@ -29,6 +29,11 @@ class SimpanProfilController extends Controller
      */
     public function simpanPerubahanProfil(Request $request)
     {
+        $request->validate([
+            'profile_answers' => ['nullable', 'array'],
+            'profile_answer_custom' => ['nullable', 'array'],
+        ]);
+
         if ($request->hasFile('foto')) {
             $request->validate([
                 'foto' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
@@ -115,12 +120,19 @@ class SimpanProfilController extends Controller
         // =========================================================================================
         // 3. TANGANI DATA ATASAN & KATEGORI PEKERJAAN
         // =========================================================================================
-        $idAtasan = null;
+        // Jangan menghapus relasi atasan hanya karena form parsial tidak membawa field atasan.
+        $idAtasan = $biodata->atasan_id;
         $kategoriPekerjaan = ! empty($dataTervalidasi['kategori_pekerjaan']) ? $dataTervalidasi['kategori_pekerjaan'] : null;
         $posisiJabatan = ! empty($dataTervalidasi['posisi_jabatan']) ? $dataTervalidasi['posisi_jabatan'] : null;
         $posisiWiraswasta = ! empty($dataTervalidasi['posisi_wiraswasta']) ? $dataTervalidasi['posisi_wiraswasta'] : null;
         if ($posisiWiraswasta === 'Lainnya' && ! empty($dataTervalidasi['posisi_wiraswasta_lainnya'])) {
             $posisiWiraswasta = $dataTervalidasi['posisi_wiraswasta_lainnya'];
+        }
+        $bidangPekerjaan = ! empty($dataTervalidasi['bidang_pekerjaan']) ? trim((string) $dataTervalidasi['bidang_pekerjaan']) : null;
+        if ($bidangPekerjaan && strtolower($bidangPekerjaan) === 'lainnya') {
+            $bidangPekerjaan = ! empty($dataTervalidasi['bidang_pekerjaan_lainnya'])
+                ? trim((string) $dataTervalidasi['bidang_pekerjaan_lainnya'])
+                : null;
         }
 
         // Pastikan posisi saling eksklusif sesuai pilihan peran
@@ -156,9 +168,9 @@ class SimpanProfilController extends Controller
         if (! empty($namaAtasan) || ! empty($emailAtasan) || ! empty($teleponAtasan)) {
             if ($biodata->atasan_id && $biodata->atasan) {
                 $biodata->atasan->update([
-                    'nama' => $namaAtasan,
-                    'email' => $emailAtasan,
-                    'telepon' => $teleponAtasan,
+                    'nama' => $namaAtasan ?: $biodata->atasan->nama,
+                    'email' => $emailAtasan ?: $biodata->atasan->email,
+                    'telepon' => $teleponAtasan ?: $biodata->atasan->telepon,
                 ]);
                 $idAtasan = $biodata->atasan->id;
             } else {
@@ -170,8 +182,6 @@ class SimpanProfilController extends Controller
                 $idAtasan = $atasan->id;
             }
 
-        } else {
-            $idAtasan = null;
         }
 
         // =========================================================================================
@@ -228,6 +238,7 @@ class SimpanProfilController extends Controller
             'experience' => ! empty($dataTervalidasi['experience']) ? $dataTervalidasi['experience'] : (! empty($dataTervalidasi['minat']) ? $dataTervalidasi['minat'] : null),
             'kategori_pekerjaan' => $kategoriPekerjaan,
             'posisi_jabatan' => $posisiJabatan,
+            'bidang_pekerjaan' => $bidangPekerjaan,
             'posisi_wiraswasta' => $posisiWiraswasta,
             'pendidikan_tingkat' => ! empty($dataTervalidasi['pendidikan_tingkat']) ? $dataTervalidasi['pendidikan_tingkat'] : null,
             'perguruan_tinggi' => ! empty($dataTervalidasi['perguruan_tinggi']) ? $dataTervalidasi['perguruan_tinggi'] : null,
@@ -264,6 +275,11 @@ class SimpanProfilController extends Controller
 
         // Sinkronisasi otomatis ke tabel tracer kuesioner
         KuesionerSyncService::syncProfileResponses($biodata);
+        KuesionerSyncService::syncDynamicProfileResponses(
+            $biodata,
+            $dataTervalidasi['profile_answers'] ?? [],
+            $dataTervalidasi['profile_answer_custom'] ?? []
+        );
 
         // Jika data atasan dan email atasan terisi, buat / sinkronkan token evaluasi publik (email dikirim terpisah via tombol kirim)
         if ($idAtasan && $emailAtasan && filter_var($emailAtasan, FILTER_VALIDATE_EMAIL)) {

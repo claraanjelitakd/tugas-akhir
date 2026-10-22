@@ -669,4 +669,82 @@ class ApifyLinkedInProviderTest extends TestCase
         $this->assertEquals('IT Audit, Business Process Management, Laravel, Vue.js', $fresh->expert);
         $this->assertEquals('System Analyst Intern', $fresh->posisi_jabatan);
     }
+
+    public function test_approve_appends_all_scraped_experiences_without_duplicates(): void
+    {
+        $alumni = $this->createAlumni('71190008', 'Argo Wibowo');
+        $alumni->update(['experience' => 'Programmer di RSUP Dr Kariadi']);
+
+        $result = LinkedinSyncResult::create([
+            'biodata_id' => $alumni->id,
+            'linkedin_url' => $alumni->linkedin_url,
+            'scraped_data' => [[
+                'full_name' => 'Argo Wibowo',
+                'experiences' => [
+                    ['title' => 'Lecturer', 'company_name' => 'Universitas Kristen Duta Wacana', 'date' => 'Mar 2016 - Present', 'location' => 'Yogyakarta, Indonesia'],
+                    ['title' => 'Developer', 'company_name' => 'Skyshi Digital Indonesia', 'date' => 'May 2015 - Feb 2016', 'location' => 'Yogyakarta'],
+                    ['title' => 'Developer', 'company_name' => 'PT Finexus Jakarta', 'date' => 'Mar 2014 - Apr 2015', 'location' => 'Jakarta'],
+                    ['title' => 'Programmer', 'company_name' => 'RSUP Dr Kariadi', 'date' => 'May 2011 - May 2012', 'location' => 'Semarang, Central Java, Indonesia'],
+                ],
+            ]],
+            'status' => 'pending',
+            'scraped_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->postJson("/superadmin/linkedin-sync/results/{$result->id}/approve");
+
+        $response->assertOk();
+        $experienceLines = preg_split('/\r?\n/', (string) $alumni->fresh()->experience);
+
+        $this->assertCount(5, $experienceLines);
+        $this->assertSame('Programmer di RSUP Dr Kariadi', $experienceLines[0]);
+        $this->assertStringContainsString('Lecturer di Universitas Kristen Duta Wacana', $experienceLines[1]);
+        $this->assertStringContainsString('Developer di Skyshi Digital Indonesia', $experienceLines[2]);
+        $this->assertStringContainsString('Developer di PT Finexus Jakarta', $experienceLines[3]);
+        $this->assertStringContainsString('Programmer di RSUP Dr Kariadi', $experienceLines[4]);
+    }
+
+    public function test_approved_snapshot_can_be_plotted_again_without_overwriting_existing_experience(): void
+    {
+        $alumni = $this->createAlumni('71190009', 'Alumni Plot Ulang');
+        $alumni->update(['experience' => 'Pengalaman manual sebelum LinkedIn']);
+
+        $result = LinkedinSyncResult::create([
+            'biodata_id' => $alumni->id,
+            'linkedin_url' => $alumni->linkedin_url,
+            'scraped_data' => [[
+                'full_name' => 'Alumni Plot Ulang',
+                'experiences' => [
+                    ['title' => 'Lecturer', 'company_name' => 'Universitas Kristen Duta Wacana', 'date' => 'Mar 2016 - Present', 'location' => 'Yogyakarta'],
+                    ['title' => 'Developer', 'company_name' => 'Skyshi Digital Indonesia', 'date' => 'May 2015 - Feb 2016', 'location' => 'Yogyakarta'],
+                ],
+            ]],
+            'status' => 'approved',
+            'reviewed_by' => $this->superadmin->id,
+            'reviewed_at' => now(),
+            'scraped_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->postJson("/superadmin/linkedin-sync/results/{$result->id}/plot-again");
+
+        $response->assertOk()->assertJson([
+            'success' => true,
+        ]);
+
+        $experienceLines = preg_split('/\r?\n/', (string) $alumni->fresh()->experience);
+
+        $this->assertCount(3, $experienceLines);
+        $this->assertSame('Pengalaman manual sebelum LinkedIn', $experienceLines[0]);
+        $this->assertStringContainsString('Lecturer di Universitas Kristen Duta Wacana', $experienceLines[1]);
+        $this->assertStringContainsString('Developer di Skyshi Digital Indonesia', $experienceLines[2]);
+        $this->assertSame('approved', $result->fresh()->status);
+
+        $this->actingAs($this->superadmin)
+            ->postJson("/superadmin/linkedin-sync/results/{$result->id}/plot-again")
+            ->assertOk();
+
+        $this->assertCount(3, preg_split('/\r?\n/', (string) $alumni->fresh()->experience));
+    }
 }

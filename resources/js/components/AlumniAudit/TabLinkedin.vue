@@ -6,7 +6,7 @@
 -->
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { Link, router, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm, usePage } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
 
 /**
@@ -45,6 +45,19 @@ const props = defineProps({
     },
 });
 
+const page = usePage();
+const syncBasePath = computed(() => {
+    if (page.url?.startsWith('/prodi/')) {
+        return '/prodi/linkedin-sync';
+    }
+
+    if (page.url?.startsWith('/fakultas/')) {
+        return '/fakultas/linkedin-sync';
+    }
+
+    return '/superadmin/linkedin-sync';
+});
+
 /** Sub-tab aktif dalam tab LinkedIn ('penyesuaian', 'riwayat', 'mapping') */
 const activeLinkedinTab = ref('penyesuaian');
 
@@ -56,6 +69,9 @@ const showRawJson = ref(false);
 
 /** Status loading saat sinkronisasi langsung sedang berlangsung */
 const isDirectSyncing = ref(false);
+
+/** Status loading saat snapshot LinkedIn approved diterapkan ulang */
+const isPlottingAgain = ref(false);
 
 /** Status loading saat proses approve sedang dikirim */
 const isApprovingSync = ref(false);
@@ -122,62 +138,114 @@ const copyRawJson = () => {
         });
 };
 
-const handleDirectLinkedInSync = () => {
-    if (!props.alumni?.id) return;
-    isDirectSyncing.value = true;
-    router.post(`/superadmin/linkedin-sync/direct-sync/${props.alumni.id}`, {}, {
-        preserveScroll: true,
-        onSuccess: () => {
-            isDirectSyncing.value = false;
-            Swal.fire({
-                icon: 'success',
-                title: 'Sinkronisasi Berhasil!',
-                text: 'Data profil publik LinkedIn terbaru telah berhasil diambil.',
-                confirmButtonColor: '#0D542B',
-            });
+const postJson = async (url, payload = {}) => {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
         },
-        onError: (err) => {
-            isDirectSyncing.value = false;
-            Swal.fire({
-                icon: 'error',
-                title: 'Sinkronisasi Gagal',
-                text: Object.values(err)[0] || 'Gagal menyinkronkan data LinkedIn.',
-                confirmButtonColor: '#0D542B',
-            });
-        },
-        onFinish: () => {
-            isDirectSyncing.value = false;
-        },
+        body: JSON.stringify(payload),
     });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data.success === false) {
+        throw new Error(data.message || 'Permintaan ke server gagal.');
+    }
+
+    return data;
 };
 
-const handleApproveStagingWithForm = () => {
+const handleDirectLinkedInSync = async () => {
+    if (!props.alumni?.id) return;
+    isDirectSyncing.value = true;
+    try {
+        await postJson(`${syncBasePath.value}/${props.alumni.id}`);
+        await Swal.fire({
+            icon: 'success',
+            title: 'Sinkronisasi Berhasil!',
+            text: 'Data profil publik LinkedIn terbaru telah berhasil diambil.',
+            confirmButtonColor: '#0D542B',
+        });
+        router.reload({ preserveScroll: true });
+    } catch (error) {
+        await Swal.fire({
+            icon: 'error',
+            title: 'Sinkronisasi Gagal',
+            text: error.message || 'Gagal menyinkronkan data LinkedIn.',
+            confirmButtonColor: '#0D542B',
+        });
+    } finally {
+        isDirectSyncing.value = false;
+    }
+};
+
+const handlePlotAgain = async () => {
+    if (!props.linkedinSyncResult?.id || isPlottingAgain.value) return;
+
+    const result = await Swal.fire({
+        title: 'Plot Ulang Data LinkedIn?',
+        text: 'Snapshot LinkedIn yang sudah disetujui akan diterapkan ulang. Riwayat pengalaman kerja yang sudah ada tidak akan dihapus.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#9CA3AF',
+        confirmButtonText: 'Ya, Plot Ulang',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+    });
+
+    if (!result.isConfirmed) return;
+
+    isPlottingAgain.value = true;
+
+    try {
+        const data = await postJson(`${syncBasePath.value}/results/${props.linkedinSyncResult.id}/plot-again`);
+
+        await Swal.fire({
+            icon: 'success',
+            title: 'Plot Ulang Berhasil',
+            text: data.message || 'Snapshot LinkedIn berhasil diterapkan ulang.',
+            confirmButtonColor: '#0D542B',
+        });
+
+        router.reload({ preserveScroll: true });
+    } catch (error) {
+        await Swal.fire({
+            icon: 'error',
+            title: 'Plot Ulang Gagal',
+            text: error.message || 'Gagal menerapkan ulang data LinkedIn.',
+            confirmButtonColor: '#0D542B',
+        });
+    } finally {
+        isPlottingAgain.value = false;
+    }
+};
+
+const handleApproveStagingWithForm = async () => {
     if (!props.linkedinSyncResult?.id) return;
     isApprovingSync.value = true;
-    approveForm.post(`/superadmin/linkedin-sync/staging/${props.linkedinSyncResult.id}/approve`, {
-        preserveScroll: true,
-        onSuccess: () => {
-            isApprovingSync.value = false;
-            Swal.fire({
-                icon: 'success',
-                title: 'Data Disetujui!',
-                text: 'Data profil LinkedIn telah berhasil diterapkan ke profil alumni.',
-                confirmButtonColor: '#0D542B',
-            });
-        },
-        onError: (err) => {
-            isApprovingSync.value = false;
-            Swal.fire({
-                icon: 'error',
-                title: 'Persetujuan Gagal',
-                text: Object.values(err)[0] || 'Gagal menyetujui data staging LinkedIn.',
-                confirmButtonColor: '#0D542B',
-            });
-        },
-        onFinish: () => {
-            isApprovingSync.value = false;
-        },
-    });
+    try {
+        await postJson(`${syncBasePath.value}/results/${props.linkedinSyncResult.id}/approve`, approveForm.data());
+        await Swal.fire({
+            icon: 'success',
+            title: 'Data Disetujui!',
+            text: 'Data profil LinkedIn telah berhasil diterapkan ke profil alumni.',
+            confirmButtonColor: '#0D542B',
+        });
+        router.reload({ preserveScroll: true });
+    } catch (error) {
+        await Swal.fire({
+            icon: 'error',
+            title: 'Persetujuan Gagal',
+            text: error.message || 'Gagal menyetujui data staging LinkedIn.',
+            confirmButtonColor: '#0D542B',
+        });
+    } finally {
+        isApprovingSync.value = false;
+    }
 };
 
 const handleRejectStaging = () => {
@@ -194,21 +262,27 @@ const handleRejectStaging = () => {
     }).then((res) => {
         if (res.isConfirmed) {
             isRejectingSync.value = true;
-            router.post(`/superadmin/linkedin-sync/staging/${props.linkedinSyncResult.id}/reject`, {}, {
-                preserveScroll: true,
-                onSuccess: () => {
-                    isRejectingSync.value = false;
-                    Swal.fire({
+            postJson(`${syncBasePath.value}/results/${props.linkedinSyncResult.id}/reject`)
+                .then(async () => {
+                    await Swal.fire({
                         icon: 'success',
                         title: 'Data Ditolak',
                         text: 'Hasil scraping LinkedIn ini telah ditolak.',
                         confirmButtonColor: '#0D542B',
                     });
-                },
-                onFinish: () => {
+                    router.reload({ preserveScroll: true });
+                })
+                .catch(async (error) => {
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Penolakan Gagal',
+                        text: error.message || 'Gagal menolak data staging LinkedIn.',
+                        confirmButtonColor: '#0D542B',
+                    });
+                })
+                .finally(() => {
                     isRejectingSync.value = false;
-                },
-            });
+                });
         }
     });
 };
@@ -255,6 +329,25 @@ const filteredTraceMapping = computed(() => {
             </div>
 
             <div class="flex items-center gap-2 flex-wrap">
+                <!-- Tombol Plot Ulang untuk snapshot yang sudah approved -->
+                <button
+                    v-if="!readonly && linkedinSyncResult?.status === 'approved'"
+                    type="button"
+                    @click="handlePlotAgain"
+                    :disabled="isPlottingAgain"
+                    class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-60 border border-slate-200"
+                    title="Terapkan ulang snapshot LinkedIn tanpa menghapus riwayat lama"
+                >
+                    <svg v-if="!isPlottingAgain" class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24">
+                        <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                    </svg>
+                    <svg v-else class="animate-spin w-3.5 h-3.5 text-slate-700 shrink-0" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    <span>{{ isPlottingAgain ? 'Memplot Ulang...' : 'Plot Ulang' }}</span>
+                </button>
+
                 <!-- Tombol Tarik Pembaruan LinkedIn -->
                 <button 
                     v-if="!readonly"
@@ -265,7 +358,7 @@ const filteredTraceMapping = computed(() => {
                     title="Sinkronkan data LinkedIn alumni ini secara langsung"
                 >
                     <svg v-if="!isDirectSyncing" class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24">
-                        <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                        <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.238 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
                     </svg>
                     <svg v-else class="animate-spin w-3.5 h-3.5 text-slate-700 shrink-0" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -287,7 +380,7 @@ const filteredTraceMapping = computed(() => {
                 <!-- Tombol Buka LinkedIn Sync Menu -->
                 <Link 
                     v-if="!readonly && isSuperAdmin"
-                    :href="'/superadmin/linkedin-sync?alumni_id=' + alumni.id + '&search=' + encodeURIComponent(alumni.nim || alumni.nama || '')" 
+                    :href="syncBasePath + '?alumni_id=' + alumni.id + '&search=' + encodeURIComponent(alumni.nim || alumni.nama || '')"
                     class="px-3.5 py-2 bg-[#0D542B] hover:bg-[#0A4322] text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-2xs"
                     title="Buka direktori lengkap LinkedIn Sync"
                 >
@@ -907,7 +1000,7 @@ const filteredTraceMapping = computed(() => {
                     <span>{{ isDirectSyncing ? 'Mengambil Data...' : 'Ambil Data LinkedIn Sekarang' }}</span>
                 </button>
                 <Link
-                    :href="'/superadmin/linkedin-sync?alumni_id=' + alumni.id"
+                    :href="syncBasePath + '?alumni_id=' + alumni.id"
                     class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition cursor-pointer border border-slate-200"
                 >
                     Buka Menu LinkedIn Sync

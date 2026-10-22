@@ -18,6 +18,33 @@ class RefSubpertanyaanDetilSeeder extends Seeder
             ['kode_pertanyaan' => 'BIO_JK', 'order' => 1, 'kode_opsi' => '1', 'option_text' => 'Pria', 'jump_to' => null],
             ['kode_pertanyaan' => 'BIO_JK', 'order' => 2, 'kode_opsi' => '2', 'option_text' => 'Wanita', 'jump_to' => null],
 
+            // BIO_BIDANG_DIVISI (Bidang pekerjaan atau divisi)
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 1, 'kode_opsi' => '1', 'option_text' => 'Akademik / Pendidikan', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 2, 'kode_opsi' => '2', 'option_text' => 'Administrasi / Tata Usaha', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 3, 'kode_opsi' => '3', 'option_text' => 'Keuangan / Akuntansi', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 4, 'kode_opsi' => '4', 'option_text' => 'Sumber Daya Manusia', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 5, 'kode_opsi' => '5', 'option_text' => 'Teknologi Informasi', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 6, 'kode_opsi' => '6', 'option_text' => 'Operasional', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 7, 'kode_opsi' => '7', 'option_text' => 'Pemasaran / Komunikasi', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 8, 'kode_opsi' => '8', 'option_text' => 'Penjualan / Pengembangan Bisnis', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 9, 'kode_opsi' => '9', 'option_text' => 'Penelitian dan Pengembangan', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 10, 'kode_opsi' => '10', 'option_text' => 'Pelayanan / Customer Service', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 11, 'kode_opsi' => '11', 'option_text' => 'Produksi / Manufaktur', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 12, 'kode_opsi' => '12', 'option_text' => 'Kesehatan', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 13, 'kode_opsi' => '13', 'option_text' => 'Hukum', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 14, 'kode_opsi' => '14', 'option_text' => 'Teknik', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_BIDANG_DIVISI', 'order' => 15, 'kode_opsi' => '15', 'option_text' => 'Lainnya', 'jump_to' => null],
+
+            // BIO_PEND_TINGKAT (Jenjang studi lanjut)
+            ['kode_pertanyaan' => 'BIO_PEND_TINGKAT', 'order' => 1, 'kode_opsi' => '1', 'option_text' => 'D3', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_PEND_TINGKAT', 'order' => 2, 'kode_opsi' => '2', 'option_text' => 'D4', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_PEND_TINGKAT', 'order' => 3, 'kode_opsi' => '3', 'option_text' => 'S1', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_PEND_TINGKAT', 'order' => 4, 'kode_opsi' => '4', 'option_text' => 'S2', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_PEND_TINGKAT', 'order' => 5, 'kode_opsi' => '5', 'option_text' => 'S3', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_PEND_TINGKAT', 'order' => 6, 'kode_opsi' => '6', 'option_text' => 'Profesi', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_PEND_TINGKAT', 'order' => 7, 'kode_opsi' => '7', 'option_text' => 'Spesialis', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_PEND_TINGKAT', 'order' => 8, 'kode_opsi' => '8', 'option_text' => 'Lainnya', 'jump_to' => null],
+
             // F2G (Posisi jabatan)
             ['kode_pertanyaan' => 'F2G', 'order' => 1, 'kode_opsi' => '1', 'option_text' => 'Direksi', 'jump_to' => null],
             ['kode_pertanyaan' => 'F2G', 'order' => 2, 'kode_opsi' => '2', 'option_text' => 'Top Manager', 'jump_to' => null],

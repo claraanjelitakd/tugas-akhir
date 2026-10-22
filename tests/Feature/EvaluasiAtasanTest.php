@@ -158,6 +158,13 @@ class EvaluasiAtasanTest extends TestCase
             'nilai' => 'Sangat Tinggi',
         ]);
 
+        $this->assertDatabaseHas('atasan', [
+            'nama' => 'Bapak Atasan',
+            'email' => 'atasan@makmursentosa.com',
+            'telepon' => '08123456789',
+        ]);
+        $this->assertNotNull($biodata->fresh()->atasan_id);
+
         $this->post("/evaluasi-atasan/{$evaluasi->token}", $postData)
             ->assertSessionHasErrors('jawaban');
     }

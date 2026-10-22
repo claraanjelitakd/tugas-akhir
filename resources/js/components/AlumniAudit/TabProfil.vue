@@ -198,14 +198,9 @@ const scrollToBottom = () => {
         <!-- Notifikasi Perubahan Belum Disimpan -->
         <div v-if="form.isDirty" class="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-xs text-amber-900">
             <span>Ada perubahan data yang belum disimpan.</span>
-            <button 
-                type="button" 
-                @click="submitForm"
-                :disabled="form.processing"
-                class="px-3 py-1 bg-[#0D542B] hover:bg-[#08381c] text-white rounded text-xs font-bold cursor-pointer disabled:opacity-50 ml-2 shrink-0"
-            >
-                Simpan
-            </button>
+            <span class="text-[11px] font-semibold text-amber-800 ml-2 shrink-0">
+                Klik tombol Simpan Profil Alumni di bagian atas.
+            </span>
         </div>
 
         <!-- Formulir Profil yang Mendukung Save Enter Secara Silent -->

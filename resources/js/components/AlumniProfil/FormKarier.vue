@@ -23,8 +23,20 @@ const props = defineProps({
     companies: Array,
     alumniData: Object,
     refOptions: Object,
+    profileQuestions: {
+        type: Array,
+        default: () => [],
+    },
     evaluasiAtasan: Object,
 });
+
+if (!props.form.profile_answers) {
+    props.form.profile_answers = {};
+}
+
+if (!props.form.profile_answer_custom) {
+    props.form.profile_answer_custom = {};
+}
 
 // Container refs untuk mendeteksi klik di luar area dropdown (click-outside)
 const provinsiContainerRef = ref(null);
@@ -99,6 +111,132 @@ const skalaOptions = computed(() => {
     ];
 });
 
+// Pilihan bidang pekerjaan / divisi (BIO_BIDANG_DIVISI) disimpan langsung ke biodata.
+const bidangPekerjaanOptions = computed(() => {
+    const configured = props.refOptions?.BIO_BIDANG_DIVISI || [];
+    const options = configured.map(opt => ({
+        value: opt.option_text,
+        label: `${opt.kode_opsi} - ${opt.option_text}`,
+    }));
+
+    if (!options.some(opt => isOtherOptionValue(opt.value))) {
+        options.push({ value: 'Lainnya', label: 'Lainnya' });
+    }
+
+    return options;
+});
+
+const isOtherOptionValue = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+
+    return normalized.includes('lainnya') || normalized.includes('tuliskan') || normalized.includes('...');
+};
+
+const isConfiguredBidangPekerjaan = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+
+    return bidangPekerjaanOptions.value.some(opt => opt.value.toLowerCase() === normalized && !isOtherOptionValue(opt.value));
+};
+
+const bidangPekerjaanValue = String(props.form?.bidang_pekerjaan || '').trim();
+const bidangPekerjaanSelection = ref(
+    bidangPekerjaanValue && isConfiguredBidangPekerjaan(bidangPekerjaanValue)
+        ? bidangPekerjaanValue
+        : bidangPekerjaanValue
+            ? 'Lainnya'
+            : ''
+);
+
+if (bidangPekerjaanSelection.value === 'Lainnya' && bidangPekerjaanValue && !isOtherOptionValue(bidangPekerjaanValue)) {
+    props.form.bidang_pekerjaan_lainnya = bidangPekerjaanValue;
+}
+
+if (isOtherOptionValue(bidangPekerjaanValue)) {
+    props.form.bidang_pekerjaan_lainnya = '';
+}
+
+const syncBidangPekerjaan = () => {
+    if (isOtherOptionValue(bidangPekerjaanSelection.value)) {
+        props.form.bidang_pekerjaan = props.form.bidang_pekerjaan_lainnya || '';
+
+        return;
+    }
+
+    props.form.bidang_pekerjaan = bidangPekerjaanSelection.value;
+    props.form.bidang_pekerjaan_lainnya = '';
+};
+
+const isProfileQuestionSelect = (question) => {
+    return question.detils?.length > 0;
+};
+
+const isOtherProfileOption = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+
+    return normalized.includes('lainnya') || normalized.includes('tuliskan') || normalized.includes('...');
+};
+
+const pendidikanTingkatLabels = {
+    D3: 'D3 (Diploma 3)',
+    D4: 'D4 (Diploma 4 / Sarjana Terapan)',
+    S1: 'S1 (Sarjana)',
+    S2: 'S2 (Magister / Master)',
+    S3: 'S3 (Doktor / Ph.D)',
+    Profesi: 'Pendidikan Profesi',
+    Spesialis: 'Pendidikan Spesialis',
+    Lainnya: 'Lainnya',
+};
+
+const pendidikanTingkatOptions = computed(() => {
+    const configured = props.refOptions?.BIO_PEND_TINGKAT || [];
+    const options = configured.map((option) => {
+        const value = String(option.option_text || '').trim();
+
+        return {
+            value,
+            label: pendidikanTingkatLabels[value] || value,
+        };
+    }).filter((option) => option.value !== '');
+
+    if (options.length === 0) {
+        return Object.entries(pendidikanTingkatLabels).map(([value, label]) => ({ value, label }));
+    }
+
+    if (!options.some((option) => isOtherOptionValue(option.value))) {
+        options.push({ value: 'Lainnya', label: 'Lainnya' });
+    }
+
+    return options;
+});
+
+const pendidikanTingkatValue = String(props.form?.pendidikan_tingkat || '').trim();
+const pendidikanTingkatSelection = ref(
+    pendidikanTingkatValue && pendidikanTingkatOptions.value.some((option) => option.value.toLowerCase() === pendidikanTingkatValue.toLowerCase() && !isOtherOptionValue(option.value))
+        ? pendidikanTingkatValue
+        : pendidikanTingkatValue
+            ? 'Lainnya'
+            : ''
+);
+const pendidikanTingkatLainnya = ref(
+    pendidikanTingkatSelection.value === 'Lainnya' && !isOtherOptionValue(pendidikanTingkatValue)
+        ? pendidikanTingkatValue
+        : ''
+);
+
+const syncPendidikanTingkat = () => {
+    if (isOtherOptionValue(pendidikanTingkatSelection.value)) {
+        props.form.pendidikan_tingkat = pendidikanTingkatLainnya.value || 'Lainnya';
+
+        return;
+    }
+
+    props.form.pendidikan_tingkat = pendidikanTingkatSelection.value || null;
+};
+
+const needsProfileQuestionCustomText = (question) => {
+    return isOtherProfileOption(props.form.profile_answers?.[question.id]);
+};
+
 // ============================================================================
 // 3. LOGIKA PERAN KERJA & STATUS STUDI LANJUT
 // ============================================================================
@@ -140,6 +278,8 @@ const toggleMelanjutkanStudi = () => {
         props.form.pendidikan_tingkat = null;
         props.form.perguruan_tinggi = null;
         props.form.pendidikan_prodi = null;
+        pendidikanTingkatSelection.value = '';
+        pendidikanTingkatLainnya.value = '';
     }
 };
 
@@ -1062,6 +1202,33 @@ onUnmounted(() => {
                     </div>
                 </div>
 
+                <div class="md:col-span-2 space-y-2">
+                    <label class="block text-xs sm:text-sm font-bold text-gray-700">
+                        Bidang Pekerjaan / Divisi
+                    </label>
+                    <select
+                        v-model="bidangPekerjaanSelection"
+                        @change="syncBidangPekerjaan"
+                        class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
+                    >
+                        <option value="">-- Pilih Bidang Pekerjaan / Divisi --</option>
+                        <option v-for="opt in bidangPekerjaanOptions" :key="opt.value" :value="opt.value">
+                            {{ opt.label }}
+                        </option>
+                    </select>
+                    <input
+                        v-if="isOtherOptionValue(bidangPekerjaanSelection)"
+                        v-model="form.bidang_pekerjaan_lainnya"
+                        @input="syncBidangPekerjaan"
+                        type="text"
+                        placeholder="Tuliskan bidang pekerjaan atau divisi"
+                        class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
+                    />
+                    <p class="text-[11px] text-gray-400">
+                        Pilihan dikelola dari master Superadmin. Jika belum tersedia, pilih Lainnya dan tuliskan sendiri.
+                    </p>
+                </div>
+
                 <!-- Jika Karyawan/Pekerja: Posisi Jabatan Struktural (F2G) Dinamis dari Database -->
                 <div v-if="form.kategori_pekerjaan === 'Pekerja'" class="md:col-span-2 space-y-2">
                     <div class="flex items-center justify-between">
@@ -1189,19 +1356,23 @@ onUnmounted(() => {
                                 Jenjang Pendidikan <span class="text-rose-500 font-bold">*</span>
                             </label>
                             <select 
-                                v-model="form.pendidikan_tingkat" 
+                                v-model="pendidikanTingkatSelection"
+                                @change="syncPendidikanTingkat"
                                 class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                             >
                                 <option value="">-- Pilih Tingkat / Jenjang --</option>
-                                <option value="D3">D3 (Diploma 3)</option>
-                                <option value="D4">D4 (Diploma 4 / Sarjana Terapan)</option>
-                                <option value="S1">S1 (Sarjana)</option>
-                                <option value="S2">S2 (Magister / Master)</option>
-                                <option value="S3">S3 (Doktor / Ph.D)</option>
-                                <option value="Profesi">Pendidikan Profesi</option>
-                                <option value="Spesialis">Pendidikan Spesialis</option>
-                                <option value="Lainnya">Lainnya</option>
+                                <option v-for="option in pendidikanTingkatOptions" :key="option.value" :value="option.value">
+                                    {{ option.label }}
+                                </option>
                             </select>
+                            <input
+                                v-if="isOtherOptionValue(pendidikanTingkatSelection)"
+                                v-model="pendidikanTingkatLainnya"
+                                @input="syncPendidikanTingkat"
+                                type="text"
+                                placeholder="Tuliskan jenjang pendidikan dari sumber eksternal"
+                                class="block w-full mt-2 border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
+                            />
                         </div>
 
                         <div>
@@ -1276,6 +1447,59 @@ onUnmounted(() => {
                             <span>Non Gerejawi</span>
                         </label>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- CARD TAMBAHAN: PERTANYAAN PROFIL DARI SUPERADMIN                 -->
+        <!-- ================================================================= -->
+        <div v-if="profileQuestions.length > 0" class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
+            <div class="flex items-center justify-between mb-6 pb-3 border-b border-gray-100">
+                <div>
+                    <h2 class="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
+                        <span class="w-1.5 h-5 bg-[#0D542B] rounded-full inline-block"></span>
+                        Informasi Tambahan Profil
+                    </h2>
+                    <p class="text-xs text-gray-400 mt-1">Pertanyaan tambahan yang dikonfigurasi oleh Superadmin.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div v-for="question in profileQuestions" :key="question.id" class="space-y-2">
+                    <label class="block text-xs sm:text-sm font-bold text-gray-700">
+                        {{ question.subpertanyaan }}
+                        <span v-if="question.wajib" class="text-rose-500 font-bold">*</span>
+                    </label>
+
+                    <select
+                        v-if="isProfileQuestionSelect(question)"
+                        v-model="form.profile_answers[question.id]"
+                        class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
+                    >
+                        <option value="">-- Pilih jawaban --</option>
+                        <option v-for="option in question.detils" :key="option.id" :value="option.option_text">
+                            {{ option.option_text }}
+                        </option>
+                    </select>
+
+                    <input
+                        v-else
+                        v-model="form.profile_answers[question.id]"
+                        type="text"
+                        class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
+                        placeholder="Tulis jawaban"
+                    />
+
+                    <input
+                        v-if="needsProfileQuestionCustomText(question)"
+                        v-model="form.profile_answer_custom[question.id]"
+                        type="text"
+                        class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
+                        placeholder="Tuliskan jawaban lainnya"
+                    />
+
+                    <p v-if="question.keterangan" class="text-[11px] text-gray-400">{{ question.keterangan }}</p>
                 </div>
             </div>
         </div>

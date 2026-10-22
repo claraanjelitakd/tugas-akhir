@@ -6,7 +6,9 @@ use App\Models\Biodata;
 use App\Models\ProdiQuestion;
 use App\Models\ProdiResponse;
 use App\Models\RefSubpertanyaan2021;
+use App\Models\RefSubpertanyaanDetil;
 use App\Models\Tracer;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -17,6 +19,188 @@ use Illuminate\Support\Facades\DB;
  */
 class KuesionerSyncService
 {
+    /**
+     * Ambil pertanyaan tambahan yang ditandai tampil pada halaman profil.
+     * Pertanyaan profil bawaan dikeluarkan agar tidak tampil dua kali pada form khusus.
+     *
+     * @return Collection<int, RefSubpertanyaan2021>
+     */
+    public static function getDynamicProfileQuestions(): Collection
+    {
+        $profileCodes = array_merge(
+            array_map('strtoupper', KelengkapanTracerService::PROFILE_MANAGED_CODES),
+            ['BIO_BIDANG_DIVISI']
+        );
+
+        return RefSubpertanyaan2021::query()
+            ->whereIn('tampil_di', ['profil', 'profile', 'both'])
+            ->whereNotIn(DB::raw('UPPER(kode_pertanyaan)'), $profileCodes)
+            ->where('type', '!=', 'header')
+            ->with('detils')
+            ->orderBy('order')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * Bentuk jawaban tambahan profil yang sudah tersimpan agar dapat dipakai kembali oleh Vue.
+     *
+     * @param  Collection<int, RefSubpertanyaan2021>  $questions
+     * @return array{answers: array<int, string>, custom: array<int, string>}
+     */
+    public static function getDynamicProfileAnswers(Biodata $biodata, Collection $questions): array
+    {
+        $questionIds = $questions->modelKeys();
+        if ($questionIds === []) {
+            return ['answers' => [], 'custom' => []];
+        }
+
+        $responses = $biodata->tracer()
+            ->whereIn('question_id', $questionIds)
+            ->get()
+            ->keyBy('question_id');
+
+        $answers = [];
+        $custom = [];
+
+        foreach ($responses as $response) {
+            $json = is_array($response->answer_json) ? $response->answer_json : [];
+            $selected = $json['selected'] ?? $json['pilihan'] ?? null;
+            $customText = $json['input'] ?? $json['text'] ?? null;
+            $answerText = (string) ($response->answer ?? '');
+
+            if ($selected === null && str_starts_with($answerText, 'Lainnya: ')) {
+                $selected = 'Lainnya';
+                $customText = trim(substr($answerText, 9));
+            }
+
+            $answers[(int) $response->question_id] = (string) ($selected ?? $answerText);
+            if ($customText !== null && trim((string) $customText) !== '') {
+                $custom[(int) $response->question_id] = trim((string) $customText);
+            }
+        }
+
+        return ['answers' => $answers, 'custom' => $custom];
+    }
+
+    /**
+     * Simpan jawaban pertanyaan tambahan profil ke tabel tracer.
+     * Hanya pertanyaan yang memang ditandai untuk profil yang boleh diproses.
+     *
+     * @param  array<int|string, mixed>  $answers
+     * @param  array<int|string, mixed>  $customAnswers
+     */
+    public static function syncDynamicProfileResponses(Biodata $biodata, array $answers, array $customAnswers = []): void
+    {
+        $questionIds = array_values(array_filter(
+            array_map('intval', array_keys($answers)),
+            static fn (int $id): bool => $id > 0
+        ));
+
+        if ($questionIds === []) {
+            return;
+        }
+
+        $questions = self::getDynamicProfileQuestions()->whereIn('id', $questionIds)->keyBy('id');
+
+        foreach ($questionIds as $questionId) {
+            $question = $questions->get($questionId);
+            if (! $question) {
+                continue;
+            }
+
+            $rawAnswer = $answers[$questionId] ?? $answers[(string) $questionId] ?? null;
+            $customText = $customAnswers[$questionId] ?? $customAnswers[(string) $questionId] ?? null;
+            [$answerText, $answerJson] = self::normalizeDynamicProfileAnswer($question, $rawAnswer, $customText);
+
+            if ($answerText === null && $answerJson === null) {
+                Tracer::where('biodata_id', $biodata->id)
+                    ->where('question_id', $question->id)
+                    ->delete();
+
+                continue;
+            }
+
+            Tracer::updateOrCreate(
+                ['biodata_id' => $biodata->id, 'question_id' => $question->id],
+                [
+                    'nim' => $biodata->nim,
+                    'kelompok' => $question->kelompok,
+                    'kode_pertanyaan' => $question->kode_pertanyaan,
+                    'subpertanyaan' => $question->subpertanyaan,
+                    'answer' => $answerText,
+                    'answer_json' => $answerJson,
+                    'keterangan' => $question->keterangan,
+                    'tahun_lulus' => $biodata->tahun_lulus ?? $biodata->dataAkademik?->tahun_lulus,
+                ]
+            );
+        }
+    }
+
+    /**
+     * @return array{0: string|null, 1: array<string, mixed>|null}
+     */
+    private static function normalizeDynamicProfileAnswer(RefSubpertanyaan2021 $question, mixed $rawAnswer, mixed $customText): array
+    {
+        $selected = is_array($rawAnswer)
+            ? ($rawAnswer['selected'] ?? $rawAnswer['pilihan'] ?? $rawAnswer['value'] ?? null)
+            : $rawAnswer;
+        $custom = is_array($rawAnswer)
+            ? ($rawAnswer['input'] ?? $rawAnswer['text'] ?? $customText)
+            : $customText;
+        $selectedText = self::toAnswerString($selected);
+
+        if ($selectedText === '') {
+            return [null, null];
+        }
+
+        if ($question->detils->isNotEmpty()) {
+            $selectedOption = $question->detils->first(function (RefSubpertanyaanDetil $option) use ($selectedText): bool {
+                return mb_strtolower(trim((string) $option->option_text)) === mb_strtolower($selectedText)
+                    || mb_strtolower(trim((string) $option->kode_opsi)) === mb_strtolower($selectedText);
+            });
+
+            if (! $selectedOption) {
+                return [null, null];
+            }
+
+            $selectedText = (string) $selectedOption->option_text;
+        }
+
+        $customText = trim(self::toAnswerString($custom));
+        $isOther = self::isOtherOption($selectedText);
+
+        if ($isOther) {
+            if ($customText === '') {
+                return [null, null];
+            }
+
+            return [
+                'Lainnya: '.$customText,
+                ['selected' => $selectedText, 'input' => $customText],
+            ];
+        }
+
+        return [
+            $selectedText,
+            $question->detils->isNotEmpty() ? ['selected' => $selectedText, 'input' => ''] : null,
+        ];
+    }
+
+    private static function toAnswerString(mixed $value): string
+    {
+        return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    private static function isOtherOption(string $value): bool
+    {
+        $normalized = mb_strtolower(trim($value));
+
+        return str_contains($normalized, 'lainnya')
+            || str_contains($normalized, 'tuliskan')
+            || str_contains($normalized, '...');
+    }
+
     /**
      * Menyinkronkan data profil biodata alumni ke tabel tracer untuk pertanyaan identitas dan pekerjaan.
      *
@@ -35,6 +219,9 @@ class KuesionerSyncService
 
         $tahunLulus = $biodata->tahun_lulus ?? ($biodata->dataAkademik?->tahun_lulus ? (string) $biodata->dataAkademik->tahun_lulus : null);
         $profileMap = (array) $autofill;
+
+        // Alias singkat digunakan sebagai kode master agar tetap muat di varchar(20).
+        $profileMap['BIO_PEND_TINGKAT'] = $biodata->pendidikan_tingkat;
 
         // Hilangkan kolom non-pertanyaan
         unset($profileMap['user_id'], $profileMap['biodata_id'], $profileMap['nim']);

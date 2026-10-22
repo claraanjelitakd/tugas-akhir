@@ -673,17 +673,20 @@ class LinkedInSyncController extends Controller
     public function approveResult(Request $request, int $id, LinkedInProfileMapper $mapper): JsonResponse
     {
         $scope = $this->getUserScope($request);
+        $isReplot = $request->boolean('plot_ulang');
 
-        return DB::transaction(function () use ($id, $mapper, $request, $scope) {
+        return DB::transaction(function () use ($id, $mapper, $request, $scope, $isReplot) {
             $result = LinkedinSyncResult::with(['biodata.perusahaan'])->lockForUpdate()->findOrFail($id);
 
             $this->validateAlumniScope($result->biodata, $scope);
 
-            // Validasi status wajib 'pending'
-            if ($result->status !== 'pending') {
+            $expectedStatus = $isReplot ? 'approved' : 'pending';
+            if ($result->status !== $expectedStatus) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Hasil sinkronisasi ini sudah berstatus '{$result->status}' dan tidak dapat disetujui kembali.",
+                    'message' => $isReplot
+                        ? "Hasil sinkronisasi ini berstatus '{$result->status}' dan hanya hasil berstatus approved yang dapat diplot ulang."
+                        : "Hasil sinkronisasi ini sudah berstatus '{$result->status}' dan tidak dapat disetujui kembali.",
                 ], 422);
             }
 
@@ -725,7 +728,9 @@ class LinkedInSyncController extends Controller
             $targetCompany = $customCompany ?: $preview['current_company'];
             if (! empty($targetCompany)) {
                 $companyName = trim($targetCompany);
-                $locationName = $preview['current_company_location'] ?? $preview['location'];
+                // Hanya gunakan lokasi pada entri pekerjaan aktif. Lokasi profil
+                // umum tidak cukup spesifik untuk dipetakan ke perusahaan.
+                $locationName = $preview['current_company_location'] ?? null;
                 $companyUrl = $preview['current_company_url'] ?? null;
 
                 $perusahaan = $mapper->findOrCreateCompany($companyName, $locationName);
@@ -817,28 +822,16 @@ class LinkedInSyncController extends Controller
             }
 
             // 7. Pemetaan Pengalaman Kerja (Experience)
-            $targetExp = $customExperience;
-            if (empty($targetExp)) {
+            $incomingExperience = $customExperience;
+            if (empty($incomingExperience)) {
                 $rawExpList = ! empty($preview['experiences']) ? $preview['experiences'] : (! empty($preview['experience']) ? $preview['experience'] : []);
-                if (! empty($rawExpList) && empty($biodata->experience)) {
-                    $expLines = [];
-                    foreach (array_slice($rawExpList, 0, 5) as $exp) {
-                        $pos = $exp['position'] ?? ($exp['title'] ?? '');
-                        $comp = $exp['company'] ?? ($exp['company_name'] ?? '');
-                        $dt = $exp['date'] ?? ($exp['time_period'] ?? '');
-                        $loc = $exp['location'] ?? '';
-                        $line = trim("{$pos} di {$comp}".($dt ? " ({$dt})" : '').($loc ? " - {$loc}" : ''));
-                        if ($line) {
-                            $expLines[] = $line;
-                        }
-                    }
-                    if (! empty($expLines)) {
-                        $targetExp = implode("\n", $expLines);
-                    }
+                if (! empty($rawExpList)) {
+                    $incomingExperience = $this->formatExperienceHistory($rawExpList);
                 }
             }
 
-            if (! empty($targetExp)) {
+            $targetExp = $this->appendExperienceHistory($biodata->experience, $incomingExperience);
+            if (! empty($targetExp) && $targetExp !== (string) $biodata->experience) {
                 $updates['experience'] = $targetExp;
                 $updates['minat'] = $targetExp;
                 $changesSummary[] = 'Pengalaman Kerja (Experience) disimpan dari profil LinkedIn';
@@ -849,22 +842,29 @@ class LinkedInSyncController extends Controller
                 $biodata->update($updates);
             }
 
-            // 5. Ubah status staging menjadi 'approved'
-            $result->update([
-                'status' => 'approved',
-                'reviewed_by' => Auth::id(),
-                'reviewed_at' => now(),
-            ]);
+            // Approval pertama mengubah staging menjadi approved. Plot ulang mempertahankan snapshot dan status audit yang sudah ada.
+            if (! $isReplot) {
+                $result->update([
+                    'status' => 'approved',
+                    'reviewed_by' => Auth::id(),
+                    'reviewed_at' => now(),
+                ]);
+            }
 
-            // 6. Catat audit log aktivitas
+            $action = $isReplot ? 'linkedin_sync_replotted' : 'linkedin_sync_approved';
+            $actionDescription = $isReplot
+                ? "Admin memplot ulang snapshot sinkronisasi LinkedIn Apify untuk alumni {$biodata->nama} ({$biodata->nim})."
+                : "Super Admin menyetujui hasil sinkronisasi LinkedIn Apify untuk alumni {$biodata->nama} ({$biodata->nim}).";
+
             LogActivity::record(
-                action: 'linkedin_sync_approved',
-                description: "Super Admin menyetujui hasil sinkronisasi LinkedIn Apify untuk alumni {$biodata->nama} ({$biodata->nim}).",
+                action: $action,
+                description: $actionDescription,
                 subject: $biodata,
                 oldValues: null,
                 newValues: [
                     'sync_result_id' => $result->id,
                     'status' => 'approved',
+                    'mode' => $isReplot ? 'plot_ulang' : 'approve',
                     'changes' => $changesSummary,
                 ]
             );
@@ -875,7 +875,9 @@ class LinkedInSyncController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "Data profil LinkedIn untuk {$biodata->nama} berhasil disetujui dan diterapkan.",
+                'message' => $isReplot
+                    ? "Data profil LinkedIn untuk {$biodata->nama} berhasil diplot ulang tanpa menghapus data lama."
+                    : "Data profil LinkedIn untuk {$biodata->nama} berhasil disetujui dan diterapkan.",
                 'changes_summary' => $changesSummary,
                 'alumni' => [
                     'id' => $fresh->id,
@@ -900,6 +902,80 @@ class LinkedInSyncController extends Controller
                 ],
             ]);
         });
+    }
+
+    /**
+     * Menerapkan ulang snapshot LinkedIn yang sudah pernah disetujui.
+     */
+    public function plotAgain(Request $request, int $id, LinkedInProfileMapper $mapper): JsonResponse
+    {
+        $request->merge(['plot_ulang' => true]);
+
+        return $this->approveResult($request, $id, $mapper);
+    }
+
+    /**
+     * Normalisasi seluruh riwayat pengalaman LinkedIn menjadi teks multiline
+     * untuk kolom biodata.experience.
+     *
+     * @param  array<int, mixed>  $experiences
+     */
+    private function formatExperienceHistory(array $experiences): ?string
+    {
+        $lines = [];
+
+        foreach ($experiences as $experience) {
+            if (! is_array($experience)) {
+                continue;
+            }
+
+            $position = trim((string) ($experience['position'] ?? ($experience['title'] ?? '')));
+            $company = trim((string) ($experience['company'] ?? ($experience['company_name'] ?? '')));
+            $date = trim((string) ($experience['date'] ?? ''));
+            $timePeriod = trim((string) ($experience['time_period'] ?? ''));
+            $location = trim((string) ($experience['location'] ?? ''));
+
+            $period = $date;
+            if ($timePeriod !== '' && $timePeriod !== $date) {
+                $period .= ($period !== '' ? ' ' : '')."({$timePeriod})";
+            }
+
+            $subject = trim(implode(' di ', array_filter([$position, $company], static fn (string $value): bool => $value !== '')));
+            $line = trim($subject.($period !== '' ? " [{$period}]" : '').($location !== '' ? " - {$location}" : ''));
+
+            if ($line !== '') {
+                $lines[] = $line;
+            }
+        }
+
+        return $lines === [] ? null : implode(PHP_EOL, $lines);
+    }
+
+    /**
+     * Tambahkan riwayat baru di bawah riwayat yang sudah ada tanpa menggandakan baris.
+     */
+    private function appendExperienceHistory(?string $existing, ?string $incoming): ?string
+    {
+        $lines = [];
+        $seen = [];
+
+        foreach ([$existing, $incoming] as $history) {
+            $historyLines = preg_split('/\r\n|\r|\n/', trim((string) $history), -1, PREG_SPLIT_NO_EMPTY);
+
+            foreach ($historyLines ?: [] as $line) {
+                $cleanLine = trim((string) $line);
+                $normalizedLine = strtolower((string) preg_replace('/\s+/', ' ', $cleanLine));
+
+                if ($cleanLine === '' || isset($seen[$normalizedLine])) {
+                    continue;
+                }
+
+                $seen[$normalizedLine] = true;
+                $lines[] = $cleanLine;
+            }
+        }
+
+        return $lines === [] ? null : implode(PHP_EOL, $lines);
     }
 
     /**

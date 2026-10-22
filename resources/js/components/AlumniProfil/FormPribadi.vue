@@ -69,7 +69,7 @@ const previewFoto = () => {
     }
 
     Swal.fire({
-        title: 'Preview Foto Profil',
+        title: 'Pratinjau Foto Profil',
         imageUrl: fotoUrl,
         imageAlt: props.form.nama || 'Foto Profil Alumni',
         showCloseButton: true,
@@ -151,7 +151,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                         <img 
                             v-if="fotoPreview" 
                             :src="fotoPreview" 
-                            alt="Preview Foto" 
+                            alt="Pratinjau Foto"
                             class="w-full h-full object-cover object-top" 
                         />
                         <img 

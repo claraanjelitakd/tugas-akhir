@@ -137,6 +137,7 @@ class AdminAlumniProfileService
             'minat' => $summary?->experience ?? ($alumni->experience ?? ($alumni->minat ?? '')),
             'kategori_pekerjaan' => $summary?->kategori_pekerjaan ?? ($alumni->kategori_pekerjaan ?? ''),
             'posisi_jabatan' => $summary?->posisi_jabatan ?? ($alumni->posisi_jabatan ?? ''),
+            'bidang_pekerjaan' => $summary?->bidang_pekerjaan ?? ($alumni->bidang_pekerjaan ?? ''),
             'posisi_wiraswasta' => $summary?->posisi_wiraswasta ?? ($alumni->posisi_wiraswasta ?? ''),
             'pendidikan_tingkat' => $summary?->pendidikan_tingkat ?? ($alumni->pendidikan_tingkat ?? ''),
             'perguruan_tinggi' => $summary?->perguruan_tinggi ?? ($alumni->perguruan_tinggi ?? ''),
@@ -195,7 +196,7 @@ class AdminAlumniProfileService
      */
     public static function getRefOptions(): array
     {
-        return RefSubpertanyaanDetil::whereIn('kode_pertanyaan', ['F2G', 'F2H', 'F5D', 'F11', 'F8', 'f2g', 'f2h', 'f5d', 'f11', 'f8'])
+        return RefSubpertanyaanDetil::whereIn('kode_pertanyaan', ['F2G', 'F2H', 'F5D', 'F11', 'F8', 'BIO_BIDANG_DIVISI', 'BIO_PEND_TINGKAT', 'f2g', 'f2h', 'f5d', 'f11', 'f8', 'bio_bidang_divisi', 'bio_pend_tingkat'])
             ->orderBy('order')
             ->get(['id', 'kode_pertanyaan', 'kode_opsi', 'option_text', 'order'])
             ->groupBy(fn ($item) => strtoupper($item->kode_pertanyaan))
@@ -273,6 +274,12 @@ class AdminAlumniProfileService
         if ($posisiWiraswasta === 'Lainnya' && ! empty($data['posisi_wiraswasta_lainnya'])) {
             $posisiWiraswasta = $data['posisi_wiraswasta_lainnya'];
         }
+        $bidangPekerjaan = ! empty($data['bidang_pekerjaan']) ? trim((string) $data['bidang_pekerjaan']) : null;
+        if ($bidangPekerjaan && strtolower($bidangPekerjaan) === 'lainnya') {
+            $bidangPekerjaan = ! empty($data['bidang_pekerjaan_lainnya'])
+                ? trim((string) $data['bidang_pekerjaan_lainnya'])
+                : null;
+        }
 
         if ($kategoriPekerjaan === 'Pekerja') {
             $posisiWiraswasta = null;
@@ -346,6 +353,7 @@ class AdminAlumniProfileService
             'experience' => ! empty($data['experience']) ? $data['experience'] : (! empty($data['minat']) ? $data['minat'] : null),
             'kategori_pekerjaan' => $kategoriPekerjaan,
             'posisi_jabatan' => $posisiJabatan,
+            'bidang_pekerjaan' => $bidangPekerjaan,
             'posisi_wiraswasta' => $posisiWiraswasta,
             'pendidikan_tingkat' => ! empty($data['pendidikan_tingkat']) ? $data['pendidikan_tingkat'] : null,
             'perguruan_tinggi' => ! empty($data['perguruan_tinggi']) ? $data['perguruan_tinggi'] : null,

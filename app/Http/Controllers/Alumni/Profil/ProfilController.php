@@ -8,6 +8,7 @@ use App\Models\Perusahaan;
 use App\Models\Propinsi;
 use App\Models\RefNegara;
 use App\Models\RefSubpertanyaanDetil;
+use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\Request;
 
 /**
@@ -33,6 +34,10 @@ class ProfilController extends Controller
         $orangTua = $biodata?->orangTua ?? $biodata?->dataAkademik?->orangTua;
         $yudisium = $biodata?->yudisium ?? $biodata?->dataAkademik?->yudisium;
         $atasan = $biodata?->atasan;
+        $profileQuestions = KuesionerSyncService::getDynamicProfileQuestions();
+        $dynamicProfileAnswers = $biodata
+            ? KuesionerSyncService::getDynamicProfileAnswers($biodata, $profileQuestions)
+            : ['answers' => [], 'custom' => []];
 
         // Merakit formData murni di backend agar frontend Vue tidak perlu logika inisialisasi / pengecekan manual
         $formData = [
@@ -120,6 +125,7 @@ class ProfilController extends Controller
             'minat' => $biodata?->experience ?? $biodata?->minat ?? '',
             'kategori_pekerjaan' => $biodata?->kategori_pekerjaan ?? '',
             'posisi_jabatan' => $biodata?->posisi_jabatan ?? '',
+            'bidang_pekerjaan' => $biodata?->bidang_pekerjaan ?? '',
             'posisi_wiraswasta' => $biodata?->posisi_wiraswasta ?? '',
             'pendidikan_tingkat' => $biodata?->pendidikan_tingkat ?? '',
             'perguruan_tinggi' => $biodata?->perguruan_tinggi ?? '',
@@ -156,10 +162,14 @@ class ProfilController extends Controller
             'nama_atasan' => $atasan?->nama ?? '',
             'email_atasan' => $atasan?->email ?? '',
             'telepon_atasan' => $atasan?->telepon ?? '',
+
+            // Pertanyaan tambahan yang dikonfigurasi Superadmin untuk halaman profil.
+            'profile_answers' => $dynamicProfileAnswers['answers'],
+            'profile_answer_custom' => $dynamicProfileAnswers['custom'],
         ];
 
         // Ambil opsi referensi kuesioner resmi dari database (F2G, F2H, F5D, F11, F8)
-        $refOptions = RefSubpertanyaanDetil::whereIn('kode_pertanyaan', ['F2G', 'F2H', 'F5D', 'F11', 'F8', 'f2g', 'f2h', 'f5d', 'f11', 'f8'])
+        $refOptions = RefSubpertanyaanDetil::whereIn('kode_pertanyaan', ['F2G', 'F2H', 'F5D', 'F11', 'F8', 'BIO_BIDANG_DIVISI', 'BIO_PEND_TINGKAT', 'f2g', 'f2h', 'f5d', 'f11', 'f8', 'bio_bidang_divisi', 'bio_pend_tingkat'])
             ->orderBy('order')
             ->get(['id', 'kode_pertanyaan', 'kode_opsi', 'option_text', 'order'])
             ->groupBy(fn ($item) => strtoupper($item->kode_pertanyaan))
@@ -180,6 +190,7 @@ class ProfilController extends Controller
             'perusahaans' => $perusahaans,
             'companies' => $perusahaans,
             'refOptions' => $refOptions,
+            'profileQuestions' => $profileQuestions,
         ]);
     }
 }

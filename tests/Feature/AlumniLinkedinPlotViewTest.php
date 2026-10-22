@@ -9,6 +9,7 @@ use App\Models\LinkedinSyncResult;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\User;
+use App\Services\Alumni\LinkedinTraceHelper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -241,5 +242,29 @@ class AlumniLinkedinPlotViewTest extends TestCase
         $this->assertEquals(1, AlumniLinkedinPlot::namaSesuai()->whereIn('biodata_id', [$alumni1->id, $alumni2->id])->count());
         $this->assertEquals(1, AlumniLinkedinPlot::pendingReview()->whereIn('biodata_id', [$alumni1->id, $alumni2->id])->count());
         $this->assertEquals(1, AlumniLinkedinPlot::terplot()->whereIn('biodata_id', [$alumni1->id, $alumni2->id])->count());
+    }
+
+    public function test_profile_location_is_not_reported_as_biodata_or_company_address_mapping(): void
+    {
+        $alumni = $this->createAlumni('71200008', 'Argo Wibowo', 'https://linkedin.com/in/argowibowo');
+        $alumni->update(['alamat' => 'Jl. Timoho No. 45']);
+
+        $result = LinkedinSyncResult::create([
+            'biodata_id' => $alumni->id,
+            'linkedin_url' => $alumni->linkedin_url,
+            'scraped_data' => [[
+                'full_name' => 'Argo Wibowo',
+                'location' => 'Yogyakarta, Indonesia',
+            ]],
+            'status' => 'pending',
+        ]);
+
+        $locationRow = collect(LinkedinTraceHelper::buildTraceMapping($alumni->fresh(), $result))
+            ->firstWhere('key', 'location');
+
+        $this->assertSame('linkedin_sync_results', $locationRow['target_table']);
+        $this->assertSame('scraped_data->location', $locationRow['target_column']);
+        $this->assertSame('Tersimpan di Histori', $locationRow['status']);
+        $this->assertSame('Yogyakarta, Indonesia', $locationRow['db_value']);
     }
 }
