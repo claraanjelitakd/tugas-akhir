@@ -102,6 +102,11 @@ class AlumniDashboardPercentageTest extends TestCase
             ->has('questionnaireCompleted')
             ->has('profileFilledCount')
             ->has('profileTotalCount')
+            ->has('prodiQuestionsCount')
+            ->has('prodiAnsweredCount')
+            ->has('prodiPercentage')
+            ->has('overallPercentage')
+            ->has('isOverallComplete')
         );
     }
 

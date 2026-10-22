@@ -79,7 +79,15 @@ const props = defineProps({
 });
 
 /** Form state reactive Inertia */
-const form = useForm({ ...(props.formData || {}) });
+const form = useForm({ ...(props.formData || {}) }).transform((data) => {
+    if (typeof File !== 'undefined' && data.foto instanceof File) {
+        return data;
+    }
+
+    const { foto, ...dataWithoutExistingPhoto } = data;
+
+    return dataWithoutExistingPhoto;
+});
 
 /** Watcher pembaruan props.formData dari server */
 watch(() => props.formData, (newData) => {

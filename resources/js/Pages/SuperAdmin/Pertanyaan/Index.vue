@@ -173,6 +173,36 @@ const univSelectableTypes = {
     header: 'Header / Judul Bagian',
 };
 
+const typeInstructions = {
+    radio: 'Pilih salah satu jawaban.',
+    single_choice: 'Pilih salah satu jawaban.',
+    radio_text: 'Pilih salah satu jawaban. Jika memilih lainnya, tuliskan jawaban.',
+    radio_input: 'Pilih salah satu jawaban dan isi angka jika diperlukan.',
+    multiple_choice: 'Jawaban dapat lebih dari satu.',
+    checkbox: 'Jawaban dapat lebih dari satu.',
+    dropdown: 'Pilih salah satu jawaban.',
+    searchable_select: 'Cari dan pilih salah satu jawaban.',
+    rating_5: 'Pilih satu nilai pada skala 1 sampai 5.',
+    multiple_number: 'Isi nominal pada setiap komponen yang sesuai.',
+    matrix: 'Pilih satu jawaban pada setiap baris.',
+    matrix_dual: 'Berikan penilaian pada setiap pernyataan.',
+    multiple_textbox: 'Isi jawaban pada kolom yang tersedia.',
+    text: 'Isi jawaban singkat.',
+    textarea: 'Isi jawaban pada kolom yang tersedia.',
+    number: 'Isi jawaban dalam angka.',
+    date: 'Pilih tanggal yang sesuai.',
+    time: 'Pilih waktu yang sesuai.',
+    file: 'Unggah berkas sesuai petunjuk.',
+};
+
+const getTypeInstruction = (type) => typeInstructions[type] || '';
+
+const isAutomaticInstruction = (value) => [
+    ...Object.values(typeInstructions),
+    'Pilih satu jawaban',
+    'Jawaban bisa lebih dari satu',
+].includes(value);
+
 const OPTION_SUPPORTED_TYPES = [
     'radio',
     'single_choice',
@@ -402,7 +432,7 @@ const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') =
     const initialType = questionToEdit?.type || 'radio';
     const initialWajib = questionToEdit?.wajib !== undefined ? questionToEdit.wajib : true;
     const initialTarget = questionToEdit ? (isProfileTarget(questionToEdit.tampil_di) ? 'profil' : (questionToEdit.tampil_di || 'kuesioner')) : defaultTarget;
-    const initialKeterangan = questionToEdit?.keterangan || '';
+    const initialKeterangan = questionToEdit?.keterangan || getTypeInstruction(initialType);
     const initialSecId = questionToEdit?.kelompok_pertanyaan_id || (props.sections[0]?.id || '');
     const initialOrder = questionToEdit?.order || (props.subpertanyaans.length + 1);
 
@@ -446,7 +476,7 @@ const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') =
                         <select id="swal-q-type" class="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B]">
                             ${typeOptions}
                         </select>
-                        <p class="text-[10px] text-emerald-700 font-semibold mt-1">Opsi default dibuat otomatis jika mendukung opsi.</p>
+                        <p class="text-[10px] text-gray-500 mt-1">Opsi pilihan dibuat otomatis jika tipe pertanyaan membutuhkannya.</p>
                     </div>
                     <div>
                         <label class="block font-bold text-gray-700 mb-1">Nomor Urut</label>
@@ -470,6 +500,27 @@ const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') =
         cancelButtonText: 'Batal',
         confirmButtonColor: '#0D542B',
         cancelButtonColor: '#6B7280',
+        didOpen: () => {
+            const typeSelect = document.getElementById('swal-q-type');
+            const keteranganInput = document.getElementById('swal-q-keterangan');
+
+            if (!typeSelect || !keteranganInput) {
+                return;
+            }
+
+            let lastAutoInstruction = getTypeInstruction(typeSelect.value);
+
+            typeSelect.addEventListener('change', () => {
+                const nextInstruction = getTypeInstruction(typeSelect.value);
+                const currentInstruction = keteranganInput.value.trim();
+
+                if (isAutomaticInstruction(currentInstruction) || currentInstruction === lastAutoInstruction) {
+                    keteranganInput.value = nextInstruction;
+                }
+
+                lastAutoInstruction = nextInstruction;
+            });
+        },
         preConfirm: () => {
             const kode_pertanyaan = document.getElementById('swal-q-code').value.trim();
             const subpertanyaan = document.getElementById('swal-q-text').value.trim();

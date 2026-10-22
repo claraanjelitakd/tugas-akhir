@@ -11,7 +11,7 @@
   - Route URL (POST)  : /alumni/profile
 -->
 <script setup>
-import { Head, useForm, usePage, Link } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage, Link } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import Swal from 'sweetalert2';
 
@@ -48,6 +48,11 @@ const user = computed(() => page.props.auth.user);
 
 // Storage key untuk mengingat tab aktif saat refresh
 const PROFILE_TAB_STORAGE_KEY = 'tracerstudy_alumni_profile_tab';
+const PROFILE_TAB_IDS = ['pribadi', 'karier', 'akademik', 'orangtua'];
+
+const normalizeProfileTab = (tabName) => {
+    return PROFILE_TAB_IDS.includes(tabName) ? tabName : 'pribadi';
+};
 
 // Inisialisasi activeTab dari URL param atau localStorage
 const getInitialTab = () => {
@@ -57,11 +62,11 @@ const getInitialTab = () => {
 
         const urlParams = new URLSearchParams(window.location.search);
         const tabParam = urlParams.get('tab');
-        if (tabParam && ['pribadi', 'akademik', 'orangtua', 'karier'].includes(tabParam)) {
+        if (tabParam && PROFILE_TAB_IDS.includes(tabParam)) {
             return tabParam;
         }
         const cached = localStorage.getItem(PROFILE_TAB_STORAGE_KEY);
-        if (cached && ['pribadi', 'akademik', 'orangtua', 'karier'].includes(cached)) {
+        if (cached && PROFILE_TAB_IDS.includes(cached)) {
             return cached;
         }
     }
@@ -81,7 +86,15 @@ const getInitialTab = () => {
  * <FormOrangTua :form="form" />
  * <FormKarier   :form="form" />
  */
-const form = useForm(JSON.parse(JSON.stringify(props.formData || {})));
+const form = useForm(JSON.parse(JSON.stringify(props.formData || {}))).transform((data) => {
+    if (typeof File !== 'undefined' && data.foto instanceof File) {
+        return data;
+    }
+
+    const { foto, ...dataWithoutExistingPhoto } = data;
+
+    return dataWithoutExistingPhoto;
+});
 
 // Sinkronkan data form jika props berubah dari backend (misal setelah simpan)
 watch(() => props.formData, (newData) => {
@@ -91,7 +104,7 @@ watch(() => props.formData, (newData) => {
 }, { deep: true });
 
 // State untuk tab yang sedang aktif ('pribadi', 'akademik', 'orangtua', 'karier')
-const activeTab = ref(getInitialTab());
+const activeTab = ref(normalizeProfileTab(getInitialTab()));
 
 const tabs = [
     { id: 'pribadi', name: 'Identitas & Alamat', subtitle: 'Biodata & Kontak', step: '1' },
@@ -234,6 +247,10 @@ const prevTab = computed(() => currentTabIndex.value > 0 ? tabs[currentTabIndex.
 const nextTab = computed(() => currentTabIndex.value < tabs.length - 1 ? tabs[currentTabIndex.value + 1] : null);
 
 const switchTab = (tabName) => {
+    if (!PROFILE_TAB_IDS.includes(tabName)) {
+        return;
+    }
+
     activeTab.value = tabName;
     if (typeof window !== 'undefined') {
         const container = document.getElementById('profile-form-container');
@@ -247,6 +264,13 @@ const switchTab = (tabName) => {
 
 // Sinkronkan activeTab ke URL dan localStorage agar tidak reset saat refresh
 watch(activeTab, (newTab) => {
+    const normalizedTab = normalizeProfileTab(newTab);
+
+    if (normalizedTab !== newTab) {
+        activeTab.value = normalizedTab;
+        return;
+    }
+
     if (typeof window !== 'undefined') {
         localStorage.setItem(PROFILE_TAB_STORAGE_KEY, newTab);
         const url = new URL(window.location.href);
@@ -273,7 +297,7 @@ const scrollToBottom = () => {
  * Jika nextTabId diberikan, setelah simpan berhasil langsung pindah tab.
  * ====================================================================
  */
-const submit = (nextTabId = null) => {
+const submit = (nextTabId = null, redirectTo = null) => {
     // Validasi nominal gaji sebelum submit
     if (form.gaji && Number(form.gaji) > 0 && Number(form.gaji) < 1000) {
         activeTab.value = 'karier';
@@ -301,9 +325,18 @@ const submit = (nextTabId = null) => {
                 title: 'Data profil berhasil disimpan',
             });
             form.clearErrors();
-            if (nextTabId) {
-                switchTab(nextTabId);
+
+            if (redirectTo) {
+                router.visit(redirectTo);
+
+                return;
             }
+
+            const targetTab = nextTabId && PROFILE_TAB_IDS.includes(nextTabId)
+                ? nextTabId
+                : normalizeProfileTab(activeTab.value);
+
+            switchTab(targetTab);
         },
         onError: (errors) => {
             const firstErr = Object.values(errors)[0] || 'Ada data yang belum lengkap atau salah';
@@ -340,7 +373,7 @@ const submit = (nextTabId = null) => {
         </header>
 
         <main id="profile-form-container" class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
-            <form @submit.prevent="submit" autocomplete="off" class="bg-white rounded-2xl shadow-xs border border-gray-200 relative transition-all duration-300">
+            <form @submit.prevent="submit(null, currentTabIndex === tabs.length - 1 ? '/alumni/kuesioner' : null)" autocomplete="off" class="bg-white rounded-2xl shadow-xs border border-gray-200 relative transition-all duration-300">
                 
                 <!-- Sticky Stepper Navigation (Bersih, Formal & Konsisten) -->
                 <div class="sticky top-[72px] lg:top-20 z-40">

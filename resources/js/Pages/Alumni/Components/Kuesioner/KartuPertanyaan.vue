@@ -505,9 +505,6 @@ const stepNumberInput = (qId, delta) => {
 
         <!-- TIPE INPUT: Pilihan Tunggal / Radio -->
         <div v-else-if="subpertanyaan.type === 'radio' || subpertanyaan.type === 'single_choice'">
-            <div class="inline-block mb-3 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800">
-                Pilih salah satu jawaban
-            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
                 <label v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" :key="opt.id" class="cursor-pointer group block select-none">
                     <input 
@@ -570,9 +567,6 @@ const stepNumberInput = (qId, delta) => {
 
         <!-- TIPE INPUT: Pilihan Ganda / Checkbox -->
         <div v-else-if="subpertanyaan.type === 'checkbox' || subpertanyaan.type === 'multiple_choice'">
-            <div class="inline-block mb-3 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800">
-                Jawaban bisa lebih dari satu
-            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
                 <label v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" :key="opt.id" class="cursor-pointer group block select-none">
                     <input 
@@ -633,9 +627,6 @@ const stepNumberInput = (qId, delta) => {
 
         <!-- TIPE INPUT: Radio Input / Radio Text -->
         <div v-else-if="subpertanyaan.type === 'radio_input' || subpertanyaan.type === 'radio_text'">
-            <div class="inline-block mb-3 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800">
-                Pilih salah satu jawaban
-            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
                 <label v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" :key="opt.id" class="cursor-pointer group block select-none">
                     <input 

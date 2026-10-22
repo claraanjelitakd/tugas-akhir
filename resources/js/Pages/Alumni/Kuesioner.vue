@@ -12,7 +12,7 @@
 -->
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import Navbar from './Components/Navbar.vue';
 import Stepper from './Components/Kuesioner/Stepper.vue';
 import Banner from './Components/Kuesioner/Banner.vue';
@@ -25,13 +25,41 @@ import Navigasi from './Components/Kuesioner/Navigasi.vue';
 const props = defineProps({
     questionnaire: Object,
     initialAnswers: Object,
+    questionnaireStorageKey: String,
     error: String,
 });
 
-// Kunci penyimpanan sesi lokal (localStorage)
-const SECTION_STORAGE_KEY = 'tracerstudy_alumni_kuesioner_section';
-const ANSWERS_STORAGE_KEY = 'tracerstudy_alumni_kuesioner_answers';
-const COMPLETED_SECTIONS_STORAGE_KEY = 'tracerstudy_alumni_kuesioner_completed_sections';
+const hashStorageValue = (value) => {
+    let hash = 0;
+
+    for (let index = 0; index < value.length; index += 1) {
+        hash = ((hash << 5) - hash) + value.charCodeAt(index);
+        hash |= 0;
+    }
+
+    return Math.abs(hash).toString(36);
+};
+
+const getQuestionnaireVersion = () => {
+    const questions = (props.questionnaire?.sections || []).flatMap((section) => section.subpertanyaans || section.questions || []);
+    const signature = questions
+        .map((question) => {
+            const options = (question.detils || question.options || [])
+                .map((option) => `${option.id}:${option.option_text}`)
+                .join(',');
+
+            return `${question.id}:${question.kode_pertanyaan || question.code}:${question.type}:${options}`;
+        })
+        .sort()
+        .join('|');
+
+    return hashStorageValue(signature || 'empty-questionnaire');
+};
+
+const storageScope = `${props.questionnaireStorageKey || 'alumni'}_${getQuestionnaireVersion()}`;
+const SECTION_STORAGE_KEY = `tracerstudy_alumni_kuesioner_section_${storageScope}`;
+const ANSWERS_STORAGE_KEY = `tracerstudy_alumni_kuesioner_answers_${storageScope}`;
+const COMPLETED_SECTIONS_STORAGE_KEY = `tracerstudy_alumni_kuesioner_completed_sections_${storageScope}`;
 
 // Helper pemeriksa nilai kosong
 const isAnswerValEmpty = (val) => {
@@ -742,6 +770,8 @@ const handleNextOrSubmit = () => {
                     localStorage.removeItem(SECTION_STORAGE_KEY);
                     localStorage.removeItem(COMPLETED_SECTIONS_STORAGE_KEY);
                 }
+
+                router.visit('/alumni/kuesioner-prodi');
             }
         });
     } else {

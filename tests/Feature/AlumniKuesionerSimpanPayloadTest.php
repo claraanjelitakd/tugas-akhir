@@ -6,6 +6,7 @@ use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\KelompokPertanyaan;
 use App\Models\Kuesioner;
+use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\RefSubpertanyaan2021;
 use App\Models\Tracer;
@@ -171,5 +172,35 @@ class AlumniKuesionerSimpanPayloadTest extends TestCase
             ->first();
 
         $this->assertEquals('Mencari lewat internet/iklan online, Dihubungi perusahaan', $tracer->answer);
+    }
+
+    public function test_invalid_company_scale_answer_is_not_written_to_enum_column(): void
+    {
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Perusahaan Uji',
+            'skala' => 'Nasional',
+            'status_verifikasi' => 'Menunggu Verifikasi',
+            'jenis_lokasi' => 'Dalam Negeri',
+            'negara' => 'Indonesia',
+        ]);
+        $this->alumni->update(['perusahaan_id' => $company->id]);
+
+        $question = RefSubpertanyaan2021::create([
+            'id' => 24,
+            'kelompok_pertanyaan_id' => $this->kuesioner->sections()->first()->id,
+            'kode_pertanyaan' => 'F2H',
+            'subpertanyaan' => 'Skala perusahaan',
+            'type' => 'radio',
+            'order' => 3,
+        ]);
+
+        $response = $this->actingAs($this->user)->post('/alumni/kuesioner', [
+            'answers' => [
+                (string) $question->id => 'Tingkat yang Sama',
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame('Nasional', $company->fresh()->skala);
     }
 }

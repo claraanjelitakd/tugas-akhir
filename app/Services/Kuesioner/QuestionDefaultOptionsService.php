@@ -12,6 +12,39 @@ use App\Models\RefSubpertanyaan2021;
 class QuestionDefaultOptionsService
 {
     /**
+     * Dapatkan petunjuk pengisian default berdasarkan tipe pertanyaan.
+     */
+    public static function getDefaultInstruction(string $type): ?string
+    {
+        $normalizedType = match ($type) {
+            'radio' => 'single_choice',
+            'checkbox' => 'multiple_choice',
+            default => $type,
+        };
+
+        return match ($normalizedType) {
+            'single_choice' => 'Pilih salah satu jawaban.',
+            'radio_text' => 'Pilih salah satu jawaban. Jika memilih lainnya, tuliskan jawaban.',
+            'radio_input' => 'Pilih salah satu jawaban dan isi angka jika diperlukan.',
+            'multiple_choice' => 'Jawaban dapat lebih dari satu.',
+            'dropdown' => 'Pilih salah satu jawaban.',
+            'searchable_select' => 'Cari dan pilih salah satu jawaban.',
+            'rating_5' => 'Pilih satu nilai pada skala 1 sampai 5.',
+            'multiple_number' => 'Isi nominal pada setiap komponen yang sesuai.',
+            'matrix' => 'Pilih satu jawaban pada setiap baris.',
+            'matrix_dual' => 'Berikan penilaian pada setiap pernyataan.',
+            'multiple_textbox' => 'Isi jawaban pada kolom yang tersedia.',
+            'text' => 'Isi jawaban singkat.',
+            'textarea' => 'Isi jawaban pada kolom yang tersedia.',
+            'number' => 'Isi jawaban dalam angka.',
+            'date' => 'Pilih tanggal yang sesuai.',
+            'time' => 'Pilih waktu yang sesuai.',
+            'file' => 'Unggah berkas sesuai petunjuk.',
+            default => null,
+        };
+    }
+
+    /**
      * Dapatkan daftar teks opsi default berdasarkan tipe pertanyaan.
      *
      * @return array<int, string>

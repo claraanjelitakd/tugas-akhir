@@ -11,6 +11,7 @@ use App\Models\RefFakultas;
 use App\Models\RefSubpertanyaan2021;
 use App\Models\Tracer;
 use App\Models\User;
+use App\Services\Alumni\AdminAlumniProfileService;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -122,6 +123,43 @@ class AlumniProfileEnhancementTest extends TestCase
 
         $response->assertSessionHasErrors('foto');
         $this->assertNull($this->biodata->fresh()->foto);
+    }
+
+    public function test_profile_can_save_other_data_without_reuploading_existing_photo(): void
+    {
+        $photoPath = '/uploads/profile/existing-photo.jpg';
+        $this->biodata->update(['foto' => $photoPath]);
+
+        $response = $this->actingAs($this->alumniUser)->post('/alumni/profile', [
+            'foto' => $photoPath,
+            'nomor_telepon' => '081292090002',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionDoesntHaveErrors('foto');
+        $this->assertSame('081292090002', $this->biodata->fresh()->nomor_telepon);
+        $this->assertSame($photoPath, $this->biodata->fresh()->foto);
+    }
+
+    public function test_admin_profile_stores_a_new_photo_upload(): void
+    {
+        $photo = UploadedFile::fake()->image('admin-profile.jpg');
+
+        AdminAlumniProfileService::updateProfile($this->biodata, [
+            'foto' => $photo,
+        ]);
+
+        $storedPhoto = $this->biodata->fresh()->foto;
+
+        try {
+            $this->assertIsString($storedPhoto);
+            $this->assertStringStartsWith('/uploads/profile/profile_71200001_', $storedPhoto);
+            $this->assertFileExists(public_path(ltrim($storedPhoto, '/')));
+        } finally {
+            if (is_string($storedPhoto)) {
+                @unlink(public_path(ltrim($storedPhoto, '/')));
+            }
+        }
     }
 
     public function test_profile_updates_biodata_without_changing_reference_data(): void

@@ -9,7 +9,8 @@
   - Controller: App\Http\Controllers\Alumni\Profil\ProfilController.php
 -->
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
+import Swal from 'sweetalert2';
 
 /**
  * ====================================================================
@@ -34,11 +35,21 @@ const handleFotoChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
         if (!file.type.startsWith('image/')) {
-            alert('Silakan pilih file gambar (JPG, PNG, atau WebP).');
+            Swal.fire({
+                title: 'Format file tidak sesuai',
+                text: 'Silakan pilih file gambar JPG, PNG, atau WebP.',
+                icon: 'warning',
+                confirmButtonColor: '#0D542B',
+            });
             return;
         }
         if (file.size > 2 * 1024 * 1024) {
-            alert('Ukuran file foto maksimal 2MB.');
+            Swal.fire({
+                title: 'Ukuran foto terlalu besar',
+                text: 'Ukuran file foto maksimal 2MB.',
+                icon: 'warning',
+                confirmButtonColor: '#0D542B',
+            });
             return;
         }
         props.form.foto = file;
@@ -48,6 +59,27 @@ const handleFotoChange = (e) => {
         };
         reader.readAsDataURL(file);
     }
+};
+
+const previewFoto = () => {
+    const fotoUrl = fotoPreview.value || (typeof props.form.foto === 'string' ? props.form.foto : null);
+
+    if (!fotoUrl) {
+        return;
+    }
+
+    Swal.fire({
+        title: 'Preview Foto Profil',
+        imageUrl: fotoUrl,
+        imageAlt: props.form.nama || 'Foto Profil Alumni',
+        showCloseButton: true,
+        showConfirmButton: false,
+        width: 'min(32rem, calc(100vw - 2rem))',
+        customClass: {
+            popup: 'rounded-2xl',
+            image: 'max-h-[70vh] rounded-xl object-contain',
+        },
+    });
 };
 
 // Helper validasi email
@@ -133,13 +165,6 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                             <span class="text-[10px] font-bold text-slate-400 mt-1">Belum Ada</span>
                         </div>
                     </div>
-                    <span 
-                        v-if="fotoPreview || form.foto" 
-                        class="absolute -bottom-1.5 -right-1.5 px-2 py-0.5 bg-[#0D542B] text-white text-[10px] font-bold rounded-full shadow-xs flex items-center gap-1"
-                    >
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
-                        Aktif
-                    </span>
                 </div>
 
                 <div class="flex-1 text-center sm:text-left space-y-2">
@@ -176,14 +201,14 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                             <span>{{ form.foto ? 'Ganti Foto' : 'Unggah Foto' }}</span>
                         </button>
 
-                        <a 
-                            v-if="form.foto && typeof form.foto === 'string'" 
-                            :href="form.foto" 
-                            target="_blank" 
-                            class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition inline-flex items-center"
+                        <button
+                            v-if="fotoPreview || (form.foto && typeof form.foto === 'string')"
+                            type="button"
+                            @click="previewFoto"
+                            class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
                         >
-                            <span>Buka Foto Penuh</span>
-                        </a>
+                            <span>Lihat Foto</span>
+                        </button>
                     </div>
                 </div>
             </div>

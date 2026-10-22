@@ -10,6 +10,9 @@ use App\Models\Perusahaan;
 use App\Models\RefSubpertanyaanDetil;
 use App\Models\Yudisium;
 use App\Services\Kuesioner\KuesionerSyncService;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * AdminAlumniProfileService
@@ -216,6 +219,8 @@ class AdminAlumniProfileService
      */
     public static function updateProfile(Biodata $biodata, array $data): void
     {
+        $fotoPath = self::storeUploadedPhoto($biodata, $data['foto'] ?? null);
+
         // Tangani data perusahaan tracer.
         $perusahaanId = $biodata->perusahaan_id;
         $namaPerusahaan = ! empty($data['nama_perusahaan']) ? trim($data['nama_perusahaan']) : null;
@@ -351,8 +356,8 @@ class AdminAlumniProfileService
             'atasan_id' => $atasanId,
         ];
 
-        if (! empty($data['foto'])) {
-            $biodataUpdates['foto'] = $data['foto'];
+        if ($fotoPath !== null) {
+            $biodataUpdates['foto'] = $fotoPath;
         }
 
         $biodata->update($biodataUpdates);
@@ -379,5 +384,47 @@ class AdminAlumniProfileService
 
         // 10. Sinkronisasi Otomatis ke Jawaban Kuesioner Tracer
         KuesionerSyncService::syncProfileResponses($biodata);
+    }
+
+    /**
+     * Simpan foto baru jika admin memang mengunggah file.
+     *
+     * String URL foto lama sengaja diabaikan agar tidak diperlakukan sebagai file baru.
+     */
+    private static function storeUploadedPhoto(Biodata $biodata, mixed $photo): ?string
+    {
+        if (! $photo instanceof UploadedFile) {
+            return null;
+        }
+
+        if (! $photo->isValid()) {
+            throw ValidationException::withMessages([
+                'foto' => 'Foto gagal diunggah. Silakan pilih file lain.',
+            ]);
+        }
+
+        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (! in_array($photo->getMimeType(), $allowedMimeTypes, true)) {
+            throw ValidationException::withMessages([
+                'foto' => 'Format foto harus JPG, PNG, atau WebP.',
+            ]);
+        }
+
+        if (($photo->getSize() ?? 0) > 2 * 1024 * 1024) {
+            throw ValidationException::withMessages([
+                'foto' => 'Ukuran foto maksimal 2MB.',
+            ]);
+        }
+
+        $directory = public_path('uploads/profile');
+        if (! is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        $safeNim = preg_replace('/[^a-zA-Z0-9_-]/', '', $biodata->nim ?: 'alumni');
+        $filename = "profile_{$safeNim}_".Str::uuid().'.'.$photo->extension();
+        $photo->move($directory, $filename);
+
+        return "/uploads/profile/{$filename}";
     }
 }

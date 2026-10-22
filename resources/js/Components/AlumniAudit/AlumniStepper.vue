@@ -76,23 +76,11 @@ const selectTab = (tabId) => {
                                 'bg-gray-100 text-gray-400 group-hover:bg-gray-200 group-hover:text-gray-600')
                         ]"
                     >
-                        <!-- Tanda centang jika seksi sudah lengkap terisi dan tidak sedang aktif -->
-                        <svg 
-                            v-if="tab.isComplete && modelValue !== tab.id" 
-                            class="w-5 h-5 text-white" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            viewBox="0 0 24 24"
-                        >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="M5 13l4 4L19 7" />
-                        </svg>
-                        
-                        <!-- Angka urutan tahapan (1, 2, 3..) jika sedang aktif atau belum selesai -->
-                        <span v-else>{{ index + 1 }}</span>
+                        <span>{{ index + 1 }}</span>
 
                         <!-- Badge mini centang di sudut kanan atas jika tahapan aktif ini sudah lengkap -->
                         <span 
-                            v-if="modelValue === tab.id && tab.isComplete" 
+                            v-if="false"
                             class="absolute -top-1 -right-1 w-4 h-4 bg-[#005B3C] text-white rounded-full flex items-center justify-center text-[9px] font-black shadow-xs ring-2 ring-white"
                             title="Bagian ini sudah lengkap"
                         >

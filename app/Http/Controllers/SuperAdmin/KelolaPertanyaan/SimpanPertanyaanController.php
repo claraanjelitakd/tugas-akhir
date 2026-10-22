@@ -46,6 +46,10 @@ class SimpanPertanyaanController extends Controller
             $validated['tampil_di'] = 'kuesioner';
         }
 
+        if (empty($validated['keterangan'])) {
+            $validated['keterangan'] = QuestionDefaultOptionsService::getDefaultInstruction($validated['type']);
+        }
+
         $subpertanyaan = RefSubpertanyaan2021::create($validated);
 
         // Otomatis buatkan opsi pilihan default jika pertanyaan mendukung opsi
@@ -77,6 +81,10 @@ class SimpanPertanyaanController extends Controller
 
         if (empty($validated['tampil_di'])) {
             $validated['tampil_di'] = $subpertanyaan->tampil_di ?? 'kuesioner';
+        }
+
+        if (empty($validated['keterangan'])) {
+            $validated['keterangan'] = QuestionDefaultOptionsService::getDefaultInstruction($validated['type']);
         }
 
         $subpertanyaan->update($validated);

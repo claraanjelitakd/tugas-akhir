@@ -28,6 +28,18 @@ use Illuminate\Http\Request;
 class SimpanJawabanController extends Controller
 {
     /**
+     * Nilai yang diizinkan oleh enum perusahaan.skala.
+     *
+     * @var array<int, string>
+     */
+    private const COMPANY_SCALE_VALUES = [
+        'Lokal',
+        'Regional/Lokal',
+        'Nasional',
+        'Internasional',
+    ];
+
+    /**
      * Simpan respon kuesioner tracer study
      */
     public function store(Request $request)
@@ -343,6 +355,10 @@ class SimpanJawabanController extends Controller
                 } elseif (in_array($tabel, ['biodata', 'biodatas', 'alumnis']) && in_array($kolom, $kolomBiodata)) {
                     $dataUpdateBiodata[$kolom] = $answerText;
                 } elseif (in_array($tabel, ['perusahaan', 'companies']) && in_array($kolom, $kolomPerusahaan)) {
+                    if ($kolom === 'skala' && ! in_array(trim($answerText), self::COMPANY_SCALE_VALUES, true)) {
+                        continue;
+                    }
+
                     $dataUpdatePerusahaan[$kolom] = $answerText;
                 } elseif (in_array($tabel, ['atasan', 'atasans']) && in_array($kolom, $kolomAtasan)) {
                     $dataUpdateAtasan[$kolom] = $answerText;

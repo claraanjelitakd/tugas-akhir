@@ -1,18 +1,10 @@
 <script setup>
-import { ref } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 
 defineProps({
     message: String,
 });
 
-const tokenInput = ref('');
-
-const goToForm = () => {
-    if (tokenInput.value.trim()) {
-        router.visit(`/evaluasi-atasan/${tokenInput.value.trim()}`);
-    }
-};
 </script>
 
 <template>
@@ -62,29 +54,6 @@ const goToForm = () => {
                     <p class="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
                         {{ message || 'Tautan formulir evaluasi atasan yang Anda buka tidak memiliki token valid atau telah kadaluarsa.' }}
                     </p>
-                </div>
-
-                <!-- Input Kode Token Manual jika atasan memiliki token -->
-                <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 text-left space-y-2">
-                    <label class="block text-xs font-bold text-slate-800">
-                        Punya Kode Token dari Undangan WhatsApp / Email?
-                    </label>
-                    <div class="flex gap-2">
-                        <input 
-                            v-model="tokenInput"
-                            type="text" 
-                            placeholder="Tempel / ketik kode token di sini..." 
-                            class="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
-                            @keyup.enter="goToForm"
-                        />
-                        <button 
-                            @click="goToForm" 
-                            :disabled="!tokenInput.trim()"
-                            class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] disabled:opacity-40 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer border-b-2 border-[#FDC700]"
-                        >
-                            Buka
-                        </button>
-                    </div>
                 </div>
 
                 <div class="pt-2">

@@ -113,15 +113,15 @@ class LoginController extends Controller
     {
         switch ($peran) {
             case 'superadmin':
-                return redirect()->intended('/superadmin/dashboard');
+                return redirect('/superadmin/dashboard');
             case 'admin_biro3':
-                return redirect()->intended('/biro3/dashboard');
+                return redirect('/biro3/dashboard');
             case 'admin_fakultas':
-                return redirect()->intended('/fakultas/dashboard');
+                return redirect('/fakultas/dashboard');
             case 'admin_prodi':
-                return redirect()->intended('/prodi/dashboard');
+                return redirect('/prodi/dashboard');
             case 'alumni':
-                return redirect()->intended('/alumni/dashboard');
+                return redirect('/alumni/dashboard');
             default:
                 return redirect('/');
         }

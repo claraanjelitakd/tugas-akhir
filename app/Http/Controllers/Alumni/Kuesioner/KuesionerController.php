@@ -307,6 +307,7 @@ class KuesionerController extends Controller
             'kuesioner' => $kuesioner,
             'questionnaire' => $kuesioner,
             'initialAnswers' => $jawabanAwal,
+            'questionnaireStorageKey' => 'alumni_'.$pengguna->id.'_kuesioner_'.$kuesioner->id,
             'error' => null,
         ]);
     }

@@ -29,9 +29,11 @@ class SimpanProfilController extends Controller
      */
     public function simpanPerubahanProfil(Request $request)
     {
-        $request->validate([
-            'foto' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-        ]);
+        if ($request->hasFile('foto')) {
+            $request->validate([
+                'foto' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            ]);
+        }
 
         $pengguna = $request->user();
         $biodata = $pengguna->biodata;

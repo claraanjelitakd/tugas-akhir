@@ -78,4 +78,25 @@ class SecurityHardeningTest extends TestCase
             'password' => 'PasswordAdminYangAman!',
         ])->assertRedirect('/biro3/dashboard');
     }
+
+    public function test_superadmin_login_always_uses_the_superadmin_dashboard(): void
+    {
+        User::create([
+            'username' => 'superadmin-login',
+            'name' => 'Superadmin Login',
+            'email' => 'superadmin-login@example.com',
+            'password' => Hash::make('PasswordSuperadminYangAman!'),
+            'role' => 'superadmin',
+            'must_change_password' => false,
+        ]);
+
+        $response = $this->withSession([
+            'url.intended' => '/alumni/dashboard',
+        ])->post('/login', [
+            'username' => 'superadmin-login',
+            'password' => 'PasswordSuperadminYangAman!',
+        ]);
+
+        $response->assertRedirect('/superadmin/dashboard');
+    }
 }

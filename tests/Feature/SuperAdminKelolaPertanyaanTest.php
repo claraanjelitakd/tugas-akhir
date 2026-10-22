@@ -88,6 +88,7 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
             'kode_pertanyaan' => 'F302_TEST',
             'subpertanyaan' => 'Berapa banyak perusahaan yang Anda lamar?',
             'tampil_di' => 'kuesioner',
+            'keterangan' => 'Isi jawaban dalam angka.',
         ]);
     }
 
@@ -123,6 +124,7 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
             'id' => $question->id,
             'tampil_di' => 'profile',
             'subpertanyaan' => 'Pertanyaan Diperbarui',
+            'keterangan' => 'Isi jawaban singkat.',
         ]);
     }
 

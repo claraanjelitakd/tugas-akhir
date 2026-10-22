@@ -27,7 +27,7 @@ const emit = defineEmits(['select-tab']);
                     @click="emit('select-tab', tab.id)"
                     :title="'Langkah ' + tab.step + ': ' + tab.name"
                 >
-                    <!-- Lingkaran Angka / Centang Selesai -->
+                    <!-- Lingkaran Angka Tahapan -->
                     <div 
                         class="flex items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-full font-bold text-xs sm:text-sm transition-all duration-200 z-10 shadow-xs relative"
                         :class="[
@@ -38,23 +38,11 @@ const emit = defineEmits(['select-tab']);
                                 'bg-slate-100 text-slate-500 border border-slate-300 group-hover:bg-slate-200 group-hover:text-slate-700')
                         ]"
                     >
-                        <!-- Tanda centang putih jika tahapan sudah lengkap dan tidak sedang dibuka -->
-                        <svg 
-                            v-if="isTabCompleted(tab.id) && activeTab !== tab.id" 
-                            class="w-4 h-4 sm:w-5 sm:h-5 text-white" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            viewBox="0 0 24 24"
-                        >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                        
-                        <!-- Angka langkah (1, 2, 3, 4) jika sedang aktif atau belum lengkap -->
-                        <span v-else>{{ tab.step }}</span>
+                        <span>{{ tab.step }}</span>
 
                         <!-- Badge mini centang di sudut kanan atas jika tahapan aktif ini sudah lengkap -->
                         <span 
-                            v-if="activeTab === tab.id && isTabCompleted(tab.id)" 
+                            v-if="false"
                             class="absolute -top-1 -right-1 w-4 h-4 bg-emerald-600 text-white rounded-full flex items-center justify-center text-[9px] font-bold shadow-xs ring-2 ring-white"
                             title="Langkah ini sudah lengkap"
                         >
