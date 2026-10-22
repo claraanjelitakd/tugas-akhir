@@ -44,30 +44,30 @@
   <line x1="520" y1="100" x2="520" y2="1360" stroke="#6b1d2f" stroke-width="2" />
 
   <!-- Content Elements -->
-  
+
     <!-- Initial Node -->
     <circle cx="272" cy="175" r="13" fill="#6b1d2f" stroke="#3a1014" stroke-width="1.5" />
-    
+
 <line x1="272" y1="188" x2="272" y2="225" class="flow-line" />
 
     <!-- Action State -->
     <rect x="162" y="226" width="220" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="272" y="243" class="action-text">Pilih Profil Alumni</text>
 <text x="272" y="260" class="action-sub">Buka Detail Alumni &amp; Verifikasi URL</text>
-    
+
 <line x1="272" y1="274" x2="272" y2="320" class="flow-line" />
 
     <!-- Action State -->
     <rect x="162" y="321" width="220" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="272" y="338" class="action-text">Klik &#x27;Sinkronkan LinkedIn&#x27;</text>
 <text x="272" y="355" class="action-sub">Kirim Permintaan Sinkronisasi</text>
-    
+
 <polyline points="382,345 767,345 767,400" class="flow-line" />
 <text x="717" y="380" class="guard-text" text-anchor="right">[ Validasi Format URL ]</text>
 
     <!-- Decision Node -->
     <polygon points="767,402 790,420 767,438 744,420" fill="#fefee8" stroke="#6b1d2f" stroke-width="2" filter="url(#soft-shadow)" />
-    
+
 <line x1="790" y1="420" x2="897" y2="420" class="flow-line" />
 <text x="837" y="412" class="guard-text" text-anchor="center">[URL invalid]</text>
 
@@ -75,7 +75,7 @@
     <circle cx="912" cy="420" r="13" fill="#ffffff" stroke="#6b1d2f" stroke-width="2" />
     <line x1="905" y1="413" x2="919" y2="427" stroke="#6b1d2f" stroke-width="2" stroke-linecap="round"/>
     <line x1="919" y1="413" x2="905" y2="427" stroke="#6b1d2f" stroke-width="2" stroke-linecap="round"/>
-    
+
 <line x1="767" y1="438" x2="767" y2="495" class="flow-line" />
 <text x="777" y="465" class="guard-text" text-anchor="left">[URL valid]</text>
 
@@ -83,19 +83,19 @@
     <rect x="652" y="496" width="230" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="767" y="513" class="action-text">Siapkan Payload &amp; Token</text>
 <text x="767" y="530" class="action-sub">Kirim HTTP POST ke Apify Scraper</text>
-    
+
 <line x1="767" y1="544" x2="767" y2="585" class="flow-line" />
 
     <!-- Action State -->
     <rect x="652" y="586" width="230" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="767" y="603" class="action-text">Terima JSON Dataset Apify</text>
 <text x="767" y="620" class="action-sub">Ekstrak Jabatan, Perusahaan, Skill</text>
-    
+
 <line x1="767" y1="634" x2="767" y2="675" class="flow-line" />
 
     <!-- Decision Node -->
     <polygon points="767,677 790,695 767,713 744,695" fill="#fefee8" stroke="#6b1d2f" stroke-width="2" filter="url(#soft-shadow)" />
-    
+
 <line x1="790" y1="695" x2="897" y2="695" class="flow-line" />
 <text x="837" y="687" class="guard-text" text-anchor="center">[gagal / privat]</text>
 
@@ -103,7 +103,7 @@
     <circle cx="912" cy="695" r="13" fill="#ffffff" stroke="#6b1d2f" stroke-width="2" />
     <line x1="905" y1="688" x2="919" y2="702" stroke="#6b1d2f" stroke-width="2" stroke-linecap="round"/>
     <line x1="919" y1="688" x2="905" y2="702" stroke="#6b1d2f" stroke-width="2" stroke-linecap="round"/>
-    
+
 <line x1="767" y1="713" x2="767" y2="765" class="flow-line" />
 <text x="777" y="738" class="guard-text" text-anchor="left">[sukses 200 OK]</text>
 
@@ -111,26 +111,26 @@
     <rect x="647" y="765" width="240" height="50" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="767" y="783" class="action-text">Simpan ke &#x27;linkedin_sync_results&#x27;</text>
 <text x="767" y="800" class="action-sub">Set Status Staging: &#x27;PENDING&#x27;</text>
-    
+
 <line x1="767" y1="815" x2="767" y2="860" class="flow-line" />
 
     <!-- Action State -->
     <rect x="652" y="861" width="230" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="767" y="878" class="action-text">Kirim Sinyal Modal Review</text>
 <text x="767" y="895" class="action-sub">Payload Staging Siap Ditinjau</text>
-    
+
 <polyline points="652,885 272,885 272,935" class="flow-line" />
 
     <!-- Action State -->
     <rect x="162" y="936" width="220" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="272" y="953" class="action-text">Buka Modal Review Perbandingan</text>
 <text x="272" y="970" class="action-sub">Periksa Komparasi Data Sistem vs Apify</text>
-    
+
 <line x1="272" y1="984" x2="272" y2="1030" class="flow-line" />
 
     <!-- Decision Node -->
     <polygon points="272,1032 295,1050 272,1068 249,1050" fill="#fefee8" stroke="#6b1d2f" stroke-width="2" filter="url(#soft-shadow)" />
-    
+
 <polyline points="249,1050 172,1050 172,1125" class="flow-line" />
 <text x="187" y="1042" class="guard-text" text-anchor="center">[Tolak/Reject]</text>
 
@@ -138,14 +138,14 @@
     <rect x="92" y="1126" width="160" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="172" y="1143" class="action-text">Set REJECTED</text>
 <text x="172" y="1160" class="action-sub">Simpan Log Penolakan</text>
-    
+
 <line x1="172" y1="1174" x2="172" y2="1225" class="flow-line" />
 
     <!-- Flow Final Node (Crossed Circle) -->
     <circle cx="172" cy="1240" r="13" fill="#ffffff" stroke="#6b1d2f" stroke-width="2" />
     <line x1="165" y1="1233" x2="179" y2="1247" stroke="#6b1d2f" stroke-width="2" stroke-linecap="round"/>
     <line x1="179" y1="1233" x2="165" y2="1247" stroke="#6b1d2f" stroke-width="2" stroke-linecap="round"/>
-    
+
 <polyline points="295,1050 392,1050 392,1090 767,1090 767,1125" class="flow-line" />
 <text x="352" y="1042" class="guard-text" text-anchor="center">[Setujui/Approve]</text>
 
@@ -153,19 +153,19 @@
     <rect x="652" y="1125" width="230" height="50" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="767" y="1143" class="action-text">Update Database Biodata</text>
 <text x="767" y="1160" class="action-sub">Terapkan Data &amp; Link Perusahaan</text>
-    
+
 <line x1="767" y1="1175" x2="767" y2="1220" class="flow-line" />
 
     <!-- Action State -->
     <rect x="652" y="1221" width="230" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="767" y="1238" class="action-text">Set Status APPROVED</text>
 <text x="767" y="1255" class="action-sub">Catat Riwayat Log Audit</text>
-    
+
 <line x1="767" y1="1269" x2="767" y2="1315" class="flow-line" />
 
     <!-- Final Node (Bullseye) -->
     <circle cx="767" cy="1330" r="14" fill="#ffffff" stroke="#6b1d2f" stroke-width="2" />
     <circle cx="767" cy="1330" r="8.5" fill="#6b1d2f" />
-    
+
 
 </svg>

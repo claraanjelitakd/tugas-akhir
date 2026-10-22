@@ -154,7 +154,7 @@
 
 ### Ringkasan Pembaruan
 1. **Peningkatan UX & Desain Formulir Profil Alumni (`/alumni/profile`)**:
-   - **Stepper Horizontal Full-Width**: Mengganti tombol tab yang datar dengan komponen modular [`Stepper.vue`](resources/js/Components/AlumniProfil/Stepper.vue) yang membentang penuh (*full-width*) selebar kartu form. Dilengkapi nomor langkah 1..4, centang putih (`✓`) dinamis, serta status badge *"Sudah Lengkap"* saat seluruh atribut wajib di tahapan tersebut telah terpenuhi secara valid.
+   - **Stepper Horizontal Full-Width**: Mengganti tombol tab yang datar dengan komponen modular [`Stepper.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/Stepper.vue) yang membentang penuh (*full-width*) selebar kartu form. Dilengkapi nomor langkah 1..4, centang putih (`✓`) dinamis, serta status badge *"Sudah Lengkap"* saat seluruh atribut wajib di tahapan tersebut telah terpenuhi secara valid.
    - **Menghilangkan Kesan Tombol Ganda (*Double Buttons*)**: Menyederhanakan *Bottom Action Bar* dari sebelumnya dua tombol bersaing (`Lanjut` vs `Simpan Perubahan`) menjadi satu alur jelas:
      - Tahap 1 s.d. 3: Tombol utama hijau **`Simpan & Lanjut: [Nama Langkah Berikutnya] →`** (menyimpan data form secara otomatis dan memindahkan tampilan ke tab berikutnya) didampingi tombol sekunder **`Simpan Saja`**.
      - Tahap 4 (Terakhir): Tombol utama hijau tunggal **`Simpan Seluruh Profil`**.
@@ -164,10 +164,10 @@
 
 2. **Refaktorisasi Modular & Harmonisasi Kuesioner Prodi dengan Kuesioner Universitas**:
    - **Komponen Kuesioner Prodi Modular**: Memecah halaman monolitik `KuesionerProdi.vue` menjadi sub-komponen terisolasi di `resources/js/Pages/Alumni/Components/KuesionerProdi/`:
-     - [`Banner.vue`](resources/js/Pages/Alumni/Components/KuesionerProdi/Banner.vue): Banner identitas prodi, status kelulusan, dan batas waktu pengisian.
-     - [`Stepper.vue`](resources/js/Pages/Alumni/Components/KuesionerProdi/Stepper.vue): Indikator tahapan seksi prodi dengan nomor seksi sekuensial dan centang validasi selesai.
-     - [`KartuPertanyaanProdi.vue`](resources/js/Pages/Alumni/Components/KuesionerProdi/KartuPertanyaanProdi.vue): Rendering dinamis tipe pertanyaan teks, angka, radio, checkbox, dropdown, dan skala Likert.
-     - [`Navigasi.vue`](resources/js/Pages/Alumni/Components/KuesionerProdi/Navigasi.vue): Tombol navigasi seksi sebelumnya, selanjutnya, dan simpan jawaban kuesioner prodi.
+     - [`Banner.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/KuesionerProdi/Banner.vue): Banner identitas prodi, status kelulusan, dan batas waktu pengisian.
+     - [`Stepper.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/KuesionerProdi/Stepper.vue): Indikator tahapan seksi prodi dengan nomor seksi sekuensial dan centang validasi selesai.
+     - [`KartuPertanyaanProdi.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/KuesionerProdi/KartuPertanyaanProdi.vue): Rendering dinamis tipe pertanyaan teks, angka, radio, checkbox, dropdown, dan skala Likert.
+     - [`Navigasi.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/KuesionerProdi/Navigasi.vue): Tombol navigasi seksi sebelumnya, selanjutnya, dan simpan jawaban kuesioner prodi.
    - **Konsistensi Visual & Label Wajib**: Menyamakan estetika visual stepper, tombol navigasi, dan indikator wajib (tanda bintang merah `*` standar) antara Kuesioner Universitas dan Kuesioner Prodi.
    - **Pembersihan Seed & Filter**: Memperbaiki seeder pertanyaan prodi untuk memastikan tidak ada pertanyaan wisuda yang tidak relevan.
 
@@ -192,21 +192,21 @@
 
 ### Ringkasan Pembaruan
 1. **Navigasi Terarah & Deep Linking dari Detail Alumni (`/superadmin/alumni/{id}`) ke LinkedIn Sync**:
-   - **Tautan Banner Terarah**: Mengubah tautan gambar/logo LinkedIn dan tombol *"Buka Menu LinkedIn Sync &rarr;"* pada kartu banner *Audit & Trace Hasil Scraping LinkedIn* di [`Show.vue`](resources/js/Pages/SuperAdmin/Alumni/Show.vue) dari rute umum (`/superadmin/linkedin-sync`) menjadi rute terarah berparameter query:
+   - **Tautan Banner Terarah**: Mengubah tautan gambar/logo LinkedIn dan tombol *"Buka Menu LinkedIn Sync &rarr;"* pada kartu banner *Audit & Trace Hasil Scraping LinkedIn* di [`Show.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Alumni/Show.vue) dari rute umum (`/superadmin/linkedin-sync`) menjadi rute terarah berparameter query:
      `/superadmin/linkedin-sync?alumni_id=${alumni.id}&search=${encodeURIComponent(alumni.nim || alumni.nama)}`.
-   - **Deteksi Tahun Kelulusan Otomatis (Backend)**: Di [`LinkedInSyncController.php`](app/Http/Controllers/Shared/LinkedInSyncController.php), saat parameter `alumni_id` diterima, controller otomatis mendeteksi tahun kelulusan alumni terkait (`tahun_lulus` / `dataAkademik->tahun_lulus`) dan mengeset `$tahunTerpilih` ke tahun tersebut, serta menyertakan alumni dalam kueri data sehingga alumni yang dicari dipastikan muncul di tabel tanpa terblokir oleh filter default tahun terkini.
-   - **State Initial Search & Row Highlighting (Frontend)**: Di [`Index.vue`](resources/js/Pages/SuperAdmin/LinkedIn/Index.vue), props `targetAlumniId` dan `initialSearch` diterima. State `search` otomatis terisi dengan NIM/nama alumni target.
+   - **Deteksi Tahun Kelulusan Otomatis (Backend)**: Di [`LinkedInSyncController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Shared/LinkedInSyncController.php), saat parameter `alumni_id` diterima, controller otomatis mendeteksi tahun kelulusan alumni terkait (`tahun_lulus` / `dataAkademik->tahun_lulus`) dan mengeset `$tahunTerpilih` ke tahun tersebut, serta menyertakan alumni dalam kueri data sehingga alumni yang dicari dipastikan muncul di tabel tanpa terblokir oleh filter default tahun terkini.
+   - **State Initial Search & Row Highlighting (Frontend)**: Di [`Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/LinkedIn/Index.vue), props `targetAlumniId` dan `initialSearch` diterima. State `search` otomatis terisi dengan NIM/nama alumni target.
    - **Visual Feedback & Auto-Scroll**: Baris alumni target ditandai dengan sorotan cincin hijau emerald (`ring-2 ring-emerald-500 bg-emerald-50/80`), badge animasi *"Profil Dipilih"*, dan secara otomatis digulirkan (*smooth auto-scroll*) ke tengah layar viewport saat halaman dimuat (`onMounted`).
 
 2. **Tombol Aksi Detail Alumni (Ikon Mata) di Tabel LinkedIn Sync**:
-   - **Aksi Cepat Lintas Modul**: Pada tabel sinkronisasi LinkedIn di [`Index.vue`](resources/js/Pages/SuperAdmin/LinkedIn/Index.vue), menambahkan tombol aksi dengan ikon mata SVG (*Lihat Detail Alumni*) di kolom **Aksi** untuk kedua mode provider (baik Apify Provider maupun Official Provider).
+   - **Aksi Cepat Lintas Modul**: Pada tabel sinkronisasi LinkedIn di [`Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/LinkedIn/Index.vue), menambahkan tombol aksi dengan ikon mata SVG (*Lihat Detail Alumni*) di kolom **Aksi** untuk kedua mode provider (baik Apify Provider maupun Official Provider).
    - **Tautan Langsung**: Mengarahkan Super Admin langsung ke halaman Detail Alumni terkait (`/superadmin/alumni/{alumni.id}`), e.g. `http://127.0.0.1:8000/superadmin/alumni/23`, untuk mempermudah pengecekan lembar kuesioner universitas, kuesioner prodi, evaluasi atasan, dan tab audit trace LinkedIn.
 
 3. **Standarisasi Penamaan Kolom `skills` & `experience` pada Tabel `biodata`**:
-   - **Migrasi Database**: Menjalankan migrasi [`2026_10_08_000000_rename_minat_and_expert_to_experience_and_skills_in_biodata_table.php`](database/migrations/2026_10_08_000000_rename_minat_and_expert_to_experience_and_skills_in_biodata_table.php) yang mengganti nama kolom:
+   - **Migrasi Database**: Menjalankan migrasi [`2026_10_08_000000_rename_minat_and_expert_to_experience_and_skills_in_biodata_table.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_10_08_000000_rename_minat_and_expert_to_experience_and_skills_in_biodata_table.php) yang mengganti nama kolom:
      - `expert` &rarr; `skills` (daftar keahlian teknis alumni)
      - `minat` &rarr; `experience` (riwayat pengalaman kerja & profesional alumni)
-   - **Model & Service Update**: Memperbarui `$fillable` pada [`Biodata.php`](app/Models/Biodata.php), pemetaan controller [`SimpanProfilController.php`](app/Http/Controllers/Alumni/Profil/SimpanProfilController.php), [`AdminAlumniProfileService.php`](app/Services/Alumni/AdminAlumniProfileService.php), ekspor Excel `AlumniDataSheet.php`, dan seeder [`BiodataSeeder.php`](database/seeders/BiodataSeeder.php).
+   - **Model & Service Update**: Memperbarui `$fillable` pada [`Biodata.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Biodata.php), pemetaan controller [`SimpanProfilController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Profil/SimpanProfilController.php), [`AdminAlumniProfileService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Alumni/AdminAlumniProfileService.php), ekspor Excel `AlumniDataSheet.php`, dan seeder [`BiodataSeeder.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/seeders/BiodataSeeder.php).
    - **Replikasi Database View**: Memperbarui view SQL `v_alumni_profile_summary` dan `v_alumni_audit_rekap` untuk mereferensikan `b.skills` dan `b.experience`.
 
 4. **Verifikasi Kualitas & Pengujian Menyeluruh**:
@@ -220,32 +220,32 @@
 
 ### Ringkasan Pembaruan
 1. **Penyediaan Provider Pihak Ketiga LinkedIn (Apify Scraper Engine)**:
-   - **Multi-Provider Architecture**: Menambahkan [`ApifyLinkedInProvider.php`](app/Services/LinkedIn/Providers/ApifyLinkedInProvider.php) yang mengimplementasikan `LinkedInProfileProvider` tanpa mengganggu Provider Resmi LinkedIn API Server-to-Server (`ApiLinkedInProvider`) maupun Mock Provider (`MockLinkedInProvider`).
+   - **Multi-Provider Architecture**: Menambahkan [`ApifyLinkedInProvider.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/LinkedIn/Providers/ApifyLinkedInProvider.php) yang mengimplementasikan `LinkedInProfileProvider` tanpa mengganggu Provider Resmi LinkedIn API Server-to-Server (`ApiLinkedInProvider`) maupun Mock Provider (`MockLinkedInProvider`).
    - **Actor Support**: Terintegrasi dengan Actor Apify `data_forge_org~linkedin-scraper` dan `apify/linkedin-profile-scraper` menggunakan Bearer token authentication (`APIFY_API_TOKEN`) dan pemantauan status run otomatis via polling dataset API.
    - **Cost Safety & Rate Limiting**: Sinkronisasi dibatasi 1 profil per request (menonaktifkan bulk sync massal untuk provider pihak ketiga) guna menjaga kuota Apify.
 
 2. **Tabel Staging & Histori Audit Trail (`linkedin_sync_results`)**:
-   - **Migrasi**: [`2026_10_05_130000_create_linkedin_sync_results_table.php`](database/migrations/2026_10_05_130000_create_linkedin_sync_results_table.php) menyematkan kolom `biodata_id`, `linkedin_url`, `linkedin_username`, `scraped_data` (JSON mentah lengkap), `status` (*pending*, *approved*, *rejected*), `reviewed_by`, `reviewed_at`, dan `scraped_at`.
-   - **Model Eloquent**: [`LinkedinSyncResult.php`](app/Models/LinkedinSyncResult.php) dengan relasi `belongsTo(Biodata::class)` dan `belongsTo(User::class, 'reviewed_by')`.
-   - **Relasi Biodata**: Menambahkan relasi `linkedinSyncResults()` dan `latestLinkedinSyncResult()` pada [`Biodata.php`](app/Models/Biodata.php).
+   - **Migrasi**: [`2026_10_05_130000_create_linkedin_sync_results_table.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_10_05_130000_create_linkedin_sync_results_table.php) menyematkan kolom `biodata_id`, `linkedin_url`, `linkedin_username`, `scraped_data` (JSON mentah lengkap), `status` (*pending*, *approved*, *rejected*), `reviewed_by`, `reviewed_at`, dan `scraped_at`.
+   - **Model Eloquent**: [`LinkedinSyncResult.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/LinkedinSyncResult.php) dengan relasi `belongsTo(Biodata::class)` dan `belongsTo(User::class, 'reviewed_by')`.
+   - **Relasi Biodata**: Menambahkan relasi `linkedinSyncResults()` dan `latestLinkedinSyncResult()` pada [`Biodata.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Biodata.php).
    - **Proteksi Data Utama**: Hasil scraping tidak langsung menimpa tabel `biodata` dan `perusahaan`, melainkan melalui alur review dan persetujuan (approval) oleh Super Admin.
 
 3. **Sinkronisasi Fisik Foto Profil Alumni (`public/uploads/profile/`)**:
    - **Download Permanen**: Sistem secara otomatis mengunduh file gambar profil dari CDN LinkedIn dan menyimpannya secara fisik ke `public/uploads/profile/profile_{NIM}_{timestamp}.jpg`. Hal ini mencegah foto menjadi *broken image* akibat token URL LinkedIn yang kedaluwarsa (*expired*) atau terblokir kebijakan CORS/hotlinking.
-   - **Pemberian Akses Data Form**: Menambahkan kolom `'foto' => $biodata?->foto ?? ''` pada [`ProfilController.php`](app/Http/Controllers/Alumni/Profil/ProfilController.php) dan [`AdminAlumniProfileService.php`](app/Services/Alumni/AdminAlumniProfileService.php) agar foto profil dapat diakses seragam oleh Alumni, Super Admin, Admin Prodi, Admin Fakultas, dan Biro 3.
-   - **Avatar & Upload UI**: Menambahkan kartu foto profil di [`FormPribadi.vue`](resources/js/Components/AlumniProfil/FormPribadi.vue) dengan status verifikasi, pratinjau instan, tautan resolusi penuh, dan opsi unggah file mandiri (JPG/PNG max 2MB).
-   - **Header Avatar**: Menampilkan avatar foto profil alumni pada header halaman detail mahasiswa ([`SuperAdmin/Alumni/Show.vue`](resources/js/Pages/SuperAdmin/Alumni/Show.vue)).
+   - **Pemberian Akses Data Form**: Menambahkan kolom `'foto' => $biodata?->foto ?? ''` pada [`ProfilController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Profil/ProfilController.php) dan [`AdminAlumniProfileService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Alumni/AdminAlumniProfileService.php) agar foto profil dapat diakses seragam oleh Alumni, Super Admin, Admin Prodi, Admin Fakultas, dan Biro 3.
+   - **Avatar & Upload UI**: Menambahkan kartu foto profil di [`FormPribadi.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormPribadi.vue) dengan status verifikasi, pratinjau instan, tautan resolusi penuh, dan opsi unggah file mandiri (JPG/PNG max 2MB).
+   - **Header Avatar**: Menampilkan avatar foto profil alumni pada header halaman detail mahasiswa ([`SuperAdmin/Alumni/Show.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Alumni/Show.vue)).
 
 4. **Penyesuaian Status Pekerjaan & Fleksibilitas Jabatan Kustom**:
-   - **Normalisasi Status Pekerjaan**: Menyimpan status pekerjaan sebagai `'Pekerja'` (bukan `'Bekerja (Full Time)'`) saat approve LinkedIn, sehingga kartu radio **Pekerja / Karyawan** di [`FormKarier.vue`](resources/js/Components/AlumniProfil/FormKarier.vue) otomatis aktif dan terpilih.
+   - **Normalisasi Status Pekerjaan**: Menyimpan status pekerjaan sebagai `'Pekerja'` (bukan `'Bekerja (Full Time)'`) saat approve LinkedIn, sehingga kartu radio **Pekerja / Karyawan** di [`FormKarier.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue) otomatis aktif dan terpilih.
    - **Dukungan Jabatan Non-Standar**: Jabatan profesional dari LinkedIn (seperti *"Wakil Dekan I"*) otomatis disisipkan ke dropdown jabatan struktural (F2G), dan ditambahkan tombol toggle **`+ Tulis Jabatan Kustom`** untuk fleksibilitas pengetikan posisi jabatan di luar pilihan baku Dikti.
    - **Integritas Perusahaan**: Perusahaan baru yang dibuat dari LinkedIn selalu disetel berstatus `'Menunggu Verifikasi'` untuk mematuhi regulasi validasi universitas.
 
 5. **Tab Audit Trace Pemetaan Data LinkedIn (Detail Alumni Super Admin)**:
-   - **Tab 4 Show.vue**: Menambahkan **Tab 4: Hasil Scraping & Trace LinkedIn** pada [`SuperAdmin/Alumni/Show.vue`](resources/js/Pages/SuperAdmin/Alumni/Show.vue).
+   - **Tab 4 Show.vue**: Menambahkan **Tab 4: Hasil Scraping & Trace LinkedIn** pada [`SuperAdmin/Alumni/Show.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Alumni/Show.vue).
    - **Audit Trace Table**: Tabel komprehensif yang memetakan seluruh atribut scraping mentah Apify (No, Key, Deskripsi, Nilai Scraping, Target Tabel & Kolom Database, Nilai Aktual di Database Saat Ini, dan Status Audit).
    - **Fitur Pendukung**: Kotak pencarian filter teks real-time, syntax viewer JSON mentah dengan tombol salin (*Copy Raw JSON*), serta tabel histori staging sinkronisasi sebelumnya.
-   - **Route Alias**: Menambahkan rute alias `/superadmin/linkedin` dan `/superadmin/linkedin-sync` pada [`routes/web.php`](routes/web.php) untuk mencegah 404.
+   - **Route Alias**: Menambahkan rute alias `/superadmin/linkedin` dan `/superadmin/linkedin-sync` pada [`routes/web.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/routes/web.php) untuk mencegah 404.
 
 6. **Quality Assurance & Pengujian Otomatis**:
    - ✅ **40 Feature Tests LinkedIn** lulus (`tests/Feature/SuperAdminLinkedInSyncTest.php` & `tests/Feature/ApifyLinkedInProviderTest.php`).
@@ -268,8 +268,8 @@
 
 2. **Konsolidasi Migrasi "Create-Only" & Pembersihan File Patch**:
    - **Migrasi Bersih & Terstruktur**:
-     - [`2026_09_01_171342_create_companies_table.php`](database/migrations/2026_09_01_171342_create_companies_table.php): Definisi murni tabel `perusahaan` mencakup kolom baru `homepage`, `no_telp_fax`, `bentuk_perusahaan`, `jumlah_pegawai` dengan komentar skema lengkap.
-     - [`2026_10_05_120000_create_evaluasi_atasans_table.php`](database/migrations/2026_10_05_120000_create_evaluasi_atasans_table.php): Definisi murni tabel `evaluasi_atasan`, `pertanyaan_evaluasi_atasan`, dan `respon_evaluasi_atasan` tanpa perlu patch alter/drop column tambahan.
+     - [`2026_09_01_171342_create_companies_table.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_09_01_171342_create_companies_table.php): Definisi murni tabel `perusahaan` mencakup kolom baru `homepage`, `no_telp_fax`, `bentuk_perusahaan`, `jumlah_pegawai` dengan komentar skema lengkap.
+     - [`2026_10_05_120000_create_evaluasi_atasans_table.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_10_05_120000_create_evaluasi_atasans_table.php): Definisi murni tabel `evaluasi_atasan`, `pertanyaan_evaluasi_atasan`, dan `respon_evaluasi_atasan` tanpa perlu patch alter/drop column tambahan.
    - **Penghapusan File Migrasi Patch Usang**:
      - Menghapus `database/migrations/2026_10_05_130000_update_evaluasi_atasan_and_perusahaan_tables.php`.
      - Menghapus `database/migrations/2026_10_05_130500_remove_kuesioner_columns_from_evaluasi_atasan_table.php`.
@@ -277,16 +277,16 @@
    - **Sinkronisasi Status Migrasi**: Membersihkan riwayat tabel `migrations` sehingga `php artisan migrate:status` berstatus rapi dan seluruh batch valid.
 
 3. **Restrukturisasi Seeder Pertanyaan Evaluasi Atasan**:
-   - [`PertanyaanEvaluasiAtasanSeeder.php`](database/seeders/PertanyaanEvaluasiAtasanSeeder.php):
+   - [`PertanyaanEvaluasiAtasanSeeder.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/seeders/PertanyaanEvaluasiAtasanSeeder.php):
      - Butir Urutan 1 (`KES_1`): Tingkat Kesiapan Alumni dalam Bekerja (Tipe: `pilihan_ganda`, opsi: *Sangat siap*, *Cukup Siap*, *Kurang siap*, *Tidak siap*).
      - Butir Urutan 2 s/d 13 (`ASP_01` s/d `ASP_12`): 12 Aspek Kinerja Lulusan UKDW (Tipe: `likert_5`, skala 1: Sangat Kurang s/d 5: Sangat Baik).
-   - Terdaftar resmi pada [`DatabaseSeeder.php`](database/seeders/DatabaseSeeder.php).
+   - Terdaftar resmi pada [`DatabaseSeeder.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/seeders/DatabaseSeeder.php).
 
 4. **Penyempurnaan Controller & Tampilan Full-Page Form dengan Sticky Header**:
-   - [`EvaluasiAtasanController.php`](app/Http/Controllers/EvaluasiAtasanController.php):
+   - [`EvaluasiAtasanController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/EvaluasiAtasanController.php):
      - Method `show()`: Memuat profil perusahaan, atasan, biodata alumni, dan bank pertanyaan aktif secara terurut.
      - Method `store()`: Menyimpan pembaruan profil perusahaan ke tabel `perusahaan`, profil pimpinan ke `atasan`, agregat survey ke `evaluasi_atasan`, serta perulangan penyimpanan jawaban kesiapan kerja & 12 aspek Likert ke `respon_evaluasi_atasan`.
-   - [`EvaluasiAtasanForm.vue`](resources/js/Pages/Public/EvaluasiAtasanForm.vue):
+   - [`EvaluasiAtasanForm.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Public/EvaluasiAtasanForm.vue):
      - Tampilan korporat formal UKDW full-page publik tanpa menu navigasi internal alumni.
      - **Sticky Table Header**: Header matriks penilaian 12 aspek kinerja lulusan tetap melayang (*sticky `top-0`*) saat tabel digulir ke bawah, dilengkapi badge tag nama dan prodi alumni yang sedang dinilai.
 
@@ -294,16 +294,16 @@
    - [`docs/user-flow.md`](docs/user-flow.md): Menambahkan Seksi 7 (Alur Pengguna: Atasan Langsung / Pengguna Lulusan) lengkap dengan diagram alur Mermaid dan matriks hak akses RBAC.
    - [`ERD.md`](ERD.md): Memperbarui diagram Mermaid relasi, kamus data Modul Evaluasi Pengguna Lulusan (Seksi G), dan matriks relasi antar tabel.
    - [`DAFTAR_PERTANYAAN_MAPPING.md`](DAFTAR_PERTANYAAN_MAPPING.md): Memperbarui 4 pintu pengisian sistem dan memetakan struktur form Bagian I (Profil Perusahaan) dan Bagian II (13 Butir Kuesioner Evaluasi Kinerja + Catatan Khusus).
-   - Seluruh Feature Test pada [`EvaluasiAtasanTest.php`](tests/Feature/EvaluasiAtasanTest.php) lulus 100% (3 skenario, 24 assertions).
+   - Seluruh Feature Test pada [`EvaluasiAtasanTest.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/tests/Feature/EvaluasiAtasanTest.php) lulus 100% (3 skenario, 24 assertions).
 
 ---
 
 ### Ringkasan Pembaruan
 1. **Fleksibilitas Pengelolaan Master Perusahaan (Aksi & Auto Replace)**:
    - **Perbaikan Controller**: Menghapus batasan strict `->where('status_verifikasi', 'Menunggu Verifikasi')` pada method `verify()`, `replace()`, `updateAndVerify()`, dan `reject()` di:
-     - [`VerifikasiPerusahaanSuperAdminController.php`](app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php)
-     - [`VerifikasiPerusahaanProdiController.php`](app/Http/Controllers/AdminProdi/VerifikasiPerusahaan/VerifikasiPerusahaanProdiController.php)
-     - [`VerifikasiPerusahaanFakultasController.php`](app/Http/Controllers/AdminFakultas/VerifikasiPerusahaan/VerifikasiPerusahaanFakultasController.php)
+     - [`VerifikasiPerusahaanSuperAdminController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php)
+     - [`VerifikasiPerusahaanProdiController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminProdi/VerifikasiPerusahaan/VerifikasiPerusahaanProdiController.php)
+     - [`VerifikasiPerusahaanFakultasController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminFakultas/VerifikasiPerusahaan/VerifikasiPerusahaanFakultasController.php)
      Hal ini mengatasi error 404 ketika administrator melakukan *Auto Replace*, *Edit*, atau verifikasi ulang pada data perusahaan yang berstatus *Terverifikasi*.
    - **Penyempurnaan Frontend Vue**: Menghapus blokade tampilan pada `SuperAdmin/Perusahaan/Index.vue`, `AdminProdi/Perusahaan/Index.vue`, dan `AdminFakultas/Perusahaan/Index.vue` sehingga aksi (*Detail*, *Sunting*, *Auto Replace*, *Tolak/Hapus*) tetap tersedia dan aktif untuk seluruh perusahaan baik pending maupun terverifikasi.
 
@@ -319,30 +319,30 @@
 
 ### Ringkasan Pembaruan
 1. **Sentralisasi Berkas Master Data CSV ke Direktori `/data`**:
-   - Seluruh berkas CSV referensi yang sebelumnya tercecer di root repositori kini dipusatkan ke direktori [`data/`](data):
-     - [`data/daftar_negara_dunia.csv`](data/daftar_negara_dunia.csv): Master 194 negara dunia, ibu kota, kode ISO 2, dan benua.
-     - [`data/provinsi.csv`](data/provinsi.csv): Master 38 provinsi di Indonesia.
-     - [`data/kabupaten_kota.csv`](data/kabupaten_kota.csv): Master 514 kabupaten/kota di Indonesia.
-   - Memperbarui path resolusi pada [`WilayahSeeder.php`](database/seeders/WilayahSeeder.php) dan [`RefNegaraSeeder.php`](database/seeders/RefNegaraSeeder.php) menggunakan prioritas `base_path('data/*.csv')` dengan graceful fallback bertingkat.
+   - Seluruh berkas CSV referensi yang sebelumnya tercecer di root repositori kini dipusatkan ke direktori `data/`:
+     - [`data/daftar_negara_dunia.csv`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/data/daftar_negara_dunia.csv): Master 194 negara dunia, ibu kota, kode ISO 2, dan benua.
+     - [`data/provinsi.csv`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/data/provinsi.csv): Master 38 provinsi di Indonesia.
+     - [`data/kabupaten_kota.csv`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/data/kabupaten_kota.csv): Master 514 kabupaten/kota di Indonesia.
+   - Memperbarui path resolusi pada [`WilayahSeeder.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/seeders/WilayahSeeder.php) dan [`RefNegaraSeeder.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/seeders/RefNegaraSeeder.php) menggunakan prioritas `base_path('data/*.csv')` dengan graceful fallback bertingkat.
 
-2. **Perbaikan & Peningkatan Robustness [`RefNegaraSeeder.php`](database/seeders/RefNegaraSeeder.php)**:
+2. **Perbaikan & Peningkatan Robustness [`RefNegaraSeeder.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/seeders/RefNegaraSeeder.php)**:
    - **Perbaikan Format Baris 147 CSV**: Memperbaiki tanda kutip berlebih pada baris Amerika Serikat (`"Amerika Serikat,""Washington, D.C."",US,Amerika Utara"`) menjadi `Amerika Serikat,"Washington, D.C.",US,Amerika Utara`. Sebelumnya, kesalahan format ini menyebabkan baris diparsing sebagai satu kolom tunggal sehingga `kode_iso2` bernilai null dan gagal disimpan karena constraint `NOT NULL` & `UNIQUE`.
    - **Pencegahan Konflik Kunci Unik (*Unique Constraint Conflict*)**: Menghindari SQLSTATE Duplicate Entry pada `kode_iso2` atau `nama_negara` dengan melakukan lookup ganda `RefNegara::where('kode_iso2', $kodeIso2)->orWhere('nama_negara', $namaNegara)->first()` sebelum operasi create/update.
    - **Stream Parsing `fgetcsv` & Proteksi Skema**: Mengganti pemanggilan `file()` dengan stream `fopen()` / `fgetcsv()` yang lebih hemat memori dan tahan terhadap variasi newline. Dilengkapi proteksi `Schema::hasTable('ref_negara')` agar seeder tidak *crash* jika tabel belum dimigrasi.
 
 3. **Pembersihan File Usang (*Dead Code Removal*)**:
    - Menghapus service scraper lama `app/Services/LinkedIn/LinkedInService.php` dan skrip python client `scripts/linkedin_mcp_client.py` yang sebelumnya mengandalkan scraping browser lokal.
-   - Menyelaraskan seluruh pemanggilan controller di Biro 3 (`SinkronisasiLinkedinController.php`) dan SuperAdmin ([`LinkedInSyncController.php`](app/Http/Controllers/Shared/LinkedInSyncController.php)) agar menggunakan service produksi resmi [`LinkedInProfileService.php`](app/Services/LinkedIn/LinkedInProfileService.php).
+   - Menyelaraskan seluruh pemanggilan controller di Biro 3 (`SinkronisasiLinkedinController.php`) dan SuperAdmin ([`LinkedInSyncController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Shared/LinkedInSyncController.php)) agar menggunakan service produksi resmi [`LinkedInProfileService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/LinkedIn/LinkedInProfileService.php).
    - Menegaskan kebijakan **Zero File Deletion** untuk modul arsitektur LinkedIn: DTOs, Contracts, Exceptions, Mappers, dan Providers tidak perlu dihapus saat integrasi API resmi LinkedIn diaktifkan.
 
 4. **Perbaikan Migrasi Basis Data & Kompatibilitas SQLite Test Suite**:
-   - Menambahkan guard *early return* pada migrasi [`2026_09_30_125458_add_created_by_user_id_to_perusahaan_table.php`](database/migrations/2026_09_30_125458_add_created_by_user_id_to_perusahaan_table.php) saat kolom `created_by_user_id` dan `created_by_prodi_id` sudah ada, mencegah SQLite melakukan table rebuilding (`alter table __temp__perusahaan rename to perusahaan`) yang bentrok dengan *database view* `v_alumni_kuesioner_autofill`.
-   - Mengalihkan trait `DatabaseMigrations` menjadi `RefreshDatabase` pada [`BiroTigaDashboardTest.php`](tests/Feature/BiroTigaDashboardTest.php) dan [`BiroTigaKelolaPertanyaanTest.php`](tests/Feature/BiroTigaKelolaPertanyaanTest.php).
+   - Menambahkan guard *early return* pada migrasi [`2026_09_30_125458_add_created_by_user_id_to_perusahaan_table.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_09_30_125458_add_created_by_user_id_to_perusahaan_table.php) saat kolom `created_by_user_id` dan `created_by_prodi_id` sudah ada, mencegah SQLite melakukan table rebuilding (`alter table __temp__perusahaan rename to perusahaan`) yang bentrok dengan *database view* `v_alumni_kuesioner_autofill`.
+   - Mengalihkan trait `DatabaseMigrations` menjadi `RefreshDatabase` pada [`BiroTigaDashboardTest.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/tests/Feature/BiroTigaDashboardTest.php) dan [`BiroTigaKelolaPertanyaanTest.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/tests/Feature/BiroTigaKelolaPertanyaanTest.php).
    - Seluruh 94 skenario pengujian PHPUnit (`vendor/bin/phpunit`) lulus 100% (628 assertions).
 
 5. **Penyempurnaan Seeder & Otomasi Alumni Lulusan 2026**:
-   - Memperbaiki sintaks array pada [`BiodataSeeder.php`](database/seeders/BiodataSeeder.php).
-   - Mendaftarkan [`Lulusan2026Seeder.php`](database/seeders/Lulusan2026Seeder.php) ke dalam master seeder [`DatabaseSeeder.php`](database/seeders/DatabaseSeeder.php).
+   - Memperbaiki sintaks array pada [`BiodataSeeder.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/seeders/BiodataSeeder.php).
+   - Mendaftarkan [`Lulusan2026Seeder.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/seeders/Lulusan2026Seeder.php) ke dalam master seeder [`DatabaseSeeder.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/seeders/DatabaseSeeder.php).
    - Seluruh 19 seeder database sukses dieksekusi secara berurutan tanpa error (`php artisan db:seed` exit code 0).
 
 ---
@@ -351,31 +351,31 @@
 
 ### Ringkasan Pembaruan
 1. **Fitur Sinkronisasi LinkedIn SuperAdmin**:
-   - Dibuat halaman Superadmin khusus **Sinkronisasi LinkedIn** di [`Index.vue`](resources/js/Pages/SuperAdmin/LinkedIn/Index.vue) dengan filter Tahun Kelulusan resmi (tanpa membuat field/tabel baru, bersumber dari relasi `Yudisium` dan `DataAkademik`).
+   - Dibuat halaman Superadmin khusus **Sinkronisasi LinkedIn** di [`Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/LinkedIn/Index.vue) dengan filter Tahun Kelulusan resmi (tanpa membuat field/tabel baru, bersumber dari relasi `Yudisium` dan `DataAkademik`).
    - Menyediakan 5 kartu ringkasan metrik analitik: *Total Alumni*, *Dengan LinkedIn*, *Berhasil Sinkron*, *Gagal*, dan *Dilewati*.
    - Aksi sinkronisasi individual asinkron tanpa full page reload dengan visual state reaktif (*Belum Disinkronkan* -> *Menyinkronkan...* -> *Berhasil* / *Gagal*).
    - Aksi sinkronisasi massal (*Bulk Sync*) per angkatan tahun kelulusan dengan bilah progres live dan dialog modal ringkasan akhir.
-   - Dibuat Controller [`LinkedInSyncController.php`](app/Http/Controllers/Shared/LinkedInSyncController.php) dan rute `/superadmin/linkedin-sync` di [`web.php`](routes/web.php).
-   - Ditambahkan menu navigasi *Sinkronisasi LinkedIn* di Sidebar Superadmin ([`Sidebar.vue`](resources/js/Pages/SuperAdmin/Components/Sidebar.vue)).
+   - Dibuat Controller [`LinkedInSyncController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Shared/LinkedInSyncController.php) dan rute `/superadmin/linkedin-sync` di [`web.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/routes/web.php).
+   - Ditambahkan menu navigasi *Sinkronisasi LinkedIn* di Sidebar Superadmin ([`Sidebar.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Components/Sidebar.vue)).
 
 2. **Arsitektur Driver-Based Resolution (Switch via .ENV)**:
-   - Merefaktor penyedia data sinkronisasi LinkedIn dari penunjukan langsung ke pola abstraksi Driver-Based Resolution terpusat di [`AppServiceProvider.php`](app/Providers/AppServiceProvider.php).
-   - Menghubungkan interface tunggal [`LinkedInProfileProvider.php`](app/Services/LinkedIn/Contracts/LinkedInProfileProvider.php) ke driver aktif berdasarkan variabel lingkungan `LINKEDIN_DRIVER`:
-     - `LINKEDIN_DRIVER=mock` -> [`MockLinkedInProvider.php`](app/Services/LinkedIn/Providers/MockLinkedInProvider.php) (membaca berkas JSON lokal di [`storage/app/mock/linkedin/johndoe.json`](storage/app/mock/linkedin/johndoe.json) atau fallback dinamis berbasis biodata lokal).
-     - `LINKEDIN_DRIVER=api` -> [`ApiLinkedInProvider.php`](app/Services/LinkedIn/Providers/ApiLinkedInProvider.php) (disiapkan untuk future server-to-server official API menggunakan API Key).
-   - Didaftarkan konfigurasi environment di [`config/linkedin.php`](config/linkedin.php), [`config/services.php`](config/services.php), [`.env`](.env), dan [`.env.example`](.env.example).
-   - Business logic ([`LinkedInProfileService.php`](app/Services/LinkedIn/LinkedInProfileService.php), [`LinkedInProfileMapper.php`](app/Services/LinkedIn/Mappers/LinkedInProfileMapper.php), controller, DTO, mapper, database, dan frontend) murni agnostik dan **TIDAK PERLU DIUBAH** saat beralih provider.
+   - Merefaktor penyedia data sinkronisasi LinkedIn dari penunjukan langsung ke pola abstraksi Driver-Based Resolution terpusat di [`AppServiceProvider.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Providers/AppServiceProvider.php).
+   - Menghubungkan interface tunggal [`LinkedInProfileProvider.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/LinkedIn/Contracts/LinkedInProfileProvider.php) ke driver aktif berdasarkan variabel lingkungan `LINKEDIN_DRIVER`:
+     - `LINKEDIN_DRIVER=mock` -> [`MockLinkedInProvider.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/LinkedIn/Providers/MockLinkedInProvider.php) (membaca berkas JSON lokal di `storage/app/mock/linkedin/johndoe.json` atau fallback dinamis berbasis biodata lokal).
+     - `LINKEDIN_DRIVER=api` -> [`ApiLinkedInProvider.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/LinkedIn/Providers/ApiLinkedInProvider.php) (disiapkan untuk future server-to-server official API menggunakan API Key).
+   - Didaftarkan konfigurasi environment di [`config/linkedin.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/config/linkedin.php), [`config/services.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/config/services.php), `.env`, dan [`.env.example`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/.env.example).
+   - Business logic ([`LinkedInProfileService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/LinkedIn/LinkedInProfileService.php), [`LinkedInProfileMapper.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/LinkedIn/Mappers/LinkedInProfileMapper.php), controller, DTO, mapper, database, dan frontend) murni agnostik dan **TIDAK PERLU DIUBAH** saat beralih provider.
 
 3. **Integritas Data, Kebijakan Verifikasi Perusahaan, & Audit Trail**:
    - Menerapkan 4 aturan penentuan posisi aktif (*Current Position*): prioritas posisi dengan `endMonthYear == null`, start date terbaru, dan riwayat historis terbaru.
    - **Kebijakan Verifikasi Mutlak**: Setiap institusi perusahaan baru yang dibuat dari sinkronisasi LinkedIn SELALU disetel berstatus `status_verifikasi = 'Menunggu Verifikasi'` meskipun seluruh data terisi lengkap.
    - Menjaga data otoritatif: NIM, NIK, NPWP, nomor telepon, email pribadi, alamat rumah, dan data akademik tidak pernah ditimpa.
    - Isolasi transaksi basis data per-alumni: kegagalan satu alumni tidak menggagalkan alumni lain dalam satu batch.
-   - Jejak audit trail dicatat otomatis via [`LogActivity::record()`](app/Models/LogActivity.php) dengan action `'linkedin_sync'` tanpa membocorkan kredensial.
-   - Ditambahkan relasi `latestLinkedinSyncLog()` pada model [`Biodata.php`](app/Models/Biodata.php) menggunakan `latestOfMany()`.
+   - Jejak audit trail dicatat otomatis via [`LogActivity::record()`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/LogActivity.php) dengan action `'linkedin_sync'` tanpa membocorkan kredensial.
+   - Ditambahkan relasi `latestLinkedinSyncLog()` pada model [`Biodata.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Biodata.php) menggunakan `latestOfMany()`.
 
 4. **Pengujian Komprehensif (17 Test Skenario)**:
-   - Dibuat suite pengujian fitur [`SuperAdminLinkedInSyncTest.php`](tests/Feature/SuperAdminLinkedInSyncTest.php) mencakup skenario Mock JSON, 404 Profil Tidak Ditemukan, Empty Username SKIPPED, Driver API Switch, Proteksi API Key, dan Bulk Sync.
+   - Dibuat suite pengujian fitur [`SuperAdminLinkedInSyncTest.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/tests/Feature/SuperAdminLinkedInSyncTest.php) mencakup skenario Mock JSON, 404 Profil Tidak Ditemukan, Empty Username SKIPPED, Driver API Switch, Proteksi API Key, dan Bulk Sync.
 
 ---
 
@@ -384,10 +384,10 @@
 ### Ringkasan Pembaruan
 1. **Fitur Otomatis Reset Password via Gmail / SMTP**:
    - Integrasi pengiriman email pemulihan akun secara otomatis berbasis SMTP (Google App Passwords / Sandi Aplikasi 16 digit).
-   - Dibuat Mailable [`ResetPasswordMail.php`](app/Mail/ResetPasswordMail.php) dengan template HTML e-mail bermerek khas UKDW ([`reset_password.blade.php`](resources/views/emails/reset_password.blade.php)).
-   - Dibuat Controller [`LupaKataSandiController.php`](app/Http/Controllers/Otentikasi/LupaKataSandiController.php) untuk mengelola token acak (expired 60 menit) di tabel `password_reset_tokens`, pengiriman email, serta pemrosesan ganti password baru.
-   - Halaman Modal **Lupa Kata Sandi** di [`Login.vue`](resources/js/Pages/Otentikasi/Login.vue) diubah menjadi form interaktif yang menerima NIM / Username atau Email terdaftar.
-   - Halaman **Reset Password Baru** disajikan dengan Inertia Vue ([`ResetPassword.vue`](resources/js/Pages/Otentikasi/ResetPassword.vue)).
+   - Dibuat Mailable [`ResetPasswordMail.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Mail/ResetPasswordMail.php) dengan template HTML e-mail bermerek khas UKDW ([`reset_password.blade.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/views/emails/reset_password.blade.php)).
+   - Dibuat Controller [`LupaKataSandiController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Otentikasi/LupaKataSandiController.php) untuk mengelola token acak (expired 60 menit) di tabel `password_reset_tokens`, pengiriman email, serta pemrosesan ganti password baru.
+   - Halaman Modal **Lupa Kata Sandi** di [`Login.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Otentikasi/Login.vue) diubah menjadi form interaktif yang menerima NIM / Username atau Email terdaftar.
+   - Halaman **Reset Password Baru** disajikan dengan Inertia Vue ([`ResetPassword.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Otentikasi/ResetPassword.vue)).
    - **Logika Prioritas Email**: Mengutamakan `email_pribadi` pada tabel `biodata` (email aktif terkini alumni) sebelum `users.email`.
 
 2. **Master Data & Verifikasi Perusahaan Terpadu (SuperAdmin, Admin Fakultas, & Admin Prodi)**:
@@ -397,11 +397,11 @@
      - *Menunggu Verifikasi* (Daftar pengajuan baru alumni).
      - *Master Terverifikasi* (Daftar institusi/perusahaan resmi terverifikasi).
    - Diaktifkan algoritma pendeteksi rekomendasi kemiripan nama (*fuzzy matching & token overlap*) untuk mempermudah konsolidasi dan penggabungan (*merge*) data perusahaan yang berpotensi ganda.
-   - Dibuat migrasi [`2026_09_30_125458_add_created_by_user_id_to_perusahaan_table.php`](database/migrations/2026_09_30_125458_add_created_by_user_id_to_perusahaan_table.php) untuk menjamin keberadaan kolom `created_by_user_id` dan `created_by_prodi_id` pada tabel `perusahaan`.
+   - Dibuat migrasi [`2026_09_30_125458_add_created_by_user_id_to_perusahaan_table.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_09_30_125458_add_created_by_user_id_to_perusahaan_table.php) untuk menjamin keberadaan kolom `created_by_user_id` dan `created_by_prodi_id` pada tabel `perusahaan`.
 
 3. **Halaman Audit Trail / Tabel Log Aktivitas SuperAdmin**:
-   - Dibuat Controller [`LogAktivitasController.php`](app/Http/Controllers/SuperAdmin/LogAktivitasController.php) dan rute `/superadmin/logs` (`superadmin.logs.index`).
-   - Dibuat antarmuka Vue [`Index.vue`](resources/js/Pages/SuperAdmin/Logs/Index.vue) untuk menyajikan tabel log audit aktivitas sistem:
+   - Dibuat Controller [`LogAktivitasController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/LogAktivitasController.php) dan rute `/superadmin/logs` (`superadmin.logs.index`).
+   - Dibuat antarmuka Vue [`Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Logs/Index.vue) untuk menyajikan tabel log audit aktivitas sistem:
      - Widget Statistik (Total Log, Total Aktivitas Hari Ini).
      - Bilah Pencarian Realtime (Deskripsi, Username, Pelaku, IP Address).
      - Filter Berdasarkan Jenis Aksi (`VERIFY_COMPANY`, `REPLACE_COMPANY`, `RESET_PASSWORD`, `UPDATE_PROFILE`, dll).
@@ -418,20 +418,20 @@
    - Kolom `tampil_di` pada tabel `ref_subpertanyaan2021` diset menjadi:
      - `'profil'` untuk seluruh pertanyaan Seksi 1 / Identitas & Biodata.
      - `'kuesioner'` untuk pertanyaan Seksi 2 sampai 9 (Status Pekerjaan, Transisi Dunia Kerja, Studi Lanjut, Kompetensi, Fasilitas Kampus, dll.).
-   - Controller Kuesioner ([`KuesionerController.php`](app/Http/Controllers/Alumni/Kuesioner/KuesionerController.php)) dan Controller Detail Alumni pada seluruh role admin ([`DetailAlumniSuperAdminController.php`](app/Http/Controllers/SuperAdmin/KelolaAlumni/DetailAlumniSuperAdminController.php), [`DaftarAlumniProdiController.php`](app/Http/Controllers/AdminProdi/KelolaAlumni/DaftarAlumniProdiController.php), [`DetailAlumniFakultasController.php`](app/Http/Controllers/AdminFakultas/KelolaAlumni/DetailAlumniFakultasController.php), [`DetailAlumniController.php`](app/Http/Controllers/AdminBiroTiga/KelolaAlumni/DetailAlumniController.php)) secara otomatis mengabaikan Seksi 1 dan menyaring pertanyaan berlabel `tampil_di = 'profil'`.
+   - Controller Kuesioner ([`KuesionerController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Kuesioner/KuesionerController.php)) dan Controller Detail Alumni pada seluruh role admin ([`DetailAlumniSuperAdminController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/KelolaAlumni/DetailAlumniSuperAdminController.php), [`DaftarAlumniProdiController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminProdi/KelolaAlumni/DaftarAlumniProdiController.php), [`DetailAlumniFakultasController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminFakultas/KelolaAlumni/DetailAlumniFakultasController.php), [`DetailAlumniController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminBiroTiga/KelolaAlumni/DetailAlumniController.php)) secara otomatis mengabaikan Seksi 1 dan menyaring pertanyaan berlabel `tampil_di = 'profil'`.
    - Alur Kuesioner Universitas kini langsung dimulai dari Seksi 2 ("Status Pekerjaan & Aktivitas Saat Ini"), menghindari pertanyaan dobel yang membingungkan alumni.
 
 2. **Penguncian Permanen (Read-Only / Disabled) Master Data Akademik di Seluruh Role**:
-   - Data identitas kependudukan dan histori perkuliahan yang bersumber murni dari Pangkalan Data Akademik ([`data_akademik`](app/Models/DataAkademik.php)) dikunci default tidak dapat diedit (*read-only*):
+   - Data identitas kependudukan dan histori perkuliahan yang bersumber murni dari Pangkalan Data Akademik ([`data_akademik`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/DataAkademik.php)) dikunci default tidak dapat diedit (*read-only*):
      - Kolom yang dikunci: **NIM**, **Nama Lengkap**, **Tempat Lahir**, **Tanggal Lahir**, **Jenis Kelamin**, **Agama**, **Golongan Darah**, **Kewarganegaraan**, **No. Kartu Keluarga (KK)**, **NISN**, **No. BPJS/Asuransi Kesehatan**, **NIK**, serta seluruh histori kelulusan & IPK.
-   - Diterapkan secara seragam di frontend komponen [`FormPribadi.vue`](resources/js/Components/AlumniProfil/FormPribadi.vue) dan [`FormAkademik.vue`](resources/js/Components/AlumniProfil/FormAkademik.vue) dengan tampilan visual `lockedInputClass` (latar abu-abu netral, ikon gembok amber/slate, kursor tidak diizinkan, dan helper text resmi).
+   - Diterapkan secara seragam di frontend komponen [`FormPribadi.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormPribadi.vue) dan [`FormAkademik.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormAkademik.vue) dengan tampilan visual `lockedInputClass` (latar abu-abu netral, ikon gembok amber/slate, kursor tidak diizinkan, dan helper text resmi).
    - Penguncian berlaku menyeluruh di:
      - **Profil Alumni** (`/alumni/profil`)
      - **Detail Alumni SuperAdmin** (`/superadmin/alumni/{id}`)
      - **Detail Alumni Admin Fakultas** (`/fakultas/alumni/{id}`)
      - **Detail Alumni Admin Prodi** (`/prodi/alumni/{id}`)
      - **Detail Alumni Biro 3** (`/biro3/alumni/{id}`)
-   - Proteksi ganda pada backend ([`SimpanProfilController.php`](app/Http/Controllers/Alumni/Profil/SimpanProfilController.php) & [`AdminAlumniProfileService.php`](app/Services/Alumni/AdminAlumniProfileService.php)): request perubahan dari form profil tidak akan memodifikasi kolom master identitas akademik, hanya `email_pribadi` yang disinkronisasikan.
+   - Proteksi ganda pada backend ([`SimpanProfilController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Profil/SimpanProfilController.php) & [`AdminAlumniProfileService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Alumni/AdminAlumniProfileService.php)): request perubahan dari form profil tidak akan memodifikasi kolom master identitas akademik, hanya `email_pribadi` yang disinkronisasikan.
 
 ---
 
@@ -440,31 +440,31 @@
 ### Ringkasan Pembaruan
 1. **Eliminasi Total Duplikasi Data antara Tabel `biodata` dan `data_akademik`**:
    - Menghapus seluruh kolom duplikasi pada tabel `biodata`:
-     - Kolom identitas kependudukan & akademik (`nama`, `tempat_lahir`, `tanggal_lahir`, `jenis_kelamin`, `golongan_darah`, `agama`, `tahun_lulus`, `warga_negara`, `no_kk`, `nisn`, `no_bpjs`) kini tersimpan tunggal pada tabel master [`data_akademik`](app/Models/DataAkademik.php).
+     - Kolom identitas kependudukan & akademik (`nama`, `tempat_lahir`, `tanggal_lahir`, `jenis_kelamin`, `golongan_darah`, `agama`, `tahun_lulus`, `warga_negara`, `no_kk`, `nisn`, `no_bpjs`) kini tersimpan tunggal pada tabel master [`data_akademik`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/DataAkademik.php).
      - Kolom `data_akademik_id` dihapus dari tabel `biodata` karena relasi sudah terhubung secara kuat dan terindeks melalui nomor induk mahasiswa (`nim`).
      - Kolom `email` dan `email_students` dihapus dari tabel `biodata`. `email_students` hanya tersimpan di `data_akademik` sebagai data resmi kampus, sedangkan `biodata` hanya menyimpan `email_pribadi` untuk korespondensi aktif alumni.
-   - Menyediakan getter accessor dinamis pada model [`Biodata.php`](app/Models/Biodata.php) (`getNamaAttribute`, `getEmailAttribute`, `getTempatLahirAttribute`, `getTanggalLahirAttribute`, `getAgamaAttribute`, dll.) yang secara otomatis mendelegasikan nilai dari `dataAkademik`, sehingga kode legasi tetap berjalan mulus tanpa error.
+   - Menyediakan getter accessor dinamis pada model [`Biodata.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Biodata.php) (`getNamaAttribute`, `getEmailAttribute`, `getTempatLahirAttribute`, `getTanggalLahirAttribute`, `getAgamaAttribute`, dll.) yang secara otomatis mendelegasikan nilai dari `dataAkademik`, sehingga kode legasi tetap berjalan mulus tanpa error.
 
 2. **Konsolidasi Migrasi Bersih (Direct Single Create, Tanpa Migrasi `add_`/`alter_`)**:
    - Menyatukan seluruh definisi struktur tabel ke migrasi awal `create_`:
-     - [`create_data_akademiks_table.php`](database/migrations/2026_09_01_171350_create_data_akademiks_table.php): Menyimpan identitas master, `email_students`, `email_pribadi`, dan `tanggal_lulus`.
-     - [`create_yudisiums_table.php`](database/migrations/2026_09_01_171353_create_yudisiums_table.php): Menghapus `tahun_akademik_lulus` dan `tahun_lulus`, menyederhanakan status kelulusan dengan kolom `status_lulus` (`['Belum', 'Proses', 'Lulus', 'Tidak Lulus']`).
-     - [`create_biodatas_table.php`](database/migrations/2026_09_01_171354_create_biodatas_table.php): Struktur bersih langsung memuat `foto`, `email_pribadi`, kontak, alamat terkini, dan data tracer karier tanpa satupun kolom duplikat.
-     - [`create_companies_table.php`](database/migrations/2026_09_01_171342_create_companies_table.php): Langsung memuat `created_by_user_id`, `created_by_prodi_id`, dan kolom teks berukuran 500.
-     - [`create_alumni_audit_database_views.php`](database/migrations/2026_09_20_234000_create_alumni_audit_database_views.php): Langsung memuat seluruh database views definitif (`v_alumni_profile_summary`, `v_alumni_tracer_univ_status`, `v_alumni_tracer_prodi_status`, `v_alumni_audit_rekap`).
+     - [`create_data_akademiks_table.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_09_01_171350_create_data_akademiks_table.php): Menyimpan identitas master, `email_students`, `email_pribadi`, dan `tanggal_lulus`.
+     - [`create_yudisiums_table.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_09_01_171353_create_yudisiums_table.php): Menghapus `tahun_akademik_lulus` dan `tahun_lulus`, menyederhanakan status kelulusan dengan kolom `status_lulus` (`['Belum', 'Proses', 'Lulus', 'Tidak Lulus']`).
+     - [`create_biodatas_table.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_09_01_171354_create_biodatas_table.php): Struktur bersih langsung memuat `foto`, `email_pribadi`, kontak, alamat terkini, dan data tracer karier tanpa satupun kolom duplikat.
+     - [`create_companies_table.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_09_01_171342_create_companies_table.php): Langsung memuat `created_by_user_id`, `created_by_prodi_id`, dan kolom teks berukuran 500.
+     - [`create_alumni_audit_database_views.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_09_20_234000_create_alumni_audit_database_views.php): Langsung memuat seluruh database views definitif (`v_alumni_profile_summary`, `v_alumni_tracer_univ_status`, `v_alumni_tracer_prodi_status`, `v_alumni_audit_rekap`).
    - Menghapus 6 file migrasi `add_` / `alter_` yang usang.
 
 3. **Otomasi Keterkaitan Kelulusan Yudisium dengan Data Akademik**:
-   - Pada model [`Yudisium.php`](app/Models/Yudisium.php), disematkan event listener Eloquent `saved`:
-     - Saat `status_lulus` diset menjadi `'Lulus'`, sistem secara otomatis memperbarui record [`data_akademik`](app/Models/DataAkademik.php) yang berelasi:
+   - Pada model [`Yudisium.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Yudisium.php), disematkan event listener Eloquent `saved`:
+     - Saat `status_lulus` diset menjadi `'Lulus'`, sistem secara otomatis memperbarui record [`data_akademik`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/DataAkademik.php) yang berelasi:
        - Mengubah `status_mahasiswa` menjadi `'L'` (Lulus).
        - Mengisi `tanggal_lulus` (dari tanggal SK yudisium).
        - Mengisi `tahun_lulus` (tahun dari tanggal SK yudisium).
        - Menentukan `tahun_akademik_lulus` (semester Gasal/Genap sesuai periode tanggal SK yudisium).
      - Mengeliminasi duplikasi penginputan tahun kelulusan secara manual.
 
-4. **Tabel & Sistem Audit Trail Log Activity ([`LogActivity.php`](app/Models/LogActivity.php) & [`create_log_activities_table.php`](database/migrations/2026_09_01_171355_create_log_activities_table.php))**:
-   - Dibuat tabel `log_activities` dan model [`LogActivity`](app/Models/LogActivity.php) dengan helper `LogActivity::record()`.
+4. **Tabel & Sistem Audit Trail Log Activity ([`LogActivity.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/LogActivity.php) & [`create_log_activities_table.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_09_01_171355_create_log_activities_table.php))**:
+   - Dibuat tabel `log_activities` dan model [`LogActivity`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/LogActivity.php) dengan helper `LogActivity::record()`.
    - Mencatat seluruh jejak audit penting secara transparan:
      - Verifikasi, ACC, penggantian master (auto replace), dan penolakan (reject) perusahaan.
      - Pembaruan akun pengguna (perubahan email, username, nama).
@@ -485,7 +485,7 @@
      - Tampilan dua angka besar: **Menunggu Verifikasi** (`#0D542B` Hijau UKDW) dan **Master Terverifikasi** (`#D97706` Oranye UKDW).
 
 2. **Modul Manajemen Akun Terpadu (`/superadmin/manajemen-akun`)**:
-   - Dibuat [`ManajemenAkunController.php`](app/Http/Controllers/SuperAdmin/ManajemenAkunController.php) dan antarmuka Vue [`Pages/SuperAdmin/ManajemenAkun/Index.vue`](resources/js/Pages/SuperAdmin/ManajemenAkun/Index.vue).
+   - Dibuat [`ManajemenAkunController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/ManajemenAkunController.php) dan antarmuka Vue [`Pages/SuperAdmin/ManajemenAkun/Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/ManajemenAkun/Index.vue).
    - Pengelompokan dan penyaringan akun terpadu untuk:
      - **Admin Fakultas**
      - **Admin Prodi**
@@ -510,31 +510,31 @@
 ## [2026-09-30] Fitur ACC Perusahaan Superadmin (Scope All & Per Prodi) dan Pengaturan Kuesioner Program Studi oleh Superadmin
 
 ### Ringkasan Pembaruan
-1. **Verifikasi & Approval Perusahaan Alumni untuk Superadmin ([`VerifikasiPerusahaanSuperAdminController.php`](app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php))**:
+1. **Verifikasi & Approval Perusahaan Alumni untuk Superadmin ([`VerifikasiPerusahaanSuperAdminController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php))**:
    - **Superadmin ACC Perusahaan (`/superadmin/perusahaan`)**: Menyediakan modul khusus bagi Superadmin (Otoritas Tertinggi) untuk melakukan ACC/verifikasi pengajuan tempat kerja alumni secara menyeluruh (All) maupun terfilter berdasarkan Program Studi tertentu.
    - **Fitur Lengkap Verification Service**: Mendukung Verifikasi Langsung (ACC Direct), Penggantian Master Perusahaan Otomatis (Auto Replace dengan deteksi rekomendasi kemiripan string), Sunting & Verifikasi Atribut Perusahaan, serta Penolakan (Reject) Pengajuan.
-   - **Interface Vue Superadmin ([`Index.vue`](resources/js/Pages/SuperAdmin/Perusahaan/Index.vue))**: Halaman profesional dengan palet warna resmi hijau UKDW (`#0D542B`), filter dropdown Prodi, filter cakupan pengajuan, pencarian teks, dan dialog SweetAlert2 untuk konfirmasi dan modal penggantian master.
+   - **Interface Vue Superadmin ([`Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Perusahaan/Index.vue))**: Halaman profesional dengan palet warna resmi hijau UKDW (`#0D542B`), filter dropdown Prodi, filter cakupan pengajuan, pencarian teks, dan dialog SweetAlert2 untuk konfirmasi dan modal penggantian master.
 
-2. **Pengaturan Kuesioner Program Studi oleh Superadmin ([`KelolaKuesionerProdiSuperAdminController.php`](app/Http/Controllers/SuperAdmin/KelolaPertanyaan/KelolaKuesionerProdiSuperAdminController.php))**:
+2. **Pengaturan Kuesioner Program Studi oleh Superadmin ([`KelolaKuesionerProdiSuperAdminController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/KelolaPertanyaan/KelolaKuesionerProdiSuperAdminController.php))**:
    - **Pengaturan Kuesioner Prodi (`/superadmin/prodi-kuesioner`)**: Memungkinkan Superadmin memilih Program Studi target dari dropdown selector, lalu melihat dan mengelola daftar bagian (section), butir pertanyaan, dan opsi jawaban khusus untuk prodi tersebut.
-   - **Tampilan & UX Identik dengan Role Admin Prodi**: Menyajikan tabulasi *Daftar Bagian (Section)* dan *Daftar Pertanyaan (Kuesioner)* dengan layout, style, dan modal SweetAlert2 yang disamakan persis dengan role Admin Prodi ([`AdminProdi/Section/Index.vue`](resources/js/Pages/AdminProdi/Section/Index.vue) dan [`AdminProdi/Pertanyaan/Index.vue`](resources/js/Pages/AdminProdi/Pertanyaan/Index.vue)).
+   - **Tampilan & UX Identik dengan Role Admin Prodi**: Menyajikan tabulasi *Daftar Bagian (Section)* dan *Daftar Pertanyaan (Kuesioner)* dengan layout, style, dan modal SweetAlert2 yang disamakan persis dengan role Admin Prodi ([`AdminProdi/Section/Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminProdi/Section/Index.vue) dan [`AdminProdi/Pertanyaan/Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminProdi/Pertanyaan/Index.vue)).
    - **Eliminasi Total Emoticon & Diksi Profesional**: Menggantikan seluruh emoticon dengan ikon SVG resmi dan diksi bahasa formal korporat enterprise.
    - **Fitur Manajerial Penuh**: Superadmin dapat membuat, mengedit, menghapus, dan mengatur urutan (reorder up/down) section prodi, pertanyaan prodi, serta opsi jawaban prodi lengkap dengan konfigurasi alur percabangan (*jump_to*).
 
-3. **Penyelarasan Tampilan Peninjauan Perusahaan Superadmin ([`SuperAdmin/Perusahaan/Index.vue`](resources/js/Pages/SuperAdmin/Perusahaan/Index.vue))**:
-   - **Presisi Modal Peninjauan Pengajuan**: Menyelaraskan struktur modal *Peninjauan Pengajuan Perusahaan* (`openReviewModal`) dengan halaman [`http://localhost:8000/prodi/perusahaan`](resources/js/Pages/AdminProdi/Perusahaan/Index.vue).
+3. **Penyelarasan Tampilan Peninjauan Perusahaan Superadmin ([`SuperAdmin/Perusahaan/Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Perusahaan/Index.vue))**:
+   - **Presisi Modal Peninjauan Pengajuan**: Menyelaraskan struktur modal *Peninjauan Pengajuan Perusahaan* (`openReviewModal`) dengan halaman [`http://localhost:8000/prodi/perusahaan`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminProdi/Perusahaan/Index.vue).
    - **Komponen Peninjauan**: Menampilkan blok *1. DATA YANG DIINPUTKAN ALUMNI*, *2. REKOMENDASI MASTER TERVERIFIKASI (AUTO REPLACE)*, serta tombol aksi *Verifikasi Sesuai Inputan*, *Edit Dulu*, dan *Tutup* secara rapi tanpa emoticon.
 
-4. **Pemasangan Skill Web Design Engineer ([`.agents/skills/web-design-engineer/SKILL.md`](.agents/skills/web-design-engineer/SKILL.md))**:
-   - Memasang dan mengonfigurasi skill [`web-design-engineer`](.agents/skills/web-design-engineer/SKILL.md) dari repositori `garden-skills` untuk standar visual UI/UX web enterprise.
+4. **Pemasangan Skill Web Design Engineer (`.agents/skills/web-design-engineer/SKILL.md`)**:
+   - Memasang dan mengonfigurasi skill `web-design-engineer` dari repositori `garden-skills` untuk standar visual UI/UX web enterprise.
 
-5. **Pembaruan Navigasi & Dashboard Utama Superadmin ([`Sidebar.vue`](resources/js/Pages/SuperAdmin/Components/Sidebar.vue) & [`Dashboard.vue`](resources/js/Pages/SuperAdmin/Dashboard.vue))**:
+5. **Pembaruan Navigasi & Dashboard Utama Superadmin ([`Sidebar.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Components/Sidebar.vue) & [`Dashboard.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Dashboard.vue))**:
    - Menambahkan menu **Kuesioner Per Prodi** (`/superadmin/prodi-kuesioner`) dan **ACC Perusahaan** (`/superadmin/perusahaan`) pada Sidebar Navigasi Superadmin.
    - Menyematkan kartu metrik KPI dan quick access card untuk *Pengaturan Kuesioner Per Prodi* dan *Verifikasi Perusahaan* pada Dashboard Utama Superadmin (`/superadmin/dashboard`).
 
 6. **Relasi Model & Pengujian Otomatis**:
-   - Menambahkan metode relasi `prodiQuestions()` dan `prodiQuestionSections()` pada model [`Prodi.php`](app/Models/Prodi.php).
-   - Menulis pengujian otomatis komprehensif pada [`SuperAdminPerusahaanDanKuesionerProdiTest.php`](tests/Feature/SuperAdminPerusahaanDanKuesionerProdiTest.php) (100% PASS: 4 tes, 9 assertions).
+   - Menambahkan metode relasi `prodiQuestions()` dan `prodiQuestionSections()` pada model [`Prodi.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Prodi.php).
+   - Menulis pengujian otomatis komprehensif pada [`SuperAdminPerusahaanDanKuesionerProdiTest.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/tests/Feature/SuperAdminPerusahaanDanKuesionerProdiTest.php) (100% PASS: 4 tes, 9 assertions).
 
 ---
 
@@ -542,53 +542,53 @@
 
 ### Ringkasan Pembaruan
 1. **Penyesuaian Skema Warna Per Section Landing Page**:
-   - **Section Sambutan WR III ([`tentang-section.vue`](resources/js/Components/Landing/tentang-section.vue))**: Background hijau botol UKDW pekat (`bg-gradient-to-b from-[#00381A] via-[#004D25] to-[#003318]`) dengan kartu kaca frosted dan aksen emas.
-   - **Section Alur Partisipasi ([`user-guide-section.vue`](resources/js/Components/Landing/user-guide-section.vue))**: Background kuning hangat UKDW (`bg-gradient-to-b from-[#FFC700] via-[#FBBF24] to-[#F59E0B]`) berpadu kartu kontras tinggi warna putih mutiara (`bg-white/90`) dan badge langkah hijau pekat (`bg-[#004D25] text-[#FFC700]`).
+   - **Section Sambutan WR III ([`tentang-section.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/Landing/tentang-section.vue))**: Background hijau botol UKDW pekat (`bg-gradient-to-b from-[#00381A] via-[#004D25] to-[#003318]`) dengan kartu kaca frosted dan aksen emas.
+   - **Section Alur Partisipasi ([`user-guide-section.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/Landing/user-guide-section.vue))**: Background kuning hangat UKDW (`bg-gradient-to-b from-[#FFC700] via-[#FBBF24] to-[#F59E0B]`) berpadu kartu kontras tinggi warna putih mutiara (`bg-white/90`) dan badge langkah hijau pekat (`bg-[#004D25] text-[#FFC700]`).
    - **Eliminasi Total Warna Biru di Seluruh Landing Page**: Menghilangkan seluruh aksen `blue` dan `cyan` pada badge verified, tombol interaktif, dan tautan eksternal, digantikan dengan identitas resmi hijau UKDW (`#004D25`) dan emas cerah (`#FFC700`).
 
-2. **Bilah Navigasi (Navbar) Tema iOS Glossy & Bening Dinamis ([`navbar.vue`](resources/js/Components/Landing/Navbar.vue))**:
+2. **Bilah Navigasi (Navbar) Tema iOS Glossy & Bening Dinamis ([`navbar.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/Landing/Navbar.vue))**:
    - Mendeteksi pergerakan scroll layar secara real-time (`isScrolled`).
    - Saat berada di posisi paling atas: latar semi-transparan hijau UKDW halus (`bg-[#004D25]/80 backdrop-blur-md`).
    - Saat di-scroll: otomatis bertransisi menjadi frosted glass bening transparan khas iOS (`bg-[#002f17]/40 backdrop-blur-2xl backdrop-saturate-200 border-b border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.35)]`).
    - Tombol menu dan link navigasi menggunakan kapsul pill iOS yang halus.
 
 3. **Geometri Tegas Non-Tumpul Halaman Login & Ubah Sandi (Bebas dari AI Template Look)**:
-   - Merapikan [`Login.vue`](resources/js/Pages/Otentikasi/Login.vue) dan [`UbahKataSandi.vue`](resources/js/Pages/Otentikasi/UbahKataSandi.vue) dengan menghilangkan sudut bulat tumpul berlebihan (`rounded-[2.5rem]`, `rounded-full`, `rounded-3xl`).
+   - Merapikan [`Login.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Otentikasi/Login.vue) dan [`UbahKataSandi.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Otentikasi/UbahKataSandi.vue) dengan menghilangkan sudut bulat tumpul berlebihan (`rounded-[2.5rem]`, `rounded-full`, `rounded-3xl`).
    - Menerapkan sudut kotak tajam dan proporsional enterprise-grade (`rounded-xl`, `rounded-lg`, `rounded-md`) pada kartu kontainer, input formulir, tombol submit, serta dialog pop-up Lupa Kata Sandi.
 
-4. **Autentikasi Alumni Berbasis Tanggal Lahir & Siklus Ubah Sandi Wajib ([`LoginController.php`](app/Http/Controllers/Otentikasi/LoginController.php))**:
+4. **Autentikasi Alumni Berbasis Tanggal Lahir & Siklus Ubah Sandi Wajib ([`LoginController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Otentikasi/LoginController.php))**:
    - Mendukung login alumni menggunakan kata sandi bawaan (default password) format tanggal lahir `ddmmyyyy` (contoh: `15082001` untuk kelahiran 15 Agustus 2001) yang tersinkronisasi otomatis dari `data_akademik`.
    - Mengarahkan akun dengan kata sandi bawaan secara wajib ke halaman ganti sandi awal (`/change-password` via `must_change_password = true`).
    - Setelah alumni menyimpan kata sandi baru, flag `must_change_password` kembali menjadi `false`, sehingga pada sesi login berikutnya alumni langsung masuk ke dashboard seperti biasa.
-   - Dilengkapi pengujian otomatis komprehensif pada [`AlumniLoginBirthDateTest.php`](tests/Feature/AlumniLoginBirthDateTest.php).
+   - Dilengkapi pengujian otomatis komprehensif pada [`AlumniLoginBirthDateTest.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/tests/Feature/AlumniLoginBirthDateTest.php).
 
 5. **Migrasi Basis Data Kolom Foto Alumni (`add_foto_to_biodata_table`)**:
    - Menambahkan migrasi `2026_09_28_054830_add_foto_to_biodata_table.php` untuk menyematkan kolom `foto` (`string`, nullable) pada tabel `biodata` yang merujuk ke path file foto profil alumni di `public/uploads/profile/`.
-   - Mendaftarkan kolom `foto` ke dalam properti `$fillable` pada model [`Biodata.php`](app/Models/Biodata.php).
+   - Mendaftarkan kolom `foto` ke dalam properti `$fillable` pada model [`Biodata.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Biodata.php).
 
-2. **Refaktor & Ketegasan Relasi Yudisium ([`Biodata.php`](app/Models/Biodata.php))**:
+2. **Refaktor & Ketegasan Relasi Yudisium ([`Biodata.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Biodata.php))**:
    - Memperbarui relasi `yudisium()` pada model `Biodata` menjadi `belongsTo(Yudisium::class, 'yudisium_id')` secara eksplisit guna menghubungkan status kelulusan, judul tugas akhir/skripsi (`judul_ta`), URL repositori karya ilmiah (`url_publikasi`), dan tipe publikasi (`jenis_publikasi`).
 
-3. **Optimasi & Agregasi Spasial Backend Beranda ([`BerandaController.php`](app/Http/Controllers/Tamu/BerandaController.php))**:
+3. **Optimasi & Agregasi Spasial Backend Beranda ([`BerandaController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Tamu/BerandaController.php))**:
    - Mengintegrasikan atribut `foto` dan eager loading relasi `yudisium` pada kueri `alumniList` sehingga landing page dapat menampilkan foto asli alumni beserta judul skripsi dan tautan publikasi repositori kampus.
    - Menghitung agregasi sebaran geografis per provinsi (`alumniWilayah`: domisili, lokasi kantor/perusahaan, dan ringkasan provinsi) yang menyajikan daftar nama alumni dan daftar nama institusi/perusahaan untuk hover tooltip peta interaktif.
    - Menyediakan data master referensi wilayah lengkap (`allProvinsi` dan `allKabupaten`) untuk mendukung filter interaktif kabupaten/kota secara real-time.
 
 4. **Modularisasi Menyeluruh Komponen Landing Page (`resources/js/components/landing/`)**:
    - Memecah tampilan beranda publik menjadi 10 komponen modular yang terisolasi dan mudah dipelihara:
-     - [`hero-section.vue`](resources/js/Components/Landing/hero-section.vue): Hero banner visual dengan video background UKDW bebas takarir (eliminasi takarir YouTube via CSS viewport translation dan dark bottom gradient masking), tombol CTA, dan maskot `hallo-alumni.png`.
-     - [`alumni-map-section.vue`](resources/js/Components/Landing/alumni-map-section.vue): Peta interaktif Leaflet + OpenStreetMap 38 provinsi dengan layout 2-kolom sejajar (peta di kiri, 4 kartu alumni per halaman dalam grid 2x2 di kanan), filter multi-dimensi, hover tooltip informatif (menampilkan nama PT dan nama alumni), serta modal detail lengkap SweetAlert2 dengan foto profil, judul skripsi, link publikasi, dan tombol sorot di peta.
+     - [`hero-section.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/Landing/hero-section.vue): Hero banner visual dengan video background UKDW bebas takarir (eliminasi takarir YouTube via CSS viewport translation dan dark bottom gradient masking), tombol CTA, dan maskot `hallo-alumni.png`.
+     - [`alumni-map-section.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/Landing/alumni-map-section.vue): Peta interaktif Leaflet + OpenStreetMap 38 provinsi dengan layout 2-kolom sejajar (peta di kiri, 4 kartu alumni per halaman dalam grid 2x2 di kanan), filter multi-dimensi, hover tooltip informatif (menampilkan nama PT dan nama alumni), serta modal detail lengkap SweetAlert2 dengan foto profil, judul skripsi, link publikasi, dan tombol sorot di peta.
      - `testimonial-slider-section.vue`: Etalase "Karya & Tugas Akhir Alumni UKDW" yang menampilkan judul skripsi, penulis, instansi kerja saat ini, jenis publikasi, dan tautan repositori dokumen karya ilmiah.
-     - [`stats-transformation-section.vue`](resources/js/Components/Landing/stats-transformation-section.vue): Statistik capaian transformasi kurikulum dan serapan lulusan berpadu maskot `pigo-update-data.png`.
+     - [`stats-transformation-section.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/Landing/stats-transformation-section.vue): Statistik capaian transformasi kurikulum dan serapan lulusan berpadu maskot `pigo-update-data.png`.
      - `sektor-alumni-section.vue`: Etalase kategori industri dan karier alumni (Teknologi & IT, Pendidikan & Riset, Bisnis & Publik).
      - `career-pillars-section.vue`: Tiga pilar keilmuan UKDW dengan ilustrasi maskot Pigo (`anak-it.png`, `pigo-dokter.png`, `pigo-laptop.png`).
-     - [`user-guide-section.vue`](resources/js/Components/Landing/user-guide-section.vue): Panduan 4 langkah mudah alur pengisian kuesioner tracer study bagi alumni pemula.
-     - [`berkas-section.vue`](resources/js/Components/Landing/berkas-section.vue), [`blog-section.vue`](resources/js/Components/Landing/blog-section.vue), dan [`tentang-section.vue`](resources/js/Components/Landing/tentang-section.vue).
+     - [`user-guide-section.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/Landing/user-guide-section.vue): Panduan 4 langkah mudah alur pengisian kuesioner tracer study bagi alumni pemula.
+     - [`berkas-section.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/Landing/berkas-section.vue), [`blog-section.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/Landing/blog-section.vue), dan [`tentang-section.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/Landing/tentang-section.vue).
 
 5. **Standardisasi Maskot Pigo & Aset Visual Branding**:
    - Memindahkan seluruh varian maskot ke direktori resmi `public/uploads/pigo/` (`loading-pigo.png`, `pigo-laptop.png`, `pigo-update-data.png`, `hallo-alumni.png`, `anak-it.png`, `pigo-dokter.png`).
    - Menyediakan direktori penyimpanan foto profil alumni di `public/uploads/profile/`.
-   - Mengintegrasikan komponen loader visual global [`pigo-loader.vue`](resources/js/Components/ui/pigo-loader.vue) dan menyelaraskan logo resmi UKDW pada bilah navigasi seluruh stakeholder.
+   - Mengintegrasikan komponen loader visual global [`pigo-loader.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/ui/pigo-loader.vue) dan menyelaraskan logo resmi UKDW pada bilah navigasi seluruh stakeholder.
 
 ## [2026-09-26] Layout 2 Kolom (Peta Kiri & Alumni Kanan 2x2), Hover Peta Detail PT & Nama, Detail SweetAlert2 dengan TA & Link, Eliminasi Total Caption Video, dan Showcase Karya Alumni
 
@@ -689,7 +689,7 @@
 
 ### Ringkasan
 1. **Penerapan Layout Kartu & Hero Ala Portal UB (Universitas Brawijaya)**:
-   - Mengubah struktur hero section [`hero-section.vue`](resources/js/Components/Landing/hero-section.vue) menjadi layout persis Portal Tracer Study UB:
+   - Mengubah struktur hero section [`hero-section.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/Landing/hero-section.vue) menjadi layout persis Portal Tracer Study UB:
      - Background nuansa kampus dengan overlay hijau tua pekat (`#00381e` ke `#002213`).
      - Tipografi kontras: `PORTAL TRACER STUDY` (putih bold), `UNIVERSITAS KRISTEN DUTA WACANA` (kuning cerah `#FACC15`), dan kalimat penjelasan almamater.
      - Kolom pencarian terpadu (*"Cari apapun disini..."*) dengan tombol kotak kuning berikon kaca pembesar.
@@ -701,7 +701,7 @@
    - Menambahkan tombol melayang bulat warna kuning (*floating scroll-to-top button*) di pojok kanan bawah persis seperti antarmuka Portal UB.
 
 2. **Implementasi Peta Sebaran Alumni Interaktif (Leaflet.js & OpenStreetMap)**:
-   - Membuat komponen peta interaktif [`alumni-map-section.vue`](resources/js/Components/Landing/alumni-map-section.vue):
+   - Membuat komponen peta interaktif [`alumni-map-section.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/Landing/alumni-map-section.vue):
      - Menggunakan *tile layer* resmi **OpenStreetMap** dengan titik pusat Indonesia di koordinat `[-2.55, 118.02]` dan zoom awal level 5 (sesuai spesifikasi).
      - Mengintegrasikan data batas wilayah **GeoJSON 38 Provinsi Indonesia** (`/geojson/indonesia-provinsi.json`) dan **518 Kabupaten/Kota** (`/geojson/indonesia-kabupaten.json`).
      - Fitur *choropleth* gradasi warna hijau khas UKDW (`#0D542B`), hijau emerald (`#15803D`), dan kuning emas (`#EAB308`) sesuai kepekatan data alumni riil.
@@ -726,16 +726,16 @@
      - `public/uploads/pigo/pigo-dokter.png` (Maskot Pigo bidang Kedokteran & Kesehatan)
      - `public/uploads/logo/logo-ukdw.png` (Logo resmi UKDW)
    - Memperbarui komponen `pigo-loader.vue` agar menggunakan `/uploads/pigo/loading-pigo.png`.
-   - Mengintegrasikan kartu ilustrasi maskot Pigo pada halaman otentikasi [`Login.vue`](resources/js/Pages/Otentikasi/Login.vue) (`pigo-laptop.png`) dan [`UbahKataSandi.vue`](resources/js/Pages/Otentikasi/UbahKataSandi.vue) (`pigo-update-data.png`).
+   - Mengintegrasikan kartu ilustrasi maskot Pigo pada halaman otentikasi [`Login.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Otentikasi/Login.vue) (`pigo-laptop.png`) dan [`UbahKataSandi.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Otentikasi/UbahKataSandi.vue) (`pigo-update-data.png`).
    - Memperbarui seluruh referensi logo bilah navigasi stakeholder (`SuperAdmin`, `AdminProdi`, `AdminFakultas`, `AdminBiroTiga`, dan `Alumni`) ke `/uploads/logo/logo-ukdw.png`.
 
-2. **Penyajian Data Dinamis & Riil dari Database ([`BerandaController.php`](app/Http/Controllers/Tamu/BerandaController.php))**:
+2. **Penyajian Data Dinamis & Riil dari Database ([`BerandaController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Tamu/BerandaController.php))**:
    - Menghubungkan landing page langsung dengan database produksi tanpa data dummy/slop:
      - `stats`: Menghitung total alumni (`120+`), total mitra perusahaan terverifikasi (`32+`), total prodi terintegrasi (`12`), total responden tracer (`88+`), dan persentase serapan karier (`94%`).
      - `featuredAlumni`: Mengambil data alumni riil beserta program studi, jabatan pekerjaan aktif, dan perusahaan/instansi terafiliasi dari tabel `biodata`, `prodi`, dan `perusahaan`.
      - `sektorKarier`: Mengelompokkan sebaran industri alumni (Teknologi & IT, Pendidikan & Riset, Bisnis & Publik).
 
-3. **Redesain Menyeluruh Landing Page Sesuai Referensi Wireframe ([`Beranda.vue`](resources/js/Pages/Tamu/Beranda.vue))**:
+3. **Redesain Menyeluruh Landing Page Sesuai Referensi Wireframe ([`Beranda.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Tamu/Beranda.vue))**:
    - **Hero Section**: Headline profesional, tombol aksi *[Mulai Isi Kuesioner]* & *[Pelajari Alur]*, serta kartu visual maskot `hallo-alumni.png` berpadu 3 highlight feature pills horizontal.
    - **Sektor Alumni Showcase**: Tab kategori (*Semua*, *Teknologi & IT*, *Pendidikan & Riset*) dengan kartu rekam jejak alumni riil dan navigasi geser panah kiri/kanan.
    - **User Guide for First Timer**: Penataan vertikal terstruktur 4 tahap pengisian kuesioner (Step 1 s/d Step 4) dengan ikon quote besar.
@@ -748,7 +748,7 @@
 
 ### Ringkasan
 1. **Penyempurnaan Fungsi Edit & Approval Perusahaan Menjadi Full SweetAlert2**:
-   - Mengubah modal sunting data perusahaan (`openEditModal`) pada modul Admin Program Studi ([`AdminProdi/Perusahaan/Index.vue`](resources/js/Pages/AdminProdi/Perusahaan/Index.vue)) dan Admin Fakultas ([`AdminFakultas/Perusahaan/Index.vue`](resources/js/Pages/AdminFakultas/Perusahaan/Index.vue)) menjadi dialog SweetAlert2 interaktif, elegan, dan terintegrasi penuh.
+   - Mengubah modal sunting data perusahaan (`openEditModal`) pada modul Admin Program Studi ([`AdminProdi/Perusahaan/Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminProdi/Perusahaan/Index.vue)) dan Admin Fakultas ([`AdminFakultas/Perusahaan/Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminFakultas/Perusahaan/Index.vue)) menjadi dialog SweetAlert2 interaktif, elegan, dan terintegrasi penuh.
    - Menyediakan form dinamis di dalam pop-up SweetAlert2: nama instansi, kategori skala instansi, jenis usaha, alamat lengkap, kode pos, serta keterkaitan dinamis provinsi dengan kabupaten/kota via event listener `change` pada elemen DOM dialog.
    - Validasi nama perusahaan wajib diisi (`preConfirm`), umpan balik instan, dan penanganan respon sukses/gagal secara asinkron tanpa reload halaman.
    - Menghapus modal floating kustom lama (`showEditModal` dan `showRecDetailModal`) sehingga antarmuka 100% konsisten menggunakan sistem notifikasi SweetAlert2 yang seragam.
@@ -760,10 +760,10 @@
 
 3. **Penerapan Apple Glossy Aesthetic pada Navigation Sidebar**:
    - Menerapkan bahasa desain *Apple Glassmorphism* (material tembus pandang dengan efek kabur `bg-white/85 backdrop-blur-2xl border-slate-200/70`) pada seluruh bilah navigasi stakeholder non-alumni:
-     - Admin Program Studi: [`AdminProdi/Components/Sidebar.vue`](resources/js/Pages/AdminProdi/Components/Sidebar.vue)
-     - Admin Fakultas: [`AdminFakultas/Components/Sidebar.vue`](resources/js/Pages/AdminFakultas/Components/Sidebar.vue)
-     - Super Admin: [`SuperAdmin/Components/Sidebar.vue`](resources/js/Pages/SuperAdmin/Components/Sidebar.vue)
-     - Admin Biro 3: [`AdminBiroTiga/Components/Sidebar.vue`](resources/js/Pages/AdminBiroTiga/Components/Sidebar.vue)
+     - Admin Program Studi: [`AdminProdi/Components/Sidebar.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminProdi/Components/Sidebar.vue)
+     - Admin Fakultas: [`AdminFakultas/Components/Sidebar.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminFakultas/Components/Sidebar.vue)
+     - Super Admin: [`SuperAdmin/Components/Sidebar.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Components/Sidebar.vue)
+     - Admin Biro 3: [`AdminBiroTiga/Components/Sidebar.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminBiroTiga/Components/Sidebar.vue)
    - Pill navigasi aktif dilengkapi pantulan kilau glossy (*gradient reflection highlight*) dengan gradasi resmi UKDW (`bg-gradient-to-r from-[#0D542B] to-[#157a41]`), bayangan halus (`shadow-md shadow-[#0D542B]/20`), dan ikon berlatar frosted glass.
    - Navigasi mobile dilengkapi topbar melayang dengan efek blur `bg-white/80 backdrop-blur-xl`.
    - Kartu profil pengguna di bagian bawah sidebar dikemas dalam kontainer frosted glass melengkung (`rounded-2xl`) yang estetik dan elegan.
@@ -796,9 +796,9 @@
 
 ### Ringkasan
 1. **Perbaikan Akses Tombol Tambah dan Edit Pertanyaan**:
-   - Memperbaiki deklarasi variabel `initialKeterangan` pada fungsi `openQuestionModal()` di [`Index.vue`](resources/js/Pages/SuperAdmin/Pertanyaan/Index.vue) yang sebelumnya belum didefinisikan (`ReferenceError`), sehingga tombol **"Tambah Pertanyaan"** dan tombol pensil **"Edit"** dapat diakses dan memunculkan pop-up SweetAlert2 dengan normal.
+   - Memperbaiki deklarasi variabel `initialKeterangan` pada fungsi `openQuestionModal()` di [`Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Pertanyaan/Index.vue) yang sebelumnya belum didefinisikan (`ReferenceError`), sehingga tombol **"Tambah Pertanyaan"** dan tombol pensil **"Edit"** dapat diakses dan memunculkan pop-up SweetAlert2 dengan normal.
    - Mengganti pengisian nilai input (kode pertanyaan, bunyi soal, keterangan/constraint, dan urutan) agar diisikan secara aman melalui hook `didOpen` SweetAlert2, menghindari konflik karakter khusus/tanda petik pada HTML template string.
-2. **Sinkronisasi Validasi Backend ([`SimpanPertanyaanController.php`](app/Http/Controllers/SuperAdmin/KelolaPertanyaan/SimpanPertanyaanController.php))**:
+2. **Sinkronisasi Validasi Backend ([`SimpanPertanyaanController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/KelolaPertanyaan/SimpanPertanyaanController.php))**:
    - Menambahkan tipe `radio`, `checkbox`, dan field `keterangan` (batasan nilai/constraint) ke dalam daftar aturan validasi `store` dan `update` agar penyimpanan soal baru dan pembaruan soal berjalan mulus tanpa tertolak validasi server.
 3. **Pengujian & Verifikasi**:
    - Build frontend berhasil (`npm run build` sukses 1.82s).
@@ -833,7 +833,7 @@
 ---
 
 ### Ringkasan
-1. **Penyempurnaan Tampilan Dashboard Alumni ([`Dashboard.vue`](resources/js/Pages/Alumni/Dashboard.vue))**:
+1. **Penyempurnaan Tampilan Dashboard Alumni ([`Dashboard.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Dashboard.vue))**:
    - Menghapus kotak ikon avatar/clipboard/topi di pojok kiri atas kartu agar tampilan lebih bersih, minimalis, dan elegan.
    - Menyamakan tinggi seluruh kartu (*equal height*) dan meratakan posisi vertikal kontainer persentase progress bar (`mt-auto`) sehingga seluruh kartu memiliki elevasi dan tinggi baseline yang simetris dan rapi.
    - Menghilangkan ikon panah (`→`) dari seluruh tombol navigasi kartu dashboard ("Kelola Data Profil", "Isi Kuesioner Umum", "Buka Kuesioner Prodi").
@@ -841,14 +841,14 @@
 2. **Standarisasi Ikon Tombol Keluar / Logout**:
    - Mengganti seluruh ikon keluar (pintu/emotikon) di seluruh modul sistem (Alumni Navbar, Super Admin Sidebar, Admin Prodi Navbar & Sidebar, Admin Biro 3 Sidebar & Navbar, Admin Fakultas Sidebar) dengan ikon SVG Power-Off yang konsisten dan profesional.
 3. **Pembersihan Komponen**:
-   - Menghapus blok komentar HTML yang tidak digunakan pada [`Banner.vue`](resources/js/Pages/Alumni/Components/Kuesioner/Banner.vue).
+   - Menghapus blok komentar HTML yang tidak digunakan pada [`Banner.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/Banner.vue).
 
 ---
 
 ## [2026-09-21] Optimalisasi Navigasi Seksi Kuesioner (Instan 1x Klik Tanpa Menunggu Simpan)
 
 ### Ringkasan
-Memperbaiki navigasi tombol Lanjut (`>`) dan Stepper pada Kuesioner Program Studi ([`KuesionerProdi.vue`](resources/js/Pages/Alumni/KuesionerProdi.vue)) dan Kuesioner Universitas ([`Kuesioner.vue`](resources/js/Pages/Alumni/Kuesioner.vue)) sehingga perpindahan seksi berlangsung **instan dengan 1x klik (0 ms)** tanpa jeda, sementara proses penyimpanan jawaban ke database dijalankan secara aman di latar belakang (*asynchronous background sync*).
+Memperbaiki navigasi tombol Lanjut (`>`) dan Stepper pada Kuesioner Program Studi ([`KuesionerProdi.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/KuesionerProdi.vue)) dan Kuesioner Universitas ([`Kuesioner.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Kuesioner.vue)) sehingga perpindahan seksi berlangsung **instan dengan 1x klik (0 ms)** tanpa jeda, sementara proses penyimpanan jawaban ke database dijalankan secara aman di latar belakang (*asynchronous background sync*).
 
 ### Detail Perbaikan
 - **Optimistic Immediate Navigation**:
@@ -858,21 +858,21 @@ Memperbaiki navigasi tombol Lanjut (`>`) dan Stepper pada Kuesioner Program Stud
 ---
 
 ### Ringkasan
-1. Memperbaiki bug pada backend [`SimpanProfilController.php`](app/Http/Controllers/Alumni/Profil/SimpanProfilController.php) di mana data nama/email atasan yang dihapus oleh alumni sebelumnya dapat terisi kembali dengan data lama dari database akibat adanya nilai *fallback* yang tidak sengaja mempertahankan data `atasan->nama` lama.
-2. Mengubah seluruh kolom pengisian pada Halaman Profil Alumni ([`FormPribadi.vue`](resources/js/Components/AlumniProfil/FormPribadi.vue), [`FormOrangTua.vue`](resources/js/Components/AlumniProfil/FormOrangTua.vue), [`FormKarier.vue`](resources/js/Components/AlumniProfil/FormKarier.vue), dan [`Index.vue`](resources/js/Pages/Alumni/Profil/Index.vue)) menjadi **Wajib Diisi (Mandatory)**, ditandai dengan tanda bintang merah (`*`), indikator border merah saat belum terisi / hijau saat valid, serta validasi kelengkapan tab (*tab completeness*) yang hanya mencentang hijau (`V`) jika seluruh kolom telah terisi lengkap.
+1. Memperbaiki bug pada backend [`SimpanProfilController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Profil/SimpanProfilController.php) di mana data nama/email atasan yang dihapus oleh alumni sebelumnya dapat terisi kembali dengan data lama dari database akibat adanya nilai *fallback* yang tidak sengaja mempertahankan data `atasan->nama` lama.
+2. Mengubah seluruh kolom pengisian pada Halaman Profil Alumni ([`FormPribadi.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormPribadi.vue), [`FormOrangTua.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormOrangTua.vue), [`FormKarier.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue), dan [`Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Profil/Index.vue)) menjadi **Wajib Diisi (Mandatory)**, ditandai dengan tanda bintang merah (`*`), indikator border merah saat belum terisi / hijau saat valid, serta validasi kelengkapan tab (*tab completeness*) yang hanya mencentang hijau (`V`) jika seluruh kolom telah terisi lengkap.
 
 ### Detail Perbaikan
-- **Backend ([`SimpanProfilController.php`](app/Http/Controllers/Alumni/Profil/SimpanProfilController.php))**:
+- **Backend ([`SimpanProfilController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Profil/SimpanProfilController.php))**:
   - Memperbaiki logika `updateOrCreate` pada relasi `atasan` agar menyimpan nilai `null` secara langsung ketika kolom dihapus/dikosongkan oleh pengguna, tanpa menimpa atau mengembalikan nama atasan lama secara otomatis.
-- **Frontend ([`FormPribadi.vue`](resources/js/Components/AlumniProfil/FormPribadi.vue), [`FormOrangTua.vue`](resources/js/Components/AlumniProfil/FormOrangTua.vue), [`FormKarier.vue`](resources/js/Components/AlumniProfil/FormKarier.vue))**:
+- **Frontend ([`FormPribadi.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormPribadi.vue), [`FormOrangTua.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormOrangTua.vue), [`FormKarier.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue))**:
   - Semua field formulir kini dilengkapi tanda bintang wajib (`*`), atribut `autocomplete="off"` untuk mencegah intervensi *browser autofill*, serta penanda warna border reaktif (merah jika kosong/invalid, hijau jika telah terisi dengan benar).
-- **Evaluasi Kelengkapan Tab ([`Index.vue`](resources/js/Pages/Alumni/Profil/Index.vue))**:
+- **Evaluasi Kelengkapan Tab ([`Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Profil/Index.vue))**:
   - Menyelaraskan fungsi `tabCompleteness` agar memeriksa seluruh field wajib di setiap tab (Identitas Pribadi, Data Kontak & Domisili, Data Orang Tua, Pekerjaan, Perusahaan, Atasan Langsung, dan Jejaring Sosial).
 
 ---
 
 ### Ringkasan
-Memperbaiki styling visual kolom-kolom isian opsional pada halaman Profil Alumni ([`FormPribadi.vue`](resources/js/Components/AlumniProfil/FormPribadi.vue), [`FormOrangTua.vue`](resources/js/Components/AlumniProfil/FormOrangTua.vue), dan [`FormKarier.vue`](resources/js/Components/AlumniProfil/FormKarier.vue)) yang sebelumnya menampilkan border/background merah (`border-rose-300 bg-rose-50/20`) saat kosong meskipun tab formulir sudah lengkap dan bertanda centang hijau (`V`).
+Memperbaiki styling visual kolom-kolom isian opsional pada halaman Profil Alumni ([`FormPribadi.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormPribadi.vue), [`FormOrangTua.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormOrangTua.vue), dan [`FormKarier.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue)) yang sebelumnya menampilkan border/background merah (`border-rose-300 bg-rose-50/20`) saat kosong meskipun tab formulir sudah lengkap dan bertanda centang hijau (`V`).
 
 ### Detail Perbaikan
 - **Pembersihan Border Merah pada Kolom Opsional**:
@@ -893,7 +893,7 @@ Memperbaiki styling visual kolom-kolom isian opsional pada halaman Profil Alumni
 Menghapus duplikasi teks instruksi (*"Jawaban bisa lebih dari satu"* / *"Pilih salah satu jawaban"*) yang sebelumnya muncul ganda di bawah judul pertanyaan dan di atas pilihan jawaban, serta menyederhanakan desain input angka (*stepper*) menjadi bersih, standar, dan tanpa ikon/emoji.
 
 ### Detail Perbaikan
-- **Eliminasi Teks Duplikasi pada [`KartuPertanyaan.vue`](resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue)**:
+- **Eliminasi Teks Duplikasi pada [`KartuPertanyaan.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue)**:
   - Menambahkan fungsi `getCleanKeterangan()` untuk menyaring teks keterangan dari database jika isinya hanya instruksi duplikat (seperti *"Jawaban bisa lebih dari satu"*), sehingga hanya pill badge resmi yang tampil rapi tanpa pengulangan teks di bawah judul pertanyaan.
 - **Desain Stepper Angka Minimalis & Bersih**:
   - Mengubah stepper angka menjadi inline stepper ringkas dengan label satuan yang diletakkan langsung di samping stepper, menggunakan format ringkas `/ perusahaan` (pada butir `F6`, `F7`, `F7A`) dan `Bulan` (pada `F502`, `F506`) tanpa ikon/emotikon berlebih.
@@ -904,7 +904,7 @@ Menghapus duplikasi teks instruksi (*"Jawaban bisa lebih dari satu"* / *"Pilih s
 Memperbaiki kolom input angka pada butir pertanyaan F6, F7, dan F7A (*jumlah perusahaan yang dilamar, merespons, dan mengundang wawancara*) yang sebelumnya terhimpit/tidak kelihatan dan sulit diklik pada tata letak kartu berdampingan (*3-column grid layout*).
 
 ### Detail Perbaikan
-- **Restrukturisasi Komponen Input Angka ([`KartuPertanyaan.vue`](resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue))**:
+- **Restrukturisasi Komponen Input Angka ([`KartuPertanyaan.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue))**:
   - Badge satuan unit panjang (seperti *"Satuan: Perusahaan / Instansi"* dan *"Satuan: Undangan Wawancara"*) dipindahkan ke baris bawah stepper `[-] [ 0 ] [+]` alih-alih berjejer secara inline di dalam kotak input.
   - Memberikan lebar penuh yang leluasa (`flex-1 min-w-[70px]`) untuk kotak input angka di antara tombol `[-]` dan `[+]`, sehingga angka jelas terlihat dan pengguna dapat mengetik langsung maupun mengeklik tombol tambah/kurang dengan mudah di berbagai ukuran layar.
 
@@ -914,12 +914,12 @@ Memperbaiki kolom input angka pada butir pertanyaan F6, F7, dan F7A (*jumlah per
 Memperbaiki permasalahan visual di mana butir pertanyaan Evaluasi Kompetensi F17 (dan pertanyaan skala rating) tampak kosong/tidak terpilih meskipun data jawaban sudah terisi di database dan stepper sudah bertanda centang ("v").
 
 ### Detail Perbaikan
-- **Resolusi Mismatch Tipe Data (String vs Integer) pada [`TabelF17.vue`](resources/js/Pages/Alumni/Components/Kuesioner/TabelF17.vue)**:
+- **Resolusi Mismatch Tipe Data (String vs Integer) pada [`TabelF17.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/TabelF17.vue)**:
   - Jawaban kuesioner di database `tracer.answer` tersimpan dalam bentuk label teks (seperti `"Sangat Rendah"`, `"Rendah"`, `"Cukup"`, `"Tinggi"`, `"Sangat Tinggi"`).
   - Sebelumnya, pengecekan radio di template menggunakan `Number(getScoreA(item)) === score`. Karena `Number("Sangat Tinggi")` menghasilkan `NaN`, perbandingan `NaN === 5` selalu bernilai `false`, sehingga seluruh bulatan radio F17 tidak terpilih/kosong secara visual.
   - Memperbarui pengecekan `:checked` dan kelas penanda aktif agar menggunakan helper `getRatingScore()` yang memetakan label string ke nilai angka 1–5 secara seamless.
   - Memperbarui `setScoreA` dan `setScoreB` agar memetakan angka yang diklik ke format teks resmi kuesioner.
-- **Normalisasi Pertanyaan Skala Rating pada [`KartuPertanyaan.vue`](resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue)**:
+- **Normalisasi Pertanyaan Skala Rating pada [`KartuPertanyaan.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue)**:
   - Menambahkan kamus pemetaan skala rating (`ratingScoresMap`) dan fungsi helper `isRatingScoreSelected()` & `setRatingScore()` untuk semua butir bertipe `rating_5` agar mendukung input berupa string opsi maupun angka skor.
 
 ---
@@ -932,16 +932,16 @@ Memperbaiki permasalahan nilai jawaban pertanyaan F8 (*"Jelaskan status Anda saa
   - `KuesionerSyncService` dan `KuesionerController` kini menormalisasikan string profil `kategori_pekerjaan` (seperti `"Pekerja"`, `"Mencari Kerja"`, `"Belum Memungkinkan Bekerja"`, `"Wiraswasta"`) secara presisi ke teks opsi resmi di `ref_subpertanyaan_detil` (misal: `"Bekerja (full time/part time)"`).
   - Mengeliminasi ketidakcocokan nilai radio button Vue yang sebelumnya menyebabkan pilihan F8 tidak terpilih saat halaman di-*render* ulang.
 - **Merge State Jawaban Lokal vs Server yang Aman**:
-  - Pada [`Kuesioner.vue`](resources/js/Pages/Alumni/Kuesioner.vue), fungsi `getInitialAnswers` diperbarui agar tidak menimpa jawaban valid di `localStorage` dengan nilai kosong dari server.
+  - Pada [`Kuesioner.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Kuesioner.vue), fungsi `getInitialAnswers` diperbarui agar tidak menimpa jawaban valid di `localStorage` dengan nilai kosong dari server.
 - **Logika Percabangan F10**:
-  - Pilihan **"Bekerja (full time/part time)"** dan **"Wiraswasta"** (serta **"Melanjutkan Pendidikan"**) sekarang secara otomatis menyembunyikan/melewati pertanyaan `F10` baik di frontend ([`Kuesioner.vue`](resources/js/Pages/Alumni/Kuesioner.vue)) maupun di penghitungan kelengkapan backend ([`KelengkapanTracerService.php`](app/Services/Kuesioner/KelengkapanTracerService.php)).
+  - Pilihan **"Bekerja (full time/part time)"** dan **"Wiraswasta"** (serta **"Melanjutkan Pendidikan"**) sekarang secara otomatis menyembunyikan/melewati pertanyaan `F10` baik di frontend ([`Kuesioner.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Kuesioner.vue)) maupun di penghitungan kelengkapan backend ([`KelengkapanTracerService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Kuesioner/KelengkapanTracerService.php)).
   - Pertanyaan `F10` **hanya ditampilkan** untuk responden dengan status **"Belum memungkinkan bekerja"** atau **"Tidak kerja tetapi sedang mencari kerja"**.
 - **Eksklusivitas Input Radio Pilihan Tunggal F3 (Sebelum Lulus vs Sesudah Lulus)**:
-  - Pada butir pertanyaan `F3` (*"Kapan anda mulai mencari pekerjaan?"*) dan seluruh pertanyaan bertipe `radio_input` / `radio_text` di [`KartuPertanyaan.vue`](resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue), kini diberlakukan **eksklusivitas pilihan tunggal mutlak**.
+  - Pada butir pertanyaan `F3` (*"Kapan anda mulai mencari pekerjaan?"*) dan seluruh pertanyaan bertipe `radio_input` / `radio_text` di [`KartuPertanyaan.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue), kini diberlakukan **eksklusivitas pilihan tunggal mutlak**.
   - Jika alumni memilih atau mengisi salah satu opsi (misal: *"Sebelum lulus ... bulan"*), maka isian pada opsi lainnya (misal: *"Sesudah lulus ... bulan"* atau *"Saya tidak mencari kerja"*) **langsung dikosongkan/dihapus secara otomatis**.
-  - Backend [`SimpanJawabanController.php`](app/Http/Controllers/Alumni/Kuesioner/SimpanJawabanController.php) dan [`KuesionerController.php`](app/Http/Controllers/Alumni/Kuesioner/KuesionerController.php) juga menjamin hanya opsi yang aktif yang tersimpan dan dimuat kembali.
+  - Backend [`SimpanJawabanController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Kuesioner/SimpanJawabanController.php) dan [`KuesionerController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Kuesioner/KuesionerController.php) juga menjamin hanya opsi yang aktif yang tersimpan dan dimuat kembali.
 - **Stepper & Navigasi Dinamis Berdasarkan Bagian yang Relevan (Visible Sections)**:
-  - [`Stepper.vue`](resources/js/Pages/Alumni/Components/Kuesioner/Stepper.vue), [`Banner.vue`](resources/js/Pages/Alumni/Components/Kuesioner/Banner.vue), dan [`Navigasi.vue`](resources/js/Pages/Alumni/Components/Kuesioner/Navigasi.vue) kini hanya menampilkan dan menavigasikan bagian/seksi kuesioner yang **aktif dan relevan** (*visible sections*) sesuai status pekerjaan alumni di F8.
+  - [`Stepper.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/Stepper.vue), [`Banner.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/Banner.vue), dan [`Navigasi.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/Navigasi.vue) kini hanya menampilkan dan menavigasikan bagian/seksi kuesioner yang **aktif dan relevan** (*visible sections*) sesuai status pekerjaan alumni di F8.
   - Menghilangkan masalah halaman kosong (*blank*) saat alumni mengeklik bulatan tahapan pada seksi yang seluruh butir pertanyaannya tidak relevan/disembunyikan oleh sistem.
 
 ---
@@ -952,12 +952,12 @@ Memperbaiki permasalahan nilai jawaban pertanyaan F8 (*"Jelaskan status Anda saa
 Memperbaiki inkonsistensi persentase progres antara halaman Kuesioner Prodi (`/alumni/kuesioner-prodi`) dan Dashboard Alumni (`/alumni/dashboard`). Memastikan jawaban yang dikosongkan langsung terhapus dari database dan progres selalu tersinkronisasi secara otomatis (*real-time auto-save*).
 
 ### Bug Fixes
-- **Karakter `>` Muncul di Header Alumni**: Memperbaiki kesalahan ketik tag `<<template>` menjadi `<template>` pada [`KuesionerProdi.vue`](resources/js/Pages/Alumni/KuesionerProdi.vue).
+- **Karakter `>` Muncul di Header Alumni**: Memperbaiki kesalahan ketik tag `<<template>` menjadi `<template>` pada [`KuesionerProdi.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/KuesionerProdi.vue).
 - **Inkonsistensi Persentase Progres**:
   - `Banner.vue` diperbarui agar menampilkan progres butir soal terjawab riil (`41 / 42 Soal (98%)`) bukan sekadar indeks tahapan seksi.
   - `KuesionerProdiController.php` sekarang menghapus baris dari tabel `prodi_response` ketika butir pertanyaan dikosongkan.
   - Memperketat aturan autofill prodi agar tidak salah mendeteksi pertanyaan kuesioner reguler sebagai pertanyaan identitas.
-  - Menambahkan sinkronisasi otomatis latar belakang (*debounced background auto-save*) dan sinkronisasi instan saat *mount* di [`KuesionerProdi.vue`](resources/js/Pages/Alumni/KuesionerProdi.vue) sehingga database server dan Dashboard selalu 100% mutakhir.
+  - Menambahkan sinkronisasi otomatis latar belakang (*debounced background auto-save*) dan sinkronisasi instan saat *mount* di [`KuesionerProdi.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/KuesionerProdi.vue) sehingga database server dan Dashboard selalu 100% mutakhir.
 
 ---
 
@@ -970,7 +970,7 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
 - **Bug Kritis: Profil Tidak Tersimpan / Reset saat Refresh (Semua Admin Role)**:
   - **Sebab**: Setiap controller (SuperAdmin, Biro 3, Fakultas, Prodi) masing-masing memiliki implementasi form-build & persistensi yang berbeda-beda dan tidak sinkron.
   - **Solusi**: Membuat `AdminAlumniProfileService` (service terpusat baru) yang menangani seluruh alur `buildFormData()` dan `updateProfile()` untuk semua role.
-  - **File terdampak**: [`DetailAlumniSuperAdminController.php`](app/Http/Controllers/SuperAdmin/KelolaAlumni/DetailAlumniSuperAdminController.php), [`DetailAlumniController.php`](app/Http/Controllers/AdminBiroTiga/KelolaAlumni/DetailAlumniController.php), [`DetailAlumniFakultasController.php`](app/Http/Controllers/AdminFakultas/KelolaAlumni/DetailAlumniFakultasController.php), [`DaftarAlumniProdiController.php`](app/Http/Controllers/AdminProdi/KelolaAlumni/DaftarAlumniProdiController.php).
+  - **File terdampak**: [`DetailAlumniSuperAdminController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/KelolaAlumni/DetailAlumniSuperAdminController.php), [`DetailAlumniController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminBiroTiga/KelolaAlumni/DetailAlumniController.php), [`DetailAlumniFakultasController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminFakultas/KelolaAlumni/DetailAlumniFakultasController.php), [`DaftarAlumniProdiController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminProdi/KelolaAlumni/DaftarAlumniProdiController.php).
 - **Bug Kritis: Gaji Berlipat Ganda Setiap Kali Disimpan**:
   - **Sebab**: Input gaji dari frontend dapat berformat ribuan (misal `5.000.000`) yang kemudian diparsing dengan cara berbeda di tiap controller. Beberapa controller tidak membersihkan separator ribuan sehingga nilai `5.000` dibaca sebagai `5` (bukan 5 juta) atau dikalikan.
   - **Solusi**: `AdminAlumniProfileService::updateProfile()` sekarang membersihkan input gaji secara konsisten: jika mengandung pola desimal 2 digit di akhir, strip dahulu; kemudian hapus semua karakter non-numerik; hasilnya dibulatkan ke integer.
@@ -983,17 +983,17 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
   - **Solusi**: `AdminAlumniProfileService::updateProfile()` sekarang secara eksplisit menghapus (set `null`) field yang tidak relevan berdasarkan nilai `kategori_pekerjaan`: Pekerja → `posisi_wiraswasta = null`; Wiraswasta → `posisi_jabatan = null`; Melanjutkan Pendidikan → keduanya `null`.
 - **Bug: F5a1 & F5a2 (Provinsi & Kota Tempat Kerja) Tidak Terbaca di Excel**:
   - **Sebab**: View `v_alumni_kuesioner_autofill` tidak memetakan data perusahaan (provinsi dan kabupaten) ke kode instrumen `F5a1` dan `F5a2`.
-  - **Solusi**: Migration view diperbarui ([`2026_09_01_193005_create_v_alumni_kuesioner_autofill_view.php`](database/migrations/2026_09_01_193005_create_v_alumni_kuesioner_autofill_view.php)) untuk memetakan nama provinsi dari `perusahaan.propinsi_id` ke `F5a1` dan nama kabupaten dari `perusahaan.kabupaten_id` ke `F5a2` secara dinamis.
+  - **Solusi**: Migration view diperbarui ([`2026_09_01_193005_create_v_alumni_kuesioner_autofill_view.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_09_01_193005_create_v_alumni_kuesioner_autofill_view.php)) untuk memetakan nama provinsi dari `perusahaan.propinsi_id` ke `F5a1` dan nama kabupaten dari `perusahaan.kabupaten_id` ke `F5a2` secara dinamis.
 
 ### New Features / Architecture
-- **[NEW] `AdminAlumniProfileService`** ([`app/Services/Alumni/AdminAlumniProfileService.php`](app/Services/Alumni/AdminAlumniProfileService.php)):
+- **[NEW] `AdminAlumniProfileService`** ([`app/Services/Alumni/AdminAlumniProfileService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Alumni/AdminAlumniProfileService.php)):
   - **`buildFormData(Biodata $alumni): array`** — Menyusun array formData lengkap (150+ field) untuk dikirim ke frontend Vue, dengan multi-level fallback (biodata → dataAkademik → yudisium → perusahaan → atasan → orangTua).
   - **`getRefOptions(): array`** — Mengambil opsi referensi kuesioner resmi (F2G, F2H, F5D, F11, F8) dari `ref_subpertanyaan_detil`, digunakan untuk mengisi dropdown di `FormKarier.vue`.
   - **`updateProfile(Biodata $biodata, array $data): void`** — Menyimpan seluruh pembaruan profil alumni secara atomik dalam satu operasi: (1) DataOrangTua (upsert by NIM), (2) Yudisium (upsert by NIM), (3) Perusahaan (firstOrCreate + update), (4) Atasan (update atau create), (5) Sanitasi gaji, (6) Update Biodata, (7) Sinkronisasi `KuesionerSyncService`.
 
 ### Refactoring
-- Seluruh 4 controller admin ([`DetailAlumniSuperAdminController`](app/Http/Controllers/SuperAdmin/KelolaAlumni/DetailAlumniSuperAdminController.php), [`DetailAlumniController` (Biro3)](app/Http/Controllers/AdminBiroTiga/KelolaAlumni/DetailAlumniController.php), [`DetailAlumniFakultasController`](app/Http/Controllers/AdminFakultas/KelolaAlumni/DetailAlumniFakultasController.php), [`DaftarAlumniProdiController`](app/Http/Controllers/AdminProdi/KelolaAlumni/DaftarAlumniProdiController.php)) **dimigrasikan** dari implementasi form-build & persistensi yang tersebar menjadi pemanggilan terpusat ke `AdminAlumniProfileService`.
-- [`AlumniTracerExcelExporter`](app/Services/Export/AlumniTracerExcelExporter.php) diperbarui untuk mendukung pembacaan jawaban dari kolom `answer_text` **maupun** `answer` secara berurutan (multi-column fallback), sehingga kompatibel dengan jawaban yang disimpan melalui entri manual kuesioner maupun sinkronisasi otomatis profil.
+- Seluruh 4 controller admin ([`DetailAlumniSuperAdminController`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/KelolaAlumni/DetailAlumniSuperAdminController.php), [`DetailAlumniController` (Biro3)](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminBiroTiga/KelolaAlumni/DetailAlumniController.php), [`DetailAlumniFakultasController`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminFakultas/KelolaAlumni/DetailAlumniFakultasController.php), [`DaftarAlumniProdiController`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminProdi/KelolaAlumni/DaftarAlumniProdiController.php)) **dimigrasikan** dari implementasi form-build & persistensi yang tersebar menjadi pemanggilan terpusat ke `AdminAlumniProfileService`.
+- [`AlumniTracerExcelExporter`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Export/AlumniTracerExcelExporter.php) diperbarui untuk mendukung pembacaan jawaban dari kolom `answer_text` **maupun** `answer` secara berurutan (multi-column fallback), sehingga kompatibel dengan jawaban yang disimpan melalui entri manual kuesioner maupun sinkronisasi otomatis profil.
 
 ### Quality Assurance
 - ✅ **54 PHPUnit Tests** lulus, 298 assertions (0 failures).
@@ -1004,8 +1004,8 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
 ## [2026-09-21] Penyederhanaan Status (v dan x) & Kelengkapan 100% 4 Sub-Tab Ekspor Excel
 
 - **Standarisasi Kolom Status Menjadi 'v' dan 'x' Tanpa Titik**:
-  - Mengubah indikator status pada tabel kuesioner universitas dan kuesioner prodi di seluruh stakeholder ([SuperAdmin/Alumni/Show.vue](resources/js/Pages/SuperAdmin/Alumni/Show.vue), [AdminBiroTiga/AlumniShow.vue](resources/js/Pages/AdminBiroTiga/AlumniShow.vue), [AdminFakultas/Alumni/Show.vue](resources/js/Pages/AdminFakultas/Alumni/Show.vue), [AdminProdi/Alumni/Show.vue](resources/js/Pages/AdminProdi/Alumni/Show.vue)) menjadi huruf **`v`** (bold hijau untuk terjawab) dan **`x`** (bold merah untuk belum terjawab) secara bersih tanpa titik bulat (`•`).
-  - Menyelaraskan kolom status pada berkas Excel `.xls` ([AlumniTracerExcelExporter.php](app/Services/Export/AlumniTracerExcelExporter.php)) menjadi `v` dan `x`.
+  - Mengubah indikator status pada tabel kuesioner universitas dan kuesioner prodi di seluruh stakeholder ([SuperAdmin/Alumni/Show.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Alumni/Show.vue), [AdminBiroTiga/AlumniShow.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminBiroTiga/AlumniShow.vue), [AdminFakultas/Alumni/Show.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminFakultas/Alumni/Show.vue), [AdminProdi/Alumni/Show.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminProdi/Alumni/Show.vue)) menjadi huruf **`v`** (bold hijau untuk terjawab) dan **`x`** (bold merah untuk belum terjawab) secara bersih tanpa titik bulat (`•`).
+  - Menyelaraskan kolom status pada berkas Excel `.xls` ([AlumniTracerExcelExporter.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Export/AlumniTracerExcelExporter.php)) menjadi `v` dan `x`.
 - **Ekspor Excel (.xls) 100% Lengkap Mencakup Seluruh 4 Sub-Bagian Profil**:
   - Menyusun 4 sub-bagian grid identitas lengkap di lembar kerja Excel:
     1. **Data Diri & Kontak Pribadi**: NIM, Nama Lengkap, NIK (KTP), NPWP, No. Kartu Keluarga (KK), No. BPJS/Asuransi, NISN, Jenis Kelamin, Tempat Lahir, Tanggal Lahir, Agama, Golongan Darah, Kewarganegaraan, Nomor Telepon/WA, Email Pribadi, Email Kampus/Mahasiswa, LinkedIn (URL/Username), Media Sosial Lainnya (IG & FB), Bidang Keahlian (*Expert*), Minat, dan Alamat Lengkap Domisili.
@@ -1016,7 +1016,7 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
 
 ## [2026-09-21] Rekonstruksi & Kelengkapan 4 Sub-Tab Database Views (v_alumni_profile_summary & v_alumni_audit_rekap)
 
-- **Kelengkapan Penuh 4 Sub-Tab Profil di Database View ([2026_09_20_234000_create_alumni_audit_database_views.php](database/migrations/2026_09_20_234000_create_alumni_audit_database_views.php))**:
+- **Kelengkapan Penuh 4 Sub-Tab Profil di Database View ([2026_09_20_234000_create_alumni_audit_database_views.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/migrations/2026_09_20_234000_create_alumni_audit_database_views.php))**:
   - Merekonstruksi `v_alumni_profile_summary` menjadi 78 kolom lengkap yang mencakup seluruh field dari 4 tab profil `/alumni/profile`:
     1. **Data Pribadi**: NIK, No KK, No BPJS, NISN, NPWP, Email Pribadi, Email Kampus, Telepon, Tempat/Tanggal Lahir, Jenis Kelamin, Agama, Golongan Darah, Kewarganegaraan, Alamat, Kelurahan, Kecamatan, Kode Pos, ID & Nama Provinsi (`propinsi`), ID & Nama Kabupaten/Kota (`kabupaten`), Akun Instagram, Facebook, LinkedIn (URL & Username), Bidang Keahlian (*expert*), dan Minat.
     2. **Data Akademik & Lembaga**: Program Studi (ID, Kode, Nama), Fakultas (ID, Kode, Nama, Singkatan), Angkatan Masuk, Tahun Lulus, Tahun Akademik Lulus, IPK Kumulatif, Total SKS, Total Angka Kualitas, Status Mahasiswa, Asal Sekolah, Alamat Sekolah, Kota/Kabupaten Sekolah, Provinsi Sekolah, dan Jurusan SMA/SMK. Sesuai instruksi, entitas yudisium dilepaskan dari summary.
@@ -1029,17 +1029,17 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
 ## [2026-09-21] Full Profile Parity (Biro 3, Fakultas, Prodi), Sidebar Cutoff Fix, Comprehensive Excel Fields & Harmonized Dashboards
 
 - **Kelengkapan Penuh Detail Profil Mahasiswa (Paritas 100% Seluruh Stakeholder)**:
-  - Mengintegrasikan 4 sub-komponen profil lengkap (`FormPribadi.vue`, `FormAkademik.vue`, `FormOrangTua.vue`, `FormKarier.vue`) ke halaman detail alumni **Admin Biro 3** ([AlumniShow.vue](resources/js/Pages/AdminBiroTiga/AlumniShow.vue)), **Admin Fakultas** ([Show.vue](resources/js/Pages/AdminFakultas/Alumni/Show.vue)), dan **Admin Program Studi** ([Show.vue](resources/js/Pages/AdminProdi/Alumni/Show.vue)).
+  - Mengintegrasikan 4 sub-komponen profil lengkap (`FormPribadi.vue`, `FormAkademik.vue`, `FormOrangTua.vue`, `FormKarier.vue`) ke halaman detail alumni **Admin Biro 3** ([AlumniShow.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminBiroTiga/AlumniShow.vue)), **Admin Fakultas** ([Show.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminFakultas/Alumni/Show.vue)), dan **Admin Program Studi** ([Show.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminProdi/Alumni/Show.vue)).
   - Menyediakan form data reaktif lengkap dengan sub-navigasi 4 tab (*1. Data Pribadi, 2. Data Akademik, 3. Data Orang Tua, 4. Karier & Perusahaan*) serta tombol *Simpan Perubahan Profil* yang terhubung ke endpoint backend masing-masing stakeholder (`/biro3/alumni/{id}/profile`, `/fakultas/alumni/{id}/profile`, `/prodi/alumni/{id}/profile`).
   - Mengirimkan data master referensi wilayah (`provinces`, `kabupatens`) dan master `companies` dari masing-masing controller ke halaman frontend.
 - **Perbaikan Teks Terpotong pada Sidebar Seluruh Stakeholder**:
   - Memperbaiki pemotongan nama pengguna dan nama fakultas/prodi yang sebelumnya terpotong oleh kelas `truncate` (misal: `Admin Fakultas Teknol...` dan `FAKULTAS TEKNOLOGI INFORMA...`) pada 4 komponen sidebar:
-    - [AdminFakultas/Components/Sidebar.vue](resources/js/Pages/AdminFakultas/Components/Sidebar.vue)
-    - [AdminProdi/Components/Sidebar.vue](resources/js/Pages/AdminProdi/Components/Sidebar.vue)
-    - [AdminBiroTiga/Components/Sidebar.vue](resources/js/Pages/AdminBiroTiga/Components/Sidebar.vue)
-    - [SuperAdmin/Components/Sidebar.vue](resources/js/Pages/SuperAdmin/Components/Sidebar.vue)
+    - [AdminFakultas/Components/Sidebar.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminFakultas/Components/Sidebar.vue)
+    - [AdminProdi/Components/Sidebar.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminProdi/Components/Sidebar.vue)
+    - [AdminBiroTiga/Components/Sidebar.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminBiroTiga/Components/Sidebar.vue)
+    - [SuperAdmin/Components/Sidebar.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Components/Sidebar.vue)
   - Mengganti pembatasan `truncate` dengan `break-words leading-tight` / `leading-snug` sehingga seluruh nama tampil utuh, rapi, dan estetis.
-- **Ekspor Excel (.xls) 100% Lengkap dengan Proteksi Teks & Multi-Level Fallback ([AlumniTracerExcelExporter.php](app/Services/Export/AlumniTracerExcelExporter.php))**:
+- **Ekspor Excel (.xls) 100% Lengkap dengan Proteksi Teks & Multi-Level Fallback ([AlumniTracerExcelExporter.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Export/AlumniTracerExcelExporter.php))**:
   - Memastikan seluruh field identitas alumni di berkas Excel terisi lengkap tanpa ada data kosong:
     - Identitas Diri & Kontak: NIM, Nama Lengkap, NIK (KTP), NPWP, No. Kartu Keluarga, No. BPJS, Nomor Telepon/WA, Email Pribadi, Email Kampus, dan Alamat Lengkap Saat Ini.
     - Rekam Jejak Akademik & Kelulusan: Program Studi, Fakultas, Tahun Lulus (dengan multi-level fallback dari `biodatas`, `yudisiums`, dan `data_akademik`), Semester Kelulusan, Angkatan Masuk, IPK, Total SKS, Status Yudisium, Judul Tugas Akhir, dan Dosen Pembimbing.
@@ -1047,14 +1047,14 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
   - Semua kode numerik panjang tetap terlindungi dengan format teks Microsoft Excel (`mso-number-format:'\@'`).
 - **Penyelarasan Dashboard Utama Biro 3, Fakultas, dan Prodi Seragam dengan Super Admin**:
   - Menstandarisasi tata letak visual, palet warna solid UKDW (`#0D542B`, `#FDC700`, `#FFFFFF`), kartu KPI metrik 4-kolom, modul navigasi dua kolom, serta footer bersih di:
-    - [AdminBiroTiga/Dashboard.vue](resources/js/Pages/AdminBiroTiga/Dashboard.vue)
-    - [AdminFakultas/Dashboard.vue](resources/js/Pages/AdminFakultas/Dashboard.vue)
-    - [AdminProdi/Dashboard.vue](resources/js/Pages/AdminProdi/Dashboard.vue)
+    - [AdminBiroTiga/Dashboard.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminBiroTiga/Dashboard.vue)
+    - [AdminFakultas/Dashboard.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminFakultas/Dashboard.vue)
+    - [AdminProdi/Dashboard.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminProdi/Dashboard.vue)
 - **Quality Assurance**:
   - Seluruh 54 tests PHPUnit Feature & Unit lulus 100% (298 assertions).
   - Standarisasi Laravel Pint lolos 100%.
 
-- **Standarisasi Ekspor Excel (.xls) Terformat dengan Proteksi Teks NIK/NPWP/NIM ([AlumniTracerExcelExporter.php](app/Services/Export/AlumniTracerExcelExporter.php))**:
+- **Standarisasi Ekspor Excel (.xls) Terformat dengan Proteksi Teks NIK/NPWP/NIM ([AlumniTracerExcelExporter.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Export/AlumniTracerExcelExporter.php))**:
   - Mengembalikan format unduhan ke file spreadsheet **Excel (.xls)** asli dengan styling penuh (Header UKDW Green `#0D542B`, blok Identitas Alumni, batas tabel, dan badge warna status).
   - Menerapkan format teks eksplisit Microsoft Excel (`mso-number-format:'\@'`) pada kolom respon, NIK, NPWP, NIM, nomor telepon, dan kode pertanyaan untuk mencegah Excel mengonversi angka panjang 16-digit menjadi notasi ilmiah eksponensial (seperti `3,40401E+15`).
   - Memperbaiki pembacaan NIK dan NPWP melalui fallback `COALESCE(b.nik, da.nik)` dan `COALESCE(b.npwp, da.npwp)` pada kuesioner autofill dan profil tracer.
@@ -1068,15 +1068,15 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
     4. `v_alumni_audit_rekap`: View master terpadu yang menggabungkan ketiga view di atas untuk query instan (*single-query instant fetch*).
     5. `v_alumni_tracer_export`: View terformat untuk kebutuhan audit dan ekspor Excel/CSV.
   - Seluruh direktori alumni di semua level stakeholder kini membaca langsung dari `v_alumni_audit_rekap`, mengurangi waktu loading dari detik/menit menjadi milidetik (<50ms).
-- **Replikasi Antarmuka & Sidebar Terpadu Admin Biro 3 ([AlumniIndex.vue](resources/js/Pages/AdminBiroTiga/AlumniIndex.vue), [AlumniShow.vue](resources/js/Pages/AdminBiroTiga/AlumniShow.vue), [Sidebar.vue](resources/js/Pages/AdminBiroTiga/Components/Sidebar.vue))**:
+- **Replikasi Antarmuka & Sidebar Terpadu Admin Biro 3 ([AlumniIndex.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminBiroTiga/AlumniIndex.vue), [AlumniShow.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminBiroTiga/AlumniShow.vue), [Sidebar.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminBiroTiga/Components/Sidebar.vue))**:
   - Mengganti top navbar dengan **Sidebar Resmi UKDW** (`AdminBiroTiga/Components/Sidebar.vue`).
   - Menerapkan direktori DataTables terpadu lengkap dengan pencarian, filter tahun, semester, status, dan prodi.
   - Menerapkan tampilan Detail Mahasiswa dengan 3 Tab (1. Detail Profile, 2. Kuesioner Universitas, 3. Kuesioner Program Studi) serta mempertahankan kartu sinkronisasi LinkedIn (MCP Agent) dan ekspor Excel CSV.
-- **Replikasi Antarmuka & Sidebar Terpadu Admin Prodi ([Index.vue](resources/js/Pages/AdminProdi/Alumni/Index.vue), [Show.vue](resources/js/Pages/AdminProdi/Alumni/Show.vue), [Sidebar.vue](resources/js/Pages/AdminProdi/Components/Sidebar.vue))**:
+- **Replikasi Antarmuka & Sidebar Terpadu Admin Prodi ([Index.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminProdi/Alumni/Index.vue), [Show.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminProdi/Alumni/Show.vue), [Sidebar.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/AdminProdi/Components/Sidebar.vue))**:
   - Mengganti navbar dengan **Sidebar Resmi UKDW** (`AdminProdi/Components/Sidebar.vue`).
   - Menampilkan direktori alumni dan audit detail kuesioner yang dibatasi khusus untuk mahasiswa pada program studi yang login (`where prodi_id = auth()->user()->prodi_id`).
   - Tab 3 secara dinamis menampilkan nama Program Studi pada heading (*Kuesioner Program Studi: [Nama Prodi]*).
-- **Implementasi Stakeholder Baru: Admin Fakultas ([DashboardController.php](app/Http/Controllers/AdminFakultas/Dashboard/DashboardController.php), [DaftarAlumniFakultasController.php](app/Http/Controllers/AdminFakultas/KelolaAlumni/DaftarAlumniFakultasController.php), [DetailAlumniFakultasController.php](app/Http/Controllers/AdminFakultas/KelolaAlumni/DetailAlumniFakultasController.php))**:
+- **Implementasi Stakeholder Baru: Admin Fakultas ([DashboardController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminFakultas/Dashboard/DashboardController.php), [DaftarAlumniFakultasController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminFakultas/KelolaAlumni/DaftarAlumniFakultasController.php), [DetailAlumniFakultasController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminFakultas/KelolaAlumni/DetailAlumniFakultasController.php))**:
   - Menambahkan kolom `fakultas_id` pada tabel `users` dan relasi `fakultas()` pada model `User`.
   - Membuat akun seeder untuk 7 Fakultas UKDW (`admin_fti`, `admin_fb`, `admin_fad`, `admin_biotek`, `admin_fk`, `admin_theologi`, `admin_fkh`).
   - Menyediakan modul lengkap Admin Fakultas:
@@ -1090,13 +1090,13 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
   - Kompilasi Vite production berhasil 100% (631 modul terkompilasi bersih).
   - Standarisasi kode PHP tervalidasi dengan Laravel Pint.
 
-- **Stabilitas Tata Letak Bebas Pergeseran (*Layout Stays in Place*) ([Show.vue](resources/js/Pages/SuperAdmin/Alumni/Show.vue))**:
+- **Stabilitas Tata Letak Bebas Pergeseran (*Layout Stays in Place*) ([Show.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Alumni/Show.vue))**:
   - Menghilangkan *negative margin* (`-mt-10`) dan tumpang tindih kontainer yang sebelumnya memicu efek ketarik (*pull/drag elastic bouncing*).
   - Menstandarkan tinggi *header solid* dengan border pemisah bawah yang rapi serta padding halaman utama statis dan teratur (`py-6 px-4 sm:px-6 lg:px-8`).
-- **Konsistensi Ukuran & Lebar Form Profil (Tab 1: Detail Profile) ([Show.vue](resources/js/Pages/SuperAdmin/Alumni/Show.vue))**:
+- **Konsistensi Ukuran & Lebar Form Profil (Tab 1: Detail Profile) ([Show.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Alumni/Show.vue))**:
   - Menghapus pembungkus kartu ganda (*double padding wrapper*) di sekeliling komponen form anak (`FormPribadi`, `FormAkademik`, `FormOrangTua`, `FormKarier`).
   - Menghasilkan keseragaman ukuran kartu 100% simetris, presisi, dan proporsional di semua bagian sub-tab profil tanpa nested margin.
-- **Filter Bagian Berbasis Dropdown Dinamis & Nama Seksi Langsung ([Show.vue](resources/js/Pages/SuperAdmin/Alumni/Show.vue))**:
+- **Filter Bagian Berbasis Dropdown Dinamis & Nama Seksi Langsung ([Show.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Alumni/Show.vue))**:
   - Mengganti deretan tombol seksi horizontal yang menumpuk dengan komponen **Dropdown `<select>` modern**.
   - Menampilkan **nama seksi/bagian secara langsung** (misal: *"Kondisi Kerja Saat Ini"*, *"Mendapatkan Pekerjaan"*, dsb.) baik pada Kuesioner Universitas maupun Kuesioner Program Studi.
   - Menghilangkan label teknis mentah (*"Seksi 1: ..."*), menyelaraskan format kuesioner universitas sama seperti kuesioner prodi.
@@ -1110,7 +1110,7 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
   - Asset Vite frontend terkompilasi bersih (0 error).
 
 ## [2026-09-20] Redesain Detail Audit Alumni Super Admin (DataTables Excel-Style View, Urutan Tab Baru, Header Kuning & Highlight Merah)
-- **Restrukturisasi Urutan Tab Detail Alumni ([Show.vue](resources/js/Pages/SuperAdmin/Alumni/Show.vue))**:
+- **Restrukturisasi Urutan Tab Detail Alumni ([Show.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Alumni/Show.vue))**:
   - Menyusun urutan tab terpadu:
     1. **1. Detail Profile** (Urutan 1, default aktif dengan form data pribadi, akademik, orang tua, karier).
     2. **2. Kuesioner Universitas** (Urutan 2, audit butir instrumen dan jawaban tracer study universitas).
@@ -1121,41 +1121,41 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
   - **Baris Belum Dijawab**: Diberi highlight warna **Merah Lembut (`bg-rose-50 border-l-4 border-l-rose-500`)** dengan status badge merah jelas dan strip jawaban `-`.
   - **Baris Terjawab**: Diberi aksen hijau emerald (`border-l-4 border-l-emerald-600`) dengan badge hijau `Terjawab` dan teks respon tebal.
   - Dilengkapi fitur pencarian cepat (*Quick Search Input*) per tab dan filter seksi instan.
-- **Perbaikan Format Export Excel / CSV ([DetailAlumniSuperAdminController.php](app/Http/Controllers/SuperAdmin/KelolaAlumni/DetailAlumniSuperAdminController.php))**:
+- **Perbaikan Format Export Excel / CSV ([DetailAlumniSuperAdminController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/KelolaAlumni/DetailAlumniSuperAdminController.php))**:
   - Mengubah export menjadi berkas **CSV murni dengan UTF-8 BOM (`\xEF\xBB\xBF`)** sehingga saat dibuka dengan Microsoft Excel di Windows, file langsung terbuka rapi tanpa peringatan keamanan *"format and extension don't match"*.
-- **Standardisasi Input Gaji / Take Home Pay ([FormKarier.vue](resources/js/Components/AlumniProfil/FormKarier.vue), [SimpanProfilController.php](app/Http/Controllers/Alumni/Profil/SimpanProfilController.php), [KuesionerController.php](app/Http/Controllers/Alumni/Kuesioner/KuesionerController.php))**:
+- **Standardisasi Input Gaji / Take Home Pay ([FormKarier.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue), [SimpanProfilController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Profil/SimpanProfilController.php), [KuesionerController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Kuesioner/KuesionerController.php))**:
   - Mengimplementasikan pola **`computed getter & setter` (Single Source of Truth)** pada form input gaji: nilai pada objek form, teks format ribuan di textbox (`new Intl.NumberFormat('id-ID')`), dan label `Terbaca: Rp ...` terhubung secara reaktif 100% dari satu variabel tanpa desinkronisasi.
   - Menghapus seluruh manipulasi atau pengali sembunyi-sembunyi (`* 1000`) di frontend dan di seluruh kontroler backend.
   - **Validasi Nominal Minimal Ribuan (Rp 1.000)**:
     - Input di bawah Rp 1.000 (misal: `709` atau `899`) langsung ditandai dengan border merah dan peringatan *minimal Rp 1.000*.
-    - Proses submit dicegah baik di frontend (SweetAlert peringatan) maupun di backend ([SimpanProfilController.php](app/Http/Controllers/Alumni/Profil/SimpanProfilController.php)) dengan pesan kesalahan validasi yang jelas.
-- **Penyederhanaan Visual Indikator Tab Navigasi Profil ([Index.vue](resources/js/Pages/Alumni/Profil/Index.vue))**:
+    - Proses submit dicegah baik di frontend (SweetAlert peringatan) maupun di backend ([SimpanProfilController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Profil/SimpanProfilController.php)) dengan pesan kesalahan validasi yang jelas.
+- **Penyederhanaan Visual Indikator Tab Navigasi Profil ([Index.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Profil/Index.vue))**:
   - Menghilangkan teks hitungan (*"1 belum"*, *"X belum"*) serta karakter ASCII mentah (`✓` / `✕`) pada tab navigasi.
   - Menggantinya dengan indikator visual langsung yang elegan:
     - **Data Lengkap**: Badge lingkaran hijau dengan ikon SVG centang mikro presisi.
     - **Data Belum Lengkap**: Titik status (*dot indicator*) rose/amber minimalis tanpa teks mengganggu.
-- **Relokasi Peringatan "Ada Perubahan Belum Disimpan" ke Top Notification Banner ([Index.vue](resources/js/Pages/Alumni/Profil/Index.vue))**:
+- **Relokasi Peringatan "Ada Perubahan Belum Disimpan" ke Top Notification Banner ([Index.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Profil/Index.vue))**:
   - Memindahkan peringatan modifikasi data dari bagian bawah formulir ke **Banner Notifikasi Mengambang di Bagian Atas Formulir (tepat di bawah tab navigasi)**.
   - Dilengkapi tombol aksi cepat **"Simpan Sekarang"** langsung di dalam banner notifikasi.
 - **Quality & Automated Tests**:
   - 54 tests PHPUnit Feature & Unit lulus 100% (299 assertions).
   - Format kode PHP tervalidasi bersih dengan Laravel Pint.
   - Bundle frontend terkompilasi optimal tanpa error/warning melalui Vite.
-- **Pembersihan Seluruh Emoticon & Emoji ([FormPribadi.vue](resources/js/Components/AlumniProfil/FormPribadi.vue), [FormKarier.vue](resources/js/Components/AlumniProfil/FormKarier.vue), [FormOrangTua.vue](resources/js/Components/AlumniProfil/FormOrangTua.vue), [Index.vue](resources/js/Pages/Alumni/Profil/Index.vue))**:
+- **Pembersihan Seluruh Emoticon & Emoji ([FormPribadi.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormPribadi.vue), [FormKarier.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue), [FormOrangTua.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormOrangTua.vue), [Index.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Profil/Index.vue))**:
   - Menghapus seluruh ikon emoji/emoticon (🏢, 🚀, 🎓, ⚡, 💡) di seluruh form profil untuk menciptakan antarmuka yang bersih, minimalis, dan profesional.
 - **Color-Coded Status Tanpa Text Badges**:
   - Menghapus seluruh badge teks checklist/pil status (`✓ Terisi`, `Belum diisi`, `✓ URL Valid`, `✓ 16 Digit`, `✓ Terpilih`, `Belum dipilih`, dsb.).
   - Mengandalkan indikator warna border dan background input secara menyeluruh pada semua kolom (baik wajib maupun opsional):
     - **Belum Diisi / Format Tidak Valid**: Border dan latar rose/merah lembut (`border-rose-300 bg-rose-50/20 text-gray-900 focus:border-rose-500`).
     - **Sudah Terisi / Format Valid**: Border dan latar emerald/hijau (`border-emerald-300 bg-white text-gray-900 focus:border-[#005B3C]`).
-- **Perbaikan Format Input Gaji & Multiple Number (Format Minimal Ribuan Adaptif) ([FormKarier.vue](resources/js/Components/AlumniProfil/FormKarier.vue), [KartuPertanyaan.vue](resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue))**:
+- **Perbaikan Format Input Gaji & Multiple Number (Format Minimal Ribuan Adaptif) ([FormKarier.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue), [KartuPertanyaan.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue))**:
   - Saat alumni pertama kali mengetik angka satuan (misal: `5`), kolom textbox langsung melengkapi akhiran ribuan menjadi `5.000` (disimpan `5000` dan terbaca `Rp 5.000 / bulan`).
   - Nilai di textbox tetap fleksibel dapat diedit dan di-*adjust* ke nominal berapapun (misal `5000000` menjadi `5.000.000` dan terbaca `Rp 5.000.000 / bulan`) dengan sinkronisasi 100% presisi antara input dan output.
-- **Filter Lokasi Wilayah Sebelum Memilih Perusahaan ([FormKarier.vue](resources/js/Components/AlumniProfil/FormKarier.vue))**:
+- **Filter Lokasi Wilayah Sebelum Memilih Perusahaan ([FormKarier.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue))**:
   - Pilihan wilayah (Negara untuk Luar Negeri; Provinsi dan Kabupaten/Kota untuk Dalam Negeri) kini dapat dipilih langsung di bagian atas untuk memfilter daftar perusahaan pada wilayah tersebut.
   - Jika tidak ada perusahaan yang terdaftar pada kota/negara yang dipilih, sistem menampilkan status *"Data perusahaan tidak ditemukan pada wilayah/filter yang dipilih."* disertai tombol pintas *"+ Tambah Perusahaan Baru"*.
   - Menambahkan tombol *"Reset Provinsi"* / *"Reset Kota"* / *"Reset Negara"* untuk mempermudah pencarian multi-wilayah.
-- **Penyelarasan Tata Letak Simetris Pertanyaan Lamaran Kerja F6, F7, F7A ([Kuesioner.vue](resources/js/Pages/Alumni/Kuesioner.vue), [KartuPertanyaan.vue](resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue))**:
+- **Penyelarasan Tata Letak Simetris Pertanyaan Lamaran Kerja F6, F7, F7A ([Kuesioner.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Kuesioner.vue), [KartuPertanyaan.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue))**:
   - Mengelompokkan trio butir pertanyaan kuantitas lamaran kerja (F6, F7, dan F7A) ke dalam **Grid 3 Kolom Sejajar** (`grid grid-cols-1 md:grid-cols-3 items-stretch`).
   - Menyelaraskan tinggi kartu (`h-full flex flex-col justify-between`), proporsi tipografi judul soal, dan posisi tombol *stepper number* di bagian bawah secara horizontal sejajar.
 - **Quality & Verification**:
@@ -1164,7 +1164,7 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
   - Vite build sukses (0 error, 0 warning).
 
 ## [2026-09-20] Redesain Profesional Profil Alumni, Validasi NPWP Regulasi PMK 112/2022, Single-Choice Role Switcher, & Standardisasi Kuesioner Prodi
-- **Redesain Profesional & Eksekutif Profil Alumni ([Index.vue](resources/js/Pages/Alumni/Profil/Index.vue), [FormPribadi.vue](resources/js/Components/AlumniProfil/FormPribadi.vue), [FormKarier.vue](resources/js/Components/AlumniProfil/FormKarier.vue), [FormOrangTua.vue](resources/js/Components/AlumniProfil/FormOrangTua.vue))**:
+- **Redesain Profesional & Eksekutif Profil Alumni ([Index.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Profil/Index.vue), [FormPribadi.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormPribadi.vue), [FormKarier.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue), [FormOrangTua.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormOrangTua.vue))**:
   - Menghapus banner pill merah/pink besar di atas form, menggantikannya dengan **indikator kelengkapan langsung pada kolom isian (*field-level indicators*)**.
   - Kolom wajib yang belum terisi ditandai dengan border lembut warna rose/merah dan badge status "Belum diisi / Wajib diisi".
   - Kolom yang telah terisi atau valid ditandai dengan border emerald dan badge status checklist "✓ Terisi / Valid" selaras palet warna resmi UKDW `#005B3C` dan `#FFD700`.
@@ -1181,7 +1181,7 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
   - Validasi email wajib mengandung karakter `@` dan nama domain valid.
   - Validasi nomor telepon/WhatsApp dibatasi format 10–15 digit angka (dengan dukungan tanda `+`).
   - Standardisasi placeholder dan pembersihan format URL media sosial: LinkedIn URL (`https://linkedin.com/in/...`), LinkedIn Username (`username_linkedin`), Instagram URL (`https://instagram.com/...`), dan Facebook URL (`https://facebook.com/...`).
-- **Standardisasi Tampilan Kuesioner Prodi ([KuesionerProdi.vue](resources/js/Pages/Alumni/KuesionerProdi.vue), [ProdiQuestionnaireSeeder.php](database/seeders/ProdiQuestionnaireSeeder.php))**:
+- **Standardisasi Tampilan Kuesioner Prodi ([KuesionerProdi.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/KuesionerProdi.vue), [ProdiQuestionnaireSeeder.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/seeders/ProdiQuestionnaireSeeder.php))**:
   - Menyamakan sistem tombol "Lanjut" & "Kembali" serta navigasi stepper dengan Kuesioner Universitas (`Kuesioner.vue`): menggunakan FAB *floating action button* melayang di desktop dan *bottom navigation bar* di mobile.
   - Menyamakan lebar kontainer formulir menjadi `max-w-6xl xl:max-w-7xl`.
   - Mengoreksi 4 butir instrumen Prodi Sistem Informasi yang sebelumnya keliru terdaftar sebagai pertanyaan isian terbuka menjadi header deskripsi section.
@@ -1191,7 +1191,7 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
   - Vite build selesai sukses tanpa warning/error.
 
 ## [2026-09-20] Navigasi Sidebar Terpadu Super Admin (Menggantikan Navigasi Atas)
-- **Desain & Implementasi Sidebar Terpadu Super Admin ([Sidebar.vue](resources/js/Pages/SuperAdmin/Components/Sidebar.vue))**:
+- **Desain & Implementasi Sidebar Terpadu Super Admin ([Sidebar.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Components/Sidebar.vue))**:
   - Mengubah sistem navigasi modul Super Admin dari navigasi atas (*top navigation bar*) menjadi **Sidebar** navigasi tetap (*fixed desktop sidebar* `w-72`) di sisi kiri layar.
   - Sidebar dilengkapi dengan:
     - **Header & Branding**: Logo resmi UKDW, judul "Tracer Study UKDW", dan badge indikator "Super Admin".
@@ -1200,11 +1200,11 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
     - **Profil Pengguna & Logout Bawah**: Kartu identitas Super Admin dengan avatar inisial, nama, email, serta tombol keluar (*logout*) dengan modal konfirmasi SweetAlert2.
     - **Responsivitas Mobile / Tablet**: Topbar ringkas khusus mobile dengan tombol hamburger yang membuka *slide-over drawer* berserta *backdrop overlay* interaktif.
 - **Integrasi Penuh di Seluruh Halaman Super Admin**:
-  - [Dashboard.vue](resources/js/Pages/SuperAdmin/Dashboard.vue)
-  - [Pertanyaan/Index.vue](resources/js/Pages/SuperAdmin/Pertanyaan/Index.vue)
-  - [Section/Index.vue](resources/js/Pages/SuperAdmin/Section/Index.vue)
-  - [Alumni/Index.vue](resources/js/Pages/SuperAdmin/Alumni/Index.vue)
-  - [Alumni/Show.vue](resources/js/Pages/SuperAdmin/Alumni/Show.vue)
+  - [Dashboard.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Dashboard.vue)
+  - [Pertanyaan/Index.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Pertanyaan/Index.vue)
+  - [Section/Index.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Section/Index.vue)
+  - [Alumni/Index.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Alumni/Index.vue)
+  - [Alumni/Show.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Alumni/Show.vue)
 - **Pembersihan Kode Usang**:
   - Menghapus komponen navigasi atas lama `resources/js/Pages/SuperAdmin/Components/Navbar.vue` yang sudah tidak digunakan.
 - **Automated Tests & Asset Build**:
@@ -1212,20 +1212,20 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
   - Vite build selesai sukses (4.91s).
 
 ## [2026-09-20] Seeding Komprehensif Perusahaan (15 Kolom), Sinkronisasi & Standardisasi Studi Lanjut F18, Format Skala Langsung F17, dan Database-Driven Jump Logic
-- **Seeding Komprehensif Master Data Perusahaan 15 Kolom ([PerusahaanSeeder.php](database/seeders/PerusahaanSeeder.php))**:
+- **Seeding Komprehensif Master Data Perusahaan 15 Kolom ([PerusahaanSeeder.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/seeders/PerusahaanSeeder.php))**:
   - Mengisi seluruh 15 atribut tabel `perusahaan` secara lengkap dan valid: `id`, `nama_perusahaan`, `propinsi_id`, `kabupaten_id`, `alamat`, `kota`, `provinsi`, `negara`, `jenis_lokasi` (Dalam Negeri / Luar Negeri), `jenis_perusahaan`, `jenis_perusahaan_lainnya`, `skala`, `kode_pos`, `status_verifikasi` (`verified`), serta timestamps.
   - Memastikan integritas relasi foreign key dengan `provinsi` dan `kabupaten_kota` serta mencakup ragam sektor (BUMN, Startup/Swasta, Instansi Pemerintah, Multilateral, hingga Perusahaan Luar Negeri).
 - **Sinkronisasi Dua Arah & Standardisasi Studi Lanjut F18 (`F18a` s.d. `F18d`)**:
-  - Menghubungkan profil studi lanjut alumni (`pendidikan_tingkat`, `perguruan_tinggi`, `pendidikan_prodi`) di [FormKarier.vue](resources/js/Components/AlumniProfil/FormKarier.vue) dengan pertanyaan kuesioner `F18b` dan `F18c` via [KuesionerSyncService.php](app/Services/Kuesioner/KuesionerSyncService.php) dan [KuesionerController.php](app/Http/Controllers/Alumni/Kuesioner/KuesionerController.php).
-  - Merapikan tata letak tampilan kartu `F18` di [Kuesioner.vue](resources/js/Pages/Alumni/Kuesioner.vue):
+  - Menghubungkan profil studi lanjut alumni (`pendidikan_tingkat`, `perguruan_tinggi`, `pendidikan_prodi`) di [FormKarier.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue) dengan pertanyaan kuesioner `F18b` dan `F18c` via [KuesionerSyncService.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Kuesioner/KuesionerSyncService.php) dan [KuesionerController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Kuesioner/KuesionerController.php).
+  - Merapikan tata letak tampilan kartu `F18` di [Kuesioner.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Kuesioner.vue):
     - `F18a` (Sumber Biaya): Kartu tersendiri (single card).
     - `F18b` (Perguruan Tinggi) & `F18c` (Program Studi): Ditata berdampingan rapi dalam 2-column grid.
     - `F18d` (Tanggal Masuk): Menggunakan input tanggal native HTML5 (`type="date"`).
   - Memperbarui database view `v_alumni_kuesioner_autofill` untuk mendukung pemetaan `BIO_PENDIDIKAN_TINGKAT`.
 - **Format Skala Langsung F17 & Konsistensi UI Kuesioner**:
-  - Mengubah header skala kompetensi pada [TabelF17.vue](resources/js/Pages/Alumni/Components/Kuesioner/TabelF17.vue) menjadi format langsung yang padat dan presisi: `Sangat Rendah 1 2 3 4 5 Sangat Tinggi`.
+  - Mengubah header skala kompetensi pada [TabelF17.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/TabelF17.vue) menjadi format langsung yang padat dan presisi: `Sangat Rendah 1 2 3 4 5 Sangat Tinggi`.
   - Menggunakan palet 2-warna resmi UKDW yang bersih: Hijau `#005B3C` (Kompetensi Saat Lulus) dan Kuning/Amber `#FDC700` (Kontribusi PT), serta menghapus redundansi indikator progres aspek.
-  - Standardisasi tombol stepper jumlah (+ / -) pada [KartuPertanyaan.vue](resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue) dengan warna netral `bg-gray-100` dan hover hijau UKDW.
+  - Standardisasi tombol stepper jumlah (+ / -) pada [KartuPertanyaan.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue) dengan warna netral `bg-gray-100` dan hover hijau UKDW.
 - **Database-Driven Jump Logic**:
   - Logika percabangan/lompatan pertanyaan (`jump_to`) sepenuhnya digerakkan oleh metadata database dari `ref_subpertanyaan_detil` tanpa *hardcoded question ID* di frontend.
 - **Pembaruan ERD & Pemetaan Instrumen Pertanyaan**:
@@ -1236,31 +1236,31 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
 
 
 - **Standarisasi Input Posisi / Jabatan Wiraswasta & Startup (F5C) Menjadi Dropdown `<select>`**:
-  - Mengubah kontrol input `posisi_wiraswasta` (`F5C`) pada [FormKarier.vue](resources/js/Components/AlumniProfil/FormKarier.vue) dari input teks + tombol pill cepat menjadi dropdown `<select>` standar yang konsisten dan rapi.
+  - Mengubah kontrol input `posisi_wiraswasta` (`F5C`) pada [FormKarier.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue) dari input teks + tombol pill cepat menjadi dropdown `<select>` standar yang konsisten dan rapi.
   - Opsi dropdown yang disediakan: `Owner`, `Founder`, `Co-Founder`, `Direktur Utama`, `Pengelola Usaha`, `Freelancer / Konsultan Mandiri`, serta opsi khusus `Lainnya`.
-  - Jika alumni memilih `Lainnya`, sistem menampilkan kolom isian teks tambahan (`posisi_wiraswasta_lainnya`) yang langsung disinkronkan ke backend [SimpanProfilController.php](app/Http/Controllers/Alumni/Profil/SimpanProfilController.php) dan [KuesionerSyncService.php](app/Services/Kuesioner/KuesionerSyncService.php).
+  - Jika alumni memilih `Lainnya`, sistem menampilkan kolom isian teks tambahan (`posisi_wiraswasta_lainnya`) yang langsung disinkronkan ke backend [SimpanProfilController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Profil/SimpanProfilController.php) dan [KuesionerSyncService.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Kuesioner/KuesionerSyncService.php).
 - **Navigasi Utama Terpadu Alumni (Unified `Navbar.vue`)**:
-  - Membuat komponen navigasi terpusat di [Navbar.vue](resources/js/Pages/Alumni/Components/Navbar.vue) untuk memastikan konsistensi tampilan (UI/UX), tata letak, dan branding resmi UKDW di seluruh modul alumni.
+  - Membuat komponen navigasi terpusat di [Navbar.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Navbar.vue) untuk memastikan konsistensi tampilan (UI/UX), tata letak, dan branding resmi UKDW di seluruh modul alumni.
   - Diintegrasikan secara seragam pada 4 halaman utama alumni:
-    1. **Dashboard Alumni** ([Dashboard.vue](resources/js/Pages/Alumni/Dashboard.vue))
-    2. **Kelola Profil Alumni** ([Index.vue](resources/js/Pages/Alumni/Profil/Index.vue))
-    3. **Kuesioner Tracer Study Universitas** ([Kuesioner.vue](resources/js/Pages/Alumni/Kuesioner.vue))
-    4. **Kuesioner Khusus Program Studi** ([KuesionerProdi.vue](resources/js/Pages/Alumni/KuesionerProdi.vue))
+    1. **Dashboard Alumni** ([Dashboard.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Dashboard.vue))
+    2. **Kelola Profil Alumni** ([Index.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Profil/Index.vue))
+    3. **Kuesioner Tracer Study Universitas** ([Kuesioner.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Kuesioner.vue))
+    4. **Kuesioner Khusus Program Studi** ([KuesionerProdi.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/KuesionerProdi.vue))
   - Fitur Navbar: Logo resmi UKDW, indikator badge aktif antar halaman (Dashboard, Profil, Kuesioner Universitas, Kuesioner Prodi), nama/NIM alumni aktif, sub-navigasi mobile/tablet responsif, dan modal konfirmasi SweetAlert2 saat keluar (logout).
 - **Dokumentasi Pemetaan Lengkap Instrumen Kuesioner ([DAFTAR_PERTANYAAN_MAPPING.md](DAFTAR_PERTANYAAN_MAPPING.md))**:
   - Menyusun tabel referensi komprehensif yang memetakan seluruh butir pertanyaan Tracer Study Dikti (`F1` s/d `F18`, `F24A`, `F24B`, dll.), identitas alumni, dan kuesioner program studi.
   - Merinci relasi kode pertanyaan, tipe input, komponen Vue pengelola, tabel dan kolom basis data tujuan, hingga alur sinkronisasi dua arah otomatis (`KuesionerSyncService.php`).
 - **Pembaruan Dokumentasi Utama**:
-  - Memperbarui [README.md](README.md) dengan panduan arsitektur instrumen tracer study, daftar komponen form Vue, dan alur navigasi terpadu.
+  - Memperbarui [README.md](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/README.md) dengan panduan arsitektur instrumen tracer study, daftar komponen form Vue, dan alur navigasi terpadu.
 - **Automated Tests**:
   - Seluruh 47 feature tests PHPUnit lulus 100% (243 assertions).
 
 ## [2026-09-19] F11 Jenis Perusahaan, Pemisahan Peran Pekerja vs Wiraswasta (F2G & F5C), dan Export Excel Jawaban Alumni
 - **Integrasi F11 Jenis Instansi/Perusahaan (`perusahaan.jenis_perusahaan` & `jenis_perusahaan_lainnya`)**:
   - Menambahkan kolom `jenis_perusahaan` (50) dan `jenis_perusahaan_lainnya` (150) pada tabel `perusahaan` via migrasi `2026_09_19_224000_add_jenis_perusahaan_and_kategori_to_perusahaan_and_biodata.php`.
-  - Mengupdate model [Perusahaan.php](app/Models/Perusahaan.php) dan `SimpanProfilController.php`.
-  - Menambahkan dropdown pilihan standar Dikti di [FormKarier.vue](resources/js/Components/AlumniProfil/FormKarier.vue) dan modal "Tambah Perusahaan Baru": `1 - Instansi pemerintah`, `2 - Organisasi non-profit/LSM`, `3 - Perusahaan swasta`, `4 - Wiraswasta/perusahaan sendiri`, `5 - Lainnya` (dilengkapi input isian teks spesifik), `6 - BUMN/BUMD`, `7 - Institusi/Organisasi Multilateral`.
-  - Otomatis disinkronkan ke butir kuesioner `F11` pada tabel `tracer` via [KuesionerSyncService.php](app/Services/Kuesioner/KuesionerSyncService.php).
+  - Mengupdate model [Perusahaan.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Perusahaan.php) dan `SimpanProfilController.php`.
+  - Menambahkan dropdown pilihan standar Dikti di [FormKarier.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue) dan modal "Tambah Perusahaan Baru": `1 - Instansi pemerintah`, `2 - Organisasi non-profit/LSM`, `3 - Perusahaan swasta`, `4 - Wiraswasta/perusahaan sendiri`, `5 - Lainnya` (dilengkapi input isian teks spesifik), `6 - BUMN/BUMD`, `7 - Institusi/Organisasi Multilateral`.
+  - Otomatis disinkronkan ke butir kuesioner `F11` pada tabel `tracer` via [KuesionerSyncService.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Kuesioner/KuesionerSyncService.php).
 - **Pemisahan Peran Kerja & Posisi Jabatan: Pekerja vs Wiraswasta (`F2G` vs `F5C`)**:
   - Menambahkan kolom `kategori_pekerjaan` dan `posisi_wiraswasta` pada tabel `biodata`.
   - **Pemisahan Status Kerja & Status Studi Lanjut (Independen)**:
@@ -1270,44 +1270,44 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
   - **Conditional Rendering Detail Perusahaan (*Progressive Disclosure*)**:
     - Kolom detail perusahaan (*Negara/Provinsi/Kabupaten, Jenis Perusahaan F11, Skala F2H/F5D, Alamat Kantor, dan Kode Pos*) **hanya ditampilkan jika nama perusahaan sudah dipilih atau ditambahkan**.
     - Jika perusahaan belum dipilih, form menampilkan tampilan yang bersih dengan pesan panduan pencarian perusahaan.
-  - Pada form profil [FormKarier.vue](resources/js/Components/AlumniProfil/FormKarier.vue):
+  - Pada form profil [FormKarier.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue):
     - Menyediakan pemilih kategori peran kerja: **🏢 Pekerja / Karyawan / Profesional** vs **🚀 Wirausaha / Founder / Startup / Usaha Mandiri**.
     - Jika memilih **Pekerja**: Menampilkan dropdown posisi jabatan struktural `F2G` (`1 - Direksi`, `2 - Top Manager`, `3 - Middle Manager`, `4 - Low Manager`, `5 - Supervisor`, `6 - Staff`) dan mengosongkan `F5C`.
     - Jika memilih **Wiraswasta**: Menampilkan input teks posisi/jabatan wirausaha `F5C` dengan tombol pilihan cepat (*Owner, Founder, Co-Founder, Direktur Utama, Pengelola Usaha, Freelancer*), otomatis mengisi `F2G` sebagai level pimpinan, dan otomatis mengisi data atasan dengan data diri alumni.
 - **Fitur Download Excel / CSV Jawaban Kuesioner per Alumni untuk Superadmin**:
-  - Menambahkan method `exportExcel($id)` pada [DetailAlumniSuperAdminController.php](app/Http/Controllers/SuperAdmin/KelolaAlumni/DetailAlumniSuperAdminController.php) dan rute `GET /superadmin/alumni/{id}/export-excel`.
+  - Menambahkan method `exportExcel($id)` pada [DetailAlumniSuperAdminController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/KelolaAlumni/DetailAlumniSuperAdminController.php) dan rute `GET /superadmin/alumni/{id}/export-excel`.
   - Menghasilkan file Excel/CSV stream terformat rapi dengan UTF-8 BOM (`\xEF\xBB\xBF`) berisi kolom: `No`, `Kategori / Section`, `Kode Pertanyaan`, `Pertanyaan`, `Tipe Pertanyaan`, `Status Wajib`, `Status Jawaban`, `Jawaban Alumni` (mencakup kuesioner universitas dan kuesioner khusus program studi).
-  - Menambahkan tombol aksi **Download Excel Jawaban** berwarna kuning khas UKDW di header halaman detail alumni [Show.vue](resources/js/Pages/SuperAdmin/Alumni/Show.vue).
+  - Menambahkan tombol aksi **Download Excel Jawaban** berwarna kuning khas UKDW di header halaman detail alumni [Show.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Alumni/Show.vue).
 - **Automated Tests**:
   - Seluruh 47 feature tests PHPUnit lulus 100% (243 assertions).
 
 ## [2026-09-19] Anti-Duplikasi Jawaban Tracer, Perbaikan Unique Constraint Atasan, & Searchable Negara
 - **Eliminasi Duplikasi Jawaban Tracer & Constraint Unik (`tracer_biodata_question_unique`)**:
   - Membuat migrasi `2026_09_19_221000_add_unique_constraints_to_tracer_table.php` yang membersihkan seluruh potensi baris ganda dan menambahkan indeks unik komposit `['biodata_id', 'question_id']` serta `['biodata_id', 'kode_pertanyaan']` pada tabel `tracer`.
-  - Mengupdate [SimpanJawabanController.php](app/Http/Controllers/Alumni/Kuesioner/SimpanJawabanController.php) dan [KuesionerSyncService.php](app/Services/Kuesioner/KuesionerSyncService.php) dengan mekanisme *clean-before-update* dan `updateOrCreate` berbasis `(biodata_id, question_id)`.
+  - Mengupdate [SimpanJawabanController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Kuesioner/SimpanJawabanController.php) dan [KuesionerSyncService.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Kuesioner/KuesionerSyncService.php) dengan mekanisme *clean-before-update* dan `updateOrCreate` berbasis `(biodata_id, question_id)`.
   - Ketika alumni menjawab pertanyaan yang sudah pernah dijawab, sistem secara otomatis melakukan pembaruan (*in-place update*) pada baris yang sama tanpa pernah menduplikasi data di basis data.
 - **Penanganan Unique Constraint Atasan (`atasan.atasan_email_unique`)**:
   - Menghapus indeks `unique` pada kolom `email` di tabel `atasan` via migrasi `2026_09_19_215000_remove_unique_from_atasan_email.php` dan memperbarui migrasi dasar `create_atasans_table.php`.
   - Mengupdate logika `SimpanJawabanController.php` dan `SimpanProfilController.php` agar pembaruan data atasan tidak lagi memicu error duplicate key MySQL (1062) ketika email atasan digunakan bersama atau diisi data dummy.
 - **Integrasi Master Data Negara Dunia (`ref_negara` & `daftar_negara_dunia.csv`)**:
   - Membuat tabel master `ref_negara` (`id`, `nama_negara`, `ibu_kota`, `kode_iso2`, `benua`, `timestamps`) via migrasi `2026_09_19_220000_create_ref_negara_table.php`.
-  - Membuat model [RefNegara.php](app/Models/RefNegara.php) dan seeder `RefNegaraSeeder.php` yang membaca data 193 negara dunia secara otomatis dari `daftar_negara_dunia.csv`.
-  - Mengalirkan master data negara ke [ProfilController.php](app/Http/Controllers/Alumni/Profil/ProfilController.php) untuk kebutuhan dropdown & autocomplete form profil alumni.
-  - **Searchable Dropdown Negara (Sesuai Template Provinsi & Kabupaten)** di [FormKarier.vue](resources/js/Components/AlumniProfil/FormKarier.vue):
+  - Membuat model [RefNegara.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/RefNegara.php) dan seeder `RefNegaraSeeder.php` yang membaca data 193 negara dunia secara otomatis dari `daftar_negara_dunia.csv`.
+  - Mengalirkan master data negara ke [ProfilController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Profil/ProfilController.php) untuk kebutuhan dropdown & autocomplete form profil alumni.
+  - **Searchable Dropdown Negara (Sesuai Template Provinsi & Kabupaten)** di [FormKarier.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue):
     - Komponen pencarian negara interaktif dengan ikon pencarian, filter real-time, highlight negara aktif, kode ISO 2, dan benua.
     - Opsi negara untuk **Luar Negeri** mengecualikan `Indonesia` sehingga negara asal tidak bisa dipilih sebagai negara asing.
     - Pilihan negara dibatasi secara ketat (*strict selection*) hanya pada 193 negara resmi yang terdaftar di basis data master `ref_negara` (tidak dapat menginput negara sembarangan).
     - Modal SweetAlert2 "Tambah Perusahaan Baru" juga menggunakan dropdown negara resmi yang mengecualikan Indonesia dan divalidasi ketat di backend `SimpanProfilController.php`.
 - **Dukungan Perusahaan Dalam Negeri vs Luar Negeri (`perusahaan.jenis_lokasi` & `perusahaan.negara`)**:
   - Menambahkan kolom `jenis_lokasi` (`Dalam Negeri` / `Luar Negeri`) dan `negara` pada tabel `perusahaan` via migrasi `2026_09_19_214000_add_jenis_lokasi_and_negara_to_perusahaan_table.php`.
-  - Memperbarui model [Perusahaan.php](app/Models/Perusahaan.php) dan seeder `PerusahaanSeeder.php` dengan data contoh perusahaan internasional (Google Singapore, Grab Singapore, Rakuten Tokyo).
-  - Pada form profil [FormKarier.vue](resources/js/Components/AlumniProfil/FormKarier.vue):
+  - Memperbarui model [Perusahaan.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Perusahaan.php) dan seeder `PerusahaanSeeder.php` dengan data contoh perusahaan internasional (Google Singapore, Grab Singapore, Rakuten Tokyo).
+  - Pada form profil [FormKarier.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue):
     - Menyediakan tombol seleksi interaktif `🇮🇩 Dalam Negeri` dan `✈️ Luar Negeri`.
     - Jika memilih `Luar Negeri`, input Nama Negara (`company_negara`) ditampilkan, sedangkan dropdown Provinsi dan Kabupaten/Kota dinonaktifkan/disembunyikan serta dikosongkan (`null`).
     - Modal popup "Tambah Perusahaan Baru" (SweetAlert2) mendukung pemilihan lokasi Dalam/Luar Negeri dan input nama negara secara langsung.
-  - Memperbarui [KuesionerSyncService.php](app/Services/Kuesioner/KuesionerSyncService.php) agar alumni yang bekerja di luar negeri menghasilkan alamat perusahaan berformat nama negara, dan mengisi `F5a1`/`F5a2` secara adaptif.
+  - Memperbarui [KuesionerSyncService.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Kuesioner/KuesionerSyncService.php) agar alumni yang bekerja di luar negeri menghasilkan alamat perusahaan berformat nama negara, dan mengisi `F5a1`/`F5a2` secara adaptif.
 - **Restrukturisasi Urutan Tab Profil Alumni (UX Streamlined Flow)**:
-  - Mengubah urutan tab pada [Index.vue](resources/js/Pages/Alumni/Profil/Index.vue) agar alumni langsung diarahkan ke riwayat pekerjaan setelah mengisi data diri:
+  - Mengubah urutan tab pada [Index.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Profil/Index.vue) agar alumni langsung diarahkan ke riwayat pekerjaan setelah mengisi data diri:
     1. **Identitas & Alamat** (`pribadi`)
     2. **Karier & Pekerjaan** (`karier`)
     3. **Akademik & Yudisium** (`akademik`)
@@ -1322,23 +1322,23 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
 - **Master Fakultas (`ref_fakultas`) & Relasi ke Program Studi (`prodi`)**:
   - Membuat tabel `ref_fakultas` (`id`, `kode_fakultas`, `nama_fakultas`, `timestamps`).
   - Menambahkan kolom `fakultas_id` (FK ke `ref_fakultas`) pada tabel `prodi`.
-  - Membuat model [RefFakultas.php](app/Models/RefFakultas.php) dan memperbarui relasi di [Prodi.php](app/Models/Prodi.php).
+  - Membuat model [RefFakultas.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/RefFakultas.php) dan memperbarui relasi di [Prodi.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Prodi.php).
   - Membuat seeder `RefFakultasSeeder.php` yang mengisi 7 fakultas resmi UKDW dan memetakan `fakultas_id` pada seluruh `prodi` secara otomatis berdasarkan digit pertama `kode_prodi` (Kode 1: Bisnis, 2: Arsitektur & Desain, 3: Theologi, 4: Bioteknologi, 6: Kedokteran, 7: FTI, 8: FKH).
 - **Pengayaan Kolom Tabel `biodata` & Relasi Langsung**:
   - Menambahkan kolom `tempat_lahir`, `tanggal_lahir`, `jenis_kelamin`, `golongan_darah`, `warga_negara`, `nisn`, `gaji`, serta foreign key `orang_tua_id` dan `yudisium_id` pada tabel `biodata`.
-  - Memperbarui model [Biodata.php](app/Models/Biodata.php) dengan deklarasi `$fillable` lengkap dan relasi `orangTua()`, `yudisium()`, serta `prodi.fakultas`.
+  - Memperbarui model [Biodata.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Biodata.php) dengan deklarasi `$fillable` lengkap dan relasi `orangTua()`, `yudisium()`, serta `prodi.fakultas`.
 - **Penguncian NIK Alumni (Read-Only)**:
-  - NIK alumni diatur permanen (read-only/disabled) pada form frontend [FormPribadi.vue](resources/js/Components/AlumniProfil/FormPribadi.vue) dan dilindungi dari perubahan di backend [SimpanProfilController.php](app/Http/Controllers/Alumni/Profil/SimpanProfilController.php).
+  - NIK alumni diatur permanen (read-only/disabled) pada form frontend [FormPribadi.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormPribadi.vue) dan dilindungi dari perubahan di backend [SimpanProfilController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Profil/SimpanProfilController.php).
 - **Perluasan Posisi Jabatan & Auto-Fill Data Atasan Owner**:
-  - Menambahkan opsi jabatan baru di [FormKarier.vue](resources/js/Components/AlumniProfil/FormKarier.vue): `Owner`, `Founder`, `Wiraswasta / Wirausaha`.
+  - Menambahkan opsi jabatan baru di [FormKarier.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue): `Owner`, `Founder`, `Wiraswasta / Wirausaha`.
   - Jika alumni memilih posisi `Owner` / `Founder` / `Wiraswasta`, kolom Data Atasan Langsung (`nama_atasan`, `email_atasan`, `telepon_atasan`) otomatis terisi dengan data diri alumni (nama, email, nomor telepon) baik di sisi antarmuka (Vue watcher) maupun di backend Laravel.
 - **Penyederhanaan Take Home Pay (`F505`) & Eliminasi Redundansi Kuesioner Section 4**:
-  - Menyediakan input single Take Home Pay bulanan (`gaji`) pada form profil [FormKarier.vue](resources/js/Components/AlumniProfil/FormKarier.vue) dan kuesioner [KartuPertanyaan.vue](resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue).
+  - Menyediakan input single Take Home Pay bulanan (`gaji`) pada form profil [FormKarier.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Components/AlumniProfil/FormKarier.vue) dan kuesioner [KartuPertanyaan.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue).
   - Format ribuan (`.000`) muncul langsung di dalam kotak input teks dan dapat diedit fleksibel, menghapus badge terpisah `.000` dan tombol preset pilihan cepat agar tampilan bersih.
   - Memperbarui perhitungan pratinjau `💰 Terbaca: Rp ... / bulan` secara real-time saat alumni mulai mengetik angka tanpa harus menunggu form disimpan.
-  - Memperbarui [KuesionerSyncService.php](app/Services/Kuesioner/KuesionerSyncService.php) agar Take Home Pay dan seluruh data pekerjaan/atasan di Section 4 (`F5a1`, `F5a2`, `F510`, `F5B`, `F5C`, `F5D`, `F2E`, `F2E1`, `F2E2`, `F2E3`, `F2F`, `F2G`, `F2H`) otomatis tersinkronisasi dari profil biodata ke tabel `tracer`.
+  - Memperbarui [KuesionerSyncService.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Kuesioner/KuesionerSyncService.php) agar Take Home Pay dan seluruh data pekerjaan/atasan di Section 4 (`F5a1`, `F5a2`, `F510`, `F5B`, `F5C`, `F5D`, `F2E`, `F2E1`, `F2E2`, `F2E3`, `F2F`, `F2G`, `F2H`) otomatis tersinkronisasi dari profil biodata ke tabel `tracer`.
 - **Automated Tests**:
-  - Membuat feature test [AlumniProfileEnhancementTest.php](tests/Feature/AlumniProfileEnhancementTest.php).
+  - Membuat feature test [AlumniProfileEnhancementTest.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/tests/Feature/AlumniProfileEnhancementTest.php).
   - Seluruh 43 automated feature tests di PHPUnit lulus 100% (222 assertions).
 - **Singularisasi Nama Tabel Basis Data Custom (Tanpa Akhiran `-s`)**:
   - Seluruh 27 berkas migrasi database diselaraskan menggunakan nama tabel tunggal/singular (Bahasa Indonesia & domain), tanpa akhiran `-s`, kecuali tabel bawaan Laravel framework (`users`, `cache`, `sessions`, `jobs`):
@@ -1363,10 +1363,10 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
   - Seluruh model Eloquent dikonfigurasi dengan deklarasi eksplisit `protected $table = 'nama_tabel_singular';`.
   - Seluruh Foreign Key diselaraskan (`perusahaan_id`, `propinsi_id`, `kabupaten_id`, `biodata_id`, `kuesioner_id`, `kelompok_pertanyaan_id`, `prodi_question_section_id`, `prodi_question_id`, dll.).
 - **Refactoring Penuh `Company` $\rightarrow$ `Perusahaan`**:
-  - Membuat model [Perusahaan.php](app/Models/Perusahaan.php) dan menghapus `Company.php` (tanpa menggunakan class extend/wrapper legacy).
+  - Membuat model [Perusahaan.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Perusahaan.php) dan menghapus `Company.php` (tanpa menggunakan class extend/wrapper legacy).
   - Mengganti seluruh seeder (`PerusahaanSeeder.php`), controller (`SimpanProfilController`, `ProfilController`, `DetailAlumniSuperAdminController`, `DaftarAlumniController`, `DetailAlumniController`, `SimpanJawabanController`), services (`KuesionerSyncService`), relasi, dan tests.
 - **Refactoring Penuh `Province` $\rightarrow$ `Propinsi`**:
-  - Membuat model [Propinsi.php](app/Models/Propinsi.php) dan menghapus `Province.php`.
+  - Membuat model [Propinsi.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Propinsi.php) dan menghapus `Province.php`.
   - Memperbarui relasi `Kabupaten`, `Perusahaan`, `Ump`, dan `Biodata`.
   - Menyediakan accessor compatibility (`province_id` $\rightarrow$ `propinsi_id`) untuk keandalan frontend.
 - **Pembersihan Bersih `Alumni` $\rightarrow$ `Biodata`**:
@@ -1377,14 +1377,14 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
   - Seluruh 38 skenario automated unit & feature tests di PHPUnit lulus 100% (203 assertions).
   - Standarisasi format kode PHP diformat dengan Laravel Pint (`vendor/bin/pint --format agent`).
   - Pembuatan bundle asset frontend Vite (`npm run build`) sukses tanpa error.
-  - Pembaruan dokumen [ERD.md](ERD.md) dan [README.md](README.md).
+  - Pembaruan dokumen [ERD.md](ERD.md) dan [README.md](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/README.md).
 
 ## [2026-09-16] Refactoring Penuh Entitas Alumni Menjadi Biodata & Penyesuaian Kolom Seeding
 - **Refactor Entitas `Alumni` $\rightarrow$ `Biodata` Tanpa Kehilangan Data & Foreign Key**:
-  - Model `App\Models\Alumni` direfaktor menjadi `App\Models\Biodata` ([Biodata.php](app/Models/Biodata.php)).
+  - Model `App\Models\Alumni` direfaktor menjadi `App\Models\Biodata` ([Biodata.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/Biodata.php)).
   - Tabel `alumnis` direfaktor menjadi `biodatas` yang memuat seluruh 28 kolom profil target (`id`, `user_id`, `nim`, `tahun_lulus`, `kode_prodi`, `nama`, `nomor_telepon`, `email`, `alamat`, `kabupaten_id`, `provinsi_id`, `kelurahan`, `kecamatan`, `kode_pos`, `agama`, `email_pribadi`, `nik`, `no_kk`, `no_bpjs`, `npwp`, `instagram_url`, `facebook_url`, `linkedin_url`, `linkedin_username`, `expert`, `minat`) serta seluruh kolom karier/pekerjaan existing (`company_id`, `atasan_id`, `posisi_jabatan`, `jenis_pekerjaan`, `zipcode`).
   - Seluruh relasi Foreign Key diselaraskan: `tracers.biodata_id` dan `prodi_responses.biodata_id`.
-  - Alias `$user->alumni()` tetap disediakan pada [User.php](app/Models/User.php) untuk backward compatibility.
+  - Alias `$user->alumni()` tetap disediakan pada [User.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/User.php) untuk backward compatibility.
 - **Penyelarasan Kolom Seeding & Database Migrations**:
   - `DataAkademikSeeder.php`: diselaraskan dengan kolom `ip_kumulatif`, `status_mahasiswa = 'AR'`, kolom asal sekolah (`asal_sekolah`, `alamat_asal_sekolah`, `kota_kabupaten_asal_sekolah`, `provinsi_asal_sekolah`, `jurusan_asal_sekolah`), dan penghapusan `npwp` (karena dipindahkan ke `biodatas`).
   - `YudisiumSeeder.php`: diselaraskan dengan kolom `tahun_akademik_lulus` dan `tahun_lulus`.
@@ -1400,13 +1400,13 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
 
 ## [2026-09-16] Penyelarasan Tipe Data Gaji F505 (multiple_number) & Standarisasi Template Input Kuesioner Lengkap di Vue
 - **Standarisasi Tipe Data Pertanyaan Gaji / Take Home Pay (`F505`)**:
-  - Pertanyaan `F505` (*"Berapa rata-rata pendapatan anda per bulan ? (take home pay)?"*) pada [RefSubpertanyaan2021Seeder.php](database/seeders/RefSubpertanyaan2021Seeder.php) diselaraskan ke tipe `multiple_number`.
-  - Menambahkan 3 butir rincian opsi gaji pada [RefSubpertanyaanDetilSeeder.php](database/seeders/RefSubpertanyaanDetilSeeder.php):
+  - Pertanyaan `F505` (*"Berapa rata-rata pendapatan anda per bulan ? (take home pay)?"*) pada [RefSubpertanyaan2021Seeder.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/seeders/RefSubpertanyaan2021Seeder.php) diselaraskan ke tipe `multiple_number`.
+  - Menambahkan 3 butir rincian opsi gaji pada [RefSubpertanyaanDetilSeeder.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/database/seeders/RefSubpertanyaanDetilSeeder.php):
     1. `F5051` (Urutan 1): *"Dari Pekerjaan Utama"*
     2. `F5052` (Urutan 2): *"Dari Lembur dan Tips"*
     3. `F5053` (Urutan 3): *"Dari Pekerjaan Lainnya"*
-  - Backend [SimpanJawabanController.php](app/Http/Controllers/Alumni/Kuesioner/SimpanJawabanController.php) dan [KuesionerController.php](app/Http/Controllers/Alumni/Kuesioner/KuesionerController.php) secara otomatis menghitung total Take Home Pay, mengonversi satuan ribuan (`.000`), menyimpan struktur JSON ke kolom `answer_json`, dan menormalisasi angka saat formulir dimuat kembali.
-- **Penyelarasan Template Input Form Kuesioner Lengkap di Vue ([KartuPertanyaan.vue](resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue))**:
+  - Backend [SimpanJawabanController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Kuesioner/SimpanJawabanController.php) dan [KuesionerController.php](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Alumni/Kuesioner/KuesionerController.php) secara otomatis menghitung total Take Home Pay, mengonversi satuan ribuan (`.000`), menyimpan struktur JSON ke kolom `answer_json`, dan menormalisasi angka saat formulir dimuat kembali.
+- **Penyelarasan Template Input Form Kuesioner Lengkap di Vue ([KartuPertanyaan.vue](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Components/Kuesioner/KartuPertanyaan.vue))**:
   - Melengkapi seluruh template input form kuesioner siap pakai untuk semua tipe data Google Forms:
     1. `text`: Isian singkat 1 baris.
     2. `textarea`: Paragraf / isian multibaris.
@@ -1717,7 +1717,7 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
 
 ## [2026-09-10] Modul CRUD & Pengaturan Urutan (Reorder) QuestionSection Superadmin, Integrasi UI/UX, dan Tabel UMP 2026
 - **Pengembangan Modul CRUD & Pengaturan Urutan Bagian Kuesioner (`QuestionSection`)**:
-  - Membuat controller backend baru [`KelolaSectionController.php`](app/Http/Controllers/SuperAdmin/KelolaSection/KelolaSectionController.php) di `app/Http/Controllers/SuperAdmin/KelolaSection/` yang mencakup:
+  - Membuat controller backend baru [`KelolaSectionController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/KelolaSection/KelolaSectionController.php) di `app/Http/Controllers/SuperAdmin/KelolaSection/` yang mencakup:
     1. `index()`: Mengambil daftar section terurut berserta relasi instrumen kuesioner induk dan kalkulasi `withCount('questions')`.
     2. `store()`: Menambahkan bagian baru dengan otomatisasi penentuan nomor urutan (`order`).
     3. `update()`: Menyunting judul bagian dan kuesioner induk.
@@ -1730,11 +1730,11 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
     2. *Pilihan & Opsi*: Pilihan ganda radio (`single_choice`), Pilihan ganda + Isian Angka F3/F5 (`radio_input`), Pilihan ganda + Isian Teks Lainnya (`radio_text`), Kotak Centang (`multiple_choice`), Drop-down (`dropdown`).
     3. *Skala & Penilaian*: Skala linier / Rating 1-5 (`rating_5`), Isian Rincian Gaji F13 (`multiple_number`), Kisi pilihan ganda (`matrix`), Petak evaluasi ganda (`matrix_dual`).
     4. *Tanggal & Berkas*: Tanggal (`date`), Waktu (`time`), Upload file (`file`).
-  - **Otomatisasi Opsi Skala Rating**: Pada [`SimpanPertanyaanController.php`](app/Http/Controllers/SuperAdmin/KelolaPertanyaan/SimpanPertanyaanController.php), saat admin membuat pertanyaan bertipe `rating_5` (atau memperbarui ke tipe tersebut), sistem backend secara otomatis membuatkan 5 pilihan skala penilaian standar (1: Sangat Rendah s/d 5: Sangat Tinggi) sehingga admin tidak perlu mengetik opsi rating manual satu per satu.
+  - **Otomatisasi Opsi Skala Rating**: Pada [`SimpanPertanyaanController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/KelolaPertanyaan/SimpanPertanyaanController.php), saat admin membuat pertanyaan bertipe `rating_5` (atau memperbarui ke tipe tersebut), sistem backend secara otomatis membuatkan 5 pilihan skala penilaian standar (1: Sangat Rendah s/d 5: Sangat Tinggi) sehingga admin tidak perlu mengetik opsi rating manual satu per satu.
   - Menambahkan *dynamic hint* di bawah kolom tipe pertanyaan yang menjelaskan fungsi dan perilaku tiap tipe.
   - Memperbarui `QuestionCard.vue` agar mengenali penambahan opsi dan menampilkan badge warna yang tepat untuk seluruh tipe baru (seperti `radio_input`, `radio_text`, `rating_5`, `matrix`, dll.).
 - **Antarmuka Pengguna Vue 3 Modul Kelola Section (`SuperAdmin/Section`)**:
-  - Membuat halaman utama [`resources/js/Pages/SuperAdmin/Section/Index.vue`](resources/js/Pages/SuperAdmin/Section/Index.vue):
+  - Membuat halaman utama [`resources/js/Pages/SuperAdmin/Section/Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Section/Index.vue):
     1. Menampilkan daftar kartu bagian dengan visual emerald UKDW `#005B3C` yang elegan, kartu rounded `[2rem]`, badge nomor urut, kuesioner induk, dan total butir soal.
     2. Fitur pencarian instan berdasarkan judul bagian atau nama kuesioner.
     3. Tombol navigasi langsung ke daftar butir soal masing-masing section (`?sec_id={id}`).
@@ -1743,14 +1743,14 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
   - Membuat komponen modal `resources/js/Pages/SuperAdmin/Section/Components/SectionModal.vue` untuk alur pembuatan dan pengeditan section dengan validasi formulir dan umpan balik sukses/gagal.
 - **Integrasi Navigasi Terpadu Superadmin**:
   - Menambahkan menu navigasi resmi **Kelola Section** pada `Navbar.vue` (versi Desktop dan Mobile).
-  - Menambahkan tombol pintas **Kelola Section** pada halaman [`resources/js/Pages/SuperAdmin/Pertanyaan/Index.vue`](resources/js/Pages/SuperAdmin/Pertanyaan/Index.vue) agar admin dapat beralih cepat antara manajemen butir soal dan manajemen bab/section.
+  - Menambahkan tombol pintas **Kelola Section** pada halaman [`resources/js/Pages/SuperAdmin/Pertanyaan/Index.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/Pertanyaan/Index.vue) agar admin dapat beralih cepat antara manajemen butir soal dan manajemen bab/section.
 - **Penyusunan Tabel UMP 2026 Terhubung Foreign Key `kode_provinsi`**:
   - Membuat migrasi tabel `umps` dengan relasi foreign key langsung ke kolom unique `kode_provinsi` pada tabel `provinces`.
   - Model `Ump.php` dengan relasi `belongsTo(Province::class, 'kode_provinsi', 'kode_provinsi')` serta relasi timbal balik `umps()` dan `ump()` di `Province.php`.
   - Membuat `UmpSeeder.php` berisi 38 data nominal UMP 2026 resmi seluruh provinsi di Indonesia dengan logika `updateOrCreate`.
   - Menyiapkan `UmpFactory.php` untuk kebutuhan data mock testing.
 - **Automated Testing & Standarisasi Kode**:
-  - Membuat pengujian komprehensif di [`tests/Feature/SuperAdminKelolaSectionTest.php`](tests/Feature/SuperAdminKelolaSectionTest.php) (6 pengujian mencakup index, store, update, destroy, directional reorder, dan bulk reorder) dan [`tests/Feature/UmpTest.php`](tests/Feature/UmpTest.php).
+  - Membuat pengujian komprehensif di [`tests/Feature/SuperAdminKelolaSectionTest.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/tests/Feature/SuperAdminKelolaSectionTest.php) (6 pengujian mencakup index, store, update, destroy, directional reorder, dan bulk reorder) dan [`tests/Feature/UmpTest.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/tests/Feature/UmpTest.php).
   - Seluruh 20 unit/feature test suite lulus 100%.
   - Seluruh berkas PHP diformat sesuai standar dengan Laravel Pint.
 
@@ -1943,7 +1943,7 @@ Sesi ini berfokus pada perbaikan kritis alur penyimpanan data profil alumni oleh
 - **Penyajian Data Terisolasi per Tahun Kelulusan (Tanpa Tumpukan Semua Semester)**:
   - Mengubah sistem kueri di `DaftarAlumniController.php` agar secara default langsung memilih tahun/semester kelulusan terbaru (`$daftarSemester->first()`), dan tabel HANYA memuat data alumni pada periode yang dipilih tersebut.
   - Mencegah kelebihan beban data (*information overload*) dengan meniadakan mode tampil semua semester sekaligus.
-- **Filter Ketat Status Yudisium Lulus (`proses_yudisium = 'Lulus'`)**: 
+- **Filter Ketat Status Yudisium Lulus (`proses_yudisium = 'Lulus'`)**:
   - Backend controller `DaftarAlumniController.php` memfilter data alumni secara eksklusif hanya bagi alumni yang status yudisiumnya telah dinyatakan `'Lulus'` pada relasi `yudisium` (`yudisiums.proses_yudisium = 'Lulus'`) atau `dataAkademik.status_yudisium`.
   - Alumni yang berstatus Belum Yudisium, Proses, atau Tidak Lulus tidak akan ditampilkan dalam direktori kelulusan Biro 3.
 - **Standarisasi Menyeluruh Navigasi & Identitas Visual Biro 3**:

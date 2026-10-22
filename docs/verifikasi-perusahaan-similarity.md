@@ -23,11 +23,11 @@ Dokumen ini menjelaskan secara teknis dan konseptual bagaimana sistem pencocokan
 
 | Komponen | Path File | Keterangan |
 | :--- | :--- | :--- |
-| **Domain Service** | [`app/Services/Perusahaan/PerusahaanVerificationService.php`](../app/Services/Perusahaan/PerusahaanVerificationService.php) | Berisi inti logika perhitungan kemiripan (`getSimilarRecommendations`), pembersihan teks (`cleanCompanyName`), tokenisasi (`getTokens`), dan pembuatan akronim (`makeAcronym`). |
-| **Controller SuperAdmin** | [`app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php`](../app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php) | Memanggil service untuk melampirkan 5 data rekomendasi per perusahaan pending. |
-| **Controller Fakultas** | [`app/Http/Controllers/AdminFakultas/VerifikasiPerusahaan/VerifikasiPerusahaanFakultasController.php`](../app/Http/Controllers/AdminFakultas/VerifikasiPerusahaan/VerifikasiPerusahaanFakultasController.php) | Verifikasi lingkup prodi di bawah fakultas terkait. |
-| **Controller Prodi** | [`app/Http/Controllers/AdminProdi/VerifikasiPerusahaan/VerifikasiPerusahaanProdiController.php`](../app/Http/Controllers/AdminProdi/VerifikasiPerusahaan/VerifikasiPerusahaanProdiController.php) | Verifikasi lingkup prodi pengguna. |
-| **Feature Test** | [`tests/Feature/VerifikasiPerusahaanTest.php`](../tests/Feature/VerifikasiPerusahaanTest.php) | Unit & Feature testing untuk akurasi rekomendasi dan auto-replace. |
+| **Domain Service** | [`app/Services/Perusahaan/PerusahaanVerificationService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Perusahaan/PerusahaanVerificationService.php) | Berisi inti logika perhitungan kemiripan (`getSimilarRecommendations`), pembersihan teks (`cleanCompanyName`), tokenisasi (`getTokens`), dan pembuatan akronim (`makeAcronym`). |
+| **Controller SuperAdmin** | [`app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php) | Memanggil service untuk melampirkan 5 data rekomendasi per perusahaan pending. |
+| **Controller Fakultas** | [`app/Http/Controllers/AdminFakultas/VerifikasiPerusahaan/VerifikasiPerusahaanFakultasController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminFakultas/VerifikasiPerusahaan/VerifikasiPerusahaanFakultasController.php) | Verifikasi lingkup prodi di bawah fakultas terkait. |
+| **Controller Prodi** | [`app/Http/Controllers/AdminProdi/VerifikasiPerusahaan/VerifikasiPerusahaanProdiController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminProdi/VerifikasiPerusahaan/VerifikasiPerusahaanProdiController.php) | Verifikasi lingkup prodi pengguna. |
+| **Feature Test** | [`tests/Feature/VerifikasiPerusahaanTest.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/tests/Feature/VerifikasiPerusahaanTest.php) | Unit & Feature testing untuk akurasi rekomendasi dan auto-replace. |
 
 ---
 
@@ -155,7 +155,7 @@ if ($cleanPending !== '' && $cleanPending === $cleanVerified) {
 }
 ```
 * **Maksud Kode:** Memeriksa apakah setelah semua embel-embel badan usaha dibersihkan, kedua string sama persis 100%.
-* **Contoh Kasus:** 
+* **Contoh Kasus:**
   * Alumni menginput: `"PT. Tokopedia"` $\rightarrow$ nama bersih: `"tokopedia"`.
   * Master database: `"Tokopedia"` $\rightarrow$ nama bersih: `"tokopedia"`.
   * Keduanya identik $\rightarrow$ langsung mendapat skor 95 poin.
@@ -215,7 +215,7 @@ elseif (
 }
 ```
 * **Maksud Kode:** Menangani entitas anak atau perusahaan afiliasi di mana salah satu kata dari nama majemuk merupakan akronim dari entitas induk.
-* **Contoh Kasus:** 
+* **Contoh Kasus:**
   * Pengajuan: `"BCA Digital"` (token: `bca`, `digital`).
   * Master: `"Bank Central Asia"` (akronim: `bca`).
   * Token `bca` cocok dengan akronim master $\rightarrow$ Diberikan skor 75 poin dengan alasan `"Mengandung Akronim Entitas Terkait (BCA)"`.
@@ -355,7 +355,7 @@ Ketika SuperAdmin, Admin Fakultas, atau Admin Prodi melihat rekomendasi ini di t
 
 ## 6. Penjelasan Lengkap Service (`PerusahaanVerificationService.php`)
 
-Service ini beralamat di [`app/Services/Perusahaan/PerusahaanVerificationService.php`](../app/Services/Perusahaan/PerusahaanVerificationService.php) dan didaftarkan via *Dependency Injection* ke Controller:
+Service ini beralamat di [`app/Services/Perusahaan/PerusahaanVerificationService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Perusahaan/PerusahaanVerificationService.php) dan didaftarkan via *Dependency Injection* ke Controller:
 
 ```php
 public function __construct(
@@ -400,7 +400,7 @@ public function __construct(
 Terdapat 3 Controller dengan tingkatan hak akses berbeda yang mengonsumsi service ini:
 
 ### A. SuperAdmin: `VerifikasiPerusahaanSuperAdminController`
-* **File:** [`app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php`](../app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php)
+* **File:** [`app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php)
 * **Hak Akses:** Otoritas tertinggi universitas (`role: superadmin`).
 * **Fitur:**
   * Dapat melihat pengajuan seluruh prodi (`scope: all`) atau menyaring per prodi tertentu.
@@ -419,14 +419,14 @@ Terdapat 3 Controller dengan tingkatan hak akses berbeda yang mengonsumsi servic
   * `POST /superadmin/perusahaan/{company}/reject` $\rightarrow$ Tolak pengajuan.
 
 ### B. Admin Fakultas: `VerifikasiPerusahaanFakultasController`
-* **File:** [`app/Http/Controllers/AdminFakultas/VerifikasiPerusahaan/VerifikasiPerusahaanFakultasController.php`](../app/Http/Controllers/AdminFakultas/VerifikasiPerusahaan/VerifikasiPerusahaanFakultasController.php)
+* **File:** [`app/Http/Controllers/AdminFakultas/VerifikasiPerusahaan/VerifikasiPerusahaanFakultasController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminFakultas/VerifikasiPerusahaan/VerifikasiPerusahaanFakultasController.php)
 * **Hak Akses:** Admin di tingkat fakultas (`role: admin_fakultas`).
 * **Fitur:**
   * Otomatis terfilter hanya untuk pengajuan perusahaan dari prodi-prodi dalam fakultas yang bersangkutan.
   * Menyajikan data rekomendasi kemiripan yang sama agar data di tingkat fakultas tetap terstandardisasi.
 
 ### C. Admin Program Studi: `VerifikasiPerusahaanProdiController`
-* **File:** [`app/Http/Controllers/AdminProdi/VerifikasiPerusahaan/VerifikasiPerusahaanProdiController.php`](../app/Http/Controllers/AdminProdi/VerifikasiPerusahaan/VerifikasiPerusahaanProdiController.php)
+* **File:** [`app/Http/Controllers/AdminProdi/VerifikasiPerusahaan/VerifikasiPerusahaanProdiController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminProdi/VerifikasiPerusahaan/VerifikasiPerusahaanProdiController.php)
 * **Hak Akses:** Admin program studi masing-masing (`role: admin_prodi`).
 * **Fitur:**
   * Memverifikasi pengajuan tempat kerja dari alumni lulusan prodinya sendiri.

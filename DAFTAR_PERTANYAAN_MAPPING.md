@@ -34,7 +34,7 @@ Sistem Tracer Study UKDW membagi pengisian data menjadi 4 pintu utama:
 > 2. `profile`: Butir pertanyaan dikelola khusus pada formulir profil alumni (`/alumni/profile`) dan disinkronkan otomatis tanpa muncul ganda di kuesioner.
 > 3. `both`: Butir pertanyaan dapat diakses dan diisi baik melalui formulir kuesioner maupun profil biodata.
 
-> **Catatan untuk Admin**: Seluruh pembaruan profil melalui halaman admin (Super Admin, Admin Fakultas, Admin Prodi) dilayani oleh satu service terpusat: [`AdminAlumniProfileService`](app/Services/Alumni/AdminAlumniProfileService.php). Lihat [Bagian 6](#6-adminalumniprofileservice--persistensi-terpusat-oleh-admin) untuk detail.
+> **Catatan untuk Admin**: Seluruh pembaruan profil melalui halaman admin (Super Admin, Admin Fakultas, Admin Prodi) dilayani oleh satu service terpusat: [`AdminAlumniProfileService`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Alumni/AdminAlumniProfileService.php). Lihat [Bagian 6](#6-adminalumniprofileservice--persistensi-terpusat-oleh-admin) untuk detail.
 
 ---
 
@@ -144,7 +144,7 @@ graph LR
 
 ## 6. AdminAlumniProfileService — Persistensi Terpusat oleh Admin
 
-**File**: [`app/Services/Alumni/AdminAlumniProfileService.php`](app/Services/Alumni/AdminAlumniProfileService.php)
+**File**: [`app/Services/Alumni/AdminAlumniProfileService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Alumni/AdminAlumniProfileService.php)
 
 Service ini adalah **Single Source of Truth** untuk seluruh operasi baca dan tulis data profil alumni oleh administrator (Super Admin, Admin Fakultas, Admin Prodi). Sebelumnya, logika ini tersebar di 4 controller yang berbeda dengan implementasi berbeda-beda.
 
@@ -189,10 +189,10 @@ Menyimpan seluruh pembaruan profil secara atomik dalam 7 langkah berurutan:
 ### Controller yang Menggunakan Service Ini
 | Controller | Role | Aksi |
 | :--- | :--- | :--- |
-| [`DetailAlumniSuperAdminController`](app/Http/Controllers/SuperAdmin/KelolaAlumni/DetailAlumniSuperAdminController.php) | Super Admin | `show()`, `updateProfile()` |
-| [`DetailAlumniController`](app/Http/Controllers/AdminBiroTiga/KelolaAlumni/DetailAlumniController.php) | Biro 3 | `tampilkanDetailAlumni()`; `updateProfile()` menolak perubahan |
-| [`DetailAlumniFakultasController`](app/Http/Controllers/AdminFakultas/KelolaAlumni/DetailAlumniFakultasController.php) | Admin Fakultas | `show()`, `updateProfile()` |
-| [`DaftarAlumniProdiController`](app/Http/Controllers/AdminProdi/KelolaAlumni/DaftarAlumniProdiController.php) | Admin Prodi | `show()`, `updateProfile()` |
+| [`DetailAlumniSuperAdminController`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/SuperAdmin/KelolaAlumni/DetailAlumniSuperAdminController.php) | Super Admin | `show()`, `updateProfile()` |
+| [`DetailAlumniController`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminBiroTiga/KelolaAlumni/DetailAlumniController.php) | Biro 3 | `tampilkanDetailAlumni()`; `updateProfile()` menolak perubahan |
+| [`DetailAlumniFakultasController`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminFakultas/KelolaAlumni/DetailAlumniFakultasController.php) | Admin Fakultas | `show()`, `updateProfile()` |
+| [`DaftarAlumniProdiController`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/AdminProdi/KelolaAlumni/DaftarAlumniProdiController.php) | Admin Prodi | `show()`, `updateProfile()` |
 
 ---
 
@@ -200,7 +200,7 @@ Menyimpan seluruh pembaruan profil secara atomik dalam 7 langkah berurutan:
 
 Bagi Superadmin dan Admin Program Studi, tersedia modul rekapitulasi data:
 - **Format Ekspor**: Microsoft Excel (`.xls`) berformat HTML kaya gaya.
-- **Service Backend**: [`AlumniTracerExcelExporter`](app/Services/Export/AlumniTracerExcelExporter.php) — digunakan seragam oleh seluruh stakeholder admin.
+- **Service Backend**: [`AlumniTracerExcelExporter`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Export/AlumniTracerExcelExporter.php) — digunakan seragam oleh seluruh stakeholder admin.
 - **Isi Ekspor**:
   - **Blok Identitas Lengkap (4 Sub-Bagian)**:
     1. Data Diri & Kontak Pribadi (NIM, NIK, NPWP, No KK, No BPJS, NISN, Telepon, Email, LinkedIn, dll.)
@@ -220,8 +220,8 @@ Kuesioner evaluasi atasan adalah instrumen resmi Universitas Kristen Duta Wacana
 
 - **Akses & Autentikasi**: Publik melalui URL token unik tanpa login: `/evaluasi-atasan/{token}`
 - **Pemicu Notifikasi**: Terkirim otomatis via email undangan berformat resmi institusi ke email atasan saat alumni menyimpan data profil karier (`FormKarier.vue`).
-- **Komponen Vue**: [`resources/js/Pages/Public/EvaluasiAtasanForm.vue`](resources/js/Pages/Public/EvaluasiAtasanForm.vue) (Full-page layout korporat dengan sticky table header).
-- **Controller Backend**: [`app/Http/Controllers/EvaluasiAtasanController.php`](app/Http/Controllers/EvaluasiAtasanController.php).
+- **Komponen Vue**: [`resources/js/Pages/Public/EvaluasiAtasanForm.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Public/EvaluasiAtasanForm.vue) (Full-page layout korporat dengan sticky table header).
+- **Controller Backend**: [`app/Http/Controllers/EvaluasiAtasanController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/EvaluasiAtasanController.php).
 
 ### A. Bagian I: Informasi Profil Perusahaan / Lembaga / Institusi
 

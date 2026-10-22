@@ -44,54 +44,54 @@
   <line x1="530" y1="100" x2="530" y2="1460" stroke="#6b1d2f" stroke-width="2" />
 
   <!-- Content Elements -->
-  
+
     <!-- Initial Node -->
     <circle cx="277" cy="170" r="13" fill="#6b1d2f" stroke="#3a1014" stroke-width="1.5" />
-    
+
 <line x1="277" y1="183" x2="277" y2="215" class="flow-line" />
 
     <!-- Action State -->
     <rect x="162" y="216" width="230" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="277" y="233" class="action-text">Buka Menu Verifikasi Perusahaan</text>
 <text x="277" y="250" class="action-sub">Akses Pengajuan Perusahaan Alumni</text>
-    
+
 <line x1="277" y1="264" x2="277" y2="305" class="flow-line" />
 
     <!-- Action State -->
     <rect x="162" y="306" width="230" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="277" y="323" class="action-text">Pilih Perusahaan Status &#x27;Pending&#x27;</text>
 <text x="277" y="340" class="action-sub">Memicu Komputasi Algoritma Similarity</text>
-    
+
 <polyline points="392,330 782,330 782,385" class="flow-line" />
 
     <!-- Action State -->
     <rect x="662" y="386" width="240" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="782" y="403" class="action-text">Ambil Data Master &amp; Input Baru</text>
 <text x="782" y="420" class="action-sub">Muat Daftar Perusahaan Terverifikasi</text>
-    
+
 <line x1="782" y1="434" x2="782" y2="470" class="flow-line" />
 
     <!-- Sync Bar (Fork/Join) -->
     <rect x="687" y="472" width="190" height="7" rx="2" ry="2" fill="#6b1d2f" />
-    
+
 <line x1="707" y1="479" x2="707" y2="510" class="flow-line" />
 
     <!-- Action State -->
     <rect x="635" y="511" width="145" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="707" y="528" class="action-text">Clean Company Name</text>
 <text x="707" y="545" class="action-sub">Hapus PT/CV &amp; Stopwords</text>
-    
+
 <line x1="857" y1="479" x2="857" y2="510" class="flow-line" />
 
     <!-- Action State -->
     <rect x="785" y="511" width="145" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="857" y="528" class="action-text">Tokenize &amp; Acronyms</text>
 <text x="857" y="545" class="action-sub">Ekstraksi Token &amp; Singkatan</text>
-    
+
 
     <!-- Sync Bar (Fork/Join) -->
     <rect x="687" y="592" width="190" height="7" rx="2" ry="2" fill="#6b1d2f" />
-    
+
 <line x1="707" y1="559" x2="707" y2="591" class="flow-line" />
 <line x1="857" y1="559" x2="857" y2="591" class="flow-line" />
 <line x1="782" y1="599" x2="782" y2="635" class="flow-line" />
@@ -100,33 +100,33 @@
     <rect x="657" y="636" width="250" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="782" y="653" class="action-text">Multi-Level String Matching</text>
 <text x="782" y="670" class="action-sub">Evaluasi Exact, Acronym, Substring, Typo</text>
-    
+
 <line x1="782" y1="684" x2="782" y2="725" class="flow-line" />
 
     <!-- Action State -->
     <rect x="657" y="726" width="250" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="782" y="743" class="action-text">Pembobotan Geografis &amp; Scoring</text>
 <text x="782" y="760" class="action-sub">Tambah Skor Kota (+20) &amp; Provinsi (+10)</text>
-    
+
 <line x1="782" y1="774" x2="782" y2="815" class="flow-line" />
 
     <!-- Action State -->
     <rect x="657" y="816" width="250" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="782" y="833" class="action-text">Filter &amp; Sortir Top-5 Rekomendasi</text>
 <text x="782" y="850" class="action-sub">Threshold Skor &gt;= 45 &amp; Urutkan Descending</text>
-    
+
 <polyline points="657,840 277,840 277,895" class="flow-line" />
 
     <!-- Action State -->
     <rect x="162" y="896" width="230" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="277" y="913" class="action-text">Tinjau Kartu Rekomendasi</text>
 <text x="277" y="930" class="action-sub">Periksa Detail Skor &amp; Alasan Kecocokan</text>
-    
+
 <line x1="277" y1="944" x2="277" y2="985" class="flow-line" />
 
     <!-- Decision Node -->
     <polygon points="277,987 300,1005 277,1023 254,1005" fill="#fefee8" stroke="#6b1d2f" stroke-width="2" filter="url(#soft-shadow)" />
-    
+
 <polyline points="300,1005 417,1005 417,1060 782,1060 782,1105" class="flow-line" />
 <text x="372" y="997" class="guard-text" text-anchor="center">[Pilih Auto-Replace]</text>
 
@@ -134,27 +134,27 @@
     <rect x="662" y="1106" width="240" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="782" y="1123" class="action-text">Mulai Transaksi DB::beginTransaction</text>
 <text x="782" y="1140" class="action-sub">Kunci Baris Data Terkait</text>
-    
+
 <line x1="782" y1="1154" x2="782" y2="1195" class="flow-line" />
 
     <!-- Action State -->
     <rect x="662" y="1196" width="240" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="782" y="1213" class="action-text">Alihkan Relasi &amp; Hapus Duplikat</text>
 <text x="782" y="1230" class="action-sub">Update biodata.perusahaan_id ke Master</text>
-    
+
 <line x1="782" y1="1244" x2="782" y2="1285" class="flow-line" />
 
     <!-- Action State -->
     <rect x="662" y="1286" width="240" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="782" y="1303" class="action-text">Commit DB &amp; Catat Log Audit</text>
 <text x="782" y="1320" class="action-sub">Tulis Aktivitas ke &#x27;log_activities&#x27;</text>
-    
+
 <line x1="782" y1="1334" x2="782" y2="1370" class="flow-line" />
 
     <!-- Final Node (Bullseye) -->
     <circle cx="782" cy="1385" r="14" fill="#ffffff" stroke="#6b1d2f" stroke-width="2" />
     <circle cx="782" cy="1385" r="8.5" fill="#6b1d2f" />
-    
+
 <polyline points="277,1023 277,1055 345,1055 345,1105" class="flow-line" />
 <text x="292" y="1045" class="guard-text" text-anchor="left">[Data Baru Valid]</text>
 
@@ -162,13 +162,13 @@
     <rect x="270" y="1106" width="150" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="345" y="1123" class="action-text">Verifikasi Langsung</text>
 <text x="345" y="1140" class="action-sub">Update &#x27;Terverifikasi&#x27;</text>
-    
+
 <line x1="345" y1="1154" x2="345" y2="1195" class="flow-line" />
 
     <!-- Final Node (Bullseye) -->
     <circle cx="345" cy="1210" r="14" fill="#ffffff" stroke="#6b1d2f" stroke-width="2" />
     <circle cx="345" cy="1210" r="8.5" fill="#6b1d2f" />
-    
+
 <polyline points="254,1005 160,1005 160,1105" class="flow-line" />
 <text x="202" y="997" class="guard-text" text-anchor="center">[Tolak/Fiktif]</text>
 
@@ -176,13 +176,13 @@
     <rect x="95" y="1106" width="130" height="48" rx="20" ry="20" fill="#fefee8" stroke="#6b1d2f" stroke-width="1.8" filter="url(#soft-shadow)" />
     <text x="160" y="1123" class="action-text">Tolak Pengajuan</text>
 <text x="160" y="1140" class="action-sub">Set Status &#x27;Ditolak&#x27;</text>
-    
+
 <line x1="160" y1="1154" x2="160" y2="1195" class="flow-line" />
 
     <!-- Flow Final Node (Crossed Circle) -->
     <circle cx="160" cy="1210" r="13" fill="#ffffff" stroke="#6b1d2f" stroke-width="2" />
     <line x1="153" y1="1203" x2="167" y2="1217" stroke="#6b1d2f" stroke-width="2" stroke-linecap="round"/>
     <line x1="167" y1="1203" x2="153" y2="1217" stroke="#6b1d2f" stroke-width="2" stroke-linecap="round"/>
-    
+
 
 </svg>

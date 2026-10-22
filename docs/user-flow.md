@@ -27,7 +27,7 @@ flowchart TD
     A[Mulai: Akses Halaman Utama / Landing Page] --> B{Sudah Login?}
     B -->|Sudah| G[Dashboard Alumni: /alumni/dashboard]
     B -->|Belum| C[Halaman Login: /login]
-    
+
     C --> D{Kredensial Login}
     D -->|Username NIM & Password| E[Validasi Akun]
     C -->|Lupa Kata Sandi| F[Form Lupa Kata Sandi: /forgot-password]
@@ -41,7 +41,7 @@ flowchart TD
     H -->|Tidak| G
 
     G --> J[Navigasi Menu Utama Alumni]
-    
+
     J --> K[1. Kelola Profil & Biodata: /alumni/profile]
     K --> K1[Perbarui Kontak, Biodata & Riwayat Pekerjaan]
     K --> K2[Input Data Atasan Langsung - Memicu Token Evaluasi Atasan]
@@ -396,16 +396,16 @@ flowchart TD
     D --> E{Validasi Token Sistem}
     E -->|Token Tidak Ditemukan| F[Halaman Tautan Tidak Ditemukan]
     E -->|Token Valid| G[Buka Formulir Evaluasi Full Page]
-    
+
     G --> H[Periksa Data Identitas Alumni Yang Dinilai]
     G --> I[Bagian I: Lengkapi / Perbarui Profil Instansi & Kontak Atasan]
     I --> J[Tersimpan Otomatis ke Master Tabel Perusahaan & Atasan]
-    
+
     G --> K[Bagian II: Evaluasi Kesiapan & Kinerja Lulusan]
     K --> K1[Nilai Tingkat Kesiapan Alumni dalam Bekerja]
     K --> K2[Nilai Aspek Kinerja Lulusan pada Matriks Likert]
     K --> K3[Tuliskan Catatan Tambahan / Saran Khusus Opsional]
-    
+
     K1 & K2 & K3 --> L[Klik Tombol: Kirim Respon Evaluasi Kinerja]
     L --> M[Sistem Validasi Kelengkapan Jawaban]
     M -->|Ada Butir Terlewat| N[SweetAlert2: Peringatan Aspek Belum Lengkap]

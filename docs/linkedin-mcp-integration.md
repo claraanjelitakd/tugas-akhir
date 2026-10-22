@@ -6,7 +6,7 @@ Dokumen ini menjelaskan arsitektur resmi, konfigurasi provider, alur kerja stagi
 
 ## 1. Arsitektur Multi-Provider
 
-Aplikasi mendukung dua kategori provider sinkronisasi LinkedIn melalui satu kontrak antarmuka yang terpadu: [`LinkedInProfileProvider`](../app/Services/LinkedIn/Contracts/LinkedInProfileProvider.php).
+Aplikasi mendukung dua kategori provider sinkronisasi LinkedIn melalui satu kontrak antarmuka yang terpadu: [`LinkedInProfileProvider`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/LinkedIn/Contracts/LinkedInProfileProvider.php).
 
 ```text
                   LinkedInProfileProvider (Interface)
@@ -33,7 +33,7 @@ Pemilihan provider ditentukan secara dinamis melalui file `.env`:
 ### Karakteristik & Filosofi
 - **Status**: Implementasi resmi server-to-server.
 - **Driver Bawaan**: Dikelola oleh `LINKEDIN_DRIVER` di `.env` (`mock` untuk pengujian lokal, `api` untuk API resmi LinkedIn v2).
-- **Alur Kerja**: Langsung memperbarui data jabatan/karier dan entitas perusahaan (dengan status *Menunggu Verifikasi*) melalui [`LinkedInProfileService.php`](../app/Services/LinkedIn/LinkedInProfileService.php).
+- **Alur Kerja**: Langsung memperbarui data jabatan/karier dan entitas perusahaan (dengan status *Menunggu Verifikasi*) melalui [`LinkedInProfileService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/LinkedIn/LinkedInProfileService.php).
 - **Mendukung**: Single Sync dan Bulk Batch Sync per angkatan.
 
 ### Konfigurasi `.env`

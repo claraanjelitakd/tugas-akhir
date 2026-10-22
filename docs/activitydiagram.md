@@ -13,7 +13,7 @@ Dokumen ini memuat spesifikasi dan pemodelan **UML Activity Diagram** untuk pros
 ## 1. Landasan Teori UML Activity Diagram
 
 Penyusunan diagram dan alur sistem ini mengacu pada literatur akademik:
-> **Referensi Buku:**  
+> **Referensi Buku:**
 > Sundaramoorthy, S. (2022). *UML Diagramming: A Case Study Approach* (1st ed.). CRC Press, Taylor & Francis Group. DOI: [10.1201/9781003287124](https://doi.org/10.1201/9781003287124).
 
 ### Komponen & Notasi Standar UML Activity Diagram (Sundaramoorthy, 2022, Bab 1.1.3 & Tabel 1.4):
@@ -58,8 +58,8 @@ Alur ini mengadopsi struktur baku *Case Study* dari buku Dr. Suriya Sundaramoort
 
 ![UML Activity Diagram: Edit Profil & Ganti Password](images/activity_edit_profile_password.png)
 
-> **File Resolusi Tinggi**:  
-> Format Vektor SVG: [`docs/images/activity_edit_profile_password.svg`](images/activity_edit_profile_password.svg)  
+> **File Resolusi Tinggi**:
+> Format Vektor SVG: [`docs/images/activity_edit_profile_password.svg`](images/activity_edit_profile_password.svg)
 > Format Raster Retina PNG: [`docs/images/activity_edit_profile_password.png`](images/activity_edit_profile_password.png)
 
 ---
@@ -72,12 +72,12 @@ flowchart TD
     subgraph Alumni_Lane["SWIMLANE: Alumni UKDW"]
         Start1((●)) --> DecChoice{"Pilih Aksi Akun"}
         DecChoice --> Fork1[/"━━━━ FORK ━━━━"/]
-        
+
         %% Cabang Ganti Password
         Fork1 --> Act_Pwd["Change Password"]
         Act_Pwd --> Act_OldPwd["Enter Old Password"]
         Act_OldPwd --> Act_NewPwd["Enter New Password & Konfirmasi"]
-        
+
         %% Cabang Edit Profil
         Fork1 --> Act_EditProf["Edit Profile Details"]
         Act_EditProf --> Act_NewDetails["Enter New Details (Karir & Kontak)"]
@@ -121,8 +121,8 @@ Fitur sinkronisasi LinkedIn memanfaatkan pihak ketiga **Apify Cloud Actor (`data
 
 ![UML Activity Diagram: Sinkronisasi LinkedIn Apify](images/activity_linkedin_sync.png)
 
-> **File Resolusi Tinggi**:  
-> Format Vektor SVG: [`docs/images/activity_linkedin_sync.svg`](images/activity_linkedin_sync.svg)  
+> **File Resolusi Tinggi**:
+> Format Vektor SVG: [`docs/images/activity_linkedin_sync.svg`](images/activity_linkedin_sync.svg)
 > Format Raster Retina PNG: [`docs/images/activity_linkedin_sync.png`](images/activity_linkedin_sync.png)
 
 ---
@@ -135,7 +135,7 @@ flowchart TD
     subgraph Admin_Lane["SWIMLANE: Administrator (Super Admin / Admin Prodi)"]
         A_Start((●)) --> A_SelectAlumni["Pilih Profil Alumni & Verifikasi URL"]
         A_SelectAlumni --> A_ClickSync["Klik 'Sinkronkan LinkedIn'"]
-        
+
         A_OpenModal["Buka Modal Review Perbandingan (Diff View)"]
         A_DecisionReview{"Keputusan Review?"}
         A_Reject["Set REJECTED & Simpan Log Penolakan"]
@@ -152,7 +152,7 @@ flowchart TD
         FlowApifyErr((⨂))
         S_SaveStaging["Simpan ke 'linkedin_sync_results' (Status: PENDING)"]
         S_SignalModal["Kirim Sinyal Payload Staging Siap Ditinjau"]
-        
+
         S_UpdateDB["Update Database Biodata & Link Perusahaan Terkait"]
         S_SetApproved["Set Status APPROVED & Catat Audit Trail"]
         EndSyncSuccess(((◉)))
@@ -169,7 +169,7 @@ flowchart TD
     S_SaveStaging --> S_SignalModal
     S_SignalModal --> A_OpenModal
     A_OpenModal --> A_DecisionReview
-    
+
     A_DecisionReview -- "[Tolak / Reject]" --> A_Reject --> FlowReject
     A_DecisionReview -- "[Setujui / Approve]" --> S_UpdateDB
     S_UpdateDB --> S_SetApproved
@@ -266,7 +266,7 @@ Content-Type: application/json
 ```text
 FUNCTION SyncLinkedInProfile(biodataId, currentUser):
     biodata = Query("SELECT * FROM biodata WHERE id = :id", biodataId)
-    
+
     // 1. Validasi URL profil LinkedIn
     IF biodata.linkedin_url IS NULL OR NOT IsValidLinkedInUrl(biodata.linkedin_url) THEN
         RETURN Response.Json(422, {"message": "Format URL LinkedIn tidak valid atau belum diisi."})
@@ -287,7 +287,7 @@ FUNCTION SyncLinkedInProfile(biodataId, currentUser):
             },
             Timeout: 60
         )
-        
+
         IF httpResponse.StatusCode != 200 THEN
             THROW Exception("Apify Provider Error: HTTP " + httpResponse.StatusCode)
         ENDIF
@@ -409,8 +409,8 @@ Modul ini bertugas menyelesaikan redundansi data perusahaan yang diinput secara 
 
 ![UML Activity Diagram: Rekomendasi Perusahaan](images/activity_verifikasi_perusahaan.png)
 
-> **File Resolusi Tinggi**:  
-> Format Vektor SVG: [`docs/images/activity_verifikasi_perusahaan.svg`](images/activity_verifikasi_perusahaan.svg)  
+> **File Resolusi Tinggi**:
+> Format Vektor SVG: [`docs/images/activity_verifikasi_perusahaan.svg`](images/activity_verifikasi_perusahaan.svg)
 > Format Raster Retina PNG: [`docs/images/activity_verifikasi_perusahaan.png`](images/activity_verifikasi_perusahaan.png)
 
 ---
@@ -423,13 +423,13 @@ flowchart TD
     subgraph Admin_Lane["SWIMLANE: Administrator Verifikator (Super Admin / Fakultas / Prodi)"]
         V_Start((●)) --> V_OpenList["Buka Menu Verifikasi Perusahaan Pengajuan Alumni"]
         V_OpenList --> V_SelectPending["Pilih Perusahaan Status 'Pending'"]
-        
+
         V_ViewCards["Tinjau Kartu Rekomendasi & Skor Kemiripan"]
         V_DecisionChoice{"Pilihan Aksi Verifikasi"}
-        
+
         V_DirectVerify["Verifikasi Langsung (Data Baru Valid)"]
         EndDirectVerify(((◉)))
-        
+
         V_Reject["Tolak Pengajuan (Perusahaan Fiktif)"]
         FlowRejectCo((⨂))
     end
@@ -441,11 +441,11 @@ flowchart TD
         S_CleanText["Tahap 1: Clean Company Name & Filter Legalitas"]
         S_TokenAcronym["Tahap 2: Tokenize & Generate Akronim Singkatan"]
         JoinSim[\"━━━━ JOIN ━━━━"\]
-        
+
         S_MultiMatch["Tahap 3: Multi-Level String Matching"]
         S_GeoScoring["Tahap 4: Pembobotan Geografis (Kota +20, Prov +10)"]
         S_FilterTop5["Tahap 5: Filter Threshold >= 45 & Urutkan Top-5 Rekomendasi"]
-        
+
         S_BeginTx["Mulai Transaksi DB::beginTransaction()"]
         S_MigrateAlumni["Alihkan Seluruh Relasi biodata.perusahaan_id ke Master"]
         S_CommitTx["Commit DB & Catat Log Audit ke 'log_activities'"]
@@ -463,13 +463,13 @@ flowchart TD
     S_MultiMatch --> S_GeoScoring
     S_GeoScoring --> S_FilterTop5
     S_FilterTop5 --> V_ViewCards
-    
+
     V_ViewCards --> V_DecisionChoice
     V_DecisionChoice -- "[Pilih Auto-Replace]" --> S_BeginTx
     S_BeginTx --> S_MigrateAlumni
     S_MigrateAlumni --> S_CommitTx
     S_CommitTx --> EndReplaceSuccess
-    
+
     V_DecisionChoice -- "[Data Baru Valid]" --> V_DirectVerify --> EndDirectVerify
     V_DecisionChoice -- "[Tolak / Fiktif]" --> V_Reject --> FlowRejectCo
 ```
@@ -570,7 +570,7 @@ FUNCTION GetSimilarRecommendations(pendingCompany, limit = 5):
     cleanPending = CleanCompanyName(pendingCompany.nama_perusahaan)
     pendingTokens = GetTokens(cleanPending)
     pendingAcronyms = GetAcronyms(cleanPending, pendingCompany.nama_perusahaan)
-    
+
     verifiedCompanies = Database.Query("SELECT * FROM perusahaans WHERE status = 'Terverifikasi'")
     recommendations = []
 
@@ -578,7 +578,7 @@ FUNCTION GetSimilarRecommendations(pendingCompany, limit = 5):
         cleanVerified = CleanCompanyName(verified.nama_perusahaan)
         verifiedTokens = GetTokens(cleanVerified)
         verifiedAcronyms = GetAcronyms(cleanVerified, verified.nama_perusahaan)
-        
+
         nameScore = 0
         reasons = []
 
@@ -607,7 +607,7 @@ FUNCTION GetSimilarRecommendations(pendingCompany, limit = 5):
         ELSE:
             intersect = ArrayIntersect(pendingTokens, verifiedTokens)
             overlapRatio = Length(intersect) / Max(Length(pendingTokens), Length(verifiedTokens))
-            
+
             IF overlapRatio >= 0.33 AND NOT IsGenericSingleWord(intersect) THEN
                 nameScore = 50 + Integer(overlapRatio * 25)
                 reasons.Add("Memiliki Kata Yang Sama")

@@ -480,8 +480,8 @@ erDiagram
 ### B. Modul Wilayah & Master Institusi
 1. **`prodi`**: Master program studi di lingkungan UKDW (Sistem Informasi, Informatika, Arsitektur, Desain Produk, Manajemen, Akuntansi, Biologi, Kedokteran, Teologi, dll.).
 2. **`ref_fakultas`**: Master fakultas di UKDW yang menaungi program studi terkait.
-3. **`ref_negara`**: Master data 194 negara resmi dunia (kode ISO 2 unik, nama negara unik, ibu kota, benua) untuk lokasi perusahaan internasional dan kewarganegaraan alumni. Disinkronkan dari berkas [`data/daftar_negara_dunia.csv`](data/daftar_negara_dunia.csv).
-4. **`propinsi`** & **`kabupaten`**: Master data wilayah administratif Republik Indonesia (38 Provinsi dan 514 Kabupaten/Kota). Disinkronkan dari berkas [`data/provinsi.csv`](data/provinsi.csv) dan [`data/kabupaten_kota.csv`](data/kabupaten_kota.csv).
+3. **`ref_negara`**: Master data 194 negara resmi dunia (kode ISO 2 unik, nama negara unik, ibu kota, benua) untuk lokasi perusahaan internasional dan kewarganegaraan alumni. Disinkronkan dari berkas [`data/daftar_negara_dunia.csv`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/data/daftar_negara_dunia.csv).
+4. **`propinsi`** & **`kabupaten`**: Master data wilayah administratif Republik Indonesia (38 Provinsi dan 514 Kabupaten/Kota). Disinkronkan dari berkas [`data/provinsi.csv`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/data/provinsi.csv) dan [`data/kabupaten_kota.csv`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/data/kabupaten_kota.csv).
 5. **`ump`**: Data Upah Minimum Provinsi (UMP) tahun 2026 terhubung via `kode_provinsi` untuk evaluasi kesesuaian gaji standar kelayakan hidup.
 
 ---
@@ -550,35 +550,35 @@ erDiagram
 ### F. Database Views Terkonsolidasi
 *(Dokumentasi kueri DDL lengkap dan kamus data tersedia di [`docs/database-views.md`](docs/database-views.md))*
 
-1. **`v_alumni_audit_rekap`** (Model: [`AlumniAuditRekap`](app/Models/AlumniAuditRekap.php)): View agregat utama 89 kolom yang menyatukan profil biodata, status kuesioner universitas, dan status kuesioner prodi untuk direktori alumni tanpa masalah query N+1.
-2. **`v_alumni_profile_summary`** (Model: [`AlumniProfileSummary`](app/Models/AlumniProfileSummary.php)): View ringkasan profil lengkap 4 sub-tab (Pribadi, Akademik, Orang Tua, Karier).
-3. **`v_alumni_tracer_univ_status`** (Model: [`AlumniTracerUnivStatus`](app/Models/AlumniTracerUnivStatus.php)): Menghitung persentase dan progres kelengkapan kuesioner universitas (otomatis mengecualikan butir identitas Seksi 1).
-4. **`v_alumni_tracer_prodi_status`** (Model: [`AlumniTracerProdiStatus`](app/Models/AlumniTracerProdiStatus.php)): Menghitung status pengisian kuesioner mandiri program studi.
-5. **`v_alumni_kuesioner_autofill`** (Model: [`AlumniKuesionerAutofill`](app/Models/AlumniKuesionerAutofill.php)): Pemetaan data profil alumni ke kode pertanyaan kuesioner untuk pengisian otomatis.
-6. **`v_question_mappings`** (Model: [`QuestionMapping`](app/Models/QuestionMapping.php)): Tabel kamus relasional yang memetakan kode pertanyaan kuesioner dengan tabel dan kolom sumber basis data.
-7. **`v_alumni_linkedin_plot`** (Model: [`AlumniLinkedinPlot`](app/Models/AlumniLinkedinPlot.php)): View perbandingan data scraping LinkedIn (`linkedin_sync_results`) berdampingan dengan profil `biodata`, dilengkapi verifikasi kecocokan nama alumni (`is_nama_sesuai`), deteksi kesamaan data perusahaan/posisi, dan status plot ke sistem (`status_plot_label`).
+1. **`v_alumni_audit_rekap`** (Model: [`AlumniAuditRekap`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniAuditRekap.php)): View agregat utama 89 kolom yang menyatukan profil biodata, status kuesioner universitas, dan status kuesioner prodi untuk direktori alumni tanpa masalah query N+1.
+2. **`v_alumni_profile_summary`** (Model: [`AlumniProfileSummary`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniProfileSummary.php)): View ringkasan profil lengkap 4 sub-tab (Pribadi, Akademik, Orang Tua, Karier).
+3. **`v_alumni_tracer_univ_status`** (Model: [`AlumniTracerUnivStatus`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniTracerUnivStatus.php)): Menghitung persentase dan progres kelengkapan kuesioner universitas (otomatis mengecualikan butir identitas Seksi 1).
+4. **`v_alumni_tracer_prodi_status`** (Model: [`AlumniTracerProdiStatus`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniTracerProdiStatus.php)): Menghitung status pengisian kuesioner mandiri program studi.
+5. **`v_alumni_kuesioner_autofill`** (Model: [`AlumniKuesionerAutofill`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniKuesionerAutofill.php)): Pemetaan data profil alumni ke kode pertanyaan kuesioner untuk pengisian otomatis.
+6. **`v_question_mappings`** (Model: [`QuestionMapping`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/QuestionMapping.php)): Tabel kamus relasional yang memetakan kode pertanyaan kuesioner dengan tabel dan kolom sumber basis data.
+7. **`v_alumni_linkedin_plot`** (Model: [`AlumniLinkedinPlot`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniLinkedinPlot.php)): View perbandingan data scraping LinkedIn (`linkedin_sync_results`) berdampingan dengan profil `biodata`, dilengkapi verifikasi kecocokan nama alumni (`is_nama_sesuai`), deteksi kesamaan data perusahaan/posisi, dan status plot ke sistem (`status_plot_label`).
 
 ---
 
 ### G. Modul Evaluasi Pengguna Lulusan (Atasan Langsung)
-1. **`evaluasi_atasan`** (Model: [`EvaluasiAtasan`](app/Models/EvaluasiAtasan.php)):
+1. **`evaluasi_atasan`** (Model: [`EvaluasiAtasan`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/EvaluasiAtasan.php)):
    - Sesi survei evaluasi tingkat kepuasan dan kinerja lulusan UKDW oleh pimpinan/atasan tempat alumni bekerja.
    - Kolom: `id`, `biodata_id` (FK), `perusahaan_id` (FK), `atasan_id` (FK), `token` (VARCHAR(64), unik; controller saat ini menghasilkan 40 karakter), `is_submitted` (boolean), `submitted_at` (datetime), `jumlah_alumni_ukdw` (rentang jumlah lulusan UKDW di perusahaan), `standar_gaji_pertama` (standar gaji awal alumni UKDW per bulan).
    - Diakses publik tanpa perlu autentikasi login via `/evaluasi-atasan/{token}`.
-2. **`pertanyaan_evaluasi_atasan`** (Model: [`PertanyaanEvaluasiAtasan`](app/Models/PertanyaanEvaluasiAtasan.php)):
+2. **`pertanyaan_evaluasi_atasan`** (Model: [`PertanyaanEvaluasiAtasan`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/PertanyaanEvaluasiAtasan.php)):
    - Bank butir instrumen evaluasi kepuasan atasan dinamis.
    - Kolom: `id`, `kategori` (string kategori instrumen), `kode`, `aspek`, `deskripsi`, `tipe` (tipe pertanyaan instrumen), `pilihan_jawaban` (JSON array opsi), `order`, `is_active`.
    - Memuat:
      - 1 butir tingkat kesiapan kerja alumni (`Sangat siap`, `Cukup Siap`, `Kurang siap`, `Tidak siap`).
      - 12 butir aspek kinerja lulusan (Etika, Keahlian Bidang Ilmu, Bhs Inggris, TI, Komunikasi, Kerja Tim, Pengembangan Diri, Kepemimpinan, Etos Kerja, Tanggung Jawab, Adaptasi, Inisiatif).
-3. **`respon_evaluasi_atasan`** (Model: [`ResponEvaluasiAtasan`](app/Models/ResponEvaluasiAtasan.php)):
+3. **`respon_evaluasi_atasan`** (Model: [`ResponEvaluasiAtasan`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/ResponEvaluasiAtasan.php)):
    - Menyimpan rekaman butir jawaban dari pimpinan/atasan.
    - Kolom: `id`, `evaluasi_atasan_id` (FK), `pertanyaan_id` (FK), `nilai` (VARCHAR(100), jawaban sesuai tipe instrumen), `catatan` (masukan/saran khusus).
 
 ---
 
 ### H. Modul Integrasi & Sinkronisasi LinkedIn
-1. **`linkedin_sync_results`** (Model: [`LinkedinSyncResult`](app/Models/LinkedinSyncResult.php)):
+1. **`linkedin_sync_results`** (Model: [`LinkedinSyncResult`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/LinkedinSyncResult.php)):
    - Tabel staging penampung hasil penarikan (*scraping*) data profil profesional alumni via LinkedIn Provider (Apify Actor / Official API).
    - Kolom: `id`, `biodata_id` (FK ke `biodata.id`), `status` (`pending`, `approved`, `rejected`), `linkedin_url`, `linkedin_username`, `scraped_data` (JSON mentah lengkap profil), `scraped_at` (datetime), `reviewed_by` (FK ke `users.id`), `reviewed_at` (datetime), `review_notes` (catatan revisi/penolakan).
    - Menjamin isolasi data mentah scraping sebelum disetujui (*Approve*) oleh Super Admin untuk masuk ke tabel profil `biodata`.

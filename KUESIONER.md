@@ -58,15 +58,15 @@ Tabel berikut merangkum setiap pertanyaan penentu, opsi yang dipilih, lompat ke 
 ```mermaid
 graph TD
     Start(["Mulai Kuesioner"]) --> F8{"F8: Status Anda Saat Ini?"}
-    
+
     F8 -->|"Bekerja / Wiraswasta (1, 3)"| PathWork["7 Bagian Lengkap:<br>Bagian 1: Status (F8)<br>Bagian 2: Waktu & Cara (F3, F4)<br>Bagian 3: Dapat Kerja (F504, F502/F506)<br>Bagian 4: Riwayat Lamaran (F6..F7A)<br>Bagian 5: Keselarasan (F14..F16)<br>Bagian 6: Evaluasi Kompetensi (F17)<br>Bagian 7: Metode Belajar (F2)"]
-    
+
     F8 -->|"Melanjutkan Pendidikan (4)"| PathStudi["3 Bagian:<br>Bagian 1: Status & Studi Lanjut (F8, F18, F12, F18b..F18d)<br>Bagian 6: Evaluasi Kompetensi (F17)<br>Bagian 7: Metode Belajar (F2)"]
-    
+
     F8 -->|"Mencari Kerja (5)"| PathMencari["5 Bagian:<br>Bagian 1: Status & F10<br>Bagian 2: Waktu & Cara (F3, F4)<br>Bagian 4: Riwayat Lamaran (F6..F7A)<br>Bagian 6: Evaluasi Kompetensi (F17)<br>Bagian 7: Metode Belajar (F2)"]
-    
+
     F8 -->|"Belum Bekerja (2)"| PathBelum["3 Bagian:<br>Bagian 1: Status & F10<br>Bagian 6: Evaluasi Kompetensi (F17)<br>Bagian 7: Metode Belajar (F2)"]
-    
+
     PathWork --> Finish(["Selesai / Kirim"])
     PathStudi --> Finish
     PathMencari --> Finish
@@ -92,7 +92,7 @@ UPDATE ref_subpertanyaan_detil SET jump_to = 'F506' WHERE kode_pertanyaan = 'F50
 
 ---
 
-### B. Di Frontend Vue ([`resources/js/Pages/Alumni/Kuesioner.vue`](resources/js/Pages/Alumni/Kuesioner.vue))
+### B. Di Frontend Vue ([`resources/js/Pages/Alumni/Kuesioner.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Kuesioner.vue))
 Logika diimplementasikan pada `computed` property `hiddenQuestionIds`:
 
 ```javascript
@@ -159,7 +159,7 @@ const activeSections = computed(() => {
 
 ---
 
-### C. Di Backend Laravel ([`app/Services/Kuesioner/KelengkapanTracerService.php`](app/Services/Kuesioner/KelengkapanTracerService.php))
+### C. Di Backend Laravel ([`app/Services/Kuesioner/KelengkapanTracerService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Kuesioner/KelengkapanTracerService.php))
 Logika di sisi server disinkronkan 1:1 melalui method `getSkippedQuestionCodes`:
 
 ```php

@@ -1,6 +1,6 @@
 # Dokumentasi Database Views - SERU Tracer Study UKDW
 
-Dokumen ini berisi dokumentasi teknis komprehensif seluruh **Database Views** yang digunakan dalam sistem **SERU (Sistem Ekosistem Rekam Jejak Alumni) - Universitas Kristen Duta Wacana**. 
+Dokumen ini berisi dokumentasi teknis komprehensif seluruh **Database Views** yang digunakan dalam sistem **SERU (Sistem Ekosistem Rekam Jejak Alumni) - Universitas Kristen Duta Wacana**.
 
 Dokumen ini merangkum tujuan arsitektur, daftar model Eloquent pendamping, skrip DDL SQL lengkap (*ready-to-run*), kamus data per *view*, dan skrip eksekusi master terpadu.
 
@@ -105,13 +105,13 @@ graph TD
 
 | No | Nama Database View | Model Eloquent Terkait | Tujuan Utama & Penggunaan |
 |:--:|---|---|---|
-| 1 | [`v_alumni_profile_summary`](#view-1-v_alumni_profile_summary) | [`AlumniProfileSummary`](../app/Models/AlumniProfileSummary.php) | Menggabungkan 78 atribut profil dari 4 sub-tab (Pribadi, Akademik, Orang Tua, Karier) dan flag kelengkapan data. |
-| 2 | [`v_alumni_tracer_univ_status`](#view-2-v_alumni_tracer_univ_status) | [`AlumniTracerUnivStatus`](../app/Models/AlumniTracerUnivStatus.php) | Mengagregasi status pengisian kuesioner universitas dengan memperhitungkan *skip logic* status kerja (F8) dan butir F502/F506. |
-| 3 | [`v_alumni_tracer_prodi_status`](#view-3-v_alumni_tracer_prodi_status) | [`AlumniTracerProdiStatus`](../app/Models/AlumniTracerProdiStatus.php) | Mengagregasi status jawaban butir kuesioner mandiri prodi per alumni berdasarkan prodi kelulusannya. |
-| 4 | [`v_alumni_audit_rekap`](#view-4-v_alumni_audit_rekap) | [`AlumniAuditRekap`](../app/Models/AlumniAuditRekap.php) | Master view 89 kolom gabungan View 1 + 2 + 3. Digunakan oleh seluruh Dashboard (Super Admin, Prodi, Biro 3) & Audit Direktori. |
-| 5 | [`v_alumni_kuesioner_autofill`](#view-5-v_alumni_kuesioner_autofill) | [`AlumniKuesionerAutofill`](../app/Models/AlumniKuesionerAutofill.php) | Memetakan data profil alumni langsung ke kode pertanyaan kuesioner (F1, F2A-F2H, F5B-F5D, F510, F8, dll) untuk autofill. |
-| 6 | [`v_question_mappings`](#view-6-v_question_mappings) | [`QuestionMapping`](../app/Models/QuestionMapping.php) | Tabel kamus sistem yang memetakan kode pertanyaan dengan tabel dan kolom sumber data. |
-| 7 | [`v_alumni_linkedin_plot`](#view-7-v_alumni_linkedin_plot) | [`AlumniLinkedinPlot`](../app/Models/AlumniLinkedinPlot.php) | Membandingkan data scraping LinkedIn dengan profil biodata alumni, memverifikasi kecocokan nama, dan status plot ke sistem. |
+| 1 | [`v_alumni_profile_summary`](#view-1-v_alumni_profile_summary) | [`AlumniProfileSummary`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniProfileSummary.php) | Menggabungkan 78 atribut profil dari 4 sub-tab (Pribadi, Akademik, Orang Tua, Karier) dan flag kelengkapan data. |
+| 2 | [`v_alumni_tracer_univ_status`](#view-2-v_alumni_tracer_univ_status) | [`AlumniTracerUnivStatus`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniTracerUnivStatus.php) | Mengagregasi status pengisian kuesioner universitas dengan memperhitungkan *skip logic* status kerja (F8) dan butir F502/F506. |
+| 3 | [`v_alumni_tracer_prodi_status`](#view-3-v_alumni_tracer_prodi_status) | [`AlumniTracerProdiStatus`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniTracerProdiStatus.php) | Mengagregasi status jawaban butir kuesioner mandiri prodi per alumni berdasarkan prodi kelulusannya. |
+| 4 | [`v_alumni_audit_rekap`](#view-4-v_alumni_audit_rekap) | [`AlumniAuditRekap`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniAuditRekap.php) | Master view 89 kolom gabungan View 1 + 2 + 3. Digunakan oleh seluruh Dashboard (Super Admin, Prodi, Biro 3) & Audit Direktori. |
+| 5 | [`v_alumni_kuesioner_autofill`](#view-5-v_alumni_kuesioner_autofill) | [`AlumniKuesionerAutofill`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniKuesionerAutofill.php) | Memetakan data profil alumni langsung ke kode pertanyaan kuesioner (F1, F2A-F2H, F5B-F5D, F510, F8, dll) untuk autofill. |
+| 6 | [`v_question_mappings`](#view-6-v_question_mappings) | [`QuestionMapping`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/QuestionMapping.php) | Tabel kamus sistem yang memetakan kode pertanyaan dengan tabel dan kolom sumber data. |
+| 7 | [`v_alumni_linkedin_plot`](#view-7-v_alumni_linkedin_plot) | [`AlumniLinkedinPlot`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniLinkedinPlot.php) | Membandingkan data scraping LinkedIn dengan profil biodata alumni, memverifikasi kecocokan nama, dan status plot ke sistem. |
 
 ---
 
@@ -128,7 +128,7 @@ graph TD
 DROP VIEW IF EXISTS v_alumni_profile_summary;
 
 CREATE VIEW v_alumni_profile_summary AS
-SELECT 
+SELECT
     b.id AS biodata_id,
     b.user_id,
     b.nim,
@@ -217,15 +217,15 @@ SELECT
     y.status_publikasi,
     y.keterangan_hasil_yudisium,
     y.status AS status_yudisium,
-    CASE 
-        WHEN COALESCE(da.nama, u.name) IS NOT NULL 
-             AND b.nim IS NOT NULL 
+    CASE
+        WHEN COALESCE(da.nama, u.name) IS NOT NULL
+             AND b.nim IS NOT NULL
              AND COALESCE(b.nik, da.nik) IS NOT NULL
              AND b.npwp IS NOT NULL
              AND COALESCE(b.nomor_telepon, da.nomor_telepon) IS NOT NULL
              AND COALESCE(b.email_pribadi, da.email_pribadi, u.email) IS NOT NULL
-        THEN 1 
-        ELSE 0 
+        THEN 1
+        ELSE 0
     END AS is_profile_complete
 FROM biodata b
 LEFT JOIN users u ON b.user_id = u.id
@@ -253,11 +253,11 @@ LEFT JOIN yudisium y ON y.nim = b.nim;
 DROP VIEW IF EXISTS v_alumni_tracer_univ_status;
 
 CREATE VIEW v_alumni_tracer_univ_status AS
-SELECT 
+SELECT
     b.id AS biodata_id,
     -- 1. Evaluasi Total Soal Wajib Berdasarkan Jalur Status F8
-    CASE 
-        WHEN MAX(CASE WHEN q.kode_pertanyaan = 'F8' THEN LOWER(t.answer) ELSE '' END) LIKE '%melanjutkan pendidikan%' 
+    CASE
+        WHEN MAX(CASE WHEN q.kode_pertanyaan = 'F8' THEN LOWER(t.answer) ELSE '' END) LIKE '%melanjutkan pendidikan%'
              OR MAX(CASE WHEN q.kode_pertanyaan = 'F8' THEN t.answer ELSE '' END) = '4'
              OR MAX(CASE WHEN q.kode_pertanyaan = 'F8' THEN LOWER(t.answer) ELSE '' END) LIKE '%belum memungkinkan%'
              OR MAX(CASE WHEN q.kode_pertanyaan = 'F8' THEN t.answer ELSE '' END) = '2'
@@ -267,9 +267,9 @@ SELECT
 
     -- 2. Evaluasi Jawaban Soal Wajib
     (
-        COUNT(DISTINCT CASE 
-            WHEN q.wajib = 1 
-                 AND q.type != 'header' 
+        COUNT(DISTINCT CASE
+            WHEN q.wajib = 1
+                 AND q.type != 'header'
                  AND UPPER(q.kode_pertanyaan) NOT IN (
                      'F1', 'F2A', 'F2B', 'F2C', 'F2D',
                      'BIO_TEMPAT_LAHIR', 'BIO_TANGGAL_LAHIR', 'BIO_JK', 'BIO_TGL_LULUS', 'BIO_JUDUL_TA', 'BIO_NIK', 'BIO_NPWP',
@@ -281,29 +281,29 @@ SELECT
                      (t.answer IS NOT NULL AND TRIM(t.answer) != '')
                      OR (t.answer_json IS NOT NULL AND t.answer_json != '' AND t.answer_json != '[]' AND t.answer_json != '{}')
                  )
-            THEN q.id 
-            ELSE NULL 
+            THEN q.id
+            ELSE NULL
         END)
         +
-        MAX(CASE 
-            WHEN UPPER(q.kode_pertanyaan) IN ('F502', 'F506') 
+        MAX(CASE
+            WHEN UPPER(q.kode_pertanyaan) IN ('F502', 'F506')
                  AND (
                      (t.answer IS NOT NULL AND TRIM(t.answer) != '')
                      OR (t.answer_json IS NOT NULL AND t.answer_json != '' AND t.answer_json != '[]' AND t.answer_json != '{}')
                  )
-            THEN 1 
-            ELSE 0 
+            THEN 1
+            ELSE 0
         END)
     ) AS answered_mandatory_univ,
 
     -- 3. Total Keseluruhan Soal yang Dijawab
-    COUNT(DISTINCT CASE 
+    COUNT(DISTINCT CASE
         WHEN (
             (t.answer IS NOT NULL AND TRIM(t.answer) != '')
             OR (t.answer_json IS NOT NULL AND t.answer_json != '' AND t.answer_json != '[]' AND t.answer_json != '{}')
         )
-        THEN t.question_id 
-        ELSE NULL 
+        THEN t.question_id
+        ELSE NULL
     END) AS total_answered_univ
 FROM biodata b
 LEFT JOIN tracer t ON t.biodata_id = b.id
@@ -323,22 +323,22 @@ GROUP BY b.id;
 DROP VIEW IF EXISTS v_alumni_tracer_prodi_status;
 
 CREATE VIEW v_alumni_tracer_prodi_status AS
-SELECT 
+SELECT
     b.id AS biodata_id,
     b.prodi_id,
     COALESCE((
-        SELECT COUNT(*) 
-        FROM prodi_question pq 
-        WHERE pq.prodi_id = b.prodi_id 
+        SELECT COUNT(*)
+        FROM prodi_question pq
+        WHERE pq.prodi_id = b.prodi_id
           AND pq.type != 'header'
     ), 0) AS total_prodi_questions,
-    COUNT(DISTINCT CASE 
+    COUNT(DISTINCT CASE
         WHEN (
             (pr.answer_text IS NOT NULL AND TRIM(pr.answer_text) != '')
             OR (pr.answer_json IS NOT NULL AND pr.answer_json != '' AND pr.answer_json != '[]' AND pr.answer_json != '{}')
         )
-        THEN pr.prodi_question_id 
-        ELSE NULL 
+        THEN pr.prodi_question_id
+        ELSE NULL
     END) AS answered_prodi_questions
 FROM biodata b
 LEFT JOIN prodi_response pr ON pr.biodata_id = b.id
@@ -358,52 +358,52 @@ GROUP BY b.id, b.prodi_id;
 DROP VIEW IF EXISTS v_alumni_audit_rekap;
 
 CREATE VIEW v_alumni_audit_rekap AS
-SELECT 
+SELECT
     ps.*,
     COALESCE(tus.total_mandatory_univ, 0) AS total_mandatory_univ,
     COALESCE(tus.answered_mandatory_univ, 0) AS answered_mandatory_univ,
     COALESCE(tus.total_answered_univ, 0) AS total_answered_univ,
-    CASE 
-        WHEN COALESCE(tus.total_mandatory_univ, 0) > 0 
-        THEN CASE 
-            WHEN ROUND((COALESCE(tus.answered_mandatory_univ, 0) * 100.0) / tus.total_mandatory_univ) > 100 THEN 100 
-            ELSE ROUND((COALESCE(tus.answered_mandatory_univ, 0) * 100.0) / tus.total_mandatory_univ) 
+    CASE
+        WHEN COALESCE(tus.total_mandatory_univ, 0) > 0
+        THEN CASE
+            WHEN ROUND((COALESCE(tus.answered_mandatory_univ, 0) * 100.0) / tus.total_mandatory_univ) > 100 THEN 100
+            ELSE ROUND((COALESCE(tus.answered_mandatory_univ, 0) * 100.0) / tus.total_mandatory_univ)
         END
-        ELSE 100 
+        ELSE 100
     END AS univ_percentage,
-    CASE 
-        WHEN COALESCE(tus.total_mandatory_univ, 0) = 0 OR COALESCE(tus.answered_mandatory_univ, 0) >= tus.total_mandatory_univ 
-        THEN 1 
-        ELSE 0 
+    CASE
+        WHEN COALESCE(tus.total_mandatory_univ, 0) = 0 OR COALESCE(tus.answered_mandatory_univ, 0) >= tus.total_mandatory_univ
+        THEN 1
+        ELSE 0
     END AS is_complete_univ,
     COALESCE(tps.total_prodi_questions, 0) AS total_prodi_questions,
     COALESCE(tps.answered_prodi_questions, 0) AS answered_prodi_questions,
-    CASE 
-        WHEN COALESCE(tps.total_prodi_questions, 0) > 0 
-        THEN CASE 
-            WHEN ROUND((COALESCE(tps.answered_prodi_questions, 0) * 100.0) / tps.total_prodi_questions) > 100 THEN 100 
-            ELSE ROUND((COALESCE(tps.answered_prodi_questions, 0) * 100.0) / tps.total_prodi_questions) 
+    CASE
+        WHEN COALESCE(tps.total_prodi_questions, 0) > 0
+        THEN CASE
+            WHEN ROUND((COALESCE(tps.answered_prodi_questions, 0) * 100.0) / tps.total_prodi_questions) > 100 THEN 100
+            ELSE ROUND((COALESCE(tps.answered_prodi_questions, 0) * 100.0) / tps.total_prodi_questions)
         END
-        ELSE 100 
+        ELSE 100
     END AS prodi_percentage,
-    CASE 
-        WHEN COALESCE(tps.total_prodi_questions, 0) = 0 OR COALESCE(tps.answered_prodi_questions, 0) >= tps.total_prodi_questions 
-        THEN 1 
-        ELSE 0 
+    CASE
+        WHEN COALESCE(tps.total_prodi_questions, 0) = 0 OR COALESCE(tps.answered_prodi_questions, 0) >= tps.total_prodi_questions
+        THEN 1
+        ELSE 0
     END AS is_complete_prodi,
-    CASE 
-        WHEN ps.is_profile_complete = 1 
+    CASE
+        WHEN ps.is_profile_complete = 1
              AND (COALESCE(tus.total_mandatory_univ, 0) = 0 OR COALESCE(tus.answered_mandatory_univ, 0) >= tus.total_mandatory_univ)
              AND (COALESCE(tps.total_prodi_questions, 0) = 0 OR COALESCE(tps.answered_prodi_questions, 0) >= tps.total_prodi_questions)
-        THEN 1 
-        ELSE 0 
+        THEN 1
+        ELSE 0
     END AS is_complete_total,
-    CASE 
-        WHEN ps.is_profile_complete = 1 
+    CASE
+        WHEN ps.is_profile_complete = 1
              AND (COALESCE(tus.total_mandatory_univ, 0) = 0 OR COALESCE(tus.answered_mandatory_univ, 0) >= tus.total_mandatory_univ)
              AND (COALESCE(tps.total_prodi_questions, 0) = 0 OR COALESCE(tps.answered_prodi_questions, 0) >= tps.total_prodi_questions)
-        THEN 'Selesai' 
-        ELSE 'Belum Selesai' 
+        THEN 'Selesai'
+        ELSE 'Belum Selesai'
     END AS status_tracer_label
 FROM v_alumni_profile_summary ps
 LEFT JOIN v_alumni_tracer_univ_status tus ON ps.biodata_id = tus.biodata_id
@@ -420,7 +420,7 @@ LEFT JOIN v_alumni_tracer_prodi_status tps ON ps.biodata_id = tps.biodata_id;
 DROP VIEW IF EXISTS v_alumni_kuesioner_autofill;
 
 CREATE VIEW v_alumni_kuesioner_autofill AS
-SELECT 
+SELECT
     u.id AS user_id,
     b.id AS biodata_id,
     b.nim AS `F1`,
@@ -432,29 +432,29 @@ SELECT
     a.nama AS `F2E1`,
     a.telepon AS `F2E2`,
     a.email AS `F2E3`,
-    CASE 
+    CASE
         WHEN p.jenis_lokasi = 'Luar Negeri' THEN CONCAT_WS(', ', p.alamat, p.negara, b.zipcode)
         ELSE CONCAT_WS(', ', p.alamat, kab.nama_kabupaten, prov.nama_provinsi, b.zipcode)
     END AS `F2F`,
     b.posisi_jabatan AS `F2G`,
     p.skala AS `F2H`,
     p.nama_perusahaan AS `F5B`,
-    CASE 
-        WHEN b.kategori_pekerjaan = 'Wiraswasta' THEN b.posisi_wiraswasta 
-        ELSE NULL 
+    CASE
+        WHEN b.kategori_pekerjaan = 'Wiraswasta' THEN b.posisi_wiraswasta
+        ELSE NULL
     END AS `F5C`,
     p.skala AS `F5D`,
-    CASE 
+    CASE
         WHEN p.jenis_lokasi = 'Luar Negeri' THEN CONCAT_WS(', ', p.alamat, p.negara, b.zipcode)
         ELSE CONCAT_WS(', ', p.alamat, kab.nama_kabupaten, prov.nama_provinsi, b.zipcode)
     END AS `F510`,
-    CASE 
-        WHEN p.jenis_lokasi = 'Luar Negeri' THEN p.negara 
-        ELSE prov.nama_provinsi 
+    CASE
+        WHEN p.jenis_lokasi = 'Luar Negeri' THEN p.negara
+        ELSE prov.nama_provinsi
     END AS `F5a1`,
-    CASE 
-        WHEN p.jenis_lokasi = 'Luar Negeri' THEN p.negara 
-        ELSE kab.nama_kabupaten 
+    CASE
+        WHEN p.jenis_lokasi = 'Luar Negeri' THEN p.negara
+        ELSE kab.nama_kabupaten
     END AS `F5a2`,
     p.jenis_perusahaan AS `F11`,
     CAST(b.gaji AS CHAR) AS `F505`,
@@ -574,7 +574,7 @@ FROM ref_subpertanyaan2021 q WHERE q.kode_pertanyaan = 'F510';
 DROP VIEW IF EXISTS v_alumni_linkedin_plot;
 
 CREATE VIEW v_alumni_linkedin_plot AS
-SELECT 
+SELECT
     b.id AS biodata_id,
     b.user_id,
     b.nim,
@@ -589,7 +589,7 @@ SELECT
     c.nama_perusahaan AS perusahaan_biodata,
     b.skills AS skills_biodata,
     b.experience AS experience_biodata,
-    
+
     lsr.id AS sync_result_id,
     lsr.status AS sync_status,
     lsr.scraped_at,
@@ -597,7 +597,7 @@ SELECT
     lsr.reviewed_by,
     lsr.linkedin_url AS linkedin_url_scraped,
     lsr.linkedin_username AS linkedin_username_scraped,
-    
+
     COALESCE(
         json_extract(lsr.scraped_data, '$.name'),
         json_extract(lsr.scraped_data, '$[0].name'),
@@ -606,7 +606,7 @@ SELECT
         json_extract(lsr.scraped_data, '$.full_name'),
         json_extract(lsr.scraped_data, '$[0].full_name')
     ) AS nama_linkedin,
-    
+
     COALESCE(
         json_extract(lsr.scraped_data, '$.current_job'),
         json_extract(lsr.scraped_data, '$[0].current_job'),
@@ -619,7 +619,7 @@ SELECT
         json_extract(lsr.scraped_data, '$.experiences[0].title'),
         json_extract(lsr.scraped_data, '$[0].experiences[0].title')
     ) AS posisi_linkedin,
-    
+
     COALESCE(
         json_extract(lsr.scraped_data, '$.current_company'),
         json_extract(lsr.scraped_data, '$[0].current_company'),
@@ -630,7 +630,7 @@ SELECT
         json_extract(lsr.scraped_data, '$.experiences[0].company'),
         json_extract(lsr.scraped_data, '$[0].experiences[0].company')
     ) AS perusahaan_linkedin,
-    
+
     COALESCE(
         json_extract(lsr.scraped_data, '$.location'),
         json_extract(lsr.scraped_data, '$[0].location'),
@@ -638,7 +638,7 @@ SELECT
         json_extract(lsr.scraped_data, '$[0].locationName')
     ) AS lokasi_linkedin,
 
-    CASE 
+    CASE
         WHEN lsr.id IS NULL THEN 0
         WHEN LOWER(TRIM(COALESCE(da.nama, u.name, ''))) = LOWER(TRIM(COALESCE(
             json_extract(lsr.scraped_data, '$.name'),
@@ -667,7 +667,7 @@ SELECT
         ELSE 0
     END AS is_nama_sesuai,
 
-    CASE 
+    CASE
         WHEN lsr.id IS NULL THEN 'Belum Ada Data LinkedIn'
         WHEN LOWER(TRIM(COALESCE(da.nama, u.name, ''))) = LOWER(TRIM(COALESCE(
             json_extract(lsr.scraped_data, '$.name'),
@@ -696,10 +696,10 @@ SELECT
         ELSE 'Nama Berbeda (Perlu Verifikasi)'
     END AS keterangan_nama,
 
-    CASE 
+    CASE
         WHEN lsr.status = 'approved' THEN 1
         WHEN (
-            b.perusahaan_id IS NOT NULL 
+            b.perusahaan_id IS NOT NULL
             AND LOWER(TRIM(COALESCE(c.nama_perusahaan, ''))) = LOWER(TRIM(COALESCE(
                 json_extract(lsr.scraped_data, '$.current_company'),
                 json_extract(lsr.scraped_data, '$[0].current_company'),
@@ -711,7 +711,7 @@ SELECT
         ELSE 0
     END AS is_terplot_ke_biodata,
 
-    CASE 
+    CASE
         WHEN lsr.id IS NULL THEN 'Belum Pernah Sync'
         WHEN lsr.status = 'approved' THEN 'Sudah Terplot (Approved)'
         WHEN lsr.status = 'pending' AND (
@@ -776,7 +776,7 @@ DROP VIEW IF EXISTS v_alumni_linkedin_plot;
 -- 2. CREATE VIEW 1: v_alumni_profile_summary
 -- =========================================================================
 CREATE VIEW v_alumni_profile_summary AS
-SELECT 
+SELECT
     b.id AS biodata_id,
     b.user_id,
     b.nim,
@@ -854,15 +854,15 @@ SELECT
     a.nama AS nama_atasan,
     a.email AS email_atasan,
     a.telepon AS telepon_atasan,
-    CASE 
-        WHEN COALESCE(da.nama, u.name) IS NOT NULL 
-             AND b.nim IS NOT NULL 
+    CASE
+        WHEN COALESCE(da.nama, u.name) IS NOT NULL
+             AND b.nim IS NOT NULL
              AND COALESCE(b.nik, da.nik) IS NOT NULL
              AND b.npwp IS NOT NULL
              AND COALESCE(b.nomor_telepon, da.nomor_telepon) IS NOT NULL
              AND COALESCE(b.email_pribadi, da.email_pribadi, u.email) IS NOT NULL
-        THEN 1 
-        ELSE 0 
+        THEN 1
+        ELSE 0
     END AS is_profile_complete
 FROM biodata b
 LEFT JOIN users u ON b.user_id = u.id
@@ -879,10 +879,10 @@ LEFT JOIN data_orang_tua ot ON ot.nim = b.nim;
 -- 3. CREATE VIEW 2: v_alumni_tracer_univ_status
 -- =========================================================================
 CREATE VIEW v_alumni_tracer_univ_status AS
-SELECT 
+SELECT
     b.id AS biodata_id,
-    CASE 
-        WHEN MAX(CASE WHEN q.kode_pertanyaan = 'F8' THEN LOWER(t.answer) ELSE '' END) LIKE '%melanjutkan pendidikan%' 
+    CASE
+        WHEN MAX(CASE WHEN q.kode_pertanyaan = 'F8' THEN LOWER(t.answer) ELSE '' END) LIKE '%melanjutkan pendidikan%'
              OR MAX(CASE WHEN q.kode_pertanyaan = 'F8' THEN t.answer ELSE '' END) = '4'
              OR MAX(CASE WHEN q.kode_pertanyaan = 'F8' THEN LOWER(t.answer) ELSE '' END) LIKE '%belum memungkinkan%'
              OR MAX(CASE WHEN q.kode_pertanyaan = 'F8' THEN t.answer ELSE '' END) = '2'
@@ -890,9 +890,9 @@ SELECT
         ELSE 20
     END AS total_mandatory_univ,
     (
-        COUNT(DISTINCT CASE 
-            WHEN q.wajib = 1 
-                 AND q.type != 'header' 
+        COUNT(DISTINCT CASE
+            WHEN q.wajib = 1
+                 AND q.type != 'header'
                  AND UPPER(q.kode_pertanyaan) NOT IN (
                      'F1', 'F2A', 'F2B', 'F2C', 'F2D',
                      'BIO_TEMPAT_LAHIR', 'BIO_TANGGAL_LAHIR', 'BIO_JK', 'BIO_TGL_LULUS', 'BIO_JUDUL_TA', 'BIO_NIK', 'BIO_NPWP',
@@ -904,27 +904,27 @@ SELECT
                      (t.answer IS NOT NULL AND TRIM(t.answer) != '')
                      OR (t.answer_json IS NOT NULL AND t.answer_json != '' AND t.answer_json != '[]' AND t.answer_json != '{}')
                  )
-            THEN q.id 
-            ELSE NULL 
+            THEN q.id
+            ELSE NULL
         END)
         +
-        MAX(CASE 
-            WHEN UPPER(q.kode_pertanyaan) IN ('F502', 'F506') 
+        MAX(CASE
+            WHEN UPPER(q.kode_pertanyaan) IN ('F502', 'F506')
                  AND (
                      (t.answer IS NOT NULL AND TRIM(t.answer) != '')
                      OR (t.answer_json IS NOT NULL AND t.answer_json != '' AND t.answer_json != '[]' AND t.answer_json != '{}')
                  )
-            THEN 1 
-            ELSE 0 
+            THEN 1
+            ELSE 0
         END)
     ) AS answered_mandatory_univ,
-    COUNT(DISTINCT CASE 
+    COUNT(DISTINCT CASE
         WHEN (
             (t.answer IS NOT NULL AND TRIM(t.answer) != '')
             OR (t.answer_json IS NOT NULL AND t.answer_json != '' AND t.answer_json != '[]' AND t.answer_json != '{}')
         )
-        THEN t.question_id 
-        ELSE NULL 
+        THEN t.question_id
+        ELSE NULL
     END) AS total_answered_univ
 FROM biodata b
 LEFT JOIN tracer t ON t.biodata_id = b.id
@@ -935,22 +935,22 @@ GROUP BY b.id;
 -- 4. CREATE VIEW 3: v_alumni_tracer_prodi_status
 -- =========================================================================
 CREATE VIEW v_alumni_tracer_prodi_status AS
-SELECT 
+SELECT
     b.id AS biodata_id,
     b.prodi_id,
     COALESCE((
-        SELECT COUNT(*) 
-        FROM prodi_question pq 
-        WHERE pq.prodi_id = b.prodi_id 
+        SELECT COUNT(*)
+        FROM prodi_question pq
+        WHERE pq.prodi_id = b.prodi_id
           AND pq.type != 'header'
     ), 0) AS total_prodi_questions,
-    COUNT(DISTINCT CASE 
+    COUNT(DISTINCT CASE
         WHEN (
             (pr.answer_text IS NOT NULL AND TRIM(pr.answer_text) != '')
             OR (pr.answer_json IS NOT NULL AND pr.answer_json != '' AND pr.answer_json != '[]' AND pr.answer_json != '{}')
         )
-        THEN pr.prodi_question_id 
-        ELSE NULL 
+        THEN pr.prodi_question_id
+        ELSE NULL
     END) AS answered_prodi_questions
 FROM biodata b
 LEFT JOIN prodi_response pr ON pr.biodata_id = b.id
@@ -960,52 +960,52 @@ GROUP BY b.id, b.prodi_id;
 -- 5. CREATE VIEW 4: v_alumni_audit_rekap (Master Audit Rekapitulasi)
 -- =========================================================================
 CREATE VIEW v_alumni_audit_rekap AS
-SELECT 
+SELECT
     ps.*,
     COALESCE(tus.total_mandatory_univ, 0) AS total_mandatory_univ,
     COALESCE(tus.answered_mandatory_univ, 0) AS answered_mandatory_univ,
     COALESCE(tus.total_answered_univ, 0) AS total_answered_univ,
-    CASE 
-        WHEN COALESCE(tus.total_mandatory_univ, 0) > 0 
-        THEN CASE 
-            WHEN ROUND((COALESCE(tus.answered_mandatory_univ, 0) * 100.0) / tus.total_mandatory_univ) > 100 THEN 100 
-            ELSE ROUND((COALESCE(tus.answered_mandatory_univ, 0) * 100.0) / tus.total_mandatory_univ) 
+    CASE
+        WHEN COALESCE(tus.total_mandatory_univ, 0) > 0
+        THEN CASE
+            WHEN ROUND((COALESCE(tus.answered_mandatory_univ, 0) * 100.0) / tus.total_mandatory_univ) > 100 THEN 100
+            ELSE ROUND((COALESCE(tus.answered_mandatory_univ, 0) * 100.0) / tus.total_mandatory_univ)
         END
-        ELSE 100 
+        ELSE 100
     END AS univ_percentage,
-    CASE 
-        WHEN COALESCE(tus.total_mandatory_univ, 0) = 0 OR COALESCE(tus.answered_mandatory_univ, 0) >= tus.total_mandatory_univ 
-        THEN 1 
-        ELSE 0 
+    CASE
+        WHEN COALESCE(tus.total_mandatory_univ, 0) = 0 OR COALESCE(tus.answered_mandatory_univ, 0) >= tus.total_mandatory_univ
+        THEN 1
+        ELSE 0
     END AS is_complete_univ,
     COALESCE(tps.total_prodi_questions, 0) AS total_prodi_questions,
     COALESCE(tps.answered_prodi_questions, 0) AS answered_prodi_questions,
-    CASE 
-        WHEN COALESCE(tps.total_prodi_questions, 0) > 0 
-        THEN CASE 
-            WHEN ROUND((COALESCE(tps.answered_prodi_questions, 0) * 100.0) / tps.total_prodi_questions) > 100 THEN 100 
-            ELSE ROUND((COALESCE(tps.answered_prodi_questions, 0) * 100.0) / tps.total_prodi_questions) 
+    CASE
+        WHEN COALESCE(tps.total_prodi_questions, 0) > 0
+        THEN CASE
+            WHEN ROUND((COALESCE(tps.answered_prodi_questions, 0) * 100.0) / tps.total_prodi_questions) > 100 THEN 100
+            ELSE ROUND((COALESCE(tps.answered_prodi_questions, 0) * 100.0) / tps.total_prodi_questions)
         END
-        ELSE 100 
+        ELSE 100
     END AS prodi_percentage,
-    CASE 
-        WHEN COALESCE(tps.total_prodi_questions, 0) = 0 OR COALESCE(tps.answered_prodi_questions, 0) >= tps.total_prodi_questions 
-        THEN 1 
-        ELSE 0 
+    CASE
+        WHEN COALESCE(tps.total_prodi_questions, 0) = 0 OR COALESCE(tps.answered_prodi_questions, 0) >= tps.total_prodi_questions
+        THEN 1
+        ELSE 0
     END AS is_complete_prodi,
-    CASE 
-        WHEN ps.is_profile_complete = 1 
+    CASE
+        WHEN ps.is_profile_complete = 1
              AND (COALESCE(tus.total_mandatory_univ, 0) = 0 OR COALESCE(tus.answered_mandatory_univ, 0) >= tus.total_mandatory_univ)
              AND (COALESCE(tps.total_prodi_questions, 0) = 0 OR COALESCE(tps.answered_prodi_questions, 0) >= tps.total_prodi_questions)
-        THEN 1 
-        ELSE 0 
+        THEN 1
+        ELSE 0
     END AS is_complete_total,
-    CASE 
-        WHEN ps.is_profile_complete = 1 
+    CASE
+        WHEN ps.is_profile_complete = 1
              AND (COALESCE(tus.total_mandatory_univ, 0) = 0 OR COALESCE(tus.answered_mandatory_univ, 0) >= tus.total_mandatory_univ)
              AND (COALESCE(tps.total_prodi_questions, 0) = 0 OR COALESCE(tps.answered_prodi_questions, 0) >= tps.total_prodi_questions)
-        THEN 'Selesai' 
-        ELSE 'Belum Selesai' 
+        THEN 'Selesai'
+        ELSE 'Belum Selesai'
     END AS status_tracer_label
 FROM v_alumni_profile_summary ps
 LEFT JOIN v_alumni_tracer_univ_status tus ON ps.biodata_id = tus.biodata_id
@@ -1015,7 +1015,7 @@ LEFT JOIN v_alumni_tracer_prodi_status tps ON ps.biodata_id = tps.biodata_id;
 -- 6. CREATE VIEW 5: v_alumni_kuesioner_autofill
 -- =========================================================================
 CREATE VIEW v_alumni_kuesioner_autofill AS
-SELECT 
+SELECT
     u.id AS user_id,
     b.id AS biodata_id,
     b.nim AS `F1`,
@@ -1027,29 +1027,29 @@ SELECT
     a.nama AS `F2E1`,
     a.telepon AS `F2E2`,
     a.email AS `F2E3`,
-    CASE 
+    CASE
         WHEN p.jenis_lokasi = 'Luar Negeri' THEN CONCAT_WS(', ', p.alamat, p.negara, b.zipcode)
         ELSE CONCAT_WS(', ', p.alamat, kab.nama_kabupaten, prov.nama_provinsi, b.zipcode)
     END AS `F2F`,
     b.posisi_jabatan AS `F2G`,
     p.skala AS `F2H`,
     p.nama_perusahaan AS `F5B`,
-    CASE 
-        WHEN b.kategori_pekerjaan = 'Wiraswasta' THEN b.posisi_wiraswasta 
-        ELSE NULL 
+    CASE
+        WHEN b.kategori_pekerjaan = 'Wiraswasta' THEN b.posisi_wiraswasta
+        ELSE NULL
     END AS `F5C`,
     p.skala AS `F5D`,
-    CASE 
+    CASE
         WHEN p.jenis_lokasi = 'Luar Negeri' THEN CONCAT_WS(', ', p.alamat, p.negara, b.zipcode)
         ELSE CONCAT_WS(', ', p.alamat, kab.nama_kabupaten, prov.nama_provinsi, b.zipcode)
     END AS `F510`,
-    CASE 
-        WHEN p.jenis_lokasi = 'Luar Negeri' THEN p.negara 
-        ELSE prov.nama_provinsi 
+    CASE
+        WHEN p.jenis_lokasi = 'Luar Negeri' THEN p.negara
+        ELSE prov.nama_provinsi
     END AS `F5a1`,
-    CASE 
-        WHEN p.jenis_lokasi = 'Luar Negeri' THEN p.negara 
-        ELSE kab.nama_kabupaten 
+    CASE
+        WHEN p.jenis_lokasi = 'Luar Negeri' THEN p.negara
+        ELSE kab.nama_kabupaten
     END AS `F5a2`,
     p.jenis_perusahaan AS `F11`,
     CAST(b.gaji AS CHAR) AS `F505`,
@@ -1150,7 +1150,7 @@ FROM ref_subpertanyaan2021 q WHERE q.kode_pertanyaan = 'F510';
 -- 8. CREATE VIEW 7: v_alumni_linkedin_plot
 -- =========================================================================
 CREATE VIEW v_alumni_linkedin_plot AS
-SELECT 
+SELECT
     b.id AS biodata_id,
     b.user_id,
     b.nim,
@@ -1170,7 +1170,7 @@ SELECT
     c.nama_perusahaan AS perusahaan_biodata,
     b.skills AS skills_biodata,
     b.experience AS experience_biodata,
-    
+
     lsr.id AS sync_result_id,
     lsr.status AS sync_status,
     lsr.scraped_at,
@@ -1179,7 +1179,7 @@ SELECT
     u_rev.name AS reviewer_name,
     lsr.linkedin_url AS linkedin_url_scraped,
     lsr.linkedin_username AS linkedin_username_scraped,
-    
+
     json_unquote(COALESCE(
         json_extract(lsr.scraped_data, '$.full_name'),
         json_extract(lsr.scraped_data, '$[0].full_name'),
@@ -1188,7 +1188,7 @@ SELECT
         json_extract(lsr.scraped_data, '$.fullName'),
         json_extract(lsr.scraped_data, '$[0].fullName')
     )) AS nama_linkedin,
-    
+
     json_unquote(COALESCE(
         json_extract(lsr.scraped_data, '$.job_title'),
         json_extract(lsr.scraped_data, '$[0].job_title'),
@@ -1203,7 +1203,7 @@ SELECT
         json_extract(lsr.scraped_data, '$.headline'),
         json_extract(lsr.scraped_data, '$[0].headline')
     )) AS posisi_linkedin,
-    
+
     json_unquote(COALESCE(
         json_extract(lsr.scraped_data, '$.company_name'),
         json_extract(lsr.scraped_data, '$[0].company_name'),
@@ -1218,7 +1218,7 @@ SELECT
         json_extract(lsr.scraped_data, '$.experiences[0].company'),
         json_extract(lsr.scraped_data, '$[0].experiences[0].company')
     )) AS perusahaan_linkedin,
-    
+
     json_unquote(COALESCE(
         json_extract(lsr.scraped_data, '$.location'),
         json_extract(lsr.scraped_data, '$[0].location'),
@@ -1226,7 +1226,7 @@ SELECT
         json_extract(lsr.scraped_data, '$[0].locationName')
     )) AS lokasi_linkedin,
 
-    CASE 
+    CASE
         WHEN lsr.id IS NULL OR json_unquote(COALESCE(
             json_extract(lsr.scraped_data, '$.full_name'),
             json_extract(lsr.scraped_data, '$[0].full_name'),
@@ -1274,7 +1274,7 @@ SELECT
         ELSE 0
     END AS is_nama_sesuai,
 
-    CASE 
+    CASE
         WHEN lsr.id IS NULL OR json_unquote(COALESCE(
             json_extract(lsr.scraped_data, '$.full_name'),
             json_extract(lsr.scraped_data, '$[0].full_name'),
@@ -1322,10 +1322,10 @@ SELECT
         ELSE 'Nama Berbeda (Perlu Verifikasi)'
     END AS keterangan_nama,
 
-    CASE 
+    CASE
         WHEN lsr.status = 'approved' THEN 1
         WHEN (
-            b.perusahaan_id IS NOT NULL 
+            b.perusahaan_id IS NOT NULL
             AND json_unquote(COALESCE(
                 json_extract(lsr.scraped_data, '$.company_name'),
                 json_extract(lsr.scraped_data, '$[0].company_name'),
@@ -1346,7 +1346,7 @@ SELECT
         ELSE 0
     END AS is_terplot_ke_biodata,
 
-    CASE 
+    CASE
         WHEN lsr.id IS NULL THEN 'Belum Pernah Sync'
         WHEN lsr.status = 'approved' THEN 'Sudah Terplot (Approved)'
         WHEN lsr.status = 'pending' AND (
@@ -1455,13 +1455,13 @@ Berikut adalah pemetaan berkas aplikasi (Controller, Service, Exporter, dan Fron
 
 | Database View | Model Eloquent | Lokasi Penggunaan di Aplikasi | Fungsi / Peran |
 |---|---|---|---|
-| `v_alumni_linkedin_plot` | [`AlumniLinkedinPlot`](../app/Models/AlumniLinkedinPlot.php) | [`LinkedInSyncController.php`](../app/Http/Controllers/Shared/LinkedInSyncController.php) | Menggantikan query manual, menghitung 6 metrik KPI (siap plot, cocok nama, dsb), dan memfilter tabel alumni. |
-| `v_alumni_linkedin_plot` | [`AlumniLinkedinPlot`](../app/Models/AlumniLinkedinPlot.php) | [`LinkedinTraceHelper.php`](../app/Services/Alumni/LinkedinTraceHelper.php) | Menyediakan status validasi nama (`keterangan_nama`) dan status plot (`status_plot_label`) pada baris audit profil alumni. |
-| `v_alumni_linkedin_plot` | [`AlumniLinkedinPlot`](../app/Models/AlumniLinkedinPlot.php) | [`Index.vue (LinkedIn)`](../resources/js/Pages/SuperAdmin/LinkedIn/Index.vue) | Menampilkan badge validasi kecocokan nama, perbandingan karier biodata vs LinkedIn scrape, dan filter status plotting. |
-| `v_alumni_profile_summary` | [`AlumniProfileSummary`](../app/Models/AlumniProfileSummary.php) | [`AdminAlumniProfileService.php`](../app/Services/Alumni/AdminAlumniProfileService.php) | Digunakan oleh method `buildFormData` untuk mengambil 78 atribut profil (pribadi, akademik, orang tua, karier, dan yudisium) secara instan dalam 1 kueri view. |
-| `v_alumni_profile_summary` | [`AlumniProfileSummary`](../app/Models/AlumniProfileSummary.php) | [`AlumniTracerExcelExporter.php`](../app/Services/Export/AlumniTracerExcelExporter.php) | Digunakan sebagai basis data ekspor Excel tanpa perlu melakukan multiple manual LEFT JOIN. |
-| `v_alumni_audit_rekap` | [`AlumniAuditRekap`](../app/Models/AlumniAuditRekap.php) | [`AlumniTracerExcelExporter.php`](../app/Services/Export/AlumniTracerExcelExporter.php) | Digunakan untuk mengisi status rekapitulasi kelengkapan tracer study per alumni secara efisien. |
-| `v_alumni_audit_rekap` | [`AlumniAuditRekap`](../app/Models/AlumniAuditRekap.php) | [`AlumniDirectoryQueryService.php`](../app/Services/Alumni/AlumniDirectoryQueryService.php) | Sumber data utama direktori audit alumni dan pelaporan universitas. |
+| `v_alumni_linkedin_plot` | [`AlumniLinkedinPlot`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniLinkedinPlot.php) | [`LinkedInSyncController.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Http/Controllers/Shared/LinkedInSyncController.php) | Menggantikan query manual, menghitung 6 metrik KPI (siap plot, cocok nama, dsb), dan memfilter tabel alumni. |
+| `v_alumni_linkedin_plot` | [`AlumniLinkedinPlot`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniLinkedinPlot.php) | [`LinkedinTraceHelper.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Alumni/LinkedinTraceHelper.php) | Menyediakan status validasi nama (`keterangan_nama`) dan status plot (`status_plot_label`) pada baris audit profil alumni. |
+| `v_alumni_linkedin_plot` | [`AlumniLinkedinPlot`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniLinkedinPlot.php) | [`Index.vue (LinkedIn)`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/SuperAdmin/LinkedIn/Index.vue) | Menampilkan badge validasi kecocokan nama, perbandingan karier biodata vs LinkedIn scrape, dan filter status plotting. |
+| `v_alumni_profile_summary` | [`AlumniProfileSummary`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniProfileSummary.php) | [`AdminAlumniProfileService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Alumni/AdminAlumniProfileService.php) | Digunakan oleh method `buildFormData` untuk mengambil 78 atribut profil (pribadi, akademik, orang tua, karier, dan yudisium) secara instan dalam 1 kueri view. |
+| `v_alumni_profile_summary` | [`AlumniProfileSummary`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniProfileSummary.php) | [`AlumniTracerExcelExporter.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Export/AlumniTracerExcelExporter.php) | Digunakan sebagai basis data ekspor Excel tanpa perlu melakukan multiple manual LEFT JOIN. |
+| `v_alumni_audit_rekap` | [`AlumniAuditRekap`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniAuditRekap.php) | [`AlumniTracerExcelExporter.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Export/AlumniTracerExcelExporter.php) | Digunakan untuk mengisi status rekapitulasi kelengkapan tracer study per alumni secara efisien. |
+| `v_alumni_audit_rekap` | [`AlumniAuditRekap`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniAuditRekap.php) | [`AlumniDirectoryQueryService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Alumni/AlumniDirectoryQueryService.php) | Sumber data utama direktori audit alumni dan pelaporan universitas. |
 
 
 ## 8. Kedudukan view pada DFD (21 Oktober 2026)
