@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Sidebar from '@/Pages/SuperAdmin/Components/Sidebar.vue';
+import AdminPageHeader from '@/components/AdminPageHeader.vue';
 
 const props = defineProps({
     user: Object,
@@ -104,31 +105,13 @@ const filteredAlumni = computed(() => {
         <!-- Area Konten Utama -->
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             
-            <!-- Header Halaman Bersih & Flat -->
-            <header class="bg-white border-b border-slate-200 px-6 py-5">
-                <div class="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                        <div class="flex items-center gap-2 text-xs text-slate-500 font-medium mb-1">
-                            <span>Tracer Study</span>
-                            <span>/</span>
-                            <span class="text-slate-800 font-bold">Pusat Kendali</span>
-                        </div>
-                        <h1 class="text-xl font-bold text-slate-900">
-                            Dashboard Super Administrator
-                        </h1>
-                        <p class="text-xs text-slate-500 mt-0.5">
-                            Kendali menyeluruh instrumen kuesioner universitas & prodi, verifikasi perusahaan, direktori mahasiswa, dan audit log.
-                        </p>
-                    </div>
-
-                    <div class="flex items-center gap-2.5">
-                        <div class="px-3.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs">
-                            <span class="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">Otoritas Pusat</span>
-                            <span class="font-extrabold text-[#0D542B] text-xs">{{ user?.name || 'Super Admin' }} (Universitas)</span>
-                        </div>
-                    </div>
-                </div>
-            </header>
+            <AdminPageHeader
+                eyebrow="Pusat Kendali"
+                title="Dashboard Super Administrator"
+                description="Kendali menyeluruh instrumen kuesioner universitas dan prodi, verifikasi perusahaan, direktori mahasiswa, serta audit log."
+                context-label="Otoritas Pusat"
+                :context-value="`${user?.name || 'Super Admin'} (Universitas)`"
+            />
 
             <!-- Main Body Area -->
             <main class="flex-1 p-6 space-y-6 overflow-x-auto min-w-0">

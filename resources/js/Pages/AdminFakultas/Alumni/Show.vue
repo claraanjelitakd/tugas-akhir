@@ -192,7 +192,7 @@ const statusYudisium = computed(() => {
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72 overscroll-none">
             
             <!-- Header Solid Hijau Resmi UKDW #0D542B -->
-            <header class="bg-[#0D542B] text-white py-6 px-4 sm:px-6 lg:px-8 border-b border-[#0A4322]">
+            <header class="admin-page-header bg-[#0D542B] text-white py-6 px-4 sm:px-6 lg:px-8 border-b border-[#0A4322]">
                 <div class="max-w-[1400px] mx-auto">
                     <div class="flex items-center gap-2 text-xs text-white/80 font-medium mb-3">
                         <Link href="/fakultas/dashboard" class="hover:underline">Dashboard</Link>
@@ -261,7 +261,7 @@ const statusYudisium = computed(() => {
             </header>
 
             <!-- Main Content Area -->
-            <main class="max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16">
+            <main class="admin-page-main max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16">
 
                 <!-- Navigasi Stepper Tahapan Audit Alumni Terpadu -->
                 <AlumniStepper :tabs="stepperTabs" v-model="activeMainTab" />

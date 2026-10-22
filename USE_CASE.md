@@ -8,6 +8,8 @@ Sesuai prinsip pemodelan UML standar, proses bisnis yang identik antar-peran (se
 
 > Revisi 21 Oktober 2026: dicocokkan dengan rute dan handler. Publik/atasan bukan role akun. Penyimpanan profil dan pengiriman undangan adalah dua aksi berbeda. Biro III tidak menjalankan sinkronisasi LinkedIn. Diagram konteks dan DFD tersedia di [docs/dfd.md](docs/dfd.md).
 
+> Revisi 22 Oktober 2026: UC-15 tetap satu use case verifikasi perusahaan untuk Superadmin, Admin Fakultas, dan Admin Prodi. Ketiganya memakai tampilan dan tindakan yang sama, tetapi cakupan data dibatasi oleh role: seluruh universitas, prodi dalam fakultas, atau prodi pengguna. Pengaturan kuesioner per prodi juga memakai halaman bersama dengan batas daftar prodi yang sama.
+
 ## 1. Landasan Teori & Komponen UML Use Case
 
 Berdasarkan standar Unified Modeling Language (UML), use case digunakan untuk memodelkan interaksi antara pengguna eksternal (*actor*) dengan fungsionalitas di dalam batas sistem (*system boundary*).

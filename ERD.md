@@ -2,6 +2,8 @@
 
 Dokumentasi lengkap skema basis data, kamus data (*data dictionary*), relasi entitas, dan diagram hubungan (*Entity Relationship Diagram*) untuk sistem informasi **SERU (Sistem Ekosistem Rekam Jejak Alumni) - Universitas Kristen Duta Wacana**.
 
+> Revisi 22 Oktober 2026: penyatuan tampilan admin tidak mengubah migrasi, tabel, kolom, foreign key, atau relasi ERD. Modul perusahaan tetap memakai relasi `perusahaan.created_by_prodi_id`, `perusahaan.created_by_user_id`, dan `biodata.perusahaan_id` untuk menentukan cakupan data Prodi/Fakultas pada lapisan aplikasi.
+
 ---
 
 ## 1. Diagram ERD (Mermaid Visual)

@@ -13,10 +13,36 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
-import Sidebar from '../Components/Sidebar.vue';
+import SuperAdminSidebar from '../Components/Sidebar.vue';
+import AdminFakultasSidebar from '../../AdminFakultas/Components/Sidebar.vue';
+import AdminProdiSidebar from '../../AdminProdi/Components/Sidebar.vue';
 
 const props = defineProps({
     user: Object,
+    role: {
+        type: String,
+        default: 'superadmin',
+    },
+    basePath: {
+        type: String,
+        default: '/superadmin/perusahaan',
+    },
+    dashboardPath: {
+        type: String,
+        default: '/superadmin/dashboard',
+    },
+    fakultas: {
+        type: Object,
+        default: () => ({}),
+    },
+    prodi: {
+        type: Object,
+        default: () => ({}),
+    },
+    canCreate: {
+        type: Boolean,
+        default: true,
+    },
     prodis: {
         type: Array,
         default: () => [],
@@ -49,6 +75,21 @@ const props = defineProps({
     },
 });
 
+const isSuperAdmin = computed(() => props.role === 'superadmin');
+const isFaculty = computed(() => props.role === 'admin_fakultas');
+const isProdi = computed(() => props.role === 'admin_prodi');
+const canFilterProdi = computed(() => !isProdi.value && props.prodis.length > 1);
+const pageTitle = computed(() => isFaculty.value
+    ? 'Pengelolaan Master Perusahaan - Admin Fakultas'
+    : isProdi.value
+        ? 'Pengelolaan Master Perusahaan - Admin Program Studi'
+        : 'Pengelolaan Master Perusahaan - Super Admin Tracer Study UKDW');
+const pageDescription = computed(() => isFaculty.value
+    ? 'Validasi data mitra institusi dan verifikasi usulan instansi kerja untuk seluruh program studi di fakultas Anda.'
+    : isProdi.value
+        ? 'Validasi data mitra institusi dan verifikasi usulan instansi kerja dari alumni program studi Anda.'
+        : 'Pusat validasi data mitra institusi, verifikasi usulan instansi kerja, dan konsolidasi profil karir alumni Universitas Kristen Duta Wacana.');
+
 // ========================================================
 // STATE FILTER & PENCARIAN
 // ========================================================
@@ -72,7 +113,7 @@ const filterByStatus = (newStatus) => {
 };
 
 const applyFilters = () => {
-    router.get('/superadmin/perusahaan', {
+    router.get(props.basePath, {
         search: search.value || undefined,
         prodi_id: selectedProdiId.value || undefined,
         scope: scope.value !== 'all' ? scope.value : undefined,
@@ -90,7 +131,7 @@ const resetFilters = () => {
     scope.value = 'all';
     statusFilter.value = 'all';
     perPage.value = 10;
-    router.get('/superadmin/perusahaan', {}, { preserveState: true });
+    router.get(props.basePath, {}, { preserveState: true });
 };
 
 // ========================================================
@@ -231,7 +272,7 @@ const closeConsolidateModal = () => {
 const submitConsolidate = () => {
     if (!activePendingCompany.value || !activeTargetVerifiedCompany.value) return;
     isSubmittingConsolidate.value = true;
-    router.post(`/superadmin/perusahaan/${activePendingCompany.value.id}/replace`, {
+    router.post(`${props.basePath}/${activePendingCompany.value.id}/replace`, {
         target_company_id: activeTargetVerifiedCompany.value.id,
     }, {
         preserveScroll: true,
@@ -279,7 +320,7 @@ const setQuickReason = (reason) => {
 const submitReject = () => {
     if (!activeCompanyForReject.value) return;
     isSubmittingReject.value = true;
-    router.post(`/superadmin/perusahaan/${activeCompanyForReject.value.id}/reject`, {
+    router.post(`${props.basePath}/${activeCompanyForReject.value.id}/reject`, {
         alasan: rejectReason.value.trim() || undefined,
     }, {
         preserveScroll: true,
@@ -388,7 +429,7 @@ const submitCreateForm = () => {
     }
 
     isSubmittingCreate.value = true;
-    router.post('/superadmin/perusahaan', createForm.value, {
+    router.post(props.basePath, createForm.value, {
         preserveScroll: true,
         onSuccess: () => {
             isSubmittingCreate.value = false;
@@ -473,7 +514,7 @@ const submitEditForm = () => {
     }
 
     isSubmittingEdit.value = true;
-    router.put(`/superadmin/perusahaan/${editForm.value.id}`, editForm.value, {
+    router.put(`${props.basePath}/${editForm.value.id}`, editForm.value, {
         preserveScroll: true,
         onSuccess: () => {
             isSubmittingEdit.value = false;
@@ -514,7 +555,7 @@ const handleVerifyDirect = (company) => {
         cancelButtonColor: '#64748B',
     }).then((result) => {
         if (result.isConfirmed) {
-            router.post(`/superadmin/perusahaan/${company.id}/verify`, {}, {
+            router.post(`${props.basePath}/${company.id}/verify`, {}, {
                 preserveScroll: true,
                 onSuccess: () => {
                     if (showReviewModal.value) closeReviewModal();
@@ -532,21 +573,23 @@ const handleVerifyDirect = (company) => {
 </script>
 
 <template>
-    <Head title="Pengelolaan Master Perusahaan - Super Admin Tracer Study UKDW" />
+    <Head :title="pageTitle" />
 
     <div class="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans flex">
         <!-- Sidebar Resmi Super Admin -->
-        <Sidebar :user="user" />
+        <AdminFakultasSidebar v-if="isFaculty" :user="user" :fakultas="fakultas" />
+        <AdminProdiSidebar v-else-if="isProdi" :user="user" :prodi="prodi" />
+        <SuperAdminSidebar v-else :user="user" />
 
         <!-- Area Konten Utama -->
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             <!-- Header Solid Hijau Resmi UKDW #0D542B (Sesuai Gambar 3) -->
-            <header class="bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
+            <header class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
                 <div class="w-full max-w-[1440px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <!-- Breadcrumbs -->
                         <nav class="flex items-center gap-2 text-xs text-emerald-100 font-medium mb-2.5">
-                            <Link href="/superadmin/dashboard" class="hover:text-white transition-colors flex items-center gap-1">
+                            <Link :href="dashboardPath" class="hover:text-white transition-colors flex items-center gap-1">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                                 </svg>
@@ -560,13 +603,14 @@ const handleVerifyDirect = (company) => {
                             Pengelolaan Master Perusahaan & Kemitraan
                         </h1>
                         <p class="text-emerald-100/90 text-xs sm:text-sm font-normal mt-1.5 max-w-2xl leading-relaxed">
-                            Pusat validasi data mitra institusi, verifikasi usulan instansi kerja, dan konsolidasi profil karir alumni Universitas Kristen Duta Wacana.
+                            {{ pageDescription }}
                         </p>
 
                         <!-- Tombol Aksi Cepat Header -->
                         <div class="flex items-center gap-3 mt-4 flex-wrap">
                             <button
                                 type="button"
+                                v-if="canCreate"
                                 @click="openCreateModal"
                                 class="px-4 py-2 bg-white text-[#0D542B] hover:bg-emerald-50 font-bold text-xs rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
                                 title="Tambah entri perusahaan baru ke master data resmi"
@@ -582,7 +626,7 @@ const handleVerifyDirect = (company) => {
             </header>
 
             <!-- Main Content Container dengan Negative Top Margin (-mt-10) Menumpuk Header Hijau -->
-            <main class="w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
                 <!-- 4 Kartu Statistik Interaktif & Filter Cepat (Bisa Diklik!) -->
                 <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
                     <!-- 1. Total Institusi (Filter: Semua Status) -->
@@ -687,7 +731,7 @@ const handleVerifyDirect = (company) => {
                         </div>
 
                         <!-- Filter Program Studi -->
-                        <div>
+                        <div v-if="canFilterProdi">
                             <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Program Studi</label>
                             <select
                                 v-model="selectedProdiId"
@@ -717,7 +761,7 @@ const handleVerifyDirect = (company) => {
                         </div>
 
                         <!-- Filter Lingkup Pengajuan -->
-                        <div>
+                        <div v-if="isSuperAdmin">
                             <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Lingkup Pengajuan</label>
                             <select
                                 v-model="scope"

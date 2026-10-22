@@ -2,6 +2,8 @@
 
 Dokumen ini menjelaskan arsitektur resmi, konfigurasi provider, alur kerja staging, dan penanganan data untuk fitur **Sinkronisasi Profil LinkedIn** pada aplikasi Tracer Study Alumni UKDW (SERU).
 
+> Revisi 22 Oktober 2026: penyatuan sidebar dan pola halaman admin hanya memengaruhi konsistensi navigasi antarmuka. Kontrak provider, konfigurasi environment, staging `linkedin_sync_results`, serta aturan review LinkedIn tidak berubah.
+
 ---
 
 ## 1. Arsitektur Multi-Provider

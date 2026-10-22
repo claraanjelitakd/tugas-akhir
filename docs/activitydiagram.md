@@ -8,6 +8,8 @@ Dokumen ini memuat spesifikasi dan pemodelan **UML Activity Diagram** untuk pros
 4. **Proses 3: Rekomendasi Kecocokan Perusahaan (Multi-Level Similarity Matching & Auto-Replace)**
 5. **Proses 4: Pengelolaan Instrumen Kuesioner & Otomasi Opsi Default (Admin Prodi & Super Admin)**
 
+> Revisi 22 Oktober 2026: Proses 3 diterapkan dengan halaman verifikasi perusahaan bersama untuk Superadmin, Fakultas, dan Prodi. Diagram aktivitas serta keputusan verifikasi tidak berubah; sistem membatasi input dan tindakan pada lingkup data role sebelum aksi diteruskan.
+
 ---
 
 ## 1. Landasan Teori UML Activity Diagram

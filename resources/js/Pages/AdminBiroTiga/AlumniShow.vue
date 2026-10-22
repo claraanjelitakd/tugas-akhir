@@ -293,7 +293,7 @@ const kirimEmailFlash = () => {
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             
             <!-- Header Solid Hijau Resmi UKDW #0D542B -->
-            <header class="bg-[#0D542B] text-white pt-8 pb-14 px-4 sm:px-6 lg:px-8 shadow-xs border-b border-[#0A4322]">
+            <header class="admin-page-header bg-[#0D542B] text-white pt-8 pb-14 px-4 sm:px-6 lg:px-8 shadow-xs border-b border-[#0A4322]">
                 <div class="max-w-[1400px] w-full mx-auto">
                     <!-- Breadcrumbs Navigasi Atas -->
                     <div class="flex items-center gap-2 text-xs text-white/80 font-medium mb-3">
@@ -365,7 +365,7 @@ const kirimEmailFlash = () => {
             </header>
 
             <!-- Main Content Area -->
-            <main class="max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16">
+            <main class="admin-page-main max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16">
 
                 <!-- Stepper Tahapan Audit Mahasiswa UKDW -->
                 <AlumniStepper 

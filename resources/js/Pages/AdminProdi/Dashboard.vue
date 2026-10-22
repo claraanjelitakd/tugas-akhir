@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Sidebar from './Components/Sidebar.vue';
+import AdminPageHeader from '@/components/AdminPageHeader.vue';
 
 const props = defineProps({
     user: Object,
@@ -74,31 +75,13 @@ const filteredAlumni = computed(() => {
         <!-- Area Konten Utama -->
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             
-            <!-- Header Halaman Bersih & Flat -->
-            <header class="bg-white border-b border-slate-200 px-6 py-5">
-                <div class="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                        <div class="flex items-center gap-2 text-xs text-slate-500 font-medium mb-1">
-                            <span>Tracer Study</span>
-                            <span>/</span>
-                            <span class="text-slate-800 font-bold">Dashboard Admin Prodi</span>
-                        </div>
-                        <h1 class="text-xl font-bold text-slate-900">
-                            Dashboard {{ prodi?.nama_prodi || 'Program Studi' }}
-                        </h1>
-                        <p class="text-xs text-slate-500 mt-0.5">
-                            Monitoring capaian pengisian tracer study alumni, pengelolaan instrumen survei mandiri prodi, dan verifikasi perusahaan.
-                        </p>
-                    </div>
-
-                    <div class="flex items-center gap-2.5">
-                        <div class="px-3.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs">
-                            <span class="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">Program Studi</span>
-                            <span class="font-extrabold text-[#0D542B] text-xs">{{ prodi?.nama_prodi }} (Kode: {{ prodi?.kode_prodi }})</span>
-                        </div>
-                    </div>
-                </div>
-            </header>
+            <AdminPageHeader
+                eyebrow="Dashboard Admin Prodi"
+                :title="`Dashboard ${prodi?.nama_prodi || 'Program Studi'}`"
+                description="Monitoring capaian pengisian tracer study alumni, pengelolaan instrumen survei prodi, dan verifikasi perusahaan."
+                context-label="Program Studi"
+                :context-value="`${prodi?.nama_prodi || 'Program Studi'} (Kode: ${prodi?.kode_prodi || '-'})`"
+            />
 
             <!-- Main Body Area -->
             <main class="flex-1 p-6 space-y-6 overflow-x-auto min-w-0">
@@ -200,7 +183,7 @@ const filteredAlumni = computed(() => {
                         <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Pintasan Menu Cepat Admin Prodi</span>
                         <span class="text-xs text-slate-400">Aksi Rutin Harian</span>
                     </div>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                         <Link 
                             href="/prodi/alumni" 
                             class="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex flex-col items-center text-center group cursor-pointer"
@@ -226,20 +209,12 @@ const filteredAlumni = computed(() => {
                             <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Sync LinkedIn</span>
                         </Link>
 
-                        <Link 
-                            href="/prodi/sections" 
+                        <Link
+                            href="/prodi/kuesioner"
                             class="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex flex-col items-center text-center group cursor-pointer"
                         >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Section Prodi</span>
-                        </Link>
-
-                        <Link 
-                            href="/prodi/pertanyaan" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Soal & Opsi</span>
+                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5.5A2.5 2.5 0 016.5 3H20v16H6.5A2.5 2.5 0 014 16.5v-11ZM4 16.5A2.5 2.5 0 016.5 19H20M8 7h8M8 11h8" /></svg>
+                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Kuesioner Per Prodi</span>
                         </Link>
 
                         <Link 
@@ -285,7 +260,7 @@ const filteredAlumni = computed(() => {
                         </div>
 
                         <Link 
-                            :href="activeTab === 'alumni' ? '/prodi/alumni' : '/prodi/sections'"
+                            :href="activeTab === 'alumni' ? '/prodi/alumni' : '/prodi/kuesioner'"
                             class="text-xs font-bold text-[#0D542B] hover:underline mb-2 sm:mb-0"
                         >
                             {{ activeTab === 'alumni' ? 'Buka Direktori Lengkap →' : 'Kelola Seluruh Section →' }}
@@ -434,8 +409,8 @@ const filteredAlumni = computed(() => {
                                         <p class="text-[11px] text-slate-500 mt-0.5">{{ section.questions_count }} butir pertanyaan aktif</p>
                                     </div>
                                 </div>
-                                <Link 
-                                    href="/prodi/pertanyaan" 
+                                <Link
+                                    href="/prodi/kuesioner"
                                     class="text-xs font-bold text-[#0D542B] hover:underline"
                                 >
                                     Kelola Soal &rarr;

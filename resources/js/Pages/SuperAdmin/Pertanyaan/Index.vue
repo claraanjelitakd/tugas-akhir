@@ -816,7 +816,7 @@ const handleDeleteKuesioner = (k) => {
 
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             <!-- Header Solid Hijau Resmi UKDW #0D542B -->
-            <header class="bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
+            <header class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
                 <div class="w-full max-w-[1440px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <!-- Breadcrumbs -->
@@ -841,7 +841,7 @@ const handleDeleteKuesioner = (k) => {
                 </div>
             </header>
 
-            <main class="w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
                 <!-- Bar Informasi Kuesioner Induk & Ringkasan Data (2 Tone) -->
                 <div class="bg-white rounded-xl p-5 border border-gray-300 shadow-2xs">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">

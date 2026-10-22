@@ -4,6 +4,8 @@ Sistem Informasi Tracer Study Alumni Universitas Kristen Duta Wacana (UKDW). Dib
 
 > **Revisi dokumentasi 21 Oktober 2026.** Rujukan alur dan batas sistem: [DFD](docs/dfd.md), [user flow](docs/user-flow.md), dan [use case](USE_CASE.md). Lima role akun dibedakan dari publik serta atasan bertoken. Data akademik tersedia pada tabel lokal; integrasi langsung SIAKAD belum diasumsikan.
 
+> **Revisi 22 Oktober 2026.** Pola antarmuka admin menggunakan komponen bersama untuk sidebar dan header; Master Data Perusahaan memakai satu halaman lintas role dengan route, filter, dan data scope yang berbeda. Detailnya tersedia pada [arsitektur admin](docs/ARCHITECTURE.md).
+
 ---
 
 ## Daftar Isi

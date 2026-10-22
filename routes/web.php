@@ -135,6 +135,20 @@ Route::middleware('auth')->group(function () {
         // Rute Admin Prodi (Program Studi)
         // -----------------------------------------------------------------
         Route::middleware('role:admin_prodi')->group(function () {
+            // Pengaturan Kuesioner Prodi dalam lingkup Prodi yang sedang login
+            Route::get('/prodi/kuesioner', [KelolaKuesionerProdiSuperAdminController::class, 'index'])->name('prodi.kuesioner.index');
+            Route::post('/prodi/kuesioner/sections', [KelolaKuesionerProdiSuperAdminController::class, 'storeSection'])->name('prodi.kuesioner.sections.store');
+            Route::put('/prodi/kuesioner/sections/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateSection'])->name('prodi.kuesioner.sections.update');
+            Route::delete('/prodi/kuesioner/sections/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroySection'])->name('prodi.kuesioner.sections.destroy');
+            Route::post('/prodi/kuesioner/sections/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderSection'])->name('prodi.kuesioner.sections.reorder');
+            Route::post('/prodi/kuesioner/pertanyaan', [KelolaKuesionerProdiSuperAdminController::class, 'storeQuestion'])->name('prodi.kuesioner.pertanyaan.store');
+            Route::put('/prodi/kuesioner/pertanyaan/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateQuestion'])->name('prodi.kuesioner.pertanyaan.update');
+            Route::delete('/prodi/kuesioner/pertanyaan/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyQuestion'])->name('prodi.kuesioner.pertanyaan.destroy');
+            Route::post('/prodi/kuesioner/pertanyaan/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderQuestion'])->name('prodi.kuesioner.pertanyaan.reorder');
+            Route::post('/prodi/kuesioner/opsi', [KelolaKuesionerProdiSuperAdminController::class, 'storeOption'])->name('prodi.kuesioner.opsi.store');
+            Route::put('/prodi/kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateOption'])->name('prodi.kuesioner.opsi.update');
+            Route::delete('/prodi/kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyOption'])->name('prodi.kuesioner.opsi.destroy');
+
             // Dashboard Utama Program Studi
             Route::get('/prodi/dashboard', [App\Http\Controllers\AdminProdi\Dashboard\DashboardController::class, 'tampilkanDashboard'])->name('prodi.dashboard');
 
@@ -190,6 +204,20 @@ Route::middleware('auth')->group(function () {
         // Rute Admin Fakultas (Dekanat & Gugus Kendali Mutu Fakultas)
         // -----------------------------------------------------------------
         Route::middleware('role:admin_fakultas')->group(function () {
+            // Pengaturan Kuesioner Prodi untuk seluruh Prodi dalam Fakultas
+            Route::get('/fakultas/prodi-kuesioner', [KelolaKuesionerProdiSuperAdminController::class, 'index'])->name('fakultas.prodi-kuesioner.index');
+            Route::post('/fakultas/prodi-kuesioner/sections', [KelolaKuesionerProdiSuperAdminController::class, 'storeSection'])->name('fakultas.prodi-kuesioner.sections.store');
+            Route::put('/fakultas/prodi-kuesioner/sections/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateSection'])->name('fakultas.prodi-kuesioner.sections.update');
+            Route::delete('/fakultas/prodi-kuesioner/sections/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroySection'])->name('fakultas.prodi-kuesioner.sections.destroy');
+            Route::post('/fakultas/prodi-kuesioner/sections/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderSection'])->name('fakultas.prodi-kuesioner.sections.reorder');
+            Route::post('/fakultas/prodi-kuesioner/pertanyaan', [KelolaKuesionerProdiSuperAdminController::class, 'storeQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.store');
+            Route::put('/fakultas/prodi-kuesioner/pertanyaan/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.update');
+            Route::delete('/fakultas/prodi-kuesioner/pertanyaan/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.destroy');
+            Route::post('/fakultas/prodi-kuesioner/pertanyaan/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.reorder');
+            Route::post('/fakultas/prodi-kuesioner/opsi', [KelolaKuesionerProdiSuperAdminController::class, 'storeOption'])->name('fakultas.prodi-kuesioner.opsi.store');
+            Route::put('/fakultas/prodi-kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateOption'])->name('fakultas.prodi-kuesioner.opsi.update');
+            Route::delete('/fakultas/prodi-kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyOption'])->name('fakultas.prodi-kuesioner.opsi.destroy');
+
             // Dashboard Utama Fakultas
             Route::get('/fakultas/dashboard', [DashboardFakultasController::class, 'tampilkanDashboard'])->name('fakultas.dashboard');
 

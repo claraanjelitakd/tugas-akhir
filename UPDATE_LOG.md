@@ -1,5 +1,16 @@
 # UPDATE LOG - SERU (Sistem Ekosistem Rekam Jejak Alumni)
 
+## [2026-10-22] Konsistensi Antarmuka Multi-Role dan Penyatuan Master Perusahaan
+
+- Menambahkan `resources/js/components/AdminSidebar.vue` sebagai sumber konfigurasi navigasi bersama untuk Superadmin, Admin Fakultas, Admin Prodi, dan Admin Biro III. Wrapper sidebar pada setiap folder role mempertahankan kontrak props dan jalur pemakaian halaman yang sudah ada.
+- Menambahkan `resources/js/components/AdminPageHeader.vue` untuk header dashboard admin yang seragam.
+- Menyatukan tampilan Master Data Perusahaan pada `resources/js/Pages/SuperAdmin/Perusahaan/Index.vue`. Halaman tersebut digunakan oleh route Superadmin, Fakultas, dan Prodi melalui props `role`, `basePath`, `dashboardPath`, konteks unit, serta `canCreate`.
+- Otorisasi data tetap berada di controller: Superadmin mengakses seluruh data; Fakultas hanya data milik prodi dalam fakultas; Prodi hanya data yang terkait prodi pengguna. Query daftar dan aksi verifikasi memakai lingkup yang sama.
+- Menambahkan akses pengelolaan Kuesioner Per Prodi untuk Fakultas dan Prodi pada halaman bersama, dengan daftar program studi dibatasi sesuai role.
+- Menghapus override CSS global yang menyebabkan warna teks header Superadmin bertabrakan dengan latar terang.
+- Memperbarui dokumentasi arsitektur, use case, user flow, ERD/DFD, catatan LinkedIn, dan dokumentasi verifikasi perusahaan. Perubahan ini tidak menambah migrasi atau mengubah skema basis data serta provider LinkedIn.
+- Verifikasi terarah: 16 test feature dengan 120 assertion lulus; Laravel Pint lulus; Vite production build lulus.
+
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](docs/dfd.md) dan [user flow](docs/user-flow.md).
 ## [2026-10-21] Revisi Dokumentasi dan Diagram Aliran Data Kendall
 

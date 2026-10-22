@@ -243,7 +243,7 @@ const handleMoveSection = (sec, direction) => {
         <!-- Area Konten Utama -->
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             <!-- Header Halaman Bersih & Flat -->
-            <div class="bg-white border-b border-gray-200 px-6 py-5">
+            <div class="admin-page-header bg-white border-b border-gray-200 px-6 py-5">
                 <div class="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div class="flex items-center gap-2 text-xs text-gray-500 font-medium mb-1">
@@ -285,7 +285,7 @@ const handleMoveSection = (sec, direction) => {
             </div>
 
             <!-- Konten Tabel Utama -->
-            <main class="w-full p-6 space-y-4">
+            <main class="admin-page-main w-full p-6 space-y-4">
                 <!-- Bilah Pencarian & Ringkasan -->
                 <div class="bg-white p-4 rounded-xl border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                     <div class="flex items-center gap-3">

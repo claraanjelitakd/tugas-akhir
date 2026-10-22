@@ -1,8 +1,8 @@
-# Dokumentasi Tugas Akhir ? Tracer Study UKDW (SERU)
+# Tracer Study UKDW (SERU)
 
 Dokumentasi sistem tracer study dengan lima role akun: Superadmin, Admin Program Studi, Admin Fakultas, Admin Biro III, dan Alumni. Atasan mengisi evaluasi melalui tautan bertoken; publik mengakses beranda.
 
-Revisi **21 Oktober 2026**. Dokumentasi dicocokkan dengan kode aplikasi sumber pada commit [`bea8270`](https://github.com/claraanjelitakd/tracer-ta/tree/bea8270d6b2f92a598ed52ec862ea2f1260b2b75). Repository ini berisi dokumentasi dan aset diagram, bukan instalasi aplikasi.
+Revisi **22 Oktober 2026**. Repository ini memuat kode aplikasi Laravel/Inertia beserta dokumentasinya. Lima role akun dibedakan dari publik serta atasan bertoken.
 
 ## Diagram konteks dan DFD
 
@@ -37,6 +37,7 @@ Semua kotak, label dan konektor dalam `.drawio` dapat diedit. Diagram 0 memakai 
 | [Database views](docs/database-views.md) | Referensi view dan penggunaannya. |
 | [Integrasi LinkedIn](docs/linkedin-mcp-integration.md) | Driver provider dan peninjauan hasil. |
 | [Verifikasi perusahaan](docs/verifikasi-perusahaan-similarity.md) | Algoritma rekomendasi dan konsolidasi. |
+| [Arsitektur admin](docs/ARCHITECTURE.md) | Komponen bersama, halaman lintas-role, route, dan batas data. |
 | [Riwayat perubahan](UPDATE_LOG.md) | Arsip perubahan; bukan spesifikasi runtime terkini. |
 
 ## Sumber dan batas model

@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Sidebar from './Components/Sidebar.vue';
+import AdminPageHeader from '@/components/AdminPageHeader.vue';
 
 const props = defineProps({
     user: Object,
@@ -101,33 +102,13 @@ const filteredAlumni = computed(() => {
         <!-- Area Konten Utama -->
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             
-            <!-- Header Halaman Bersih & Flat -->
-            <header class="bg-white border-b border-slate-200 px-6 py-5">
-                <div class="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                        <div class="flex items-center gap-2 text-xs text-slate-500 font-medium mb-1">
-                            <span>Tracer Study</span>
-                            <span>/</span>
-                            <span class="text-slate-800 font-bold">Dashboard Admin Fakultas</span>
-                        </div>
-                        <h1 class="text-xl font-bold text-slate-900">
-                            Dashboard {{ fakultas?.nama_fakultas || 'Fakultas' }}
-                        </h1>
-                        <p class="text-xs text-slate-500 mt-0.5">
-                            Pemantauan komparasi capaian tracer study lintas program studi di lingkungan fakultas.
-                        </p>
-                    </div>
-
-                    <div class="flex items-center gap-2.5">
-                        <div class="px-3.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs">
-                            <span class="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">Rata-Rata Fakultas</span>
-                            <span class="font-extrabold text-[#0D542B] text-xs">
-                                {{ stats.persentase_selesai }}% ({{ stats.total_selesai }}/{{ stats.total_alumni }} Responden)
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </header>
+            <AdminPageHeader
+                eyebrow="Dashboard Admin Fakultas"
+                :title="`Dashboard ${fakultas?.nama_fakultas || 'Fakultas'}`"
+                description="Pemantauan komparasi capaian tracer study lintas program studi di lingkungan fakultas."
+                context-label="Rata-Rata Fakultas"
+                :context-value="`${stats.persentase_selesai}% (${stats.total_selesai}/${stats.total_alumni} Responden)`"
+            />
 
             <!-- Main Body Area -->
             <main class="flex-1 p-6 space-y-6 overflow-x-auto min-w-0">
@@ -231,7 +212,7 @@ const filteredAlumni = computed(() => {
                         <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Pintasan Menu Cepat Admin Fakultas</span>
                         <span class="text-xs text-slate-400">Aksi Administratif</span>
                     </div>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                         <Link 
                             href="/fakultas/alumni" 
                             class="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex flex-col items-center text-center group cursor-pointer"
@@ -255,6 +236,14 @@ const filteredAlumni = computed(() => {
                         >
                             <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.62 1.62 0 1 0 0 3.24 1.62 1.62 0 0 0 0-3.24Z"/></svg>
                             <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Sinkronisasi LinkedIn</span>
+                        </Link>
+
+                        <Link
+                            href="/fakultas/prodi-kuesioner"
+                            class="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex flex-col items-center text-center group cursor-pointer"
+                        >
+                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5.5A2.5 2.5 0 016.5 3H20v16H6.5A2.5 2.5 0 014 16.5v-11ZM4 16.5A2.5 2.5 0 016.5 19H20M8 7h8M8 11h8" /></svg>
+                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Kuesioner Per Prodi</span>
                         </Link>
 
                         <Link 

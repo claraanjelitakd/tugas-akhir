@@ -1,5 +1,11 @@
 # Changelog Tracer Study
 
+## [2026-10-22] Konsistensi Antarmuka Multi-Role
+
+- Menambahkan komponen navigasi dan header admin bersama agar Superadmin, Fakultas, Prodi, dan Biro III menggunakan pola antarmuka yang konsisten.
+- Menyatukan halaman Master Data Perusahaan lintas Superadmin, Fakultas, dan Prodi tanpa memperluas wewenang data: perbedaan hanya pada route dasar, pilihan filter, dan query scope backend.
+- Menambahkan dokumentasi arsitektur terpusat di [ARCHITECTURE.md](ARCHITECTURE.md).
+
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 Semua perubahan besar pada sistem dicatat dalam dokumen ini.
 

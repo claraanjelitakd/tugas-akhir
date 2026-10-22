@@ -106,6 +106,10 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
 
         return Inertia::render('SuperAdmin/Perusahaan/Index', [
             'user' => $user,
+            'role' => 'superadmin',
+            'basePath' => '/superadmin/perusahaan',
+            'dashboardPath' => '/superadmin/dashboard',
+            'canCreate' => true,
             'prodis' => $prodis,
             'companies' => $companies,
             'propinsis' => $propinsis,

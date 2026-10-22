@@ -5,7 +5,28 @@ Panduan komprehensif seluruh letak file, path absolut (bisa di-Ctrl+Klik di VS C
 tanggung jawab modul, alur data backend ke frontend, serta kamus tipe input kuesioner.
 
 Tech Stack: Laravel 11 (Backend) + Vue 3 & Inertia.js SPA (Frontend) + Tailwind CSS + MySQL
-Root Folder: c:\study\tracerstudy
+Root Folder: C:\study\tracer-ta
+
+PEMBARUAN 22 OKTOBER 2026 - ARSITEKTUR ADMIN BERSAMA
+----------------------------------------------------------------------------------------------------
+Dokumen rinci: docs/ARCHITECTURE.md
+
+resources/js/components/AdminSidebar.vue
+- Komponen sumber navigasi yang mengonfigurasi menu berdasarkan role Superadmin, Admin Fakultas, Admin Prodi, dan Admin Biro III.
+
+resources/js/components/AdminPageHeader.vue
+- Komponen header dashboard admin bersama.
+
+resources/js/Pages/[Role]/Components/Sidebar.vue
+- Wrapper tipis per role yang meneruskan user dan konteks fakultas/prodi ke AdminSidebar.vue. Wrapper menjaga kompatibilitas import halaman lama tanpa menduplikasi markup sidebar.
+
+resources/js/Pages/SuperAdmin/Perusahaan/Index.vue
+- Tampilan bersama Master Data Perusahaan untuk Superadmin, Fakultas, dan Prodi. Props role, basePath, dashboardPath, fakultas/prodi, dan canCreate menentukan konteks tampilan.
+
+app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php
+app/Http/Controllers/AdminFakultas/VerifikasiPerusahaan/VerifikasiPerusahaanFakultasController.php
+app/Http/Controllers/AdminProdi/VerifikasiPerusahaan/VerifikasiPerusahaanProdiController.php
+- Controller tetap terpisah untuk menjaga middleware, route, dan batas query. Superadmin lintas universitas; Fakultas hanya prodi dalam fakultas; Prodi hanya data yang terkait prodi pengguna. Batas daftar dan aksi verifikasi memakai query scope yang sama.
 
 ====================================================================================================
 DAFTAR ISI

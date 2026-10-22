@@ -2,6 +2,8 @@
 
 Dokumen ini berisi alur pengguna (*User Flow*) lengkap untuk setiap peran (*user role*) yang terdapat pada Sistem **Tracer Study**.
 
+> Revisi 22 Oktober 2026: alur Master Data Perusahaan untuk Superadmin, Fakultas, dan Prodi memakai tampilan yang sama. Perbedaannya hanya pada batas data dan filter: Superadmin lintas universitas, Fakultas lintas prodi dalam fakultas, dan Prodi terbatas pada prodi sendiri. Tindakan yang tersedia hanya memproses data dalam lingkup tersebut.
+
 ---
 
 ## Daftar Peran Pengguna (User Roles)

@@ -7,7 +7,9 @@ use App\Models\Prodi;
 use App\Models\ProdiQuestion;
 use App\Models\ProdiQuestionOption;
 use App\Models\ProdiQuestionSection;
+use App\Models\User;
 use App\Services\Kuesioner\QuestionDefaultOptionsService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,14 +25,68 @@ use Inertia\Response;
 class KelolaKuesionerProdiSuperAdminController extends Controller
 {
     /**
+     * Mendapatkan daftar Prodi sesuai lingkup akun yang sedang login.
+     */
+    private function accessibleProdiQuery(User $user): Builder
+    {
+        return Prodi::query()
+            ->when($user->role === 'admin_prodi', fn (Builder $query) => $query->whereKey($user->prodi_id ?? 0))
+            ->when($user->role === 'admin_fakultas', fn (Builder $query) => $query->where('fakultas_id', $user->fakultas_id ?? 0));
+    }
+
+    /**
+     * Memastikan Prodi berada dalam lingkup akses akun.
+     */
+    private function ensureProdiAccess(User $user, int $prodiId): void
+    {
+        abort_unless(
+            $this->accessibleProdiQuery($user)->whereKey($prodiId)->exists(),
+            403,
+            'Anda tidak memiliki akses ke program studi ini.'
+        );
+    }
+
+    /**
+     * Memastikan section, pertanyaan, atau opsi berada dalam lingkup akses akun.
+     */
+    private function ensureSectionAccess(User $user, ProdiQuestionSection $section): void
+    {
+        $this->ensureProdiAccess($user, (int) $section->prodi_id);
+    }
+
+    private function ensureQuestionAccess(User $user, ProdiQuestion $question): void
+    {
+        $this->ensureProdiAccess($user, (int) $question->prodi_id);
+    }
+
+    private function basePath(User $user): string
+    {
+        return match ($user->role) {
+            'admin_fakultas' => '/fakultas/prodi-kuesioner',
+            'admin_prodi' => '/prodi/kuesioner',
+            default => '/superadmin/prodi-kuesioner',
+        };
+    }
+
+    private function dashboardPath(User $user): string
+    {
+        return match ($user->role) {
+            'admin_fakultas' => '/fakultas/dashboard',
+            'admin_prodi' => '/prodi/dashboard',
+            default => '/superadmin/dashboard',
+        };
+    }
+
+    /**
      * Menampilkan halaman utama Pengaturan Kuesioner Prodi untuk Superadmin.
      */
     public function index(Request $request): Response
     {
-        $user = Auth::user();
+        $user = Auth::user()->load(['fakultas', 'prodi']);
 
-        // Ambil daftar seluruh program studi
-        $prodis = Prodi::select('id', 'nama_prodi', 'kode_prodi', 'fakultas_id')
+        // Ambil daftar program studi sesuai lingkup akses akun.
+        $prodis = $this->accessibleProdiQuery($user)
+            ->select('id', 'nama_prodi', 'kode_prodi', 'fakultas_id')
             ->with('fakultas:id,nama_fakultas')
             ->withCount(['prodiQuestions', 'prodiQuestionSections'])
             ->orderBy('nama_prodi')
@@ -42,6 +98,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             : ($prodis->first()?->id ?? 0);
 
         $selectedProdi = $prodis->firstWhere('id', $selectedProdiId) ?? $prodis->first();
+        $selectedProdiId = (int) ($selectedProdi?->id ?? 0);
 
         // Ambil section untuk prodi yang dipilih
         $sections = $selectedProdiId
@@ -69,6 +126,10 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
 
         return Inertia::render('SuperAdmin/Pertanyaan/ProdiKuesionerIndex', [
             'user' => $user,
+            'role' => $user->role,
+            'basePath' => $this->basePath($user),
+            'dashboardPath' => $this->dashboardPath($user),
+            'fakultas' => $user->fakultas,
             'prodis' => $prodis,
             'selectedProdi' => $selectedProdi,
             'sections' => $sections,
@@ -97,7 +158,9 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             'order' => 'nullable|integer',
         ]);
 
+        $user = Auth::user();
         $prodiId = (int) $validated['prodi_id'];
+        $this->ensureProdiAccess($user, $prodiId);
 
         if (empty($validated['order'])) {
             $maxOrder = ProdiQuestionSection::where('prodi_id', $prodiId)->max('order') ?? 0;
@@ -114,7 +177,9 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
      */
     public function updateSection(Request $request, int $id): RedirectResponse
     {
+        $user = Auth::user();
         $section = ProdiQuestionSection::findOrFail($id);
+        $this->ensureSectionAccess($user, $section);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -136,7 +201,9 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
      */
     public function destroySection(int $id): RedirectResponse
     {
+        $user = Auth::user();
         $section = ProdiQuestionSection::with('questions.options')->findOrFail($id);
+        $this->ensureSectionAccess($user, $section);
 
         foreach ($section->questions as $question) {
             $question->options()->delete();
@@ -158,7 +225,9 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
                 'direction' => 'required|in:up,down',
             ]);
 
+            $user = Auth::user();
             $currentSection = ProdiQuestionSection::findOrFail($validated['id']);
+            $this->ensureSectionAccess($user, $currentSection);
             $prodiId = $currentSection->prodi_id;
 
             $operator = $validated['direction'] === 'up' ? '<' : '>';
@@ -185,6 +254,9 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
                 'orders.*.id' => 'required|exists:prodi_question_section,id',
                 'orders.*.order' => 'required|integer',
             ]);
+
+            $user = Auth::user();
+            $this->ensureProdiAccess($user, (int) $validated['prodi_id']);
 
             foreach ($validated['orders'] as $item) {
                 ProdiQuestionSection::where('id', $item['id'])
@@ -222,7 +294,9 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             'order' => 'nullable|integer',
         ]);
 
+        $user = Auth::user();
         $prodiId = (int) $validated['prodi_id'];
+        $this->ensureProdiAccess($user, $prodiId);
 
         if ($validated['type'] === 'radio') {
             $validated['type'] = 'single_choice';
@@ -238,6 +312,10 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
                 ]);
             }
             $validated['prodi_question_section_id'] = $section->id;
+        } else {
+            ProdiQuestionSection::whereKey($validated['prodi_question_section_id'])
+                ->where('prodi_id', $prodiId)
+                ->firstOrFail();
         }
 
         $validated['is_required'] = $request->boolean('is_required');
@@ -275,7 +353,9 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
      */
     public function updateQuestion(Request $request, int $id): RedirectResponse
     {
+        $user = Auth::user();
         $question = ProdiQuestion::findOrFail($id);
+        $this->ensureQuestionAccess($user, $question);
 
         $validated = $request->validate([
             'code' => [
@@ -297,6 +377,12 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             $validated['type'] = 'single_choice';
         }
 
+        if (! empty($validated['prodi_question_section_id'])) {
+            ProdiQuestionSection::whereKey($validated['prodi_question_section_id'])
+                ->where('prodi_id', $question->prodi_id)
+                ->firstOrFail();
+        }
+
         $validated['is_required'] = $request->boolean('is_required');
 
         if (empty($validated['order'])) {
@@ -313,7 +399,9 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
      */
     public function destroyQuestion(int $id): RedirectResponse
     {
+        $user = Auth::user();
         $question = ProdiQuestion::findOrFail($id);
+        $this->ensureQuestionAccess($user, $question);
         $question->options()->delete();
         $question->delete();
 
@@ -331,7 +419,9 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
                 'direction' => 'required|in:up,down',
             ]);
 
+            $user = Auth::user();
             $currentQuestion = ProdiQuestion::findOrFail($validated['id']);
+            $this->ensureQuestionAccess($user, $currentQuestion);
             $prodiId = $currentQuestion->prodi_id;
 
             $operator = $validated['direction'] === 'up' ? '<' : '>';
@@ -371,6 +461,9 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
                 'orders.*.order' => 'required|integer',
             ]);
 
+            $user = Auth::user();
+            $this->ensureProdiAccess($user, (int) $validated['prodi_id']);
+
             foreach ($validated['orders'] as $item) {
                 ProdiQuestion::where('id', $item['id'])
                     ->where('prodi_id', $validated['prodi_id'])
@@ -392,6 +485,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
      */
     public function storeOption(Request $request): RedirectResponse
     {
+        $user = Auth::user();
         $validated = $request->validate([
             'prodi_question_id' => 'required|exists:prodi_question,id',
             'code' => 'required|string|max:50',
@@ -402,6 +496,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
         ]);
 
         $question = ProdiQuestion::findOrFail($validated['prodi_question_id']);
+        $this->ensureQuestionAccess($user, $question);
 
         if (empty($validated['order'])) {
             $maxOrder = ProdiQuestionOption::where('prodi_question_id', $question->id)->max('order') ?? 0;
@@ -418,7 +513,9 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
      */
     public function updateOption(Request $request, int $id): RedirectResponse
     {
+        $user = Auth::user();
         $option = ProdiQuestionOption::findOrFail($id);
+        $this->ensureQuestionAccess($user, $option->question);
 
         $validated = $request->validate([
             'code' => 'required|string|max:50',
@@ -442,7 +539,9 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
      */
     public function destroyOption(int $id): RedirectResponse
     {
+        $user = Auth::user();
         $option = ProdiQuestionOption::findOrFail($id);
+        $this->ensureQuestionAccess($user, $option->question);
         $option->delete();
 
         return redirect()->back()->with('success', 'Opsi jawaban kuesioner prodi berhasil dihapus.');

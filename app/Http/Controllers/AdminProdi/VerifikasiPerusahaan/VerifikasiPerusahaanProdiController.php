@@ -7,6 +7,7 @@ use App\Models\Kabupaten;
 use App\Models\Perusahaan;
 use App\Models\Propinsi;
 use App\Services\Perusahaan\PerusahaanVerificationService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,7 +31,16 @@ class VerifikasiPerusahaanProdiController extends Controller
             abort(403, 'Akun Anda belum terhubung dengan program studi.');
         }
 
-        return Perusahaan::whereKey($id)->where('created_by_prodi_id', $prodiId)->firstOrFail();
+        return $this->companiesInScopeQuery($prodiId)->whereKey($id)->firstOrFail();
+    }
+
+    private function companiesInScopeQuery(int $prodiId): Builder
+    {
+        return Perusahaan::query()->where(function (Builder $query) use ($prodiId) {
+            $query->where('created_by_prodi_id', $prodiId)
+                ->orWhereHas('biodata', fn (Builder $biodataQuery) => $biodataQuery->where('prodi_id', $prodiId))
+                ->orWhereHas('creator', fn (Builder $creatorQuery) => $creatorQuery->where('prodi_id', $prodiId));
+        });
     }
 
     /**
@@ -65,17 +75,24 @@ class VerifikasiPerusahaanProdiController extends Controller
         $propinsis = Propinsi::select('id', 'nama_provinsi')->orderBy('nama_provinsi')->get();
         $kabupatens = Kabupaten::select('id', 'propinsi_id', 'nama_kabupaten')->orderBy('nama_kabupaten')->get();
 
-        return Inertia::render('AdminProdi/Perusahaan/Index', [
+        return Inertia::render('SuperAdmin/Perusahaan/Index', [
             'user' => $user,
+            'role' => 'admin_prodi',
+            'basePath' => '/prodi/perusahaan',
+            'dashboardPath' => '/prodi/dashboard',
+            'canCreate' => false,
             'prodi' => $prodi,
+            'prodis' => [$prodi],
             'companies' => $companies,
             'propinsis' => $propinsis,
             'kabupatens' => $kabupatens,
+            'negaras' => [],
             'filters' => $filters,
             'stats' => [
-                'total_pending_prodi' => $this->verificationService->countPendingForProdi($prodiId),
-                'total_pending_all' => Perusahaan::where('status_verifikasi', 'Menunggu Verifikasi')->count(),
-                'total_verified' => Perusahaan::where('status_verifikasi', 'Terverifikasi')->count(),
+                'total_all' => $this->companiesInScopeQuery($prodiId)->count(),
+                'total_pending_all' => $this->companiesInScopeQuery($prodiId)->where('status_verifikasi', 'Menunggu Verifikasi')->count(),
+                'total_verified' => $this->companiesInScopeQuery($prodiId)->where('status_verifikasi', 'Terverifikasi')->count(),
+                'total_rejected' => $this->companiesInScopeQuery($prodiId)->where('status_verifikasi', 'Ditolak')->count(),
             ],
         ]);
     }

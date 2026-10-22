@@ -7,6 +7,14 @@ tanggung jawab modul, alur data backend ke frontend, serta kamus tipe input kues
 Tech Stack: Laravel 11 (Backend) + Vue 3 & Inertia.js SPA (Frontend) + Tailwind CSS + MySQL
 Root Folder: c:\study\tracerstudy
 
+PEMBARUAN 22 OKTOBER 2026
+----------------------------------------------------------------------------------------------------
+- Peta lintas-role saat ini dirangkum di docs/ARCHITECTURE.md.
+- resources/js/components/AdminSidebar.vue menjadi sumber konfigurasi sidebar Superadmin, Fakultas, Prodi, dan Biro III.
+- resources/js/components/AdminPageHeader.vue menjadi header dashboard admin bersama.
+- resources/js/Pages/SuperAdmin/Perusahaan/Index.vue adalah tampilan bersama Master Data Perusahaan. Controller role menyuplai role, basePath, dashboardPath, konteks unit, dan batas data; struktur tabel perusahaan tidak berubah.
+- Rincian perubahan dan verifikasi ada pada UPDATE_LOG.md serta docs/changelog.md.
+
 ====================================================================================================
 DAFTAR ISI
 ====================================================================================================

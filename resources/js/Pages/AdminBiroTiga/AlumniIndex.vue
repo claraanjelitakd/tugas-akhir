@@ -383,7 +383,7 @@ const handleSendSingleEmail = (alumni) => {
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             
             <!-- Header Solid Hijau Resmi UKDW #0D542B -->
-            <header class="bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 shadow-xs border-b border-[#0A4322]">
+            <header class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 shadow-xs border-b border-[#0A4322]">
                 <div class="w-full max-w-[1440px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <div class="flex items-center gap-2 text-xs text-white/80 font-medium mb-2">
@@ -441,7 +441,7 @@ const handleSendSingleEmail = (alumni) => {
             </header>
 
             <!-- Main Content Container -->
-            <main class="w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-16">
+            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-16">
                 
                 <!-- 5 Kartu Statistik Interaktif & Filter Cepat (Formal, Flat, Bersih) -->
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">

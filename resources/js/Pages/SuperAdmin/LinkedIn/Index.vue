@@ -676,7 +676,7 @@ const dashboardRoute = computed(() => {
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
 
             <!-- Header Solid Hijau Resmi UKDW #0D542B (Serasi dengan superadmin/alumni) -->
-            <header class="bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8">
+            <header class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8">
                 <div class="w-full max-w-[1400px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <div class="flex items-center gap-2 text-xs text-white/80 font-medium mb-2">
@@ -718,7 +718,7 @@ const dashboardRoute = computed(() => {
             </header>
 
             <!-- Main Content Container -->
-            <main class="w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-16">
+            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-16">
 
                 <!-- 6 Kartu Statistik Ringkas & Profesional (Formal, Flat, Bersih) -->
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">

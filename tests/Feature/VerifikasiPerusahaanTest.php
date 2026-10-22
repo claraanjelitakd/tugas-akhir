@@ -79,10 +79,20 @@ class VerifikasiPerusahaanTest extends TestCase
     public function test_admin_prodi_dan_fakultas_dapat_mengakses_halaman_verifikasi_perusahaan(): void
     {
         $responseProdi = $this->actingAs($this->adminProdi)->get('/prodi/perusahaan');
-        $responseProdi->assertOk();
+        $responseProdi->assertInertia(fn ($page) => $page
+            ->component('SuperAdmin/Perusahaan/Index')
+            ->where('role', 'admin_prodi')
+            ->where('basePath', '/prodi/perusahaan')
+            ->where('canCreate', false)
+        );
 
         $responseFakultas = $this->actingAs($this->adminFakultas)->get('/fakultas/perusahaan');
-        $responseFakultas->assertOk();
+        $responseFakultas->assertInertia(fn ($page) => $page
+            ->component('SuperAdmin/Perusahaan/Index')
+            ->where('role', 'admin_fakultas')
+            ->where('basePath', '/fakultas/perusahaan')
+            ->where('canCreate', false)
+        );
     }
 
     public function test_sistem_dapat_mendeteksi_rekomendasi_kemiripan_perusahaan(): void
@@ -192,7 +202,24 @@ class VerifikasiPerusahaanTest extends TestCase
         $pendingCompany = Perusahaan::create([
             'nama_perusahaan' => 'Studio Kreatif Mandiri',
             'status_verifikasi' => 'Menunggu Verifikasi',
-            'created_by_prodi_id' => $this->prodi->id,
+        ]);
+        $alumni = User::create([
+            'username' => '72200006',
+            'name' => 'Alumni Studio Kreatif',
+            'password' => Hash::make('secret'),
+            'role' => 'alumni',
+            'prodi_id' => $this->prodi->id,
+            'must_change_password' => false,
+        ]);
+        DataAkademik::create([
+            'nim' => '72200006',
+            'nama' => 'Alumni Studio Kreatif',
+        ]);
+        Biodata::create([
+            'user_id' => $alumni->id,
+            'nim' => '72200006',
+            'prodi_id' => $this->prodi->id,
+            'perusahaan_id' => $pendingCompany->id,
         ]);
 
         $response = $this->actingAs($this->adminProdi)->post("/prodi/perusahaan/{$pendingCompany->id}/verify");
@@ -297,7 +324,9 @@ class VerifikasiPerusahaanTest extends TestCase
         $adminResponse = $this->actingAs($this->adminProdi)->get('/prodi/perusahaan');
         $adminResponse->assertOk();
         $adminResponse->assertInertia(fn ($page) => $page
-            ->component('AdminProdi/Perusahaan/Index')
+            ->component('SuperAdmin/Perusahaan/Index')
+            ->where('role', 'admin_prodi')
+            ->where('basePath', '/prodi/perusahaan')
             ->has('companies.data', 1)
             ->where('companies.data.0.nama_perusahaan', 'PT Gameloft Indonesia Jogja')
         );

@@ -1,6 +1,14 @@
 # Update Log Tracer Study
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
+
+## 22 Oktober 2026
+
+- Menyatukan sumber sidebar dan header dashboard untuk seluruh role admin melalui `resources/js/components/AdminSidebar.vue` dan `resources/js/components/AdminPageHeader.vue`.
+- Menjadikan `SuperAdmin/Perusahaan/Index.vue` sebagai tampilan bersama Master Data Perusahaan bagi Superadmin, Fakultas, dan Prodi. Route, controller, dan batas data tetap dipisahkan berdasarkan role.
+- Memastikan controller Fakultas dan Prodi memakai lingkup query yang sama untuk daftar perusahaan dan aksi verifikasi.
+- Memperbarui dokumentasi arsitektur, use case, user flow, ERD/DFD, verifikasi perusahaan, dan LinkedIn. Tidak ada perubahan skema database atau provider LinkedIn.
+
 ## 15 Oktober 2026
 - **Refactoring & Pembersihan Antarmuka Dashboard Alumni & Navbar**:
   - Menyederhanakan antarmuka [`Alumni/Dashboard.vue`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/resources/js/Pages/Alumni/Dashboard.vue) dengan menghapus badge decorative titik kuning portal, kartu ringkasan status kelengkapan 4 tahap di banner, banner langkah selanjutnya, dan kartu tahap 4 survei atasan.

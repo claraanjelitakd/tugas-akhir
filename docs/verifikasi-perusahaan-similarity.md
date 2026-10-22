@@ -2,6 +2,8 @@
 
 Dokumen ini menjelaskan secara teknis dan konseptual bagaimana sistem pencocokan kemiripan nama perusahaan bekerja pada modul **Verifikasi & Konsolidasi Perusahaan Tracer Study UKDW**.
 
+> Revisi 22 Oktober 2026: Superadmin, Admin Fakultas, dan Admin Prodi sekarang menggunakan satu halaman Inertia yang sama (`SuperAdmin/Perusahaan/Index.vue`). Algoritma rekomendasi tetap berada di `PerusahaanVerificationService`; controller menentukan `basePath` dan lingkup data. Superadmin melihat seluruh data, Fakultas melihat data dari prodi dalam fakultasnya, dan Prodi melihat data yang terkait dengan prodi pengguna. Lingkup yang sama berlaku untuk daftar dan aksi verifikasi.
+
 ---
 
 ## 1. Menjawab Pertanyaan: "Apakah Menggunakan TRIM atau Apa?"

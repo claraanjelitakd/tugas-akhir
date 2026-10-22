@@ -10,10 +10,28 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
-import Sidebar from '../Components/Sidebar.vue';
+import SuperAdminSidebar from '../Components/Sidebar.vue';
+import AdminFakultasSidebar from '../../AdminFakultas/Components/Sidebar.vue';
+import AdminProdiSidebar from '../../AdminProdi/Components/Sidebar.vue';
 
 const props = defineProps({
     user: Object,
+    role: {
+        type: String,
+        default: 'superadmin',
+    },
+    basePath: {
+        type: String,
+        default: '/superadmin/prodi-kuesioner',
+    },
+    dashboardPath: {
+        type: String,
+        default: '/superadmin/dashboard',
+    },
+    fakultas: {
+        type: Object,
+        default: () => ({}),
+    },
     prodis: {
         type: Array,
         default: () => [],
@@ -43,6 +61,14 @@ const props = defineProps({
     },
 });
 
+const isFaculty = computed(() => props.role === 'admin_fakultas');
+const isProdi = computed(() => props.role === 'admin_prodi');
+const pageTitle = computed(() => isFaculty.value
+    ? 'Pengaturan Kuesioner Prodi - Admin Fakultas'
+    : isProdi.value
+        ? 'Pengaturan Kuesioner Prodi - Admin Prodi'
+        : 'Pengaturan Kuesioner Prodi - Super Admin UKDW');
+
 // Tab Aktif: 'sections' atau 'questions'
 const activeTab = ref('sections');
 
@@ -51,7 +77,7 @@ const selectedProdiId = ref(props.selectedProdi?.id || (props.prodis[0]?.id || '
 
 const handleProdiChange = () => {
     if (selectedProdiId.value) {
-        router.get('/superadmin/prodi-kuesioner', {
+        router.get(props.basePath, {
             prodi_id: selectedProdiId.value,
         }, {
             preserveState: true,
@@ -217,12 +243,12 @@ const openSectionModal = (sectionToEdit = null) => {
     }).then((res) => {
         if (res.isConfirmed && res.value) {
             if (isEdit) {
-                router.put(`/superadmin/prodi-kuesioner/sections/${sectionToEdit.id}`, res.value, {
+                router.put(`${props.basePath}/sections/${sectionToEdit.id}`, res.value, {
                     preserveScroll: true,
                     onSuccess: () => Swal.fire('Berhasil', 'Bagian kuesioner prodi diperbarui.', 'success'),
                 });
             } else {
-                router.post('/superadmin/prodi-kuesioner/sections', res.value, {
+                router.post(`${props.basePath}/sections`, res.value, {
                     preserveScroll: true,
                     onSuccess: () => Swal.fire('Berhasil', 'Bagian kuesioner prodi ditambahkan.', 'success'),
                 });
@@ -232,7 +258,7 @@ const openSectionModal = (sectionToEdit = null) => {
 };
 
 const handleReorderSection = (sectionId, direction) => {
-    router.post('/superadmin/prodi-kuesioner/sections/reorder', {
+    router.post(`${props.basePath}/sections/reorder`, {
         id: sectionId,
         direction,
     }, {
@@ -252,7 +278,7 @@ const handleDeleteSection = (section) => {
         cancelButtonText: 'Batal',
     }).then((res) => {
         if (res.isConfirmed) {
-            router.delete(`/superadmin/prodi-kuesioner/sections/${section.id}`, {
+            router.delete(`${props.basePath}/sections/${section.id}`, {
                 preserveScroll: true,
                 onSuccess: () => Swal.fire('Terhapus', 'Bagian kuesioner prodi berhasil dihapus.', 'success'),
             });
@@ -343,12 +369,12 @@ const openQuestionModal = (questionToEdit = null) => {
     }).then((res) => {
         if (res.isConfirmed && res.value) {
             if (isEdit) {
-                router.put(`/superadmin/prodi-kuesioner/pertanyaan/${questionToEdit.id}`, res.value, {
+                router.put(`${props.basePath}/pertanyaan/${questionToEdit.id}`, res.value, {
                     preserveScroll: true,
                     onSuccess: () => Swal.fire('Berhasil', 'Pertanyaan kuesioner prodi diperbarui.', 'success'),
                 });
             } else {
-                router.post('/superadmin/prodi-kuesioner/pertanyaan', res.value, {
+                router.post(`${props.basePath}/pertanyaan`, res.value, {
                     preserveScroll: true,
                     onSuccess: () => Swal.fire('Berhasil', 'Pertanyaan kuesioner prodi ditambahkan.', 'success'),
                 });
@@ -358,7 +384,7 @@ const openQuestionModal = (questionToEdit = null) => {
 };
 
 const handleReorderQuestion = (questionId, direction) => {
-    router.post('/superadmin/prodi-kuesioner/pertanyaan/reorder', {
+    router.post(`${props.basePath}/pertanyaan/reorder`, {
         id: questionId,
         direction,
     }, {
@@ -378,7 +404,7 @@ const handleDeleteQuestion = (question) => {
         cancelButtonText: 'Batal',
     }).then((res) => {
         if (res.isConfirmed) {
-            router.delete(`/superadmin/prodi-kuesioner/pertanyaan/${question.id}`, {
+            router.delete(`${props.basePath}/pertanyaan/${question.id}`, {
                 preserveScroll: true,
                 onSuccess: () => Swal.fire('Terhapus', 'Pertanyaan kuesioner prodi berhasil dihapus.', 'success'),
             });
@@ -446,12 +472,12 @@ const openOptionModal = (question, optionToEdit = null) => {
     }).then((res) => {
         if (res.isConfirmed && res.value) {
             if (isEdit) {
-                router.put(`/superadmin/prodi-kuesioner/opsi/${optionToEdit.id}`, res.value, {
+                router.put(`${props.basePath}/opsi/${optionToEdit.id}`, res.value, {
                     preserveScroll: true,
                     onSuccess: () => Swal.fire('Berhasil', 'Opsi jawaban diperbarui.', 'success'),
                 });
             } else {
-                router.post('/superadmin/prodi-kuesioner/opsi', res.value, {
+                router.post(`${props.basePath}/opsi`, res.value, {
                     preserveScroll: true,
                     onSuccess: () => Swal.fire('Berhasil', 'Opsi jawaban ditambahkan.', 'success'),
                 });
@@ -472,7 +498,7 @@ const handleDeleteOption = (opt) => {
         cancelButtonText: 'Batal',
     }).then((res) => {
         if (res.isConfirmed) {
-            router.delete(`/superadmin/prodi-kuesioner/opsi/${opt.id}`, {
+            router.delete(`${props.basePath}/opsi/${opt.id}`, {
                 preserveScroll: true,
                 onSuccess: () => Swal.fire('Terhapus', 'Opsi jawaban berhasil dihapus.', 'success'),
             });
@@ -482,19 +508,21 @@ const handleDeleteOption = (opt) => {
 </script>
 
 <template>
-    <Head title="Pengaturan Kuesioner Prodi - Super Admin UKDW" />
+    <Head :title="pageTitle" />
 
     <div class="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans flex">
-        <Sidebar :user="user" />
+        <AdminFakultasSidebar v-if="isFaculty" :user="user" :fakultas="fakultas" />
+        <AdminProdiSidebar v-else-if="isProdi" :user="user" :prodi="selectedProdi" />
+        <SuperAdminSidebar v-else :user="user" />
 
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             <!-- Header Solid Hijau Resmi UKDW #0D542B -->
-            <header class="bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
+            <header class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
                 <div class="w-full max-w-[1440px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <!-- Breadcrumbs -->
                         <nav class="flex items-center gap-2 text-xs text-emerald-100 font-medium mb-2.5">
-                            <Link href="/superadmin/dashboard" class="hover:text-white transition-colors flex items-center gap-1">
+                            <Link :href="dashboardPath" class="hover:text-white transition-colors flex items-center gap-1">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                                 </svg>
@@ -514,7 +542,7 @@ const handleDeleteOption = (opt) => {
                 </div>
             </header>
 
-            <main class="w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
                 <!-- Bar Pemilihan Program Studi (2 Tone) -->
                 <div class="bg-white rounded-xl p-5 border border-gray-300 shadow-2xs">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">

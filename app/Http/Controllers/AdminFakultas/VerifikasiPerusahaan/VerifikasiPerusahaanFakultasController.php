@@ -8,6 +8,7 @@ use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\Propinsi;
 use App\Services\Perusahaan\PerusahaanVerificationService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,9 +32,21 @@ class VerifikasiPerusahaanFakultasController extends Controller
             abort(403, 'Akun Anda belum terhubung dengan fakultas.');
         }
 
-        $prodiIds = Prodi::where('fakultas_id', $fakultasId)->pluck('id');
+        $prodiIds = Prodi::where('fakultas_id', $fakultasId)->pluck('id')->all();
 
-        return Perusahaan::whereKey($id)->whereIn('created_by_prodi_id', $prodiIds)->firstOrFail();
+        return $this->companiesInScopeQuery($prodiIds)->whereKey($id)->firstOrFail();
+    }
+
+    /**
+     * @param  array<int, int>  $prodiIds
+     */
+    private function companiesInScopeQuery(array $prodiIds): Builder
+    {
+        return Perusahaan::query()->where(function (Builder $query) use ($prodiIds) {
+            $query->whereIn('created_by_prodi_id', $prodiIds)
+                ->orWhereHas('biodata', fn (Builder $biodataQuery) => $biodataQuery->whereIn('prodi_id', $prodiIds))
+                ->orWhereHas('creator', fn (Builder $creatorQuery) => $creatorQuery->whereIn('prodi_id', $prodiIds));
+        });
     }
 
     /**
@@ -71,18 +84,26 @@ class VerifikasiPerusahaanFakultasController extends Controller
         $propinsis = Propinsi::select('id', 'nama_provinsi')->orderBy('nama_provinsi')->get();
         $kabupatens = Kabupaten::select('id', 'propinsi_id', 'nama_kabupaten')->orderBy('nama_kabupaten')->get();
 
-        return Inertia::render('AdminFakultas/Perusahaan/Index', [
+        $prodiIds = $prodisFakultas->pluck('id')->all();
+
+        return Inertia::render('SuperAdmin/Perusahaan/Index', [
             'user' => $user,
+            'role' => 'admin_fakultas',
+            'basePath' => '/fakultas/perusahaan',
+            'dashboardPath' => '/fakultas/dashboard',
+            'canCreate' => false,
             'fakultas' => $fakultas,
             'prodis' => $prodisFakultas,
             'companies' => $companies,
             'propinsis' => $propinsis,
             'kabupatens' => $kabupatens,
+            'negaras' => [],
             'filters' => $filters,
             'stats' => [
-                'total_pending_fakultas' => $this->verificationService->countPendingForFakultas($fakultasId),
-                'total_pending_all' => Perusahaan::where('status_verifikasi', 'Menunggu Verifikasi')->count(),
-                'total_verified' => Perusahaan::where('status_verifikasi', 'Terverifikasi')->count(),
+                'total_all' => $this->companiesInScopeQuery($prodiIds)->count(),
+                'total_pending_all' => $this->companiesInScopeQuery($prodiIds)->where('status_verifikasi', 'Menunggu Verifikasi')->count(),
+                'total_verified' => $this->companiesInScopeQuery($prodiIds)->where('status_verifikasi', 'Terverifikasi')->count(),
+                'total_rejected' => $this->companiesInScopeQuery($prodiIds)->where('status_verifikasi', 'Ditolak')->count(),
             ],
         ]);
     }

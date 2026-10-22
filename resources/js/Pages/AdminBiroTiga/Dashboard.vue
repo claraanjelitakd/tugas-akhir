@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Sidebar from './Components/Sidebar.vue';
+import AdminPageHeader from '@/components/AdminPageHeader.vue';
 
 const props = defineProps({
     user: Object,
@@ -95,32 +96,16 @@ const filteredAlumni = computed(() => {
         <!-- Area Konten Utama -->
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             
-            <!-- Header Solid Hijau Resmi UKDW #0D542B -->
-            <header class="bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 shadow-xs">
-                <div class="w-full max-w-[1400px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <div class="inline-flex items-center gap-2 px-3 py-1 bg-white/15 text-green-100 rounded-md text-xs font-bold uppercase tracking-wider mb-2">
-                            <span class="w-2 h-2 rounded-full bg-[#FDC700]"></span>
-                            <span>Biro 3 Kemahasiswaan & Alumni UKDW</span>
-                        </div>
-                        <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                            Dashboard Eksekutif Biro III
-                        </h1>
-                        <p class="text-green-100 text-xs sm:text-sm font-normal mt-1 max-w-2xl leading-relaxed">
-                            Pusat pemantauan Indikator Kinerja Utama (KPI) Tracer Study universitas, audit keterisian kuesioner Dikti, dan jejaring karir LinkedIn.
-                        </p>
-                    </div>
-
-                    <div class="bg-black/20 border border-white/20 px-5 py-3.5 rounded-2xl text-left md:text-right text-white backdrop-blur-xs">
-                        <span class="text-xs text-green-100 font-semibold uppercase tracking-wider block">Partisipasi Kampus</span>
-                        <span class="text-xl font-extrabold block text-[#FDC700]">{{ stats?.persentase_respon || 0 }}% Respon</span>
-                        <span class="text-xs text-green-100 font-medium">{{ stats?.total_responden || 0 }} dari {{ stats?.total_alumni || 0 }} Alumni Terdata</span>
-                    </div>
-                </div>
-            </header>
+            <AdminPageHeader
+                eyebrow="Dashboard Eksekutif Biro III"
+                title="Dashboard Eksekutif Biro III"
+                description="Pusat pemantauan indikator kinerja utama tracer study universitas, audit keterisian kuesioner, dan jejaring karir LinkedIn."
+                context-label="Partisipasi Kampus"
+                :context-value="`${stats?.persentase_respon || 0}% Respon · ${stats?.total_responden || 0} dari ${stats?.total_alumni || 0} Alumni`"
+            />
 
             <!-- Main Body Area -->
-            <main class="w-full max-w-[1400px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-16">
+            <main class="flex-1 min-w-0 space-y-6 overflow-x-auto p-6">
                 
                 <!-- Grid 4 Kartu KPI Metrik Eksekutif -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

@@ -1,6 +1,6 @@
 # Diagram Konteks dan DFD — SERU Tracer Study UKDW
 
-Revisi: **21 Oktober 2026**. Model ini menjelaskan perilaku aplikasi pada kode lokal, bukan rancangan integrasi yang belum tersedia.
+Revisi: **22 Oktober 2026**. Model ini menjelaskan perilaku aplikasi pada kode lokal, bukan rancangan integrasi yang belum tersedia. Penyatuan komponen antarmuka admin tidak menambah proses atau simpanan data baru; D3 Perusahaan tetap diproses oleh role sesuai batas prodi/fakultas/universitas.
 
 ## 1. Berkas diagram dan cara membuka
 
