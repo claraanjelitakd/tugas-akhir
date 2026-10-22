@@ -2045,7 +2045,7 @@ onUnmounted(() => {
                             Atasan Sudah Mengisi
                         </span>
                         <span 
-                            v-else-if="evaluasiAtasan?.token" 
+                            v-else-if="evaluasiAtasan?.has_invitation"
                             class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200"
                         >
                             Tautan Siap / Terkirim
@@ -2075,7 +2075,7 @@ onUnmounted(() => {
                     <svg v-else class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    <span>{{ sendingEmail ? 'Mengirim...' : (evaluasiAtasan?.token ? 'Kirim Ulang Email ke Atasan' : 'Kirim Email ke Atasan') }}</span>
+                    <span>{{ sendingEmail ? 'Mengirim...' : (evaluasiAtasan?.has_invitation ? 'Kirim Ulang Email ke Atasan' : 'Kirim Email ke Atasan') }}</span>
                 </button>
             </div>
         </div>

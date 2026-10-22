@@ -747,4 +747,31 @@ class ApifyLinkedInProviderTest extends TestCase
 
         $this->assertCount(3, preg_split('/\r?\n/', (string) $alumni->fresh()->experience));
     }
+
+    public function test_approve_dengan_request_inertia_mengembalikan_redirect(): void
+    {
+        $alumni = $this->createAlumni('71190010', 'Alumni Inertia');
+
+        $result = LinkedinSyncResult::create([
+            'biodata_id' => $alumni->id,
+            'linkedin_url' => $alumni->linkedin_url,
+            'scraped_data' => [[
+                'full_name' => 'Alumni Inertia',
+                'job_title' => 'Software Engineer',
+            ]],
+            'status' => 'pending',
+            'scraped_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->withHeaders([
+                'X-Inertia' => 'true',
+                'X-Requested-With' => 'XMLHttpRequest',
+                'Accept' => 'text/html, application/xhtml+xml',
+            ])
+            ->post("/superadmin/linkedin-sync/results/{$result->id}/approve");
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+    }
 }

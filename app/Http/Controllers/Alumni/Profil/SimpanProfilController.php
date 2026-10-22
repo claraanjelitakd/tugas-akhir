@@ -184,13 +184,6 @@ class SimpanProfilController extends Controller
 
         }
 
-        // =========================================================================================
-        // 4. ATURAN NIK: TIDAK DAPAT DIUBAH ALUMNI JIKA SUDAH ADA
-        // =========================================================================================
-        $nikPermanen = ! empty($biodata->nik)
-            ? $biodata->nik
-            : (! empty($dataTervalidasi['nik']) ? $dataTervalidasi['nik'] : null);
-
         // Gaji / Take Home Pay (bersihkan karakter non-digit dan simpan nominal murni)
         $gajiNominal = null;
         if (isset($dataTervalidasi['gaji']) && $dataTervalidasi['gaji'] !== '' && $dataTervalidasi['gaji'] !== null) {
@@ -228,8 +221,6 @@ class SimpanProfilController extends Controller
             'kabupaten_id' => ! empty($dataTervalidasi['kabupaten_id']) ? $dataTervalidasi['kabupaten_id'] : null,
             'propinsi_id' => ! empty($dataTervalidasi['propinsi_id']) ? $dataTervalidasi['propinsi_id'] : (! empty($dataTervalidasi['provinsi_id']) ? $dataTervalidasi['provinsi_id'] : null),
             'kode_pos' => ! empty($dataTervalidasi['kode_pos']) ? $dataTervalidasi['kode_pos'] : null,
-            'nik' => $nikPermanen,
-            'npwp' => ! empty($dataTervalidasi['npwp']) ? $dataTervalidasi['npwp'] : null,
             'instagram_url' => ! empty($dataTervalidasi['instagram_url']) ? $dataTervalidasi['instagram_url'] : null,
             'facebook_url' => ! empty($dataTervalidasi['facebook_url']) ? $dataTervalidasi['facebook_url'] : null,
             'linkedin_url' => ! empty($dataTervalidasi['linkedin_url']) ? $dataTervalidasi['linkedin_url'] : null,

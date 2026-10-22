@@ -430,6 +430,16 @@ flowchart TD
 
 ---
 
+## Alur Detail Perusahaan dan Konsistensi Jawaban
+
+Pada daftar Master Data Perusahaan, administrator membuka peninjauan untuk melihat seluruh field master: identitas, lokasi, alamat, kontak, website, sektor, skala, bentuk perusahaan, jumlah pegawai, status verifikasi, pembuat, dan timestamp. Rekomendasi master memiliki tombol informasi yang membuka detail kandidat sebelum konsolidasi.
+
+Pada penyimpanan jawaban tracer, `tracer.question_id` menyimpan ID subpertanyaan dari `ref_subpertanyaan2021`, sementara `kode_pertanyaan` dan teks pertanyaan dipertahankan sebagai snapshot laporan. Sistem mempertahankan answer untuk tampilan teks dan mengisi answer_json sebagai proyeksi terstruktur. F505 (Take Home Pay) selalu disinkronkan dari `biodata.gaji`, termasuk menimpa nilai F505 lama. Data lama yang hanya memiliki answer dinormalisasi tanpa menghapus nilai asli. Request API LinkedIn tetap menerima JSON, sedangkan request Inertia menerima redirect valid dengan flash message.
+
+Pada halaman profil alumni, alur self-service hanya mengirim dan menampilkan data yang diperlukan untuk tracer. NIK, NPWP, KK, NISN, BPJS, email mahasiswa, data pembimbing/penguji, publikasi, dan data orang tua tetap berada di sumber resmi, tetapi tidak dikirim sebagai props halaman alumni. Judul tugas akhir dan tanggal kelulusan tetap dikirim sebagai referensi akademik non-sensitif. Penyimpanan profil parsial tidak mengosongkan field sensitif yang tidak dikirim.
+
+Pada detail admin, hasil evaluasi atasan menampilkan nilai dari kolom \`respon_evaluasi_atasan.nilai\` dan status survei berdasarkan \`evaluasi_atasan.is_submitted\`. Token akses tidak ditampilkan pada detail alumni karena merupakan kredensial tautan survei publik.
+
 ## Ringkasan Matriks Akses Peran (RBAC Matrix)
 
 Matriks berikut mencerminkan hak akses aktual berdasarkan middleware peran (`role:superadmin`, `role:admin_biro3`, `role:admin_fakultas`, `role:admin_prodi`, `role:alumni`, dan rute publik) pada aplikasi:

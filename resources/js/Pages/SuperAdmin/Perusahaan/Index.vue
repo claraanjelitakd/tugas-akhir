@@ -200,6 +200,20 @@ const getAlumniJabatan = (alumni) => {
     return alumni.posisi_jabatan || 'Alumni / Pegawai Aktif';
 };
 
+const alumniDetailPath = (alumniId) => {
+    if (!alumniId) return null;
+
+    if (isFaculty.value) {
+        return '/fakultas/alumni/' + alumniId;
+    }
+
+    if (isProdi.value) {
+        return '/prodi/alumni/' + alumniId;
+    }
+
+    return '/superadmin/alumni/' + alumniId;
+};
+
 // ========================================================
 // MODAL 1: DAFTAR ALUMNI BEKERJA (MENU LIST HAMBURGER)
 // ========================================================
@@ -247,6 +261,65 @@ const openReviewModal = (company) => {
 const closeReviewModal = () => {
     showReviewModal.value = false;
     activeCompanyForReview.value = null;
+};
+
+const displayValue = (value) => {
+    return value === null || value === undefined || value === '' ? '-' : String(value);
+};
+
+const getCompanyDetailFields = (company) => {
+    if (!company) return [];
+
+    return [
+        ['ID Master', company.id],
+        ['Nama Perusahaan / Instansi', company.nama_perusahaan],
+        ['Provinsi', company.propinsi?.nama_provinsi || company.nama_provinsi || company.propinsi_id],
+        ['Kabupaten / Kota', company.kabupaten?.nama_kabupaten || company.nama_kabupaten || company.kabupaten_id],
+        ['Alamat', company.alamat],
+        ['Kode Pos', company.kode_pos],
+        ['Homepage / Website', company.homepage],
+        ['Nomor Telepon / Fax', company.no_telp_fax],
+        ['Sektor', company.sektor],
+        ['Skala', company.skala],
+        ['Bentuk Perusahaan', company.bentuk_perusahaan],
+        ['Jumlah Pegawai', company.jumlah_pegawai],
+        ['Jenis Perusahaan', company.jenis_perusahaan],
+        ['Jenis Perusahaan Lainnya', company.jenis_perusahaan_lainnya],
+        ['Jenis Lokasi', company.jenis_lokasi],
+        ['Negara', company.negara],
+        ['Status Verifikasi', company.status_verifikasi],
+        ['Dibuat Oleh', company.creator?.name || company.creator_name || company.created_by_user_id],
+        ['Role Pembuat', company.creator?.role || company.creator_role ? getRoleLabel(company.creator?.role || company.creator_role) : '-'],
+        ['Prodi Pengusul', company.createdProdi?.nama_prodi || company.created_prodi_name || company.created_by_prodi_id],
+        ['Dibuat Pada', formatDate(company.created_at)],
+        ['Diperbarui Pada', formatDate(company.updated_at)],
+    ].map(([label, value]) => ({ label, value: displayValue(value) }));
+};
+
+const escapeHtml = (value) => String(value ?? '-')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+const openRecommendationDetail = (recommendation) => {
+    const rows = getCompanyDetailFields(recommendation)
+        .map((field) => [
+            '<div style="display:grid;grid-template-columns:170px 1fr;gap:8px;padding:7px 0;border-bottom:1px solid #e2e8f0;text-align:left">',
+                '<span style="color:#64748b;font-size:12px">' + escapeHtml(field.label) + '</span>',
+                '<strong style="color:#0f172a;font-size:12px;word-break:break-word">' + escapeHtml(field.value) + '</strong>',
+            '</div>',
+        ].join(''))
+        .join('');
+
+    Swal.fire({
+        title: 'Detail Rekomendasi Master',
+        html: '<div style="max-height:55vh;overflow:auto">' + rows + '</div>',
+        width: 700,
+        confirmButtonText: 'Tutup',
+        confirmButtonColor: '#0D542B',
+    });
 };
 
 // ========================================================
@@ -960,7 +1033,21 @@ const handleVerifyDirect = (company) => {
                                             :key="rec.id"
                                             class="p-1.5 bg-slate-50 border border-slate-200 rounded text-[11px]"
                                         >
-                                            <div class="font-semibold text-slate-900 truncate">{{ rec.nama_perusahaan }}</div>
+                                            <div class="flex items-start justify-between gap-1">
+                                                <div class="font-semibold text-slate-900 truncate">{{ rec.nama_perusahaan }}</div>
+                                                <button
+                                                    type="button"
+                                                    @click="openRecommendationDetail(rec)"
+                                                    class="inline-flex items-center justify-center w-5 h-5 shrink-0 rounded border border-slate-300 text-slate-600 hover:text-[#0D542B] hover:border-[#0D542B] transition-colors cursor-pointer"
+                                                    title="Lihat detail rekomendasi master"
+                                                    aria-label="Lihat detail rekomendasi master"
+                                                >
+                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <circle cx="12" cy="12" r="9" stroke-width="2" />
+                                                        <path stroke-linecap="round" stroke-width="2" d="M12 11v5m0-8h.01" />
+                                                    </svg>
+                                                </button>
+                                            </div>
                                             <div class="text-slate-500 text-[10px] truncate">
                                                 {{ rec.nama_kabupaten || '-' }}, {{ rec.nama_provinsi || '-' }}
                                             </div>
@@ -1176,7 +1263,7 @@ const handleVerifyDirect = (company) => {
                             <td class="border border-slate-200 px-3 py-2 text-center">
                                 <Link
                                     v-if="alumni.id"
-                                    :href="`/superadmin/alumni/${alumni.id}`"
+                                    :href="alumniDetailPath(alumni.id)"
                                     class="inline-flex items-center justify-center p-1.5 text-blue-700 hover:bg-blue-50 rounded transition-colors"
                                     title="Lihat Detail Profil Alumni"
                                 >
@@ -1260,22 +1347,16 @@ const handleVerifyDirect = (company) => {
                         <div class="font-medium text-slate-900">{{ activeCompanyForReview.alamat || 'Alamat tidak dicantumkan' }}</div>
                     </div>
 
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-slate-200 text-[11px]">
-                        <div>
-                            <span class="text-slate-500 block">Provinsi:</span>
-                            <strong class="text-slate-900">{{ activeCompanyForReview.propinsi?.nama_provinsi || '-' }}</strong>
-                        </div>
-                        <div>
-                            <span class="text-slate-500 block">Kabupaten/Kota:</span>
-                            <strong class="text-slate-900">{{ activeCompanyForReview.kabupaten?.nama_kabupaten || '-' }}</strong>
-                        </div>
-                        <div>
-                            <span class="text-slate-500 block">Skala Institusi:</span>
-                            <strong class="text-slate-900">{{ activeCompanyForReview.skala || '-' }}</strong>
-                        </div>
-                        <div>
-                            <span class="text-slate-500 block">Jenis Usaha:</span>
-                            <strong class="text-slate-900">{{ activeCompanyForReview.jenis_perusahaan || '-' }}</strong>
+                    <div class="pt-2 border-t border-slate-200">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-2 text-[11px]">
+                            <div
+                                v-for="field in getCompanyDetailFields(activeCompanyForReview)"
+                                :key="field.label"
+                                class="grid grid-cols-[minmax(130px,0.7fr)_minmax(0,1fr)] gap-2 border-b border-slate-100 py-1.5"
+                            >
+                                <span class="text-slate-500">{{ field.label }}</span>
+                                <strong class="text-slate-900 break-words">{{ field.value }}</strong>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1326,7 +1407,7 @@ const handleVerifyDirect = (company) => {
                                     <td class="px-3 py-2 text-center">
                                         <Link
                                             v-if="alumni.id"
-                                            :href="`/superadmin/alumni/${alumni.id}`"
+                                            :href="alumniDetailPath(alumni.id)"
                                             class="inline-flex items-center justify-center p-1 text-blue-700 hover:bg-blue-50 rounded transition-colors"
                                             title="Buka Profil Lengkap Alumni"
                                         >
@@ -1367,7 +1448,21 @@ const handleVerifyDirect = (company) => {
                                     class="hover:bg-slate-50"
                                 >
                                     <td class="px-3 py-2 font-bold text-slate-900 border-r border-slate-100">
-                                        {{ rec.nama_perusahaan }}
+                                        <div class="flex items-center justify-between gap-2">
+                                            <span>{{ rec.nama_perusahaan }}</span>
+                                            <button
+                                                type="button"
+                                                @click="openRecommendationDetail(rec)"
+                                                class="inline-flex items-center justify-center w-5 h-5 shrink-0 rounded border border-slate-300 text-slate-600 hover:text-[#0D542B] hover:border-[#0D542B] transition-colors cursor-pointer"
+                                                title="Lihat detail rekomendasi master"
+                                                aria-label="Lihat detail rekomendasi master"
+                                            >
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <circle cx="12" cy="12" r="9" stroke-width="2" />
+                                                    <path stroke-linecap="round" stroke-width="2" d="M12 11v5m0-8h.01" />
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </td>
                                     <td class="px-3 py-2 text-slate-600 border-r border-slate-100">
                                         {{ rec.nama_kabupaten || '-' }}, {{ rec.nama_provinsi || '-' }}

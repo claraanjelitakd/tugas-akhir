@@ -8,7 +8,6 @@ use App\Models\Biodata;
 use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\RefSubpertanyaanDetil;
-use App\Models\Yudisium;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
@@ -29,7 +28,7 @@ use Illuminate\Validation\ValidationException;
  *
  * Alasan sentralisasi:
  * Mengoptimalkan pembacaan data profil menggunakan Database View `v_alumni_profile_summary`
- * sehingga seluruh 4 sub-tab (Pribadi, Akademik, Orang Tua, Karier) teragregasi instan
+ * sehingga data profil teragregasi instan
  * tanpa overhead N+1 query.
  */
 class AdminAlumniProfileService
@@ -47,7 +46,6 @@ class AdminAlumniProfileService
     {
         $summary = $alumni->profileSummary ?? AlumniProfileSummary::where('biodata_id', $alumni->id)->first();
         $dataAkademik = $alumni->dataAkademik;
-        $orangTua = $alumni->orangTua ?? $dataAkademik?->orangTua;
         $yudisium = $alumni->yudisium ?? $dataAkademik?->yudisium;
         $atasan = $alumni->atasan;
         $perusahaan = $alumni->perusahaan;
@@ -62,11 +60,6 @@ class AdminAlumniProfileService
             'jenis_kelamin' => $summary?->jenis_kelamin ?? ($alumni->jenis_kelamin ?? ($dataAkademik?->jenis_kelamin ?? '')),
             'golongan_darah' => $summary?->golongan_darah ?? ($alumni->golongan_darah ?? ($dataAkademik?->golongan_darah ?? '')),
             'warga_negara' => $summary?->warga_negara ?? ($alumni->warga_negara ?? ($dataAkademik?->warga_negara ?? 'WNI')),
-            'nik' => $summary?->nik ?? ($alumni->nik ?? ($dataAkademik?->nik ?? '')),
-            'no_kk' => $summary?->no_kk ?? ($alumni->no_kk ?? ($dataAkademik?->no_kk ?? '')),
-            'nisn' => $summary?->nisn ?? ($alumni->nisn ?? ($dataAkademik?->nisn ?? '')),
-            'no_bpjs' => $summary?->no_bpjs ?? ($alumni->no_bpjs ?? ($dataAkademik?->no_bpjs ?? '')),
-            'npwp' => $summary?->npwp ?? ($alumni->npwp ?? ''),
             'foto' => $alumni->foto ?? '',
 
             // Kontak & Alamat Pribadi
@@ -81,7 +74,6 @@ class AdminAlumniProfileService
             'nomor_telepon' => $summary?->nomor_telepon ?? ($alumni->nomor_telepon ?? ($dataAkademik?->nomor_telepon ?? '')),
             'email_pribadi' => $summary?->email_pribadi ?? ($alumni->email_pribadi ?? ($dataAkademik?->email_pribadi ?? '')),
             'email' => $summary?->email ?? ($alumni->email_pribadi ?? ($dataAkademik?->email_pribadi ?? '')),
-            'email_students' => $summary?->email_students ?? ($dataAkademik?->email_students ?? ''),
 
             // 2. Data Akademik
             'prodi_id' => $summary?->prodi_id ?? ($alumni->prodi_id ?? ($dataAkademik?->prodi_id ?? '')),
@@ -100,33 +92,12 @@ class AdminAlumniProfileService
             'total_angka_kualitas' => $summary?->total_angka_kualitas ?? ($dataAkademik?->total_angka_kualitas ?? ''),
             'asal_sekolah' => $summary?->asal_sekolah ?? ($dataAkademik?->asal_sekolah ?? ''),
 
-            // Yudisium (Terintegrasi dari view & relasi)
-            'judul_ta' => $summary?->judul_ta ?? ($yudisium?->judul_ta ?? ''),
-            'judul_ta_inggris' => $summary?->judul_ta_inggris ?? ($yudisium?->judul_ta_inggris ?? ''),
-            'dosen_pembimbing_1' => $summary?->dosen_pembimbing_1 ?? ($yudisium?->dosen_pembimbing_1 ?? ''),
-            'dosen_pembimbing_2' => $summary?->dosen_pembimbing_2 ?? ($yudisium?->dosen_pembimbing_2 ?? ''),
-            'dosen_penguji_1' => $summary?->dosen_penguji_1 ?? ($yudisium?->dosen_penguji_1 ?? ''),
-            'dosen_penguji_2' => $summary?->dosen_penguji_2 ?? ($yudisium?->dosen_penguji_2 ?? ''),
-            'url_publikasi' => $summary?->url_publikasi ?? ($yudisium?->url_publikasi ?? ''),
-            'jenis_publikasi' => $summary?->jenis_publikasi ?? ($yudisium?->jenis_publikasi ?? ''),
-            'status_publikasi' => $summary?->status_publikasi ?? ($yudisium?->status_publikasi ?? ''),
-            'status_lulus' => $summary?->status_yudisium ?? ($yudisium?->status_lulus ?? 'Belum'),
-            'status_yudisium' => $summary?->status_yudisium ?? ($yudisium?->status_lulus ?? 'Belum'),
-            'keterangan_hasil_yudisium' => $summary?->keterangan_hasil_yudisium ?? ($yudisium?->keterangan_hasil_yudisium ?? ''),
-            'proses_yudisium' => $summary?->status_yudisium ?? ($yudisium?->status_lulus ?? 'Belum'),
+            // Tugas akhir dan tanggal kelulusan tetap tersedia; data sensitif lain tetap diminimalkan.
+            'judul_ta' => $yudisium?->judul_ta ?? '',
+            'judul_ta_inggris' => $yudisium?->judul_ta_inggris ?? '',
+            'tanggal_lulus' => $dataAkademik?->tanggal_lulus?->format('Y-m-d') ?? '',
 
-            // 3. Data Orang Tua
-            'nama_orang_tua' => $summary?->nama_orang_tua ?? ($orangTua?->nama_orang_tua ?? ''),
-            'pekerjaan_orang_tua' => $summary?->pekerjaan_orang_tua ?? ($orangTua?->pekerjaan ?? ''),
-            'alamat_orang_tua' => $summary?->alamat_orang_tua ?? ($orangTua?->alamat ?? ''),
-            'kota_orang_tua' => $summary?->kota_orang_tua ?? ($orangTua?->kota ?? ''),
-            'kabupaten_id_orang_tua' => $orangTua?->kabupaten_id ?? '',
-            'propinsi_id_orang_tua' => $orangTua?->propinsi_id ?? '',
-            'provinsi_id_orang_tua' => $orangTua?->propinsi_id ?? '',
-            'kode_pos_orang_tua' => $summary?->kode_pos_orang_tua ?? ($orangTua?->kode_pos ?? ''),
-            'nomor_telepon_orang_tua' => $summary?->nomor_telepon_orang_tua ?? ($orangTua?->nomor_telepon ?? ''),
-
-            // 4. Karier, Media Sosial, Keahlian & Penghasilan
+            // 2. Karier, Media Sosial, Keahlian & Penghasilan
             'instagram_url' => $summary?->instagram_url ?? ($alumni->instagram_url ?? ''),
             'facebook_url' => $summary?->facebook_url ?? ($alumni->facebook_url ?? ''),
             'linkedin_url' => $summary?->linkedin_url ?? ($alumni->linkedin_url ?? ''),
@@ -343,8 +314,6 @@ class AdminAlumniProfileService
             'kabupaten_id' => ! empty($data['kabupaten_id']) ? $data['kabupaten_id'] : null,
             'propinsi_id' => ! empty($data['propinsi_id']) ? $data['propinsi_id'] : (! empty($data['provinsi_id']) ? $data['provinsi_id'] : null),
             'kode_pos' => ! empty($data['kode_pos']) ? $data['kode_pos'] : null,
-            'nik' => ! empty($data['nik']) ? $data['nik'] : null,
-            'npwp' => ! empty($data['npwp']) ? $data['npwp'] : null,
             'instagram_url' => ! empty($data['instagram_url']) ? $data['instagram_url'] : null,
             'facebook_url' => ! empty($data['facebook_url']) ? $data['facebook_url'] : null,
             'linkedin_url' => ! empty($data['linkedin_url']) ? $data['linkedin_url'] : null,

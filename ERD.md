@@ -2,7 +2,7 @@
 
 Dokumentasi lengkap skema basis data, kamus data (*data dictionary*), relasi entitas, dan diagram hubungan (*Entity Relationship Diagram*) untuk sistem informasi **SERU (Sistem Ekosistem Rekam Jejak Alumni) - Universitas Kristen Duta Wacana**.
 
-> Revisi 22 Oktober 2026: penyatuan tampilan admin tidak mengubah migrasi, tabel, kolom, foreign key, atau relasi ERD. Modul perusahaan tetap memakai relasi `perusahaan.created_by_prodi_id`, `perusahaan.created_by_user_id`, dan `biodata.perusahaan_id` untuk menentukan cakupan data Prodi/Fakultas pada lapisan aplikasi.
+> Revisi 23 Oktober 2026: penyatuan tampilan admin tidak mengubah migrasi, tabel, kolom, foreign key, atau relasi ERD. Modul perusahaan tetap memakai relasi `perusahaan.created_by_prodi_id`, `perusahaan.created_by_user_id`, dan `biodata.perusahaan_id` untuk menentukan cakupan data Prodi/Fakultas pada lapisan aplikasi.
 
 ---
 
@@ -353,11 +353,11 @@ erDiagram
     tracer {
         bigint id PK
         bigint biodata_id FK "references biodata.id"
-        bigint question_id FK "references ref_subpertanyaan2021.id"
+        bigint question_id FK "ID subpertanyaan; references ref_subpertanyaan2021.id"
         string nim
         string kelompok "char(3), misal: BIO, F1, F2, F17"
         string kode_pertanyaan "varchar(50)"
-        text subpertanyaan "nullable"
+        text subpertanyaan "snapshot teks; nullable"
         text answer "nullable"
         json answer_json "nullable"
         string keterangan "nullable"
@@ -496,7 +496,7 @@ erDiagram
      - Riwayat Pendidikan Menengah: `asal_sekolah`, `alamat_asal_sekolah`, `kota_kabupaten_asal_sekolah`, `provinsi_asal_sekolah`, `jurusan_asal_sekolah`.
      - Kontak & Alamat Asal KTP: `nomor_telepon`, `email_students` (email kampus `@students.ukdw.ac.id`), `email_pribadi`, `alamat_saat_ini`, `kelurahan`, `kecamatan`, `kabupaten_id`, `propinsi_id`, `kode_pos` (`CHAR(5)`).
      - Parameter Kelulusan: `status_mahasiswa` (`ENUM('Lulus', 'Aktif', 'Cuti', 'Drop Out', 'Lainnya')`, default 'Lulus'), `tahun_akademik_lulus`, `tahun_lulus` (`YEAR(4)`), `tanggal_lulus`, `ip_kumulatif`, `total_sks`, `total_angka_kualitas`.
-   - **Karakteristik**: Seluruh field identitas kependudukan & akademik dikunci permanen (*read-only/disabled*) di halaman profil untuk semua role (Alumni, SuperAdmin, Fakultas, Prodi, Biro 3).
+   - **Karakteristik**: Field identitas kependudukan/dokumen sensitif tetap menjadi data master resmi, tetapi tidak dikirim atau ditampilkan pada halaman self-service profil alumni. Akses admin, audit, ekspor, dan integrasi resmi mengikuti kebijakan otorisasi masing-masing.
 2. **`yudisium`**:
    - Menyimpan data penyelesaian tugas akhir dan kelulusan yudisium:
      - `nim` (`CHAR(8)` Unique FK ke `data_akademik.nim`).
@@ -515,11 +515,11 @@ erDiagram
      - Foto: `foto` (Path foto di `/uploads/profile`).
      - Kontak Pribadi: `email_pribadi` (digunakan untuk login dan korespondensi aktif), `nomor_telepon`.
      - Domisili Tempat Tinggal Terkini: `alamat_saat_ini`, `kabupaten_id`, `propinsi_id`, `kode_pos` (`CHAR(5)` satu-satunya kode pos domisili alumni).
-     - Identitas Kependudukan & Pajak Alumni: `nik` (`CHAR(16)`), `npwp` (`VARCHAR(25)`).
+     - Identitas Kependudukan & Pajak Alumni: `nik` (`CHAR(16)`), `npwp` (`VARCHAR(25)`), dipertahankan untuk kompatibilitas/audit tetapi tidak ditampilkan dan tidak ditulis ulang oleh simpan profil alumni.
      - Media Sosial & Portofolio Profesional: `instagram_url`, `facebook_url`, `linkedin_url`, `linkedin_username`, `skills`, `experience`.
      - Data Karier & Pelacak Tracer: `perusahaan_id`, `atasan_id`, `kategori_pekerjaan` (`Bekerja (Full Time)`, `Wiraswasta`, `Melanjutkan Pendidikan`, dll.), `posisi_jabatan`, `posisi_wiraswasta`, `pendidikan_tingkat`, `perguruan_tinggi`, `pendidikan_prodi`, `gaji`, `jenis_pekerjaan`.
      - **Prinsip Bebas Duplikasi Kode Pos**: Kolom fisik `zipcode` dan `kode_pos_saat_ini` tidak ada di tabel `biodata`. Kode pos lokasi kerja alumni diperoleh langsung secara relasional dari master `perusahaan.kode_pos`.
-4. **`data_orang_tua`**: Kontak dan domisili orang tua/wali alumni (`nim` `CHAR(8)` FK ke `data_akademik.nim`, `nama_orang_tua`, `pekerjaan`, `nomor_telepon`, `alamat`, `kota`, `kabupaten_id`, `propinsi_id`, `kode_pos` `CHAR(5)`).
+4. **`data_orang_tua`**: Kontak dan domisili orang tua/wali alumni (`nim` `CHAR(8)` FK ke `data_akademik.nim`, `nama_orang_tua`, `pekerjaan`, `nomor_telepon`, `alamat`, `kota`, `kabupaten_id`, `propinsi_id`, `kode_pos` `CHAR(5)`). Data tetap dipertahankan sebagai referensi resmi, tetapi tab orang tua tidak ditampilkan pada profil self-service alumni.
 5. **`perusahaan`** & **`atasan`**:
    - Master data entitas institusi/perusahaan dan atasan alumni.
    - Kolom perusahaan: `nama_perusahaan`, `alamat`, `kode_pos` (`VARCHAR(10)` mendukung kode pos domestik 5 digit maupun internasional), `homepage`, `no_telp_fax`, `sektor`, `skala` (`Lokal`, `Regional/Lokal`, `Nasional`, `Internasional`), `bentuk_perusahaan` (`BUMN`, `Perusahaan Terbatas`, `Koperasi`, `CV`, `Firma`), `jumlah_pegawai` (`< 50 Orang`, `51 - 100 Orang`, `101 – 150 Orang`, `151 – 300 Orang`, `301 – 500 Orang`, `> 500 Orang`), `status_verifikasi` (`Menunggu Verifikasi`, `Terverifikasi`, `Ditolak`), `jenis_lokasi` (`Dalam Negeri`, `Luar Negeri`), `negara` (default 'Indonesia'), `jenis_perusahaan`, `jenis_perusahaan_lainnya`, `created_by_user_id`, `created_by_prodi_id`.
@@ -561,6 +561,22 @@ erDiagram
 7. **`v_alumni_linkedin_plot`** (Model: [`AlumniLinkedinPlot`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/AlumniLinkedinPlot.php)): View perbandingan data scraping LinkedIn (`linkedin_sync_results`) berdampingan dengan profil `biodata`, dilengkapi verifikasi kecocokan nama alumni (`is_nama_sesuai`), deteksi kesamaan data perusahaan/posisi, dan status plot ke sistem (`status_plot_label`).
 
 ---
+
+### Catatan Canonical Data (23 Oktober 2026)
+
+- Tabel tracer tetap menyimpan satu baris untuk satu alumni dan satu butir pertanyaan. answer adalah proyeksi teks yang kompatibel dengan laporan lama, sedangkan answer_json menjadi proyeksi terstruktur untuk jawaban baru dan data yang sudah dinormalisasi.
+- Data lama yang hanya memiliki answer diisi ke answer_json dengan bentuk generik { "value": "..." }. Bentuk khusus seperti pilihan ganda, radio dengan input, matriks, dan nominal tetap mempertahankan struktur yang dibutuhkan form lama.
+- Model Tracer memastikan saat penyimpanan bahwa minimal salah satu representasi tidak kehilangan data: jawaban teks menghasilkan JSON, sedangkan JSON menghasilkan teks yang dapat dibaca.
+- Riwayat pengalaman LinkedIn masih berada pada biodata.experience sebagai teks kompatibilitas. Perubahan menuju biodata.experience_history terstruktur akan dilakukan pada fase berikutnya setelah kontrak normalisasi jawaban dan UI penghapusan per entri selesai diuji.
+
+Tidak ada tabel baru yang dibuat untuk normalisasi jawaban. Migrasi backfill_legacy_tracer_answer_json bersifat data-preserving dan tidak membuang nilai answer lama.
+
+### Kebijakan Retensi Data Sensitif (23 Oktober 2026)
+
+- Tidak ada penghapusan kolom atau nilai lama untuk NIK, NPWP, KK, NISN, BPJS, email mahasiswa, pembimbing/penguji, yudisium, publikasi, maupun data orang tua.
+- Data kependudukan, dokumen, pembimbing/penguji, publikasi, dan data orang tua tidak dikirim sebagai props halaman self-service alumni. Judul tugas akhir serta tanggal kelulusan tetap ditampilkan sebagai referensi akademik non-sensitif.
+- Data yudisium, pembimbing/penguji, publikasi, dan data orang tua tetap berada pada tabel sumbernya agar integrasi akademik, audit admin, ekspor, serta kompatibilitas data lama tidak rusak.
+- Migrasi `document_sensitive_profile_data_policy` menambahkan komentar tabel/kolom pada MySQL sebagai dokumentasi alasan retensi dan minimisasi tampilan. Pada SQLite/test migration ini tidak mengubah skema karena komentar kolom bersifat spesifik MySQL.
 
 ### G. Modul Evaluasi Pengguna Lulusan (Atasan Langsung)
 1. **`evaluasi_atasan`** (Model: [`EvaluasiAtasan`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Models/EvaluasiAtasan.php)):

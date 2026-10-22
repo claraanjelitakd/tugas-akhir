@@ -9,7 +9,7 @@
   - Admin Program Studi
   - Biro 3 Kemahasiswaan & Alumni (readonly)
   
-  Mengintegrasikan 4 form profil dari @/Components/AlumniProfil/ serta tombol floating scroll cepat.
+  Mengintegrasikan 3 form profil dari @/Components/AlumniProfil/ serta tombol floating scroll cepat.
 -->
 <script setup>
 import { ref, watch } from 'vue';
@@ -19,7 +19,6 @@ import Swal from 'sweetalert2';
 // Import komponen form profil dari folder netral bersama
 import FormPribadi from '@/Components/AlumniProfil/FormPribadi.vue';
 import FormAkademik from '@/Components/AlumniProfil/FormAkademik.vue';
-import FormOrangTua from '@/Components/AlumniProfil/FormOrangTua.vue';
 import FormKarier from '@/Components/AlumniProfil/FormKarier.vue';
 
 /**
@@ -103,8 +102,7 @@ const activeProfileTab = ref('pribadi');
 const profileTabs = [
     { id: 'pribadi', name: '1. Identitas & Alamat', subtitle: 'Biodata & Kontak' },
     { id: 'karier', name: '2. Karier & Jejaring', subtitle: 'Pekerjaan, Medsos & Atasan' },
-    { id: 'akademik', name: '3. Akademik & Yudisium', subtitle: 'Riwayat Studi & IPK' },
-    { id: 'orangtua', name: '4. Data Orang Tua', subtitle: 'Kontak Keluarga' },
+    { id: 'akademik', name: '3. Akademik', subtitle: 'Riwayat Studi & IPK' },
 ];
 
 /**
@@ -234,14 +232,6 @@ const scrollToBottom = () => {
                 <FormAkademik :form="form" />
             </div>
 
-            <!-- 4. Data Orang Tua / Wali -->
-            <div v-show="activeProfileTab === 'orangtua'">
-                <FormOrangTua 
-                    :form="form" 
-                    :provinces="provinces" 
-                    :kabupatens="kabupatens" 
-                />
-            </div>
         </form>
 
         <!-- Floating Quick Scroll Navigation Buttons (Scroll to Top & Scroll to Bottom) -->

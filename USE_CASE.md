@@ -696,6 +696,52 @@ Endpoint bersama `POST /alumni/company` menerima Alumni, Admin Prodi, Admin Faku
 
 ---
 
+### UC-23. Menampilkan Detail Lengkap Master Perusahaan dan Rekomendasi
+- **Usecase ID**: UC-23
+- **Usecase Name**: Menampilkan Detail Lengkap Master Perusahaan dan Rekomendasi
+- **Actors Involved**: Superadmin, Admin Fakultas, Admin Prodi
+- **Description**: Administrator meninjau seluruh atribut perusahaan, termasuk informasi lokasi, kontak, klasifikasi, status verifikasi, pembuat data, dan waktu perubahan.
+- **Main Flow**:
+  1. Administrator membuka /superadmin/perusahaan, /fakultas/perusahaan, atau /prodi/perusahaan sesuai role.
+  2. Administrator membuka detail perusahaan dari tombol peninjauan.
+  3. Sistem menampilkan seluruh field master perusahaan dan data relasi lokasi/pengusul yang tersedia.
+  4. Pada setiap rekomendasi master, administrator dapat membuka tombol informasi untuk melihat detail kandidat sebelum melakukan konsolidasi.
+- **Alternate Flow**:
+  - Jika relasi wilayah atau pengusul sudah dihapus, sistem tetap menampilkan field dengan tanda - , bukan menghasilkan error pada modal.
+- **Post Conditions**: Administrator dapat mengambil keputusan verifikasi atau konsolidasi berdasarkan data perusahaan yang lengkap.
+
+### UC-24. Menyimpan Jawaban Tracer Secara Konsisten
+- **Usecase ID**: UC-24
+- **Usecase Name**: Menyimpan dan Menampilkan Jawaban Tracer secara Konsisten
+- **Actors Involved**: Alumni, Superadmin, Admin Fakultas, Admin Prodi
+- **Description**: Sistem mempertahankan teks jawaban untuk kompatibilitas laporan dan proyeksi JSON untuk form, pilihan ganda, nilai numerik, serta jawaban Lainnya. Identitas butir disimpan pada `tracer.question_id` sebagai foreign key ke `ref_subpertanyaan2021.id`; F505 menggunakan `biodata.gaji` sebagai sumber nominal tunggal.
+- **Main Flow**:
+  1. Alumni atau proses sinkronisasi menyimpan jawaban melalui model Tracer.
+  2. Sistem mengisi answer sebagai representasi teks yang dapat dibaca.
+  3. Sistem mengisi answer_json sebagai representasi terstruktur atau { "value": "..." } untuk jawaban teks sederhana.
+  4. Saat menyimpan atau membaca F505, sistem menyamakan nilainya dengan `biodata.gaji` dan menimpa nominal lama bila berbeda.
+  5. Saat membaca data lama, sistem menggunakan nilai yang tersedia tanpa menghapus jawaban.
+- **Alternate Flow**:
+  - Jika salah satu kolom kosong, model melengkapi proyeksi yang hilang.
+  - Jika data JSON lama tidak valid, nilai teks dipertahankan sebagai { "value": "..." }.
+- **Post Conditions**: Export, detail audit, dan form pengisian tetap dapat membaca data lama maupun data yang sudah dinormalisasi.
+
+### UC-25. Menampilkan Profil Alumni dengan Minimisasi Data Sensitif
+- **Usecase ID**: UC-25
+- **Usecase Name**: Menampilkan Profil Alumni dengan Minimisasi Data Sensitif
+- **Actors Involved**: Alumni
+- **Description**: Sistem menampilkan hanya data yang diperlukan untuk pengisian tracer pada halaman profil alumni. Data kependudukan, dokumen, pembimbing/penguji, publikasi, dan keluarga tetap disimpan pada sumber resmi tetapi tidak dikirim sebagai props atau dirender pada halaman self-service. Judul tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai referensi akademik non-sensitif.
+- **Preconditions**: Alumni telah login dan membuka `/alumni/profile`.
+- **Main Flow (Basic Flow)**:
+  1. Controller memuat konteks minimum profil, data karier, dan data tracer yang diperlukan.
+  2. Sistem tidak mengirim NIK, NPWP, KK, NISN, BPJS, email mahasiswa, data pembimbing/penguji, publikasi, atau data orang tua ke props halaman profil.
+  3. Sistem menampilkan tiga tab: Identitas & Alamat, Karier & Jejaring, dan Akademik dasar termasuk judul tugas akhir serta tanggal kelulusan.
+  4. Saat profil disimpan, field sensitif yang tidak dikirim tidak diubah atau dikosongkan.
+- **Alternate Flow (Alternative Flow)**:
+  - Data sensitif tetap dapat dipakai oleh sumber akademik, audit admin, ekspor, dan integrasi resmi sesuai otorisasi masing-masing.
+  - Jika data lama kosong, sistem tidak membuat nilai pengganti dari halaman profil alumni.
+- **Post Conditions**: Data lama tetap utuh, payload browser lebih terbatas, dan profil alumni hanya menampilkan data yang relevan untuk tracer.
+
 ## 6. Matriks Keterlacakan Use Case terhadap Peran (*Use Case Traceability Matrix*)
 
 Matriks berikut mengonfirmasi pemetaan antara use case yang dimodelkan dengan hak akses pengguna pada basis kode Tracer Study UKDW:
@@ -724,6 +770,7 @@ Matriks berikut mengonfirmasi pemetaan antara use case yang dimodelkan dengan ha
 | **UC-20** | Kelola Kuesioner Universitas & Branching | - | - | - | - | - | - | **X** |
 | **UC-21** | Kelola Soal Evaluasi Atasan | - | - | - | - | - | - | **X** |
 | **UC-22** | Log Aktivitas & Audit Trail | - | - | - | - | - | - | **X** |
+| **UC-25** | Minimisasi Data Sensitif pada Profil Alumni | - | **X** | - | - | - | - | - |
 
 ---
 

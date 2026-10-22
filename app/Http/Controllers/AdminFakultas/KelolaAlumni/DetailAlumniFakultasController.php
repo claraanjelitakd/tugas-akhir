@@ -275,9 +275,11 @@ class DetailAlumniFakultasController extends Controller
 
         // Ambil Data Evaluasi Atasan (Pengguna Lulusan)
         $evaluasiAtasan = EvaluasiAtasan::where('biodata_id', $alumni->id)
-            ->with(['atasan', 'perusahaan', 'respons.pertanyaan'])
+            ->with(['atasan', 'perusahaan.kabupaten', 'perusahaan.propinsi', 'respons.pertanyaan'])
             ->latest('updated_at')
             ->first();
+
+        $evaluasiAtasanData = $evaluasiAtasan?->toAdminAuditArray();
 
         $pertanyaanEvaluasiAtasan = PertanyaanEvaluasiAtasan::where('is_active', true)
             ->orderBy('order', 'asc')
@@ -289,7 +291,7 @@ class DetailAlumniFakultasController extends Controller
             'biodata' => $alumni,
             'alumni' => $alumni,
             'evaluasi' => $evaluasi,
-            'evaluasiAtasan' => $evaluasiAtasan,
+            'evaluasiAtasan' => $evaluasiAtasanData,
             'pertanyaanEvaluasiAtasan' => $pertanyaanEvaluasiAtasan,
             'sections' => $univSectionsWithAnswers,
             'prodiSections' => $prodiSectionsWithAnswers,

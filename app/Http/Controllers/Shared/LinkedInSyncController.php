@@ -14,6 +14,7 @@ use App\Services\LinkedIn\LinkedInProfileService;
 use App\Services\LinkedIn\Mappers\LinkedInProfileMapper;
 use App\Services\LinkedIn\Providers\ApifyLinkedInProvider;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -87,6 +88,26 @@ class LinkedInSyncController extends Controller
                 abort(403, 'Anda tidak memiliki wewenang untuk mengelola data alumni di luar lingkungan fakultas Anda.');
             }
         }
+    }
+
+    /**
+     * Mengembalikan JSON untuk fetch API dan redirect valid untuk request Inertia.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function respondToMutation(Request $request, array $payload, int $status = 200): JsonResponse|RedirectResponse
+    {
+        if ($request->header('X-Inertia')) {
+            if (($payload['success'] ?? false) === false) {
+                return redirect()->back()->withErrors([
+                    'linkedin' => $payload['message'] ?? 'Permintaan sinkronisasi tidak dapat diproses.',
+                ]);
+            }
+
+            return redirect()->back()->with('success', $payload['message'] ?? 'Permintaan sinkronisasi berhasil diproses.');
+        }
+
+        return response()->json($payload, $status);
     }
 
     /**
@@ -670,7 +691,7 @@ class LinkedInSyncController extends Controller
     /**
      * Menyetujui (Approve) hasil sinkronisasi Apify dan menerapkan data ke data utama.
      */
-    public function approveResult(Request $request, int $id, LinkedInProfileMapper $mapper): JsonResponse
+    public function approveResult(Request $request, int $id, LinkedInProfileMapper $mapper): JsonResponse|RedirectResponse
     {
         $scope = $this->getUserScope($request);
         $isReplot = $request->boolean('plot_ulang');
@@ -682,7 +703,7 @@ class LinkedInSyncController extends Controller
 
             $expectedStatus = $isReplot ? 'approved' : 'pending';
             if ($result->status !== $expectedStatus) {
-                return response()->json([
+                return $this->respondToMutation($request, [
                     'success' => false,
                     'message' => $isReplot
                         ? "Hasil sinkronisasi ini berstatus '{$result->status}' dan hanya hasil berstatus approved yang dapat diplot ulang."
@@ -873,7 +894,7 @@ class LinkedInSyncController extends Controller
 
             $plotRecord = AlumniLinkedinPlot::where('biodata_id', $fresh->id)->first();
 
-            return response()->json([
+            return $this->respondToMutation($request, [
                 'success' => true,
                 'message' => $isReplot
                     ? "Data profil LinkedIn untuk {$biodata->nama} berhasil diplot ulang tanpa menghapus data lama."
@@ -907,7 +928,7 @@ class LinkedInSyncController extends Controller
     /**
      * Menerapkan ulang snapshot LinkedIn yang sudah pernah disetujui.
      */
-    public function plotAgain(Request $request, int $id, LinkedInProfileMapper $mapper): JsonResponse
+    public function plotAgain(Request $request, int $id, LinkedInProfileMapper $mapper): JsonResponse|RedirectResponse
     {
         $request->merge(['plot_ulang' => true]);
 
@@ -981,18 +1002,18 @@ class LinkedInSyncController extends Controller
     /**
      * Menolak (Reject) hasil sinkronisasi Apify tanpa mengubah data utama alumni.
      */
-    public function rejectResult(Request $request, int $id): JsonResponse
+    public function rejectResult(Request $request, int $id): JsonResponse|RedirectResponse
     {
         $scope = $this->getUserScope($request);
 
-        return DB::transaction(function () use ($id, $scope) {
+        return DB::transaction(function () use ($id, $scope, $request) {
             $result = LinkedinSyncResult::with('biodata')->lockForUpdate()->findOrFail($id);
 
             $this->validateAlumniScope($result->biodata, $scope);
 
             // Validasi status wajib 'pending'
             if ($result->status !== 'pending') {
-                return response()->json([
+                return $this->respondToMutation($request, [
                     'success' => false,
                     'message' => "Hasil sinkronisasi ini sudah berstatus '{$result->status}' dan tidak dapat ditolak.",
                 ], 422);
@@ -1017,7 +1038,7 @@ class LinkedInSyncController extends Controller
                 ]
             );
 
-            return response()->json([
+            return $this->respondToMutation($request, [
                 'success' => true,
                 'message' => "Hasil sinkronisasi LinkedIn untuk {$result->biodata->nama} telah ditolak. Data utama tidak diubah.",
                 'alumni' => [

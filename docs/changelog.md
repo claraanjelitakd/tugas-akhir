@@ -4,6 +4,18 @@
 
 ## 22 Oktober 2026
 
+- **Kebijakan privasi profil alumni**: menyembunyikan NIK, NPWP, KK, NISN, BPJS, email mahasiswa, data pembimbing/penguji, publikasi, dan tab data orang tua dari halaman self-service tanpa menghapus kolom atau data lama. Judul tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai referensi akademik non-sensitif.
+- **Konfigurasi Vite**: mengganti penggunaan `__dirname` dengan `import.meta.dirname` pada alias agar warning `configLoader: 'native'` tidak muncul pada Vite terbaru.
+- **Evaluasi Atasan**: memperbaiki pemetaan nilai jawaban (`nilai`), field kontak/perusahaan, status selesai, serta menghapus token akses dari payload halaman detail admin.
+- **Sinkronisasi Take Home Pay**: menjadikan `biodata.gaji` sebagai sumber tunggal F505 dan menimpa jawaban tracer F505 yang masih menyimpan nominal lama. Ditegaskan bahwa `tracer.question_id` sudah merupakan foreign key ID subpertanyaan, sehingga tidak dibuat kolom ID duplikat.
+- Membatasi props Inertia profil alumni ke konteks minimum yang dibutuhkan frontend dan menjaga field sensitif tetap utuh saat simpan profil parsial.
+- Menambahkan migrasi `document_sensitive_profile_data_policy` untuk memberi komentar alasan retensi/minimisasi pada tabel dan kolom sensitif di MySQL.
+
+- Membuat branch refactor/data-quality-structure untuk perbaikan kualitas data bertahap.
+- Menormalisasi proyeksi jawaban tracer: record lama yang hanya memiliki answer di-backfill ke answer_json tanpa menghapus teks asli, dan model Tracer melengkapi pasangan representasi saat penyimpanan.
+- Menambahkan response negotiation pada aksi approve, plot ulang, dan reject LinkedIn agar request Inertia menerima redirect yang valid, sedangkan fetch API tetap menerima JSON.
+- Menampilkan seluruh field master perusahaan pada modal peninjauan dan menambahkan tombol informasi untuk melihat detail setiap rekomendasi master.
+- Memperbarui ERD, use case, arsitektur, dan alur pengguna untuk kontrak jawaban tracer serta detail master perusahaan.
 - Menyatukan sumber sidebar dan header dashboard untuk seluruh role admin melalui `resources/js/components/AdminSidebar.vue` dan `resources/js/components/AdminPageHeader.vue`.
 - Menjadikan `SuperAdmin/Perusahaan/Index.vue` sebagai tampilan bersama Master Data Perusahaan bagi Superadmin, Fakultas, dan Prodi. Route, controller, dan batas data tetap dipisahkan berdasarkan role.
 - Memastikan controller Fakultas dan Prodi memakai lingkup query yang sama untuk daftar perusahaan dan aksi verifikasi.

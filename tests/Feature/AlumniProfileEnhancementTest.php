@@ -12,6 +12,7 @@ use App\Models\RefSubpertanyaan2021;
 use App\Models\RefSubpertanyaanDetil;
 use App\Models\Tracer;
 use App\Models\User;
+use App\Models\Yudisium;
 use App\Services\Alumni\AdminAlumniProfileService;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -85,6 +86,16 @@ class AlumniProfileEnhancementTest extends TestCase
             'email_pribadi' => 'clara.pribadi@gmail.com',
             'nomor_telepon' => '081292090001',
         ]);
+
+        DataAkademik::where('nim', $this->biodata->nim)->update([
+            'tanggal_lulus' => '2026-09-01',
+        ]);
+
+        Yudisium::create([
+            'nim' => $this->biodata->nim,
+            'judul_ta' => 'Sistem Informasi Tracer Study',
+            'judul_ta_inggris' => 'Tracer Study Information System',
+        ]);
     }
 
     /**
@@ -95,6 +106,63 @@ class AlumniProfileEnhancementTest extends TestCase
         $this->assertNotNull($this->prodi->fakultas);
         $this->assertEquals('Fakultas Teknologi Informasi', $this->prodi->fakultas->nama_fakultas);
         $this->assertEquals('7', $this->prodi->fakultas->kode_fakultas);
+    }
+
+    public function test_sensitive_reference_data_is_not_exposed_on_alumni_profile_and_is_preserved_on_save(): void
+    {
+        $this->biodata->update([
+            'npwp' => '123456789012345',
+        ]);
+        DataAkademik::where('nim', $this->biodata->nim)->update([
+            'no_kk' => '3404100000000002',
+            'nisn' => '0031234567',
+            'no_bpjs' => '0001234567890',
+            'email_students' => '71200001@students.ukdw.ac.id',
+        ]);
+
+        $page = $this->actingAs($this->alumniUser)->get(route('alumni.profile'));
+
+        $page->assertInertia(fn ($assertion) => $assertion
+            ->missingAll([
+                'biodataData',
+                'formData.nik',
+                'formData.npwp',
+                'formData.no_kk',
+                'formData.nisn',
+                'formData.no_bpjs',
+                'formData.email_students',
+                'formData.nama_orang_tua',
+                'formData.dosen_pembimbing_1',
+                'formData.dosen_penguji_1',
+                'formData.status_yudisium',
+                'formData.status_publikasi',
+            ])
+            ->where('alumniData.id', $this->biodata->id)
+            ->where('formData.judul_ta', 'Sistem Informasi Tracer Study')
+            ->where('formData.judul_ta_inggris', 'Tracer Study Information System')
+            ->where('formData.tanggal_lulus', '2026-09-01')
+            ->missing('alumniData.dataAkademik')
+            ->missing('alumniData.yudisium')
+            ->missing('alumniData.orangTua')
+        );
+
+        $adminFormData = AdminAlumniProfileService::buildFormData($this->biodata->fresh());
+        $this->assertArrayNotHasKey('nik', $adminFormData);
+        $this->assertArrayNotHasKey('npwp', $adminFormData);
+        $this->assertArrayNotHasKey('email_students', $adminFormData);
+        $this->assertArrayNotHasKey('dosen_pembimbing_1', $adminFormData);
+        $this->assertArrayNotHasKey('status_yudisium', $adminFormData);
+        $this->assertArrayNotHasKey('nama_orang_tua', $adminFormData);
+        $this->assertSame('Sistem Informasi Tracer Study', $adminFormData['judul_ta']);
+        $this->assertSame('2026-09-01', $adminFormData['tanggal_lulus']);
+
+        $response = $this->actingAs($this->alumniUser)->post(route('alumni.profile.simpan'), [
+            'nomor_telepon' => '081292090002',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame('123456789012345', $this->biodata->fresh()->npwp);
+        $this->assertSame('3404100000000002', DataAkademik::where('nim', $this->biodata->nim)->value('no_kk'));
     }
 
     /**
@@ -234,6 +302,17 @@ class AlumniProfileEnhancementTest extends TestCase
             'order' => 25,
         ]);
 
+        Tracer::create([
+            'biodata_id' => $this->biodata->id,
+            'question_id' => $qF505->id,
+            'nim' => $this->biodata->nim,
+            'kelompok' => 'F5',
+            'kode_pertanyaan' => 'F505',
+            'subpertanyaan' => $qF505->subpertanyaan,
+            'answer' => '850000',
+            'answer_json' => ['F5051' => '850000', 'total' => 850000],
+        ]);
+
         $this->biodata->update(['gaji' => 9500000]);
         KuesionerSyncService::syncProfileResponses($this->biodata);
 
@@ -242,7 +321,11 @@ class AlumniProfileEnhancementTest extends TestCase
             ->first();
 
         $this->assertNotNull($tracer);
-        $this->assertEquals('9500000', $tracer->answer);
+        $this->assertSame('9500000', $tracer->answer);
+        $this->assertSame($qF505->id, $tracer->question_id);
+        $this->assertSame($qF505->id, $tracer->masterPertanyaan->id);
+        $this->assertSame('9500000', $tracer->answer_json['F5051']);
+        $this->assertSame(9500000, $tracer->answer_json['total']);
     }
 
     /**

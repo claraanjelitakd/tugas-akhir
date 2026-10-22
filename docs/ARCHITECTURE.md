@@ -93,6 +93,36 @@ Fungsi kuesioner program studi juga memakai satu halaman bersama:
 
 Controller `app/Http/Controllers/SuperAdmin/KelolaPertanyaan/KelolaKuesionerProdiSuperAdminController.php` menerima konteks role dan memberikan daftar program studi sesuai otorisasi. Route Superadmin, Fakultas, dan Prodi tetap terpisah agar middleware dan batas akses tetap jelas.
 
+## Kontrak Data dan Response
+
+### Jawaban Tracer
+
+Satu record tracer tetap menjadi unit jawaban per alumni dan per pertanyaan. Kolom `question_id` adalah foreign key ke `ref_subpertanyaan2021.id` meskipun namanya historis memakai istilah `question`; kolom ini menjadi identitas stabil butir untuk pemeliharaan, sedangkan `kode_pertanyaan` dan `subpertanyaan` adalah salinan untuk kompatibilitas laporan. Relasi Eloquent ke master memakai nama `masterPertanyaan` karena `subpertanyaan` sudah digunakan sebagai kolom snapshot teks. `answer` digunakan sebagai representasi teks untuk export dan kompatibilitas, sedangkan `answer_json` digunakan sebagai representasi terstruktur. Untuk jawaban teks sederhana, bentuk JSON minimum adalah { "value": "..." }. Struktur khusus jawaban lama tetap dipertahankan agar radio input, matriks, pilihan ganda, dan nominal tidak rusak.
+
+F505 (Take Home Pay) memiliki sumber tunggal pada `biodata.gaji`. Setiap sinkronisasi profil menimpa jawaban F505 lama dengan nominal gaji terbaru dan menyimpannya dalam `answer` serta `answer_json`, sehingga nilai lama tidak dapat menjadi sumber berbeda.
+
+Model Tracer melengkapi proyeksi yang kosong ketika record disimpan. Migrasi backfill_legacy_tracer_answer_json mengisi record lama tanpa menghapus nilai yang sudah ada.
+
+### Response Inertia dan API
+
+Endpoint LinkedIn yang dipanggil dengan fetch dan header Accept: application/json tetap mengembalikan JSON. Jika endpoint approve, plot ulang, atau reject dipanggil sebagai request Inertia dengan header X-Inertia, controller mengembalikan redirect dengan flash/error sehingga Inertia tidak menerima plain JSON.
+
+### Detail Master Perusahaan
+
+Perusahaan tetap menjadi sumber seluruh field master. Controller memuat scalar field dan relasi yang diperlukan, sedangkan SuperAdmin/Perusahaan/Index.vue menampilkan seluruh field pada modal detail. Rekomendasi master membawa atribut yang sama dan dapat dibuka melalui tombol informasi sebelum konsolidasi.
+
+Link profil alumni pada halaman bersama tidak menggunakan prefix superadmin secara tetap. Prefix detail dipilih dari role aktif agar Admin Prodi dan Admin Fakultas tetap berada pada route dan middleware lingkupnya sendiri, sehingga tidak menghasilkan 403 atau 404 karena salah prefix.
+
+### Kebijakan Data Sensitif pada Profil Alumni
+
+Halaman self-service \`/alumni/profile\` hanya menerima props yang diperlukan untuk pengisian tracer. NIK, NPWP, KK, NISN, BPJS, email mahasiswa, data pembimbing/penguji, publikasi, dan data orang tua tidak dikirim sebagai props profil alumni dan tidak dirender di frontend. Judul tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai referensi akademik non-sensitif.
+
+Kolom serta data lama tidak dihapus. Data tersebut tetap menjadi sumber resmi untuk integrasi akademik, audit admin, ekspor, dan kompatibilitas migrasi. Controller penyimpanan profil juga tidak lagi menulis field identitas sensitif ketika field itu tidak dikirim, sehingga menyembunyikan field tidak mengosongkan data lama.
+
+Keputusan ini memakai kebijakan visibilitas eksplisit pada controller dan komponen, bukan komentar blok template. Komentar database pada migrasi \`document_sensitive_profile_data_policy\` menjelaskan alasan retensi dan pembatasan tampilan untuk setiap tabel/kolom terkait.
+
+Payload audit evaluasi atasan juga dipetakan melalui \`EvaluasiAtasan::toAdminAuditArray()\`. Payload tersebut hanya membawa status, identitas atasan, instansi, dan jawaban per butir; token akses survei tidak dikirim ke halaman detail alumni. Nilai jawaban dibaca dari kolom sumber \`respon_evaluasi_atasan.nilai\`, bukan alias \`skor\`.
+
 ## Pengujian
 
 | File | Cakupan |

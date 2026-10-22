@@ -17,7 +17,6 @@ import Swal from 'sweetalert2';
 
 import FormPribadi from '@/Components/AlumniProfil/FormPribadi.vue';
 import FormAkademik from '@/Components/AlumniProfil/FormAkademik.vue';
-import FormOrangTua from '@/Components/AlumniProfil/FormOrangTua.vue';
 import FormKarier from '@/Components/AlumniProfil/FormKarier.vue';
 import Stepper from '@/Components/AlumniProfil/Stepper.vue';
 import Navbar from '../Components/Navbar.vue';
@@ -26,7 +25,7 @@ import Navbar from '../Components/Navbar.vue';
  * ====================================================================
  * MENERIMA DATA (PROPS) DARI CONTROLLER (ProfilController.php)
  * ====================================================================
- * - alumniData : Objek detail model Alumni dari database
+ * - alumniData : Konteks minimum alumni yang dibutuhkan FormKarier
  * - formData   : Objek data awal gabungan (data akademik, pribadi, orang tua, pekerjaan)
  * - provinces  : Array master data provinsi dari tabel 'provinces'
  * - kabupatens : Array master data kabupaten dari tabel 'kabupatens'
@@ -49,7 +48,7 @@ const user = computed(() => page.props.auth.user);
 
 // Storage key untuk mengingat tab aktif saat refresh
 const PROFILE_TAB_STORAGE_KEY = 'tracerstudy_alumni_profile_tab';
-const PROFILE_TAB_IDS = ['pribadi', 'karier', 'akademik', 'orangtua'];
+const PROFILE_TAB_IDS = ['pribadi', 'karier', 'akademik'];
 
 const normalizeProfileTab = (tabName) => {
     return PROFILE_TAB_IDS.includes(tabName) ? tabName : 'pribadi';
@@ -81,10 +80,9 @@ const getInitialTab = () => {
  * Di sinilah 'form' lahir!
  * Nilai awalnya diambil dari props.formData yang dikirim oleh ProfilController.php.
  * 
- * Objek 'form' inilah yang nanti dioper ke 4 komponen anak:
+ * Objek 'form' inilah yang nanti dioper ke 3 komponen anak:
  * <FormPribadi  :form="form" />
  * <FormAkademik :form="form" />
- * <FormOrangTua :form="form" />
  * <FormKarier   :form="form" />
  */
 const form = useForm(JSON.parse(JSON.stringify(props.formData || {}))).transform((data) => {
@@ -123,22 +121,14 @@ watch(() => props.formData, (newData) => {
     }
 }, { deep: true });
 
-// State untuk tab yang sedang aktif ('pribadi', 'akademik', 'orangtua', 'karier')
+// State untuk tab yang sedang aktif ('pribadi', 'akademik', 'karier')
 const activeTab = ref(normalizeProfileTab(getInitialTab()));
 
 const tabs = [
     { id: 'pribadi', name: 'Identitas & Alamat', subtitle: 'Biodata & Kontak', step: '1' },
     { id: 'karier', name: 'Karier & Jejaring', subtitle: 'Pekerjaan & Medsos', step: '2' },
-    { id: 'akademik', name: 'Akademik & Yudisium', subtitle: 'Riwayat Studi', step: '3' },
-    { id: 'orangtua', name: 'Data Orang Tua', subtitle: 'Kontak Keluarga', step: '4' },
+    { id: 'akademik', name: 'Akademik', subtitle: 'Riwayat Studi', step: '3' },
 ];
-
-// Helper validasi NPWP (15 atau 16 digit per UU HPP & PMK 112/PMK.03/2022)
-const isValidNpwp = (val) => {
-    if (!val) return false;
-    const clean = String(val).replace(/[^0-9]/g, '');
-    return clean.length === 15 || clean.length === 16;
-};
 
 // Helper validasi email
 const isValidEmail = (val) => {
@@ -164,16 +154,12 @@ const tabCompleteness = computed(() => {
     // 1. Tab Pribadi
     const missingPribadi = [];
     if (!form.nama || !String(form.nama).trim()) missingPribadi.push('Nama Lengkap');
-    if (!form.npwp || !isValidNpwp(form.npwp)) missingPribadi.push('NPWP (15/16 Digit)');
     if (!form.tempat_lahir || !String(form.tempat_lahir).trim()) missingPribadi.push('Tempat Lahir');
     if (!form.tanggal_lahir) missingPribadi.push('Tanggal Lahir');
     if (!form.jenis_kelamin) missingPribadi.push('Jenis Kelamin');
     if (!form.agama) missingPribadi.push('Agama');
     if (!form.golongan_darah) missingPribadi.push('Golongan Darah');
     if (!form.warga_negara || !String(form.warga_negara).trim()) missingPribadi.push('Kewarganegaraan');
-    if (!form.no_kk || !String(form.no_kk).trim()) missingPribadi.push('Nomor Kartu Keluarga (KK)');
-    if (!form.nisn || !String(form.nisn).trim()) missingPribadi.push('NISN');
-    if (!form.no_bpjs || !String(form.no_bpjs).trim()) missingPribadi.push('Nomor BPJS');
     if (!form.nomor_telepon || !isValidPhone(form.nomor_telepon)) missingPribadi.push('Nomor Telepon / WhatsApp');
     if (!form.email_pribadi || !isValidEmail(form.email_pribadi)) missingPribadi.push('Email Pribadi');
     if ((!form.alamat_saat_ini || !String(form.alamat_saat_ini).trim()) && (!form.alamat || !String(form.alamat).trim())) missingPribadi.push('Alamat Domisili');
@@ -241,9 +227,6 @@ const tabCompleteness = computed(() => {
     const missingAkademik = [];
     if (!form.nim) missingAkademik.push('NIM');
 
-    // 4. Tab Orang Tua
-    const missingOrangTua = [];
-
     return {
         pribadi: {
             isComplete: missingPribadi.length === 0,
@@ -256,10 +239,6 @@ const tabCompleteness = computed(() => {
         akademik: {
             isComplete: missingAkademik.length === 0,
             missing: missingAkademik,
-        },
-        orangtua: {
-            isComplete: missingOrangTua.length === 0,
-            missing: missingOrangTua,
         },
     };
 });
@@ -465,10 +444,6 @@ const submit = (nextTabId = null, redirectTo = null) => {
                         <FormAkademik :form="form" />
                     </div>
 
-                    <!-- Tab 4: Data Orang Tua / Wali -->
-                    <div v-show="activeTab === 'orangtua'">
-                        <FormOrangTua :form="form" :provinces="provinces" :kabupatens="kabupatens" />
-                    </div>
                 </div>
 
                 <!-- Bottom Sticky / Action Bar: Navigasi Antar Tab & Tombol Simpan -->

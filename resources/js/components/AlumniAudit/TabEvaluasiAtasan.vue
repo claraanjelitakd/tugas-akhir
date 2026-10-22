@@ -143,7 +143,7 @@ const evaluasiAtasanQuestionsWithAnswers = computed(() => {
             kode_pertanyaan: q.kode || q.kode_pertanyaan || '-',
             aspek_penilaian: q.aspek || q.aspek_penilaian || '-',
             keterangan: q.deskripsi || q.keterangan || '',
-            skor: resp ? resp.skor : null,
+            nilai: resp ? resp.nilai : null,
             catatan: resp ? resp.catatan : null,
             has_response: !!resp,
         };
@@ -177,7 +177,7 @@ const evaluasiAtasanQuestionsWithAnswers = computed(() => {
                     </p>
                 </div>
 
-                <div v-if="evaluasiAtasan?.survey_url" class="flex items-center gap-2 shrink-0 flex-wrap">
+                <div v-if="evaluasiAtasan" class="flex items-center gap-2 shrink-0 flex-wrap">
                     <button 
                         type="button" 
                         @click="copySurveyUrl" 
@@ -211,8 +211,8 @@ const evaluasiAtasanQuestionsWithAnswers = computed(() => {
                             <span class="font-bold text-slate-800">{{ evaluasiAtasan.atasan?.nama || '-' }}</span>
                         </div>
                         <div>
-                            <span class="text-[10px] uppercase font-semibold text-slate-400 block">Jabatan</span>
-                            <span class="font-medium text-slate-700">{{ evaluasiAtasan.atasan?.jabatan || '-' }}</span>
+                            <span class="text-[10px] uppercase font-semibold text-slate-400 block">Jabatan Alumni</span>
+                            <span class="font-medium text-slate-700">{{ alumni?.posisi_jabatan || '-' }}</span>
                         </div>
                         <div>
                             <span class="text-[10px] uppercase font-semibold text-slate-400 block">Email</span>
@@ -220,26 +220,22 @@ const evaluasiAtasanQuestionsWithAnswers = computed(() => {
                         </div>
                         <div>
                             <span class="text-[10px] uppercase font-semibold text-slate-400 block">No. Telepon / WA</span>
-                            <span class="font-medium text-slate-700">{{ evaluasiAtasan.atasan?.no_hp || '-' }}</span>
+                            <span class="font-medium text-slate-700">{{ evaluasiAtasan.atasan?.telepon || '-' }}</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Data Instansi & Token -->
+                <!-- Data Instansi -->
                 <div class="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
-                    <span class="text-xs font-bold text-slate-800 block uppercase tracking-wide">Instansi & Token Akses</span>
+                    <span class="text-xs font-bold text-slate-800 block uppercase tracking-wide">Instansi Penilai</span>
                     <div class="grid grid-cols-2 gap-2 text-xs">
                         <div>
                             <span class="text-[10px] uppercase font-semibold text-slate-400 block">Perusahaan / Instansi</span>
-                            <span class="font-bold text-slate-800">{{ evaluasiAtasan.perusahaan?.nama || '-' }}</span>
+                            <span class="font-bold text-slate-800">{{ evaluasiAtasan.perusahaan?.nama_perusahaan || '-' }}</span>
                         </div>
                         <div>
                             <span class="text-[10px] uppercase font-semibold text-slate-400 block">Kota</span>
-                            <span class="font-medium text-slate-700">{{ evaluasiAtasan.perusahaan?.kota || '-' }}</span>
-                        </div>
-                        <div>
-                            <span class="text-[10px] uppercase font-semibold text-slate-400 block">Token Akses</span>
-                            <code class="font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-[#0D542B] font-bold text-[11px] inline-block">{{ evaluasiAtasan.token || '-' }}</code>
+                            <span class="font-medium text-slate-700">{{ evaluasiAtasan.perusahaan?.kabupaten?.nama_kabupaten || '-' }}</span>
                         </div>
                         <div>
                             <span class="text-[10px] uppercase font-semibold text-slate-400 block">Status Survei</span>
@@ -316,12 +312,12 @@ const evaluasiAtasanQuestionsWithAnswers = computed(() => {
                                 <p v-if="item.keterangan" class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{{ item.keterangan }}</p>
                             </td>
                             <td class="py-3 px-4 text-center border-r border-slate-100">
-                                <div v-if="item.skor !== null && item.skor !== undefined" class="flex flex-col items-center gap-1">
+                                <div v-if="item.nilai !== null && item.nilai !== undefined" class="flex flex-col items-center gap-1">
                                     <span 
                                         class="px-2.5 py-1 rounded text-[11px] border"
-                                        :class="getSkorBadgeClass(item.skor)"
+                                        :class="getSkorBadgeClass(item.nilai)"
                                     >
-                                        Skor: {{ item.skor }} - {{ getSkorLabel(item.skor) }}
+                                        {{ getSkorLabel(item.nilai) }}
                                     </span>
                                 </div>
                                 <span v-else class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">

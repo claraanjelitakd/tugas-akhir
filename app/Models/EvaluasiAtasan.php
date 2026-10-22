@@ -35,6 +35,57 @@ class EvaluasiAtasan extends Model
     ];
 
     /**
+     * Susun payload aman untuk audit admin tanpa mengekspos token akses survei.
+     *
+     * Token hanya digunakan di sisi server untuk membuka dan memproses tautan
+     * survei publik. Halaman audit cukup menerima status, identitas penilai,
+     * instansi, serta jawaban per butir.
+     *
+     * @return array<string, mixed>
+     */
+    public function toAdminAuditArray(): array
+    {
+        $this->loadMissing([
+            'atasan',
+            'perusahaan.kabupaten',
+            'perusahaan.propinsi',
+            'respons',
+        ]);
+
+        return [
+            'id' => $this->id,
+            'biodata_id' => $this->biodata_id,
+            'is_submitted' => (bool) $this->is_submitted,
+            'submitted_at' => $this->submitted_at,
+            'status' => $this->is_submitted ? 'Selesai' : 'Aktif',
+            'atasan' => $this->atasan ? [
+                'id' => $this->atasan->id,
+                'nama' => $this->atasan->nama,
+                'email' => $this->atasan->email,
+                'telepon' => $this->atasan->telepon,
+            ] : null,
+            'perusahaan' => $this->perusahaan ? [
+                'id' => $this->perusahaan->id,
+                'nama_perusahaan' => $this->perusahaan->nama_perusahaan,
+                'alamat' => $this->perusahaan->alamat,
+                'kabupaten' => $this->perusahaan->kabupaten ? [
+                    'id' => $this->perusahaan->kabupaten->id,
+                    'nama_kabupaten' => $this->perusahaan->kabupaten->nama_kabupaten,
+                ] : null,
+                'propinsi' => $this->perusahaan->propinsi ? [
+                    'id' => $this->perusahaan->propinsi->id,
+                    'nama_provinsi' => $this->perusahaan->propinsi->nama_provinsi,
+                ] : null,
+            ] : null,
+            'respons' => $this->respons->map(static fn (ResponEvaluasiAtasan $response): array => [
+                'pertanyaan_id' => $response->pertanyaan_id,
+                'nilai' => $response->nilai,
+                'catatan' => $response->catatan,
+            ])->values()->all(),
+        ];
+    }
+
+    /**
      * Relasi ke model Biodata Alumni
      */
     public function biodata(): BelongsTo

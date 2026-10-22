@@ -67,6 +67,44 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
         $responsePerProdi->assertStatus(200);
     }
 
+    public function test_halaman_perusahaan_mengirimkan_seluruh_field_master_ke_modal_detail(): void
+    {
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Detail Master',
+            'propinsi_id' => null,
+            'kabupaten_id' => null,
+            'alamat' => 'Jl. Detail Master No. 1',
+            'homepage' => 'https://detail-master.example',
+            'no_telp_fax' => '0274123456',
+            'kode_pos' => '55281',
+            'sektor' => 'Teknologi Informasi',
+            'skala' => 'Nasional',
+            'bentuk_perusahaan' => 'Perusahaan Terbatas',
+            'jumlah_pegawai' => '51 - 100 Orang',
+            'jenis_perusahaan' => 'Perusahaan swasta',
+            'jenis_perusahaan_lainnya' => 'Unit teknologi',
+            'jenis_lokasi' => 'Dalam Negeri',
+            'negara' => 'Indonesia',
+            'status_verifikasi' => 'Terverifikasi',
+            'created_by_user_id' => $this->superadmin->id,
+            'created_by_prodi_id' => $this->prodi->id,
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->get(route('superadmin.perusahaan.index'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('companies.data.0.id', $company->id)
+            ->where('companies.data.0.homepage', 'https://detail-master.example')
+            ->where('companies.data.0.no_telp_fax', '0274123456')
+            ->where('companies.data.0.bentuk_perusahaan', 'Perusahaan Terbatas')
+            ->where('companies.data.0.jumlah_pegawai', '51 - 100 Orang')
+            ->where('companies.data.0.jenis_perusahaan_lainnya', 'Unit teknologi')
+            ->where('companies.data.0.created_by_user_id', $this->superadmin->id)
+            ->where('companies.data.0.created_by_prodi_id', $this->prodi->id)
+        );
+    }
+
     /**
      * Test superadmin dapat menyetujui (verify) perusahaan secara langsung.
      */

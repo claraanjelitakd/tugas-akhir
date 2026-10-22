@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Model Tracer (tracer)
@@ -34,9 +35,9 @@ class Tracer extends Model
         'answer_json' => 'array',
     ];
 
-    protected static function booted()
+    protected static function booted(): void
     {
-        static::saving(function ($tracer) {
+        static::saving(function (Tracer $tracer): void {
             // Auto-populate data pendukung dari relasi jika belum terisi
             if (empty($tracer->nim) && $tracer->biodata_id) {
                 $biodata = Biodata::find($tracer->biodata_id);
@@ -61,7 +62,74 @@ class Tracer extends Model
             if (empty($tracer->kelompok)) {
                 $tracer->kelompok = substr($tracer->kode_pertanyaan ?: 'F1', 0, 3);
             }
+
+            $answer = trim((string) ($tracer->attributes['answer'] ?? ''));
+            $answerJson = $tracer->getAttribute('answer_json');
+
+            if (is_string($answerJson)) {
+                $decodedAnswerJson = json_decode($answerJson, true);
+                $answerJson = is_array($decodedAnswerJson) ? $decodedAnswerJson : null;
+            }
+
+            if (! is_array($answerJson) && $answerJson !== null) {
+                $answerJson = ['value' => (string) $answerJson];
+            }
+
+            if ($answer === '' && is_array($answerJson) && $answerJson !== []) {
+                $answer = self::flattenAnswerJson($answerJson);
+            }
+
+            if ($answer !== '' && (! is_array($answerJson) || $answerJson === [])) {
+                $answerJson = ['value' => $answer];
+            }
+
+            $tracer->setAttribute('answer', $answer !== '' ? $answer : null);
+            $tracer->setAttribute('answer_json', is_array($answerJson) && $answerJson !== [] ? $answerJson : null);
         });
+    }
+
+    /**
+     * Menghasilkan representasi teks yang stabil dari jawaban JSON.
+     *
+     * @param  array<string|int, mixed>  $answerJson
+     */
+    private static function flattenAnswerJson(array $answerJson): string
+    {
+        if (array_key_exists('selected', $answerJson) || array_key_exists('pilihan', $answerJson)) {
+            $selected = $answerJson['selected'] ?? $answerJson['pilihan'] ?? '';
+            $input = $answerJson['input'] ?? $answerJson['text'] ?? '';
+            $selectedText = is_scalar($selected) ? trim((string) $selected) : '';
+            $inputText = is_scalar($input) ? trim((string) $input) : '';
+
+            return $selectedText.($inputText !== '' ? ': '.$inputText : '');
+        }
+
+        if (array_key_exists('value', $answerJson)) {
+            return self::flattenAnswerValue($answerJson['value']);
+        }
+
+        $parts = [];
+        foreach ($answerJson as $key => $value) {
+            if ($key === 'total') {
+                continue;
+            }
+
+            $text = self::flattenAnswerValue($value);
+            if ($text !== '') {
+                $parts[] = $text;
+            }
+        }
+
+        return implode(', ', array_values(array_unique($parts)));
+    }
+
+    private static function flattenAnswerValue(mixed $value): string
+    {
+        if (is_array($value)) {
+            return self::flattenAnswerJson($value);
+        }
+
+        return is_scalar($value) && ! is_bool($value) ? trim((string) $value) : '';
     }
 
     /**
@@ -73,9 +141,12 @@ class Tracer extends Model
     }
 
     /**
-     * Relasi ke butir pertanyaan (RefSubpertanyaan2021).
+     * Relasi ke master butir pertanyaan (RefSubpertanyaan2021).
+     *
+     * Nama relasi tidak memakai `subpertanyaan` karena tabel tracer juga
+     * memiliki kolom snapshot teks dengan nama tersebut.
      */
-    public function subpertanyaan()
+    public function masterPertanyaan(): BelongsTo
     {
         return $this->belongsTo(RefSubpertanyaan2021::class, 'question_id');
     }

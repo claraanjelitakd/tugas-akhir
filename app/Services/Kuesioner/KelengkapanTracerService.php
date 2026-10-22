@@ -338,10 +338,10 @@ class KelengkapanTracerService
 
         // Ambil ID dan respon pertanyaan alumni
         $responses = Tracer::where('biodata_id', $biodata->id)
-            ->with('subpertanyaan')
+            ->with('masterPertanyaan')
             ->get()
             ->keyBy(function ($item) {
-                return strtoupper(trim((string) ($item->subpertanyaan?->kode_pertanyaan ?? $item->kode_pertanyaan)));
+                return strtoupper(trim((string) ($item->masterPertanyaan?->kode_pertanyaan ?? $item->kode_pertanyaan)));
             });
 
         // Ambil seluruh butir pertanyaan terurut

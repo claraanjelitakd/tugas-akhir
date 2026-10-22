@@ -231,6 +231,12 @@ class KuesionerSyncService
         foreach ($profileMap as $code => $val) {
             $codeUpper = strtoupper($code);
 
+            // F505 selalu mengikuti nominal pada biodata.gaji sebagai sumber tunggal.
+            // Nilai dari view hanya digunakan untuk pemetaan profil lainnya.
+            if ($codeUpper === 'F505') {
+                $val = $biodata->gaji;
+            }
+
             $question = RefSubpertanyaan2021::whereRaw('UPPER(kode_pertanyaan) = ?', [$codeUpper])
                 ->with('detils')
                 ->first();
