@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\Prodi;
+use App\Models\RefSubpertanyaan2021;
+use App\Models\Tracer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -73,11 +75,99 @@ class SuperAdminDashboardTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->component('SuperAdmin/Dashboard')
             ->has('stats')
+            ->has('completionMetrics')
             ->has('prodiSummaries')
             ->has('recentAlumni')
             ->has('recentLogs')
             ->where('stats.total_alumni', 1)
             ->where('stats.total_prodi', 1)
+            ->where('stats.response_rate_status.code', 'red')
+            ->where('completionMetrics.population', 1)
+            ->where('completionMetrics.profile.percentage', 0)
+            ->where('completionMetrics.university_questionnaire.percentage', 0)
+        );
+    }
+
+    public function test_dashboard_classifies_response_rate_by_three_thresholds(): void
+    {
+        $question = RefSubpertanyaan2021::create([
+            'kelompok' => 'F8',
+            'kode_pertanyaan' => 'F8',
+            'subpertanyaan' => 'Status utama setelah lulus',
+            'type' => 'radio',
+            'wajib' => true,
+            'order' => 1,
+        ]);
+
+        $superadmin = User::create([
+            'username' => 'superadmin-threshold',
+            'name' => 'Super Administrator',
+            'password' => Hash::make('password123'),
+            'role' => 'superadmin',
+            'must_change_password' => false,
+        ]);
+
+        $prodiDefinitions = [
+            ['kode' => '71', 'total' => 4, 'responded' => 3],
+            ['kode' => '72', 'total' => 2, 'responded' => 1],
+            ['kode' => '73', 'total' => 3, 'responded' => 1],
+        ];
+
+        foreach ($prodiDefinitions as $prodiDefinition) {
+            $prodi = Prodi::create([
+                'kode_prodi' => $prodiDefinition['kode'],
+                'nama_prodi' => 'Program Studi '.$prodiDefinition['kode'],
+            ]);
+
+            for ($index = 1; $index <= $prodiDefinition['total']; $index++) {
+                $nim = $prodiDefinition['kode'].'20'.str_pad((string) $index, 4, '0', STR_PAD_LEFT);
+                $alumniUser = User::create([
+                    'username' => $nim,
+                    'name' => 'Alumni '.$nim,
+                    'password' => Hash::make('password123'),
+                    'role' => 'alumni',
+                    'prodi_id' => $prodi->id,
+                    'must_change_password' => false,
+                ]);
+
+                DataAkademik::create([
+                    'nim' => $nim,
+                    'nama' => 'Alumni '.$nim,
+                ]);
+
+                $biodata = Biodata::create([
+                    'user_id' => $alumniUser->id,
+                    'nim' => $nim,
+                    'nama' => 'Alumni '.$nim,
+                    'prodi_id' => $prodi->id,
+                ]);
+
+                if ($index <= $prodiDefinition['responded']) {
+                    Tracer::create([
+                        'biodata_id' => $biodata->id,
+                        'question_id' => $question->id,
+                        'nim' => $nim,
+                        'kelompok' => 'F8',
+                        'kode_pertanyaan' => 'F8',
+                        'subpertanyaan' => $question->subpertanyaan,
+                        'answer' => 'Bekerja',
+                    ]);
+                }
+            }
+        }
+
+        $response = $this->actingAs($superadmin)->get('/superadmin/dashboard');
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('stats.response_rate', 55.6)
+            ->where('stats.response_rate_status.code', 'yellow')
+            ->where('prodiSummaries', function ($summaries): bool {
+                $byCode = collect($summaries)->keyBy('kode_prodi');
+
+                return $byCode->get('71')['response_rate_status']['code'] === 'green'
+                    && $byCode->get('72')['response_rate_status']['code'] === 'yellow'
+                    && $byCode->get('73')['response_rate_status']['code'] === 'red';
+            })
         );
     }
 }

@@ -309,6 +309,10 @@ flowchart TD
     K1 --> Z
 ```
 
+### Kontrak metrik Dashboard Superadmin
+
+Response rate ditampilkan dengan tiga status: merah di bawah 50%, kuning 50–74,9%, dan hijau mulai 75%. Panel kelengkapan hanya menilai Profil Alumni, Kuesioner Universitas, dan gabungan keduanya. Kuesioner Prodi tidak memengaruhi angka kelengkapan universitas.
+
 ### Rincian Alur Superadmin Sebenarnya:
 1. **Dashboard Superadmin (`/superadmin/dashboard`)**:
    - Pusat pemantauan menyeluruh: Statistik pengisian tracer, ringkasan instrumen kuesioner, status approval perusahaan, dan peringatan operasional.

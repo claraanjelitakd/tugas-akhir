@@ -603,6 +603,10 @@ Tidak ada tabel baru yang dibuat untuk normalisasi jawaban. Migrasi backfill_leg
 
 ---
 
+### Kontrak agregasi Dashboard Superadmin
+
+Dashboard Superadmin memakai v_alumni_audit_rekap sebagai proyeksi baca untuk agregasi satu-kueri. Metrik yang dipakai adalah answered_mandatory_univ untuk response rate, is_profile_complete untuk profil, dan is_complete_univ untuk kuesioner universitas. Tidak ada tabel baru untuk metrik ini; view tetap merupakan proyeksi dari tabel sumber.
+
 ## 3. Matriks Relasi Antar Tabel
 
 | Entitas Sumber (Parent) | Relasi | Entitas Tujuan (Child) | Foreign Key / Constraint | Deskripsi & Perilaku Relasi |

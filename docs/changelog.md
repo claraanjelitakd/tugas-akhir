@@ -4,6 +4,11 @@
 
 ## 22 Oktober 2026
 
+- **Dashboard Superadmin – metrik partisipasi dan kelengkapan**: menggunakan satu agregasi dari v_alumni_audit_rekap untuk response rate, kelengkapan profil, kelengkapan kuesioner universitas, dan gabungan keduanya. Kuesioner prodi sengaja tidak masuk ke ringkasan kelengkapan universitas.
+- **Klasifikasi response rate**: menetapkan tiga status visual yang dapat diaudit, yaitu merah (<50%), kuning (50–74,9%), dan hijau (>=75%). Response rate mengukur alumni yang telah mulai menjawab, bukan bukti bahwa seluruh pertanyaan wajib sudah selesai.
+- **UI Dashboard Superadmin**: menambahkan panel kelengkapan dengan jumlah dan persentase alumni lengkap, serta menyederhanakan aksen tampilan menjadi hijau tua dan kuning tua tanpa gradasi. Status response rate tetap memakai merah sebagai tanda perlu perhatian.
+- Menambahkan feature test dashboard untuk kontrak metrik kelengkapan dan ketiga ambang response rate.
+
 - **Kebijakan privasi profil alumni**: menyembunyikan NIK, NPWP, KK, NISN, BPJS, email mahasiswa, data pembimbing/penguji, publikasi, dan tab data orang tua dari halaman self-service tanpa menghapus kolom atau data lama. Judul tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai referensi akademik non-sensitif.
 - **Konfigurasi Vite**: mengganti penggunaan `__dirname` dengan `import.meta.dirname` pada alias agar warning `configLoader: 'native'` tidak muncul pada Vite terbaru.
 - **Evaluasi Atasan**: memperbaiki pemetaan nilai jawaban (`nilai`), field kontak/perusahaan, status selesai, serta menghapus token akses dari payload halaman detail admin.

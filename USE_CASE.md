@@ -10,6 +10,8 @@ Sesuai prinsip pemodelan UML standar, proses bisnis yang identik antar-peran (se
 
 > Revisi 22 Oktober 2026: UC-15 tetap satu use case verifikasi perusahaan untuk Superadmin, Admin Fakultas, dan Admin Prodi. Ketiganya memakai tampilan dan tindakan yang sama, tetapi cakupan data dibatasi oleh role: seluruh universitas, prodi dalam fakultas, atau prodi pengguna. Pengaturan kuesioner per prodi juga memakai halaman bersama dengan batas daftar prodi yang sama.
 
+> Revisi 23 Oktober 2026: Dashboard Superadmin memisahkan response rate dari kelengkapan. Response rate memakai tiga ambang visual (<50% merah, 50–74,9% kuning, >=75% hijau), sedangkan kelengkapan hanya menggabungkan profil dan kuesioner universitas. Kuesioner prodi tidak dihitung dalam panel ringkasan universitas.
+
 ## 1. Landasan Teori & Komponen UML Use Case
 
 Berdasarkan standar Unified Modeling Language (UML), use case digunakan untuk memodelkan interaksi antara pengguna eksternal (*actor*) dengan fungsionalitas di dalam batas sistem (*system boundary*).

@@ -25,28 +25,55 @@ use Inertia\Response;
  */
 class DashboardController extends Controller
 {
+    private const RESPONSE_RATE_YELLOW_THRESHOLD = 50.0;
+
+    private const RESPONSE_RATE_GREEN_THRESHOLD = 75.0;
+
     /**
      * Tampilkan Dashboard Superadmin beserta metrik ringkasan sistem.
-     *
-     * @return Response
      */
-    public function tampilkanDashboard(Request $request)
+    public function tampilkanDashboard(Request $request): Response
     {
         $user = $request->user();
 
         // 1. Menghitung ringkasan statistik kuesioner dan partisipasi via v_alumni_audit_rekap
         $totalPertanyaan = RefSubpertanyaan2021::count();
         $totalSections = KelompokPertanyaan::count();
-        $totalAlumni = DB::table('v_alumni_audit_rekap')->count();
-        $totalResponden = DB::table('v_alumni_audit_rekap')->where('answered_mandatory_univ', '>', 0)->count();
+        $dashboardAggregate = DB::table('v_alumni_audit_rekap')
+            ->selectRaw('COUNT(*) AS total_alumni')
+            ->selectRaw('SUM(CASE WHEN answered_mandatory_univ > 0 THEN 1 ELSE 0 END) AS total_responden')
+            ->selectRaw('SUM(CASE WHEN is_profile_complete = 1 THEN 1 ELSE 0 END) AS profile_complete_count')
+            ->selectRaw('SUM(CASE WHEN is_complete_univ = 1 THEN 1 ELSE 0 END) AS university_complete_count')
+            ->selectRaw('SUM(CASE WHEN is_profile_complete = 1 AND is_complete_univ = 1 THEN 1 ELSE 0 END) AS overall_complete_count')
+            ->selectRaw("SUM(CASE WHEN (linkedin_url IS NOT NULL AND linkedin_url != '') OR (linkedin_username IS NOT NULL AND linkedin_username != '') THEN 1 ELSE 0 END) AS total_linkedin")
+            ->first();
+
+        $totalAlumni = (int) ($dashboardAggregate->total_alumni ?? 0);
+        $totalResponden = (int) ($dashboardAggregate->total_responden ?? 0);
         $totalProdi = Prodi::count();
         $totalPendingPerusahaan = Perusahaan::where('status_verifikasi', 'Menunggu Verifikasi')->count();
         $responseRate = $totalAlumni > 0 ? round(($totalResponden / $totalAlumni) * 100, 1) : 0;
 
-        $totalLinkedIn = DB::table('v_alumni_audit_rekap')->where(function ($q) {
-            $q->whereNotNull('linkedin_url')->where('linkedin_url', '!=', '')
-                ->orWhereNotNull('linkedin_username')->where('linkedin_username', '!=', '');
-        })->count();
+        $totalLinkedIn = (int) ($dashboardAggregate->total_linkedin ?? 0);
+
+        $completionMetrics = [
+            'population' => $totalAlumni,
+            'profile' => $this->buildCompletionMetric(
+                'Profil Alumni',
+                (int) ($dashboardAggregate->profile_complete_count ?? 0),
+                $totalAlumni,
+            ),
+            'university_questionnaire' => $this->buildCompletionMetric(
+                'Kuesioner Universitas',
+                (int) ($dashboardAggregate->university_complete_count ?? 0),
+                $totalAlumni,
+            ),
+            'profile_and_university' => $this->buildCompletionMetric(
+                'Profil dan Kuesioner Universitas',
+                (int) ($dashboardAggregate->overall_complete_count ?? 0),
+                $totalAlumni,
+            ),
+        ];
 
         // 2. Ringkasan Partisipasi per Program Studi se-Universitas (Single Aggregated Query)
         $statsPerProdi = DB::table('v_alumni_audit_rekap')
@@ -75,6 +102,7 @@ class DashboardController extends Controller
                     'total_alumni' => $totalBio,
                     'total_responden' => $respondenCount,
                     'response_rate' => $rate,
+                    'response_rate_status' => $this->getResponseRateStatus($rate),
                 ];
             });
 
@@ -140,11 +168,51 @@ class DashboardController extends Controller
                 'total_pending_perusahaan' => $totalPendingPerusahaan,
                 'response_rate' => $responseRate,
                 'total_linkedin' => $totalLinkedIn,
+                'response_rate_status' => $this->getResponseRateStatus($responseRate),
             ],
+            'completionMetrics' => $completionMetrics,
             'prodiSummaries' => $prodiSummaries,
             'recentAlumni' => $recentAlumni,
             'recentLogs' => $recentLogs,
             'pendingPerusahaanList' => $pendingPerusahaanList,
         ]);
+    }
+
+    /**
+     * @return array{code: string, label: string}
+     */
+    private function getResponseRateStatus(float $rate): array
+    {
+        if ($rate < self::RESPONSE_RATE_YELLOW_THRESHOLD) {
+            return [
+                'code' => 'red',
+                'label' => 'Di bawah 50%',
+            ];
+        }
+
+        if ($rate < self::RESPONSE_RATE_GREEN_THRESHOLD) {
+            return [
+                'code' => 'yellow',
+                'label' => '50–74,9%',
+            ];
+        }
+
+        return [
+            'code' => 'green',
+            'label' => '75% atau lebih',
+        ];
+    }
+
+    /**
+     * @return array{label: string, completed_count: int, population: int, percentage: float}
+     */
+    private function buildCompletionMetric(string $label, int $completedCount, int $population): array
+    {
+        return [
+            'label' => $label,
+            'completed_count' => $completedCount,
+            'population' => $population,
+            'percentage' => $population > 0 ? round(($completedCount / $population) * 100, 1) : 0,
+        ];
     }
 }

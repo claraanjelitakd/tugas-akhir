@@ -9,6 +9,18 @@ Dokumen ini menjelaskan struktur antarmuka dan batas akses untuk Superadmin, Adm
 - Pembatasan data wajib berada di controller dan query backend; filter di browser bukan mekanisme otorisasi.
 - Komponen bersama berada di `resources/js/components` dan digunakan lewat wrapper pada direktori role yang sudah ada.
 
+### Kontrak metrik Dashboard Superadmin
+
+DashboardController mengambil metrik ringkasan dari satu agregasi v_alumni_audit_rekap, bukan menghitung status per alumni di dalam loop. Kontrak dashboard memisahkan tiga hal:
+
+1. **Response rate**: jumlah alumni dengan minimal satu jawaban wajib universitas dibagi seluruh alumni lulusan. Ini mengukur partisipasi awal, bukan kelengkapan.
+2. **Kelengkapan profil**: jumlah baris dengan is_profile_complete = 1.
+3. **Kelengkapan kuesioner universitas**: jumlah baris dengan is_complete_univ = 1; pertanyaan opsional dan pertanyaan wajib yang dilewati oleh alur tidak menjadi kekurangan pada sumber statusnya.
+
+Kartu gabungan hanya menganggap alumni lengkap apabila profil dan kuesioner universitas sama-sama lengkap. Kuesioner prodi tetap tersedia di modul audit, tetapi tidak memengaruhi panel kelengkapan Dashboard Superadmin pada tahap ini.
+
+Klasifikasi response rate bersifat eksplisit dan dapat diubah di controller: merah untuk <50%, kuning untuk 50–74,9%, dan hijau untuk >=75%. Frontend menerima kode status dari backend dan hanya memetakan kode tersebut ke kelas warna statis agar aman terhadap proses build Tailwind.
+
 ## Struktur Frontend
 
 ```text
