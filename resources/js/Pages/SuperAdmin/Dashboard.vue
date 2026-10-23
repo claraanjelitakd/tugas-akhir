@@ -2,7 +2,6 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Sidebar from '@/Pages/SuperAdmin/Components/Sidebar.vue';
-import AdminPageHeader from '@/components/AdminPageHeader.vue';
 
 const props = defineProps({
     user: Object,
@@ -172,16 +171,25 @@ const filteredAlumni = computed(() => {
         <!-- Area Konten Utama -->
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             
-            <AdminPageHeader
-                eyebrow="Pusat Kendali"
-                title="Dashboard Super Administrator"
-                description="Pantau partisipasi, kelengkapan, dan tindak lanjut utama universitas."
-                context-label="Otoritas Pusat"
-                :context-value="`${user?.name || 'Super Admin'} (Universitas)`"
-            />
+            <header class="bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
+                <div class="w-full max-w-[1440px] mx-auto">
+                    <nav class="flex items-center gap-2 text-xs text-emerald-100 font-medium mb-2.5">
+                        <span>Tracer Study</span>
+                        <span class="text-emerald-300/60">/</span>
+                        <span class="text-white font-bold bg-white/10 px-2 py-0.5 rounded-md">Pusat Kendali</span>
+                    </nav>
+
+                    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
+                        Dashboard Super Administrator
+                    </h1>
+                    <p class="text-emerald-100/90 text-xs sm:text-sm font-normal mt-1.5 max-w-2xl leading-relaxed">
+                        Pantau partisipasi, kelengkapan, dan tindak lanjut utama universitas.
+                    </p>
+                </div>
+            </header>
 
             <!-- Main Body Area -->
-            <main class="flex-1 p-5 sm:p-6 space-y-5 overflow-x-auto min-w-0">
+            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
                 
                 <!-- Ringkasan eksekutif: hanya metrik yang diperlukan untuk keputusan awal -->
                 <div
@@ -204,21 +212,19 @@ const filteredAlumni = computed(() => {
                     </Link>
                 </div>
 
-                <section class="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr_1fr] border border-slate-200 bg-white rounded-2xl divide-y lg:divide-y-0 lg:divide-x divide-slate-200 overflow-hidden">
-                    <div class="p-5 sm:p-6 bg-[#F4F8F5]">
-                        <div class="flex items-center justify-between gap-3">
-                            <span class="text-xs font-bold uppercase tracking-wide text-[#0D542B]">Response rate universitas</span>
+                <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
+                    <article class="bg-[#F4F8F5] rounded-xl p-5 border border-[#B7D5C1] min-w-0">
+                        <div class="flex items-start justify-between gap-3">
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-[#0D542B]">Response rate universitas</p>
                             <span
-                                :class="['px-2 py-1 rounded-md text-[10px] font-bold border', getResponseRateClass(stats?.response_rate_status?.code, 'badge')]"
+                                :class="['px-1.5 py-0.5 rounded text-[9px] font-bold border shrink-0', getResponseRateClass(stats?.response_rate_status?.code, 'badge')]"
                             >
                                 {{ stats?.response_rate_status?.label || 'Belum dihitung' }}
                             </span>
                         </div>
-                        <div class="mt-5 flex items-end gap-2">
-                            <span class="text-4xl font-extrabold tracking-tight text-[#0D542B]">{{ stats?.response_rate || 0 }}%</span>
-                            <span class="pb-1 text-xs text-slate-500">
-                                {{ stats?.total_responden || 0 }} dari {{ stats?.total_alumni || 0 }} alumni
-                            </span>
+                        <div class="mt-4 flex items-end gap-2">
+                            <p class="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0D542B]">{{ stats?.response_rate || 0 }}%</p>
+                            <p class="pb-1 text-xs text-slate-500">{{ stats?.total_responden || 0 }} dari {{ stats?.total_alumni || 0 }} alumni</p>
                         </div>
                         <div class="mt-4 h-2 rounded-full bg-white overflow-hidden">
                             <div
@@ -226,31 +232,42 @@ const filteredAlumni = computed(() => {
                                 :style="{ width: (Math.min(stats?.response_rate || 0, 100) + '%') }"
                             ></div>
                         </div>
-                    </div>
+                    </article>
 
-                    <div class="p-5 sm:p-6">
-                        <span class="text-xs font-bold uppercase tracking-wide text-slate-500">Kelengkapan gabungan</span>
-                        <div class="mt-5 flex items-end gap-2">
-                            <span class="text-3xl font-extrabold tracking-tight text-slate-900">{{ completionMetrics?.profile_and_university?.percentage || 0 }}%</span>
-                            <span class="pb-1 text-xs text-slate-500">
-                                {{ completionMetrics?.profile_and_university?.completed_count || 0 }} alumni lengkap
+                    <article class="bg-white rounded-xl p-5 border border-slate-200 min-w-0">
+                        <div class="flex items-start justify-between gap-3">
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Kelengkapan gabungan</p>
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#F8EDC8] text-[#6A4B00] border border-[#D8B642] shrink-0">
+                                Profil + Univ.
                             </span>
                         </div>
-                        <p class="mt-4 text-xs leading-5 text-slate-500">
-                            Profil dan kuesioner universitas, tanpa kuesioner prodi.
-                        </p>
-                    </div>
-
-                    <div class="p-5 sm:p-6">
-                        <span class="text-xs font-bold uppercase tracking-wide text-slate-500">Populasi lulusan</span>
-                        <div class="mt-5 flex items-end gap-2">
-                            <span class="text-3xl font-extrabold tracking-tight text-slate-900">{{ stats?.total_alumni || 0 }}</span>
-                            <span class="pb-1 text-xs text-slate-500">alumni terdata</span>
+                        <div class="mt-4 flex items-end gap-2">
+                            <p class="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0D542B]">{{ completionMetrics?.profile_and_university?.percentage || 0 }}%</p>
+                            <p class="pb-1 text-xs text-slate-500">{{ completionMetrics?.profile_and_university?.completed_count || 0 }} alumni lengkap</p>
                         </div>
-                        <p class="mt-4 text-xs leading-5 text-slate-500">
+                        <div class="mt-4 h-2 rounded-full bg-slate-200 overflow-hidden">
+                            <div
+                                :class="['h-2 rounded-full transition-all duration-500', getCompletionBarClass(completionMetrics?.profile_and_university?.percentage || 0)]"
+                                :style="{ width: (Math.min(completionMetrics?.profile_and_university?.percentage || 0, 100) + '%') }"
+                            ></div>
+                        </div>
+                    </article>
+
+                    <article class="bg-white rounded-xl p-5 border border-slate-200 min-w-0 sm:col-span-2 xl:col-span-1">
+                        <div class="flex items-start justify-between gap-3">
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Populasi lulusan</p>
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                                Universitas
+                            </span>
+                        </div>
+                        <div class="mt-4 flex items-end gap-2">
+                            <p class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">{{ stats?.total_alumni || 0 }}</p>
+                            <p class="pb-1 text-xs text-slate-500">alumni terdata</p>
+                        </div>
+                        <p class="mt-4 text-xs text-slate-500">
                             Tersebar pada {{ stats?.total_prodi || 0 }} program studi.
                         </p>
-                    </div>
+                    </article>
                 </section>
 
                 <div class="flex flex-wrap items-center gap-x-6 gap-y-2 px-1 text-xs text-slate-500">

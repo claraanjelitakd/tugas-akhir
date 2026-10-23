@@ -5,6 +5,7 @@
 ## 23 Oktober 2026
 
 - **Penyederhanaan Dashboard Superadmin**: merangkum metrik utama menjadi response rate, kelengkapan gabungan, dan populasi lulusan; detail kelengkapan kini dipilih melalui tab interaktif; pintasan modul yang berulang dihapus dari area utama agar fokus dashboard lebih jelas.
+- **Penyelarasan visual Dashboard Superadmin**: menggunakan hero hijau UKDW dan pola card responsif dari Direktori Alumni, menghapus label konteks "Otoritas Pusat", serta menata ringkasan menjadi grid card yang nyaman pada layar kecil maupun besar.
 
 ## 22 Oktober 2026
 
