@@ -52,6 +52,7 @@ const props = defineProps({
 
 // State Tab Interaktif
 const activeTab = ref('prodi'); // 'prodi' | 'alumni' | 'logs' | 'perusahaan'
+const activeCompletionMetric = ref('profile_and_university');
 
 // State Pencarian & Sorting Prodi
 const searchProdiQuery = ref('');
@@ -86,6 +87,33 @@ const getResponseRateClass = (code, part) => {
 const getCompletionBarClass = (percentage) => {
     return percentage >= 100 ? 'bg-[#0D542B]' : 'bg-[#B28A00]';
 };
+
+const completionMetricOptions = [
+    {
+        key: 'profile_and_university',
+        label: 'Gabungan',
+        description: 'Profil dan kuesioner universitas lengkap',
+    },
+    {
+        key: 'profile',
+        label: 'Profil',
+        description: 'Data profil alumni lengkap',
+    },
+    {
+        key: 'university_questionnaire',
+        label: 'Kuesioner Univ.',
+        description: 'Kuesioner universitas lengkap',
+    },
+];
+
+const selectedCompletionMetric = computed(() => {
+    return props.completionMetrics?.[activeCompletionMetric.value] || {
+        label: 'Kelengkapan',
+        completed_count: 0,
+        population: 0,
+        percentage: 0,
+    };
+});
 
 // Filter & Sort Prodi se-Universitas
 const filteredProdis = computed(() => {
@@ -147,219 +175,144 @@ const filteredAlumni = computed(() => {
             <AdminPageHeader
                 eyebrow="Pusat Kendali"
                 title="Dashboard Super Administrator"
-                description="Kendali menyeluruh instrumen kuesioner universitas dan prodi, verifikasi perusahaan, direktori mahasiswa, serta audit log."
+                description="Pantau partisipasi, kelengkapan, dan tindak lanjut utama universitas."
                 context-label="Otoritas Pusat"
                 :context-value="`${user?.name || 'Super Admin'} (Universitas)`"
             />
 
             <!-- Main Body Area -->
-            <main class="flex-1 p-6 space-y-6 overflow-x-auto min-w-0">
+            <main class="flex-1 p-5 sm:p-6 space-y-5 overflow-x-auto min-w-0">
                 
-                <!-- Notifikasi Peringatan: Pending Verifikasi Perusahaan -->
-                <div 
-                    v-if="stats?.total_pending_perusahaan > 0" 
-                    class="bg-[#F8EDC8] border border-[#D8B642] rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                <!-- Ringkasan eksekutif: hanya metrik yang diperlukan untuk keputusan awal -->
+                <div
+                    v-if="stats?.total_pending_perusahaan > 0"
+                    class="bg-[#FFF9E8] border-l-4 border-[#B28A00] rounded-r-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
-                    <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-xl bg-[#E7CF82] text-[#6A4B00] flex items-center justify-center shrink-0">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                            </svg>
-                        </div>
-                        <div>
-                            <span class="text-xs font-bold text-[#6A4B00] block">Antrean ACC Perusahaan Terpusat</span>
-                            <span class="text-xs text-[#765A12]">
-                                Terdapat <strong>{{ stats.total_pending_perusahaan }} perusahaan baru</strong> yang diajukan oleh alumni dari seluruh program studi menanti verifikasi Anda.
-                            </span>
-                        </div>
+                    <div>
+                        <span class="text-xs font-bold text-[#6A4B00] block">
+                            {{ stats.total_pending_perusahaan }} perusahaan menunggu verifikasi
+                        </span>
+                        <span class="text-xs text-[#765A12]">
+                            Tinjau pengajuan baru sebelum menyetujui master perusahaan.
+                        </span>
                     </div>
-                    <Link 
-                        href="/superadmin/perusahaan" 
-                        class="inline-flex items-center justify-center px-4 py-2 text-xs font-bold rounded-xl bg-[#0D542B] text-white hover:bg-[#08381c] transition-colors shrink-0 cursor-pointer"
+                    <Link
+                        href="/superadmin/perusahaan"
+                        class="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold rounded-lg bg-[#0D542B] text-white hover:bg-[#08381c] transition-colors shrink-0"
                     >
-                        Kelola ACC Perusahaan &rarr;
+                        Tinjau sekarang
                     </Link>
                 </div>
 
-                <!-- Grid 4 Kartu KPI Metrik Eksekutif (Real Data) -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                    
-                    <!-- KPI 1: Total Alumni Terdaftar -->
-                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs transition-shadow">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Alumni</span>
-                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">Database</span>
-                        </div>
-                        <div class="text-3xl font-extrabold text-slate-900 tracking-tight mt-3">
-                            {{ stats?.total_alumni || 0 }}
-                        </div>
-                        <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
-                            <span>Dari {{ stats?.total_prodi || 0 }} Program Studi</span>
-                            <span class="text-[#0D542B] font-semibold">{{ stats?.total_linkedin || 0 }} LinkedIn</span>
-                        </div>
-                    </div>
-
-                    <!-- KPI 2: Responden Masuk & Response Rate -->
-                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs transition-shadow">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-[#0D542B] uppercase tracking-wider">Responden Masuk</span>
+                <section class="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr_1fr] border border-slate-200 bg-white rounded-2xl divide-y lg:divide-y-0 lg:divide-x divide-slate-200 overflow-hidden">
+                    <div class="p-5 sm:p-6 bg-[#F4F8F5]">
+                        <div class="flex items-center justify-between gap-3">
+                            <span class="text-xs font-bold uppercase tracking-wide text-[#0D542B]">Response rate universitas</span>
                             <span
-                                :class="['px-2.5 py-0.5 rounded-full text-[10px] font-bold border', getResponseRateClass(stats?.response_rate_status?.code, 'badge')]"
+                                :class="['px-2 py-1 rounded-md text-[10px] font-bold border', getResponseRateClass(stats?.response_rate_status?.code, 'badge')]"
                             >
                                 {{ stats?.response_rate_status?.label || 'Belum dihitung' }}
                             </span>
                         </div>
-                        <div class="text-3xl font-extrabold text-[#0D542B] tracking-tight mt-3">
-                            {{ stats?.total_responden || 0 }}
-                        </div>
-                        <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
-                            <span>Tingkat respon kampus:</span>
-                            <span :class="['font-bold', getResponseRateClass(stats?.response_rate_status?.code, 'text')]">
-                                {{ stats?.response_rate || 0 }}%
+                        <div class="mt-5 flex items-end gap-2">
+                            <span class="text-4xl font-extrabold tracking-tight text-[#0D542B]">{{ stats?.response_rate || 0 }}%</span>
+                            <span class="pb-1 text-xs text-slate-500">
+                                {{ stats?.total_responden || 0 }} dari {{ stats?.total_alumni || 0 }} alumni
                             </span>
                         </div>
-                    </div>
-
-                    <!-- KPI 3: Total Butir Pertanyaan & Section -->
-                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs transition-shadow">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Instrumen Kuesioner</span>
-                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">Dikti</span>
-                        </div>
-                        <div class="text-3xl font-extrabold text-slate-900 tracking-tight mt-3">
-                            {{ stats?.total_pertanyaan || 0 }}
-                        </div>
-                        <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
-                            <span>Terbagi dalam</span>
-                            <span class="font-bold text-slate-700">{{ stats?.total_sections || 0 }} Section</span>
+                        <div class="mt-4 h-2 rounded-full bg-white overflow-hidden">
+                            <div
+                                :class="['h-2 rounded-full transition-all duration-500', getResponseRateClass(stats?.response_rate_status?.code, 'bar')]"
+                                :style="{ width: (Math.min(stats?.response_rate || 0, 100) + '%') }"
+                            ></div>
                         </div>
                     </div>
 
-                    <!-- KPI 4: Pending ACC Perusahaan -->
-                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs transition-shadow">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-[#6A4B00] uppercase tracking-wider">ACC Perusahaan</span>
-                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F8EDC8] text-[#6A4B00] border border-[#D8B642]">Approval</span>
+                    <div class="p-5 sm:p-6">
+                        <span class="text-xs font-bold uppercase tracking-wide text-slate-500">Kelengkapan gabungan</span>
+                        <div class="mt-5 flex items-end gap-2">
+                            <span class="text-3xl font-extrabold tracking-tight text-slate-900">{{ completionMetrics?.profile_and_university?.percentage || 0 }}%</span>
+                            <span class="pb-1 text-xs text-slate-500">
+                                {{ completionMetrics?.profile_and_university?.completed_count || 0 }} alumni lengkap
+                            </span>
                         </div>
-                        <div class="text-3xl font-extrabold text-[#6A4B00] tracking-tight mt-3">
-                            {{ stats?.total_pending_perusahaan || 0 }}
-                        </div>
-                        <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
-                            <span>Status:</span>
-                            <span class="font-bold text-[#765A12]">Menunggu Verifikasi</span>
-                        </div>
+                        <p class="mt-4 text-xs leading-5 text-slate-500">
+                            Profil dan kuesioner universitas, tanpa kuesioner prodi.
+                        </p>
                     </div>
 
+                    <div class="p-5 sm:p-6">
+                        <span class="text-xs font-bold uppercase tracking-wide text-slate-500">Populasi lulusan</span>
+                        <div class="mt-5 flex items-end gap-2">
+                            <span class="text-3xl font-extrabold tracking-tight text-slate-900">{{ stats?.total_alumni || 0 }}</span>
+                            <span class="pb-1 text-xs text-slate-500">alumni terdata</span>
+                        </div>
+                        <p class="mt-4 text-xs leading-5 text-slate-500">
+                            Tersebar pada {{ stats?.total_prodi || 0 }} program studi.
+                        </p>
+                    </div>
+                </section>
+
+                <div class="flex flex-wrap items-center gap-x-6 gap-y-2 px-1 text-xs text-slate-500">
+                    <span>Instrumen <strong class="text-slate-700">{{ stats?.total_pertanyaan || 0 }}</strong> butir / <strong class="text-slate-700">{{ stats?.total_sections || 0 }}</strong> section</span>
+                    <span><strong class="text-[#0D542B]">{{ stats?.total_linkedin || 0 }}</strong> profil LinkedIn terhubung</span>
+                    <Link href="/superadmin/pertanyaan" class="font-bold text-[#0D542B] hover:underline">Kelola instrumen</Link>
+                    <Link href="/superadmin/linkedin-sync" class="font-bold text-[#0D542B] hover:underline">Buka sinkronisasi LinkedIn</Link>
                 </div>
 
-                <!-- Capaian kelengkapan yang dipakai untuk dashboard universitas -->
-                <section class="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs">
-                    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-5">
+                <section class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div class="px-5 sm:px-6 py-5 border-b border-slate-200">
+                        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                            <div>
+                                <h2 class="text-sm font-extrabold text-slate-900">Kelengkapan data</h2>
+                                <p class="text-xs text-slate-500 mt-1">
+                                    Pilih indikator untuk melihat detailnya. Kuesioner prodi tidak dihitung.
+                                </p>
+                            </div>
+                            <div class="inline-flex items-center gap-1 p-1 rounded-lg bg-slate-100 self-start">
+                                <button
+                                    v-for="option in completionMetricOptions"
+                                    :key="option.key"
+                                    type="button"
+                                    @click="activeCompletionMetric = option.key"
+                                    :title="option.description"
+                                    :aria-pressed="activeCompletionMetric === option.key"
+                                    :class="[
+                                        'px-3 py-1.5 rounded-md text-xs font-bold transition-colors',
+                                        activeCompletionMetric === option.key
+                                            ? 'bg-white text-[#0D542B] shadow-2xs'
+                                            : 'text-slate-500 hover:text-slate-800'
+                                    ]"
+                                >
+                                    {{ option.label }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-6 p-5 sm:p-6">
                         <div>
-                            <h2 class="text-sm font-extrabold text-slate-900">Kelengkapan Profil dan Kuesioner Universitas</h2>
-                            <p class="text-xs text-slate-500 mt-1">
-                                Persentase dihitung dari {{ completionMetrics.population || 0 }} alumni. Kuesioner prodi tidak termasuk pada ringkasan ini.
+                            <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">{{ selectedCompletionMetric.label }}</p>
+                            <div class="mt-3 flex items-end gap-2">
+                                <span class="text-4xl font-extrabold tracking-tight text-[#0D542B]">{{ selectedCompletionMetric.percentage || 0 }}%</span>
+                                <span class="pb-1 text-xs text-slate-500">lengkap</span>
+                            </div>
+                            <p class="mt-2 text-xs text-slate-500">
+                                {{ selectedCompletionMetric.completed_count || 0 }} dari {{ selectedCompletionMetric.population || 0 }} alumni
                             </p>
                         </div>
-                        <span class="text-[11px] font-semibold text-slate-500">Wajib yang dilewati alur tidak dihitung sebagai kekurangan</span>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div
-                            v-for="metric in [completionMetrics.profile, completionMetrics.university_questionnaire, completionMetrics.profile_and_university]"
-                            :key="metric.label"
-                            class="rounded-xl border border-slate-200 p-4"
-                        >
-                            <div class="flex items-start justify-between gap-3">
-                                <span class="text-xs font-bold text-slate-700">{{ metric.label }}</span>
-                                <span class="text-lg font-extrabold text-[#0D542B]">{{ metric.percentage || 0 }}%</span>
-                            </div>
-                            <div class="mt-3 h-2 rounded-full bg-slate-200 overflow-hidden">
+                        <div class="flex flex-col justify-center">
+                            <div class="h-3 rounded-full bg-slate-200 overflow-hidden">
                                 <div
-                                    :class="['h-2 rounded-full transition-all duration-500', getCompletionBarClass(metric.percentage || 0)]"
-                                    :style="{ width: `${Math.min(metric.percentage || 0, 100)}%` }"
+                                    :class="['h-3 rounded-full transition-all duration-500', getCompletionBarClass(selectedCompletionMetric.percentage || 0)]"
+                                    :style="{ width: (Math.min(selectedCompletionMetric.percentage || 0, 100) + '%') }"
                                 ></div>
                             </div>
-                            <p class="mt-2 text-[11px] text-slate-500">
-                                {{ metric.completed_count || 0 }} dari {{ metric.population || 0 }} alumni lengkap
+                            <p class="mt-3 text-xs leading-5 text-slate-500">
+                                Persentase mengikuti status audit data. Pertanyaan yang tidak berlaku karena alur percabangan tidak dihitung sebagai kekurangan.
                             </p>
                         </div>
                     </div>
                 </section>
-
-                <!-- Modul Pintasan Aksi Cepat Superadmin (Navigation Hub) -->
-                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs">
-                    <div class="flex items-center justify-between mb-3.5">
-                        <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Pusat Kendali Cepat Super Administrator</span>
-                        <span class="text-xs text-slate-400">Akses Modul Utama</span>
-                    </div>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-                        <Link 
-                            href="/superadmin/alumni" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-[#E9F2EC] border border-slate-200 hover:border-[#B7D5C1] transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Direktori Alumni</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/perusahaan" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-[#E9F2EC] border border-slate-200 hover:border-[#B7D5C1] transition-all flex flex-col items-center text-center group relative cursor-pointer"
-                        >
-                            <span v-if="stats?.total_pending_perusahaan > 0" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#B28A00]"></span>
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">ACC Perusahaan</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/linkedin-sync" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-[#E9F2EC] border border-slate-200 hover:border-[#B7D5C1] transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.62 1.62 0 1 0 0 3.24 1.62 1.62 0 0 0 0-3.24Z"/></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Sync LinkedIn</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/pertanyaan" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-[#E9F2EC] border border-slate-200 hover:border-[#B7D5C1] transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Kuesioner Inti</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/sections" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-[#E9F2EC] border border-slate-200 hover:border-[#B7D5C1] transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Section Univ</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/prodi-kuesioner" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-[#E9F2EC] border border-slate-200 hover:border-[#B7D5C1] transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Kuesioner Prodi</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/manajemen-akun" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-[#E9F2EC] border border-slate-200 hover:border-[#B7D5C1] transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Kelola Akun</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/logs" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-[#E9F2EC] border border-slate-200 hover:border-[#B7D5C1] transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Audit Trail</span>
-                        </Link>
-                    </div>
-                </div>
 
                 <!-- Area Panel Interaktif: Tab Switcher 4 Tab (Prodi, Alumni, Logs, Pending Perusahaan) -->
                 <div class="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">

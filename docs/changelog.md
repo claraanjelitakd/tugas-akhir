@@ -2,6 +2,10 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 23 Oktober 2026
+
+- **Penyederhanaan Dashboard Superadmin**: merangkum metrik utama menjadi response rate, kelengkapan gabungan, dan populasi lulusan; detail kelengkapan kini dipilih melalui tab interaktif; pintasan modul yang berulang dihapus dari area utama agar fokus dashboard lebih jelas.
+
 ## 22 Oktober 2026
 
 - **Dashboard Superadmin – metrik partisipasi dan kelengkapan**: menggunakan satu agregasi dari v_alumni_audit_rekap untuk response rate, kelengkapan profil, kelengkapan kuesioner universitas, dan gabungan keduanya. Kuesioner prodi sengaja tidak masuk ke ringkasan kelengkapan universitas.
