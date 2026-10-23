@@ -91,7 +91,9 @@ class DashboardController extends Controller
             }
         }
 
-        $prodiPercentage = ($prodiQuestionsCount > 0) ? (int) round(($prodiAnsweredCount / $prodiQuestionsCount) * 100) : 100;
+        $prodiPercentage = $prodiQuestionsCount > 0
+            ? (int) round(($prodiAnsweredCount / $prodiQuestionsCount) * 100)
+            : null;
 
         $stages = [$profilePercentage, $questionnairePercentage];
         if ($prodiQuestionsCount > 0) {

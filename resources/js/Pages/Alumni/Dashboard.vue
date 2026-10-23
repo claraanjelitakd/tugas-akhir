@@ -17,7 +17,7 @@ defineProps({
     prodiQuestionsCount: { type: Number, default: 0 },
     prodiAnsweredCount: { type: Number, default: 0 },
     prodiCompleted: { type: Boolean, default: false },
-    prodiPercentage: { type: Number, default: 100 },
+    prodiPercentage: { type: Number, default: null },
     overallPercentage: { type: Number, default: 0 },
     isOverallComplete: { type: Boolean, default: false },
 });
@@ -96,9 +96,12 @@ defineProps({
                                 <div class="mt-7 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
                                     <div class="mb-2 flex items-center justify-between gap-3 text-sm">
                                         <span class="font-medium text-slate-600">Progres Kuesioner Prodi</span>
-                                        <span class="font-bold text-slate-950">{{ prodiPercentage }}%</span>
+                                        <span class="font-bold text-slate-950">
+                                            <span v-if="prodiQuestionsCount > 0">{{ prodiPercentage }}%</span>
+                                            <span v-else>-</span>
+                                        </span>
                                     </div>
-                                    <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200" role="progressbar" :aria-valuenow="prodiPercentage" aria-valuemin="0" aria-valuemax="100" aria-label="Progres kuesioner program studi">
+                                    <div v-if="prodiQuestionsCount > 0" class="h-2 w-full overflow-hidden rounded-full bg-slate-200" role="progressbar" :aria-valuenow="prodiPercentage" aria-valuemin="0" aria-valuemax="100" aria-label="Progres kuesioner program studi">
                                         <div class="h-full rounded-full bg-[#0D542B] transition-all duration-300" :style="{ width: `${prodiPercentage}%` }"></div>
                                     </div>
                                     <p class="mt-2.5 text-[11px] text-slate-400">

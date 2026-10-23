@@ -6,8 +6,11 @@
 
 - **Penyederhanaan Dashboard Superadmin**: merangkum metrik utama menjadi response rate, kelengkapan gabungan, dan populasi lulusan; detail kelengkapan kini dipilih melalui tab interaktif; pintasan modul yang berulang dihapus dari area utama agar fokus dashboard lebih jelas.
 - **Penyelarasan visual Dashboard Superadmin**: menggunakan hero hijau UKDW dan pola card responsif dari Direktori Alumni, menghapus label konteks "Otoritas Pusat", serta menata ringkasan menjadi grid card yang nyaman pada layar kecil maupun besar.
-- **Penyempurnaan status dashboard**: mengganti indikator merah dengan palet rose dan indikator kuning dengan kuning resmi UKDW `#FDC700`; panel kelengkapan memakai satu selector yang jelas dan tidak lagi menampilkan pilihan sebagai teks yang berhimpitan.
+- **Penyempurnaan status dashboard**: seluruh indikator response rate memakai aksen hijau atau kuning resmi UKDW `#FDC700`; label ambang status tidak lagi ditampilkan karena warna sudah menjadi penanda visualnya. Antrean ACC perusahaan memakai panel hijau/netral agar tidak tercampur dengan indikator perhatian.
 - **Filter tahun Dashboard Superadmin**: menambahkan filter tahun kelulusan dengan default tahun berjalan, diterapkan pada metrik universitas, ringkasan prodi, dan alumni terbaru. Tampilan dashboard disederhanakan menjadi aksen hijau tua dan kuning UKDW tanpa outline dekoratif, kuning muda, atau panah aksi.
+- **Skenario data dashboard**: menambahkan `DashboardScenarioSeeder` yang idempotent untuk populasi demo 2024–2026 per prodi, dengan target populasi dan responden yang berbeda, jawaban kuesioner prodi hanya untuk prodi yang memiliki instrumen, serta tidak menimpa NIM yang sudah ada.
+- **Status kuesioner prodi**: memperbarui view audit agar prodi tanpa instrumen menghasilkan nilai tidak berlaku (`NULL`) sehingga antarmuka dapat menampilkan `-`, bukan 100%.
+- **Dashboard alumni**: persentase kuesioner prodi tanpa butir kini dikirim sebagai `null` dan ditampilkan sebagai `-`.
 
 ## 22 Oktober 2026
 

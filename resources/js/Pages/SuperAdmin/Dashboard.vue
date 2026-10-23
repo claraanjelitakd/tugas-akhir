@@ -86,17 +86,14 @@ const filterStatus = ref('all'); // 'all' | 'responded' | 'not_responded' | 'lin
 
 const responseRateClasses = {
     red: {
-        badge: 'bg-[#FDC700] text-[#0D542B]',
         text: 'text-[#0D542B]',
         bar: 'bg-[#FDC700]',
     },
     yellow: {
-        badge: 'bg-[#FDC700] text-[#0D542B]',
         text: 'text-[#0D542B]',
         bar: 'bg-[#FDC700]',
     },
     green: {
-        badge: 'bg-[#0D542B] text-white',
         text: 'text-[#0D542B]',
         bar: 'bg-[#0D542B]',
     },
@@ -225,13 +222,13 @@ const filteredAlumni = computed(() => {
                 
                 <div
                     v-if="stats?.total_pending_perusahaan > 0"
-                    class="bg-[#FDC700] rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    class="bg-[#0D542B] rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                     <div>
-                        <span class="text-xs font-bold text-[#0D542B] block">
+                        <span class="text-xs font-bold text-white block">
                             {{ stats.total_pending_perusahaan }} perusahaan menunggu verifikasi
                         </span>
-                        <span class="text-xs text-[#0D542B]">
+                        <span class="text-xs text-emerald-100">
                             Antrean ini ditampilkan untuk semua tahun lulusan.
                         </span>
                     </div>
@@ -247,11 +244,6 @@ const filteredAlumni = computed(() => {
                     <article class="bg-white rounded-xl p-5 shadow-sm min-w-0">
                         <div class="flex items-start justify-between gap-3">
                             <p class="text-[11px] font-bold uppercase tracking-wider text-[#0D542B]">Response rate universitas</p>
-                            <span
-                                :class="['px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0', getResponseRateClass(stats?.response_rate_status?.code, 'badge')]"
-                            >
-                                {{ stats?.response_rate_status?.label || 'Belum dihitung' }}
-                            </span>
                         </div>
                         <div class="mt-4 flex items-end gap-2">
                             <p class="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0D542B]">{{ stats?.response_rate || 0 }}%</p>
@@ -300,13 +292,6 @@ const filteredAlumni = computed(() => {
                         </p>
                     </article>
                 </section>
-
-                <div class="flex flex-wrap items-center gap-x-6 gap-y-2 px-1 text-xs text-slate-500">
-                    <span>Instrumen <strong class="text-slate-700">{{ stats?.total_pertanyaan || 0 }}</strong> butir / <strong class="text-slate-700">{{ stats?.total_sections || 0 }}</strong> section</span>
-                    <span><strong class="text-[#0D542B]">{{ stats?.total_linkedin || 0 }}</strong> profil LinkedIn terhubung</span>
-                    <Link href="/superadmin/pertanyaan" class="font-bold text-[#0D542B] hover:underline">Kelola instrumen</Link>
-                    <Link href="/superadmin/linkedin-sync" class="font-bold text-[#0D542B] hover:underline">Buka sinkronisasi LinkedIn</Link>
-                </div>
 
                 <section class="bg-white rounded-2xl shadow-sm overflow-hidden">
                     <div class="px-5 sm:px-6 py-5">
@@ -405,7 +390,7 @@ const filteredAlumni = computed(() => {
                                 :class="[
                                     'px-3.5 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer',
                                     activeTab === 'perusahaan'
-                                        ? 'text-[#0D542B] bg-[#FDC700]'
+                                        ? 'text-white bg-[#0D542B]'
                                         : 'text-slate-500 hover:text-[#0D542B] hover:bg-slate-100'
                                 ]"
                             >
@@ -488,9 +473,6 @@ const filteredAlumni = computed(() => {
                                                     {{ p.response_rate }}%
                                                 </span>
                                             </div>
-                                            <span :class="['inline-flex mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold', getResponseRateClass(p.response_rate_status?.code, 'badge')]">
-                                                {{ p.response_rate_status?.label || 'Belum dihitung' }}
-                                            </span>
                                         </td>
                                         <td class="py-3 px-4 text-right">
                                             <Link 
@@ -660,7 +642,7 @@ const filteredAlumni = computed(() => {
                             <div 
                                 v-for="c in pendingPerusahaanList" 
                                 :key="c.id" 
-                                class="p-4 rounded-xl bg-[#FDC700] flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#E6B400] transition-colors"
+                                class="p-4 rounded-xl bg-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-200 transition-colors"
                             >
                                 <div>
                                     <div class="flex items-center gap-2">

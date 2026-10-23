@@ -86,5 +86,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             Lulusan2026Seeder::class,
         ]);
+
+        // 8. Skenario populasi dashboard lintas tahun dan program studi
+        $this->call([
+            DashboardScenarioSeeder::class,
+        ]);
     }
 }

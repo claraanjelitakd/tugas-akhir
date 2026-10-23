@@ -108,6 +108,9 @@ class AlumniDashboardPercentageTest extends TestCase
             ->has('overallPercentage')
             ->has('isOverallComplete')
         );
+
+        $this->assertSame(0, $response->viewData('page')['props']['prodiQuestionsCount']);
+        $this->assertNull($response->viewData('page')['props']['prodiPercentage']);
     }
 
     public function test_profile_percentage_updates_when_field_is_deleted(): void
