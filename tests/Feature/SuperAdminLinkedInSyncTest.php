@@ -88,8 +88,6 @@ class SuperAdminLinkedInSyncTest extends TestCase
             'prodi_id' => $this->prodi->id,
             'email_pribadi' => "{$nim}@personal.com",
             'nomor_telepon' => '081234567890',
-            'nik' => '3471012345670001',
-            'npwp' => '12.345.678.9-001.000',
             'linkedin_username' => $linkedinUsername,
             'posisi_jabatan' => 'Staff Awal',
         ]);
@@ -209,8 +207,6 @@ class SuperAdminLinkedInSyncTest extends TestCase
 
         $alumni = $this->createAlumni('71200001', 'Alumni Asli', 'alumniasli');
 
-        $originalNik = $alumni->nik;
-        $originalNpwp = $alumni->npwp;
         $originalNim = $alumni->nim;
         $originalPhone = $alumni->nomor_telepon;
         $originalEmail = $alumni->email_pribadi;
@@ -221,8 +217,6 @@ class SuperAdminLinkedInSyncTest extends TestCase
 
         $fresh = $alumni->fresh();
         $this->assertEquals($originalNim, $fresh->nim);
-        $this->assertEquals($originalNik, $fresh->nik);
-        $this->assertEquals($originalNpwp, $fresh->npwp);
         $this->assertEquals($originalPhone, $fresh->nomor_telepon);
         $this->assertEquals($originalEmail, $fresh->email_pribadi);
 

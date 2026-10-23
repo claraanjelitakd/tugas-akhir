@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\DataOrangTua;
 use App\Models\Kabupaten;
 use App\Models\Prodi;
 use App\Models\Propinsi;
@@ -17,7 +16,7 @@ use Carbon\Carbon;
  * Menambahkan data 10 alumni lulusan tahun 2026 dengan profil karier kosong (skeleton),
  * membuktikan prinsip Zero Duplication & Single Source of Truth:
  * - Seluruh identitas pribadi, tanggal lahir, dan riwayat akademik otomatis ditarik dari `data_akademik`.
- * - Data orang tua otomatis ditarik dari `data_orang_tua`.
+ * - Data akademik tetap menjadi sumber data identitas dan kelulusan.
  * - Data skripsi otomatis ditarik dari `yudisium`.
  * - Kolom karier & perusahaan di `biodata` sengaja kosong (NULL).
  */
@@ -184,8 +183,6 @@ class Lulusan2026Seeder extends Seeder
                     'jenis_kelamin' => $item['jk'],
                     'golongan_darah' => ['O', 'A', 'B', 'AB'][$index % 4],
                     'warga_negara' => 'WNI',
-                    'nik' => '3404'.str_pad((string) (100000000000 + (int) $nim), 12, '0', STR_PAD_LEFT),
-                    'no_kk' => '340411'.str_pad((string) (2000000000 + (int) $nim), 10, '0', STR_PAD_LEFT),
                     'nisn' => '004'.str_pad((string) (1234500 + $index), 7, '0', STR_PAD_LEFT),
                     'no_bpjs' => '000199'.str_pad((string) (7654000 + $index), 7, '0', STR_PAD_LEFT),
                     'nomor_telepon' => '0812'.rand(1000, 9999).str_pad((string) ($index + 11), 4, '0', STR_PAD_LEFT),
@@ -205,29 +202,10 @@ class Lulusan2026Seeder extends Seeder
                 ]
             );
 
-            // 2. Data Orang Tua
-            $dataOrangTua = DataOrangTua::updateOrCreate(
-                ['nim' => $nim],
-                [
-                    'nama_orang_tua' => 'Drs. Hendra '.explode(' ', $item['nama'])[0].', M.M.',
-                    'pekerjaan' => ['Wiraswasta', 'Pegawai Swasta', 'PNS / ASN'][$index % 3],
-                    'alamat' => $dataAkademik->alamat_saat_ini,
-                    'kota' => 'Kabupaten Sleman',
-                    'kabupaten_id' => $kabupaten->id,
-                    'propinsi_id' => $propinsi->id,
-                    'kode_pos' => '55283',
-                    'nomor_telepon' => '08139876'.str_pad((string) ($index * 123), 4, '0', STR_PAD_LEFT),
-                ]
-            );
-
-            // 3. Catatan Yudisium Kelulusan
+            // 2. Catatan Yudisium Kelulusan
             $yudisium = Yudisium::updateOrCreate(
                 ['nim' => $nim],
                 [
-                    'dosen_pembimbing_1' => 'Dr. Budi Susanto, S.Kom., M.T.',
-                    'dosen_pembimbing_2' => 'Gloria Virginia, S.Kom., MAI., Ph.D.',
-                    'dosen_penguji_1' => 'Willy Sudiarto Raharjo, S.Kom., M.Cs.',
-                    'dosen_penguji_2' => 'Laurentius Kuncoro Probo Saputro, S.T., M.Eng.',
                     'judul_ta' => $item['judul_ta'],
                     'judul_ta_inggris' => 'Final Project Title in English for '.$item['nama'],
                     'url_publikasi' => 'https://repository.ukdw.ac.id/handle/123456789/'.$nim,
@@ -256,7 +234,6 @@ class Lulusan2026Seeder extends Seeder
                 ['nim' => $nim],
                 [
                     'user_id' => $user->id,
-                    'orang_tua_id' => $dataOrangTua->id,
                     'yudisium_id' => $yudisium->id,
                     'prodi_id' => $item['prodi']?->id,
                     // Seluruh data karier & perusahaan dikosongkan (NULL)
@@ -274,8 +251,6 @@ class Lulusan2026Seeder extends Seeder
                     'kabupaten_id' => null,
                     'propinsi_id' => null,
                     'kode_pos' => null,
-                    'nik' => null,
-                    'npwp' => null,
                     'nomor_telepon' => null,
                     'email_pribadi' => null,
                     // LinkedIn username (opsional terisi untuk keperluan pengujian sinkronisasi LinkedIn)

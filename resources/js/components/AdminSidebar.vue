@@ -14,67 +14,102 @@ const props = defineProps({
 const page = usePage();
 const isMobileOpen = ref(false);
 
-const roleConfig = computed(() => {
-    const configs = {
-        superadmin: {
-            dashboard: '/superadmin/dashboard', roleLabel: 'Super Administrator', fallbackName: 'Super Administrator', fallbackEmail: 'admin@ukdw.ac.id',
-            sections: [
-                { label: 'Ringkasan & Analisis', items: [{ key: 'dashboard', href: '/superadmin/dashboard', label: 'Dashboard Utama', icon: 'home' }] },
-                { label: 'Manajemen Kuesioner', items: [
-                    { key: 'kuesioner-univ', href: '/superadmin/pertanyaan', label: 'Kuesioner Universitas', icon: 'document', prefixes: ['/superadmin/pertanyaan', '/superadmin/sections'] },
-                    { key: 'kuesioner-prodi', href: '/superadmin/prodi-kuesioner', label: 'Kuesioner Per Prodi', icon: 'book' },
-                    { key: 'evaluasi-atasan', href: '/superadmin/evaluasi-atasan', label: 'Kuesioner Evaluasi Atasan', icon: 'checklist' },
-                ] },
-                { label: 'Master Data & Verifikasi', items: [
-                    { key: 'master-wilayah', href: '/superadmin/master-wilayah', label: 'Master Wilayah & UMP', icon: 'globe' },
-                    { key: 'perusahaan', href: '/superadmin/perusahaan', label: 'Master Data Perusahaan', icon: 'building' },
-                    { key: 'alumni', href: '/superadmin/alumni', label: 'Data Alumni', icon: 'users' },
-                    { key: 'linkedin-sync', href: '/superadmin/linkedin-sync', label: 'Sinkronisasi LinkedIn', icon: 'linkedin' },
-                    { key: 'manajemen-akun', href: '/superadmin/manajemen-akun', label: 'Manajemen Akun', icon: 'key' },
-                    { key: 'logs', href: '/superadmin/logs', label: 'Log Aktivitas', icon: 'document' },
-                ] },
-            ],
-        },
-        admin_prodi: {
-            dashboard: '/prodi/dashboard', roleLabel: 'Admin Program Studi', fallbackName: 'Admin Program Studi', fallbackEmail: 'prodi@ukdw.ac.id',
-            sections: [
-                { label: 'Ringkasan & Analisis', items: [
-                    { key: 'dashboard', href: '/prodi/dashboard', label: 'Dashboard Utama', icon: 'home' },
-                    { key: 'alumni', href: '/prodi/alumni', label: 'Data Alumni Prodi', icon: 'users' },
-                    { key: 'linkedin-sync', href: '/prodi/linkedin-sync', label: 'Sinkronisasi LinkedIn', icon: 'linkedin' },
-                ] },
-                { label: 'Manajemen Kuesioner', items: [{ key: 'kuesioner-prodi', href: '/prodi/kuesioner', label: 'Kuesioner Per Prodi', icon: 'book', prefixes: ['/prodi/kuesioner', '/prodi/sections', '/prodi/section', '/prodi/pertanyaan'] }] },
-                { label: 'Master Data & Verifikasi', items: [
-                    { key: 'perusahaan', href: '/prodi/perusahaan', label: 'Master Data Perusahaan', icon: 'building' },
-                    { key: 'manajemen-akun', href: '/prodi/manajemen-akun', label: 'Manajemen Akun Mahasiswa', icon: 'key' },
-                ] },
-            ],
-        },
-        admin_fakultas: {
-            dashboard: '/fakultas/dashboard', roleLabel: 'Admin Fakultas', fallbackName: 'Admin Fakultas', fallbackEmail: 'fakultas@ukdw.ac.id',
-            sections: [
-                { label: 'Ringkasan & Analisis', items: [
-                    { key: 'dashboard', href: '/fakultas/dashboard', label: 'Dashboard Utama', icon: 'home' },
-                    { key: 'alumni', href: '/fakultas/alumni', label: 'Data Alumni Fakultas', icon: 'users' },
-                    { key: 'linkedin-sync', href: '/fakultas/linkedin-sync', label: 'Sinkronisasi LinkedIn', icon: 'linkedin' },
-                ] },
-                { label: 'Manajemen Kuesioner', items: [{ key: 'kuesioner-prodi', href: '/fakultas/prodi-kuesioner', label: 'Kuesioner Per Prodi', icon: 'book' }] },
-                { label: 'Master Data & Verifikasi', items: [
-                    { key: 'perusahaan', href: '/fakultas/perusahaan', label: 'Master Data Perusahaan', icon: 'building' },
-                    { key: 'manajemen-akun', href: '/fakultas/manajemen-akun', label: 'Manajemen Akun Mahasiswa', icon: 'key' },
-                ] },
-            ],
-        },
-        admin_biro3: {
-            dashboard: '/biro3/dashboard', roleLabel: 'Biro 3 Kemahasiswaan', fallbackName: 'Admin Biro 3 UKDW', fallbackEmail: 'biro3@ukdw.ac.id',
-            sections: [{ label: 'Ringkasan & Analisis', items: [
-                { key: 'dashboard', href: '/biro3/dashboard', label: 'Dashboard Utama', icon: 'home' },
-                { key: 'alumni', href: '/biro3/alumni', label: 'Data Alumni Universitas', icon: 'users' },
-            ] }],
-        },
-    };
+const roleDefinitions = {
+    superadmin: {
+        dashboard: '/superadmin/dashboard',
+        roleLabel: 'Super Administrator',
+        fallbackName: 'Super Administrator',
+        fallbackEmail: 'admin@ukdw.ac.id',
+        alumniLabel: 'Data Alumni',
+        capabilities: { universityQuestionnaire: true, prodiQuestionnaire: true, supervisorEvaluation: true, wilayah: true, linkedin: true, company: true, accounts: true, logs: true },
+    },
+    admin_prodi: {
+        dashboard: '/prodi/dashboard',
+        roleLabel: 'Admin Program Studi',
+        fallbackName: 'Admin Program Studi',
+        fallbackEmail: 'prodi@ukdw.ac.id',
+        alumniLabel: 'Data Alumni Prodi',
+        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: true },
+    },
+    admin_fakultas: {
+        dashboard: '/fakultas/dashboard',
+        roleLabel: 'Admin Fakultas',
+        fallbackName: 'Admin Fakultas',
+        fallbackEmail: 'fakultas@ukdw.ac.id',
+        alumniLabel: 'Data Alumni Fakultas',
+        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: true },
+    },
+    admin_biro3: {
+        dashboard: '/biro3/dashboard',
+        roleLabel: 'Biro 3 Kemahasiswaan',
+        fallbackName: 'Admin Biro 3 UKDW',
+        fallbackEmail: 'biro3@ukdw.ac.id',
+        alumniLabel: 'Data Alumni Universitas',
+        capabilities: {},
+    },
+};
 
-    return configs[props.role] || configs.superadmin;
+const createMenuItem = (key, href, label, icon, prefixes = []) => ({
+    key,
+    href,
+    label,
+    icon,
+    ...(prefixes.length > 0 ? { prefixes } : {}),
+});
+
+const createSections = (role) => {
+    const definition = roleDefinitions[role] || roleDefinitions.superadmin;
+    const capabilities = definition.capabilities || {};
+    const prefix = definition.dashboard.split('/')[1];
+    const prodiQuestionnaireHref = role === 'admin_prodi'
+        ? '/prodi/kuesioner'
+        : role === 'admin_fakultas'
+            ? '/fakultas/prodi-kuesioner'
+            : '/superadmin/prodi-kuesioner';
+    const sections = [
+        {
+            label: 'Ringkasan & Analisis',
+            items: [
+                createMenuItem('dashboard', definition.dashboard, 'Dashboard Utama', 'home'),
+                createMenuItem('alumni', `/${prefix}/alumni`, definition.alumniLabel, 'users'),
+                ...(capabilities.linkedin ? [createMenuItem('linkedin-sync', `/${prefix}/linkedin-sync`, 'Sinkronisasi LinkedIn', 'linkedin')] : []),
+            ],
+        },
+        {
+            label: 'Manajemen Kuesioner',
+            items: [
+                ...(capabilities.universityQuestionnaire ? [createMenuItem('kuesioner-univ', '/superadmin/pertanyaan', 'Kuesioner Universitas', 'document', ['/superadmin/pertanyaan', '/superadmin/sections'])] : []),
+                ...(capabilities.prodiQuestionnaire ? [createMenuItem(
+                    'kuesioner-prodi',
+                    prodiQuestionnaireHref,
+                    'Kuesioner Per Prodi',
+                    'book',
+                    role === 'admin_prodi' ? ['/prodi/kuesioner', '/prodi/sections', '/prodi/section', '/prodi/pertanyaan'] : [],
+                )] : []),
+                ...(capabilities.supervisorEvaluation ? [createMenuItem('evaluasi-atasan', '/superadmin/evaluasi-atasan', 'Kuesioner Evaluasi Atasan', 'checklist')] : []),
+            ],
+        },
+        {
+            label: 'Master Data & Verifikasi',
+            items: [
+                ...(capabilities.wilayah ? [createMenuItem('master-wilayah', '/superadmin/master-wilayah', 'Master Wilayah & UMP', 'globe')] : []),
+                ...(capabilities.company ? [createMenuItem('perusahaan', `/${prefix}/perusahaan`, 'Master Data Perusahaan', 'building')] : []),
+                ...(capabilities.accounts ? [createMenuItem('manajemen-akun', `/${prefix}/manajemen-akun`, 'Manajemen Akun', 'key')] : []),
+                ...(capabilities.logs ? [createMenuItem('logs', '/superadmin/logs', 'Log Aktivitas', 'document')] : []),
+            ],
+        },
+    ];
+
+    return sections.filter((section) => section.items.length > 0);
+};
+
+const roleConfig = computed(() => {
+    const definition = roleDefinitions[props.role] || roleDefinitions.superadmin;
+
+    return {
+        ...definition,
+        sections: createSections(props.role),
+    };
 });
 
 const currentUser = computed(() => props.user?.name ? props.user : (page.props.auth?.user || {
@@ -158,7 +193,7 @@ const handleLogout = () => {
             <nav class="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3">
                 <div v-for="section in roleConfig.sections" :key="section.label">
                     <div class="px-2.5 pb-1 pt-3 first:pt-1"><span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ section.label }}</span></div>
-                    <Link v-for="item in section.items" :key="item.key" :href="item.href" @click="closeMobileMenu" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors" :class="isActive(item) ? 'bg-[#0D542B] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'">
+                    <Link v-for="item in section.items" :key="item.key" :href="item.href" @click="closeMobileMenu" :aria-current="isActive(item) ? 'page' : undefined" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors" :class="isActive(item) ? 'bg-[#0D542B] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'">
                         <svg v-if="item.icon === 'linkedin'" class="h-4 w-4 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" /></svg>
                         <svg v-else class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path v-if="item.icon === 'home'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001 1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />

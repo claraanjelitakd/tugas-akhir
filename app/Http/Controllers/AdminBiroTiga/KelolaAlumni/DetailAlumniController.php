@@ -44,9 +44,7 @@ class DetailAlumniController extends Controller
     {
         $alumni = Biodata::with([
             'dataAkademik.yudisium',
-            'dataAkademik.orangTua',
             'yudisium',
-            'orangTua',
             'perusahaan.propinsi',
             'perusahaan.kabupaten',
             'atasan',
@@ -163,7 +161,6 @@ class DetailAlumniController extends Controller
 
         // Susun Data Form Profil Lengkap
         $dataAkademik = $alumni->dataAkademik;
-        $orangTua = $alumni->orangTua ?? $dataAkademik?->orangTua;
         $yudisium = $alumni->yudisium ?? $dataAkademik?->yudisium;
         $atasan = $alumni->atasan;
 

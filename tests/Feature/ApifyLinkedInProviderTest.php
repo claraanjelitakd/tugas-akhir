@@ -91,7 +91,6 @@ class ApifyLinkedInProviderTest extends TestCase
             'posisi_jabatan' => 'Staff Pemula',
             'skills' => null,
             'experience' => null,
-            'expert' => null,
         ]);
     }
 
@@ -505,7 +504,6 @@ class ApifyLinkedInProviderTest extends TestCase
 
         // Skills dipetakan ke field skills jika sebelumnya kosong
         $this->assertStringContainsString('PHP', $fresh->skills);
-        $this->assertStringContainsString('PHP', $fresh->expert);
         $this->assertNotNull($fresh->experience);
     }
 
@@ -666,7 +664,6 @@ class ApifyLinkedInProviderTest extends TestCase
 
         $fresh = $alumni->fresh();
         $this->assertEquals('IT Audit, Business Process Management, Laravel, Vue.js', $fresh->skills);
-        $this->assertEquals('IT Audit, Business Process Management, Laravel, Vue.js', $fresh->expert);
         $this->assertEquals('System Analyst Intern', $fresh->posisi_jabatan);
     }
 

@@ -53,9 +53,7 @@ class DetailAlumniSuperAdminController extends Controller
     {
         $alumni = Biodata::with([
             'dataAkademik.yudisium',
-            'dataAkademik.orangTua',
             'yudisium',
-            'orangTua',
             'perusahaan.propinsi',
             'perusahaan.kabupaten',
             'atasan',

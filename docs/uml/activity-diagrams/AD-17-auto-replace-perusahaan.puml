@@ -4,8 +4,32 @@ title AD-17 Auto-Replace Perusahaan Pending
 start
 :Pilih perusahaan pending dan master target;
 |Backend|
-:Validasi scope, status, dan target;
-if (Valid?) then (ya)
+if (Pending dan target terverifikasi?) then (ya)
+  :Validasi scope dan target berbeda;
+  |Database|
+  :Mulai transaksi;
+  :Ambil seluruh biodata yang memakai perusahaan pending;
+  :Hitung jumlah alumni terdampak;
+  :Alihkan biodata.perusahaan_id ke master;
+  :Alihkan evaluasi_atasan.perusahaan_id;
+  :Ganti jawaban tracer bernilai nama pending;
+  :Ganti jawaban tracer F5B dan F2E;
+  :Hapus record perusahaan pending;
+  :Simpan LogActivity sumber, target, dan jumlah alumni;
+  if (Semua operasi berhasil?) then (ya)
+    :Commit transaksi;
+    |Backend|
+    :Kembalikan jumlah alumni terdampak dan nama master;
+  else (tidak)
+    :Rollback transaksi;
+    |Backend|
+    :Kembalikan error tanpa perubahan parsial;
+  endif
+else (tidak)
+  :Kembalikan validation error atau 403/404;
+endif
+stop
+@enduml
   |Database|
   :Mulai transaksi;
   :Pindahkan biodata.perusahaan_id;

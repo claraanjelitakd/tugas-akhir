@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\DataOrangTua;
 use App\Models\Prodi;
 use App\Models\RefFakultas;
 use App\Models\RefSubpertanyaan2021;
@@ -24,7 +23,7 @@ use Tests\TestCase;
  * AlumniProfileEnhancementTest
  *
  * Menguji integrasi fitur RefFakultas, perapian tabel Biodata, Take Home Pay (Gaji),
- * penguncian NIK (read-only), serta auto-fill data Atasan saat memilih Owner/Wiraswasta.
+ * penghapusan data sensitif dari profil, serta auto-fill data Atasan saat memilih Owner/Wiraswasta.
  */
 class AlumniProfileEnhancementTest extends TestCase
 {
@@ -73,7 +72,6 @@ class AlumniProfileEnhancementTest extends TestCase
             'jenis_kelamin' => 'Perempuan',
             'golongan_darah' => 'O',
             'warga_negara' => 'WNI',
-            'nik' => '3404100000000001',
             'nisn' => '0031234567',
         ]);
 
@@ -82,7 +80,6 @@ class AlumniProfileEnhancementTest extends TestCase
             'nim' => '71200001',
             'prodi_id' => $this->prodi->id,
             'nama' => 'Clara Anjelita',
-            'nik' => '3404100000000001',
             'email_pribadi' => 'clara.pribadi@gmail.com',
             'nomor_telepon' => '081292090001',
         ]);
@@ -110,11 +107,7 @@ class AlumniProfileEnhancementTest extends TestCase
 
     public function test_sensitive_reference_data_is_not_exposed_on_alumni_profile_and_is_preserved_on_save(): void
     {
-        $this->biodata->update([
-            'npwp' => '123456789012345',
-        ]);
         DataAkademik::where('nim', $this->biodata->nim)->update([
-            'no_kk' => '3404100000000002',
             'nisn' => '0031234567',
             'no_bpjs' => '0001234567890',
             'email_students' => '71200001@students.ukdw.ac.id',
@@ -161,26 +154,24 @@ class AlumniProfileEnhancementTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertSame('123456789012345', $this->biodata->fresh()->npwp);
-        $this->assertSame('3404100000000002', DataAkademik::where('nim', $this->biodata->nim)->value('no_kk'));
+        $this->assertNull($this->biodata->fresh()->getAttribute('npwp'));
     }
 
     /**
-     * Test NIK bersifat read-only dan tidak dapat diubah oleh alumni.
+     * Test field sensitif lama tidak dapat disimpan oleh alumni.
      */
-    public function test_nik_cannot_be_modified_by_alumni(): void
+    public function test_removed_sensitive_fields_cannot_be_modified_by_alumni(): void
     {
         $response = $this->actingAs($this->alumniUser)->post('/alumni/profile', [
             'nama' => 'Clara Anjelita Updated',
-            'nik' => '9999999999999999', // mencoba mengganti NIK
+            'nik' => '9999999999999999',
             'nomor_telepon' => '081292090002',
         ]);
 
         $response->assertRedirect();
         $this->biodata->refresh();
 
-        // NIK harus tetap bernilai asli
-        $this->assertEquals('3404100000000001', $this->biodata->nik);
+        $this->assertNull($this->biodata->getAttribute('nik'));
         $this->assertEquals('081292090002', $this->biodata->nomor_telepon);
     }
 
@@ -233,25 +224,16 @@ class AlumniProfileEnhancementTest extends TestCase
 
     public function test_profile_updates_biodata_without_changing_reference_data(): void
     {
-        $parent = DataOrangTua::create([
-            'nim' => $this->biodata->nim,
-            'nama_orang_tua' => 'Nama Referensi',
-            'pekerjaan' => 'Pekerjaan Referensi',
-        ]);
-        $this->biodata->update(['orang_tua_id' => $parent->id]);
         $academicEmail = DataAkademik::where('nim', $this->biodata->nim)->value('email_pribadi');
 
         $response = $this->actingAs($this->alumniUser)->post('/alumni/profile', [
             'email_pribadi' => 'email.biodata.baru@example.com',
-            'nama_orang_tua' => 'Nama Yang Tidak Boleh Tersimpan',
-            'pekerjaan_orang_tua' => 'Pekerjaan Yang Tidak Boleh Tersimpan',
         ]);
 
         $response->assertRedirect();
         $this->assertSame('email.biodata.baru@example.com', $this->biodata->fresh()->email_pribadi);
         $this->assertSame($academicEmail, DataAkademik::where('nim', $this->biodata->nim)->value('email_pribadi'));
-        $this->assertSame('Nama Referensi', $parent->fresh()->nama_orang_tua);
-        $this->assertSame('Pekerjaan Referensi', $parent->fresh()->pekerjaan);
+        $this->assertNull($this->biodata->fresh()->getAttribute('orang_tua_id'));
     }
 
     /**
@@ -284,6 +266,7 @@ class AlumniProfileEnhancementTest extends TestCase
         $this->assertEquals('Clara Anjelita', $atasan->nama);
         $this->assertEquals('clara.pribadi@gmail.com', $atasan->email);
         $this->assertEquals('081292090001', $atasan->telepon);
+        $this->assertDatabaseCount('evaluasi_atasan', 0);
     }
 
     /**

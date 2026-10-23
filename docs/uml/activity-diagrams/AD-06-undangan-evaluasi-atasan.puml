@@ -1,19 +1,56 @@
 @startuml
-title AD-06 Undangan Evaluasi Atasan
+title AD-06 Undangan dan Evaluasi Pengguna Lulusan
 |Alumni/Admin Scope|
 start
-:Isi data atasan;
+:Isi data atasan dan simpan profil;
 |Backend|
-:Validasi email, telepon, dan scope;
-if (Valid?) then (ya)
+:Validasi atasan dan email;
+if (Data valid?) then (ya)
   |Database|
-  :Simpan atau perbarui Atasan;
-  |Mail Service|
-  :Kirim UndanganEvaluasiAtasanMail;
+  :Simpan atau perbarui Atasan pada biodata;
   |Backend|
-  :Kembalikan status pengiriman;
+  :Tidak membuat EvaluasiAtasan dan token saat simpan profil;
+  :Tidak mengirim email otomatis saat simpan profil;
+  |Alumni/Admin Scope|
+  :Klik Kirim Email ke Atasan;
+  |Backend|
+  :Validasi email dan scope target;
+  |Database|
+  :Cari atau buat Atasan;
+  if (EvaluasiAtasan sudah ada?) then (ya)
+    :Pertahankan token yang ada;
+  else (tidak)
+    :Buat EvaluasiAtasan berdasarkan biodata_id;
+    :Generate token acak 40 karakter;
+  endif
+  |Mail Service|
+  :Kirim URL evaluasi-atasan/token;
+  |Atasan/Pengguna Lulusan|
+  :Buka link tanpa login;
+  |Backend|
+  :Validasi token dan status submitted;
+  if (Token valid dan belum submitted?) then (ya)
+    :Muat pertanyaan aktif dan data konteks;
+    |Atasan/Pengguna Lulusan|
+    :Isi informasi, seluruh jawaban, dan catatan;
+    |Backend|
+    :Validasi throttle dan kode pertanyaan;
+    if (Jawaban lengkap dan valid?) then (ya)
+      |Database|
+      :Lock EvaluasiAtasan;
+      :Buat ResponEvaluasiAtasan dengan pertanyaan_id;
+      :Simpan atau perbarui Atasan;
+      :Set is_submitted dan submitted_at;
+      |Backend|
+      :Redirect sukses;
+    else (tidak)
+      :Kembalikan validation error;
+    endif
+  else (tidak)
+    :Render token tidak ditemukan atau sudah selesai;
+  endif
 else (tidak)
-  :Kembalikan error;
+  :Kembalikan error email/atasan;
 endif
 stop
 @enduml

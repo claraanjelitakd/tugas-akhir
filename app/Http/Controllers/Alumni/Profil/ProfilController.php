@@ -14,7 +14,7 @@ use Illuminate\Http\Request;
 /**
  * ProfilController
  *
- * Fungsi: Mengelola halaman pengisian profil alumni (biodata diri, data akademik, dan orang tua).
+ * Fungsi: Mengelola halaman pengisian profil alumni (biodata diri dan data akademik).
  * Tujuan: Menyediakan antarmuka bagi alumni untuk memperbarui data pribadi dan pekerjaan mereka.
  */
 class ProfilController extends Controller
@@ -52,8 +52,7 @@ class ProfilController extends Controller
             'foto' => $biodata?->foto ?? '',
 
             // Kontak & Alamat Pribadi
-            'alamat_saat_ini' => $biodata?->alamat ?? ($dataAkademik?->alamat_saat_ini ?? ''),
-            'alamat' => $biodata?->alamat ?? ($dataAkademik?->alamat_saat_ini ?? ''),
+            'alamat_saat_ini' => $biodata?->alamat_saat_ini ?? ($dataAkademik?->alamat_saat_ini ?? ''),
             'kelurahan' => $biodata?->kelurahan ?? ($dataAkademik?->kelurahan ?? ''),
             'kecamatan' => $biodata?->kecamatan ?? ($dataAkademik?->kecamatan ?? ''),
             'kabupaten_id' => $biodata?->kabupaten_id ?? ($dataAkademik?->kabupaten_id ?? ''),
@@ -65,17 +64,15 @@ class ProfilController extends Controller
 
             // Data Akademik & Yudisium
             'prodi_id' => $biodata?->prodi_id,
-            'kode_prodi' => $biodata?->prodi?->kode_prodi ?? ($dataAkademik?->program_studi ?? ''),
-            'program_studi' => $biodata?->prodi?->nama_prodi ?? ($dataAkademik?->program_studi ?? ''),
-            'fakultas' => $biodata?->prodi?->fakultas?->nama_fakultas ?? ($dataAkademik?->fakultas ?? ''),
+            'kode_prodi' => $biodata?->prodi?->kode_prodi ?? '',
+            'program_studi' => $biodata?->prodi?->nama_prodi ?? '',
+            'fakultas' => $biodata?->prodi?->fakultas?->nama_fakultas ?? '',
             'angkatan_masuk' => $dataAkademik?->angkatan_masuk ?? '',
             'status_mahasiswa' => $dataAkademik?->status_mahasiswa ?? 'AR',
             'tahun_akademik_lulus' => $dataAkademik?->tahun_akademik_lulus ?? '',
             'tahun_lulus' => $dataAkademik?->tahun_lulus ? (string) $dataAkademik->tahun_lulus : '',
             'ipk' => $dataAkademik?->ip_kumulatif ?? '',
             'ip_kumulatif' => $dataAkademik?->ip_kumulatif ?? '',
-            'strata' => $dataAkademik?->strata ?? 'S1',
-            'no_ijazah' => $dataAkademik?->no_ijazah ?? '',
             'total_sks' => $dataAkademik?->total_sks ?? '',
             'total_angka_kualitas' => $dataAkademik?->total_angka_kualitas ?? '',
             'asal_sekolah' => $dataAkademik?->asal_sekolah ?? '',
@@ -91,10 +88,8 @@ class ProfilController extends Controller
             'linkedin_url' => $biodata?->linkedin_url ?? '',
             'linkedin_username' => $biodata?->linkedin_username ?? '',
 
-            'skills' => $biodata?->skills ?? $biodata?->expert ?? '',
-            'experience' => $biodata?->experience ?? $biodata?->minat ?? '',
-            'expert' => $biodata?->skills ?? $biodata?->expert ?? '',
-            'minat' => $biodata?->experience ?? $biodata?->minat ?? '',
+            'skills' => $biodata?->skills ?? '',
+            'experience' => $biodata?->experience ?? '',
             'kategori_pekerjaan' => $biodata?->kategori_pekerjaan ?? '',
             'posisi_jabatan' => $biodata?->posisi_jabatan ?? '',
             'bidang_pekerjaan' => $biodata?->bidang_pekerjaan ?? '',

@@ -1,0 +1,33 @@
+@startuml
+title AD-17A Keputusan Approval Perusahaan
+|Admin Prodi/Fakultas/Superadmin|
+start
+:Buka detail perusahaan pending;
+|Backend|
+:Muat pending dan rekomendasi dari AD-16 sesuai scope;
+|Admin Prodi/Fakultas/Superadmin|
+:Pilih tindakan bisnis;
+if (Verifikasi langsung?) then (ya)
+  |Database|
+  :Set status pending menjadi Terverifikasi;
+  :Simpan LogActivity;
+elseif (Edit lalu verifikasi?) then (ya)
+  |Backend|
+  :Validasi field koreksi;
+  |Database|
+  :Simpan perubahan dan set Terverifikasi;
+  :Simpan LogActivity;
+elseif (Ganti ke master?) then (ya)
+  |Backend|
+  :Panggil AD-17 Auto-replace;
+else (Tolak)
+  |Backend|
+  :Validasi alasan opsional;
+  |Database|
+  :Set status Ditolak;
+  :Simpan LogActivity;
+endif
+|Backend|
+:Kirim sukses setelah operasi selesai;
+stop
+@enduml

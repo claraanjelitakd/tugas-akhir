@@ -1,30 +1,34 @@
 @startuml
-title AD-16 Similarity dan Verifikasi Perusahaan
-|Admin Scope|
+title AD-16 Penerimaan Data dan Rekomendasi Master Perusahaan
+|Alumni atau Proses LinkedIn|
 start
-:Buka antrean perusahaan;
+if (Sumber data?) then (Pengajuan alumni)
+  :Kirim data perusahaan baru;
+else (Hasil LinkedIn)
+  :Hasil approval LinkedIn menghasilkan perusahaan kerja;
+endif
 |Backend|
-:Ambil pending sesuai scope;
-:Normalisasi nama, token, akronim, dan lokasi;
-:Hitung exact, token, substring, similar_text, dan geographic score;
-if (Threshold recommendation tercapai?) then (ya)
-  :Tampilkan rekomendasi master;
+:Simpan atau temukan record perusahaan;
+:Tetapkan status Menunggu Verifikasi sesuai alur sumber;
+|Database|
+:Simpan perusahaan pending;
+|Backend|
+:Saat index dibuka, bangun scope query dari user login;
+|Database|
+:Ambil pending dan master Terverifikasi;
+|Backend|
+:Normalisasi nama, stopword, token, dan akronim;
+:Hitung exact, acronym, substring, partial acronym;
+:Hitung token overlap dan similar_text;
+:Tambahkan geographic score kota atau provinsi;
+if (Memenuhi threshold?) then (ya)
+  :Urutkan dan siapkan maksimal lima rekomendasi;
 else (tidak)
-  :Tampilkan tanpa rekomendasi kuat;
+  :Kembalikan antrean tanpa rekomendasi kuat;
 endif
-|Admin Scope|
-:Pilih verifikasi, edit lalu verifikasi, atau tolak;
+|Database|
+:Tidak ada perubahan status pada tahap rekomendasi;
 |Backend|
-if (Verifikasi?) then (ya)
-  |Database|
-  :Set status Terverifikasi dan tulis log;
-elseif (Edit lalu verifikasi?) then (ya)
-  |Database|
-  :Simpan field tervalidasi dan status;
-  :Tulis log;
-else (Tolak)
-  |Database|
-  :Set status Ditolak dan tulis log;
-endif
+:Render rekomendasi ke halaman antrean;
 stop
 @enduml

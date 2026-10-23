@@ -17,8 +17,9 @@
 | 13 | evaluation question routes | app/Http/Controllers/SuperAdmin/KelolaEvaluasiAtasanController.php | PertanyaanEvaluasiAtasan | Superadmin role, active/order |
 | 14 | role management account routes | role-specific ManajemenAkun controllers | User, Biodata, LogActivity, reset mail | role/scope, unique fields |
 | 15 | /superadmin/wilayah-ump/* | master wilayah controller | Propinsi, Kabupaten, Ump | parent relation, year, cascade behavior |
-| 16 | company index/search/verify/update/reject/replace | app/Services/Perusahaan/PerusahaanVerificationService.php and company controllers | Perusahaan, LogActivity | similarity threshold, geographic score, role scope |
-| 17 | replace endpoint | company controllers/service | Perusahaan, Biodata, Tracer, EvaluasiAtasan, LogActivity | transaction, source/target/status |
+| 16 | company submission and company index | app/Services/Perusahaan/PerusahaanVerificationService.php; company index controllers | Perusahaan, verified master query | normalization, exact/acronym/substring/token/fuzzy similarity, geographic score, threshold |
+| 17A | verify/update/reject/replace decision | company verification controllers | Perusahaan, LogActivity | role route, scoped resource, validated action |
+| 17 | replace endpoint | company controllers/service | Perusahaan, Biodata, Tracer, EvaluasiAtasan, LogActivity | transaction, source/target/status, reference migration |
 | 18 | linkedin sync single | app/Http/Controllers/Shared/LinkedInSyncController.php | ApifyLinkedInProvider, LinkedinSyncResult, LinkedInProfileMapper | URL, token, provider HTTP status, scope |
 | 19 | linkedin sync batch/single official | same shared controller | LinkedInProfileService, ApiLinkedInProvider, MockLinkedInProvider | per-alumni isolation, status |
 | 20 | approve/plot-again/reject/history | same shared controller | LinkedinSyncResult, AlumniLinkedinPlot, Biodata, mapper | pending lock, scope, no destructive overwrite |

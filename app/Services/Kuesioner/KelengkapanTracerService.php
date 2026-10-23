@@ -27,7 +27,7 @@ class KelengkapanTracerService
      */
     public const PROFILE_MANAGED_CODES = [
         'F1', 'F2A', 'F2B', 'F2C', 'F2D',
-        'BIO_TEMPAT_LAHIR', 'BIO_TANGGAL_LAHIR', 'BIO_JK', 'BIO_TGL_LULUS', 'BIO_JUDUL_TA', 'BIO_NIK', 'BIO_NPWP',
+        'BIO_TEMPAT_LAHIR', 'BIO_TANGGAL_LAHIR', 'BIO_JK', 'BIO_TGL_LULUS', 'BIO_JUDUL_TA',
         'F5A1', 'F5A2', 'F510', 'F5B', 'F5C', 'F5D',
         'F2E', 'F2E1', 'F2E2', 'F2E3', 'F2F', 'F2G', 'F2H',
         'F11', 'F505', 'BIO_PEND_TINGKAT', 'BIO_BIDANG_DIVISI',
@@ -73,12 +73,11 @@ class KelengkapanTracerService
     public static function evaluasiProfil(Biodata $biodata): array
     {
         $biodata->refresh();
-        $biodata->load(['dataAkademik.orangTua', 'perusahaan.propinsi', 'perusahaan.kabupaten', 'atasan', 'user', 'prodi']);
+        $biodata->load(['dataAkademik', 'perusahaan.propinsi', 'perusahaan.kabupaten', 'atasan', 'user', 'prodi']);
 
         // Utamakan pembacaan dari Database View `v_alumni_profile_summary`
         $summary = $biodata->profileSummary ?? AlumniProfileSummary::where('biodata_id', $biodata->id)->first();
         $dataAkademik = $biodata->dataAkademik;
-        $orangTua = $dataAkademik?->orangTua ?? $biodata->orangTua;
         $perusahaan = $biodata->perusahaan;
         $atasan = $biodata->atasan;
 
@@ -92,19 +91,13 @@ class KelengkapanTracerService
             'Jenis Kelamin' => $summary?->jenis_kelamin ?? $dataAkademik?->jenis_kelamin,
             'Nomor Telepon/HP' => $summary?->nomor_telepon ?? ($biodata->nomor_telepon ?? $dataAkademik?->nomor_telepon),
             'Email Pribadi' => $summary?->email_pribadi ?? ($biodata->email_pribadi ?? $dataAkademik?->email_pribadi),
-            'Alamat Domisili Saat Ini' => $summary?->alamat ?? ($biodata->alamat ?? $dataAkademik?->alamat_saat_ini),
-            'NIK KTP' => $summary?->nik ?? ($biodata->nik ?? $dataAkademik?->nik),
-            'NPWP' => $summary?->npwp ?? $biodata->npwp,
+            'Alamat Domisili Saat Ini' => $summary?->alamat ?? ($biodata->alamat_saat_ini ?? $dataAkademik?->alamat_saat_ini),
 
             // Data Akademik
             'IPK Kelulusan' => $summary?->ipk ?? $dataAkademik?->ip_kumulatif,
             'Tahun Kelulusan' => $summary?->tahun_lulus ? (string) $summary->tahun_lulus : ($dataAkademik?->tahun_lulus ? (string) $dataAkademik->tahun_lulus : $dataAkademik?->tahun_akademik_lulus),
 
             // Data Orang Tua
-            'Nama Orang Tua' => $summary?->nama_orang_tua ?? $orangTua?->nama_orang_tua,
-            'Pekerjaan Orang Tua' => $summary?->pekerjaan_orang_tua ?? $orangTua?->pekerjaan,
-            'Alamat Orang Tua' => $summary?->alamat_orang_tua ?? $orangTua?->alamat,
-            'Nomor Telepon Orang Tua' => $summary?->nomor_telepon_orang_tua ?? $orangTua?->nomor_telepon,
 
             // Data Perusahaan & Atasan
             'Nama Perusahaan' => $summary?->nama_perusahaan ?? $perusahaan?->nama_perusahaan,
@@ -118,8 +111,8 @@ class KelengkapanTracerService
             'Posisi Jabatan' => $summary?->posisi_jabatan ?? $biodata->posisi_jabatan,
 
             // Data Media Sosial & Profesional Alumni (Tabel biodata)
-            'Keahlian (Skills)' => $summary?->skills ?? ($biodata->skills ?? $biodata->expert),
-            'Pengalaman Kerja (Experience)' => $summary?->experience ?? ($biodata->experience ?? $biodata->minat),
+            'Keahlian (Skills)' => $summary?->skills ?? $biodata->skills,
+            'Pengalaman Kerja (Experience)' => $summary?->experience ?? $biodata->experience,
             'LinkedIn Profil URL' => $summary?->linkedin_url ?? $biodata->linkedin_url,
             'LinkedIn Username' => $summary?->linkedin_username ?? $biodata->linkedin_username,
             'Instagram Profil URL' => $summary?->instagram_url ?? $biodata->instagram_url,

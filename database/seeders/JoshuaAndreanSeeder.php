@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\DataOrangTua;
 use App\Models\Kabupaten;
 use App\Models\Prodi;
 use App\Models\ProdiResponse;
@@ -18,7 +17,7 @@ use Illuminate\Support\Facades\Hash;
 /**
  * Seeder Data Alumni Joshua Andrean (Lulusan 2026 - Sistem Informasi)
  *
- * Menyiapkan akun dan master data akademik & orang tua untuk pengujian pengisian mandiri.
+ * Menyiapkan akun dan master data akademik untuk pengujian pengisian mandiri.
  */
 class JoshuaAndreanSeeder extends Seeder
 {
@@ -79,9 +78,7 @@ class JoshuaAndreanSeeder extends Seeder
                 'golongan_darah' => 'O',
                 'warga_negara' => 'WNI',
 
-                // Dokumen Kependudukan
-                'nik' => '3404011508040001',
-                'no_kk' => '3404011508040001',
+                // Identitas pendukung akademik
                 'nisn' => '0041234567',
                 'no_bpjs' => '0001897654321',
 
@@ -105,29 +102,10 @@ class JoshuaAndreanSeeder extends Seeder
             ]
         );
 
-        // 4. Buat Data Orang Tua
-        $dataOrangTua = DataOrangTua::updateOrCreate(
-            ['nim' => $nim],
-            [
-                'nama_orang_tua' => 'Ir. Hendra Andrean, M.M.',
-                'pekerjaan' => 'Wiraswasta',
-                'alamat' => 'Jl. Timoho No. 45, RT 02/RW 08',
-                'kota' => 'Kabupaten Sleman',
-                'kabupaten_id' => $sleman?->id,
-                'propinsi_id' => $diy?->id,
-                'kode_pos' => '55281',
-                'nomor_telepon' => '081398765432',
-            ]
-        );
-
-        // 5. Buat Data Yudisium (Status Kelulusan & Skripsi)
+        // 4. Buat Data Yudisium (Status Kelulusan & Skripsi)
         $yudisium = Yudisium::updateOrCreate(
             ['nim' => $nim],
             [
-                'dosen_pembimbing_1' => 'Dr. Budi Susanto, S.Kom., M.T.',
-                'dosen_pembimbing_2' => 'Gloria Virginia, S.Kom., MAI., Ph.D.',
-                'dosen_penguji_1' => 'Willy Sudiarto Raharjo, S.Kom., M.Cs.',
-                'dosen_penguji_2' => 'Laurentius Kuncoro Probo Saputro, S.T., M.Eng.',
                 'judul_ta' => 'Perancangan dan Pengembangan Sistem Informasi Tracer Study Terintegrasi Berbasis Web',
                 'judul_ta_inggris' => 'Design and Development of Web-Based Integrated Tracer Study Information System',
                 'url_publikasi' => 'https://repository.ukdw.ac.id/handle/123456789/'.$nim,
@@ -138,12 +116,11 @@ class JoshuaAndreanSeeder extends Seeder
             ]
         );
 
-        // 6. Buat Record Biodata Utama (Bebas dari kolom duplikasi data_akademik)
+        // 5. Buat Record Biodata Utama (Bebas dari kolom duplikasi data_akademik)
         $biodata = Biodata::updateOrCreate(
             ['user_id' => $user->id],
             [
                 'nim' => $nim,
-                'orang_tua_id' => $dataOrangTua->id,
                 'yudisium_id' => $yudisium->id,
                 'prodi_id' => $prodi?->id,
                 'email_pribadi' => $personalEmail,
@@ -152,8 +129,6 @@ class JoshuaAndreanSeeder extends Seeder
                 'kabupaten_id' => $sleman?->id,
                 'propinsi_id' => $diy?->id,
                 'kode_pos' => '55281',
-                'nik' => '3404011508040001',
-                'npwp' => null,
                 'instagram_url' => null,
                 'facebook_url' => null,
                 'linkedin_url' => null,
@@ -173,7 +148,7 @@ class JoshuaAndreanSeeder extends Seeder
             ]
         );
 
-        // 7. Bersihkan respon tracer lama untuk Joshua agar fresh siap uji
+        // 6. Bersihkan respon tracer lama untuk Joshua agar fresh siap uji
         Tracer::where('biodata_id', $biodata->id)->delete();
         ProdiResponse::where('biodata_id', $biodata->id)->delete();
     }

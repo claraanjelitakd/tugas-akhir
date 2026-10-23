@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  * Mengelola data master riwayat akademik mahasiswa/alumni UKDW.
  * Merupakan Single Source of Truth untuk:
  * - Identitas master (nama, tempat/tanggal lahir, jenis kelamin, agama, golongan darah, warga negara)
- * - Dokumen kependudukan (nik, no_kk, nisn, no_bpjs)
+ * - Identitas pendukung akademik (nisn, no_bpjs)
  * - Riwayat akademik (angkatan, IPK, total SKS, status kelulusan, tahun & periode kelulusan)
  * - Email resmi mahasiswa (email_students)
  */
@@ -40,11 +40,8 @@ class DataAkademik extends Model
         'kabupaten_id',
         'propinsi_id',
         'kode_pos',
-        'nik',
-        'no_kk',
         'nisn',
         'no_bpjs',
-        'npwp',
         'asal_sekolah',
         'alamat_asal_sekolah',
         'kota_kabupaten_asal_sekolah',
@@ -81,14 +78,6 @@ class DataAkademik extends Model
     public function yudisium()
     {
         return $this->hasOne(Yudisium::class, 'nim', 'nim');
-    }
-
-    /**
-     * Relasi ke model DataOrangTua.
-     */
-    public function orangTua()
-    {
-        return $this->hasOne(DataOrangTua::class, 'nim', 'nim');
     }
 
     /**

@@ -8,7 +8,9 @@ Dokumen ini merangkum tujuan arsitektur, daftar model Eloquent pendamping, skrip
 
 ## 1. Arsitektur & Latar Belakang
 
-Sistem Tracer Study UKDW mengelola data alumni multidimensi yang tersebar di beberapa tabel fisik (`biodata`, `data_akademik`, `users`, `data_orang_tua`, `perusahaan`, `atasan`, `tracer`, `prodi_response`, dan `linkedin_sync_results`).
+Sistem Tracer Study UKDW mengelola data alumni multidimensi yang tersebar di beberapa tabel fisik (`biodata`, `data_akademik`, `users`, `perusahaan`, `atasan`, `tracer`, `prodi_response`, dan `linkedin_sync_results`). Tabel `data_orang_tua` sudah dihapus karena tidak dipakai.
+
+> Catatan skema terkini: migration `2026_10_23_132550_remove_unused_sensitive_and_parent_profile_data` juga menghapus NIK, No KK, NPWP, foreign key `biodata.orang_tua_id`, serta kolom pembimbing/penguji pada `yudisium`. Dokumen DDL historis di bawah harus dibaca sebagai arsip; definisi runtime terbaru berada di migration tersebut.
 
 Jika kalkulasi kelengkapan profil, persentase pengisian kuesioner, dan agregasi data scraping dilakukan manual via loop PHP di controller, akan timbul masalah serius:
 1. **Masalah Query N+1**: Memuat ribuan baris rekaman menyebabkan ratusan hingga ribuan query individual ke database yang membebani CPU dan memori server.
@@ -35,7 +37,6 @@ graph TD
     T_USERS[(users)]:::base
     T_BIO[(biodata)]:::base
     T_AKAD[(data_akademik)]:::base
-    T_ORTU[(data_orang_tua)]:::base
     T_CORP[(perusahaan)]:::base
     T_ATASAN[(atasan)]:::base
     T_PRODI[(prodi)]:::base
@@ -63,7 +64,6 @@ graph TD
     T_BIO --> V_PROF
     T_USERS --> V_PROF
     T_AKAD --> V_PROF
-    T_ORTU --> V_PROF
     T_CORP --> V_PROF
     T_ATASAN --> V_PROF
     T_PRODI --> V_PROF

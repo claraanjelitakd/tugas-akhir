@@ -1,23 +1,45 @@
 @startuml
 title AD-04 Pengisian Tracer Study Universitas
+
 |Alumni|
 start
 :Buka kuesioner universitas;
+
 |Backend|
-:Muat instrumen aktif dan jawaban;
+:Muat instrumen aktif, section, pertanyaan,
+opsi, jawaban tersimpan, dan autofill view;
+:Keluarkan pertanyaan profile-managed dari form tracer;
+
 |Alumni|
-:Isi atau simpan sebagian jawaban;
+:Lihat prefill dan isi satu atau beberapa halaman;
+:Simpan progres parsial atau kirim jawaban;
+
 |Backend|
-:Validasi tipe, opsi, dan format;
+:Validasi question id, tipe, opsi, format,
+multi-choice, angka, tanggal, dan custom Lainnya;
 if (Valid?) then (ya)
-  :Evaluasi branching F8 dan F504;
   |Database|
-  :Upsert answer, answer_json, dan question_id;
+  :Upsert tracer dengan biodata_id,
+  question_id, answer, dan answer_json;
   |Backend|
-  :Hitung status mandatory dan audit;
+  :Baca ulang jawaban F8;
+  if (F8 terisi?) then (ya)
+    :Tandai pertanyaan skipped sesuai status:
+    Melanjutkan Pendidikan, Belum Memungkinkan,
+    Mencari Kerja, atau Bekerja/Wiraswasta;
+  endif
+  :Jika F504 masih berlaku, baca jawabannya;
+  if (F504 = Ya?) then (ya)
+    :Lewati F506;
+  else (Tidak)
+    :Lewati F502 dan F505;
+  endif
+  :Evaluasi jump_to pada opsi;
+  :Hitung wajib/opsional dan keluarkan
+  pertanyaan skipped dari kekurangan;
   :Redirect Inertia dengan flash;
 else (tidak)
-  :Kembalikan error validasi;
+  :Kembalikan validation error Inertia;
 endif
 stop
 @enduml

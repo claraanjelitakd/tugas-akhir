@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\DataOrangTua;
 use App\Models\Kabupaten;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
@@ -327,11 +326,8 @@ class AlumniSimulationSeeder extends Seeder
                         'jenis_kelamin' => $alumniBio['jk'],
                         'golongan_darah' => ['O', 'A', 'B', 'AB'][$i % 4],
                         'warga_negara' => 'WNI',
-                        'nik' => '3404'.str_pad((string) (100000000000 + (int) $kodeProdiStr * 10000 + $i), 12, '0', STR_PAD_LEFT),
-                        'no_kk' => '340411'.str_pad((string) (2000000000 + (int) $kodeProdiStr * 10000 + $i), 10, '0', STR_PAD_LEFT),
                         'nisn' => '003'.str_pad((string) (1234500 + (int) $kodeProdiStr * 10 + $i), 7, '0', STR_PAD_LEFT),
                         'no_bpjs' => '000189'.str_pad((string) (7654000 + (int) $kodeProdiStr * 10 + $i), 7, '0', STR_PAD_LEFT),
-                        'npwp' => '09.'.rand(100, 999).'.'.rand(100, 999).'.'.rand(1, 9).'-541.000',
                         'nomor_telepon' => '0812'.rand(1000, 9999).str_pad((string) ((int) $kodeProdiStr * 10 + $i), 4, '0', STR_PAD_LEFT),
                         'email_pribadi' => $personalEmail,
                         'email_students' => $nim.'@students.ukdw.ac.id',
@@ -349,31 +345,11 @@ class AlumniSimulationSeeder extends Seeder
                     ]
                 );
 
-                // C. Buat Data Orang Tua Mahasiswa
-                $namaOrtu = 'Ir. Herman '.explode(' ', $nama)[count(explode(' ', $nama)) - 1].', M.M.';
-                $dataOrangTua = DataOrangTua::updateOrCreate(
-                    ['nim' => $nim],
-                    [
-                        'nama_orang_tua' => $namaOrtu,
-                        'pekerjaan' => ['Pegawai Swasta', 'Wiraswasta', 'PNS / ASN', 'Dosen / Akademisi'][$i % 4],
-                        'alamat' => $dataAkademik->alamat_saat_ini,
-                        'kota' => 'Kabupaten Sleman',
-                        'kabupaten_id' => $kabSleman?->id,
-                        'propinsi_id' => $propinsiDiy?->id,
-                        'kode_pos' => '55281',
-                        'nomor_telepon' => '08139876'.str_pad((string) ($i * 111), 4, '0', STR_PAD_LEFT),
-                    ]
-                );
-
-                // D. Buat Catatan Yudisium Kelulusan (Target Tracer Study Resmi)
+                // C. Buat Catatan Yudisium Kelulusan (Target Tracer Study Resmi)
                 $judulTA = $bankJudulTA[$kodeProdi] ?? 'Analisis dan Implementasi Sistem Terintegrasi di Lingkungan Profesional';
                 $yudisium = Yudisium::updateOrCreate(
                     ['nim' => $nim],
                     [
-                        'dosen_pembimbing_1' => 'Dr. Budi Susanto, S.Kom., M.T.',
-                        'dosen_pembimbing_2' => 'Gloria Virginia, S.Kom., MAI., Ph.D.',
-                        'dosen_penguji_1' => 'Willy Sudiarto Raharjo, S.Kom., M.Cs.',
-                        'dosen_penguji_2' => 'Laurentius Kuncoro Probo Saputro, S.T., M.Eng.',
                         'judul_ta' => $judulTA,
                         'judul_ta_inggris' => 'Design and Analysis of Integrated System in Professional Environment',
                         'url_publikasi' => 'https://repository.ukdw.ac.id/handle/123456789/'.$nim,
@@ -398,7 +374,6 @@ class AlumniSimulationSeeder extends Seeder
                         $nama,
                         $prodi,
                         $dataAkademik,
-                        $dataOrangTua,
                         $yudisium,
                         $cfg,
                         $perusahaans,
@@ -422,7 +397,6 @@ class AlumniSimulationSeeder extends Seeder
                         $nama,
                         $prodi,
                         $dataAkademik,
-                        $dataOrangTua,
                         $yudisium,
                         $cfg,
                         $perusahaans,
@@ -442,7 +416,6 @@ class AlumniSimulationSeeder extends Seeder
                         $nama,
                         $prodi,
                         $dataAkademik,
-                        $dataOrangTua,
                         $yudisium,
                         $cfg
                     );
@@ -466,7 +439,6 @@ class AlumniSimulationSeeder extends Seeder
         string $nama,
         Prodi $prodi,
         DataAkademik $dataAkademik,
-        DataOrangTua $dataOrangTua,
         Yudisium $yudisium,
         array $cfg,
         $perusahaans,
@@ -622,7 +594,6 @@ class AlumniSimulationSeeder extends Seeder
             ['user_id' => $user->id],
             [
                 'nim' => $nim,
-                'orang_tua_id' => $dataOrangTua->id,
                 'yudisium_id' => $yudisium->id,
                 'prodi_id' => $prodi->id,
                 'email_pribadi' => $dataAkademik->email_pribadi,
@@ -631,8 +602,6 @@ class AlumniSimulationSeeder extends Seeder
                 'kabupaten_id' => $dataAkademik->kabupaten_id,
                 'propinsi_id' => $dataAkademik->propinsi_id,
                 'kode_pos' => $dataAkademik->kode_pos,
-                'nik' => $dataAkademik->nik,
-                'npwp' => $dataAkademik->npwp,
                 'instagram_url' => 'https://instagram.com/'.$cleanUsername,
                 'facebook_url' => 'https://facebook.com/'.$cleanUsername,
                 'linkedin_url' => 'https://linkedin.com/in/'.$cleanUsername,
@@ -783,7 +752,6 @@ class AlumniSimulationSeeder extends Seeder
         string $nama,
         Prodi $prodi,
         DataAkademik $dataAkademik,
-        DataOrangTua $dataOrangTua,
         Yudisium $yudisium,
         array $cfg,
         $perusahaans,
@@ -799,7 +767,6 @@ class AlumniSimulationSeeder extends Seeder
             ['user_id' => $user->id],
             [
                 'nim' => $nim,
-                'orang_tua_id' => $dataOrangTua->id,
                 'yudisium_id' => $yudisium->id,
                 'prodi_id' => $prodi->id,
                 'email_pribadi' => $dataAkademik->email_pribadi,
@@ -808,8 +775,6 @@ class AlumniSimulationSeeder extends Seeder
                 'kabupaten_id' => $kabSleman?->id,
                 'propinsi_id' => $propinsiDiy?->id,
                 'kode_pos' => '55281',
-                'nik' => $dataAkademik->nik,
-                'npwp' => $dataAkademik->npwp,
                 'instagram_url' => 'https://instagram.com/'.$cleanUsername,
                 'facebook_url' => null,
                 'linkedin_url' => 'https://linkedin.com/in/'.$cleanUsername,
@@ -867,7 +832,6 @@ class AlumniSimulationSeeder extends Seeder
         string $nama,
         Prodi $prodi,
         DataAkademik $dataAkademik,
-        DataOrangTua $dataOrangTua,
         Yudisium $yudisium,
         array $cfg
     ): void {
@@ -876,7 +840,6 @@ class AlumniSimulationSeeder extends Seeder
             ['user_id' => $user->id],
             [
                 'nim' => $nim,
-                'orang_tua_id' => $dataOrangTua->id,
                 'yudisium_id' => $yudisium->id,
                 'prodi_id' => $prodi->id,
                 'nomor_telepon' => null,
@@ -885,8 +848,6 @@ class AlumniSimulationSeeder extends Seeder
                 'kabupaten_id' => null,
                 'propinsi_id' => null,
                 'kode_pos' => null,
-                'nik' => null,
-                'npwp' => null,
                 'instagram_url' => null,
                 'facebook_url' => null,
                 'linkedin_url' => null,

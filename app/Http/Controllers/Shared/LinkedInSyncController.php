@@ -679,10 +679,8 @@ class LinkedInSyncController extends Controller
                 'current_data' => [
                     'posisi_jabatan' => $result->biodata->posisi_jabatan,
                     'nama_perusahaan' => $result->biodata->perusahaan?->nama_perusahaan,
-                    'skills' => $result->biodata->skills ?? $result->biodata->expert,
-                    'experience' => $result->biodata->experience ?? $result->biodata->minat,
-                    'expert' => $result->biodata->skills ?? $result->biodata->expert,
-                    'minat' => $result->biodata->experience ?? $result->biodata->minat,
+                    'skills' => $result->biodata->skills,
+                    'experience' => $result->biodata->experience,
                 ],
             ],
         ]);
@@ -838,7 +836,6 @@ class LinkedInSyncController extends Controller
 
             if (! empty($targetSkills)) {
                 $updates['skills'] = $targetSkills;
-                $updates['expert'] = $targetSkills;
                 $changesSummary[] = "Keahlian (Skills) disimpan: {$targetSkills}";
             }
 
@@ -854,7 +851,6 @@ class LinkedInSyncController extends Controller
             $targetExp = $this->appendExperienceHistory($biodata->experience, $incomingExperience);
             if (! empty($targetExp) && $targetExp !== (string) $biodata->experience) {
                 $updates['experience'] = $targetExp;
-                $updates['minat'] = $targetExp;
                 $changesSummary[] = 'Pengalaman Kerja (Experience) disimpan dari profil LinkedIn';
             }
 

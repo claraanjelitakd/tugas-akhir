@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
  *
  * Kebijakan Integritas & Anti-Duplikasi Data:
  * - Data akademik master (nama, tempat/tanggal lahir, jenis kelamin, agama,
- *   golongan darah, dokumen kependudukan, status kelulusan, dan email_students)
+ *   golongan darah, status kelulusan, dan email_students)
  *   tersimpan terpusat di tabel `data_akademik`.
  * - Model Biodata ini menyediakan Accessor dinamis ke `dataAkademik` sehingga kode
  *   aplikasi yang memanggil `$biodata->nama`, `$biodata->tahun_lulus`, dsb. tetap berjalan lancar.
@@ -29,7 +29,7 @@ class Biodata extends Model
 
     /**
      * Bootstrap model events.
-     * Otomatisasi: Menghubungkan relasi yudisium, orang tua, prodi, dan akun user
+     * Otomatisasi: Menghubungkan relasi yudisium, prodi, dan akun user
      * saat biodata baru dibuat hanya berbekal NIM.
      */
     protected static function booted()
@@ -41,12 +41,7 @@ class Biodata extends Model
                     $biodata->yudisium_id = Yudisium::where('nim', $biodata->nim)->value('id');
                 }
 
-                // 2. Hubungkan ke data orang tua jika belum terisi
-                if (empty($biodata->orang_tua_id)) {
-                    $biodata->orang_tua_id = DataOrangTua::where('nim', $biodata->nim)->value('id');
-                }
-
-                // 3. Hubungkan ke prodi dari parsing NIM jika belum terisi
+                // 2. Hubungkan ke prodi dari parsing NIM jika belum terisi
                 if (empty($biodata->prodi_id)) {
                     $parsed = self::parseNim($biodata->nim);
                     if ($parsed) {
@@ -54,7 +49,7 @@ class Biodata extends Model
                     }
                 }
 
-                // 4. Pastikan Akun Pengguna (User) tersedia jika belum terisi
+                // 3. Pastikan Akun Pengguna (User) tersedia jika belum terisi
                 if (empty($biodata->user_id)) {
                     $dataAkad = DataAkademik::where('nim', $biodata->nim)->first();
                     $user = User::firstOrCreate(
@@ -124,27 +119,21 @@ class Biodata extends Model
     protected $fillable = [
         'user_id',
         'nim',
-        'orang_tua_id',
         'yudisium_id',
         'prodi_id',
         'foto',
         'nomor_telepon',
         'email_pribadi',
         'alamat_saat_ini',
-        'alamat',
         'kabupaten_id',
         'propinsi_id',
         'kode_pos',
-        'nik',
-        'npwp',
         'instagram_url',
         'facebook_url',
         'linkedin_url',
         'linkedin_username',
         'skills',
         'experience',
-        'expert',
-        'minat',
         'perusahaan_id',
         'atasan_id',
         'posisi_jabatan',
@@ -184,18 +173,6 @@ class Biodata extends Model
     public function yudisium()
     {
         return $this->belongsTo(Yudisium::class, 'yudisium_id');
-    }
-
-    /**
-     * Relasi ke Data Orang Tua.
-     */
-    public function orangTua()
-    {
-        if ($this->orang_tua_id) {
-            return $this->belongsTo(DataOrangTua::class, 'orang_tua_id');
-        }
-
-        return $this->hasOne(DataOrangTua::class, 'nim', 'nim');
     }
 
     /**
@@ -423,14 +400,6 @@ class Biodata extends Model
         return $this->dataAkademik?->warga_negara ?? 'WNI';
     }
 
-    /**
-     * Akses dokumen kependudukan tambahan (dari data_akademik).
-     */
-    public function getNoKkAttribute(): ?string
-    {
-        return $this->dataAkademik?->no_kk;
-    }
-
     public function getNisnAttribute(): ?string
     {
         return $this->dataAkademik?->nisn;
@@ -442,59 +411,11 @@ class Biodata extends Model
     }
 
     /**
-     * Alias backwards-compatible: get expert -> skills.
-     */
-    public function getExpertAttribute(): ?string
-    {
-        return $this->attributes['skills'] ?? null;
-    }
-
-    /**
-     * Alias backwards-compatible: set expert -> skills.
-     */
-    public function setExpertAttribute($value): void
-    {
-        $this->attributes['skills'] = $value;
-    }
-
-    /**
-     * Alias backwards-compatible: get minat -> experience.
-     */
-    public function getMinatAttribute(): ?string
-    {
-        return $this->attributes['experience'] ?? null;
-    }
-
-    /**
-     * Alias backwards-compatible: set minat -> experience.
-     */
-    public function setMinatAttribute($value): void
-    {
-        $this->attributes['experience'] = $value;
-    }
-
-    /**
      * Akses alamat domisili saat ini (dengan fallback ke data_akademik jika belum diisi).
      */
     public function getAlamatSaatIniAttribute(): ?string
     {
-        return $this->attributes['alamat_saat_ini'] ?? $this->attributes['alamat'] ?? $this->dataAkademik?->alamat_saat_ini;
-    }
-
-    /**
-     * Alias backwards-compatible: get alamat -> alamat_saat_ini.
-     */
-    public function getAlamatAttribute(): ?string
-    {
-        return $this->alamat_saat_ini;
-    }
-
-    /**
-     * Alias backwards-compatible: set alamat -> alamat_saat_ini.
-     */
-    public function setAlamatAttribute($value): void
-    {
-        $this->attributes['alamat_saat_ini'] = $value;
+        return $this->attributes['alamat_saat_ini'] ?? $this->dataAkademik?->alamat_saat_ini;
     }
 
     /**
@@ -511,19 +432,6 @@ class Biodata extends Model
     public function getZipcodeAttribute(): ?string
     {
         return $this->perusahaan?->kode_pos;
-    }
-
-    /**
-     * Identitas kependudukan & perpajakan (dengan fallback ke master data_akademik jika kosong).
-     */
-    public function getNikAttribute(): ?string
-    {
-        return $this->attributes['nik'] ?? $this->dataAkademik?->nik;
-    }
-
-    public function getNpwpAttribute(): ?string
-    {
-        return $this->attributes['npwp'] ?? $this->dataAkademik?->npwp;
     }
 
     public function getKelurahanAttribute(): ?string

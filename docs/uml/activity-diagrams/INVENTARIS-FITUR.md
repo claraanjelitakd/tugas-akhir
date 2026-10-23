@@ -20,8 +20,9 @@ Audit sumber: routes/web.php, app/Http/Controllers, app/Services, app/Models, ap
 | 14 | Instrumen atasan | CRUD/toggle/reorder | Superadmin | CRUD | PertanyaanEvaluasiAtasan | 13 |
 | 15 | Akun | Edit akun dan reset | Admin scope/Superadmin | Action | User, Biodata, mail, log | 14 |
 | 16 | Master wilayah | Provinsi/kabupaten/UMP/copy year | Superadmin | CRUD | Propinsi, Kabupaten, Ump | 15 |
-| 17 | Perusahaan | Similarity, geographic score, verify/reject | Admin scope | Review action | PerusahaanVerificationService, LogActivity | 16 |
-| 18 | Perusahaan | Auto-replace pending | Admin scope | Replace action | Biodata, Tracer, EvaluasiAtasan, Perusahaan | 17 |
+| 17 | Perusahaan | Terima pengajuan dan rekomendasi master | Alumni/LinkedIn process | Submit atau index antrean | PerusahaanVerificationService, master terverifikasi | 16 |
+| 18 | Perusahaan | Approval, edit, reject, atau pilih replace | Admin scope | Review action | Perusahaan, LogActivity, scoped controllers | 17A |
+| 19 | Perusahaan | Auto-replace pending | Admin scope | Replace action | Biodata, Tracer, EvaluasiAtasan, Perusahaan | 17 |
 | 19 | LinkedIn | Apify single sync | Admin Prodi/Fakultas/Superadmin | Sync action | Apify provider, result staging | 18 |
 | 20 | LinkedIn | Official/mock and batch sync | Admin scope | Batch/single action | LinkedInProfileService, mapper | 19 |
 | 21 | LinkedIn | Approve, plot again, reject, history | Admin scope | Review action | LinkedinSyncResult, AlumniLinkedinPlot, Biodata | 20 |

@@ -4,6 +4,10 @@
 
 ## 23 Oktober 2026
 
+- **Audit dan penyederhanaan skema profil**: menghapus tabel `data_orang_tua`, foreign key `biodata.orang_tua_id`, NIK, No KK, NPWP, serta kolom dosen pembimbing/penguji dari `yudisium`. Data orang tua tidak lagi dibuat oleh seeder dan tidak lagi diekspor ke Excel.
+- **Kanon data profil**: menetapkan `alamat_saat_ini`, `skills`, dan `experience` sebagai field tunggal yang digunakan frontend, backend, LinkedIn Sync, kelengkapan, dan exporter. Alias lama `alamat`, `expert`, dan `minat` tidak lagi dikirim atau disimpan.
+- **Konsistensi view dan test**: memperbarui view profil, autofill, mapping pertanyaan, audit kelengkapan, seeder, dan feature test agar tidak membaca kolom yang sudah dihapus. Migration dibuat kompatibel dengan SQLite untuk test dan MySQL Laragon untuk runtime.
+
 - **Penyederhanaan Dashboard Superadmin**: merangkum metrik utama menjadi response rate, kelengkapan gabungan, dan populasi lulusan; detail kelengkapan kini dipilih melalui tab interaktif; pintasan modul yang berulang dihapus dari area utama agar fokus dashboard lebih jelas.
 - **Penyelarasan visual Dashboard Superadmin**: menggunakan hero hijau UKDW dan pola card responsif dari Direktori Alumni, menghapus label konteks "Otoritas Pusat", serta menata ringkasan menjadi grid card yang nyaman pada layar kecil maupun besar.
 - **Penyempurnaan status dashboard**: seluruh indikator response rate memakai aksen hijau atau kuning resmi UKDW `#FDC700`; label ambang status tidak lagi ditampilkan karena warna sudah menjadi penanda visualnya. Antrean ACC perusahaan memakai panel hijau/netral agar tidak tercampur dengan indikator perhatian.
@@ -11,6 +15,8 @@
 - **Skenario data dashboard**: menambahkan `DashboardScenarioSeeder` yang idempotent untuk populasi demo 2024–2026 per prodi, dengan target populasi dan responden yang berbeda, jawaban kuesioner prodi hanya untuk prodi yang memiliki instrumen, serta tidak menimpa NIM yang sudah ada.
 - **Status kuesioner prodi**: memperbarui view audit agar prodi tanpa instrumen menghasilkan nilai tidak berlaku (`NULL`) sehingga antarmuka dapat menampilkan `-`, bukan 100%.
 - **Dashboard alumni**: persentase kuesioner prodi tanpa butir kini dikirim sebagai `null` dan ditampilkan sebagai `-`.
+- **Kelengkapan kuesioner universitas**: memperbaiki view audit yang sebelumnya mengunci jumlah wajib pada 20 butir. Total kini dihitung dari butir wajib aktif, mengikuti percabangan F8 dan slot alternatif F502/F506, sehingga responden lengkap tidak lagi salah terbaca 19/20 dan metrik gabungan tidak jatuh ke 0%.
+- **Interaksi dashboard Superadmin**: menghapus banner antrean perusahaan dari area ringkasan dan menjadikan kartu response rate, kelengkapan gabungan, serta populasi lulusan sebagai pintasan ke detail dashboard.
 
 ## 22 Oktober 2026
 

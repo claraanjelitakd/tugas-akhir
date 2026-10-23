@@ -55,7 +55,6 @@ class AlumniLinkedinPlotViewTest extends TestCase
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',
             'alamat_saat_ini' => 'Jl. Solo Km 5',
-            'nik' => '3471012345670001',
             'ip_kumulatif' => 3.75,
             'tahun_lulus' => 2024,
             'tahun_akademik_lulus' => 'Genap 2023/2024',

@@ -9,6 +9,15 @@ Dokumen ini menjelaskan struktur antarmuka dan batas akses untuk Superadmin, Adm
 - Pembatasan data wajib berada di controller dan query backend; filter di browser bukan mekanisme otorisasi.
 - Komponen bersama berada di `resources/js/components` dan digunakan lewat wrapper pada direktori role yang sudah ada.
 
+### Kontrak data profil setelah audit 23 Oktober 2026
+
+- `biodata.alamat_saat_ini` adalah satu-satunya field alamat domisili alumni. Alias runtime `alamat` tidak lagi digunakan; alamat perusahaan tetap berada di tabel `perusahaan`.
+- `biodata.skills` dan `biodata.experience` adalah field kanonik. Alias lama `expert` dan `minat` dihapus dari model, frontend, sinkronisasi LinkedIn, exporter, dan seeder.
+- NIK, No KK, dan NPWP tidak lagi menjadi bagian dari data aplikasi. Kolom fisiknya dihapus melalui migration `2026_10_23_132550_remove_unused_sensitive_and_parent_profile_data`.
+- Tabel `data_orang_tua` dan foreign key `biodata.orang_tua_id` dihapus karena data orang tua tidak digunakan dalam profil maupun ekspor Excel.
+- Data pembimbing/penguji dihapus dari `yudisium`; judul tugas akhir, tanggal lulus, status lulus, dan publikasi yang masih digunakan tetap dipertahankan.
+- NISN, BPJS, email mahasiswa, dan negara belum dihapus karena masih menjadi bagian dari sumber akademik/integrasi yang tersedia; visibilitasnya tetap dikendalikan oleh payload halaman.
+
 ### Kontrak metrik Dashboard Superadmin
 
 DashboardController mengambil metrik ringkasan dari satu agregasi v_alumni_audit_rekap, bukan menghitung status per alumni di dalam loop. Kontrak dashboard memisahkan tiga hal:
@@ -152,3 +161,7 @@ Saat menambah fungsi administrasi yang sama lintas role, gunakan pola berikut:
 3. Tampilkan perbedaan hanya pada filter atau aksi yang memang berbeda wewenang.
 4. Terapkan batas akses pada query dan action controller, lalu tambahkan feature test untuk role yang diizinkan dan yang ditolak.
 5. Tambahkan file baru atau perubahan pola ke dokumen ini.
+
+## Autentikasi dan Aset Visual
+
+Alur login, reset password, dan wajib ganti password menggunakan komponen visual bersama `resources/js/components/Otentikasi/AuthBackdrop.vue`. Detail endpoint, batas frontend/backend, aturan komentar komponen, dan organisasi aset tersedia di [arsitektur-autentikasi.md](arsitektur-autentikasi.md).

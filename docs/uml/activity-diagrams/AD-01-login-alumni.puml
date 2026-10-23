@@ -2,31 +2,76 @@
 title AD-01 Autentikasi, Pemulihan, dan Perubahan Password
 |Pengguna/Tamu|
 start
-:Kirim login atau buka pemulihan password;
-|Backend|
-:Validasi request dan jalankan Auth attempt;
-if (Kredensial valid?) then (ya)
-  if (Alumni wajib ganti password?) then (ya)
-    :Arahkan ke halaman ganti password;
+if (Memilih login?) then (ya)
+  :Kirim username dan password;
+  |Backend|
+  :Validasi username dan password;
+  :Auth::attempt kredensial normal;
+  if (Kredensial valid?) then (ya)
     |Database|
-    :Simpan password baru dan hapus flag;
+    :Regenerasi session;
+    |Backend|
+    if (Alumni must_change_password?) then (ya)
+      :Redirect ke /change-password;
+    else (tidak)
+      :Redirect dashboard sesuai role;
+    endif
   else (tidak)
-    :Redirect ke dashboard sesuai role;
+    if (Fallback alumni dan tanggal lahir cocok?) then (ya)
+      |Database|
+      :Hash ulang password;
+      :Set must_change_password = true;
+      |Backend|
+      :Login dan regenerasi session;
+      :Redirect ke /change-password;
+    else (tidak)
+      :Kembalikan error login;
+    endif
   endif
-else (tidak)
-  if (Legacy alumni cocok?) then (ya)
+else (lupa password)
+  :Kirim NIM/username atau email;
+  |Backend|
+  :Cari user berdasarkan username, email, atau email pribadi biodata;
+  if (Akun dan email valid?) then (ya)
     |Database|
-    :Hash ulang password dan set must_change_password;
+    :Buat token acak dan simpan hash token;
+    :Simpan created_at untuk expiry 60 menit;
+    |Mail Service|
+    :Kirim email link reset;
+  endif
+  |Pengguna/Tamu|
+  :Terima pesan generik;
+  :Buka link reset;
+  |Backend|
+  :Validasi token, email, expiry, password min 12, dan konfirmasi;
+  if (Token valid?) then (ya)
+    |Database|
+    :Simpan password baru;
+    :Set must_change_password = false;
+    :Hapus token reset;
+    |Backend|
+    :Redirect ke login;
   else (tidak)
-    :Kembalikan error login;
-    stop
+    :Kembalikan error reset;
   endif
 endif
+
 |Pengguna/Tamu|
-:Ganti password atau lanjut ke dashboard;
+if (Alumni diarahkan ganti password wajib?) then (ya)
+  :Kirim password baru dan konfirmasi;
+  |Backend|
+  :Middleware mengizinkan /change-password;
+  :Validasi password minimal 12 karakter;
+  |Database|
+  :Simpan password baru;
+  :Set must_change_password = false;
+  |Backend|
+  :Redirect dashboard alumni;
+endif
+
+|Pengguna/Tamu|
+:Klik logout;
 |Backend|
-:Validasi password minimal 12 dan konfirmasi;
-|Database|
-:Simpan perubahan dan session;
+:Auth::logout, invalidate session, regenerate CSRF token;
 stop
 @enduml

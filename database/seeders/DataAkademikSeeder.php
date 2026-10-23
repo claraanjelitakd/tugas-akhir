@@ -108,9 +108,7 @@ class DataAkademikSeeder extends Seeder
                     'golongan_darah' => $golDarahList[$index % count($golDarahList)],
                     'warga_negara' => 'WNI',
 
-                    // Dokumen Kenegaraan
-                    'nik' => '3404'.str_pad((string) (100000000000 + $index * 1234), 12, '0', STR_PAD_LEFT),
-                    'no_kk' => '340411'.str_pad((string) (2000000000 + $index * 5678), 10, '0', STR_PAD_LEFT),
+                    // Identitas pendukung akademik
                     'nisn' => '003'.str_pad((string) (1234567 + $index), 7, '0', STR_PAD_LEFT),
                     'no_bpjs' => '000189'.str_pad((string) (7654321 + $index), 7, '0', STR_PAD_LEFT),
 

@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Atasan;
 use App\Models\EvaluasiAtasan;
 use App\Models\PertanyaanEvaluasiAtasan;
+use App\Models\Perusahaan;
 use App\Models\ResponEvaluasiAtasan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -141,9 +143,9 @@ class EvaluasiAtasanController extends Controller
             'nama_perusahaan' => 'required|string|max:255',
             'alamat_lengkap' => 'required|string',
             'no_telp_fax' => 'nullable|string|max:100',
-            'homepage' => 'nullable|string|max:255',
+            'homepage' => ['nullable', 'url', 'max:150'],
             'bentuk_perusahaan' => 'nullable|string|max:100',
-            'skala_perusahaan' => 'nullable|string|max:100',
+            'skala_perusahaan' => ['nullable', Rule::in(['Lokal', 'Regional/Lokal', 'Nasional', 'Internasional'])],
             'jumlah_pegawai' => 'nullable|string|max:100',
 
             // Karakteristik Keberadaan Alumni UKDW (Tersimpan ke evaluasi_atasan)
@@ -177,6 +179,40 @@ class EvaluasiAtasanController extends Controller
                     'jawaban' => 'Evaluasi ini sudah pernah dikirim dan tidak dapat diubah kembali.',
                 ]);
             }
+
+            $lockedEvaluation->load(['perusahaan', 'biodata.perusahaan', 'atasan']);
+
+            $perusahaan = $lockedEvaluation->perusahaan ?? $lockedEvaluation->biodata?->perusahaan;
+            $perusahaanData = [
+                'nama_perusahaan' => $validated['nama_perusahaan'],
+                'alamat' => $validated['alamat_lengkap'],
+                'no_telp_fax' => $validated['no_telp_fax'] ?? null,
+                'homepage' => $validated['homepage'] ?? null,
+                'bentuk_perusahaan' => $validated['bentuk_perusahaan'] ?? null,
+                'jumlah_pegawai' => $validated['jumlah_pegawai'] ?? null,
+            ];
+
+            if (! empty($validated['skala_perusahaan'])) {
+                $perusahaanData['skala'] = $validated['skala_perusahaan'];
+            }
+
+            if (! $perusahaan) {
+                $perusahaan = Perusahaan::create([
+                    ...$perusahaanData,
+                    'skala' => $validated['skala_perusahaan'] ?? 'Nasional',
+                    'status_verifikasi' => 'Menunggu Verifikasi',
+                    'created_by_user_id' => $lockedEvaluation->biodata?->user_id,
+                    'created_by_prodi_id' => $lockedEvaluation->biodata?->prodi_id,
+                ]);
+            } elseif ($perusahaan->status_verifikasi !== 'Terverifikasi') {
+                $perusahaan->update($perusahaanData);
+            }
+
+            if ($lockedEvaluation->biodata && $lockedEvaluation->biodata->perusahaan_id !== $perusahaan->id) {
+                $lockedEvaluation->biodata->update(['perusahaan_id' => $perusahaan->id]);
+            }
+
+            $lockedEvaluation->perusahaan_id = $perusahaan->id;
 
             foreach ($validated['jawaban'] as $code => $value) {
                 ResponEvaluasiAtasan::create([

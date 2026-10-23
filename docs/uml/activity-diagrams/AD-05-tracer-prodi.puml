@@ -1,21 +1,38 @@
 @startuml
 title AD-05 Pengisian Tracer Study Prodi
+
 |Alumni|
 start
 :Buka kuesioner prodi;
+
 |Backend|
-:Muat section, question, option sesuai prodi;
-|Alumni|
-:Isi jawaban prodi;
-|Backend|
-:Normalisasi dan validasi jawaban;
-if (Valid dan scope sesuai?) then (ya)
-  |Database|
-  :Upsert ProdiResponse berdasarkan alumni-question;
+:Ambil prodi_id dari biodata;
+if (Biodata dan prodi tersedia?) then (ya)
+  :Muat section, question, option, dan respons
+  hanya untuk prodi alumni;
+  :Prefill identitas yang diizinkan dari
+  autofill view atau biodata;
+  |Alumni|
+  :Isi text, number, date, choice,
+  multi-choice, radio, dan custom Lainnya;
+  :Simpan progres;
   |Backend|
-  :Hitung status prodi;
+  :Validasi question id, prodi scope, tipe,
+  opsi, format, dan jawaban terstruktur;
+  if (Valid?) then (ya)
+    |Database|
+    :Upsert ProdiResponse dengan
+    biodata_id dan prodi_question_id;
+    :Simpan answer_text dan answer_json;
+    :Hapus respons kosong yang bukan autofill;
+    |Backend|
+    :Hitung status kelengkapan prodi terpisah;
+    :Redirect Inertia dengan flash;
+  else (tidak)
+    :Kembalikan validation error;
+  endif
 else (tidak)
-  :Kembalikan error atau akses ditolak;
+  :Render pesan profil belum terhubung prodi;
 endif
 stop
 @enduml

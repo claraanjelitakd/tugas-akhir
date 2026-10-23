@@ -162,7 +162,7 @@ const tabCompleteness = computed(() => {
     if (!form.warga_negara || !String(form.warga_negara).trim()) missingPribadi.push('Kewarganegaraan');
     if (!form.nomor_telepon || !isValidPhone(form.nomor_telepon)) missingPribadi.push('Nomor Telepon / WhatsApp');
     if (!form.email_pribadi || !isValidEmail(form.email_pribadi)) missingPribadi.push('Email Pribadi');
-    if ((!form.alamat_saat_ini || !String(form.alamat_saat_ini).trim()) && (!form.alamat || !String(form.alamat).trim())) missingPribadi.push('Alamat Domisili');
+    if (!form.alamat_saat_ini || !String(form.alamat_saat_ini).trim()) missingPribadi.push('Alamat Domisili');
     if (!form.provinsi_id && !form.propinsi_id) missingPribadi.push('Provinsi Domisili');
     if (!form.kabupaten_id) missingPribadi.push('Kabupaten/Kota Domisili');
     if (!form.kecamatan || !String(form.kecamatan).trim()) missingPribadi.push('Kecamatan Domisili');
@@ -175,10 +175,10 @@ const tabCompleteness = computed(() => {
     if (!form.linkedin_username || !String(form.linkedin_username).trim()) missingKarier.push('LinkedIn Username');
     if (!form.instagram_url || !isValidUrl(form.instagram_url)) missingKarier.push('Instagram URL');
     if (!form.facebook_url || !isValidUrl(form.facebook_url)) missingKarier.push('Facebook URL');
-    const hasSkills = (form.skills && String(form.skills).trim()) || (form.expert && String(form.expert).trim());
+    const hasSkills = form.skills && String(form.skills).trim();
     if (!hasSkills) missingKarier.push('Keahlian (Skills)');
 
-    const hasExperience = (form.experience && String(form.experience).trim()) || (form.minat && String(form.minat).trim());
+    const hasExperience = form.experience && String(form.experience).trim();
     if (!hasExperience) missingKarier.push('Pengalaman Kerja (Experience)');
 
     const kategori = (form.kategori_pekerjaan || '').trim();

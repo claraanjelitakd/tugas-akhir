@@ -109,36 +109,60 @@ Request halaman memakai Inertia::render. Mutation normalnya mengembalikan redire
 
 **Swimlane:** Pengguna/Tamu, Backend, Database, Mail service.
 **Pemicu:** membuka login, lupa password, atau diwajibkan mengganti password.
-**Hasil:** session aktif, token reset dikirim, password berubah, atau akses ditolak.
+**Hasil:** session aktif, alumni diarahkan ke perubahan password wajib, token reset dikirim, password berhasil dipulihkan, logout, atau akses ditolak.
 
 Alur lengkap:
 
-1. Pengguna mengirim username/password.
-2. Backend memvalidasi request dan mencoba kredensial normal.
-3. Jika gagal dan user alumni memiliki hash password legacy, tanggal lahir ddmmyyyy atau password legacy dicoba.
-4. Jika berhasil melalui fallback, password dimigrasikan ke hash baru dan must_change_password=true.
-5. Backend mengarahkan alumni ke /change-password; role administrator menuju dashboard masing-masing.
-6. Lupa password menerima username/email, mencari user atau email biodata, membuat token hash dengan masa berlaku 60 menit, lalu mengirim mail generik.
-7. Reset memvalidasi token, expiry, password minimal 12 karakter dan confirmation; token dihapus setelah sukses.
-8. Middleware memaksa alumni mengganti password sebelum halaman lain. Logout menginvalidasi session dan token.
+1. Tamu membuka halaman login. Backend merender form login melalui Inertia.
+2. Pengguna mengirim username dan password. Backend memvalidasi kedua field sebagai input wajib.
+3. Backend mencoba kredensial normal melalui username dan password yang tersimpan.
+4. Jika berhasil, session diregenerasi untuk mencegah session fixation.
+5. Jika pengguna adalah alumni dan `must_change_password = true`, backend mengarahkan ke `/change-password`. Jika tidak, backend mengarahkan ke dashboard sesuai role.
+6. Jika login normal gagal, backend hanya mencoba fallback untuk akun alumni yang masih wajib mengganti password atau masih memakai hash password legacy.
+7. Fallback mengambil tanggal lahir dari biodata atau `data_akademik`, menormalisasi input menjadi angka, lalu mencocokkannya dengan format `ddmmyyyy`.
+8. Jika fallback cocok, password di-hash ulang, `must_change_password` tetap/diubah menjadi `true`, alumni diloginkan, session diregenerasi, lalu diarahkan ke `/change-password`.
+9. Jika semua cara gagal, backend mengembalikan error login dan hanya mempertahankan input username.
+10. Pada alur lupa password, tamu mengirim NIM/username atau email. Backend mencari kecocokan pada `users.username`, `users.email`, atau `biodata.email_pribadi`.
+11. Backend selalu mengembalikan pesan generik agar keberadaan akun tidak terbuka. Jika akun dan email valid, backend membuat token acak, menyimpan hash token pada `password_reset_tokens` bersama waktu pembuatan, lalu mengirim email reset.
+12. Pengguna membuka link reset. Backend menampilkan form reset dengan token mentah dan email sebagai konteks form; token belum dianggap valid sebelum POST diverifikasi.
+13. Saat form reset dikirim, backend memvalidasi token, email, password minimal 12 karakter, dan konfirmasi password.
+14. Backend mencari record token, menolak token yang tidak ada atau lebih dari 60 menit, lalu memeriksa hash token.
+15. Jika valid, backend mencari user berdasarkan email akun atau email pribadi biodata, menyimpan password baru, menghapus `must_change_password`, dan menghapus token reset.
+16. Pengguna diarahkan ke login dan harus masuk menggunakan password baru.
+17. Pada setiap route terautentikasi, middleware memeriksa alumni yang masih memiliki `must_change_password = true`. Semua route selain `/change-password` dan logout diarahkan kembali ke form perubahan password.
+18. Form perubahan password hanya dapat digunakan alumni yang memang memiliki flag tersebut. Password baru divalidasi minimal 12 karakter dan konfirmasi, kemudian disimpan, flag diubah menjadi `false`, dan pengguna diarahkan ke dashboard sesuai role.
+19. Logout menjalankan `Auth::logout`, menginvalidasi session, dan meregenerasi CSRF token.
 
 ~~~mermaid
 flowchart TD
-  A((Mulai)) --> U[Pengguna kirim kredensial]
-  U --> B[Backend validasi dan Auth attempt]
+  A((Mulai)) --> L[Pilih Login atau Lupa Password]
+  L --> Q{Alur login?}
+  Q -- Ya --> U[Kirim username dan password]
+  U --> B[Validasi dan Auth attempt]
   B --> D{Berhasil?}
   D -- Ya --> R{Alumni wajib ganti password?}
-  D -- Tidak --> F{Legacy alumni dan DOB/password lama cocok?}
-  F -- Ya --> M[Hash ulang password dan tandai wajib ganti]
-  F -- Tidak --> E[Catat gagal dan tampilkan error]
+  D -- Tidak --> F{Fallback alumni dan tanggal lahir cocok?}
+  F -- Ya --> M[Hash ulang password dan set must_change_password]
+  F -- Tidak --> E[Tampilkan error login]
   M --> R
-  R -- Ya --> C[Ganti password]
+  R -- Ya --> C[Form ganti password wajib]
   R -- Tidak --> S[Redirect dashboard sesuai role]
-  C --> V[Validasi password minimal 12 dan konfirmasi]
+  C --> V[Validasi minimal 12 karakter dan konfirmasi]
   V --> P[Simpan password baru dan hapus flag]
   P --> S
+  Q -- Tidak --> FP[Kirim username/NIM atau email]
+  FP --> FE[Cari user, tetapi tampilkan status generik]
+  FE --> FT[Buat hash token reset 60 menit dan kirim email]
+  FT --> RF[Buka link reset]
+  RF --> RV[Validasi token, expiry, email, password]
+  RV --> RD{Token valid?}
+  RD -- Ya --> RP[Simpan password, hapus flag dan token]
+  RD -- Tidak --> RE[Error reset]
+  RP --> LG[Login dengan password baru]
   E --> Z((Selesai error))
+  RE --> Z
   S --> Z2((Selesai))
+  LG --> Z2
 ~~~
 
 ### AD-02 â€” Pengisian dan pembaruan profil alumni
@@ -157,19 +181,32 @@ flowchart TD
 8. Email biodata disinkronkan ke user, activity log ditulis, dan KuesionerSyncService memperbarui jawaban profile-managed.
 9. Jika input invalid, tidak ada perubahan sukses; backend mengembalikan validasi melalui respons Inertia.
 
+#### Detail proses profil
+
+1. Pertanyaan profil dinamis berasal dari `ref_subpertanyaan2021` dengan `tampil_di = profile/profil`; pilihan berasal dari `ref_subpertanyaan_detil`. Field akademik yang dikunci tetap dibaca dari sumber akademik atau database view.
+2. Alumni mengisi identitas, kontak, domisili, status pekerjaan, bidang/divisi, perusahaan, studi lanjut, atasan, dan pertanyaan profil yang berlaku. Untuk dropdown `Lainnya`, frontend mengirim pilihan resmi dan teks custom.
+3. Backend memvalidasi ulang question id, tipe pertanyaan, pilihan, foto, email, nomor telepon, URL, tanggal, tahun, gaji, relasi wilayah/perusahaan, dan data atasan. Nilai dari frontend tidak langsung dipercaya.
+4. Nilai `Lainnya` disimpan secara terstruktur sebagai pilihan resmi plus custom value pada `answer` dan/atau `answer_json`, sehingga input baru tetap dapat dikelompokkan sebagai `Lainnya`.
+5. Status pekerjaan menentukan field yang relevan. Normalisasi tidak boleh mengosongkan data lama hanya karena field tersebut tidak dikirim pada form parsial.
+6. Gaji dibersihkan dari pemisah mata uang menjadi integer. Nilai ini menjadi sumber sinkronisasi pertanyaan tracer yang dikelola profil, termasuk take-home pay jika aturan instrumen memetakannya ke gaji.
+7. Perusahaan dicari berdasarkan identitas yang dinormalisasi. Jika belum ada, backend membuat perusahaan berstatus `Menunggu Verifikasi`; perusahaan terverifikasi tidak ditimpa oleh input alumni tanpa proses penggantian yang sah.
+8. Data atasan di-upsert hanya untuk field yang dikirim. Field yang tidak ada pada request mempertahankan data lama agar penyimpanan tab lain tidak menghilangkan atasan.
+9. Setelah biodata, relasi perusahaan, atasan, foto, email user, dan log tersimpan, `KuesionerSyncService` meng-upsert jawaban profile-managed ke `tracer` berdasarkan `biodata_id` dan `question_id`.
+
 ~~~mermaid
 flowchart TD
   A((Mulai)) --> L[Backend memuat profil dan referensi]
-  L --> U[Alumni/admin mengisi atau memperbarui form]
-  U --> V{Validasi lolos?}
-  V -- Tidak --> E[Tampilkan error Inertia]
-  V -- Ya --> N[Normalisasi bidang kerja, gaji, posisi, dan email]
-  N --> C{Perusahaan baru?}
-  C -- Ya --> CP[Buat perusahaan status Menunggu Verifikasi]
-  C -- Tidak --> K[Pertahankan perusahaan sesuai status]
-  CP --> T[Simpan biodata, atasan, foto, dan relasi]
-  K --> T
-  T --> Q[Sync jawaban profile-managed dan tulis log]
+  L --> U[Alumni/admin mengisi form profil dan pertanyaan dinamis]
+  U --> V{Validasi struktur, tipe, format, dan scope?}
+  V -- Tidak --> E[Tampilkan validation error Inertia]
+  V -- Ya --> N[Normalisasi bidang kerja, Lainnya, gaji, posisi, dan email]
+  N --> C{Perusahaan sudah ada?}
+  C -- Tidak --> CP[Buat perusahaan Menunggu Verifikasi]
+  C -- Ya --> K[Pertahankan status perusahaan]
+  CP --> A[Upsert atasan tanpa mengosongkan field lama]
+  K --> A
+  A --> T[Simpan biodata, foto, relasi, dan log]
+  T --> Q[Sync profile-managed ke tracer dengan question_id]
   Q --> R[Redirect dengan flash sukses]
   E --> X((Selesai error))
   R --> Y((Selesai))
@@ -202,15 +239,36 @@ flowchart TD
 7. KelengkapanTracerService menghitung mandatory/optional dengan pertanyaan tidak berlaku tidak dihitung sebagai kekurangan.
 8. Request Inertia menerima redirect/flash, bukan plain JSON.
 
+#### Detail percabangan kuesioner universitas
+
+1. Halaman hanya memuat kuesioner aktif, section aktif, pertanyaan yang bukan bagian form profil, opsi/detail pertanyaan, jawaban `tracer`, dan data autofill dari database view. Jawaban profile-managed disinkronkan dari biodata.
+2. Alumni dapat menyimpan progres parsial. Backend tetap memvalidasi tipe jawaban, opsi yang berasal dari pertanyaan tersebut, format angka/tanggal, multi-choice, serta custom `Lainnya`.
+3. IF F8 (status setelah lulus) diterapkan oleh frontend untuk tampilan dan dihitung ulang oleh backend untuk audit:
+   - **Melanjutkan Pendidikan (4):** lewati F10, F3, F4, F504, F502, F505, F506, F6, F7, F7A, F14, F15, dan F16. Pertanyaan studi lanjut F18 dan turunannya tetap berlaku.
+   - **Belum Memungkinkan Bekerja (2):** lewati F18, F12, F18A, F18B, F18C, F18D, F3, F4, F504, F502, F505, F506, F6, F7, F7A, F14, F15, dan F16. F10 tetap berlaku.
+   - **Sedang Mencari Kerja (5):** lewati F18, F12, F18A, F18B, F18C, F18D, F504, F502, F505, F506, F14, F15, dan F16. F10 tetap berlaku.
+   - **Bekerja/Wiraswasta (status selain tiga kondisi di atas, termasuk 1 dan 3):** lewati F10 serta F18, F12, F18A, F18B, F18C, dan F18D.
+4. IF F504 diterapkan jika pertanyaan masih berlaku: **Ya (1)** melewati F506; **Tidak (2)** melewati F502 dan F505.
+5. Backend juga membaca `jump_to` pada opsi. Jika opsi menunjuk ke pertanyaan berikutnya, semua pertanyaan di antara pertanyaan aktif dan target ditandai skipped.
+6. Jawaban yang lolos validasi di-upsert berdasarkan `biodata_id` dan `question_id`. Jawaban terstruktur disimpan di `answer_json`, sedangkan `answer`/`answer_text` dipakai sebagai representasi baca.
+7. `KelengkapanTracerService` mengambil pertanyaan wajib dan opsional, mengecualikan profile-managed, lalu tidak menghitung pertanyaan skipped sebagai kekurangan. Pertanyaan wajib yang masih berlaku tetapi kosong tetap dihitung belum lengkap.
+
 ~~~mermaid
 flowchart TD
   A((Mulai)) --> L[Backend memuat instrumen aktif dan jawaban]
-  L --> U[Alumni mengisi halaman]
-  U --> V{Format dan pilihan valid?}
-  V -- Tidak --> E[Kembalikan error validasi]
-  V -- Ya --> B[Evaluasi branching F8/F504]
-  B --> S[Simpan answer, answer_json, question_id]
-  S --> C[Hitung status mandatory dan audit]
+  L --> P[Prefill profile-managed, autofill, dan jawaban tersimpan]
+  P --> U[Alumni mengisi atau menyimpan progres]
+  U --> V{Format, opsi, dan custom Lainnya valid?}
+  V -- Tidak --> E[Kembalikan validation error]
+  V -- Ya --> S[Upsert tracer dengan question_id dan answer_json]
+  S --> F8{F8 terisi?}
+  F8 -- Ya --> B8[Tentukan set skipped berdasarkan status F8]
+  F8 -- Tidak --> B8
+  B8 --> F504{F504 masih berlaku dan terisi?}
+  F504 -- Ya --> B504[Tentukan F506 atau F502/F505 skipped]
+  F504 -- Tidak --> J[Evaluasi aturan jump_to]
+  B504 --> J
+  J --> C[Hitung mandatory/optional; skipped bukan kekurangan]
   C --> R[Redirect/flash Inertia]
   E --> X((Selesai error))
   R --> Y((Selesai))
@@ -228,19 +286,37 @@ flowchart TD
 4. Response di-upsert dengan kunci alumni-question; nilai teks/json disimpan.
 5. Status kelengkapan prodi dihitung terpisah dari kelengkapan universitas.
 
+#### Detail proses kuesioner prodi
+
+1. Backend mengambil `prodi_id` dari biodata alumni. Jika belum ada prodi, halaman mengembalikan respons Inertia dengan instrumen kosong dan pesan; pertanyaan prodi lain tidak boleh diakses.
+2. Section, pertanyaan, opsi, dan respons hanya diambil untuk prodi alumni. Identitas yang ditandai otomatis dapat diprefill dari `v_alumni_kuesioner_autofill` atau biodata.
+3. Backend memeriksa question id yang dikirim benar-benar milik prodi alumni, menormalisasi jawaban array/terstruktur, memeriksa opsi dan format, serta menyimpan pilihan custom sebagai `answer_json` bila diperlukan.
+4. Jawaban terisi di-upsert dengan kunci `biodata_id + prodi_question_id`. Jika jawaban kosong dan bukan autofill identitas, respons lama dihapus agar persentase tidak salah.
+5. Status kelengkapan prodi dihitung terpisah dari kuesioner universitas. Request sukses memakai redirect/flash Inertia; input invalid tidak disimpan dan tidak menghasilkan plain JSON.
+
 ### AD-06 â€” Undangan dan evaluasi atasan
 
-**Swimlane:** Alumni, Backend, Mail service, Atasan, Database.
-**Route:** POST /alumni/kirim-email-atasan, public /evaluasi-atasan/{token}.
-**Hasil:** undangan dikirim atau evaluasi atasan tersimpan.
+**Swimlane:** Alumni/Admin scope, Backend, Database, Mail service, Atasan/Pengguna Lulusan.
+**Route:** POST /alumni/kirim-email-atasan, GET/POST public /evaluasi-atasan/{token}.
+**Hasil:** data atasan tersimpan saat profil disimpan; evaluasi dan token baru dibuat ketika alumni meminta pengiriman undangan, lalu respons pengguna lulusan tersimpan satu kali.
 
-1. Alumni/admin scope mengisi nama, email, telepon, jabatan, dan perusahaan atasan.
-2. Backend melakukan validasi dan menyimpan/memperbarui relasi Atasan.
-3. Email undangan hanya dikirim saat tombol aksi dipilih, bukan otomatis saat profil disimpan.
-4. Atasan membuka token; token invalid/tidak ditemukan diarahkan ke halaman error.
-5. Public endpoint dibatasi throttle: GET 30/menit dan POST 10/menit.
-6. Backend memuat instrumen aktif, menerima skor/catatan, memvalidasi, lalu menyimpan ResponEvaluasiAtasan.
-7. Status evaluasi berubah menjadi submitted/aktif sesuai model; detail token tidak dikirim sebagai data admin yang tidak diperlukan.
+1. Alumni mengisi data atasan: nama, email, telepon, jabatan, dan perusahaan.
+2. Saat profil disimpan, backend hanya menyimpan atau memperbarui data Atasan pada biodata. Penyimpanan profil tidak membuat EvaluasiAtasan dan tidak membuat token.
+3. Penyimpanan profil tidak otomatis mengirim email. Email hanya dikirim melalui tombol Kirim Email ke Atasan.
+4. Saat tombol kirim dipilih, backend menentukan biodata target. Alumni mengirim untuk dirinya sendiri; admin dapat mengirim untuk alumni dalam scope yang diizinkan.
+5. Backend memvalidasi email dan menyinkronkan email ke Atasan.
+6. Jika EvaluasiAtasan belum ada, backend membuatnya berdasarkan biodata_id dan membuat token acak 40 karakter. Jika sudah ada, token yang ada dipertahankan agar tombol kirim ulang tidak membuat evaluasi ganda.
+7. Mail service mengirim UndanganEvaluasiAtasanMail berisi URL /evaluasi-atasan/{token}. Pengiriman dipanggil synchronous melalui Mail::send.
+8. Atasan membuka URL token tanpa login. GET dibatasi throttle 30 request per menit.
+9. Backend mencari token dan menolak jika tidak ditemukan atau evaluasi sudah is_submitted. Tidak ada expiry token; token menjadi tidak berlaku setelah submitted.
+10. Jika valid, backend memuat data alumni, perusahaan, atasan, pertanyaan evaluasi yang aktif, dan jawaban existing, lalu merender form publik.
+11. Atasan mengirim informasi perusahaan, data atasan, metadata jumlah alumni/gaji pertama, seluruh jawaban aktif, dan catatan. POST dibatasi throttle 10 request per menit.
+12. Backend memvalidasi bahwa kode jawaban sama persis dengan seluruh pertanyaan aktif. Jawaban yang kurang atau memiliki kode pertanyaan asing ditolak.
+13. Dalam transaksi, backend mengunci EvaluasiAtasan, menolak pengiriman kedua, membuat ResponEvaluasiAtasan dengan pertanyaan_id, nilai, dan catatan, memperbarui atau membuat Atasan, lalu menautkan atasan ke biodata jika perlu.
+14. Backend memperbarui metadata evaluasi, mengubah is_submitted menjadi true, dan mengisi submitted_at.
+15. Admin membaca hasil melalui payload audit tanpa token akses. Token tidak seharusnya ditampilkan pada halaman admin yang hanya membutuhkan status dan respons.
+
+Catatan desain: pembuatan EvaluasiAtasan dan token ditempatkan pada aksi Kirim Email, bukan pada aksi Simpan Profil. Jika evaluasi sudah submitted, endpoint pengiriman menolak pengiriman ulang karena token sudah hangus. Field informasi perusahaan divalidasi dan disimpan ke record perusahaan pending; record perusahaan yang sudah Terverifikasi tidak ditimpa oleh input publik.
 
 ### AD-07 â€” Direktori alumni, detail, reminder, dan ekspor
 
@@ -368,34 +444,50 @@ flowchart TD
 
 ### AD-16 â€” Rekomendasi dan verifikasi perusahaan
 
-**Swimlane:** Superadmin/Admin Prodi/Admin Fakultas, Backend, Database.
-**Hasil:** perusahaan disetujui, diperbarui lalu disetujui, ditolak, atau tetap pending.
+**Swimlane:** Alumni atau proses LinkedIn, Backend, Database.
+**Route:** POST shared /alumni/company dan proses pembuatan perusahaan saat approval LinkedIn; rekomendasi dihitung saat index perusahaan dibuka.
+**Hasil:** record perusahaan pending tersimpan dan daftar rekomendasi master terverifikasi tersedia. Tahap ini belum melakukan approval atau replace.
 
-1. Backend mengambil pending company sesuai scope.
-2. PerusahaanVerificationService membersihkan nama, stopword, token, dan akronim.
-3. Kandidat master dinilai menggunakan exact/acronym/substring/token overlap/similar_text.
-4. Geographic scoring menambah nilai jika kota/provinsi cocok.
-5. Kandidat diurutkan; threshold total atau kombinasi nama/lokasi menentukan recommendation.
-6. Aktor memilih verifikasi, edit lalu verifikasi, atau tolak.
-7. Backend menyimpan status, perubahan, dan audit log dalam transaksi/operasi terkontrol.
-8. Scope role diverifikasi sebelum tindakan.
+1. Data perusahaan dapat berasal dari dua sumber: alumni mengajukan perusahaan baru, atau hasil approval LinkedIn membuat/menetapkan perusahaan kerja yang harus masuk antrean verifikasi.
+2. Backend menyimpan atau menemukan record perusahaan dan memastikan data yang diajukan berada pada status Menunggu Verifikasi sesuai alur sumbernya.
+3. Saat halaman antrean dibuka, controller mengambil perusahaan pending sesuai scope role. RoleMiddleware sudah menangani autentikasi dan role route; controller menerapkan scope query.
+4. PerusahaanVerificationService membersihkan nama perusahaan:
+   - menghapus isi tanda kurung;
+   - menghapus tanda baca;
+   - mengubah huruf menjadi lowercase;
+   - menghapus stopword badan usaha, cabang, unit, dan kata umum.
+5. Backend membentuk token kata dan akronim dari nama pending.
+6. Backend mengambil seluruh master perusahaan berstatus Terverifikasi. Master terverifikasi tetap dapat menjadi rekomendasi, termasuk jika nama bersihnya sama persis dengan pengajuan pending.
+7. Untuk setiap kandidat master, backend menghitung similarity:
+   - exact match nama bersih: skor 95;
+   - akronim/singkatan: skor 88;
+   - substring/containment: skor 75-90;
+   - akronim parsial: skor 70-80;
+   - overlap token: skor 50-75 jika minimal sepertiga token cocok dan bukan hanya kata industri generik;
+   - similar_text: skor persentase kemiripan huruf jika minimal 60%.
+8. Backend menambahkan geographic score jika lokasi sama:
+   - kota/kabupaten sama: +20;
+   - provinsi sama: +10;
+   - bonus hanya berlaku jika skor nama minimal 35.
+9. Kandidat diterima jika total skor minimal 45, atau kota sama dengan skor nama minimal 30.
+10. Kandidat diurutkan berdasarkan skor tertinggi dan controller menempelkan rekomendasi ke setiap item antrean. Saat ini controller meminta maksimal lima rekomendasi.
+11. Rekomendasi ini hanya hasil perhitungan untuk ditampilkan. Tidak ada pilihan admin dan tidak ada perubahan status pada tahap ini. Keputusan admin dijelaskan pada AD-17A.
 
 ~~~mermaid
 flowchart TD
-  A((Mulai)) --> L[Backend memuat pending company sesuai scope]
-  L --> N[Normalisasi nama, token, akronim, lokasi]
-  N --> M[Hitung similarity dan geographic score]
-  M --> T{Melewati threshold?}
-  T -- Tidak --> P[Tampilkan tanpa rekomendasi kuat]
-  T -- Ya --> R[Tampilkan rekomendasi master]
-  P --> D{Aktor memilih tindakan}
-  R --> D
-  D -- Verifikasi --> V[Simpan status Terverifikasi dan log]
-  D -- Edit lalu verifikasi --> E[Simpan field tervalidasi, status, log]
-  D -- Tolak --> X[Simpan status Ditolak dan log]
-  V --> Z((Selesai))
-  E --> Z
-  X --> Z
+  A[Alumni ajukan perusahaan] --> B[Backend simpan perusahaan pending]
+  L[Approval LinkedIn menghasilkan perusahaan kerja] --> B
+  B --> DB[(Database: status Menunggu Verifikasi)]
+  DB --> I[Controller membuka antrean sesuai scope]
+  I --> N[Normalisasi nama, token, akronim, dan lokasi]
+  N --> M[Ambil master berstatus Terverifikasi]
+  M --> S[Hitung similarity nama]
+  S --> G[Tambahkan geographic score]
+  G --> T{Memenuhi threshold?}
+  T -- Tidak --> E[Tidak ada rekomendasi kuat]
+  T -- Ya --> R[Urutkan dan tampilkan maksimal lima rekomendasi]
+  E --> Z((Selesai rekomendasi))
+  R --> Z
 ~~~
 
 ### AD-17 â€” Auto-replace perusahaan pending
@@ -410,6 +502,39 @@ flowchart TD
 5. Pending company dihapus hanya setelah referensi berpindah.
 6. Audit log mencatat sumber, target, aktor, dan perubahan.
 7. Jika salah satu langkah gagal, transaksi rollback dan tidak boleh menampilkan sukses.
+
+### AD-17A — Keputusan approval perusahaan
+
+**Swimlane:** Admin Prodi/Admin Fakultas/Superadmin, Backend, Database.
+**Prasyarat:** AD-16 sudah menghasilkan record pending dan rekomendasi master terverifikasi.
+**Hasil:** perusahaan menjadi Terverifikasi, Ditolak, atau diteruskan ke AD-17 untuk konsolidasi master.
+
+1. Admin membuka detail perusahaan pending dan membaca data pengajuan serta rekomendasi yang sudah dihitung sistem.
+2. Backend memuat record berdasarkan scope controller. Admin tidak menghitung ulang atau memilih algoritma rekomendasi.
+3. Admin memilih tindakan bisnis:
+   - Verifikasi langsung jika record pending dianggap sebagai entitas master yang benar;
+   - Edit lalu verifikasi jika data perusahaan perlu diperbaiki;
+   - Ganti ke master jika rekomendasi menunjuk entitas master yang sama;
+   - Tolak jika pengajuan tidak dapat digunakan.
+4. Verifikasi langsung mengubah record pending menjadi Terverifikasi dan menulis LogActivity.
+5. Edit lalu verifikasi memvalidasi field koreksi, menyimpan perubahan, mengubah status menjadi Terverifikasi, dan menulis LogActivity.
+6. Ganti ke master memanggil AD-17 Auto-replace. Proses tersebut mengalihkan biodata, evaluasi atasan, dan jawaban tracer dalam satu transaksi.
+7. Tolak mengubah status menjadi Ditolak, menyimpan alasan jika tersedia, dan menulis LogActivity.
+8. Respons sukses hanya dikirim setelah operasi database selesai. Error scope, resource tidak ditemukan, validasi, atau rollback tidak boleh ditampilkan sebagai sukses.
+
+~~~mermaid
+flowchart TD
+  A[Admin membuka detail pending] --> B[Backend memuat pending dan rekomendasi]
+  B --> C{Admin memilih tindakan}
+  C -- Verifikasi langsung --> V[Set pending menjadi Terverifikasi dan log]
+  C -- Edit lalu verifikasi --> E[Validasi field, update, set Terverifikasi, log]
+  C -- Ganti ke master --> R[Panggil AD-17 Auto-replace]
+  C -- Tolak --> X[Set Ditolak, simpan alasan, log]
+  V --> Z((Selesai))
+  E --> Z
+  R --> Z
+  X --> Z
+~~~
 
 ### AD-18 â€” Sinkronisasi LinkedIn satu alumni via Apify
 

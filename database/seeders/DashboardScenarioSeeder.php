@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\DataOrangTua;
 use App\Models\Kabupaten;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
@@ -164,11 +163,8 @@ class DashboardScenarioSeeder extends Seeder
                 'kabupaten_id' => $kabupaten->id,
                 'propinsi_id' => $propinsi->id,
                 'kode_pos' => '55281',
-                'nik' => $isProfileComplete ? '3404'.str_pad((string) (100000000000 + $sequence + ((int) $prodi->kode_prodi * 1000)), 12, '0', STR_PAD_LEFT) : null,
-                'no_kk' => $isProfileComplete ? '340411'.str_pad((string) (2000000000 + $sequence), 10, '0', STR_PAD_LEFT) : null,
                 'nisn' => $isProfileComplete ? '005'.str_pad((string) (1000000 + $sequence), 7, '0', STR_PAD_LEFT) : null,
                 'no_bpjs' => $isProfileComplete ? '0002'.str_pad((string) (7000000 + $sequence), 10, '0', STR_PAD_LEFT) : null,
-                'npwp' => $isProfileComplete ? '09.'.str_pad((string) ($sequence % 1000), 3, '0', STR_PAD_LEFT).'.'.str_pad((string) (($sequence * 3) % 1000), 3, '0', STR_PAD_LEFT).'.00-541.000' : null,
                 'asal_sekolah' => 'SMA Negeri '.(($sequence % 6) + 1),
                 'alamat_asal_sekolah' => 'Jl. Pendidikan No. '.($sequence + 1),
                 'kota_kabupaten_asal_sekolah' => 'Kabupaten Sleman',
@@ -176,22 +172,9 @@ class DashboardScenarioSeeder extends Seeder
                 'jurusan_asal_sekolah' => in_array($prodi->kode_prodi, ['11', '12'], true) ? 'IPS' : 'IPA',
             ]);
 
-            $dataOrangTua = DataOrangTua::create([
-                'nim' => $nim,
-                'nama_orang_tua' => 'Orang Tua '.$name,
-                'pekerjaan' => ['Pegawai Swasta', 'Wiraswasta', 'PNS / ASN', 'Dosen / Akademisi'][$sequence % 4],
-                'alamat' => $dataAkademik->alamat_saat_ini,
-                'kota' => 'Kabupaten Sleman',
-                'kabupaten_id' => $kabupaten->id,
-                'propinsi_id' => $propinsi->id,
-                'kode_pos' => '55281',
-                'nomor_telepon' => '0813'.str_pad((string) (90000000 + $sequence), 8, '0', STR_PAD_LEFT),
-            ]);
-
             $biodata = Biodata::create([
                 'user_id' => $user->id,
                 'nim' => $nim,
-                'orang_tua_id' => $dataOrangTua->id,
                 'prodi_id' => $prodi->id,
                 'email_pribadi' => $email,
                 'nomor_telepon' => $dataAkademik->nomor_telepon,
@@ -199,8 +182,6 @@ class DashboardScenarioSeeder extends Seeder
                 'kabupaten_id' => $kabupaten->id,
                 'propinsi_id' => $propinsi->id,
                 'kode_pos' => '55281',
-                'nik' => $isProfileComplete ? $dataAkademik->nik : null,
-                'npwp' => $isProfileComplete ? $dataAkademik->npwp : null,
                 'linkedin_url' => $sequence % 4 === 0 ? null : 'https://www.linkedin.com/in/demo-'.$nim,
                 'linkedin_username' => $sequence % 4 === 0 ? null : 'demo-'.$nim,
                 'skills' => $isRespondent ? 'Komunikasi, Analisis Data, '.$prodi->nama_prodi : null,
@@ -219,10 +200,6 @@ class DashboardScenarioSeeder extends Seeder
 
             $yudisium = Yudisium::create([
                 'nim' => $nim,
-                'dosen_pembimbing_1' => 'Dr. Budi Susanto, S.Kom., M.T.',
-                'dosen_pembimbing_2' => 'Gloria Virginia, S.Kom., MAI., Ph.D.',
-                'dosen_penguji_1' => 'Willy Sudiarto Raharjo, S.Kom., M.Cs.',
-                'dosen_penguji_2' => 'Laurentius Kuncoro Probo Saputro, S.T., M.Eng.',
                 'judul_ta' => 'Analisis Data Alumni '.$prodi->nama_prodi.' Tahun '.$graduationYear,
                 'judul_ta_inggris' => 'Alumni Data Analysis for '.$prodi->nama_prodi,
                 'status_lulus' => 'Lulus',

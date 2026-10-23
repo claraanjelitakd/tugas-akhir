@@ -20,8 +20,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  *
  * Fungsi: Menghasilkan berkas Excel (.xls) berformat HTML kaya gaya (UKDW Green Branding,
  * Identitas Alumni Lengkap, Kuesioner Universitas, Kuesioner Prodi, dan Sheet Hasil Evaluasi Atasan)
- * dengan proteksi format teks (mso-number-format:'\@') agar seluruh data numerik panjang seperti NIK,
- * NPWP, NIM, No KK, No BPJS, NISN, dan No Telepon tidak terkonversi menjadi notasi eksponensial.
+ * dengan proteksi format teks (mso-number-format:'\@') agar data numerik panjang seperti NIM,
+ * No BPJS, NISN, dan No Telepon tidak terkonversi menjadi notasi eksponensial.
  */
 class AlumniTracerExcelExporter
 {
@@ -59,11 +59,9 @@ class AlumniTracerExcelExporter
             if (! $alumni->relationLoaded('dataAkademik') || ! $alumni->relationLoaded('atasan')) {
                 $alumni->load([
                     'dataAkademik.yudisium',
-                    'dataAkademik.orangTua',
                     'dataAkademik.propinsi',
                     'dataAkademik.kabupaten',
                     'yudisium',
-                    'orangTua',
                     'propinsi',
                     'kabupaten',
                     'perusahaan.propinsi',
@@ -76,11 +74,9 @@ class AlumniTracerExcelExporter
         } else {
             $alumni = Biodata::with([
                 'dataAkademik.yudisium',
-                'dataAkademik.orangTua',
                 'dataAkademik.propinsi',
                 'dataAkademik.kabupaten',
                 'yudisium',
-                'orangTua',
                 'propinsi',
                 'kabupaten',
                 'perusahaan.propinsi',
@@ -142,16 +138,12 @@ class AlumniTracerExcelExporter
         ob_start();
 
         $dataAkademik = $alumni->dataAkademik;
-        $orangTua = $alumni->orangTua ?? $dataAkademik?->orangTua;
         $yudisium = $alumni->yudisium ?? $dataAkademik?->yudisium;
         $perusahaan = $alumni->perusahaan;
         $atasan = $alumni->atasan;
 
         // 1. Data Pribadi & Kontak (Diutamakan dari view v_alumni_profile_summary)
         $namaLengkap = $summary?->nama ?: ($alumni->nama ?: ($dataAkademik?->nama ?: ($alumni->user?->name ?: '-')));
-        $nik = $summary?->nik ?: ($alumni->nik ?: ($dataAkademik?->nik ?: '-'));
-        $npwp = $summary?->npwp ?: ($alumni->npwp ?: '-');
-        $noKk = $summary?->no_kk ?: ($alumni->no_kk ?: ($dataAkademik?->no_kk ?: '-'));
         $noBpjs = $summary?->no_bpjs ?: ($alumni->no_bpjs ?: ($dataAkademik?->no_bpjs ?: '-'));
         $nisn = $summary?->nisn ?: ($alumni->nisn ?: ($dataAkademik?->nisn ?: '-'));
         $jenisKelamin = $summary?->jenis_kelamin ?: ($dataAkademik?->jenis_kelamin ?: '-');
@@ -168,9 +160,9 @@ class AlumniTracerExcelExporter
         $ig = $summary?->instagram_url ?: $alumni->instagram_url;
         $fb = $summary?->facebook_url ?: $alumni->facebook_url;
         $medsos = trim(($ig ? 'IG: '.$ig : '').($fb ? ' | FB: '.$fb : '')) ?: '-';
-        $skills = $summary?->skills ?: ($alumni->skills ?: ($alumni->expert ?: '-'));
-        $experience = $summary?->experience ?: ($alumni->experience ?: ($alumni->minat ?: '-'));
-        $alamatDomisiliLengkap = $summary?->alamat ?: ($alumni->alamat ?: ($dataAkademik?->alamat_saat_ini ?: '-'));
+        $skills = $summary?->skills ?: ($alumni->skills ?: '-');
+        $experience = $summary?->experience ?: ($alumni->experience ?: '-');
+        $alamatDomisiliLengkap = $summary?->alamat ?: ($alumni->alamat_saat_ini ?: ($dataAkademik?->alamat_saat_ini ?: '-'));
 
         // 2. Data Akademik
         $prodiNama = $summary?->nama_prodi ?: ($alumni->prodi?->nama_prodi ?: ($dataAkademik?->prodi?->nama_prodi ?: '-'));
@@ -196,13 +188,6 @@ class AlumniTracerExcelExporter
         $wilayahSekolah = trim(($kotaSekolah ? $kotaSekolah : '').($provSekolah ? ', '.$provSekolah : '')) ?: '-';
 
         // 3. Data Orang Tua / Wali
-        $namaOrtu = $summary?->nama_orang_tua ?: ($orangTua?->nama_orang_tua ?: '-');
-        $pekerjaanOrtu = $summary?->pekerjaan_orang_tua ?: ($orangTua?->pekerjaan ?: '-');
-        $teleponOrtu = $summary?->nomor_telepon_orang_tua ?: ($orangTua?->nomor_telepon ?: '-');
-        $kotaOrtu = $summary?->kode_orang_tua ?: ($orangTua?->kota ?: ($orangTua?->kabupaten?->nama_kabupaten ?: '-'));
-        $alamatOrtu = $summary?->alamat_orang_tua ?: ($orangTua?->alamat ?: '-');
-        $kodePosOrtu = $summary?->kode_pos_orang_tua ?: ($orangTua?->kode_pos ?: '-');
-
         // 4. Data Karier, Perusahaan & Atasan
         $kategoriPekerjaan = $summary?->kategori_pekerjaan ?: ($alumni->kategori_pekerjaan ?: '-');
         $posisiJabatan = $summary?->posisi_jabatan ?: ($alumni->posisi_jabatan ?: ($alumni->posisi_wiraswasta ?: '-'));
@@ -288,14 +273,6 @@ class AlumniTracerExcelExporter
         echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$namaLengkap}</td>\n";
         echo "  </tr>\n";
         echo "  <tr>\n";
-        echo "    <td class=\"box-identitas-label\">NIK (KTP)</td>\n";
-        echo "    <td class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$nik}</td>\n";
-        echo "    <td class=\"box-identitas-label\">NPWP</td>\n";
-        echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$npwp}</td>\n";
-        echo "  </tr>\n";
-        echo "  <tr>\n";
-        echo "    <td class=\"box-identitas-label\">No. Kartu Keluarga (KK)</td>\n";
-        echo "    <td class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$noKk}</td>\n";
         echo "    <td class=\"box-identitas-label\">No. BPJS / Asuransi</td>\n";
         echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$noBpjs}</td>\n";
         echo "  </tr>\n";
@@ -383,27 +360,8 @@ class AlumniTracerExcelExporter
         echo "    <td colspan=\"7\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$alamatSekolah} ({$wilayahSekolah})</td>\n";
         echo "  </tr>\n";
 
-        // Sub 3: Orang Tua
-        echo "  <tr><td colspan=\"8\" class=\"box-identitas-subheader\">3. Data Orang Tua / Wali</td></tr>\n";
-        echo "  <tr>\n";
-        echo "    <td class=\"box-identitas-label\">Nama Lengkap Orang Tua / Wali</td>\n";
-        echo "    <td class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$namaOrtu}</td>\n";
-        echo "    <td class=\"box-identitas-label\">Pekerjaan Orang Tua / Wali</td>\n";
-        echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$pekerjaanOrtu}</td>\n";
-        echo "  </tr>\n";
-        echo "  <tr>\n";
-        echo "    <td class=\"box-identitas-label\">Nomor Telepon / WA Orang Tua</td>\n";
-        echo "    <td class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$teleponOrtu}</td>\n";
-        echo "    <td class=\"box-identitas-label\">Kota Asal Orang Tua</td>\n";
-        echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$kotaOrtu}</td>\n";
-        echo "  </tr>\n";
-        echo "  <tr>\n";
-        echo "    <td class=\"box-identitas-label\">Alamat Lengkap Orang Tua</td>\n";
-        echo "    <td colspan=\"7\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$alamatOrtu} (Kode Pos: {$kodePosOrtu})</td>\n";
-        echo "  </tr>\n";
-
-        // Sub 4: Data Karier
-        echo "  <tr><td colspan=\"8\" class=\"box-identitas-subheader\">4. Data Karier, Perusahaan & Atasan</td></tr>\n";
+        // Sub 3: Data Karier
+        echo "  <tr><td colspan=\"8\" class=\"box-identitas-subheader\">3. Data Karier, Perusahaan & Atasan</td></tr>\n";
         echo "  <tr>\n";
         echo "    <td class=\"box-identitas-label\">Status / Kategori Pekerjaan</td>\n";
         echo "    <td class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$kategoriPekerjaan}</td>\n";

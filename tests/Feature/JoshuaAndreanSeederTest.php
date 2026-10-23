@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\DataOrangTua;
 use App\Models\ProdiResponse;
 use App\Models\Tracer;
 use App\Models\User;
@@ -18,7 +17,7 @@ class JoshuaAndreanSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_joshua_andrean_seeder_populates_academic_and_parent_data_with_clean_biodata(): void
+    public function test_joshua_andrean_seeder_populates_academic_data_with_clean_biodata(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -35,10 +34,6 @@ class JoshuaAndreanSeederTest extends TestCase
         $this->assertEquals('2022', $dataAkademik->angkatan_masuk);
         $this->assertEquals(2026, $dataAkademik->tahun_lulus);
         $this->assertEquals('SMA Negeri 3 Yogyakarta', $dataAkademik->asal_sekolah);
-
-        $dataOrangTua = DataOrangTua::where('nim', '72220001')->first();
-        $this->assertNotNull($dataOrangTua, 'Data orang tua harus terisi.');
-        $this->assertEquals('Ir. Hendra Andrean, M.M.', $dataOrangTua->nama_orang_tua);
 
         $yudisium = Yudisium::where('nim', '72220001')->first();
         $this->assertNotNull($yudisium, 'Data yudisium harus terisi.');
@@ -58,9 +53,7 @@ class JoshuaAndreanSeederTest extends TestCase
         $this->assertNull($biodata->gaji);
         $this->assertNull($biodata->skills);
         $this->assertNull($biodata->experience);
-        $this->assertNull($biodata->expert);
-        $this->assertNull($biodata->minat);
-        $this->assertNull($biodata->npwp);
+        $this->assertNull($biodata->getAttribute('npwp'));
 
         // Pastikan kuesioner belum diisi
         $this->assertEquals(0, Tracer::where('biodata_id', $biodata->id)->count());

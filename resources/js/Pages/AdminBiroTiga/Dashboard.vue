@@ -105,7 +105,7 @@ const filteredAlumni = computed(() => {
             />
 
             <!-- Main Body Area -->
-            <main class="flex-1 min-w-0 space-y-6 overflow-x-auto p-6">
+            <main class="admin-page-main relative z-10 mx-auto flex w-full max-w-[1440px] min-w-0 flex-1 space-y-6 overflow-x-auto px-4 pb-12 sm:px-6 lg:px-8">
                 
                 <!-- Grid 4 Kartu KPI Metrik Eksekutif -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -175,7 +175,7 @@ const filteredAlumni = computed(() => {
                         <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Pintasan Menu Cepat Biro III</span>
                         <span class="text-xs text-slate-400">Aksi Pengelolaan</span>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Link 
                             href="/biro3/alumni" 
                             class="p-3.5 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex items-center gap-3 group cursor-pointer"
@@ -186,19 +186,6 @@ const filteredAlumni = computed(() => {
                             <div class="text-left">
                                 <span class="text-xs font-bold text-slate-800 group-hover:text-[#0D542B] block">Direktori Alumni Universitas</span>
                                 <span class="text-[11px] text-slate-500">Audit & telusuri data seluruh alumni</span>
-                            </div>
-                        </Link>
-
-                        <Link 
-                            href="/biro3/alumni" 
-                            class="p-3.5 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex items-center gap-3 group cursor-pointer"
-                        >
-                            <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.62 1.62 0 1 0 0 3.24 1.62 1.62 0 0 0 0-3.24Z"/></svg>
-                            </div>
-                            <div class="text-left">
-                                <span class="text-xs font-bold text-slate-800 group-hover:text-[#0D542B] block">Audit Tautan LinkedIn</span>
-                                <span class="text-[11px] text-slate-500">Sinkronisasi karir publik alumni</span>
                             </div>
                         </Link>
 

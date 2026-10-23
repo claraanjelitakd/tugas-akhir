@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\DataOrangTua;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\User;
@@ -51,7 +50,6 @@ class AlumniDashboardPercentageTest extends TestCase
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '08123456789',
             'alamat_saat_ini' => 'Jl. Solo Km 10',
-            'nik' => '3471012345670001',
             'ip_kumulatif' => 3.75,
             'tahun_akademik_lulus' => 'Gasal 2024/2025',
         ]);
@@ -69,14 +67,6 @@ class AlumniDashboardPercentageTest extends TestCase
             'instagram_url' => 'https://instagram.com/budi',
             'facebook_url' => 'https://facebook.com/budi',
             'zipcode' => '55281',
-        ]);
-
-        DataOrangTua::create([
-            'nim' => '721220001',
-            'nama_orang_tua' => 'Santoso',
-            'pekerjaan' => 'Wiraswasta',
-            'alamat' => 'Jl. Solo Km 10',
-            'nomor_telepon' => '08129876543',
         ]);
 
         $perusahaan = Perusahaan::create([

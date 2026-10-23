@@ -9,6 +9,7 @@ use App\Models\RefSubpertanyaan2021;
 use App\Models\Tracer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -57,7 +58,6 @@ class SuperAdminDashboardTest extends TestCase
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',
             'alamat_saat_ini' => 'Jl. Dr. Wahidin',
-            'nik' => '3471012345670002',
             'ip_kumulatif' => 3.80,
             'tahun_lulus' => now()->year,
             'tahun_akademik_lulus' => 'Genap 2024/2025',
@@ -226,5 +226,64 @@ class SuperAdminDashboardTest extends TestCase
                     && $byCode->get('73')['response_rate_status']['code'] === 'red';
             })
         );
+    }
+
+    public function test_audit_view_counts_active_mandatory_questions_instead_of_fixed_twenty(): void
+    {
+        $prodi = Prodi::create([
+            'kode_prodi' => '72',
+            'nama_prodi' => 'Sistem Informasi',
+        ]);
+
+        $alumniUser = User::create([
+            'username' => '72200009',
+            'name' => 'Alumni Dynamic Count',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'prodi_id' => $prodi->id,
+            'must_change_password' => false,
+        ]);
+
+        DataAkademik::create([
+            'nim' => '72200009',
+            'nama' => 'Alumni Dynamic Count',
+            'tahun_lulus' => now()->year,
+        ]);
+
+        $biodata = Biodata::create([
+            'user_id' => $alumniUser->id,
+            'nim' => '72200009',
+            'nama' => 'Alumni Dynamic Count',
+            'prodi_id' => $prodi->id,
+        ]);
+
+        foreach (['F8', 'F504', 'F14', 'F15', 'F502'] as $code) {
+            $question = RefSubpertanyaan2021::create([
+                'kelompok' => $code,
+                'kode_pertanyaan' => $code,
+                'subpertanyaan' => 'Butir '.$code,
+                'type' => 'radio',
+                'wajib' => true,
+                'order' => 1,
+            ]);
+
+            Tracer::create([
+                'biodata_id' => $biodata->id,
+                'question_id' => $question->id,
+                'nim' => $biodata->nim,
+                'kelompok' => $question->kelompok,
+                'kode_pertanyaan' => $question->kode_pertanyaan,
+                'subpertanyaan' => $question->subpertanyaan,
+                'answer' => 'Terisi',
+            ]);
+        }
+
+        $audit = DB::table('v_alumni_audit_rekap')
+            ->where('biodata_id', $biodata->id)
+            ->first();
+
+        $this->assertSame(5, (int) $audit->total_mandatory_univ);
+        $this->assertSame(5, (int) $audit->answered_mandatory_univ);
+        $this->assertSame(1, (int) $audit->is_complete_univ);
     }
 }

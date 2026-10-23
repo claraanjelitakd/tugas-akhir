@@ -70,11 +70,9 @@ class DaftarAlumniController extends Controller
 
             $alumnis = $fallbackQuery->with([
                 'dataAkademik.yudisium',
-                'dataAkademik.orangTua',
                 'dataAkademik.propinsi',
                 'dataAkademik.kabupaten',
                 'yudisium',
-                'orangTua',
                 'propinsi',
                 'kabupaten',
                 'perusahaan.propinsi',
@@ -90,11 +88,9 @@ class DaftarAlumniController extends Controller
             $alumnis = Biodata::whereIn('id', $biodataIds)
                 ->with([
                     'dataAkademik.yudisium',
-                    'dataAkademik.orangTua',
                     'dataAkademik.propinsi',
                     'dataAkademik.kabupaten',
                     'yudisium',
-                    'orangTua',
                     'propinsi',
                     'kabupaten',
                     'perusahaan.propinsi',

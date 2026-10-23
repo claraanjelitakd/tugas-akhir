@@ -56,6 +56,7 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [LoginController::class, 'prosesLogin'])->middleware('throttle:5,1');
 
     // Lupa & Reset Kata Sandi via Email
+    Route::get('/forgot-password', [LupaKataSandiController::class, 'tampilkanHalamanLupaKataSandi'])->name('password.request');
     Route::post('/forgot-password', [LupaKataSandiController::class, 'prosesKirimLinkReset'])->middleware('throttle:3,1')->name('password.email');
     Route::get('/reset-password/{token}', [LupaKataSandiController::class, 'tampilkanHalamanResetKataSandi'])->name('password.reset');
     Route::post('/reset-password', [LupaKataSandiController::class, 'prosesResetKataSandi'])->middleware('throttle:5,1')->name('password.update');

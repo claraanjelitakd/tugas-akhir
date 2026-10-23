@@ -74,7 +74,6 @@ class AdminProdiDashboardTest extends TestCase
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',
             'alamat_saat_ini' => 'Jl. Dr. Wahidin',
-            'nik' => '3471012345670002',
             'ip_kumulatif' => 3.80,
             'tahun_akademik_lulus' => 'Genap 2024/2025',
         ]);

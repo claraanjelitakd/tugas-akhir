@@ -16,28 +16,28 @@
             max-width: 600px;
             margin: 30px auto;
             background-color: #ffffff;
-            border-radius: 12px;
+            border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            border: 1px solid #e2e8f0;
+            box-shadow: 0 18px 45px rgba(18,61,43,0.12);
+            border: 1px solid #d5e8d9;
         }
         .email-header {
-            background-color: #002813;
-            padding: 28px 24px;
-            text-align: center;
-            color: #ffffff;
+            background-color: #eaf5ed;
+            padding: 30px 24px;
+            text-align: left;
+            color: #123d2b;
         }
         .email-header h1 {
-            margin: 10px 0 0 0;
+            margin: 0;
             font-size: 20px;
             font-weight: 800;
             letter-spacing: 0.5px;
-            color: #FFC700;
+            color: #0d542b;
         }
         .email-header p {
             margin: 4px 0 0 0;
             font-size: 12px;
-            color: rgba(255, 255, 255, 0.8);
+            color: #527265;
         }
         .email-body {
             padding: 32px 28px;
@@ -46,7 +46,7 @@
         .greeting {
             font-size: 16px;
             font-weight: bold;
-            color: #002813;
+            color: #123d2b;
             margin-bottom: 16px;
         }
         .email-body p {
@@ -59,19 +59,19 @@
             margin: 32px 0;
         }
         .btn-reset {
-            background-color: #FFC700;
-            color: #0f172a;
+            background-color: #0d542b;
+            color: #ffffff;
             text-decoration: none;
             padding: 14px 28px;
             font-weight: 800;
             font-size: 14px;
-            border-radius: 8px;
+            border-radius: 12px;
             display: inline-block;
-            box-shadow: 0 4px 10px rgba(255, 199, 0, 0.3);
+            box-shadow: 0 6px 14px rgba(13, 84, 43, 0.2);
         }
         .note-box {
-            background-color: #f8fafc;
-            border-left: 4px solid #002813;
+            background-color: #f7f9f6;
+            border-left: 4px solid #fdc700;
             padding: 14px;
             border-radius: 4px;
             font-size: 12px;
@@ -79,7 +79,7 @@
             margin-top: 24px;
         }
         .email-footer {
-            background-color: #f1f5f9;
+            background-color: #f7f9f6;
             padding: 20px;
             text-align: center;
             font-size: 12px;
@@ -88,7 +88,7 @@
         }
         .link-alt {
             word-break: break-all;
-            color: #004D25;
+            color: #0d542b;
             font-size: 12px;
         }
     </style>

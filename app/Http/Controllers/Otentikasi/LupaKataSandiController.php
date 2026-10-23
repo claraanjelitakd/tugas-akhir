@@ -18,6 +18,14 @@ use Inertia\Response;
 class LupaKataSandiController extends Controller
 {
     /**
+     * Menampilkan halaman permintaan tautan reset kata sandi.
+     */
+    public function tampilkanHalamanLupaKataSandi(): Response
+    {
+        return Inertia::render('Otentikasi/ForgotPassword');
+    }
+
+    /**
      * Mengirimkan tautan reset kata sandi ke email terdaftar pengguna.
      */
     public function prosesKirimLinkReset(Request $request): RedirectResponse

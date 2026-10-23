@@ -57,7 +57,6 @@ class DatabaseSeeder extends Seeder
             PerusahaanSeeder::class,
             DataAkademikSeeder::class,
             BiodataSeeder::class,
-            DataOrangTuaSeeder::class,
             YudisiumSeeder::class,
         ]);
 

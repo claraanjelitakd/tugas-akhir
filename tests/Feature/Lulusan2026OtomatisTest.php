@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\DataOrangTua;
 use App\Models\Kabupaten;
 use App\Models\Prodi;
 use App\Models\Propinsi;
@@ -106,19 +105,10 @@ class Lulusan2026OtomatisTest extends TestCase
             'propinsi_id' => $propinsi->id,
         ]);
 
-        // 2. Tambahkan HANYA di data_orang_tua
-        DataOrangTua::create([
-            'nim' => $testNim,
-            'nama_orang_tua' => 'Ir. Bambang Putra',
-            'pekerjaan' => 'Dosen / Akademisi',
-            'kabupaten_id' => $kabupaten->id,
-            'propinsi_id' => $propinsi->id,
-        ]);
-
         // Pastikan saat ini BELUM ada baris di biodata
         $this->assertNull(Biodata::where('nim', $testNim)->first());
 
-        // 3. Tambahkan di yudisium dengan status 'Lulus' (Trigger Lifecycle Event)
+        // 2. Tambahkan di yudisium dengan status 'Lulus' (Trigger Lifecycle Event)
         $yudisium = Yudisium::create([
             'nim' => $testNim,
             'judul_ta' => 'Pengembangan Sistem Cerdas Terintegrasi',

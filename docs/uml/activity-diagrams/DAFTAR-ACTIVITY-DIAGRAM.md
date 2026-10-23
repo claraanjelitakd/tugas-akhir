@@ -17,8 +17,9 @@
 | AD-13 | Instrumen evaluasi atasan | Superadmin | Superadmin, Backend, DB | Active instrument | Dipakai AD-23 |
 | AD-14 | Manajemen akun dan reset | Admin scope/Superadmin | Admin, Backend, DB, Mail | Account updated | AD-01 |
 | AD-15 | Master wilayah dan UMP | Superadmin | Superadmin, Backend, DB | Master updated | Referensi profil/company |
-| AD-16 | Similarity dan verifikasi perusahaan | Admin scope | Admin, Backend, DB | Verify/reject | Dapat memanggil AD-17 |
-| AD-17 | Auto-replace perusahaan | Admin scope | Admin, Backend, DB | References moved | Transactional |
+| AD-16 | Penerimaan data dan rekomendasi master perusahaan | Alumni/LinkedIn process | Source, Backend, DB | Pending plus recommendations | Tidak mengubah status approval |
+| AD-17A | Keputusan approval perusahaan | Admin scope | Admin, Backend, DB | Verify/edit/reject/replace decision | Membaca rekomendasi AD-16 |
+| AD-17 | Auto-replace perusahaan | Admin scope | Admin, Backend, DB | References moved | Dipanggil AD-17A |
 | AD-18 | Single LinkedIn via Apify | Admin scope | Admin, Backend, Apify, DB | Pending snapshot/error | Review AD-20 |
 | AD-19 | Official/mock dan batch LinkedIn | Admin scope | Admin, Backend, Provider, DB | Result per alumni | Review AD-20 |
 | AD-20 | Review/mapping/plot ulang LinkedIn | Admin scope | Admin, Backend, DB, URL | Approved/rejected | Tidak menghapus history |

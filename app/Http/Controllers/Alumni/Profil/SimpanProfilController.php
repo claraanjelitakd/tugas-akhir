@@ -12,9 +12,11 @@ use App\Models\Perusahaan;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * SimpanProfilController
@@ -217,7 +219,7 @@ class SimpanProfilController extends Controller
         $biodata->update([
             'nomor_telepon' => ! empty($dataTervalidasi['nomor_telepon']) ? $dataTervalidasi['nomor_telepon'] : null,
             'email_pribadi' => ! empty($dataTervalidasi['email_pribadi']) ? $dataTervalidasi['email_pribadi'] : null,
-            'alamat_saat_ini' => ! empty($dataTervalidasi['alamat_saat_ini']) ? $dataTervalidasi['alamat_saat_ini'] : (! empty($dataTervalidasi['alamat']) ? $dataTervalidasi['alamat'] : null),
+            'alamat_saat_ini' => ! empty($dataTervalidasi['alamat_saat_ini']) ? $dataTervalidasi['alamat_saat_ini'] : null,
             'kabupaten_id' => ! empty($dataTervalidasi['kabupaten_id']) ? $dataTervalidasi['kabupaten_id'] : null,
             'propinsi_id' => ! empty($dataTervalidasi['propinsi_id']) ? $dataTervalidasi['propinsi_id'] : (! empty($dataTervalidasi['provinsi_id']) ? $dataTervalidasi['provinsi_id'] : null),
             'kode_pos' => ! empty($dataTervalidasi['kode_pos']) ? $dataTervalidasi['kode_pos'] : null,
@@ -225,8 +227,8 @@ class SimpanProfilController extends Controller
             'facebook_url' => ! empty($dataTervalidasi['facebook_url']) ? $dataTervalidasi['facebook_url'] : null,
             'linkedin_url' => ! empty($dataTervalidasi['linkedin_url']) ? $dataTervalidasi['linkedin_url'] : null,
             'linkedin_username' => ! empty($dataTervalidasi['linkedin_username']) ? $dataTervalidasi['linkedin_username'] : null,
-            'skills' => ! empty($dataTervalidasi['skills']) ? $dataTervalidasi['skills'] : (! empty($dataTervalidasi['expert']) ? $dataTervalidasi['expert'] : null),
-            'experience' => ! empty($dataTervalidasi['experience']) ? $dataTervalidasi['experience'] : (! empty($dataTervalidasi['minat']) ? $dataTervalidasi['minat'] : null),
+            'skills' => ! empty($dataTervalidasi['skills']) ? $dataTervalidasi['skills'] : null,
+            'experience' => ! empty($dataTervalidasi['experience']) ? $dataTervalidasi['experience'] : null,
             'kategori_pekerjaan' => $kategoriPekerjaan,
             'posisi_jabatan' => $posisiJabatan,
             'bidang_pekerjaan' => $bidangPekerjaan,
@@ -272,37 +274,6 @@ class SimpanProfilController extends Controller
             $dataTervalidasi['profile_answer_custom'] ?? []
         );
 
-        // Jika data atasan dan email atasan terisi, buat / sinkronkan token evaluasi publik (email dikirim terpisah via tombol kirim)
-        if ($idAtasan && $emailAtasan && filter_var($emailAtasan, FILTER_VALIDATE_EMAIL)) {
-            try {
-                $evaluasi = EvaluasiAtasan::firstOrCreate(
-                    ['biodata_id' => $biodata->id],
-                    [
-                        'perusahaan_id' => $biodata->perusahaan_id,
-                        'atasan_id' => $idAtasan,
-                        'token' => Str::random(40),
-                        'nama_perusahaan' => $biodata->perusahaan?->nama_perusahaan,
-                        'alamat_lengkap' => $biodata->perusahaan?->alamat,
-                    ]
-                );
-
-                $evaluasiUpdates = [];
-                if ($evaluasi->atasan_id !== $idAtasan) {
-                    $evaluasiUpdates['atasan_id'] = $idAtasan;
-                }
-                if ($biodata->perusahaan_id && $evaluasi->perusahaan_id !== $biodata->perusahaan_id) {
-                    $evaluasiUpdates['perusahaan_id'] = $biodata->perusahaan_id;
-                    $evaluasiUpdates['nama_perusahaan'] = $biodata->perusahaan?->nama_perusahaan;
-                    $evaluasiUpdates['alamat_lengkap'] = $biodata->perusahaan?->alamat;
-                }
-                if (! empty($evaluasiUpdates)) {
-                    $evaluasi->update($evaluasiUpdates);
-                }
-            } catch (\Throwable $e) {
-                Log::error('Gagal menyinkronkan data evaluasi atasan: '.$e->getMessage());
-            }
-        }
-
         return redirect()->back()->with('success', 'Profil biodata berhasil diperbarui.');
     }
 
@@ -347,47 +318,51 @@ class SimpanProfilController extends Controller
             return redirect()->back()->with('error', 'Alamat email atasan belum diisi atau format tidak valid. Mohon lengkapi pada form atasan terlebih dahulu.');
         }
 
-        // Sinkronkan email ke tabel atasan jika belum ada atau berbeda
-        if ($biodata->atasan) {
-            if ($biodata->atasan->email !== $emailAtasan) {
-                $biodata->atasan->update(['email' => $emailAtasan]);
+        [$biodata, $evaluasi] = DB::transaction(function () use ($biodata, $emailAtasan): array {
+            $lockedBiodata = Biodata::with(['perusahaan', 'atasan', 'dataAkademik'])
+                ->whereKey($biodata->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedBiodata->atasan) {
+                $lockedBiodata->atasan->update(['email' => $emailAtasan]);
+            } else {
+                $atasan = Atasan::create([
+                    'nama' => 'Atasan',
+                    'email' => $emailAtasan,
+                ]);
+                $lockedBiodata->update(['atasan_id' => $atasan->id]);
+                $lockedBiodata->setRelation('atasan', $atasan);
             }
-        } else {
-            $atasan = Atasan::create([
-                'nama' => 'Atasan',
-                'email' => $emailAtasan,
-            ]);
-            $biodata->update(['atasan_id' => $atasan->id]);
-            $biodata->setRelation('atasan', $atasan);
-        }
 
-        $idAtasan = $biodata->atasan_id;
-        $evaluasi = EvaluasiAtasan::firstOrCreate(
-            ['biodata_id' => $biodata->id],
-            [
-                'perusahaan_id' => $biodata->perusahaan_id,
-                'atasan_id' => $idAtasan,
-                'token' => Str::random(40),
-                'nama_perusahaan' => $biodata->perusahaan?->nama_perusahaan,
-                'alamat_lengkap' => $biodata->perusahaan?->alamat,
-            ]
-        );
+            $evaluasi = EvaluasiAtasan::where('biodata_id', $lockedBiodata->id)
+                ->lockForUpdate()
+                ->latest('id')
+                ->first();
 
-        // Pastikan token selalu terisi jika record evaluasi sudah ada sebelumnya tanpa token
-        if (empty($evaluasi->token)) {
-            $evaluasi->token = Str::random(40);
-        }
-        if (! $evaluasi->atasan_id && $idAtasan) {
-            $evaluasi->atasan_id = $idAtasan;
-        }
-        if (! $evaluasi->perusahaan_id && $biodata->perusahaan_id) {
-            $evaluasi->perusahaan_id = $biodata->perusahaan_id;
-            $evaluasi->nama_perusahaan = $biodata->perusahaan?->nama_perusahaan;
-            $evaluasi->alamat_lengkap = $biodata->perusahaan?->alamat;
-        }
-        if ($evaluasi->isDirty()) {
-            $evaluasi->save();
-        }
+            if ($evaluasi?->is_submitted) {
+                throw ValidationException::withMessages([
+                    'email_atasan' => 'Evaluasi atasan sudah dikirim. Token sebelumnya sudah tidak berlaku.',
+                ]);
+            }
+
+            if (! $evaluasi) {
+                $evaluasi = EvaluasiAtasan::create([
+                    'biodata_id' => $lockedBiodata->id,
+                    'perusahaan_id' => $lockedBiodata->perusahaan_id,
+                    'atasan_id' => $lockedBiodata->atasan_id,
+                    'token' => Str::random(40),
+                ]);
+            } else {
+                $evaluasi->update([
+                    'perusahaan_id' => $lockedBiodata->perusahaan_id,
+                    'atasan_id' => $lockedBiodata->atasan_id,
+                    'token' => $evaluasi->token ?: Str::random(40),
+                ]);
+            }
+
+            return [$lockedBiodata->fresh(['perusahaan', 'atasan', 'dataAkademik']), $evaluasi->fresh()];
+        });
 
         try {
             Mail::to($emailAtasan)->send(new UndanganEvaluasiAtasanMail($biodata, $evaluasi));

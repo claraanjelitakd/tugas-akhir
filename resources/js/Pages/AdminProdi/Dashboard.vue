@@ -84,7 +84,7 @@ const filteredAlumni = computed(() => {
             />
 
             <!-- Main Body Area -->
-            <main class="flex-1 p-6 space-y-6 overflow-x-auto min-w-0">
+            <main class="admin-page-main relative z-10 mx-auto flex w-full max-w-[1440px] flex-1 min-w-0 space-y-6 overflow-x-auto px-4 pb-12 sm:px-6 lg:px-8">
                 
                 <!-- Notifikasi Peringatan Interaktif: Pending ACC Perusahaan -->
                 <div 

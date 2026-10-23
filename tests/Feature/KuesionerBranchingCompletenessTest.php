@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\DataOrangTua;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\RefSubpertanyaan2021;
@@ -55,18 +54,9 @@ class KuesionerBranchingCompletenessTest extends TestCase
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',
             'alamat_saat_ini' => 'Jl. Solo Km 10',
-            'nik' => '3471012345670002',
             'ip_kumulatif' => 3.80,
             'tahun_akademik_lulus' => 'Gasal 2025/2026',
             'tahun_lulus' => '2026',
-        ]);
-
-        DataOrangTua::create([
-            'nim' => '72220099',
-            'nama_orang_tua' => 'Orang Tua Testing',
-            'pekerjaan' => 'Wiraswasta',
-            'alamat' => 'Jl. Solo Km 10',
-            'nomor_telepon' => '081298765432',
         ]);
 
         $perusahaan = Perusahaan::create([

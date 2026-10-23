@@ -76,6 +76,27 @@ const applyYearFilter = () => {
     });
 };
 
+const focusDashboardSection = (section) => {
+    if (section === 'response') {
+        activeTab.value = 'prodi';
+    }
+
+    if (section === 'population') {
+        activeTab.value = 'alumni';
+    }
+
+    if (section === 'completion') {
+        activeCompletionMetric.value = 'profile_and_university';
+    }
+
+    requestAnimationFrame(() => {
+        document.getElementById(section === 'completion' ? 'completion-detail' : 'dashboard-detail')?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+        });
+    });
+};
+
 // State Pencarian & Sorting Prodi
 const searchProdiQuery = ref('');
 const sortByRate = ref(true); // true = desc, false = asc
@@ -218,30 +239,14 @@ const filteredAlumni = computed(() => {
                 </div>
             </header>
 
-            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
-                
-                <div
-                    v-if="stats?.total_pending_perusahaan > 0"
-                    class="bg-[#0D542B] rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                >
-                    <div>
-                        <span class="text-xs font-bold text-white block">
-                            {{ stats.total_pending_perusahaan }} perusahaan menunggu verifikasi
-                        </span>
-                        <span class="text-xs text-emerald-100">
-                            Antrean ini ditampilkan untuk semua tahun lulusan.
-                        </span>
-                    </div>
-                    <Link
-                        href="/superadmin/perusahaan"
-                        class="inline-flex items-center justify-center px-3 py-1.5 text-xs font-bold rounded-lg bg-[#0D542B] text-white hover:bg-[#08381c] transition-colors shrink-0"
-                    >
-                        Tinjau sekarang
-                    </Link>
-                </div>
-
+            <main class="admin-page-main relative z-10 w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
                 <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
-                    <article class="bg-white rounded-xl p-5 shadow-sm min-w-0">
+                    <button
+                        type="button"
+                        @click="focusDashboardSection('response')"
+                        aria-controls="dashboard-detail"
+                        class="group bg-white rounded-xl p-5 shadow-sm min-w-0 text-left cursor-pointer transition-shadow hover:shadow-md focus:outline-none focus-visible:bg-slate-50"
+                    >
                         <div class="flex items-start justify-between gap-3">
                             <p class="text-[11px] font-bold uppercase tracking-wider text-[#0D542B]">Response rate universitas</p>
                         </div>
@@ -255,9 +260,15 @@ const filteredAlumni = computed(() => {
                                 :style="{ width: (Math.min(stats?.response_rate || 0, 100) + '%') }"
                             ></div>
                         </div>
-                    </article>
+                        <p class="mt-3 text-[11px] font-bold text-[#0D542B] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Lihat partisipasi per prodi</p>
+                    </button>
 
-                    <article class="bg-white rounded-xl p-5 shadow-sm min-w-0">
+                    <button
+                        type="button"
+                        @click="focusDashboardSection('completion')"
+                        aria-controls="completion-detail"
+                        class="group bg-white rounded-xl p-5 shadow-sm min-w-0 text-left cursor-pointer transition-shadow hover:shadow-md focus:outline-none focus-visible:bg-slate-50"
+                    >
                         <div class="flex items-start justify-between gap-3">
                             <p class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Kelengkapan gabungan</p>
                             <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#FDC700] text-[#0D542B] shrink-0">
@@ -274,9 +285,15 @@ const filteredAlumni = computed(() => {
                                 :style="{ width: (Math.min(completionMetrics?.profile_and_university?.percentage || 0, 100) + '%') }"
                             ></div>
                         </div>
-                    </article>
+                        <p class="mt-3 text-[11px] font-bold text-[#0D542B] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Lihat rincian kelengkapan</p>
+                    </button>
 
-                    <article class="bg-white rounded-xl p-5 shadow-sm min-w-0 sm:col-span-2 xl:col-span-1">
+                    <button
+                        type="button"
+                        @click="focusDashboardSection('population')"
+                        aria-controls="dashboard-detail"
+                        class="group bg-white rounded-xl p-5 shadow-sm min-w-0 sm:col-span-2 xl:col-span-1 text-left cursor-pointer transition-shadow hover:shadow-md focus:outline-none focus-visible:bg-slate-50"
+                    >
                         <div class="flex items-start justify-between gap-3">
                             <p class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Populasi lulusan</p>
                             <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#0D542B] text-white shrink-0">
@@ -290,10 +307,11 @@ const filteredAlumni = computed(() => {
                         <p class="mt-4 text-xs text-slate-500">
                             Tahun lulusan {{ selectedYear }} pada {{ stats?.total_prodi || 0 }} program studi.
                         </p>
-                    </article>
+                        <p class="mt-3 text-[11px] font-bold text-[#0D542B] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Lihat daftar alumni terbaru</p>
+                    </button>
                 </section>
 
-                <section class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <section id="completion-detail" class="bg-white rounded-2xl shadow-sm overflow-hidden">
                     <div class="px-5 sm:px-6 py-5">
                         <h2 class="text-sm font-extrabold text-slate-900">Kelengkapan data</h2>
                         <p class="text-xs text-slate-500 mt-1">
@@ -343,7 +361,7 @@ const filteredAlumni = computed(() => {
                     </div>
                 </section>
 
-                <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <div id="dashboard-detail" class="bg-white rounded-2xl shadow-sm overflow-hidden">
                     
                     <div class="px-6 pt-5 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white">
                         <div class="flex items-center gap-1.5 flex-wrap">

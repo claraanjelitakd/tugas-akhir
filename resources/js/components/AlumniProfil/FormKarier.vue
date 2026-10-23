@@ -1126,7 +1126,6 @@ onUnmounted(() => {
                     <input 
                         type="text" 
                         v-model="form.skills" 
-                        @input="form.expert = form.skills"
                         autocomplete="off"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none" 
                         placeholder="Contoh: Software Engineering, Data Science, Python, Project Management..." 
@@ -1142,7 +1141,6 @@ onUnmounted(() => {
                     <input 
                         type="text" 
                         v-model="form.experience" 
-                        @input="form.minat = form.experience"
                         autocomplete="off"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none" 
                         placeholder="Contoh: Software Engineer di PT Telkom Indonesia (2022 - Saat Ini)..." 

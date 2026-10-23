@@ -26,10 +26,18 @@ defineProps({
 <template>
     <Head title="Dashboard Alumni - Tracer Study UKDW" />
 
-    <div class="flex min-h-screen flex-col bg-[#f7f8f6] font-sans text-slate-900">
-        <Navbar :user="user" />
+    <div class="relative flex min-h-screen flex-col overflow-hidden bg-[#f7f8f6] font-sans text-slate-900">
+        <!-- Dekorasi visual dashboard: foto wisuda dibuat blur dan diberi overlay terang agar tidak mengganggu data. -->
+        <div class="pointer-events-none absolute inset-x-0 top-[82px] z-0 h-[570px] overflow-hidden" aria-hidden="true">
+            <div class="absolute inset-0 bg-cover bg-center opacity-[0.32]" style="background-image: url('/uploads/auth/ukdw-wisuda.png');"></div>
+            <div class="absolute inset-0 bg-[#f7f8f6]/45"></div>
+        </div>
 
-        <main class="w-full flex-1">
+        <div class="relative z-10">
+            <Navbar :user="user" />
+        </div>
+
+        <main class="relative z-10 w-full flex-1">
             <div class="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pt-10 lg:px-8">
                 <section class="" aria-label="Tahapan pengisian tracer study">
                     <div class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -120,7 +128,7 @@ defineProps({
         </main>
 
 
-        <footer class="border-t border-slate-200 bg-white">
+        <footer class="relative z-10 border-t border-slate-200 bg-white">
             <div class="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
                 <p class="font-medium text-slate-600">Tracer Study Alumni · Universitas Kristen Duta Wacana</p>
             </div>
