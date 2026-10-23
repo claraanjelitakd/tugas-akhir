@@ -202,7 +202,7 @@ const closeWhatsAppModal = () => {
 };
 
 const kirimPesanWhatsApp = () => {
-    const rawPhone = props.alumni.nomor_telepon || props.alumni.data_akademik?.nomor_telepon;
+    const rawPhone = props.alumni.nomor_telepon;
     if (!rawPhone || rawPhone === '-') {
         Swal.fire({
             icon: 'warning',
@@ -227,7 +227,7 @@ const kirimPesanWhatsApp = () => {
 };
 
 const kirimEmailFlash = () => {
-    const targetEmail = props.alumni.email_pribadi || props.alumni.user?.email || props.alumni.data_akademik?.email_pribadi;
+    const targetEmail = props.alumni.email_pribadi || props.alumni.user?.email;
     if (!targetEmail || targetEmail === '-') {
         Swal.fire({
             icon: 'warning',
@@ -463,7 +463,7 @@ const kirimEmailFlash = () => {
             <div class="bg-gray-50 p-3 rounded-xl border border-gray-200 text-xs flex items-center justify-between">
                 <span class="text-gray-600 font-medium">Tujuan Penerima:</span>
                 <span class="font-mono font-bold text-gray-900">
-                    {{ alumni.nomor_telepon || alumni.data_akademik?.nomor_telepon || '- (Belum Ada Nomor)' }}
+                    {{ alumni.nomor_telepon || '- (Belum Ada Nomor)' }}
                 </span>
             </div>
 

@@ -135,6 +135,6 @@ class Lulusan2026OtomatisTest extends TestCase
         $this->assertNotNull($viewRow);
         $this->assertEquals('Bintang Pratama Putra', $viewRow->nama);
         $this->assertEquals(2026, $viewRow->tahun_lulus);
-        $this->assertEquals('Ir. Bambang Putra', $viewRow->nama_orang_tua);
+        $this->assertFalse(property_exists($viewRow, 'nama_orang_tua'));
     }
 }

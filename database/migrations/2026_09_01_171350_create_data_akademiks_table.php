@@ -23,23 +23,12 @@ return new class extends Migration
             $table->string('golongan_darah', 5)->nullable()->comment('Golongan darah (A, B, AB, O)');
             $table->string('warga_negara', 10)->default('WNI')->comment('Kewarganegaraan (WNI/WNA)');
 
-            // Kontak & Alamat Asal Mahasiswa
-            $table->string('nomor_telepon', 20)->nullable()->comment('Nomor telepon/HP mahasiswa');
-            $table->string('email_pribadi', 100)->nullable()->comment('Alamat email pribadi mahasiswa');
+            // Email institusi tetap menjadi bagian dari sumber data akademik resmi.
             $table->string('email_students', 100)->nullable()->comment('Alamat email resmi kampus (@students.ukdw.ac.id)');
-            $table->text('alamat_saat_ini')->nullable()->comment('Alamat domisili saat kuliah / asal KTP');
-            $table->string('kelurahan', 50)->nullable()->comment('Kelurahan alamat asal KTP');
-            $table->string('kecamatan', 50)->nullable()->comment('Kecamatan alamat asal KTP');
-            $table->foreignId('kabupaten_id')->nullable()->constrained('kabupaten')->nullOnDelete()->comment('Relasi ke kabupaten asal KTP');
-            $table->foreignId('propinsi_id')->nullable()->constrained('propinsi')->nullOnDelete()->comment('Relasi ke provinsi asal KTP');
-            $table->char('kode_pos', 5)->nullable()->comment('Kode pos alamat asal KTP (5 digit)');
 
-            // Identitas Kependudukan & Dokumen Kenegaraan
-            $table->char('nik', 16)->nullable()->comment('Nomor Induk Kependudukan KTP (16 digit)');
-            $table->char('no_kk', 16)->nullable()->comment('Nomor Kartu Keluarga (16 digit)');
+            // Identitas pendukung pendidikan yang masih diperlukan oleh laporan akademik.
             $table->string('nisn', 15)->nullable()->comment('Nomor Induk Siswa Nasional');
             $table->string('no_bpjs', 20)->nullable()->comment('Nomor BPJS Kesehatan');
-            $table->string('npwp', 25)->nullable()->comment('Nomor Pokok Wajib Pajak');
 
             // Asal Sekolah Menengah
             $table->string('asal_sekolah', 100)->nullable()->comment('Nama sekolah menengah asal');

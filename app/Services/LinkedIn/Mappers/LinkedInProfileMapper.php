@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Auth;
  *
  * Kebijakan Integritas Data:
  * 1. Hanya memperbarui `posisi_jabatan` dan `perusahaan_id`.
- * 2. TIDAK PERNAH mengubah data authoritative alumni (NIM, NIK, NPWP, email_pribadi,
+ * 2. TIDAK PERNAH mengubah data authoritative alumni (NIM, email_pribadi,
  *    nomor_telepon, alamat rumah, maupun data akademik kelulusan).
  * 3. Status verifikasi perusahaan baru WAJIB 'Menunggu Verifikasi' meskipun data
  *    wilayah / negara terisi lengkap, sesuai regulasi validasi universitas.

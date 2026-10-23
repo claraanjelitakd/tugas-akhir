@@ -34,6 +34,12 @@ class SimpanProfilController extends Controller
         $request->validate([
             'profile_answers' => ['nullable', 'array'],
             'profile_answer_custom' => ['nullable', 'array'],
+            'nomor_telepon' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+() .-]{8,20}$/'],
+            'email_pribadi' => ['nullable', 'email', 'max:100'],
+            'alamat_saat_ini' => ['nullable', 'string', 'max:1000'],
+            'kelurahan' => ['nullable', 'string', 'max:50'],
+            'kecamatan' => ['nullable', 'string', 'max:50'],
+            'kode_pos' => ['nullable', 'digits:5'],
         ]);
 
         if ($request->hasFile('foto')) {
@@ -220,6 +226,8 @@ class SimpanProfilController extends Controller
             'nomor_telepon' => ! empty($dataTervalidasi['nomor_telepon']) ? $dataTervalidasi['nomor_telepon'] : null,
             'email_pribadi' => ! empty($dataTervalidasi['email_pribadi']) ? $dataTervalidasi['email_pribadi'] : null,
             'alamat_saat_ini' => ! empty($dataTervalidasi['alamat_saat_ini']) ? $dataTervalidasi['alamat_saat_ini'] : null,
+            'kelurahan' => ! empty($dataTervalidasi['kelurahan']) ? $dataTervalidasi['kelurahan'] : null,
+            'kecamatan' => ! empty($dataTervalidasi['kecamatan']) ? $dataTervalidasi['kecamatan'] : null,
             'kabupaten_id' => ! empty($dataTervalidasi['kabupaten_id']) ? $dataTervalidasi['kabupaten_id'] : null,
             'propinsi_id' => ! empty($dataTervalidasi['propinsi_id']) ? $dataTervalidasi['propinsi_id'] : (! empty($dataTervalidasi['provinsi_id']) ? $dataTervalidasi['provinsi_id'] : null),
             'kode_pos' => ! empty($dataTervalidasi['kode_pos']) ? $dataTervalidasi['kode_pos'] : null,

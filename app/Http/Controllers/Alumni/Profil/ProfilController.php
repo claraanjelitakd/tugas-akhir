@@ -52,15 +52,15 @@ class ProfilController extends Controller
             'foto' => $biodata?->foto ?? '',
 
             // Kontak & Alamat Pribadi
-            'alamat_saat_ini' => $biodata?->alamat_saat_ini ?? ($dataAkademik?->alamat_saat_ini ?? ''),
-            'kelurahan' => $biodata?->kelurahan ?? ($dataAkademik?->kelurahan ?? ''),
-            'kecamatan' => $biodata?->kecamatan ?? ($dataAkademik?->kecamatan ?? ''),
-            'kabupaten_id' => $biodata?->kabupaten_id ?? ($dataAkademik?->kabupaten_id ?? ''),
-            'propinsi_id' => $biodata?->propinsi_id ?? ($dataAkademik?->propinsi_id ?? ''),
-            'provinsi_id' => $biodata?->propinsi_id ?? ($dataAkademik?->propinsi_id ?? ''),
-            'kode_pos' => $biodata?->kode_pos ?? ($dataAkademik?->kode_pos ?? ''),
-            'nomor_telepon' => $biodata?->nomor_telepon ?? ($dataAkademik?->nomor_telepon ?? ''),
-            'email_pribadi' => $biodata?->email_pribadi ?? ($dataAkademik?->email_pribadi ?? $pengguna->email),
+            'alamat_saat_ini' => $biodata?->alamat_saat_ini ?? '',
+            'kelurahan' => $biodata?->kelurahan ?? '',
+            'kecamatan' => $biodata?->kecamatan ?? '',
+            'kabupaten_id' => $biodata?->kabupaten_id ?? '',
+            'propinsi_id' => $biodata?->propinsi_id ?? '',
+            'provinsi_id' => $biodata?->propinsi_id ?? '',
+            'kode_pos' => $biodata?->kode_pos ?? '',
+            'nomor_telepon' => $biodata?->nomor_telepon ?? '',
+            'email_pribadi' => $biodata?->email_pribadi ?? $pengguna->email,
 
             // Data Akademik & Yudisium
             'prodi_id' => $biodata?->prodi_id,

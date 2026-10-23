@@ -3,22 +3,25 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Memberi komentar schema aktif agar ownership field mudah dibaca dari database.
+ */
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Menetapkan komentar tabel pada database yang mendukung table comment.
      */
     public function up(): void
     {
         if (DB::getDriverName() !== 'sqlite') {
-            DB::statement("ALTER TABLE biodata COMMENT = 'Profil tracer alumni; alamat_saat_ini, skills, dan experience adalah field kanonik. Data NIK, NPWP, dan relasi orang tua telah dihapus karena tidak digunakan.'");
-            DB::statement("ALTER TABLE data_akademik COMMENT = 'Sumber resmi identitas akademik dan kelulusan. NISN dan BPJS dipertahankan; NIK, No KK, dan NPWP dihapus karena tidak digunakan.'");
-            DB::statement("ALTER TABLE yudisium COMMENT = 'Sumber resmi kelulusan, tugas akhir, publikasi, dan predikat. Data pembimbing/penguji dihapus karena tidak digunakan tracer.'");
+            DB::statement("ALTER TABLE biodata COMMENT = 'Profil tracer alumni; kontak, domisili, skills, dan experience adalah field aktif.'");
+            DB::statement("ALTER TABLE data_akademik COMMENT = 'Sumber resmi identitas akademik dan kelulusan.'");
+            DB::statement("ALTER TABLE yudisium COMMENT = 'Sumber resmi kelulusan, tugas akhir, publikasi, dan predikat.'");
         }
     }
 
     /**
-     * Reverse the migrations.
+     * Mengembalikan komentar umum tanpa mengubah struktur atau data.
      */
     public function down(): void
     {

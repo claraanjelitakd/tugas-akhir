@@ -30,9 +30,9 @@ return new class extends Migration
                 b.id AS biodata_id,
                 b.nim AS `F1`,
                 COALESCE(da.nama, u.name) AS `F2A`,
-                COALESCE(da.nomor_telepon, b.nomor_telepon) AS `F2B`,
-                COALESCE(b.email_pribadi, da.email_pribadi, u.email) AS `F2C`,
-                COALESCE(b.alamat_saat_ini, da.alamat_saat_ini) AS `F2D`,
+                b.nomor_telepon AS `F2B`,
+                COALESCE(b.email_pribadi, u.email) AS `F2C`,
+                b.alamat_saat_ini AS `F2D`,
                 p.nama_perusahaan AS `F2E`,
                 a.nama AS `F2E1`,
                 a.telepon AS `F2E2`,
@@ -67,12 +67,10 @@ return new class extends Migration
                 b.pendidikan_tingkat AS `BIO_PENDIDIKAN_TINGKAT`,
                 b.perguruan_tinggi AS `F18B`,
                 b.pendidikan_prodi AS `F18C`,
-                da.nik AS `BIO_NIK`,
-                da.npwp AS `BIO_NPWP`,
                 da.tempat_lahir AS `BIO_TEMPAT_LAHIR`,
                 da.tanggal_lahir AS `BIO_TANGGAL_LAHIR`,
                 da.jenis_kelamin AS `BIO_JK`,
-                da.tahun_lulus AS `BIO_TGL_LULUS`,
+                da.tanggal_lulus AS `BIO_TGL_LULUS`,
                 y.judul_ta AS `BIO_JUDUL_TA`
             FROM users u
             LEFT JOIN biodata b ON b.user_id = u.id

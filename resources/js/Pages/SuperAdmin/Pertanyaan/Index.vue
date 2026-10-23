@@ -446,7 +446,7 @@ const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') =
                 <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="block font-bold text-gray-700 mb-1">Kode Pertanyaan *</label>
-                        <input id="swal-q-code" type="text" value="${initialCode}" placeholder="Contoh: F301, F13, BIO_NIK" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono font-bold uppercase focus:ring-1 focus:ring-[#0D542B]" />
+                        <input id="swal-q-code" type="text" value="${initialCode}" placeholder="Contoh: F301, F13, BIO_BIDANG_DIVISI" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono font-bold uppercase focus:ring-1 focus:ring-[#0D542B]" />
                     </div>
                     <div>
                         <label class="block font-bold text-gray-700 mb-1">Lokasi Tampil *</label>

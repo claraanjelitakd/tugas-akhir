@@ -10,8 +10,8 @@ return new class extends Migration
      * Run the migrations.
      *
      * Tabel Yudisium:
-     * Menyimpan data penyelesaian tugas akhir, dosen pembimbing & penguji,
-     * publikasi karya ilmiah, dan status kelulusan yudisium.
+     * Menyimpan data penyelesaian tugas akhir, publikasi karya ilmiah,
+     * dan status kelulusan yudisium.
      * Catatan arsitektur: Periode kelulusan (tahun_lulus, tahun_akademik_lulus, tanggal_lulus)
      * disimpan terpusat di tabel `data_akademik` agar tidak terjadi duplikasi data.
      */
@@ -24,12 +24,6 @@ return new class extends Migration
                 // Relasi ke tabel data_akademik (NIM CHAR 8)
                 $table->char('nim', 8)->unique()->comment('NIM mahasiswa (8 karakter, FK ke data_akademik)');
                 $table->foreign('nim')->references('nim')->on('data_akademik')->cascadeOnDelete();
-
-                // Dosen Pembimbing & Penguji
-                $table->string('dosen_pembimbing_1', 100)->nullable()->comment('Nama dosen pembimbing tugas akhir utama');
-                $table->string('dosen_pembimbing_2', 100)->nullable()->comment('Nama dosen pembimbing tugas akhir pendamping');
-                $table->string('dosen_penguji_1', 100)->nullable()->comment('Nama dosen penguji tugas akhir 1');
-                $table->string('dosen_penguji_2', 100)->nullable()->comment('Nama dosen penguji tugas akhir 2');
 
                 // Tugas Akhir / Skripsi / Tesis
                 $table->text('judul_ta')->nullable()->comment('Judul Skripsi/Thesis/Disertasi/Perancangan');

@@ -136,33 +136,13 @@ class RefSubpertanyaan2021Seeder extends Seeder
             ],
             [
                 'section_kode' => '1',
-                'kelompok' => 'BIO',
-                'kode_pertanyaan' => 'BIO_NIK',
-                'subpertanyaan' => 'Nomor Induk Kependudukan (NIK)',
-                'type' => 'text',
-                'keterangan' => null,
-                'wajib' => 1,
-                'order' => 11,
-            ],
-            [
-                'section_kode' => '1',
-                'kelompok' => 'BIO',
-                'kode_pertanyaan' => 'BIO_NPWP',
-                'subpertanyaan' => 'Nomor Pokok Wajib Pajak (NPWP)',
-                'type' => 'text',
-                'keterangan' => null,
-                'wajib' => 1,
-                'order' => 12,
-            ],
-            [
-                'section_kode' => '1',
                 'kelompok' => 'F2',
                 'kode_pertanyaan' => 'F2E',
                 'subpertanyaan' => 'Nama perusahaan/instansi/institusi',
                 'type' => 'text',
                 'keterangan' => null,
                 'wajib' => 1,
-                'order' => 13,
+                'order' => 11,
             ],
             [
                 'section_kode' => '1',
@@ -172,7 +152,7 @@ class RefSubpertanyaan2021Seeder extends Seeder
                 'type' => 'text',
                 'keterangan' => null,
                 'wajib' => 1,
-                'order' => 14,
+                'order' => 12,
             ],
             [
                 'section_kode' => '1',
@@ -182,7 +162,7 @@ class RefSubpertanyaan2021Seeder extends Seeder
                 'type' => 'text',
                 'keterangan' => null,
                 'wajib' => 1,
-                'order' => 15,
+                'order' => 13,
             ],
             [
                 'section_kode' => '1',
@@ -192,7 +172,7 @@ class RefSubpertanyaan2021Seeder extends Seeder
                 'type' => 'text',
                 'keterangan' => null,
                 'wajib' => 1,
-                'order' => 16,
+                'order' => 14,
             ],
             [
                 'section_kode' => '1',
@@ -202,7 +182,7 @@ class RefSubpertanyaan2021Seeder extends Seeder
                 'type' => 'text',
                 'keterangan' => null,
                 'wajib' => 1,
-                'order' => 17,
+                'order' => 15,
             ],
             [
                 'section_kode' => '1',
@@ -212,7 +192,7 @@ class RefSubpertanyaan2021Seeder extends Seeder
                 'type' => 'radio',
                 'keterangan' => null,
                 'wajib' => 1,
-                'order' => 18,
+                'order' => 16,
             ],
             [
                 'section_kode' => '1',
@@ -222,7 +202,7 @@ class RefSubpertanyaan2021Seeder extends Seeder
                 'type' => 'radio',
                 'keterangan' => null,
                 'wajib' => 1,
-                'order' => 19,
+                'order' => 17,
             ],
             [
                 'section_kode' => '1',
@@ -232,7 +212,7 @@ class RefSubpertanyaan2021Seeder extends Seeder
                 'type' => 'text',
                 'keterangan' => 'ID Provinsi tempat bekerja',
                 'wajib' => 1,
-                'order' => 20,
+                'order' => 18,
             ],
             [
                 'section_kode' => '1',
@@ -242,7 +222,7 @@ class RefSubpertanyaan2021Seeder extends Seeder
                 'type' => 'text',
                 'keterangan' => 'ID Kabupaten/Kota tempat bekerja',
                 'wajib' => 1,
-                'order' => 21,
+                'order' => 19,
             ],
             [
                 'section_kode' => '1',
@@ -252,7 +232,7 @@ class RefSubpertanyaan2021Seeder extends Seeder
                 'type' => 'text',
                 'keterangan' => 'Alamat lengkap tempat bekerja',
                 'wajib' => 1,
-                'order' => 22,
+                'order' => 20,
             ],
             [
                 'section_kode' => '1',
@@ -262,7 +242,7 @@ class RefSubpertanyaan2021Seeder extends Seeder
                 'type' => 'radio',
                 'keterangan' => null,
                 'wajib' => 1,
-                'order' => 23,
+                'order' => 21,
             ],
             [
                 'section_kode' => '1',

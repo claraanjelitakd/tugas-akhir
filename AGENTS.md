@@ -200,3 +200,12 @@ Vue components must have a single root element.
 - IMPORTANT: Activate `inertia-vue-development` when working with Inertia Vue client-side patterns.
 
 </laravel-boost-guidelines>
+
+## Project-specific documentation and schema rules
+
+- Setiap file PHP yang baru dibuat atau diubah wajib memiliki PHPDoc di tingkat file/class dan method publik. Jelaskan tanggung jawab, input/output, serta keputusan non-obvious; gunakan komentar inline hanya untuk logika yang memang sulit dipahami.
+- Setiap komponen Vue yang diubah wajib memiliki komentar di awal blok script dan komentar singkat untuk const, computed, function, serta section template yang memiliki kontrak data khusus. Komentar tidak boleh memakai emoji.
+- Setiap perubahan tabel, kolom, foreign key, view, seeder, atau sumber data wajib memperbarui ERD, arsitektur, use case atau user flow yang terdampak serta catatan perubahan.
+- Migrasi fresh-install harus konsisten dengan schema runtime. Untuk database lama, lakukan backfill ke field kanonik sebelum menghapus duplikasi. Jangan menghapus data yang tidak termasuk field yang secara eksplisit diputuskan dihapus.
+- Seeder harus hanya mengisi tabel dan kolom yang masih aktif. Jangan menambahkan kembali field sensitif, tabel orang tua, alias legacy, atau kolom duplikat kontak/domisi.
+- Sebelum handoff, jalankan `git diff --check`, formatter PHP, test terdekat, dan build frontend jika perubahan frontend atau view Inertia terdampak.

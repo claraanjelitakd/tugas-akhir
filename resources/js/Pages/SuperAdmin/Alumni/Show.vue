@@ -3,7 +3,7 @@
   File: resources/js/Pages/SuperAdmin/Alumni/Show.vue
   
   Format Tampilan:
-  1. Detail Profil (Urutan 1, Komponen FormPribadi, FormAkademik, FormOrangTua, FormKarier)
+  1. Detail Profil (Urutan 1, Komponen FormPribadi, FormAkademik, FormKarier)
   2. Kuesioner Universitas (Urutan 2, Tampilan Data Tables ala Excel)
   3. Kuesioner Program Studi: [Nama Prodi] (Urutan 3, Tampilan Data Tables ala Excel)
   4. Evaluasi Atasan (Urutan 4, Pengguna Lulusan & 13 Butir Penilaian)

@@ -29,8 +29,7 @@ return new class extends Migration
                 $table->char('nim', 8)->unique()->comment('NIM mahasiswa/alumni (8 karakter, FK ke data_akademik)');
                 $table->foreign('nim')->references('nim')->on('data_akademik')->cascadeOnDelete();
 
-                // Relasi ke entitas pendukung akademik & keluarga
-                $table->foreignId('orang_tua_id')->nullable()->constrained('data_orang_tua')->nullOnDelete()->comment('Relasi ke data orang tua/wali');
+                // Relasi ke entitas pendukung akademik dan tracer.
                 $table->foreignId('yudisium_id')->nullable()->constrained('yudisium')->nullOnDelete()->comment('Relasi ke rekam kelulusan yudisium');
                 $table->foreignId('prodi_id')->nullable()->constrained('prodi')->nullOnDelete()->comment('Relasi ke program studi alumni');
 
@@ -43,13 +42,11 @@ return new class extends Migration
 
                 // Domisili Tempat Tinggal Saat Ini
                 $table->text('alamat_saat_ini')->nullable()->comment('Alamat domisili tempat tinggal alumni saat ini');
+                $table->string('kelurahan', 50)->nullable()->comment('Kelurahan/desa domisili alumni saat ini');
+                $table->string('kecamatan', 50)->nullable()->comment('Kecamatan domisili alumni saat ini');
                 $table->foreignId('kabupaten_id')->nullable()->constrained('kabupaten')->nullOnDelete()->comment('Kabupaten/kota domisili tempat tinggal saat ini');
                 $table->foreignId('propinsi_id')->nullable()->constrained('propinsi')->nullOnDelete()->comment('Provinsi domisili tempat tinggal saat ini');
                 $table->char('kode_pos', 5)->nullable()->comment('Kode pos tempat tinggal alumni saat ini (5 digit)');
-
-                // Identitas Kependudukan & Pajak Alumni
-                $table->char('nik', 16)->nullable()->comment('Nomor Induk Kependudukan KTP alumni (16 digit)');
-                $table->string('npwp', 25)->nullable()->comment('Nomor Pokok Wajib Pajak alumni');
 
                 // Media Sosial & Portofolio Profesional
                 $table->string('instagram_url', 150)->nullable()->comment('Tautan profil Instagram');

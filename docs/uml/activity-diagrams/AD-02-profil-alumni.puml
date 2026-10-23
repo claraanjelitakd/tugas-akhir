@@ -6,7 +6,7 @@ start
 :Buka form profil;
 
 |Backend|
-:Muat biodata, data akademik, yudisium, orang tua,
+:Muat biodata, data akademik, yudisium,
 perusahaan, atasan, prodi, dan referensi profil;
 :Muat pertanyaan profil dinamis dan pilihan detail;
 

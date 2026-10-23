@@ -4,8 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\Kabupaten;
-use App\Models\Propinsi;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -24,23 +22,6 @@ class DataAkademikSeeder extends Seeder
         $alumniUsers = User::where('role', 'alumni')
             ->where('username', '!=', '72220001')
             ->get();
-
-        // Ambil wilayah untuk relasi ID yang valid
-        $diy = Propinsi::where('kode_provinsi', '34')->orWhere('nama_provinsi', 'LIKE', '%Yogyakarta%')->first();
-        $sleman = Kabupaten::where('kode_kabupaten', '34.04')->orWhere('nama_kabupaten', 'LIKE', '%Sleman%')->first();
-
-        $jakarta = Propinsi::where('kode_provinsi', '31')->orWhere('nama_provinsi', 'LIKE', '%Jakarta%')->first();
-        $jakpus = Kabupaten::where('kode_kabupaten', '31.71')->orWhere('nama_kabupaten', 'LIKE', '%Jakarta Pusat%')->first();
-
-        $aceh = Propinsi::where('kode_provinsi', '11')->orWhere('nama_provinsi', 'LIKE', '%Aceh%')->first();
-        $acehSelatan = Kabupaten::where('kode_kabupaten', '11.01')->orWhere('nama_kabupaten', 'LIKE', '%Aceh Selatan%')->first();
-
-        // Wilayah referensi per alumni secara bergantian
-        $lokasiList = [
-            ['prov' => $diy?->id, 'kab' => $sleman?->id, 'kota' => 'Kabupaten Sleman', 'kec' => 'Depok', 'kel' => 'Caturtunggal', 'kodepos' => '55281'],
-            ['prov' => $jakarta?->id, 'kab' => $jakpus?->id, 'kota' => 'Kota Jakarta Pusat', 'kec' => 'Gambir', 'kel' => 'Kebon Kelapa', 'kodepos' => '10120'],
-            ['prov' => $aceh?->id, 'kab' => $acehSelatan?->id, 'kota' => 'Kabupaten Aceh Selatan', 'kec' => 'Tapaktuan', 'kel' => 'Lhok Ketapang', 'kodepos' => '23715'],
-        ];
 
         $namaDummy = [
             'Clara Anjelita Kusumadewi',
@@ -72,7 +53,6 @@ class DataAkademikSeeder extends Seeder
             $parsedInfo = Biodata::parseNim($nim);
             $angkatan = $parsedInfo ? (int) $parsedInfo['angkatan'] : 2020;
             $nama = $namaDummy[$index % count($namaDummy)];
-            $lokasi = $lokasiList[$index % count($lokasiList)];
             $sekolah = $sekolahList[$index % count($sekolahList)];
 
             $personalEmail = strtolower(str_replace(' ', '', explode(' ', $nama)[0])).($index + 1).'@gmail.com';
@@ -112,17 +92,8 @@ class DataAkademikSeeder extends Seeder
                     'nisn' => '003'.str_pad((string) (1234567 + $index), 7, '0', STR_PAD_LEFT),
                     'no_bpjs' => '000189'.str_pad((string) (7654321 + $index), 7, '0', STR_PAD_LEFT),
 
-                    // Kontak & Domisili
-                    'nomor_telepon' => '0812'.rand(1000, 9999).str_pad((string) $index, 4, '0', STR_PAD_LEFT),
-                    'email_pribadi' => strtolower(str_replace(' ', '', explode(' ', $nama)[0])).($index + 1).'@gmail.com',
+                    // Email institusi tetap menjadi bagian dari sumber data akademik resmi.
                     'email_students' => $nim.'@students.ukdw.ac.id',
-                    'alamat_saat_ini' => 'Jl. Kenanga No. '.($index + 12).', RT 03/RW 05',
-                    'kelurahan' => $lokasi['kel'],
-                    'kecamatan' => $lokasi['kec'],
-                    'kabupaten_id' => $lokasi['kab'],
-                    'propinsi_id' => $lokasi['prov'],
-                    'kode_pos' => $lokasi['kodepos'],
-
                     // Data Asal Sekolah
                     'asal_sekolah' => $sekolah['nama'],
                     'alamat_asal_sekolah' => $sekolah['alamat'],

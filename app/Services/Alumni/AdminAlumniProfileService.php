@@ -63,16 +63,16 @@ class AdminAlumniProfileService
             'foto' => $alumni->foto ?? '',
 
             // Kontak & Alamat Pribadi
-            'alamat_saat_ini' => $summary?->alamat ?? ($alumni->alamat_saat_ini ?? ($dataAkademik?->alamat_saat_ini ?? '')),
-            'kelurahan' => $summary?->kelurahan ?? ($alumni->kelurahan ?? ($dataAkademik?->kelurahan ?? '')),
-            'kecamatan' => $summary?->kecamatan ?? ($alumni->kecamatan ?? ($dataAkademik?->kecamatan ?? '')),
-            'kabupaten_id' => $summary?->kabupaten_id ?? ($alumni->kabupaten_id ?? ($dataAkademik?->kabupaten_id ?? '')),
-            'propinsi_id' => $summary?->propinsi_id ?? ($alumni->propinsi_id ?? ($dataAkademik?->propinsi_id ?? '')),
-            'provinsi_id' => $summary?->propinsi_id ?? ($alumni->propinsi_id ?? ($dataAkademik?->propinsi_id ?? '')),
-            'kode_pos' => $summary?->kode_pos ?? ($alumni->kode_pos ?? ($dataAkademik?->kode_pos ?? '')),
-            'nomor_telepon' => $summary?->nomor_telepon ?? ($alumni->nomor_telepon ?? ($dataAkademik?->nomor_telepon ?? '')),
-            'email_pribadi' => $summary?->email_pribadi ?? ($alumni->email_pribadi ?? ($dataAkademik?->email_pribadi ?? '')),
-            'email' => $summary?->email ?? ($alumni->email_pribadi ?? ($dataAkademik?->email_pribadi ?? '')),
+            'alamat_saat_ini' => $summary?->alamat ?? ($alumni->alamat_saat_ini ?? ''),
+            'kelurahan' => $summary?->kelurahan ?? ($alumni->kelurahan ?? ''),
+            'kecamatan' => $summary?->kecamatan ?? ($alumni->kecamatan ?? ''),
+            'kabupaten_id' => $summary?->kabupaten_id ?? ($alumni->kabupaten_id ?? ''),
+            'propinsi_id' => $summary?->propinsi_id ?? ($alumni->propinsi_id ?? ''),
+            'provinsi_id' => $summary?->propinsi_id ?? ($alumni->propinsi_id ?? ''),
+            'kode_pos' => $summary?->kode_pos ?? ($alumni->kode_pos ?? ''),
+            'nomor_telepon' => $summary?->nomor_telepon ?? ($alumni->nomor_telepon ?? ''),
+            'email_pribadi' => $summary?->email_pribadi ?? ($alumni->email_pribadi ?? ''),
+            'email' => $summary?->email ?? ($alumni->email_pribadi ?? ''),
 
             // 2. Data Akademik
             'prodi_id' => $summary?->prodi_id ?? ($alumni->prodi_id ?? ($dataAkademik?->prodi_id ?? '')),

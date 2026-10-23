@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Fungsi:
  * Mengaudit status kelengkapan data seorang alumni secara komprehensif, mencakup:
- * 1. Kelengkapan Profil (Data Pribadi, Data Akademik, Data Orang Tua, Data Perusahaan, Data Atasan, dan Posisi Jabatan).
+ * 1. Kelengkapan Profil (Data Pribadi, Data Akademik, Data Perusahaan, Data Atasan, dan Posisi Jabatan).
  * 2. Kelengkapan Kuesioner Wajib (Ditentukan secara dinamis berdasarkan kolom `wajib = 1` di tabel `ref_subpertanyaan2021`).
  *
  * Pertanyaan dengan `wajib = 0` bersifat OPSIONAL dan tidak membatalkan kelengkapan status alumni.
@@ -89,15 +89,13 @@ class KelengkapanTracerService
             'Tanggal Lahir' => $summary?->tanggal_lahir ?? $dataAkademik?->tanggal_lahir,
             'Agama' => $summary?->agama ?? $dataAkademik?->agama,
             'Jenis Kelamin' => $summary?->jenis_kelamin ?? $dataAkademik?->jenis_kelamin,
-            'Nomor Telepon/HP' => $summary?->nomor_telepon ?? ($biodata->nomor_telepon ?? $dataAkademik?->nomor_telepon),
-            'Email Pribadi' => $summary?->email_pribadi ?? ($biodata->email_pribadi ?? $dataAkademik?->email_pribadi),
-            'Alamat Domisili Saat Ini' => $summary?->alamat ?? ($biodata->alamat_saat_ini ?? $dataAkademik?->alamat_saat_ini),
+            'Nomor Telepon/HP' => $summary?->nomor_telepon ?? $biodata->nomor_telepon,
+            'Email Pribadi' => $summary?->email_pribadi ?? ($biodata->email_pribadi ?? $biodata->user?->email),
+            'Alamat Domisili Saat Ini' => $summary?->alamat ?? $biodata->alamat_saat_ini,
 
             // Data Akademik
             'IPK Kelulusan' => $summary?->ipk ?? $dataAkademik?->ip_kumulatif,
             'Tahun Kelulusan' => $summary?->tahun_lulus ? (string) $summary->tahun_lulus : ($dataAkademik?->tahun_lulus ? (string) $dataAkademik->tahun_lulus : $dataAkademik?->tahun_akademik_lulus),
-
-            // Data Orang Tua
 
             // Data Perusahaan & Atasan
             'Nama Perusahaan' => $summary?->nama_perusahaan ?? $perusahaan?->nama_perusahaan,

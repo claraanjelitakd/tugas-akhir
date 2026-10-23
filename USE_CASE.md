@@ -12,6 +12,8 @@ Sesuai prinsip pemodelan UML standar, proses bisnis yang identik antar-peran (se
 
 > Revisi 23 Oktober 2026: Dashboard Superadmin memisahkan response rate dari kelengkapan. Response rate memakai tiga ambang visual (<50% merah, 50–74,9% kuning, >=75% hijau), sedangkan kelengkapan hanya menggabungkan profil dan kuesioner universitas. Kuesioner prodi tidak dihitung dalam panel ringkasan universitas.
 
+> Revisi 23 Oktober 2026: Kontrak profil diselaraskan dengan schema aktif. Kontak dan domisili disimpan di `biodata`, data akademik hanya menyimpan sumber akademik resmi, dan data orang tua, NIK, No. KK, NPWP, serta pembimbing/penguji tidak lagi menjadi bagian dari use case pengisian profil maupun ekspor.
+
 ## 1. Landasan Teori & Komponen UML Use Case
 
 Berdasarkan standar Unified Modeling Language (UML), use case digunakan untuk memodelkan interaksi antara pengguna eksternal (*actor*) dengan fungsionalitas di dalam batas sistem (*system boundary*).

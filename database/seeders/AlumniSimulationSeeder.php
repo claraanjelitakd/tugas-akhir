@@ -328,15 +328,7 @@ class AlumniSimulationSeeder extends Seeder
                         'warga_negara' => 'WNI',
                         'nisn' => '003'.str_pad((string) (1234500 + (int) $kodeProdiStr * 10 + $i), 7, '0', STR_PAD_LEFT),
                         'no_bpjs' => '000189'.str_pad((string) (7654000 + (int) $kodeProdiStr * 10 + $i), 7, '0', STR_PAD_LEFT),
-                        'nomor_telepon' => '0812'.rand(1000, 9999).str_pad((string) ((int) $kodeProdiStr * 10 + $i), 4, '0', STR_PAD_LEFT),
-                        'email_pribadi' => $personalEmail,
                         'email_students' => $nim.'@students.ukdw.ac.id',
-                        'alamat_saat_ini' => 'Jl. Solo Km. '.($i + 4).' No. '.($i * 7 + 10).', Caturtunggal',
-                        'kelurahan' => 'Caturtunggal',
-                        'kecamatan' => 'Depok',
-                        'kabupaten_id' => $kabSleman?->id,
-                        'propinsi_id' => $propinsiDiy?->id,
-                        'kode_pos' => '55281',
                         'asal_sekolah' => 'SMA Negeri '.(($i % 5) + 1).' Yogyakarta',
                         'alamat_asal_sekolah' => 'Jl. Kebangsaan No. 10',
                         'kota_kabupaten_asal_sekolah' => 'Kota Yogyakarta',
@@ -451,6 +443,9 @@ class AlumniSimulationSeeder extends Seeder
         $prodiQuestions
     ): void {
         // Data Perusahaan & Atasan Berdasarkan Kategori
+        $personalEmail = strtolower(str_replace(' ', '', explode(' ', $nama)[0])).$prodi->kode_prodi.($kategoriIdx + 1).'@gmail.com';
+        $nomorTelepon = '0812'.str_pad((string) (10000000 + $kategoriIdx), 8, '0', STR_PAD_LEFT);
+        $alamatSaatIni = 'Jl. Solo Km. '.($kategoriIdx + 4).' No. '.($kategoriIdx * 7 + 10).', Caturtunggal';
         $perusahaanId = null;
         $atasanId = null;
         $kategoriPekerjaan = 'Bekerja (Full Time)';
@@ -596,12 +591,14 @@ class AlumniSimulationSeeder extends Seeder
                 'nim' => $nim,
                 'yudisium_id' => $yudisium->id,
                 'prodi_id' => $prodi->id,
-                'email_pribadi' => $dataAkademik->email_pribadi,
-                'nomor_telepon' => $dataAkademik->nomor_telepon,
-                'alamat_saat_ini' => $dataAkademik->alamat_saat_ini,
-                'kabupaten_id' => $dataAkademik->kabupaten_id,
-                'propinsi_id' => $dataAkademik->propinsi_id,
-                'kode_pos' => $dataAkademik->kode_pos,
+                'email_pribadi' => $personalEmail,
+                'nomor_telepon' => $nomorTelepon,
+                'alamat_saat_ini' => $alamatSaatIni,
+                'kelurahan' => 'Caturtunggal',
+                'kecamatan' => 'Depok',
+                'kabupaten_id' => $kabSleman?->id,
+                'propinsi_id' => $propinsiDiy?->id,
+                'kode_pos' => '55281',
                 'instagram_url' => 'https://instagram.com/'.$cleanUsername,
                 'facebook_url' => 'https://facebook.com/'.$cleanUsername,
                 'linkedin_url' => 'https://linkedin.com/in/'.$cleanUsername,
@@ -761,6 +758,9 @@ class AlumniSimulationSeeder extends Seeder
         $univQuestions
     ): void {
         // Ambil salah satu perusahaan terdaftar
+        $personalEmail = strtolower(str_replace(' ', '', explode(' ', $nama)[0])).$prodi->kode_prodi.($idx + 1).'@gmail.com';
+        $nomorTelepon = '0812'.str_pad((string) (11000000 + $idx), 8, '0', STR_PAD_LEFT);
+        $alamatSaatIni = 'Jl. Solo Km. '.($idx + 4).' No. '.($idx * 7 + 10).', Caturtunggal';
         $perusahaan = $perusahaans->first();
 
         $biodata = Biodata::updateOrCreate(
@@ -769,9 +769,11 @@ class AlumniSimulationSeeder extends Seeder
                 'nim' => $nim,
                 'yudisium_id' => $yudisium->id,
                 'prodi_id' => $prodi->id,
-                'email_pribadi' => $dataAkademik->email_pribadi,
-                'nomor_telepon' => $dataAkademik->nomor_telepon,
-                'alamat_saat_ini' => $dataAkademik->alamat_saat_ini,
+                'email_pribadi' => $personalEmail,
+                'nomor_telepon' => $nomorTelepon,
+                'alamat_saat_ini' => $alamatSaatIni,
+                'kelurahan' => 'Caturtunggal',
+                'kecamatan' => 'Depok',
                 'kabupaten_id' => $kabSleman?->id,
                 'propinsi_id' => $propinsiDiy?->id,
                 'kode_pos' => '55281',
@@ -845,6 +847,8 @@ class AlumniSimulationSeeder extends Seeder
                 'nomor_telepon' => null,
                 'email_pribadi' => null,
                 'alamat_saat_ini' => null,
+                'kelurahan' => null,
+                'kecamatan' => null,
                 'kabupaten_id' => null,
                 'propinsi_id' => null,
                 'kode_pos' => null,

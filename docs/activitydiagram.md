@@ -171,7 +171,7 @@ flowchart TD
 **Route:** GET/POST /alumni/profile, admin detail update, shared /alumni/company.
 **Hasil:** biodata, pekerjaan, perusahaan, atasan, foto, dan sinkronisasi jawaban profil tersimpan.
 
-1. Backend memuat biodata, data akademik, yudisium, orang tua, perusahaan, atasan, dan metadata profil.
+1. Backend memuat biodata, data akademik, yudisium, perusahaan, atasan, dan metadata profil sesuai kebutuhan role.
 2. Pengguna mengirim profil; backend memvalidasi array jawaban, foto, email, telepon, URL, tanggal, gaji, dan field relevan.
 3. Data bidang pekerjaan dinormalisasi; nilai â€œLainnyaâ€ menggunakan input custom.
 4. Aturan posisi eksklusif diterapkan: pekerja mengosongkan data wiraswasta, wiraswasta mengosongkan jabatan, melanjutkan pendidikan mengosongkan dua data tersebut.

@@ -82,16 +82,7 @@ class JoshuaAndreanSeeder extends Seeder
                 'nisn' => '0041234567',
                 'no_bpjs' => '0001897654321',
 
-                // Kontak & Domisili
-                'nomor_telepon' => '081234567890',
-                'email_pribadi' => $personalEmail,
                 'email_students' => $nim.'@students.ukdw.ac.id',
-                'alamat_saat_ini' => 'Jl. Timoho No. 45, RT 02/RW 08',
-                'kelurahan' => 'Caturtunggal',
-                'kecamatan' => 'Depok',
-                'kabupaten_id' => $sleman?->id,
-                'propinsi_id' => $diy?->id,
-                'kode_pos' => '55281',
 
                 // Data Asal Sekolah
                 'asal_sekolah' => 'SMA Negeri 3 Yogyakarta',

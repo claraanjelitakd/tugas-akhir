@@ -13,8 +13,8 @@ Dokumen ini menjelaskan struktur antarmuka dan batas akses untuk Superadmin, Adm
 
 - `biodata.alamat_saat_ini` adalah satu-satunya field alamat domisili alumni. Alias runtime `alamat` tidak lagi digunakan; alamat perusahaan tetap berada di tabel `perusahaan`.
 - `biodata.skills` dan `biodata.experience` adalah field kanonik. Alias lama `expert` dan `minat` dihapus dari model, frontend, sinkronisasi LinkedIn, exporter, dan seeder.
-- NIK, No KK, dan NPWP tidak lagi menjadi bagian dari data aplikasi. Kolom fisiknya dihapus melalui migration `2026_10_23_132550_remove_unused_sensitive_and_parent_profile_data`.
-- Tabel `data_orang_tua` dan foreign key `biodata.orang_tua_id` dihapus karena data orang tua tidak digunakan dalam profil maupun ekspor Excel.
+- NIK, No KK, dan NPWP tidak lagi menjadi bagian dari data aplikasi. Kolom fisiknya dihapus melalui migration `2026_10_23_141414_finalize_profile_schema_contract`.
+- Tabel `data_orang_tua` dan foreign key `biodata.orang_tua_id` tidak ada pada schema aktif karena data orang tua tidak digunakan dalam profil maupun ekspor Excel.
 - Data pembimbing/penguji dihapus dari `yudisium`; judul tugas akhir, tanggal lulus, status lulus, dan publikasi yang masih digunakan tetap dipertahankan.
 - NISN, BPJS, email mahasiswa, dan negara belum dihapus karena masih menjadi bagian dari sumber akademik/integrasi yang tersedia; visibilitasnya tetap dikendalikan oleh payload halaman.
 
@@ -136,11 +136,9 @@ Link profil alumni pada halaman bersama tidak menggunakan prefix superadmin seca
 
 ### Kebijakan Data Sensitif pada Profil Alumni
 
-Halaman self-service \`/alumni/profile\` hanya menerima props yang diperlukan untuk pengisian tracer. NIK, NPWP, KK, NISN, BPJS, email mahasiswa, data pembimbing/penguji, publikasi, dan data orang tua tidak dikirim sebagai props profil alumni dan tidak dirender di frontend. Judul tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai referensi akademik non-sensitif.
+Halaman self-service `/alumni/profile` hanya menerima props yang diperlukan untuk pengisian tracer. NIK, NPWP, KK, data orang tua, dan data pembimbing/penguji tidak lagi menjadi bagian dari schema aktif. NISN, BPJS, email mahasiswa, dan publikasi tetap berada pada sumber akademik yang diperlukan untuk audit/admin, tetapi tidak dikirim ke form self-service. Judul tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai referensi akademik non-sensitif.
 
-Kolom serta data lama tidak dihapus. Data tersebut tetap menjadi sumber resmi untuk integrasi akademik, audit admin, ekspor, dan kompatibilitas migrasi. Controller penyimpanan profil juga tidak lagi menulis field identitas sensitif ketika field itu tidak dikirim, sehingga menyembunyikan field tidak mengosongkan data lama.
-
-Keputusan ini memakai kebijakan visibilitas eksplisit pada controller dan komponen, bukan komentar blok template. Komentar database pada migrasi \`document_sensitive_profile_data_policy\` menjelaskan alasan retensi dan pembatasan tampilan untuk setiap tabel/kolom terkait.
+Kontak dan domisili aktif hanya ditulis ke `biodata`. Migrasi final melakukan backfill dari kolom legacy sebelum kolom duplikat dihapus, tanpa menimpa nilai biodata yang sudah ada. Database terpisah `tracer` tidak disentuh.
 
 Payload audit evaluasi atasan juga dipetakan melalui \`EvaluasiAtasan::toAdminAuditArray()\`. Payload tersebut hanya membawa status, identitas atasan, instansi, dan jawaban per butir; token akses survei tidak dikirim ke halaman detail alumni. Nilai jawaban dibaca dari kolom sumber \`respon_evaluasi_atasan.nilai\`, bukan alias \`skor\`.
 

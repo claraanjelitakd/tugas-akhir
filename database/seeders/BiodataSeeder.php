@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Atasan;
 use App\Models\Biodata;
-use App\Models\DataAkademik;
 use App\Models\Kabupaten;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
@@ -97,7 +96,6 @@ class BiodataSeeder extends Seeder
         foreach ($alumniUsers as $index => $user) {
             $nim = $user->username;
             $parsedInfo = Biodata::parseNim($nim);
-            $kodeProdi = $parsedInfo ? $parsedInfo['kode_prodi'] : '71';
             $lokasi = $lokasiList[$index % count($lokasiList)];
 
             $prodiId = null;
@@ -127,7 +125,6 @@ class BiodataSeeder extends Seeder
 
             $cleanUsername = strtolower(str_replace(' ', '', explode(' ', $user->name ?? 'alumni')[0])).$index;
 
-            $dataAkademik = DataAkademik::where('nim', $nim)->first();
             $yudisium = Yudisium::where('nim', $nim)->first();
 
             $gajiList = [5000000, 6500000, 8000000, 10000000, 12500000, 7500000, 9000000];
@@ -142,6 +139,8 @@ class BiodataSeeder extends Seeder
                     'nomor_telepon' => '0812'.rand(1000, 9999).str_pad((string) $index, 4, '0', STR_PAD_LEFT),
                     'email_pribadi' => $personalEmail,
                     'alamat_saat_ini' => 'Jl. Kenanga No. '.($index + 12).', RT 03/RW 05',
+                    'kelurahan' => $lokasi['kel'],
+                    'kecamatan' => $lokasi['kec'],
                     'kabupaten_id' => $lokasi['kab'],
                     'propinsi_id' => $lokasi['prov'],
                     'kode_pos' => $lokasi['kodepos'],

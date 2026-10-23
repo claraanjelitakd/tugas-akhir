@@ -173,3 +173,4 @@
 - **UI/UX**: Mengubah tampilan global \pigo-loader.vue\ menjadi popup modern (glassmorphism) yang seragam dengan halaman login.
 - **Bug Fix**: Memperbaiki navbar di halaman *Landing Page* (Tamu) yang menyebabkan *stuck* karena melempar *user* kembali ke \/login\. Tombol kini berubah cerdas menjadi 'Dashboard' dan mengarah ke _dashboard_ masing-masing role.
 - **Keamanan**: Menambahkan konfigurasi \SESSION_EXPIRE_ON_CLOSE=true\ di \.env\ agar sesi/kuki otomatis dihapus saat browser ditutup (menyelesaikan masalah nyangkut login otomatis).
+- **23 Oktober 2026 — Finalisasi kontrak schema profil**: Menjadikan kontak/domisi aktif hanya berada di `biodata`, melakukan backfill aman dari data legacy, membersihkan migrasi dan seeder, serta memperbarui ERD, arsitektur, DFD, user flow, dan dokumentasi view. Field NIK, NPWP, No. KK, tabel orang tua, pembimbing/penguji, dan alias profil legacy tidak lagi dibuat.

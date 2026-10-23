@@ -70,7 +70,7 @@ tracerstudy/
 │   │   │   │   │   └── SimpanJawabanController.php   # Menyimpan jawaban kuesioner tracer study universitas
 │   │   │   │   └── Profil/
 │   │   │   │       ├── ProfilController.php        # Menampilkan halaman kelola biodata & riwayat alumni
-│   │   │   │       └── SimpanProfilController.php  # Simpan pembaruan data pribadi, akademik, orang tua, & karier
+│   │   │   │       └── SimpanProfilController.php  # Simpan pembaruan data kontak, domisili, dan karier
 │   │   │   ├── SuperAdmin/                         # Modul Super Admin (role: superadmin)
 │   │   │   │   ├── Dashboard/
 │   │   │   │   │   └── DashboardController.php     # Metrik universitas, chart statistik, & monitoring sistem
@@ -111,7 +111,6 @@ tracerstudy/
 │   │   ├── User.php                                # Akun pengguna, role, relasi ke biodata, prodi_id, & fakultas_id
 │   │   ├── Biodata.php                             # Entitas profil biodata alumni (tabel `biodata`, 29 atribut termasuk `foto`), relasi akademik, yudisium_id, dll.
 │   │   ├── DataAkademik.php                        # Pangkalan data akademik (tabel `data_akademik`: NIM, IPK, tahun lulus, asal sekolah)
-│   │   ├── DataOrangTua.php                        # Data kontak & profil orang tua / wali alumni (tabel `data_orang_tua`)
 │   │   ├── Yudisium.php                            # Data kelulusan, skripsi/TA, & publikasi ilmiah (tabel `yudisium`: judul_ta, url_publikasi, jenis_publikasi)
 │   │   ├── Prodi.php                               # Data master program studi UKDW (tabel `prodi`)
 │   │   ├── RefFakultas.php                         # Data master fakultas UKDW (tabel `ref_fakultas`)
@@ -177,7 +176,6 @@ tracerstudy/
 │       ├── PerusahaanSeeder.php                    # Seeder master instansi/perusahaan
 │       ├── DataAkademikSeeder.php                  # Seeder data akademik & asal sekolah
 │       ├── BiodataSeeder.php                       # Seeder 28 field profil biodata & karier
-│       ├── DataOrangTuaSeeder.php                  # Seeder kontak orang tua/wali
 │       ├── YudisiumSeeder.php                      # Seeder data kelulusan & tugas akhir
 │       ├── KuesionerSeeder.php                     # Seeder kuesioner 2021
 │       ├── KelompokPertanyaanSeeder.php            # Seeder 10 kelompok pertanyaan
@@ -226,9 +224,8 @@ Dokumentasi lengkap diagram relasi antar tabel (ERD Mermaid), kamus data (*data 
 Ringkasan relasi utama & prinsip anti-duplikasi data:
 - **`ref_fakultas` (1:N) $\rightarrow$ `prodi`**: Master data 7 fakultas UKDW terhubung ke program studi.
 - **`prodi` (1:N) $\rightarrow$ `biodata`**: Program studi alumni UKDW.
-- **`users` (1:1) $\rightarrow$ `biodata`**: Akun pengguna login. Alamat `users.email` tersinkronisasi langsung dengan `biodata.email_pribadi` dan `data_akademik.email_pribadi`.
-- **`data_akademik` (1:1) $\rightarrow$ `biodata`**: Pangkalan data master identitas dan akademik tunggal terhubung via `nim`. Seluruh identitas kependudukan (`nama`, `tempat_lahir`, `tanggal_lahir`, `jenis_kelamin`, `golongan_darah`, `agama`, `tahun_lulus`, `email_students`, `no_kk`, `nisn`, `no_bpjs`) hanya disimpan di `data_akademik`. Tabel `biodata` hanya menyimpan `email_pribadi`, kontak, domisili terkini, dan data karier.
-- **`data_orang_tua` (1:1) $\rightarrow$ `biodata`**: Data orang tua/wali alumni terhubung via `orang_tua_id` & `nim`.
+- **`users` (1:1) $\rightarrow$ `biodata`**: Akun pengguna login. Email akun menjadi fallback autentikasi, sedangkan email pribadi aktif disimpan di `biodata`.
+- **`data_akademik` (1:1) $\rightarrow$ `biodata`**: Pangkalan data master identitas dan akademik tunggal terhubung via `nim`. Kontak dan domisili aktif tidak disimpan di tabel ini.
 - **`yudisium` (1:1) $\rightarrow$ `biodata`**: Data kelulusan resmi (`status_lulus`: 'Belum', 'Proses', 'Lulus', 'Tidak Lulus'), judul tugas akhir (`judul_ta`), dan link publikasi karya ilmiah (`url_publikasi`). Saat status berubah menjadi 'Lulus', sistem secara otomatis memperbarui `status_mahasiswa = 'L'`, `tanggal_lulus`, dan `tahun_lulus` pada `data_akademik`.
 - **`log_activities`**: Rekam jejak audit trail transparan untuk setiap perubahan status verifikasi/ACC perusahaan, pergantian master (auto replace), penolakan pengajuan, reset password, dan pembaruan akun.
 - **`biodata` (1:N) $\rightarrow$ `tracer`**: Respon pengisian kuesioner tracer study tingkat universitas.
@@ -356,7 +353,7 @@ Alur berikut khusus provider **Apify**. Driver mock/API diproses melalui `Linked
 ### F. Integritas Data & Kebijakan Verifikasi Perusahaan
 - **Posisi Aktif (Current Position)**: Dipilih dengan prioritas posisi `endMonthYear == null`, kemudian tanggal mulai (`startMonthYear`) terbaru.
 - **Kebijakan Verifikasi Mutlak**: Setiap institusi perusahaan baru yang dibuat dari sinkronisasi LinkedIn SELALU disetel ke `status_verifikasi = 'Menunggu Verifikasi'`, meskipun data alamat, provinsi, dan negara terisi lengkap.
-- **Proteksi Data Otoritatif**: Field otoritatif alumni (NIM, NIK, NPWP, email pribadi, nomor telepon, alamat domisili, dan riwayat akademik) tidak pernah ditimpa oleh data LinkedIn.
+  - **Proteksi Data Otoritatif**: Field otoritatif alumni (NIM, email pribadi, nomor telepon, alamat domisili, dan riwayat akademik) tidak pernah ditimpa oleh data LinkedIn.
 - **Audit Trail**: Seluruh aktivitas sinkronisasi dicatat ke tabel `log_activities` melalui `LogActivity::record()` dengan aksi `'linkedin_sync'`.
 
 ### G. Navigasi Dua Arah & Deep Linking Terarah (Detail Alumni ⇄ LinkedIn Sync)
@@ -396,7 +393,7 @@ Komponen pengisian kuesioner dipecah secara modular untuk memudahkan pemeliharaa
   - **Kesiapan Server-to-Server API**: Dibuat `ApiLinkedInProvider` yang menginjeksi API Key dan Base URL dari konfigurasi server, menormalisasi respon HTTP ke `LinkedInProfile` DTO, dan menangani error status tanpa membocorkan kredensial.
   - **Dukungan Mock JSON Terstruktur**: `MockLinkedInProvider` membaca `storage/app/mock/linkedin/{username}.json` dengan fallback dinamis berbasis biodata lokal.
   - **Kebijakan Verifikasi Mutlak**: Setiap perusahaan baru yang dibuat melalui sinkronisasi LinkedIn selalu berstatus `status_verifikasi = 'Menunggu Verifikasi'` meskipun data lengkap.
-  - **Perlindungan Data Otoritatif & Audit Trail**: NIM, NIK, NPWP, telepon, email pribadi, dan data akademik tidak pernah ditimpa. Jejak sinkronisasi dicatat ke tabel `log_activities`.
+  - **Perlindungan Data Otoritatif & Audit Trail**: NIM, telepon, email pribadi, dan data akademik tidak pernah ditimpa. Jejak sinkronisasi dicatat ke tabel `log_activities`.
 
 - **v2.5 (28 September 2026)**:
   - **Migrasi Kolom Foto Profil**: Menambahkan kolom `foto` (nullable string) pada tabel `biodata` (`2026_09_28_054830_add_foto_to_biodata_table.php`) yang terhubung ke direktori `public/uploads/profile/`.
@@ -444,7 +441,7 @@ Komponen pengisian kuesioner dipecah secara modular untuk memudahkan pemeliharaa
    - Dashboard kelengkapan data & progres kuesioner (`/alumni/dashboard`).
    - Pengisian Kuesioner Tracer Study Universitas (`/alumni/kuesioner`).
    - Pengisian Kuesioner Khusus Program Studi (`/alumni/kuesioner-prodi`).
-   - Pembaruan kontak/biodata dinamis, data orang tua yang diizinkan, dan karier/perusahaan; master akademik ditampilkan sebagai referensi (`/alumni/profile`).
+   - Pembaruan kontak/domisi dinamis dan karier/perusahaan; master akademik ditampilkan sebagai referensi (`/alumni/profile`).
 
 ---
 

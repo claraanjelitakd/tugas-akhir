@@ -14,6 +14,9 @@ use Illuminate\Database\Eloquent\Model;
  * - Identitas pendukung akademik (nisn, no_bpjs)
  * - Riwayat akademik (angkatan, IPK, total SKS, status kelulusan, tahun & periode kelulusan)
  * - Email resmi mahasiswa (email_students)
+ *
+ * Kontak dan domisili aktif alumni berada di Biodata agar tidak ada dua sumber
+ * perubahan untuk alamat, telepon, email pribadi, dan wilayah tempat tinggal.
  */
 class DataAkademik extends Model
 {
@@ -31,15 +34,7 @@ class DataAkademik extends Model
         'jenis_kelamin',
         'golongan_darah',
         'warga_negara',
-        'nomor_telepon',
-        'email_pribadi',
         'email_students',
-        'alamat_saat_ini',
-        'kelurahan',
-        'kecamatan',
-        'kabupaten_id',
-        'propinsi_id',
-        'kode_pos',
         'nisn',
         'no_bpjs',
         'asal_sekolah',
@@ -73,26 +68,10 @@ class DataAkademik extends Model
     }
 
     /**
-     * Relasi ke model Yudisium (status lulus, skripsi, & pembimbing).
+     * Relasi ke model Yudisium (status lulus, tugas akhir, dan publikasi).
      */
     public function yudisium()
     {
         return $this->hasOne(Yudisium::class, 'nim', 'nim');
-    }
-
-    /**
-     * Relasi ke Propinsi asal/domisili akademik.
-     */
-    public function propinsi()
-    {
-        return $this->belongsTo(Propinsi::class, 'propinsi_id');
-    }
-
-    /**
-     * Relasi ke Kabupaten asal/domisili akademik.
-     */
-    public function kabupaten()
-    {
-        return $this->belongsTo(Kabupaten::class, 'kabupaten_id');
     }
 }

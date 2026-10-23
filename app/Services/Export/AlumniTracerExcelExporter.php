@@ -59,8 +59,6 @@ class AlumniTracerExcelExporter
             if (! $alumni->relationLoaded('dataAkademik') || ! $alumni->relationLoaded('atasan')) {
                 $alumni->load([
                     'dataAkademik.yudisium',
-                    'dataAkademik.propinsi',
-                    'dataAkademik.kabupaten',
                     'yudisium',
                     'propinsi',
                     'kabupaten',
@@ -74,8 +72,6 @@ class AlumniTracerExcelExporter
         } else {
             $alumni = Biodata::with([
                 'dataAkademik.yudisium',
-                'dataAkademik.propinsi',
-                'dataAkademik.kabupaten',
                 'yudisium',
                 'propinsi',
                 'kabupaten',
@@ -153,8 +149,8 @@ class AlumniTracerExcelExporter
         $agama = $summary?->agama ?: ($dataAkademik?->agama ?: '-');
         $golDarah = $summary?->golongan_darah ?: ($dataAkademik?->golongan_darah ?: '-');
         $wargaNegara = $summary?->warga_negara ?: ($dataAkademik?->warga_negara ?: 'WNI');
-        $telepon = $summary?->nomor_telepon ?: ($alumni->nomor_telepon ?: ($dataAkademik?->nomor_telepon ?: '-'));
-        $emailPribadi = $summary?->email_pribadi ?: ($alumni->email_pribadi ?: ($dataAkademik?->email_pribadi ?: '-'));
+        $telepon = $summary?->nomor_telepon ?: ($alumni->nomor_telepon ?: '-');
+        $emailPribadi = $summary?->email_pribadi ?: ($alumni->email_pribadi ?: '-');
         $emailKampus = $summary?->email_students ?: ($dataAkademik?->email_students ?: '-');
         $linkedin = $summary?->linkedin_url ?: ($summary?->linkedin_username ?: ($alumni->linkedin_url ?: ($alumni->linkedin_username ?: '-')));
         $ig = $summary?->instagram_url ?: $alumni->instagram_url;
@@ -162,7 +158,7 @@ class AlumniTracerExcelExporter
         $medsos = trim(($ig ? 'IG: '.$ig : '').($fb ? ' | FB: '.$fb : '')) ?: '-';
         $skills = $summary?->skills ?: ($alumni->skills ?: '-');
         $experience = $summary?->experience ?: ($alumni->experience ?: '-');
-        $alamatDomisiliLengkap = $summary?->alamat ?: ($alumni->alamat_saat_ini ?: ($dataAkademik?->alamat_saat_ini ?: '-'));
+        $alamatDomisiliLengkap = $summary?->alamat ?: ($alumni->alamat_saat_ini ?: '-');
 
         // 2. Data Akademik
         $prodiNama = $summary?->nama_prodi ?: ($alumni->prodi?->nama_prodi ?: ($dataAkademik?->prodi?->nama_prodi ?: '-'));
@@ -187,8 +183,7 @@ class AlumniTracerExcelExporter
         $provSekolah = $summary?->provinsi_asal_sekolah ?: $dataAkademik?->provinsi_asal_sekolah;
         $wilayahSekolah = trim(($kotaSekolah ? $kotaSekolah : '').($provSekolah ? ', '.$provSekolah : '')) ?: '-';
 
-        // 3. Data Orang Tua / Wali
-        // 4. Data Karier, Perusahaan & Atasan
+        // 3. Data Karier, Perusahaan & Atasan
         $kategoriPekerjaan = $summary?->kategori_pekerjaan ?: ($alumni->kategori_pekerjaan ?: '-');
         $posisiJabatan = $summary?->posisi_jabatan ?: ($alumni->posisi_jabatan ?: ($alumni->posisi_wiraswasta ?: '-'));
         $posisiWiraswasta = $summary?->posisi_wiraswasta ?: ($alumni->posisi_wiraswasta ?: '-');

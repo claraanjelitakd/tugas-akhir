@@ -125,6 +125,8 @@ class Biodata extends Model
         'nomor_telepon',
         'email_pribadi',
         'alamat_saat_ini',
+        'kelurahan',
+        'kecamatan',
         'kabupaten_id',
         'propinsi_id',
         'kode_pos',
@@ -411,19 +413,19 @@ class Biodata extends Model
     }
 
     /**
-     * Akses alamat domisili saat ini (dengan fallback ke data_akademik jika belum diisi).
+     * Akses alamat domisili saat ini dari profil aktif alumni.
      */
     public function getAlamatSaatIniAttribute(): ?string
     {
-        return $this->attributes['alamat_saat_ini'] ?? $this->dataAkademik?->alamat_saat_ini;
+        return $this->attributes['alamat_saat_ini'] ?? null;
     }
 
     /**
-     * Akses kode pos domisili saat ini (dengan fallback ke data_akademik).
+     * Akses kode pos domisili saat ini dari profil aktif alumni.
      */
     public function getKodePosAttribute(): ?string
     {
-        return $this->attributes['kode_pos'] ?? $this->dataAkademik?->kode_pos;
+        return $this->attributes['kode_pos'] ?? null;
     }
 
     /**
@@ -436,12 +438,12 @@ class Biodata extends Model
 
     public function getKelurahanAttribute(): ?string
     {
-        return $this->dataAkademik?->kelurahan;
+        return $this->attributes['kelurahan'] ?? null;
     }
 
     public function getKecamatanAttribute(): ?string
     {
-        return $this->dataAkademik?->kecamatan;
+        return $this->attributes['kecamatan'] ?? null;
     }
 
     // =========================================================================

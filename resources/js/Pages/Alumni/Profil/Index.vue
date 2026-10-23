@@ -26,7 +26,7 @@ import Navbar from '../Components/Navbar.vue';
  * MENERIMA DATA (PROPS) DARI CONTROLLER (ProfilController.php)
  * ====================================================================
  * - alumniData : Konteks minimum alumni yang dibutuhkan FormKarier
- * - formData   : Objek data awal gabungan (data akademik, pribadi, orang tua, pekerjaan)
+ * - formData   : Objek data awal gabungan (data akademik, pribadi, domisili, pekerjaan)
  * - provinces  : Array master data provinsi dari tabel 'provinces'
  * - kabupatens : Array master data kabupaten dari tabel 'kabupatens'
  * - companies  : Array master data perusahaan dari tabel 'companies'
