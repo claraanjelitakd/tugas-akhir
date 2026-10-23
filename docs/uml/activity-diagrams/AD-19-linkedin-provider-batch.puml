@@ -1,0 +1,25 @@
+@startuml
+title AD-19 LinkedIn Provider Resmi/Mock dan Batch
+|Admin Scope|
+start
+:Pilih single atau batch sync;
+|Backend|
+:Pilih provider dari konfigurasi;
+if (Provider Apify dan batch?) then (ya)
+  :Tolak batch untuk perlindungan biaya;
+  stop
+else (tidak)
+  repeat
+    :Validasi scope alumni;
+    |LinkedIn Provider|
+    :Ambil profil;
+    |Backend|
+    :Map response ke DTO;
+    |Database|
+    :Simpan status SUCCESS, NOT_FOUND, SKIPPED, atau ERROR;
+  repeat while (Alumni tersisa?) is (ya)
+endif
+|Backend|
+:Kembalikan ringkasan batch;
+stop
+@enduml

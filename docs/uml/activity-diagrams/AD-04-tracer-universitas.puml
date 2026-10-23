@@ -1,0 +1,23 @@
+@startuml
+title AD-04 Pengisian Tracer Study Universitas
+|Alumni|
+start
+:Buka kuesioner universitas;
+|Backend|
+:Muat instrumen aktif dan jawaban;
+|Alumni|
+:Isi atau simpan sebagian jawaban;
+|Backend|
+:Validasi tipe, opsi, dan format;
+if (Valid?) then (ya)
+  :Evaluasi branching F8 dan F504;
+  |Database|
+  :Upsert answer, answer_json, dan question_id;
+  |Backend|
+  :Hitung status mandatory dan audit;
+  :Redirect Inertia dengan flash;
+else (tidak)
+  :Kembalikan error validasi;
+endif
+stop
+@enduml

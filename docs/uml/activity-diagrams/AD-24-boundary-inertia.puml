@@ -1,0 +1,20 @@
+@startuml
+title AD-24 Boundary Inertia, JSON, 403, dan 404
+|Frontend Inertia|
+start
+:Kirim request halaman atau mutation;
+|Backend|
+:Periksa auth, role, dan scope;
+if (Role tidak boleh?) then (ya)
+  :Kembalikan 403;
+elseif (Resource tidak ada?) then (ya)
+  :Kembalikan 404;
+elseif (Request Inertia mutation?) then (ya)
+  :Redirect atau kirim validation error Inertia;
+else (Fetch/API)
+  :Kirim JSON sesuai kontrak;
+endif
+|Frontend Inertia|
+:Tampilkan halaman atau error;
+stop
+@enduml

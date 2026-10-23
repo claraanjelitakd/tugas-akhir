@@ -1,745 +1,570 @@
-# Dokumentasi UML Activity Diagram Sistem Tracer Study UKDW
+# UML Activity Diagram Keseluruhan Sistem Tracer Study UKDW
 
-Dokumen ini memuat spesifikasi dan pemodelan **UML Activity Diagram** untuk proses-proses pada sistem Tracer Study Universitas Kristen Duta Wacana (UKDW) yang distandarisasi secara ketat mengikuti konvensi baku 2-Swimlane (*Actor* vs *System*) sesuai buku teks rujukan:
+Dokumen ini adalah dokumentasi aktivitas berbasis implementasi repository, bukan rancangan fitur hipotetis. Audit dilakukan terhadap route Laravel, controller, service, model, migration, middleware, halaman Inertia/Vue, mail, view database, serta integrasi LinkedIn/Apify yang tersedia pada repository per 23 Oktober 2026.
 
-1. **Proses Umum: Edit Profil & Ganti Password Akun Alumni** *(Format Baku Acuan Buku Teks Sundaramoorthy)*
-2. **Proses 1: Sinkronisasi Profil LinkedIn (Apify Scraper & Staging Review)**
-3. **Proses 2: Pengiriman Token ke Email Pengguna Atasan untuk Isi Evaluasi Kinerja (Employer Survey)**
-4. **Proses 3: Rekomendasi Kecocokan Perusahaan (Multi-Level Similarity Matching & Auto-Replace)**
-5. **Proses 4: Pengelolaan Instrumen Kuesioner & Otomasi Opsi Default (Admin Prodi & Super Admin)**
+Dokumen ini sengaja tidak membatasi jumlah diagram pada tujuh proses. Setiap diagram mewakili satu proses bisnis yang dapat ditelusuri ke implementasi. File PlantUML sumbernya berada di folder docs/uml/activity-diagrams.
 
-> Revisi 22 Oktober 2026: Proses 3 diterapkan dengan halaman verifikasi perusahaan bersama untuk Superadmin, Fakultas, dan Prodi. Diagram aktivitas serta keputusan verifikasi tidak berubah; sistem membatasi input dan tindakan pada lingkup data role sebelum aksi diteruskan.
+## 1. Batasan dan bukti implementasi
 
----
+### 1.1 Komponen yang ditemukan
 
-## 1. Landasan Teori UML Activity Diagram
+| Komponen | Bukti implementasi | Catatan |
+|---|---|---|
+| Web route | routes/web.php | 185 route non-vendor terdaftar saat audit. |
+| Backend | app/Http/Controllers, app/Services, app/Providers | Memvalidasi input, menerapkan scope, menjalankan transaksi, dan menyiapkan Inertia/JSON. |
+| Frontend | resources/js/Pages, komponen Vue, Vite | Menampilkan form, tabel, dashboard, modal, dan navigasi Inertia. |
+| Database | migrations, Eloquent models, database views | Data utama tersimpan di tabel relasional; status audit juga tersedia melalui view. |
+| Email | app/Mail | Reset password, pengingat kuesioner, dan undangan evaluasi atasan. |
+| Third party | app/Services/LinkedIn/Providers/ApifyLinkedInProvider.php dan provider lain | Integrasi LinkedIn dapat menggunakan Apify, API resmi, atau mock sesuai konfigurasi. |
+| Queue/job/event | Tidak ditemukan Job, Event, Listener, atau command aplikasi yang menjalankan alur bisnis ini | Sinkronisasi Apify yang ditemukan berjalan synchronous melalui request backend; bukan job/polling/webhook. |
+| Policy | Tidak ditemukan direktori app/Policies | Otorisasi dilakukan melalui middleware role, scope query, validasi controller, dan guard layanan. |
 
-Penyusunan diagram dan alur sistem ini mengacu pada literatur akademik:
-> **Referensi Buku:**
-> Sundaramoorthy, S. (2022). *UML Diagramming: A Case Study Approach* (1st ed.). CRC Press, Taylor & Francis Group. DOI: [10.1201/9781003287124](https://doi.org/10.1201/9781003287124).
+### 1.2 Notasi
 
-### Komponen & Notasi Standar UML Activity Diagram (Sundaramoorthy, 2022, Bab 1.1.3 & Tabel 1.4):
+- Initial: titik mulai proses.
+- Action: pekerjaan aktor atau sistem.
+- Decision: keputusan dengan guard eksplisit.
+- Merge: penggabungan cabang alternatif.
+- Fork/Join: hanya digunakan jika benar-benar ada proses paralel.
+- Activity final: proses selesai sukses.
+- Error final: proses berhenti karena validasi, akses, token, atau layanan eksternal gagal.
+- Swimlane membedakan aktor, backend, database, mail service, dan Apify/third party.
 
-| Komponen Notasi | Simbol Grafis | Nama Komponen | Deskripsi & Kaidah Menurut Sundaramoorthy |
-| :---: | :---: | :--- | :--- |
-| **Initial State** | `●` | *Initial State (Start)* | Lingkaran solid gelap menandai titik mula eksekusi aktivitas pengguna/sistem. Diletakkan pada kolom Aktor. |
-| **Final State** | `◉` | *Activity Final State* | Simbol *bullseye* (lingkaran ganda dengan titik pusat solid) menandai keberhasilan seluruh aliran proses bisnis. |
-| **Flow Final** | `⨂` | *Flow Final Node* | Lingkaran berisi tanda silang (`X`) menandai penghentian abnormal/kegagalan pada cabang tertentu tanpa mematikan sistem secara menyeluruh (misal: validasi gagal / token kadaluarsa). |
-| **Action State** | `( Nama Aksi )` | *Action State* | Persegi panjang dengan sudut membulat (*pill/stadium*) berisi kata kerja aktif operasi bisnis diskret yang dilakukan aktor atau sistem. |
-| **Vertical Swimlanes** | `[Aktor] \| [System]` | *Partitions (Swimlanes)* | Pembagian 2 kolom vertikal dengan kotak header di bagian atas: kolom kiri merepresentasikan **Aktor/Pengguna**, dan kolom kanan merepresentasikan **System (Sistem Tracer Study UKDW)**. |
-| **Fork Node** | `━━━━━` (Tebal) | *Fork (Split Parallel)* | Batang horizontal tebal yang memecah satu aliran input menjadi dua atau lebih aliran aktivitas alternatif/konkuren. |
-| **Join Node** | `━━━━━` (Tebal) | *Join (Synchronization)* | Batang horizontal tebal yang menyatukan kembali aliran dari sisi aktor menyeberang masuk ke batas sistem (*crossing swimlane boundary*). |
-| **Decision Node** | `◇` | *Decision Diamond* | Belah ketupat percabangan logika dengan satu masukan dan dua atau lebih keluaran berbasis *guard conditions* eksplisit (`[valid]`, `[invalid]`). |
-| **Merge Node** | `◇` | *Merge Diamond* | Belah ketupat penggabungan alternatif aliran tanpa sinkronisasi waktu tunggu. |
-| **Guard Condition** | `[ kondisi ]` | *Guard Condition* | Teks kondisi pembatas di dalam kurung siku yang harus terpenuhi agar aliran transisi dapat dilalui. |
+Diagram Mermaid di bawah digunakan sebagai peta baca cepat. Detail source-of-truth dalam bentuk PlantUML tersedia pada folder UML.
 
----
+## 2. Aktor dan cakupan akses
 
-## 2. PROSES UMUM: Edit Profil & Ganti Password Akun Alumni
+| Aktor | Cakupan dan tanggung jawab yang dibuktikan source code |
+|---|---|
+| Alumni | Mengelola akun sendiri, profil, perusahaan, kuesioner universitas/prodi, dan mengirim undangan evaluasi atasan. |
+| Admin Prodi | Mengelola data alumni dalam user.prodi_id, instrumen prodi sendiri, perusahaan dalam scope prodi, akun alumni prodi, dan sinkronisasi LinkedIn dalam scope prodi. |
+| Admin Fakultas | Mengelola data pada seluruh prodi dengan prodi.fakultas_id yang sama, instrumen semua prodi di fakultas, perusahaan, akun, dan LinkedIn pada scope fakultas. |
+| Biro 3 | Monitoring universitas, direktori, detail baca, ekspor, pengingat satuan, blast email, dan analisis. Method perubahan profilnya menolak perubahan; tidak memiliki route verifikasi perusahaan atau LinkedIn. |
+| Superadmin | Cakupan universitas: dashboard, seluruh alumni, seluruh kuesioner, master perusahaan, verifikasi, wilayah/UMP, akun, evaluasi atasan, log, dan LinkedIn. |
+| Backend | Auth, role middleware, validasi, scope query, normalisasi, transaksi, perhitungan kelengkapan, mapping, logging, dan respons Inertia/JSON. |
+| Database | Menyimpan akun, referensi akademik, biodata, tracer, kuesioner, perusahaan, evaluasi, audit, LinkedIn, serta view status. |
+| Mail service | Mengirim reset password, pengingat kuesioner, dan undangan evaluasi atasan. |
+| Apify/third party | Scraping/enrichment profil LinkedIn bila provider Apify dipilih; hasil dikembalikan ke backend dalam request yang sama. |
 
-### A. Deskripsi Alur & Logika Bisnis
-Alur ini mengadopsi struktur baku *Case Study* dari buku Dr. Suriya Sundaramoorthy (2022) pada modul manajemen akun pengguna (klien/alumni):
-1. Alumni masuk (*start state*) dan berada pada menu pengaturan akun.
-2. Melalui percabangan/fork, alumni dapat memilih melakukan **Ganti Password** atau **Edit Profil & Karir**.
-3. **Cabang Ganti Password**:
-   - Memilih menu ganti password.
-   - Memasukkan password lama.
-   - Memasukkan password baru beserta konfirmasi.
-4. **Cabang Edit Profil**:
-   - Membuka formulir data biodata.
-   - Memasukkan pembaruan data kontak, riwayat pekerjaan, dan perusahaan.
-5. Kedua cabang transisi diarahkan masuk (*join bar*) menyeberang ke kolom **System**.
-6. Sistem memeriksa keabsahan masukan dengan *guard condition* `[ check validity of details ]`:
-   - Jika **`[invalid]`** (format data salah atau password lama tidak cocok): aliran diarahkan ke **Flow Final (`⨂`)**.
-   - Jika **`[valid]`**: sistem menjalankan aksi **`Update Database`** ke tabel `users` / `biodata`.
-7. Sistem memberikan notifikasi konfirmasi sukses dan mencapai **Final State (`◉`)**.
+Catatan penting: RoleMiddleware menangani role; scope data kemudian ditegakkan di controller/service dengan prodi_id, fakultas_id, atau akses universitas. Tidak ada bukti bahwa Biro 3 dapat mengubah biodata, memverifikasi perusahaan, atau menjalankan LinkedIn sync.
 
----
+## 3. Inventarisasi modul dan fitur
 
-### B. Gambar Visual UML Activity Diagram (Standar Sundaramoorthy 2022)
+| Modul | Fitur yang diaudit | Pemicu dan aktor | Backend dan data utama | Diagram |
+|---|---|---|---|---|
+| Autentikasi | Login, fallback password tanggal lahir, logout | Tamu/Alumni/Admin | LoginController, User, Biodata, LogActivity | AD-01 |
+| Autentikasi | Lupa/reset password | Pengguna tamu | LupaKataSandiController, ResetPasswordMail, password_reset_tokens | AD-01 |
+| Autentikasi | Ganti password wajib | Alumni | UbahKataSandiController, CheckMustChangePassword, users | AD-01 |
+| Profil | Isi/perbarui biodata | Alumni; admin scope | SimpanProfilController, AdminAlumniProfileService, Biodata, Atasan, Perusahaan | AD-02 |
+| Perusahaan | Ajukan perusahaan baru | Alumni | PerusahaanController, Perusahaan, Biodata | AD-03 |
+| Tracer universitas | Ambil instrumen, simpan jawaban parsial/akhir, branching | Alumni | KuesionerController, SimpanJawabanController, Tracer, KuesionerSyncService | AD-04 |
+| Tracer prodi | Isi dan simpan jawaban prodi | Alumni | KuesionerProdiController, ProdiResponse | AD-05 |
+| Evaluasi atasan | Kirim undangan, isi evaluasi berbasis token | Alumni/Atasan | EvaluasiAtasanController, Atasan, EvaluasiAtasan, ResponEvaluasiAtasan | AD-06 |
+| Direktori | Cari/filter/detail/update profile/ekspor/pengingat | Admin Prodi/Fakultas/Superadmin; Biro 3 baca | AlumniDirectoryQueryService, exporter, mail | AD-07 |
+| Monitoring Biro 3 | Direktori, ekspor ZIP, blast, detail baca | Biro 3 | DashboardBiro3Controller, DaftarAlumniBiro3Controller | AD-08 |
+| Dashboard | Ringkasan berdasarkan tahun dan scope | Semua role administrator sesuai route | Controller dashboard, audit views, KelengkapanTracerService | AD-09, AD-10 |
+| Instrumen universitas | CRUD section/question/option, reorder, toggle | Superadmin | question management controllers, Kuesioner, KelompokPertanyaan, RefSubpertanyaan | AD-11 |
+| Instrumen prodi | CRUD section/question/option, reorder | Superadmin/Prodi/Fakultas sesuai scope | ProdiQuestion*, ProdiResponse | AD-12 |
+| Instrumen atasan | CRUD, aktif/nonaktif, reorder | Superadmin | PertanyaanEvaluasiAtasan, ResponEvaluasiAtasan | AD-13 |
+| Akun | Edit akun, reset default, notifikasi | Superadmin; admin Prodi/Fakultas scope | account controllers, User, Biodata, mail | AD-14 |
+| Wilayah/UMP | CRUD provinsi/kabupaten/UMP, copy tahun | Superadmin | Propinsi, Kabupaten, Ump | AD-15 |
+| Perusahaan | Rekomendasi, verifikasi, edit, tolak | Superadmin/Prodi/Fakultas sesuai scope | PerusahaanVerificationService, Perusahaan, LogActivity | AD-16 |
+| Perusahaan | Auto-replace perusahaan pending dengan master | Superadmin/Prodi/Fakultas sesuai scope | transaksi Perusahaan, Biodata, tracer, evaluasi | AD-17 |
+| LinkedIn | Sinkronisasi satu alumni via Apify | Superadmin/Prodi/Fakultas scope | LinkedInSyncController, ApifyLinkedInProvider, linkedin_sync_results | AD-18 |
+| LinkedIn | Provider API resmi/mock dan batch | Superadmin/Prodi/Fakultas scope | LinkedInProfileService, provider mapper | AD-19 |
+| LinkedIn | Review, approve, plot ulang, reject, history | Superadmin/Prodi/Fakultas scope | LinkedInProfileMapper, AlumniLinkedinPlot, LinkedinSyncResult, Biodata | AD-20 |
+| Audit | Status kelengkapan profile/tracer dan audit rekap | Backend/dashboard | KelengkapanTracerService, v_*_status, v_alumni_audit_rekap | AD-21 |
+| Log | Filter dan lihat audit log | Superadmin | LogAktivitasSuperAdminController, LogActivity | AD-22 |
+| Evaluasi publik | Validasi token, isi, simpan respons | Atasan eksternal | EvaluasiAtasanController, throttle, database | AD-23 |
+| Respons HTTP | Redirect Inertia, JSON fetch, 403/404 | Semua request terautentikasi | middleware dan controller response negotiation | AD-24 |
 
-![UML Activity Diagram: Edit Profil & Ganti Password](images/activity_edit_profile_password.png)
+## 4. Peta route dan kontrol akses
 
-> **File Resolusi Tinggi**:
-> Format Vektor SVG: [`docs/images/activity_edit_profile_password.svg`](images/activity_edit_profile_password.svg)
-> Format Raster Retina PNG: [`docs/images/activity_edit_profile_password.png`](images/activity_edit_profile_password.png)
+### 4.1 Route publik dan bersama
 
----
+| Route group | Controller | Akses |
+|---|---|---|
+| /, /login, /forgot-password, /reset-password/* | Tamu dan autentikasi | Tamu |
+| /evaluasi-atasan, /evaluasi-atasan/{token} | EvaluasiAtasanController | Publik dengan token; GET/POST diberi throttle |
+| /logout, /change-password | Otentikasi | Pengguna terautentikasi |
+| /alumni/company, /alumni/kirim-email-atasan | Controller alumni/shared | Role yang diizinkan dan scope alumni |
 
-### C. Representasi Kode Diagram (Mermaid 2-Swimlane)
+### 4.2 Route role utama
 
-```mermaid
+| Prefix | Role | Fitur |
+|---|---|---|
+| /alumni | Alumni | Dashboard, profil, tracer universitas, tracer prodi |
+| /prodi | Admin Prodi | Dashboard, direktori, instrumen prodi, perusahaan, akun, LinkedIn |
+| /fakultas | Admin Fakultas | Dashboard, direktori scope fakultas, instrumen, perusahaan, akun, LinkedIn |
+| /biro3 | Biro 3 | Dashboard, direktori monitoring, ekspor, reminder, blast email |
+| /superadmin | Superadmin | Dashboard dan seluruh konfigurasi/master/validasi universitas |
+
+### 4.3 Inertia dan JSON
+
+Request halaman memakai Inertia::render. Mutation normalnya mengembalikan redirect dengan flash/error untuk request Inertia. LinkedInSyncController juga mendukung JSON saat request fetch/API; response plain JSON tidak boleh dikirim ke request Inertia karena akan menghasilkan error â€œAll Inertia requests must receive a valid Inertia responseâ€.
+
+## 5. Diagram aktivitas
+
+### AD-01 â€” Autentikasi, pemulihan, dan perubahan password
+
+**Swimlane:** Pengguna/Tamu, Backend, Database, Mail service.
+**Pemicu:** membuka login, lupa password, atau diwajibkan mengganti password.
+**Hasil:** session aktif, token reset dikirim, password berubah, atau akses ditolak.
+
+Alur lengkap:
+
+1. Pengguna mengirim username/password.
+2. Backend memvalidasi request dan mencoba kredensial normal.
+3. Jika gagal dan user alumni memiliki hash password legacy, tanggal lahir ddmmyyyy atau password legacy dicoba.
+4. Jika berhasil melalui fallback, password dimigrasikan ke hash baru dan must_change_password=true.
+5. Backend mengarahkan alumni ke /change-password; role administrator menuju dashboard masing-masing.
+6. Lupa password menerima username/email, mencari user atau email biodata, membuat token hash dengan masa berlaku 60 menit, lalu mengirim mail generik.
+7. Reset memvalidasi token, expiry, password minimal 12 karakter dan confirmation; token dihapus setelah sukses.
+8. Middleware memaksa alumni mengganti password sebelum halaman lain. Logout menginvalidasi session dan token.
+
+~~~mermaid
 flowchart TD
-    %% SWIMLANE 1: ALUMNI UKDW
-    subgraph Alumni_Lane["SWIMLANE: Alumni UKDW"]
-        Start1((●)) --> DecChoice{"Pilih Aksi Akun"}
-        DecChoice --> Fork1[/"━━━━ FORK ━━━━"/]
+  A((Mulai)) --> U[Pengguna kirim kredensial]
+  U --> B[Backend validasi dan Auth attempt]
+  B --> D{Berhasil?}
+  D -- Ya --> R{Alumni wajib ganti password?}
+  D -- Tidak --> F{Legacy alumni dan DOB/password lama cocok?}
+  F -- Ya --> M[Hash ulang password dan tandai wajib ganti]
+  F -- Tidak --> E[Catat gagal dan tampilkan error]
+  M --> R
+  R -- Ya --> C[Ganti password]
+  R -- Tidak --> S[Redirect dashboard sesuai role]
+  C --> V[Validasi password minimal 12 dan konfirmasi]
+  V --> P[Simpan password baru dan hapus flag]
+  P --> S
+  E --> Z((Selesai error))
+  S --> Z2((Selesai))
+~~~
 
-        %% Cabang Ganti Password
-        Fork1 --> Act_Pwd["Change Password"]
-        Act_Pwd --> Act_OldPwd["Enter Old Password"]
-        Act_OldPwd --> Act_NewPwd["Enter New Password & Konfirmasi"]
+### AD-02 â€” Pengisian dan pembaruan profil alumni
 
-        %% Cabang Edit Profil
-        Fork1 --> Act_EditProf["Edit Profile Details"]
-        Act_EditProf --> Act_NewDetails["Enter New Details (Karir & Kontak)"]
-    end
+**Swimlane:** Alumni/Admin scope, Backend, Database, Mail service.
+**Route:** GET/POST /alumni/profile, admin detail update, shared /alumni/company.
+**Hasil:** biodata, pekerjaan, perusahaan, atasan, foto, dan sinkronisasi jawaban profil tersimpan.
 
-    %% SWIMLANE 2: SYSTEM
-    subgraph System_Lane["SWIMLANE: System (Sistem Tracer Study UKDW)"]
-        Join1[\"━━━━ JOIN ━━━━"\]
-        DecVal{"Validasi Detail"}
-        Act_UpdateDB["Update Database (users / biodata)"]
-        Act_Success["Tampilkan Konfirmasi Sukses"]
-        EndSuccess(((◉)))
-        FlowInvalid((⨂))
-    end
+1. Backend memuat biodata, data akademik, yudisium, orang tua, perusahaan, atasan, dan metadata profil.
+2. Pengguna mengirim profil; backend memvalidasi array jawaban, foto, email, telepon, URL, tanggal, gaji, dan field relevan.
+3. Data bidang pekerjaan dinormalisasi; nilai â€œLainnyaâ€ menggunakan input custom.
+4. Aturan posisi eksklusif diterapkan: pekerja mengosongkan data wiraswasta, wiraswasta mengosongkan jabatan, melanjutkan pendidikan mengosongkan dua data tersebut.
+5. Gaji dinormalisasi sebagai integer.
+6. Perusahaan baru dibuat dengan status menunggu verifikasi; perusahaan terverifikasi tidak ditimpa sembarangan.
+7. Relasi atasan dipertahankan saat form parsial agar data tidak hilang.
+8. Email biodata disinkronkan ke user, activity log ditulis, dan KuesionerSyncService memperbarui jawaban profile-managed.
+9. Jika input invalid, tidak ada perubahan sukses; backend mengembalikan validasi melalui respons Inertia.
 
-    %% TRANSISI LINTAS SWIMLANE
-    Act_NewPwd --> Join1
-    Act_NewDetails --> Join1
-    Join1 --> DecVal
-    DecVal -- "[invalid]" --> FlowInvalid
-    DecVal -- "[valid]" --> Act_UpdateDB
-    Act_UpdateDB --> Act_Success
-    Act_Success --> EndSuccess
-```
-
----
-
-## 3. PROSES 1: Sinkronisasi Profil LinkedIn (Apify Scraper & Staging Review)
-
-### A. Deskripsi Alur & Logika Bisnis
-Fitur sinkronisasi LinkedIn memanfaatkan pihak ketiga **Apify Cloud Actor (`data_forge_org~linkedin-scraper`)** untuk menarik data riwayat pekerjaan dan posisi alumni secara terstruktur.
-
-#### Prinsip Arsitektur & Keamanan:
-- **Cost Safety**: Setiap eksekusi hanya menargetkan tepat 1 alumni terpilih (1 alumni = 1 HTTP request ke Apify), mencegah pembengkakan biaya scraping tak terkendali.
-- **Kerahasiaan Kredensial**: API Token Apify disimpan secara eksklusif di environment server dan ditransmisikan hanya via header HTTP `Authorization: Bearer {token}` (dilarang pada query string).
-- **Staging Review Pattern**: Data profil mentah dari scraping disimpan terlebih dahulu di tabel `linkedin_sync_results` dengan status **`pending`**. Data primer alumni di tabel `biodata` **tidak langsung ditimpa**. Super Admin / Admin Program Studi / Admin Fakultas meninjau hasil scraping terlebih dahulu pada modal antarmuka (*diff review*) sebelum memutuskan untuk **Menyetujui (Approve)** atau **Menolak (Reject)**.
-
----
-
-### B. Gambar Visual UML Activity Diagram (Standar Sundaramoorthy 2022)
-
-![UML Activity Diagram: Sinkronisasi LinkedIn Apify](images/activity_linkedin_sync.png)
-
-> **File Resolusi Tinggi**:
-> Format Vektor SVG: [`docs/images/activity_linkedin_sync.svg`](images/activity_linkedin_sync.svg)
-> Format Raster Retina PNG: [`docs/images/activity_linkedin_sync.png`](images/activity_linkedin_sync.png)
-
----
-
-### C. Representasi Kode Diagram (Mermaid 2-Swimlane)
-
-```mermaid
+~~~mermaid
 flowchart TD
-    %% SWIMLANE 1: ADMINISTRATOR
-    subgraph Admin_Lane["SWIMLANE: Administrator (Super Admin / Admin Prodi)"]
-        A_Start((●)) --> A_SelectAlumni["Pilih Profil Alumni & Verifikasi URL"]
-        A_SelectAlumni --> A_ClickSync["Klik 'Sinkronkan LinkedIn'"]
+  A((Mulai)) --> L[Backend memuat profil dan referensi]
+  L --> U[Alumni/admin mengisi atau memperbarui form]
+  U --> V{Validasi lolos?}
+  V -- Tidak --> E[Tampilkan error Inertia]
+  V -- Ya --> N[Normalisasi bidang kerja, gaji, posisi, dan email]
+  N --> C{Perusahaan baru?}
+  C -- Ya --> CP[Buat perusahaan status Menunggu Verifikasi]
+  C -- Tidak --> K[Pertahankan perusahaan sesuai status]
+  CP --> T[Simpan biodata, atasan, foto, dan relasi]
+  K --> T
+  T --> Q[Sync jawaban profile-managed dan tulis log]
+  Q --> R[Redirect dengan flash sukses]
+  E --> X((Selesai error))
+  R --> Y((Selesai))
+~~~
 
-        A_OpenModal["Buka Modal Review Perbandingan (Diff View)"]
-        A_DecisionReview{"Keputusan Review?"}
-        A_Reject["Set REJECTED & Simpan Log Penolakan"]
-        FlowReject((⨂))
-    end
+### AD-03 â€” Pengajuan perusahaan oleh alumni
 
-    %% SWIMLANE 2: SYSTEM
-    subgraph System_Lane["SWIMLANE: System (Backend Tracer Study & Apify Provider)"]
-        S_ValUrl{"Validasi URL LinkedIn"}
-        FlowUrlErr((⨂))
-        S_ExecApify["Siapkan Payload & Kirim HTTP POST ke Apify"]
-        S_ReceiveApify["Terima JSON Dataset Apify"]
-        S_EvalApify{"Status Dataset Apify"}
-        FlowApifyErr((⨂))
-        S_SaveStaging["Simpan ke 'linkedin_sync_results' (Status: PENDING)"]
-        S_SignalModal["Kirim Sinyal Payload Staging Siap Ditinjau"]
+**Swimlane:** Alumni, Backend, Database.
+**Route:** shared POST /alumni/company.
+**Hasil:** perusahaan pending tersedia untuk dipilih atau error validasi.
 
-        S_UpdateDB["Update Database Biodata & Link Perusahaan Terkait"]
-        S_SetApproved["Set Status APPROVED & Catat Audit Trail"]
-        EndSyncSuccess(((◉)))
-    end
+1. Alumni mengirim nama, alamat/lokasi, sektor, dan field perusahaan.
+2. Backend memeriksa autentikasi, role yang diperbolehkan, validasi dan duplikasi dasar.
+3. Data domestic/international dinormalisasi.
+4. Backend menyimpan perusahaan baru berstatus Menunggu Verifikasi, mengaitkan creator/alumni sesuai implementasi, lalu mencatat log.
+5. Perusahaan yang sudah ada dapat dipakai tanpa membuat data baru jika alur form memilihnya.
 
-    %% TRANSISI LINTAS SWIMLANE
-    A_ClickSync --> S_ValUrl
-    S_ValUrl -- "[URL invalid]" --> FlowUrlErr
-    S_ValUrl -- "[URL valid]" --> S_ExecApify
-    S_ExecApify --> S_ReceiveApify
-    S_ReceiveApify --> S_EvalApify
-    S_EvalApify -- "[gagal / privat]" --> FlowApifyErr
-    S_EvalApify -- "[sukses 200 OK]" --> S_SaveStaging
-    S_SaveStaging --> S_SignalModal
-    S_SignalModal --> A_OpenModal
-    A_OpenModal --> A_DecisionReview
+### AD-04 â€” Pengisian tracer study universitas
 
-    A_DecisionReview -- "[Tolak / Reject]" --> A_Reject --> FlowReject
-    A_DecisionReview -- "[Setujui / Approve]" --> S_UpdateDB
-    S_UpdateDB --> S_SetApproved
-    S_SetApproved --> EndSyncSuccess
-```
+**Swimlane:** Alumni, Backend, Database.
+**Route:** GET/POST /alumni/kuesioner.
+**Hasil:** jawaban tersimpan parsial atau final, dengan question_id dan answer_json bila relevan.
 
----
+1. Backend mengambil section aktif, pertanyaan, opsi, jawaban tersimpan, dan data profil.
+2. Jawaban profile-managed disinkronkan dari biodata.
+3. Alumni mengisi satu atau beberapa halaman dan dapat menyimpan sebagian.
+4. Backend memvalidasi bentuk jawaban, pilihan yang tersedia, multi-choice, text, angka, tanggal, dan custom Lainnya.
+5. Backend mengevaluasi branching: F8 memengaruhi pertanyaan studi/kerja; F504 memengaruhi F506 versus F502/F505.
+6. Jawaban disimpan/update berdasarkan alumni dan pertanyaan, termasuk question_id, answer, answer_json, dan metadata.
+7. KelengkapanTracerService menghitung mandatory/optional dengan pertanyaan tidak berlaku tidak dihitung sebagai kekurangan.
+8. Request Inertia menerima redirect/flash, bukan plain JSON.
 
-### D. Perintah & Routing Backend
-
-#### 1. Endpoint Eksekusi Sinkronisasi Staging
-- **Method**: `POST`
-- **Route URL**: `/superadmin/linkedin-sync/{biodata}/sync`
-- **Controller Action**: `App\Http\Controllers\SuperAdmin\LinkedIn\LinkedInSyncController@sync`
-
-#### 2. Endpoint Persetujuan / Penolakan Data (Review)
-- **Method**: `POST`
-- **Route URL**: `/superadmin/linkedin-sync/{syncResult}/review`
-- **Controller Action**: `App\Http\Controllers\SuperAdmin\LinkedIn\LinkedInSyncController@review`
-
----
-
-### E. Struktur Data & Payload JSON
-
-#### Request JSON ke Apify API:
-```http
-POST https://api.apify.com/v2/actors/data_forge_org~linkedin-scraper/run-sync-get-dataset-items
-Authorization: Bearer <APIFY_API_TOKEN>
-Content-Type: application/json
-```
-```json
-{
-  "profileUrls": [
-    "https://www.linkedin.com/in/alumni-nama-ukdw"
-  ],
-  "includeProfilePosts": false,
-  "includeComments": false,
-  "includeCompanyPosts": false,
-  "includeCompanyJobs": false,
-  "includeJobDetails": false
-}
-```
-
-#### Raw Response Dataset dari Apify:
-```json
-[
-  {
-    "fullName": "Joshua Andrean, S.Kom.",
-    "headline": "Senior Software Engineer at PT Bank Central Asia Tbk",
-    "publicIdentifier": "joshua-andrean",
-    "location": {
-      "city": "Jakarta",
-      "country": "Indonesia"
-    },
-    "positions": [
-      {
-        "title": "Senior Software Engineer",
-        "companyName": "PT Bank Central Asia Tbk",
-        "start": { "year": 2023, "month": 3 },
-        "end": null,
-        "isCurrent": true,
-        "location": "Jakarta, Indonesia"
-      }
-    ],
-    "skills": ["PHP", "Laravel", "Vue.js", "Docker", "PostgreSQL"]
-  }
-]
-```
-
-#### Response JSON Sistem ke Frontend Super Admin:
-```json
-{
-  "success": true,
-  "status": "PENDING",
-  "message": "Sinkronisasi profil via Apify berhasil. Data disimpan dalam status Pending Review.",
-  "sync_result_id": 142,
-  "sync_result": {
-    "id": 142,
-    "status": "pending",
-    "scraped_at": "13/10/2026 14:15",
-    "parsed": {
-      "headline": "Senior Software Engineer at PT Bank Central Asia Tbk",
-      "current_company": "PT Bank Central Asia Tbk",
-      "current_position": "Senior Software Engineer",
-      "skills_count": 5
-    }
-  }
-}
-```
-
----
-
-### F. Pseudocode Implementasi Backend
-```text
-FUNCTION SyncLinkedInProfile(biodataId, currentUser):
-    biodata = Query("SELECT * FROM biodata WHERE id = :id", biodataId)
-
-    // 1. Validasi URL profil LinkedIn
-    IF biodata.linkedin_url IS NULL OR NOT IsValidLinkedInUrl(biodata.linkedin_url) THEN
-        RETURN Response.Json(422, {"message": "Format URL LinkedIn tidak valid atau belum diisi."})
-    ENDIF
-
-    apifyToken = Config.Get("services.apify.api_token")
-    actorId = Config.Get("services.apify.linkedin_actor_id")
-    endpoint = "https://api.apify.com/v2/actors/" + actorId + "/run-sync-get-dataset-items"
-
-    // 2. Transmisi HTTP Sinkron ke Apify
-    TRY:
-        httpResponse = HTTP.Post(
-            Url: endpoint,
-            Headers: {"Authorization": "Bearer " + apifyToken},
-            Body: {
-                "profileUrls": [biodata.linkedin_url],
-                "includeProfilePosts": false
-            },
-            Timeout: 60
-        )
-
-        IF httpResponse.StatusCode != 200 THEN
-            THROW Exception("Apify Provider Error: HTTP " + httpResponse.StatusCode)
-        ENDIF
-
-        rawDataset = httpResponse.Json()
-        IF rawDataset IS EMPTY THEN
-            THROW Exception("Profil LinkedIn tidak ditemukan atau bersifat privat.")
-        ENDIF
-
-        // 3. Simpan ke Staging (Status: Pending)
-        syncResult = Database.Insert("linkedin_sync_results", {
-            "biodata_id": biodata.id,
-            "linkedin_url": biodata.linkedin_url,
-            "scraped_data": rawDataset,
-            "status": "pending",
-            "scraped_at": CurrentTimestamp()
-        })
-
-        Database.Insert("log_activities", {
-            "action": "linkedin_sync_apify",
-            "user_id": currentUser.id,
-            "subject_id": biodata.id
-        })
-
-        RETURN Response.Json(200, {"success": true, "sync_result": syncResult})
-    CATCH Error e:
-        RETURN Response.Json(500, {"success": false, "message": e.Message})
-    END TRY
-END FUNCTION
-```
-
----
-
-## 4. PROSES 2: Undangan dan Evaluasi Pengguna Lulusan
-
-### A. Pemisahan aktivitas
-
-Menyimpan profil menyiapkan data evaluasi jika data atasan tersedia. Pengiriman email merupakan aksi terpisah. Controller membuat token 40 karakter dengan `Str::random(40)`; kolom `evaluasi_atasan.token` berkapasitas 64 karakter. Tidak ada asumsi masa berlaku otomatis.
-
-```mermaid
+~~~mermaid
 flowchart TD
-    subgraph Pengguna
-        A[Alumni melengkapi data pekerjaan dan atasan]
-        B[Alumni menyimpan profil]
-        D[Alumni atau admin memilih Kirim Email ke Atasan]
-        H[Atasan membuka tautan evaluasi]
-        K[Atasan mengisi data instansi dan penilaian]
-        L[Atasan mengirim jawaban]
-        O[Atasan melihat konfirmasi]
-    end
-    subgraph Sistem
-        C[Simpan profil dan siapkan record evaluasi]
-        E{Data alumni dan email valid?}
-        F[Tampilkan hasil validasi]
-        G[Siapkan token dan kirim undangan email]
-        I{Token ditemukan?}
-        J[Tampilkan formulir atau halaman tidak ditemukan]
-        M[Validasi data dan simpan jawaban]
-        N[Perbarui is_submitted dan submitted_at]
-    end
-    A --> B --> C --> D --> E
-    E -->|Tidak| F
-    E -->|Ya| G --> H --> I
-    I -->|Tidak| J
-    I -->|Ya| K --> L --> M --> N --> O
-```
+  A((Mulai)) --> L[Backend memuat instrumen aktif dan jawaban]
+  L --> U[Alumni mengisi halaman]
+  U --> V{Format dan pilihan valid?}
+  V -- Tidak --> E[Kembalikan error validasi]
+  V -- Ya --> B[Evaluasi branching F8/F504]
+  B --> S[Simpan answer, answer_json, question_id]
+  S --> C[Hitung status mandatory dan audit]
+  C --> R[Redirect/flash Inertia]
+  E --> X((Selesai error))
+  R --> Y((Selesai))
+~~~
 
-### B. Pemetaan implementasi
+### AD-05 â€” Pengisian tracer study prodi
 
-| Aktivitas | Implementasi |
-| --- | --- |
-| Simpan profil dan persiapkan evaluasi | `SimpanProfilController::simpanPerubahanProfil`, `POST /alumni/profile` |
-| Kirim undangan terpisah | `SimpanProfilController::kirimEmailAtasan`, `POST /alumni/kirim-email-atasan` |
-| Email undangan | `UndanganEvaluasiAtasanMail` |
-| Buka formulir | `EvaluasiAtasanController::show`, `GET /evaluasi-atasan/{token}` |
-| Simpan jawaban | `EvaluasiAtasanController::store`, `POST /evaluasi-atasan/{token}` |
-| Data sesi evaluasi | `evaluasi_atasan` |
-| Instrumen dinamis | `pertanyaan_evaluasi_atasan` |
-| Jawaban | `respon_evaluasi_atasan` |
+**Swimlane:** Alumni, Backend, Database.
+**Route:** GET/POST /alumni/kuesioner-prodi.
+**Hasil:** ProdiResponse dibuat atau diperbarui sesuai biodata_id dan prodi_question_id.
 
-GET dengan token tidak ditemukan menampilkan `Public/EvaluasiAtasanNotFound`. POST mencari token dengan `firstOrFail`, lalu memvalidasi data, memperbarui perusahaan/atasan, menyimpan jawaban dan status pengisian. `is_submitted` bukan bukti bahwa submit ulang ditolak server; guard tersebut belum ada pada handler yang diperiksa. Jumlah pertanyaan mengikuti instrumen aktif.
+1. Backend memuat section/question/option sesuai prodi alumni.
+2. Alumni mengisi text, textarea, number, date, choice, multi-choice, dropdown, atau input custom.
+3. Backend menormalisasi jawaban dan memvalidasi opsi/format.
+4. Response di-upsert dengan kunci alumni-question; nilai teks/json disimpan.
+5. Status kelengkapan prodi dihitung terpisah dari kelengkapan universitas.
 
-Gambar raster/SVG `activity_evaluasi_atasan` versi lama tidak dipakai sebagai rujukan revisi ini. Mermaid di atas menyatakan alur terkini. Diagram konteks dan DFD yang bisa diedit tersedia pada [dfd.md](dfd.md).
+### AD-06 â€” Undangan dan evaluasi atasan
 
+**Swimlane:** Alumni, Backend, Mail service, Atasan, Database.
+**Route:** POST /alumni/kirim-email-atasan, public /evaluasi-atasan/{token}.
+**Hasil:** undangan dikirim atau evaluasi atasan tersimpan.
 
-## 5. PROSES 3: Rekomendasi Kecocokan Perusahaan (Similarity Matching & Auto-Replace)
+1. Alumni/admin scope mengisi nama, email, telepon, jabatan, dan perusahaan atasan.
+2. Backend melakukan validasi dan menyimpan/memperbarui relasi Atasan.
+3. Email undangan hanya dikirim saat tombol aksi dipilih, bukan otomatis saat profil disimpan.
+4. Atasan membuka token; token invalid/tidak ditemukan diarahkan ke halaman error.
+5. Public endpoint dibatasi throttle: GET 30/menit dan POST 10/menit.
+6. Backend memuat instrumen aktif, menerima skor/catatan, memvalidasi, lalu menyimpan ResponEvaluasiAtasan.
+7. Status evaluasi berubah menjadi submitted/aktif sesuai model; detail token tidak dikirim sebagai data admin yang tidak diperlukan.
 
-### A. Deskripsi Alur & Logika Bisnis
-Modul ini bertugas menyelesaikan redundansi data perusahaan yang diinput secara bebas oleh alumni (misalnya alumni mengetik *"PT. BCA"*, *"Bank Central Asia"*, atau salah ketik *"Bank Centrl Asia"*). Sistem menggunakan algoritma pencocokan kemiripan bertingkat (*Multi-level String Similarity Matching + Geographic Location Scoring*) pada domain service `PerusahaanVerificationService`.
+### AD-07 â€” Direktori alumni, detail, reminder, dan ekspor
 
-#### 5 Tahapan Algoritma:
-1. **Tahap 1: Text Preprocessing & Cleaning Pipeline (`cleanCompanyName`)**:
-   - Memisahkan keterangan cabang di dalam tanda kurung `(...)`.
-   - Mengubah teks menjadi huruf kecil (*lowercase*).
-   - Menghilangkan tanda baca dan simbol non-alfanumerik menggunakan Regex `preg_replace`.
-   - Membuang stop words badan usaha (`pt`, `cv`, `tbk`, `corp`, dll.), unit cabang (`kantor`, `pusat`, `cabang`, dll.), dan preposisi.
-2. **Tahap 2: Ekstraksi Token & Pembuatan Akronim (`getTokens`, `makeAcronym`, `getAcronyms`)**:
-   - Memotong kalimat menjadi token kata individual (`preg_split`).
-   - Menghasilkan akronim otomatis dari huruf pertama tiap kata (contoh: *"bank central asia"* $\rightarrow$ *"bca"*).
-3. **Tahap 3: Multi-Level String Matching**:
-   - **Level 1 (Exact Match - 95 Poin)**: Nama string hasil pembersihan identik 100%.
-   - **Level 2 (Akronim Cocok - 88 Poin)**: Teks pengajuan cocok dengan akronim master atau sebaliknya.
-   - **Level 3 (Substring Terkandung - 75 s/d 90 Poin)**: Salah satu nama terkandung di dalam nama yang lain.
-   - **Level 3B (Akronim Parsial Majemuk - 70 s/d 80 Poin)**: Salah satu kata nama majemuk merupakan akronim entitas (contoh: *"BCA Digital"* vs *"Bank Central Asia"*).
-   - **Level 4 (Irisan Kata / Token Intersect - 50 s/d 75 Poin)**: Minimal sepertiga kata identik (rasio $\ge 33\%$) dan bukan kata sektor generik tunggal (*"bank"*, *"universitas"*, *"hotel"*).
-   - **Level 5 (Fuzzy Distance / Deteksi Typo)**: Persentase kemiripan karakter huruf berbasis algoritma *Ratcliff/Obershelp* via `similar_text` $\ge 60\%$.
-4. **Tahap 4: Pembobotan Geografis (Geographic Location Scoring)**:
-   - Jika Kabupaten/Kota identik: **+20 Poin**.
-   - Jika Provinsi identik: **+10 Poin** (Skor maksimal dibatasi 100).
-5. **Tahap 5: Threshold Filtering & Ranking**:
-   - Hanya memasukkan perusahaan dengan skor total $\ge 45$ (atau kota sama dengan skor nama $\ge 30$).
-   - Diurutkan menurun (*descending*) dan diambil **Top-5 Rekomendasi**.
-6. **Eksekusi Auto-Replace**:
-   - Jika admin memilih rekomendasi, sistem menjalankan `replaceCompany()` dalam `DB::transaction`. Seluruh relasi `biodata.perusahaan_id` dialihkan ke master, data pending duplikat dihapus, dan dicatat di `log_activities`.
+**Swimlane:** Admin Prodi/Admin Fakultas/Superadmin/Biro 3, Backend, Database, Mail service.
+**Hasil:** daftar terfilter, detail, pembaruan berotorisasi, file ekspor, atau email pengingat.
 
----
+1. Aktor memilih search, tahun, target/semester, prodi, atau status.
+2. AlumniDirectoryQueryService membangun query dengan scope role.
+3. Backend mengembalikan index/detail melalui Inertia.
+4. Admin Prodi/Fakultas/Superadmin dapat update sesuai scope; Biro 3 hanya melihat detail.
+5. Ekspor individual menggunakan AlumniTracerExcelExporter; ekspor ZIP menggunakan controller role terkait.
+6. Reminder satuan dikirim oleh admin scope; data tidak ditemukan atau di luar scope menghasilkan 403/404 sesuai guard.
 
-### B. Gambar Visual UML Activity Diagram (Standar Sundaramoorthy 2022)
+### AD-08 â€” Monitoring dan komunikasi Biro 3
 
-![UML Activity Diagram: Rekomendasi Perusahaan](images/activity_verifikasi_perusahaan.png)
+**Swimlane:** Biro 3, Backend, Database, Mail service.
+**Route:** /biro3/dashboard, /biro3/alumni, export, blast, detail.
+**Hasil:** monitoring universitas, ekspor, atau pengiriman komunikasi berkelanjutan.
 
-> **File Resolusi Tinggi**:
-> Format Vektor SVG: [`docs/images/activity_verifikasi_perusahaan.svg`](images/activity_verifikasi_perusahaan.svg)
-> Format Raster Retina PNG: [`docs/images/activity_verifikasi_perusahaan.png`](images/activity_verifikasi_perusahaan.png)
+1. Biro 3 membuka dashboard/direktori universitas.
+2. Backend menghitung populasi, response, pertanyaan, prodi, LinkedIn, dan item monitoring.
+3. Biro 3 dapat melihat detail dan ekspor.
+4. Blast email memilih target alumni tidak lengkap; backend mengirim satu per satu, mencatat error per penerima, dan melanjutkan penerima lain.
+5. Method update profil Biro 3 mengembalikan warning read-only; tidak ada perubahan biodata.
+6. Tidak ada route Biro 3 untuk verifikasi perusahaan atau LinkedIn sync.
 
----
+### AD-09 â€” Dashboard Admin Prodi dan Fakultas
 
-### C. Representasi Kode Diagram (Mermaid 2-Swimlane)
+**Swimlane:** Admin Prodi/Admin Fakultas, Backend, Database.
+**Hasil:** dashboard terfilter sesuai scope, tanpa akses data di luar prodi/fakultas.
 
-```mermaid
+1. Admin membuka dashboard.
+2. Backend membaca role dan scope user.
+3. Prodi memakai user.prodi_id; Fakultas membentuk daftar prodi dari user.fakultas_id.
+4. Backend menghitung populasi, response rate, kelengkapan universitas/prodi, pending company, LinkedIn, dan ringkasan instrumen.
+5. Database view audit dan query agregasi menyediakan data; halaman menerima prop Inertia.
+6. Akses dengan scope tidak cocok ditolak, bukan dikembalikan sebagai data universitas penuh.
+
+### AD-10 â€” Dashboard Superadmin universitas
+
+**Swimlane:** Superadmin, Backend, Database.
+**Route:** /superadmin/dashboard.
+**Hasil:** ringkasan populasi, response rate, kelengkapan, tindak lanjut, dan filter tahun kelulusan.
+
+1. Superadmin memilih tahun; default mengikuti tahun berjalan jika tersedia.
+2. Backend memfilter populasi alumni dan metrik berbasis tahun; antrean perusahaan ditampilkan sebagai tindak lanjut lintas tahun jika implementasi route memang demikian.
+3. Response rate memakai jumlah respon dibanding populasi pada scope/tahun.
+4. Kelengkapan profil dan tracer universitas dihitung melalui status audit; kuesioner prodi tidak dimasukkan pada kartu gabungan universitas.
+5. Pertanyaan yang tidak berlaku karena branching tidak dihitung sebagai kekurangan.
+6. Backend mengembalikan data Inertia; kartu dashboard tidak mengubah data.
+
+~~~mermaid
 flowchart TD
-    %% SWIMLANE 1: ADMINISTRATOR VERIFIKATOR
-    subgraph Admin_Lane["SWIMLANE: Administrator Verifikator (Super Admin / Fakultas / Prodi)"]
-        V_Start((●)) --> V_OpenList["Buka Menu Verifikasi Perusahaan Pengajuan Alumni"]
-        V_OpenList --> V_SelectPending["Pilih Perusahaan Status 'Pending'"]
+  A((Mulai)) --> U[Superadmin memilih tahun]
+  U --> B[Backend validasi filter]
+  B --> D[Query populasi dan status audit]
+  D --> C[Hitung response rate dan kelengkapan]
+  C --> P{Ada antrean perusahaan?}
+  P -- Ya --> Q[Tampilkan tindak lanjut lintas tahun]
+  P -- Tidak --> N[Tampilkan status kosong]
+  Q --> R[Render dashboard Inertia]
+  N --> R
+  R --> Z((Selesai))
+~~~
 
-        V_ViewCards["Tinjau Kartu Rekomendasi & Skor Kemiripan"]
-        V_DecisionChoice{"Pilihan Aksi Verifikasi"}
+### AD-11 â€” Pengelolaan instrumen kuesioner universitas
 
-        V_DirectVerify["Verifikasi Langsung (Data Baru Valid)"]
-        EndDirectVerify(((◉)))
+**Swimlane:** Superadmin, Backend, Database.
+**Route:** /superadmin/pertanyaan, /superadmin/sections, /superadmin/kuesioner, option CRUD/reorder/toggle.
+**Hasil:** section/question/option aktif dan urut, atau perubahan ditolak.
 
-        V_Reject["Tolak Pengajuan (Perusahaan Fiktif)"]
-        FlowRejectCo((⨂))
-    end
+1. Superadmin membuka daftar instrumen.
+2. Backend memuat section, question, option, status aktif, tipe, urutan, dan konfigurasi branching.
+3. Superadmin membuat/mengubah/menghapus question, option, section, mengurutkan, atau toggle kuesioner.
+4. QuestionDefaultOptionsService membuat opsi default hanya bila belum ada sesuai tipe.
+5. Backend memvalidasi kode unik, type, section, option, jump_to, dan relasi.
+6. Database menyimpan perubahan; jawaban tracer yang sudah ada tidak boleh diasumsikan ikut terhapus.
 
-    %% SWIMLANE 2: SYSTEM
-    subgraph System_Lane["SWIMLANE: System (PerusahaanVerificationService & Database)"]
-        S_FetchData["Ambil Data Master & Input Baru Pengajuan"]
-        ForkSim[/"━━━━ FORK ━━━━"/]
-        S_CleanText["Tahap 1: Clean Company Name & Filter Legalitas"]
-        S_TokenAcronym["Tahap 2: Tokenize & Generate Akronim Singkatan"]
-        JoinSim[\"━━━━ JOIN ━━━━"\]
+### AD-12 â€” Pengelolaan instrumen kuesioner prodi
 
-        S_MultiMatch["Tahap 3: Multi-Level String Matching"]
-        S_GeoScoring["Tahap 4: Pembobotan Geografis (Kota +20, Prov +10)"]
-        S_FilterTop5["Tahap 5: Filter Threshold >= 45 & Urutkan Top-5 Rekomendasi"]
+**Swimlane:** Superadmin/Admin Prodi/Admin Fakultas, Backend, Database.
+**Hasil:** instrumen prodi terkelola dalam scope yang sesuai.
 
-        S_BeginTx["Mulai Transaksi DB::beginTransaction()"]
-        S_MigrateAlumni["Alihkan Seluruh Relasi biodata.perusahaan_id ke Master"]
-        S_CommitTx["Commit DB & Catat Log Audit ke 'log_activities'"]
-        EndReplaceSuccess(((◉)))
-    end
+1. Superadmin memilih prodi; Admin Prodi otomatis terbatas ke prodi sendiri; Admin Fakultas memilih prodi dalam fakultas.
+2. Backend memverifikasi scope sebelum membaca atau bermutasi.
+3. Aktor mengelola section, question, option, urutan, dan default option.
+4. Response existing disimpan terpisah melalui ProdiResponse.
+5. Scope gagal menghasilkan 403; resource tidak ada menghasilkan 404 atau validasi sesuai route.
 
-    %% TRANSISI LINTAS SWIMLANE
-    V_SelectPending --> S_FetchData
-    S_FetchData --> ForkSim
-    ForkSim --> S_CleanText
-    ForkSim --> S_TokenAcronym
-    S_CleanText --> JoinSim
-    S_TokenAcronym --> JoinSim
-    JoinSim --> S_MultiMatch
-    S_MultiMatch --> S_GeoScoring
-    S_GeoScoring --> S_FilterTop5
-    S_FilterTop5 --> V_ViewCards
+### AD-13 â€” Pengelolaan instrumen evaluasi atasan
 
-    V_ViewCards --> V_DecisionChoice
-    V_DecisionChoice -- "[Pilih Auto-Replace]" --> S_BeginTx
-    S_BeginTx --> S_MigrateAlumni
-    S_MigrateAlumni --> S_CommitTx
-    S_CommitTx --> EndReplaceSuccess
+**Swimlane:** Superadmin, Backend, Database.
+**Route:** controller pengelolaan pertanyaan evaluasi atasan.
+**Hasil:** daftar butir evaluasi aktif, terurut, dan tersedia untuk form publik.
 
-    V_DecisionChoice -- "[Data Baru Valid]" --> V_DirectVerify --> EndDirectVerify
-    V_DecisionChoice -- "[Tolak / Fiktif]" --> V_Reject --> FlowRejectCo
-```
+1. Superadmin membuka instrumen.
+2. Backend mengambil PertanyaanEvaluasiAtasan.
+3. Superadmin CRUD, toggle aktif/nonaktif, dan reorder.
+4. Backend memvalidasi kode, label, dan urutan.
+5. Form publik hanya membaca pertanyaan aktif; respons lama tetap berada di ResponEvaluasiAtasan.
 
----
+### AD-14 â€” Pengelolaan akun dan reset password
 
-### D. Perintah & Routing Backend
+**Swimlane:** Superadmin/Admin Prodi/Admin Fakultas, Backend, Database, Mail service.
+**Hasil:** akun terbarui atau password default dikirim.
 
-#### 1. Endpoint Tampilan Daftar Verifikasi & Rekomendasi
-- **Super Admin**: `GET /superadmin/perusahaan`
-- **Admin Fakultas**: `GET /fakultas/perusahaan`
-- **Admin Prodi**: `GET /prodi/perusahaan`
+1. Aktor membuka manajemen akun.
+2. Backend menerapkan scope: universitas, prodi, atau fakultas.
+3. Aktor memperbarui role, nama, email, username, prodi/fakultas sesuai hak route.
+4. Backend memvalidasi keunikan identitas dan menulis log.
+5. Reset default hanya boleh untuk alumni dalam scope; password/flag diperbarui dan notifikasi dikirim bila diminta.
+6. User di luar scope tidak boleh diubah walaupun ID diketahui.
 
-#### 2. Endpoint Eksekusi Auto-Replace (Konsolidasi Duplikat)
-- **Method**: `POST`
-- **Route URL**: `/superadmin/perusahaan/{pendingCompany}/replace`
-- **Controller Action**: `VerifikasiPerusahaanSuperAdminController@replace`
-- **Payload**: `{"target_id": 12}`
+### AD-15 â€” Master wilayah dan UMP
 
-#### 3. Endpoint Verifikasi Langsung (Data Baru Valid)
-- **Method**: `POST`
-- **Route URL**: `/superadmin/perusahaan/{company}/verify`
-- **Controller Action**: `VerifikasiPerusahaanSuperAdminController@verify`
+**Swimlane:** Superadmin, Backend, Database.
+**Route:** /superadmin/wilayah-ump dan CRUD turunannya.
+**Hasil:** provinsi, kabupaten/kota, dan UMP per tahun tersimpan konsisten.
 
-#### 4. Endpoint Tolak Pengajuan
-- **Method**: `POST`
-- **Route URL**: `/superadmin/perusahaan/{company}/reject`
-- **Controller Action**: `VerifikasiPerusahaanSuperAdminController@reject`
-- **Payload**: `{"alasan": "Nama instansi tidak valid"}`
+1. Superadmin melihat ringkasan jumlah provinsi, kabupaten/kota, ketetapan UMP, dan rata-rata.
+2. CRUD provinsi dan kabupaten divalidasi terhadap kode/nama dan relasi parent.
+3. Perubahan kode provinsi memperbarui relasi UMP sesuai migration/controller.
+4. Penghapusan provinsi menghapus UMP terkait sesuai aturan implementasi.
+5. UMP disimpan per provinsi dan tahun; copy-year menyalin data sesuai guard agar tidak menimpa data tanpa aturan.
 
----
+### AD-16 â€” Rekomendasi dan verifikasi perusahaan
 
-### E. Struktur Data & Payload JSON
+**Swimlane:** Superadmin/Admin Prodi/Admin Fakultas, Backend, Database.
+**Hasil:** perusahaan disetujui, diperbarui lalu disetujui, ditolak, atau tetap pending.
 
-#### Output Rekomendasi Kemiripan Sistem:
-```json
-[
-  {
-    "id": 12,
-    "nama_perusahaan": "PT Bank Central Asia Tbk",
-    "alamat": "Jl. Jenderal Sudirman No. 45",
-    "propinsi_id": 14,
-    "kabupaten_id": 204,
-    "nama_provinsi": "D.I. Yogyakarta",
-    "nama_kabupaten": "Kota Yogyakarta",
-    "sektor": "Perbankan & Keuangan",
-    "skala": "Nasional",
-    "jenis_perusahaan": "Swasta",
-    "similarity_score": 98,
-    "is_same_city": true,
-    "is_same_province": true,
-    "match_reasons": [
-      "Akronim / Singkatan Cocok (BCA)",
-      "Kota/Kabupaten Sama (Kota Yogyakarta)",
-      "Provinsi Sama (D.I. Yogyakarta)"
-    ]
-  },
-  {
-    "id": 88,
-    "nama_perusahaan": "PT Bank Mandiri (Persero) Tbk",
-    "alamat": "Jl. Pangeran Mangkubumi No. 10",
-    "propinsi_id": 14,
-    "kabupaten_id": 204,
-    "nama_provinsi": "D.I. Yogyakarta",
-    "nama_kabupaten": "Kota Yogyakarta",
-    "similarity_score": 50,
-    "is_same_city": true,
-    "is_same_province": true,
-    "match_reasons": [
-      "Memiliki 1 Kata Yang Sama (bank)",
-      "Kota/Kabupaten Sama (Kota Yogyakarta)"
-    ]
-  }
-]
-```
+1. Backend mengambil pending company sesuai scope.
+2. PerusahaanVerificationService membersihkan nama, stopword, token, dan akronim.
+3. Kandidat master dinilai menggunakan exact/acronym/substring/token overlap/similar_text.
+4. Geographic scoring menambah nilai jika kota/provinsi cocok.
+5. Kandidat diurutkan; threshold total atau kombinasi nama/lokasi menentukan recommendation.
+6. Aktor memilih verifikasi, edit lalu verifikasi, atau tolak.
+7. Backend menyimpan status, perubahan, dan audit log dalam transaksi/operasi terkontrol.
+8. Scope role diverifikasi sebelum tindakan.
 
-#### Request Payload saat Admin Menjalankan Auto-Replace:
-```json
-{
-  "target_id": 12
-}
-```
-
-#### Response Payload Sukses Konsolidasi:
-```json
-{
-  "success": true,
-  "message": "Perusahaan berhasil dikonsolidasi dengan PT Bank Central Asia Tbk. Sebanyak 4 data alumni telah dialihkan secara otomatis.",
-  "migrated_alumni_count": 4
-}
-```
-
----
-
-### F. Pseudocode Implementasi Algoritma
-```text
-FUNCTION GetSimilarRecommendations(pendingCompany, limit = 5):
-    cleanPending = CleanCompanyName(pendingCompany.nama_perusahaan)
-    pendingTokens = GetTokens(cleanPending)
-    pendingAcronyms = GetAcronyms(cleanPending, pendingCompany.nama_perusahaan)
-
-    verifiedCompanies = Database.Query("SELECT * FROM perusahaans WHERE status = 'Terverifikasi'")
-    recommendations = []
-
-    FOR EACH verified IN verifiedCompanies:
-        cleanVerified = CleanCompanyName(verified.nama_perusahaan)
-        verifiedTokens = GetTokens(cleanVerified)
-        verifiedAcronyms = GetAcronyms(cleanVerified, verified.nama_perusahaan)
-
-        nameScore = 0
-        reasons = []
-
-        // LEVEL 1: Exact Match (95 Poin)
-        IF cleanPending != "" AND cleanPending == cleanVerified THEN
-            nameScore = 95
-            reasons.Add("Nama Identik (Tanpa PT/CV)")
-
-        // LEVEL 2: Akronim Cocok (88 Poin)
-        ELSE IF cleanPending IN verifiedAcronyms OR cleanVerified IN pendingAcronyms THEN
-            nameScore = 88
-            reasons.Add("Akronim / Singkatan Cocok")
-
-        // LEVEL 3: Substring Terkandung (75 - 90 Poin)
-        ELSE IF Contains(cleanVerified, cleanPending) OR Contains(cleanPending, cleanVerified) THEN
-            ratio = MinLength(cleanPending, cleanVerified) / MaxLength(cleanPending, cleanVerified)
-            nameScore = 75 + Integer(ratio * 15)
-            reasons.Add("Nama Mengandung Frasa Yang Sama")
-
-        // LEVEL 3B: Akronim Parsial Entitas Majemuk (70 - 80 Poin)
-        ELSE IF ArrayIntersect(pendingTokens, verifiedAcronyms) IS NOT EMPTY THEN
-            nameScore = 75
-            reasons.Add("Mengandung Akronim Entitas Terkait")
-
-        // LEVEL 4 & 5: Token Intersect & Typo
-        ELSE:
-            intersect = ArrayIntersect(pendingTokens, verifiedTokens)
-            overlapRatio = Length(intersect) / Max(Length(pendingTokens), Length(verifiedTokens))
-
-            IF overlapRatio >= 0.33 AND NOT IsGenericSingleWord(intersect) THEN
-                nameScore = 50 + Integer(overlapRatio * 25)
-                reasons.Add("Memiliki Kata Yang Sama")
-            ENDIF
-
-            percentTypo = SimilarTextPercentage(cleanPending, cleanVerified)
-            IF percentTypo >= 60 AND percentTypo > nameScore THEN
-                nameScore = Integer(percentTypo)
-                reasons.Add("Struktur Huruf Mirip (" + percentTypo + "%)")
-            ENDIF
-        END IF
-
-        // Tahap 4: Pembobotan Geografis
-        totalScore = nameScore
-        IF nameScore >= 35 THEN
-            IF pendingCompany.kabupaten_id == verified.kabupaten_id THEN
-                totalScore += 20
-                reasons.Add("Kota/Kabupaten Sama")
-            ELSE IF pendingCompany.propinsi_id == verified.propinsi_id THEN
-                totalScore += 10
-                reasons.Add("Provinsi Sama")
-            ENDIF
-        ENDIF
-
-        totalScore = Min(100, totalScore)
-
-        // Tahap 5: Threshold Filtering
-        IF totalScore >= 45 THEN
-            recommendations.Add({
-                "id": verified.id,
-                "nama_perusahaan": verified.nama_perusahaan,
-                "similarity_score": totalScore,
-                "match_reasons": reasons
-            })
-        ENDIF
-    END FOR
-
-    SortDescending(recommendations, key: "similarity_score")
-    RETURN Slice(recommendations, 0, limit)
-END FUNCTION
-```
-
----
-
-## 6. PROSES 4: Pengelolaan Instrumen Kuesioner & Otomasi Opsi Default (Admin Prodi & Super Admin)
-
-### A. Deskripsi Alur & Logika Bisnis
-Alur ini memodelkan proses penambahan butir instrumen kuesioner tracer study (baik Kuesioner Program Studi maupun Kuesioner Universitas) dengan integrasi pembuatan opsi default otomatis:
-1. Admin Prodi atau Super Admin mengakses modul kelola butir pertanyaan (`/prodi/pertanyaan` atau `/superadmin/pertanyaan`).
-2. Admin membuka modal tambah pertanyaan dan memasukkan atribut utama:
-   - Bagian bab/seksi (*Section*) tempat pertanyaan akan ditampilkan.
-   - Kode pertanyaan unik (contoh: `P01`, `F301`).
-   - Rumusan bunyi kalimat pertanyaan.
-   - Sifat pengisian (*Wajib* atau *Opsional*).
-   - Tipe input pertanyaan (contoh: `radio_text`, `rating_5`, `radio_input`, `single_choice`, `multiple_choice`, `dropdown`, `searchable_select`, `text`, `number`, dll).
-3. Data dikirimkan menyeberang ke kolom **System (Tracer Study)**.
-4. Sistem memvalidasi kelengkapan form dan keunikan kode pertanyaan:
-   - Jika **`[invalid]`** (kode pertanyaan sudah terdaftar atau field wajib kosong), sistem menampilkan pesan validasi dan aliran dihentikan pada **Flow Final (`⨂`)**.
-5. Jika **`[valid]`**, sistem menyimpan butir pertanyaan ke basis data (`prodi_questions` atau `ref_subpertanyaan2021`).
-6. Melalui percabangan logika (*Decision Node*), sistem memeriksa apakah tipe pertanyaan mendukung opsi respon (`canHaveOptions`):
-   - Jika **`[tipe tanpa opsi]`** (seperti `text`, `textarea`, `number`, `date`, `time`, `header`), sistem langsung menyajikan konfirmasi sukses.
-   - Jika **`[tipe mendukung opsi]`**, sistem mengeksekusi service terpusat `QuestionDefaultOptionsService`:
-     - Tipe `radio_text`: Membuat 2 opsi pilihan ganda + 1 opsi kustom isian teks bebas ("Lainnya (Tuliskan)").
-     - Tipe `rating_5`: Membuat 5 butir opsi berurutan skala 1 s/d 5 ("1 - Sangat Rendah" s/d "5 - Sangat Tinggi").
-     - Tipe `radio_input`: Membuat opsi radio bertitik angka ("Kira-kira ... bulan") + 1 opsi penolakan tanpa input ("Tidak").
-     - Tipe `single_choice`, `multiple_choice`, `dropdown`, `searchable_select`: Membuat 2 opsi baku awal ("Pilihan 1", "Pilihan 2").
-7. Seluruh opsi default disimpan ke tabel relasi (`prodi_question_options` atau `ref_subpertanyaan_detil`).
-8. Admin menerima konfirmasi sukses (`◉`), dan admin memiliki fleksibilitas penuh untuk menyunting (*edit*), menambah, atau menghapus opsi-opsi default tersebut kapan saja melalui antarmuka Kelola Opsi.
-
-### B. Diagram UML Mermaid (2-Swimlane)
-
-```mermaid
+~~~mermaid
 flowchart TD
-    %% Initial State
-    Start4((●)) -->|Akses Kelola Pertanyaan| ActAdminInput["Admin: Buka Modal & Isi Kode, Kalimat, Sifat & Tipe Soal"]
+  A((Mulai)) --> L[Backend memuat pending company sesuai scope]
+  L --> N[Normalisasi nama, token, akronim, lokasi]
+  N --> M[Hitung similarity dan geographic score]
+  M --> T{Melewati threshold?}
+  T -- Tidak --> P[Tampilkan tanpa rekomendasi kuat]
+  T -- Ya --> R[Tampilkan rekomendasi master]
+  P --> D{Aktor memilih tindakan}
+  R --> D
+  D -- Verifikasi --> V[Simpan status Terverifikasi dan log]
+  D -- Edit lalu verifikasi --> E[Simpan field tervalidasi, status, log]
+  D -- Tolak --> X[Simpan status Ditolak dan log]
+  V --> Z((Selesai))
+  E --> Z
+  X --> Z
+~~~
 
-    %% Menyeberang ke Sistem
-    ActAdminInput --> ActSysValidate["System: Validasi Kelengkapan Data & Keunikan Kode"]
-    ActSysValidate --> DecValid{Validasi Data & Kode?}
+### AD-17 â€” Auto-replace perusahaan pending
 
-    DecValid -->|invalid| FlowFinalFail4((⨂))
-    DecValid -->|valid| ActSysSaveQuestion["System: Simpan Butir Pertanyaan Baru ke Basis Data"]
+**Swimlane:** Superadmin/Admin Prodi/Admin Fakultas, Backend, Database.
+**Hasil:** seluruh referensi perusahaan pending dipindahkan ke master terpilih, pending dihapus, dan audit tercatat.
 
-    %% Pengecekan Dukungan Opsi Default
-    ActSysSaveQuestion --> DecHasOptions{Tipe Soal Butuh Opsi?}
+1. Aktor memilih perusahaan pending dan master rekomendasi.
+2. Backend memeriksa scope, keberadaan, status, dan target berbeda.
+3. Dalam transaksi, biodata.perusahaan_id dipindahkan.
+4. EvaluasiAtasan.perusahaan_id dan jawaban tracer yang menyimpan nama pending diperbarui pada field yang ditentukan.
+5. Pending company dihapus hanya setelah referensi berpindah.
+6. Audit log mencatat sumber, target, aktor, dan perubahan.
+7. Jika salah satu langkah gagal, transaksi rollback dan tidak boleh menampilkan sukses.
 
-    DecHasOptions -->|Tidak: Text/Angka/Tanggal/Header| ActSysSuccess["System: Tampilkan Notifikasi Berhasil Simpan Soal"]
-    DecHasOptions -->|Ya: Radio/Checkbox/Rating/Dropdown| ActSysGenOptions["System: QuestionDefaultOptionsService Generate Opsi Baku"]
+### AD-18 â€” Sinkronisasi LinkedIn satu alumni via Apify
 
-    %% Percabangan Tipe Opsi Default
-    ActSysGenOptions --> DecType{Pola Tipe Soal?}
+**Swimlane:** Admin Prodi/Admin Fakultas/Superadmin, Backend, Apify API, Database.
+**Route:** shared LinkedIn sync sync-single.
+**Hasil:** snapshot pending tersimpan atau error provider; biodata utama belum berubah sebelum review.
 
-    DecType -->|radio_text| ActOptRadioText["Generate: Opsi 1, Opsi 2 + 'Lainnya (Tuliskan)'"]
-    DecType -->|rating_5| ActOptRating5["Generate: 5 Skala ('1 - Sangat Rendah' s/d '5 - Sangat Tinggi')"]
-    DecType -->|radio_input| ActOptRadioInput["Generate: 'Kira-kira ... bulan' + 'Tidak'"]
-    DecType -->|pilihan_ganda/dropdown| ActOptStandard["Generate: 2 Opsi Baku ('Pilihan 1', 'Pilihan 2')"]
+1. Admin memilih alumni dalam scope dan meminta sinkronisasi.
+2. Backend memeriksa scope, URL LinkedIn valid, konfigurasi token/provider, dan batas satu request.
+3. Backend mengirim POST synchronous ke actor Apify data_forge_org~linkedin-scraper dengan bearer token.
+4. Apify mengembalikan dataset item atau status HTTP error.
+5. Backend memetakan response ke snapshot, menyimpan linkedin_sync_results berstatus pending, dan menulis log.
+6. Status 400/401/402/404/429/5xx ditangani sebagai error provider; tidak dianggap berhasil.
+7. Request Inertia diarahkan kembali dengan flash; request fetch menerima JSON yang disepakati.
 
-    ActOptRadioText --> ActSysSaveOptions["System: Simpan Opsi Default ke Tabel Relasi Opsi"]
-    ActOptRating5 --> ActSysSaveOptions
-    ActOptRadioInput --> ActSysSaveOptions
-    ActOptStandard --> ActSysSaveOptions
+~~~mermaid
+flowchart LR
+  A[Admin berwenang] --> B[Backend scope dan validasi URL]
+  B --> D{Provider Apify aktif?}
+  D -- Tidak --> E[Gunakan provider resmi/mock]
+  D -- Ya --> P[Apify API: jalankan actor dan ambil dataset]
+  P --> H{HTTP dan payload valid?}
+  H -- Tidak --> X[Catat error dan kembalikan status gagal]
+  H -- Ya --> M[Backend map snapshot]
+  E --> M
+  M --> DB[Database: simpan hasil pending dan log]
+  DB --> R[Backend kirim redirect Inertia atau JSON]
+  X --> R
+~~~
 
-    ActSysSaveOptions --> ActSysSuccess
-    ActSysSuccess --> ActAdminCustomize["Admin: Tinjau & Kustomisasi Bunyi Opsi via Modal Opsi (Opsional)"]
-    ActAdminCustomize --> EndSuccess4(((◉)))
+### AD-19 â€” Sinkronisasi LinkedIn provider resmi/mock dan batch
 
-    %% Styling 2-Swimlane
-    classDef actorStyle fill:#E8F5E9,stroke:#005B3C,stroke-width:2px,color:#003320;
-    classDef sysStyle fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1;
-    classDef decisionStyle fill:#FFF9C4,stroke:#F57F17,stroke-width:2px,color:#E65100;
-    classDef stateStyle fill:#263238,stroke:#263238,stroke-width:2px,color:#ffffff;
+**Swimlane:** Admin berwenang, Backend, LinkedIn provider, Database.
+**Hasil:** satu atau beberapa hasil sync tersimpan; batch terisolasi per alumni.
 
-    class Start4,FlowFinalFail4,EndSuccess4 stateStyle;
-    class ActAdminInput,ActAdminCustomize actorStyle;
-    class ActSysValidate,ActSysSaveQuestion,ActSysSuccess,ActSysGenOptions,ActSysSaveOptions,ActOptRadioText,ActOptRating5,ActOptRadioInput,ActOptStandard sysStyle;
-    class DecValid,DecHasOptions,DecType decisionStyle;
-```
+1. Backend memilih provider dari konfigurasi.
+2. Provider resmi/mock mengambil profil berdasarkan username/URL.
+3. LinkedInProfileService dan mapper mengubah response ke DTO.
+4. Satu alumni diproses dalam transaksi; hasil gagal tidak menggagalkan alumni lain pada batch.
+5. Batch Apify dinonaktifkan karena perlindungan biaya; provider official dapat diproses satu per satu.
+6. Status SUCCESS, NOT_FOUND, SKIPPED, atau ERROR disimpan dan dilaporkan.
 
----
+### AD-20 â€” Review, approve, plot ulang, dan mapping LinkedIn
 
-## 7. Ringkasan Matriks Perbandingan & Standarisasi Notasi UML
+**Swimlane:** Admin berwenang, Backend, Database, Image/third-party URL.
+**Hasil:** snapshot disetujui dan dipetakan ke biodata, atau tetap pending/ditolak.
 
-| Parameter | Proses Acuan: Edit Profil & Password | Proses 1: Sinkronisasi LinkedIn | Proses 2: Token Evaluasi Atasan | Proses 3: Rekomendasi Perusahaan | Proses 4: Instrumen & Opsi Default |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Aktor Utama (Lane 1)** | Alumni UKDW | Super Admin / Admin Prodi | Alumni UKDW & Atasan Kerja | Admin Verifikator (Pusat/Fakultas/Prodi) | Admin Prodi & Super Admin |
-| **Sistem Eksekusi (Lane 2)** | System (Tracer Study) | Backend App & Apify Provider | System & SMTP Mail Server | Service Matching & Database | Backend App & Options Service |
-| **Penerapan Fork / Join** | Fork cabang Pwd/Profil & Join ke System | Sequential Request & Review | Multi-part Event Flow | Fork Tokenize/Cleaning & Join Matching | Percabangan Tipe Opsi Default & Join |
-| **Penanganan Invalid (`⨂`)** | Flow Final saat password lama salah | Flow Final saat URL/Dataset invalid | Flow Final saat Token/Email invalid | Flow Final saat Pengajuan Ditolak | Flow Final saat Kode Duplikat / Form Kosong |
-| **Aksi Basis Data** | Update tabel `users` & `biodata` | Update staging & `biodata` | Insert token & `respon_evaluasi_atasan` | Transactional Auto-Replace / Direct Verify | Insert pertanyaan & opsi relasional |
-| **Status Sukses (`◉`)** | Final State konfirmasi profil/sandi | Final State status `APPROVED` | Final State konfirmasi terima kasih | Final State status `Terverifikasi` | Final State soal & opsi aktif tersimpan |
+1. Admin membuka hasil pending dan memeriksa snapshot.
+2. Approve mengunci hasil pending dalam transaksi dan memilih posisi terkini/terbaru.
+3. Mapper memperbarui posisi/perusahaan/URL/handle, mengaitkan foto dari URL jika tersedia, serta mengisi pendidikan/skills bila aturan isi jika kosong berlaku.
+4. Riwayat pengalaman ditambahkan ke representasi yang ada tanpa duplikasi; data existing tidak boleh dihapus.
+5. Plot ulang memanggil logika apply yang sama dengan flag plot_ulang; history lama dipertahankan.
+6. Approve mengubah status hasil menjadi approved dan menulis log.
+7. Reject hanya mengubah status hasil pending menjadi rejected; biodata utama tidak berubah.
 
+### AD-21 â€” Status kelengkapan dan audit data
 
-Revisi 21 Oktober 2026: diagram aktivitas menggambarkan urutan dan keputusan, sedangkan [DFD](dfd.md) menggambarkan perpindahan data. Hak mutasi LinkedIn dimiliki Superadmin, Admin Prodi dan Admin Fakultas sesuai lingkup; Biro III hanya membaca hasil.
+**Swimlane:** Backend, Database, Administrator.
+**Hasil:** status profile, tracer universitas, tracer prodi, dan gabungan dapat ditampilkan.
+
+1. Database view menyediakan v_alumni_profile_summary, status tracer, dan v_alumni_audit_rekap.
+2. KelengkapanTracerService membaca pertanyaan aktif dan jawaban.
+3. Pertanyaan wajib dihitung; pertanyaan opsional dapat ditampilkan sebagai informasi terpisah.
+4. Pertanyaan yang tidak berlaku karena branching dikeluarkan dari kekurangan.
+5. Backend menggabungkan status sesuai dashboard; kuesioner prodi tidak boleh diam-diam dihitung sebagai kuesioner universitas.
+6. Jika tidak ada populasi, denominator ditangani sebagai kondisi khusus agar tidak menghasilkan angka menyesatkan.
+
+### AD-22 â€” Audit log
+
+**Swimlane:** Superadmin, Backend, Database.
+**Route:** /superadmin/log-aktivitas.
+**Hasil:** log terfilter ditampilkan.
+
+1. Superadmin memilih search/filter user, action, atau waktu.
+2. Backend memvalidasi filter dan eager-load relasi user.
+3. Database mengembalikan log aktivitas profile, company, LinkedIn, akun, dan tindakan lain yang dicatat.
+4. Backend mengirim halaman Inertia; log tidak diubah dari halaman baca.
+
+### AD-23 â€” Evaluasi publik oleh atasan
+
+**Swimlane:** Atasan, Backend, Database.
+**Pemicu:** token undangan dibuka.
+**Hasil:** evaluasi tersimpan atau ditolak.
+
+1. Atasan membuka URL token.
+2. Backend mencari token dan memeriksa status/validitas.
+3. Jika valid, instrumen aktif dan identitas konteks ditampilkan tanpa membuka data yang tidak diperlukan.
+4. Atasan mengirim nama, jabatan, email, telepon, perusahaan, kota, skor, dan catatan.
+5. Backend menjalankan validasi dan throttle; data atasan/respons di-upsert.
+6. Token invalid, throttle, atau data tidak valid menghasilkan error final dan tidak dianggap submitted.
+
+### AD-24 â€” Navigasi respons Inertia dan error akses
+
+**Swimlane:** Pengguna, Frontend Inertia, Backend, Database.
+**Tujuan:** mencegah 404/403 dan plain JSON pada navigasi halaman.
+
+1. Frontend mengirim GET halaman sebagai request Inertia.
+2. Backend memeriksa autentikasi dan role; role gagal menghasilkan 403, resource/scope tidak ada menghasilkan 404.
+3. Untuk mutation dari Inertia, backend melakukan redirect/flash atau validation error Inertia.
+4. JSON hanya dipakai ketika request secara eksplisit fetch/API sesuai negosiasi response controller.
+5. Frontend menampilkan error dan tidak menganggap response JSON sebagai halaman Inertia.
+6. Browser log dan route list menjadi bukti verifikasi saat mendiagnosis masalah.
+
+## 6. Traceability ringkas
+
+| Diagram | Route/controller utama | Service/model/view utama |
+|---|---|---|
+| AD-01 | LoginController, LupaKataSandiController, UbahKataSandiController | User, Biodata, ResetPasswordMail, password_reset_tokens |
+| AD-02 | ProfilController, SimpanProfilController, admin profile controllers | AdminAlumniProfileService, Biodata, Atasan, Perusahaan, KuesionerSyncService |
+| AD-03 | shared /alumni/company | Perusahaan, Biodata, PerusahaanController |
+| AD-04 | KuesionerController, SimpanJawabanController | Tracer, Kuesioner, KelompokPertanyaan, KelengkapanTracerService |
+| AD-05 | KuesionerProdiController | ProdiQuestionSection, ProdiQuestion, ProdiQuestionOption, ProdiResponse |
+| AD-06/23 | EvaluasiAtasanController, /alumni/kirim-email-atasan | Atasan, EvaluasiAtasan, PertanyaanEvaluasiAtasan, ResponEvaluasiAtasan, mail |
+| AD-07/08 | directory controllers per role | AlumniDirectoryQueryService, AlumniTracerExcelExporter, mail |
+| AD-09/10 | dashboard controllers | audit views, KelengkapanTracerService, role scope |
+| AD-11/12/13 | question management controllers | questionnaire and option models |
+| AD-14 | account management controllers | User, Biodata, LogActivity, mail |
+| AD-15 | master wilayah/UMP controller | Propinsi, Kabupaten, Ump |
+| AD-16/17 | company controllers | PerusahaanVerificationService, Perusahaan, Biodata, Tracer, evaluasi, log |
+| AD-18/19/20 | Shared/LinkedInSyncController | LinkedIn providers, mapper, LinkedinSyncResult, AlumniLinkedinPlot, Biodata |
+| AD-21 | dashboard/audit callers | KelengkapanTracerService, v_alumni_*, v_alumni_audit_rekap |
+| AD-22 | log controller | LogActivity |
+| AD-24 | all Inertia mutation controllers | RoleMiddleware, CheckMustChangePassword, response negotiation |
+
+Traceability lengkap per method dan path file tersedia di docs/uml/activity-diagrams/TRACEABILITY-MATRIX.md.
+
+## 7. Temuan analisis dan batas implementasi
+
+1. Biro 3 bukan administrator tulis. Detail update secara eksplisit ditolak; dokumentasi tidak boleh menggambarkannya sebagai editor.
+2. Sinkronisasi Apify bukan queue, polling, atau webhook pada source yang diaudit. Diagram memodelkannya sebagai request synchronous.
+3. Tidak ditemukan app/Policies, Job, Event, Listener, atau command bisnis. Jika fitur baru menambah asynchronous flow, diagram harus direvisi.
+4. Otorisasi tersebar antara middleware role dan query scope controller/service. Pengujian resource di luar scope wajib dilakukan untuk mencegah 403/404 yang tidak konsisten.
+5. Response tracer memiliki format answer dan answer_json; relasi question_id tersedia dan sebaiknya menjadi acuan maintenance. Struktur lama/alias perlu diperlakukan hati-hati saat migrasi.
+6. Riwayat pengalaman LinkedIn pada implementasi yang diaudit masih dipetakan ke representasi biodata; belum ada bukti tabel pengalaman relasional yang menjadi sumber utama. Diagram tidak mengklaim tabel baru.
+7. Kelengkapan harus membedakan wajib, opsional, dan tidak berlaku karena branching. Kartu gabungan hanya boleh memakai komponen yang memang dihitung oleh backend.
+8. Token evaluasi atasan adalah kredensial akses dan tidak seharusnya ditampilkan pada payload halaman admin yang tidak membutuhkan token.
+9. Perubahan data profil, perusahaan, akun, dan LinkedIn harus tetap menulis audit log untuk traceability.
+10. Tidak ada perubahan source code/database yang dilakukan ketika membuat dokumentasi ini.
+
+## 8. Verifikasi kelengkapan dokumentasi
+
+- [x] Route, controller, service, model, migration, view, mail, middleware, dan integrasi utama diaudit.
+- [x] Lima stakeholder utama dipisahkan berdasarkan scope aktual.
+- [x] Backend, database, mail service, dan Apify/third party dipisahkan sebagai swimlane ketika berpartisipasi.
+- [x] Alur login, profile, tracer, evaluasi, direktori, dashboard, question management, akun, master data, perusahaan, LinkedIn, audit, dan log terwakili.
+- [x] Cabang validasi, scope, status, threshold, provider, dan error dicatat.
+- [x] Tidak ada diagram yang mengklaim Job/Event/Policy yang tidak ditemukan.
+- [x] Source PlantUML dan dokumen pendukung tersedia pada docs/uml/activity-diagrams.
+- [ ] SVG/PNG baru: tidak dirender karena PlantUML CLI/JAR tidak tersedia di environment audit ini. File SVG/PNG lama di docs/images bukan pengganti source PlantUML baru.
+
+## 9. Artefak pendukung
+
+- Inventaris fitur: docs/uml/activity-diagrams/INVENTARIS-FITUR.md
+- Matriks hak akses: docs/uml/activity-diagrams/MATRIKS-HAK-AKSES.md
+- Daftar activity diagram: docs/uml/activity-diagrams/DAFTAR-ACTIVITY-DIAGRAM.md
+- Traceability matrix: docs/uml/activity-diagrams/TRACEABILITY-MATRIX.md
+- Temuan analisis: docs/uml/activity-diagrams/TEMUAN-ANALISIS.md
+- README UML: docs/uml/activity-diagrams/README.md

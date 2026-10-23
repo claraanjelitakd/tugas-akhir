@@ -1,0 +1,20 @@
+@startuml
+title AD-21 Status Kelengkapan dan Audit Data
+|Backend|
+start
+:Ambil pertanyaan aktif dan jawaban;
+|Database|
+:Baca audit views dan response;
+|Backend|
+:Hitung mandatory, optional, dan tidak berlaku;
+if (Branching membuat pertanyaan tidak berlaku?) then (ya)
+  :Keluarkan dari kekurangan;
+endif
+:Hitung profile, tracer universitas, prodi, dan gabungan sesuai definisi;
+if (Denominator nol?) then (ya)
+  :Terapkan kondisi kosong yang eksplisit;
+endif
+|Administrator|
+:Tampilkan status audit;
+stop
+@enduml

@@ -1,0 +1,29 @@
+@startuml
+title AD-18 Sinkronisasi LinkedIn Satu Alumni via Apify
+|Admin Prodi/Fakultas/Superadmin|
+start
+:Pilih alumni dan klik sync;
+|Backend|
+:Validasi scope, URL LinkedIn, token, dan provider;
+if (Apify aktif?) then (ya)
+  |Apify API|
+  :Jalankan actor secara synchronous;
+  :Ambil dataset item;
+  if (HTTP/payload valid?) then (ya)
+    |Backend|
+    :Map snapshot;
+  else (tidak)
+    |Backend|
+    :Catat error provider;
+    stop
+  endif
+else (tidak)
+  |Backend|
+  :Gunakan provider lain;
+endif
+|Database|
+:Simpan linkedin_sync_results pending dan log;
+|Backend|
+:Kirim redirect Inertia atau JSON sesuai request;
+stop
+@enduml

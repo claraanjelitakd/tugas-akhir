@@ -1,0 +1,19 @@
+@startuml
+title AD-06 Undangan Evaluasi Atasan
+|Alumni/Admin Scope|
+start
+:Isi data atasan;
+|Backend|
+:Validasi email, telepon, dan scope;
+if (Valid?) then (ya)
+  |Database|
+  :Simpan atau perbarui Atasan;
+  |Mail Service|
+  :Kirim UndanganEvaluasiAtasanMail;
+  |Backend|
+  :Kembalikan status pengiriman;
+else (tidak)
+  :Kembalikan error;
+endif
+stop
+@enduml

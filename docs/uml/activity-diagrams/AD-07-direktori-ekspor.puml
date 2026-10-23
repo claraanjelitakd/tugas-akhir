@@ -1,0 +1,25 @@
+@startuml
+title AD-07 Direktori Alumni, Detail, Reminder, dan Ekspor
+|Admin Scope|
+start
+:Pilih search, filter, detail, export, atau reminder;
+|Backend|
+:Validasi role dan scope;
+if (Resource dalam scope?) then (ya)
+  :Bangun query direktori;
+  |Database|
+  :Ambil alumni terfilter;
+  |Backend|
+  if (Ekspor?) then (ya)
+    :Buat Excel atau ZIP;
+  elseif (Reminder?) then (ya)
+    |Mail Service|
+    :Kirim reminder;
+  else (detail/index)
+    :Render halaman Inertia;
+  endif
+else (tidak)
+  :Kembalikan 403 atau 404;
+endif
+stop
+@enduml

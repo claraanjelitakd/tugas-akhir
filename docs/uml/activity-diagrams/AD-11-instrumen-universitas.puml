@@ -1,0 +1,21 @@
+@startuml
+title AD-11 Pengelolaan Instrumen Kuesioner Universitas
+|Superadmin|
+start
+:Buka instrumen;
+:Pilih CRUD, reorder, option, atau toggle;
+|Backend|
+:Validasi kode, tipe, section, option, dan jump_to;
+if (Valid?) then (ya)
+  if (Opsi belum ada dan tipe memerlukan default?) then (ya)
+    :Generate default option;
+  endif
+  |Database|
+  :Simpan section, question, option, atau status;
+  |Backend|
+  :Redirect dengan hasil;
+else (tidak)
+  :Kembalikan validation error;
+endif
+stop
+@enduml

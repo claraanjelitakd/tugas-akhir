@@ -1,0 +1,27 @@
+@startuml
+title AD-02 Pengisian dan Pembaruan Profil Alumni
+|Alumni/Admin Scope|
+start
+:Buka form profil;
+|Backend|
+:Muat biodata, akademik, perusahaan, atasan, dan referensi;
+|Alumni/Admin Scope|
+:Kirim perubahan profil;
+|Backend|
+:Validasi input;
+if (Valid?) then (ya)
+  :Normalisasi bidang kerja, posisi, email, dan gaji;
+  if (Perusahaan baru?) then (ya)
+    |Database|
+    :Simpan perusahaan Menunggu Verifikasi;
+  endif
+  |Database|
+  :Simpan biodata, atasan, foto, dan relasi;
+  |Backend|
+  :Sinkronkan jawaban profile-managed dan tulis log;
+  :Redirect Inertia dengan flash sukses;
+else (tidak)
+  :Kembalikan validation error Inertia;
+endif
+stop
+@enduml

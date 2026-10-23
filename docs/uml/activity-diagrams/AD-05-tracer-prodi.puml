@@ -1,0 +1,21 @@
+@startuml
+title AD-05 Pengisian Tracer Study Prodi
+|Alumni|
+start
+:Buka kuesioner prodi;
+|Backend|
+:Muat section, question, option sesuai prodi;
+|Alumni|
+:Isi jawaban prodi;
+|Backend|
+:Normalisasi dan validasi jawaban;
+if (Valid dan scope sesuai?) then (ya)
+  |Database|
+  :Upsert ProdiResponse berdasarkan alumni-question;
+  |Backend|
+  :Hitung status prodi;
+else (tidak)
+  :Kembalikan error atau akses ditolak;
+endif
+stop
+@enduml

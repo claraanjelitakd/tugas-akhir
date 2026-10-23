@@ -1,0 +1,32 @@
+@startuml
+title AD-01 Autentikasi, Pemulihan, dan Perubahan Password
+|Pengguna/Tamu|
+start
+:Kirim login atau buka pemulihan password;
+|Backend|
+:Validasi request dan jalankan Auth attempt;
+if (Kredensial valid?) then (ya)
+  if (Alumni wajib ganti password?) then (ya)
+    :Arahkan ke halaman ganti password;
+    |Database|
+    :Simpan password baru dan hapus flag;
+  else (tidak)
+    :Redirect ke dashboard sesuai role;
+  endif
+else (tidak)
+  if (Legacy alumni cocok?) then (ya)
+    |Database|
+    :Hash ulang password dan set must_change_password;
+  else (tidak)
+    :Kembalikan error login;
+    stop
+  endif
+endif
+|Pengguna/Tamu|
+:Ganti password atau lanjut ke dashboard;
+|Backend|
+:Validasi password minimal 12 dan konfirmasi;
+|Database|
+:Simpan perubahan dan session;
+stop
+@enduml

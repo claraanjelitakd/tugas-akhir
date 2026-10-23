@@ -1,0 +1,30 @@
+@startuml
+title AD-16 Similarity dan Verifikasi Perusahaan
+|Admin Scope|
+start
+:Buka antrean perusahaan;
+|Backend|
+:Ambil pending sesuai scope;
+:Normalisasi nama, token, akronim, dan lokasi;
+:Hitung exact, token, substring, similar_text, dan geographic score;
+if (Threshold recommendation tercapai?) then (ya)
+  :Tampilkan rekomendasi master;
+else (tidak)
+  :Tampilkan tanpa rekomendasi kuat;
+endif
+|Admin Scope|
+:Pilih verifikasi, edit lalu verifikasi, atau tolak;
+|Backend|
+if (Verifikasi?) then (ya)
+  |Database|
+  :Set status Terverifikasi dan tulis log;
+elseif (Edit lalu verifikasi?) then (ya)
+  |Database|
+  :Simpan field tervalidasi dan status;
+  :Tulis log;
+else (Tolak)
+  |Database|
+  :Set status Ditolak dan tulis log;
+endif
+stop
+@enduml

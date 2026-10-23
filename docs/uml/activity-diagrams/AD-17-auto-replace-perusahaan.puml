@@ -1,0 +1,24 @@
+@startuml
+title AD-17 Auto-Replace Perusahaan Pending
+|Admin Scope|
+start
+:Pilih perusahaan pending dan master target;
+|Backend|
+:Validasi scope, status, dan target;
+if (Valid?) then (ya)
+  |Database|
+  :Mulai transaksi;
+  :Pindahkan biodata.perusahaan_id;
+  :Pindahkan evaluasi dan jawaban tracer terkait;
+  :Hapus pending setelah referensi berpindah;
+  :Simpan audit log;
+  if (Transaksi berhasil?) then (ya)
+    :Commit;
+  else (tidak)
+    :Rollback;
+  endif
+else (tidak)
+  :Kembalikan error;
+endif
+stop
+@enduml
