@@ -35,11 +35,28 @@ class DashboardController extends Controller
     public function tampilkanDashboard(Request $request): Response
     {
         $user = $request->user();
+        $defaultYear = (string) now()->year;
+        $availableYears = DB::table('v_alumni_audit_rekap')
+            ->whereNotNull('tahun_lulus')
+            ->pluck('tahun_lulus')
+            ->filter()
+            ->map(fn ($year): string => (string) $year)
+            ->unique()
+            ->push($defaultYear)
+            ->sortDesc()
+            ->values()
+            ->all();
+        $selectedYear = (string) $request->input('tahun', $defaultYear);
+
+        if (! in_array($selectedYear, $availableYears, true)) {
+            $selectedYear = $defaultYear;
+        }
 
         // 1. Menghitung ringkasan statistik kuesioner dan partisipasi via v_alumni_audit_rekap
         $totalPertanyaan = RefSubpertanyaan2021::count();
         $totalSections = KelompokPertanyaan::count();
         $dashboardAggregate = DB::table('v_alumni_audit_rekap')
+            ->where('tahun_lulus', $selectedYear)
             ->selectRaw('COUNT(*) AS total_alumni')
             ->selectRaw('SUM(CASE WHEN answered_mandatory_univ > 0 THEN 1 ELSE 0 END) AS total_responden')
             ->selectRaw('SUM(CASE WHEN is_profile_complete = 1 THEN 1 ELSE 0 END) AS profile_complete_count')
@@ -77,6 +94,7 @@ class DashboardController extends Controller
 
         // 2. Ringkasan Partisipasi per Program Studi se-Universitas (Single Aggregated Query)
         $statsPerProdi = DB::table('v_alumni_audit_rekap')
+            ->where('tahun_lulus', $selectedYear)
             ->select(
                 'prodi_id',
                 DB::raw('COUNT(*) as total_alumni'),
@@ -108,6 +126,7 @@ class DashboardController extends Controller
 
         // 3. Pratinjau 8 Alumni Terbaru Terdaftar via v_alumni_audit_rekap
         $recentAlumni = DB::table('v_alumni_audit_rekap')
+            ->where('tahun_lulus', $selectedYear)
             ->orderByDesc('biodata_id')
             ->take(8)
             ->get()
@@ -159,6 +178,8 @@ class DashboardController extends Controller
         // 6. Mengembalikan view dasbor Superadmin
         return Inertia::render('SuperAdmin/Dashboard', [
             'user' => $user,
+            'availableYears' => $availableYears,
+            'selectedYear' => $selectedYear,
             'stats' => [
                 'total_pertanyaan' => $totalPertanyaan,
                 'total_sections' => $totalSections,

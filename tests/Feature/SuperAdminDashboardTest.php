@@ -59,6 +59,7 @@ class SuperAdminDashboardTest extends TestCase
             'alamat_saat_ini' => 'Jl. Dr. Wahidin',
             'nik' => '3471012345670002',
             'ip_kumulatif' => 3.80,
+            'tahun_lulus' => now()->year,
             'tahun_akademik_lulus' => 'Genap 2024/2025',
         ]);
 
@@ -81,10 +82,65 @@ class SuperAdminDashboardTest extends TestCase
             ->has('recentLogs')
             ->where('stats.total_alumni', 1)
             ->where('stats.total_prodi', 1)
+            ->where('selectedYear', (string) now()->year)
             ->where('stats.response_rate_status.code', 'red')
             ->where('completionMetrics.population', 1)
             ->where('completionMetrics.profile.percentage', 0)
             ->where('completionMetrics.university_questionnaire.percentage', 0)
+        );
+    }
+
+    public function test_dashboard_filters_alumni_metrics_by_selected_graduation_year(): void
+    {
+        $prodi = Prodi::create([
+            'kode_prodi' => '72',
+            'nama_prodi' => 'Sistem Informasi',
+        ]);
+
+        $superadmin = User::create([
+            'username' => 'superadmin-year-filter',
+            'name' => 'Super Administrator',
+            'password' => Hash::make('password123'),
+            'role' => 'superadmin',
+            'must_change_password' => false,
+        ]);
+
+        $currentYear = now()->year;
+        $previousYear = $currentYear - 1;
+
+        foreach ([$currentYear, $previousYear] as $index => $graduationYear) {
+            $nim = '7220'.str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT);
+            $alumniUser = User::create([
+                'username' => $nim,
+                'name' => 'Alumni '.$graduationYear,
+                'password' => Hash::make('password123'),
+                'role' => 'alumni',
+                'prodi_id' => $prodi->id,
+                'must_change_password' => false,
+            ]);
+
+            DataAkademik::create([
+                'nim' => $nim,
+                'nama' => 'Alumni '.$graduationYear,
+                'tahun_lulus' => $graduationYear,
+            ]);
+
+            Biodata::create([
+                'user_id' => $alumniUser->id,
+                'nim' => $nim,
+                'nama' => 'Alumni '.$graduationYear,
+                'prodi_id' => $prodi->id,
+            ]);
+        }
+
+        $response = $this->actingAs($superadmin)->get('/superadmin/dashboard?tahun='.$previousYear);
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('selectedYear', (string) $previousYear)
+            ->where('stats.total_alumni', 1)
+            ->where('completionMetrics.population', 1)
+            ->where('prodiSummaries.0.total_alumni', 1)
+            ->where('recentAlumni.0.tahun_lulus', $previousYear)
         );
     }
 
@@ -133,6 +189,7 @@ class SuperAdminDashboardTest extends TestCase
                 DataAkademik::create([
                     'nim' => $nim,
                     'nama' => 'Alumni '.$nim,
+                    'tahun_lulus' => now()->year,
                 ]);
 
                 $biodata = Biodata::create([
