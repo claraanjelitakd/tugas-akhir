@@ -63,14 +63,14 @@ const filterStatus = ref('all'); // 'all' | 'responded' | 'not_responded' | 'lin
 
 const responseRateClasses = {
     red: {
-        badge: 'bg-[#F8E2E2] text-[#7F1D1D] border-[#D9A5A5]',
-        text: 'text-[#9B2C2C]',
-        bar: 'bg-[#9B2C2C]',
+        badge: 'bg-rose-50 text-rose-800 border-rose-200',
+        text: 'text-rose-700',
+        bar: 'bg-rose-600',
     },
     yellow: {
-        badge: 'bg-[#F8EDC8] text-[#6A4B00] border-[#D8B642]',
+        badge: 'bg-[#FDC700] text-slate-900 border-[#E6B400]',
         text: 'text-[#8A6500]',
-        bar: 'bg-[#B28A00]',
+        bar: 'bg-[#FDC700]',
     },
     green: {
         badge: 'bg-[#E9F2EC] text-[#0D542B] border-[#B7D5C1]',
@@ -84,7 +84,11 @@ const getResponseRateClass = (code, part) => {
 };
 
 const getCompletionBarClass = (percentage) => {
-    return percentage >= 100 ? 'bg-[#0D542B]' : 'bg-[#B28A00]';
+    if (percentage <= 0) {
+        return 'bg-rose-600';
+    }
+
+    return percentage >= 100 ? 'bg-[#0D542B]' : 'bg-[#FDC700]';
 };
 
 const completionMetricOptions = [
@@ -165,10 +169,8 @@ const filteredAlumni = computed(() => {
 
     <div class="min-h-screen bg-[#f8fafc] text-gray-800 flex font-sans">
         
-        <!-- Sidebar Terpadu Super Admin -->
         <Sidebar :user="user" />
 
-        <!-- Area Konten Utama -->
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             
             <header class="bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
@@ -188,19 +190,17 @@ const filteredAlumni = computed(() => {
                 </div>
             </header>
 
-            <!-- Main Body Area -->
             <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
                 
-                <!-- Ringkasan eksekutif: hanya metrik yang diperlukan untuk keputusan awal -->
                 <div
                     v-if="stats?.total_pending_perusahaan > 0"
-                    class="bg-[#FFF9E8] border-l-4 border-[#B28A00] rounded-r-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    class="bg-white border border-slate-200 border-l-4 border-l-[#FDC700] rounded-r-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                     <div>
-                        <span class="text-xs font-bold text-[#6A4B00] block">
+                        <span class="text-xs font-bold text-slate-800 block">
                             {{ stats.total_pending_perusahaan }} perusahaan menunggu verifikasi
                         </span>
-                        <span class="text-xs text-[#765A12]">
+                        <span class="text-xs text-slate-500">
                             Tinjau pengajuan baru sebelum menyetujui master perusahaan.
                         </span>
                     </div>
@@ -237,7 +237,7 @@ const filteredAlumni = computed(() => {
                     <article class="bg-white rounded-xl p-5 border border-slate-200 min-w-0">
                         <div class="flex items-start justify-between gap-3">
                             <p class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Kelengkapan gabungan</p>
-                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#F8EDC8] text-[#6A4B00] border border-[#D8B642] shrink-0">
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#FDC700] text-slate-900 border border-[#E6B400] shrink-0">
                                 Profil + Univ.
                             </span>
                         </div>
@@ -279,31 +279,27 @@ const filteredAlumni = computed(() => {
 
                 <section class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                     <div class="px-5 sm:px-6 py-5 border-b border-slate-200">
-                        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                            <div>
-                                <h2 class="text-sm font-extrabold text-slate-900">Kelengkapan data</h2>
-                                <p class="text-xs text-slate-500 mt-1">
-                                    Pilih indikator untuk melihat detailnya. Kuesioner prodi tidak dihitung.
-                                </p>
-                            </div>
-                            <div class="inline-flex items-center gap-1 p-1 rounded-lg bg-slate-100 self-start">
-                                <button
-                                    v-for="option in completionMetricOptions"
-                                    :key="option.key"
-                                    type="button"
-                                    @click="activeCompletionMetric = option.key"
-                                    :title="option.description"
-                                    :aria-pressed="activeCompletionMetric === option.key"
-                                    :class="[
-                                        'px-3 py-1.5 rounded-md text-xs font-bold transition-colors',
-                                        activeCompletionMetric === option.key
-                                            ? 'bg-white text-[#0D542B] shadow-2xs'
-                                            : 'text-slate-500 hover:text-slate-800'
-                                    ]"
-                                >
-                                    {{ option.label }}
-                                </button>
-                            </div>
+                        <h2 class="text-sm font-extrabold text-slate-900">Kelengkapan data</h2>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Pilih satu indikator untuk melihat detail. Kuesioner prodi tidak dihitung.
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
+                            <button
+                                v-for="option in completionMetricOptions"
+                                :key="option.key"
+                                type="button"
+                                @click="activeCompletionMetric = option.key"
+                                :title="option.description"
+                                :aria-pressed="activeCompletionMetric === option.key"
+                                :class="[
+                                    'w-full px-3 py-2.5 rounded-lg border text-xs font-bold text-left transition-colors',
+                                    activeCompletionMetric === option.key
+                                        ? 'bg-[#0D542B] text-white border-[#0D542B]'
+                                        : 'bg-white text-slate-600 border-slate-200 hover:border-[#0D542B] hover:text-[#0D542B]'
+                                ]"
+                            >
+                                {{ option.label }}
+                            </button>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-6 p-5 sm:p-6">
@@ -331,10 +327,8 @@ const filteredAlumni = computed(() => {
                     </div>
                 </section>
 
-                <!-- Area Panel Interaktif: Tab Switcher 4 Tab (Prodi, Alumni, Logs, Pending Perusahaan) -->
                 <div class="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
                     
-                    <!-- Tab Header Bar -->
                     <div class="px-6 pt-5 pb-0 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
                         <div class="flex items-center gap-1.5 flex-wrap">
                             <button 
@@ -380,7 +374,7 @@ const filteredAlumni = computed(() => {
                                 :class="[
                                     'px-3.5 py-2.5 text-xs font-bold rounded-t-xl transition-all cursor-pointer border-b-2',
                                     activeTab === 'perusahaan'
-                                        ? 'border-[#B28A00] text-[#6A4B00] bg-white shadow-2xs'
+                                        ? 'border-[#FDC700] text-slate-900 bg-white shadow-2xs'
                                         : 'border-transparent text-slate-500 hover:text-slate-900'
                                 ]"
                             >
@@ -396,10 +390,8 @@ const filteredAlumni = computed(() => {
                         </Link>
                     </div>
 
-                    <!-- TAB KONTEN 1: MATRIKS PARTISIPASI SELURUH PRODI KAMPUS -->
                     <div v-if="activeTab === 'prodi'" class="p-6 space-y-4">
                         
-                        <!-- Filter & Sorting Bar -->
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div class="flex items-center gap-2">
                                 <button 
@@ -423,7 +415,6 @@ const filteredAlumni = computed(() => {
                             </div>
                         </div>
 
-                        <!-- Tabel Partisipasi Prodi Interaktif -->
                         <div class="overflow-x-auto rounded-xl border border-slate-200">
                             <table class="w-full text-left text-xs">
                                 <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
@@ -489,10 +480,8 @@ const filteredAlumni = computed(() => {
                         </div>
                     </div>
 
-                    <!-- TAB KONTEN 2: PRATINJAU ALUMNI TERBARU -->
                     <div v-else-if="activeTab === 'alumni'" class="p-6 space-y-4">
                         
-                        <!-- Toolbar Filter Alumni -->
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div class="flex items-center gap-1.5 flex-wrap">
                                 <button 
@@ -532,7 +521,6 @@ const filteredAlumni = computed(() => {
                             </div>
                         </div>
 
-                        <!-- Tabel Alumni Interaktif -->
                         <div class="overflow-x-auto rounded-xl border border-slate-200">
                             <table class="w-full text-left text-xs">
                                 <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
@@ -570,7 +558,7 @@ const filteredAlumni = computed(() => {
                                             </span>
                                             <span 
                                                 v-else 
-                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F8EDC8] text-[#6A4B00] border border-[#D8B642]"
+                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FDC700] text-slate-900 border border-[#E6B400]"
                                             >
                                                 Belum Mengisi
                                             </span>
@@ -603,7 +591,6 @@ const filteredAlumni = computed(() => {
                         </div>
                     </div>
 
-                    <!-- TAB KONTEN 3: AUDIT TRAIL LOG SISTEM TERKINI -->
                     <div v-else-if="activeTab === 'logs'" class="p-6">
                         <div class="space-y-3">
                             <div 
@@ -637,18 +624,17 @@ const filteredAlumni = computed(() => {
                         </div>
                     </div>
 
-                    <!-- TAB KONTEN 4: ANTREAN ACC PERUSAHAAN -->
                     <div v-else-if="activeTab === 'perusahaan'" class="p-6">
                         <div class="space-y-3">
                             <div 
                                 v-for="c in pendingPerusahaanList" 
                                 :key="c.id" 
-                                class="p-4 rounded-xl border border-[#D8B642] bg-[#F8EDC8] flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#F3E4B4] transition-colors"
+                                class="p-4 rounded-xl border border-[#E6B400] bg-[#FFF8D6] flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FFF1A8] transition-colors"
                             >
                                 <div>
                                     <div class="flex items-center gap-2">
                                         <span class="text-xs font-bold text-slate-900">{{ c.nama }}</span>
-                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E7CF82] text-[#6A4B00] border border-[#D8B642]">
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FDC700] text-slate-900 border border-[#E6B400]">
                                             Menunggu Verifikasi
                                         </span>
                                     </div>
@@ -674,7 +660,6 @@ const filteredAlumni = computed(() => {
 
             </main>
 
-            <!-- Footer -->
             <footer class="text-slate-400 text-xs text-center py-5 border-t border-slate-100">
                 &copy; {{ new Date().getFullYear() }} Universitas Kristen Duta Wacana. Hak Cipta Dilindungi.
             </footer>

@@ -6,6 +6,7 @@
 
 - **Penyederhanaan Dashboard Superadmin**: merangkum metrik utama menjadi response rate, kelengkapan gabungan, dan populasi lulusan; detail kelengkapan kini dipilih melalui tab interaktif; pintasan modul yang berulang dihapus dari area utama agar fokus dashboard lebih jelas.
 - **Penyelarasan visual Dashboard Superadmin**: menggunakan hero hijau UKDW dan pola card responsif dari Direktori Alumni, menghapus label konteks "Otoritas Pusat", serta menata ringkasan menjadi grid card yang nyaman pada layar kecil maupun besar.
+- **Penyempurnaan status dashboard**: mengganti indikator merah dengan palet rose dan indikator kuning dengan kuning resmi UKDW `#FDC700`; panel kelengkapan memakai satu selector yang jelas dan tidak lagi menampilkan pilihan sebagai teks yang berhimpitan.
 
 ## 22 Oktober 2026
 
