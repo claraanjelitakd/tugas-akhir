@@ -165,7 +165,7 @@ tracerstudy/
 │   ├── provinsi.csv                                # Master 38 provinsi di Indonesia
 │   └── kabupaten_kota.csv                          # Master 514 kabupaten/kota di Indonesia
 ├── database/                                       # Skema & Data Awal Database
-│   ├── migrations/                                 # Seluruh riwayat migrasi struktur tabel DDL
+│   ├── migrations/                                 # Satu migration untuk setiap tabel dan view aktif
 │   └── seeders/                                    # Data benih (Seeder - 19 kelas berurutan)
 │       ├── DatabaseSeeder.php                      # Seeder master yang memanggil seluruh seeder
 │       ├── RefFakultasSeeder.php                   # Seeder 7 fakultas UKDW
@@ -396,7 +396,7 @@ Komponen pengisian kuesioner dipecah secara modular untuk memudahkan pemeliharaa
   - **Perlindungan Data Otoritatif & Audit Trail**: NIM, telepon, email pribadi, dan data akademik tidak pernah ditimpa. Jejak sinkronisasi dicatat ke tabel `log_activities`.
 
 - **v2.5 (28 September 2026)**:
-  - **Migrasi Kolom Foto Profil**: Menambahkan kolom `foto` (nullable string) pada tabel `biodata` (`2026_09_28_054830_add_foto_to_biodata_table.php`) yang terhubung ke direktori `public/uploads/profile/`.
+  - **Schema Foto Profil**: Kolom `foto` pada tabel `biodata` tercatat di `database/migrations/2026_09_01_000017_create_biodata_table.php` dan terhubung ke direktori `public/uploads/profile/`.
   - **Refaktor Relasi Yudisium & Skripsi**: Menghubungkan relasi `yudisium()` pada model `Biodata.php` secara eksplisit untuk membaca judul tugas akhir (`judul_ta`), link publikasi karya ilmiah (`url_publikasi`), dan jenis publikasi.
   - **Agregasi Spasial Beranda (`BerandaController.php`)**: Menghitung sebaran wilayah domisili dan karier alumni serta ringkasan per provinsi berisi daftar nama alumni dan daftar nama instansi/perusahaan untuk hover tooltip peta interaktif.
   - **Modularisasi Komponen Landing Page (`resources/js/components/landing/`)**: Memecah halaman landing page menjadi 10 komponen terisolasi (`hero-section.vue`, `alumni-map-section.vue`, `testimonial-slider-section.vue`, `stats-transformation-section.vue`, `sektor-alumni-section.vue`, `career-pillars-section.vue`, `user-guide-section.vue`, `berkas-section.vue`, `blog-section.vue`, `tentang-section.vue`).

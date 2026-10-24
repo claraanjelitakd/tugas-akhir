@@ -208,4 +208,5 @@ Vue components must have a single root element.
 - Setiap perubahan tabel, kolom, foreign key, view, seeder, atau sumber data wajib memperbarui ERD, arsitektur, use case atau user flow yang terdampak serta catatan perubahan.
 - Migrasi fresh-install harus konsisten dengan schema runtime. Untuk database lama, lakukan backfill ke field kanonik sebelum menghapus duplikasi. Jangan menghapus data yang tidak termasuk field yang secara eksplisit diputuskan dihapus.
 - Seeder harus hanya mengisi tabel dan kolom yang masih aktif. Jangan menambahkan kembali field sensitif, tabel orang tua, alias legacy, atau kolom duplikat kontak/domisi.
+- Struktur database aktif disimpan dalam `database/migrations` dengan satu migration untuk setiap tabel atau view. Jangan membuat migration `add`, `refresh`, `backfill`, atau placeholder; perubahan schema harus dirapikan ke migration pembentuk tabel/view yang terkait dan dokumentasi ERD.
 - Sebelum handoff, jalankan `git diff --check`, formatter PHP, test terdekat, dan build frontend jika perubahan frontend atau view Inertia terdampak.

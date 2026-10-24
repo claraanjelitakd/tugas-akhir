@@ -6,7 +6,7 @@
 
 - **Audit dan penyederhanaan skema profil**: menghapus tabel `data_orang_tua`, foreign key `biodata.orang_tua_id`, NIK, No KK, NPWP, serta kolom dosen pembimbing/penguji dari `yudisium`. Data orang tua tidak lagi dibuat oleh seeder dan tidak lagi diekspor ke Excel.
 - **Kanon data profil**: menetapkan `alamat_saat_ini`, `skills`, dan `experience` sebagai field tunggal yang digunakan frontend, backend, LinkedIn Sync, kelengkapan, dan exporter. Alias lama `alamat`, `expert`, dan `minat` tidak lagi dikirim atau disimpan.
-- **Konsistensi view dan test**: memperbarui view profil, autofill, mapping pertanyaan, audit kelengkapan, seeder, dan feature test agar tidak membaca kolom yang sudah dihapus. Migration dibuat kompatibel dengan SQLite untuk test dan MySQL Laragon untuk runtime.
+- **Konsistensi view dan test**: memperbarui view profil, autofill, mapping pertanyaan, audit kelengkapan, seeder, dan feature test agar tidak membaca kolom yang sudah dihapus. Baseline schema dibuat kompatibel dengan SQLite untuk test dan MySQL Laragon untuk runtime.
 
 - **Penyederhanaan Dashboard Superadmin**: merangkum metrik utama menjadi response rate, kelengkapan gabungan, dan populasi lulusan; detail kelengkapan kini dipilih melalui tab interaktif; pintasan modul yang berulang dihapus dari area utama agar fokus dashboard lebih jelas.
 - **Penyelarasan visual Dashboard Superadmin**: menggunakan hero hijau UKDW dan pola card responsif dari Direktori Alumni, menghapus label konteks "Otoritas Pusat", serta menata ringkasan menjadi grid card yang nyaman pada layar kecil maupun besar.
@@ -174,3 +174,4 @@
 - **Bug Fix**: Memperbaiki navbar di halaman *Landing Page* (Tamu) yang menyebabkan *stuck* karena melempar *user* kembali ke \/login\. Tombol kini berubah cerdas menjadi 'Dashboard' dan mengarah ke _dashboard_ masing-masing role.
 - **Keamanan**: Menambahkan konfigurasi \SESSION_EXPIRE_ON_CLOSE=true\ di \.env\ agar sesi/kuki otomatis dihapus saat browser ditutup (menyelesaikan masalah nyangkut login otomatis).
 - **23 Oktober 2026 — Finalisasi kontrak schema profil**: Menjadikan kontak/domisi aktif hanya berada di `biodata`, melakukan backfill aman dari data legacy, membersihkan migrasi dan seeder, serta memperbarui ERD, arsitektur, DFD, user flow, dan dokumentasi view. Field NIK, NPWP, No. KK, tabel orang tua, pembimbing/penguji, dan alias profil legacy tidak lagi dibuat.
+- **24 Oktober 2026 — Penyederhanaan migration**: Merapikan migration historis menjadi satu file untuk setiap 33 tabel aktif dan 7 view aktif. Migration `add`, `refresh`, backfill, dan placeholder tabel orang tua tidak lagi digunakan. Database `tracer_study` dimigrasikan ulang dan diisi ulang melalui seeder.

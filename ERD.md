@@ -114,6 +114,9 @@ erDiagram
 
 ## Catatan migrasi
 
-Migrasi 2026_10_23_141414_finalize_profile_schema_contract melakukan backfill satu kali dari kolom kontak lama ke biodata hanya jika nilai biodata kosong. Setelah itu kolom duplikat dan field sensitif dihapus. Data akademik, jawaban, perusahaan, atasan, LinkedIn, dan audit lain tidak dihapus.
+Struktur aktif dibuat oleh migration di `database/migrations`, dengan satu file
+untuk setiap tabel atau view. Instalasi ulang menggunakan `migrate` lalu
+`db:seed`; tidak ada tabel orang tua, NIK, NPWP, No. KK, atau field
+pembimbing/penguji pada migration aktif.
 
 Database terpisah bernama tracer tidak dikelola aplikasi ini dan tidak disentuh oleh migrasi tracer_study.

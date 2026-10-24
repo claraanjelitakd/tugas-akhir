@@ -439,9 +439,21 @@ class AlumniProfileEnhancementTest extends TestCase
         $this->assertSame('Konsultan Independen', $saved->answer_json['input']);
     }
 
+    /**
+     * Memastikan dropdown bidang pekerjaan memakai sumber pertanyaan yang
+     * disiapkan oleh test, bukan bergantung pada data migration historis.
+     */
     public function test_bidang_pekerjaan_dropdown_saves_to_biodata(): void
     {
-        $question = RefSubpertanyaan2021::where('kode_pertanyaan', 'BIO_BIDANG_DIVISI')->firstOrFail();
+        $question = RefSubpertanyaan2021::create([
+            'kelompok' => 'BIO',
+            'kode_pertanyaan' => 'BIO_BIDANG_DIVISI',
+            'subpertanyaan' => 'Bidang pekerjaan atau divisi',
+            'type' => 'dropdown',
+            'wajib' => 0,
+            'tampil_di' => 'profil',
+            'order' => 91,
+        ]);
 
         RefSubpertanyaanDetil::updateOrCreate(
             ['pertanyaan_id' => $question->id, 'kode_opsi' => '5'],
@@ -454,7 +466,7 @@ class AlumniProfileEnhancementTest extends TestCase
 
         $page = $this->actingAs($this->alumniUser)->get(route('alumni.profile'));
         $page->assertInertia(fn ($assertion) => $assertion
-            ->where('refOptions.BIO_BIDANG_DIVISI.0.option_text', 'Akademik / Pendidikan')
+            ->where('refOptions.BIO_BIDANG_DIVISI.0.option_text', 'Teknologi Informasi')
             ->where('profileQuestions', [])
         );
 

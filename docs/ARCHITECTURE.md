@@ -13,10 +13,14 @@ Dokumen ini menjelaskan struktur antarmuka dan batas akses untuk Superadmin, Adm
 
 - `biodata.alamat_saat_ini` adalah satu-satunya field alamat domisili alumni. Alias runtime `alamat` tidak lagi digunakan; alamat perusahaan tetap berada di tabel `perusahaan`.
 - `biodata.skills` dan `biodata.experience` adalah field kanonik. Alias lama `expert` dan `minat` dihapus dari model, frontend, sinkronisasi LinkedIn, exporter, dan seeder.
-- NIK, No KK, dan NPWP tidak lagi menjadi bagian dari data aplikasi. Kolom fisiknya dihapus melalui migration `2026_10_23_141414_finalize_profile_schema_contract`.
+- NIK, No KK, dan NPWP tidak lagi menjadi bagian dari data aplikasi. Kolom tersebut tidak dibuat pada migration schema aktif.
 - Tabel `data_orang_tua` dan foreign key `biodata.orang_tua_id` tidak ada pada schema aktif karena data orang tua tidak digunakan dalam profil maupun ekspor Excel.
 - Data pembimbing/penguji dihapus dari `yudisium`; judul tugas akhir, tanggal lulus, status lulus, dan publikasi yang masih digunakan tetap dipertahankan.
 - NISN, BPJS, email mahasiswa, dan negara belum dihapus karena masih menjadi bagian dari sumber akademik/integrasi yang tersedia; visibilitasnya tetap dikendalikan oleh payload halaman.
+
+### Kontrak migration schema
+
+Schema runtime untuk instalasi baru disusun dalam `database/migrations` dengan satu migration untuk setiap tabel atau view aktif. Migration historis yang berisi perubahan bertahap, `add`, `refresh`, dan backfill telah dipadatkan ke definisi pembentuk tabel/view final. `php artisan migrate` menjalankan migration tersebut, sedangkan `php artisan db:seed` mengisi data master dan simulasi.
 
 ### Kontrak metrik Dashboard Superadmin
 

@@ -1,9 +1,8 @@
 # Database Views
 
 Dokumen ini adalah kontrak view runtime untuk dashboard, audit kelengkapan,
-autofill kuesioner, dan pemetaan jawaban. DDL aktif dikelola oleh
-database/migrations/2026_10_23_141414_finalize_profile_schema_contract.php.
-SQL dari migrasi lama tidak lagi menjadi referensi runtime.
+autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
+`database/migrations` agar definisi setiap view mudah ditelusuri.
 
 ## View aktif
 
@@ -41,15 +40,12 @@ Pertanyaan yang tidak berlaku tidak dihitung sebagai kekurangan. Jika prodi
 belum memiliki butir, is_complete_prodi bernilai netral dan tidak membuat
 profil dianggap kurang lengkap.
 
-## Perubahan schema
+## Kontrak schema
 
-Migrasi kontrak final melakukan:
-
-1. Menghapus view sementara sebelum perubahan tabel.
-2. Menambahkan kelurahan dan kecamatan ke biodata bila instalasi lama belum memilikinya.
-3. Menyalin data kontak/domisi lama ke biodata hanya ketika nilai biodata masih kosong.
-4. Menghapus kolom duplikat dari data_akademik.
-5. Menghapus field sensitif, relasi tabel orang tua, dan field pembimbing/penguji yang memang sudah diputuskan tidak digunakan.
-6. Membuat ulang seluruh view dengan sumber kanonik.
+Baseline aktif hanya membuat tabel dan view yang digunakan aplikasi. Kontak dan
+domisili berada di `biodata`; data akademik tidak memiliki duplikasi kontak;
+data orang tua, NIK, NPWP, No. KK, dan field pembimbing/penguji tidak dibuat.
+Untuk instalasi baru, `php artisan migrate` menjalankan migration tabel dan view,
+sedangkan `php artisan db:seed` mengisi data awal.
 
 Database lama bernama tracer bukan koneksi aktif aplikasi dan tidak disentuh.
