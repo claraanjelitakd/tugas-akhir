@@ -1,7 +1,7 @@
 <!--
   Halaman Manajemen Akun Pengguna Terpadu (Super Admin)
   File: resources/js/Pages/SuperAdmin/ManajemenAkun/Index.vue
-  
+
   Fitur:
   1. Sunting/Edit Data Pengguna (Email, Nama, Username, Role, Prodi/Fakultas).
   2. Reset Password 1-Klik Otomatis ke Tanggal Lahir (ddmmyyyy) + Kirim Email Konfirmasi ke Email Terdaftar.
@@ -36,110 +36,116 @@ const applyFilters = () => {
     }, { preserveState: true, replace: true });
 };
 
-// Modal Edit User Data
+// ========================================================
+// STATE REAKTIF UNTUK MODAL EDIT PENGGUNA (VUE 3)
+// ========================================================
+// Catatan Belajar: 'ref' membuat variabel reaktif yang dapat dipantau oleh Vue.
+// Ketika nilai 'isEditModalOpen.value' berubah menjadi true, Vue langsung merender popup modal.
+
+// Menentukan apakah modal edit akun pengguna sedang terbuka
+const isEditModalOpen = ref(false);
+// Menyimpan ID pengguna yang datanya sedang disunting
+const editingUserId = ref(null);
+// Objek penampung nilai form edit akun
+const editForm = ref({
+    name: '',
+    email: '',
+    username: '',
+    role: 'alumni',
+    prodi_id: '',
+    fakultas_id: '',
+});
+// Menampung pesan error validasi input
+const editErrors = ref({});
+// Status loading saat request pengiriman sedang berlangsung
+const isSubmitting = ref(false);
+
+/**
+ * Membuka modal edit pengguna dan mengisi form dengan data yang dipilih
+ * Catatan Belajar: Mengisi objek form sebelum membuka modal memastikan pengguna
+ * langsung melihat data lama yang siap disunting.
+ */
 const openEditUserModal = (u) => {
+    editErrors.value = {};
+    editingUserId.value = u.id;
+
     const currentFakultasId = u.fakultas_id || u.prodi?.fakultas_id || u.prodi?.fakultas?.id || '';
 
-    const prodiOptions = props.prodis.map(p => 
-        `<option value="${p.id}" ${p.id == u.prodi_id ? 'selected' : ''}>${p.nama_prodi}</option>`
-    ).join('');
+    editForm.value = {
+        name: u.name || '',
+        email: u.email || '',
+        username: u.username || '',
+        role: u.role || 'alumni',
+        prodi_id: u.prodi_id || '',
+        fakultas_id: currentFakultasId,
+    };
 
-    const fakultasOptions = props.fakultas.map(f => 
-        `<option value="${f.id}" ${f.id == currentFakultasId ? 'selected' : ''}>${f.nama_fakultas}</option>`
-    ).join('');
+    isEditModalOpen.value = true;
+};
 
-    Swal.fire({
-        title: `<span class="text-base font-bold text-slate-900">Edit</span>`,
-        html: `
-            <div class="text-left text-xs space-y-3 pt-1 text-slate-800">
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">Nama Lengkap *</label>
-                    <input id="swal-edit-name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" value="${(u.name || '').replace(/"/g, '&quot;')}" />
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Email Terdaftar (Pribadi) *</label>
-                        <input id="swal-edit-email" type="email" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" value="${u.email || ''}" />
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Username / NIM *</label>
-                        <input id="swal-edit-username" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" value="${u.username || ''}" />
-                    </div>
-                </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Peran (Role)</label>
-                        <select id="swal-edit-role" class="w-full px-2 py-2 border border-slate-300 rounded-lg text-xs bg-white">
-                            <option value="superadmin" ${u.role === 'superadmin' ? 'selected' : ''}>Super Admin</option>
-                            <option value="admin_biro3" ${u.role === 'admin_biro3' ? 'selected' : ''}>Admin Biro 3</option>
-                            <option value="admin_fakultas" ${u.role === 'admin_fakultas' ? 'selected' : ''}>Admin Fakultas</option>
-                            <option value="admin_prodi" ${u.role === 'admin_prodi' ? 'selected' : ''}>Admin Prodi</option>
-                            <option value="alumni" ${u.role === 'alumni' ? 'selected' : ''}>Alumni</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Program Studi</label>
-                        <select id="swal-edit-prodi" class="w-full px-2 py-2 border border-slate-300 rounded-lg text-xs bg-white">
-                            <option value="">-- Pilih Prodi --</option>
-                            ${prodiOptions}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Fakultas</label>
-                        <select id="swal-edit-fakultas" class="w-full px-2 py-2 border border-slate-300 rounded-lg text-xs bg-white">
-                            <option value="">-- Pilih Fakultas --</option>
-                            ${fakultasOptions}
-                        </select>
-                    </div>
-                </div>
-            </div>
-        `,
-        width: '560px',
-        showCancelButton: true,
-        confirmButtonText: 'Simpan Perubahan',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#0D542B',
-        cancelButtonColor: '#6B7280',
-        didOpen: () => {
-            const prodiSelect = document.getElementById('swal-edit-prodi');
-            const fakultasSelect = document.getElementById('swal-edit-fakultas');
-            if (prodiSelect && fakultasSelect) {
-                prodiSelect.addEventListener('change', (e) => {
-                    const selectedProdiId = e.target.value;
-                    const foundProdi = props.prodis.find(p => p.id == selectedProdiId);
-                    if (foundProdi && foundProdi.fakultas_id) {
-                        fakultasSelect.value = foundProdi.fakultas_id;
-                    }
-                });
-            }
-        },
-        preConfirm: () => {
-            const name = document.getElementById('swal-edit-name')?.value?.trim();
-            const email = document.getElementById('swal-edit-email')?.value?.trim();
-            const username = document.getElementById('swal-edit-username')?.value?.trim();
+/**
+ * Menutup modal edit pengguna dan mereset state error
+ */
+const closeEditUserModal = () => {
+    isEditModalOpen.value = false;
+    editingUserId.value = null;
+    editErrors.value = {};
+    isSubmitting.value = false;
+};
 
-            if (!name || !email || !username) {
-                Swal.showValidationMessage('Nama, Email, dan Username wajib diisi.');
-                return false;
-            }
+/**
+ * Menangani perubahan pilihan Program Studi.
+ * Saat Program Studi dipilih, Fakultas yang menaunginya akan otomatis terpilih secara cerdas.
+ */
+const handleProdiChange = () => {
+    if (!editForm.value.prodi_id) return;
+    const foundProdi = props.prodis.find((p) => p.id == editForm.value.prodi_id);
+    if (foundProdi && foundProdi.fakultas_id) {
+        editForm.value.fakultas_id = foundProdi.fakultas_id;
+    }
+};
 
-            return {
-                name,
-                email,
-                username,
-                role: document.getElementById('swal-edit-role')?.value,
-                prodi_id: document.getElementById('swal-edit-prodi')?.value || null,
-                fakultas_id: document.getElementById('swal-edit-fakultas')?.value || null,
-            };
-        }
-    }).then((res) => {
-        if (res.isConfirmed && res.value) {
-            router.put(`/superadmin/manajemen-akun/${u.id}`, res.value, {
-                onSuccess: () => {
-                    Swal.fire('Berhasil!', 'Data akun pengguna telah diperbarui.', 'success');
-                }
+/**
+ * Mengirimkan data pembaruan akun pengguna ke server (Laravel Controller)
+ */
+const submitEditUser = () => {
+    editErrors.value = {};
+
+    // Validasi frontend
+    if (!editForm.value.name.trim()) {
+        editErrors.value.name = 'Nama lengkap wajib diisi.';
+    }
+    if (!editForm.value.email.trim()) {
+        editErrors.value.email = 'Email wajib diisi.';
+    }
+    if (!editForm.value.username.trim()) {
+        editErrors.value.username = 'Username / NIM wajib diisi.';
+    }
+
+    if (Object.keys(editErrors.value).length > 0) {
+        return;
+    }
+
+    isSubmitting.value = true;
+
+    router.put(`/superadmin/manajemen-akun/${editingUserId.value}`, editForm.value, {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeEditUserModal();
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: 'Data akun pengguna telah diperbarui.',
+                timer: 2000,
+                showConfirmButton: false,
             });
-        }
+        },
+        onError: (errs) => {
+            editErrors.value = errs;
+        },
+        onFinish: () => {
+            isSubmitting.value = false;
+        },
     });
 };
 
@@ -347,5 +353,156 @@ const handleResetToDefaultAndNotify = (userData) => {
                 </div>
             </main>
         </div>
+
+        <!-- ======================================================== -->
+        <!-- MODAL TELEPORT VUE 3: SUNTING DATA PENGGUNA -->
+        <!-- ======================================================== -->
+        <Teleport to="body">
+            <div
+                v-if="isEditModalOpen"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+                @click.self="closeEditUserModal"
+                @keydown.esc="closeEditUserModal"
+            >
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+                    <!-- Header Modal -->
+                    <div class="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-gray-900">
+                            Sunting Data Pengguna
+                        </h3>
+                        <button
+                            type="button"
+                            @click="closeEditUserModal"
+                            class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Form Isi Modal -->
+                    <form @submit.prevent="submitEditUser" class="p-6 space-y-4 text-xs">
+                        <!-- Nama Lengkap -->
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">
+                                Nama Lengkap <span class="text-rose-600">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                v-model="editForm.name"
+                                placeholder="Masukkan nama lengkap pengguna..."
+                                class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                :class="editErrors.name ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'"
+                            />
+                            <p v-if="editErrors.name" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ editErrors.name }}
+                            </p>
+                        </div>
+
+                        <!-- Email & Username -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">
+                                    Email Terdaftar (Pribadi) <span class="text-rose-600">*</span>
+                                </label>
+                                <input
+                                    type="email"
+                                    v-model="editForm.email"
+                                    placeholder="nama@email.com"
+                                    class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                    :class="editErrors.email ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'"
+                                />
+                                <p v-if="editErrors.email" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                    {{ editErrors.email }}
+                                </p>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">
+                                    Username / NIM <span class="text-rose-600">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="editForm.username"
+                                    placeholder="Contoh: 71200001"
+                                    class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                    :class="editErrors.username ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'"
+                                />
+                                <p v-if="editErrors.username" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                    {{ editErrors.username }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Peran (Role), Prodi, Fakultas -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Peran (Role)</label>
+                                <select
+                                    v-model="editForm.role"
+                                    class="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                >
+                                    <option value="superadmin">Super Admin</option>
+                                    <option value="admin_biro3">Admin Biro 3</option>
+                                    <option value="admin_fakultas">Admin Fakultas</option>
+                                    <option value="admin_prodi">Admin Prodi</option>
+                                    <option value="alumni">Alumni</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Program Studi</label>
+                                <select
+                                    v-model="editForm.prodi_id"
+                                    @change="handleProdiChange"
+                                    class="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                >
+                                    <option value="">-- Pilih Prodi --</option>
+                                    <option v-for="p in prodis" :key="p.id" :value="p.id">
+                                        {{ p.nama_prodi }}
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Fakultas</label>
+                                <select
+                                    v-model="editForm.fakultas_id"
+                                    class="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                >
+                                    <option value="">-- Pilih Fakultas --</option>
+                                    <option v-for="f in fakultas" :key="f.id" :value="f.id">
+                                        {{ f.nama_fakultas }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Tombol Aksi Bawah -->
+                        <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                @click="closeEditUserModal"
+                                :disabled="isSubmitting"
+                                class="px-3.5 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="isSubmitting"
+                                class="px-4 py-2 text-xs font-semibold text-white bg-[#0D542B] hover:bg-[#08381c] rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 shadow-xs"
+                            >
+                                <svg v-if="isSubmitting" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                <span>{{ isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan' }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>
