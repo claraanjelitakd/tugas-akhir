@@ -3,112 +3,47 @@
 namespace App\Http\Controllers\AdminFakultas\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\Biodata;
-use App\Models\Perusahaan;
-use App\Models\Prodi;
 use App\Models\RefFakultas;
+use App\Services\Dashboard\RoleDashboardDataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * DashboardController (Admin Fakultas)
- *
- * Fungsi:
- * Menampilkan ringkasan metrik partisipasi tracer study, distribusi per prodi dalam fakultas,
- * dan ringkasan data alumni fakultas yang bersangkutan.
+ * Menyajikan dashboard Admin Fakultas dengan tampilan dan kontrak data yang seragam.
  */
 class DashboardController extends Controller
 {
     /**
-     * Tampilkan Dashboard Utama Admin Fakultas
+     * Menampilkan metrik fakultas, ringkasan prodi, dan pratinjau alumni dalam scope fakultas.
      */
-    public function tampilkanDashboard(Request $request): Response
+    public function tampilkanDashboard(Request $request, RoleDashboardDataService $dashboardData): Response
     {
         $user = Auth::user()->load('fakultas');
-        $fakultasId = $user->fakultas_id;
-
-        if (! $fakultasId) {
-            // Jika belum di-set fakultas_id di user, cari dari relasi atau ambil fakultas default
-            $fakultas = RefFakultas::first();
-            $fakultasId = $fakultas?->id;
-        } else {
-            $fakultas = $user->fakultas ?: RefFakultas::find($fakultasId);
-        }
-
-        // Ambil daftar prodi dalam fakultas ini
-        $prodisFakultas = Prodi::where('fakultas_id', $fakultasId)
-            ->orderBy('kode_prodi', 'asc')
-            ->get();
-
-        $prodiIds = $prodisFakultas->pluck('id')->all();
-
-        // Kueri dari Database View v_alumni_audit_rekap
-        $alumniView = DB::table('v_alumni_audit_rekap')
-            ->whereIn('prodi_id', $prodiIds)
-            ->get();
-
-        $totalAlumni = $alumniView->count();
-        $totalSelesai = $alumniView->where('is_complete_total', 1)->count();
-        $persentaseSelesai = $totalAlumni > 0 ? (int) round(($totalSelesai / $totalAlumni) * 100) : 0;
-
-        $totalPendingPerusahaan = Perusahaan::whereIn('created_by_prodi_id', $prodiIds)
-            ->where('status_verifikasi', 'Menunggu Verifikasi')
-            ->count();
-
-        $alumniLinkedIn = Biodata::whereIn('prodi_id', $prodiIds)
-            ->where(function ($q) {
-                $q->whereNotNull('linkedin_url')->where('linkedin_url', '!=', '')
-                    ->orWhereNotNull('linkedin_username')->where('linkedin_username', '!=', '');
-            })->count();
-
-        // Hitung distribusi partisipasi per program studi dalam fakultas
-        $prodiSummaries = $prodisFakultas->map(function ($p) use ($alumniView) {
-            $alumniProdi = $alumniView->where('prodi_id', $p->id);
-            $countProdi = $alumniProdi->count();
-            $selesaiProdi = $alumniProdi->where('is_complete_total', 1)->count();
-            $rate = $countProdi > 0 ? (int) round(($selesaiProdi / $countProdi) * 100) : 0;
-
-            return [
-                'id' => $p->id,
-                'kode_prodi' => $p->kode_prodi,
-                'nama_prodi' => $p->nama_prodi,
-                'total_alumni' => $countProdi,
-                'total_responden' => $selesaiProdi,
-                'response_rate' => $rate,
-            ];
-        });
-
-        // 8 data alumni terbaru dalam fakultas
-        $recentAlumni = $alumniView->sortByDesc('biodata_id')->take(8)->map(function ($item) {
-            return [
-                'id' => $item->biodata_id,
-                'nim' => $item->nim,
-                'nama' => $item->nama ?? 'Mahasiswa',
-                'prodi' => $item->nama_prodi ?? '-',
-                'is_complete' => (bool) $item->is_complete_total,
-                'tahun_lulus' => $item->tahun_lulus ?? '-',
-                'has_linkedin' => ! empty($item->linkedin_url) || ! empty($item->linkedin_username),
-            ];
-        })->values()->all();
+        $fakultas = $user->fakultas ?: RefFakultas::find($user->fakultas_id) ?: RefFakultas::first();
+        $dashboard = $dashboardData->build('fakultas', $fakultas?->id, $request->string('tahun')->toString());
+        $stats = $dashboard['stats'];
 
         return Inertia::render('AdminFakultas/Dashboard', [
             'user' => $user,
             'fakultas' => $fakultas,
-            'prodis' => $prodisFakultas,
-            'prodiSummaries' => $prodiSummaries,
-            'recentAlumni' => $recentAlumni,
-            'stats' => [
-                'total_alumni' => $totalAlumni,
-                'total_selesai' => $totalSelesai,
-                'total_belum_selesai' => max(0, $totalAlumni - $totalSelesai),
-                'persentase_selesai' => $persentaseSelesai,
-                'total_prodi' => $prodisFakultas->count(),
-                'total_pending_perusahaan' => $totalPendingPerusahaan,
-                'alumni_linkedin' => $alumniLinkedIn,
-            ],
+            'availableYears' => $dashboard['availableYears'],
+            'selectedYear' => $dashboard['selectedYear'],
+            'dashboardStats' => $stats,
+            'completionMetrics' => $dashboard['completionMetrics'],
+            'prodiSummaries' => $dashboard['prodiSummaries'],
+            'recentAlumni' => $dashboard['recentAlumni'],
+            'sectionsList' => $dashboard['sectionsList'],
+            'stats' => array_merge($stats, [
+                'total_alumni' => $stats['total_alumni'],
+                'total_selesai' => $dashboard['completionMetrics']['profile_and_university']['completed_count'],
+                'total_belum_selesai' => $stats['total_alumni'] - $dashboard['completionMetrics']['profile_and_university']['completed_count'],
+                'persentase_selesai' => $dashboard['completionMetrics']['profile_and_university']['percentage'],
+                'total_prodi' => $stats['total_prodi'],
+                'total_pending_perusahaan' => $stats['total_pending_perusahaan'],
+                'alumni_linkedin' => $stats['total_linkedin'],
+            ]),
         ]);
     }
 }

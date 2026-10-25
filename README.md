@@ -2,7 +2,16 @@
 
 Dokumentasi sistem tracer study dengan lima role akun: Superadmin, Admin Program Studi, Admin Fakultas, Admin Biro III, dan Alumni. Atasan mengisi evaluasi melalui tautan bertoken; publik mengakses beranda.
 
-Revisi **22 Oktober 2026**. Repository ini memuat kode aplikasi Laravel/Inertia beserta dokumentasinya. Lima role akun dibedakan dari publik serta atasan bertoken.
+Revisi **25 Oktober 2026**. Repository ini memuat kode aplikasi Laravel/Inertia beserta dokumentasinya. Lima role akun dibedakan dari publik serta atasan bertoken.
+
+## Modul Utama Sistem
+
+- **Dashboard Pengelola Terpadu (`RoleDashboard.vue`)**: Antarmuka dashboard bersama untuk Admin Prodi, Admin Fakultas, dan Biro 3 dengan cakupan data yang terisolasi secara otomatis berdasarkan role.
+- **Business Intelligence & Analitik Tracer Study (`/superadmin/analitik`)**:
+  - 18 indikator analitik mandiri (`01_ResponseRate.vue` s.d. `18_WorkLocation.vue`) yang dimuat secara asinkron melalui index hub `AnalyticsChartsPanel.vue`.
+  - Tata letak terintegrasi **`[ Grafik | Data ]`** (`AnalyticsChartCard.vue`) dengan visual ECharts di kiri dan tabel data numerik di kanan, mendukung seleksi dan filter silang dua arah.
+  - Adopsi grafik garis resmi dari Laporan Tracer Study UKDW (Gambar 4.3, 4.6, 4.7, 4.12, dan 4.17 dual-line gap).
+  - Tampilan bersih flat tanpa pola decal tekstur dan memakai warna solid brand emerald `#0D542B`.
 
 ## Diagram konteks dan DFD
 
@@ -29,16 +38,16 @@ Semua kotak, label dan konektor dalam `.drawio` dapat diedit. Diagram 0 memakai 
 | --- | --- |
 | [Panduan aplikasi](PANDUAN_APLIKASI.md) | Struktur aplikasi, modul dan konfigurasi. |
 | [Use case](USE_CASE.md) | Aktor dan kebutuhan fungsional. |
-| [User flow](docs/user-flow.md) | Langkah penggunaan per role. |
-| [ERD](ERD.md) | Relasi dan kamus data. |
+| [User flow](docs/user-flow.md) | Langkah penggunaan per role dan visualisasi analitik. |
+| [ERD](ERD.md) | Relasi tabel database dan kamus data. |
 | [Kuesioner](KUESIONER.md) | Bagian dan percabangan pertanyaan. |
 | [Pemetaan pertanyaan](DAFTAR_PERTANYAAN_MAPPING.md) | Kode pertanyaan dan sumber datanya. |
 | [Activity diagram](docs/activitydiagram.md) | Aktivitas, keputusan dan pemetaan implementasi. |
-| [Database views](docs/database-views.md) | Referensi view dan penggunaannya. |
+| [Database views](docs/database-views.md) | Referensi view analitik dan audit. |
 | [Integrasi LinkedIn](docs/linkedin-mcp-integration.md) | Driver provider dan peninjauan hasil. |
 | [Verifikasi perusahaan](docs/verifikasi-perusahaan-similarity.md) | Algoritma rekomendasi dan konsolidasi. |
 | [Arsitektur admin](docs/ARCHITECTURE.md) | Komponen bersama, halaman lintas-role, route, dan batas data. |
-| [Riwayat perubahan](UPDATE_LOG.md) | Arsip perubahan; bukan spesifikasi runtime terkini. |
+| [Riwayat perubahan](docs/changelog.md) | Arsip dan log pembaruan teknis lengkap. |
 
 ## Sumber dan batas model
 

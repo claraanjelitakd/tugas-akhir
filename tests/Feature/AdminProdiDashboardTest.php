@@ -76,6 +76,7 @@ class AdminProdiDashboardTest extends TestCase
             'alamat_saat_ini' => 'Jl. Dr. Wahidin',
             'ip_kumulatif' => 3.80,
             'tahun_akademik_lulus' => 'Genap 2024/2025',
+            'tahun_lulus' => now()->year,
         ]);
 
         Biodata::create([

@@ -90,6 +90,8 @@ tracerstudy/
 │   │   │   │   │   └── LinkedInSyncController.php      # Orkestrasi sinkronisasi LinkedIn single & batch superadmin
 │   │   │   │   ├── Logs/
 │   │   │   │   │   └── LogAktivitasController.php      # Audit log aktivitas sistem
+│   │   │   │   ├── Analytics/
+│   │   │   │   │   └── TracerAnalyticsController.php   # Controller Business Intelligence & Grafik Universitas (/superadmin/analitik)
 │   │   │   │   └── ManajemenAkunController.php     # Manajemen akun pengguna & pemulihan password email terdaftar (pribadi)
 │   │   │   ├── AdminBiroTiga/                      # Modul Admin Biro III (role: admin_biro3)
 │   │   │   │   ├── Dashboard/
@@ -138,6 +140,10 @@ tracerstudy/
 │   ├── Providers/
 │   │   └── AppServiceProvider.php                  # Konfigurasi layanan global & Driver Resolver LinkedIn via .ENV
 │   └── Services/                                   # Domain Services & Logika Bisnis Terpusat
+│       ├── Analytics/
+│       │   └── TracerAnalyticsService.php          # Kalkulasi metrik agregat 16+2 indikator universitas dari database view
+│       ├── Dashboard/
+│       │   └── RoleDashboardDataService.php        # Penyedia data rekap audit terpadu untuk dashboard multi-role
 │       ├── Alumni/
 │       │   └── AdminAlumniProfileService.php       # Service terpusat penyimpanan & pembacaan profil alumni oleh admin
 │       ├── Export/
@@ -196,14 +202,24 @@ tracerstudy/
 │   ├── js/
 │   │   ├── app.js                                  # Bootstrapper Vue 3, Inertia SPA, & konfigurasi progress bar
 │   │   ├── components/                             # Komponen Reusable Global
+│   │   │   ├── RoleDashboard.vue                   # Template dashboard terpadu untuk Admin Prodi, Fakultas, dan Biro 3
 │   │   │   ├── form/searchable-select.vue          # Dropdown pencarian dinamis (propinsi, kabupaten, prodi)
 │   │   │   ├── landing/                            # Komponen modular landing page (Hero, Map 2-Kolom, Showcase Karya Alumni, Stats, dll)
-│   │   │   └── ui/                                 # Komponen UI global (pigo-loader.vue, dll)
+│   │   │   ├── ui/                                 # Komponen UI global (pigo-loader.vue, dll)
+│   │   │   └── analytics/                          # Modul visualisasi analitik & Business Intelligence
+│   │   │       ├── AnalyticsChartsPanel.vue        # Index Hub router dinamis pemanggil 18 indikator kategori
+│   │   │       ├── AnalyticsChartCard.vue          # Kartu visualisasi terintegrasi mode [ Grafik | Data ]
+│   │   │       ├── AnalyticsEChart.vue             # Wrapper Apache ECharts reaktif
+│   │   │       ├── AnalyticsMap.vue                # Peta choropleth wilayah kerja MapLibre GL
+│   │   │       ├── analyticsChartOptions.js        # Utilitas opsi chart, palet brand, & kalkulasi statistik
+│   │   │       └── categories/                     # 18 Komponen kategori analitik mandiri (01 s.d. 18)
 │   │   └── Pages/                                  # Halaman Tampilan Inertia.js (View Routes)
 │   │       ├── AdminProdi/                         # Antarmuka Admin Program Studi
 │   │       ├── AdminFakultas/                      # Antarmuka Admin Fakultas
 │   │       ├── Alumni/                             # Antarmuka Alumni
 │   │       ├── SuperAdmin/                         # Antarmuka Super Admin Universitas
+│   │       │   └── Analytics/
+│   │       │       └── GrafikUniv.vue              # Halaman Business Intelligence Grafik Universitas (/superadmin/analitik)
 │   │       ├── AdminBiroTiga/                      # Antarmuka Admin Biro III (Kemahasiswaan & Alumni)
 │   │       ├── Otentikasi/                         # Antarmuka Login & Keamanan
 │   │       └── Tamu/                               # Landing page utama publik

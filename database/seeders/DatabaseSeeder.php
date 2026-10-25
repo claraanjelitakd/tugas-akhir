@@ -90,5 +90,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             DashboardScenarioSeeder::class,
         ]);
+
+        // 9. Distribusi data demo khusus untuk menguji analitik lintas wilayah dan status karier
+        $this->call([
+            AnalyticsDemoDistributionSeeder::class,
+        ]);
     }
 }

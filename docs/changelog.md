@@ -2,6 +2,51 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 25 Oktober 2026
+
+- **Modularisasi Komponen Kategori Analitik (18 Berkas Mandiri)**: Memecah visualisasi analitik menjadi 18 komponen kategori mandiri di `resources/js/components/analytics/categories/` (`01_ResponseRate.vue` sampai `18_WorkLocation.vue`). Masing-masing berkas mengelola data, opsi chart, dan tabel datanya secara terisolasi tanpa bergantung pada wrapper generik. Menghapus berkas legacy `SuperAdmin/Analytics/Index.vue`.
+- **Index Hub Dinamis (`AnalyticsChartsPanel.vue`)**: Menggunakan router komponen dinamis berbasis `defineAsyncComponent` untuk me-mount berkas kategori yang aktif dengan *code-splitting lazy loading*, menghemat ukuran unduhan bundle awal.
+- **Penyelarasan Visual Laporan Resmi Tracer Study**:
+  - Mengadopsi grafik garis perbandingan resmi: Gambar 4.3 (Penekanan metode belajar), Gambar 4.6 (Waktu tunggu per prodi dengan ukuran sampel `n`), Gambar 4.7 (Tahapan lamaran dilamar, merespon, wawancara per prodi), Gambar 4.12 (Pendapatan per bulan per prodi), dan Gambar 4.17 (Dual-line gap kompetensi saat lulus vs dibutuhkan).
+  - Mengeliminasi tekstur decal garis-garis (`decal: { show: false }`) untuk tampilan flat yang bersih dan profesional.
+  - Menerapkan warna solid brand emerald (`#0D542B`) untuk kategori sejenis guna menghindari kebingungan visual akibat warna pelangi berlebih.
+- **Tata Letak Terpadu [Grafik | Data] (`AnalyticsChartCard.vue`)**:
+  - Menggantikan 7 tombol toolbar berlebih dengan layout split berdampingan (Grafik di kiri dan Tabel Data terstruktur di kanan).
+  - Menyediakan tombol pemilih mode tampilan: `[ Grafik | Data ]` (default), `[ Grafik ]` (penuh), dan `[ Data ]` (tabel penuh), serta tombol unduh PNG.
+  - Mendukung interaktivitas dua arah: klik baris tabel langsung memicu filter pada grafik, dan klik grafik langsung menyorot baris tabel terkait.
+- **Penyatuan Template Dashboard Admin (`RoleDashboard.vue`)**:
+  - Menyatukan antarmuka dashboard Admin Prodi, Admin Fakultas, dan Biro 3 ke dalam satu komponen template bersama yang dikontrol oleh cakupan role (`RoleDashboardDataService`).
+- **Dokumentasi Kode Komprehensif**: Menambahkan komentar penjelasan pada setiap deklarasi `const`, `computed`, `ref`, dan fungsi di seluruh file komponen frontend analitik tanpa memakai emotikon/emoji.
+
+- **Redesign Business Intelligence Grafik Universitas**: mengganti visual HTML/SVG manual dengan Apache ECharts 6.1 melalui wrapper reusable yang mengelola resize, cleanup, reduced motion, tooltip, click selection, zoom, transisi, dan export.
+- **Interaksi lintas grafik**: menambahkan shared selection, cross-filter, drawer drill-down, reset selection, heatmap jumlah/persentase, serta toolbar reset, PNG, CSV, legend, fullscreen, data, dan metodologi.
+- **Peta MapLibre**: mengganti peta analitik Leaflet pada Grafik Universitas dengan MapLibre GL JS 6.15, choropleth provinsi, zoom/pan, popup, layer toggle, dan cluster lokasi berdasarkan wilayah perusahaan.
+- **Filter tanpa reload Inertia**: menambahkan endpoint JSON `/superadmin/analitik/data` dan `useHttp` dengan debounce, loading state, error state, serta sinkronisasi URL browser.
+- **Cakupan 16 indikator**: menyusun indikator wajib sesuai urutan laporan, memisahkan F15 per prodi dan universitas, serta mempertahankan analitik wilayah dan kelengkapan profil sebagai indikator tambahan.
+- **Audit statistik dan performa**: menambahkan metadata tipe data, missing data, dasar persentase, waktu perhitungan, pencarian/sorting/pagination tabel, dan lazy chunk terpisah untuk ECharts serta MapLibre.
+- **Optimasi view analitik**: memutus dependensi `v_analytics_population` dari `v_alumni_audit_rekap`, memindahkan agregasi jawaban wajib hanya ke `v_analytics_response_rate`, dan menghapus agregasi `MAX(id)` yang redundant karena tabel `tracer` sudah memiliki unique key. Waktu pembentukan payload sampel turun dari sekitar 4–5 detik menjadi 0,18–0,31 detik pada Laragon lokal.
+- **Dimensi studi lanjut**: memperluas `v_analytics_further_study` dari F12 saja menjadi F12, F18b, F18c, dan F18d; service mempertahankan label sumber biaya, perguruan tinggi, program studi, serta tanggal mulai agar nilai antardimensi tidak tercampur.
+
+- **Grafik Universitas terpilah**: `/superadmin/analitik` kini dirender oleh `GrafikUniv.vue` dengan dropdown satu indikator per halaman, filter tahun lulusan, program studi, dan tahun UMP.
+- **Dataset sesuai grafik aktif**: `TracerAnalyticsService::buildUniversityChart()` hanya mengambil kode pertanyaan dan detail yang diperlukan oleh indikator aktif.
+- **Detail analitik**: panel Analisis menampilkan rumus, denominator, median, klasifikasi, dan nama alumni terkait; panel Data menampilkan tabel individu beserta prodi dan perusahaan.
+- **Perbandingan gaji dengan UMP**: aturan tampilan grafik menjadi `gaji >= 1,2 × UMP` provinsi tempat kerja. Record menyimpan ambang, status memenuhi, perusahaan, dan nama alumni.
+- **Cakupan indikator**: menambahkan waktu memperoleh pekerjaan, pendapatan, wilayah kerja berbasis perusahaan, status/IKU 1 awal, hubungan bidang studi, keselarasan tingkat pendidikan, response rate, dan kelengkapan profil. Kuesioner prodi tidak dihitung.
+
+- **Analitik Tracer Study tahap pertama**: menambahkan `/superadmin/analitik` dengan filter tahun lulusan, program studi, dan tahun UMP.
+- **Definisi statistik laporan**: menambahkan median waktu memperoleh pekerjaan dan gaji, rentang P25–P75 untuk waktu, denominator, jumlah responden, serta data yang belum dapat dibandingkan.
+- **Sumber gaji dan lokasi kerja**: menggunakan `biodata.gaji` serta provinsi perusahaan sebagai sumber kanonik; aturan ambang 1,2× UMP dan detail individu dijelaskan pada entri grafik universitas di atas.
+- **Dokumentasi analitik**: memperbarui arsitektur dan user flow untuk menjelaskan pola satu indikator aktif per halaman.
+- **Interaksi Grafik Universitas**: memisahkan halaman menjadi tab Analisis, Grafik, dan Data; daftar individu per kelompok tidak lagi dirender sebagai satu teks panjang; filter peta dan batang membuka tabel detail.
+- **Distribusi demo analitik**: menambahkan `AnalyticsDemoDistributionSeeder` untuk membuat data demo lintas provinsi, gaji di bawah ambang, dan alumni belum bekerja tanpa mengubah alumni non-demo.
+- **View analitik terpilah**: menambahkan view database per indikator untuk populasi, response rate, profil, waktu tunggu, gaji-UMP, wilayah kerja, status pekerjaan, dan F14/F15. Service hanya membaca view indikator aktif agar payload dan pemrosesan request lebih kecil.
+- **Indikator tracer universitas lanjutan**: menambahkan metode pembelajaran, waktu mulai dan cara mencari kerja, funnel lamaran, aktivitas pencarian, jenis tempat kerja, studi lanjut, alasan ketidaksesuaian, serta gap kompetensi. Jawaban lintas butir dibaca dari `v_analytics_tracer_answers` dan setiap indikator mengirim `visual_plan`, ringkasan, seri, dan tabel individu.
+- **Perbaikan sumber grafik nol**: grafik waktu tunggu, F8, F14, dan F15 kembali memakai view khusus sehingga kolom normalisasi tidak hilang saat payload dibentuk.
+- **View lanjutan per indikator**: menambahkan sembilan view khusus untuk metode belajar, waktu/cara mencari kerja, pipeline lamaran, aktivitas pencarian, jenis tempat kerja, studi lanjut, alasan ketidaksesuaian, dan gap kompetensi.
+- **Kombinasi grafik kontekstual**: menambahkan komponen donut, box plot, batang divergen, radar, treemap, heatmap, histogram, funnel, scatter plot, diagram alir, dumbbell, dan peta interaktif; tab Grafik tidak lagi memakai pola batang yang sama untuk seluruh indikator.
+- **Status data kosong**: payload kini membedakan tidak ada populasi, tidak ada jawaban valid, serta pertanyaan yang tidak berlaku atau belum dijawab setelah percabangan.
+- **Distribusi jawaban demo**: data demo memiliki variasi F3, F4, F6/F7/F7A, F8, F10-F16, F17, F21-F27, F502/F506, lima provinsi perusahaan, dan gaji di bawah maupun di atas 1,2× UMP. Bulk upsert menjaga seeding tetap cepat dan hanya menyentuh akun demo.
+
 ## 23 Oktober 2026
 
 - **Audit dan penyederhanaan skema profil**: menghapus tabel `data_orang_tua`, foreign key `biodata.orang_tua_id`, NIK, No KK, NPWP, serta kolom dosen pembimbing/penguji dari `yudisium`. Data orang tua tidak lagi dibuat oleh seeder dan tidak lagi diekspor ke Excel.
@@ -175,3 +220,8 @@
 - **Keamanan**: Menambahkan konfigurasi \SESSION_EXPIRE_ON_CLOSE=true\ di \.env\ agar sesi/kuki otomatis dihapus saat browser ditutup (menyelesaikan masalah nyangkut login otomatis).
 - **23 Oktober 2026 — Finalisasi kontrak schema profil**: Menjadikan kontak/domisi aktif hanya berada di `biodata`, melakukan backfill aman dari data legacy, membersihkan migrasi dan seeder, serta memperbarui ERD, arsitektur, DFD, user flow, dan dokumentasi view. Field NIK, NPWP, No. KK, tabel orang tua, pembimbing/penguji, dan alias profil legacy tidak lagi dibuat.
 - **24 Oktober 2026 — Penyederhanaan migration**: Merapikan migration historis menjadi satu file untuk setiap 33 tabel aktif dan 7 view aktif. Migration `add`, `refresh`, backfill, dan placeholder tabel orang tua tidak lagi digunakan. Database `tracer_study` dimigrasikan ulang dan diisi ulang melalui seeder.
+## 25 Oktober 2026
+
+- Menyamakan dashboard Admin Prodi, Admin Fakultas, dan Biro 3 melalui komponen `RoleDashboard` serta service `RoleDashboardDataService`.
+- Menambahkan filter tahun lulusan, kartu response rate, kelengkapan profil dan kuesioner universitas, ringkasan per prodi, serta pratinjau alumni dengan scope backend masing-masing role.
+- Menyesuaikan pintasan dashboard agar hanya menampilkan route yang tersedia pada role terkait dan memperbarui fixture test tahun kelulusan.

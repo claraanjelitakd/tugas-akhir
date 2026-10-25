@@ -224,6 +224,7 @@ const filteredAlumni = computed(() => {
                     <p class="text-emerald-100/90 text-xs sm:text-sm font-normal mt-1.5 max-w-2xl leading-relaxed">
                         Pantau partisipasi, kelengkapan, dan tindak lanjut utama universitas.
                     </p>
+                    <!-- Navigasi analitik utama agar halaman grafik dapat dibuka langsung dari pusat kendali. -->
                     <div class="mt-5 flex flex-wrap items-center gap-2">
                         <label for="dashboard-year" class="text-xs font-bold text-white">Tahun lulusan</label>
                         <select
@@ -235,6 +236,12 @@ const filteredAlumni = computed(() => {
                         >
                             <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
                         </select>
+                        <Link
+                            href="/superadmin/analitik"
+                            class="inline-flex items-center rounded-lg bg-white px-3 py-2 text-xs font-extrabold text-[#0D542B] transition-colors hover:bg-[#FDC700] focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D542B]"
+                        >
+                            Buka Grafik Universitas
+                        </Link>
                     </div>
                 </div>
             </header>

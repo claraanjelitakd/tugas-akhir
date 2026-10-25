@@ -25,6 +25,7 @@ use App\Http\Controllers\Otentikasi\LoginController;
 use App\Http\Controllers\Otentikasi\LupaKataSandiController;
 use App\Http\Controllers\Otentikasi\UbahKataSandiController;
 use App\Http\Controllers\Shared\LinkedInSyncController;
+use App\Http\Controllers\SuperAdmin\Analytics\TracerAnalyticsController;
 use App\Http\Controllers\SuperAdmin\KelolaAlumni\DaftarAlumniSuperAdminController;
 use App\Http\Controllers\SuperAdmin\KelolaAlumni\DetailAlumniSuperAdminController;
 use App\Http\Controllers\SuperAdmin\KelolaEvaluasiAtasanController;
@@ -271,6 +272,8 @@ Route::middleware('auth')->group(function () {
 
             // Dashboard Utama Superadmin
             Route::get('/superadmin/dashboard', [App\Http\Controllers\SuperAdmin\Dashboard\DashboardController::class, 'tampilkanDashboard'])->name('superadmin.dashboard');
+            Route::get('/superadmin/analitik', [TracerAnalyticsController::class, 'index'])->name('superadmin.analytics.index');
+            Route::get('/superadmin/analitik/data', [TracerAnalyticsController::class, 'data'])->name('superadmin.analytics.data');
 
             // Kelola Butir Pertanyaan, Opsi Jawaban, & Alur Branching Kuesioner (Modular Controllers)
             Route::get('/superadmin/pertanyaan', [DaftarPertanyaanController::class, 'index'])->name('superadmin.pertanyaan.index');

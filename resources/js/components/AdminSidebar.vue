@@ -21,7 +21,7 @@ const roleDefinitions = {
         fallbackName: 'Super Administrator',
         fallbackEmail: 'admin@ukdw.ac.id',
         alumniLabel: 'Data Alumni',
-        capabilities: { universityQuestionnaire: true, prodiQuestionnaire: true, supervisorEvaluation: true, wilayah: true, linkedin: true, company: true, accounts: true, logs: true },
+        capabilities: { universityQuestionnaire: true, prodiQuestionnaire: true, supervisorEvaluation: true, wilayah: true, linkedin: true, company: true, accounts: true, logs: true, analytics: true },
     },
     admin_prodi: {
         dashboard: '/prodi/dashboard',
@@ -71,6 +71,7 @@ const createSections = (role) => {
             label: 'Ringkasan & Analisis',
             items: [
                 createMenuItem('dashboard', definition.dashboard, 'Dashboard Utama', 'home'),
+                ...(capabilities.analytics ? [createMenuItem('analytics', '/superadmin/analitik', 'Grafik Universitas', 'chart')] : []),
                 createMenuItem('alumni', `/${prefix}/alumni`, definition.alumniLabel, 'users'),
                 ...(capabilities.linkedin ? [createMenuItem('linkedin-sync', `/${prefix}/linkedin-sync`, 'Sinkronisasi LinkedIn', 'linkedin')] : []),
             ],
@@ -203,6 +204,7 @@ const handleLogout = () => {
                             <path v-else-if="item.icon === 'document'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             <path v-else-if="item.icon === 'checklist'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                             <path v-else-if="item.icon === 'globe'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <path v-else-if="item.icon === 'chart'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 20V10m7 10V4m7 16v-7" />
                             <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 11-4 0 2 2 0 014 0zM4 19v-2a3 3 0 013-3h10a3 3 0 013 3v2" />
                         </svg>
                         <span class="truncate">{{ item.label }}</span>

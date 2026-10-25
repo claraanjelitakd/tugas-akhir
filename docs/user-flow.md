@@ -444,6 +444,44 @@ Pada halaman profil alumni, alur self-service hanya mengirim dan menampilkan dat
 
 Pada detail admin, hasil evaluasi atasan menampilkan nilai dari kolom \`respon_evaluasi_atasan.nilai\` dan status survei berdasarkan \`evaluasi_atasan.is_submitted\`. Token akses tidak ditampilkan pada detail alumni karena merupakan kredensial tautan survei publik.
 
+## Alur Analitik Superadmin
+
+```mermaid
+flowchart TD
+    A[Superadmin membuka /superadmin/analitik] --> B[Pilih tahun lulusan]
+    B --> C[Pilih satu grafik universitas]
+    C --> D[Pilih semua prodi atau satu prodi]
+    D --> E[Pilih tahun UMP bila grafik pendapatan]
+    E --> R[Frontend mengirim GET JSON tanpa reload halaman]
+    R --> F[Backend mengambil hanya database view indikator aktif]
+    F --> G{Jenis grafik}
+    G -->|Waktu| H[Normalisasi F502/F506 sesuai F504 lalu hitung median]
+    G -->|Gaji| I[Bandingkan gaji dengan 1,2 kali UMP provinsi kerja]
+    G -->|Wilayah| J[Kelompokkan perusahaan berdasarkan provinsi kerja]
+    G -->|Kategori| K[Kelompokkan F8, F14, atau F15]
+    G -->|Tracer lanjutan| P[Pilih view indikator yang dibangun dari jawaban kanonik]
+    P --> Q[Hitung kategori, median, funnel, atau gap kompetensi]
+    H --> L[Bangun payload statistik, metadata, dan detail]
+    I --> L
+    J --> L
+    K --> L
+    Q --> L
+    L --> S[Render kombinasi Apache ECharts atau MapLibre]
+    S --> T{Pengguna berinteraksi}
+    T -->|Hover| U[Tampilkan tooltip jumlah, proporsi, dan N valid]
+    T -->|Klik elemen| V[Cross-filter grafik terkait dan buka drawer]
+    T -->|Zoom atau pan| W[Perbarui viewport tanpa request data]
+    V --> M{Pilih panel}
+    M -->|Analisis| N[Tampilkan temuan otomatis dari statistik aktual]
+    M -->|Data| O[Tampilkan tabel dengan pencarian, sorting, dan pagination]
+```
+
+Halaman `GrafikUniv.vue` hanya memuat satu indikator aktif agar waktu tunggu awal lebih ringan. Enam belas indikator evaluasi wajib disusun mengikuti urutan laporan resmi dan analitik profil/wilayah ditempatkan sebagai tambahan. Setiap indikator memiliki tiga tab: Analisis untuk temuan aktual, Grafik untuk visualisasi yang dirender oleh 18 berkas kategori mandiri di `components/analytics/categories/` via `AnalyticsChartsPanel.vue`, dan Data untuk tabel individu. Setiap kartu visualisasi menggunakan layout terpadu **[ Grafik | Data ]** (`AnalyticsChartCard.vue`) yang menyandingkan visual dan data numerik secara berdampingan dengan seleksi dua arah. Visual mengadopsi grafik garis resmi dari laporan Tracer Study (Gambar 4.3, 4.6, 4.7, 4.12, dan 4.17) serta warna solid brand emerald `#0D542B` tanpa tekstur decal. Donut dibatasi maksimal lima irisan; data numerik memakai histogram, box plot, scatter, atau kurva yang memiliki urutan sah. Kuesioner prodi tidak masuk ke alur grafik universitas.
+
+Pada sisi backend, request memilih satu view analitik sesuai parameter `grafik`. View yang dipakai tidak memuat indikator lain. View indikator lanjutan mengambil jawaban kanonik dari fondasi `v_analytics_tracer_answers` sebelum service menghitung median, kategori, funnel, atau gap kompetensi. Tabel `tracer` menjamin satu record per alumni dan kode pertanyaan, sehingga view tidak lagi melakukan agregasi `MAX(id)`. Status partisipasi wajib hanya dihitung pada `v_analytics_response_rate`, sedangkan indikator lain memakai `v_analytics_population` yang ringan. Endpoint JSON mengembalikan metadata tipe data, N valid, missing data, dasar persentase, dan waktu kalkulasi. Bila tidak ada record, backend mengirim status ketersediaan yang membedakan tidak ada populasi, belum dijawab, dan tidak berlaku karena percabangan.
+
+Untuk indikator studi lanjut, backend membaca F12, F18b, F18c, dan F18d dari `v_analytics_further_study`, lalu menandai setiap jawaban sebagai dimensi sumber biaya, perguruan tinggi, program studi, atau tanggal mulai sebelum agregasi dan cross-filter dibuat.
+
 ## Ringkasan Matriks Akses Peran (RBAC Matrix)
 
 Matriks berikut mencerminkan hak akses aktual berdasarkan middleware peran (`role:superadmin`, `role:admin_biro3`, `role:admin_fakultas`, `role:admin_prodi`, `role:alumni`, dan rute publik) pada aplikasi:

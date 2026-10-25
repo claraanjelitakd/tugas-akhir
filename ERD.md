@@ -112,6 +112,44 @@ erDiagram
 | Jawaban kuesioner prodi | prodi_response | Relasi memakai prodi_question_id. |
 | Hasil LinkedIn | linkedin_sync_results | Staging sampai admin menyetujui. |
 
+## Proyeksi view analitik
+
+View analitik tidak menyimpan entitas bisnis baru. Ketergantungan datanya
+adalah sebagai berikut:
+
+```mermaid
+flowchart LR
+    T[tracer] --> A[v_analytics_tracer_answers]
+    T --> RR[v_analytics_response_rate]
+    B[biodata] --> P[v_analytics_population]
+    D[data_akademik] --> P
+    C[perusahaan] --> P
+    R[propinsi] --> P
+    P --> RR
+    P --> W[v_analytics_wait_time]
+    P --> S[v_analytics_salary_ump]
+    P --> L[v_analytics_work_location]
+    A --> Q1[v_analytics_learning_methods]
+    A --> Q2[v_analytics_job_search_start]
+    A --> Q3[v_analytics_job_search_methods]
+    A --> Q4[v_analytics_application_pipeline]
+    A --> Q5[v_analytics_job_search_activity]
+    A --> Q6[v_analytics_workplace_type]
+    A --> Q7[v_analytics_further_study]
+    A --> Q8[v_analytics_mismatch_reasons]
+    A --> Q9[v_analytics_competency_gap]
+```
+
+Setiap view `Q1` sampai `Q9` hanya memproyeksikan kode pertanyaan milik satu
+indikator. Pemisahan ini menjaga satu request grafik tidak membaca jawaban
+indikator lain, sedangkan `v_analytics_tracer_answers` membaca satu jawaban
+kanonik per alumni dan kode sesuai unique key tabel `tracer`. Perhitungan
+partisipasi wajib dipisahkan ke `v_analytics_response_rate` agar view populasi
+tidak mengagregasi jawaban ketika indikator aktif tidak membutuhkannya. Khusus `Q7`
+(`v_analytics_further_study`) memproyeksikan F12, F18b, F18c, dan F18d agar
+sumber biaya, perguruan tinggi, program studi, serta tanggal mulai tetap dapat
+dibedakan sebagai empat dimensi studi lanjut.
+
 ## Catatan migrasi
 
 Struktur aktif dibuat oleh migration di `database/migrations`, dengan satu file

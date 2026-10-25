@@ -167,3 +167,89 @@ Saat menambah fungsi administrasi yang sama lintas role, gunakan pola berikut:
 ## Autentikasi dan Aset Visual
 
 Alur login, reset password, dan wajib ganti password menggunakan komponen visual bersama `resources/js/components/Otentikasi/AuthBackdrop.vue`. Detail endpoint, batas frontend/backend, aturan komentar komponen, dan organisasi aset tersedia di [arsitektur-autentikasi.md](arsitektur-autentikasi.md).
+### Dashboard Pengelola Berbasis Scope
+
+Dashboard Admin Prodi, Admin Fakultas, dan Biro 3 menggunakan kontrak data yang sama melalui `RoleDashboardDataService` dan komponen Vue `RoleDashboard`. Controller role hanya menentukan scope data dan metadata navigasi, sedangkan service membaca `v_alumni_audit_rekap` untuk menghitung populasi, response rate, kelengkapan profil, kelengkapan kuesioner universitas, ringkasan per prodi, serta pratinjau alumni.
+
+Komponen dashboard menerapkan layout responsif yang sama untuk ketiga role. Tautan pintasan tetap dibatasi berdasarkan route yang tersedia pada role tersebut, sehingga Biro 3 tidak menerima tautan modul yang hanya dimiliki Admin Prodi atau Admin Fakultas. Filter tahun diteruskan sebagai query `tahun` ke dashboard role dan seluruh metrik pada halaman dihitung ulang memakai tahun yang sama.
+
+### Analitik Tracer Study
+
+Halaman analitik Superadmin tersedia pada `/superadmin/analitik` dan dirender oleh `SuperAdmin/Analytics/GrafikUniv.vue`. Dropdown memilih satu indikator universitas dalam satu waktu. Render awal tetap memakai respons Inertia, sedangkan pergantian indikator/filter mengambil JSON dari `/superadmin/analitik/data` melalui `useHttp`. Controller meneruskan kunci grafik ke `TracerAnalyticsService::buildUniversityChart()`, sehingga backend hanya membaca database view dan dataset yang diperlukan oleh grafik aktif tanpa melakukan reload halaman penuh.
+
+Halaman dibagi menjadi tiga tab: Analisis menyusun temuan otomatis dari statistik aktual, Grafik menampilkan visual utama dan pendukung yang saling melakukan cross-filter, sedangkan Data menyediakan pencarian, sorting, dan pagination detail. Klik batang, titik, irisan, treemap, heatmap, Sankey, atau provinsi membuka drawer drill-down tanpa menghilangkan konteks filter. Kuesioner prodi tidak dipakai pada halaman ini; filter program studi hanya membatasi populasi lulusan universitas.
+
+Dataset indikator aktif dibaca melalui view terpisah: `v_analytics_population`,
+`v_analytics_response_rate`, `v_analytics_profile_completion`,
+`v_analytics_wait_time`, `v_analytics_salary_ump`,
+`v_analytics_work_location`, `v_analytics_employment_status`, dan
+`v_analytics_alignment`, dan view indikator lanjutan
+`v_analytics_learning_methods`, `v_analytics_job_search_start`,
+`v_analytics_job_search_methods`, `v_analytics_application_pipeline`,
+`v_analytics_job_search_activity`, `v_analytics_workplace_type`,
+`v_analytics_further_study`, `v_analytics_mismatch_reasons`, serta
+`v_analytics_competency_gap`. Seluruh view indikator lanjutan memakai
+`v_analytics_tracer_answers` sebagai fondasi jawaban kanonik per alumni dan
+kode pertanyaan. Keunikan pasangan `biodata_id` dan `kode_pertanyaan` dijamin
+oleh unique key tabel `tracer`, sehingga view tidak melakukan agregasi
+`MAX(id)` berulang. Service tidak mengambil seluruh jawaban F2–F18 lalu
+memilahnya di PHP. View bukan cache materialisasi, sehingga indeks pada tabel
+sumber tetap menjadi bagian penting dari performa.
+
+`v_analytics_population` hanya membaca identitas, akademik, program studi,
+perusahaan, dan provinsi kerja dari tabel kanonik. Status pernah menjawab
+butir wajib dihitung khusus oleh `v_analytics_response_rate`; indikator lain
+tidak ikut membayar biaya agregasi response rate. Denominator kohort dihitung
+langsung dari `biodata` dan `data_akademik` tanpa memanggil rekap audit prodi.
+
+`v_analytics_further_study` secara khusus mencakup F12, F18b, F18c, dan F18d.
+Service memberi label dimensi sebelum agregasi agar sumber biaya tidak
+tercampur dengan nama perguruan tinggi, program studi, atau tanggal mulai.
+
+Indikator lanjutan memakai komponen visual ringan sesuai bentuk datanya:
+Seluruh visual analitik menggunakan wrapper reusable Apache ECharts 6, bukan
+batang HTML atau SVG statis. Kombinasi mencakup histogram dan box plot native,
+batang divergen, donut maksimal lima kategori, treemap, funnel, scatter,
+radar, custom-series dumbbell, Sankey, heatmap dengan mode jumlah/persentase,
+dan kurva kumulatif. Peta wilayah memakai MapLibre GL JS dengan choropleth,
+zoom, pan, popup, layer toggle, dan marker cluster berbasis centroid provinsi
+perusahaan. Komponen ECharts dan MapLibre dimuat sebagai chunk terpisah agar
+shell halaman, filter, dan metadata dapat dirender lebih dahulu.
+Metadata indikator mencatat tipe data, jumlah missing, dasar persentase, serta
+waktu perhitungan. Seluruh kartu visualisasi dibungkus oleh komponen universal
+`AnalyticsChartCard.vue` dengan tata letak terpadu `[ Grafik | Data ]` (grafik
+di sebelah kiri dan tabel data terstruktur di sebelah kanan), pemilih mode
+tampilan, serta tombol ekspor PNG, mengeliminasi tombol toolbar berlebih.
+Tabel data sampingan mendukung pencarian dan interaksi dua arah dengan grafik
+(klik baris tabel menyorot elemen visual, klik grafik menyorot baris tabel).
+
+Visualisasi 18 indikator dipecah ke berkas mandiri pada direktori
+`resources/js/components/analytics/categories/` (`01_ResponseRate.vue` s.d.
+`18_WorkLocation.vue`) dan dimuat secara asinkron melalui Index Hub
+`AnalyticsChartsPanel.vue`. Grafik garis perbandingan resmi diadopsi sesuai
+laporan Tracer Study (Gambar 4.3 untuk metode belajar, Gambar 4.6 untuk waktu
+tunggu per prodi, Gambar 4.7 untuk tahapan lamaran, Gambar 4.12 untuk pendapatan
+per prodi, dan Gambar 4.17 untuk gap kompetensi). Decal pattern dinonaktifkan
+demi tampilan flat bersih dan warna solid brand `#0D542B` digunakan untuk metrik
+sejenis. Halaman analitik lama `SuperAdmin/Analytics/Index.vue` telah dihapus.
+Saat record kosong, `data_availability` membedakan tidak ada populasi, belum ada
+jawaban valid, dan jawaban yang tidak berlaku akibat percabangan.
+
+`AnalyticsDemoDistributionSeeder` hanya menata akun dengan pola email demo untuk pengujian distribusi wilayah, gaji di bawah ambang, dan alumni belum bekerja. Data alumni non-demo tidak disentuh.
+
+| Indikator | Sumber data | Bentuk visual |
+| --- | --- | --- |
+| Response rate | `v_analytics_response_rate.answered_mandatory_univ` | Bar horizontal per prodi |
+| Waktu memperoleh pekerjaan | `tracer.F502`, `tracer.F504`, `tracer.F506` | Distribusi bucket dan median per prodi |
+| Gaji dibandingkan 1,2× UMP | `biodata.gaji`, `perusahaan.propinsi_id`, `propinsi`, `ump` | Peta wilayah, bar per prodi, daftar memenuhi/belum, tabel individu |
+| Wilayah kerja | `perusahaan.propinsi_id`, `propinsi` | Peta choropleth dan ranking provinsi |
+| Status pekerjaan dan IKU 1 awal | `tracer.F8` | Bar status dan KPI |
+| Hubungan bidang studi | `tracer.F14`, `ref_subpertanyaan_detil` | Bar kategori dan tabel alumni |
+| Keselarasan tingkat pendidikan | `tracer.F15`, `ref_subpertanyaan_detil` | Bar kategori dan tabel alumni |
+| Kelengkapan profil | `v_analytics_population.is_profile_complete` | Bar lengkap/belum lengkap dan tabel alumni |
+
+Grafik pendapatan menggunakan aturan `gaji >= 1,2 × UMP`, bukan sekadar `gaji >= UMP`. Record salary menyimpan nama alumni, NIM, program studi, perusahaan, provinsi, gaji, UMP, ambang pembanding, dan status. Grafik waktu tunggu mengklasifikasikan alumni sebagai lebih cepat, sama dengan, atau lebih lama dari median aktual pada filter aktif.
+
+Perbandingan UMP hanya memakai alumni dengan gaji valid, provinsi tempat kerja, dan nilai UMP pada tahun yang dipilih. Nilai gaji `>= 1,2 × UMP` masuk kategori memenuhi; nilai lain masuk kategori di bawah. Data yang tidak memiliki salah satu komponen tersebut dilaporkan sebagai belum dapat dinilai dan tidak dipaksakan masuk denominator. Median digunakan sebagai statistik pusat gaji dan waktu tunggu; jumlah responden, P25, P75, dan cakupan data tetap ditampilkan agar angka tidak berdiri tanpa konteks.
+
+Istilah “view” dibedakan menjadi tiga lapisan: halaman Inertia untuk satu ruang analitik, komponen Vue untuk satu jenis visual, dan database view untuk satu sumber indikator aktif. Panel penjelasan pada tiap indikator menyampaikan formula, denominator, serta field sumber; tab Data menyediakan baris individu untuk audit hasil agregasi.
