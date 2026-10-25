@@ -256,7 +256,7 @@ const submitQuestionForm = () => {
         prodi_question_section_id: questionForm.value.prodi_question_section_id
             ? parseInt(questionForm.value.prodi_question_section_id, 10)
             : null,
-        code: questionForm.value.code.trim(),
+        code: questionForm.value.code.trim().toUpperCase(),
         type: questionForm.value.type,
         is_required: questionForm.value.is_required,
         question_text: questionForm.value.question_text.trim(),
@@ -408,7 +408,7 @@ const submitOptionForm = () => {
     const payload = {
         question_id: optionForm.value.question_id,
         option_text: optionForm.value.option_text.trim(),
-        code: optionForm.value.code.trim() || null,
+        code: optionForm.value.code.trim().toUpperCase() || null,
         jump_to: optionForm.value.jump_to || null,
         order: optionForm.value.order ? parseInt(optionForm.value.order, 10) : null,
     };
@@ -933,6 +933,7 @@ const handleMoveQuestion = (q, direction) => {
     <Teleport to="body">
         <div
             v-if="isQuestionModalOpen"
+            @click.self="closeQuestionModal"
             class="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
         >
             <div
@@ -1073,7 +1074,7 @@ const handleMoveQuestion = (q, direction) => {
                             :disabled="isSubmittingQuestion"
                             class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
                         >
-                            <span>{{ isEditingQuestion ? 'Simpan Perubahan' : 'Tambah Pertanyaan' }}</span>
+                            <span>{{ isSubmittingQuestion ? 'Menyimpan...' : (isEditingQuestion ? 'Simpan Perubahan' : 'Tambah Pertanyaan') }}</span>
                         </button>
                     </div>
                 </form>
@@ -1087,6 +1088,7 @@ const handleMoveQuestion = (q, direction) => {
     <Teleport to="body">
         <div
             v-if="isOptionModalOpen"
+            @click.self="closeOptionModal"
             class="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
         >
             <div
@@ -1193,7 +1195,7 @@ const handleMoveQuestion = (q, direction) => {
                             :disabled="isSubmittingOption"
                             class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
                         >
-                            <span>{{ isEditingOption ? 'Simpan Perubahan' : 'Tambah Opsi' }}</span>
+                            <span>{{ isSubmittingOption ? 'Menyimpan...' : (isEditingOption ? 'Simpan Perubahan' : 'Tambah Opsi') }}</span>
                         </button>
                     </div>
                 </form>
@@ -1207,6 +1209,7 @@ const handleMoveQuestion = (q, direction) => {
     <Teleport to="body">
         <div
             v-if="isDetailModalOpen && activeDetailQuestion"
+            @click.self="closeDetailModal"
             class="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
         >
             <div
