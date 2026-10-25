@@ -303,23 +303,27 @@ const escapeHtml = (value) => String(value ?? '-')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 
-const openRecommendationDetail = (recommendation) => {
-    const rows = getCompanyDetailFields(recommendation)
-        .map((field) => [
-            '<div style="display:grid;grid-template-columns:170px 1fr;gap:8px;padding:7px 0;border-bottom:1px solid #e2e8f0;text-align:left">',
-                '<span style="color:#64748b;font-size:12px">' + escapeHtml(field.label) + '</span>',
-                '<strong style="color:#0f172a;font-size:12px;word-break:break-word">' + escapeHtml(field.value) + '</strong>',
-            '</div>',
-        ].join(''))
-        .join('');
+// State reaktif untuk visibilitas dan data rincian rekomendasi master perusahaan
+// 1. ref(false) menandai modal dalam kondisi tertutup secara default
+// 2. ref(null) menyimpan referensi objek data perusahaan rekomendasi yang sedang diklik
+const showRecommendationModal = ref(false);
+const activeRecommendation = ref(null);
 
-    Swal.fire({
-        title: 'Detail Rekomendasi Master',
-        html: '<div style="max-height:55vh;overflow:auto">' + rows + '</div>',
-        width: 700,
-        confirmButtonText: 'Tutup',
-        confirmButtonColor: '#0D542B',
-    });
+/**
+ * Membuka modal detail rekomendasi perusahaan master
+ * @param {Object} recommendation Objek perusahaan rekomendasi yang dipilih
+ */
+const openRecommendationDetail = (recommendation) => {
+    activeRecommendation.value = recommendation;
+    showRecommendationModal.value = true;
+};
+
+/**
+ * Menutup modal detail rekomendasi perusahaan master dan membersihkan objek data aktif
+ */
+const closeRecommendationModal = () => {
+    showRecommendationModal.value = false;
+    activeRecommendation.value = null;
 };
 
 // ========================================================
@@ -2096,4 +2100,53 @@ const handleVerifyDirect = (company) => {
             </form>
         </div>
     </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL VUE: DETAIL REKOMENDASI MASTER PERUSAHAAN          -->
+    <!-- ======================================================== -->
+    <Teleport to="body">
+        <div
+            v-if="showRecommendationModal && activeRecommendation"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+            <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-gray-900">Detail Rekomendasi Master</h3>
+                        <p class="text-xs text-gray-500 mt-0.5">Informasi lengkap data profil perusahaan master terdaftar.</p>
+                    </div>
+                    <button
+                        type="button"
+                        @click="closeRecommendationModal"
+                        class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="overflow-y-auto px-6 py-4 divide-y divide-gray-100 text-xs">
+                    <div
+                        v-for="field in getCompanyDetailFields(activeRecommendation)"
+                        :key="field.label"
+                        class="grid grid-cols-[160px_1fr] gap-3 py-2.5"
+                    >
+                        <span class="text-gray-500 font-medium">{{ field.label }}</span>
+                        <strong class="text-gray-900 font-semibold break-words">{{ field.value }}</strong>
+                    </div>
+                </div>
+
+                <div class="px-6 py-3 border-t border-gray-100 bg-gray-50 flex justify-end">
+                    <button
+                        type="button"
+                        @click="closeRecommendationModal"
+                        class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                    >
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+    </Teleport>
 </template>
