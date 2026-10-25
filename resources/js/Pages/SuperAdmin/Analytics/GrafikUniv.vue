@@ -74,6 +74,9 @@ const currentPage = ref(1);
 // Batas jumlah baris data per halaman pada tabel responden (default: 20 baris).
 const rowsPerPage = ref(20);
 
+// Status filter tab kuesioner khusus indikator response rate: 'all', 'sudah', atau 'belum'.
+const statusFilter = ref('all');
+
 // Objek data indikator yang sedang aktif (berisi ringkasan summary, series grafik, dan records detail).
 const chart = computed(() => currentAnalytics.value?.chart || {});
 
@@ -142,8 +145,8 @@ const formatCurrency = (value) => value === null || value === undefined || value
 // Mengambil nilai kategori tunggal dari suatu record untuk sinkronisasi cross-filter lintas visualisasi.
 const recordCategory = (record) => record.answer || record.status || record.comparison || record.method || record.competency || record.kode_pertanyaan || '';
 
-// Menyaring daftar records responden alumni berdasarkan interaksi klik pada grafik, petak treemap, atau wilayah peta.
-const selectedRecords = computed(() => {
+// Menyaring records responden alumni berdasarkan interaksi klik pada grafik sebelum filter status tab diterapkan.
+const selectedRecordsBase = computed(() => {
     let result = records.value;
     const selection = selectedItem.value;
 
@@ -167,6 +170,26 @@ const selectedRecords = computed(() => {
 
     const matchingProdi = result.filter((record) => record.nama_prodi === label);
     return matchingProdi.length ? matchingProdi : result;
+});
+
+// Menghitung jumlah per status kuesioner dari data yang tersaring
+const countSemua = computed(() => selectedRecordsBase.value.length);
+const countSudah = computed(() => selectedRecordsBase.value.filter((record) => record.answered || record.status === 'Sudah Mengisi').length);
+const countBelum = computed(() => selectedRecordsBase.value.filter((record) => !record.answered && record.status !== 'Sudah Mengisi').length);
+
+// Menyaring daftar records responden alumni berdasarkan interaksi klik pada grafik dan tab filter status.
+const selectedRecords = computed(() => {
+    let result = selectedRecordsBase.value;
+
+    if (chart.value.type === 'response_rate' && statusFilter.value !== 'all') {
+        if (statusFilter.value === 'sudah') {
+            result = result.filter((record) => record.answered || record.status === 'Sudah Mengisi');
+        } else if (statusFilter.value === 'belum') {
+            result = result.filter((record) => !record.answered && record.status !== 'Sudah Mengisi');
+        }
+    }
+
+    return result;
 });
 
 // KPI ringkas menyesuaikan statistik aktual indikator aktif.
@@ -194,7 +217,8 @@ const kpiCards = computed(() => {
     if (chart.value.type === 'response_rate') {
         return [
             { label: 'Populasi kohort', value: formatNumber(summary.population, 0), note: 'Alumni pada filter aktif' },
-            { label: 'Responden', value: formatNumber(summary.respondents, 0), note: 'Minimal satu jawaban wajib' },
+            { label: 'Sudah mengisi', value: formatNumber(summary.respondents, 0), note: 'Responden kuesioner universitas' },
+            { label: 'Belum mengisi', value: formatNumber(summary.unanswered ?? (Number(summary.population || 0) - Number(summary.respondents || 0)), 0), note: 'Alumni belum berpartisipasi' },
             { label: 'Response rate', value: formatPercentage(summary.response_rate), note: 'Responden dibagi populasi kohort' },
         ];
     }
@@ -252,6 +276,7 @@ const tableColumns = computed(() => {
     if (chart.value.type === 'salary') return ['Nama', 'NIM', 'Program studi', 'Perusahaan', 'Provinsi', 'Gaji', 'Ambang 1,2 × UMP', 'Status'];
     if (chart.value.type === 'wait_time') return ['Nama', 'NIM', 'Program studi', 'Perusahaan', 'Bulan', 'Perbandingan'];
     if (chart.value.type === 'location') return ['Nama', 'NIM', 'Program studi', 'Perusahaan', 'Provinsi kerja'];
+    if (chart.value.type === 'response_rate') return ['NIM', 'Nama Mahasiswa / Alumni', 'Program Studi', 'Tahun Lulus', 'Status Kuesioner', 'Waktu Respons'];
     if (chart.value.type === 'application_pipeline') return ['Nama', 'NIM', 'Program studi', 'Tahap', 'Jumlah'];
     if (chart.value.type === 'learning_methods') return ['Nama', 'NIM', 'Program studi', 'Metode', 'Skor'];
     if (chart.value.type === 'competency') return ['Nama', 'NIM', 'Program studi', 'Kompetensi', 'Saat lulus', 'Dibutuhkan', 'Gap'];
@@ -263,7 +288,7 @@ const tableCells = (record) => {
     if (chart.value.type === 'salary') return [record.nama, record.nim, record.nama_prodi, record.nama_perusahaan, record.province_name, formatCurrency(record.salary), formatCurrency(record.threshold), record.meets_ump ? 'Memenuhi' : 'Belum memenuhi'];
     if (chart.value.type === 'wait_time') return [record.nama, record.nim, record.nama_prodi, record.nama_perusahaan, `${formatNumber(record.months)} bulan`, record.comparison];
     if (chart.value.type === 'location') return [record.nama, record.nim, record.nama_prodi, record.nama_perusahaan, record.province_name];
-    if (chart.value.type === 'response_rate') return [record.nama, record.nim, record.nama_prodi, record.answered ? 'Mengisi' : 'Belum mengisi'];
+    if (chart.value.type === 'response_rate') return [record.nim, record.nama, record.nama_prodi, record.tahun_lulus || '', record.answered ? 'Sudah Mengisi' : 'Belum Mengisi', record.last_response_at || '-'];
     if (chart.value.type === 'application_pipeline') return [record.nama, record.nim, record.nama_prodi, record.kode_pertanyaan, formatNumber(record.value)];
     if (chart.value.type === 'learning_methods') return [record.nama, record.nim, record.nama_prodi, record.method, formatNumber(record.score, 2)];
     if (chart.value.type === 'competency') return [record.nama, record.nim, record.nama_prodi, record.competency, formatNumber(record.graduation_score, 2), formatNumber(record.need_score, 2), formatNumber(record.gap, 2)];
@@ -275,7 +300,13 @@ const tableRows = computed(() => {
     const query = tableSearch.value.trim().toLowerCase();
     const rows = selectedRecords.value
         .map((record) => ({ record, cells: tableCells(record) }))
-        .filter((row) => !query || row.cells.some((cell) => String(cell ?? '').toLowerCase().includes(query)));
+        .filter((row) => {
+            if (!query) return true;
+            const inCells = row.cells.some((cell) => String(cell ?? '').toLowerCase().includes(query));
+            const inContact = String(row.record.email ?? '').toLowerCase().includes(query)
+                || String(row.record.nomor_telepon ?? '').toLowerCase().includes(query);
+            return inCells || inContact;
+        });
 
     return rows.sort((left, right) => {
         const leftValue = left.cells[sortColumn.value] ?? '';
@@ -325,6 +356,7 @@ const loadAnalytics = async (chartKey = selectedChartKey.value) => {
             selectedUmpYear.value = String(data.filters?.selected_ump_year || selectedUmpYear.value);
             selectedItem.value = null;
             selectedProvince.value = null;
+            statusFilter.value = 'all';
             drawerOpen.value = false;
             currentPage.value = 1;
             syncBrowserUrl(data.selected_chart);
@@ -341,21 +373,25 @@ const loadAnalytics = async (chartKey = selectedChartKey.value) => {
 };
 
 // Menjadwalkan pengambilan data dengan jeda waktu singkat (debounce) agar tidak mengirim request berlebihan.
-const scheduleLoad = (chartKey = selectedChartKey.value) => {
+const scheduleLoad = (chartKey = selectedChartKey.value, immediate = false) => {
     window.clearTimeout(filterTimer);
-    filterTimer = window.setTimeout(() => loadAnalytics(chartKey), 240);
+    if (immediate) {
+        loadAnalytics(chartKey);
+    } else {
+        filterTimer = window.setTimeout(() => loadAnalytics(chartKey), 40);
+    }
 };
 
-// Menangani pergantian indikator dari dropdown pilihan grafik dan memicu pengambilan data baru.
+// Menangani pergantian indikator dari dropdown pilihan grafik dan memicu pengambilan data baru secara langsung.
 const changeChart = (event) => {
     selectedChartKey.value = event.target.value;
     activePanel.value = 'charts';
-    scheduleLoad(selectedChartKey.value);
+    scheduleLoad(selectedChartKey.value, true);
 };
 
 // Menangani aksi klik pada elemen data grafik untuk menyaring data responden dan membuka panel Drawer.
 const selectSeriesItem = (item) => {
-    if (!item?.label) {
+    if (!item?.label || item?.label === 'Tanpa kategori') {
         selectedItem.value = null;
         drawerOpen.value = false;
         return;
@@ -371,10 +407,57 @@ const selectProvince = (province) => {
     drawerOpen.value = Boolean(selectedProvince.value);
 };
 
+// Memformat nomor telepon alumni untuk tautan WhatsApp resmi tanpa karakter non-angka
+const formatWhatsAppUrl = (record) => {
+    const raw = String(record.nomor_telepon || '').replace(/\D/g, '');
+    if (!raw) return '';
+    const formatted = raw.startsWith('0') ? '62' + raw.slice(1) : (raw.startsWith('62') ? raw : '62' + raw);
+    const text = encodeURIComponent(`Halo ${record.nama || 'Alumni'}, kami dari Biro Alumni Tracer Study UKDW mengingatkan untuk mengisi kuesioner tracer study. Mohon kesediaannya untuk berpartisipasi. Terima kasih.`);
+    return `https://wa.me/${formatted}?text=${text}`;
+};
+
+// Memformat tautan email pengingat alumni
+const formatEmailUrl = (record) => {
+    if (!record.email) return '';
+    const subject = encodeURIComponent('Tracer Study UKDW');
+    const body = encodeURIComponent(`Halo ${record.nama || 'Alumni'},\n\nKami dari Biro Alumni Tracer Study UKDW memohon kesediaan Anda untuk melengkapi kuesioner Tracer Study.\n\nTerima kasih.`);
+    return `mailto:${record.email}?subject=${subject}&body=${body}`;
+};
+
+// Mendapatkan URL detail alumni dan kuesioner
+const detailUrl = (record) => `/superadmin/alumni/${record.biodata_id || record.user_id}`;
+
+// Mengunduh file Excel dengan status dan program studi tersaring
+const downloadFilteredExcel = () => {
+    const params = new URLSearchParams({
+        tahun: selectedYear.value,
+        status: statusFilter.value === 'sudah' ? 'sudah' : (statusFilter.value === 'belum' ? 'belum' : 'all'),
+    });
+    if (selectedProdiId.value) params.set('prodi_id', selectedProdiId.value);
+    window.location.href = `/superadmin/analitik/export-response-rate?${params.toString()}`;
+};
+
+// Mengunduh file Excel lengkap 3-sheet (Ringkasan, Sudah Mengisi, Belum Mengisi)
+const downloadFullWorkbook = () => {
+    const params = new URLSearchParams({
+        tahun: selectedYear.value,
+        status: 'all',
+    });
+    if (selectedProdiId.value) params.set('prodi_id', selectedProdiId.value);
+    window.location.href = `/superadmin/analitik/export-response-rate?${params.toString()}`;
+};
+
 // Mengalihkan tampilan ke tab Data Responden dengan tetap mempertahankan filter yang sedang aktif.
-const showDataPanel = () => {
+const showDataPanel = (filterInfo = null) => {
     activePanel.value = 'data';
     drawerOpen.value = false;
+    if (filterInfo) {
+        if (typeof filterInfo === 'string') {
+            tableSearch.value = filterInfo;
+        } else if (filterInfo?.label) {
+            tableSearch.value = filterInfo.label;
+        }
+    }
 };
 
 // Membuka bagian metodologi perhitungan indikator dan melakukan scroll halus ke elemen tersebut.
@@ -401,7 +484,7 @@ const resetGlobalFilters = () => {
     scheduleLoad();
 };
 
-watch([tableSearch, rowsPerPage], () => { currentPage.value = 1; });
+watch([tableSearch, rowsPerPage, statusFilter], () => { currentPage.value = 1; });
 watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.value = pageCount.value; });
 </script>
 
@@ -481,7 +564,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                             <span>{{ selectedProdiId ? currentAnalytics.filters?.prodis?.find((item) => String(item.id) === selectedProdiId)?.nama : 'Seluruh program studi' }}</span>
                         </div>
                     </div>
-                    <dl v-if="hasChartData" class="mt-6 grid gap-px overflow-hidden bg-slate-200 sm:grid-cols-2 xl:grid-cols-4">
+                    <dl v-if="hasChartData" class="mt-6 grid gap-px overflow-hidden bg-slate-200 sm:grid-cols-2" :class="kpiCards.length === 3 ? 'xl:grid-cols-3' : 'xl:grid-cols-4'">
                         <div v-for="card in kpiCards" :key="card.label" class="bg-white p-4 sm:p-5">
                             <dt class="text-xs font-bold uppercase tracking-wide text-slate-500">{{ card.label }}</dt>
                             <dd class="mt-2 text-2xl font-extrabold text-[#0D542B]">{{ card.value }}</dd>
@@ -551,41 +634,262 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                         </template>
                     </Suspense>
 
-                    <!-- Data table tetap tersedia sebagai lapisan detail dengan pencarian dan pagination. -->
-                    <section v-else class="bg-white p-5 shadow-sm sm:p-6">
+                    <!-- Data table lapisan detail dengan format formal, tab filter status, dan aksi kontak. -->
+                    <section v-else class="bg-white p-5 shadow-sm sm:p-6 rounded-lg border border-slate-200">
                         <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
                             <div>
-                                <p class="text-xs font-bold uppercase tracking-wide text-[#0D542B]">Detail data</p>
-                                <h2 class="mt-1 text-xl font-extrabold">{{ formatNumber(tableRows.length, 0) }} baris sesuai filter</h2>
-                                <p class="mt-1 text-sm text-slate-500">Data individu hanya ditampilkan kepada role yang berwenang.</p>
+                                <p class="text-xs font-bold uppercase tracking-wide text-[#0D542B]">Detail data responden</p>
+                                <h2 class="mt-1 text-xl font-extrabold text-slate-900">{{ formatNumber(tableRows.length, 0) }} baris data sesuai filter</h2>
+                                <p class="mt-1 text-sm text-slate-500">Data kuesioner individual terhubung langsung dengan profil master alumni.</p>
                             </div>
-                            <div class="grid gap-2 sm:grid-cols-[minmax(14rem,22rem)_7rem]">
-                                <label class="text-xs font-bold text-slate-500">Cari data
-                                    <input v-model="tableSearch" type="search" class="mt-1 block w-full rounded bg-slate-100 px-3 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#0D542B]" placeholder="Nama, NIM, prodi, perusahaan" />
-                                </label>
-                                <label class="text-xs font-bold text-slate-500">Per halaman
-                                    <select v-model="rowsPerPage" class="mt-1 block w-full rounded bg-slate-100 px-3 py-2.5 text-sm font-bold outline-none">
-                                        <option :value="10">10</option><option :value="20">20</option><option :value="50">50</option>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button
+                                    v-if="chart.type === 'response_rate'"
+                                    type="button"
+                                    class="inline-flex items-center gap-1.5 rounded-lg bg-[#0D542B] px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#0A4322] transition-colors"
+                                    @click="downloadFilteredExcel"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    <span>Download Excel Sesuai Pilihan</span>
+                                </button>
+                                <button
+                                    v-if="chart.type === 'response_rate'"
+                                    type="button"
+                                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                                    @click="downloadFullWorkbook"
+                                >
+                                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <span>Excel 3 Sheet (Lengkap)</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tab status kuesioner khusus indikator response rate -->
+                        <div v-if="chart.type === 'response_rate'" class="mt-5 flex border-b border-slate-200 text-sm">
+                            <button
+                                type="button"
+                                class="px-4 py-2.5 text-xs font-bold transition-colors border-b-2"
+                                :class="statusFilter === 'all' ? 'border-[#0D542B] text-[#0D542B]' : 'border-transparent text-slate-500 hover:text-slate-800'"
+                                @click="statusFilter = 'all'; currentPage = 1"
+                            >
+                                Semua ({{ formatNumber(countSemua, 0) }})
+                            </button>
+                            <button
+                                type="button"
+                                class="px-4 py-2.5 text-xs font-bold transition-colors border-b-2"
+                                :class="statusFilter === 'sudah' ? 'border-[#0D542B] text-[#0D542B]' : 'border-transparent text-slate-500 hover:text-slate-800'"
+                                @click="statusFilter = 'sudah'; currentPage = 1"
+                            >
+                                Sudah Mengisi ({{ formatNumber(countSudah, 0) }})
+                            </button>
+                            <button
+                                type="button"
+                                class="px-4 py-2.5 text-xs font-bold transition-colors border-b-2"
+                                :class="statusFilter === 'belum' ? 'border-[#0D542B] text-[#0D542B]' : 'border-transparent text-slate-500 hover:text-slate-800'"
+                                @click="statusFilter = 'belum'; currentPage = 1"
+                            >
+                                Belum Mengisi ({{ formatNumber(countBelum, 0) }})
+                            </button>
+                        </div>
+
+                        <!-- Bar pencarian dan filter aktif -->
+                        <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div class="flex-1 max-w-md">
+                                <label class="sr-only">Cari alumni</label>
+                                <div class="relative">
+                                    <input
+                                        v-model="tableSearch"
+                                        type="search"
+                                        class="block w-full rounded-lg border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-[#0D542B] focus:bg-white focus:ring-1 focus:ring-[#0D542B]"
+                                        placeholder="Cari nama, NIM, atau program studi..."
+                                    />
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-xs text-slate-500 flex items-center gap-2">
+                                    <span>Per halaman:</span>
+                                    <select v-model="rowsPerPage" class="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold outline-none focus:border-[#0D542B]">
+                                        <option :value="10">10</option>
+                                        <option :value="20">20</option>
+                                        <option :value="50">50</option>
+                                        <option :value="100">100</option>
                                     </select>
                                 </label>
                             </div>
                         </div>
-                        <div v-if="selectedItem || selectedProvince" class="mt-4 flex flex-wrap items-center justify-between gap-2 bg-[#FFF7CC] p-3 text-sm text-[#0D542B]">
-                            <span>Filter grafik: <strong>{{ selectedProvince?.province_name || selectedItem?.label }}</strong></span>
-                            <button type="button" class="font-bold underline" @click="selectedItem = null; selectedProvince = null">Hapus filter</button>
+
+                        <!-- Banner filter aktif dari interaksi grafik -->
+                        <div v-if="selectedItem || selectedProvince" class="mt-3 flex items-center justify-between rounded-lg bg-emerald-50 px-3.5 py-2 text-xs text-emerald-900 border border-emerald-200">
+                            <span>Filter grafik aktif: <strong>{{ selectedProvince?.province_name || selectedItem?.label }}</strong></span>
+                            <button type="button" class="font-bold underline hover:text-emerald-700" @click="selectedItem = null; selectedProvince = null">Hapus filter grafik</button>
                         </div>
-                        <div class="mt-5 overflow-x-auto">
-                            <table class="min-w-full text-left text-sm">
-                                <thead><tr class="bg-slate-100"><th v-for="(column, index) in tableColumns" :key="column" class="whitespace-nowrap px-3 py-3"><button type="button" class="font-bold text-slate-700" @click="sortTable(index)">{{ column }} <span v-if="sortColumn === index">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span></button></th></tr></thead>
-                                <tbody>
-                                    <tr v-for="(row, index) in paginatedRows" :key="row.record.biodata_id ? `${row.record.biodata_id}-${index}` : index" class="border-b border-slate-100 hover:bg-slate-50"><td v-for="(cell, cellIndex) in row.cells" :key="cellIndex" class="whitespace-nowrap px-3 py-3 text-slate-600">{{ cell }}</td></tr>
-                                    <tr v-if="!paginatedRows.length"><td :colspan="tableColumns.length" class="px-3 py-10 text-center text-slate-500">Tidak ada data yang cocok dengan pencarian dan filter aktif.</td></tr>
+
+                        <!-- Tabel data detail -->
+                        <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+                            <!-- Tabel Terstruktur Khusus Response Rate -->
+                            <table v-if="chart.type === 'response_rate'" class="min-w-full text-left text-xs divide-y divide-slate-200">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-700 font-semibold">
+                                        <th class="px-3 py-3 text-center w-12">No</th>
+                                        <th class="px-3 py-3 cursor-pointer hover:bg-slate-200" @click="sortTable(0)">
+                                            NIM <span v-if="sortColumn === 0">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                                        </th>
+                                        <th class="px-3 py-3 cursor-pointer hover:bg-slate-200" @click="sortTable(1)">
+                                            Nama Mahasiswa / Alumni <span v-if="sortColumn === 1">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                                        </th>
+                                        <th class="px-3 py-3 cursor-pointer hover:bg-slate-200" @click="sortTable(2)">
+                                            Program Studi <span v-if="sortColumn === 2">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                                        </th>
+                                        <th class="px-3 py-3 text-center cursor-pointer hover:bg-slate-200" @click="sortTable(3)">
+                                            Tahun Lulus <span v-if="sortColumn === 3">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                                        </th>
+                                        <th class="px-3 py-3 text-center cursor-pointer hover:bg-slate-200" @click="sortTable(4)">
+                                            Status Kuesioner <span v-if="sortColumn === 4">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                                        </th>
+                                        <th class="px-3 py-3 text-center cursor-pointer hover:bg-slate-200" @click="sortTable(5)">
+                                            Waktu Respons <span v-if="sortColumn === 5">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                                        </th>
+                                        <th class="px-3 py-3 text-center w-28">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    <tr
+                                        v-for="(row, index) in paginatedRows"
+                                        :key="row.record.biodata_id ? `alumni-${row.record.biodata_id}` : index"
+                                        class="hover:bg-slate-50 transition-colors"
+                                    >
+                                        <td class="px-3 py-2.5 text-center text-slate-400 font-mono">
+                                            {{ (currentPage - 1) * rowsPerPage + index + 1 }}
+                                        </td>
+                                        <td class="px-3 py-2.5 font-mono text-slate-700 whitespace-nowrap">
+                                            {{ row.record.nim }}
+                                        </td>
+                                        <td class="px-3 py-2.5 font-semibold text-slate-800 whitespace-nowrap">
+                                            {{ row.record.nama }}
+                                        </td>
+                                        <td class="px-3 py-2.5 text-slate-600 whitespace-nowrap">
+                                            {{ row.record.nama_prodi }}
+                                        </td>
+                                        <td class="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">
+                                            {{ row.record.tahun_lulus }}
+                                        </td>
+                                        <td class="px-3 py-2.5 text-center whitespace-nowrap">
+                                            <span
+                                                v-if="row.record.answered || row.record.status === 'Sudah Mengisi'"
+                                                class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                            >
+                                                Sudah Mengisi
+                                            </span>
+                                            <span
+                                                v-else
+                                                class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"
+                                            >
+                                                Belum Mengisi
+                                            </span>
+                                        </td>
+                                        <td class="px-3 py-2.5 text-center text-slate-500 whitespace-nowrap font-mono text-[11px]">
+                                            {{ row.record.last_response_at || '-' }}
+                                        </td>
+                                        <td class="px-3 py-2.5 text-center whitespace-nowrap">
+                                            <div class="inline-flex items-center justify-center gap-1">
+                                                <!-- Detail Profil & Kuesioner -->
+                                                <Link
+                                                    :href="detailUrl(row.record)"
+                                                    class="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                                    title="Lihat Detail Alumni & Kuesioner"
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                </Link>
+
+                                                <!-- WhatsApp -->
+                                                <a
+                                                    v-if="row.record.nomor_telepon"
+                                                    :href="formatWhatsAppUrl(row.record)"
+                                                    target="_blank"
+                                                    class="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                                    title="Hubungi via WhatsApp"
+                                                >
+                                                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
+                                                    </svg>
+                                                </a>
+
+                                                <!-- Email -->
+                                                <a
+                                                    v-if="row.record.email"
+                                                    :href="formatEmailUrl(row.record)"
+                                                    class="p-1.5 text-slate-600 hover:text-sky-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                                    title="Kirim Email Pengingat"
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                    </svg>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr v-if="!paginatedRows.length">
+                                        <td colspan="8" class="px-3 py-10 text-center text-slate-500">
+                                            Tidak ada data alumni yang cocok dengan pencarian dan filter aktif.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <!-- Tabel Generik untuk Indikator Lainnya -->
+                            <table v-else class="min-w-full text-left text-xs divide-y divide-slate-200">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-700 font-semibold">
+                                        <th v-for="(column, index) in tableColumns" :key="column" class="whitespace-nowrap px-3 py-3">
+                                            <button type="button" class="font-bold text-slate-700 hover:text-slate-900" @click="sortTable(index)">
+                                                {{ column }} <span v-if="sortColumn === index">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                                            </button>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    <tr v-for="(row, index) in paginatedRows" :key="row.record.biodata_id ? `${row.record.biodata_id}-${index}` : index" class="hover:bg-slate-50 transition-colors">
+                                        <td v-for="(cell, cellIndex) in row.cells" :key="cellIndex" class="whitespace-nowrap px-3 py-2.5 text-slate-600">
+                                            {{ cell }}
+                                        </td>
+                                    </tr>
+                                    <tr v-if="!paginatedRows.length">
+                                        <td :colspan="tableColumns.length" class="px-3 py-10 text-center text-slate-500">
+                                            Tidak ada data yang cocok dengan pencarian dan filter aktif.
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
-                        <div class="mt-4 flex items-center justify-between gap-3 text-sm text-slate-600">
-                            <span>Halaman {{ currentPage }} dari {{ pageCount }}</span>
-                            <div class="flex gap-2"><button type="button" class="rounded bg-slate-100 px-3 py-2 font-bold disabled:opacity-40" :disabled="currentPage <= 1" @click="currentPage--">Sebelumnya</button><button type="button" class="rounded bg-slate-100 px-3 py-2 font-bold disabled:opacity-40" :disabled="currentPage >= pageCount" @click="currentPage++">Berikutnya</button></div>
+
+                        <!-- Paginasi Tabel -->
+                        <div class="mt-4 flex items-center justify-between gap-3 text-xs text-slate-600">
+                            <span>Halaman {{ currentPage }} dari {{ pageCount }} (Total {{ formatNumber(tableRows.length, 0) }} baris)</span>
+                            <div class="flex gap-2">
+                                <button
+                                    type="button"
+                                    class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                                    :disabled="currentPage <= 1"
+                                    @click="currentPage--"
+                                >
+                                    Sebelumnya
+                                </button>
+                                <button
+                                    type="button"
+                                    class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                                    :disabled="currentPage >= pageCount"
+                                    @click="currentPage++"
+                                >
+                                    Berikutnya
+                                </button>
+                            </div>
                         </div>
                     </section>
                 </template>

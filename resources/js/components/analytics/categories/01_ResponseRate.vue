@@ -2,296 +2,476 @@
 /**
  * Komponen Indikator 01: Response Rate Universitas dan Program Studi.
  *
- * Mengelola seluruh visualisasi dan tabel data partisipasi responden secara mandiri:
- * 1. Grouped Bar: Perbandingan Populasi Target vs Responden Mengisi per Prodi
- * 2. Bar Chart: Response Rate (%) per Program Studi (1 warna solid terurut)
- * 3. Heatmap: Pola Antarprogram Studi
+ * Menyajikan visualisasi analitik interaktif 2-tone (Emerald Green & Amber Gold):
+ * 1. Visualisasi 1: 100% Stacked Horizontal Bar Chart (Sudah vs Belum per program studi)
+ * 2. Visualisasi 2: Ranking Response Rate & Capaian terhadap Target Standar 60%
+ *
+ * Data detail individu, pencarian, aksi WhatsApp/Email, dan ekspor disajikan
+ * secara profesional pada Tab Data utama.
  */
-import { computed } from 'vue';
-import AnalyticsChartCard from '../AnalyticsChartCard.vue';
+import { computed, ref } from 'vue';
+import AnalyticsEChart from '../AnalyticsEChart.vue';
 import {
     baseOption,
     escapeHtml,
     formatNumber,
-    recordCategory,
-    seriesLabel,
 } from '../analyticsChartOptions';
 
 // Kontrak properti data indikator, filter aktif, dan status pemuatan data.
 const props = defineProps({
     chart: { type: Object, default: () => ({}) },
     selectedLabel: { type: String, default: '' },
-    heatmapMode: { type: String, default: 'count' },
     loading: { type: Boolean, default: false },
 });
 
 // Event seleksi data diteruskan ke panel induk untuk cross-filtering.
-const emit = defineEmits(['select', 'reset']);
+const emit = defineEmits(['select', 'reset', 'show-data']);
 
-// Ekstraksi data seri dan catatan responden.
+// Tab visualisasi aktif: 'stacked' (100% Stacked Bar) atau 'ranking' (Target 60%).
+const activeChartTab = ref('stacked');
+
+// State seleksi program studi dan status pengisian.
+const selectedProdiName = ref('');
+const selectedStatus = ref('all'); // 'all', 'sudah', atau 'belum'
+
+// Pengurutan capaian pada grafik.
+const sortAsc = ref(false);
+
+// Ekstraksi data seri program studi dan catatan alumni dari payload.
 const series = computed(() => props.chart?.series || []);
 const records = computed(() => props.chart?.records || []);
-const totalPopulation = computed(() => series.value.reduce((sum, item) => sum + Number(item.population || 0), 0));
+const activeYear = computed(() => records.value[0]?.tahun_lulus || String(new Date().getFullYear()));
 
-// -----------------------------------------------------------------------------
-// 1. GROUPED BAR: Populasi Target vs Responden Mengisi per Program Studi
-// -----------------------------------------------------------------------------
-const groupedBarOption = computed(() => {
-    const list = series.value;
-
-    return {
-        ...baseOption(totalPopulation.value),
-        legend: { data: ['Populasi Target', 'Responden Mengisi'], bottom: 0 },
-        grid: { left: 16, right: 22, top: 20, bottom: 64, containLabel: true },
-        xAxis: { type: 'category', data: list.map(seriesLabel), axisLabel: { rotate: list.length > 5 ? 26 : 0, width: 110, overflow: 'truncate' } },
-        yAxis: { type: 'value', name: 'Jumlah Alumni', splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-        tooltip: { ...baseOption().tooltip, trigger: 'axis', axisPointer: { type: 'shadow' } },
-        series: [
-            { name: 'Populasi Target', type: 'bar', barMaxWidth: 28, itemStyle: { color: '#94A3B8' }, data: list.map((item) => Number(item.population || 0)) },
-            { name: 'Responden Mengisi', type: 'bar', barMaxWidth: 28, itemStyle: { color: '#0D542B' }, data: list.map((item) => Number(item.respondents || 0)) },
-        ],
-    };
-});
-
-const groupedBarTable = computed(() => ({
-    columns: [
-        { key: 'name', label: 'Program Studi' },
-        { key: 'population', label: 'Populasi Kohort', align: 'right' },
-        { key: 'respondents', label: 'Responden', align: 'right' },
-        { key: 'rate', label: 'Response Rate', align: 'right' },
-    ],
-    rows: series.value.map((item) => {
+// Seri yang dinormalisasi dengan data populasi, responden, dan belum mengisi.
+const displaySeries = computed(() => {
+    return series.value.map((item) => {
         const pop = Number(item.population || 0);
         const resp = Number(item.respondents || 0);
-        const rate = pop > 0 ? ((resp / pop) * 100).toFixed(1) : '0';
-        return {
-            name: seriesLabel(item),
-            population: formatNumber(pop, 0),
-            respondents: formatNumber(resp, 0),
-            rate: `${formatNumber(rate)}%`,
-        };
-    }),
-}));
+        const unans = Number(item.unanswered ?? Math.max(pop - resp, 0));
+        const rate = pop > 0 ? Number(((resp / pop) * 100).toFixed(1)) : 0;
+        const unansRate = pop > 0 ? Number(((unans / pop) * 100).toFixed(1)) : 0;
+        const target = Number(item.target || 60.0);
+        const gap = Number(item.target_gap ?? Number((rate - target).toFixed(1)));
+        const criteria = item.criteria || (rate >= 70 ? 'Sangat Baik' : (rate >= 60 ? 'Memenuhi Target' : 'Perlu Peningkatan'));
 
-// -----------------------------------------------------------------------------
-// 2. BAR CHART: Response Rate (%) per Program Studi
-// -----------------------------------------------------------------------------
-const sortedRates = computed(() => {
-    return [...series.value]
-        .map((item) => {
-            const label = seriesLabel(item);
-            const rate = Number(item.response_rate || 0);
-            const selected = !props.selectedLabel || props.selectedLabel === label;
-            return {
-                name: label,
-                value: rate,
-                itemStyle: { color: '#0D542B', opacity: selected ? 1 : 0.22 },
-            };
-        })
-        .sort((a, b) => b.value - a.value);
+        return {
+            prodi_id: item.prodi_id,
+            nama_prodi: item.nama_prodi || 'Tanpa prodi',
+            population: pop,
+            respondents: resp,
+            unanswered: unans,
+            response_rate: rate,
+            unanswered_rate: unansRate,
+            target,
+            target_gap: gap,
+            criteria,
+        };
+    });
 });
 
-const rateBarOption = computed(() => {
-    const rows = sortedRates.value;
+// Data program studi yang sedang dipilih secara aktif.
+const selectedProdiItem = computed(() => {
+    if (!selectedProdiName.value) return null;
+    return displaySeries.value.find((item) => item.nama_prodi === selectedProdiName.value) || null;
+});
+
+// Hitungan jumlah alumni sesuai prodi dan status aktif.
+const selectedCount = computed(() => {
+    let list = records.value;
+    if (selectedProdiName.value) {
+        list = list.filter((r) => r.nama_prodi === selectedProdiName.value);
+    }
+    if (selectedStatus.value === 'sudah') {
+        list = list.filter((r) => Boolean(r.answered));
+    } else if (selectedStatus.value === 'belum') {
+        list = list.filter((r) => !r.answered);
+    }
+    return list.length;
+});
+
+// -----------------------------------------------------------------------------
+// 1. GRAFIK 100% STACKED HORIZONTAL BAR (Sudah vs Belum per Program Studi)
+// -----------------------------------------------------------------------------
+const stackedBarOption = computed(() => {
+    const list = [...displaySeries.value].sort((a, b) => {
+        return sortAsc.value ? a.response_rate - b.response_rate : b.response_rate - a.response_rate;
+    });
+    const prodiNames = list.map((item) => item.nama_prodi);
 
     return {
-        ...baseOption(totalPopulation.value),
-        grid: { left: 12, right: 38, top: 12, bottom: rows.length > 8 ? 44 : 24, containLabel: true },
+        ...baseOption(),
+        legend: {
+            data: ['Sudah Mengisi', 'Belum Mengisi'],
+            top: 6,
+            textStyle: { color: '#334155', fontWeight: 600, fontSize: 12 },
+        },
+        grid: { left: 16, right: 36, top: 44, bottom: 20, containLabel: true },
         xAxis: {
             type: 'value',
-            name: 'Response rate (%)',
-            nameLocation: 'middle',
-            nameGap: 26,
-            axisLabel: { color: '#64748B' },
+            min: 0,
+            max: 100,
+            axisLabel: { formatter: '{value}%', color: '#64748B', fontSize: 11 },
             splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
         },
         yAxis: {
             type: 'category',
+            data: prodiNames,
             inverse: true,
-            data: rows.map((item) => item.name),
-            axisLabel: { color: '#334155', width: 170, overflow: 'truncate' },
+            axisLabel: { color: '#1E293B', fontWeight: 500, width: 170, overflow: 'truncate', fontSize: 12 },
             axisTick: { show: false },
             axisLine: { lineStyle: { color: '#CBD5E1' } },
         },
         tooltip: {
-            ...baseOption().tooltip,
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
             formatter: (params) => {
-                const point = params[0]?.data || {};
-                return `<strong>${escapeHtml(point.name)}</strong><br>Response rate: <strong>${formatNumber(point.value)}%</strong>`;
+                const prodi = params[0]?.name;
+                const item = list.find((s) => s.nama_prodi === prodi);
+                if (!item) return '';
+                return `
+                    <div style="font-family: inherit; font-size: 12px; line-height: 1.5;">
+                        <div style="font-weight: 700; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 6px; color: #0F172A;">${escapeHtml(prodi)}</div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #475569;"><span>Populasi Kohort:</span><strong>${formatNumber(item.population, 0)} alumni</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #0D542B; margin-top: 2px;"><span>Sudah Mengisi:</span><strong>${formatNumber(item.respondents, 0)} alumni (${formatNumber(item.response_rate, 1)}%)</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #D97706; margin-top: 2px;"><span>Belum Mengisi:</span><strong>${formatNumber(item.unanswered, 0)} alumni (${formatNumber(item.unanswered_rate, 1)}%)</strong></div>
+                    </div>
+                `;
             },
         },
-        series: [{
-            name: 'Response rate (%)',
-            type: 'bar',
-            barMaxWidth: 26,
-            emphasis: { focus: 'self', itemStyle: { opacity: 1 } },
-            label: { show: true, position: 'right', color: '#334155', fontWeight: 600, formatter: ({ value }) => `${formatNumber(value)}%` },
-            data: rows,
-        }],
+        series: [
+            {
+                name: 'Sudah Mengisi',
+                type: 'bar',
+                stack: 'total',
+                barMaxWidth: 26,
+                itemStyle: {
+                    color: '#0D542B',
+                    borderRadius: [3, 0, 0, 3],
+                    opacity: (params) => {
+                        if (!selectedProdiName.value) return 1;
+                        if (params.name === selectedProdiName.value) {
+                            return selectedStatus.value === 'belum' ? 0.35 : 1;
+                        }
+                        return 0.22;
+                    },
+                },
+                label: {
+                    show: true,
+                    position: 'inside',
+                    formatter: ({ value }) => (value >= 12 ? `${formatNumber(value, 1)}%` : ''),
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    fontSize: 10,
+                },
+                data: list.map((item) => ({
+                    name: item.nama_prodi,
+                    value: item.response_rate,
+                    prodi_id: item.prodi_id,
+                    series_status: 'sudah',
+                })),
+            },
+            {
+                name: 'Belum Mengisi',
+                type: 'bar',
+                stack: 'total',
+                barMaxWidth: 26,
+                itemStyle: {
+                    color: '#F59E0B',
+                    borderRadius: [0, 3, 3, 0],
+                    opacity: (params) => {
+                        if (!selectedProdiName.value) return 1;
+                        if (params.name === selectedProdiName.value) {
+                            return selectedStatus.value === 'sudah' ? 0.35 : 1;
+                        }
+                        return 0.22;
+                    },
+                },
+                label: {
+                    show: true,
+                    position: 'inside',
+                    formatter: ({ value }) => (value >= 12 ? `${formatNumber(value, 1)}%` : ''),
+                    color: '#1E293B',
+                    fontWeight: 600,
+                    fontSize: 10,
+                },
+                data: list.map((item) => ({
+                    name: item.nama_prodi,
+                    value: item.unanswered_rate,
+                    prodi_id: item.prodi_id,
+                    series_status: 'belum',
+                })),
+            },
+        ],
     };
 });
 
-const rateBarTable = computed(() => ({
-    columns: [
-        { key: 'name', label: 'Program Studi' },
-        { key: 'rateDisplay', label: 'Response Rate', align: 'right' },
-    ],
-    rows: sortedRates.value.map((item) => ({
-        name: item.name,
-        rateDisplay: `${formatNumber(item.value)}%`,
-    })),
-}));
-
 // -----------------------------------------------------------------------------
-// 3. HEATMAP: Pola Antarprogram Studi
+// 2. GRAFIK RANKING RESPONSE RATE & CAPAIAN TERHADAP TARGET STANDAR 60%
 // -----------------------------------------------------------------------------
-const prodis = computed(() => [...new Set(records.value.map((record) => record.nama_prodi || 'Tanpa prodi'))]);
-const categories = computed(() => [...new Set(records.value.map(recordCategory))]);
-
-const heatmapData = computed(() => {
-    const listProdis = prodis.value;
-    const listCats = categories.value;
-    const totals = Object.fromEntries(listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]));
-    const values = [];
-
-    listProdis.forEach((prodi, yIndex) => {
-        listCats.forEach((category, xIndex) => {
-            const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === category).length;
-            const val = props.heatmapMode === 'percentage' ? Number(((count / Math.max(totals[prodi], 1)) * 100).toFixed(1)) : count;
-            values.push({
-                value: [xIndex, yIndex, val],
-                category,
-                prodi,
-                count,
-                itemStyle: { opacity: !props.selectedLabel || category === props.selectedLabel ? 1 : 0.22 },
-            });
-        });
+const rankingChartOption = computed(() => {
+    const list = [...displaySeries.value].sort((a, b) => {
+        return sortAsc.value ? a.response_rate - b.response_rate : b.response_rate - a.response_rate;
     });
-
-    const maximum = Math.max(...values.map((v) => v.value[2]), 1);
-    return { values, maximum };
-});
-
-const heatmapOption = computed(() => {
-    const { values, maximum } = heatmapData.value;
+    const prodiNames = list.map((item) => item.nama_prodi);
 
     return {
-        ...baseOption(records.value.length),
-        grid: { left: 12, right: 24, top: 20, bottom: categories.value.length > 5 ? 100 : 64, containLabel: true },
+        ...baseOption(),
+        grid: { left: 16, right: 48, top: 24, bottom: 20, containLabel: true },
         xAxis: {
-            type: 'category',
-            data: categories.value,
-            axisLabel: { rotate: categories.value.length > 4 ? 26 : 0, color: '#334155', width: 110, overflow: 'truncate' },
-            splitArea: { show: false },
+            type: 'value',
+            min: 0,
+            max: 100,
+            axisLabel: { formatter: '{value}%', color: '#64748B', fontSize: 11 },
+            splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
         },
         yAxis: {
             type: 'category',
-            data: prodis.value,
-            axisLabel: { color: '#334155', width: 130, overflow: 'truncate' },
-            splitArea: { show: false },
-        },
-        visualMap: {
-            min: 0,
-            max: maximum,
-            calculable: true,
-            orient: 'horizontal',
-            left: 'center',
-            bottom: 0,
-            inRange: { color: ['#F8FAFC', '#BBF7D0', '#4ADE80', '#16A34A', '#0D542B'] },
-            text: [props.heatmapMode === 'percentage' ? 'Tinggi (%)' : 'Tinggi', 'Rendah'],
-            textStyle: { color: '#475569', fontSize: 11 },
+            data: prodiNames,
+            inverse: true,
+            axisLabel: { color: '#1E293B', fontWeight: 500, width: 170, overflow: 'truncate', fontSize: 12 },
+            axisTick: { show: false },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
         },
         tooltip: {
-            ...baseOption().tooltip,
-            formatter: ({ data }) => `<strong>${escapeHtml(data.prodi)}</strong><br>${escapeHtml(data.category)}<br>Jumlah: <strong>${formatNumber(data.count, 0)}</strong>${props.heatmapMode === 'percentage' ? `<br>Proporsi: <strong>${formatNumber(data.value[2])}%</strong>` : ''}`,
-        },
-        series: [{
-            name: props.heatmapMode === 'percentage' ? 'Persentase' : 'Jumlah',
-            type: 'heatmap',
-            data: values,
-            itemStyle: { borderColor: '#FFFFFF', borderWidth: 1 },
-            label: {
-                show: values.length <= 80,
-                fontSize: 10,
-                color: (param) => param.data?.value[2] > maximum * 0.45 ? '#FFFFFF' : '#1E293B',
-                formatter: ({ value }) => value[2] > 0 ? value[2] : '',
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: (params) => {
+                const prodi = params[0]?.name;
+                const item = list.find((s) => s.nama_prodi === prodi);
+                if (!item) return '';
+                const gapSign = item.target_gap >= 0 ? '+' : '';
+                return `
+                    <div style="font-family: inherit; font-size: 12px; line-height: 1.5;">
+                        <div style="font-weight: 700; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 6px; color: #0F172A;">${escapeHtml(prodi)}</div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px;"><span>Response Rate:</span><strong>${formatNumber(item.response_rate, 1)}%</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #64748B;"><span>Target Standar:</span><strong>${formatNumber(item.target, 1)}%</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; font-weight: 700; color: ${item.target_gap >= 0 ? '#0D542B' : '#D97706'};">
+                            <span>Selisih Target:</span><strong>${gapSign}${formatNumber(item.target_gap, 1)}%</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; margin-top: 4px; border-top: 1px solid #E2E8F0; padding-top: 4px;">
+                            <span>Kriteria:</span><strong>${escapeHtml(item.criteria)}</strong>
+                        </div>
+                    </div>
+                `;
             },
-            progressive: 1000,
-        }],
+        },
+        series: [
+            {
+                name: 'Response Rate (%)',
+                type: 'bar',
+                barMaxWidth: 26,
+                itemStyle: {
+                    borderRadius: [0, 4, 4, 0],
+                    color: (params) => {
+                        const val = params.value;
+                        if (val >= 60) return '#0D542B'; // Memenuhi target (Brand Dark Green)
+                        return '#F59E0B'; // Belum mencapai target (Amber Gold)
+                    },
+                    opacity: (params) => {
+                        if (!selectedProdiName.value) return 1;
+                        return params.name === selectedProdiName.value ? 1 : 0.28;
+                    },
+                },
+                label: {
+                    show: true,
+                    position: 'right',
+                    color: '#1E293B',
+                    fontWeight: 600,
+                    fontSize: 11,
+                    formatter: ({ value }) => `${formatNumber(value, 1)}%`,
+                },
+                markLine: {
+                    symbol: 'none',
+                    lineStyle: { color: '#B91C1C', type: 'dashed', width: 2 },
+                    label: {
+                        formatter: 'Target 60%',
+                        position: 'insideEndTop',
+                        color: '#B91C1C',
+                        fontWeight: 'bold',
+                        fontSize: 10,
+                    },
+                    data: [{ xAxis: 60 }],
+                },
+                data: list.map((item) => ({
+                    name: item.nama_prodi,
+                    value: item.response_rate,
+                    prodi_id: item.prodi_id,
+                    series_status: 'all',
+                })),
+            },
+        ],
     };
 });
 
-const heatmapTable = computed(() => {
-    const { values } = heatmapData.value;
-    return {
-        columns: [
-            { key: 'prodi', label: 'Program Studi' },
-            { key: 'total', label: 'Total Respon', align: 'right' },
-            { key: 'topCategory', label: 'Kategori Dominan', align: 'left' },
-        ],
-        rows: prodis.value.map((prodi) => {
-            const prodiValues = values.filter((v) => v.prodi === prodi);
-            const total = prodiValues.reduce((sum, v) => sum + v.count, 0);
-            const top = [...prodiValues].sort((a, b) => b.count - a.count)[0];
-            return {
-                prodi,
-                total: formatNumber(total, 0),
-                topCategory: top && top.count > 0 ? `${top.category} (${top.count})` : '-',
-            };
-        }),
-    };
-});
+// Menangani interaksi klik pada segmen grafik.
+const handleChartClick = (params) => {
+    const prodi = params.name || params.data?.name;
+    if (!prodi) return;
+
+    const seriesStatus = params.data?.series_status || (params.seriesName === 'Belum Mengisi' ? 'belum' : 'sudah');
+
+    // Klik ulang segmen yang sama mereset pilihan
+    if (selectedProdiName.value === prodi && selectedStatus.value === seriesStatus) {
+        resetSelection();
+        return;
+    }
+
+    selectedProdiName.value = prodi;
+    selectedStatus.value = seriesStatus;
+    emit('select', { label: prodi, status: seriesStatus, prodi_id: params.data?.prodi_id });
+};
+
+// Reset seleksi kembali ke keadaan awal.
+const resetSelection = () => {
+    selectedProdiName.value = '';
+    selectedStatus.value = 'all';
+    emit('reset');
+};
+
+// Unduh file Excel dari endpoint server-side resmi sesuai filter aktif.
+const downloadExcel = (statusTarget = null) => {
+    const statusParam = statusTarget || selectedStatus.value || 'all';
+    const prodiIdParam = selectedProdiItem.value?.prodi_id || '';
+    const yearParam = activeYear.value || '2026';
+
+    const url = `/superadmin/analitik/export-response-rate?tahun=${encodeURIComponent(yearParam)}&prodi_id=${encodeURIComponent(prodiIdParam)}&status=${encodeURIComponent(statusParam)}`;
+    window.location.href = url;
+};
 </script>
 
 <template>
-    <div class="space-y-6">
-        <!-- 1. Populasi Target vs Responden Mengisi per Prodi -->
-        <AnalyticsChartCard
-            chart-key="grouped"
-            title="Populasi dan responden per program studi"
-            description="Perbandingan jumlah alumni kohort dengan responden pengisi kuesioner universitas."
-            :option="groupedBarOption"
-            :table-data="groupedBarTable"
-            :rows="records"
-            :height="400"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
+    <div class="space-y-4">
+        <!-- Card Container Grafik Responsif 2-Tone -->
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+            <!-- Header Kartu & Pilihan 2 Visualisasi Utama -->
+            <div class="flex flex-col justify-between gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-center">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-[#0D542B]">Indikator 01</span>
+                        <h3 class="text-base font-extrabold text-slate-900">
+                            {{ activeChartTab === 'stacked' ? 'Distribusi Komposisi Responden (100% Stacked)' : 'Ranking Response Rate & Kriteria Capaian' }}
+                        </h3>
+                    </div>
+                    <p class="mt-1 text-xs text-slate-500">
+                        {{ activeChartTab === 'stacked' ? 'Klik segmen hijau (Sudah Mengisi) atau kuning (Belum Mengisi) pada batang untuk menyaring data.' : 'Garis putus-putus merah menandakan ambang batas target standar 60%.' }}
+                    </p>
+                </div>
 
-        <!-- 2. Response Rate (%) per Program Studi -->
-        <AnalyticsChartCard
-            chart-key="rate"
-            title="Response rate per program studi"
-            description="Urutan capaian persentase partisipasi per program studi."
-            :option="rateBarOption"
-            :table-data="rateBarTable"
-            :rows="records"
-            :height="400"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
+                <!-- Switcher 2 Grafik Utama Sesuai Permintaan Pengguna -->
+                <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+                    <button
+                        type="button"
+                        class="rounded-md px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer"
+                        :class="activeChartTab === 'stacked' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                        @click="activeChartTab = 'stacked'"
+                    >
+                        100% Stacked Bar
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-md px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer"
+                        :class="activeChartTab === 'ranking' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                        @click="activeChartTab = 'ranking'"
+                    >
+                        Ranking & Target 60%
+                    </button>
+                </div>
+            </div>
 
-        <!-- 3. Pola Antarprogram Studi (Heatmap) -->
-        <AnalyticsChartCard
-            chart-key="heatmap"
-            title="Pola antarprogram studi"
-            :description="heatmapMode === 'percentage'
-                ? 'Intensitas dan angka sel menunjukkan persentase kategori dalam setiap program studi.'
-                : 'Intensitas dan angka sel menunjukkan jumlah record pada setiap kategori dan program studi.'"
-            :option="heatmapOption"
-            :table-data="heatmapTable"
-            :rows="records"
-            :height="Math.max(360, prodis.length * 34 + 140)"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
+            <!-- Toolbar Kontrol: Toggle Pengurutan & Indikator Seleksi -->
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div class="flex items-center gap-2">
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                        @click="sortAsc = !sortAsc"
+                    >
+                        <span>Urutan:</span>
+                        <span class="font-bold text-[#0D542B]">{{ sortAsc ? 'Terendah → Tertinggi' : 'Tertinggi → Terendah' }}</span>
+                    </button>
+                </div>
+
+                <!-- Tombol Cepat Unduh Excel -->
+                <div class="flex items-center gap-2">
+                    <button
+                        type="button"
+                        class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors"
+                        title="Unduh seluruh data dalam 3 sheet: Ringkasan, Sudah Mengisi, Belum Mengisi"
+                        @click="downloadExcel('all')"
+                    >
+                        Download Excel 3 Sheet
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bilah Status Seleksi Aktif (Jika batang/segmen diklik) -->
+            <div
+                v-if="selectedProdiName || selectedStatus !== 'all'"
+                class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-xs"
+            >
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-slate-600">Pilihan Aktif:</span>
+                    <span class="font-extrabold text-[#0D542B] text-sm">{{ selectedProdiName || 'Seluruh Program Studi' }}</span>
+                    <span>·</span>
+                    <span
+                        class="rounded px-2 py-0.5 font-bold"
+                        :class="selectedStatus === 'sudah' ? 'bg-emerald-200 text-emerald-900' : (selectedStatus === 'belum' ? 'bg-amber-200 text-amber-900' : 'bg-slate-200 text-slate-800')"
+                    >
+                        {{ selectedStatus === 'sudah' ? 'Sudah Mengisi' : (selectedStatus === 'belum' ? 'Belum Mengisi' : 'Semua Status') }}
+                    </span>
+                    <span class="text-slate-500">({{ selectedCount }} alumni)</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button
+                        type="button"
+                        class="rounded-md bg-[#0D542B] px-3 py-1 font-bold text-white hover:bg-[#0A4322] cursor-pointer"
+                        @click="emit('show-data')"
+                    >
+                        Lihat Data di Tab Data →
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-md bg-white border border-slate-300 px-2.5 py-1 font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                        @click="downloadExcel(selectedStatus)"
+                    >
+                        Download Excel ({{ selectedCount }})
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-md bg-amber-100 px-2 py-1 font-bold text-amber-900 hover:bg-amber-200 cursor-pointer"
+                        @click="resetSelection"
+                    >
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Area Render Grafik ECharts -->
+            <div class="mt-4">
+                <!-- Visualisasi 1: 100% Stacked Horizontal Bar -->
+                <div v-show="activeChartTab === 'stacked'">
+                    <AnalyticsEChart
+                        :option="stackedBarOption"
+                        :height="Math.max(400, displaySeries.length * 36 + 70)"
+                        :loading="loading"
+                        aria-label="Grafik 100% Stacked Bar Response Rate"
+                        @select="handleChartClick"
+                    />
+                </div>
+
+                <!-- Visualisasi 2: Ranking Response Rate & Target 60% -->
+                <div v-show="activeChartTab === 'ranking'">
+                    <AnalyticsEChart
+                        :option="rankingChartOption"
+                        :height="Math.max(400, displaySeries.length * 36 + 70)"
+                        :loading="loading"
+                        aria-label="Grafik Ranking Response Rate dan Target 60%"
+                        @select="handleChartClick"
+                    />
+                </div>
+            </div>
+
+        </div>
     </div>
 </template>

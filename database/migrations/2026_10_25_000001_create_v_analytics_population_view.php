@@ -25,6 +25,8 @@ SELECT
     study_program.nama_prodi,
     academic.tahun_lulus,
     biodata.gaji,
+    biodata.nomor_telepon,
+    COALESCE(biodata.email_pribadi, users.email) AS email,
     CASE
         WHEN COALESCE(academic.nama, users.name) IS NOT NULL
             AND biodata.nim IS NOT NULL

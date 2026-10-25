@@ -436,4 +436,41 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertSame(1, $educationAlignment['chart']['summary']['answered_count']);
         $this->assertSame('Tingkat yang sama', $educationAlignment['chart']['series'][0]['label']);
     }
+
+    /**
+     * Memastikan payload response rate menyediakan data populasi, responden, belum mengisi, target, dan kriteria.
+     */
+    public function test_response_rate_chart_returns_enhanced_payload(): void
+    {
+        $service = app(TracerAnalyticsService::class);
+        $result = $service->buildUniversityChart('response_rate', (string) now()->year);
+
+        $this->assertArrayHasKey('summary', $result['chart']);
+        $this->assertArrayHasKey('population', $result['chart']['summary']);
+        $this->assertArrayHasKey('respondents', $result['chart']['summary']);
+        $this->assertArrayHasKey('unanswered', $result['chart']['summary']);
+        $this->assertArrayHasKey('response_rate', $result['chart']['summary']);
+        $this->assertArrayHasKey('unanswered_rate', $result['chart']['summary']);
+        $this->assertArrayHasKey('target', $result['chart']['summary']);
+    }
+
+    /**
+     * Superadmin dapat mengunduh berkas Excel response rate secara streaming.
+     */
+    public function test_superadmin_can_export_response_rate_excel(): void
+    {
+        $superadmin = User::create([
+            'username' => 'superadmin-export-rr',
+            'name' => 'Super Administrator Export',
+            'password' => Hash::make('password123'),
+            'role' => 'superadmin',
+            'must_change_password' => false,
+        ]);
+
+        $response = $this->actingAs($superadmin)->get('/superadmin/analitik/export-response-rate?tahun='.now()->year.'&status=all');
+
+        $response->assertOk();
+        $this->assertStringContainsString('application/vnd.ms-excel', (string) $response->headers->get('content-type'));
+        $this->assertStringContainsString('Tracer_ResponseRate_', (string) $response->headers->get('content-disposition'));
+    }
 }

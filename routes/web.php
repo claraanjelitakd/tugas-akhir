@@ -274,6 +274,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/superadmin/dashboard', [App\Http\Controllers\SuperAdmin\Dashboard\DashboardController::class, 'tampilkanDashboard'])->name('superadmin.dashboard');
             Route::get('/superadmin/analitik', [TracerAnalyticsController::class, 'index'])->name('superadmin.analytics.index');
             Route::get('/superadmin/analitik/data', [TracerAnalyticsController::class, 'data'])->name('superadmin.analytics.data');
+            Route::get('/superadmin/analitik/export-response-rate', [TracerAnalyticsController::class, 'exportResponseRate'])->name('superadmin.analytics.export_response_rate');
 
             // Kelola Butir Pertanyaan, Opsi Jawaban, & Alur Branching Kuesioner (Modular Controllers)
             Route::get('/superadmin/pertanyaan', [DaftarPertanyaanController::class, 'index'])->name('superadmin.pertanyaan.index');

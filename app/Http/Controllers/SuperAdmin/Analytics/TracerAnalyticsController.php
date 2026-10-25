@@ -4,10 +4,12 @@ namespace App\Http\Controllers\SuperAdmin\Analytics;
 
 use App\Http\Controllers\Controller;
 use App\Services\Analytics\TracerAnalyticsService;
+use App\Services\Export\ResponseRateExcelExporter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Menampilkan analitik Tracer Study tingkat universitas untuk Superadmin.
@@ -45,5 +47,17 @@ class TracerAnalyticsController extends Controller
         return response()->json(
             $analyticsService->buildUniversityChart($chart, $year, $umpYear, $prodiId)
         );
+    }
+
+    /**
+     * Mengekspor data response rate ke Excel (.xls SpreadsheetML) dengan filter status dan prodi.
+     */
+    public function exportResponseRate(Request $request): StreamedResponse
+    {
+        $year = $request->string('tahun')->toString() ?: (string) now()->year;
+        $prodiId = $request->integer('prodi_id') ?: null;
+        $status = $request->string('status')->toString() ?: 'all';
+
+        return ResponseRateExcelExporter::download($year, $prodiId, $status);
     }
 }

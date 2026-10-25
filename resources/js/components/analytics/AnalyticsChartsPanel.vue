@@ -7,8 +7,7 @@
  */
 import { computed, defineAsyncComponent, ref, watch } from 'vue';
 
-// Pemuatan asynchronous 16 komponen kategori analitik mandiri
-const ResponseRate = defineAsyncComponent(() => import('./categories/01_ResponseRate.vue'));
+import ResponseRate from './categories/01_ResponseRate.vue';
 const LearningMethods = defineAsyncComponent(() => import('./categories/02_LearningMethods.vue'));
 const JobSearchStart = defineAsyncComponent(() => import('./categories/03_JobSearchStart.vue'));
 const JobSearchMethods = defineAsyncComponent(() => import('./categories/04_JobSearchMethods.vue'));
@@ -106,45 +105,6 @@ watch(() => props.selectedChart, () => {
 
 <template>
     <div class="space-y-6">
-        <!-- Bilah kontrol eksplorasi grafik dan normalisasi heatmap -->
-        <section class="flex flex-col justify-between gap-3 bg-white p-4 shadow-sm sm:flex-row sm:items-center border border-slate-100">
-            <div class="min-w-0">
-                <p class="text-xs font-bold uppercase tracking-wide text-[#0D542B]">Eksplorasi grafik interaktif</p>
-                <p class="mt-1 text-sm text-slate-600">
-                    <span v-if="selectedLabel">Filter aktif: <strong class="text-slate-900">{{ selectedLabel }}</strong></span>
-                    <span v-else>Setiap grafik dilengkapi tabel data ringkasan. Klik elemen grafik atau baris tabel untuk menyorot data.</span>
-                </p>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <div class="flex rounded bg-slate-100 p-1" aria-label="Mode heatmap">
-                    <button
-                        type="button"
-                        class="rounded px-3 py-1.5 text-xs font-bold transition-all"
-                        :class="heatmapMode === 'count' ? 'bg-white text-[#0D542B] shadow-sm' : 'text-slate-600'"
-                        @click="heatmapMode = 'count'"
-                    >
-                        Jumlah
-                    </button>
-                    <button
-                        type="button"
-                        class="rounded px-3 py-1.5 text-xs font-bold transition-all"
-                        :class="heatmapMode === 'percentage' ? 'bg-white text-[#0D542B] shadow-sm' : 'text-slate-600'"
-                        @click="heatmapMode = 'percentage'"
-                    >
-                        Persentase
-                    </button>
-                </div>
-                <button
-                    v-if="selectedLabel"
-                    type="button"
-                    class="rounded bg-[#FDC700] px-3 py-1.5 text-xs font-bold text-[#0D542B] hover:bg-[#EAB800]"
-                    @click="resetSelection"
-                >
-                    Reset pilihan
-                </button>
-            </div>
-        </section>
-
         <!-- Render komponen kategori mandiri yang sedang aktif -->
         <component
             :is="activeComponent"
@@ -158,6 +118,7 @@ watch(() => props.selectedChart, () => {
             @reset="resetSelection"
             @select-province="emit('select-province', $event)"
             @change-ump-year="emit('change-ump-year', $event)"
+            @show-data="emit('show-data', $event)"
         />
     </div>
 </template>

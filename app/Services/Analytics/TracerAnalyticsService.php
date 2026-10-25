@@ -1204,6 +1204,11 @@ class TracerAnalyticsService
     private function responseRateChart(Collection $rows): array
     {
         $series = $this->responseByProdi($rows);
+        $population = $rows->count();
+        $respondents = $rows->where('answered', '>', 0)->count();
+        $unanswered = max($population - $respondents, 0);
+        $rate = $this->percentage($respondents, $population);
+        $unansweredRate = $this->percentage($unanswered, $population);
 
         return [
             'key' => 'response_rate',
@@ -1211,22 +1216,33 @@ class TracerAnalyticsService
             'title' => 'Response rate universitas',
             'subtitle' => 'Perbandingan partisipasi alumni antarprogram studi.',
             'summary' => [
-                'population' => $rows->count(),
-                'respondents' => $rows->where('answered_mandatory_univ', '>', 0)->count(),
-                'response_rate' => $this->percentage($rows->where('answered_mandatory_univ', '>', 0)->count(), $rows->count()),
+                'population' => $population,
+                'respondents' => $respondents,
+                'unanswered' => $unanswered,
+                'response_rate' => $rate,
+                'unanswered_rate' => $unansweredRate,
+                'target' => 60.0,
+                'target_gap' => round($rate - 60.0, 1),
             ],
             'series' => $series,
             'records' => $rows->map(fn (object $row): array => [
                 'biodata_id' => (int) $row->biodata_id,
+                'user_id' => (int) $row->user_id,
                 'nim' => $row->nim,
                 'nama' => $row->nama ?: 'Tanpa nama',
+                'prodi_id' => (int) $row->prodi_id,
                 'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
-                'answered' => (int) $row->answered_mandatory_univ > 0,
+                'tahun_lulus' => (string) ($row->tahun_lulus ?? ''),
+                'status' => (int) $row->answered > 0 ? 'Sudah Mengisi' : 'Belum Mengisi',
+                'answered' => (int) $row->answered > 0,
+                'nomor_telepon' => $row->nomor_telepon ?? null,
+                'email' => $row->email ?? null,
+                'last_response_at' => $row->last_response_at ? date('d-m-Y H:i', strtotime($row->last_response_at)) : null,
             ])->values()->all(),
             'methodology' => [
-                'formula' => 'Alumni dengan minimal satu jawaban wajib universitas dibagi seluruh populasi alumni.',
-                'denominator' => 'Seluruh alumni pada tahun lulusan dan prodi terpilih.',
-                'source' => 'v_analytics_response_rate.answered_mandatory_univ',
+                'formula' => 'Alumni unik yang memenuhi kriteria responden dibagi seluruh populasi kohort × 100%.',
+                'denominator' => 'Seluruh alumni pada tahun kelulusan dan program studi terpilih.',
+                'source' => 'v_analytics_response_rate (answered dan last_response_at)',
             ],
         ];
     }
@@ -1303,16 +1319,32 @@ class TracerAnalyticsService
      */
     private function responseByProdi(Collection $rows): array
     {
-        return $rows->groupBy('prodi_id')->map(function (Collection $prodiRows): array {
+        $target = 60.0;
+
+        return $rows->groupBy('prodi_id')->map(function (Collection $prodiRows) use ($target): array {
             $population = $prodiRows->count();
-            $respondents = $prodiRows->where('answered_mandatory_univ', '>', 0)->count();
+            $respondents = $prodiRows->where('answered', '>', 0)->count();
+            $unanswered = max($population - $respondents, 0);
+            $rate = $this->percentage($respondents, $population);
+            $unansweredRate = $this->percentage($unanswered, $population);
+            $gap = round($rate - $target, 1);
+            $criteria = match (true) {
+                $rate >= 70.0 => 'Sangat Baik',
+                $rate >= 60.0 => 'Memenuhi Target',
+                default => 'Perlu Peningkatan',
+            };
 
             return [
-                'prodi_id' => $prodiRows->first()->prodi_id,
+                'prodi_id' => (int) $prodiRows->first()->prodi_id,
                 'nama_prodi' => $prodiRows->first()->nama_prodi ?: 'Tanpa prodi',
                 'population' => $population,
                 'respondents' => $respondents,
-                'response_rate' => $this->percentage($respondents, $population),
+                'unanswered' => $unanswered,
+                'response_rate' => $rate,
+                'unanswered_rate' => $unansweredRate,
+                'target' => $target,
+                'target_gap' => $gap,
+                'criteria' => $criteria,
             ];
         })->sortByDesc('response_rate')->values()->all();
     }

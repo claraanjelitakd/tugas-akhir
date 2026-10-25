@@ -19,10 +19,13 @@ CREATE VIEW v_analytics_response_rate AS
 SELECT
     population.*,
     CASE WHEN respondents.biodata_id IS NOT NULL THEN 1 ELSE 0 END AS answered_mandatory_univ,
-    CASE WHEN respondents.biodata_id IS NOT NULL THEN 1 ELSE 0 END AS answered
+    CASE WHEN respondents.biodata_id IS NOT NULL THEN 1 ELSE 0 END AS answered,
+    respondents.last_response_at
 FROM v_analytics_population AS population
 LEFT JOIN (
-    SELECT DISTINCT tracer.biodata_id
+    SELECT
+        tracer.biodata_id,
+        MAX(tracer.updated_at) AS last_response_at
     FROM tracer
     INNER JOIN ref_subpertanyaan2021 AS questions ON questions.id = tracer.question_id
     WHERE (
@@ -44,6 +47,7 @@ LEFT JOIN (
             (tracer.answer IS NOT NULL AND TRIM(tracer.answer) != '')
             OR (tracer.answer_json IS NOT NULL AND tracer.answer_json NOT IN ('', '[]', '{}'))
         )
+    GROUP BY tracer.biodata_id
 ) AS respondents ON respondents.biodata_id = population.biodata_id
 SQL);
     }
