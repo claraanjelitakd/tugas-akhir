@@ -21,12 +21,14 @@ class Kuesioner extends Model
         'description',
         'is_active',
         'year',
+        'target_response_rate',
         'starts_at',
         'expires_at',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'target_response_rate' => 'float',
         'starts_at' => 'datetime',
         'expires_at' => 'datetime',
     ];

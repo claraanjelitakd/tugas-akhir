@@ -78,6 +78,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/change-password', [UbahKataSandiController::class, 'tampilkanUbahKataSandi'])->name('change-password');
     Route::post('/change-password', [UbahKataSandiController::class, 'prosesUbahKataSandi']);
 
+    // API endpoint helper wilayah untuk cascading dropdown asinkron (Kabupaten berdasarkan Provinsi)
+    Route::get('/api/wilayah/kabupaten/{propinsiId}', [MasterWilayahController::class, 'getKabupatenByProvinsi'])->name('api.wilayah.kabupaten');
+
     // Rute yang mengharuskan password bawaan sudah diganti
     Route::middleware('must_change_password')->group(function () {
 
@@ -185,7 +188,9 @@ Route::middleware('auth')->group(function () {
             Route::post('/prodi/perusahaan/{id}/replace', [VerifikasiPerusahaanProdiController::class, 'replace'])->name('prodi.perusahaan.replace');
             Route::put('/prodi/perusahaan/{id}', [VerifikasiPerusahaanProdiController::class, 'updateAndVerify'])->name('prodi.perusahaan.update');
             Route::post('/prodi/perusahaan/{id}/reject', [VerifikasiPerusahaanProdiController::class, 'reject'])->name('prodi.perusahaan.reject');
+            Route::delete('/prodi/perusahaan/{id}', [VerifikasiPerusahaanProdiController::class, 'destroy'])->name('prodi.perusahaan.destroy');
             Route::get('/prodi/perusahaan/search-verified', [VerifikasiPerusahaanProdiController::class, 'searchVerified'])->name('prodi.perusahaan.search-verified');
+            Route::get('/prodi/perusahaan/{id}/recommendations', [VerifikasiPerusahaanProdiController::class, 'recommendations'])->name('prodi.perusahaan.recommendations');
 
             // Manajemen Akun Mahasiswa / Alumni Prodi Sendiri
             Route::get('/prodi/manajemen-akun', [ManajemenAkunProdiController::class, 'index'])->name('prodi.manajemen-akun.index');
@@ -237,7 +242,9 @@ Route::middleware('auth')->group(function () {
             Route::post('/fakultas/perusahaan/{id}/replace', [VerifikasiPerusahaanFakultasController::class, 'replace'])->name('fakultas.perusahaan.replace');
             Route::put('/fakultas/perusahaan/{id}', [VerifikasiPerusahaanFakultasController::class, 'updateAndVerify'])->name('fakultas.perusahaan.update');
             Route::post('/fakultas/perusahaan/{id}/reject', [VerifikasiPerusahaanFakultasController::class, 'reject'])->name('fakultas.perusahaan.reject');
+            Route::delete('/fakultas/perusahaan/{id}', [VerifikasiPerusahaanFakultasController::class, 'destroy'])->name('fakultas.perusahaan.destroy');
             Route::get('/fakultas/perusahaan/search-verified', [VerifikasiPerusahaanFakultasController::class, 'searchVerified'])->name('fakultas.perusahaan.search-verified');
+            Route::get('/fakultas/perusahaan/{id}/recommendations', [VerifikasiPerusahaanFakultasController::class, 'recommendations'])->name('fakultas.perusahaan.recommendations');
 
             // Manajemen Akun Mahasiswa / Alumni Se-Fakultas
             Route::get('/fakultas/manajemen-akun', [ManajemenAkunFakultasController::class, 'index'])->name('fakultas.manajemen-akun.index');
@@ -306,7 +313,9 @@ Route::middleware('auth')->group(function () {
             Route::post('/superadmin/perusahaan/{id}/replace', [VerifikasiPerusahaanSuperAdminController::class, 'replace'])->name('superadmin.perusahaan.replace');
             Route::put('/superadmin/perusahaan/{id}', [VerifikasiPerusahaanSuperAdminController::class, 'updateAndVerify'])->name('superadmin.perusahaan.update');
             Route::post('/superadmin/perusahaan/{id}/reject', [VerifikasiPerusahaanSuperAdminController::class, 'reject'])->name('superadmin.perusahaan.reject');
+            Route::delete('/superadmin/perusahaan/{id}', [VerifikasiPerusahaanSuperAdminController::class, 'destroy'])->name('superadmin.perusahaan.destroy');
             Route::get('/superadmin/perusahaan/search-verified', [VerifikasiPerusahaanSuperAdminController::class, 'searchVerified'])->name('superadmin.perusahaan.search-verified');
+            Route::get('/superadmin/perusahaan/{id}/recommendations', [VerifikasiPerusahaanSuperAdminController::class, 'recommendations'])->name('superadmin.perusahaan.recommendations');
 
             // Master Data Wilayah Administrasi & Regulasi Standar UMP (Provinsi, Kabupaten/Kota, UMP Daerah)
             Route::get('/superadmin/master-wilayah', [MasterWilayahController::class, 'index'])->name('superadmin.master-wilayah.index');
@@ -321,6 +330,10 @@ Route::middleware('auth')->group(function () {
             Route::post('/superadmin/master-wilayah/ump', [MasterWilayahController::class, 'storeOrUpdateUmp'])->name('superadmin.master-wilayah.ump.store');
             Route::delete('/superadmin/master-wilayah/ump/{id}', [MasterWilayahController::class, 'destroyUmp'])->name('superadmin.master-wilayah.ump.destroy');
             Route::post('/superadmin/master-wilayah/ump/copy-year', [MasterWilayahController::class, 'copyYearUmp'])->name('superadmin.master-wilayah.ump.copy-year');
+
+            Route::post('/superadmin/master-wilayah/negara', [MasterWilayahController::class, 'storeNegara'])->name('superadmin.master-wilayah.negara.store');
+            Route::put('/superadmin/master-wilayah/negara/{id}', [MasterWilayahController::class, 'updateNegara'])->name('superadmin.master-wilayah.negara.update');
+            Route::delete('/superadmin/master-wilayah/negara/{id}', [MasterWilayahController::class, 'destroyNegara'])->name('superadmin.master-wilayah.negara.destroy');
 
             // Manajemen Akun Terpadu & Pemulihan Kata Sandi (Admin Fakultas, Admin Prodi, Mahasiswa per Prodi)
             Route::get('/superadmin/manajemen-akun', [ManajemenAkunController::class, 'index'])->name('superadmin.manajemen-akun.index');

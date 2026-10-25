@@ -4,6 +4,7 @@ namespace App\Http\Controllers\SuperAdmin\Perusahaan;
 
 use App\Http\Controllers\Controller;
 use App\Models\Kabupaten;
+use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\Propinsi;
@@ -83,10 +84,7 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             $companies = $query->latest('updated_at')->paginate($filters['per_page'])->withQueryString();
         }
 
-        // Lampirkan data rekomendasi kemiripan perusahaan terverifikasi untuk membantu konsolidasi/penggabungan data.
-        // Catatan: getSimilarRecommendations() menggunakan algoritma Multi-level String Similarity (bukan hanya trim):
-        // 1) Text Preprocessing & Stopword stripping (PT/CV), 2) Exact match, 3) Acronym matching (misal BCA),
-        // 4) Substring & Token overlap, 5) Levenshtein/similar_text, 6) Geographic bonus (kota & provinsi).
+        // Normalisasi data relasi pengusul biodata tanpa kalkulasi kemiripan berat di setiap muat halaman (AJAX on-demand).
         $companies->getCollection()->transform(function ($company) {
             if ($company->biodata->isEmpty() && $company->creator && $company->creator->biodata) {
                 $company->setRelation('biodata', collect([$company->creator->biodata]));
@@ -95,13 +93,12 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
                 }
             }
 
-            $company->recommendations = $this->verificationService->getSimilarRecommendations($company, 5);
-
             return $company;
         });
 
         $propinsis = Propinsi::select('id', 'nama_provinsi')->orderBy('nama_provinsi')->get();
-        $kabupatens = Kabupaten::select('id', 'propinsi_id', 'nama_kabupaten')->orderBy('nama_kabupaten')->get();
+        // Optimasi: Kabupaten tidak dimuat 514 baris sekaligus, melainkan via cascading dropdown asinkron berdasarkan provinsi
+        $kabupatens = [];
         $negaras = RefNegara::select('id', 'nama_negara')->orderBy('nama_negara')->get();
 
         return Inertia::render('SuperAdmin/Perusahaan/Index', [
@@ -256,5 +253,52 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
         $results = $this->verificationService->searchVerified($query, 12);
 
         return response()->json($results);
+    }
+
+    /**
+     * Endpoint API asinkron untuk mengambil rekomendasi kemiripan master perusahaan terverifikasi on-demand.
+     */
+    public function recommendations(int $id): JsonResponse
+    {
+        $company = Perusahaan::with(['propinsi', 'kabupaten'])->findOrFail($id);
+        $results = $this->verificationService->getSimilarRecommendations($company, 5);
+
+        return response()->json($results);
+    }
+
+    /**
+     * Menghapus entitas data perusahaan dari sistem.
+     * Dilengkapi validasi dependensi untuk memastikan tidak ada relasi alumni atau evaluasi atasan yang terputus.
+     */
+    public function destroy(int $id): RedirectResponse
+    {
+        $company = Perusahaan::withCount(['biodata', 'evaluasiAtasan'])->findOrFail($id);
+
+        if ($company->biodata_count > 0) {
+            return redirect()->back()->withErrors([
+                'error' => "Perusahaan \"{$company->nama_perusahaan}\" tidak dapat dihapus karena masih terhubung dengan {$company->biodata_count} data alumni. Silakan gunakan aksi 'Sinkronkan / Ganti dengan Master' terlebih dahulu sebelum menghapus.",
+            ]);
+        }
+
+        if ($company->evaluasi_atasan_count > 0) {
+            return redirect()->back()->withErrors([
+                'error' => "Perusahaan \"{$company->nama_perusahaan}\" tidak dapat dihapus karena tercatat pada {$company->evaluasi_atasan_count} data evaluasi atasan pengguna lulusan.",
+            ]);
+        }
+
+        $oldData = $company->toArray();
+        $namaPerusahaan = $company->nama_perusahaan;
+
+        $company->delete();
+
+        LogActivity::record(
+            'DELETE_PERUSAHAAN',
+            "Super Admin menghapus data perusahaan: {$namaPerusahaan} (ID: {$id})",
+            null,
+            $oldData,
+            null
+        );
+
+        return redirect()->back()->with('success', "Perusahaan \"{$namaPerusahaan}\" berhasil dihapus dari sistem.");
     }
 }

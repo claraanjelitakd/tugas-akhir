@@ -29,9 +29,11 @@ class KelolaKuesionerController extends Controller
             'description' => 'nullable|string',
             'year' => 'required|integer|min:2000|max:2100',
             'is_active' => 'nullable|boolean',
+            'target_response_rate' => 'nullable|numeric|min:1|max:100',
         ]);
 
         $isActive = $request->boolean('is_active', true);
+        $targetResponseRate = isset($validated['target_response_rate']) ? (float) $validated['target_response_rate'] : 60.0;
 
         // Jika diset sebagai aktif, nonaktifkan kuesioner lain agar konsisten
         if ($isActive) {
@@ -43,6 +45,7 @@ class KelolaKuesionerController extends Controller
             'description' => $validated['description'] ?? null,
             'year' => $validated['year'],
             'is_active' => $isActive,
+            'target_response_rate' => $targetResponseRate,
         ]);
 
         return redirect()->back()->with('success', 'Kuesioner induk baru berhasil ditambahkan.');
@@ -60,9 +63,11 @@ class KelolaKuesionerController extends Controller
             'description' => 'nullable|string',
             'year' => 'required|integer|min:2000|max:2100',
             'is_active' => 'nullable|boolean',
+            'target_response_rate' => 'nullable|numeric|min:1|max:100',
         ]);
 
         $isActive = $request->boolean('is_active', $kuesioner->is_active);
+        $targetResponseRate = isset($validated['target_response_rate']) ? (float) $validated['target_response_rate'] : ($kuesioner->target_response_rate ?? 60.0);
 
         // Jika diset sebagai aktif, nonaktifkan kuesioner lain
         if ($isActive && ! $kuesioner->is_active) {
@@ -74,6 +79,7 @@ class KelolaKuesionerController extends Controller
             'description' => $validated['description'] ?? null,
             'year' => $validated['year'],
             'is_active' => $isActive,
+            'target_response_rate' => $targetResponseRate,
         ]);
 
         return redirect()->back()->with('success', 'Data kuesioner induk berhasil diperbarui.');

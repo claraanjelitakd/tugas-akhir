@@ -2,6 +2,7 @@
 
 namespace App\Services\Analytics;
 
+use App\Models\Kuesioner;
 use App\Models\Prodi;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -194,7 +195,7 @@ class TracerAnalyticsService
                     ->all(),
             ],
             'summary' => $this->summary($rows, $responses, $salary),
-            'response_by_prodi' => $this->responseByProdi($rows),
+            'response_by_prodi' => $this->responseByProdi($rows, $this->resolveTargetResponseRate($selectedYear)),
             'wait_time' => $this->waitTime($rows, $responses),
             'salary_vs_ump' => $salary,
             'work_location' => $this->workLocation($rows),
@@ -241,7 +242,7 @@ class TracerAnalyticsService
                     : 'Keselarasan tingkat pendidikan tingkat universitas',
                 $chartKey,
             ),
-            'response_rate' => $this->responseRateChart($rows),
+            'response_rate' => $this->responseRateChart($rows, $this->resolveTargetResponseRate($selectedYear)),
             'profile_completion' => $this->profileCompletionChart($rows),
             'learning_methods', 'job_search_start', 'job_search_methods', 'application_pipeline',
             'job_search_activity', 'workplace_type', 'further_study', 'mismatch_reasons', 'competency_gap' => $this->questionChart($rows, $chartKey),
@@ -1197,13 +1198,30 @@ class TracerAnalyticsService
     }
 
     /**
+     * Mengambil target response rate dinamis berdasarkan tahun atau kuesioner aktif.
+     */
+    public function resolveTargetResponseRate(?string $year = null): float
+    {
+        $target = null;
+        if ($year !== null && is_numeric($year)) {
+            $target = Kuesioner::where('year', (int) $year)->value('target_response_rate');
+        }
+
+        if ($target === null) {
+            $target = Kuesioner::where('is_active', true)->value('target_response_rate');
+        }
+
+        return (float) ($target ?? 60.0);
+    }
+
+    /**
      * Menyusun response rate per prodi tanpa menghitung indikator lain.
      *
      * @return array<string, mixed>
      */
-    private function responseRateChart(Collection $rows): array
+    private function responseRateChart(Collection $rows, float $target = 60.0): array
     {
-        $series = $this->responseByProdi($rows);
+        $series = $this->responseByProdi($rows, $target);
         $population = $rows->count();
         $respondents = $rows->where('answered', '>', 0)->count();
         $unanswered = max($population - $respondents, 0);
@@ -1221,8 +1239,8 @@ class TracerAnalyticsService
                 'unanswered' => $unanswered,
                 'response_rate' => $rate,
                 'unanswered_rate' => $unansweredRate,
-                'target' => 60.0,
-                'target_gap' => round($rate - 60.0, 1),
+                'target' => $target,
+                'target_gap' => round($rate - $target, 1),
             ],
             'series' => $series,
             'records' => $rows->map(fn (object $row): array => [
@@ -1313,14 +1331,12 @@ class TracerAnalyticsService
     }
 
     /**
-     * Menghitung response rate untuk setiap program studi.
+     * Menghitung response rate untuk setiap program studi dengan target dinamis.
      *
      * @return array<int, array<string, mixed>>
      */
-    private function responseByProdi(Collection $rows): array
+    private function responseByProdi(Collection $rows, float $target = 60.0): array
     {
-        $target = 60.0;
-
         return $rows->groupBy('prodi_id')->map(function (Collection $prodiRows) use ($target): array {
             $population = $prodiRows->count();
             $respondents = $prodiRows->where('answered', '>', 0)->count();
@@ -1329,8 +1345,8 @@ class TracerAnalyticsService
             $unansweredRate = $this->percentage($unanswered, $population);
             $gap = round($rate - $target, 1);
             $criteria = match (true) {
-                $rate >= 70.0 => 'Sangat Baik',
-                $rate >= 60.0 => 'Memenuhi Target',
+                $rate >= ($target + 10.0) => 'Sangat Baik',
+                $rate >= $target => 'Memenuhi Target',
                 default => 'Perlu Peningkatan',
             };
 

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
+use App\Models\Kuesioner;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\Propinsi;
@@ -472,5 +473,24 @@ class SuperAdminAnalyticsTest extends TestCase
         $response->assertOk();
         $this->assertStringContainsString('application/vnd.ms-excel', (string) $response->headers->get('content-type'));
         $this->assertStringContainsString('Tracer_ResponseRate_', (string) $response->headers->get('content-disposition'));
+    }
+
+    /**
+     * Target response rate membaca konfigurasi kuesioner dinamis dari database.
+     */
+    public function test_response_rate_uses_configured_target_from_kuesioner(): void
+    {
+        $targetYear = (int) now()->year;
+        Kuesioner::create([
+            'title' => 'Tracer Study Custom Target',
+            'year' => $targetYear,
+            'is_active' => true,
+            'target_response_rate' => 75.0,
+        ]);
+
+        $result = app(TracerAnalyticsService::class)->buildUniversityChart('response_rate', (string) $targetYear);
+
+        $this->assertSame(75.0, (float) $result['chart']['summary']['target']);
+        $this->assertArrayHasKey('target_gap', $result['chart']['summary']);
     }
 }

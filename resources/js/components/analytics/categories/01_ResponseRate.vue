@@ -42,6 +42,11 @@ const series = computed(() => props.chart?.series || []);
 const records = computed(() => props.chart?.records || []);
 const activeYear = computed(() => records.value[0]?.tahun_lulus || String(new Date().getFullYear()));
 
+// Target response rate dinamis dari backend summary atau item seri (default: 60%)
+const currentTarget = computed(() => {
+    return Number(props.chart?.summary?.target ?? 60.0);
+});
+
 // Seri yang dinormalisasi dengan data populasi, responden, dan belum mengisi.
 const displaySeries = computed(() => {
     return series.value.map((item) => {
@@ -50,9 +55,9 @@ const displaySeries = computed(() => {
         const unans = Number(item.unanswered ?? Math.max(pop - resp, 0));
         const rate = pop > 0 ? Number(((resp / pop) * 100).toFixed(1)) : 0;
         const unansRate = pop > 0 ? Number(((unans / pop) * 100).toFixed(1)) : 0;
-        const target = Number(item.target || 60.0);
+        const target = Number(item.target ?? currentTarget.value);
         const gap = Number(item.target_gap ?? Number((rate - target).toFixed(1)));
-        const criteria = item.criteria || (rate >= 70 ? 'Sangat Baik' : (rate >= 60 ? 'Memenuhi Target' : 'Perlu Peningkatan'));
+        const criteria = item.criteria || (rate >= (target + 10) ? 'Sangat Baik' : (rate >= target ? 'Memenuhi Target' : 'Perlu Peningkatan'));
 
         return {
             prodi_id: item.prodi_id,
@@ -264,7 +269,7 @@ const rankingChartOption = computed(() => {
                     borderRadius: [0, 4, 4, 0],
                     color: (params) => {
                         const val = params.value;
-                        if (val >= 60) return '#0D542B'; // Memenuhi target (Brand Dark Green)
+                        if (val >= currentTarget.value) return '#0D542B'; // Memenuhi target (Brand Dark Green)
                         return '#F59E0B'; // Belum mencapai target (Amber Gold)
                     },
                     opacity: (params) => {
@@ -284,13 +289,13 @@ const rankingChartOption = computed(() => {
                     symbol: 'none',
                     lineStyle: { color: '#B91C1C', type: 'dashed', width: 2 },
                     label: {
-                        formatter: 'Target 60%',
+                        formatter: `Target ${formatNumber(currentTarget.value, 1)}%`,
                         position: 'insideEndTop',
                         color: '#B91C1C',
                         fontWeight: 'bold',
                         fontSize: 10,
                     },
-                    data: [{ xAxis: 60 }],
+                    data: [{ xAxis: currentTarget.value }],
                 },
                 data: list.map((item) => ({
                     name: item.nama_prodi,
@@ -353,7 +358,7 @@ const downloadExcel = (statusTarget = null) => {
                         </h3>
                     </div>
                     <p class="mt-1 text-xs text-slate-500">
-                        {{ activeChartTab === 'stacked' ? 'Klik segmen hijau (Sudah Mengisi) atau kuning (Belum Mengisi) pada batang untuk menyaring data.' : 'Garis putus-putus merah menandakan ambang batas target standar 60%.' }}
+                        {{ activeChartTab === 'stacked' ? 'Klik segmen hijau (Sudah Mengisi) atau kuning (Belum Mengisi) pada batang untuk menyaring data.' : `Garis putus-putus merah menandakan ambang batas target standar ${formatNumber(currentTarget, 1)}%.` }}
                     </p>
                 </div>
 
@@ -373,7 +378,7 @@ const downloadExcel = (statusTarget = null) => {
                         :class="activeChartTab === 'ranking' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeChartTab = 'ranking'"
                     >
-                        Ranking & Target 60%
+                        Ranking & Target {{ formatNumber(currentTarget, 1) }}%
                     </button>
                 </div>
             </div>
@@ -460,13 +465,13 @@ const downloadExcel = (statusTarget = null) => {
                     />
                 </div>
 
-                <!-- Visualisasi 2: Ranking Response Rate & Target 60% -->
+                <!-- Visualisasi 2: Ranking Response Rate & Target Dinamis -->
                 <div v-show="activeChartTab === 'ranking'">
                     <AnalyticsEChart
                         :option="rankingChartOption"
                         :height="Math.max(400, displaySeries.length * 36 + 70)"
                         :loading="loading"
-                        aria-label="Grafik Ranking Response Rate dan Target 60%"
+                        :aria-label="`Grafik Ranking Response Rate dan Target ${formatNumber(currentTarget, 1)}%`"
                         @select="handleChartClick"
                     />
                 </div>

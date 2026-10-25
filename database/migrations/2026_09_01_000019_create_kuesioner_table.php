@@ -19,7 +19,7 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "kuesioner" ("id" integer primary key autoincrement not null, "title" varchar not null, "description" text, "year" integer not null, "is_active" tinyint(1) not null default '1', "created_at" datetime, "updated_at" datetime);
+CREATE TABLE "kuesioner" ("id" integer primary key autoincrement not null, "title" varchar not null, "description" text, "year" integer not null, "is_active" tinyint(1) not null default '1', "target_response_rate" numeric(5, 2) not null default '60.00', "created_at" datetime, "updated_at" datetime);
 SQL
             );
         } else {
@@ -30,6 +30,7 @@ CREATE TABLE `kuesioner` (
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Deskripsi penjelasan instrumen kuesioner',
   `year` year NOT NULL COMMENT 'Tahun periode pelaksanaan tracer study',
   `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Status keaktifan kuesioner bagi responden',
+  `target_response_rate` decimal(5,2) NOT NULL DEFAULT '60.00' COMMENT 'Target capaian response rate periode kuesioner dalam persen',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`)

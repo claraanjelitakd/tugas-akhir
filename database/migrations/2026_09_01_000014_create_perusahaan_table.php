@@ -27,6 +27,9 @@ SQL
                 <<<'SQL'
 CREATE INDEX "perusahaan_created_by_prodi_id_index" on "perusahaan" ("created_by_prodi_id");
 SQL,
+                <<<'SQL'
+CREATE INDEX "perusahaan_status_verifikasi_index" on "perusahaan" ("status_verifikasi");
+SQL,
             ] as $indexSql) {
                 DB::statement($indexSql);
             }
@@ -59,6 +62,7 @@ CREATE TABLE `perusahaan` (
   KEY `perusahaan_kabupaten_id_foreign` (`kabupaten_id`),
   KEY `perusahaan_created_by_user_id_foreign` (`created_by_user_id`),
   KEY `perusahaan_created_by_prodi_id_index` (`created_by_prodi_id`),
+  KEY `perusahaan_status_verifikasi_index` (`status_verifikasi`),
   CONSTRAINT `perusahaan_created_by_user_id_foreign` FOREIGN KEY (`created_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `perusahaan_kabupaten_id_foreign` FOREIGN KEY (`kabupaten_id`) REFERENCES `kabupaten` (`id`) ON DELETE SET NULL,
   CONSTRAINT `perusahaan_propinsi_id_foreign` FOREIGN KEY (`propinsi_id`) REFERENCES `propinsi` (`id`) ON DELETE SET NULL

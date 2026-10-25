@@ -97,6 +97,7 @@ const kuesionerFormData = ref({
     year: new Date().getFullYear(),
     description: '',
     is_active: true,
+    target_response_rate: 60.0,
 });
 // Indikator loading penyimpanan kuesioner induk
 const isSubmittingKuesioner = ref(false);
@@ -331,6 +332,7 @@ const openKuesionerFormModal = (kuesionerToEdit = null) => {
             year: kuesionerToEdit.year || new Date().getFullYear(),
             description: kuesionerToEdit.description || '',
             is_active: !!kuesionerToEdit.is_active,
+            target_response_rate: kuesionerToEdit.target_response_rate ? Number(kuesionerToEdit.target_response_rate) : 60.0,
         };
     } else {
         // Mode buat kuesioner induk baru
@@ -341,6 +343,7 @@ const openKuesionerFormModal = (kuesionerToEdit = null) => {
             year: new Date().getFullYear(),
             description: '',
             is_active: true,
+            target_response_rate: 60.0,
         };
     }
 
@@ -369,6 +372,10 @@ const submitKuesionerForm = () => {
     const currentYear = parseInt(kuesionerFormData.value.year, 10);
     if (!currentYear || currentYear < 2000 || currentYear > 2100) {
         kuesionerFormErrors.value.year = 'Tahun kuesioner harus berupa angka antara 2000 - 2100.';
+    }
+    const targetRate = parseFloat(kuesionerFormData.value.target_response_rate);
+    if (isNaN(targetRate) || targetRate < 1 || targetRate > 100) {
+        kuesionerFormErrors.value.target_response_rate = 'Target response rate harus berupa persentase antara 1 - 100%.';
     }
 
     if (Object.keys(kuesionerFormErrors.value).length > 0) {
@@ -1045,8 +1052,10 @@ const handleDeleteKuesioner = (k) => {
                             <p class="text-[11px] text-gray-500 leading-relaxed">
                                 {{ k.description || 'Tidak ada deskripsi tambahan.' }}
                             </p>
-                            <div class="text-[10px] text-gray-400">
-                                Total Bagian: <strong class="text-gray-700">{{ k.kelompok_pertanyaan_count ?? k.sections_count ?? '-' }} Seksi</strong>
+                            <div class="flex items-center gap-3 text-[10px] text-gray-500">
+                                <span>Total Bagian: <strong class="text-gray-700">{{ k.kelompok_pertanyaan_count ?? k.sections_count ?? '-' }} Seksi</strong></span>
+                                <span>&bull;</span>
+                                <span>Target Response Rate: <strong class="text-emerald-800">{{ k.target_response_rate ? Number(k.target_response_rate).toFixed(1) : '60.0' }}%</strong></span>
                             </div>
                         </div>
                     </div>
@@ -1123,6 +1132,32 @@ const handleDeleteKuesioner = (k) => {
                             />
                             <p v-if="kuesionerFormErrors.year" class="text-rose-600 text-[11px] mt-1 font-medium">
                                 {{ kuesionerFormErrors.year }}
+                            </p>
+                        </div>
+
+                        <!-- Target Response Rate (%) -->
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Target Response Rate (%) <span class="text-rose-600">*</span>
+                            </label>
+                            <div class="relative">
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min="1"
+                                    max="100"
+                                    v-model.number="kuesionerFormData.target_response_rate"
+                                    placeholder="60.0"
+                                    class="w-full px-3 py-2 pr-8 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                    :class="kuesionerFormErrors.target_response_rate ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
+                                />
+                                <span class="absolute right-3 top-2 text-gray-400 font-bold text-xs">%</span>
+                            </div>
+                            <p class="text-[11px] text-gray-500 mt-1">
+                                Standar nasional Kemendikbudristek & IKU 1 adalah 60,0%. Target ini akan otomatis mengkalibrasi garis merah batas mutu analitik.
+                            </p>
+                            <p v-if="kuesionerFormErrors.target_response_rate" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ kuesionerFormErrors.target_response_rate }}
                             </p>
                         </div>
 

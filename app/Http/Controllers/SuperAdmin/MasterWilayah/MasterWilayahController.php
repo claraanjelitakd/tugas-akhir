@@ -5,10 +5,14 @@ namespace App\Http\Controllers\SuperAdmin\MasterWilayah;
 use App\Http\Controllers\Controller;
 use App\Models\Kabupaten;
 use App\Models\LogActivity;
+use App\Models\Perusahaan;
 use App\Models\Propinsi;
+use App\Models\RefNegara;
 use App\Models\Ump;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,6 +33,7 @@ class MasterWilayahController extends Controller
         $search = $request->input('search');
         $selectedYear = (int) $request->input('tahun', 2026);
         $propinsiFilterId = $request->input('propinsi_id');
+        $benuaFilter = $request->input('benua');
         $perPage = (int) $request->input('per_page', 15);
 
         // Ambil daftar tahun unik yang tersedia di tabel UMP
@@ -63,6 +68,7 @@ class MasterWilayahController extends Controller
         $stats = [
             'total_provinsi' => $totalProvinsi,
             'total_kabupaten' => $totalKabupaten,
+            'total_negara' => RefNegara::count(),
             'total_ump_configured' => $totalUmpConfigured,
             'avg_ump' => round($avgUmp, 2),
             'min_ump' => [
@@ -164,18 +170,54 @@ class MasterWilayahController extends Controller
                 });
         }
 
+        // Query Master Negara untuk tab 'negara'
+        $negaras = null;
+        if ($activeTab === 'negara') {
+            $negaraQuery = RefNegara::query();
+
+            if ($benuaFilter) {
+                $negaraQuery->where('benua', $benuaFilter);
+            }
+
+            if ($search) {
+                $negaraQuery->where(function ($q) use ($search) {
+                    $q->where('nama_negara', 'like', "%{$search}%")
+                        ->orWhere('kode_iso2', 'like', "%{$search}%")
+                        ->orWhere('kode_iso3', 'like', "%{$search}%")
+                        ->orWhere('nama_resmi', 'like', "%{$search}%")
+                        ->orWhere('ibu_kota', 'like', "%{$search}%")
+                        ->orWhere('benua', 'like', "%{$search}%");
+                });
+            }
+
+            $negaras = $negaraQuery->orderBy('nama_negara', 'asc')
+                ->paginate($perPage)
+                ->withQueryString();
+        }
+
+        // Daftar unik benua untuk opsi filter dropdown
+        $allContinents = RefNegara::whereNotNull('benua')
+            ->where('benua', '!=', '')
+            ->distinct()
+            ->orderBy('benua', 'asc')
+            ->pluck('benua')
+            ->toArray();
+
         return Inertia::render('SuperAdmin/MasterWilayah/Index', [
             'active_tab' => $activeTab,
             'stats' => $stats,
             'available_years' => $availableYears,
             'all_provinces' => $allProvinces,
+            'all_continents' => $allContinents,
             'provinces' => $provinces,
             'kabupatens' => $kabupatens,
+            'negaras' => $negaras ?: ['data' => [], 'links' => []],
             'umps' => $allUmps,
             'filters' => [
                 'search' => $search ?: '',
                 'tahun' => $selectedYear,
                 'propinsi_id' => $propinsiFilterId ?: '',
+                'benua' => $benuaFilter ?: '',
                 'per_page' => $perPage,
                 'tab' => $activeTab,
             ],
@@ -313,6 +355,9 @@ class MasterWilayahController extends Controller
             'nama_kabupaten' => strtoupper(trim($validated['nama_kabupaten'])),
         ]);
 
+        // Bersihkan cache kabupaten per provinsi agar dropdown selalu mutakhir
+        Cache::forget("wilayah:kabupaten:prov_{$validated['propinsi_id']}");
+
         LogActivity::record(
             'CREATE_KABUPATEN',
             "Super Admin menambahkan kabupaten/kota baru: {$kabupaten->nama_kabupaten} (Kode: {$kabupaten->kode_kabupaten})",
@@ -345,6 +390,10 @@ class MasterWilayahController extends Controller
             'nama_kabupaten' => strtoupper(trim($validated['nama_kabupaten'])),
         ]);
 
+        // Bersihkan cache kabupaten untuk provinsi lama dan provinsi baru
+        Cache::forget("wilayah:kabupaten:prov_{$oldValues['propinsi_id']}");
+        Cache::forget("wilayah:kabupaten:prov_{$validated['propinsi_id']}");
+
         LogActivity::record(
             'UPDATE_KABUPATEN',
             "Super Admin memperbarui kabupaten/kota: {$kabupaten->nama_kabupaten} (Kode: {$kabupaten->kode_kabupaten})",
@@ -370,7 +419,11 @@ class MasterWilayahController extends Controller
         }
 
         $oldData = $kabupaten->toArray();
+        $propinsiId = $kabupaten->propinsi_id;
         $kabupaten->delete();
+
+        // Bersihkan cache kabupaten per provinsi
+        Cache::forget("wilayah:kabupaten:prov_{$propinsiId}");
 
         LogActivity::record(
             'DELETE_KABUPATEN',
@@ -381,6 +434,21 @@ class MasterWilayahController extends Controller
         );
 
         return back()->with('success', "Kabupaten/Kota {$kabupaten->nama_kabupaten} berhasil dihapus.");
+    }
+
+    /**
+     * Endpoint API asinkron untuk mengambil daftar kabupaten berdasarkan ID provinsi (cascading dropdown).
+     */
+    public function getKabupatenByProvinsi(int $propinsiId): JsonResponse
+    {
+        $kabupatens = Cache::remember("wilayah:kabupaten:prov_{$propinsiId}", 86400, function () use ($propinsiId) {
+            return Kabupaten::select('id', 'propinsi_id', 'nama_kabupaten')
+                ->where('propinsi_id', $propinsiId)
+                ->orderBy('nama_kabupaten')
+                ->get();
+        });
+
+        return response()->json($kabupatens);
     }
 
     /**
@@ -493,5 +561,112 @@ class MasterWilayahController extends Controller
         );
 
         return back()->with('success', "Berhasil menyalin {$copiedCount} data UMP ke tahun {$targetYear}.");
+    }
+
+    /**
+     * Tambah Data Master Negara Baru
+     */
+    public function storeNegara(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'kode_iso2' => 'required|string|size:2|unique:ref_negara,kode_iso2',
+            'kode_iso3' => 'nullable|string|size:3|unique:ref_negara,kode_iso3',
+            'nama_negara' => 'required|string|max:80|unique:ref_negara,nama_negara',
+            'nama_resmi' => 'nullable|string|max:120',
+            'benua' => 'nullable|string|max:50',
+            'ibu_kota' => 'nullable|string|max:80',
+        ]);
+
+        $negara = RefNegara::create([
+            'kode_iso2' => strtoupper(trim($validated['kode_iso2'])),
+            'kode_iso3' => ! empty($validated['kode_iso3']) ? strtoupper(trim($validated['kode_iso3'])) : null,
+            'nama_negara' => trim($validated['nama_negara']),
+            'nama_resmi' => ! empty($validated['nama_resmi']) ? trim($validated['nama_resmi']) : null,
+            'benua' => ! empty($validated['benua']) ? trim($validated['benua']) : null,
+            'ibu_kota' => ! empty($validated['ibu_kota']) ? trim($validated['ibu_kota']) : null,
+        ]);
+
+        LogActivity::record(
+            'CREATE_NEGARA',
+            "Super Admin menambahkan negara baru: {$negara->nama_negara} (ISO-2: {$negara->kode_iso2})",
+            $negara,
+            null,
+            $negara->toArray()
+        );
+
+        return back()->with('success', "Negara {$negara->nama_negara} berhasil ditambahkan.");
+    }
+
+    /**
+     * Perbarui Data Master Negara
+     */
+    public function updateNegara(Request $request, int $id): RedirectResponse
+    {
+        $negara = RefNegara::findOrFail($id);
+
+        $validated = $request->validate([
+            'kode_iso2' => 'required|string|size:2|unique:ref_negara,kode_iso2,'.$negara->id,
+            'kode_iso3' => 'nullable|string|size:3|unique:ref_negara,kode_iso3,'.$negara->id,
+            'nama_negara' => 'required|string|max:80|unique:ref_negara,nama_negara,'.$negara->id,
+            'nama_resmi' => 'nullable|string|max:120',
+            'benua' => 'nullable|string|max:50',
+            'ibu_kota' => 'nullable|string|max:80',
+        ]);
+
+        $oldValues = $negara->toArray();
+        $oldNama = $negara->nama_negara;
+        $newNama = trim($validated['nama_negara']);
+
+        // Jika nama negara berubah, sinkronkan relasi string pada tabel perusahaan
+        if ($oldNama !== $newNama) {
+            Perusahaan::where('negara', $oldNama)->update(['negara' => $newNama]);
+        }
+
+        $negara->update([
+            'kode_iso2' => strtoupper(trim($validated['kode_iso2'])),
+            'kode_iso3' => ! empty($validated['kode_iso3']) ? strtoupper(trim($validated['kode_iso3'])) : null,
+            'nama_negara' => $newNama,
+            'nama_resmi' => ! empty($validated['nama_resmi']) ? trim($validated['nama_resmi']) : null,
+            'benua' => ! empty($validated['benua']) ? trim($validated['benua']) : null,
+            'ibu_kota' => ! empty($validated['ibu_kota']) ? trim($validated['ibu_kota']) : null,
+        ]);
+
+        LogActivity::record(
+            'UPDATE_NEGARA',
+            "Super Admin memperbarui data negara: {$negara->nama_negara} (ISO-2: {$negara->kode_iso2})",
+            $negara,
+            $oldValues,
+            $negara->toArray()
+        );
+
+        return back()->with('success', "Data negara {$negara->nama_negara} berhasil diperbarui.");
+    }
+
+    /**
+     * Hapus Data Master Negara
+     */
+    public function destroyNegara(int $id): RedirectResponse
+    {
+        $negara = RefNegara::findOrFail($id);
+
+        $perusahaanCount = Perusahaan::where('negara', $negara->nama_negara)->count();
+        if ($perusahaanCount > 0) {
+            return back()->withErrors([
+                'error' => "Negara {$negara->nama_negara} tidak dapat dihapus karena masih digunakan oleh {$perusahaanCount} data perusahaan.",
+            ]);
+        }
+
+        $oldData = $negara->toArray();
+        $negara->delete();
+
+        LogActivity::record(
+            'DELETE_NEGARA',
+            "Super Admin menghapus data negara: {$negara->nama_negara} (ISO-2: {$negara->kode_iso2})",
+            null,
+            $oldData,
+            null
+        );
+
+        return back()->with('success', "Negara {$negara->nama_negara} berhasil dihapus.");
     }
 }

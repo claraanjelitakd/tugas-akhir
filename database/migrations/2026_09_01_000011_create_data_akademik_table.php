@@ -27,6 +27,9 @@ SQL
                 <<<'SQL'
 CREATE UNIQUE INDEX "data_akademik_nim_unique" on "data_akademik" ("nim");
 SQL,
+                <<<'SQL'
+CREATE INDEX "data_akademik_tahun_lulus_index" on "data_akademik" ("tahun_lulus");
+SQL,
             ] as $indexSql) {
                 DB::statement($indexSql);
             }
@@ -61,7 +64,8 @@ CREATE TABLE `data_akademik` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `data_akademik_nim_unique` (`nim`)
+  UNIQUE KEY `data_akademik_nim_unique` (`nim`),
+  KEY `data_akademik_tahun_lulus_index` (`tahun_lulus`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Sumber resmi identitas akademik dan kelulusan.';
 SQL
             );

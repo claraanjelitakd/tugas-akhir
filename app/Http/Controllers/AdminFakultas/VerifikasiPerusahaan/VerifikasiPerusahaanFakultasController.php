@@ -4,6 +4,7 @@ namespace App\Http\Controllers\AdminFakultas\VerifikasiPerusahaan;
 
 use App\Http\Controllers\Controller;
 use App\Models\Kabupaten;
+use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\Propinsi;
@@ -74,15 +75,9 @@ class VerifikasiPerusahaanFakultasController extends Controller
 
         $companies = $this->verificationService->getPendingForFakultas($fakultasId, $filters);
 
-        // Lampirkan data rekomendasi kemiripan perusahaan terverifikasi untuk membantu konsolidasi/penggabungan data
-        $companies->getCollection()->transform(function ($company) {
-            $company->recommendations = $this->verificationService->getSimilarRecommendations($company, 5);
-
-            return $company;
-        });
-
         $propinsis = Propinsi::select('id', 'nama_provinsi')->orderBy('nama_provinsi')->get();
-        $kabupatens = Kabupaten::select('id', 'propinsi_id', 'nama_kabupaten')->orderBy('nama_kabupaten')->get();
+        // Optimasi: Kabupaten tidak dimuat 514 baris sekaligus, melainkan via cascading dropdown asinkron berdasarkan provinsi
+        $kabupatens = [];
 
         $prodiIds = $prodisFakultas->pluck('id')->all();
 
@@ -187,5 +182,51 @@ class VerifikasiPerusahaanFakultasController extends Controller
         $results = $this->verificationService->searchVerified($query, 12);
 
         return response()->json($results);
+    }
+
+    /**
+     * Endpoint API asinkron untuk mengambil rekomendasi kemiripan master perusahaan terverifikasi on-demand.
+     */
+    public function recommendations(int $id): JsonResponse
+    {
+        $company = $this->findCompanyInScope($id);
+        $results = $this->verificationService->getSimilarRecommendations($company, 5);
+
+        return response()->json($results);
+    }
+
+    /**
+     * Menghapus data perusahaan dalam lingkup fakultas yang tidak memiliki relasi alumni.
+     */
+    public function destroy(int $id): RedirectResponse
+    {
+        $company = $this->findCompanyInScope($id);
+        $company->loadCount(['biodata', 'evaluasiAtasan']);
+
+        if ($company->biodata_count > 0) {
+            return redirect()->back()->withErrors([
+                'error' => "Perusahaan \"{$company->nama_perusahaan}\" tidak dapat dihapus karena masih terhubung dengan {$company->biodata_count} data alumni.",
+            ]);
+        }
+
+        if ($company->evaluasi_atasan_count > 0) {
+            return redirect()->back()->withErrors([
+                'error' => "Perusahaan \"{$company->nama_perusahaan}\" tidak dapat dihapus karena tercatat pada {$company->evaluasi_atasan_count} data evaluasi atasan.",
+            ]);
+        }
+
+        $oldData = $company->toArray();
+        $nama = $company->nama_perusahaan;
+        $company->delete();
+
+        LogActivity::record(
+            'DELETE_PERUSAHAAN_FAKULTAS',
+            "Admin Fakultas menghapus perusahaan usulan: {$nama} (ID: {$id})",
+            null,
+            $oldData,
+            null
+        );
+
+        return redirect()->back()->with('success', "Perusahaan \"{$nama}\" berhasil dihapus.");
     }
 }

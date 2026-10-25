@@ -215,11 +215,14 @@ const kpiCards = computed(() => {
     }
 
     if (chart.value.type === 'response_rate') {
+        const targetVal = Number(summary.target ?? 60.0);
+        const gapVal = Number(summary.target_gap ?? 0);
+        const gapSign = gapVal >= 0 ? '+' : '';
         return [
             { label: 'Populasi kohort', value: formatNumber(summary.population, 0), note: 'Alumni pada filter aktif' },
             { label: 'Sudah mengisi', value: formatNumber(summary.respondents, 0), note: 'Responden kuesioner universitas' },
             { label: 'Belum mengisi', value: formatNumber(summary.unanswered ?? (Number(summary.population || 0) - Number(summary.respondents || 0)), 0), note: 'Alumni belum berpartisipasi' },
-            { label: 'Response rate', value: formatPercentage(summary.response_rate), note: 'Responden dibagi populasi kohort' },
+            { label: 'Response rate', value: formatPercentage(summary.response_rate), note: `Target: ${formatNumber(targetVal, 1)}% (Gap: ${gapSign}${formatNumber(gapVal, 1)}%)` },
         ];
     }
 

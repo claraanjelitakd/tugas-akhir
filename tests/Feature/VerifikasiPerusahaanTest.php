@@ -352,4 +352,44 @@ class VerifikasiPerusahaanTest extends TestCase
         $this->assertEquals($this->adminProdi->id, $company->created_by_user_id);
         $this->assertEquals($this->adminProdi->prodi_id, $company->created_by_prodi_id);
     }
+
+    public function test_async_recommendations_endpoint_returns_json(): void
+    {
+        $verifiedCompany = Perusahaan::create([
+            'nama_perusahaan' => 'PT Tokopedia Jaya',
+            'status_verifikasi' => 'Terverifikasi',
+            'propinsi_id' => $this->propinsi->id,
+            'kabupaten_id' => $this->kabupaten->id,
+        ]);
+
+        $pendingCompany = Perusahaan::create([
+            'nama_perusahaan' => 'PT Tokopedia',
+            'status_verifikasi' => 'Menunggu Verifikasi',
+            'created_by_prodi_id' => $this->prodi->id,
+            'propinsi_id' => $this->propinsi->id,
+            'kabupaten_id' => $this->kabupaten->id,
+        ]);
+
+        $response = $this->actingAs($this->adminProdi)->getJson("/prodi/perusahaan/{$pendingCompany->id}/recommendations");
+
+        $response->assertOk();
+        $response->assertJsonStructure([
+            '*' => ['id', 'nama_perusahaan', 'similarity_score'],
+        ]);
+        $data = $response->json();
+        $this->assertNotEmpty($data);
+        $this->assertEquals($verifiedCompany->id, $data[0]['id']);
+    }
+
+    public function test_cascading_kabupaten_endpoint_returns_json(): void
+    {
+        $response = $this->actingAs($this->adminProdi)->getJson("/api/wilayah/kabupaten/{$this->propinsi->id}");
+
+        $response->assertOk();
+        $response->assertJsonStructure([
+            '*' => ['id', 'propinsi_id', 'nama_kabupaten'],
+        ]);
+        $this->assertCount(1, $response->json());
+        $this->assertEquals($this->kabupaten->nama_kabupaten, $response->json()[0]['nama_kabupaten']);
+    }
 }

@@ -253,9 +253,50 @@ const filteredAlumniList = computed(() => {
 const showReviewModal = ref(false);
 const activeCompanyForReview = ref(null);
 
-const openReviewModal = (company) => {
+// State indikator pemuatan rekomendasi kemiripan asinkron (on-demand)
+const isLoadingRecommendations = ref(false);
+
+// Mengambil rekomendasi kemiripan master resmi dari server secara on-demand
+const fetchCompanyRecommendations = async (company) => {
+    if (!company || !company.id) return [];
+    if (Array.isArray(company.recommendations)) {
+        return company.recommendations;
+    }
+
+    company.isLoadingRecommendations = true;
+    try {
+        const response = await fetch(`${props.basePath}/${company.id}/recommendations`, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        if (response.ok) {
+            const data = await response.json();
+            company.recommendations = Array.isArray(data) ? data : [];
+        } else {
+            company.recommendations = [];
+        }
+    } catch (e) {
+        console.error('Gagal mengambil rekomendasi kemiripan:', e);
+        company.recommendations = [];
+    } finally {
+        company.isLoadingRecommendations = false;
+    }
+
+    return company.recommendations;
+};
+
+const openReviewModal = async (company) => {
     activeCompanyForReview.value = company;
     showReviewModal.value = true;
+
+    // Jika rekomendasi belum dimuat, ambil secara asinkron saat modal dibuka
+    if (company && company.recommendations === undefined) {
+        isLoadingRecommendations.value = true;
+        await fetchCompanyRecommendations(company);
+        isLoadingRecommendations.value = false;
+    }
 };
 
 const closeReviewModal = () => {
@@ -419,6 +460,64 @@ const submitReject = () => {
 };
 
 // ========================================================
+// AKSI HAPUS PERUSAHAAN (DENGAN PENGECEKAN DEPENDENSI)
+// ========================================================
+// Menampilkan konfirmasi sebelum menghapus instansi perusahaan
+const confirmDeleteCompany = (company) => {
+    // Menghitung jumlah alumni yang terikat pada perusahaan ini
+    const alumniCount = company.biodata ? company.biodata.length : 0;
+
+    // Jika perusahaan masih memiliki relasi alumni, tolak penghapusan langsung
+    if (alumniCount > 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Perusahaan Tidak Dapat Dihapus',
+            html: `Perusahaan <b>"${company.nama_perusahaan}"</b> masih terhubung dengan <b>${alumniCount} data alumni</b>.<br><br>Untuk menjaga integritas data riwayat karir alumni, silakan gunakan tombol <b>"Sinkronkan"</b> untuk mengalihkan alumni ke master terverifikasi sebelum menghapus usulan ini.`,
+            confirmButtonColor: '#0D542B',
+            confirmButtonText: 'Mengerti',
+        });
+        return;
+    }
+
+    // Konfirmasi dialog hapus data perusahaan yang tidak memiliki relasi alumni
+    Swal.fire({
+        title: 'Hapus Perusahaan?',
+        html: `Apakah Anda yakin ingin menghapus data instansi <b>"${company.nama_perusahaan}"</b>?<br><span class="text-xs text-slate-500 mt-2 block">Data yang dihapus tidak dapat dipulihkan kembali.</span>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#DC2626',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.delete(`${props.basePath}/${company.id}`, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Terhapus',
+                        text: `Perusahaan "${company.nama_perusahaan}" berhasil dihapus dari sistem.`,
+                        timer: 1600,
+                        showConfirmButton: false,
+                    });
+                },
+                onError: (err) => {
+                    const msg = Object.values(err)[0] || 'Gagal menghapus data perusahaan.';
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Penghapusan Gagal',
+                        text: msg,
+                        confirmButtonColor: '#0D542B',
+                    });
+                },
+            });
+        }
+    });
+};
+
+// ========================================================
 // MODAL 5: TAMBAH PERUSAHAAN BARU (IDENTIK GAMBAR 1 & 2)
 // ========================================================
 const showCreateModal = ref(false);
@@ -447,6 +546,7 @@ const openCreateModal = () => {
         skala: 'Nasional',
         alamat: '',
     };
+    availableKabupatensForCreate.value = [];
     showCreateModal.value = true;
 };
 
@@ -454,13 +554,63 @@ const closeCreateModal = () => {
     showCreateModal.value = false;
 };
 
-const filteredKabupatensForCreate = computed(() => {
-    if (!createForm.value.propinsi_id) return [];
-    return props.kabupatens.filter(k => k.propinsi_id == createForm.value.propinsi_id);
-});
+// ========================================================
+// OPTIMASI WILAYAH: CASCADING DROPDOWN KABUPATEN ASINKRON
+// ========================================================
+// Cache daftar kabupaten per provinsi di memori browser agar request tidak berulang
+const kabupatensCache = ref({});
+const availableKabupatensForCreate = ref([]);
+const availableKabupatensForEdit = ref([]);
+const isLoadingKabupatenCreate = ref(false);
+const isLoadingKabupatenEdit = ref(false);
 
-const handlePropinsiChangeCreate = () => {
+// Mengambil daftar kabupaten dari server berdasarkan ID provinsi terpilih
+const fetchKabupatensByProvinsi = async (propinsiId) => {
+    if (!propinsiId) return [];
+    if (kabupatensCache.value[propinsiId]) {
+        return kabupatensCache.value[propinsiId];
+    }
+
+    try {
+        const response = await fetch(`/api/wilayah/kabupaten/${propinsiId}`, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        if (response.ok) {
+            const data = await response.json();
+            kabupatensCache.value[propinsiId] = data;
+            return data;
+        }
+    } catch (e) {
+        console.error('Gagal mengambil daftar kabupaten:', e);
+    }
+    return [];
+};
+
+const handlePropinsiChangeCreate = async () => {
     createForm.value.kabupaten_id = '';
+    const propId = createForm.value.propinsi_id;
+    if (propId) {
+        isLoadingKabupatenCreate.value = true;
+        availableKabupatensForCreate.value = await fetchKabupatensByProvinsi(propId);
+        isLoadingKabupatenCreate.value = false;
+    } else {
+        availableKabupatensForCreate.value = [];
+    }
+};
+
+const handlePropinsiChangeEdit = async () => {
+    editForm.value.kabupaten_id = '';
+    const propId = editForm.value.propinsi_id;
+    if (propId) {
+        isLoadingKabupatenEdit.value = true;
+        availableKabupatensForEdit.value = await fetchKabupatensByProvinsi(propId);
+        isLoadingKabupatenEdit.value = false;
+    } else {
+        availableKabupatensForEdit.value = [];
+    }
 };
 
 const submitCreateForm = () => {
@@ -549,7 +699,7 @@ const editForm = ref({
     alamat: '',
 });
 
-const openEditModal = (company) => {
+const openEditModal = async (company) => {
     editForm.value = {
         id: company.id,
         jenis_lokasi: company.jenis_lokasi || 'Dalam Negeri',
@@ -563,20 +713,21 @@ const openEditModal = (company) => {
         alamat: company.alamat || '',
     };
     showEditModal.value = true;
+
+    // Prefetch daftar kabupaten untuk provinsi yang sedang aktif diedit
+    if (company.propinsi_id) {
+        isLoadingKabupatenEdit.value = true;
+        availableKabupatensForEdit.value = await fetchKabupatensByProvinsi(company.propinsi_id);
+        isLoadingKabupatenEdit.value = false;
+    } else {
+        availableKabupatensForEdit.value = [];
+    }
 };
 
 const closeEditModal = () => {
     showEditModal.value = false;
     editForm.value.id = null;
-};
-
-const filteredKabupatensForEdit = computed(() => {
-    if (!editForm.value.propinsi_id) return [];
-    return props.kabupatens.filter(k => k.propinsi_id == editForm.value.propinsi_id);
-});
-
-const handlePropinsiChangeEdit = () => {
-    editForm.value.kabupaten_id = '';
+    availableKabupatensForEdit.value = [];
 };
 
 const submitEditForm = () => {
@@ -1070,6 +1221,21 @@ const handleVerifyDirect = (company) => {
                                             </div>
                                         </div>
                                     </div>
+                                    <div v-else-if="company.isLoadingRecommendations" class="text-[11px] text-slate-500 italic">
+                                        Memeriksa...
+                                    </div>
+                                    <button
+                                        v-else-if="company.recommendations === undefined"
+                                        type="button"
+                                        @click="fetchCompanyRecommendations(company)"
+                                        class="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-slate-600 hover:text-[#0D542B] bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded transition-colors cursor-pointer"
+                                        title="Periksa kemiripan nama dengan master resmi"
+                                    >
+                                        <svg class="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                        <span>Cek Kemiripan</span>
+                                    </button>
                                     <span v-else class="text-slate-400 italic text-[11px]">-</span>
                                 </td>
 
@@ -1132,6 +1298,18 @@ const handleVerifyDirect = (company) => {
                                         >
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                        </button>
+
+                                        <!-- 6. Tombol Hapus (Trash) -->
+                                        <button
+                                            type="button"
+                                            @click="confirmDeleteCompany(company)"
+                                            class="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                                            title="Hapus Data Perusahaan"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                             </svg>
                                         </button>
                                     </div>
@@ -1433,8 +1611,23 @@ const handleVerifyDirect = (company) => {
                     <span class="font-bold text-slate-700 tracking-wider text-[11px] uppercase block">
                         3. REKOMENDASI MASTER TERVERIFIKASI (KONSOLIDASI DATA)
                     </span>
+
+                    <!-- Indikator Loading Rekomendasi Asinkron -->
                     <div
-                        v-if="activeCompanyForReview.recommendations && activeCompanyForReview.recommendations.length > 0"
+                        v-if="isLoadingRecommendations || activeCompanyForReview.isLoadingRecommendations"
+                        class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs text-slate-500 animate-pulse"
+                    >
+                        <div class="inline-flex items-center gap-2 text-slate-700 font-medium">
+                            <svg class="animate-spin h-4 w-4 text-[#0D542B]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>Menganalisis kemiripan master institusi resmi...</span>
+                        </div>
+                    </div>
+
+                    <div
+                        v-else-if="activeCompanyForReview.recommendations && activeCompanyForReview.recommendations.length > 0"
                         class="border border-slate-200 rounded-xl overflow-hidden bg-white"
                     >
                         <table class="w-full text-left border-collapse text-xs">
@@ -1821,11 +2014,13 @@ const handleVerifyDirect = (company) => {
                         </label>
                         <select
                             v-model="createForm.kabupaten_id"
-                            :disabled="!createForm.propinsi_id"
+                            :disabled="!createForm.propinsi_id || isLoadingKabupatenCreate"
                             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
                         >
-                            <option value="">-- Pilih Kabupaten --</option>
-                            <option v-for="k in filteredKabupatensForCreate" :key="k.id" :value="k.id">
+                            <option value="">
+                                {{ isLoadingKabupatenCreate ? 'Memuat kabupaten/kota...' : (createForm.propinsi_id ? '-- Pilih Kabupaten / Kota --' : '-- Pilih Provinsi Dahulu --') }}
+                            </option>
+                            <option v-for="k in availableKabupatensForCreate" :key="k.id" :value="k.id">
                                 {{ k.nama_kabupaten }}
                             </option>
                         </select>
@@ -2013,11 +2208,13 @@ const handleVerifyDirect = (company) => {
                         </label>
                         <select
                             v-model="editForm.kabupaten_id"
-                            :disabled="!editForm.propinsi_id"
+                            :disabled="!editForm.propinsi_id || isLoadingKabupatenEdit"
                             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
                         >
-                            <option value="">-- Pilih Kabupaten --</option>
-                            <option v-for="k in filteredKabupatensForEdit" :key="k.id" :value="k.id">
+                            <option value="">
+                                {{ isLoadingKabupatenEdit ? 'Memuat kabupaten/kota...' : (editForm.propinsi_id ? '-- Pilih Kabupaten / Kota --' : '-- Pilih Provinsi Dahulu --') }}
+                            </option>
+                            <option v-for="k in availableKabupatensForEdit" :key="k.id" :value="k.id">
                                 {{ k.nama_kabupaten }}
                             </option>
                         </select>
