@@ -318,79 +318,175 @@ const filteredKuesioners = computed(() => {
 // ========================================================
 // MODAL HANDLERS: SECTION (TAMBAH / EDIT / REORDER / HAPUS)
 // ========================================================
+// ========================================================
+// STATE REAKTIF UNTUK MODAL VUE 3 (COMPOSITION API)
+// ========================================================
+// Catatan Belajar: 'ref' adalah fungsi dasar Composition API di Vue 3 untuk menyimpan data yang reaktif.
+// Saat nilai di dalam 'ref' diubah (contoh: isQuestionModalOpen.value = true), Vue secara otomatis mendeteksi
+// perubahan dan merender ulang bagian template yang bersangkutan.
+
+// 1. STATE MODAL BAGIAN (SECTION)
+const isSectionModalOpen = ref(false);
+const isEditingSection = ref(false);
+const editingSectionId = ref(null);
+const sectionFormData = ref({
+    kuesioner_id: '',
+    title: '',
+    description: '',
+    order: 1,
+});
+const sectionFormErrors = ref({});
+const isSubmittingSection = ref(false);
+
+// 2. STATE MODAL BUTIR PERTANYAAN (QUESTION)
+const isQuestionModalOpen = ref(false);
+const isEditingQuestion = ref(false);
+const editingQuestionId = ref(null);
+const questionModalTitle = ref('Tambah Pertanyaan');
+const questionFormData = ref({
+    kode_pertanyaan: '',
+    subpertanyaan: '',
+    type: 'radio',
+    kelompok_pertanyaan_id: '',
+    tampil_di: 'kuesioner',
+    order: 1,
+    keterangan: '',
+    wajib: true,
+});
+const questionFormErrors = ref({});
+const isSubmittingQuestion = ref(false);
+
+// 3. STATE MODAL OPSI JAWABAN (OPTION)
+const isOptionModalOpen = ref(false);
+const isEditingOption = ref(false);
+const editingOptionId = ref(null);
+const activeQuestionForOption = ref(null);
+const optionFormData = ref({
+    kode_opsi: '',
+    option_text: '',
+    jump_to: '',
+    order: 1,
+});
+const optionFormErrors = ref({});
+const isSubmittingOption = ref(false);
+
+// 4. STATE MODAL KUESIONER INDUK
+const isKuesionerModalOpen = ref(false);
+const isEditingKuesioner = ref(false);
+const editingKuesionerId = ref(null);
+const kuesionerFormData = ref({
+    title: '',
+    year: new Date().getFullYear(),
+    description: '',
+    is_active: true,
+});
+const kuesionerFormErrors = ref({});
+const isSubmittingKuesioner = ref(false);
+
+// ========================================================
+// FUNGSI KONTROL: MODAL BAGIAN (SECTION)
+// ========================================================
+
+/**
+ * Membuka modal form tambah / sunting bagian kuesioner
+ */
 const openSectionModal = (sectionToEdit = null) => {
-    const isEdit = !!sectionToEdit;
-    const initialKuesionerId = sectionToEdit?.kuesioner_id || (props.kuesioners[0]?.id || '');
-    const initialTitle = sectionToEdit?.title || '';
-    const initialDesc = sectionToEdit?.description || '';
-    const initialOrder = sectionToEdit?.order || (props.sections.length + 1);
+    sectionFormErrors.value = {};
 
-    const kuesionerOptionsHtml = props.kuesioners
-        .map((k) => `<option value="${k.id}" ${k.id == initialKuesionerId ? 'selected' : ''}>${k.title} (${k.year || '-'})</option>`)
-        .join('');
+    if (sectionToEdit) {
+        // Mode Sunting
+        isEditingSection.value = true;
+        editingSectionId.value = sectionToEdit.id;
+        sectionFormData.value = {
+            kuesioner_id: sectionToEdit.kuesioner_id || (props.kuesioners[0]?.id || ''),
+            title: sectionToEdit.title || '',
+            description: sectionToEdit.description || '',
+            order: sectionToEdit.order ?? (props.sections.length + 1),
+        };
+    } else {
+        // Mode Tambah Baru
+        isEditingSection.value = false;
+        editingSectionId.value = null;
+        sectionFormData.value = {
+            kuesioner_id: props.activeKuesioner?.id || (props.kuesioners[0]?.id || ''),
+            title: '',
+            description: '',
+            order: props.sections.length + 1,
+        };
+    }
 
-    Swal.fire({
-        title: isEdit ? 'Sunting Bagian Kuesioner Universitas' : 'Tambah Bagian Kuesioner Universitas Baru',
-        html: `
-            <div class="text-left space-y-3 text-xs">
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Kuesioner Induk *</label>
-                    <select id="swal-sec-kuesioner-id" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]">
-                        ${kuesionerOptionsHtml || '<option value="">-- Buat Kuesioner Induk Dulu --</option>'}
-                    </select>
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Judul Bagian (Section Title) *</label>
-                    <input id="swal-sec-title" type="text" value="${initialTitle}" placeholder="Contoh: Identitas & Biodata Mahasiswa" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Deskripsi / Petunjuk Pengisian (Opsional)</label>
-                    <textarea id="swal-sec-desc" rows="3" placeholder="Ketikkan petunjuk pengisian bagi responden..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]">${initialDesc}</textarea>
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Nomor Urut Posisi</label>
-                    <input id="swal-sec-order" type="number" value="${initialOrder}" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                </div>
-            </div>
-        `,
-        showCancelButton: true,
-        confirmButtonText: isEdit ? 'Simpan Perubahan' : 'Tambah Bagian',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#0D542B',
-        cancelButtonColor: '#6B7280',
-        preConfirm: () => {
-            const kuesioner_id = document.getElementById('swal-sec-kuesioner-id').value;
-            const title = document.getElementById('swal-sec-title').value.trim();
-            const description = document.getElementById('swal-sec-desc').value.trim();
-            const order = parseInt(document.getElementById('swal-sec-order').value, 10) || null;
+    isSectionModalOpen.value = true;
+};
 
-            if (!title) {
-                Swal.showValidationMessage('Judul bagian kuesioner wajib diisi.');
-                return false;
-            }
+/**
+ * Menutup modal bagian kuesioner
+ */
+const closeSectionModal = () => {
+    isSectionModalOpen.value = false;
+    isSubmittingSection.value = false;
+    sectionFormErrors.value = {};
+};
 
-            return {
-                kuesioner_id,
-                title,
-                description,
-                order,
-            };
-        },
-    }).then((res) => {
-        if (res.isConfirmed && res.value) {
-            if (isEdit) {
-                router.put(`/superadmin/sections/${sectionToEdit.id}`, res.value, {
-                    preserveScroll: true,
-                    onSuccess: () => Swal.fire('Berhasil', 'Bagian kuesioner berhasil diperbarui.', 'success'),
+/**
+ * Mengirimkan data form bagian ke backend Laravel
+ */
+const submitSectionForm = () => {
+    sectionFormErrors.value = {};
+
+    if (!sectionFormData.value.kuesioner_id) {
+        sectionFormErrors.value.kuesioner_id = 'Kuesioner induk wajib dipilih.';
+    }
+    if (!sectionFormData.value.title || !sectionFormData.value.title.trim()) {
+        sectionFormErrors.value.title = 'Judul bagian kuesioner wajib diisi.';
+    }
+
+    if (Object.keys(sectionFormErrors.value).length > 0) {
+        return;
+    }
+
+    isSubmittingSection.value = true;
+
+    if (isEditingSection.value) {
+        router.put(`/superadmin/sections/${editingSectionId.value}`, sectionFormData.value, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeSectionModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Bagian kuesioner berhasil diperbarui.',
+                    timer: 2000,
+                    showConfirmButton: false,
                 });
-            } else {
-                router.post('/superadmin/sections', res.value, {
-                    preserveScroll: true,
-                    onSuccess: () => Swal.fire('Berhasil', 'Bagian kuesioner baru berhasil ditambahkan.', 'success'),
+            },
+            onError: (errs) => {
+                sectionFormErrors.value = errs;
+            },
+            onFinish: () => {
+                isSubmittingSection.value = false;
+            },
+        });
+    } else {
+        router.post('/superadmin/sections', sectionFormData.value, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeSectionModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Bagian kuesioner baru berhasil ditambahkan.',
+                    timer: 2000,
+                    showConfirmButton: false,
                 });
-            }
-        }
-    });
+            },
+            onError: (errs) => {
+                sectionFormErrors.value = errs;
+            },
+            onFinish: () => {
+                isSubmittingSection.value = false;
+            },
+        });
+    }
 };
 
 const handleReorderSection = (sectionId, direction) => {
@@ -416,156 +512,165 @@ const handleDeleteSection = (section) => {
         if (res.isConfirmed) {
             router.delete(`/superadmin/sections/${section.id}`, {
                 preserveScroll: true,
-                onSuccess: () => Swal.fire('Terhapus', 'Bagian kuesioner berhasil dihapus.', 'success'),
+                onSuccess: () => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Terhapus',
+                        text: 'Bagian kuesioner berhasil dihapus.',
+                        timer: 2000,
+                        showConfirmButton: false,
+                    });
+                },
             });
         }
     });
 };
 
 // ========================================================
-// MODAL HANDLERS: QUESTION (TAMBAH / EDIT / REORDER / HAPUS)
+// FUNGSI KONTROL: MODAL BUTIR PERTANYAAN (QUESTION)
 // ========================================================
+
+/**
+ * Menangani perubahan tipe pertanyaan.
+ * Menghasilkan instruksi pengisian default secara otomatis jika pengguna belum mengetik petunjuk kustom.
+ */
+const handleQuestionTypeChange = () => {
+    const nextInstruction = getTypeInstruction(questionFormData.value.type);
+    const currentInstruction = (questionFormData.value.keterangan || '').trim();
+
+    if (!currentInstruction || isAutomaticInstruction(currentInstruction)) {
+        questionFormData.value.keterangan = nextInstruction;
+    }
+};
+
+/**
+ * Membuka modal form butir pertanyaan
+ */
 const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') => {
-    const isEdit = !!questionToEdit;
-    const initialCode = questionToEdit?.kode_pertanyaan || '';
-    const initialText = questionToEdit?.subpertanyaan || '';
-    const initialType = questionToEdit?.type || 'radio';
-    const initialWajib = questionToEdit?.wajib !== undefined ? questionToEdit.wajib : true;
-    const initialTarget = questionToEdit ? (isProfileTarget(questionToEdit.tampil_di) ? 'profil' : (questionToEdit.tampil_di || 'kuesioner')) : defaultTarget;
-    const initialKeterangan = questionToEdit?.keterangan || getTypeInstruction(initialType);
-    const initialSecId = questionToEdit?.kelompok_pertanyaan_id || (props.sections[0]?.id || '');
-    const initialOrder = questionToEdit?.order || (props.subpertanyaans.length + 1);
+    questionFormErrors.value = {};
 
-    const sectionOptions = props.sections.map(s => `<option value="${s.id}" ${initialSecId == s.id ? 'selected' : ''}>Bagian ${s.order}: ${s.title}</option>`).join('');
-    const typeOptions = Object.entries(univSelectableTypes).map(([val, label]) => `<option value="${val}" ${initialType === val ? 'selected' : ''}>${label}</option>`).join('');
+    if (questionToEdit) {
+        // Mode Sunting
+        isEditingQuestion.value = true;
+        editingQuestionId.value = questionToEdit.id;
+        questionModalTitle.value = `Sunting Pertanyaan [${questionToEdit.kode_pertanyaan}]`;
 
-    Swal.fire({
-        title: isEdit ? 'Sunting Pertanyaan' : (defaultTarget === 'profil' ? 'Tambah Pertanyaan Profil Alumni' : 'Tambah Pertanyaan Kuesioner Tracer'),
-        html: `
-            <div class="text-left space-y-3 text-xs max-h-[72vh] overflow-y-auto pr-1">
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block font-bold text-gray-700 mb-1">Kode Pertanyaan *</label>
-                        <input id="swal-q-code" type="text" value="${initialCode}" placeholder="Contoh: F301, F13, BIO_BIDANG_DIVISI" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono font-bold uppercase focus:ring-1 focus:ring-[#0D542B]" />
-                    </div>
-                    <div>
-                        <label class="block font-bold text-gray-700 mb-1">Lokasi Tampil *</label>
-                        <select id="swal-q-target" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white font-bold text-[#0D542B] focus:ring-1 focus:ring-[#0D542B]">
-                            <option value="kuesioner" ${initialTarget === 'kuesioner' ? 'selected' : ''}>Kuesioner Tracer Saja</option>
-                            <option value="profil" ${initialTarget === 'profil' || initialTarget === 'profile' ? 'selected' : ''}>Profil Alumni Saja</option>
-                            <option value="both" ${initialTarget === 'both' ? 'selected' : ''}>Keduanya (Kuesioner & Profil)</option>
-                        </select>
-                    </div>
-                </div>
+        const target = isProfileTarget(questionToEdit.tampil_di)
+            ? 'profil'
+            : (questionToEdit.tampil_di || 'kuesioner');
 
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Bagian / Section *</label>
-                    <select id="swal-q-sec" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B]">
-                        ${sectionOptions || '<option value="">-- Buat Bagian (Section) Dulu --</option>'}
-                    </select>
-                </div>
+        questionFormData.value = {
+            kode_pertanyaan: questionToEdit.kode_pertanyaan || '',
+            subpertanyaan: questionToEdit.subpertanyaan || '',
+            type: questionToEdit.type || 'radio',
+            kelompok_pertanyaan_id: questionToEdit.kelompok_pertanyaan_id || (props.sections[0]?.id || ''),
+            tampil_di: target,
+            order: questionToEdit.order ?? (props.subpertanyaans.length + 1),
+            keterangan: questionToEdit.keterangan || getTypeInstruction(questionToEdit.type || 'radio'),
+            wajib: questionToEdit.wajib !== undefined ? Boolean(questionToEdit.wajib) : true,
+        };
+    } else {
+        // Mode Tambah Baru
+        isEditingQuestion.value = false;
+        editingQuestionId.value = null;
+        questionModalTitle.value = defaultTarget === 'profil'
+            ? 'Tambah Pertanyaan Profil Alumni'
+            : 'Tambah Pertanyaan Kuesioner Tracer';
 
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Butir Pertanyaan *</label>
-                    <textarea id="swal-q-text" rows="3" placeholder="Ketik kalimat butir pertanyaan..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B]">${initialText}</textarea>
-                </div>
+        const defaultType = 'radio';
+        questionFormData.value = {
+            kode_pertanyaan: '',
+            subpertanyaan: '',
+            type: defaultType,
+            kelompok_pertanyaan_id: props.sections[0]?.id || '',
+            tampil_di: defaultTarget,
+            order: props.subpertanyaans.length + 1,
+            keterangan: getTypeInstruction(defaultType),
+            wajib: true,
+        };
+    }
 
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block font-bold text-gray-700 mb-1">Tipe Pertanyaan *</label>
-                        <select id="swal-q-type" class="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B]">
-                            ${typeOptions}
-                        </select>
-                        <p class="text-[10px] text-gray-500 mt-1">Opsi pilihan dibuat otomatis jika tipe pertanyaan membutuhkannya.</p>
-                    </div>
-                    <div>
-                        <label class="block font-bold text-gray-700 mb-1">Nomor Urut</label>
-                        <input id="swal-q-order" type="number" value="${initialOrder}" min="1" class="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B]" />
-                    </div>
-                </div>
+    isQuestionModalOpen.value = true;
+};
 
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Keterangan / Batasan Nilai (Opsional)</label>
-                    <input id="swal-q-keterangan" type="text" value="${initialKeterangan}" placeholder="Contoh: Minimal Rp 1.000, kelipatan ribuan, format tanggal" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B]" />
-                </div>
+/**
+ * Menutup modal butir pertanyaan
+ */
+const closeQuestionModal = () => {
+    isQuestionModalOpen.value = false;
+    isSubmittingQuestion.value = false;
+    questionFormErrors.value = {};
+};
 
-                <div class="flex items-center gap-2 pt-1">
-                    <input id="swal-q-req" type="checkbox" ${initialWajib ? 'checked' : ''} class="rounded text-[#0D542B] focus:ring-[#0D542B]" />
-                    <label for="swal-q-req" class="font-bold text-gray-700">Wajib diisi oleh alumni responden</label>
-                </div>
-            </div>
-        `,
-        showCancelButton: true,
-        confirmButtonText: isEdit ? 'Simpan Perubahan' : 'Tambah Pertanyaan',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#0D542B',
-        cancelButtonColor: '#6B7280',
-        didOpen: () => {
-            const typeSelect = document.getElementById('swal-q-type');
-            const keteranganInput = document.getElementById('swal-q-keterangan');
+/**
+ * Menyimpan data butir pertanyaan ke controller Laravel
+ */
+const submitQuestionForm = () => {
+    questionFormErrors.value = {};
 
-            if (!typeSelect || !keteranganInput) {
-                return;
-            }
+    if (!questionFormData.value.kode_pertanyaan.trim()) {
+        questionFormErrors.value.kode_pertanyaan = 'Kode pertanyaan wajib diisi.';
+    }
+    if (!questionFormData.value.subpertanyaan.trim()) {
+        questionFormErrors.value.subpertanyaan = 'Teks pertanyaan wajib diisi.';
+    }
+    if (!questionFormData.value.kelompok_pertanyaan_id) {
+        questionFormErrors.value.kelompok_pertanyaan_id = 'Bagian (Section) wajib dipilih.';
+    }
 
-            let lastAutoInstruction = getTypeInstruction(typeSelect.value);
+    if (Object.keys(questionFormErrors.value).length > 0) {
+        return;
+    }
 
-            typeSelect.addEventListener('change', () => {
-                const nextInstruction = getTypeInstruction(typeSelect.value);
-                const currentInstruction = keteranganInput.value.trim();
+    isSubmittingQuestion.value = true;
 
-                if (isAutomaticInstruction(currentInstruction) || currentInstruction === lastAutoInstruction) {
-                    keteranganInput.value = nextInstruction;
-                }
+    // Normalisasi kode pertanyaan agar selalu huruf besar (kapital)
+    const payload = {
+        ...questionFormData.value,
+        kode_pertanyaan: questionFormData.value.kode_pertanyaan.trim().toUpperCase(),
+    };
 
-                lastAutoInstruction = nextInstruction;
-            });
-        },
-        preConfirm: () => {
-            const kode_pertanyaan = document.getElementById('swal-q-code').value.trim();
-            const subpertanyaan = document.getElementById('swal-q-text').value.trim();
-            const type = document.getElementById('swal-q-type').value;
-            const kelompok_pertanyaan_id = document.getElementById('swal-q-sec').value;
-            const tampil_di = document.getElementById('swal-q-target').value;
-            const order = parseInt(document.getElementById('swal-q-order').value, 10) || null;
-            const keterangan = document.getElementById('swal-q-keterangan').value.trim() || null;
-            const wajib = document.getElementById('swal-q-req').checked;
-
-            if (!kode_pertanyaan || !subpertanyaan) {
-                Swal.showValidationMessage('Kode dan teks pertanyaan wajib diisi.');
-                return false;
-            }
-            if (!kelompok_pertanyaan_id) {
-                Swal.showValidationMessage('Pilih Bagian (Section) terlebih dahulu.');
-                return false;
-            }
-
-            return {
-                kode_pertanyaan,
-                subpertanyaan,
-                type,
-                kelompok_pertanyaan_id,
-                tampil_di,
-                order,
-                keterangan,
-                wajib,
-            };
-        },
-    }).then((res) => {
-        if (res.isConfirmed && res.value) {
-            if (isEdit) {
-                router.put(`/superadmin/pertanyaan/${questionToEdit.id}`, res.value, {
-                    preserveScroll: true,
-                    onSuccess: () => Swal.fire('Berhasil', 'Pertanyaan berhasil diperbarui.', 'success'),
+    if (isEditingQuestion.value) {
+        router.put(`/superadmin/pertanyaan/${editingQuestionId.value}`, payload, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeQuestionModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Pertanyaan berhasil diperbarui.',
+                    timer: 2000,
+                    showConfirmButton: false,
                 });
-            } else {
-                router.post('/superadmin/pertanyaan', res.value, {
-                    preserveScroll: true,
-                    onSuccess: () => Swal.fire('Berhasil', 'Pertanyaan berhasil ditambahkan.', 'success'),
+            },
+            onError: (errs) => {
+                questionFormErrors.value = errs;
+            },
+            onFinish: () => {
+                isSubmittingQuestion.value = false;
+            },
+        });
+    } else {
+        router.post('/superadmin/pertanyaan', payload, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeQuestionModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Pertanyaan baru berhasil ditambahkan.',
+                    timer: 2000,
+                    showConfirmButton: false,
                 });
-            }
-        }
-    });
+            },
+            onError: (errs) => {
+                questionFormErrors.value = errs;
+            },
+            onFinish: () => {
+                isSubmittingQuestion.value = false;
+            },
+        });
+    }
 };
 
 const handleReorderQuestion = (questionId, direction) => {
@@ -591,83 +696,128 @@ const handleDeleteQuestion = (question) => {
         if (res.isConfirmed) {
             router.delete(`/superadmin/pertanyaan/${question.id}`, {
                 preserveScroll: true,
-                onSuccess: () => Swal.fire('Terhapus', 'Pertanyaan berhasil dihapus.', 'success'),
+                onSuccess: () => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Terhapus',
+                        text: 'Pertanyaan berhasil dihapus.',
+                        timer: 2000,
+                        showConfirmButton: false,
+                    });
+                },
             });
         }
     });
 };
 
 // ========================================================
-// MODAL HANDLERS: OPSI JAWABAN (TAMBAH / EDIT / HAPUS)
+// FUNGSI KONTROL: MODAL OPSI JAWABAN (OPTION)
 // ========================================================
+
+/**
+ * Membuka modal tambah / sunting opsi jawaban untuk suatu pertanyaan
+ */
 const openOptionModal = (question, optionToEdit = null) => {
-    const isEdit = !!optionToEdit;
-    const initialText = optionToEdit?.option_text || optionToEdit?.opsi || '';
-    const initialCode = optionToEdit?.kode_opsi || `${question.kode_pertanyaan}-${String((question.detils?.length || 0) + 1).padStart(2, '0')}`;
-    const initialJump = optionToEdit?.jump_to || '';
-    const initialOrder = optionToEdit?.order || ((question.detils?.length || 0) + 1);
+    optionFormErrors.value = {};
+    activeQuestionForOption.value = question;
 
-    const jumpOptions = ['<option value="">-- Tanpa Percabangan (Lanjut Normal) --</option>']
-        .concat(props.availableJumpTargets.map(t => `<option value="${t.kode_pertanyaan}" ${initialJump === t.kode_pertanyaan ? 'selected' : ''}>Lompat ke: [${t.kode_pertanyaan}] ${t.text?.substring(0, 40)}...</option>`))
-        .join('');
+    if (optionToEdit) {
+        // Mode Sunting Opsi
+        isEditingOption.value = true;
+        editingOptionId.value = optionToEdit.id;
+        optionFormData.value = {
+            kode_opsi: optionToEdit.kode_opsi || '',
+            option_text: optionToEdit.option_text || optionToEdit.opsi || '',
+            jump_to: optionToEdit.jump_to || '',
+            order: optionToEdit.order ?? 1,
+        };
+    } else {
+        // Mode Tambah Opsi Baru: buatkan kode opsi otomatis (contoh: F301-01)
+        isEditingOption.value = false;
+        editingOptionId.value = null;
+        const nextIndex = (question.detils?.length || 0) + 1;
+        const autoCode = `${question.kode_pertanyaan}-${String(nextIndex).padStart(2, '0')}`;
+        optionFormData.value = {
+            kode_opsi: autoCode,
+            option_text: '',
+            jump_to: '',
+            order: nextIndex,
+        };
+    }
 
-    Swal.fire({
-        title: isEdit ? `Edit Opsi [${question.kode_pertanyaan}]` : `Tambah Opsi Jawaban [${question.kode_pertanyaan}]`,
-        html: `
-            <div class="text-left space-y-3 text-xs">
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Kode Opsi *</label>
-                    <input id="swal-opt-code" type="text" value="${initialCode}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono" />
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Teks Opsi Jawaban *</label>
-                    <input id="swal-opt-text" type="text" value="${initialText}" placeholder="Contoh: Sangat Setuju" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs" />
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Alur Percabangan (Lompat Ke / Jump To)</label>
-                    <select id="swal-opt-jump" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white">
-                        ${jumpOptions}
-                    </select>
-                </div>
-            </div>
-        `,
-        showCancelButton: true,
-        confirmButtonText: isEdit ? 'Simpan Opsi' : 'Tambah Opsi',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#0D542B',
-        cancelButtonColor: '#6B7280',
-        preConfirm: () => {
-            const kode_opsi = document.getElementById('swal-opt-code').value.trim();
-            const option_text = document.getElementById('swal-opt-text').value.trim();
-            const jump_to = document.getElementById('swal-opt-jump').value;
+    isOptionModalOpen.value = true;
+};
 
-            if (!kode_opsi || !option_text) {
-                Swal.showValidationMessage('Kode opsi dan teks opsi wajib diisi.');
-                return false;
-            }
+/**
+ * Menutup modal opsi jawaban
+ */
+const closeOptionModal = () => {
+    isOptionModalOpen.value = false;
+    isSubmittingOption.value = false;
+    activeQuestionForOption.value = null;
+    optionFormErrors.value = {};
+};
 
-            return {
-                kode_opsi,
-                option_text,
-                jump_to: jump_to || null,
-                order: initialOrder,
-            };
-        },
-    }).then((res) => {
-        if (res.isConfirmed && res.value) {
-            if (isEdit) {
-                router.put(`/superadmin/pertanyaan/options/${optionToEdit.id}`, res.value, {
-                    preserveScroll: true,
-                    onSuccess: () => Swal.fire('Berhasil', 'Opsi jawaban berhasil diperbarui.', 'success'),
+/**
+ * Menyimpan data opsi jawaban ke backend
+ */
+const submitOptionForm = () => {
+    optionFormErrors.value = {};
+
+    if (!optionFormData.value.kode_opsi.trim()) {
+        optionFormErrors.value.kode_opsi = 'Kode opsi wajib diisi.';
+    }
+    if (!optionFormData.value.option_text.trim()) {
+        optionFormErrors.value.option_text = 'Teks opsi jawaban wajib diisi.';
+    }
+
+    if (Object.keys(optionFormErrors.value).length > 0) {
+        return;
+    }
+
+    isSubmittingOption.value = true;
+
+    if (isEditingOption.value) {
+        router.put(`/superadmin/pertanyaan/options/${editingOptionId.value}`, optionFormData.value, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeOptionModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Opsi jawaban berhasil diperbarui.',
+                    timer: 2000,
+                    showConfirmButton: false,
                 });
-            } else {
-                router.post(`/superadmin/pertanyaan/${question.id}/options`, res.value, {
-                    preserveScroll: true,
-                    onSuccess: () => Swal.fire('Berhasil', 'Opsi jawaban baru berhasil ditambahkan.', 'success'),
+            },
+            onError: (errs) => {
+                optionFormErrors.value = errs;
+            },
+            onFinish: () => {
+                isSubmittingOption.value = false;
+            },
+        });
+    } else {
+        router.post(`/superadmin/pertanyaan/${activeQuestionForOption.value.id}/options`, optionFormData.value, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeOptionModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Opsi jawaban baru berhasil ditambahkan.',
+                    timer: 2000,
+                    showConfirmButton: false,
                 });
-            }
-        }
-    });
+            },
+            onError: (errs) => {
+                optionFormErrors.value = errs;
+            },
+            onFinish: () => {
+                isSubmittingOption.value = false;
+            },
+        });
+    }
 };
 
 const handleDeleteOption = (opt) => {
@@ -684,86 +834,125 @@ const handleDeleteOption = (opt) => {
         if (res.isConfirmed) {
             router.delete(`/superadmin/pertanyaan/options/${opt.id}`, {
                 preserveScroll: true,
-                onSuccess: () => Swal.fire('Terhapus', 'Opsi jawaban berhasil dihapus.', 'success'),
+                onSuccess: () => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Terhapus',
+                        text: 'Opsi jawaban berhasil dihapus.',
+                        timer: 2000,
+                        showConfirmButton: false,
+                    });
+                },
             });
         }
     });
 };
 
 // ========================================================
-// MODAL HANDLERS: KUESIONER INDUK (TAMBAH / EDIT / TOGGLE / HAPUS)
+// FUNGSI KONTROL: MODAL KUESIONER INDUK
 // ========================================================
+
+/**
+ * Membuka modal form tambah / sunting kuesioner induk
+ */
 const openKuesionerModal = (kuesionerToEdit = null) => {
-    const isEdit = !!kuesionerToEdit;
-    const initialTitle = kuesionerToEdit?.title || '';
-    const initialYear = kuesionerToEdit?.year || new Date().getFullYear();
-    const initialDesc = kuesionerToEdit?.description || '';
-    const initialActive = isEdit ? Boolean(kuesionerToEdit.is_active) : true;
+    kuesionerFormErrors.value = {};
 
-    Swal.fire({
-        title: isEdit ? 'Sunting Kuesioner Induk' : 'Tambah Kuesioner Induk Baru',
-        html: `
-            <div class="text-left space-y-3.5 text-xs">
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Judul Kuesioner Induk *</label>
-                    <input id="swal-k-title" type="text" value="${initialTitle}" placeholder="Contoh: Tracer Study UKDW 2026" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B]" />
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Tahun Kuesioner *</label>
-                    <input id="swal-k-year" type="number" value="${initialYear}" min="2000" max="2100" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B]" />
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Deskripsi / Keterangan (Opsional)</label>
-                    <textarea id="swal-k-desc" rows="3" placeholder="Ketik keterangan atau standar instrumen tracer study..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B]">${initialDesc}</textarea>
-                </div>
-                <div class="flex items-center gap-2 pt-1">
-                    <input id="swal-k-active" type="checkbox" ${initialActive ? 'checked' : ''} class="rounded text-[#0D542B] focus:ring-[#0D542B]" />
-                    <label for="swal-k-active" class="font-bold text-gray-700">Jadikan Kuesioner Aktif (Ditampilkan kepada Alumni)</label>
-                </div>
-            </div>
-        `,
-        showCancelButton: true,
-        confirmButtonText: isEdit ? 'Simpan Perubahan' : 'Tambah Kuesioner',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#0D542B',
-        cancelButtonColor: '#6B7280',
-        preConfirm: () => {
-            const title = document.getElementById('swal-k-title').value.trim();
-            const year = parseInt(document.getElementById('swal-k-year').value, 10);
-            const description = document.getElementById('swal-k-desc').value.trim();
-            const is_active = document.getElementById('swal-k-active').checked;
+    if (kuesionerToEdit) {
+        // Mode Sunting Kuesioner
+        isEditingKuesioner.value = true;
+        editingKuesionerId.value = kuesionerToEdit.id;
+        kuesionerFormData.value = {
+            title: kuesionerToEdit.title || '',
+            year: kuesionerToEdit.year || new Date().getFullYear(),
+            description: kuesionerToEdit.description || '',
+            is_active: Boolean(kuesionerToEdit.is_active),
+        };
+    } else {
+        // Mode Tambah Kuesioner Baru
+        isEditingKuesioner.value = false;
+        editingKuesionerId.value = null;
+        kuesionerFormData.value = {
+            title: '',
+            year: new Date().getFullYear(),
+            description: '',
+            is_active: true,
+        };
+    }
 
-            if (!title) {
-                Swal.showValidationMessage('Judul kuesioner induk wajib diisi.');
-                return false;
-            }
-            if (!year || year < 2000 || year > 2100) {
-                Swal.showValidationMessage('Tahun kuesioner harus antara 2000 - 2100.');
-                return false;
-            }
+    isKuesionerModalOpen.value = true;
+};
 
-            return {
-                title,
-                year,
-                description,
-                is_active,
-            };
-        },
-    }).then((res) => {
-        if (res.isConfirmed && res.value) {
-            if (isEdit) {
-                router.put(`/superadmin/kuesioner/${kuesionerToEdit.id}`, res.value, {
-                    preserveScroll: true,
-                    onSuccess: () => Swal.fire('Berhasil', 'Kuesioner induk berhasil diperbarui.', 'success'),
+/**
+ * Menutup modal kuesioner induk
+ */
+const closeKuesionerModal = () => {
+    isKuesionerModalOpen.value = false;
+    isSubmittingKuesioner.value = false;
+    kuesionerFormErrors.value = {};
+};
+
+/**
+ * Menyimpan data kuesioner induk ke backend
+ */
+const submitKuesionerForm = () => {
+    kuesionerFormErrors.value = {};
+
+    if (!kuesionerFormData.value.title.trim()) {
+        kuesionerFormErrors.value.title = 'Judul kuesioner induk wajib diisi.';
+    }
+    const yr = parseInt(kuesionerFormData.value.year, 10);
+    if (!yr || yr < 2000 || yr > 2100) {
+        kuesionerFormErrors.value.year = 'Tahun kuesioner harus berupa angka antara 2000 - 2100.';
+    }
+
+    if (Object.keys(kuesionerFormErrors.value).length > 0) {
+        return;
+    }
+
+    isSubmittingKuesioner.value = true;
+
+    if (isEditingKuesioner.value) {
+        router.put(`/superadmin/kuesioner/${editingKuesionerId.value}`, kuesionerFormData.value, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeKuesionerModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Kuesioner induk berhasil diperbarui.',
+                    timer: 2000,
+                    showConfirmButton: false,
                 });
-            } else {
-                router.post('/superadmin/kuesioner', res.value, {
-                    preserveScroll: true,
-                    onSuccess: () => Swal.fire('Berhasil', 'Kuesioner induk berhasil ditambahkan.', 'success'),
+            },
+            onError: (errs) => {
+                kuesionerFormErrors.value = errs;
+            },
+            onFinish: () => {
+                isSubmittingKuesioner.value = false;
+            },
+        });
+    } else {
+        router.post('/superadmin/kuesioner', kuesionerFormData.value, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeKuesionerModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Kuesioner induk baru berhasil ditambahkan.',
+                    timer: 2000,
+                    showConfirmButton: false,
                 });
-            }
-        }
-    });
+            },
+            onError: (errs) => {
+                kuesionerFormErrors.value = errs;
+            },
+            onFinish: () => {
+                isSubmittingKuesioner.value = false;
+            },
+        });
+    }
 };
 
 const handleToggleKuesionerActive = (k) => {
@@ -1553,5 +1742,509 @@ const handleDeleteKuesioner = (k) => {
                 </div>
             </main>
         </div>
+
+        <!-- ======================================================== -->
+        <!-- 1. MODAL TELEPORT VUE 3: BAGIAN (SECTION) -->
+        <!-- ======================================================== -->
+        <Teleport to="body">
+            <div
+                v-if="isSectionModalOpen"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+                @click.self="closeSectionModal"
+                @keydown.esc="closeSectionModal"
+            >
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+                    <div class="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-gray-900">
+                            {{ isEditingSection ? 'Sunting Bagian Kuesioner Universitas' : 'Tambah Bagian Kuesioner Universitas Baru' }}
+                        </h3>
+                        <button
+                            type="button"
+                            @click="closeSectionModal"
+                            class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <form @submit.prevent="submitSectionForm" class="p-6 space-y-4 text-xs">
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Kuesioner Induk <span class="text-rose-600">*</span>
+                            </label>
+                            <select
+                                v-model="sectionFormData.kuesioner_id"
+                                class="w-full px-3 py-2 border rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                :class="sectionFormErrors.kuesioner_id ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
+                            >
+                                <option value="" disabled>Pilih Kuesioner Induk...</option>
+                                <option v-for="k in kuesioners" :key="k.id" :value="k.id">
+                                    {{ k.title }} ({{ k.year || '-' }})
+                                </option>
+                            </select>
+                            <p v-if="sectionFormErrors.kuesioner_id" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ sectionFormErrors.kuesioner_id }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Judul Bagian (Section Title) <span class="text-rose-600">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                v-model="sectionFormData.title"
+                                placeholder="Contoh: Identitas & Biodata Mahasiswa"
+                                class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                :class="sectionFormErrors.title ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
+                            />
+                            <p v-if="sectionFormErrors.title" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ sectionFormErrors.title }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Deskripsi / Petunjuk Pengisian (Opsional)
+                            </label>
+                            <textarea
+                                v-model="sectionFormData.description"
+                                rows="3"
+                                placeholder="Ketikkan petunjuk pengisian bagi responden..."
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B] leading-relaxed"
+                            ></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Nomor Urut Posisi
+                            </label>
+                            <input
+                                type="number"
+                                v-model.number="sectionFormData.order"
+                                min="1"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            />
+                        </div>
+
+                        <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                @click="closeSectionModal"
+                                :disabled="isSubmittingSection"
+                                class="px-3.5 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="isSubmittingSection"
+                                class="px-4 py-2 text-xs font-semibold text-white bg-[#0D542B] hover:bg-[#08381c] rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 shadow-xs"
+                            >
+                                <svg v-if="isSubmittingSection" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                <span>{{ isSubmittingSection ? 'Menyimpan...' : (isEditingSection ? 'Simpan Perubahan' : 'Tambah Bagian') }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- ======================================================== -->
+        <!-- 2. MODAL TELEPORT VUE 3: BUTIR PERTANYAAN (QUESTION) -->
+        <!-- ======================================================== -->
+        <Teleport to="body">
+            <div
+                v-if="isQuestionModalOpen"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+                @click.self="closeQuestionModal"
+                @keydown.esc="closeQuestionModal"
+            >
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+                    <div class="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between shrink-0">
+                        <h3 class="text-sm font-bold text-gray-900">
+                            {{ questionModalTitle }}
+                        </h3>
+                        <button
+                            type="button"
+                            @click="closeQuestionModal"
+                            class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <form @submit.prevent="submitQuestionForm" class="p-6 space-y-3.5 text-xs overflow-y-auto">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-bold text-gray-700 mb-1">
+                                    Kode Pertanyaan <span class="text-rose-600">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="questionFormData.kode_pertanyaan"
+                                    placeholder="Contoh: F301, F13, BIO_BIDANG"
+                                    class="w-full px-3 py-2 border rounded-lg text-xs font-mono font-bold uppercase focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                    :class="questionFormErrors.kode_pertanyaan ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
+                                />
+                                <p v-if="questionFormErrors.kode_pertanyaan" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                    {{ questionFormErrors.kode_pertanyaan }}
+                                </p>
+                            </div>
+
+                            <div>
+                                <label class="block font-bold text-gray-700 mb-1">
+                                    Lokasi Tampil <span class="text-rose-600">*</span>
+                                </label>
+                                <select
+                                    v-model="questionFormData.tampil_di"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white font-bold text-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                >
+                                    <option value="kuesioner">Kuesioner Tracer Saja</option>
+                                    <option value="profil">Profil Alumni Saja</option>
+                                    <option value="both">Keduanya (Kuesioner & Profil)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Bagian / Section <span class="text-rose-600">*</span>
+                            </label>
+                            <select
+                                v-model="questionFormData.kelompok_pertanyaan_id"
+                                class="w-full px-3 py-2 border rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                :class="questionFormErrors.kelompok_pertanyaan_id ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
+                            >
+                                <option value="" disabled>Pilih Bagian Kuesioner...</option>
+                                <option v-for="s in sections" :key="s.id" :value="s.id">
+                                    Bagian {{ s.order }}: {{ s.title }}
+                                </option>
+                            </select>
+                            <p v-if="questionFormErrors.kelompok_pertanyaan_id" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ questionFormErrors.kelompok_pertanyaan_id }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Butir Pertanyaan <span class="text-rose-600">*</span>
+                            </label>
+                            <textarea
+                                v-model="questionFormData.subpertanyaan"
+                                rows="3"
+                                placeholder="Ketik kalimat butir pertanyaan..."
+                                class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B] leading-relaxed"
+                                :class="questionFormErrors.subpertanyaan ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
+                            ></textarea>
+                            <p v-if="questionFormErrors.subpertanyaan" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ questionFormErrors.subpertanyaan }}
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-bold text-gray-700 mb-1">
+                                    Tipe Pertanyaan <span class="text-rose-600">*</span>
+                                </label>
+                                <select
+                                    v-model="questionFormData.type"
+                                    @change="handleQuestionTypeChange"
+                                    class="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                >
+                                    <option v-for="(lbl, val) in univSelectableTypes" :key="val" :value="val">
+                                        {{ lbl }}
+                                    </option>
+                                </select>
+                                <p class="text-[10px] text-gray-500 mt-1">
+                                    Opsi pilihan dapat ditambahkan setelah pertanyaan disimpan.
+                                </p>
+                            </div>
+
+                            <div>
+                                <label class="block font-bold text-gray-700 mb-1">Nomor Urut</label>
+                                <input
+                                    type="number"
+                                    v-model.number="questionFormData.order"
+                                    min="1"
+                                    class="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Keterangan / Batasan Nilai (Opsional)
+                            </label>
+                            <input
+                                type="text"
+                                v-model="questionFormData.keterangan"
+                                placeholder="Contoh: Minimal Rp 1.000, kelipatan ribuan, format tanggal"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            />
+                        </div>
+
+                        <div class="flex items-center gap-2 pt-1">
+                            <input
+                                id="modal-q-req"
+                                type="checkbox"
+                                v-model="questionFormData.wajib"
+                                class="rounded text-[#0D542B] focus:ring-[#0D542B] cursor-pointer"
+                            />
+                            <label for="modal-q-req" class="font-bold text-gray-700 select-none cursor-pointer">
+                                Wajib diisi oleh alumni responden
+                            </label>
+                        </div>
+
+                        <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                @click="closeQuestionModal"
+                                :disabled="isSubmittingQuestion"
+                                class="px-3.5 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="isSubmittingQuestion"
+                                class="px-4 py-2 text-xs font-semibold text-white bg-[#0D542B] hover:bg-[#08381c] rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 shadow-xs"
+                            >
+                                <svg v-if="isSubmittingQuestion" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                <span>{{ isSubmittingQuestion ? 'Menyimpan...' : (isEditingQuestion ? 'Simpan Perubahan' : 'Tambah Pertanyaan') }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- ======================================================== -->
+        <!-- 3. MODAL TELEPORT VUE 3: OPSI JAWABAN (OPTION) -->
+        <!-- ======================================================== -->
+        <Teleport to="body">
+            <div
+                v-if="isOptionModalOpen && activeQuestionForOption"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+                @click.self="closeOptionModal"
+                @keydown.esc="closeOptionModal"
+            >
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+                    <div class="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-gray-900">
+                            {{ isEditingOption ? 'Sunting Opsi Jawaban' : 'Tambah Opsi Jawaban' }} [{{ activeQuestionForOption.kode_pertanyaan }}]
+                        </h3>
+                        <button
+                            type="button"
+                            @click="closeOptionModal"
+                            class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <form @submit.prevent="submitOptionForm" class="p-6 space-y-4 text-xs">
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Kode Opsi <span class="text-rose-600">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                v-model="optionFormData.kode_opsi"
+                                class="w-full px-3 py-2 border rounded-lg text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                :class="optionFormErrors.kode_opsi ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
+                            />
+                            <p v-if="optionFormErrors.kode_opsi" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ optionFormErrors.kode_opsi }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Teks Opsi Jawaban <span class="text-rose-600">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                v-model="optionFormData.option_text"
+                                placeholder="Contoh: Sangat Sesuai, Bekerja Penuh Waktu"
+                                class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                :class="optionFormErrors.option_text ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
+                            />
+                            <p v-if="optionFormErrors.option_text" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ optionFormErrors.option_text }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Alur Percabangan (Lompat Ke / Jump To)
+                            </label>
+                            <select
+                                v-model="optionFormData.jump_to"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            >
+                                <option value="">-- Tanpa Percabangan (Lanjut Normal) --</option>
+                                <option
+                                    v-for="t in availableJumpTargets"
+                                    :key="t.kode_pertanyaan"
+                                    :value="t.kode_pertanyaan"
+                                >
+                                    Lompat ke: [{{ t.kode_pertanyaan }}] {{ t.text?.substring(0, 45) }}...
+                                </option>
+                            </select>
+                            <p class="text-[10px] text-gray-400 mt-1">
+                                Jika responden memilih opsi ini, kuesioner akan melompat langsung ke pertanyaan target.
+                            </p>
+                        </div>
+
+                        <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                @click="closeOptionModal"
+                                :disabled="isSubmittingOption"
+                                class="px-3.5 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="isSubmittingOption"
+                                class="px-4 py-2 text-xs font-semibold text-white bg-[#0D542B] hover:bg-[#08381c] rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 shadow-xs"
+                            >
+                                <svg v-if="isSubmittingOption" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                <span>{{ isSubmittingOption ? 'Menyimpan...' : (isEditingOption ? 'Simpan Opsi' : 'Tambah Opsi') }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- ======================================================== -->
+        <!-- 4. MODAL TELEPORT VUE 3: KUESIONER INDUK -->
+        <!-- ======================================================== -->
+        <Teleport to="body">
+            <div
+                v-if="isKuesionerModalOpen"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+                @click.self="closeKuesionerModal"
+                @keydown.esc="closeKuesionerModal"
+            >
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+                    <div class="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-gray-900">
+                            {{ isEditingKuesioner ? 'Sunting Kuesioner Induk' : 'Tambah Kuesioner Induk Baru' }}
+                        </h3>
+                        <button
+                            type="button"
+                            @click="closeKuesionerModal"
+                            class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <form @submit.prevent="submitKuesionerForm" class="p-6 space-y-4 text-xs">
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Judul Kuesioner Induk <span class="text-rose-600">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                v-model="kuesionerFormData.title"
+                                placeholder="Contoh: Tracer Study UKDW 2026"
+                                class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                :class="kuesionerFormErrors.title ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
+                            />
+                            <p v-if="kuesionerFormErrors.title" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ kuesionerFormErrors.title }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Tahun Kuesioner <span class="text-rose-600">*</span>
+                            </label>
+                            <input
+                                type="number"
+                                v-model.number="kuesionerFormData.year"
+                                min="2000"
+                                max="2100"
+                                class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                :class="kuesionerFormErrors.year ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
+                            />
+                            <p v-if="kuesionerFormErrors.year" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ kuesionerFormErrors.year }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Deskripsi / Keterangan (Opsional)
+                            </label>
+                            <textarea
+                                v-model="kuesionerFormData.description"
+                                rows="3"
+                                placeholder="Ketik keterangan atau standar instrumen tracer study..."
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B] leading-relaxed"
+                            ></textarea>
+                        </div>
+
+                        <div class="pt-1">
+                            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    v-model="kuesionerFormData.is_active"
+                                    class="w-4 h-4 rounded text-[#0D542B] focus:ring-[#0D542B] border-gray-300 cursor-pointer"
+                                />
+                                <span class="font-bold text-gray-700 text-xs">Jadikan Kuesioner Aktif (Ditampilkan kepada Alumni)</span>
+                            </label>
+                            <p class="text-[11px] text-gray-400 italic mt-0.5 ml-6">
+                                Mengaktifkan kuesioner ini akan secara otomatis menonaktifkan kuesioner induk lainnya.
+                            </p>
+                        </div>
+
+                        <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                @click="closeKuesionerModal"
+                                :disabled="isSubmittingKuesioner"
+                                class="px-3.5 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="isSubmittingKuesioner"
+                                class="px-4 py-2 text-xs font-semibold text-white bg-[#0D542B] hover:bg-[#08381c] rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 shadow-xs"
+                            >
+                                <svg v-if="isSubmittingKuesioner" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                <span>{{ isSubmittingKuesioner ? 'Menyimpan...' : (isEditingKuesioner ? 'Simpan Perubahan' : 'Tambah Kuesioner') }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>
