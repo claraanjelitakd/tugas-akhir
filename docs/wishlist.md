@@ -53,3 +53,24 @@ Dokumen ini mencatat daftar kebutuhan fitur baru, penyempurnaan modul, serta age
      * *Rencana Optimasi*: Menjaga satu instance web server aktif dan mematikan instance ganda yang saling berebut port/koneksi.
   4. **Indexing Database View**:
      * Menambahkan composite index pada tabel referensi transaksional agar join database view analitik merespons di bawah 50ms secara konsisten.
+
+---
+
+## 5. Tata Kelola Status Kuesioner Induk (Aktif vs Nonaktif) & Visibilitas Alumni
+
+* **Latar Belakang & Isu Saat Ini**:
+  * Pada modul Superadmin (`/superadmin/pertanyaan` dan `/superadmin/section`), terdapat kartu info di header dengan label **"Instrumen Kuesioner Induk Aktif"** yang menampilkan kuesioner `[2021] Tracer Study UKDW 2021` meskipun di database status kuesioner tersebut berstatus **Nonaktif** (`is_active = false`).
+  * **Penyebab Teknis di Backend**:
+    * Di controller (`DaftarPertanyaanController.php`), terdapat logika fallback:
+      ```php
+      $activeKuesioner = $kuesioners->firstWhere('is_active', true) ?? $kuesioners->first();
+      ```
+    * Jika tidak ada kuesioner yang berstatus aktif sama sekali, sistem mengambil kuesioner pertama sebagai pengganti sementara untuk pratinjau struktur butir, namun teks header tetap menyatakan *"Instrumen Kuesioner Induk Aktif"*.
+* **Tindakan & Perilaku Sistem yang Diharapkan**:
+  1. **Di Sisi Responden Alumni**:
+     * **Jika Kuesioner Berstatus Nonaktif**: Alumni **TIDAK BISA** melihat dan mengisi kuesioner tersebut. Sistem harus menyajikan halaman informasi ramah pengguna bahwa *"Periode pengisian tracer study sedang ditutup / belum dibuka"*.
+     * **Hanya Kuesioner Berstatus Aktif (`is_active = true`)** yang boleh ditampilkan dan dapat diisi oleh alumni.
+  2. **Di Sisi Admin & Superadmin**:
+     * **Koreksi Label Header**: Jika kuesioner yang sedang ditampilkan berstatus nonaktif (karena hasil fallback), label tidak boleh menyatakan *"Kuesioner Induk Aktif"*, melainkan harus secara jujur menampilkan badge peringatan: **"Status: Nonaktif (Draft/Arsip)"**.
+     * **Tombol Cepat Aktivasi**: Menyediakan tombol pintas di header **"Aktifkan Kuesioner Ini"** dengan konfirmasi SweetAlert sehingga Superadmin dapat langsung mengaktifkan kuesioner tahun berjalan yang diinginkan untuk dibuka kepada seluruh alumni.
+     * **Aturan Single Active Questionnaire**: Memastikan saat satu kuesioner diaktifkan, kuesioner induk dari tahun/periode lain secara otomatis diubah menjadi nonaktif agar alumni tidak menghadapi kuesioner ganda.
