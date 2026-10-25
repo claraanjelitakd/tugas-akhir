@@ -148,326 +148,338 @@ const filteredQuestions = computed(() => {
 });
 
 // ========================================================
-// 2. SWEETALERT2: MODAL TAMBAH & EDIT PERTANYAAN
+// 2. STATE REAKTIF MODAL PERTANYAAN (VUE TELEPORT)
 // ========================================================
+// Penjelasan Konsep JavaScript & Vue:
+// 1. ref() membungkus nilai primitif/objek menjadi variabel reaktif. Perubahan nilai pada '.value'
+//    akan memicu Vue untuk memperbarui tampilan (DOM) secara otomatis dan instan tanpa reload.
+// 2. Teleport memindahkan rendering dialog HTML ke luar hierarki DOM (langsung di bawah <body>),
+//    menghindari masalah visual terpotong akibat 'overflow-hidden' pada layout sidebar atau tabel.
+// 3. Form input terikat dua arah (two-way binding) menggunakan 'v-model', sehingga setiap ketikan
+//    pengguna di layar langsung tersimpan di variabel JavaScript tanpa perlu getElementById manual.
+
+// Mengontrol visibilitas dialog modal pertanyaan (true: tampil, false: tertutup)
+const isQuestionModalOpen = ref(false);
+
+// Penanda apakah modal sedang dalam mode edit (true) atau mode tambah butir baru (false)
+const isEditingQuestion = ref(false);
+
+// Menyimpan ID butir pertanyaan yang sedang disunting untuk rute HTTP PUT
+const editingQuestionId = ref(null);
+
+// Status pemuatan saat request pengiriman formulir sedang berlangsung
+const isSubmittingQuestion = ref(false);
+
+// Objek data form pertanyaan yang terikat dengan input pada modal
+const questionForm = ref({
+    prodi_question_section_id: '',
+    code: '',
+    type: 'single_choice',
+    is_required: true,
+    question_text: '',
+    order: 1,
+});
+
+// Menyimpan pesan galat validasi per field input
+const questionFormErrors = ref({});
+
+/**
+ * Membuka modal tambah atau sunting pertanyaan
+ * @param {Object|null} questionToEdit Objek butir pertanyaan jika mode edit, null jika tambah baru
+ */
 const openQuestionModal = (questionToEdit = null) => {
-    const isEdit = !!questionToEdit;
-    const initialSectionId = questionToEdit?.prodi_question_section_id 
-        || (selectedSectionFilter.value !== 'all' ? parseInt(selectedSectionFilter.value, 10) : (props.sections[0]?.id || ''));
-    const initialCode = questionToEdit?.code || '';
-    const initialText = questionToEdit?.question_text || '';
-    const rawType = questionToEdit?.type || 'single_choice';
-    const initialType = rawType === 'radio' ? 'single_choice' : rawType;
-    const initialRequired = questionToEdit ? (questionToEdit.is_required ? '1' : '0') : '1';
-    const initialOrder = questionToEdit?.order || (props.questions.length + 1);
+    isEditingQuestion.value = !!questionToEdit;
+    editingQuestionId.value = questionToEdit ? questionToEdit.id : null;
+    questionFormErrors.value = {};
 
-    const sectionOptionsHtml = props.sections.length > 0
-        ? props.sections
-            .map((s) => `<option value="${s.id}" ${s.id == initialSectionId ? 'selected' : ''}>Bagian ${s.order}: ${s.title}</option>`)
-            .join('')
-        : '<option value="">-- Belum ada bagian (otomatis dibuat) --</option>';
+    if (questionToEdit) {
+        // Mode Sunting: Mengisi nilai form dari objek pertanyaan yang dipilih
+        const rawType = questionToEdit.type || 'single_choice';
+        questionForm.value = {
+            prodi_question_section_id: questionToEdit.prodi_question_section_id || '',
+            code: questionToEdit.code || '',
+            type: rawType === 'radio' ? 'single_choice' : rawType,
+            is_required: Boolean(questionToEdit.is_required),
+            question_text: questionToEdit.question_text || '',
+            order: questionToEdit.order || 1,
+        };
+    } else {
+        // Mode Tambah Baru: Nilai default awal
+        const defaultSectionId = selectedSectionFilter.value !== 'all'
+            ? parseInt(selectedSectionFilter.value, 10)
+            : (props.sections[0]?.id || '');
+        questionForm.value = {
+            prodi_question_section_id: defaultSectionId,
+            code: '',
+            type: 'single_choice',
+            is_required: true,
+            question_text: '',
+            order: props.questions.length + 1,
+        };
+    }
+    isQuestionModalOpen.value = true;
+};
 
-    const typeOptionsHtml = Object.entries(prodiSelectableTypes)
-        .map(([val, label]) => `<option value="${val}" ${val === initialType ? 'selected' : ''}>${label}</option>`)
-        .join('');
+/**
+ * Menutup modal pertanyaan dan membersihkan galat validasi
+ */
+const closeQuestionModal = () => {
+    isQuestionModalOpen.value = false;
+    questionFormErrors.value = {};
+};
 
-    const htmlContent = `
-        <div class="text-left space-y-3.5 text-xs">
-            <div>
-                <label class="block font-bold text-gray-700 mb-1">Bagian Kuesioner (Section) *</label>
-                <select id="swal-section-id" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700">
-                    ${sectionOptionsHtml}
-                </select>
-                <p class="text-[11px] text-gray-400 mt-1">Pilih bagian bab tempat pertanyaan ini akan ditampilkan.</p>
-            </div>
+/**
+ * Mengirim formulir pertanyaan ke backend (POST atau PUT)
+ */
+const submitQuestionForm = () => {
+    questionFormErrors.value = {};
+    const errors = {};
 
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Kode Pertanyaan *</label>
-                    <input id="swal-code" type="text" placeholder="Contoh: P01, P02, EVAL_01" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono uppercase focus:outline-none focus:ring-1 focus:ring-emerald-700" />
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Sifat Pengisian *</label>
-                    <select id="swal-is-required" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700">
-                        <option value="1" ${initialRequired === '1' ? 'selected' : ''}>Wajib Diisi</option>
-                        <option value="0" ${initialRequired === '0' ? 'selected' : ''}>Opsional (Boleh Kosong)</option>
-                    </select>
-                </div>
-            </div>
+    // Validasi klien sebelum mengirim request ke server
+    if (!questionForm.value.code.trim()) {
+        errors.code = 'Kode pertanyaan wajib diisi.';
+    }
+    if (!questionForm.value.question_text.trim()) {
+        errors.question_text = 'Bunyi kalimat pertanyaan wajib diisi.';
+    }
 
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Tipe Input Pertanyaan *</label>
-                    <select id="swal-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700">
-                        ${typeOptionsHtml}
-                    </select>
-                    <p class="text-[10px] text-emerald-700 font-semibold mt-1">Opsi pilihan default akan otomatis terbuat & dapat disesuaikan.</p>
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Nomor Urut Tampil</label>
-                    <input id="swal-order" type="number" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700" />
-                </div>
-            </div>
+    // Jika ada error validasi di sisi klien, hentikan pengiriman
+    if (Object.keys(errors).length > 0) {
+        questionFormErrors.value = errors;
+        return;
+    }
 
-            <div>
-                <label class="block font-bold text-gray-700 mb-1">Bunyi Kalimat Pertanyaan *</label>
-                <textarea id="swal-question-text" rows="3" placeholder="Ketikkan rumusan kalimat pertanyaan untuk alumni program studi..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700 leading-relaxed"></textarea>
-            </div>
-        </div>
-    `;
+    isSubmittingQuestion.value = true;
 
-    Swal.fire({
-        title: isEdit ? 'Sunting Butir Pertanyaan' : 'Tambah Pertanyaan Baru',
-        html: htmlContent,
-        showCancelButton: true,
-        confirmButtonText: isEdit ? 'Simpan Perubahan' : 'Tambah Pertanyaan',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#0D542B',
-        cancelButtonColor: '#6B7280',
-        width: '540px',
-        focusConfirm: false,
-        didOpen: () => {
-            const elCode = document.getElementById('swal-code');
-            if (elCode) elCode.value = initialCode;
-            const elText = document.getElementById('swal-question-text');
-            if (elText) elText.value = initialText;
-            const elOrder = document.getElementById('swal-order');
-            if (elOrder) elOrder.value = initialOrder;
-            if (elCode && !isEdit) elCode.focus();
-        },
-        preConfirm: () => {
-            const prodi_question_section_id = document.getElementById('swal-section-id').value;
-            const code = document.getElementById('swal-code').value.trim();
-            const type = document.getElementById('swal-type').value;
-            const is_required = document.getElementById('swal-is-required').value === '1';
-            const question_text = document.getElementById('swal-question-text').value.trim();
-            const order = parseInt(document.getElementById('swal-order').value, 10) || null;
+    // Menyiapkan payload yang bersih dan sesuai tipe data backend
+    const payload = {
+        prodi_question_section_id: questionForm.value.prodi_question_section_id
+            ? parseInt(questionForm.value.prodi_question_section_id, 10)
+            : null,
+        code: questionForm.value.code.trim(),
+        type: questionForm.value.type,
+        is_required: questionForm.value.is_required,
+        question_text: questionForm.value.question_text.trim(),
+        order: questionForm.value.order ? parseInt(questionForm.value.order, 10) : null,
+    };
 
-            if (!code) {
-                Swal.showValidationMessage('Kode pertanyaan wajib diisi.');
-                return false;
-            }
-            if (!question_text) {
-                Swal.showValidationMessage('Bunyi kalimat pertanyaan wajib diisi.');
-                return false;
-            }
-
-            return {
-                prodi_question_section_id: prodi_question_section_id ? parseInt(prodi_question_section_id, 10) : null,
-                code,
-                type,
-                is_required,
-                question_text,
-                order,
-            };
-        },
-    }).then((result) => {
-        if (result.isConfirmed && result.value) {
-            if (isEdit) {
-                router.put(`/prodi/pertanyaan/${questionToEdit.id}`, result.value, {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        Swal.fire('Berhasil', 'Pertanyaan berhasil diperbarui.', 'success');
-                    },
-                    onError: (errors) => {
-                        Swal.fire('Gagal Menyimpan', Object.values(errors).join('<br>'), 'error');
-                    },
+    if (isEditingQuestion.value) {
+        router.put(`/prodi/pertanyaan/${editingQuestionId.value}`, payload, {
+            preserveScroll: true,
+            onSuccess: () => {
+                isQuestionModalOpen.value = false;
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Pertanyaan berhasil diperbarui.',
+                    timer: 1500,
+                    showConfirmButton: false,
                 });
-            } else {
-                router.post('/prodi/pertanyaan', result.value, {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        Swal.fire('Berhasil', 'Pertanyaan baru berhasil ditambahkan.', 'success');
-                    },
-                    onError: (errors) => {
-                        Swal.fire('Gagal Menyimpan', Object.values(errors).join('<br>'), 'error');
-                    },
+            },
+            onError: (errs) => {
+                questionFormErrors.value = errs;
+            },
+            onFinish: () => {
+                isSubmittingQuestion.value = false;
+            },
+        });
+    } else {
+        router.post('/prodi/pertanyaan', payload, {
+            preserveScroll: true,
+            onSuccess: () => {
+                isQuestionModalOpen.value = false;
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Pertanyaan baru berhasil ditambahkan.',
+                    timer: 1500,
+                    showConfirmButton: false,
                 });
-            }
-        }
-    });
+            },
+            onError: (errs) => {
+                questionFormErrors.value = errs;
+            },
+            onFinish: () => {
+                isSubmittingQuestion.value = false;
+            },
+        });
+    }
 };
 
 // ========================================================
-// 3. SWEETALERT2: MODAL TAMBAH & EDIT OPSI JAWABAN
+// 3. STATE REAKTIF MODAL OPSI JAWABAN (VUE TELEPORT)
 // ========================================================
+// Mengontrol visibilitas dialog modal opsi jawaban
+const isOptionModalOpen = ref(false);
+
+// Penanda apakah sedang mengedit opsi (true) atau menambah opsi baru (false)
+const isEditingOption = ref(false);
+
+// Menyimpan ID opsi yang sedang disunting
+const editingOptionId = ref(null);
+
+// Menyimpan objek pertanyaan induk tempat opsi ini bernaung
+const currentParentQuestion = ref(null);
+
+// Status pemuatan saat menyimpan opsi jawaban
+const isSubmittingOption = ref(false);
+
+// Data formulir opsi jawaban
+const optionForm = ref({
+    question_id: null,
+    code: '',
+    option_text: '',
+    jump_to: '',
+    order: 1,
+});
+
+// Menyimpan galat validasi opsi jawaban
+const optionFormErrors = ref({});
+
+// Daftar target lompatan (jump_to) yang tersedia selain pertanyaan induk itu sendiri
+const activeJumpTargets = computed(() => {
+    if (!currentParentQuestion.value) return [];
+    const parentCode = currentParentQuestion.value.code;
+    if (props.availableJumpTargets && props.availableJumpTargets.length > 0) {
+        return props.availableJumpTargets.filter((c) => c !== parentCode);
+    }
+    return props.questions.map((q) => q.code).filter((c) => c && c !== parentCode);
+});
+
+/**
+ * Membuka modal tambah atau sunting opsi pilihan jawaban
+ * @param {Object} question Pertanyaan induk
+ * @param {Object|null} optionToEdit Objek opsi jika mode edit, null jika tambah baru
+ */
 const openAddOptionModal = (question, optionToEdit = null) => {
-    const isEdit = !!optionToEdit;
-    const initialText = optionToEdit?.option_text || '';
-    const initialJump = optionToEdit?.jump_to || '';
-    const initialOrder = optionToEdit?.order || ((question.options?.length || 0) + 1);
-    const initialCode = optionToEdit?.code || `${question.code}-${String(initialOrder).padStart(2, '0')}`;
+    currentParentQuestion.value = question;
+    isEditingOption.value = !!optionToEdit;
+    editingOptionId.value = optionToEdit ? optionToEdit.id : null;
+    optionFormErrors.value = {};
 
-    // Target jump_to yang tersedia
-    const targetCodes = (props.availableJumpTargets && props.availableJumpTargets.length > 0)
-        ? props.availableJumpTargets.filter((c) => c !== question.code)
-        : props.questions.map((q) => q.code).filter((c) => c && c !== question.code);
+    if (optionToEdit) {
+        optionForm.value = {
+            question_id: question.id,
+            code: optionToEdit.code || '',
+            option_text: optionToEdit.option_text || '',
+            jump_to: optionToEdit.jump_to || '',
+            order: optionToEdit.order || 1,
+        };
+    } else {
+        const nextOrder = (question.options?.length || 0) + 1;
+        optionForm.value = {
+            question_id: question.id,
+            code: `${question.code}-${String(nextOrder).padStart(2, '0')}`,
+            option_text: '',
+            jump_to: '',
+            order: nextOrder,
+        };
+    }
 
-    const jumpOptionsHtml = targetCodes.length > 0
-        ? targetCodes.map((c) => `<option value="${c}" ${c === initialJump ? 'selected' : ''}>${c}</option>`).join('')
-        : '';
+    isOptionModalOpen.value = true;
+};
 
-    const htmlContent = `
-        <div class="text-left space-y-3.5 text-xs">
-            <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-200">
-                <span class="text-gray-500 font-medium block">Pertanyaan Induk:</span>
-                <span class="font-bold text-gray-900 mt-0.5 block leading-snug">
-                    <span class="font-mono text-emerald-800">[${question.code}]</span> ${question.question_text}
-                </span>
-            </div>
+/**
+ * Menutup modal opsi jawaban
+ */
+const closeOptionModal = () => {
+    isOptionModalOpen.value = false;
+    optionFormErrors.value = {};
+};
 
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Kode Opsi (Opsional)</label>
-                    <input id="swal-option-code" type="text" value="${initialCode}" placeholder="Contoh: ${question.code}-01" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono uppercase focus:outline-none focus:ring-1 focus:ring-emerald-700" />
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Nomor Urut Opsi</label>
-                    <input id="swal-option-order" type="number" value="${initialOrder}" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700" />
-                </div>
-            </div>
+/**
+ * Mengirim formulir opsi jawaban ke backend
+ */
+const submitOptionForm = () => {
+    optionFormErrors.value = {};
+    const errors = {};
 
-            <div>
-                <label class="block font-bold text-gray-700 mb-1">Teks Pilihan Jawaban *</label>
-                <input id="swal-option-text" type="text" value="${initialText}" placeholder="Contoh: Sangat Relevan / Sesuai Bidang" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700" />
-            </div>
+    if (!optionForm.value.option_text.trim()) {
+        errors.option_text = 'Teks pilihan jawaban wajib diisi.';
+    }
 
-            <div>
-                <label class="block font-bold text-gray-700 mb-1">Alur Lompatan / Jump To (Opsional)</label>
-                <select id="swal-option-jump" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700">
-                    <option value="">-- Lanjut ke Pertanyaan Berikutnya (Normal) --</option>
-                    ${jumpOptionsHtml}
-                </select>
-                <p class="text-[11px] text-gray-400 mt-1">Jika opsi ini dipilih responden, kuesioner akan melompat ke kode pertanyaan tersebut.</p>
-            </div>
-        </div>
-    `;
+    if (Object.keys(errors).length > 0) {
+        optionFormErrors.value = errors;
+        return;
+    }
 
-    Swal.fire({
-        title: isEdit ? 'Sunting Opsi Pilihan Jawaban' : 'Tambah Opsi Pilihan Jawaban',
-        html: htmlContent,
-        showCancelButton: true,
-        confirmButtonText: isEdit ? 'Simpan Perubahan' : 'Tambah Opsi',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#0D542B',
-        cancelButtonColor: '#6B7280',
-        width: '500px',
-        focusConfirm: false,
-        didOpen: () => {
-            const elText = document.getElementById('swal-option-text');
-            if (elText && !isEdit) elText.focus();
-        },
-        preConfirm: () => {
-            const option_text = document.getElementById('swal-option-text').value.trim();
-            const code = document.getElementById('swal-option-code').value.trim() || null;
-            const jump_to = document.getElementById('swal-option-jump').value || null;
-            const order = parseInt(document.getElementById('swal-option-order').value, 10) || null;
+    isSubmittingOption.value = true;
 
-            if (!option_text) {
-                Swal.showValidationMessage('Teks pilihan jawaban wajib diisi.');
-                return false;
-            }
+    const payload = {
+        question_id: optionForm.value.question_id,
+        option_text: optionForm.value.option_text.trim(),
+        code: optionForm.value.code.trim() || null,
+        jump_to: optionForm.value.jump_to || null,
+        order: optionForm.value.order ? parseInt(optionForm.value.order, 10) : null,
+    };
 
-            return {
-                question_id: question.id,
-                option_text,
-                code,
-                jump_to,
-                order,
-            };
-        },
-    }).then((result) => {
-        if (result.isConfirmed && result.value) {
-            if (isEdit) {
-                router.put(`/prodi/opsi/${optionToEdit.id}`, result.value, {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        Swal.fire('Berhasil', 'Opsi jawaban berhasil diperbarui.', 'success');
-                    },
-                    onError: (errors) => {
-                        Swal.fire('Gagal Menyimpan', Object.values(errors).join('<br>'), 'error');
-                    },
+    if (isEditingOption.value) {
+        router.put(`/prodi/opsi/${editingOptionId.value}`, payload, {
+            preserveScroll: true,
+            onSuccess: () => {
+                isOptionModalOpen.value = false;
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Opsi jawaban berhasil diperbarui.',
+                    timer: 1500,
+                    showConfirmButton: false,
                 });
-            } else {
-                router.post('/prodi/opsi', result.value, {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        Swal.fire('Berhasil', 'Opsi jawaban baru berhasil ditambahkan.', 'success');
-                    },
-                    onError: (errors) => {
-                        Swal.fire('Gagal Menyimpan', Object.values(errors).join('<br>'), 'error');
-                    },
+            },
+            onError: (errs) => {
+                optionFormErrors.value = errs;
+            },
+            onFinish: () => {
+                isSubmittingOption.value = false;
+            },
+        });
+    } else {
+        router.post('/prodi/opsi', payload, {
+            preserveScroll: true,
+            onSuccess: () => {
+                isOptionModalOpen.value = false;
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Opsi jawaban baru berhasil ditambahkan.',
+                    timer: 1500,
+                    showConfirmButton: false,
                 });
-            }
-        }
-    });
+            },
+            onError: (errs) => {
+                optionFormErrors.value = errs;
+            },
+            onFinish: () => {
+                isSubmittingOption.value = false;
+            },
+        });
+    }
 };
 
 // ========================================================
-// 4. SWEETALERT2: MODAL DETAIL PERTANYAAN (IKON MATA)
+// 4. STATE REAKTIF MODAL DETAIL PERTANYAAN (VUE TELEPORT)
 // ========================================================
+// Mengontrol visibilitas dialog modal rincian butir pertanyaan
+const isDetailModalOpen = ref(false);
+
+// Menyimpan objek pertanyaan lengkap yang sedang dilihat rinciannya
+const activeDetailQuestion = ref(null);
+
+/**
+ * Membuka modal rincian pertanyaan (ikon mata)
+ * @param {Object} q Objek pertanyaan
+ */
 const openDetailModal = (q) => {
-    const hasOptions = canHaveOptions(q.type) && q.options && q.options.length > 0;
-    const optionsListHtml = hasOptions
-        ? q.options
-            .map((opt, idx) => `
-                <div class="p-2 bg-white rounded border border-gray-200 flex items-center justify-between text-xs">
-                    <div class="flex items-center gap-2">
-                        <span class="w-5 h-5 rounded bg-gray-100 font-mono font-bold flex items-center justify-center text-[10px] text-gray-700">${idx + 1}</span>
-                        <span class="font-medium text-gray-800">${opt.option_text}</span>
-                    </div>
-                    ${opt.jump_to ? `<span class="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[10px] font-bold border border-purple-200">→ Lompat ke: ${opt.jump_to}</span>` : ''}
-                </div>
-            `)
-            .join('')
-        : '<p class="text-xs text-gray-400 italic">Pertanyaan ini tidak memiliki daftar opsi pilihan jawaban terdaftar.</p>';
+    activeDetailQuestion.value = q;
+    isDetailModalOpen.value = true;
+};
 
-    const contentHtml = `
-        <div class="text-left space-y-3.5 text-xs">
-            <div class="p-3 rounded-lg bg-gray-50 border border-gray-200 space-y-1.5">
-                <div class="flex items-center gap-2">
-                    <span class="font-mono font-bold px-2 py-0.5 rounded bg-white border border-gray-200 text-gray-900 text-xs">${q.code}</span>
-                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${q.is_required ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-gray-100 text-gray-600'}">
-                        ${q.is_required ? 'Wajib Diisi' : 'Opsional'}
-                    </span>
-                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        ${typeLabels[q.type] || q.type}
-                    </span>
-                </div>
-                <p class="font-bold text-gray-900 text-sm leading-snug pt-1">${q.question_text}</p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-                <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-200">
-                    <span class="text-gray-500 block text-[11px]">Bagian Kuesioner:</span>
-                    <span class="font-bold text-gray-800 text-xs">
-                        ${q.section ? `Bagian ${q.section.order}: ${q.section.title}` : '-'}
-                    </span>
-                </div>
-                <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-200">
-                    <span class="text-gray-500 block text-[11px]">Nomor Urut Tampil:</span>
-                    <span class="font-bold text-gray-800 text-xs">Urutan #${q.order}</span>
-                </div>
-            </div>
-
-            <div class="p-3 rounded-lg bg-slate-50 border border-gray-200 space-y-2">
-                <span class="font-bold text-gray-800 text-xs block">
-                    Daftar Opsi Jawaban (${q.options?.length || 0} Opsi):
-                </span>
-                <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                    ${optionsListHtml}
-                </div>
-            </div>
-        </div>
-    `;
-
-    Swal.fire({
-        title: `Detail Pertanyaan [${q.code}]`,
-        html: contentHtml,
-        confirmButtonText: 'Tutup',
-        confirmButtonColor: '#0D542B',
-        width: '540px',
-    });
+/**
+ * Menutup modal rincian pertanyaan
+ */
+const closeDetailModal = () => {
+    isDetailModalOpen.value = false;
+    activeDetailQuestion.value = null;
 };
 
 // ========================================================
@@ -914,4 +926,391 @@ const handleMoveQuestion = (q, direction) => {
             </main>
         </div>
     </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL VUE: TAMBAH / SUNTING BUTIR PERTANYAAN PRODI       -->
+    <!-- ======================================================== -->
+    <Teleport to="body">
+        <div
+            v-if="isQuestionModalOpen"
+            class="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        >
+            <div
+                class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-150"
+            >
+                <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
+                    <div>
+                        <h3 class="font-bold text-gray-900 text-sm">
+                            {{ isEditingQuestion ? 'Sunting Butir Pertanyaan' : 'Tambah Pertanyaan Baru' }}
+                        </h3>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            Konfigurasi instrumen butir pertanyaan khusus Program Studi.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        @click="closeQuestionModal"
+                        class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitQuestionForm" class="p-5 space-y-4">
+                    <div>
+                        <label class="block font-semibold text-gray-700 text-xs mb-1">
+                            Bagian Kuesioner (Section) <span class="text-red-500">*</span>
+                        </label>
+                        <select
+                            v-model="questionForm.prodi_question_section_id"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                        >
+                            <option v-if="props.sections.length === 0" value="">
+                                -- Belum ada bagian (otomatis dibuat) --
+                            </option>
+                            <option
+                                v-for="sec in props.sections"
+                                :key="sec.id"
+                                :value="sec.id"
+                            >
+                                Bagian {{ sec.order }}: {{ sec.title }}
+                            </option>
+                        </select>
+                        <p class="text-[11px] text-gray-400 mt-1">Pilih bagian bab tempat pertanyaan ini akan ditampilkan.</p>
+                        <p v-if="questionFormErrors.prodi_question_section_id" class="text-red-600 text-xs mt-1">
+                            {{ questionFormErrors.prodi_question_section_id }}
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-semibold text-gray-700 text-xs mb-1">
+                                Kode Pertanyaan <span class="text-red-500">*</span>
+                            </label>
+                            <input
+                                v-model="questionForm.code"
+                                type="text"
+                                placeholder="Contoh: P01, P02, EVAL_01"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono uppercase focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            />
+                            <p v-if="questionFormErrors.code" class="text-red-600 text-xs mt-1">
+                                {{ questionFormErrors.code }}
+                            </p>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-gray-700 text-xs mb-1">
+                                Sifat Pengisian <span class="text-red-500">*</span>
+                            </label>
+                            <select
+                                v-model="questionForm.is_required"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            >
+                                <option :value="true">Wajib Diisi</option>
+                                <option :value="false">Opsional (Boleh Kosong)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-semibold text-gray-700 text-xs mb-1">
+                                Tipe Input Pertanyaan <span class="text-red-500">*</span>
+                            </label>
+                            <select
+                                v-model="questionForm.type"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            >
+                                <option
+                                    v-for="(label, val) in prodiSelectableTypes"
+                                    :key="val"
+                                    :value="val"
+                                >
+                                    {{ label }}
+                                </option>
+                            </select>
+                            <p class="text-[10px] text-emerald-700 font-semibold mt-1">Opsi pilihan default akan otomatis terbuat & dapat disesuaikan.</p>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-gray-700 text-xs mb-1">
+                                Nomor Urut Tampil
+                            </label>
+                            <input
+                                v-model.number="questionForm.order"
+                                type="number"
+                                min="1"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-gray-700 text-xs mb-1">
+                            Bunyi Kalimat Pertanyaan <span class="text-red-500">*</span>
+                        </label>
+                        <textarea
+                            v-model="questionForm.question_text"
+                            rows="3"
+                            placeholder="Ketikkan rumusan kalimat pertanyaan untuk alumni program studi..."
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B] leading-relaxed"
+                        ></textarea>
+                        <p v-if="questionFormErrors.question_text" class="text-red-600 text-xs mt-1">
+                            {{ questionFormErrors.question_text }}
+                        </p>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                        <button
+                            type="button"
+                            @click="closeQuestionModal"
+                            class="px-4 py-2 border border-gray-300 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="isSubmittingQuestion"
+                            class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                            <span>{{ isEditingQuestion ? 'Simpan Perubahan' : 'Tambah Pertanyaan' }}</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </Teleport>
+
+    <!-- ======================================================== -->
+    <!-- MODAL VUE: TAMBAH / SUNTING OPSI JAWABAN PRODI           -->
+    <!-- ======================================================== -->
+    <Teleport to="body">
+        <div
+            v-if="isOptionModalOpen"
+            class="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        >
+            <div
+                class="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-150"
+            >
+                <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
+                    <div>
+                        <h3 class="font-bold text-gray-900 text-sm">
+                            {{ isEditingOption ? 'Sunting Opsi Pilihan Jawaban' : 'Tambah Opsi Pilihan Jawaban' }}
+                        </h3>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            Konfigurasi teks pilihan dan alur lompatan pertanyaan.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        @click="closeOptionModal"
+                        class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitOptionForm" class="p-5 space-y-4">
+                    <div v-if="currentParentQuestion" class="p-2.5 rounded-lg bg-gray-50 border border-gray-200 text-xs">
+                        <span class="text-gray-500 font-medium block">Pertanyaan Induk:</span>
+                        <span class="font-bold text-gray-900 mt-0.5 block leading-snug">
+                            <span class="font-mono text-emerald-800">[{{ currentParentQuestion.code }}]</span> {{ currentParentQuestion.question_text }}
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-semibold text-gray-700 text-xs mb-1">
+                                Kode Opsi (Opsional)
+                            </label>
+                            <input
+                                v-model="optionForm.code"
+                                type="text"
+                                :placeholder="`Contoh: ${currentParentQuestion ? currentParentQuestion.code + '-01' : 'OPT-01'}`"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono uppercase focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            />
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-gray-700 text-xs mb-1">
+                                Nomor Urut Opsi
+                            </label>
+                            <input
+                                v-model.number="optionForm.order"
+                                type="number"
+                                min="1"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-gray-700 text-xs mb-1">
+                            Teks Pilihan Jawaban <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            v-model="optionForm.option_text"
+                            type="text"
+                            placeholder="Contoh: Sangat Relevan / Sesuai Bidang"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                        />
+                        <p v-if="optionFormErrors.option_text" class="text-red-600 text-xs mt-1">
+                            {{ optionFormErrors.option_text }}
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-gray-700 text-xs mb-1">
+                            Alur Lompatan / Jump To (Opsional)
+                        </label>
+                        <select
+                            v-model="optionForm.jump_to"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                        >
+                            <option value="">-- Lanjut ke Pertanyaan Berikutnya (Normal) --</option>
+                            <option
+                                v-for="target in activeJumpTargets"
+                                :key="target"
+                                :value="target"
+                            >
+                                {{ target }}
+                            </option>
+                        </select>
+                        <p class="text-[11px] text-gray-400 mt-1">Jika opsi ini dipilih responden, kuesioner akan melompat ke kode pertanyaan tersebut.</p>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                        <button
+                            type="button"
+                            @click="closeOptionModal"
+                            class="px-4 py-2 border border-gray-300 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="isSubmittingOption"
+                            class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                            <span>{{ isEditingOption ? 'Simpan Perubahan' : 'Tambah Opsi' }}</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </Teleport>
+
+    <!-- ======================================================== -->
+    <!-- MODAL VUE: DETAIL PERTANYAAN PRODI (IKON MATA)           -->
+    <!-- ======================================================== -->
+    <Teleport to="body">
+        <div
+            v-if="isDetailModalOpen && activeDetailQuestion"
+            class="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+        >
+            <div
+                class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-150"
+            >
+                <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
+                    <div>
+                        <h3 class="font-bold text-gray-900 text-sm">
+                            Detail Pertanyaan [{{ activeDetailQuestion.code }}]
+                        </h3>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            Rincian konfigurasi butir pertanyaan dan opsi pilihan responden.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        @click="closeDetailModal"
+                        class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="p-5 space-y-3.5 text-xs">
+                    <div class="p-3 rounded-lg bg-gray-50 border border-gray-200 space-y-1.5">
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono font-bold px-2 py-0.5 rounded bg-white border border-gray-200 text-gray-900 text-xs">
+                                {{ activeDetailQuestion.code }}
+                            </span>
+                            <span
+                                class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                :class="activeDetailQuestion.is_required ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-gray-100 text-gray-600'"
+                            >
+                                {{ activeDetailQuestion.is_required ? 'Wajib Diisi' : 'Opsional' }}
+                            </span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                {{ typeLabels[activeDetailQuestion.type] || activeDetailQuestion.type }}
+                            </span>
+                        </div>
+                        <p class="font-bold text-gray-900 text-sm leading-snug pt-1">
+                            {{ activeDetailQuestion.question_text }}
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-200">
+                            <span class="text-gray-500 block text-[11px]">Bagian Kuesioner:</span>
+                            <span class="font-bold text-gray-800 text-xs">
+                                {{ activeDetailQuestion.section ? `Bagian ${activeDetailQuestion.section.order}: ${activeDetailQuestion.section.title}` : '-' }}
+                            </span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-200">
+                            <span class="text-gray-500 block text-[11px]">Nomor Urut Tampil:</span>
+                            <span class="font-bold text-gray-800 text-xs">
+                                Urutan #{{ activeDetailQuestion.order }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="p-3 rounded-lg bg-slate-50 border border-gray-200 space-y-2">
+                        <span class="font-bold text-gray-800 text-xs block">
+                            Daftar Opsi Jawaban ({{ activeDetailQuestion.options?.length || 0 }} Opsi):
+                        </span>
+                        <div
+                            v-if="canHaveOptions(activeDetailQuestion.type) && activeDetailQuestion.options && activeDetailQuestion.options.length > 0"
+                            class="space-y-1.5 max-h-48 overflow-y-auto pr-1"
+                        >
+                            <div
+                                v-for="(opt, idx) in activeDetailQuestion.options"
+                                :key="opt.id || idx"
+                                class="p-2 bg-white rounded border border-gray-200 flex items-center justify-between text-xs"
+                            >
+                                <div class="flex items-center gap-2">
+                                    <span class="w-5 h-5 rounded bg-gray-100 font-mono font-bold flex items-center justify-center text-[10px] text-gray-700">
+                                        {{ idx + 1 }}
+                                    </span>
+                                    <span class="font-medium text-gray-800">{{ opt.option_text }}</span>
+                                </div>
+                                <span
+                                    v-if="opt.jump_to"
+                                    class="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[10px] font-bold border border-purple-200"
+                                >
+                                    → Lompat ke: {{ opt.jump_to }}
+                                </span>
+                            </div>
+                        </div>
+                        <p v-else class="text-xs text-gray-400 italic">
+                            Pertanyaan ini tidak memiliki daftar opsi pilihan jawaban terdaftar.
+                        </p>
+                    </div>
+
+                    <div class="flex items-center justify-end pt-3 border-t border-gray-100">
+                        <button
+                            type="button"
+                            @click="closeDetailModal"
+                            class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-semibold rounded-lg transition-colors"
+                        >
+                            Tutup
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </Teleport>
 </template>
