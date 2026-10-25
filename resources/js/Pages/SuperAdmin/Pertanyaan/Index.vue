@@ -1036,15 +1036,39 @@ const handleDeleteKuesioner = (k) => {
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div class="flex-1">
                             <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                                Instrumen Kuesioner Induk Aktif
+                                {{ activeKuesioner?.is_active ? 'Instrumen Kuesioner Induk Aktif' : 'Pratinjau Kuesioner Induk (Status Nonaktif)' }}
                             </label>
-                            <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-3 flex-wrap">
                                 <div class="px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-bold text-[#0D542B] flex items-center gap-2">
-                                    <span>{{ activeKuesioner?.title ? `[${activeKuesioner.year}] ${activeKuesioner.title}` : 'Belum Ada Kuesioner Aktif' }}</span>
+                                    <span>{{ activeKuesioner?.title ? `[${activeKuesioner.year}] ${activeKuesioner.title}` : 'Belum Ada Kuesioner Terdaftar' }}</span>
                                     <span v-if="activeKuesioner?.is_active" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
                                         Aktif
                                     </span>
+                                    <span v-else-if="activeKuesioner" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-300">
+                                        Nonaktif (Draft / Arsip)
+                                    </span>
                                 </div>
+                                <button
+                                    v-if="activeKuesioner && !activeKuesioner.is_active"
+                                    type="button"
+                                    @click="handleToggleKuesionerActive(activeKuesioner)"
+                                    class="px-3 py-1.5 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                                    title="Aktifkan kuesioner ini agar dapat diisi oleh alumni"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span>Aktifkan Kuesioner Ini</span>
+                                </button>
+                                <button
+                                    v-else-if="activeKuesioner && activeKuesioner.is_active"
+                                    type="button"
+                                    @click="handleToggleKuesionerActive(activeKuesioner)"
+                                    class="px-3 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                                    title="Nonaktifkan kuesioner ini (alumni tidak dapat mengisi)"
+                                >
+                                    <span>Nonaktifkan</span>
+                                </button>
                             </div>
                         </div>
 
