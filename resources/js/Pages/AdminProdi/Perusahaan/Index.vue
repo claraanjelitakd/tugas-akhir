@@ -73,159 +73,63 @@ const resetFilters = () => {
 };
 
 // ========================================================
-// SWEETALERT2: DETAIL MASTER PERUSAHAAN (ICON 'i')
+// 1. STATE MODAL VUE: DETAIL MASTER PERUSAHAAN (REKOMENDASI)
 // ========================================================
+
+// ref() membuat variabel reaktif untuk mengontrol buka/tutup popup detail master
+const showRecDetailModal = ref(false);
+
+// Menyimpan referensi objek perusahaan yang diajukan oleh alumni
+const activeParentCompany = ref(null);
+
+// Menyimpan data master perusahaan terverifikasi yang direkomendasikan sistem
+const activeRecDetail = ref(null);
+
+// Fungsi untuk membuka modal detail master:
+// Menerima parentCompany (usulan alumni) dan rec (master terverifikasi yang mirip)
 const openRecDetail = (parentCompany, rec) => {
-    Swal.fire({
-        title: `<span class="text-base font-bold text-gray-900">Detail Master Perusahaan</span>`,
-        html: `
-            <div class="text-left text-xs space-y-2 pt-1 text-gray-800">
-                <div class="border border-gray-300 rounded p-3 bg-gray-50/70 space-y-1.5">
-                    <div>
-                        <span class="text-gray-500 text-[11px]">Nama Perusahaan Resmi:</span>
-                        <div class="font-bold text-sm text-[#0D542B]">${rec.nama_perusahaan}</div>
-                    </div>
-                    <div>
-                        <span class="text-gray-500 text-[11px]">Alamat Lengkap:</span>
-                        <div class="font-medium text-gray-900">${rec.alamat || '-'}</div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-gray-200">
-                        <div><span class="text-gray-500">Provinsi:</span> <strong>${rec.nama_provinsi || '-'}</strong></div>
-                        <div><span class="text-gray-500">Kabupaten/Kota:</span> <strong>${rec.nama_kabupaten || '-'}</strong></div>
-                        <div><span class="text-gray-500">Kode Pos:</span> <strong>${rec.kode_pos || '-'}</strong></div>
-                        <div><span class="text-gray-500">Negara:</span> <strong>${rec.negara || 'Indonesia'}</strong></div>
-                    </div>
-                </div>
-            </div>
-        `,
-        showCancelButton: true,
-        confirmButtonText: 'Gantikan ke Master Ini (⇄)',
-        cancelButtonText: 'Tutup',
-        confirmButtonColor: '#0D542B',
-        cancelButtonColor: '#6B7280',
-        width: '520px',
-    }).then((result) => {
-        if (result.isConfirmed) {
-            handleAutoReplace(parentCompany, rec);
-        }
-    });
+    activeParentCompany.value = parentCompany;
+    activeRecDetail.value = rec;
+    showRecDetailModal.value = true;
+};
+
+// Fungsi untuk menutup modal detail master
+const closeRecDetailModal = () => {
+    showRecDetailModal.value = false;
+    activeParentCompany.value = null;
+    activeRecDetail.value = null;
+};
+
+// Menjalankan penggantian usulan ke master resmi dari dalam modal detail
+const confirmReplaceFromDetail = () => {
+    const parent = activeParentCompany.value;
+    const rec = activeRecDetail.value;
+    closeRecDetailModal();
+    if (parent && rec) {
+        handleAutoReplace(parent, rec);
+    }
 };
 
 // ========================================================
-// SWEETALERT2: PENINJAUAN LENGKAP PENGAJUAN PERUSAHAAN
+// 2. STATE MODAL VUE: PENINJAUAN PENGAJUAN PERUSAHAAN (REVIEW)
 // ========================================================
+
+// Mengontrol apakah dialog peninjauan pengajuan perusahaan tampil di layar
+const showReviewModal = ref(false);
+
+// Menyimpan objek data perusahaan yang saat ini sedang ditinjau oleh admin program studi
+const activeCompanyForReview = ref(null);
+
+// Membuka modal peninjauan pengajuan perusahaan
 const openReviewModal = (company) => {
-    let alumniListHtml = '<span class="text-gray-400 italic">Belum ada data alumni</span>';
-    if (company.biodata && company.biodata.length > 0) {
-        alumniListHtml = company.biodata.map(b => `
-            <div class="py-1 border-b border-gray-100 last:border-b-0 text-left">
-                <span class="font-bold text-gray-900">${b.nama}</span> <span class="text-gray-500 font-mono">(${b.nim})</span><br>
-                <span class="text-gray-600 text-xs">${b.prodi?.nama_prodi || '-'} ${b.posisi_jabatan ? '• Jabatan: ' + b.posisi_jabatan : ''}</span>
-            </div>
-        `).join('');
-    } else if (company.creator) {
-        alumniListHtml = `
-            <div class="py-1 text-left">
-                <span class="font-bold text-gray-900">${company.creator.biodata?.nama || company.creator.name}</span> <span class="text-gray-500 font-mono">(${company.creator.biodata?.nim || company.creator.username})</span><br>
-                <span class="text-gray-600 text-xs">${company.created_prodi?.nama_prodi || company.creator.biodata?.prodi?.nama_prodi || '-'} (Pengaju Baru)</span>
-            </div>
-        `;
-    }
+    activeCompanyForReview.value = company;
+    showReviewModal.value = true;
+};
 
-    let recListHtml = '<p class="text-gray-400 italic text-xs py-1">Tidak ditemukan nama master terverifikasi yang mirip.</p>';
-    if (company.recommendations && company.recommendations.length > 0) {
-        recListHtml = `
-            <table class="w-full text-left border-collapse border border-gray-300 text-xs mt-1">
-                <thead>
-                    <tr class="bg-gray-100 text-gray-800">
-                        <th class="border border-gray-300 px-2.5 py-1.5 font-semibold">Master Perusahaan</th>
-                        <th class="border border-gray-300 px-2.5 py-1.5 font-semibold">Lokasi Master</th>
-                        <th class="border border-gray-300 px-2 py-1.5 text-center font-semibold w-24">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${company.recommendations.map(r => `
-                        <tr>
-                            <td class="border border-gray-300 px-2.5 py-1.5 font-bold text-gray-900">${r.nama_perusahaan}</td>
-                            <td class="border border-gray-300 px-2.5 py-1.5 text-gray-600">${r.nama_kabupaten || '-'}, ${r.nama_provinsi || '-'}</td>
-                            <td class="border border-gray-300 px-2 py-1.5 text-center">
-                                <button type="button" class="swal-rec-replace-btn px-2.5 py-1 bg-[#0D542B] text-white font-semibold rounded text-[11px] hover:bg-[#08381c] cursor-pointer" data-id="${r.id}">
-                                    Pilih
-                                </button>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-    }
-
-    Swal.fire({
-        title: `<span class="text-base font-bold text-gray-900">Peninjauan Pengajuan Perusahaan</span>`,
-        html: `
-            <div class="text-left text-xs space-y-3 pt-1 text-gray-800">
-                <!-- 1. Data Inputan Alumni -->
-                <div class="border border-gray-300 rounded p-3 bg-gray-50/70 space-y-1.5">
-                    <div class="flex items-center justify-between border-b border-gray-200 pb-1.5">
-                        <span class="font-bold text-gray-700 uppercase text-[10px] tracking-wider">1. Data Yang Diinputkan Alumni</span>
-                        <span class="text-amber-800 font-semibold text-[11px]">${company.status_verifikasi || 'Menunggu Verifikasi'}</span>
-                    </div>
-                    <div>
-                        <span class="text-gray-500">Nama Perusahaan:</span>
-                        <span class="font-bold text-gray-900 block text-sm">${company.nama_perusahaan}</span>
-                    </div>
-                    <div>
-                        <span class="text-gray-500">Alamat Lengkap:</span>
-                        <span class="text-gray-900 font-medium block">${company.alamat || '-'} (Kode Pos: ${company.kode_pos || '-'})</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-gray-200">
-                        <div><span class="text-gray-500">Provinsi:</span> <strong>${company.propinsi?.nama_provinsi || '-'}</strong></div>
-                        <div><span class="text-gray-500">Kabupaten/Kota:</span> <strong>${company.kabupaten?.nama_kabupaten || '-'}</strong></div>
-                        <div><span class="text-gray-500">Skala Instansi:</span> <strong>${company.skala || '-'}</strong></div>
-                        <div><span class="text-gray-500">Jenis Usaha:</span> <strong>${company.jenis_perusahaan || '-'}</strong></div>
-                    </div>
-                    <div class="pt-2 border-t border-gray-200">
-                        <span class="text-gray-500 font-semibold block mb-0.5">Alumni Terkait:</span>
-                        <div>${alumniListHtml}</div>
-                    </div>
-                </div>
-
-                <!-- 2. Rekomendasi Master Mirip -->
-                <div>
-                    <span class="font-bold text-gray-700 uppercase text-[10px] tracking-wider block mb-1">2. Rekomendasi Master Terverifikasi (Auto Replace)</span>
-                    ${recListHtml}
-                </div>
-            </div>
-        `,
-        showCancelButton: true,
-        showDenyButton: true,
-        confirmButtonText: 'Verifikasi Sesuai Inputan',
-        denyButtonText: 'Edit',
-        cancelButtonText: 'Tutup',
-        confirmButtonColor: '#0D542B',
-        denyButtonColor: '#D97706',
-        cancelButtonColor: '#6B7280',
-        width: '640px',
-        didOpen: () => {
-            const popup = Swal.getPopup();
-            popup.querySelectorAll('.swal-rec-replace-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const recId = btn.getAttribute('data-id');
-                    const targetRec = company.recommendations?.find(r => r.id == recId);
-                    if (targetRec) {
-                        Swal.close();
-                        handleAutoReplace(company, targetRec);
-                    }
-                });
-            });
-        }
-    }).then((result) => {
-        if (result.isConfirmed) {
-            handleVerifyDirect(company);
-        } else if (result.isDenied) {
-            openEditModal(company);
-        }
-    });
+// Menutup modal peninjauan pengajuan perusahaan
+const closeReviewModal = () => {
+    showReviewModal.value = false;
+    activeCompanyForReview.value = null;
 };
 
 // Aksi 1: Verifikasi Langsung Sesuai Inputan Alumni
@@ -318,124 +222,109 @@ const handleReject = (company) => {
 };
 
 // ========================================================
-// SWEETALERT2: EDIT & VERIFIKASI DATA PERUSAHAAN OLEH ADMIN
+// 3. STATE MODAL VUE: SUNTING & VERIFIKASI PERUSAHAAN (EDIT)
 // ========================================================
+
+// Mengontrol apakah dialog modal sunting tampil di layar (true/false)
+const showEditModal = ref(false);
+
+// Menandai apakah request simpan suntingan sedang diproses di server
+const isSubmittingEdit = ref(false);
+
+// Menyimpan pesan galat validasi jika pengguna belum melengkapi field wajib
+const editModalError = ref('');
+
+// Objek form reaktif untuk menampung field sunting data perusahaan
+const editForm = ref({
+    id: null,
+    nama_perusahaan: '',
+    propinsi_id: '',
+    kabupaten_id: '',
+    alamat: '',
+    kode_pos: '',
+    skala: 'Nasional',
+    jenis_perusahaan: 'Perusahaan swasta',
+    jenis_lokasi: 'Dalam Negeri',
+    negara: 'Indonesia',
+});
+
+// computed() menyaring daftar kabupaten sesuai provinsi yang dipilih pada form sunting
+const filteredKabupatensForEdit = computed(() => {
+    if (!editForm.value.propinsi_id) {
+        return [];
+    }
+    return (props.kabupatens || []).filter(k => String(k.propinsi_id) === String(editForm.value.propinsi_id));
+});
+
+// watch() memantau perubahan provinsi pada form sunting
+// Jika provinsi berubah dan kabupaten lama tidak ada di provinsi baru, kosongkan pilihan kabupaten
+watch(() => editForm.value.propinsi_id, (newPropId) => {
+    const isValid = filteredKabupatensForEdit.value.some(k => String(k.id) === String(editForm.value.kabupaten_id));
+    if (!newPropId || !isValid) {
+        editForm.value.kabupaten_id = '';
+    }
+});
+
+// Membuka modal sunting data perusahaan dan mengisi nilai awal dari data yang dipilih
 const openEditModal = (company) => {
-    // Bangun daftar opsi provinsi
-    const propOptions = (props.propinsis || []).map(p => 
-        `<option value="${p.id}" ${p.id == company.propinsi_id ? 'selected' : ''}>${p.nama_provinsi}</option>`
-    ).join('');
-
-    // Fungsi bantu untuk memfilter opsi kabupaten/kota
-    const getKabOptions = (selectedPropId, currentKabId) => {
-        if (!selectedPropId) return '<option value="">-- Pilih Provinsi Dahulu --</option>';
-        const kabs = (props.kabupatens || []).filter(k => k.propinsi_id == selectedPropId);
-        return '<option value="">-- Pilih Kabupaten/Kota --</option>' + kabs.map(k => 
-            `<option value="${k.id}" ${k.id == currentKabId ? 'selected' : ''}>${k.nama_kabupaten}</option>`
-        ).join('');
+    editModalError.value = '';
+    editForm.value = {
+        id: company.id,
+        nama_perusahaan: company.nama_perusahaan || '',
+        propinsi_id: company.propinsi_id || '',
+        kabupaten_id: company.kabupaten_id || '',
+        alamat: company.alamat || '',
+        kode_pos: company.kode_pos || '',
+        skala: company.skala || 'Nasional',
+        jenis_perusahaan: company.jenis_perusahaan || 'Perusahaan swasta',
+        jenis_lokasi: company.jenis_lokasi || 'Dalam Negeri',
+        negara: company.negara || 'Indonesia',
     };
+    showEditModal.value = true;
+};
 
-    const initialKabOptions = getKabOptions(company.propinsi_id, company.kabupaten_id);
+// Menutup modal sunting data perusahaan
+const closeEditModal = () => {
+    if (isSubmittingEdit.value) {
+        return;
+    }
+    showEditModal.value = false;
+    editModalError.value = '';
+};
 
-    Swal.fire({
-        title: `<span class="text-base font-bold text-gray-900">Sunting & Verifikasi Perusahaan</span>`,
-        html: `
-            <div class="text-left text-xs space-y-3 pt-1 text-gray-800">
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Nama Perusahaan / Instansi *</label>
-                    <input id="swal-edit-nama" type="text" class="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700" value="${(company.nama_perusahaan || '').replace(/"/g, '&quot;')}" placeholder="Contoh: PT Bank Central Asia Tbk" />
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block font-bold text-gray-700 mb-1">Provinsi</label>
-                        <select id="swal-edit-prov" class="w-full px-2 py-2 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700">
-                            <option value="">-- Pilih Provinsi --</option>
-                            ${propOptions}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block font-bold text-gray-700 mb-1">Kabupaten/Kota</label>
-                        <select id="swal-edit-kab" class="w-full px-2 py-2 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700">
-                            ${initialKabOptions}
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label class="block font-bold text-gray-700 mb-1">Alamat Lengkap</label>
-                    <textarea id="swal-edit-alamat" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700" placeholder="Alamat jalan, gedung, dsb...">${company.alamat || ''}</textarea>
-                </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <div>
-                        <label class="block font-bold text-gray-700 mb-1">Kode Pos</label>
-                        <input id="swal-edit-kodepos" type="text" class="w-full px-2 py-2 border border-gray-300 rounded text-xs" value="${company.kode_pos || ''}" placeholder="55224" />
-                    </div>
-                    <div>
-                        <label class="block font-bold text-gray-700 mb-1">Skala Usaha</label>
-                        <select id="swal-edit-skala" class="w-full px-2 py-2 border border-gray-300 rounded text-xs bg-white">
-                            <option value="Nasional" ${company.skala === 'Nasional' ? 'selected' : ''}>Nasional</option>
-                            <option value="Multinasional/Internasional" ${company.skala === 'Multinasional/Internasional' ? 'selected' : ''}>Multinasional</option>
-                            <option value="Regional/Lokal" ${company.skala === 'Regional/Lokal' ? 'selected' : ''}>Regional/Lokal</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block font-bold text-gray-700 mb-1">Jenis Usaha</label>
-                        <select id="swal-edit-jenis" class="w-full px-2 py-2 border border-gray-300 rounded text-xs bg-white">
-                            <option value="Perusahaan swasta" ${company.jenis_perusahaan === 'Perusahaan swasta' ? 'selected' : ''}>Swasta</option>
-                            <option value="BUMN/BUMD" ${company.jenis_perusahaan === 'BUMN/BUMD' ? 'selected' : ''}>BUMN/BUMD</option>
-                            <option value="Instansi pemerintah" ${company.jenis_perusahaan === 'Instansi pemerintah' ? 'selected' : ''}>Pemerintah</option>
-                            <option value="Organisasi non-profit/LSM" ${company.jenis_perusahaan === 'Organisasi non-profit/LSM' ? 'selected' : ''}>Non-profit</option>
-                            <option value="Wiraswasta/Perusahaan sendiri" ${company.jenis_perusahaan === 'Wiraswasta/Perusahaan sendiri' ? 'selected' : ''}>Wiraswasta</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-        `,
-        width: '600px',
-        showCancelButton: true,
-        confirmButtonText: '✓ Simpan & Verifikasi',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#0D542B',
-        cancelButtonColor: '#6B7280',
-        didOpen: () => {
-            const provSelect = document.getElementById('swal-edit-prov');
-            const kabSelect = document.getElementById('swal-edit-kab');
-            if (provSelect && kabSelect) {
-                provSelect.addEventListener('change', (e) => {
-                    kabSelect.innerHTML = getKabOptions(e.target.value, '');
-                });
+// Mengirim data hasil suntingan ke server melalui router.put Inertia
+const submitEditForm = () => {
+    const nama = editForm.value.nama_perusahaan ? editForm.value.nama_perusahaan.trim() : '';
+    if (!nama) {
+        editModalError.value = 'Nama perusahaan / instansi wajib diisi.';
+        return;
+    }
+
+    isSubmittingEdit.value = true;
+    editModalError.value = '';
+
+    router.put(`/prodi/perusahaan/${editForm.value.id}`, {
+        ...editForm.value,
+        nama_perusahaan: nama,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            isSubmittingEdit.value = false;
+            closeEditModal();
+            if (showReviewModal.value) {
+                closeReviewModal();
             }
-        },
-        preConfirm: () => {
-            const nama = document.getElementById('swal-edit-nama')?.value?.trim();
-            if (!nama) {
-                Swal.showValidationMessage('Nama perusahaan wajib diisi.');
-                return false;
-            }
-            return {
-                id: company.id,
-                nama_perusahaan: nama,
-                propinsi_id: document.getElementById('swal-edit-prov')?.value || null,
-                kabupaten_id: document.getElementById('swal-edit-kab')?.value || null,
-                alamat: document.getElementById('swal-edit-alamat')?.value || '',
-                kode_pos: document.getElementById('swal-edit-kodepos')?.value || '',
-                skala: document.getElementById('swal-edit-skala')?.value || 'Nasional',
-                jenis_perusahaan: document.getElementById('swal-edit-jenis')?.value || 'Perusahaan swasta',
-                jenis_lokasi: 'Dalam Negeri',
-                negara: 'Indonesia',
-            };
-        }
-    }).then((result) => {
-        if (result.isConfirmed && result.value) {
-            router.put(`/prodi/perusahaan/${result.value.id}`, result.value, {
-                preserveScroll: true,
-                onSuccess: () => {
-                    Swal.fire('Berhasil Disimpan!', 'Data perusahaan telah diperbarui dan diverifikasi.', 'success');
-                },
-                onError: (errs) => {
-                    Swal.fire('Gagal Menyimpan', Object.values(errs).join('<br>'), 'error');
-                },
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil Disimpan!',
+                text: 'Data perusahaan telah diperbarui dan diverifikasi.',
+                confirmButtonColor: '#0D542B',
             });
-        }
+        },
+        onError: (errs) => {
+            isSubmittingEdit.value = false;
+            editModalError.value = Object.values(errs).join(', ') || 'Terjadi kesalahan saat menyimpan data.';
+        },
     });
 };
 </script>
@@ -761,4 +650,329 @@ const openEditModal = (company) => {
             </main>
         </div>
     </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL 1: DETAIL MASTER PERUSAHAAN REKOMENDASI (VUE MODAL) -->
+    <!-- ======================================================== -->
+    <Teleport to="body">
+        <div
+            v-if="showRecDetailModal && activeRecDetail"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+        >
+            <div class="fixed inset-0 bg-slate-900/60 transition-opacity" @click="closeRecDetailModal"></div>
+
+            <div class="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 z-10 animate-in fade-in zoom-in-95 duration-150">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                    <h3 class="text-base font-bold text-slate-800">Detail Master Perusahaan</h3>
+                    <button type="button" @click="closeRecDetailModal" class="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 transition-colors cursor-pointer">
+                        <span class="sr-only">Tutup</span>
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="p-6 space-y-4 text-xs text-slate-700">
+                    <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-2">
+                        <div>
+                            <span class="text-slate-400 text-[11px] font-semibold block">Nama Perusahaan Resmi:</span>
+                            <span class="font-bold text-sm text-[#0D542B]">{{ activeRecDetail.nama_perusahaan }}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 text-[11px] font-semibold block">Alamat Lengkap:</span>
+                            <span class="font-medium text-slate-800">{{ activeRecDetail.alamat || '-' }}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200 text-[11px]">
+                            <div><span class="text-slate-400">Provinsi:</span> <strong>{{ activeRecDetail.nama_provinsi || '-' }}</strong></div>
+                            <div><span class="text-slate-400">Kabupaten/Kota:</span> <strong>{{ activeRecDetail.nama_kabupaten || '-' }}</strong></div>
+                            <div><span class="text-slate-400">Kode Pos:</span> <strong>{{ activeRecDetail.kode_pos || '-' }}</strong></div>
+                            <div><span class="text-slate-400">Negara:</span> <strong>{{ activeRecDetail.negara || 'Indonesia' }}</strong></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-6 py-3.5 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/50">
+                    <button type="button" @click="closeRecDetailModal" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">
+                        Tutup
+                    </button>
+                    <button type="button" @click="confirmReplaceFromDetail" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#0D542B] hover:bg-[#08381c] transition-all shadow-xs cursor-pointer">
+                        Gantikan ke Master Ini
+                    </button>
+                </div>
+            </div>
+        </div>
+    </Teleport>
+
+    <!-- ======================================================== -->
+    <!-- MODAL 2: PENINJAUAN PENGAJUAN PERUSAHAAN (VUE MODAL)     -->
+    <!-- ======================================================== -->
+    <Teleport to="body">
+        <div
+            v-if="showReviewModal && activeCompanyForReview"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+        >
+            <div class="fixed inset-0 bg-slate-900/60 transition-opacity" @click="closeReviewModal"></div>
+
+            <div class="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 z-10 animate-in fade-in zoom-in-95 duration-150">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-800">Peninjauan Pengajuan Perusahaan</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Tinjau data inputan alumni dan rekomendasi data master yang mirip</p>
+                    </div>
+                    <button type="button" @click="closeReviewModal" class="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 transition-colors cursor-pointer">
+                        <span class="sr-only">Tutup</span>
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="p-6 space-y-4 overflow-y-auto flex-1 text-xs text-slate-800">
+                    <!-- 1. Data Inputan Alumni -->
+                    <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-2">
+                        <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                            <span class="font-bold text-slate-700 uppercase text-[10px] tracking-wider">1. Data Yang Diinputkan Alumni</span>
+                            <span class="text-amber-800 font-semibold text-[11px] bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                {{ activeCompanyForReview.status_verifikasi || 'Menunggu Verifikasi' }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 text-[11px] block">Nama Perusahaan:</span>
+                            <span class="font-bold text-slate-900 block text-sm">{{ activeCompanyForReview.nama_perusahaan }}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 text-[11px] block">Alamat Lengkap:</span>
+                            <span class="text-slate-800 font-medium block">{{ activeCompanyForReview.alamat || '-' }} (Kode Pos: {{ activeCompanyForReview.kode_pos || '-' }})</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-[11px] pt-1.5 border-t border-slate-200">
+                            <div><span class="text-slate-400">Provinsi:</span> <strong>{{ activeCompanyForReview.propinsi?.nama_provinsi || '-' }}</strong></div>
+                            <div><span class="text-slate-400">Kabupaten/Kota:</span> <strong>{{ activeCompanyForReview.kabupaten?.nama_kabupaten || '-' }}</strong></div>
+                            <div><span class="text-slate-400">Skala Instansi:</span> <strong>{{ activeCompanyForReview.skala || '-' }}</strong></div>
+                            <div><span class="text-slate-400">Jenis Usaha:</span> <strong>{{ activeCompanyForReview.jenis_perusahaan || '-' }}</strong></div>
+                        </div>
+                        <div class="pt-2 border-t border-slate-200">
+                            <span class="text-slate-400 font-semibold block mb-1">Alumni Terkait:</span>
+                            <div v-if="activeCompanyForReview.biodata && activeCompanyForReview.biodata.length > 0" class="space-y-1.5">
+                                <div v-for="b in activeCompanyForReview.biodata" :key="b.id || b.nim" class="py-1 border-b border-slate-100 last:border-b-0">
+                                    <span class="font-bold text-slate-900">{{ b.nama }}</span> <span class="text-slate-500 font-mono">({{ b.nim }})</span><br>
+                                    <span class="text-slate-600 text-[11px]">{{ b.prodi?.nama_prodi || '-' }} {{ b.posisi_jabatan ? '• Jabatan: ' + b.posisi_jabatan : '' }}</span>
+                                </div>
+                            </div>
+                            <div v-else-if="activeCompanyForReview.creator" class="py-1">
+                                <span class="font-bold text-slate-900">{{ activeCompanyForReview.creator.biodata?.nama || activeCompanyForReview.creator.name }}</span>
+                                <span class="text-slate-500 font-mono"> ({{ activeCompanyForReview.creator.biodata?.nim || activeCompanyForReview.creator.username }})</span><br>
+                                <span class="text-slate-600 text-[11px]">{{ activeCompanyForReview.created_prodi?.nama_prodi || activeCompanyForReview.creator.biodata?.prodi?.nama_prodi || '-' }} (Pengaju Baru)</span>
+                            </div>
+                            <span v-else class="text-slate-400 italic">Belum ada data alumni</span>
+                        </div>
+                    </div>
+
+                    <!-- 2. Rekomendasi Master Mirip -->
+                    <div>
+                        <span class="font-bold text-slate-700 uppercase text-[10px] tracking-wider block mb-1.5">2. Rekomendasi Master Terverifikasi (Auto Replace)</span>
+                        <div v-if="activeCompanyForReview.recommendations && activeCompanyForReview.recommendations.length > 0" class="border border-slate-200 rounded-xl overflow-hidden">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                                        <th class="px-3 py-2 font-semibold">Master Perusahaan</th>
+                                        <th class="px-3 py-2 font-semibold">Lokasi Master</th>
+                                        <th class="px-2 py-2 text-center font-semibold w-24">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="r in activeCompanyForReview.recommendations" :key="r.id" class="border-b border-slate-100 last:border-b-0">
+                                        <td class="px-3 py-2 font-bold text-slate-900">{{ r.nama_perusahaan }}</td>
+                                        <td class="px-3 py-2 text-slate-600">{{ r.nama_kabupaten || '-' }}, {{ r.nama_provinsi || '-' }}</td>
+                                        <td class="px-2 py-2 text-center">
+                                            <button
+                                                type="button"
+                                                @click="handleAutoReplace(activeCompanyForReview, r)"
+                                                class="px-2.5 py-1 bg-[#0D542B] text-white font-semibold rounded-lg text-[11px] hover:bg-[#08381c] cursor-pointer transition-colors shadow-2xs"
+                                            >
+                                                Pilih (⇄)
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p v-else class="text-slate-400 italic text-xs py-2 bg-slate-50 border border-slate-200 rounded-xl px-3">
+                            Tidak ditemukan nama master terverifikasi yang mirip.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="px-6 py-3.5 border-t border-slate-100 flex items-center justify-between bg-slate-50/70">
+                    <button type="button" @click="closeReviewModal" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer">
+                        Tutup
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            @click="openEditModal(activeCompanyForReview)"
+                            class="px-4 py-2 rounded-xl text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 transition-colors cursor-pointer"
+                        >
+                            Sunting Data
+                        </button>
+                        <button
+                            type="button"
+                            @click="handleVerifyDirect(activeCompanyForReview)"
+                            class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#0D542B] hover:bg-[#08381c] transition-all shadow-xs cursor-pointer"
+                        >
+                            Verifikasi Sesuai Inputan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </Teleport>
+
+    <!-- ======================================================== -->
+    <!-- MODAL 3: SUNTING & VERIFIKASI PERUSAHAAN (VUE MODAL)     -->
+    <!-- ======================================================== -->
+    <Teleport to="body">
+        <div
+            v-if="showEditModal"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+        >
+            <div class="fixed inset-0 bg-slate-900/60 transition-opacity" @click="closeEditModal"></div>
+
+            <div class="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 z-10 animate-in fade-in zoom-in-95 duration-150">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-800">Sunting & Verifikasi Perusahaan</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Perbarui data instansi sebelum diverifikasi ke master resmi</p>
+                    </div>
+                    <button type="button" @click="closeEditModal" :disabled="isSubmittingEdit" class="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 transition-colors cursor-pointer disabled:opacity-50">
+                        <span class="sr-only">Tutup</span>
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitEditForm" class="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+                    <div v-if="editModalError" class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
+                        <svg class="w-4 h-4 text-rose-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{{ editModalError }}</span>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Nama Perusahaan / Instansi *</label>
+                        <input
+                            type="text"
+                            v-model="editForm.nama_perusahaan"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            placeholder="Contoh: PT Bank Central Asia Tbk"
+                            required
+                        />
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Provinsi</label>
+                            <select
+                                v-model="editForm.propinsi_id"
+                                class="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            >
+                                <option value="">-- Pilih Provinsi --</option>
+                                <option v-for="p in props.propinsis || []" :key="p.id" :value="p.id">
+                                    {{ p.nama_provinsi }}
+                                </option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Kabupaten/Kota</label>
+                            <select
+                                v-model="editForm.kabupaten_id"
+                                :disabled="!editForm.propinsi_id"
+                                class="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B] disabled:bg-slate-100 disabled:text-slate-400"
+                            >
+                                <option value="">-- Pilih Kabupaten/Kota --</option>
+                                <option v-for="k in filteredKabupatensForEdit" :key="k.id" :value="k.id">
+                                    {{ k.nama_kabupaten }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Alamat Lengkap</label>
+                        <textarea
+                            v-model="editForm.alamat"
+                            rows="2"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B] resize-y"
+                            placeholder="Alamat jalan, gedung, dsb..."
+                        ></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Kode Pos</label>
+                            <input
+                                type="text"
+                                v-model="editForm.kode_pos"
+                                class="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                placeholder="55224"
+                            />
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Skala Usaha</label>
+                            <select
+                                v-model="editForm.skala"
+                                class="w-full px-2 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            >
+                                <option value="Nasional">Nasional</option>
+                                <option value="Multinasional/Internasional">Multinasional</option>
+                                <option value="Regional/Lokal">Regional/Lokal</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Jenis Usaha</label>
+                            <select
+                                v-model="editForm.jenis_perusahaan"
+                                class="w-full px-2 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            >
+                                <option value="Perusahaan swasta">Swasta</option>
+                                <option value="BUMN/BUMD">BUMN/BUMD</option>
+                                <option value="Instansi pemerintah">Pemerintah</option>
+                                <option value="Organisasi non-profit/LSM">Non-profit</option>
+                                <option value="Wiraswasta/Perusahaan sendiri">Wiraswasta</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            @click="closeEditModal"
+                            :disabled="isSubmittingEdit"
+                            class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="isSubmittingEdit"
+                            class="px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#0D542B] hover:bg-[#08381c] transition-all shadow-xs shrink-0 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                            <svg v-if="isSubmittingEdit" class="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>{{ isSubmittingEdit ? 'Menyimpan...' : 'Simpan & Verifikasi' }}</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </Teleport>
 </template>
