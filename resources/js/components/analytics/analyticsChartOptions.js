@@ -13,6 +13,9 @@ export const analyticsPalette = ['#0D542B', '#2563EB', '#D97706', '#7C3AED', '#0
 // Format angka Indonesia untuk label, tooltip, dan sumbu.
 export const formatNumber = (value, digits = 1) => Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: digits });
 
+// Format persentase standar dengan simbol persen.
+export const formatPercentage = (value, digits = 1) => `${formatNumber(value, digits)}%`;
+
 // Format rupiah ringkas untuk sumbu dan label grafik.
 export const formatCompactCurrency = (value) => new Intl.NumberFormat('id-ID', {
     style: 'currency',

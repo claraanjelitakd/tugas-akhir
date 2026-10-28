@@ -48,8 +48,8 @@ class AlumniDirectoryQueryService
         // Prodis terpilih dari filter input (jika tidak discoped ketat oleh peran Prodi)
         $prodiIdTerpilih = $scopedProdiId ?: $request->input('prodi_id');
 
-        // 2. Kueri daftar tahun kelulusan unik untuk dropdown filter
-        $tahunQuery = DB::table('v_alumni_audit_rekap')
+        // 2. Kueri daftar tahun kelulusan unik untuk dropdown filter melalui view profil resmi v_alumni_profile_summary
+        $tahunQuery = DB::table('v_alumni_profile_summary')
             ->where(function ($q) {
                 $q->whereNotNull('tahun_lulus')
                     ->orWhereNotNull('tahun_akademik_lulus');
@@ -79,8 +79,8 @@ class AlumniDirectoryQueryService
             $tahunTerpilih = $tahunTerbaru;
         }
 
-        // 3. Kueri daftar target periode kelulusan unik
-        $targetQuery = DB::table('v_alumni_audit_rekap')
+        // 3. Kueri daftar target periode kelulusan unik melalui view profil resmi v_alumni_profile_summary
+        $targetQuery = DB::table('v_alumni_profile_summary')
             ->whereNotNull('tahun_akademik_lulus')
             ->where('tahun_akademik_lulus', '!=', '');
 

@@ -32,15 +32,21 @@ const props = defineProps({
     selectedChart: { type: String, default: 'response_rate' },
     availableUmpYears: { type: Array, default: () => [] },
     selectedUmpYear: { type: String, default: '' },
+    selectedLabel: { type: String, default: '' },
     loading: { type: Boolean, default: false },
 });
 
 // Event diteruskan ke halaman induk untuk koordinasi filter global
 const emit = defineEmits(['select-category', 'select-province', 'change-ump-year', 'show-data', 'show-methodology']);
 
-// Selection lokal untuk cross-filter
-const selectedLabel = ref('');
+// Selection lokal untuk cross-filter, disinkronkan dengan prop selectedLabel
+const selectedLabel = ref(props.selectedLabel || '');
 const heatmapMode = ref('count');
+
+// Sinkronisasi bila props.selectedLabel berubah dari luar (misal klik KPI card di atas)
+watch(() => props.selectedLabel, (val) => {
+    selectedLabel.value = val || '';
+});
 
 // Registry pemetaan key indikator ke komponen kategori terkait
 const categoryComponents = {
@@ -104,21 +110,46 @@ watch(() => props.selectedChart, () => {
 </script>
 
 <template>
-    <div class="space-y-6">
-        <!-- Render komponen kategori mandiri yang sedang aktif -->
-        <component
-            :is="activeComponent"
-            :chart="chart"
-            :selected-label="selectedLabel"
-            :heatmap-mode="heatmapMode"
-            :available-ump-years="availableUmpYears"
-            :selected-ump-year="selectedUmpYear"
-            :loading="loading"
-            @select="selectPoint"
-            @reset="resetSelection"
-            @select-province="emit('select-province', $event)"
-            @change-ump-year="emit('change-ump-year', $event)"
-            @show-data="emit('show-data', $event)"
-        />
+    <div class="relative space-y-6">
+        <!-- Indikator status pemuatan data indikator yang jelas & profesional -->
+        <transition
+            enter-active-class="transition duration-150 ease-out"
+            enter-from-class="opacity-0 -translate-y-1"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100 translate-y-0"
+            leave-to-class="opacity-0 -translate-y-1"
+        >
+            <div
+                v-if="loading"
+                class="absolute -top-3 left-0 right-0 z-30 flex items-center justify-center"
+            >
+                <div class="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-[#0D542B] px-4 py-1.5 text-xs font-semibold text-white shadow-lg">
+                    <svg class="h-3.5 w-3.5 animate-spin text-emerald-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Memperbarui data indikator...</span>
+                </div>
+            </div>
+        </transition>
+
+        <!-- Render komponen kategori mandiri yang sedang aktif dengan efek transisi opacity saat loading -->
+        <div :class="{ 'opacity-60 pointer-events-none transition-opacity duration-200': loading }">
+            <component
+                :is="activeComponent"
+                :chart="chart"
+                :selected-label="selectedLabel"
+                :heatmap-mode="heatmapMode"
+                :available-ump-years="availableUmpYears"
+                :selected-ump-year="selectedUmpYear"
+                :loading="loading"
+                @select="selectPoint"
+                @reset="resetSelection"
+                @select-province="emit('select-province', $event)"
+                @change-ump-year="emit('change-ump-year', $event)"
+                @show-data="emit('show-data', $event)"
+            />
+        </div>
     </div>
 </template>

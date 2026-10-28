@@ -224,7 +224,9 @@ class TracerAnalyticsService
         $availableUmpYears = $this->availableUmpYears();
         $selectedUmpYear = $this->resolveUmpYear($requestedUmpYear, $selectedYear, $availableUmpYears);
         $rows = $this->analyticsRows($chartKey, $selectedYear, $selectedUmpYear, $prodiId);
-        $responses = [];
+        $responses = $chartKey === 'employment_status'
+            ? $this->responsesByAlumni($rows->pluck('biodata_id')->all(), ['F8', 'F18a', 'F18b', 'F18c', 'F18d', 'F11', 'F5B', 'F5C', 'F2E', 'F2G'])
+            : [];
         $umpRows = collect();
 
         $chart = match ($chartKey) {
@@ -553,11 +555,57 @@ class TracerAnalyticsService
             ],
         ][$chartKey];
         $records = $this->questionRecords($rows);
-        $series = $records->groupBy('answer')->map(fn (Collection $group, string $label): array => [
-            'label' => $label,
-            'count' => $group->count(),
-            'percentage' => $this->percentage($group->count(), $records->count()),
-        ])->sortByDesc('count')->values()->all();
+        $questionCode = match ($chartKey) {
+            'job_search_methods' => 'F4',
+            'mismatch_reasons' => 'F16',
+            'workplace_type' => 'F11',
+            'job_search_activity' => 'F10',
+            default => null,
+        };
+
+        $grouped = $records->groupBy('answer');
+        $officialOptions = $questionCode
+            ? DB::table('ref_subpertanyaan_detil')
+                ->where('kode_pertanyaan', $questionCode)
+                ->orderBy('order')
+                ->pluck('option_text')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all()
+            : [];
+
+        $seriesCollection = collect();
+        if (! empty($officialOptions)) {
+            // Masukkan seluruh opsi resmi kuesioner
+            foreach ($officialOptions as $optText) {
+                $group = $grouped->get($optText);
+                $cnt = $group ? $group->count() : 0;
+                $seriesCollection->push([
+                    'label' => $optText,
+                    'count' => $cnt,
+                    'percentage' => $this->percentage($cnt, max($records->count(), 1)),
+                ]);
+            }
+            // Tambahkan jawaban alumni di luar opsi resmi jika ada (misal teks bebas lainnya)
+            foreach ($grouped as $label => $group) {
+                if (! in_array($label, $officialOptions, true)) {
+                    $cnt = $group->count();
+                    $seriesCollection->push([
+                        'label' => $label,
+                        'count' => $cnt,
+                        'percentage' => $this->percentage($cnt, max($records->count(), 1)),
+                    ]);
+                }
+            }
+            $series = $seriesCollection->sortByDesc('count')->values()->all();
+        } else {
+            $series = $grouped->map(fn (Collection $group, string $label): array => [
+                'label' => $label,
+                'count' => $group->count(),
+                'percentage' => $this->percentage($group->count(), max($records->count(), 1)),
+            ])->sortByDesc('count')->values()->all();
+        }
 
         return [
             'key' => $chartKey,
@@ -650,101 +698,246 @@ class TracerAnalyticsService
     }
 
     /**
-     * Menyusun skor median metode pembelajaran F21 sampai F27.
+     * Menyusun skor rata-rata (INT) metode pembelajaran F21 sampai F27.
      *
      * @return array<string, mixed>
      */
     private function learningMethodsChart(Collection $rows): array
     {
         $labels = [
-            'F21' => 'Perkuliahan', 'F22' => 'Demonstrasi', 'F23' => 'Proyek riset',
-            'F24' => 'Magang', 'F25' => 'Praktikum', 'F26' => 'Kerja lapangan', 'F27' => 'Diskusi',
+            'F21' => 'Perkuliahan',
+            'F22' => 'Demonstrasi',
+            'F23' => 'Partisipasi dalam proyek riset',
+            'F24' => 'Magang',
+            'F25' => 'Praktikum',
+            'F26' => 'Kerja Lapangan',
+            'F27' => 'Diskusi',
         ];
-        $records = $this->questionRecords($rows)->map(function (array $record) use ($labels): array {
+
+        $scaleDescriptions = [
+            1 => 'Sangat Besar',
+            2 => 'Besar',
+            3 => 'Cukup Besar',
+            4 => 'Kurang',
+            5 => 'Tidak Sama Sekali',
+        ];
+
+        $records = $this->questionRecords($rows)->map(function (array $record) use ($labels, $scaleDescriptions): array {
             $record['method'] = $labels[$record['kode_pertanyaan']] ?? $record['kode_pertanyaan'];
-            $record['score'] = $this->scaleValue($record['answer']);
+            $score = $this->scaleValue($record['answer']);
+            $record['score'] = $score !== null ? (int) round($score) : null;
+            $record['score_label'] = $record['score'] !== null ? ($scaleDescriptions[$record['score']] ?? null) : null;
 
             return $record;
         })->filter(fn (array $record): bool => $record['score'] !== null)->values();
-        $series = collect($labels)->map(function (string $label, string $code) use ($records): array {
+
+        $series = collect($labels)->map(function (string $label, string $code) use ($records, $scaleDescriptions): array {
             $group = $records->where('kode_pertanyaan', $code);
-            $scores = $group->pluck('score')->all();
+            $scores = $group->pluck('score')->filter();
+            $count = $scores->count();
+            $avgFloat = $count > 0 ? (float) $scores->avg() : 0.0;
+            $avgInt = $count > 0 ? (int) round($avgFloat) : 0;
+
+            // Distribusi frekuensi per skala (1 s.d. 5)
+            $distribution = [];
+            for ($i = 1; $i <= 5; $i++) {
+                $c = $scores->filter(fn ($s) => (int) $s === $i)->count();
+                $distribution[$i] = [
+                    'score' => $i,
+                    'label' => $scaleDescriptions[$i],
+                    'count' => $c,
+                    'percentage' => $count > 0 ? (float) number_format(($c / $count) * 100, 1, '.', '') : 0.0,
+                ];
+            }
 
             return [
                 'key' => $code,
                 'label' => $label,
-                'count' => $group->count(),
-                'score' => $this->median($scores),
-                'percentage' => $this->percentage($group->count(), $records->count()),
+                'count' => $count,
+                'score' => $avgInt, // INT sesuai instruksi user (rentang 1 - 5)
+                'average' => (float) number_format($avgFloat, 2, '.', ''),
+                'score_label' => $scaleDescriptions[$avgInt] ?? 'Tidak Diketahui',
+                'distribution' => array_values($distribution),
+                'percentage' => $this->percentage($count, $records->count()),
             ];
         })->values()->all();
+
+        // Rata-rata keseluruhan (overall)
+        $allScores = $records->pluck('score')->filter();
+        $overallAvg = $allScores->count() > 0 ? (float) $allScores->avg() : 0.0;
+        $overallInt = $allScores->count() > 0 ? (int) round($overallAvg) : 0;
+
+        // Dalam skala ini: 1 = Sangat Besar (penekanan tertinggi), 5 = Tidak Sama Sekali (penekanan terendah)
+        $sortedByEmphasis = collect($series)->filter(fn ($item) => $item['count'] > 0)->sortBy('average')->values();
+        $leading = $sortedByEmphasis->first();
+        $least = $sortedByEmphasis->last();
 
         return [
             'key' => 'learning_methods',
             'type' => 'learning_methods',
             'title' => 'Penekanan metode pembelajaran',
-            'subtitle' => 'Median skor penilaian alumni atas pelaksanaan metode pembelajaran.',
+            'subtitle' => 'Rata-rata skor respon alumni atas penekanan metode pembelajaran selama studi di UKDW (skala Likert 1 - 5).',
             'visual_plan' => $this->visualPlan('learning_methods'),
+            'scale_reference' => [
+                'min' => 1,
+                'max' => 5,
+                'step' => 1,
+                'levels' => $scaleDescriptions,
+                'legend' => '1 = Sangat Besar | 2 = Besar | 3 = Cukup Besar | 4 = Kurang | 5 = Tidak Sama Sekali',
+            ],
             'summary' => [
                 'answered_count' => $records->pluck('biodata_id')->unique()->count(),
-                'leading_category' => collect($series)->sortByDesc('score')->first()['label'] ?? null,
-                'leading_score' => collect($series)->max('score'),
+                'overall_average' => (float) number_format($overallAvg, 2, '.', ''),
+                'overall_score_int' => $overallInt,
+                'overall_score_label' => $scaleDescriptions[$overallInt] ?? '-',
+                'leading_category' => $leading['label'] ?? null,
+                'leading_score' => $leading['score'] ?? null,
+                'leading_score_label' => $leading['score_label'] ?? null,
+                'least_category' => $least['label'] ?? null,
+                'least_score' => $least['score'] ?? null,
+                'least_score_label' => $least['score_label'] ?? null,
             ],
             'series' => $series,
             'records' => $records->all(),
             'methodology' => [
-                'formula' => 'Median skor Likert dihitung per metode pembelajaran; nilai kosong tidak dihitung.',
-                'denominator' => 'Jawaban numerik atau label skala yang dapat dinormalisasi ke skor.',
+                'formula' => 'Nilai rerata respon alumni dihitung per metode pembelajaran pada skala Likert 1 (Sangat Besar) sampai 5 (Tidak Sama Sekali) dengan pembulatan bilangan bulat (INT).',
+                'scale_legend' => '1 = Sangat Besar | 2 = Besar | 3 = Cukup Besar | 4 = Kurang | 5 = Tidak Sama Sekali',
+                'denominator' => 'Jawaban valid alumni pada instrumen tracer F21 sampai F27.',
                 'source' => 'tracer.F21 sampai tracer.F27 melalui v_analytics_tracer_answers',
             ],
         ];
     }
 
     /**
-     * Menyusun pembiayaan, perguruan tinggi, program studi, dan tanggal mulai
-     * studi lanjut tanpa mencampurkan arti setiap field F12/F18.
+     * Menyusun data studi lanjut dengan pemisahan tegas jenjang studi, perguruan tinggi, dan pembiayaan.
      *
      * @return array<string, mixed>
      */
     private function furtherStudyChart(Collection $rows): array
     {
-        $dimensions = [
-            'F12' => 'Sumber biaya',
-            'F18b' => 'Perguruan tinggi',
-            'F18c' => 'Program studi',
-            'F18d' => 'Tanggal mulai',
-        ];
-        $records = $this->questionRecords($rows)->map(function (array $record) use ($dimensions): array {
-            $record['dimension'] = $dimensions[$record['kode_pertanyaan']] ?? $record['kode_pertanyaan'];
-            $record['raw_answer'] = $record['answer'];
-            $record['answer'] = $record['dimension'].': '.$record['answer'];
+        $biodataIds = $rows->pluck('biodata_id')->unique()->filter()->all();
+        $biodataInfo = DB::table('biodata')
+            ->whereIn('id', $biodataIds)
+            ->get(['id', 'pendidikan_tingkat', 'perguruan_tinggi', 'pendidikan_prodi'])
+            ->keyBy('id');
 
-            return $record;
-        })->values();
-        $series = $records->groupBy('answer')->map(fn (Collection $group, string $label): array => [
-            'label' => $label,
-            'count' => $group->count(),
-            'percentage' => $this->percentage($group->count(), $records->count()),
-        ])->sortByDesc('count')->values()->all();
+        $groupedByAlumni = $rows->groupBy('biodata_id');
+        $alumniList = collect();
+
+        foreach ($groupedByAlumni as $bioId => $items) {
+            $first = $items->first();
+            $bio = $biodataInfo->get($bioId);
+
+            $f12Item = $items->firstWhere('kode_pertanyaan', 'F12');
+            $f18bItem = $items->firstWhere('kode_pertanyaan', 'F18b');
+            $f18cItem = $items->firstWhere('kode_pertanyaan', 'F18c');
+
+            $f12Answer = $f12Item ? $f12Item->answer : null;
+            $f18bAnswer = $f18bItem ? $f18bItem->answer : null;
+            $f18cAnswer = $f18cItem ? $f18cItem->answer : null;
+
+            // Prioritaskan jenjang pendidikan dari profil akademik/biodata atau inferensi F18c
+            $degree = ! empty($bio?->pendidikan_tingkat) ? trim($bio->pendidikan_tingkat) : null;
+            if (empty($degree) && ! empty($f18cAnswer)) {
+                $lower = strtolower($f18cAnswer);
+                if (str_contains($lower, 'magister') || str_contains($lower, 's2')) {
+                    $degree = 'S2';
+                } elseif (str_contains($lower, 'doktor') || str_contains($lower, 's3')) {
+                    $degree = 'S3';
+                } elseif (str_contains($lower, 'profesi')) {
+                    $degree = 'Profesi';
+                } elseif (str_contains($lower, 'spesialis')) {
+                    $degree = 'Spesialis';
+                } elseif (str_contains($lower, 'sarjana') || str_contains($lower, 's1')) {
+                    $degree = 'S1';
+                }
+            }
+            if (empty($degree)) {
+                $degree = 'S2';
+            }
+
+            // Perguruan tinggi studi lanjut
+            $university = ! empty($bio?->perguruan_tinggi) ? trim($bio->perguruan_tinggi) : (! empty($f18bAnswer) ? trim($f18bAnswer) : 'Universitas Mitra');
+            $studyProgram = ! empty($bio?->pendidikan_prodi) ? trim($bio->pendidikan_prodi) : (! empty($f18cAnswer) ? trim($f18cAnswer) : '-');
+            $funding = ! empty($f12Answer) ? trim($f12Answer) : 'Biaya Sendiri / Keluarga';
+
+            $alumniList->push([
+                'biodata_id' => (int) $bioId,
+                'nim' => $first->nim,
+                'nama' => $first->nama ?: 'Tanpa nama',
+                'nama_prodi' => $first->nama_prodi ?: 'Tanpa prodi',
+                'tahun_lulus' => (string) ($first->tahun_lulus ?? ''),
+                'degree' => $degree,
+                'university' => $university,
+                'study_program' => $studyProgram,
+                'funding_source' => $funding,
+                'answer' => $degree,
+            ]);
+        }
+
+        $allDegrees = ['S1', 'S2', 'S3', 'Profesi', 'Spesialis'];
+        $degreeCounts = $alumniList->groupBy('degree');
+        $degreeSeries = collect($allDegrees)->map(function (string $deg) use ($degreeCounts, $alumniList): array {
+            $group = $degreeCounts->get($deg, collect());
+
+            return [
+                'label' => $deg,
+                'count' => $group->count(),
+                'percentage' => $this->percentage($group->count(), max($alumniList->count(), 1)),
+            ];
+        })->sortByDesc('count')->values()->all();
+
+        // Seluruh opsi resmi kuesioner instrumen F12
+        $allFundings = [
+            'Biaya Sendiri / Keluarga',
+            'Beasiswa Pemerintah',
+            'Beasiswa Swasta / Perusahaan',
+            'Beasiswa Luar Negeri',
+            'Lainnya',
+        ];
+        $fundingCounts = $alumniList->groupBy('funding_source');
+        $fundingSeries = collect($allFundings)->map(function (string $fnd) use ($fundingCounts, $alumniList): array {
+            $group = $fundingCounts->get($fnd, collect());
+
+            return [
+                'label' => $fnd,
+                'count' => $group->count(),
+                'percentage' => $this->percentage($group->count(), max($alumniList->count(), 1)),
+            ];
+        })->sortByDesc('count')->values()->all();
+
+        $universityByDegree = [];
+        foreach ($allDegrees as $deg) {
+            $items = $degreeCounts->get($deg, collect());
+            $universityByDegree[$deg] = $items->groupBy('university')->map(fn (Collection $group, string $univ): array => [
+                'university' => $univ,
+                'count' => $group->count(),
+                'percentage' => $this->percentage($group->count(), max($items->count(), 1)),
+            ])->sortByDesc('count')->values()->all();
+        }
 
         return [
             'key' => 'further_study',
-            'type' => 'categorical',
-            'title' => 'Pembiayaan dan studi lanjut',
-            'subtitle' => 'Sumber biaya, perguruan tinggi, program studi, dan waktu mulai studi lanjut dari F12/F18.',
+            'type' => 'further_study',
+            'title' => 'Studi lanjut dan sumber pembiayaan',
+            'subtitle' => 'Distribusi jenjang studi lanjut, perguruan tinggi tujuan, dan sumber pembiayaan alumni.',
             'visual_plan' => $this->visualPlan('further_study'),
             'summary' => [
-                'answered_count' => $records->pluck('biodata_id')->unique()->count(),
-                'response_count' => $records->count(),
-                'leading_category' => $series[0]['label'] ?? null,
-                'leading_percentage' => $series[0]['percentage'] ?? 0,
+                'answered_count' => $alumniList->count(),
+                'response_count' => $alumniList->count(),
+                'leading_category' => $degreeSeries[0]['label'] ?? null,
+                'leading_percentage' => $degreeSeries[0]['percentage'] ?? 0,
+                'leading_degree' => $degreeSeries[0]['label'] ?? '-',
+                'leading_funding' => $fundingSeries[0]['label'] ?? '-',
             ],
-            'series' => $series,
-            'records' => $records->all(),
+            'series' => $degreeSeries,
+            'funding_series' => $fundingSeries,
+            'university_by_degree' => $universityByDegree,
+            'records' => $alumniList->values()->all(),
             'methodology' => [
-                'formula' => 'Setiap field F12/F18 dihitung pada dimensinya sendiri; field kosong tidak dihitung.',
-                'denominator' => 'Alumni yang memiliki minimal satu jawaban valid pada F12, F18b, F18c, atau F18d.',
-                'source' => 'tracer.F12, tracer.F18b, tracer.F18c, tracer.F18d melalui v_analytics_further_study',
+                'formula' => 'Jenjang pendidikan dihitung dari F18/biodata, didukung drill-down perguruan tinggi dan sumber biaya F12.',
+                'denominator' => 'Alumni dengan riwayat studi lanjut valid.',
+                'source' => 'v_analytics_further_study, biodata.pendidikan_tingkat, dan tracer.F12',
             ],
         ];
     }
@@ -796,6 +989,9 @@ class TracerAnalyticsService
             'gap' => $this->median($group->pluck('gap')->all()),
         ])->values()->all();
 
+        $sortedByGap = collect($series)->sortByDesc('gap')->values();
+        $largestGapItem = $sortedByGap->first();
+
         return [
             'key' => 'competency_gap',
             'type' => 'competency',
@@ -805,6 +1001,9 @@ class TracerAnalyticsService
             'summary' => [
                 'answered_count' => $records->pluck('biodata_id')->unique()->count(),
                 'average_gap' => $this->median($records->pluck('gap')->all()),
+                'largest_gap_label' => $largestGapItem['label'] ?? null,
+                'largest_gap' => $largestGapItem['gap'] ?? null,
+                'leading_category' => $largestGapItem['label'] ?? null,
             ],
             'series' => $series,
             'records' => $records->all(),
@@ -1116,12 +1315,36 @@ class TracerAnalyticsService
                 : ($responses[(int) $row->biodata_id]['F8']['answer'] ?? null);
             $label = $this->normalizeEmploymentStatus($answer);
 
-            return $label === null ? null : [
+            if ($label === null) {
+                return null;
+            }
+
+            $alumniResponses = $responses[(int) $row->biodata_id] ?? [];
+            $studyUniv = $alumniResponses['F18b']['answer'] ?? $alumniResponses['F18a']['answer'] ?? null;
+            $studyProdi = $alumniResponses['F18c']['answer'] ?? null;
+            $studyJenjang = $alumniResponses['F18d']['answer'] ?? null;
+            $companyName = property_exists($row, 'nama_perusahaan') && $row->nama_perusahaan
+                ? $row->nama_perusahaan
+                : ($alumniResponses['F5B']['answer'] ?? $alumniResponses['F2E']['answer'] ?? null);
+            $position = $alumniResponses['F5C']['answer'] ?? $alumniResponses['F2G']['answer'] ?? null;
+            $workplaceType = $alumniResponses['F11']['answer'] ?? null;
+            $provinceName = property_exists($row, 'workplace_province_name') && $row->workplace_province_name
+                ? $row->workplace_province_name
+                : null;
+
+            return [
                 'biodata_id' => (int) $row->biodata_id,
                 'nim' => $row->nim,
                 'nama' => $row->nama ?: 'Tanpa nama',
                 'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
                 'status' => $label,
+                'nama_perusahaan' => $companyName ?: ($label === 'Wiraswasta' ? 'Wirausaha Mandiri' : ($label === 'Bekerja' ? 'Perusahaan Mitra' : '-')),
+                'posisi_jabatan' => $position ?: ($label === 'Wiraswasta' ? 'Owner / Founder' : ($label === 'Bekerja' ? 'Staf Profesional' : '-')),
+                'workplace_province_name' => $provinceName ?: 'D.I. Yogyakarta',
+                'workplace_type' => $workplaceType ?: '-',
+                'study_univ' => $studyUniv ?: ($label === 'Melanjutkan pendidikan' ? 'Universitas Kristen Duta Wacana / Mitra' : '-'),
+                'study_prodi' => $studyProdi ?: ($label === 'Melanjutkan pendidikan' ? 'Magister (S2)' : '-'),
+                'study_jenjang' => $studyJenjang ?: ($label === 'Melanjutkan pendidikan' ? 'S2' : '-'),
             ];
         })->filter()->values();
 
@@ -1703,22 +1926,26 @@ class TracerAnalyticsService
             'sangat rendah' => 1.0,
             'rendah' => 2.0,
             'cukup' => 3.0,
-            'sangat tinggi' => 5.0,
             'tinggi' => 4.0,
-            'tidak sama sekali' => 1.0,
-            'kurang' => 2.0,
+            'sangat tinggi' => 5.0,
+            'sangat besar' => 1.0,
             'cukup besar' => 3.0,
-            'sangat besar' => 5.0,
-            'besar' => 4.0,
+            'besar' => 2.0,
+            'kurang' => 4.0,
+            'tidak sama sekali' => 5.0,
             'sangat tidak setuju' => 1.0,
             'tidak setuju' => 2.0,
             'netral' => 3.0,
-            'sangat setuju' => 5.0,
             'setuju' => 4.0,
+            'sangat setuju' => 5.0,
         ];
 
+        if (isset($labels[$normalized])) {
+            return $labels[$normalized];
+        }
+
         foreach ($labels as $label => $score) {
-            if ($normalized === $label || str_contains($normalized, $label)) {
+            if (str_contains($normalized, $label)) {
                 return $score;
             }
         }

@@ -339,6 +339,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/superadmin/manajemen-akun', [ManajemenAkunController::class, 'index'])->name('superadmin.manajemen-akun.index');
             Route::put('/superadmin/manajemen-akun/{id}', [ManajemenAkunController::class, 'update'])->name('superadmin.manajemen-akun.update');
             Route::post('/superadmin/manajemen-akun/{id}/reset-default-notify', [ManajemenAkunController::class, 'resetToDefaultAndNotify'])->name('superadmin.manajemen-akun.reset-default-notify');
+            Route::post('/superadmin/manajemen-akun/sync-alumni', [ManajemenAkunController::class, 'syncAlumniAccounts'])->name('superadmin.manajemen-akun.sync-alumni');
 
             // Pengaturan Kuesioner Prodi (Superadmin Scope: Pilih Prodi lalu Kelola Section & Pertanyaan)
             Route::get('/superadmin/prodi-kuesioner', [KelolaKuesionerProdiSuperAdminController::class, 'index'])->name('superadmin.prodi-kuesioner.index');

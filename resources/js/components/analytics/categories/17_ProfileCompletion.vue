@@ -2,15 +2,17 @@
 /**
  * Komponen Indikator 17: Kelengkapan Profil Alumni.
  *
- * Mengelola seluruh visualisasi dan data tabel secara mandiri:
+ * Mengelola seluruh visualisasi dan data tabel secara mandiri dalam kontainer terpadu:
  * 1. Donut Chart: Proporsi Kelengkapan Profil Universitas
  * 2. Stacked Bar: Komposisi per Program Studi (100%)
  * 3. Heatmap: Pola Antarprogram Studi
  */
 import { computed } from 'vue';
-import AnalyticsChartCard from '../AnalyticsChartCard.vue';
+import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
 import {
     donut,
+    formatNumber,
+    formatPercentage,
     heatmap,
     stackedByProdi,
 } from '../analyticsChartOptions';
@@ -63,55 +65,70 @@ const heatmapChart = computed(() => heatmap(
 ));
 const heatmapOption = computed(() => heatmapChart.value.option);
 const heatmapTable = computed(() => heatmapChart.value.tableData);
+
+// Konfigurasi views untuk kontainer terpadu
+const views = computed(() => [
+    {
+        key: 'donut',
+        tabLabel: 'Proporsi Donut',
+        title: 'Proporsi kelengkapan profil alumni',
+        description: 'Persentase alumni dengan profil lengkap, belum lengkap, atau belum diverifikasi.',
+        option: donutOption.value,
+        tableData: donutTable.value,
+        height: 380,
+        analysis: {
+            title: 'Kilas Kelengkapan Data Alumni',
+            statusBadge: 'Status Terkini',
+            badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+            lead: series.value[0]?.label ? `Status profil mayoritas adalah ${series.value[0].label} (${series.value[0].count} alumni · ${formatPercentage(series.value[0].percentage)}).` : 'Data kelengkapan profil tersaji lengkap.',
+            detail: 'Tingkat kelengkapan profil menjamin keakuratan tindak lanjut tracer study dan akreditasi prodi.',
+        },
+    },
+    {
+        key: 'stacked',
+        tabLabel: 'Komposisi Prodi',
+        title: 'Komposisi kelengkapan profil per program studi',
+        description: 'Tingkat partisipasi pembaruan data profil lulusan pada masing-masing jurusan.',
+        option: stackedOption.value,
+        tableData: stackedTable.value,
+        height: Math.max(340, Math.min(prodisCount.value * 34 + 110, 560)),
+        analysis: {
+            title: 'Kilas Partisipasi Antarjurusan',
+            statusBadge: 'Perbandingan 100%',
+            badgeClass: 'bg-slate-100 text-slate-700',
+            lead: `Sebaran pembaruan profil alumni di ${prodisCount.value} program studi aktif.`,
+            detail: 'Menunjukkan prodi dengan tingkat respons alumni tertinggi dalam melengkapi profil biodata.',
+        },
+    },
+    {
+        key: 'heatmap',
+        tabLabel: 'Antar Prodi',
+        title: 'Pola kelengkapan data antarprogram studi',
+        description: props.heatmapMode === 'percentage'
+            ? 'Intensitas dan angka sel menunjukkan persentase kategori dalam setiap program studi.'
+            : 'Intensitas dan angka sel menunjukkan jumlah record pada setiap kategori dan program studi.',
+        option: heatmapOption.value,
+        tableData: heatmapTable.value,
+        height: Math.max(360, Math.min(prodisCount.value * 34 + 140, 580)),
+        analysis: {
+            title: 'Kilas Matriks Partisipasi',
+            statusBadge: 'Matriks Data',
+            badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+            lead: 'Matriks heatmap membedah angka kelengkapan profil di setiap program studi.',
+            detail: 'Klik salah satu sel untuk melihat rincian alumni pada program studi dan status terkait.',
+        },
+    },
+]);
 </script>
 
 <template>
-    <div class="space-y-6">
-        <!-- 1. Proporsi Kelengkapan Profil -->
-        <AnalyticsChartCard
-            chart-key="donut"
-            title="Proporsi kelengkapan profil alumni"
-            description="Persentase alumni dengan profil lengkap, belum lengkap, atau belum diverifikasi."
-            :option="donutOption"
-            :table-data="donutTable"
-            :rows="records"
-            :height="380"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-
-        <!-- 2. Komposisi per Program Studi -->
-        <AnalyticsChartCard
-            chart-key="stacked"
-            title="Komposisi kelengkapan profil per program studi"
-            description="Tingkat partisipasi pembaruan data profil lulusan pada masing-masing jurusan."
-            :option="stackedOption"
-            :table-data="stackedTable"
-            :rows="records"
-            :height="Math.max(340, Math.min(prodisCount * 34 + 110, 560))"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-
-        <!-- 3. Pola Antarprogram Studi (Heatmap) -->
-        <AnalyticsChartCard
-            chart-key="heatmap"
-            title="Pola kelengkapan data antarprogram studi"
-            :description="heatmapMode === 'percentage'
-                ? 'Intensitas dan angka sel menunjukkan persentase kategori dalam setiap program studi.'
-                : 'Intensitas dan angka sel menunjukkan jumlah record pada setiap kategori dan program studi.'"
-            :option="heatmapOption"
-            :table-data="heatmapTable"
-            :rows="records"
-            :height="Math.max(360, Math.min(prodisCount * 34 + 140, 580))"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-    </div>
+    <AnalyticsTabbedContainer
+        :views="views"
+        :rows="records"
+        :selected-label="selectedLabel"
+        :loading="loading"
+        indicator-badge="Indikator 17"
+        @select="emit('select', $event)"
+        @reset="emit('reset')"
+    />
 </template>

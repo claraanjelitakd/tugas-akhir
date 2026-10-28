@@ -3,20 +3,15 @@ import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import PigoLoader from './components/ui/pigo-loader.vue';
 
-// Global loading state (dibuat true agar muncul saat first load)
-const isNavigating = ref(true);
+// Global loading state (aktif saat navigasi rute berlangsung)
+const isNavigating = ref(false);
 
-// Matikan loader saat aplikasi pertama kali termuat
-setTimeout(() => {
-    isNavigating.value = false;
-}, 1500); // 1.5 detik loading awal
-
-// Listen to Inertia router events
-router.on('start', () => isNavigating.value = true);
+// Listen to Inertia router events untuk transisi loading yang responsif tanpa jeda buatan
+router.on('start', () => {
+    isNavigating.value = true;
+});
 router.on('finish', () => {
-    setTimeout(() => {
-        isNavigating.value = false;
-    }, 500);
+    isNavigating.value = false;
 });
 
 createInertiaApp({

@@ -226,12 +226,22 @@ Tabel data sampingan mendukung pencarian dan interaksi dua arah dengan grafik
 Visualisasi 18 indikator dipecah ke berkas mandiri pada direktori
 `resources/js/components/analytics/categories/` (`01_ResponseRate.vue` s.d.
 `18_WorkLocation.vue`) dan dimuat secara asinkron melalui Index Hub
-`AnalyticsChartsPanel.vue`. Grafik garis perbandingan resmi diadopsi sesuai
-laporan Tracer Study (Gambar 4.3 untuk metode belajar, Gambar 4.6 untuk waktu
-tunggu per prodi, Gambar 4.7 untuk tahapan lamaran, Gambar 4.12 untuk pendapatan
-per prodi, dan Gambar 4.17 untuk gap kompetensi). Decal pattern dinonaktifkan
-demi tampilan flat bersih dan warna solid brand `#0D542B` digunakan untuk metrik
-sejenis. Halaman analitik lama `SuperAdmin/Analytics/Index.vue` telah dihapus.
+`AnalyticsChartsPanel.vue`. Setiap modul dibungkus oleh komponen terpadu
+`AnalyticsTabbedContainer.vue` yang mengintegrasikan navigasi tab visualisasi,
+analisis naratif data-driven ("Kilas Indikator"), drill-down inline tanpa
+lompat tab, dan seleksi data dua arah.
+
+Grafik garis perbandingan resmi diadopsi sesuai laporan Tracer Study:
+Gambar 4.3 untuk metode belajar (skor bulat INT 1-5), Gambar 4.6 untuk waktu
+tunggu per prodi, Gambar 4.7 untuk tahapan lamaran, Gambar 4.10 untuk dispersi
+pendapatan 3 garis kuartil (Q1, Median/Q2, Q3), Gambar 4.14 untuk vertical match
+diagram garis per prodi, dan Gambar 4.17 untuk kombinasi batang bekal kampus vs
+kebutuhan kerja dengan garis gap selisih (*Dual Y-Axis*). Sumbu X kategori prodi
+diberi rotasi 30 derajat (`rotate: 30`) guna mencegah teks nama prodi panjang saling
+bertumpuk (*nabrak*). Palet warna menerapkan harmoni institusi: Hijau UKDW (`#0D542B`)
+sebagai jangkar primer, Slate netral lembut (`#94A3B8`) untuk status pembanding/belum,
+dan Slate tegas (`#334155`) untuk garis target/gap tanpa warna oranye yang silau/bentrok.
+Halaman analitik lama `SuperAdmin/Analytics/Index.vue` telah dihapus.
 Saat record kosong, `data_availability` membedakan tidak ada populasi, belum ada
 jawaban valid, dan jawaban yang tidak berlaku akibat percabangan.
 
@@ -241,11 +251,12 @@ jawaban valid, dan jawaban yang tidak berlaku akibat percabangan.
 | --- | --- | --- |
 | Response rate | `v_analytics_response_rate.answered_mandatory_univ` | Bar horizontal per prodi |
 | Waktu memperoleh pekerjaan | `tracer.F502`, `tracer.F504`, `tracer.F506` | Distribusi bucket dan median per prodi |
-| Gaji dibandingkan 1,2× UMP | `biodata.gaji`, `perusahaan.propinsi_id`, `propinsi`, `ump` | Peta wilayah, bar per prodi, daftar memenuhi/belum, tabel individu |
+| Gaji dibandingkan 1,2× UMP | `biodata.gaji`, `perusahaan.propinsi_id`, `propinsi`, `ump` | Dispersi kuartil Q1/Q2/Q3 garis per prodi, kelayakan UMP per prodi, dan status per provinsi |
 | Wilayah kerja | `perusahaan.propinsi_id`, `propinsi` | Peta choropleth dan ranking provinsi |
 | Status pekerjaan dan IKU 1 awal | `tracer.F8` | Bar status dan KPI |
-| Hubungan bidang studi | `tracer.F14`, `ref_subpertanyaan_detil` | Bar kategori dan tabel alumni |
-| Keselarasan tingkat pendidikan | `tracer.F15`, `ref_subpertanyaan_detil` | Bar kategori dan tabel alumni |
+| Hubungan bidang studi | `tracer.F14`, `ref_subpertanyaan_detil` | Bar kategori dan line chart keselarasan per prodi |
+| Keselarasan tingkat pendidikan | `tracer.F15`, `ref_subpertanyaan_detil` | Bar kategori dan line chart keselarasan vertikal per prodi (Gambar 4.14) |
+| Kompetensi & Gap Selisih | `tracer.F17` | Kombinasi batang Likert (0-5) dan garis gap selisih Dual Y-Axis (-3 s/d +3) |
 | Kelengkapan profil | `v_analytics_population.is_profile_complete` | Bar lengkap/belum lengkap dan tabel alumni |
 
 Grafik pendapatan menggunakan aturan `gaji >= 1,2 × UMP`, bukan sekadar `gaji >= UMP`. Record salary menyimpan nama alumni, NIM, program studi, perusahaan, provinsi, gaji, UMP, ambang pembanding, dan status. Grafik waktu tunggu mengklasifikasikan alumni sebagai lebih cepat, sama dengan, atau lebih lama dari median aktual pada filter aktif.

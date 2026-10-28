@@ -1,19 +1,19 @@
 <script setup>
 /**
- * Komponen Indikator 03: Waktu Mulai Mencari Pekerjaan.
+ * Komponen Indikator 03: Waktu Mulai Mencari Pekerjaan (F3).
  *
- * Mengelola seluruh visualisasi dan tabel data waktu mulai mencari kerja secara mandiri:
- * 1. Diverging Bar: Posisi Waktu terhadap Kelulusan (Sebelum vs Sesudah Lulus)
- * 2. Bar Chart: Distribusi Frekuensi Kategori Waktu Mulai
- * 3. Heatmap: Pola Antarprogram Studi
+ * Mengelola visualisasi waktu mulai mencari kerja secara mandiri:
+ * 1. Diverging Bar: Posisi waktu terhadap kelulusan dengan skala natural (<2 bulan, <=6 bulan, dsb) tanpa tanda +/-.
+ * 2. Bar Chart: Distribusi frekuensi kategori periode waktu mulai mencari pekerjaan.
+ * Dilengkapi narasi analisis komprehensif berstandar laporan resmi Tracer Study UKDW.
  */
 import { computed } from 'vue';
-import AnalyticsChartCard from '../AnalyticsChartCard.vue';
+import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
 import {
     baseOption,
     escapeHtml,
     formatNumber,
-    recordCategory,
+    formatPercentage,
     seriesLabel,
     seriesMetric,
 } from '../analyticsChartOptions';
@@ -34,200 +34,291 @@ const series = computed(() => props.chart?.series || []);
 const records = computed(() => props.chart?.records || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || records.value.length);
 
+/**
+ * Helper konversi label mentah F3 menjadi skala natural tanpa tanda +/-
+ * Contoh: < 2 bulan, 3-5 bulan, <= 6 bulan, > 6 bulan
+ */
+const formatNaturalScale = (label) => {
+    if (!label) return '-';
+    const match = String(label).match(/(\d+)/);
+    const num = match ? parseInt(match[1], 10) : null;
+    const lower = String(label).toLowerCase();
+    const isBefore = lower.includes('sebelum');
+    const isAfter = lower.includes('setelah') || lower.includes('sesudah');
+
+    if (lower.includes('saat') || lower.includes('tepat') || num === 0) {
+        return 'Saat kelulusan (0 bln)';
+    }
+
+    if (num !== null) {
+        let scaleText = `${num} bulan`;
+        if (num <= 2) {
+            scaleText = '< 2 bulan';
+        } else if (num === 6) {
+            scaleText = '<= 6 bulan';
+        } else if (num > 6) {
+            scaleText = '> 6 bulan';
+        }
+
+        if (isBefore) {
+            return `${scaleText} sebelum lulus`;
+        }
+        if (isAfter) {
+            return `${scaleText} setelah lulus`;
+        }
+        return scaleText;
+    }
+
+    return label;
+};
+
+/**
+ * Format label ringkas untuk sumbu yAxis chart
+ */
+const formatShortAxisLabel = (label) => {
+    if (!label) return '-';
+    const match = String(label).match(/(\d+)/);
+    const num = match ? parseInt(match[1], 10) : null;
+    const lower = String(label).toLowerCase();
+
+    if (lower.includes('saat') || num === 0) return 'Saat lulus';
+    if (num !== null) {
+        if (num <= 2) return '< 2 bln';
+        if (num === 6) return '<= 6 bln';
+        if (num > 6) return '> 6 bln';
+        return `${num} bln`;
+    }
+    return label;
+};
+
+// Hitung total sebelum dan setelah kelulusan
+const beforeCount = computed(() => {
+    return series.value
+        .filter((item) => seriesLabel(item).toLowerCase().includes('sebelum'))
+        .reduce((acc, curr) => acc + seriesMetric(curr), 0);
+});
+
+const afterCount = computed(() => {
+    return series.value
+        .filter((item) => !seriesLabel(item).toLowerCase().includes('sebelum'))
+        .reduce((acc, curr) => acc + seriesMetric(curr), 0);
+});
+
+const beforePercentage = computed(() => {
+    const total = beforeCount.value + afterCount.value;
+    return total > 0 ? ((beforeCount.value / total) * 100).toFixed(1) : '0';
+});
+
+const afterPercentage = computed(() => {
+    const total = beforeCount.value + afterCount.value;
+    return total > 0 ? ((afterCount.value / total) * 100).toFixed(1) : '0';
+});
+
 // -----------------------------------------------------------------------------
-// 1. DIVERGING BAR: Posisi Waktu terhadap Kelulusan
+// 1. DIVERGING BAR: Posisi Waktu terhadap Kelulusan (Skala Natural Tanpa Tanda +/-)
 // -----------------------------------------------------------------------------
 const divergingData = computed(() => {
     return series.value.map((item) => {
-        const label = seriesLabel(item);
-        const isBefore = label.toLowerCase().includes('sebelum');
+        const rawLabel = seriesLabel(item);
+        const naturalLabel = formatNaturalScale(rawLabel);
+        const shortLabel = formatShortAxisLabel(rawLabel);
+        const isBefore = rawLabel.toLowerCase().includes('sebelum');
         const count = seriesMetric(item);
         const val = count * (isBefore ? -1 : 1);
-        const selected = !props.selectedLabel || props.selectedLabel === label;
+        const selected = !props.selectedLabel || props.selectedLabel === rawLabel;
         return {
-            name: label,
+            name: rawLabel,
+            naturalLabel,
+            shortLabel,
+            displayLabel: `${shortLabel} (${isBefore ? 'Sebelum' : 'Setelah'})`,
             value: val,
             absoluteValue: count,
-            itemStyle: { color: isBefore ? '#2563EB' : '#0D542B', opacity: selected ? 1 : 0.22 },
+            percentage: validResponses.value > 0 ? ((count / validResponses.value) * 100).toFixed(1) : 0,
+            itemStyle: {
+                color: isBefore ? '#64748B' : '#0D542B',
+                opacity: selected ? 1 : 0.22,
+                borderRadius: isBefore ? [4, 0, 0, 4] : [0, 4, 4, 0],
+            },
         };
     });
 });
 
 const divergingOption = computed(() => ({
     ...baseOption(validResponses.value),
-    grid: { left: 18, right: 18, top: 22, bottom: 44, containLabel: true },
-    xAxis: { type: 'value', axisLabel: { formatter: (value) => Math.abs(value) }, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-    yAxis: { type: 'category', data: divergingData.value.map((i) => i.name), axisLabel: { width: 170, overflow: 'truncate' } },
-    tooltip: { ...baseOption().tooltip, formatter: ({ data }) => `<strong>${escapeHtml(data.name)}</strong><br>Jumlah: <strong>${formatNumber(data.absoluteValue, 0)} alumni</strong><br>${data.value < 0 ? 'Sebelum kelulusan' : 'Setelah atau saat kelulusan'}` },
-    series: [{ name: 'Alumni', type: 'bar', data: divergingData.value, label: { show: true, formatter: ({ data }) => formatNumber(data.absoluteValue, 0), position: 'inside' } }],
+    grid: { left: 110, right: 36, top: 28, bottom: 48, containLabel: true },
+    xAxis: {
+        type: 'value',
+        name: 'Jumlah Alumni',
+        nameLocation: 'center',
+        nameGap: 30,
+        axisLabel: { formatter: (value) => Math.abs(value) },
+        splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
+    },
+    yAxis: {
+        type: 'category',
+        data: divergingData.value.map((i) => i.displayLabel),
+        axisLabel: {
+            fontSize: 12,
+            fontWeight: '600',
+            color: '#334155',
+        },
+    },
+    tooltip: {
+        ...baseOption().tooltip,
+        formatter: ({ data }) => `<strong>${escapeHtml(data.naturalLabel)}</strong><br>Jumlah: <strong>${formatNumber(data.absoluteValue, 0)} alumni (${data.percentage}%)</strong><br>Kategori: ${data.value < 0 ? 'Inisiatif sebelum kelulusan' : 'Setelah dinyatakan lulus'}`,
+    },
+    series: [{
+        name: 'Alumni',
+        type: 'bar',
+        data: divergingData.value,
+        label: {
+            show: true,
+            formatter: ({ data }) => formatNumber(data.absoluteValue, 0),
+            position: 'inside',
+            color: '#FFFFFF',
+            fontWeight: 'bold',
+            fontSize: 11,
+        },
+    }],
 }));
 
 const divergingTable = computed(() => ({
     columns: [
-        { key: 'name', label: 'Kategori Waktu' },
-        { key: 'timing', label: 'Posisi Kelulusan' },
+        { key: 'naturalLabel', label: 'Rentang Waktu Mulai Mencari' },
+        { key: 'timing', label: 'Fase Kelulusan' },
         { key: 'count', label: 'Jumlah Alumni', align: 'right' },
+        { key: 'percentage', label: 'Persentase', align: 'right' },
     ],
     rows: divergingData.value.map((item) => ({
-        name: item.name,
-        timing: item.value < 0 ? 'Sebelum Lulus' : 'Setelah Lulus',
+        naturalLabel: item.naturalLabel,
+        timing: item.value < 0 ? 'Sebelum Kelulusan' : 'Setelah Kelulusan',
         count: formatNumber(item.absoluteValue, 0),
+        percentage: `${item.percentage}%`,
     })),
 }));
 
 // -----------------------------------------------------------------------------
-// 2. BAR CHART: Distribusi Kategori Waktu Mulai
+// 2. BAR CHART: Distribusi Kategori Waktu Mulai (Skala Natural Terurut)
 // -----------------------------------------------------------------------------
 const sortedCategories = computed(() => {
     return [...series.value]
         .map((item) => {
-            const label = seriesLabel(item);
+            const rawLabel = seriesLabel(item);
+            const naturalLabel = formatNaturalScale(rawLabel);
             const val = seriesMetric(item);
-            const selected = !props.selectedLabel || props.selectedLabel === label;
+            const selected = !props.selectedLabel || props.selectedLabel === rawLabel;
             return {
-                name: label,
+                name: rawLabel,
+                naturalLabel,
                 value: val,
-                itemStyle: { color: '#0D542B', opacity: selected ? 1 : 0.22 },
+                percentage: validResponses.value > 0 ? ((val / validResponses.value) * 100).toFixed(1) : 0,
+                itemStyle: {
+                    color: rawLabel.toLowerCase().includes('sebelum') ? '#64748B' : '#0D542B',
+                    opacity: selected ? 1 : 0.22,
+                    borderRadius: [0, 4, 4, 0],
+                },
             };
         })
         .sort((a, b) => b.value - a.value);
 });
 
 const distributionBarOption = computed(() => {
-    const rows = sortedCategories.value;
+    const rows = [...sortedCategories.value].reverse();
     return {
         ...baseOption(validResponses.value),
-        grid: { left: 12, right: 38, top: 12, bottom: 26, containLabel: true },
-        xAxis: { type: 'value', name: 'Jumlah alumni', splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-        yAxis: { type: 'category', inverse: true, data: rows.map((i) => i.name), axisLabel: { width: 170, overflow: 'truncate' } },
-        tooltip: { ...baseOption().tooltip, trigger: 'axis', axisPointer: { type: 'shadow' } },
+        grid: { left: 160, right: 60, top: 16, bottom: 32, containLabel: true },
+        xAxis: { type: 'value', name: 'Jumlah Alumni', splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
+        yAxis: {
+            type: 'category',
+            data: rows.map((i) => i.naturalLabel),
+            axisLabel: { fontSize: 11, color: '#334155' },
+        },
+        tooltip: {
+            ...baseOption().tooltip,
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: (params) => {
+                const item = rows[params[0]?.dataIndex];
+                if (!item) return '';
+                return `<strong>${escapeHtml(item.naturalLabel)}</strong><br>Jumlah: <strong>${formatNumber(item.value, 0)} alumni</strong><br>Proporsi: <strong>${item.percentage}%</strong>`;
+            },
+        },
         series: [{
-            name: 'Jumlah',
+            name: 'Jumlah Alumni',
             type: 'bar',
-            barMaxWidth: 26,
+            barMaxWidth: 24,
             data: rows,
-            label: { show: true, position: 'right', formatter: ({ value }) => formatNumber(value, 0) },
+            label: {
+                show: true,
+                position: 'right',
+                formatter: ({ data }) => `${formatNumber(data.value, 0)} (${data.percentage}%)`,
+                fontSize: 10,
+                color: '#475569',
+            },
         }],
     };
 });
 
 const distributionBarTable = computed(() => ({
     columns: [
-        { key: 'name', label: 'Kategori Waktu Mulai' },
+        { key: 'naturalLabel', label: 'Kategori Waktu Mulai Mencari' },
         { key: 'count', label: 'Jumlah Alumni', align: 'right' },
+        { key: 'percentage', label: 'Proporsi', align: 'right' },
     ],
     rows: sortedCategories.value.map((item) => ({
-        name: item.name,
+        naturalLabel: item.naturalLabel,
         count: formatNumber(item.value, 0),
+        percentage: `${item.percentage}%`,
     })),
 }));
 
-// -----------------------------------------------------------------------------
-// 3. HEATMAP: Pola Antarprogram Studi
-// -----------------------------------------------------------------------------
-const prodis = computed(() => [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]);
-const categories = computed(() => [...new Set(records.value.map(recordCategory))]);
-
-const heatmapData = computed(() => {
-    const listProdis = prodis.value;
-    const listCats = categories.value;
-    const totals = Object.fromEntries(listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]));
-    const values = [];
-
-    listProdis.forEach((prodi, yIndex) => {
-        listCats.forEach((category, xIndex) => {
-            const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === category).length;
-            const val = props.heatmapMode === 'percentage' ? Number(((count / Math.max(totals[prodi], 1)) * 100).toFixed(1)) : count;
-            values.push({
-                value: [xIndex, yIndex, val],
-                category,
-                prodi,
-                count,
-                itemStyle: { opacity: !props.selectedLabel || category === props.selectedLabel ? 1 : 0.22 },
-            });
-        });
-    });
-
-    const maximum = Math.max(...values.map((v) => v.value[2]), 1);
-    return { values, maximum };
-});
-
-const heatmapOption = computed(() => {
-    const { values, maximum } = heatmapData.value;
-    return {
-        ...baseOption(records.value.length),
-        grid: { left: 12, right: 24, top: 20, bottom: categories.value.length > 5 ? 100 : 64, containLabel: true },
-        xAxis: { type: 'category', data: categories.value, axisLabel: { rotate: categories.value.length > 4 ? 26 : 0, width: 110, overflow: 'truncate' } },
-        yAxis: { type: 'category', data: prodis.value, axisLabel: { width: 130, overflow: 'truncate' } },
-        visualMap: { min: 0, max: maximum, calculable: true, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: ['#F8FAFC', '#BBF7D0', '#4ADE80', '#16A34A', '#0D542B'] } },
-        tooltip: { ...baseOption().tooltip, formatter: ({ data }) => `<strong>${escapeHtml(data.prodi)}</strong><br>${escapeHtml(data.category)}<br>Jumlah: <strong>${formatNumber(data.count, 0)}</strong>` },
-        series: [{
-            name: props.heatmapMode === 'percentage' ? 'Persentase' : 'Jumlah',
-            type: 'heatmap',
-            data: values,
-            itemStyle: { borderColor: '#FFFFFF', borderWidth: 1 },
-            label: { show: values.length <= 80, fontSize: 10, formatter: ({ value }) => value[2] > 0 ? value[2] : '' },
-        }],
-    };
-});
-
-const heatmapTable = computed(() => ({
-    columns: [
-        { key: 'prodi', label: 'Program Studi' },
-        { key: 'total', label: 'Total Respon', align: 'right' },
-    ],
-    rows: prodis.value.map((prodi) => ({
-        prodi,
-        total: formatNumber(records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi).length, 0),
-    })),
-}));
+// Konfigurasi views untuk kontainer terpadu
+const views = computed(() => [
+    {
+        key: 'diverging',
+        tabLabel: 'Posisi Kelulusan',
+        title: 'Posisi waktu mulai mencari kerja terhadap kelulusan',
+        description: 'Perbandingan kelompok alumni yang berinisiatif mencari kerja sebelum wisuda (kiri) versus setelah dinyatakan lulus (kanan).',
+        option: divergingOption.value,
+        tableData: divergingTable.value,
+        height: 380,
+        analysis: {
+            title: 'Kilas Kesiapan Karir Alumni UKDW',
+            statusBadge: 'Perilaku Kesiapan',
+            badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+            lead: `Data menunjukkan mayoritas lulusan, yakni sebanyak ${formatNumber(beforeCount.value, 0)} alumni (${beforePercentage.value}%), telah aktif mencari kerja sebelum resmi dinyatakan lulus/wisuda. Sementara itu, ${formatNumber(afterCount.value, 0)} alumni (${afterPercentage.value}%) baru memulai pencarian setelah kelulusan.`,
+            detail: 'Inisiatif pencarian kerja sebelum wisuda (terbanyak pada rentang 4 sampai 6 bulan sebelum lulus) membuktikan tingginya proaktivitas alumni dalam memanfaatkan masa penyusunan tugas akhir/magang untuk menjajaki bursa kerja. Hal ini berkontribusi langsung pada pemendekan masa tunggu perolehan kerja pertama lulusan UKDW di dunia industri.',
+        },
+    },
+    {
+        key: 'distribution',
+        tabLabel: 'Distribusi Rentang Waktu',
+        title: 'Distribusi rentang waktu mulai mencari kerja',
+        description: 'Urutan frekuensi rentang waktu mulai mencari pekerjaan dari skala terpadu.',
+        option: distributionBarOption.value,
+        tableData: distributionBarTable.value,
+        height: 380,
+        analysis: {
+            title: 'Kilas Pola Momentum Pencarian Kerja',
+            statusBadge: 'Sebaran Periode',
+            badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+            lead: sortedCategories.value[0]?.naturalLabel
+                ? `Pola paling dominan terjadi pada periode "${sortedCategories.value[0].naturalLabel}" dengan keterlibatan ${formatNumber(sortedCategories.value[0].value, 0)} responden (${sortedCategories.value[0].percentage}%).`
+                : 'Distribusi kategori waktu terdata lengkap.',
+            detail: 'Konsentrasi pencarian kerja pada semester akhir menunjukkan urgensi optimalisasi program pembekalan karir kampus (seperti bursa karir, pelatihan wawancara, dan campus hiring) yang diselenggarakan tepat 1 semester menjelang wisuda.',
+        },
+    },
+]);
 </script>
 
 <template>
-    <div class="space-y-6">
-        <!-- 1. Posisi Waktu terhadap Kelulusan (Diverging Bar) -->
-        <AnalyticsChartCard
-            chart-key="diverging"
-            title="Posisi waktu terhadap kelulusan"
-            description="Kategori sebelum lulus ditempatkan di kiri dan setelah lulus di kanan."
-            :option="divergingOption"
-            :table-data="divergingTable"
-            :rows="records"
-            :height="360"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-
-        <!-- 2. Distribusi Kategori Waktu Mulai -->
-        <AnalyticsChartCard
-            chart-key="distribution"
-            title="Distribusi kategori waktu mulai"
-            description="Urutan kategori waktu mulai mencari pekerjaan dari frekuensi terbanyak."
-            :option="distributionBarOption"
-            :table-data="distributionBarTable"
-            :rows="records"
-            :height="360"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-
-        <!-- 3. Pola Antarprogram Studi (Heatmap) -->
-        <AnalyticsChartCard
-            chart-key="heatmap"
-            title="Pola antarprogram studi"
-            :description="heatmapMode === 'percentage' ? 'Persentase kategori dalam setiap program studi.' : 'Jumlah record pada setiap kategori dan program studi.'"
-            :option="heatmapOption"
-            :table-data="heatmapTable"
-            :rows="records"
-            :height="Math.max(360, prodis.length * 34 + 140)"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-    </div>
+    <AnalyticsTabbedContainer
+        :views="views"
+        :rows="records"
+        :selected-label="selectedLabel"
+        :loading="loading"
+        indicator-badge="Indikator 03"
+        @select="emit('select', $event)"
+        @reset="emit('reset')"
+    />
 </template>

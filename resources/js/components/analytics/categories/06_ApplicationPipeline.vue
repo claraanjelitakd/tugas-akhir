@@ -1,17 +1,14 @@
 <script setup>
 /**
- * Komponen Indikator 06: Lamaran, Respons, dan Wawancara.
+ * Komponen Indikator 06: Lamaran, Respons, dan Wawancara (F6, F7, F7a).
  *
- * Mengelola seluruh visualisasi dan tabel data tahapan lamaran secara mandiri:
- * 1. Line Chart: Pipeline Lamaran per Prodi (Gambar 4.7 laporan resmi: dilamar, respon, wawancara)
- * 2. Bar Chart: Median Tahapan Lamaran Universitas
- * 3. Funnel: Funnel Proses Lamaran
- * 4. Scatter: Hubungan Lamaran dan Respons Individu
+ * Mengelola visualisasi tahapan lamaran kerja alumni:
+ * 1. Line Chart: Pipeline Lamaran per Prodi (Gambar 4.7 Laporan Resmi UKDW)
+ * 2. Bar Chart: Median Tahapan Lamaran Tingkat Universitas
  */
 import { computed } from 'vue';
-import AnalyticsChartCard from '../AnalyticsChartCard.vue';
+import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
 import {
-    analyticsPalette,
     baseOption,
     calculateMedian,
     escapeHtml,
@@ -36,7 +33,7 @@ const records = computed(() => props.chart?.records || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || props.chart?.summary?.response_count || records.value.length);
 
 // -----------------------------------------------------------------------------
-// 1. LINE CHART: Tahapan Lamaran per Program Studi (Gambar 4.7)
+// 1. LINE CHART: Tahapan Lamaran per Program Studi (Gambar 4.7 Laporan Resmi)
 // -----------------------------------------------------------------------------
 const prodiPipelineData = computed(() => {
     const prodis = [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))];
@@ -66,18 +63,25 @@ const pipelineLineOption = computed(() => {
             data: ['Perusahaan Dilamar', 'Merespon', 'Mewawancara'],
             bottom: 0,
             icon: 'circle',
-            textStyle: { color: '#334155', fontWeight: 600 },
+            textStyle: { color: '#334155', fontWeight: 600, fontSize: 12 },
         },
-        grid: { left: 16, right: 30, top: 28, bottom: 58, containLabel: true },
+        grid: { left: 24, right: 36, top: 32, bottom: 80, containLabel: true },
         xAxis: {
             type: 'category',
             data: labels,
-            axisLabel: { color: '#334155', fontSize: 11, interval: 0 },
+            axisLabel: {
+                color: '#334155',
+                fontSize: 11,
+                interval: 0,
+                rotate: 30,
+                lineHeight: 14,
+            },
             axisLine: { lineStyle: { color: '#CBD5E1' } },
         },
         yAxis: {
             type: 'value',
             name: 'Median Jumlah Perusahaan',
+            nameLocation: 'end',
             axisLabel: { color: '#64748B' },
             splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
         },
@@ -86,7 +90,7 @@ const pipelineLineOption = computed(() => {
             trigger: 'axis',
             formatter: (params) => {
                 const item = list[params[0]?.dataIndex ?? 0] || {};
-                return `<strong>${escapeHtml(item.prodi)}</strong> (n=${item.count})<br>Dilamar: <strong>${formatNumber(item.dilamar, 1)}</strong><br>Merespon: <strong>${formatNumber(item.merespon, 1)}</strong><br>Mewawancara: <strong>${formatNumber(item.wawancara, 1)}</strong>`;
+                return `<strong>${escapeHtml(item.prodi)}</strong> (n=${item.count})<br>Perusahaan dilamar: <strong>${formatNumber(item.dilamar, 1)}</strong><br>Perusahaan merespon: <strong>${formatNumber(item.merespon, 1)}</strong><br>Panggilan wawancara: <strong>${formatNumber(item.wawancara, 1)}</strong>`;
             },
         },
         series: [
@@ -94,23 +98,23 @@ const pipelineLineOption = computed(() => {
                 name: 'Perusahaan Dilamar',
                 type: 'line',
                 data: list.map((g) => g.dilamar),
-                itemStyle: { color: '#2563EB' },
-                lineStyle: { width: 3, color: '#2563EB' },
+                itemStyle: { color: '#334155' },
+                lineStyle: { width: 3, color: '#334155' },
                 symbol: 'circle',
                 symbolSize: 8,
-                emphasis: { scale: 1.6 },
-                label: { show: true, position: 'top', formatter: ({ value }) => formatNumber(value, 1) },
+                emphasis: { scale: 1.5 },
+                label: { show: true, position: 'top', formatter: ({ value }) => formatNumber(value, 1), fontSize: 11, fontWeight: 'bold' },
             },
             {
                 name: 'Merespon',
                 type: 'line',
                 data: list.map((g) => g.merespon),
-                itemStyle: { color: '#DC2626' },
-                lineStyle: { width: 3, color: '#DC2626' },
+                itemStyle: { color: '#D97706' },
+                lineStyle: { width: 3, color: '#D97706' },
                 symbol: 'rect',
                 symbolSize: 8,
-                emphasis: { scale: 1.6 },
-                label: { show: true, position: 'bottom', formatter: ({ value }) => formatNumber(value, 1) },
+                emphasis: { scale: 1.5 },
+                label: { show: true, position: 'bottom', formatter: ({ value }) => formatNumber(value, 1), fontSize: 11, fontWeight: 'bold' },
             },
             {
                 name: 'Mewawancara',
@@ -120,8 +124,8 @@ const pipelineLineOption = computed(() => {
                 lineStyle: { width: 3, color: '#0D542B' },
                 symbol: 'triangle',
                 symbolSize: 8,
-                emphasis: { scale: 1.6 },
-                label: { show: true, position: 'right', formatter: ({ value }) => formatNumber(value, 1) },
+                emphasis: { scale: 1.5 },
+                label: { show: true, position: 'right', formatter: ({ value }) => formatNumber(value, 1), fontSize: 11, fontWeight: 'bold' },
             },
         ],
     };
@@ -152,36 +156,47 @@ const stagesBarOption = computed(() => {
         name: seriesLabel(item),
         value: Number(item.median || 0),
         count: item.count,
-        itemStyle: { color: '#0D542B' },
+        itemStyle: { color: '#0D542B', borderRadius: [0, 4, 4, 0] },
     }));
 
     return {
         ...baseOption(validResponses.value),
-        grid: { left: 16, right: 38, top: 14, bottom: 26, containLabel: true },
-        xAxis: { type: 'value', name: 'Median', splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-        yAxis: { type: 'category', inverse: true, data: list.map((i) => i.name), axisLabel: { color: '#334155' } },
+        grid: { left: 24, right: 48, top: 20, bottom: 30, containLabel: true },
+        xAxis: { type: 'value', name: 'Median Jumlah Perusahaan', splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
+        yAxis: {
+            type: 'category',
+            inverse: true,
+            data: list.map((i) => i.name),
+            axisLabel: { color: '#334155', fontWeight: 600, fontSize: 12 },
+        },
         tooltip: {
             ...baseOption().tooltip,
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
             formatter: (params) => {
                 const pt = params[0]?.data || {};
-                return `<strong>${escapeHtml(pt.name)}</strong><br>Median: <strong>${formatNumber(pt.value, 1)}</strong><br>Jawaban valid: ${formatNumber(pt.count, 0)}`;
+                return `<strong>${escapeHtml(pt.name)}</strong><br>Median: <strong>${formatNumber(pt.value, 1)} perusahaan</strong><br>Respon valid: ${formatNumber(pt.count, 0)} alumni`;
             },
         },
         series: [{
             name: 'Median',
             type: 'bar',
-            barMaxWidth: 26,
+            barMaxWidth: 32,
             data: list,
-            label: { show: true, position: 'right', fontWeight: 600, formatter: ({ value }) => formatNumber(value, 1) },
+            label: {
+                show: true,
+                position: 'right',
+                fontWeight: 'bold',
+                color: '#0D542B',
+                formatter: ({ value }) => `${formatNumber(value, 1)} perusahaan`,
+            },
         }],
     };
 });
 
 const stagesBarTable = computed(() => ({
     columns: [
-        { key: 'name', label: 'Tahapan Proses' },
+        { key: 'name', label: 'Tahapan Proses Lamaran' },
         { key: 'medianDisplay', label: 'Median Perusahaan', align: 'right' },
         { key: 'countDisplay', label: 'Responden Valid', align: 'right' },
     ],
@@ -192,129 +207,51 @@ const stagesBarTable = computed(() => ({
     })),
 }));
 
-// -----------------------------------------------------------------------------
-// 3. FUNNEL: Funnel Proses Lamaran
-// -----------------------------------------------------------------------------
-const funnelOption = computed(() => ({
-    ...baseOption(validResponses.value),
-    tooltip: { ...baseOption().tooltip, formatter: ({ data }) => `<strong>${escapeHtml(data.name)}</strong><br>Median: <strong>${formatNumber(data.value)}</strong><br>Responden: ${formatNumber(data.count, 0)}` },
-    series: [{
-        name: 'Tahap lamaran',
-        type: 'funnel',
-        left: '10%',
-        width: '80%',
-        top: 20,
-        bottom: 24,
-        minSize: '16%',
-        maxSize: '100%',
-        sort: 'descending',
-        gap: 4,
-        label: { show: true, position: 'inside', formatter: '{b}: {c}', fontWeight: 700 },
-        emphasis: { focus: 'self' },
-        data: series.value.map((item, index) => ({ name: seriesLabel(item), value: Number(item.median || 0), count: item.count, itemStyle: { color: analyticsPalette[index] } })),
-    }],
-}));
-
-const funnelTable = computed(() => stagesBarTable.value);
-
-// -----------------------------------------------------------------------------
-// 4. SCATTER: Hubungan Lamaran dan Respons Individu
-// -----------------------------------------------------------------------------
-const scatterData = computed(() => {
-    const grouped = new Map();
-    records.value.forEach((r) => {
-        const cur = grouped.get(r.biodata_id) || { nama: r.nama, prodi: r.nama_prodi };
-        cur[r.kode_pertanyaan] = Number(r.value);
-        grouped.set(r.biodata_id, cur);
-    });
-    return [...grouped.values()].filter((item) => Number.isFinite(item.F6) && Number.isFinite(item.F7)).map((item) => ({ name: item.nama, prodi: item.prodi, value: [item.F6, item.F7] }));
-});
-
-const scatterOption = computed(() => ({
-    ...baseOption(scatterData.value.length),
-    grid: { left: 16, right: 24, top: 18, bottom: 48, containLabel: true },
-    xAxis: { type: 'value', name: 'Lamaran', nameLocation: 'middle', nameGap: 26, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-    yAxis: { type: 'value', name: 'Respons', splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-    tooltip: { ...baseOption().tooltip, formatter: ({ data: point }) => `<strong>${escapeHtml(point.name)}</strong><br>${escapeHtml(point.prodi)}<br>Lamaran: ${formatNumber(point.value[0], 0)}<br>Respons: ${formatNumber(point.value[1], 0)}` },
-    series: [{ name: 'Alumni', type: 'scatter', symbolSize: 9, data: scatterData.value, itemStyle: { color: '#2563EB', opacity: 0.72 } }],
-}));
-
-const scatterTable = computed(() => ({
-    columns: [
-        { key: 'name', label: 'Nama Alumni' },
-        { key: 'prodi', label: 'Program Studi' },
-        { key: 'applied', label: 'Dilamar', align: 'right' },
-        { key: 'responded', label: 'Merespon', align: 'right' },
-    ],
-    rows: scatterData.value.slice(0, 15).map((item) => ({
-        name: item.name,
-        prodi: item.prodi,
-        applied: formatNumber(item.value[0], 0),
-        responded: formatNumber(item.value[1], 0),
-    })),
-}));
+// Konfigurasi views untuk kontainer terpadu: Tren Tahapan Prodi & Median Universitas
+const views = computed(() => [
+    {
+        key: 'pipeline_line',
+        tabLabel: 'Pipeline per Prodi',
+        title: 'Perusahaan dilamar, merespon, dan wawancara per program studi',
+        description: 'Perbandingan median tiga tahapan lamaran per prodi (mengadopsi Gambar 4.7 Laporan Tracer Study UKDW).',
+        option: pipelineLineOption.value,
+        tableData: pipelineLineTable.tableData || pipelineLineTable.value,
+        height: 420,
+        analysis: {
+            title: 'Kilas Efisiensi Rekrutmen Prodi',
+            statusBadge: 'Pipeline Antarjurusan',
+            badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+            lead: 'Gambar 4.7 memperlihatkan konversi dari jumlah lamaran yang diajukan hingga perolehan panggilan wawancara kerja per program studi.',
+            detail: 'Selisih antara jumlah perusahaan yang dilamar dan yang merespon mencerminkan tingginya daya saing portofolio alumni UKDW, di mana sebagian besar lulusan tidak memerlukan banyak lamaran untuk segera dipanggil wawancara.',
+        },
+    },
+    {
+        key: 'stages',
+        tabLabel: 'Median Universitas',
+        title: 'Median tahapan proses lamaran universitas',
+        description: 'Perbandingan agregat median perusahaan yang dilamar, merespon, dan mewawancara di tingkat perguruan tinggi.',
+        option: stagesBarOption.value,
+        tableData: stagesBarTable.value,
+        height: 320,
+        analysis: {
+            title: 'Kilas Rerata Universitas',
+            statusBadge: 'Median Agregat',
+            badgeClass: 'bg-slate-100 text-slate-700',
+            lead: 'Rerata median universitas menunjukkan efisiensi proses pencarian kerja yang relatif terarah.',
+            detail: 'Angka median wawancara yang mendekati angka respons membuktikan bahwa berkas lamaran alumni yang direspons memiliki probabilitas sangat tinggi untuk berlanjut ke tahap wawancara kerja.',
+        },
+    },
+]);
 </script>
 
 <template>
-    <div class="space-y-6">
-        <!-- 1. Pipeline Lamaran per Program Studi (Gambar 4.7) -->
-        <AnalyticsChartCard
-            chart-key="pipeline_line"
-            title="Jumlah perusahaan dilamar, merespon, dan wawancara per program studi"
-            description="Perbandingan median tiga tahapan lamaran per prodi (mengadopsi Gambar 4.7 Laporan Tracer Study)."
-            :option="pipelineLineOption"
-            :table-data="pipelineLineTable"
-            :rows="records"
-            :height="410"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-
-        <!-- 2. Median Tahapan Lamaran Universitas -->
-        <AnalyticsChartCard
-            chart-key="stages"
-            title="Median tahapan lamaran universitas"
-            description="Perbandingan median lamaran, respons, dan wawancara universitas."
-            :option="stagesBarOption"
-            :table-data="stagesBarTable"
-            :rows="records"
-            :height="330"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-
-        <!-- 3. Funnel Proses Lamaran -->
-        <AnalyticsChartCard
-            chart-key="funnel"
-            title="Funnel proses lamaran"
-            description="Penyusutan dari jumlah lamaran menuju panggilan wawancara."
-            :option="funnelOption"
-            :table-data="funnelTable"
-            :rows="records"
-            :height="380"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-
-        <!-- 4. Hubungan Lamaran dan Respons Individu -->
-        <AnalyticsChartCard
-            chart-key="scatter"
-            title="Hubungan lamaran dan respons individu"
-            description="Setiap titik adalah alumni dengan pasangan jawaban F6 dan F7."
-            :option="scatterOption"
-            :table-data="scatterTable"
-            :rows="records"
-            :height="390"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-    </div>
+    <AnalyticsTabbedContainer
+        :views="views"
+        :rows="records"
+        :selected-label="selectedLabel"
+        :loading="loading"
+        indicator-badge="Indikator 06"
+        @select="emit('select', $event)"
+        @reset="emit('reset')"
+    />
 </template>

@@ -192,25 +192,84 @@ const selectedRecords = computed(() => {
     return result;
 });
 
-// KPI ringkas menyesuaikan statistik aktual indikator aktif.
+// KPI ringkas menyesuaikan statistik aktual indikator aktif dengan aksi interaktif penuh.
 const kpiCards = computed(() => {
     const summary = chart.value.summary || {};
 
     if (chart.value.type === 'salary') {
+        const meetsPct = summary.meeting_percentage;
         return [
-            { label: 'Median gaji', value: formatCurrency(summary.median_salary), note: `${formatNumber(summary.comparable_count, 0)} data dapat dibandingkan` },
-            { label: 'Memenuhi 1,2 × UMP', value: formatPercentage(summary.meeting_percentage), note: `${formatNumber(summary.meeting_count, 0)} alumni memenuhi` },
-            { label: 'Belum memenuhi', value: formatNumber(summary.below_count, 0), note: 'Alumni di bawah ambang provinsi' },
-            { label: 'Belum dapat dibandingkan', value: formatNumber(summary.not_comparable_count, 0), note: 'Gaji, perusahaan, atau UMP belum lengkap' },
+            {
+                key: 'salary_median',
+                action: 'data',
+                label: 'Median gaji',
+                value: formatCurrency(summary.median_salary),
+                note: `${formatNumber(summary.comparable_count, 0)} data dapat dibandingkan`,
+                hint: 'Klik untuk melihat data gaji responden',
+            },
+            {
+                key: 'salary_meets',
+                action: 'filter_meets',
+                meets: true,
+                label: 'Memenuhi 1,2 × UMP',
+                value: formatPercentage(meetsPct),
+                note: `${formatNumber(summary.meeting_count, 0)} alumni memenuhi`,
+                hint: 'Klik untuk menyaring alumni memenuhi UMP',
+            },
+            {
+                key: 'salary_below',
+                action: 'filter_meets',
+                meets: false,
+                label: 'Belum memenuhi',
+                value: formatNumber(summary.below_count, 0),
+                note: 'Alumni di bawah ambang provinsi',
+                hint: 'Klik untuk menyaring alumni belum memenuhi',
+            },
+            {
+                key: 'salary_not_comp',
+                action: 'data',
+                label: 'Belum dapat dibandingkan',
+                value: formatNumber(summary.not_comparable_count, 0),
+                note: 'Gaji, perusahaan, atau UMP belum lengkap',
+                hint: 'Klik untuk melihat data alumni',
+            },
         ];
     }
 
     if (chart.value.type === 'wait_time') {
         return [
-            { label: 'Median waktu tunggu', value: `${formatNumber(summary.median_months)} bulan`, note: `${formatNumber(summary.response_count, 0)} respon valid` },
-            { label: 'Kuartil bawah', value: `${formatNumber(summary.p25_months)} bulan`, note: '25% alumni berada pada atau di bawah nilai ini' },
-            { label: 'Kuartil atas', value: `${formatNumber(summary.p75_months)} bulan`, note: '75% alumni berada pada atau di bawah nilai ini' },
-            { label: 'Rentang antarkuartil', value: `${formatNumber(Number(summary.p75_months || 0) - Number(summary.p25_months || 0))} bulan`, note: 'Sebaran 50% data tengah' },
+            {
+                key: 'wait_median',
+                action: 'data',
+                label: 'Median waktu tunggu',
+                value: `${formatNumber(summary.median_months)} bulan`,
+                note: `${formatNumber(summary.response_count, 0)} respon valid`,
+                hint: 'Klik untuk melihat data responden',
+            },
+            {
+                key: 'wait_p25',
+                action: 'chart',
+                label: 'Kuartil bawah',
+                value: `${formatNumber(summary.p25_months)} bulan`,
+                note: '25% alumni berada pada atau di bawah nilai ini',
+                hint: 'Klik untuk fokus ke grafik sebaran',
+            },
+            {
+                key: 'wait_p75',
+                action: 'chart',
+                label: 'Kuartil atas',
+                value: `${formatNumber(summary.p75_months)} bulan`,
+                note: '75% alumni berada pada atau di bawah nilai ini',
+                hint: 'Klik untuk fokus ke grafik sebaran',
+            },
+            {
+                key: 'wait_iqr',
+                action: 'chart',
+                label: 'Rentang antarkuartil',
+                value: `${formatNumber(Number(summary.p75_months || 0) - Number(summary.p25_months || 0))} bulan`,
+                note: 'Sebaran 50% data tengah',
+                hint: 'Klik untuk fokus ke grafik sebaran',
+            },
         ];
     }
 
@@ -219,27 +278,295 @@ const kpiCards = computed(() => {
         const gapVal = Number(summary.target_gap ?? 0);
         const gapSign = gapVal >= 0 ? '+' : '';
         return [
-            { label: 'Populasi kohort', value: formatNumber(summary.population, 0), note: 'Alumni pada filter aktif' },
-            { label: 'Sudah mengisi', value: formatNumber(summary.respondents, 0), note: 'Responden kuesioner universitas' },
-            { label: 'Belum mengisi', value: formatNumber(summary.unanswered ?? (Number(summary.population || 0) - Number(summary.respondents || 0)), 0), note: 'Alumni belum berpartisipasi' },
-            { label: 'Response rate', value: formatPercentage(summary.response_rate), note: `Target: ${formatNumber(targetVal, 1)}% (Gap: ${gapSign}${formatNumber(gapVal, 1)}%)` },
+            {
+                key: 'all',
+                action: 'status_filter',
+                label: 'Populasi kohort',
+                value: formatNumber(summary.population, 0),
+                note: 'Alumni pada filter aktif',
+                hint: 'Klik untuk melihat semua alumni',
+            },
+            {
+                key: 'sudah',
+                action: 'status_filter',
+                label: 'Sudah mengisi',
+                value: formatNumber(summary.respondents, 0),
+                note: 'Responden kuesioner universitas',
+                hint: 'Klik untuk menyaring alumni sudah mengisi',
+            },
+            {
+                key: 'belum',
+                action: 'status_filter',
+                label: 'Belum mengisi',
+                value: formatNumber(summary.unanswered ?? (Number(summary.population || 0) - Number(summary.respondents || 0)), 0),
+                note: 'Alumni belum berpartisipasi',
+                hint: 'Klik untuk menyaring alumni belum mengisi',
+            },
+            {
+                key: 'rate',
+                action: 'chart',
+                label: 'Response rate',
+                value: formatPercentage(summary.response_rate),
+                note: `Target: ${formatNumber(targetVal, 1)}% (Gap: ${gapSign}${formatNumber(gapVal, 1)}%)`,
+                hint: 'Klik untuk fokus ke grafik capaian',
+            },
         ];
     }
 
     if (chart.value.type === 'competency') {
+        const gapLabel = summary.largest_gap_label || summary.leading_category || '';
+        const seriesList = chart.value.series || [];
+        const sortedGaps = [...seriesList].sort((a, b) => Number(a.gap || 0) - Number(b.gap || 0));
+        const minGapItem = sortedGaps[0];
+        const minGapLabel = minGapItem?.label || minGapItem?.name || '';
+
         return [
-            { label: 'Responden valid', value: formatNumber(summary.answered_count, 0), note: 'Alumni dalam perhitungan gap' },
-            { label: 'Gap terbesar', value: summary.largest_gap_label || summary.leading_category || '-', note: summary.largest_gap === undefined ? 'Lihat perbandingan pada grafik' : `Selisih ${formatNumber(summary.largest_gap, 2)}` },
-            { label: 'Jumlah dimensi', value: formatNumber(chart.value.series?.length, 0), note: 'Kompetensi yang dibandingkan' },
+            {
+                key: 'comp_valid',
+                action: 'data',
+                label: 'Responden valid',
+                value: formatNumber(summary.answered_count, 0),
+                note: 'Alumni dalam perhitungan gap',
+                hint: 'Klik untuk melihat data responden',
+            },
+            {
+                key: 'comp_largest_gap',
+                action: 'highlight',
+                target: gapLabel,
+                label: 'Gap terbesar',
+                value: gapLabel || '-',
+                note: summary.largest_gap === undefined ? 'Lihat perbandingan pada grafik' : `Selisih ${formatNumber(summary.largest_gap, 2)}`,
+                hint: gapLabel ? `Klik untuk menyorot kompetensi ${gapLabel}` : 'Lihat perbandingan',
+            },
+            {
+                key: 'comp_smallest_gap',
+                action: 'highlight',
+                target: minGapLabel,
+                label: 'Gap terkecil',
+                value: minGapLabel || '-',
+                note: minGapItem?.gap !== undefined ? `Selisih ${formatNumber(minGapItem.gap, 2)} (paling selaras)` : 'Kompetensi paling selaras',
+                hint: minGapLabel ? `Klik untuk menyorot ${minGapLabel}` : 'Paling selaras',
+            },
+            {
+                key: 'comp_dimensions',
+                action: 'chart',
+                label: 'Jumlah dimensi',
+                value: formatNumber(seriesList.length, 0),
+                note: 'Kompetensi yang dibandingkan',
+                hint: 'Klik untuk fokus ke visualisasi grafik',
+            },
         ];
     }
 
+    if (chart.value.type === 'application_pipeline') {
+        return [
+            {
+                key: 'pipeline_valid',
+                action: 'data',
+                label: 'Responden valid',
+                value: formatNumber(summary.answered_count ?? records.value.length, 0),
+                note: 'Alumni mengisi tahapan lamaran',
+                hint: 'Klik untuk melihat data responden',
+            },
+            {
+                key: 'pipeline_apps',
+                action: 'chart',
+                label: 'Median lamaran (F6)',
+                value: summary.median_applications !== undefined && summary.median_applications !== null ? `${formatNumber(summary.median_applications, 0)} lamaran` : '-',
+                note: 'Jumlah lamaran dikirimkan alumni',
+                hint: 'Klik untuk fokus ke grafik',
+            },
+            {
+                key: 'pipeline_responses',
+                action: 'chart',
+                label: 'Median respons (F7)',
+                value: summary.median_responses !== undefined && summary.median_responses !== null ? `${formatNumber(summary.median_responses, 0)} respons` : '-',
+                note: 'Tanggapan dari perusahaan',
+                hint: 'Klik untuk fokus ke grafik',
+            },
+            {
+                key: 'pipeline_interviews',
+                action: 'chart',
+                label: 'Median wawancara (F7A)',
+                value: summary.median_interviews !== undefined && summary.median_interviews !== null ? `${formatNumber(summary.median_interviews, 0)} panggilan` : '-',
+                note: 'Undangan wawancara kerja',
+                hint: 'Klik untuk fokus ke grafik',
+            },
+        ];
+    }
+
+    if (chart.value.type === 'learning_methods') {
+        const topMethod = summary.leading_category || seriesList[0]?.label || '';
+        const topScore = summary.leading_score !== undefined && summary.leading_score !== null ? summary.leading_score : (seriesList[0]?.score ?? 2);
+        const leastMethod = summary.least_category || seriesList[seriesList.length - 1]?.label || '';
+        const leastScore = summary.least_score !== undefined && summary.least_score !== null ? summary.least_score : (seriesList[seriesList.length - 1]?.score ?? 3);
+        const overallInt = summary.overall_score_int ?? 2;
+        const overallLabel = summary.overall_score_label ?? 'Besar';
+
+        return [
+            {
+                key: 'learning_valid',
+                action: 'data',
+                label: 'Responden valid',
+                value: formatNumber(summary.answered_count ?? records.value.length, 0),
+                note: 'Alumni mengevaluasi 7 metode',
+                hint: 'Klik untuk melihat data responden',
+            },
+            {
+                key: 'learning_top',
+                action: 'highlight',
+                target: topMethod,
+                label: 'Penekanan tertinggi',
+                value: topMethod || '-',
+                note: `Skor ${topScore} (${summary.leading_score_label || 'Sangat Besar'})`,
+                hint: topMethod ? `Klik untuk melihat rincian ${topMethod}` : 'Penekanan tertinggi',
+            },
+            {
+                key: 'learning_least',
+                action: 'highlight',
+                target: leastMethod,
+                label: 'Penekanan terendah',
+                value: leastMethod || '-',
+                note: `Skor ${leastScore} (${summary.least_score_label || 'Cukup Besar'})`,
+                hint: leastMethod ? `Klik untuk melihat rincian ${leastMethod}` : 'Penekanan terendah',
+            },
+            {
+                key: 'learning_overall',
+                action: 'chart',
+                label: 'Rerata skor universitas',
+                value: `Skor ${overallInt} (${overallLabel})`,
+                note: 'Skor pembulatan Likert (1 - 5)',
+                hint: 'Klik untuk fokus ke visualisasi',
+            },
+        ];
+    }
+
+    const seriesList = chart.value.series || [];
+    const dominantCategory = summary.leading_category || seriesList[0]?.label || '';
+
+    // Temukan kategori terendah untuk metrik pembanding
+    const sortedSeries = [...seriesList]
+        .filter((s) => (s.label || s.name))
+        .sort((a, b) => {
+            const valA = Number(a.score ?? a.average ?? a.value ?? a.count ?? 0);
+            const valB = Number(b.score ?? b.average ?? b.value ?? b.count ?? 0);
+            return valA - valB;
+        });
+    const lowestItem = sortedSeries[0];
+    const lowestCategory = lowestItem && (lowestItem.label || lowestItem.name) !== dominantCategory
+        ? (lowestItem.label || lowestItem.name)
+        : '';
+
     return [
-        { label: 'Responden valid', value: formatNumber(summary.answered_count ?? summary.response_count ?? records.value.length, 0), note: 'Data yang masuk perhitungan' },
-        { label: 'Kategori dominan', value: summary.leading_category || chart.value.series?.[0]?.label || '-', note: summary.leading_percentage === undefined ? 'Berdasarkan nilai tertinggi' : `${formatPercentage(summary.leading_percentage)} dari respon valid` },
-        { label: 'Jumlah kategori', value: formatNumber(chart.value.series?.length, 0), note: 'Kategori tersedia pada indikator' },
+        {
+            key: 'generic_valid',
+            action: 'data',
+            label: 'Responden valid',
+            value: formatNumber(summary.answered_count ?? summary.response_count ?? records.value.length, 0),
+            note: 'Data yang masuk perhitungan',
+            hint: 'Klik untuk melihat daftar data responden',
+        },
+        {
+            key: 'generic_dominant',
+            action: 'highlight',
+            target: dominantCategory,
+            label: 'Kategori dominan',
+            value: dominantCategory || '-',
+            note: summary.leading_percentage === undefined ? 'Berdasarkan nilai tertinggi' : `${formatPercentage(summary.leading_percentage)} dari respon valid`,
+            hint: dominantCategory ? `Klik untuk menyorot kategori ${dominantCategory}` : 'Berdasarkan nilai tertinggi',
+        },
+        {
+            key: 'generic_lowest',
+            action: lowestCategory ? 'highlight' : 'chart',
+            target: lowestCategory,
+            label: lowestCategory ? 'Kategori terendah' : 'Proporsi dominan',
+            value: lowestCategory || (summary.leading_percentage !== undefined ? formatPercentage(summary.leading_percentage) : '-'),
+            note: lowestCategory
+                ? (lowestItem.score !== undefined ? `Skor rata-rata ${formatNumber(lowestItem.score, 2)}` : 'Berdasarkan frekuensi/skor terendah')
+                : 'Konsentrasi respon alumni',
+            hint: lowestCategory ? `Klik untuk menyorot kategori ${lowestCategory}` : 'Konsentrasi respon',
+        },
+        {
+            key: 'generic_categories',
+            action: 'chart',
+            label: 'Jumlah kategori',
+            value: formatNumber(seriesList.length, 0),
+            note: 'Kategori tersedia pada indikator',
+            hint: 'Klik untuk fokus ke visualisasi grafik',
+        },
     ];
 });
+
+// Mengecek apakah suatu kartu KPI sedang aktif/terpilih
+const isKpiCardActive = (card) => {
+    if (!card) return false;
+    if (card.action === 'status_filter') {
+        return statusFilter.value === card.key && card.key !== 'rate';
+    }
+    if (card.action === 'filter_meets') {
+        return selectedItem.value?.meets === card.meets;
+    }
+    if (card.action === 'highlight') {
+        return selectedItem.value?.label === card.target;
+    }
+    if (card.action === 'data') {
+        return activePanel.value === 'data';
+    }
+    return false;
+};
+
+// Menangani klik interaktif kartu ringkasan KPI untuk navigasi & filter seketika.
+const handleKpiCardClick = (card) => {
+    if (!card) return;
+
+    // 1. Response Rate Status Filter
+    if (card.action === 'status_filter') {
+        if (card.key === 'rate') {
+            activePanel.value = 'charts';
+            return;
+        }
+        if (statusFilter.value === card.key) {
+            statusFilter.value = 'all';
+        } else {
+            statusFilter.value = card.key;
+        }
+        currentPage.value = 1;
+        return;
+    }
+
+    // 2. Filter Gaji UMP
+    if (card.action === 'filter_meets') {
+        if (selectedItem.value?.meets === card.meets) {
+            selectedItem.value = null;
+        } else {
+            selectedItem.value = { meets: card.meets, label: card.label };
+        }
+        activePanel.value = 'data';
+        return;
+    }
+
+    // 3. Sorot Kategori Dominan / Gap Terbesar pada Grafik
+    if (card.action === 'highlight' && card.target) {
+        activePanel.value = 'charts';
+        if (selectedItem.value?.label === card.target) {
+            selectedItem.value = null;
+        } else {
+            selectSeriesItem({ label: card.target });
+        }
+        return;
+    }
+
+    // 4. Buka Data Responden
+    if (card.action === 'data') {
+        showDataPanel();
+        return;
+    }
+
+    // 5. Fokus ke Grafik
+    if (card.action === 'chart') {
+        activePanel.value = 'charts';
+    }
+};
 
 // Insight otomatis disusun dari hasil perhitungan aktual, bukan teks statis umum.
 const automaticInsights = computed(() => {
@@ -400,6 +727,13 @@ const selectSeriesItem = (item) => {
         return;
     }
     selectedItem.value = item;
+
+    // Pada indikator response rate, data drilldown sudah tersaji inline di bawah grafik tanpa perlu drawer samping.
+    if (selectedChart.value === 'response_rate') {
+        drawerOpen.value = false;
+        return;
+    }
+
     drawerOpen.value = true;
 };
 
@@ -523,7 +857,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                     <div class="grid gap-4 xl:grid-cols-[minmax(18rem,2fr)_10rem_minmax(13rem,1fr)_auto] xl:items-end">
                         <label class="block min-w-0 text-xs font-bold uppercase tracking-wide text-slate-500">
                             Indikator analisis
-                            <select :value="selectedChartKey" class="mt-2 block w-full rounded bg-slate-100 px-3 py-3 text-sm font-bold normal-case text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-[#0D542B]" @change="changeChart">
+                            <select id="select-chart-key" name="chart_key" :value="selectedChartKey" class="mt-2 block w-full rounded bg-slate-100 px-3 py-3 text-sm font-bold normal-case text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-[#0D542B]" @change="changeChart">
                                 <optgroup label="16 indikator evaluasi wajib">
                                     <option v-for="option in mandatoryOptions" :key="option.key" :value="option.key">{{ String(option.number).padStart(2, '0') }} · {{ option.label }}</option>
                                 </optgroup>
@@ -534,18 +868,18 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                         </label>
                         <label class="block text-xs font-bold uppercase tracking-wide text-slate-500">
                             Tahun lulusan
-                            <select v-model="selectedYear" class="mt-2 block w-full rounded bg-[#FDC700] px-3 py-3 text-sm font-extrabold normal-case text-[#0D542B] outline-none" @change="scheduleLoad()">
+                            <select id="select-year" name="year" v-model="selectedYear" class="mt-2 block w-full rounded bg-slate-100 px-3 py-3 text-sm font-bold normal-case text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-[#0D542B]" @change="scheduleLoad()">
                                 <option v-for="year in currentAnalytics.filters?.available_years || []" :key="year" :value="String(year)">{{ year }}</option>
                             </select>
                         </label>
                         <label class="block min-w-0 text-xs font-bold uppercase tracking-wide text-slate-500">
                             Program studi
-                            <select v-model="selectedProdiId" class="mt-2 block w-full rounded bg-slate-100 px-3 py-3 text-sm font-bold normal-case text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-[#0D542B]" @change="scheduleLoad()">
+                            <select id="select-prodi" name="prodi_id" v-model="selectedProdiId" class="mt-2 block w-full rounded bg-slate-100 px-3 py-3 text-sm font-bold normal-case text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-[#0D542B]" @change="scheduleLoad()">
                                 <option value="">Semua program studi</option>
                                 <option v-for="prodi in currentAnalytics.filters?.prodis || []" :key="prodi.id" :value="String(prodi.id)">{{ prodi.nama }}</option>
                             </select>
                         </label>
-                        <button type="button" class="rounded bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-200" @click="resetGlobalFilters">Reset filter</button>
+                        <button type="button" class="rounded bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-200 cursor-pointer transition-colors" @click="resetGlobalFilters">Reset filter</button>
                     </div>
                     <div v-if="analyticsRequest.processing || loadError" class="mt-4 border-t border-slate-100 pt-3 text-sm">
                         <p v-if="analyticsRequest.processing" class="font-semibold text-[#0D542B]">Memperbarui indikator tanpa memuat ulang halaman.</p>
@@ -553,120 +887,131 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                     </div>
                 </section>
 
-                <!-- Identitas indikator dan KPI menyediakan konteks sebelum visual eksploratif. -->
-                <section class="bg-white p-5 shadow-sm sm:p-6">
-                    <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+                <!-- Identitas indikator dan kartu ringkasan KPI interaktif (Full-width, proporsional, dan interaktif) -->
+                <section class="bg-white p-5 sm:p-6 rounded-xl border border-slate-200">
+                    <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                         <div class="min-w-0">
-                            <p class="text-xs font-bold uppercase tracking-wide text-[#0D542B]">Indikator aktif</p>
-                            <h2 class="mt-2 text-2xl font-extrabold text-slate-950">{{ chart.title }}</h2>
-                            <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-500">{{ chart.subtitle }}</p>
+                            <h2 class="text-xl font-extrabold text-slate-900 sm:text-2xl">{{ chart.title }}</h2>
+                            <p class="mt-1 max-w-3xl text-xs sm:text-sm text-slate-500 leading-relaxed">{{ chart.subtitle }}</p>
                         </div>
-                        <div class="flex items-center gap-2 text-xs font-semibold text-slate-500">
-                            <span>{{ selectedYear }}</span>
-                            <span>·</span>
-                            <span>{{ selectedProdiId ? currentAnalytics.filters?.prodis?.find((item) => String(item.id) === selectedProdiId)?.nama : 'Seluruh program studi' }}</span>
+                        <div v-if="selectedItem?.label" class="flex items-center gap-2 self-start sm:self-auto">
+                            <span class="text-xs text-slate-500">Filter Aktif:</span>
+                            <span class="rounded bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-bold text-[#0D542B]">
+                                {{ selectedItem.label }}
+                            </span>
+                            <button
+                                type="button"
+                                class="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                                @click="selectedItem = null; drawerOpen = false"
+                            >
+                                Reset
+                            </button>
                         </div>
                     </div>
-                    <dl v-if="hasChartData" class="mt-6 grid gap-px overflow-hidden bg-slate-200 sm:grid-cols-2" :class="kpiCards.length === 3 ? 'xl:grid-cols-3' : 'xl:grid-cols-4'">
-                        <div v-for="card in kpiCards" :key="card.label" class="bg-white p-4 sm:p-5">
-                            <dt class="text-xs font-bold uppercase tracking-wide text-slate-500">{{ card.label }}</dt>
-                            <dd class="mt-2 text-2xl font-extrabold text-[#0D542B]">{{ card.value }}</dd>
-                            <p class="mt-1 text-xs leading-5 text-slate-500">{{ card.note }}</p>
+
+                    <div
+                        v-if="hasChartData"
+                        class="mt-5 grid gap-3.5 w-full grid-cols-2 lg:grid-cols-4"
+                    >
+                        <div
+                            v-for="card in kpiCards"
+                            :key="card.label"
+                            @click="handleKpiCardClick(card)"
+                            class="group relative bg-white rounded-xl p-4.5 border transition-all duration-200 select-none cursor-pointer flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5"
+                            :class="isKpiCardActive(card)
+                                ? 'border-[#0D542B] ring-2 ring-[#0D542B]/20 bg-emerald-50/15'
+                                : 'border-slate-200 hover:border-[#0D542B]/60'"
+                            :title="card.hint || card.note"
+                        >
+                            <div>
+                                <div class="flex items-center justify-between gap-1.5">
+                                    <dt class="text-[11px] font-bold text-slate-500 uppercase tracking-wider group-hover:text-[#0D542B] transition-colors">
+                                        {{ card.label }}
+                                    </dt>
+                                    <span
+                                        v-if="isKpiCardActive(card)"
+                                        class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#0D542B] text-white tracking-wide"
+                                    >
+                                        Aktif
+                                    </span>
+                                </div>
+                                <dd
+                                    class="mt-1.5 font-extrabold tracking-tight"
+                                    :class="[
+                                        card.key === 'sudah' ? 'text-[#0D542B]' : (card.key === 'belum' ? 'text-slate-800' : 'text-slate-900'),
+                                        String(card.value || '').length > 18 ? 'text-sm sm:text-base leading-snug line-clamp-2' : (String(card.value || '').length > 10 ? 'text-xl sm:text-2xl leading-tight' : 'text-2xl sm:text-3xl')
+                                    ]"
+                                    :title="card.value"
+                                >
+                                    {{ card.value }}
+                                </dd>
+                            </div>
+                            <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                                <p class="text-slate-500 leading-relaxed line-clamp-2" :title="card.note">{{ card.note }}</p>
+                                <span class="text-[11px] font-semibold text-[#0D542B] opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                    Pilih &rarr;
+                                </span>
+                            </div>
                         </div>
-                    </dl>
+                    </div>
                 </section>
 
                 <!-- Empty state membedakan penyebab kosong dan mempertahankan kontrol filter. -->
-                <section v-if="!hasChartData" class="bg-white p-8 text-center shadow-sm">
+                <section v-if="!hasChartData" class="bg-white p-8 text-center rounded-xl border border-slate-200">
                     <p class="text-xs font-bold uppercase tracking-wide text-[#0D542B]">Status data indikator</p>
                     <h2 class="mt-2 text-xl font-extrabold">Data belum dapat divisualisasikan</h2>
                     <p class="mx-auto mt-2 max-w-2xl text-sm leading-6 text-slate-600">{{ dataAvailability.message }}</p>
-                    <div class="mx-auto mt-5 grid max-w-lg grid-cols-2 gap-px bg-slate-200">
-                        <div class="bg-slate-50 p-4"><p class="text-xs font-bold text-slate-500">Populasi terpilih</p><p class="mt-1 text-2xl font-extrabold text-[#0D542B]">{{ formatNumber(dataAvailability.population_count, 0) }}</p></div>
-                        <div class="bg-slate-50 p-4"><p class="text-xs font-bold text-slate-500">Jawaban valid</p><p class="mt-1 text-2xl font-extrabold text-[#0D542B]">{{ formatNumber(dataAvailability.record_count, 0) }}</p></div>
+                    <div class="mx-auto mt-5 grid max-w-lg grid-cols-2 gap-3">
+                        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200"><p class="text-xs font-bold text-slate-500">Populasi terpilih</p><p class="mt-1 text-2xl font-extrabold text-[#0D542B]">{{ formatNumber(dataAvailability.population_count, 0) }}</p></div>
+                        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200"><p class="text-xs font-bold text-slate-500">Jawaban valid</p><p class="mt-1 text-2xl font-extrabold text-[#0D542B]">{{ formatNumber(dataAvailability.record_count, 0) }}</p></div>
                     </div>
-                    <button type="button" class="mt-5 rounded bg-[#FDC700] px-4 py-2.5 text-sm font-bold text-[#0D542B]" @click="resetGlobalFilters">Reset filter</button>
+                    <button type="button" class="mt-5 rounded bg-slate-100 px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-200 cursor-pointer transition-colors" @click="resetGlobalFilters">Reset filter</button>
                 </section>
 
                 <template v-else>
-                    <!-- Navigasi tiga fungsi utama tidak mengulang judul dan metadata pada setiap tab. -->
-                    <nav class="flex gap-1 bg-white p-1.5 shadow-sm" role="tablist" aria-label="Tampilan analitik">
-                        <button v-for="panel in [{ key: 'analysis', label: 'Analisis' }, { key: 'charts', label: 'Grafik' }, { key: 'data', label: 'Data' }]" :key="panel.key" type="button" role="tab" :aria-selected="activePanel === panel.key" class="flex-1 rounded px-4 py-3 text-sm font-bold transition-colors" :class="activePanel === panel.key ? 'bg-[#0D542B] text-white' : 'text-slate-600 hover:bg-slate-100'" @click="activePanel = panel.key">{{ panel.label }}</button>
+                    <!-- Navigasi dua fungsi utama: Grafik dan Data (Analisis terintegrasi langsung pada grafik) -->
+                    <nav class="flex gap-1 bg-white p-1.5 rounded-xl border border-slate-200" role="tablist" aria-label="Tampilan analitik">
+                        <button v-for="panel in [{ key: 'charts', label: 'Grafik' }, { key: 'data', label: 'Data' }]" :key="panel.key" type="button" role="tab" :aria-selected="activePanel === panel.key" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition-all cursor-pointer" :class="activePanel === panel.key ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'" @click="activePanel = panel.key">{{ panel.label }}</button>
                     </nav>
 
-                    <!-- Analisis otomatis berisi temuan aktual dan kelompok prioritas. -->
-                    <section v-if="activePanel === 'analysis'" class="grid gap-5 xl:grid-cols-[1.35fr_.65fr]">
-                        <article class="bg-white p-6 shadow-sm">
-                            <p class="text-xs font-bold uppercase tracking-wide text-[#0D542B]">Temuan utama</p>
-                            <h3 class="mt-2 text-xl font-extrabold">Interpretasi berdasarkan filter aktif</h3>
-                            <ol class="mt-5 space-y-4">
-                                <li v-for="(insight, index) in automaticInsights" :key="insight" class="grid grid-cols-[2rem_1fr] gap-3 text-sm leading-6 text-slate-700">
-                                    <span class="flex h-8 w-8 items-center justify-center rounded bg-[#FDC700] font-extrabold text-[#0D542B]">{{ index + 1 }}</span>
-                                    <span>{{ insight }}</span>
-                                </li>
-                            </ol>
-                        </article>
-                        <article class="bg-[#0D542B] p-6 text-white shadow-sm">
-                            <p class="text-xs font-bold uppercase tracking-wide text-[#FDC700]">Tindak lanjut</p>
-                            <h3 class="mt-2 text-xl font-extrabold">Arah eksplorasi berikutnya</h3>
-                            <p class="mt-3 text-sm leading-6 text-emerald-100">Gunakan tab Grafik untuk memilih kategori atau kelompok alumni. Detail pilihan akan terbuka tanpa menghilangkan filter tahun dan program studi.</p>
-                            <button type="button" class="mt-6 rounded bg-[#FDC700] px-4 py-2.5 text-sm font-bold text-[#0D542B]" @click="activePanel = 'charts'">Buka grafik interaktif</button>
-                        </article>
-                    </section>
-
-                    <!-- Kombinasi ECharts merender grafik utama dan pendukung secara responsif. -->
-                    <Suspense v-else-if="activePanel === 'charts'">
+                    <!-- Panel Grafik ECharts Utama Tanpa Suspense -->
+                    <section v-if="activePanel === 'charts'">
                         <AnalyticsChartsPanel
                             :chart="chart"
                             :selected-chart="selectedChart"
+                            :selected-label="selectedItem?.label || ''"
                             :available-ump-years="currentAnalytics.filters?.available_ump_years || []"
                             :selected-ump-year="selectedUmpYear"
                             :loading="analyticsRequest.processing"
                             @select-category="selectSeriesItem"
                             @select-province="selectProvince"
                             @change-ump-year="selectedUmpYear = String($event); scheduleLoad()"
-                            @show-data="showDataPanel"
+                            @show-data="activePanel = 'data'"
                             @show-methodology="showMethodology"
                         />
-                        <template #fallback>
-                            <section class="grid gap-5 xl:grid-cols-2">
-                                <div class="h-[460px] animate-pulse bg-white shadow-sm xl:col-span-2"></div>
-                                <div class="h-[390px] animate-pulse bg-white shadow-sm"></div>
-                                <div class="h-[390px] animate-pulse bg-white shadow-sm"></div>
-                            </section>
-                        </template>
-                    </Suspense>
+                    </section>
 
-                    <!-- Data table lapisan detail dengan format formal, tab filter status, dan aksi kontak. -->
-                    <section v-else class="bg-white p-5 shadow-sm sm:p-6 rounded-lg border border-slate-200">
+                    <!-- Data table lapisan detail dengan format formal laporan, flat, bersih, tanpa shadow berlebih -->
+                    <section v-else class="bg-white p-5 sm:p-6 rounded-xl border border-slate-200">
                         <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
                             <div>
-                                <p class="text-xs font-bold uppercase tracking-wide text-[#0D542B]">Detail data responden</p>
+                                <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Detail Data Responden</p>
                                 <h2 class="mt-1 text-xl font-extrabold text-slate-900">{{ formatNumber(tableRows.length, 0) }} baris data sesuai filter</h2>
-                                <p class="mt-1 text-sm text-slate-500">Data kuesioner individual terhubung langsung dengan profil master alumni.</p>
+                                <p class="mt-1 text-xs text-slate-500">Data kuesioner individual terhubung langsung dengan profil master alumni.</p>
                             </div>
-                            <div class="flex flex-wrap items-center gap-2">
+                            <div class="flex items-center gap-2">
+                                <!-- Satu tombol Download Excel tunggal yang bersih dan informatif -->
                                 <button
                                     v-if="chart.type === 'response_rate'"
                                     type="button"
-                                    class="inline-flex items-center gap-1.5 rounded-lg bg-[#0D542B] px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#0A4322] transition-colors"
+                                    class="inline-flex items-center gap-1.5 rounded-lg bg-[#0D542B] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#0A4322] transition-colors cursor-pointer"
                                     @click="downloadFilteredExcel"
+                                    title="Unduh seluruh data responden alumni sesuai filter aktif dalam format Excel"
                                 >
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                     </svg>
-                                    <span>Download Excel Sesuai Pilihan</span>
-                                </button>
-                                <button
-                                    v-if="chart.type === 'response_rate'"
-                                    type="button"
-                                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-                                    @click="downloadFullWorkbook"
-                                >
-                                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    <span>Excel 3 Sheet (Lengkap)</span>
+                                    <span>Download Excel ({{ formatNumber(tableRows.length, 0) }})</span>
                                 </button>
                             </div>
                         </div>
@@ -705,6 +1050,8 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                                 <label class="sr-only">Cari alumni</label>
                                 <div class="relative">
                                     <input
+                                        id="table-search-input"
+                                        name="table_search"
                                         v-model="tableSearch"
                                         type="search"
                                         class="block w-full rounded-lg border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-[#0D542B] focus:bg-white focus:ring-1 focus:ring-[#0D542B]"
@@ -713,9 +1060,9 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-xs text-slate-500 flex items-center gap-2">
+                                <label for="table-rows-per-page" class="text-xs text-slate-500 flex items-center gap-2">
                                     <span>Per halaman:</span>
-                                    <select v-model="rowsPerPage" class="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold outline-none focus:border-[#0D542B]">
+                                    <select id="table-rows-per-page" name="rows_per_page" v-model="rowsPerPage" class="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold outline-none focus:border-[#0D542B]">
                                         <option :value="10">10</option>
                                         <option :value="20">20</option>
                                         <option :value="50">50</option>

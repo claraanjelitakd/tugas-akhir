@@ -2,6 +2,31 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 28 Oktober 2026
+
+- **Penyelarasan Visualisasi Grafik Universitas & Harmoni Indikator Laporan Resmi**:
+  - **Indikator 16 (Kompetensi Saat Lulus, Diperlukan Kerja, dan Gap Selisih)**:
+    - Mengimplementasikan *Dual Y-Axis* (Sumbu Ganda): Sumbu Y Kiri (0 - 5) untuk Skor Likert batang bekal kampus vs kebutuhan dunia kerja, dan Sumbu Y Kanan (-3 s/d +3) khusus untuk garis gap selisih surplus/defisit (`z: 10`, ketebalan 3px, penanda titik bulat).
+    - Menerapkan palet warna institusi yang harmonis dan seimbang: Batang Saat Lulus menggunakan Hijau UKDW (`#0D542B`), Batang Diperlukan Kerja menggunakan Slate Netral Lembut (`#94A3B8`), dan Garis Gap Selisih menggunakan Slate Tegas (`#334155`) dengan garis acuan putus-putus Impas (0) pada `#CBD5E1`. Menghilangkan warna oranye yang silau/bentrok.
+    - Analisis naratif Gambar 4.17 dinamis membaca 7 dimensi kompetensi aktual (menyebutkan gap surplus tertinggi, defisit terdalam, dan urutan lengkap).
+  - **Indikator 13 (Keselarasan Tingkat Pendidikan / Vertical Match)**:
+    - Mengubah grafik perbandingan keselarasan vertikal per program studi menjadi Diagram Line murni (`#0D542B`) sesuai format Gambar 4.14 laporan resmi.
+    - Memindahkan analisis naratif Gambar 4.14 ke Indikator 13 dan mengonfigurasikannya secara dinamis membaca data aktual prodi (menyebutkan prodi keselarasan tertinggi, terendah, dan rincian urutan seluruh prodi).
+  - **Indikator 12 (Hubungan Bidang Studi / Horizontal Match)**:
+    - Memperbarui analisis naratif Gambar 4.12 menjadi data-driven dinamis membaca data aktual prodi tanpa teks statis hardcoded.
+  - **Indikator 11 (Statistik Pendapatan per Bulan & UMP)**:
+    - Menghapus peta spasial MapLibre dan mengganti View ke-3 menjadi tab "Status per Provinsi" dengan tabel analitik dan chart horizontal yang memuat jumlah alumni, kelayakan ambang 1,2× UMP, persentase kelayakan, dan median gaji per provinsi penempatan.
+    - Menyajikan grafik pendapatan per prodi sebagai Line Chart 3 parameter: Kuartil 1 (Q1), Median (Q2 di-highlight hijau primer UKDW), dan Kuartil 3 (Q3) untuk membandingkan dispersi interkuartil.
+  - **Indikator 10 (Studi Lanjut dan Sumber Biaya)**:
+    - Memasukkan seluruh pilihan master kuesioner resmi instrumen ke dalam visualisasi dan tabel (5 jenjang: S1, S2, S3, Profesi, Spesialis; dan 5 skema pembiayaan F12: Biaya Sendiri/Keluarga, Beasiswa Pemerintah, Beasiswa Swasta/Perusahaan, Beasiswa Luar Negeri, Lainnya) dengan sorting descending berdasarkan jumlah alumni terbanyak.
+  - **Indikator 06 & Indikator 02 (KPI Cards & Format Bilangan Bulat INT)**:
+    - Header KPI cards pada pipeline lamaran (F6, F7, F7A) diselaraskan menampilkan median valid tanpa tanda strip `-`.
+    - Pada Indikator 02 (Metode Pembelajaran): Menghapus seluruh angka pecahan desimal dari tabel utama, ringkasan kartu, header drill-down, dan tabel rincian prodi; seluruh skor disajikan dalam bilangan bulat INT (skala 1 s/d 5) serta label kategori kuesioner.
+  - **Pemberantasan Tumpang Tindih Sumbu X Kategori Program Studi**:
+    - Menerapkan rotasi 30 derajat (`rotate: 30`) dan pelebaran margin canvas grid bawah (`bottom: 80, containLabel: true`) pada seluruh diagram garis perbandingan program studi (`11_SalaryVsUmp.vue`, `13_EducationAlignment.vue`, `12_FieldAlignment.vue`, `06_ApplicationPipeline.vue`, `05_WaitTime.vue`) sehingga nama prodi panjang (seperti *Pendidikan Bahasa Inggris*, *Teknologi Pangan*, dll.) tidak lagi bertabrakan (*nabrak*).
+  - **Komponen Wadah Visualisasi Terpadu (`AnalyticsTabbedContainer.vue`)**:
+    - Menyatukan beberapa visualisasi ke dalam satu kontainer kokoh dengan tab switcher, seamless inline drill-down tanpa perpindahan halaman/tab terpisah ("Don't Make Me Think"), kartu ringkasan alami "Kilas Indikator", dan seleksi dua arah data chart.
+
 ## 25 Oktober 2026
 
 - **Penyederhanaan Indikator 01 & Optimasi Tab Data Responden (Tema 2-Tone Profesional)**:

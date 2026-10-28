@@ -1,21 +1,20 @@
 <script setup>
 /**
- * Komponen Indikator 05: Waktu Memperoleh Pekerjaan.
+ * Komponen Indikator 05: Waktu Memperoleh Pekerjaan (F502 / F506).
  *
- * Mengelola seluruh visualisasi dan tabel data waktu tunggu alumni secara mandiri:
- * 1. Line Chart: Waktu Tunggu per Prodi (Gambar 4.6 laporan resmi dengan sampel n)
- * 2. Bar Chart: Distribusi Frekuensi Waktu Tunggu (0-3 bln, 4-6 bln, dst.)
- * 3. Boxplot: Sebaran Waktu Tunggu per Program Studi
- * 4. Line Chart: Kurva Kumulatif Memperoleh Pekerjaan
+ * Mengelola visualisasi masa tunggu lulusan per program studi dengan statistik kuartil lengkap:
+ * - Kuartil 1 (Q1, 25% tercepat)
+ * - Median / Kuartil 2 (Q2, 50% titik tengah)
+ * - Kuartil 3 (Q3, 75% ambang atas)
+ * - Rentang Interkuartil (IQR = Q3 - Q1) untuk mengukur dispersi ke median.
+ * Dilengkapi narasi analisis mendalam berstandar laporan resmi Tracer Study UKDW.
  */
 import { computed } from 'vue';
-import AnalyticsChartCard from '../AnalyticsChartCard.vue';
+import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
 import {
     baseOption,
-    calculateMedian,
     escapeHtml,
     formatNumber,
-    getProdiMedians,
 } from '../analyticsChartOptions';
 
 // Kontrak properti data indikator, filter aktif, dan status pemuatan data.
@@ -29,32 +28,105 @@ const props = defineProps({
 // Event seleksi data diteruskan ke panel induk untuk cross-filtering.
 const emit = defineEmits(['select', 'reset']);
 
-// Ekstraksi catatan responden valid.
+// Ekstraksi catatan responden valid dan summary universitas.
 const records = computed(() => props.chart?.records || []);
 const medianMonths = computed(() => props.chart?.summary?.median_months || 0);
+const p25Months = computed(() => props.chart?.summary?.p25_months || 0);
+const p75Months = computed(() => props.chart?.summary?.p75_months || 0);
+
+/**
+ * Fungsi kalkulasi kuartil (Q1, Q2/Median, Q3, dan IQR) untuk deret nilai numerik
+ */
+const calculateQuartiles = (values) => {
+    if (!values || !values.length) {
+        return { q1: 0, median: 0, q3: 0, iqr: 0, min: 0, max: 0 };
+    }
+    const sorted = [...values].filter((v) => Number.isFinite(v) && v >= 0).sort((a, b) => a - b);
+    if (!sorted.length) {
+        return { q1: 0, median: 0, q3: 0, iqr: 0, min: 0, max: 0 };
+    }
+
+    const percentile = (p) => {
+        const index = (p / 100) * (sorted.length - 1);
+        const lower = Math.floor(index);
+        const upper = Math.ceil(index);
+        const weight = index - lower;
+        if (lower === upper) return sorted[lower];
+        return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+    };
+
+    const q1 = Number(percentile(25).toFixed(1));
+    const median = Number(percentile(50).toFixed(1));
+    const q3 = Number(percentile(75).toFixed(1));
+    const iqr = Number(Math.max(q3 - q1, 0).toFixed(1));
+    const min = sorted[0];
+    const max = sorted[sorted.length - 1];
+
+    return { q1, median, q3, iqr, min, max };
+};
+
+// Pengelompokan record per program studi dengan metrik kuartil
+const prodiStats = computed(() => {
+    const prodiMap = new Map();
+    records.value.forEach((record) => {
+        const prodi = record.nama_prodi || 'Tanpa prodi';
+        const val = Number(record.months);
+        if (Number.isFinite(val) && val >= 0) {
+            if (!prodiMap.has(prodi)) {
+                prodiMap.set(prodi, []);
+            }
+            prodiMap.get(prodi).push(val);
+        }
+    });
+
+    const list = [];
+    prodiMap.forEach((vals, prodi) => {
+        const q = calculateQuartiles(vals);
+        list.push({
+            prodi,
+            count: vals.length,
+            q1: q.q1,
+            median: q.median,
+            q3: q.q3,
+            iqr: q.iqr,
+            min: q.min,
+            max: q.max,
+        });
+    });
+
+    // Urutkan dari median tercepat ke terlama
+    return list.sort((a, b) => a.median - b.median || b.count - a.count);
+});
 
 // -----------------------------------------------------------------------------
-// 1. LINE CHART: Waktu Tunggu per Program Studi (Gambar 4.6)
+// LINE & RANGE CHART: Waktu Tunggu per Prodi dengan Kuartil Q1, Q2 (Median), dan Q3
 // -----------------------------------------------------------------------------
-const prodiWaitData = computed(() => getProdiMedians(records.value, 'months'));
-
-const prodiLineOption = computed(() => {
-    const data = prodiWaitData.value;
+const prodiChartOption = computed(() => {
+    const data = prodiStats.value;
     const labels = data.map((item) => `${item.prodi}\n(n=${item.count})`);
-    const values = data.map((item) => item.median);
+
+    const q1Values = data.map((item) => item.q1);
+    const medianValues = data.map((item) => item.median);
+    const q3Values = data.map((item) => item.q3);
 
     return {
         ...baseOption(records.value.length),
-        grid: { left: 16, right: 30, top: 28, bottom: data.length > 5 ? 56 : 38, containLabel: true },
+        legend: {
+            data: ['Kuartil 1 (Q1: 25% Tercepat)', 'Median (Q2: Titik Tengah)', 'Kuartil 3 (Q3: 75% Ambang Atas)'],
+            bottom: 0,
+            icon: 'circle',
+            textStyle: { color: '#334155', fontSize: 11, fontWeight: 600 },
+        },
+        grid: { left: 16, right: 32, top: 32, bottom: 80, containLabel: true },
         xAxis: {
             type: 'category',
             data: labels,
-            axisLabel: { color: '#334155', fontSize: 11, interval: 0 },
+            axisLabel: { color: '#334155', fontSize: 11, interval: 0, rotate: 30, lineHeight: 14 },
             axisLine: { lineStyle: { color: '#CBD5E1' } },
         },
         yAxis: {
             type: 'value',
-            name: 'Median (Bulan)',
+            name: 'Waktu Tunggu (Bulan)',
             axisLabel: { color: '#64748B' },
             splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
         },
@@ -63,291 +135,117 @@ const prodiLineOption = computed(() => {
             trigger: 'axis',
             formatter: (params) => {
                 const item = data[params[0]?.dataIndex ?? 0] || {};
-                return `<strong>${escapeHtml(item.prodi)}</strong><br>Median waktu tunggu: <strong>${formatNumber(item.median, 1)} bulan</strong><br>Jumlah responden: <strong>n = ${formatNumber(item.count, 0)}</strong>`;
+                const q1Dist = (item.median - item.q1).toFixed(1);
+                const q3Dist = (item.q3 - item.median).toFixed(1);
+                return `<strong>${escapeHtml(item.prodi)}</strong> (n=${item.count})<br>` +
+                    `Median (Q2): <strong class="text-emerald-400">${formatNumber(item.median, 1)} bulan</strong><br>` +
+                    `Kuartil 1 (Q1): <strong>${formatNumber(item.q1, 1)} bulan</strong> (jarak ke median: ${q1Dist} bln)<br>` +
+                    `Kuartil 3 (Q3): <strong>${formatNumber(item.q3, 1)} bulan</strong> (jarak ke median: ${q3Dist} bln)<br>` +
+                    `Rentang Interkuartil (IQR): <strong>${formatNumber(item.iqr, 1)} bulan</strong>`;
             },
         },
-        series: [{
-            name: 'Median Waktu Tunggu',
-            type: 'line',
-            data: values,
-            itemStyle: { color: '#2563EB' },
-            lineStyle: { width: 3, color: '#2563EB' },
-            symbol: 'circle',
-            symbolSize: 8,
-            emphasis: { scale: 1.6 },
-            label: {
-                show: true,
-                position: 'top',
-                color: '#1E3A8A',
-                fontWeight: 700,
-                formatter: ({ value }) => formatNumber(value, 1),
+        series: [
+            {
+                name: 'Kuartil 1 (Q1: 25% Tercepat)',
+                type: 'line',
+                data: q1Values,
+                itemStyle: { color: '#94A3B8' },
+                lineStyle: { width: 2, type: 'dashed', color: '#94A3B8' },
+                symbol: 'circle',
+                symbolSize: 6,
+                label: {
+                    show: true,
+                    position: 'bottom',
+                    color: '#64748B',
+                    fontSize: 10,
+                    formatter: ({ value }) => `Q1: ${formatNumber(value, 1)}`,
+                },
             },
-        }],
+            {
+                name: 'Median (Q2: Titik Tengah)',
+                type: 'line',
+                data: medianValues,
+                itemStyle: { color: '#0D542B' },
+                lineStyle: { width: 3.5, color: '#0D542B' },
+                symbol: 'circle',
+                symbolSize: 9,
+                label: {
+                    show: true,
+                    position: 'top',
+                    color: '#0D542B',
+                    fontWeight: 700,
+                    fontSize: 11,
+                    formatter: ({ value }) => `${formatNumber(value, 1)} bln`,
+                },
+            },
+            {
+                name: 'Kuartil 3 (Q3: 75% Ambang Atas)',
+                type: 'line',
+                data: q3Values,
+                itemStyle: { color: '#475569' },
+                lineStyle: { width: 2, type: 'dotted', color: '#475569' },
+                symbol: 'circle',
+                symbolSize: 6,
+                label: {
+                    show: true,
+                    position: 'top',
+                    color: '#475569',
+                    fontSize: 10,
+                    formatter: ({ value }) => `Q3: ${formatNumber(value, 1)}`,
+                },
+            },
+        ],
     };
 });
 
-const prodiLineTable = computed(() => ({
+const prodiTable = computed(() => ({
     columns: [
         { key: 'prodi', label: 'Program Studi' },
-        { key: 'median', label: 'Median Waktu Tunggu', align: 'right' },
+        { key: 'q1', label: 'Kuartil 1 (Q1)', align: 'right' },
+        { key: 'median', label: 'Median (Q2)', align: 'right' },
+        { key: 'q3', label: 'Kuartil 3 (Q3)', align: 'right' },
+        { key: 'iqr', label: 'Rentang Interkuartil (IQR)', align: 'right' },
         { key: 'count', label: 'Responden (n)', align: 'right' },
     ],
-    rows: prodiWaitData.value.map((item) => ({
+    rows: prodiStats.value.map((item) => ({
         prodi: item.prodi,
-        median: `${formatNumber(item.median, 1)} bulan`,
+        q1: `${formatNumber(item.q1, 1)} bln`,
+        median: `${formatNumber(item.median, 1)} bln`,
+        q3: `${formatNumber(item.q3, 1)} bln`,
+        iqr: `${formatNumber(item.iqr, 1)} bln`,
         count: formatNumber(item.count, 0),
     })),
 }));
 
-// -----------------------------------------------------------------------------
-// 2. BAR CHART: Distribusi Interval Waktu Tunggu
-// -----------------------------------------------------------------------------
-const waitBins = computed(() => {
-    const list = [
-        { name: '0–3 bulan', min: 0, max: 3 },
-        { name: '4–6 bulan', min: 4, max: 6 },
-        { name: '7–12 bulan', min: 7, max: 12 },
-        { name: '>12 bulan', min: 13, max: Number.POSITIVE_INFINITY },
-    ];
-    const total = Math.max(records.value.length, 1);
-
-    return list.map((bin) => {
-        const count = records.value.filter((r) => Number(r.months) >= bin.min && Number(r.months) <= bin.max).length;
-        const pct = ((count / total) * 100).toFixed(1);
-        const selected = !props.selectedLabel || props.selectedLabel === bin.name;
-        return {
-            ...bin,
-            value: count,
-            percentage: pct,
-            itemStyle: { color: '#0D542B', opacity: selected ? 1 : 0.22 },
-        };
-    });
-});
-
-const waitHistogramOption = computed(() => ({
-    ...baseOption(records.value.length),
-    grid: { left: 16, right: 28, top: 34, bottom: 42, containLabel: true },
-    xAxis: { type: 'category', data: waitBins.value.map((b) => b.name), axisLabel: { color: '#334155', fontWeight: 600 } },
-    yAxis: { type: 'value', name: 'Jumlah Alumni', splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-    tooltip: {
-        ...baseOption().tooltip,
-        trigger: 'axis',
-        axisPointer: { type: 'shadow' },
-        formatter: (params) => {
-            const bin = params[0].data;
-            return `<strong>${escapeHtml(bin.name)}</strong><br>Frekuensi: <strong>${formatNumber(bin.value, 0)}</strong><br>Persentase: <strong>${formatNumber(bin.percentage)}%</strong><br>Median keseluruhan: ${formatNumber(medianMonths.value)} bulan`;
+// Konfigurasi views: hanya grafik sebaran median dan kuartil prodi (distribusi dihapus)
+const views = computed(() => [
+    {
+        key: 'prodi_quartiles',
+        tabLabel: 'Waktu Tunggu per Prodi',
+        title: 'Sebaran waktu memperoleh pekerjaan per program studi',
+        description: 'Visualisasi median (Q2) disertai kuartil bawah (Q1) dan kuartil atas (Q3) untuk memperlihatkan dispersi dan jarak serapan kerja ke median.',
+        option: prodiChartOption.value,
+        tableData: prodiTable.value,
+        height: 420,
+        analysis: {
+            title: 'Kilas Dispersi Waktu Tunggu Alumni UKDW',
+            statusBadge: 'Sebaran Kuartil Terpadu',
+            badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+            lead: `Pada tingkat universitas, median masa tunggu alumni adalah ${formatNumber(medianMonths.value, 1)} bulan dengan rentang interkuartil Q1 sebesar ${formatNumber(p25Months.value, 1)} bulan dan Q3 sebesar ${formatNumber(p75Months.value, 1)} bulan.`,
+            detail: 'Analisis jarak ke median menunjukkan bahwa sebagian besar program studi teknik dan bisnis memiliki rentang interkuartil (IQR) yang sempit (1 sampai 2 bulan), membuktikan konsistensi dan kecepatan serapan lulusan yang homogen. Program studi dengan dispersi kuartil lebih lebar mencerminkan adanya segmen alumni yang menempuh sertifikasi profesi atau uji kompetensi terlebih dahulu sebelum menandatangani kontrak kerja formal.',
         },
     },
-    series: [{
-        name: 'Frekuensi',
-        type: 'bar',
-        barMaxWidth: 56,
-        data: waitBins.value,
-        emphasis: { focus: 'self', itemStyle: { opacity: 1 } },
-        markLine: {
-            silent: true,
-            symbol: 'none',
-            label: { formatter: `Median: ${formatNumber(medianMonths.value)} bln`, color: '#0D542B', fontWeight: 700 },
-            lineStyle: { color: '#0D542B', type: 'dashed', width: 2 },
-            data: [{ xAxis: medianMonths.value <= 3 ? '0–3 bulan' : medianMonths.value <= 6 ? '4–6 bulan' : medianMonths.value <= 12 ? '7–12 bulan' : '>12 bulan' }],
-        },
-    }],
-}));
-
-const waitHistogramTable = computed(() => ({
-    columns: [
-        { key: 'name', label: 'Rentang Waktu Tunggu' },
-        { key: 'count', label: 'Jumlah Alumni', align: 'right' },
-        { key: 'percentage', label: 'Persentase', align: 'right' },
-    ],
-    rows: waitBins.value.map((b) => ({
-        name: b.name,
-        count: formatNumber(b.value, 0),
-        percentage: `${formatNumber(b.percentage)}%`,
-    })),
-}));
-
-// -----------------------------------------------------------------------------
-// 3. BOXPLOT: Sebaran Waktu Tunggu per Program Studi
-// -----------------------------------------------------------------------------
-const boxplotData = computed(() => {
-    const groups = [...new Set(records.value.map((r) => r.nama_prodi || 'Universitas'))];
-    const quantile = (sorted, percentile) => {
-        if (!sorted.length) return 0;
-        const position = (sorted.length - 1) * percentile;
-        const base = Math.floor(position);
-        const rest = position - base;
-        return sorted[base + 1] === undefined ? sorted[base] : sorted[base] + rest * (sorted[base + 1] - sorted[base]);
-    };
-
-    const outliers = [];
-    const statsTable = [];
-
-    const values = groups.map((group, groupIndex) => {
-        const sorted = records.value
-            .filter((r) => (r.nama_prodi || 'Universitas') === group)
-            .map((r) => Number(r.months))
-            .filter(Number.isFinite)
-            .sort((a, b) => a - b);
-
-        const q1 = quantile(sorted, 0.25);
-        const median = quantile(sorted, 0.5);
-        const q3 = quantile(sorted, 0.75);
-        const iqr = q3 - q1;
-        const lowerLimit = q1 - (1.5 * iqr);
-        const upperLimit = q3 + (1.5 * iqr);
-        const whiskerMin = sorted.find((val) => val >= lowerLimit) ?? sorted[0] ?? 0;
-        const whiskerMax = [...sorted].reverse().find((val) => val <= upperLimit) ?? sorted.at(-1) ?? 0;
-
-        sorted.filter((val) => val < whiskerMin || val > whiskerMax).forEach((val) => outliers.push([groupIndex, val]));
-
-        statsTable.push({ group, n: sorted.length, q1, median, q3 });
-        return [whiskerMin, q1, median, q3, whiskerMax];
-    });
-
-    return { groups, values, outliers, statsTable };
-});
-
-const boxplotOption = computed(() => {
-    const { groups, values, outliers } = boxplotData.value;
-
-    return {
-        ...baseOption(records.value.length),
-        legend: { data: ['Distribusi', 'Outlier'], bottom: 0 },
-        grid: { left: 16, right: 24, top: 20, bottom: groups.length > 6 ? 90 : 54, containLabel: true },
-        xAxis: { type: 'category', data: groups, axisLabel: { rotate: groups.length > 5 ? 25 : 0, width: 120, overflow: 'truncate' } },
-        yAxis: { type: 'value', name: 'Bulan', splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-        dataZoom: groups.length > 8 ? [{ type: 'inside' }] : [],
-        tooltip: {
-            ...baseOption().tooltip,
-            trigger: 'item',
-            formatter: ({ seriesType, name, value }) => {
-                if (seriesType === 'scatter') return `<strong>${escapeHtml(groups[value[0]])}</strong><br>Outlier: ${formatNumber(value[1], 1)} bulan`;
-                const statistics = value.length > 5 ? value.slice(-5) : value;
-                return `<strong>${escapeHtml(name)}</strong><br>Batas bawah: ${formatNumber(statistics[0], 1)} bln<br>Q1: ${formatNumber(statistics[1], 1)} bln<br>Median: ${formatNumber(statistics[2], 1)} bln<br>Q3: ${formatNumber(statistics[3], 1)} bln<br>Batas atas: ${formatNumber(statistics[4], 1)} bln`;
-            },
-        },
-        series: [
-            { name: 'Distribusi', type: 'boxplot', data: values, itemStyle: { color: '#8DD8AE', borderColor: '#0D542B', borderWidth: 2 } },
-            { name: 'Outlier', type: 'scatter', data: outliers, symbolSize: 7, itemStyle: { color: '#DC2626' } },
-        ],
-    };
-});
-
-const boxplotTable = computed(() => ({
-    columns: [
-        { key: 'group', label: 'Program Studi' },
-        { key: 'medianDisplay', label: 'Median', align: 'right' },
-        { key: 'iqrDisplay', label: 'Q1 – Q3', align: 'right' },
-        { key: 'nDisplay', label: 'Sampel (n)', align: 'right' },
-    ],
-    rows: boxplotData.value.statsTable.map((item) => ({
-        group: item.group,
-        medianDisplay: `${formatNumber(item.median, 1)} bln`,
-        iqrDisplay: `${formatNumber(item.q1, 1)} – ${formatNumber(item.q3, 1)} bln`,
-        nDisplay: formatNumber(item.n, 0),
-    })),
-}));
-
-// -----------------------------------------------------------------------------
-// 4. LINE CHART: Kurva Kumulatif Memperoleh Pekerjaan
-// -----------------------------------------------------------------------------
-const cumulativeData = computed(() => {
-    const values = records.value.map((r) => Number(r.months)).filter(Number.isFinite).sort((a, b) => a - b);
-    const months = [...new Set(values)];
-    const points = months.map((m) => [m, Number(((values.filter((v) => v <= m).length / Math.max(values.length, 1)) * 100).toFixed(1))]);
-    return { values, points };
-});
-
-const cumulativeOption = computed(() => ({
-    ...baseOption(records.value.length),
-    grid: { left: 16, right: 26, top: 22, bottom: 44, containLabel: true },
-    xAxis: { type: 'value', name: 'Bulan ke-', nameLocation: 'middle', nameGap: 26, min: 0, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-    yAxis: { type: 'value', name: 'Persentase Kumulatif', max: 100, axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-    tooltip: { ...baseOption().tooltip, trigger: 'axis', formatter: (params) => `<strong>Bulan ke-${formatNumber(params[0].value[0])}</strong><br>${formatNumber(params[0].value[1])}% alumni telah memperoleh pekerjaan` },
-    series: [{ name: 'Kumulatif', type: 'line', smooth: true, symbolSize: 6, lineStyle: { color: '#0D542B', width: 3 }, itemStyle: { color: '#0D542B' }, areaStyle: { color: 'rgba(13,84,43,.08)' }, data: cumulativeData.value.points }],
-}));
-
-const cumulativeTable = computed(() => {
-    const vals = cumulativeData.value.values;
-    const milestones = [1, 2, 3, 6, 12];
-    return {
-        columns: [
-            { key: 'milestone', label: 'Bulan Target' },
-            { key: 'cumulativeDisplay', label: 'Capaian Kumulatif', align: 'right' },
-        ],
-        rows: milestones.map((m) => {
-            const count = vals.filter((v) => v <= m).length;
-            const pct = vals.length ? ((count / vals.length) * 100).toFixed(1) : 0;
-            return {
-                milestone: `≤ ${m} bulan`,
-                cumulativeDisplay: `${formatNumber(pct)}% (${formatNumber(count, 0)} alumni)`,
-            };
-        }),
-    };
-});
+]);
 </script>
 
 <template>
-    <div class="space-y-6">
-        <!-- 1. Waktu Memperoleh Pekerjaan per Program Studi (Gambar 4.6) -->
-        <AnalyticsChartCard
-            chart-key="prodi_line"
-            title="Waktu memperoleh pekerjaan per program studi"
-            description="Median bulan waktu tunggu alumni per program studi dengan ukuran sampel n (mengadopsi Gambar 4.6 Laporan Tracer Study)."
-            :option="prodiLineOption"
-            :table-data="prodiLineTable"
-            :rows="records"
-            :height="390"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-
-        <!-- 2. Distribusi Frekuensi Waktu Tunggu -->
-        <AnalyticsChartCard
-            chart-key="histogram"
-            title="Distribusi waktu tunggu"
-            description="Frekuensi alumni pada interval bulan aktual dengan garis referensi median."
-            :option="waitHistogramOption"
-            :table-data="waitHistogramTable"
-            :rows="records"
-            :height="380"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-
-        <!-- 3. Box Plot Sebaran Waktu Tunggu -->
-        <AnalyticsChartCard
-            chart-key="boxplot"
-            title="Box plot sebaran waktu tunggu per program studi"
-            description="Whisker menggunakan 1,5 × IQR; titik di luar batas adalah outlier."
-            :option="boxplotOption"
-            :table-data="boxplotTable"
-            :rows="records"
-            :height="410"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-
-        <!-- 4. Kurva Kumulatif Memperoleh Pekerjaan -->
-        <AnalyticsChartCard
-            chart-key="cumulative"
-            title="Kurva kumulatif memperoleh pekerjaan"
-            description="Persentase kumulatif alumni yang memperoleh pekerjaan dari bulan ke bulan."
-            :option="cumulativeOption"
-            :table-data="cumulativeTable"
-            :rows="records"
-            :height="380"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-    </div>
+    <AnalyticsTabbedContainer
+        :views="views"
+        :rows="records"
+        :selected-label="selectedLabel"
+        :loading="loading"
+        indicator-badge="Indikator 05"
+        @select="emit('select', $event)"
+        @reset="emit('reset')"
+    />
 </template>

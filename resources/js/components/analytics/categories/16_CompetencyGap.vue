@@ -1,21 +1,18 @@
 <script setup>
 /**
- * Komponen Indikator 16: Gap Kompetensi Lulusan.
+ * Komponen Indikator 16: Gap Kompetensi Lulusan (F17).
  *
- * Mengelola seluruh visualisasi dan data tabel secara mandiri di dalam berkas ini:
- * 1. Line Chart: Perbandingan Kompetensi Saat Lulus vs Dibutuhkan (Gambar 4.17 laporan resmi)
- * 2. Dumbbell Chart: Rentang Gap Kompetensi per Dimensi
- * 3. Radar Chart: Profil Jaring Laba-laba Kompetensi
- * 4. Heatmap: Pola Antarprogram Studi
+ * Mengelola visualisasi gap kompetensi lulusan dalam 1 grafik terpadu:
+ * - Batang (Bar): Kompetensi Saat Lulus (A) dan Kompetensi Diperlukan di Pekerjaan (B).
+ * - Garis (Line): Gap Selisih (A - B) dengan penanda surplus (+) atau defisit (-).
+ * Dilengkapi narasi analisis mendalam berstandar laporan resmi Tracer Study UKDW Subbab 4.17.
  */
 import { computed } from 'vue';
-import AnalyticsChartCard from '../AnalyticsChartCard.vue';
+import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
 import {
-    analyticsPalette,
     baseOption,
     escapeHtml,
     formatNumber,
-    recordCategory,
     seriesLabel,
 } from '../analyticsChartOptions';
 
@@ -33,357 +30,251 @@ const emit = defineEmits(['select', 'reset']);
 // Ekstraksi data seri dan catatan responden valid.
 const series = computed(() => props.chart?.series || []);
 const records = computed(() => props.chart?.records || []);
-const validResponses = computed(() => props.chart?.summary?.answered_count || records.value.length);
+const summary = computed(() => props.chart?.summary || {});
+const validResponses = computed(() => summary.value.answered_count || records.value.length);
 
 // -----------------------------------------------------------------------------
-// 1. LINE CHART: Perbandingan Kompetensi Saat Lulus vs Dibutuhkan (Means)
+// 1 GRAFIK TERPADU: Batang (Saat Lulus & Diperlukan) + Garis (Gap Selisih)
 // -----------------------------------------------------------------------------
-const competencyLineOption = computed(() => {
+const unifiedOption = computed(() => {
     const labels = series.value.map(seriesLabel);
     const gradScores = series.value.map((item) => Number(item.graduation_score || 0));
     const needScores = series.value.map((item) => Number(item.need_score || 0));
+    const gapScores = series.value.map((item) => {
+        const grad = Number(item.graduation_score || 0);
+        const need = Number(item.need_score || 0);
+        return Number((grad - need).toFixed(2));
+    });
 
     return {
         ...baseOption(validResponses.value),
         legend: {
-            data: ['Kompetensi Saat Lulus', 'Kompetensi Dibutuhkan'],
+            data: ['Kompetensi Saat Lulus (Batang)', 'Kompetensi Diperlukan Kerja (Batang)', 'Gap Selisih Surplus/Defisit (Garis)'],
             bottom: 0,
             icon: 'circle',
-            textStyle: { color: '#334155', fontWeight: 600 },
+            textStyle: { color: '#334155', fontWeight: 600, fontSize: 11 },
         },
-        grid: { left: 16, right: 34, top: 28, bottom: 48, containLabel: true },
+        grid: { left: 24, right: 48, top: 36, bottom: 64, containLabel: true },
         xAxis: {
             type: 'category',
             data: labels,
-            axisLabel: { rotate: labels.length > 5 ? 24 : 0, color: '#334155', width: 110, overflow: 'truncate' },
+            axisLabel: {
+                color: '#334155',
+                fontSize: 11,
+                interval: 0,
+                width: 110,
+                overflow: 'break',
+                lineHeight: 14,
+            },
             axisLine: { lineStyle: { color: '#CBD5E1' } },
         },
-        yAxis: {
-            type: 'value',
-            min: 1,
-            max: 5,
-            interval: 0.5,
-            name: 'Skor Likert (1 - 5)',
-            axisLabel: { color: '#64748B' },
-            splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
-        },
+        yAxis: [
+            {
+                type: 'value',
+                min: 0,
+                max: 5,
+                interval: 1,
+                name: 'Skor Likert (1 - 5)',
+                axisLabel: { color: '#64748B' },
+                splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
+            },
+            {
+                type: 'value',
+                min: -3,
+                max: 3,
+                interval: 1,
+                name: 'Gap Selisih',
+                nameTextStyle: { color: '#475569', fontWeight: 600 },
+                axisLabel: {
+                    color: '#475569',
+                    formatter: (v) => (v > 0 ? `+${v}` : `${v}`),
+                },
+                splitLine: { show: false },
+            },
+        ],
         tooltip: {
             ...baseOption().tooltip,
             trigger: 'axis',
+            axisPointer: { type: 'shadow' },
             formatter: (params) => {
                 const titleText = escapeHtml(params[0]?.name || '');
-                const grad = Number(params.find((p) => p.seriesName === 'Kompetensi Saat Lulus')?.value || 0);
-                const need = Number(params.find((p) => p.seriesName === 'Kompetensi Dibutuhkan')?.value || 0);
-                const gap = Number((need - grad).toFixed(2));
-                const gapNote = gap > 0
-                    ? `<span style="color:#F59E0B">Gap deficit: +${formatNumber(gap, 2)} (perlu ditingkatkan)</span>`
-                    : `<span style="color:#10B981">Gap surplus: ${formatNumber(gap, 2)} (terpenuhi)</span>`;
-                return `<strong>${titleText}</strong><br>Saat lulus: <strong>${formatNumber(grad, 2)}</strong><br>Dibutuhkan: <strong>${formatNumber(need, 2)}</strong><br>${gapNote}<br>N valid: ${formatNumber(validResponses.value, 0)}`;
+                const grad = Number(params.find((p) => p.seriesName.includes('Saat Lulus'))?.value || 0);
+                const need = Number(params.find((p) => p.seriesName.includes('Diperlukan'))?.value || 0);
+                const gap = Number((grad - need).toFixed(2));
+                const gapSign = gap > 0 ? `+${gap}` : `${gap}`;
+                const gapStatus = gap >= 0
+                    ? '<span class="text-emerald-400 font-bold">Surplus (Bekal Terpenuhi)</span>'
+                    : '<span class="text-rose-400 font-bold">Defisit (Perlu Penguatan)</span>';
+
+                return `
+                    <div class="space-y-1">
+                        <p class="font-extrabold text-sm border-b border-slate-700 pb-1 text-white">${titleText}</p>
+                        <p class="text-xs text-slate-200">Saat Lulus (A): <strong class="text-white">${formatNumber(grad, 2)}</strong></p>
+                        <p class="text-xs text-slate-300">Diperlukan Kerja (B): <strong class="text-white">${formatNumber(need, 2)}</strong></p>
+                        <p class="text-xs text-slate-200">Gap Selisih (A - B): <strong class="text-white">${gapSign}</strong> (${gapStatus})</p>
+                    </div>
+                `;
             },
         },
         series: [
             {
-                name: 'Kompetensi Saat Lulus',
-                type: 'line',
+                name: 'Kompetensi Saat Lulus (Batang)',
+                type: 'bar',
+                yAxisIndex: 0,
+                barMaxWidth: 22,
                 data: gradScores,
-                itemStyle: { color: '#2563EB' },
-                lineStyle: { width: 3, color: '#2563EB' },
-                symbol: 'circle',
-                symbolSize: 8,
-                emphasis: { scale: 1.6 },
-                label: { show: true, position: 'top', color: '#1D4ED8', fontWeight: 600, formatter: ({ value }) => formatNumber(value, 2) },
+                itemStyle: { color: '#0D542B', borderRadius: [4, 4, 0, 0] },
+                label: {
+                    show: true,
+                    position: 'top',
+                    formatter: ({ value }) => formatNumber(value, 2),
+                    fontSize: 10,
+                    fontWeight: 'bold',
+                    color: '#0D542B',
+                },
             },
             {
-                name: 'Kompetensi Dibutuhkan',
-                type: 'line',
+                name: 'Kompetensi Diperlukan Kerja (Batang)',
+                type: 'bar',
+                yAxisIndex: 0,
+                barMaxWidth: 22,
                 data: needScores,
-                itemStyle: { color: '#0D542B' },
-                lineStyle: { width: 3, color: '#0D542B' },
-                symbol: 'rect',
+                itemStyle: { color: '#94A3B8', borderRadius: [4, 4, 0, 0] },
+                label: {
+                    show: true,
+                    position: 'top',
+                    formatter: ({ value }) => formatNumber(value, 2),
+                    fontSize: 10,
+                    fontWeight: 'bold',
+                    color: '#475569',
+                },
+            },
+            {
+                name: 'Gap Selisih Surplus/Defisit (Garis)',
+                type: 'line',
+                yAxisIndex: 1,
+                z: 10,
+                data: gapScores,
+                itemStyle: { color: '#334155' },
+                lineStyle: { width: 3, color: '#334155' },
+                symbol: 'circle',
                 symbolSize: 8,
-                emphasis: { scale: 1.6 },
-                label: { show: true, position: 'bottom', color: '#0A4322', fontWeight: 600, formatter: ({ value }) => formatNumber(value, 2) },
+                label: {
+                    show: true,
+                    position: 'top',
+                    distance: 6,
+                    formatter: ({ value }) => (value > 0 ? `+${formatNumber(value, 2)}` : formatNumber(value, 2)),
+                    fontSize: 10,
+                    fontWeight: 'bold',
+                    color: '#334155',
+                },
+                markLine: {
+                    symbol: 'none',
+                    data: [
+                        {
+                            yAxis: 0,
+                            lineStyle: { color: '#CBD5E1', type: 'dashed', width: 1.5 },
+                            label: { show: true, formatter: 'Impas (0)', position: 'end', color: '#64748B', fontSize: 10 },
+                        },
+                    ],
+                },
             },
         ],
     };
 });
 
-const competencyLineTable = computed(() => ({
+const unifiedTable = computed(() => ({
     columns: [
-        { key: 'name', label: 'Dimensi Kompetensi' },
-        { key: 'graduation', label: 'Saat Lulus', align: 'right' },
-        { key: 'need', label: 'Dibutuhkan', align: 'right' },
-        { key: 'gap', label: 'Gap (Selisih)', align: 'right' },
+        { key: 'name', label: 'Dimensi Kompetensi (7 Aspek F17)' },
+        { key: 'graduation', label: 'Saat Lulus (A)', align: 'right' },
+        { key: 'need', label: 'Diperlukan Kerja (B)', align: 'right' },
+        { key: 'gap', label: 'Gap Selisih (A - B)', align: 'right' },
         { key: 'status', label: 'Status Evaluasi', align: 'center' },
     ],
     rows: series.value.map((item) => {
         const grad = Number(item.graduation_score || 0);
         const need = Number(item.need_score || 0);
-        const gap = Number((need - grad).toFixed(2));
+        const gap = Number((grad - need).toFixed(2));
         return {
             name: seriesLabel(item),
             graduation: formatNumber(grad, 2),
             need: formatNumber(need, 2),
             gap: gap > 0 ? `+${formatNumber(gap, 2)}` : formatNumber(gap, 2),
-            status: gap > 0 ? 'Perlu Ditingkatkan' : 'Terpenuhi',
-            isDeficit: gap > 0,
+            status: gap >= 0 ? 'Surplus (Terpenuhi)' : 'Defisit (Evaluasi)',
         };
     }),
 }));
 
-// -----------------------------------------------------------------------------
-// 2. DUMBBELL CHART: Rentang Gap Kompetensi
-// -----------------------------------------------------------------------------
-const sortedDumbbell = computed(() => [...series.value].sort((left, right) => Number(right.gap || 0) - Number(left.gap || 0)));
-
-const dumbbellOption = computed(() => {
-    const list = sortedDumbbell.value;
-
-    return {
-        ...baseOption(validResponses.value),
-        grid: { left: 16, right: 32, top: 20, bottom: 30, containLabel: true },
-        xAxis: { type: 'value', min: 0, max: 5, interval: 1, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-        yAxis: { type: 'category', inverse: true, data: list.map(seriesLabel), axisLabel: { width: 160, overflow: 'truncate' } },
-        tooltip: {
-            ...baseOption().tooltip,
-            formatter: ({ data }) => `<strong>${escapeHtml(data.name)}</strong><br>Saat lulus: <strong>${formatNumber(data.value[0], 2)}</strong><br>Dibutuhkan: <strong>${formatNumber(data.value[1], 2)}</strong><br>Gap: <strong>${formatNumber(data.value[1] - data.value[0], 2)}</strong>`,
-        },
-        series: [{
-            name: 'Gap kompetensi',
-            type: 'custom',
-            renderItem: (params, api) => {
-                const graduation = api.coord([api.value(0), api.value(2)]);
-                const need = api.coord([api.value(1), api.value(2)]);
-                return {
-                    type: 'group',
-                    children: [
-                        { type: 'line', shape: { x1: graduation[0], y1: graduation[1], x2: need[0], y2: need[1] }, style: { stroke: '#94A3B8', lineWidth: 4 } },
-                        { type: 'circle', shape: { cx: graduation[0], cy: graduation[1], r: 7 }, style: { fill: '#2563EB' } },
-                        { type: 'circle', shape: { cx: need[0], cy: need[1], r: 7 }, style: { fill: '#0D542B' } },
-                    ],
-                };
-            },
-            encode: { x: [0, 1], y: 2 },
-            data: list.map((item, index) => ({ name: seriesLabel(item), value: [Number(item.graduation_score || 0), Number(item.need_score || 0), index] })),
-        }],
-    };
-});
-
-const dumbbellTable = computed(() => ({
-    columns: [
-        { key: 'name', label: 'Dimensi' },
-        { key: 'grad', label: 'Saat Lulus', align: 'right' },
-        { key: 'need', label: 'Dibutuhkan', align: 'right' },
-        { key: 'gap', label: 'Gap', align: 'right' },
-    ],
-    rows: sortedDumbbell.value.map((item) => ({
-        name: seriesLabel(item),
-        grad: formatNumber(item.graduation_score, 2),
-        need: formatNumber(item.need_score, 2),
-        gap: formatNumber(Number(item.need_score || 0) - Number(item.graduation_score || 0), 2),
-    })),
-}));
-
-// -----------------------------------------------------------------------------
-// 3. RADAR CHART: Profil Radar Kompetensi
-// -----------------------------------------------------------------------------
-const radarOption = computed(() => ({
-    ...baseOption(validResponses.value),
-    legend: { data: ['Saat lulus', 'Dibutuhkan'], bottom: 0 },
-    radar: {
-        center: ['50%', '47%'],
-        radius: '66%',
-        indicator: series.value.map((item) => ({ name: seriesLabel(item), max: 5 })),
-        axisName: { color: '#334155', fontSize: 11 },
-        splitArea: { areaStyle: { color: ['#FFFFFF', '#F8FAFC'] } },
-        splitLine: { lineStyle: { color: '#CBD5E1' } },
-    },
-    tooltip: { ...baseOption().tooltip, trigger: 'item' },
-    series: [{
-        type: 'radar',
-        data: [
-            { name: 'Saat lulus', value: series.value.map((item) => Number(item.graduation_score || 0)), areaStyle: { color: 'rgba(37,99,235,.15)' }, lineStyle: { color: '#2563EB', width: 2 }, itemStyle: { color: '#2563EB' } },
-            { name: 'Dibutuhkan', value: series.value.map((item) => Number(item.need_score || 0)), areaStyle: { color: 'rgba(13,84,43,.15)' }, lineStyle: { color: '#0D542B', width: 2 }, itemStyle: { color: '#0D542B' } },
-        ],
-    }],
-}));
-
-const radarTable = computed(() => ({
-    columns: [
-        { key: 'name', label: 'Dimensi Kompetensi' },
-        { key: 'grad', label: 'Saat Lulus', align: 'right' },
-        { key: 'need', label: 'Dibutuhkan', align: 'right' },
-    ],
-    rows: series.value.map((item) => ({
-        name: seriesLabel(item),
-        grad: formatNumber(item.graduation_score, 2),
-        need: formatNumber(item.need_score, 2),
-    })),
-}));
-
-// -----------------------------------------------------------------------------
-// 4. HEATMAP: Pola Antarprogram Studi
-// -----------------------------------------------------------------------------
-const prodis = computed(() => [...new Set(records.value.map((record) => record.nama_prodi || 'Tanpa prodi'))]);
-const categories = computed(() => [...new Set(records.value.map(recordCategory))]);
-
-const heatmapData = computed(() => {
-    const listProdis = prodis.value;
-    const listCats = categories.value;
-    const totals = Object.fromEntries(listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]));
-    const values = [];
-
-    listProdis.forEach((prodi, yIndex) => {
-        listCats.forEach((category, xIndex) => {
-            const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === category).length;
-            const val = props.heatmapMode === 'percentage' ? Number(((count / Math.max(totals[prodi], 1)) * 100).toFixed(1)) : count;
-            values.push({
-                value: [xIndex, yIndex, val],
-                category,
-                prodi,
-                count,
-                itemStyle: { opacity: !props.selectedLabel || category === props.selectedLabel ? 1 : 0.22 },
-            });
-        });
+// Narasi analisis dinamis Gambar 4.17 berdasarkan data aktual
+const dynamicGapAnalysis = computed(() => {
+    const items = series.value.map((item) => {
+        const grad = Number(item.graduation_score || 0);
+        const need = Number(item.need_score || 0);
+        const gap = Number((grad - need).toFixed(2));
+        return {
+            name: seriesLabel(item),
+            grad,
+            need,
+            gap,
+        };
     });
 
-    const maximum = Math.max(...values.map((v) => v.value[2]), 1);
-    return { values, maximum };
-});
+    if (items.length === 0) {
+        return {
+            title: 'Kilas Analisis Kompetensi & Gap Lulusan (Gambar 4.17)',
+            statusBadge: 'Gambar 4.17',
+            badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+            lead: 'Data kompetensi lulusan sedang dimuat.',
+            detail: '',
+        };
+    }
 
-const heatmapOption = computed(() => {
-    const { values, maximum } = heatmapData.value;
+    const sortedByGap = [...items].sort((a, b) => b.gap - a.gap);
+    const topGap = sortedByGap[0];
+    const bottomGap = sortedByGap[sortedByGap.length - 1];
+
+    const sortedByGrad = [...items].sort((a, b) => b.grad - a.grad);
+    const topGrad = sortedByGrad[0];
+    const bottomGrad = sortedByGrad[sortedByGrad.length - 1];
+
+    const rincianList = sortedByGap.map((i, idx) => `${idx + 1}. ${i.name} (gap: ${i.gap > 0 ? `+${formatNumber(i.gap, 2)}` : formatNumber(i.gap, 2)})`).join(', ');
+
+    const lead = `Gambar 4.17 menyajikan perbandingan bekal kompetensi saat lulus dengan kebutuhan dunia kerja beserta gap selisihnya pada 7 dimensi. Kompetensi dengan kepemilikan tertinggi saat lulus adalah ${topGrad.name} (skor ${formatNumber(topGrad.grad, 2)}), sedangkan terendah adalah ${bottomGrad.name} (skor ${formatNumber(bottomGrad.grad, 2)}).`;
+
+    const detail = `Berdasarkan selisih gap (bekal lulus dikurangi kebutuhan kerja), dimensi dengan gap paling surplus/selaras adalah ${topGap.name} (${topGap.gap > 0 ? `+${formatNumber(topGap.gap, 2)}` : formatNumber(topGap.gap, 2)}), sementara dimensi dengan defisit terbesar yang paling membutuhkan penguatan kurikulum adalah ${bottomGap.name} (${bottomGap.gap > 0 ? `+${formatNumber(bottomGap.gap, 2)}` : formatNumber(bottomGap.gap, 2)}). Rincian urutan gap 7 dimensi dari tertinggi ke terendah: ${rincianList}.`;
 
     return {
-        ...baseOption(records.value.length),
-        grid: { left: 12, right: 24, top: 20, bottom: categories.value.length > 5 ? 100 : 64, containLabel: true },
-        xAxis: {
-            type: 'category',
-            data: categories.value,
-            axisLabel: { rotate: categories.value.length > 4 ? 26 : 0, color: '#334155', width: 110, overflow: 'truncate' },
-            splitArea: { show: false },
-        },
-        yAxis: {
-            type: 'category',
-            data: prodis.value,
-            axisLabel: { color: '#334155', width: 130, overflow: 'truncate' },
-            splitArea: { show: false },
-        },
-        visualMap: {
-            min: 0,
-            max: maximum,
-            calculable: true,
-            orient: 'horizontal',
-            left: 'center',
-            bottom: 0,
-            inRange: { color: ['#F8FAFC', '#BBF7D0', '#4ADE80', '#16A34A', '#0D542B'] },
-            text: [props.heatmapMode === 'percentage' ? 'Tinggi (%)' : 'Tinggi', 'Rendah'],
-            textStyle: { color: '#475569', fontSize: 11 },
-        },
-        tooltip: {
-            ...baseOption().tooltip,
-            formatter: ({ data }) => `<strong>${escapeHtml(data.prodi)}</strong><br>${escapeHtml(data.category)}<br>Jumlah: <strong>${formatNumber(data.count, 0)}</strong>${props.heatmapMode === 'percentage' ? `<br>Proporsi: <strong>${formatNumber(data.value[2])}%</strong>` : ''}`,
-        },
-        series: [{
-            name: props.heatmapMode === 'percentage' ? 'Persentase' : 'Jumlah',
-            type: 'heatmap',
-            data: values,
-            itemStyle: { borderColor: '#FFFFFF', borderWidth: 1 },
-            label: {
-                show: values.length <= 80,
-                fontSize: 10,
-                color: (param) => param.data?.value[2] > maximum * 0.45 ? '#FFFFFF' : '#1E293B',
-                formatter: ({ value }) => value[2] > 0 ? value[2] : '',
-            },
-            progressive: 1000,
-        }],
+        title: 'Kilas Analisis Kompetensi & Gap Lulusan (Gambar 4.17)',
+        statusBadge: 'Gambar 4.17 Dinamis',
+        badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+        lead,
+        detail,
     };
 });
 
-const heatmapTable = computed(() => {
-    const { values } = heatmapData.value;
-    return {
-        columns: [
-            { key: 'prodi', label: 'Program Studi' },
-            { key: 'total', label: 'Total Respon', align: 'right' },
-            { key: 'topCategory', label: 'Dimensi Tertinggi', align: 'left' },
-        ],
-        rows: prodis.value.map((prodi) => {
-            const prodiValues = values.filter((v) => v.prodi === prodi);
-            const total = prodiValues.reduce((sum, v) => sum + v.count, 0);
-            const top = [...prodiValues].sort((a, b) => b.count - a.count)[0];
-            return {
-                prodi,
-                total: formatNumber(total, 0),
-                topCategory: top && top.count > 0 ? `${top.category} (${top.count})` : '-',
-            };
-        }),
-    };
-});
+// Konfigurasi views: 1 grafik terpadu gabungan Bar + Line Chart
+const views = computed(() => [
+    {
+        key: 'unified_gap',
+        tabLabel: 'Kompetensi & Gap Selisih',
+        title: 'Kompetensi saat lulus, diperlukan kerja, dan gap selisih',
+        description: 'Grafik terpadu: batang hijau mengukur bekal saat lulus UKDW, batang slate mengukur kebutuhan dunia kerja, dan garis slate tegas memperlihatkan gap selisih kompetensi.',
+        option: unifiedOption.value,
+        tableData: unifiedTable.value,
+        height: 420,
+        analysis: dynamicGapAnalysis.value,
+    },
+]);
 </script>
 
 <template>
-    <div class="space-y-6">
-        <!-- 1. Perbandingan Kompetensi Saat Lulus dan Dibutuhkan (Means) -->
-        <AnalyticsChartCard
-            chart-key="competency_line"
-            title="Perbandingan kompetensi saat lulus dan yang diperlukan (Means)"
-            description="Grafik garis perbandingan skor penguasaan saat lulus vs kebutuhan pekerjaan (mengadopsi Gambar 4.17 Laporan Tracer Study)."
-            :option="competencyLineOption"
-            :table-data="competencyLineTable"
-            :rows="records"
-            :height="420"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-
-        <!-- 2. Rentang Gap Kompetensi (Dumbbell) -->
-        <AnalyticsChartCard
-            chart-key="dumbbell"
-            title="Rentang gap kompetensi"
-            description="Dua titik dan garis rentang memperlihatkan selisih kompetensi pada setiap dimensi."
-            :option="dumbbellOption"
-            :table-data="dumbbellTable"
-            :rows="records"
-            :height="Math.max(360, series.length * 42 + 90)"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-
-        <!-- 3. Profil Radar Kompetensi -->
-        <AnalyticsChartCard
-            chart-key="radar"
-            title="Profil radar kompetensi"
-            description="Visualisasi jaring laba-laba untuk perbandingan dimensi pada skala 1-5."
-            :option="radarOption"
-            :table-data="radarTable"
-            :rows="records"
-            :height="420"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-
-        <!-- 4. Pola Skor per Program Studi (Heatmap) -->
-        <AnalyticsChartCard
-            chart-key="heatmap"
-            title="Pola antarprogram studi"
-            :description="heatmapMode === 'percentage'
-                ? 'Intensitas dan angka sel menunjukkan persentase kategori dalam setiap program studi.'
-                : 'Intensitas dan angka sel menunjukkan jumlah record pada setiap kategori dan program studi.'"
-            :option="heatmapOption"
-            :table-data="heatmapTable"
-            :rows="records"
-            :height="Math.max(360, prodis.length * 34 + 140)"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-    </div>
+    <AnalyticsTabbedContainer
+        :views="views"
+        :rows="records"
+        :selected-label="selectedLabel"
+        :loading="loading"
+        indicator-badge="Indikator 16"
+        @select="emit('select', $event)"
+        @reset="emit('reset')"
+    />
 </template>

@@ -23,9 +23,11 @@ import {
     AriaComponent,
     DataZoomComponent,
     DatasetComponent,
+    GraphicComponent,
     GridComponent,
     LegendComponent,
     MarkLineComponent,
+    RadarComponent,
     TitleComponent,
     ToolboxComponent,
     TooltipComponent,
@@ -45,6 +47,7 @@ echarts.use([
     DataZoomComponent,
     DatasetComponent,
     FunnelChart,
+    GraphicComponent,
     GridComponent,
     HeatmapChart,
     LabelLayout,
@@ -53,6 +56,7 @@ echarts.use([
     MarkLineComponent,
     PieChart,
     RadarChart,
+    RadarComponent,
     SankeyChart,
     ScatterChart,
     TitleComponent,
@@ -87,6 +91,11 @@ const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion:
 const renderChart = async () => {
     await nextTick();
     if (!chartElement.value) return;
+
+    // Hindari inisialisasi jika elemen belum memiliki dimensi (misal saat tersembunyi pada tab)
+    if (chartElement.value.clientWidth === 0 || chartElement.value.clientHeight === 0) {
+        return;
+    }
 
     if (!chartInstance) {
         chartInstance = echarts.init(chartElement.value, null, { renderer: 'canvas' });
@@ -148,7 +157,13 @@ const toggleLegend = () => {
 };
 
 // Memaksa resize setelah container masuk mode fullscreen atau berubah layout.
-const resize = () => chartInstance?.resize();
+const resize = () => {
+    if (!chartInstance && chartElement.value && chartElement.value.clientWidth > 0) {
+        renderChart();
+        return;
+    }
+    chartInstance?.resize();
+};
 
 // Lifecycle membuat ResizeObserver dan membuang instance ketika komponen hilang.
 onMounted(() => {

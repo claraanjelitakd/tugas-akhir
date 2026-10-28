@@ -9,7 +9,7 @@
 -->
 <script setup>
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import Sidebar from '../Components/Sidebar.vue';
 
@@ -20,12 +20,158 @@ const props = defineProps({
     fakultas: Array,
     filters: Object,
     stats: Object,
+    unsynced_candidates: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const search = ref(props.filters.search || '');
 const selectedRole = ref(props.filters.role || 'all');
 const selectedProdi = ref(props.filters.prodi_id || '');
 const selectedFakultas = ref(props.filters.fakultas_id || '');
+const isSyncing = ref(false);
+
+// State Modal Sinkronisasi Akun Lulusan dengan Checklist
+const isSyncModalOpen = ref(false);
+const selectedCandidateNims = ref([]);
+const candidateSearch = ref('');
+const candidateFilterYear = ref('all');
+
+const candidateYears = computed(() => {
+    const years = (props.unsynced_candidates || []).map(c => c.tahun_lulus).filter(y => y && y !== '-');
+    return [...new Set(years)].sort().reverse();
+});
+
+const filteredCandidates = computed(() => {
+    return (props.unsynced_candidates || []).filter(c => {
+        const q = candidateSearch.value.trim().toLowerCase();
+        const matchesSearch = !q ||
+            c.nim.toLowerCase().includes(q) ||
+            c.nama.toLowerCase().includes(q) ||
+            c.prodi_nama.toLowerCase().includes(q);
+
+        const matchesYear = candidateFilterYear.value === 'all' || c.tahun_lulus === candidateFilterYear.value;
+
+        return matchesSearch && matchesYear;
+    });
+});
+
+const isAllCandidatesSelected = computed(() => {
+    if (filteredCandidates.value.length === 0) return false;
+    return filteredCandidates.value.every(c => selectedCandidateNims.value.includes(c.nim));
+});
+
+const openSyncModal = () => {
+    if (!props.unsynced_candidates || props.unsynced_candidates.length === 0) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Semua Akun Sudah Sinkron',
+            text: 'Seluruh data mahasiswa berstatus Lulus di data akademik sudah memiliki akun pengguna dan profil biodata.',
+            confirmButtonColor: '#0D542B',
+        });
+        return;
+    }
+
+    candidateSearch.value = '';
+    candidateFilterYear.value = 'all';
+    selectedCandidateNims.value = props.unsynced_candidates.map(c => c.nim);
+    isSyncModalOpen.value = true;
+};
+
+const closeSyncModal = () => {
+    isSyncModalOpen.value = false;
+};
+
+const toggleSelectAllCandidates = () => {
+    if (isAllCandidatesSelected.value) {
+        const nimsToRemove = new Set(filteredCandidates.value.map(c => c.nim));
+        selectedCandidateNims.value = selectedCandidateNims.value.filter(nim => !nimsToRemove.has(nim));
+    } else {
+        const newSelected = new Set(selectedCandidateNims.value);
+        filteredCandidates.value.forEach(c => newSelected.add(c.nim));
+        selectedCandidateNims.value = Array.from(newSelected);
+    }
+};
+
+const toggleCandidate = (nim) => {
+    const idx = selectedCandidateNims.value.indexOf(nim);
+    if (idx > -1) {
+        selectedCandidateNims.value.splice(idx, 1);
+    } else {
+        selectedCandidateNims.value.push(nim);
+    }
+};
+
+const submitSyncCandidates = () => {
+    if (selectedCandidateNims.value.length === 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Pilih Mahasiswa',
+            text: 'Silakan centang setidaknya satu mahasiswa yang ingin disinkronkan akunnya.',
+            confirmButtonColor: '#0D542B',
+        });
+        return;
+    }
+
+    const count = selectedCandidateNims.value.length;
+
+    Swal.fire({
+        title: 'Konfirmasi Sinkronisasi',
+        text: `Apakah Anda yakin ingin menyinkronkan ${count} akun mahasiswa lulusan terpilih?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Ya, Sinkronkan',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#6B7280',
+    }).then((res) => {
+        if (res.isConfirmed) {
+            isSyncing.value = true;
+            router.post('/superadmin/manajemen-akun/sync-alumni', {
+                selected_nims: selectedCandidateNims.value,
+            }, {
+                preserveScroll: true,
+                onSuccess: (page) => {
+                    isSyncing.value = false;
+                    closeSyncModal();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sinkronisasi Selesai',
+                        text: page.props.flash?.success || `Berhasil menyinkronkan ${count} akun alumni baru.`,
+                        confirmButtonColor: '#0D542B',
+                    });
+                },
+                onError: () => {
+                    isSyncing.value = false;
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: 'Terjadi kendala saat menyinkronkan akun alumni.',
+                        confirmButtonColor: '#0D542B',
+                    });
+                },
+                onFinish: () => {
+                    isSyncing.value = false;
+                }
+            });
+        }
+    });
+};
+
+const roleTabs = computed(() => [
+    { role: 'all', label: 'Semua Akun', count: props.stats?.total_users || 0 },
+    { role: 'alumni', label: 'Alumni', count: props.stats?.total_alumni || 0 },
+    { role: 'admin_prodi', label: 'Admin Prodi', count: props.stats?.total_admin_prodi || 0 },
+    { role: 'admin_fakultas', label: 'Admin Fakultas', count: props.stats?.total_admin_fakultas || 0 },
+    { role: 'admin_biro3', label: 'Admin Biro 3', count: props.stats?.total_admin_biro3 || 0 },
+    { role: 'superadmin', label: 'Super Admin', count: props.stats?.total_superadmin || 0 },
+]);
+
+const selectTab = (role) => {
+    selectedRole.value = role;
+    applyFilters();
+};
 
 const applyFilters = () => {
     router.get('/superadmin/manajemen-akun', {
@@ -218,8 +364,56 @@ const handleResetToDefaultAndNotify = (userData) => {
             </div>
 
             <!-- Kontainer Konten Utama -->
-            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
-                <!-- Filter bar -->
+            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-5 pb-12">
+                <!-- Tab Navigasi Role & Tombol Aksi Sinkronisasi -->
+                <div class="bg-white p-3 rounded-xl border border-gray-300 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <!-- Tab Kategori Peran (Role) -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 text-xs">
+                        <button
+                            v-for="tab in roleTabs"
+                            :key="tab.role"
+                            type="button"
+                            @click="selectTab(tab.role)"
+                            :class="[
+                                'flex items-center gap-2 px-3.5 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-xs cursor-pointer',
+                                selectedRole === tab.role
+                                    ? 'bg-[#0D542B] text-white shadow-xs font-semibold'
+                                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900 border border-gray-200'
+                            ]"
+                        >
+                            <span>{{ tab.label }}</span>
+                            <span
+                                :class="[
+                                    'px-1.5 py-0.5 rounded-full text-[10px] font-bold tabular-nums',
+                                    selectedRole === tab.role ? 'bg-white/20 text-white' : 'bg-white text-gray-600 border border-gray-200'
+                                ]"
+                            >
+                                {{ tab.count }}
+                            </span>
+                        </button>
+                    </div>
+
+                    <!-- Tombol Aksi Sinkronisasi Data Alumni -->
+                    <div class="flex items-center gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-gray-100">
+                        <button
+                            type="button"
+                            @click="openSyncModal"
+                            :disabled="isSyncing"
+                            class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-[#0D542B] text-white hover:bg-[#0a4222] transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                            <span v-if="isSyncing">Menyinkronkan...</span>
+                            <span v-else>Sinkronkan Akun Alumni</span>
+                            <span
+                                v-if="stats?.unsynced_alumni_count > 0 && !isSyncing"
+                                class="px-1.5 py-0.5 rounded-full text-[10px] bg-[#FDC700] text-gray-900 font-bold tabular-nums"
+                            >
+                                {{ stats.unsynced_alumni_count }} Baru
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Baris Filter Pencarian & Program Studi -->
                 <div class="bg-white p-3.5 rounded-xl border border-gray-300 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs shadow-2xs">
                     <div class="flex items-center gap-3 flex-wrap flex-1">
                         <input
@@ -227,24 +421,18 @@ const handleResetToDefaultAndNotify = (userData) => {
                             @keyup.enter="applyFilters"
                             type="text"
                             placeholder="Cari nama, email, atau username..."
-                            class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs w-64 focus:outline-none focus:ring-1 focus:ring-[#0D542B] bg-white text-gray-900 placeholder-gray-400"
+                            class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs w-72 focus:outline-none focus:ring-1 focus:ring-[#0D542B] bg-white text-gray-900 placeholder-gray-400"
                         />
-
-                        <!-- Filter Role -->
-                        <select v-model="selectedRole" @change="applyFilters" class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs bg-white text-gray-700 font-medium">
-                            <option value="all">Semua Peran (Role)</option>
-                            <option value="superadmin">Super Admin</option>
-                            <option value="admin_biro3">Admin Biro 3</option>
-                            <option value="admin_fakultas">Admin Fakultas</option>
-                            <option value="admin_prodi">Admin Prodi</option>
-                            <option value="alumni">Alumni</option>
-                        </select>
 
                         <!-- Filter Prodi -->
                         <select v-model="selectedProdi" @change="applyFilters" class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs bg-white text-gray-700 font-medium">
                             <option value="">Semua Program Studi</option>
                             <option v-for="p in prodis" :key="p.id" :value="p.id">{{ p.nama_prodi }}</option>
                         </select>
+                    </div>
+
+                    <div class="text-[11px] text-gray-500 font-medium self-end md:self-center">
+                        Menampilkan <span class="font-bold text-gray-900">{{ users.total || 0 }}</span> akun pengguna
                     </div>
                 </div>
 
@@ -501,6 +689,153 @@ const handleResetToDefaultAndNotify = (userData) => {
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- Modal Checklist Sinkronisasi Akun Mahasiswa Lulusan -->
+        <Teleport to="body">
+            <div
+                v-if="isSyncModalOpen"
+                class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6"
+                @click.self="closeSyncModal"
+            >
+                <div class="bg-white rounded-2xl shadow-xl w-full max-w-4xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh]">
+                    <!-- Header Modal -->
+                    <div class="px-6 py-4 bg-[#0D542B] text-white flex items-center justify-between border-b border-emerald-900/40">
+                        <div>
+                            <h3 class="text-base font-bold text-white tracking-tight">
+                                Sinkronisasi Akun Mahasiswa Lulusan
+                            </h3>
+                            <p class="text-xs text-emerald-100/90 mt-0.5">
+                                Pilih mahasiswa dari Data Akademik untuk dibuatkan akun pengguna dan profil biodata alumni.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            @click="closeSyncModal"
+                            class="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors text-lg leading-none cursor-pointer"
+                            aria-label="Tutup"
+                        >
+                            &times;
+                        </button>
+                    </div>
+
+                    <!-- Toolbar Pencarian & Filter di dalam Modal -->
+                    <div class="px-6 py-3 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                        <div class="flex items-center gap-3 flex-wrap flex-1">
+                            <input
+                                v-model="candidateSearch"
+                                type="text"
+                                placeholder="Cari NIM, nama, atau prodi..."
+                                class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs w-60 bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            />
+
+                            <select
+                                v-model="candidateFilterYear"
+                                class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs bg-white text-gray-700 font-medium"
+                            >
+                                <option value="all">Semua Tahun Lulus</option>
+                                <option v-for="yr in candidateYears" :key="yr" :value="yr">
+                                    Tahun {{ yr }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="text-xs text-gray-600 font-medium">
+                            Terpilih <span class="font-bold text-[#0D542B]">{{ selectedCandidateNims.length }}</span> dari {{ unsynced_candidates?.length || 0 }} mahasiswa
+                        </div>
+                    </div>
+
+                    <!-- Tabel Daftar Calon Mahasiswa Lulusan -->
+                    <div class="overflow-y-auto flex-1 p-6">
+                        <div class="border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead class="bg-gray-100 text-gray-800 font-semibold border-b border-gray-300 text-[11px] sticky top-0 z-10">
+                                    <tr>
+                                        <th class="p-3 w-10 text-center border-r border-gray-200">
+                                            <input
+                                                type="checkbox"
+                                                :checked="isAllCandidatesSelected"
+                                                @change="toggleSelectAllCandidates"
+                                                class="rounded border-gray-300 text-[#0D542B] focus:ring-[#0D542B] cursor-pointer"
+                                            />
+                                        </th>
+                                        <th class="px-3 py-2.5 border-r border-gray-200">NIM</th>
+                                        <th class="px-3 py-2.5 border-r border-gray-200">Nama Lengkap</th>
+                                        <th class="px-3 py-2.5 border-r border-gray-200">Program Studi</th>
+                                        <th class="px-3 py-2.5 text-center border-r border-gray-200">Tahun Lulus</th>
+                                        <th class="px-3 py-2.5 text-center">Tanggal Lahir</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 bg-white">
+                                    <tr v-if="filteredCandidates.length === 0">
+                                        <td colspan="6" class="p-8 text-center text-gray-400 italic">
+                                            Tidak ada data mahasiswa yang sesuai dengan pencarian atau filter tahun.
+                                        </td>
+                                    </tr>
+                                    <tr
+                                        v-for="c in filteredCandidates"
+                                        :key="c.nim"
+                                        @click="toggleCandidate(c.nim)"
+                                        :class="[
+                                            'transition-colors cursor-pointer',
+                                            selectedCandidateNims.includes(c.nim) ? 'bg-emerald-50/60 hover:bg-emerald-50' : 'hover:bg-gray-50'
+                                        ]"
+                                    >
+                                        <td class="p-3 text-center border-r border-gray-200" @click.stop>
+                                            <input
+                                                type="checkbox"
+                                                :value="c.nim"
+                                                v-model="selectedCandidateNims"
+                                                class="rounded border-gray-300 text-[#0D542B] focus:ring-[#0D542B] cursor-pointer"
+                                            />
+                                        </td>
+                                        <td class="px-3 py-2.5 font-mono font-bold text-gray-900 border-r border-gray-200">
+                                            {{ c.nim }}
+                                        </td>
+                                        <td class="px-3 py-2.5 font-medium text-gray-900 border-r border-gray-200">
+                                            {{ c.nama }}
+                                        </td>
+                                        <td class="px-3 py-2.5 text-gray-700 border-r border-gray-200">
+                                            {{ c.prodi_nama }}
+                                        </td>
+                                        <td class="px-3 py-2.5 text-center font-bold text-gray-800 border-r border-gray-200">
+                                            {{ c.tahun_lulus }}
+                                        </td>
+                                        <td class="px-3 py-2.5 text-center text-gray-600 font-mono text-[11px]">
+                                            {{ c.tanggal_lahir || '-' }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Footer Modal Aksi -->
+                    <div class="px-6 py-3.5 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                        <div class="text-[11px] text-gray-500">
+                            Akun baru akan dibuatkan username sesuai NIM dengan password awal berupa tanggal lahir (ddmmyyyy).
+                        </div>
+                        <div class="flex items-center gap-2 self-end sm:self-center">
+                            <button
+                                type="button"
+                                @click="closeSyncModal"
+                                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-medium cursor-pointer"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                @click="submitSyncCandidates"
+                                :disabled="isSyncing || selectedCandidateNims.length === 0"
+                                class="px-4 py-2 bg-[#0D542B] text-white rounded-lg hover:bg-[#0a4222] transition-colors font-semibold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                                <span v-if="isSyncing">Memproses...</span>
+                                <span v-else>Sinkronkan ({{ selectedCandidateNims.length }} Terpilih)</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </Teleport>

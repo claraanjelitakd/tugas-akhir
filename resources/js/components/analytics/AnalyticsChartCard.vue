@@ -7,8 +7,9 @@
  */
 import { computed, nextTick, ref, watch } from 'vue';
 import AnalyticsEChart from './AnalyticsEChart.vue';
+import { formatNumber } from './analyticsChartOptions';
 
-// Kontrak properti visualisasi, opsi chart, dan data tabel terstruktur.
+// Kontrak properti visualisasi, opsi chart, data tabel terstruktur, dan analisis spesifik.
 const props = defineProps({
     chartKey: { type: String, required: true },
     title: { type: String, required: true },
@@ -19,6 +20,7 @@ const props = defineProps({
     height: { type: [Number, String], default: 380 },
     selectedLabel: { type: String, default: '' },
     loading: { type: Boolean, default: false },
+    analysis: { type: [Object, String], default: null },
 });
 
 // Event seleksi data diteruskan ke panel induk untuk cross-filtering.
@@ -82,6 +84,59 @@ const handleChartSelect = (params) => {
 watch(viewMode, async () => {
     await nextTick();
     chartRef.value?.resize();
+});
+
+// Analisis narasi spesifik data-driven untuk grafik kartu ini.
+const computedAnalysis = computed(() => {
+    if (props.analysis) {
+        if (typeof props.analysis === 'string') {
+            return {
+                title: `Analisis Temuan · ${props.title}`,
+                statusBadge: 'Kilas Analisis',
+                badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+                lead: props.analysis,
+                detail: '',
+            };
+        }
+        return props.analysis;
+    }
+
+    const rows = displayRows.value;
+    if (!rows || rows.length === 0) return null;
+
+    // Filter baris yang memiliki nilai numerik valid
+    const numericRows = rows.map((r) => {
+        const rawVal = r.value ?? r.count ?? r.total ?? 0;
+        const num = typeof rawVal === 'number' ? rawVal : parseFloat(String(rawVal).replace(/[^0-9.-]+/g, ''));
+        const name = r.name || r.prodi || r.label || r.category || 'Kategori';
+        return {
+            name,
+            rawVal,
+            num: isNaN(num) ? 0 : num,
+            formatted: typeof rawVal === 'number' ? formatNumber(rawVal, 0) : String(rawVal),
+        };
+    }).filter((r) => r.num > 0);
+
+    if (numericRows.length === 0) return null;
+
+    const sorted = [...numericRows].sort((a, b) => b.num - a.num);
+    const topItem = sorted[0];
+    const bottomItem = sorted.length > 1 ? sorted[sorted.length - 1] : null;
+    const totalVal = sorted.reduce((acc, curr) => acc + curr.num, 0);
+
+    const topPct = totalVal > 0 ? ((topItem.num / totalVal) * 100).toFixed(1) : null;
+
+    return {
+        title: `Analisis Temuan · ${props.title}`,
+        statusBadge: `${rows.length} Kategori Terdata`,
+        badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+        lead: topPct
+            ? `Distribusi data menunjukkan konsentrasi tertinggi berada pada kategori "${topItem.name}" dengan total ${topItem.formatted} alumni (${topPct}% dari akumulasi kategori terhitung).`
+            : `Kategori dengan capaian tertinggi tercatat pada "${topItem.name}" dengan nilai ${topItem.formatted}.`,
+        detail: bottomItem && bottomItem.name !== topItem.name
+            ? `Sebaliknya, frekuensi terendah tercatat pada kategori "${bottomItem.name}" dengan ${bottomItem.formatted} alumni. Klik segmen batang atau baris tabel untuk membedah data alumni terkait.`
+            : 'Klik segmen batang atau baris tabel untuk membedah data alumni terkait.',
+    };
 });
 </script>
 
@@ -271,6 +326,24 @@ watch(viewMode, async () => {
                     </table>
                 </div>
             </div>
+        </div>
+
+        <!-- Kotak Analisis Naratif Spesifik di Bawah Grafik / Tabel -->
+        <div v-if="computedAnalysis" class="mt-4 rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+            <div class="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    {{ computedAnalysis.title }}
+                </span>
+                <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="computedAnalysis.badgeClass">
+                    {{ computedAnalysis.statusBadge }}
+                </span>
+            </div>
+            <p class="mt-2.5 text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
+                {{ computedAnalysis.lead }}
+            </p>
+            <p v-if="computedAnalysis.detail" class="mt-1 text-xs text-slate-600 leading-relaxed">
+                {{ computedAnalysis.detail }}
+            </p>
         </div>
     </article>
 </template>

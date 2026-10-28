@@ -335,7 +335,8 @@ class SuperAdminAnalyticsTest extends TestCase
             ->buildUniversityChart('further_study', (string) now()->year);
 
         $this->assertSame(1, $furtherStudy['chart']['summary']['answered_count']);
-        $this->assertSame('Perguruan tinggi: Universitas Gadjah Mada', $furtherStudy['chart']['series'][0]['label']);
+        $this->assertSame('S2', $furtherStudy['chart']['series'][0]['label']);
+        $this->assertSame('Universitas Gadjah Mada', $furtherStudy['chart']['university_by_degree']['S2'][0]['university']);
     }
 
     /**
@@ -492,5 +493,75 @@ class SuperAdminAnalyticsTest extends TestCase
 
         $this->assertSame(75.0, (float) $result['chart']['summary']['target']);
         $this->assertArrayHasKey('target_gap', $result['chart']['summary']);
+    }
+
+    /**
+     * Penekanan metode pembelajaran F21-F27 menghitung skor rata-rata integer dalam rentang skala 1-5.
+     */
+    public function test_learning_methods_calculates_integer_average_scores_within_one_to_five_range(): void
+    {
+        $prodi = Prodi::create([
+            'kode_prodi' => '71',
+            'nama_prodi' => 'Informatika',
+        ]);
+        $user = User::create([
+            'username' => 'alumni-f2-tester',
+            'name' => 'Alumni F2 Tester',
+            'email' => 'alumni-f2-tester@example.test',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+        DataAkademik::create([
+            'nim' => '71200001',
+            'nama' => 'Alumni F2 Tester',
+            'tanggal_lahir' => '2001-01-01',
+            'tahun_lulus' => 2024,
+        ]);
+        $biodata = Biodata::create([
+            'user_id' => $user->id,
+            'nim' => '71200001',
+            'prodi_id' => $prodi->id,
+            'nomor_telepon' => '081234567891',
+            'email_pribadi' => 'alumni-f2-tester@example.test',
+        ]);
+
+        $questionId = DB::table('ref_subpertanyaan2021')->insertGetId([
+            'kelompok' => 'F2',
+            'kode_pertanyaan' => 'F21',
+            'subpertanyaan' => 'Perkuliahan',
+            'type' => 'radio',
+            'wajib' => true,
+            'order' => 1,
+        ]);
+
+        DB::table('tracer')->insert([
+            'biodata_id' => $biodata->id,
+            'question_id' => $questionId,
+            'nim' => $biodata->nim,
+            'kelompok' => 'F2',
+            'kode_pertanyaan' => 'F21',
+            'subpertanyaan' => 'Perkuliahan',
+            'answer' => 'Besar',
+            'tahun_lulus' => 2024,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $result = app(TracerAnalyticsService::class)->buildUniversityChart('learning_methods', '2024');
+
+        $this->assertSame('learning_methods', $result['selected_chart']);
+        $this->assertArrayHasKey('scale_reference', $result['chart']);
+        $this->assertSame(1, $result['chart']['scale_reference']['min']);
+        $this->assertSame(5, $result['chart']['scale_reference']['max']);
+        $this->assertArrayHasKey('summary', $result['chart']);
+        $this->assertIsInt($result['chart']['summary']['overall_score_int']);
+
+        $f21 = collect($result['chart']['series'])->firstWhere('key', 'F21');
+        $this->assertNotNull($f21);
+        $this->assertIsInt($f21['score']);
+        $this->assertGreaterThanOrEqual(1, $f21['score']);
+        $this->assertLessThanOrEqual(5, $f21['score']);
+        $this->assertArrayHasKey('distribution', $f21);
     }
 }
