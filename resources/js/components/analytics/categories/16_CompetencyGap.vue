@@ -10,6 +10,7 @@
 import { computed } from 'vue';
 import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
 import {
+    analyticsColors,
     baseOption,
     escapeHtml,
     formatNumber,
@@ -33,6 +34,14 @@ const records = computed(() => props.chart?.records || []);
 const summary = computed(() => props.chart?.summary || {});
 const validResponses = computed(() => summary.value.answered_count || records.value.length);
 
+// Palet indikator mengikuti tema bersama seluruh grafik analitik.
+const chartColors = {
+    graduation: analyticsColors.green,
+    need: analyticsColors.greenMid,
+    gap: analyticsColors.greenSoft,
+    axis: analyticsColors.text,
+};
+
 // -----------------------------------------------------------------------------
 // 1 GRAFIK TERPADU: Batang (Saat Lulus & Diperlukan) + Garis (Gap Selisih)
 // -----------------------------------------------------------------------------
@@ -50,11 +59,12 @@ const unifiedOption = computed(() => {
         ...baseOption(validResponses.value),
         legend: {
             data: ['Kompetensi Saat Lulus (Batang)', 'Kompetensi Diperlukan Kerja (Batang)', 'Gap Selisih Surplus/Defisit (Garis)'],
-            bottom: 0,
+            bottom: 8,
+            itemGap: 16,
             icon: 'circle',
             textStyle: { color: '#334155', fontWeight: 600, fontSize: 11 },
         },
-        grid: { left: 24, right: 48, top: 36, bottom: 64, containLabel: true },
+        grid: { left: 92, right: 92, top: 52, bottom: 88, containLabel: true },
         xAxis: {
             type: 'category',
             data: labels,
@@ -62,11 +72,11 @@ const unifiedOption = computed(() => {
                 color: '#334155',
                 fontSize: 11,
                 interval: 0,
-                width: 110,
+                width: 118,
                 overflow: 'break',
                 lineHeight: 14,
             },
-            axisLine: { lineStyle: { color: '#CBD5E1' } },
+            axisLine: { lineStyle: { color: '#CBD5E1', width: 1 } },
         },
         yAxis: [
             {
@@ -75,8 +85,10 @@ const unifiedOption = computed(() => {
                 max: 5,
                 interval: 1,
                 name: 'Skor Likert (1 - 5)',
-                axisLabel: { color: '#64748B' },
-                splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
+                nameGap: 24,
+                nameTextStyle: { color: '#475569', fontWeight: 600 },
+                axisLabel: { color: chartColors.axis },
+                splitLine: { show: false },
             },
             {
                 type: 'value',
@@ -84,9 +96,10 @@ const unifiedOption = computed(() => {
                 max: 3,
                 interval: 1,
                 name: 'Gap Selisih',
-                nameTextStyle: { color: '#475569', fontWeight: 600 },
+                nameGap: 24,
+                nameTextStyle: { color: chartColors.gap, fontWeight: 600 },
                 axisLabel: {
-                    color: '#475569',
+                    color: chartColors.gap,
                     formatter: (v) => (v > 0 ? `+${v}` : `${v}`),
                 },
                 splitLine: { show: false },
@@ -103,15 +116,15 @@ const unifiedOption = computed(() => {
                 const gap = Number((grad - need).toFixed(2));
                 const gapSign = gap > 0 ? `+${gap}` : `${gap}`;
                 const gapStatus = gap >= 0
-                    ? '<span class="text-emerald-400 font-bold">Surplus (Bekal Terpenuhi)</span>'
-                    : '<span class="text-rose-400 font-bold">Defisit (Perlu Penguatan)</span>';
+                    ? '<span style="color:#0D542B;font-weight:700">Surplus (Bekal Terpenuhi)</span>'
+                    : '<span style="color:#2F7D4A;font-weight:700">Defisit (Perlu Penguatan)</span>';
 
                 return `
                     <div class="space-y-1">
-                        <p class="font-extrabold text-sm border-b border-slate-700 pb-1 text-white">${titleText}</p>
-                        <p class="text-xs text-slate-200">Saat Lulus (A): <strong class="text-white">${formatNumber(grad, 2)}</strong></p>
-                        <p class="text-xs text-slate-300">Diperlukan Kerja (B): <strong class="text-white">${formatNumber(need, 2)}</strong></p>
-                        <p class="text-xs text-slate-200">Gap Selisih (A - B): <strong class="text-white">${gapSign}</strong> (${gapStatus})</p>
+                        <p class="font-extrabold text-sm border-b border-emerald-100 pb-1 text-[#0D542B]">${titleText}</p>
+                        <p class="text-xs text-slate-600">Saat Lulus (A): <strong class="text-[#0D542B]">${formatNumber(grad, 2)}</strong></p>
+                        <p class="text-xs text-slate-600">Diperlukan Kerja (B): <strong class="text-[#0D542B]">${formatNumber(need, 2)}</strong></p>
+                        <p class="text-xs text-slate-600">Gap Selisih (A - B): <strong class="text-[#0D542B]">${gapSign}</strong> (${gapStatus})</p>
                     </div>
                 `;
             },
@@ -122,15 +135,16 @@ const unifiedOption = computed(() => {
                 type: 'bar',
                 yAxisIndex: 0,
                 barMaxWidth: 22,
+                barGap: '18%',
                 data: gradScores,
-                itemStyle: { color: '#0D542B', borderRadius: [4, 4, 0, 0] },
+                itemStyle: { color: chartColors.graduation, borderRadius: [4, 4, 0, 0] },
                 label: {
                     show: true,
                     position: 'top',
                     formatter: ({ value }) => formatNumber(value, 2),
                     fontSize: 10,
                     fontWeight: 'bold',
-                    color: '#0D542B',
+                    color: chartColors.graduation,
                 },
             },
             {
@@ -138,8 +152,9 @@ const unifiedOption = computed(() => {
                 type: 'bar',
                 yAxisIndex: 0,
                 barMaxWidth: 22,
+                barGap: '18%',
                 data: needScores,
-                itemStyle: { color: '#94A3B8', borderRadius: [4, 4, 0, 0] },
+                itemStyle: { color: chartColors.need, borderRadius: [4, 4, 0, 0] },
                 label: {
                     show: true,
                     position: 'top',
@@ -155,28 +170,24 @@ const unifiedOption = computed(() => {
                 yAxisIndex: 1,
                 z: 10,
                 data: gapScores,
-                itemStyle: { color: '#334155' },
-                lineStyle: { width: 3, color: '#334155' },
+                itemStyle: { color: chartColors.gap },
+                lineStyle: { width: 3, color: chartColors.gap },
                 symbol: 'circle',
                 symbolSize: 8,
                 label: {
                     show: true,
                     position: 'top',
                     distance: 6,
-                    formatter: ({ value }) => (value > 0 ? `+${formatNumber(value, 2)}` : formatNumber(value, 2)),
+                    formatter: ({ value, dataIndex }) => {
+                        const firstIndex = gapScores.findIndex((score) => score === value);
+
+                        if (dataIndex !== firstIndex) return '';
+
+                        return value > 0 ? `+${formatNumber(value, 2)}` : formatNumber(value, 2);
+                    },
                     fontSize: 10,
                     fontWeight: 'bold',
-                    color: '#334155',
-                },
-                markLine: {
-                    symbol: 'none',
-                    data: [
-                        {
-                            yAxis: 0,
-                            lineStyle: { color: '#CBD5E1', type: 'dashed', width: 1.5 },
-                            label: { show: true, formatter: 'Impas (0)', position: 'end', color: '#64748B', fontSize: 10 },
-                        },
-                    ],
+                    color: chartColors.gap,
                 },
             },
         ],
@@ -258,7 +269,7 @@ const views = computed(() => [
         key: 'unified_gap',
         tabLabel: 'Kompetensi & Gap Selisih',
         title: 'Kompetensi saat lulus, diperlukan kerja, dan gap selisih',
-        description: 'Grafik terpadu: batang hijau mengukur bekal saat lulus UKDW, batang slate mengukur kebutuhan dunia kerja, dan garis slate tegas memperlihatkan gap selisih kompetensi.',
+        description: 'Grafik terpadu: batang hijau mengukur bekal saat lulus UKDW, batang slate mengukur kebutuhan dunia kerja, dan garis hijau-slate memperlihatkan gap selisih kompetensi.',
         option: unifiedOption.value,
         tableData: unifiedTable.value,
         height: 420,

@@ -2,7 +2,7 @@
   Komponen: Tabel Penekanan Metode Pembelajaran F2 Tracer Study Alumni
   File: resources/js/Pages/Alumni/Components/Kuesioner/TabelF2.vue
   Fungsi: Menampilkan matriks penilaian penekanan metode pembelajaran (F21 s/d F27)
-          dengan skala 1 s/d 5 (Sangat Besar s/d Tidak Sama Sekali).
+  dengan skala 1 s/d 5 (Tidak Sama Sekali s/d Sangat Besar).
 -->
 <script setup>
 import { computed } from 'vue';
@@ -24,11 +24,11 @@ const props = defineProps({
 
 // Daftar opsi skala 1-5 untuk Metode Pembelajaran
 const scaleOptions = [
-    { score: 1, label: 'Sangat Besar', short: 'SB' },
-    { score: 2, label: 'Besar', short: 'B' },
+    { score: 1, label: 'Tidak Sama Sekali', short: 'TSS' },
+    { score: 2, label: 'Kurang', short: 'K' },
     { score: 3, label: 'Cukup Besar', short: 'CB' },
-    { score: 4, label: 'Kurang', short: 'K' },
-    { score: 5, label: 'Tidak Sama Sekali', short: 'TSS' },
+    { score: 4, label: 'Besar', short: 'B' },
+    { score: 5, label: 'Sangat Besar', short: 'SB' },
 ];
 
 // Menghitung berapa metode yang sudah dinilai
@@ -60,7 +60,7 @@ const handleSelect = (qId, optionText) => {
                 {{ headerQuestion?.subpertanyaan || headerQuestion?.question_text || 'Menurut anda seberapa besar penekanan pada metode pembelajaran di bawah ini dilaksanakan di program studi anda?' }}
             </h2>
             <p class="text-xs sm:text-sm text-gray-600 font-medium mt-1">
-                Pilihlah tingkat penekanan dari 1 (Sangat Besar) hingga 5 (Tidak Sama Sekali) untuk setiap butir metode di bawah ini.
+                Pilihlah tingkat penekanan dari 1 (Tidak Sama Sekali) hingga 5 (Sangat Besar) untuk setiap butir metode di bawah ini.
             </p>
         </div>
 

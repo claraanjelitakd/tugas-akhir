@@ -155,11 +155,11 @@ class RefSubpertanyaanDetilSeeder extends Seeder
         // Opsi untuk F21 s/d F27 (Penekanan metode pembelajaran skala 1-5)
         $f2Codes = ['F21', 'F22', 'F23', 'F24', 'F25', 'F26', 'F27'];
         $f2Labels = [
-            1 => 'Sangat Besar',
-            2 => 'Besar',
+            1 => 'Tidak Sama Sekali',
+            2 => 'Kurang',
             3 => 'Cukup Besar',
-            4 => 'Kurang',
-            5 => 'Tidak Sama Sekali',
+            4 => 'Besar',
+            5 => 'Sangat Besar',
         ];
         foreach ($f2Codes as $code) {
             foreach ($f2Labels as $val => $txt) {

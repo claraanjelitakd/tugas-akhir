@@ -18,6 +18,7 @@ import {
     baseOption,
     escapeHtml,
     formatNumber,
+    analyticsScalePalette,
     seriesLabel,
 } from '../analyticsChartOptions';
 
@@ -41,13 +42,13 @@ const activeViewMode = ref('chart');
 // Kunci metode pembelajaran yang sedang dipilih untuk drill-down inline (misal: 'F21').
 const selectedMethodKey = ref('');
 
-// Kamus predikat resmi instrumen Tracer Study UKDW F21-F27 (Skala 1 - 5).
+// Kamus predikat resmi instrumen Tracer Study UKDW F21-F27 (skor 5 menunjukkan penekanan tertinggi).
 const scaleDescriptions = {
-    1: 'Sangat Besar',
-    2: 'Besar',
+    1: 'Tidak Sama Sekali',
+    2: 'Kurang',
     3: 'Cukup Besar',
-    4: 'Kurang',
-    5: 'Tidak Sama Sekali',
+    4: 'Besar',
+    5: 'Sangat Besar',
 };
 
 // Styling tooltip universal bersih, formal, dan profesional (light theme tanpa saturasi biru).
@@ -56,15 +57,15 @@ const lightTooltipConfig = {
     confine: true,
     appendToBody: false,
     backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-    borderWidth: 1,
+    borderColor: 'transparent',
+    borderWidth: 0,
     padding: [10, 14],
     textStyle: {
         color: '#0F172A',
         fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
         fontSize: 12,
     },
-    extraCssText: 'box-shadow: 0 4px 18px -2px rgba(15, 23, 42, 0.08); border-radius: 8px;',
+    extraCssText: 'border:0;box-shadow:none;border-radius:6px;',
 };
 
 // Ekstraksi data seri, catatan responden, dan ringkasan dari payload backend (100% dinamis).
@@ -105,7 +106,7 @@ const prodiSummaries = computed(() => {
             scoreInt: Math.round(avg),
             scoreLabel: scaleDescriptions[Math.round(avg)] || '-',
         };
-    }).filter((p) => p.count > 0).sort((a, b) => a.average - b.average);
+    }).filter((p) => p.count > 0).sort((a, b) => b.average - a.average);
 });
 
 // -----------------------------------------------------------------------------
@@ -135,7 +136,7 @@ const analysisContext = computed(() => {
     const sorted = [...list].sort((a, b) => {
         const valA = Number(a.average ?? a.score ?? 5);
         const valB = Number(b.average ?? b.score ?? 5);
-        return valA - valB;
+        return valB - valA;
     });
 
     const topMethod = sorted[0];
@@ -199,15 +200,15 @@ const lineAnalysis = computed(() => {
         };
     }
 
-    const besarCount = ctx.list.filter((s) => Math.round(Number(s.score || s.average || 0)) <= 2).length;
+    const besarCount = ctx.list.filter((s) => Math.round(Number(s.score || s.average || 0)) >= 4).length;
     const cukupCount = ctx.list.filter((s) => Math.round(Number(s.score || s.average || 0)) === 3).length;
 
     return {
         title: 'Analisis Rata-rata Skor Penekanan Belajar',
         statusBadge: `Kategori ${ctx.overallLabel} (Skor = ${ctx.overallInt})`,
-        badgeClass: ctx.overallInt <= 2 ? 'bg-emerald-50 text-[#0D542B] border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200',
-        lead: `Mengadopsi Gambar 4.3 Laporan Resmi Tracer Study UKDW, seluruh metode pembelajaran berada pada Kategori Besar (skor 2) dan Cukup Besar (skor 3) dengan capaian bulat universitas berada pada Skor ${ctx.overallInt} (${ctx.overallLabel}).`,
-        detail: `Sebanyak ${besarCount} metode berhasil meraih Kategori Besar (termasuk ${ctx.topMethod.label} dengan skor ${ctx.topScoreInt}), sementara ${cukupCount} metode lainnya berada di Kategori Cukup Besar. Tidak ada satupun metode yang tergolong dalam Kategori Kurang (skor 4) maupun Tidak Sama Sekali (skor 5).`,
+        badgeClass: ctx.overallInt >= 4 ? 'bg-emerald-50 text-[#0D542B] border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200',
+        lead: `Mengadopsi Gambar 4.3 Laporan Resmi Tracer Study UKDW, seluruh metode pembelajaran berada pada Kategori Besar (skor 4) dan Cukup Besar (skor 3) dengan capaian bulat universitas berada pada Skor ${ctx.overallInt} (${ctx.overallLabel}).`,
+        detail: `Sebanyak ${besarCount} metode berhasil meraih Kategori Besar atau Sangat Besar (termasuk ${ctx.topMethod.label} dengan skor ${ctx.topScoreInt}), sementara ${cukupCount} metode lainnya berada di Kategori Cukup Besar. Tidak ada satupun metode yang tergolong dalam Kategori Kurang (skor 2) maupun Tidak Sama Sekali (skor 1).`,
     };
 });
 
@@ -292,7 +293,7 @@ const drilldownAnalysis = computed(() => {
     return {
         title: `Rincian Temuan: ${item.label}`,
         statusBadge: `Skor ${item.score} (${item.score_label})`,
-        badgeClass: item.score <= 2 ? 'bg-emerald-50 text-[#0D542B] border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200',
+        badgeClass: item.score >= 4 ? 'bg-emerald-50 text-[#0D542B] border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200',
         lead: `Metode pembelajaran ${item.label} memperoleh skor rata-rata bulat ${item.score} (${item.score_label}) dari ${formatNumber(item.count || totalAlumni, 0)} responden alumni.`,
         detail: topDist
             ? `Pilihan respon terbanyak dari alumni adalah skala "${topDist.label}" sebanyak ${formatNumber(topDist.count, 0)} alumni (${formatNumber(topDist.percentage, 1)}%)${topM ? `. Pada tingkat program studi, penekanan tertinggi tercatat pada ${topM.prodi} (Skor ${topM.score_int} · ${topM.score_label})${botM && botM.prodi !== topM.prodi ? ` dan terendah pada ${botM.prodi} (Skor ${botM.score_int} · ${botM.score_label})` : ''}` : ''}.`
@@ -313,11 +314,10 @@ const methodsRadarOption = computed(() => {
         min: 1,
     }));
 
-    // Konversi nilai skor 1..5 ke skala visual radius (6 - score)
-    // agar metode yang Sangat Besar (skor 1) melebar ke luar
+    // Skor 5 langsung menjadi radius terluar karena menunjukkan penekanan tertinggi.
     const visualValues = list.map((item) => {
         const rawScore = Number(item.score ?? 3);
-        return Math.max(1, Math.min(5, 6 - rawScore));
+        return Math.max(1, Math.min(5, rawScore));
     });
 
     const rawAverages = list.map((item) => item.average ?? item.score ?? 3);
@@ -329,7 +329,7 @@ const methodsRadarOption = computed(() => {
             shape: 'polygon',
             indicator: indicators,
             splitNumber: 4,
-            radius: '62%',
+            radius: '78%',
             center: ['50%', '50%'],
             axisName: {
                 color: '#1E293B',
@@ -339,16 +339,11 @@ const methodsRadarOption = computed(() => {
                 formatter: (name) => name,
             },
             splitLine: {
-                lineStyle: { color: '#E2E8F0', width: 1 },
+                lineStyle: { color: '#B9D8C3', width: 1 },
             },
-            splitArea: {
-                show: true,
-                areaStyle: {
-                    color: ['#F8FAFC', '#FFFFFF'],
-                },
-            },
+            splitArea: { show: false },
             axisLine: {
-                lineStyle: { color: '#E2E8F0' },
+                lineStyle: { color: '#B9D8C3' },
             },
         },
         tooltip: {
@@ -408,7 +403,7 @@ const methodsRadarOption = computed(() => {
                     fontSize: 12,
                     position: 'top',
                     distance: 6,
-                    formatter: (param) => String(Math.round(6 - param.value)),
+                    formatter: (param) => String(Math.round(param.value)),
                 },
             }],
         }],
@@ -524,11 +519,11 @@ const methodsStackedOption = computed(() => {
     const categories = list.map(seriesLabel);
 
     const scaleColors = {
-        1: '#0D542B', // Sangat Besar (Hijau Tua UKDW)
-        2: '#16A34A', // Besar (Hijau Sedang)
-        3: '#86EFAC', // Cukup Besar (Sage Lembut)
-        4: '#94A3B8', // Kurang (Slate Netral)
-        5: '#475569', // Tidak Sama Sekali (Slate Tua)
+        1: analyticsScalePalette[0],
+        2: analyticsScalePalette[1],
+        3: analyticsScalePalette[2],
+        4: analyticsScalePalette[3],
+        5: analyticsScalePalette[4],
     };
 
     const seriesData = [1, 2, 3, 4, 5].map((lvl) => {
@@ -542,7 +537,7 @@ const methodsStackedOption = computed(() => {
                 show: true,
                 position: 'inside',
                 formatter: ({ value }) => (value >= 10 ? `${formatNumber(value, 0)}%` : ''),
-                color: lvl <= 2 || lvl === 5 ? '#FFFFFF' : '#0F172A',
+                color: lvl === 5 ? '#FFFFFF' : '#0F172A',
                 fontSize: 10,
                 fontWeight: 600,
             },
@@ -586,7 +581,7 @@ const methodsStackedOption = computed(() => {
                 color: '#1E293B',
                 fontWeight: 500,
                 fontSize: 12,
-                width: 220,
+                width: 190,
                 overflow: 'break',
             },
             axisTick: { show: false },
@@ -622,7 +617,7 @@ const methodsStackedOption = computed(() => {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // 4. HEATMAP: Pola Penekanan Antarprogram Studi
-// Palet Emerald-Mint Monokromatik yang bersih, adem di mata, dan kontras tinggi.
+// Palet hijau monokromatik yang bersih, formal, dan kontras tinggi.
 // Setiap skor 1-5 memiliki warna sel dan teks terdedikasi agar angka selalu terbaca
 // sempurna dan tidak pernah hilang saat kursor di-hover ke atas sel.
 // -----------------------------------------------------------------------------
@@ -633,11 +628,11 @@ const prodis = computed(() => {
 
 // Pemetaan warna latar dan teks untuk menjamin kontras tinggi & terbaca jelas
 const heatmapPalette = {
-    1: { bg: '#16A34A', text: '#FFFFFF', label: 'Sangat Besar' },
-    2: { bg: '#86EFAC', text: '#14532D', label: 'Besar' },
-    3: { bg: '#BBF7D0', text: '#166534', label: 'Cukup Besar' },
-    4: { bg: '#E2E8F0', text: '#334155', label: 'Kurang' },
-    5: { bg: '#F8FAFC', text: '#64748B', label: 'Tidak Sama Sekali' },
+    1: { bg: analyticsScalePalette[0], text: '#0F172A', label: 'Tidak Sama Sekali' },
+    2: { bg: analyticsScalePalette[1], text: '#0F172A', label: 'Kurang' },
+    3: { bg: analyticsScalePalette[2], text: '#0F172A', label: 'Cukup Besar' },
+    4: { bg: analyticsScalePalette[3], text: '#0F172A', label: 'Besar' },
+    5: { bg: analyticsScalePalette[4], text: '#FFFFFF', label: 'Sangat Besar' },
 };
 
 const heatmapData = computed(() => {
@@ -659,6 +654,7 @@ const heatmapData = computed(() => {
                 prodi,
                 methodKey: key,
                 methodLabel: series.value.find((s) => s.key === key)?.label || key,
+                label: { color: roundInt === 5 ? '#FFFFFF' : '#0F172A' },
             });
         });
     });
@@ -704,11 +700,11 @@ const heatmapOption = computed(() => {
             show: false,
             splitNumber: 5,
             pieces: [
-                { value: 1, label: '1: Sangat Besar', color: '#2E7D32' },
-                { value: 2, label: '2: Besar', color: '#66BB6A' },
-                { value: 3, label: '3: Cukup Besar', color: '#A5D6A7' },
-                { value: 4, label: '4: Kurang', color: '#E2E8F0' },
-                { value: 5, label: '5: Tidak Sama Sekali', color: '#F8FAFC' },
+                { value: 1, label: '1: Tidak Sama Sekali', color: analyticsScalePalette[0] },
+                { value: 2, label: '2: Kurang', color: analyticsScalePalette[1] },
+                { value: 3, label: '3: Cukup Besar', color: analyticsScalePalette[2] },
+                { value: 4, label: '4: Besar', color: analyticsScalePalette[3] },
+                { value: 5, label: '5: Sangat Besar', color: analyticsScalePalette[4] },
             ],
         },
         tooltip: {
@@ -824,7 +820,7 @@ const prodiScoresForSelectedMethod = computed(() => {
             score_int: scoreInt,
             score_label: scaleDescriptions[scoreInt] || '-',
         };
-    }).filter((p) => p.count > 0).sort((a, b) => a.average - b.average);
+    }).filter((p) => p.count > 0).sort((a, b) => b.average - a.average);
 });
 
 // -----------------------------------------------------------------------------
@@ -873,7 +869,7 @@ const summaryTableData = computed(() => {
                         Mengadopsi Gambar 4.3 Laporan Tracer Study UKDW (garis horizontal hijau dengan skala 1-5).
                     </template>
                     <template v-else-if="activeChartTab === 'stacked'">
-                        Proporsi pilihan jawaban alumni dari Sangat Besar (1) hingga Tidak Sama Sekali (5).
+                        Proporsi pilihan jawaban alumni dari Tidak Sama Sekali (1) hingga Sangat Besar (5).
                     </template>
                     <template v-else>
                         Matriks perbandingan skor rata-rata penekanan metode pembelajaran pada masing-masing program studi.
@@ -947,7 +943,7 @@ const summaryTableData = computed(() => {
             <div v-if="activeChartTab === 'radar'" class="space-y-4">
                 <AnalyticsEChart
                     :option="methodsRadarOption"
-                    :height="430"
+                    :height="500"
                     :loading="loading"
                     @click="handleChartClick"
                 />
@@ -1000,11 +996,11 @@ const summaryTableData = computed(() => {
                     </div>
                     <div class="flex flex-wrap items-center gap-1.5 text-slate-700">
                         <span class="font-bold text-slate-500 mr-1">Skala Penilaian:</span>
-                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">1: Sangat Besar</span>
-                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">2: Besar</span>
+                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">1: Tidak Sama Sekali</span>
+                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">2: Kurang</span>
                         <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">3: Cukup Besar</span>
-                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">4: Kurang</span>
-                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">5: Tidak Sama Sekali</span>
+                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">4: Besar</span>
+                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">5: Sangat Besar</span>
                     </div>
                 </div>
             </div>
@@ -1042,11 +1038,11 @@ const summaryTableData = computed(() => {
                     </div>
                     <div class="flex flex-wrap items-center gap-1.5 text-slate-700">
                         <span class="font-bold text-slate-500 mr-1">Skala Penilaian:</span>
-                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">1: Sangat Besar</span>
-                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">2: Besar</span>
+                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">1: Tidak Sama Sekali</span>
+                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">2: Kurang</span>
                         <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">3: Cukup Besar</span>
-                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">4: Kurang</span>
-                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">5: Tidak Sama Sekali</span>
+                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">4: Besar</span>
+                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">5: Sangat Besar</span>
                     </div>
                 </div>
             </div>
@@ -1083,7 +1079,7 @@ const summaryTableData = computed(() => {
                         Total Responden Valid: <strong class="text-slate-900 font-semibold">{{ formatNumber(validResponses, 0) }} alumni</strong>
                     </div>
                     <div class="text-slate-500">
-                        Proporsi akumulatif 100% dari pilihan skala 1 (Sangat Besar) hingga 5 (Tidak Sama Sekali).
+                        Proporsi akumulatif 100% dari pilihan skala 1 (Tidak Sama Sekali) hingga 5 (Sangat Besar).
                     </div>
                 </div>
             </div>
@@ -1092,7 +1088,7 @@ const summaryTableData = computed(() => {
             <div v-else class="space-y-4">
                 <AnalyticsEChart
                     :option="heatmapOption"
-                    :height="430"
+                    :height="500"
                     :loading="loading"
                     @click="handleChartClick"
                 />
@@ -1105,24 +1101,24 @@ const summaryTableData = computed(() => {
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="font-bold text-slate-500 mr-0.5">Skala Penilaian:</span>
                         <div class="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 shadow-2xs">
-                            <span class="inline-block h-3 w-3 rounded-xs bg-[#2E7D32]" />
-                            <span class="text-[11px] font-semibold text-slate-800">1: Sangat Besar</span>
+                            <span class="inline-block h-3 w-3 rounded-xs" :style="{ backgroundColor: analyticsScalePalette[0] }" />
+                            <span class="text-[11px] font-semibold text-slate-800">1: Tidak Sama Sekali</span>
                         </div>
                         <div class="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 shadow-2xs">
-                            <span class="inline-block h-3 w-3 rounded-xs bg-[#66BB6A]" />
-                            <span class="text-[11px] font-semibold text-slate-800">2: Besar</span>
+                            <span class="inline-block h-3 w-3 rounded-xs" :style="{ backgroundColor: analyticsScalePalette[1] }" />
+                            <span class="text-[11px] font-semibold text-slate-800">2: Kurang</span>
                         </div>
                         <div class="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 shadow-2xs">
-                            <span class="inline-block h-3 w-3 rounded-xs bg-[#A5D6A7]" />
+                            <span class="inline-block h-3 w-3 rounded-xs" :style="{ backgroundColor: analyticsScalePalette[2] }" />
                             <span class="text-[11px] font-semibold text-slate-800">3: Cukup Besar</span>
                         </div>
                         <div class="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 shadow-2xs">
-                            <span class="inline-block h-3 w-3 rounded-xs bg-[#E2E8F0]" />
-                            <span class="text-[11px] font-semibold text-slate-800">4: Kurang</span>
+                            <span class="inline-block h-3 w-3 rounded-xs" :style="{ backgroundColor: analyticsScalePalette[3] }" />
+                            <span class="text-[11px] font-semibold text-slate-800">4: Besar</span>
                         </div>
                         <div class="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 shadow-2xs">
-                            <span class="inline-block h-3 w-3 rounded-xs bg-[#F8FAFC] border border-slate-200" />
-                            <span class="text-[11px] font-semibold text-slate-800">5: Tidak Sama Sekali</span>
+                            <span class="inline-block h-3 w-3 rounded-xs" :style="{ backgroundColor: analyticsScalePalette[4] }" />
+                            <span class="text-[11px] font-semibold text-slate-800">5: Sangat Besar</span>
                         </div>
                     </div>
                 </div>

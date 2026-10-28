@@ -560,6 +560,8 @@ class SuperAdminAnalyticsTest extends TestCase
         $f21 = collect($result['chart']['series'])->firstWhere('key', 'F21');
         $this->assertNotNull($f21);
         $this->assertIsInt($f21['score']);
+        $this->assertSame(4, $f21['score']);
+        $this->assertSame('Besar', $f21['score_label']);
         $this->assertGreaterThanOrEqual(1, $f21['score']);
         $this->assertLessThanOrEqual(5, $f21['score']);
         $this->assertArrayHasKey('distribution', $f21);

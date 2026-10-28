@@ -36,6 +36,7 @@ import {
 } from 'echarts/components';
 import { LabelLayout, UniversalTransition } from 'echarts/features';
 import { CanvasRenderer } from 'echarts/renderers';
+import { normalizeAnalyticsOption } from './analyticsChartOptions';
 
 // Registrasi hanya mencakup tipe chart dan fitur yang dipakai dashboard.
 echarts.use([
@@ -104,13 +105,35 @@ const renderChart = async () => {
         chartInstance.on('datazoom', (params) => emit('zoom-change', params));
     }
 
-    chartInstance.setOption({
+    // Terapkan tema bersama, tetapi siapkan fallback agar grafik tetap tampil jika satu opsi kustom gagal dinormalisasi.
+    let normalizedOption = props.option;
+    try {
+        normalizedOption = normalizeAnalyticsOption(props.option);
+    } catch (error) {
+        console.error('[AnalyticsEChart] Gagal menormalisasi opsi grafik.', error);
+    }
+
+    const chartOption = {
         animation: !prefersReducedMotion(),
         animationDuration: prefersReducedMotion() ? 0 : 350,
         animationDurationUpdate: prefersReducedMotion() ? 0 : 280,
         animationEasingUpdate: 'cubicOut',
-        ...props.option,
-    }, { notMerge: true, lazyUpdate: true });
+        ...normalizedOption,
+    };
+
+    try {
+        chartInstance.setOption(chartOption, { notMerge: true, lazyUpdate: true });
+    } catch (error) {
+        console.error('[AnalyticsEChart] Gagal merender opsi grafik, memakai opsi asli.', error);
+        chartInstance.clear();
+        chartInstance.setOption({
+            animation: !prefersReducedMotion(),
+            animationDuration: prefersReducedMotion() ? 0 : 350,
+            animationDurationUpdate: prefersReducedMotion() ? 0 : 280,
+            animationEasingUpdate: 'cubicOut',
+            ...props.option,
+        }, { notMerge: true, lazyUpdate: true });
+    }
     syncLoading();
 };
 

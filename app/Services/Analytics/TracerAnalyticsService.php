@@ -715,11 +715,11 @@ class TracerAnalyticsService
         ];
 
         $scaleDescriptions = [
-            1 => 'Sangat Besar',
-            2 => 'Besar',
+            1 => 'Tidak Sama Sekali',
+            2 => 'Kurang',
             3 => 'Cukup Besar',
-            4 => 'Kurang',
-            5 => 'Tidak Sama Sekali',
+            4 => 'Besar',
+            5 => 'Sangat Besar',
         ];
 
         $records = $this->questionRecords($rows)->map(function (array $record) use ($labels, $scaleDescriptions): array {
@@ -767,8 +767,8 @@ class TracerAnalyticsService
         $overallAvg = $allScores->count() > 0 ? (float) $allScores->avg() : 0.0;
         $overallInt = $allScores->count() > 0 ? (int) round($overallAvg) : 0;
 
-        // Dalam skala ini: 1 = Sangat Besar (penekanan tertinggi), 5 = Tidak Sama Sekali (penekanan terendah)
-        $sortedByEmphasis = collect($series)->filter(fn ($item) => $item['count'] > 0)->sortBy('average')->values();
+        // Dalam skala ini: 5 = Sangat Besar (penekanan tertinggi), 1 = Tidak Sama Sekali (penekanan terendah)
+        $sortedByEmphasis = collect($series)->filter(fn ($item) => $item['count'] > 0)->sortByDesc('average')->values();
         $leading = $sortedByEmphasis->first();
         $least = $sortedByEmphasis->last();
 
@@ -783,7 +783,7 @@ class TracerAnalyticsService
                 'max' => 5,
                 'step' => 1,
                 'levels' => $scaleDescriptions,
-                'legend' => '1 = Sangat Besar | 2 = Besar | 3 = Cukup Besar | 4 = Kurang | 5 = Tidak Sama Sekali',
+                'legend' => '1 = Tidak Sama Sekali | 2 = Kurang | 3 = Cukup Besar | 4 = Besar | 5 = Sangat Besar',
             ],
             'summary' => [
                 'answered_count' => $records->pluck('biodata_id')->unique()->count(),
@@ -800,8 +800,8 @@ class TracerAnalyticsService
             'series' => $series,
             'records' => $records->all(),
             'methodology' => [
-                'formula' => 'Nilai rerata respon alumni dihitung per metode pembelajaran pada skala Likert 1 (Sangat Besar) sampai 5 (Tidak Sama Sekali) dengan pembulatan bilangan bulat (INT).',
-                'scale_legend' => '1 = Sangat Besar | 2 = Besar | 3 = Cukup Besar | 4 = Kurang | 5 = Tidak Sama Sekali',
+                'formula' => 'Nilai rerata respon alumni dihitung per metode pembelajaran pada skala Likert 1 (Tidak Sama Sekali) sampai 5 (Sangat Besar) dengan pembulatan bilangan bulat (INT).',
+                'scale_legend' => '1 = Tidak Sama Sekali | 2 = Kurang | 3 = Cukup Besar | 4 = Besar | 5 = Sangat Besar',
                 'denominator' => 'Jawaban valid alumni pada instrumen tracer F21 sampai F27.',
                 'source' => 'tracer.F21 sampai tracer.F27 melalui v_analytics_tracer_answers',
             ],
@@ -1928,11 +1928,11 @@ class TracerAnalyticsService
             'cukup' => 3.0,
             'tinggi' => 4.0,
             'sangat tinggi' => 5.0,
-            'sangat besar' => 1.0,
+            'sangat besar' => 5.0,
             'cukup besar' => 3.0,
-            'besar' => 2.0,
-            'kurang' => 4.0,
-            'tidak sama sekali' => 5.0,
+            'besar' => 4.0,
+            'kurang' => 2.0,
+            'tidak sama sekali' => 1.0,
             'sangat tidak setuju' => 1.0,
             'tidak setuju' => 2.0,
             'netral' => 3.0,

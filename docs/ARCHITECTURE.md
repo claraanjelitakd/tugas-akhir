@@ -232,8 +232,9 @@ analisis naratif data-driven ("Kilas Indikator"), drill-down inline tanpa
 lompat tab, dan seleksi data dua arah.
 
 Grafik garis perbandingan resmi diadopsi sesuai laporan Tracer Study:
-Gambar 4.3 untuk metode belajar (skor bulat INT 1-5), Gambar 4.6 untuk waktu
-tunggu per prodi, Gambar 4.7 untuk tahapan lamaran, Gambar 4.10 untuk dispersi
+Gambar 4.3 untuk metode belajar (skor bulat INT 1-5, dengan 1 = Tidak Sama
+Sekali dan 5 = Sangat Besar), Gambar 4.6 untuk waktu tunggu per prodi, Gambar
+4.7 untuk tahapan lamaran, Gambar 4.10 untuk dispersi
 pendapatan 3 garis kuartil (Q1, Median/Q2, Q3), Gambar 4.14 untuk vertical match
 diagram garis per prodi, dan Gambar 4.17 untuk kombinasi batang bekal kampus vs
 kebutuhan kerja dengan garis gap selisih (*Dual Y-Axis*). Sumbu X kategori prodi
@@ -241,6 +242,9 @@ diberi rotasi 30 derajat (`rotate: 30`) guna mencegah teks nama prodi panjang sa
 bertumpuk (*nabrak*). Palet warna menerapkan harmoni institusi: Hijau UKDW (`#0D542B`)
 sebagai jangkar primer, Slate netral lembut (`#94A3B8`) untuk status pembanding/belum,
 dan Slate tegas (`#334155`) untuk garis target/gap tanpa warna oranye yang silau/bentrok.
+Tahapan lamaran per program studi memakai median jumlah perusahaan dilamar, merespon,
+dan wawancara; visual, tooltip, dan tabel menampilkan hasilnya sebagai bilangan bulat
+tanpa pecahan desimal.
 Halaman analitik lama `SuperAdmin/Analytics/Index.vue` telah dihapus.
 Saat record kosong, `data_availability` membedakan tidak ada populasi, belum ada
 jawaban valid, dan jawaban yang tidak berlaku akibat percabangan.

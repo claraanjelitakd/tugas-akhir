@@ -1,5 +1,12 @@
 # UPDATE LOG - SERU (Sistem Ekosistem Rekam Jejak Alumni)
 
+## [2026-10-28] Pembalikan Skala Metode Pembelajaran dan Median Pipeline Lamaran
+
+- Mengubah opsi F21-F27 pada `ref_subpertanyaan_detil` menjadi `1 = Tidak Sama Sekali`, `2 = Kurang`, `3 = Cukup Besar`, `4 = Besar`, dan `5 = Sangat Besar`; seeder referensi diperbarui dan dijalankan pada database aktif.
+- Menyesuaikan normalisasi backend, radar, garis, stacked bar, heatmap, legenda, tooltip, dan narasi Indikator 02 agar skor tinggi berarti penekanan metode pembelajaran lebih besar.
+- Grafik tahapan lamaran per program studi tetap menggunakan median untuk F6/F7/F7A, tetapi label, tooltip, dan tabel menampilkan bilangan bulat tanpa desimal.
+- Memperbarui tes kontrak analitik dan dokumentasi arsitektur yang terdampak.
+
 ## [2026-10-22] Konsistensi Antarmuka Multi-Role dan Penyatuan Master Perusahaan
 
 - Menambahkan `resources/js/components/AdminSidebar.vue` sebagai sumber konfigurasi navigasi bersama untuk Superadmin, Admin Fakultas, Admin Prodi, dan Admin Biro III. Wrapper sidebar pada setiap folder role mempertahankan kontrak props dan jalur pemakaian halaman yang sudah ada.

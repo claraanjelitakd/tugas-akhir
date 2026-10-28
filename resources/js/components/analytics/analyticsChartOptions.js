@@ -7,8 +7,42 @@
  * (Grafik | Data) untuk setiap visualisasi.
  */
 
-// Palet warna resmi universitas yang bersih dan formal tanpa saturasi berlebih.
-export const analyticsPalette = ['#0D542B', '#2563EB', '#D97706', '#7C3AED', '#0891B2', '#DC2626', '#475569', '#EA580C'];
+// Palet bersama seluruh grafik: satu tone hijau UKDW dengan putih sebagai ruang visual.
+export const analyticsColors = {
+    green: '#0D542B',
+    greenMid: '#2F7D4A',
+    greenSoft: '#B9D8C3',
+    greenPale: '#DCEEE1',
+    greenMist: '#F3F8F4',
+    white: '#FFFFFF',
+    scaleOne: '#F3F8F4',
+    scaleTwo: '#DCEEE1',
+    scaleThree: '#B9D8C3',
+    scaleFour: '#2F7D4A',
+    scaleFive: '#0D542B',
+    text: '#334155',
+    textStrong: '#0F172A',
+    grid: 'rgba(13, 84, 43, 0.14)',
+    axis: 'rgba(13, 84, 43, 0.36)',
+};
+
+// Urutan warna seri konsisten untuk grafik dengan dua atau lebih seri.
+export const analyticsPalette = [
+    analyticsColors.green,
+    analyticsColors.greenMid,
+    analyticsColors.greenSoft,
+    analyticsColors.greenPale,
+    analyticsColors.greenMist,
+];
+
+// Urutan warna ordinal skala 1-5 dibuat naik dari netral ke capaian tertinggi.
+export const analyticsScalePalette = [
+    analyticsColors.scaleOne,
+    analyticsColors.scaleTwo,
+    analyticsColors.scaleThree,
+    analyticsColors.scaleFour,
+    analyticsColors.scaleFive,
+];
 
 // Format angka Indonesia untuk label, tooltip, dan sumbu.
 export const formatNumber = (value, digits = 1) => Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: digits });
@@ -88,7 +122,8 @@ export const getProdiMedians = (records, valueKey) => {
 export const baseOption = (validResponses = 0) => ({
     color: analyticsPalette,
     aria: { enabled: true, decal: { show: false } },
-    textStyle: { fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif', color: '#0F172A' },
+    backgroundColor: analyticsColors.white,
+    textStyle: { fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif', color: analyticsColors.textStrong },
     animation: true,
     animationDuration: 700,
     animationEasing: 'cubicOut',
@@ -98,20 +133,213 @@ export const baseOption = (validResponses = 0) => ({
         trigger: 'item',
         confine: true,
         appendToBody: false,
-        backgroundColor: 'rgba(15, 23, 42, 0.94)',
-        borderColor: '#334155',
-        borderWidth: 1,
-        textStyle: { color: '#FFFFFF', fontSize: 12 },
-        extraCssText: 'max-width:320px;white-space:normal;box-shadow:0 12px 30px rgba(15,23,42,.22);border-radius:8px;padding:10px 14px;backdrop-filter:blur(6px);',
+        backgroundColor: analyticsColors.white,
+        borderColor: 'transparent',
+        borderWidth: 0,
+        textStyle: { color: analyticsColors.textStrong, fontSize: 12 },
+        extraCssText: 'max-width:320px;white-space:normal;border:0;box-shadow:none;border-radius:6px;padding:10px 14px;',
     },
     graphic: validResponses > 0 ? [{
         type: 'text',
         right: 8,
         bottom: 0,
         silent: true,
-        style: { text: `N valid: ${formatNumber(validResponses, 0)}`, fill: '#64748B', fontSize: 11 },
+        style: { text: `N valid: ${formatNumber(validResponses, 0)}`, fill: analyticsColors.text, fontSize: 11 },
     }] : [],
 });
+
+// Menyalin opsi ECharts tanpa merusak formatter function yang disediakan tiap grafik.
+const cloneChartOption = (value) => {
+    if (Array.isArray(value)) return value.map(cloneChartOption);
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cloneChartOption(item)]));
+    }
+
+    return value;
+};
+
+// Menentukan margin minimum agar judul sumbu dan label kategori tidak terpotong.
+const normalizeChartGrid = (option) => {
+    const xAxes = Array.isArray(option.xAxis) ? option.xAxis : (option.xAxis ? [option.xAxis] : []);
+    const yAxes = Array.isArray(option.yAxis) ? option.yAxis : (option.yAxis ? [option.yAxis] : []);
+    const hasCategoryX = xAxes.some((axis) => axis?.type === 'category');
+    const requiredLeft = 24;
+    const grids = Array.isArray(option.grid) ? option.grid : (option.grid ? [option.grid] : []);
+
+    grids.forEach((grid) => {
+        grid.left = Math.max(Number(grid.left) || 0, requiredLeft);
+        grid.right = Math.max(Number(grid.right) || 0, 32);
+        grid.top = Math.max(Number(grid.top) || 0, 24);
+        grid.bottom = Math.max(Number(grid.bottom) || 0, hasCategoryX ? 72 : 40);
+        grid.containLabel = true;
+    });
+
+    if (grids.length === 0 && (xAxes.length > 0 || yAxes.length > 0)) {
+        option.grid = [{
+            left: requiredLeft,
+            right: 32,
+            top: 24,
+            bottom: hasCategoryX ? 72 : 40,
+            containLabel: true,
+        }];
+    }
+};
+
+// Menghapus warna lokal yang tidak konsisten, border, dan shadow dari setiap elemen data.
+const normalizeChartStyle = (style, color) => {
+    if (!style || typeof style !== 'object') return;
+
+    style.color = color;
+    style.borderColor = 'transparent';
+    style.borderWidth = 0;
+    style.shadowBlur = 0;
+    style.shadowColor = 'transparent';
+};
+
+// Menyamakan warna seri, tooltip, legenda, dan elemen sumbu pada semua tipe grafik.
+export const normalizeAnalyticsOption = (option) => {
+    const normalized = cloneChartOption(option || {});
+    normalized.color = analyticsPalette;
+    normalized.backgroundColor = analyticsColors.white;
+
+    normalizeChartGrid(normalized);
+
+    const xAxes = Array.isArray(normalized.xAxis) ? normalized.xAxis : (normalized.xAxis ? [normalized.xAxis] : []);
+    const yAxes = Array.isArray(normalized.yAxis) ? normalized.yAxis : (normalized.yAxis ? [normalized.yAxis] : []);
+    [...xAxes, ...yAxes].forEach((axis) => {
+        if (!axis) return;
+        axis.axisLine = axis.axisLine || {};
+        axis.axisLine.lineStyle = axis.axisLine.lineStyle || {};
+        axis.axisLine.lineStyle.color = analyticsColors.axis;
+        axis.axisLabel = axis.axisLabel || {};
+        axis.axisLabel.color = analyticsColors.text;
+        if (axis.type === 'category') {
+            axis.axisLabel.overflow = 'break';
+            axis.axisLabel.hideOverlap = false;
+        }
+        if (axis.nameTextStyle) axis.nameTextStyle.color = analyticsColors.text;
+        if (axis.splitLine) {
+            axis.splitLine.lineStyle = axis.splitLine.lineStyle || {};
+            axis.splitLine.lineStyle.color = analyticsColors.grid;
+        }
+    });
+
+    if (normalized.legend) {
+        normalized.legend.textStyle = normalized.legend.textStyle || {};
+        normalized.legend.textStyle.color = analyticsColors.text;
+    }
+
+    if (normalized.title) {
+        const titles = Array.isArray(normalized.title) ? normalized.title : [normalized.title];
+        titles.forEach((title) => {
+            title.textStyle = title.textStyle || {};
+            title.textStyle.color = analyticsColors.textStrong;
+        });
+    }
+
+    if (normalized.tooltip) {
+        normalized.tooltip.backgroundColor = analyticsColors.white;
+        normalized.tooltip.borderColor = 'transparent';
+        normalized.tooltip.borderWidth = 0;
+        normalized.tooltip.textStyle = normalized.tooltip.textStyle || {};
+        normalized.tooltip.textStyle.color = analyticsColors.textStrong;
+        normalized.tooltip.extraCssText = 'max-width:320px;white-space:normal;border:0;box-shadow:none;border-radius:6px;padding:10px 14px;';
+        if (normalized.tooltip.axisPointer) {
+            normalized.tooltip.axisPointer.lineStyle = normalized.tooltip.axisPointer.lineStyle || {};
+            normalized.tooltip.axisPointer.lineStyle.color = analyticsColors.greenMid;
+            normalized.tooltip.axisPointer.shadowStyle = normalized.tooltip.axisPointer.shadowStyle || {};
+            normalized.tooltip.axisPointer.shadowStyle.color = 'rgba(13, 84, 43, 0.12)';
+        }
+    }
+
+    if (Array.isArray(normalized.series)) {
+        normalized.series.forEach((series, seriesIndex) => {
+            const scaleValue = /^([1-5])\s*=/.exec(String(series.name || ''))?.[1];
+            const seriesColor = scaleValue
+                ? analyticsScalePalette[Number(scaleValue) - 1]
+                : analyticsPalette[seriesIndex % analyticsPalette.length];
+            normalizeChartStyle(series.itemStyle, seriesColor);
+            if (series.lineStyle) {
+                series.lineStyle.color = seriesColor;
+                series.lineStyle.shadowBlur = 0;
+            }
+            if (series.areaStyle) {
+                series.areaStyle.color = seriesColor;
+                series.areaStyle.shadowBlur = 0;
+            }
+            normalizeChartStyle(series.emphasis?.itemStyle, seriesColor);
+            if (series.emphasis?.lineStyle) series.emphasis.lineStyle.color = seriesColor;
+            if (series.label && series.label.color !== analyticsColors.white) {
+                series.label.color = analyticsColors.textStrong;
+            }
+            if (series.markLine) {
+                series.markLine.lineStyle = series.markLine.lineStyle || {};
+                series.markLine.lineStyle.color = analyticsColors.greenMid;
+                if (series.markLine.label) series.markLine.label.color = analyticsColors.text;
+            }
+
+            if (Array.isArray(series.data)) {
+                series.data.forEach((datum, datumIndex) => {
+                    if (!datum || typeof datum !== 'object') return;
+                    const datumColor = ['pie', 'funnel', 'treemap', 'sankey'].includes(series.type)
+                        ? analyticsPalette[datumIndex % analyticsPalette.length]
+                        : seriesColor;
+                    normalizeChartStyle(datum.itemStyle, datumColor);
+                    normalizeChartStyle(datum.emphasis?.itemStyle, datumColor);
+                    if (datum.lineStyle) {
+                        datum.lineStyle.color = datumColor;
+                        datum.lineStyle.shadowBlur = 0;
+                    }
+                    if (datum.areaStyle) {
+                        datum.areaStyle.color = datumColor;
+                        datum.areaStyle.shadowBlur = 0;
+                    }
+                    if (datum.label && datum.label.color !== analyticsColors.white) datum.label.color = analyticsColors.textStrong;
+                });
+            }
+        });
+    }
+
+    if (normalized.visualMap?.pieces) {
+        normalized.visualMap.pieces.forEach((piece, index) => {
+            const value = Number(piece.value);
+            piece.color = value >= 1 && value <= 5
+                ? analyticsScalePalette[value - 1]
+                : analyticsPalette[index % analyticsPalette.length];
+        });
+    }
+    if (normalized.visualMap?.inRange?.color) {
+        normalized.visualMap.inRange.color = analyticsScalePalette;
+    }
+
+    if (normalized.radar) {
+        normalized.radar.axisName = normalized.radar.axisName || {};
+        normalized.radar.axisName.color = analyticsColors.text;
+        normalized.radar.splitLine = normalized.radar.splitLine || {};
+        normalized.radar.splitLine.lineStyle = normalized.radar.splitLine.lineStyle || {};
+        normalized.radar.splitLine.lineStyle.color = analyticsColors.grid;
+        normalized.radar.splitArea = normalized.radar.splitArea || {};
+        normalized.radar.splitArea.show = false;
+        normalized.radar.splitArea.areaStyle = normalized.radar.splitArea.areaStyle || {};
+        normalized.radar.splitArea.areaStyle.color = [analyticsColors.white, analyticsColors.greenMist];
+    }
+
+    if (Array.isArray(normalized.graphic)) {
+        normalized.graphic.forEach((graphic, graphicIndex) => {
+            if (!graphic.style) return;
+            if (graphic.type === 'text') {
+                if (graphic.style.fill) graphic.style.fill = analyticsColors.text;
+                return;
+            }
+            if (graphic.style.fill) graphic.style.fill = analyticsPalette[graphicIndex % analyticsPalette.length];
+            if (graphic.style.stroke) graphic.style.stroke = analyticsColors.greenMid;
+            graphic.style.shadowBlur = 0;
+            graphic.style.shadowColor = 'transparent';
+        });
+    }
+
+    return normalized;
+};
 
 // Datum kategori dengan dukungan warna solid tunggal atau palet warna.
 const categoryDatum = (item, index, selectedLabel, metric, type, forcedColor = null) => {
@@ -466,7 +694,7 @@ export const prodiPipelineLine = (records) => {
             trigger: 'axis',
             formatter: (params) => {
                 const item = grouped[params[0]?.dataIndex ?? 0] || {};
-                return `<strong>${escapeHtml(item.prodi)}</strong> (n=${item.count})<br>Dilamar: <strong>${formatNumber(item.dilamar, 1)}</strong><br>Merespon: <strong>${formatNumber(item.merespon, 1)}</strong><br>Mewawancara: <strong>${formatNumber(item.wawancara, 1)}</strong>`;
+                return `<strong>${escapeHtml(item.prodi)}</strong> (n=${item.count})<br>Median dilamar: <strong>${formatNumber(item.dilamar, 0)}</strong><br>Median merespon: <strong>${formatNumber(item.merespon, 0)}</strong><br>Median wawancara: <strong>${formatNumber(item.wawancara, 0)}</strong>`;
             },
         },
         series: [
@@ -478,7 +706,7 @@ export const prodiPipelineLine = (records) => {
                 lineStyle: { width: 3, color: '#2563EB' },
                 symbol: 'circle',
                 symbolSize: 8,
-                label: { show: true, position: 'top', formatter: ({ value }) => formatNumber(value, 1) },
+                label: { show: true, position: 'top', formatter: ({ value }) => formatNumber(value, 0) },
             },
             {
                 name: 'Merespon',
@@ -488,7 +716,7 @@ export const prodiPipelineLine = (records) => {
                 lineStyle: { width: 3, color: '#DC2626' },
                 symbol: 'rect',
                 symbolSize: 8,
-                label: { show: true, position: 'bottom', formatter: ({ value }) => formatNumber(value, 1) },
+                label: { show: true, position: 'bottom', formatter: ({ value }) => formatNumber(value, 0) },
             },
             {
                 name: 'Mewawancara',
@@ -498,7 +726,7 @@ export const prodiPipelineLine = (records) => {
                 lineStyle: { width: 3, color: '#0D542B' },
                 symbol: 'triangle',
                 symbolSize: 8,
-                label: { show: true, position: 'right', formatter: ({ value }) => formatNumber(value, 1) },
+                label: { show: true, position: 'right', formatter: ({ value }) => formatNumber(value, 0) },
             },
         ],
     };
@@ -513,9 +741,9 @@ export const prodiPipelineLine = (records) => {
         ],
         rows: grouped.map((item) => ({
             prodi: item.prodi,
-            dilamar: formatNumber(item.dilamar, 1),
-            merespon: formatNumber(item.merespon, 1),
-            wawancara: formatNumber(item.wawancara, 1),
+            dilamar: formatNumber(item.dilamar, 0),
+            merespon: formatNumber(item.merespon, 0),
+            wawancara: formatNumber(item.wawancara, 0),
             count: formatNumber(item.count, 0),
         })),
     };
@@ -674,7 +902,7 @@ export const heatmap = (records, selectedLabel, mode = 'count') => {
             orient: 'horizontal',
             left: 'center',
             bottom: 0,
-            inRange: { color: ['#F8FAFC', '#BBF7D0', '#4ADE80', '#16A34A', '#0D542B'] },
+            inRange: { color: analyticsScalePalette },
             text: [mode === 'percentage' ? 'Tinggi (%)' : 'Tinggi', 'Rendah'],
             textStyle: { color: '#475569', fontSize: 11 },
         },

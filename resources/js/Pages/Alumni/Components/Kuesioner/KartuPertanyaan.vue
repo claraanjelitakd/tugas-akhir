@@ -750,11 +750,11 @@ const stepNumberInput = (qId, delta) => {
                         <tr>
                             <th class="p-3 sm:p-4 text-left">Aspek Penilaian</th>
                             <th v-for="sc in [
-                                { val: 1, label: 'Sangat Besar' },
-                                { val: 2, label: 'Besar' },
+                                { val: 1, label: 'Tidak Sama Sekali' },
+                                { val: 2, label: 'Kurang' },
                                 { val: 3, label: 'Cukup Besar' },
-                                { val: 4, label: 'Kurang' },
-                                { val: 5, label: 'Tidak Sama Sekali' }
+                                { val: 4, label: 'Besar' },
+                                { val: 5, label: 'Sangat Besar' }
                             ]" :key="sc.val" class="p-2 sm:p-3 text-center w-20 sm:w-28">
                                 <div class="text-[11px] sm:text-xs font-black">{{ sc.label }}</div>
                                 <div class="text-[10px] text-emerald-700 font-mono">({{ sc.val }})</div>

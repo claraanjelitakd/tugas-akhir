@@ -90,7 +90,7 @@ const pipelineLineOption = computed(() => {
             trigger: 'axis',
             formatter: (params) => {
                 const item = list[params[0]?.dataIndex ?? 0] || {};
-                return `<strong>${escapeHtml(item.prodi)}</strong> (n=${item.count})<br>Perusahaan dilamar: <strong>${formatNumber(item.dilamar, 1)}</strong><br>Perusahaan merespon: <strong>${formatNumber(item.merespon, 1)}</strong><br>Panggilan wawancara: <strong>${formatNumber(item.wawancara, 1)}</strong>`;
+                return `<strong>${escapeHtml(item.prodi)}</strong> (n=${item.count})<br>Median perusahaan dilamar: <strong>${formatNumber(item.dilamar, 0)}</strong><br>Median perusahaan merespon: <strong>${formatNumber(item.merespon, 0)}</strong><br>Median panggilan wawancara: <strong>${formatNumber(item.wawancara, 0)}</strong>`;
             },
         },
         series: [
@@ -103,7 +103,7 @@ const pipelineLineOption = computed(() => {
                 symbol: 'circle',
                 symbolSize: 8,
                 emphasis: { scale: 1.5 },
-                label: { show: true, position: 'top', formatter: ({ value }) => formatNumber(value, 1), fontSize: 11, fontWeight: 'bold' },
+                label: { show: true, position: 'top', formatter: ({ value }) => formatNumber(value, 0), fontSize: 11, fontWeight: 'bold' },
             },
             {
                 name: 'Merespon',
@@ -114,7 +114,7 @@ const pipelineLineOption = computed(() => {
                 symbol: 'rect',
                 symbolSize: 8,
                 emphasis: { scale: 1.5 },
-                label: { show: true, position: 'bottom', formatter: ({ value }) => formatNumber(value, 1), fontSize: 11, fontWeight: 'bold' },
+                label: { show: true, position: 'bottom', formatter: ({ value }) => formatNumber(value, 0), fontSize: 11, fontWeight: 'bold' },
             },
             {
                 name: 'Mewawancara',
@@ -125,7 +125,7 @@ const pipelineLineOption = computed(() => {
                 symbol: 'triangle',
                 symbolSize: 8,
                 emphasis: { scale: 1.5 },
-                label: { show: true, position: 'right', formatter: ({ value }) => formatNumber(value, 1), fontSize: 11, fontWeight: 'bold' },
+                label: { show: true, position: 'right', formatter: ({ value }) => formatNumber(value, 0), fontSize: 11, fontWeight: 'bold' },
             },
         ],
     };
@@ -141,9 +141,9 @@ const pipelineLineTable = computed(() => ({
     ],
     rows: prodiPipelineData.value.map((item) => ({
         prodi: item.prodi,
-        dilamar: formatNumber(item.dilamar, 1),
-        merespon: formatNumber(item.merespon, 1),
-        wawancara: formatNumber(item.wawancara, 1),
+        dilamar: formatNumber(item.dilamar, 0),
+        merespon: formatNumber(item.merespon, 0),
+        wawancara: formatNumber(item.wawancara, 0),
         count: formatNumber(item.count, 0),
     })),
 }));
@@ -175,7 +175,7 @@ const stagesBarOption = computed(() => {
             axisPointer: { type: 'shadow' },
             formatter: (params) => {
                 const pt = params[0]?.data || {};
-                return `<strong>${escapeHtml(pt.name)}</strong><br>Median: <strong>${formatNumber(pt.value, 1)} perusahaan</strong><br>Respon valid: ${formatNumber(pt.count, 0)} alumni`;
+                return `<strong>${escapeHtml(pt.name)}</strong><br>Median: <strong>${formatNumber(pt.value, 0)} perusahaan</strong><br>Respon valid: ${formatNumber(pt.count, 0)} alumni`;
             },
         },
         series: [{
@@ -188,7 +188,7 @@ const stagesBarOption = computed(() => {
                 position: 'right',
                 fontWeight: 'bold',
                 color: '#0D542B',
-                formatter: ({ value }) => `${formatNumber(value, 1)} perusahaan`,
+                formatter: ({ value }) => `${formatNumber(value, 0)} perusahaan`,
             },
         }],
     };
@@ -202,7 +202,7 @@ const stagesBarTable = computed(() => ({
     ],
     rows: series.value.map((item) => ({
         name: seriesLabel(item),
-        medianDisplay: formatNumber(item.median, 1),
+        medianDisplay: formatNumber(item.median, 0),
         countDisplay: formatNumber(item.count, 0),
     })),
 }));
