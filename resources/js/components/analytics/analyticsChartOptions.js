@@ -26,6 +26,9 @@ export const analyticsColors = {
     axis: 'rgba(13, 84, 43, 0.36)',
 };
 
+// Palet khusus Indikator 01 mempertahankan kontras hijau-kuning untuk komposisi respons.
+export const responseRatePalette = ['#0D542B', '#D6A928'];
+
 // Urutan warna seri konsisten untuk grafik dengan dua atau lebih seri.
 export const analyticsPalette = [
     analyticsColors.green,
@@ -199,7 +202,12 @@ const normalizeChartStyle = (style, color) => {
 // Menyamakan warna seri, tooltip, legenda, dan elemen sumbu pada semua tipe grafik.
 export const normalizeAnalyticsOption = (option) => {
     const normalized = cloneChartOption(option || {});
-    normalized.color = analyticsPalette;
+    const customPalette = Array.isArray(option?.themePalette) && option.themePalette.length
+        ? option.themePalette
+        : null;
+
+    delete normalized.themePalette;
+    normalized.color = customPalette || analyticsPalette;
     normalized.backgroundColor = analyticsColors.white;
 
     normalizeChartGrid(normalized);
@@ -257,7 +265,7 @@ export const normalizeAnalyticsOption = (option) => {
             const scaleValue = /^([1-5])\s*=/.exec(String(series.name || ''))?.[1];
             const seriesColor = scaleValue
                 ? analyticsScalePalette[Number(scaleValue) - 1]
-                : analyticsPalette[seriesIndex % analyticsPalette.length];
+                : (customPalette || analyticsPalette)[seriesIndex % (customPalette || analyticsPalette).length];
             normalizeChartStyle(series.itemStyle, seriesColor);
             if (series.lineStyle) {
                 series.lineStyle.color = seriesColor;
@@ -281,9 +289,12 @@ export const normalizeAnalyticsOption = (option) => {
             if (Array.isArray(series.data)) {
                 series.data.forEach((datum, datumIndex) => {
                     if (!datum || typeof datum !== 'object') return;
-                    const datumColor = ['pie', 'funnel', 'treemap', 'sankey'].includes(series.type)
-                        ? analyticsPalette[datumIndex % analyticsPalette.length]
-                        : seriesColor;
+                    const explicitDatumColor = customPalette && typeof datum.itemStyle?.color === 'string'
+                        ? datum.itemStyle.color
+                        : null;
+                    const datumColor = explicitDatumColor || (['pie', 'funnel', 'treemap', 'sankey'].includes(series.type)
+                        ? (customPalette || analyticsPalette)[datumIndex % (customPalette || analyticsPalette).length]
+                        : seriesColor);
                     normalizeChartStyle(datum.itemStyle, datumColor);
                     normalizeChartStyle(datum.emphasis?.itemStyle, datumColor);
                     if (datum.lineStyle) {
@@ -331,7 +342,7 @@ export const normalizeAnalyticsOption = (option) => {
                 if (graphic.style.fill) graphic.style.fill = analyticsColors.text;
                 return;
             }
-            if (graphic.style.fill) graphic.style.fill = analyticsPalette[graphicIndex % analyticsPalette.length];
+            if (graphic.style.fill) graphic.style.fill = (customPalette || analyticsPalette)[graphicIndex % (customPalette || analyticsPalette).length];
             if (graphic.style.stroke) graphic.style.stroke = analyticsColors.greenMid;
             graphic.style.shadowBlur = 0;
             graphic.style.shadowColor = 'transparent';

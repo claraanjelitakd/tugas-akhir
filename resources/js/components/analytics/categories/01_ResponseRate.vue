@@ -20,6 +20,7 @@ import {
     baseOption,
     escapeHtml,
     formatNumber,
+    responseRatePalette,
 } from '../analyticsChartOptions';
 
 // Kontrak properti data indikator, filter aktif, dan status pemuatan data.
@@ -127,7 +128,7 @@ const naturalSummary = computed(() => {
             return {
                 title: `Kilas Komposisi · ${p.nama_prodi}`,
                 statusBadge: `${formatNumber(p.response_rate, 1)}% Responden`,
-                badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+                badgeClass: 'bg-white text-[#0D542B] border border-[#0D542B]/30',
                 lead: `Dari populasi ${formatNumber(p.population, 0)} alumni ${p.nama_prodi} kohort ${year}, tercatat ${formatNumber(p.respondents, 0)} alumni (${formatNumber(p.response_rate, 1)}%) telah mengisi kuesioner dan ${formatNumber(p.unanswered, 0)} alumni (${formatNumber(p.unanswered_rate, 1)}%) belum mengisi.`,
                 detail: `Proporsi alumni yang belum mengisi kuesioner pada program studi ini sebesar ${formatNumber(p.unanswered_rate, 1)}%. Gunakan daftar responden di bawah untuk menghubungi alumni yang belum berpartisipasi.`,
             };
@@ -136,7 +137,7 @@ const naturalSummary = computed(() => {
         return {
             title: `Kilas Komposisi Partisipasi Kohort ${year}`,
             statusBadge: 'Distribusi Komposisi',
-            badgeClass: 'bg-slate-100 text-slate-700 border border-slate-300',
+            badgeClass: 'bg-white text-slate-700 border border-slate-300',
             lead: `Dari total ${formatNumber(pop, 0)} alumni kohort ${year}, tercatat ${formatNumber(resp, 0)} alumni (${formatNumber(rate, 1)}%) telah berpartisipasi mengisi kuesioner, sementara ${formatNumber(unans, 0)} alumni (${formatNumber(unansRate, 1)}%) masih berstatus belum mengisi.`,
             detail: highest && lowest && highest.nama_prodi !== lowest.nama_prodi
                 ? `Komposisi responden tertinggi diraih oleh ${highest.nama_prodi} (${formatNumber(highest.response_rate, 1)}%), sedangkan proporsi belum mengisi terbanyak berada pada ${lowest.nama_prodi} (${formatNumber(lowest.unanswered_rate, 1)}% / ${formatNumber(lowest.unanswered, 0)} alumni). Klik segmen batang untuk menyaring data.`
@@ -153,7 +154,7 @@ const naturalSummary = computed(() => {
         return {
             title: `Kilas Evaluasi Target · ${p.nama_prodi}`,
             statusBadge: p.criteria,
-            badgeClass: isMet ? 'bg-emerald-50 text-[#0D542B] border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-300',
+            badgeClass: isMet ? 'bg-white text-[#0D542B] border border-[#0D542B]/30' : 'bg-white text-[#7A5B00] border border-[#D6A928]/60',
             lead: `Program studi ${p.nama_prodi} menempati peringkat ${rankIndex} dari ${totalProdi} program studi dengan response rate ${formatNumber(p.response_rate, 1)}% (${pGapSign}${formatNumber(p.target_gap, 1)}% terhadap target standar ${formatNumber(p.target, 1)}%).`,
             detail: isMet
                 ? `Capaian ini memenuhi standar kinerja universitas dengan predikat ${p.criteria}. Sebanyak ${formatNumber(p.respondents, 0)} alumni telah tercatat sebagai responden valid.`
@@ -165,7 +166,7 @@ const naturalSummary = computed(() => {
     return {
         title: `Kilas Evaluasi Target & Ranking Kohort ${year}`,
         statusBadge: isUnivMet ? 'Target Standar Terlampaui' : 'Perlu Peningkatan',
-        badgeClass: isUnivMet ? 'bg-emerald-50 text-[#0D542B] border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-300',
+        badgeClass: isUnivMet ? 'bg-white text-[#0D542B] border border-[#0D542B]/30' : 'bg-white text-[#7A5B00] border border-[#D6A928]/60',
         lead: `Sebanyak ${aboveTargetCount} dari ${totalProdi} program studi berhasil melampaui target standar universitas (${formatNumber(target, 1)}%), dengan rata-rata selisih universitas ${gapSign}${formatNumber(gap, 1)}% (Capaian: ${formatNumber(rate, 1)}%).`,
         detail: highest && lowest && highest.nama_prodi !== lowest.nama_prodi
             ? `Peringkat pertama dipimpin oleh ${highest.nama_prodi} (${formatNumber(highest.response_rate, 1)}%, surplus +${formatNumber(highest.target_gap, 1)}%), sementara ${lowest.nama_prodi} berada pada peringkat terbawah (${formatNumber(lowest.response_rate, 1)}%, selisih ${lowest.target_gap}%). Garis putus-putus abu-abu gelap menandai batas minimal target.`
@@ -185,6 +186,7 @@ const stackedBarOption = computed(() => {
 
     return {
         ...baseOption(),
+        themePalette: responseRatePalette,
         legend: {
             data: ['Sudah Mengisi', 'Belum Mengisi'],
             top: 6,
@@ -218,7 +220,7 @@ const stackedBarOption = computed(() => {
                         <div style="font-weight: 700; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 6px; color: #0F172A;">${escapeHtml(prodi)}</div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; color: #475569;"><span>Populasi Kohort:</span><strong>${formatNumber(item.population, 0)} alumni</strong></div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; color: #0D542B; margin-top: 2px;"><span>Sudah Mengisi:</span><strong>${formatNumber(item.respondents, 0)} alumni (${formatNumber(item.response_rate, 1)}%)</strong></div>
-                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #64748B; margin-top: 2px;"><span>Belum Mengisi:</span><strong>${formatNumber(item.unanswered, 0)} alumni (${formatNumber(item.unanswered_rate, 1)}%)</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #7A5B00; margin-top: 2px;"><span>Belum Mengisi:</span><strong>${formatNumber(item.unanswered, 0)} alumni (${formatNumber(item.unanswered_rate, 1)}%)</strong></div>
                     </div>
                 `;
             },
@@ -261,7 +263,7 @@ const stackedBarOption = computed(() => {
                 stack: 'total',
                 barMaxWidth: 26,
                 itemStyle: {
-                    color: '#94A3B8', // Neutral slate menggantikan warna kuning tajam yang salah
+                    color: responseRatePalette[1],
                     borderRadius: [0, 3, 3, 0],
                     opacity: (params) => {
                         if (!selectedProdiName.value) return 1;
@@ -302,6 +304,7 @@ const rankingChartOption = computed(() => {
 
     return {
         ...baseOption(),
+        themePalette: responseRatePalette,
         grid: { left: 16, right: 48, top: 24, bottom: 20, containLabel: true },
         xAxis: {
             type: 'value',
@@ -330,8 +333,8 @@ const rankingChartOption = computed(() => {
                     <div style="font-family: inherit; font-size: 12px; line-height: 1.5;">
                         <div style="font-weight: 700; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 6px; color: #0F172A;">${escapeHtml(prodi)}</div>
                         <div style="display: flex; justify-content: space-between; gap: 16px;"><span>Response Rate:</span><strong>${formatNumber(item.response_rate, 1)}%</strong></div>
-                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #475569;"><span>Target Standar:</span><strong>${formatNumber(item.target, 1)}%</strong></div>
-                        <div style="display: flex; justify-content: space-between; gap: 16px; font-weight: 700; color: ${item.target_gap >= 0 ? '#0D542B' : '#475569'};">
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #7A5B00;"><span>Target Standar:</span><strong>${formatNumber(item.target, 1)}%</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; font-weight: 700; color: ${item.target_gap >= 0 ? '#0D542B' : '#7A5B00'};">
                             <span>Selisih Target:</span><strong>${gapSign}${formatNumber(item.target_gap, 1)}%</strong>
                         </div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; margin-top: 4px; border-top: 1px solid #E2E8F0; padding-top: 4px;">
@@ -351,7 +354,7 @@ const rankingChartOption = computed(() => {
                     color: (params) => {
                         const val = params.value;
                         if (val >= currentTarget.value) return '#0D542B'; // Memenuhi target (Brand Dark Green UKDW)
-                        return '#64748B'; // Belum mencapai target (Cool Slate yang tenang, bukan kuning bentrok)
+                        return responseRatePalette[1];
                     },
                     opacity: (params) => {
                         if (!selectedProdiName.value) return 1;
@@ -383,6 +386,9 @@ const rankingChartOption = computed(() => {
                     value: item.response_rate,
                     prodi_id: item.prodi_id,
                     series_status: 'all',
+                    itemStyle: {
+                        color: item.response_rate >= currentTarget.value ? responseRatePalette[0] : responseRatePalette[1],
+                    },
                 })),
             },
         ],
@@ -509,7 +515,7 @@ const downloadExcel = (statusTarget = null) => {
             <div class="flex flex-col justify-between gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-center">
                 <div class="min-h-[46px]">
                     <div class="flex items-center gap-2">
-                        <span class="rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-[#0D542B]">Indikator 01</span>
+                        <span class="rounded bg-white px-2 py-0.5 text-xs font-bold text-[#0D542B] border border-[#0D542B]/25">Indikator 01</span>
                         <h3 class="text-base font-extrabold text-slate-900">
                             {{ activeChartTab === 'stacked' ? 'Distribusi Komposisi Responden (100% Stacked)' : 'Ranking Response Rate & Kriteria Capaian' }}
                         </h3>
@@ -559,14 +565,6 @@ const downloadExcel = (statusTarget = null) => {
                         @click="resetSelection"
                     >
                         Tampilkan Seluruh Universitas
-                    </button>
-                    <button
-                        v-if="!isTableVisible"
-                        type="button"
-                        class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 font-bold text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
-                        @click="forceShowTable = true"
-                    >
-                        Buka Tabel Seluruh Alumni ({{ formatNumber(records.length, 0) }})
                     </button>
                 </div>
             </div>
@@ -645,7 +643,7 @@ const downloadExcel = (statusTarget = null) => {
             <div class="flex flex-col justify-between gap-4 border-b border-slate-100 pb-4 lg:flex-row lg:items-center">
                 <div>
                     <div class="flex items-center gap-2">
-                        <span class="rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-[#0D542B]">
+                        <span class="rounded bg-white px-2 py-0.5 text-xs font-bold text-[#0D542B] border border-[#0D542B]/25">
                             Data Responden
                         </span>
                         <h4 class="text-base font-extrabold text-slate-900">
@@ -679,7 +677,7 @@ const downloadExcel = (statusTarget = null) => {
                         <button
                             type="button"
                             class="rounded-md px-3 py-1 font-bold transition-all cursor-pointer"
-                            :class="selectedStatus === 'belum' ? 'bg-slate-700 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                            :class="selectedStatus === 'belum' ? 'bg-[#D6A928] text-[#0F172A] shadow-xs' : 'text-slate-600 hover:text-slate-900'"
                             @click="selectedStatus = 'belum'"
                         >
                             Belum Mengisi ({{ countBelumScope }})
@@ -837,12 +835,5 @@ const downloadExcel = (statusTarget = null) => {
             </div>
         </div>
 
-        <!-- Panduan Ringkas jika Tabel Belum Terbuka -->
-        <div
-            v-else
-            class="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 p-3.5 text-center text-xs text-slate-500"
-        >
-            Klik pada salah satu batang program studi pada grafik di atas untuk langsung membuka daftar responden dan aksi kontak alumni.
-        </div>
     </div>
 </template>

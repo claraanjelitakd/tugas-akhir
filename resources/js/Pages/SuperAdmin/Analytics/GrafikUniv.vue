@@ -833,25 +833,29 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
 
         <main class="min-w-0 flex-1 lg:pl-72">
             <!-- Header ringkas menjaga fokus pada konteks universitas dan filter utama. -->
-            <header class="bg-[#0D542B] px-5 pb-24 pt-7 text-white sm:px-8">
+            <header class="border-b border-slate-200 bg-white px-5 py-7 text-slate-900 sm:px-8">
                 <div class="mx-auto max-w-[1480px]">
-                    <div class="flex items-center gap-2 text-xs text-emerald-100">
-                        <Link href="/superadmin/dashboard" class="hover:text-white">Tracer Study</Link>
+                    <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <Link href="/superadmin/dashboard" class="font-semibold hover:text-[#0D542B]">Dashboard</Link>
                         <span>/</span>
-                        <span>Grafik Universitas</span>
+                        <Link href="/superadmin/alumni" class="font-semibold hover:text-[#0D542B]">Data Alumni</Link>
+                        <span class="px-1 text-slate-300">→</span>
+                        <Link href="/superadmin/dashboard" class="font-semibold hover:text-[#0D542B]">Tracer Study</Link>
+                        <span>/</span>
+                        <span class="font-bold text-[#0D542B]">Grafik Universitas</span>
                     </div>
                     <div class="mt-5 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
                         <div>
-                            <p class="text-xs font-bold uppercase tracking-[0.18em] text-[#FDC700]">Interactive analytics</p>
+                            <p class="text-xs font-bold uppercase tracking-[0.18em] text-[#0D542B]">Interactive analytics</p>
                             <h1 class="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">Grafik Universitas</h1>
-                            <p class="mt-2 max-w-2xl text-sm leading-6 text-emerald-100">Eksplorasi indikator tracer study dengan denominator, metodologi, dan data pembentuk yang dapat ditelusuri.</p>
+                            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Eksplorasi indikator tracer study dengan denominator, metodologi, dan data pembentuk yang dapat ditelusuri.</p>
                         </div>
-                        <p class="text-xs text-emerald-100">Sumber aktif: Kuesioner Universitas dan Profil Alumni</p>
+                        <p class="text-xs text-slate-500">Sumber aktif: Kuesioner Universitas dan Profil Alumni</p>
                     </div>
                 </div>
             </header>
 
-            <div class="mx-auto -mt-16 max-w-[1480px] space-y-5 px-5 pb-8 sm:px-8">
+            <div class="mx-auto mt-5 max-w-[1480px] space-y-5 px-5 pb-8 sm:px-8">
                 <!-- Global filter bar memperbarui data tanpa reload halaman penuh. -->
                 <section class="bg-white p-5 shadow-lg shadow-slate-900/5">
                     <div class="grid gap-4 xl:grid-cols-[minmax(18rem,2fr)_10rem_minmax(13rem,1fr)_auto] xl:items-end">
@@ -928,12 +932,6 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                                     <dt class="text-[11px] font-bold text-slate-500 uppercase tracking-wider group-hover:text-[#0D542B] transition-colors">
                                         {{ card.label }}
                                     </dt>
-                                    <span
-                                        v-if="isKpiCardActive(card)"
-                                        class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#0D542B] text-white tracking-wide"
-                                    >
-                                        Aktif
-                                    </span>
                                 </div>
                                 <dd
                                     class="mt-1.5 font-extrabold tracking-tight"
@@ -971,7 +969,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                 <template v-else>
                     <!-- Navigasi dua fungsi utama: Grafik dan Data (Analisis terintegrasi langsung pada grafik) -->
                     <nav class="flex gap-1 bg-white p-1.5 rounded-xl border border-slate-200" role="tablist" aria-label="Tampilan analitik">
-                        <button v-for="panel in [{ key: 'charts', label: 'Grafik' }, { key: 'data', label: 'Data' }]" :key="panel.key" type="button" role="tab" :aria-selected="activePanel === panel.key" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition-all cursor-pointer" :class="activePanel === panel.key ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'" @click="activePanel = panel.key">{{ panel.label }}</button>
+                        <button v-for="panel in (selectedChart === 'response_rate' ? [{ key: 'charts', label: 'Grafik' }] : [{ key: 'charts', label: 'Grafik' }, { key: 'data', label: 'Data' }])" :key="panel.key" type="button" role="tab" :aria-selected="activePanel === panel.key" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition-all cursor-pointer" :class="activePanel === panel.key ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'" @click="activePanel = panel.key">{{ panel.label }}</button>
                     </nav>
 
                     <!-- Panel Grafik ECharts Utama Tanpa Suspense -->
