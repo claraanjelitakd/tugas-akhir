@@ -164,10 +164,9 @@ const timingRangeRows = computed(() => {
         }));
 });
 
-// Diagram batang vertikal biru menampilkan distribusi rentang waktu secara langsung.
+// Diagram batang vertikal hijau menampilkan distribusi rentang waktu secara langsung.
 const timingRangeOption = computed(() => ({
     ...baseOption(validResponses.value),
-    themePalette: ['#2F6DB0'],
     grid: { left: 64, right: 36, top: 28, bottom: 92, containLabel: true },
     xAxis: {
         type: 'category',
@@ -196,13 +195,13 @@ const timingRangeOption = computed(() => ({
         name: 'Alumni',
         type: 'bar',
         barMaxWidth: 52,
-        itemStyle: { color: '#2F6DB0', borderRadius: [5, 5, 0, 0] },
+        itemStyle: { color: '#0D542B', borderRadius: [5, 5, 0, 0] },
         data: timingRangeRows.value.map((item) => ({ value: item.percentage, count: item.count, phase: item.phase, range: item.range })),
         label: {
             show: true,
             position: 'top',
             formatter: ({ data }) => `${formatNumber(data.value, 1)}%`,
-            color: '#1E4F82',
+            color: '#0D542B',
             fontWeight: 'bold',
         },
     }],

@@ -256,6 +256,7 @@ const stackOrderKey = (label) => {
         'wiraswasta',
         'melanjutkan',
         'mencari kerja',
+        'memenuhi',
         'belum',
     ];
     const priority = orderedTerms.findIndex((term) => text.includes(term));

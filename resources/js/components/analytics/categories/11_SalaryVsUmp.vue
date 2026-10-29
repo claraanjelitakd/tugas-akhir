@@ -212,6 +212,7 @@ const prodiUmpOption = computed(() => {
 
     return {
         ...baseOption(validResponses.value),
+        themePalette: ['#0D542B', '#DCEBE0'],
         legend: {
             data: ['Memenuhi 1,2× UMP', 'Belum Memenuhi'],
             bottom: 0,
@@ -254,7 +255,7 @@ const prodiUmpOption = computed(() => {
                 type: 'bar',
                 stack: 'total',
                 barMaxWidth: 26,
-                itemStyle: { color: '#B7D7C0', borderColor: '#FFFFFF', borderWidth: 1 },
+                itemStyle: { color: '#DCEBE0', borderColor: '#FFFFFF', borderWidth: 1 },
                 data: list.map((i) => ({ value: i.belowPct, count: i.below, total: i.total, prodi: i.prodi, name: 'Belum Memenuhi' })),
                 label: { show: true, position: 'inside', formatter: ({ data }) => data.value > 0 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
             },
@@ -337,6 +338,7 @@ const provinceOption = computed(() => {
 
     return {
         ...baseOption(validResponses.value),
+        themePalette: ['#0D542B', '#DCEBE0'],
         legend: {
             data: ['Memenuhi 1,2× UMP', 'Belum Memenuhi'],
             bottom: 0,
@@ -379,7 +381,7 @@ const provinceOption = computed(() => {
                 type: 'bar',
                 stack: 'total',
                 barMaxWidth: 24,
-                itemStyle: { color: '#B7D7C0', borderColor: '#FFFFFF', borderWidth: 1 },
+                itemStyle: { color: '#DCEBE0', borderColor: '#FFFFFF', borderWidth: 1 },
                 data: list.map((i) => ({ value: i.belowPct, count: i.below, total: i.total, province: i.province, name: 'Belum Memenuhi' })),
                 label: { show: true, position: 'inside', formatter: ({ data }) => data.value > 0 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
             },
