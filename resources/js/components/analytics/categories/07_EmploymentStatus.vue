@@ -42,10 +42,10 @@ const validResponses = computed(() => props.chart?.summary?.answered_count || re
 // Palet warna institusional yang harmonis, formal, dan tidak silau di mata
 const statusColorMap = {
     'Bekerja': '#0D542B',                         // Hijau primer UKDW
-    'Wiraswasta': '#D97706',                      // Amber / emas hangat
-    'Melanjutkan pendidikan': '#334155',          // Slate gelap
-    'Sedang mencari kerja': '#64748B',            // Slate netral
-    'Belum memungkinkan bekerja': '#94A3B8',      // Slate lembut
+    'Wiraswasta': '#78B18B',
+    'Melanjutkan pendidikan': '#2F7D4A',
+    'Sedang mencari kerja': '#B7D7C0',
+    'Belum memungkinkan bekerja': '#DCEBE0',
 };
 
 const getStatusColor = (label) => statusColorMap[label] || '#475569';

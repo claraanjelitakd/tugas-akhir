@@ -125,7 +125,7 @@ const verticalMatchTable = computed(() => ({
 // 2. STACKED BAR: Komposisi Lengkap Kualifikasi Pendidikan per Prodi
 // -----------------------------------------------------------------------------
 const categories = computed(() => [...new Set(series.value.map((s) => s.label))]);
-const catPalette = ['#0D542B', '#2D7A4D', '#D97706', '#64748B'];
+const catPalette = ['#0D542B', '#2F7D4A', '#78B18B', '#B7D7C0'];
 
 const stackedOption = computed(() => {
     const listProdis = prodis.value;

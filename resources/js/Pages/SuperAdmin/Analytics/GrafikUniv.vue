@@ -833,24 +833,24 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
 
         <main class="min-w-0 flex-1 lg:pl-72">
             <!-- Header ringkas menjaga fokus pada konteks universitas dan filter utama. -->
-            <header class="border-b border-slate-200 bg-white px-5 py-7 text-slate-900 sm:px-8">
+            <header class="border-b border-emerald-900/40 bg-[#0D542B] px-5 py-7 text-white sm:px-8">
                 <div class="mx-auto max-w-[1480px]">
-                    <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                        <Link href="/superadmin/dashboard" class="font-semibold hover:text-[#0D542B]">Dashboard</Link>
-                        <span>/</span>
-                        <Link href="/superadmin/alumni" class="font-semibold hover:text-[#0D542B]">Data Alumni</Link>
-                        <span class="px-1 text-slate-300">→</span>
-                        <Link href="/superadmin/dashboard" class="font-semibold hover:text-[#0D542B]">Tracer Study</Link>
-                        <span>/</span>
-                        <span class="font-bold text-[#0D542B]">Grafik Universitas</span>
+                    <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-emerald-100">
+                        <Link href="/superadmin/dashboard" class="font-semibold hover:text-white">Dashboard</Link>
+                        <span class="text-emerald-300/70">/</span>
+                        <Link href="/superadmin/alumni" class="font-semibold hover:text-white">Data Alumni</Link>
+                        <span class="px-1 text-emerald-300/70">→</span>
+                        <Link href="/superadmin/dashboard" class="font-semibold hover:text-white">Tracer Study</Link>
+                        <span class="text-emerald-300/70">/</span>
+                        <span class="rounded bg-white/10 px-2 py-0.5 font-bold text-white">Grafik Universitas</span>
                     </div>
                     <div class="mt-5 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
                         <div>
-                            <p class="text-xs font-bold uppercase tracking-[0.18em] text-[#0D542B]">Interactive analytics</p>
+                            <p class="text-xs font-bold uppercase tracking-[0.18em] text-emerald-100">Tracer Study Universitas</p>
                             <h1 class="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">Grafik Universitas</h1>
-                            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Eksplorasi indikator tracer study dengan denominator, metodologi, dan data pembentuk yang dapat ditelusuri.</p>
+                            <p class="mt-2 max-w-2xl text-sm leading-6 text-emerald-100/90">Eksplorasi indikator tracer study dengan denominator, metodologi, dan data pembentuk yang dapat ditelusuri.</p>
                         </div>
-                        <p class="text-xs text-slate-500">Sumber aktif: Kuesioner Universitas dan Profil Alumni</p>
+                        <p class="text-xs text-emerald-100/90">Sumber aktif: Kuesioner Universitas dan Profil Alumni</p>
                     </div>
                 </div>
             </header>

@@ -3,7 +3,7 @@
  * Komponen Indikator 12: Hubungan Bidang Studi dengan Pekerjaan (Horizontal Match - F14).
  *
  * Mengelola visualisasi keselarasan kurikulum bidang studi dengan pekerjaan alumni:
- * 1. Stacked Bar Antarprodi: Batas warna tegas (#FFFFFF borderWidth: 2)
+ * 1. Stacked Bar Antarprodi: Komposisi kategori keselarasan dengan pemisah visual yang ringan.
  * 2. Line Chart: Tren Persentase Horizontal Match (Sangat Erat + Erat) per Program Studi
  * 3. Donut Chart: Distribusi Jawaban Kuesioner Universitas
  */
@@ -38,18 +38,18 @@ const validResponses = computed(() => props.chart?.summary?.answered_count || re
 // Palet warna bertingkat institusional UKDW yang harmonis dan konsisten
 const getAlignmentColor = (label) => {
     const l = String(label || '').toLowerCase().trim();
-    if (l.includes('sangat erat')) return '#0D542B';          // Hijau tua UKDW
+    if (l.includes('sangat erat')) return '#0D542B';
     if (l === 'erat' || (l.includes('erat') && !l.includes('kurang') && !l.includes('cukup') && !l.includes('tidak'))) {
-        return '#2D7A4D';                                      // Hijau emerald
+        return '#2F7D4A';
     }
-    if (l.includes('cukup')) return '#D97706';                // Amber hangat
-    if (l.includes('kurang')) return '#64748B';               // Slate netral
-    if (l.includes('tidak')) return '#94A3B8';                // Slate lembut
-    return '#475569';
+    if (l.includes('cukup')) return '#78B18B';
+    if (l.includes('kurang')) return '#B7D7C0';
+    if (l.includes('tidak')) return '#DCEBE0';
+    return '#78B18B';
 };
 
 // -----------------------------------------------------------------------------
-// 1. STACKED BAR ANTARPRODI (Garis Batas Antarwarna Tegas & Label Persentase)
+// 1. STACKED BAR ANTARPRODI (Label Persentase dan Urutan Kategori Konsisten)
 // -----------------------------------------------------------------------------
 const prodis = computed(() => [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]);
 const categories = computed(() => [...new Set(series.value.map((s) => s.label))]);
@@ -85,7 +85,7 @@ const stackedOption = computed(() => {
             label: {
                 show: true,
                 position: 'inside',
-                formatter: (params) => params.value >= 7 ? `${params.value}%` : '',
+                formatter: (params) => params.value > 0 ? `${params.value}%` : '',
                 fontSize: 10,
                 color: '#FFFFFF',
                 fontWeight: 'bold',
@@ -93,8 +93,8 @@ const stackedOption = computed(() => {
             itemStyle: {
                 color: getAlignmentColor(cat),
                 opacity: selected ? 1 : 0.22,
-                borderColor: '#FFFFFF',
-                borderWidth: 1.5,
+                borderColor: 'transparent',
+                borderWidth: 0,
             },
             data: catData,
         };
@@ -346,18 +346,18 @@ const views = computed(() => [
         key: 'stacked',
         tabLabel: 'Komposisi Antarprodi',
         title: 'Komposisi keselarasan bidang per program studi',
-        description: 'Perbandingan distribusi keselarasan bidang kerja dengan batas antarwarna yang tegas untuk mempermudah pembacaan antarjurusan.',
+        description: 'Perbandingan komposisi keselarasan bidang kerja antarprogram studi dengan persentase pada setiap segmen.',
         option: stackedOption.value,
         tableData: stackedTable.value,
         height: Math.max(380, prodis.value.length * 36 + 120),
         analysis: {
             title: 'Kilas Keselarasan Kurikulum & Karier',
-            statusBadge: 'Batas Warna Tegas',
+            statusBadge: 'Distribusi Keselarasan',
             badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
             lead: series.value[0]?.label
                 ? `Kategori keselarasan horizontal dominan adalah "${series.value[0].label}" dengan proporsi ${formatPercentage(series.value[0].percentage)} (${series.value[0].count} alumni).`
                 : 'Data keselarasan bidang pekerjaan tersaji lengkap.',
-            detail: 'Garis pemisah putih yang tegas memudahkan penelusuran proporsi alumni yang merasa bidang kerjanya selaras langsung dengan keilmuan yang ditempuh selama masa studi di UKDW.',
+            detail: 'Setiap segmen menunjukkan proporsi alumni yang menilai bidang kerjanya selaras dengan keilmuan yang ditempuh selama masa studi di UKDW.',
         },
     },
     {

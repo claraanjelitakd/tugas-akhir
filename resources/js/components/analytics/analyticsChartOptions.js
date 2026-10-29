@@ -11,9 +11,9 @@
 export const analyticsColors = {
     green: '#0D542B',
     greenMid: '#2F7D4A',
-    greenSoft: '#B9D8C3',
-    greenPale: '#DCEEE1',
-    greenMist: '#F3F8F4',
+    greenSoft: '#78B18B',
+    greenPale: '#B7D7C0',
+    greenMist: '#DCEBE0',
     white: '#FFFFFF',
     scaleOne: '#F3F8F4',
     scaleTwo: '#DCEEE1',
@@ -183,7 +183,9 @@ const normalizeChartGrid = (option) => {
         axisTextLength(axis?.name),
         axisTextLength(axis?.data),
     ), 0);
-    const requiredLeft = Math.min(340, Math.max(48, longestYLabel * 7 + 36));
+    // `containLabel` sudah menambahkan ruang label di luar grid; jangan menggandakan
+    // lebar label ke grid.left karena hasilnya membuat plot terdorong terlalu kanan.
+    const requiredLeft = 24;
     const requiredBottom = hasCategoryX
         ? Math.min(128, Math.max(72, longestXLabel * 2.6 + 42))
         : 40;
@@ -210,7 +212,7 @@ const normalizeChartGrid = (option) => {
     yAxes.forEach((axis) => {
         if (axis?.type !== 'category') return;
         axis.axisLabel = axis.axisLabel || {};
-        axis.axisLabel.width = Math.max(Number(axis.axisLabel.width) || 0, Math.min(320, longestYLabel * 7 + 12));
+        axis.axisLabel.width = Math.max(Number(axis.axisLabel.width) || 0, Math.min(250, longestYLabel * 6.2 + 8));
         axis.axisLabel.lineHeight = Math.max(Number(axis.axisLabel.lineHeight) || 0, 16);
         axis.axisLabel.overflow = 'break';
     });
@@ -225,6 +227,16 @@ const normalizeChartStyle = (style, color) => {
     style.borderWidth = 0;
     style.shadowBlur = 0;
     style.shadowColor = 'transparent';
+};
+
+// Memilih warna teks yang terbaca berdasarkan kecerahan warna seri atau sel.
+const readableLabelColor = (color) => {
+    const hex = String(color || '').replace('#', '');
+    if (hex.length !== 6) return analyticsColors.textStrong;
+    const channels = [0, 2, 4].map((index) => Number.parseInt(hex.slice(index, index + 2), 16) / 255);
+    const luminance = channels.map((channel) => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+    const relativeLuminance = 0.2126 * luminance[0] + 0.7152 * luminance[1] + 0.0722 * luminance[2];
+    return relativeLuminance > 0.45 ? analyticsColors.textStrong : analyticsColors.white;
 };
 
 // Menentukan urutan segmen bertumpuk secara semantik dan stabil antarindikator.
@@ -352,7 +364,7 @@ export const normalizeAnalyticsOption = (option) => {
                     ...(series.label || {}),
                     show: true,
                     position: series.label?.position || 'inside',
-                    color: series.label?.color || ([analyticsColors.green, analyticsColors.greenMid].includes(seriesColor) ? analyticsColors.white : analyticsColors.textStrong),
+                    color: readableLabelColor(seriesColor),
                     formatter: originalFormatter || ((params) => {
                         const value = Number(params?.value ?? params?.data?.value ?? 0);
                         if (value <= 0) return '';
@@ -360,8 +372,15 @@ export const normalizeAnalyticsOption = (option) => {
                     }),
                 };
             }
-            if (series.label && series.label.color !== analyticsColors.white) {
+            if (series.label && series.type === 'bar') {
+                series.label.color = readableLabelColor(seriesColor);
+            } else if (series.label && series.label.color !== analyticsColors.white) {
                 series.label.color = analyticsColors.textStrong;
+            }
+            if (series.type === 'heatmap' && series.label) {
+                series.label.color = (params) => Number(params?.value?.[2] || 0) >= 4
+                    ? analyticsColors.white
+                    : analyticsColors.textStrong;
             }
             if (series.markLine) {
                 series.markLine.lineStyle = series.markLine.lineStyle || {};
@@ -906,6 +925,12 @@ export const donut = (series, selectedLabel, validResponses) => {
             itemStyle: { borderColor: '#FFFFFF', borderWidth: 2 },
             emphasis: { scale: true, scaleSize: 6, focus: 'self' },
             label: { formatter: '{b}\n{d}%', color: '#334155' },
+            labelLine: {
+                show: true,
+                length: 16,
+                length2: 12,
+                lineStyle: { color: analyticsColors.greenMid, width: 1.5 },
+            },
             data: visible,
         }],
         graphic: [

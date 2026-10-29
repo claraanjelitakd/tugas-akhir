@@ -39,12 +39,12 @@ const validResponses = computed(() => props.chart?.summary?.answered_count || re
 // Palet warna tetap per jenis instansi agar 100% konsisten antar diagram
 const workplaceColorMap = {
     'Perusahaan swasta': '#0D542B',                         // Hijau primer UKDW
-    'BUMN/BUMD': '#0F766E',                                  // Teal tegas
+    'BUMN/BUMD': '#2F7D4A',
     'Instansi pemerintah': '#334155',                        // Slate gelap
     'Organisasi non-profit/LSM': '#64748B',                  // Slate netral
-    'Wiraswasta/perusahaan sendiri': '#D97706',              // Amber hangat
+    'Wiraswasta/perusahaan sendiri': '#78B18B',
     'Institusi/Organisasi Multilateral': '#475569',          // Slate medium
-    'Lainnya': '#94A3B8',                                    // Slate lembut
+    'Lainnya': '#DCEBE0',
 };
 
 const getWorkplaceColor = (label) => workplaceColorMap[label] || '#475569';

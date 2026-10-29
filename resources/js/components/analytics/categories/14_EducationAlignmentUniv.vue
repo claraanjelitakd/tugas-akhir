@@ -42,10 +42,10 @@ const getColor = (label) => {
         return '#0D542B'; // Tingkat yang sama (Hijau UKDW)
     }
     if (l.includes('lebih tinggi')) {
-        return '#2D7A4D'; // Setingkat lebih tinggi (Hijau Emerald)
+        return '#2F7D4A'; // Setingkat lebih tinggi
     }
     if (l.includes('lebih rendah')) {
-        return '#D97706'; // Setingkat lebih rendah (Amber hangat)
+        return '#78B18B'; // Setingkat lebih rendah
     }
     if (l.includes('tidak perlu')) {
         return '#64748B'; // Tidak perlu pendidikan tinggi (Slate netral)
