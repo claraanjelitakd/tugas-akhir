@@ -296,6 +296,18 @@ const normalizeChartGrid = (option) => {
     }
 
     yAxes.forEach((axis) => {
+        if (axis?.name) {
+            // Judul sumbu Y dipusatkan vertikal agar tidak terpotong di tepi canvas.
+            axis.nameLocation = 'middle';
+            axis.nameGap = Math.max(Number(axis.nameGap) || 0, 46);
+            axis.nameRotate = Number.isFinite(Number(axis.nameRotate)) ? Number(axis.nameRotate) : 90;
+            axis.nameTextStyle = {
+                ...(axis.nameTextStyle || {}),
+                color: analyticsColors.text,
+                fontSize: Number(axis.nameTextStyle?.fontSize) || 11,
+                align: 'center',
+            };
+        }
         if (axis?.type !== 'category') return;
         axis.axisLabel = axis.axisLabel || {};
         axis.axisLabel.width = Math.max(Number(axis.axisLabel.width) || 0, Math.min(250, longestYLabel * 6.2 + 8));
