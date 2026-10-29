@@ -839,6 +839,29 @@ const summaryTableData = computed(() => {
         };
     });
 });
+
+// Konteks visual aktif menjelaskan nama grafik dan alasan pemilihannya kepada pengguna.
+const chartContext = computed(() => ({
+    radar: {
+        type: 'Diagram Radar',
+        reason: 'Dipilih untuk melihat profil tujuh metode pembelajaran sekaligus dalam skala Likert 1-5.',
+    },
+    line: {
+        type: 'Diagram Garis Median',
+        reason: 'Dipilih untuk membandingkan median penekanan setiap metode secara berurutan pada skala yang sama.',
+    },
+    stacked: {
+        type: 'Diagram Batang Bertumpuk 100%',
+        reason: 'Dipilih untuk memperlihatkan komposisi jawaban skala 1-5 pada setiap metode pembelajaran.',
+    },
+    heatmap: {
+        type: 'Peta Panas Antarprogram Studi',
+        reason: 'Dipilih untuk menemukan pola intensitas skor metode pembelajaran pada setiap program studi.',
+    },
+}[activeChartTab.value] || {
+    type: 'Visualisasi Analitik',
+    reason: 'Dipilih untuk membantu membaca pola data indikator secara ringkas.',
+}));
 </script>
 
 <template>
@@ -875,6 +898,16 @@ const summaryTableData = computed(() => {
                         Matriks perbandingan skor rata-rata penekanan metode pembelajaran pada masing-masing program studi.
                     </template>
                 </p>
+                <!-- Konteks pemilihan visual menjelaskan nama dan tujuan grafik aktif. -->
+                <div v-if="activeViewMode === 'chart'" class="mt-3 grid gap-2 text-xs sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start sm:gap-x-3">
+                    <span class="inline-flex w-fit rounded bg-slate-100 px-2 py-1 font-bold text-slate-700">
+                        Jenis grafik: {{ chartContext.type }}
+                    </span>
+                    <p class="leading-relaxed text-slate-600">
+                        <span class="font-bold text-[#0D542B]">Alasan pemilihan:</span>
+                        {{ chartContext.reason }}
+                    </p>
+                </div>
             </div>
 
             <!-- Kolom Kanan: Switcher Tab Tetap (Stay di Kanan Atas, Bebas dari Layout Shift) -->
