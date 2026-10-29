@@ -185,7 +185,7 @@ const normalizeChartGrid = (option) => {
     ), 0);
     // `containLabel` sudah menambahkan ruang label di luar grid; jangan menggandakan
     // lebar label ke grid.left karena hasilnya membuat plot terdorong terlalu kanan.
-    const requiredLeft = 24;
+    const requiredLeft = 40;
     const requiredBottom = hasCategoryX
         ? Math.min(128, Math.max(72, longestXLabel * 2.6 + 42))
         : 40;
@@ -214,6 +214,7 @@ const normalizeChartGrid = (option) => {
         axis.axisLabel = axis.axisLabel || {};
         axis.axisLabel.width = Math.max(Number(axis.axisLabel.width) || 0, Math.min(250, longestYLabel * 6.2 + 8));
         axis.axisLabel.lineHeight = Math.max(Number(axis.axisLabel.lineHeight) || 0, 16);
+        axis.axisLabel.margin = Math.max(Number(axis.axisLabel.margin) || 0, 14);
         axis.axisLabel.overflow = 'break';
     });
 };
@@ -245,6 +246,9 @@ const stackOrderKey = (label) => {
     const scale = text.match(/^([1-5])\s*=/);
     if (scale) return [0, Number(scale[1]), text];
     const orderedTerms = [
+        '< 2',
+        '2-6',
+        '> 6',
         'setelah',
         'sebelum',
         'tidak mencari',
@@ -382,6 +386,15 @@ export const normalizeAnalyticsOption = (option) => {
                     ? analyticsColors.white
                     : analyticsColors.textStrong;
             }
+            if (series.type === 'heatmap') {
+                series.itemStyle = series.itemStyle || {};
+                series.itemStyle.borderColor = analyticsColors.white;
+                series.itemStyle.borderWidth = 1;
+                series.emphasis = series.emphasis || {};
+                series.emphasis.itemStyle = series.emphasis.itemStyle || {};
+                series.emphasis.itemStyle.borderColor = analyticsColors.green;
+                series.emphasis.itemStyle.borderWidth = 1;
+            }
             if (series.markLine) {
                 series.markLine.lineStyle = series.markLine.lineStyle || {};
                 series.markLine.lineStyle.color = analyticsColors.greenMid;
@@ -415,7 +428,12 @@ export const normalizeAnalyticsOption = (option) => {
                         datum.areaStyle.color = datumColor;
                         datum.areaStyle.shadowBlur = 0;
                     }
-                    if (datum.label && datum.label.color !== analyticsColors.white) datum.label.color = analyticsColors.textStrong;
+                    if (datum.label && series.type === 'heatmap') {
+                        const heatmapValue = Number(datum.value?.[2] || 0);
+                        datum.label.color = heatmapValue >= 4 ? analyticsColors.white : analyticsColors.textStrong;
+                    } else if (datum.label && datum.label.color !== analyticsColors.white) {
+                        datum.label.color = analyticsColors.textStrong;
+                    }
                 });
             }
         });

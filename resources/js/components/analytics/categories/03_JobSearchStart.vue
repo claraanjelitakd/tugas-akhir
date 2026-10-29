@@ -222,6 +222,93 @@ const timingRangeTable = computed(() => ({
     })),
 }));
 
+// Mengagregasi tepat tiga batang fase dengan rentang stack yang seragam.
+const timingStackGroups = computed(() => {
+    const groups = [
+        { phase: 'Sebelum lulus', ranges: { '< 2 bulan': 0, '2-6 bulan': 0, '> 6 bulan': 0, 'Tidak mencari kerja': 0 } },
+        { phase: 'Setelah lulus', ranges: { '< 2 bulan': 0, '2-6 bulan': 0, '> 6 bulan': 0, 'Tidak mencari kerja': 0 } },
+        { phase: 'Tidak mencari kerja', ranges: { '< 2 bulan': 0, '2-6 bulan': 0, '> 6 bulan': 0, 'Tidak mencari kerja': 0 } },
+    ];
+
+    series.value.forEach((item) => {
+        const classification = classifyTimingRange(seriesLabel(item));
+        const group = groups.find((candidate) => candidate.phase === classification.phase) || groups[2];
+        const range = classification.phase === 'Tidak mencari kerja'
+            ? 'Tidak mencari kerja'
+            : (classification.range.includes('2') && classification.range.includes('6') ? '2-6 bulan' : classification.range);
+        group.ranges[range] = (group.ranges[range] || 0) + seriesMetric(item);
+    });
+
+    return groups;
+});
+
+// Diagram batang vertikal biru dengan tiga batang dan stack rentang waktu.
+const timingStackedOption = computed(() => {
+    const segments = ['< 2 bulan', '2-6 bulan', '> 6 bulan', 'Tidak mencari kerja'];
+    return {
+        ...baseOption(validResponses.value),
+        themePalette: ['#1F4E85', '#2F6DB0', '#5C8FC0', '#A8C2D9'],
+        grid: { left: 64, right: 36, top: 28, bottom: 72, containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: timingStackGroups.value.map((group) => group.phase),
+            axisLabel: { color: '#334155', fontWeight: '600', interval: 0 },
+        },
+        yAxis: {
+            type: 'value',
+            max: 100,
+            name: 'Persentase Alumni',
+            nameLocation: 'middle',
+            nameGap: 46,
+            axisLabel: { formatter: '{value}%' },
+            splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
+        },
+        legend: { bottom: 4, textStyle: { color: '#334155' } },
+        tooltip: {
+            ...baseOption().tooltip,
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: (params) => {
+                const group = timingStackGroups.value[params[0]?.dataIndex];
+                if (!group) return '';
+                return `<strong>${escapeHtml(group.phase)}</strong><br>${params.filter((param) => Number(param.value) > 0).map((param) => `${escapeHtml(param.seriesName)}: <strong>${formatNumber(param.value, 1)}%</strong> (${formatNumber(group.ranges[param.seriesName], 0)} alumni)`).join('<br>')}`;
+            },
+        },
+        series: segments.map((segment) => ({
+            name: segment,
+            type: 'bar',
+            stack: 'total',
+            barMaxWidth: 88,
+            data: timingStackGroups.value.map((group) => ({
+                value: totalTimingCount.value > 0 ? Number(((group.ranges[segment] / totalTimingCount.value) * 100).toFixed(1)) : 0,
+                count: group.ranges[segment],
+            })),
+            label: {
+                show: true,
+                position: 'inside',
+                formatter: ({ value }) => Number(value) > 0 ? `${formatNumber(value, 1)}%` : '',
+                fontWeight: 'bold',
+            },
+        })),
+    };
+});
+
+// Tabel ringkas mengikuti urutan tiga batang dan stack rentang waktunya.
+const timingStackedTable = computed(() => ({
+    columns: [
+        { key: 'label', label: 'Rentang Waktu Mulai Mencari' },
+        { key: 'count', label: 'Jumlah Alumni', align: 'right' },
+        { key: 'percentage', label: 'Persentase', align: 'right' },
+    ],
+    rows: timingStackGroups.value.flatMap((group) => Object.entries(group.ranges)
+        .filter(([, count]) => count > 0)
+        .map(([range, count]) => ({
+            label: `${group.phase} - ${range}`,
+            count: formatNumber(count, 0),
+            percentage: `${formatNumber(totalTimingCount.value > 0 ? (count / totalTimingCount.value) * 100 : 0, 1)}%`,
+        }))),
+}));
+
 // -----------------------------------------------------------------------------
 // 1. DIVERGING BAR: Posisi Waktu terhadap Kelulusan (Skala Natural Tanpa Tanda +/-)
 // -----------------------------------------------------------------------------
@@ -383,12 +470,12 @@ const distributionBarTable = computed(() => ({
 // Konfigurasi views untuk kontainer terpadu
 const views = computed(() => [
     {
-        key: 'range',
-        tabLabel: 'Rentang Waktu',
+        key: 'timing_stacked',
+        tabLabel: 'Rentang Waktu Bertumpuk',
         title: 'Sebaran rentang waktu mulai mencari pekerjaan',
-        description: 'Batang biru membandingkan proporsi alumni berdasarkan rentang waktu sebelum lulus, setelah lulus, dan yang tidak mencari kerja.',
-        option: timingRangeOption.value,
-        tableData: timingRangeTable.value,
+        description: 'Tiga batang biru menunjukkan fase sebelum lulus, setelah lulus, dan tidak mencari kerja; setiap batang dibagi menurut rentang < 2 bulan, 2-6 bulan, dan > 6 bulan.',
+        option: timingStackedOption.value,
+        tableData: timingStackedTable.value,
         height: 420,
         analysis: {
             title: 'Kilas Kesiapan Karir Alumni UKDW',
@@ -396,7 +483,7 @@ const views = computed(() => [
             badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
             lead: `Sebanyak ${formatNumber(beforeCount.value, 0)} alumni (${beforePercentage.value}%) mulai mencari kerja sebelum lulus, ${formatNumber(afterCount.value, 0)} alumni (${afterPercentage.value}%) setelah lulus, dan ${formatNumber(notSearchingCount.value, 0)} alumni tidak mencari kerja.`,
             detail: 'Rentang waktu diseragamkan menjadi < 2 bulan, 2–6 bulan, dan > 6 bulan agar perbedaan momentum pencarian kerja antar fase dapat dibandingkan secara konsisten.',
-            reason: 'Dipilih sebagai Vertical Bar Chart agar frekuensi setiap rentang waktu terbaca langsung, dengan satuan dan batas rentang yang konsisten.',
+            reason: 'Dipilih sebagai Stacked Column Chart agar tiga fase utama tetap ringkas, sementara pembagian rentang waktunya tetap terlihat dalam setiap batang.',
         },
     },
 ]);

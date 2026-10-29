@@ -56,6 +56,7 @@ const chartTypeLabels = {
     activity_bar: 'Diagram Batang Horizontal',
     reasons_distribution: 'Diagram Batang Horizontal',
     stacked: '100% Stacked Column Chart',
+    timing_stacked: 'Stacked Column Chart',
     by_prodi: '100% Stacked Bar Chart',
     stacked_kualifikasi: '100% Stacked Bar Chart',
     diverging: 'Diagram Batang Divergen',
@@ -102,6 +103,7 @@ const chartTypeReasons = {
     activity_bar: 'Dipilih untuk membandingkan jumlah dan persentase status aktivitas secara langsung.',
     reasons_distribution: 'Dipilih untuk mengurutkan alasan berdasarkan frekuensi jawaban responden.',
     stacked: 'Dipilih untuk memperlihatkan komposisi beberapa fase atau kategori dalam satu total 100% menggunakan kolom vertikal.',
+    timing_stacked: 'Dipilih untuk mempertahankan tiga fase utama dalam tiga batang, lalu membagi masing-masing batang berdasarkan rentang waktu yang sama.',
     by_prodi: 'Dipilih untuk membandingkan komposisi kategori di setiap program studi dalam satu skala 100%.',
     stacked_kualifikasi: 'Dipilih untuk memperlihatkan komposisi kualifikasi pendidikan pada setiap program studi.',
     diverging: 'Dipilih untuk memperjelas perbedaan kategori yang berada di dua sisi titik acuan.',
@@ -364,17 +366,25 @@ watch(() => props.selectedLabel, () => {
                 <slot :name="currentView.key">
                     <p class="p-8 text-center text-sm text-slate-500">Peta interaktif sedang disiapkan.</p>
                 </slot>
+                <p class="mt-2 px-1 text-xs leading-relaxed text-slate-500">
+                    <span class="font-semibold text-slate-700">Caption:</span>
+                    {{ currentView.caption || currentView.description || currentView.title }}
+                </p>
             </div>
 
             <!-- Visualisasi ECharts Standar -->
-            <div v-else>
+            <figure v-else class="w-full">
                 <AnalyticsEChart
                     :option="currentView.option"
                     :height="currentView.height || 400"
                     :loading="loading"
                     @click="handleChartClick"
                 />
-            </div>
+                <figcaption class="mt-2 px-1 text-xs leading-relaxed text-slate-500">
+                    <span class="font-semibold text-slate-700">Caption:</span>
+                    {{ currentView.caption || currentView.description || currentView.title }}
+                </figcaption>
+            </figure>
 
             <!-- Kotak Analisis Naratif Spesifik (Apple iOS Weather Style) -->
             <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4 transition-all">

@@ -948,6 +948,10 @@ const summaryTableData = computed(() => {
                     :loading="loading"
                     @click="handleChartClick"
                 />
+                <p class="px-1 text-xs leading-relaxed text-slate-500">
+                    <span class="font-semibold text-slate-700">Caption:</span>
+                    Profil skor penekanan tujuh metode pembelajaran pada skala Likert 1-5.
+                </p>
 
                 <!-- Tombol Cepat Pilihan Metode untuk Rincian Inline (Pill Buttons) -->
                 <div class="flex flex-wrap items-center justify-center gap-2 pt-1">
@@ -1018,6 +1022,10 @@ const summaryTableData = computed(() => {
                     :loading="loading"
                     @click="handleChartClick"
                 />
+                <p class="px-1 text-xs leading-relaxed text-slate-500">
+                    <span class="font-semibold text-slate-700">Caption:</span>
+                    Median skor penekanan setiap metode pembelajaran pada responden valid.
+                </p>
 
                 <!-- Kotak Analisis Khusus Grafik Garis -->
                 <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
@@ -1064,6 +1072,10 @@ const summaryTableData = computed(() => {
                     :loading="loading"
                     @click="handleChartClick"
                 />
+                <p class="px-1 text-xs leading-relaxed text-slate-500">
+                    <span class="font-semibold text-slate-700">Caption:</span>
+                    Distribusi persentase pilihan skala 1-5 pada setiap metode pembelajaran.
+                </p>
 
                 <!-- Kotak Analisis Khusus Distribusi Skala -->
                 <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
@@ -1105,6 +1117,10 @@ const summaryTableData = computed(() => {
                     :loading="loading"
                     @click="handleChartClick"
                 />
+                <p class="px-1 text-xs leading-relaxed text-slate-500">
+                    <span class="font-semibold text-slate-700">Caption:</span>
+                    Intensitas skor penekanan metode pembelajaran pada setiap program studi.
+                </p>
 
                 <!-- Legenda Skala Penilaian Jelas & Kontras -->
                 <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 text-xs">

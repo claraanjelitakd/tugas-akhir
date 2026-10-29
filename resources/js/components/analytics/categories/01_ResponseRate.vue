@@ -572,6 +572,10 @@ const downloadExcel = (statusTarget = null) => {
                         aria-label="Grafik 100% Stacked Bar Response Rate"
                         @select="handleChartClick"
                     />
+                    <p class="px-1 text-xs leading-relaxed text-slate-500">
+                        <span class="font-semibold text-slate-700">Caption:</span>
+                        Distribusi proporsi alumni yang sudah dan belum mengisi kuesioner pada setiap program studi.
+                    </p>
 
                     <!-- Kotak Analisis Khusus Mode 100% Stacked Bar -->
                     <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
@@ -605,6 +609,10 @@ const downloadExcel = (statusTarget = null) => {
                         :aria-label="`Grafik Ranking Response Rate dan Target ${formatNumber(currentTarget, 1)}%`"
                         @select="handleChartClick"
                     />
+                    <p class="px-1 text-xs leading-relaxed text-slate-500">
+                        <span class="font-semibold text-slate-700">Caption:</span>
+                        Ranking response rate per program studi dengan garis target universitas sebagai pembanding.
+                    </p>
 
                     <!-- Kotak Analisis Khusus Mode Ranking & Target -->
                     <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
