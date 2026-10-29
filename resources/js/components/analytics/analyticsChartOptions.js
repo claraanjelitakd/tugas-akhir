@@ -243,6 +243,10 @@ const readableLabelColor = (color) => {
 // Menentukan urutan segmen bertumpuk secara semantik dan stabil antarindikator.
 const stackOrderKey = (label) => {
     const text = String(label || '').toLowerCase();
+    const isUnmet = text.includes('belum memenuhi') || text.includes('tidak memenuhi') || text.includes('belum mengisi');
+    const isMet = (text.includes('memenuhi') || text.includes('sudah mengisi')) && !isUnmet;
+    if (isMet) return [1, 0, text];
+    if (isUnmet) return [1, 1, text];
     const scale = text.match(/^([1-5])\s*=/);
     if (scale) return [0, Number(scale[1]), text];
     const orderedTerms = [
