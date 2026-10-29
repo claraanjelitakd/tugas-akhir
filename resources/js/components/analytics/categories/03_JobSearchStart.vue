@@ -242,12 +242,11 @@ const timingStackGroups = computed(() => {
     return groups;
 });
 
-// Diagram batang vertikal biru dengan tiga batang dan stack rentang waktu.
+// Diagram batang vertikal hijau dengan tiga batang dan stack rentang waktu.
 const timingStackedOption = computed(() => {
     const segments = ['< 2 bulan', '2-6 bulan', '> 6 bulan', 'Tidak mencari kerja'];
     return {
         ...baseOption(validResponses.value),
-        themePalette: ['#1F4E85', '#2F6DB0', '#5C8FC0', '#A8C2D9'],
         grid: { left: 64, right: 36, top: 28, bottom: 72, containLabel: true },
         xAxis: {
             type: 'category',
@@ -473,7 +472,7 @@ const views = computed(() => [
         key: 'timing_stacked',
         tabLabel: 'Rentang Waktu Bertumpuk',
         title: 'Sebaran rentang waktu mulai mencari pekerjaan',
-        description: 'Tiga batang biru menunjukkan fase sebelum lulus, setelah lulus, dan tidak mencari kerja; setiap batang dibagi menurut rentang < 2 bulan, 2-6 bulan, dan > 6 bulan.',
+        description: 'Tiga batang hijau menunjukkan fase sebelum lulus, setelah lulus, dan tidak mencari kerja; setiap batang dibagi menurut rentang < 2 bulan, 2-6 bulan, dan > 6 bulan.',
         option: timingStackedOption.value,
         tableData: timingStackedTable.value,
         height: 420,
