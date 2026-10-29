@@ -349,8 +349,8 @@ const views = computed(() => [
     {
         key: 'sankey',
         tabLabel: 'Alur Keterserapan',
-        title: 'Aliran program studi menuju status pekerjaan',
-        description: 'Visualisasi aliran proporsional dari program studi asal menuju status pekerjaan yang ditekuni alumni.',
+        title: 'Sankey Diagram: Aliran Program Studi ke Status Pekerjaan',
+        description: 'Ketebalan setiap pita menunjukkan jumlah alumni yang mengalir dari program studi asal menuju status pekerjaan atau studi lanjut.',
         option: sankeyOption.value,
         tableData: sankeyTable.value,
         height: Math.max(420, prodis.value.length * 28 + 100),
@@ -360,6 +360,7 @@ const views = computed(() => [
             badgeClass: 'bg-slate-100 text-slate-700',
             lead: 'Diagram aliran menunjukkan kontribusi tiap program studi dalam menyuplai talenta ke pasar tenaga kerja dan studi lanjutan.',
             detail: 'Ketebalan pita aliran sebanding dengan kuantitas alumni yang diserap oleh masing-masing status karir.',
+            reason: 'Dipilih untuk membaca hubungan asal program studi dan tujuan status karir secara simultan; pita yang lebih tebal berarti jumlah alumni yang lebih besar.',
         },
     },
 ]);

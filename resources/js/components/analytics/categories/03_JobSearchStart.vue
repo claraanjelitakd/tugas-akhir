@@ -3,8 +3,7 @@
  * Komponen Indikator 03: Waktu Mulai Mencari Pekerjaan (F3).
  *
  * Mengelola visualisasi waktu mulai mencari kerja secara mandiri:
- * 1. Diverging Bar: Posisi waktu terhadap kelulusan dengan skala natural (<2 bulan, <=6 bulan, dsb) tanpa tanda +/-.
- * 2. Bar Chart: Distribusi frekuensi kategori periode waktu mulai mencari pekerjaan.
+ * 1. Stacked Column Chart: Komposisi waktu mulai mencari kerja sebelum, setelah, atau tidak mencari kerja.
  * Dilengkapi narasi analisis komprehensif berstandar laporan resmi Tracer Study UKDW.
  */
 import { computed } from 'vue';
@@ -100,7 +99,10 @@ const beforeCount = computed(() => {
 
 const afterCount = computed(() => {
     return series.value
-        .filter((item) => !seriesLabel(item).toLowerCase().includes('sebelum'))
+        .filter((item) => {
+            const label = seriesLabel(item).toLowerCase();
+            return !label.includes('sebelum') && !label.includes('tidak mencari');
+        })
         .reduce((acc, curr) => acc + seriesMetric(curr), 0);
 });
 
@@ -113,6 +115,86 @@ const afterPercentage = computed(() => {
     const total = beforeCount.value + afterCount.value;
     return total > 0 ? ((afterCount.value / total) * 100).toFixed(1) : '0';
 });
+
+// Mengelompokkan kategori rinci F3 menjadi tiga fase yang mudah dibandingkan.
+const timingComposition = computed(() => {
+    const groups = [
+        { key: 'after', label: 'Setelah lulus', count: 0 },
+        { key: 'before', label: 'Sebelum lulus', count: 0 },
+        { key: 'none', label: 'Tidak mencari kerja', count: 0 },
+    ];
+
+    series.value.forEach((item) => {
+        const label = seriesLabel(item).toLowerCase();
+        const target = label.includes('tidak mencari')
+            ? groups[2]
+            : (label.includes('sebelum') ? groups[1] : groups[0]);
+        target.count += seriesMetric(item);
+    });
+
+    const total = groups.reduce((sum, group) => sum + group.count, 0);
+    return groups.map((group) => ({
+        ...group,
+        percentage: total > 0 ? Number(((group.count / total) * 100).toFixed(1)) : 0,
+    }));
+});
+
+// Menyajikan satu kolom vertikal 100% agar urutan fase terbaca konsisten.
+const timingStackedOption = computed(() => ({
+    ...baseOption(validResponses.value),
+    grid: { left: 72, right: 32, top: 24, bottom: 68, containLabel: true },
+    legend: { bottom: 8, textStyle: { color: '#334155' } },
+    xAxis: {
+        type: 'category',
+        data: ['Komposisi responden'],
+        axisLabel: { color: '#334155', fontWeight: '600' },
+    },
+    yAxis: {
+        type: 'value',
+        max: 100,
+        name: 'Persentase Alumni',
+        nameLocation: 'middle',
+        nameGap: 46,
+        axisLabel: { formatter: '{value}%' },
+        splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
+    },
+    tooltip: {
+        ...baseOption().tooltip,
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: (params) => params
+            .map((param) => `<strong>${escapeHtml(param.seriesName)}</strong>: ${formatNumber(param.value, 1)}% (${formatNumber(timingComposition.value[param.seriesIndex]?.count, 0)} alumni)`)
+            .join('<br>'),
+    },
+    series: timingComposition.value.map((group) => ({
+        name: group.label,
+        type: 'bar',
+        stack: 'total',
+        barMaxWidth: 160,
+        data: [group.percentage],
+        label: {
+            show: group.percentage >= 3,
+            position: 'inside',
+            formatter: `${formatNumber(group.percentage, 1)}%`,
+            color: '#FFFFFF',
+            fontWeight: 'bold',
+        },
+    })),
+}));
+
+// Tabel ringkas mengikuti urutan segmen yang sama dengan kolom bertumpuk.
+const timingStackedTable = computed(() => ({
+    columns: [
+        { key: 'label', label: 'Fase Mulai Mencari Kerja' },
+        { key: 'count', label: 'Jumlah Alumni', align: 'right' },
+        { key: 'percentage', label: 'Persentase', align: 'right' },
+    ],
+    rows: timingComposition.value.map((group) => ({
+        label: group.label,
+        count: formatNumber(group.count, 0),
+        percentage: `${formatNumber(group.percentage, 1)}%`,
+    })),
+}));
 
 // -----------------------------------------------------------------------------
 // 1. DIVERGING BAR: Posisi Waktu terhadap Kelulusan (Skala Natural Tanpa Tanda +/-)
@@ -275,37 +357,20 @@ const distributionBarTable = computed(() => ({
 // Konfigurasi views untuk kontainer terpadu
 const views = computed(() => [
     {
-        key: 'diverging',
-        tabLabel: 'Posisi Kelulusan',
-        title: 'Posisi waktu mulai mencari kerja terhadap kelulusan',
-        description: 'Perbandingan kelompok alumni yang berinisiatif mencari kerja sebelum wisuda (kiri) versus setelah dinyatakan lulus (kanan).',
-        option: divergingOption.value,
-        tableData: divergingTable.value,
-        height: 380,
+        key: 'stacked',
+        tabLabel: 'Komposisi Waktu',
+        title: 'Komposisi waktu mulai mencari kerja terhadap kelulusan',
+        description: 'Kolom bertumpuk membandingkan proporsi alumni yang mulai mencari kerja setelah lulus, sebelum lulus, dan yang tidak mencari kerja.',
+        option: timingStackedOption.value,
+        tableData: timingStackedTable.value,
+        height: 420,
         analysis: {
             title: 'Kilas Kesiapan Karir Alumni UKDW',
             statusBadge: 'Perilaku Kesiapan',
             badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
             lead: `Data menunjukkan mayoritas lulusan, yakni sebanyak ${formatNumber(beforeCount.value, 0)} alumni (${beforePercentage.value}%), telah aktif mencari kerja sebelum resmi dinyatakan lulus/wisuda. Sementara itu, ${formatNumber(afterCount.value, 0)} alumni (${afterPercentage.value}%) baru memulai pencarian setelah kelulusan.`,
             detail: 'Inisiatif pencarian kerja sebelum wisuda (terbanyak pada rentang 4 sampai 6 bulan sebelum lulus) membuktikan tingginya proaktivitas alumni dalam memanfaatkan masa penyusunan tugas akhir/magang untuk menjajaki bursa kerja. Hal ini berkontribusi langsung pada pemendekan masa tunggu perolehan kerja pertama lulusan UKDW di dunia industri.',
-        },
-    },
-    {
-        key: 'distribution',
-        tabLabel: 'Distribusi Rentang Waktu',
-        title: 'Distribusi rentang waktu mulai mencari kerja',
-        description: 'Urutan frekuensi rentang waktu mulai mencari pekerjaan dari skala terpadu.',
-        option: distributionBarOption.value,
-        tableData: distributionBarTable.value,
-        height: 380,
-        analysis: {
-            title: 'Kilas Pola Momentum Pencarian Kerja',
-            statusBadge: 'Sebaran Periode',
-            badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-            lead: sortedCategories.value[0]?.naturalLabel
-                ? `Pola paling dominan terjadi pada periode "${sortedCategories.value[0].naturalLabel}" dengan keterlibatan ${formatNumber(sortedCategories.value[0].value, 0)} responden (${sortedCategories.value[0].percentage}%).`
-                : 'Distribusi kategori waktu terdata lengkap.',
-            detail: 'Konsentrasi pencarian kerja pada semester akhir menunjukkan urgensi optimalisasi program pembekalan karir kampus (seperti bursa karir, pelatihan wawancara, dan campus hiring) yang diselenggarakan tepat 1 semester menjelang wisuda.',
+            reason: 'Dipilih sebagai Stacked Column Chart 100% agar komposisi tiga fase waktu dapat dibandingkan dalam satu total responden yang sama.',
         },
     },
 ]);

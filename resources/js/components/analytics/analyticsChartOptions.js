@@ -161,19 +161,39 @@ const cloneChartOption = (value) => {
     return value;
 };
 
+// Mengambil panjang teks sumbu agar margin dapat mengikuti label terpanjang.
+const axisTextLength = (value) => {
+    if (Array.isArray(value)) return value.reduce((max, item) => Math.max(max, axisTextLength(item)), 0);
+    if (value && typeof value === 'object') return axisTextLength(value.value ?? value.name ?? '');
+    return String(value ?? '').length;
+};
+
 // Menentukan margin minimum agar judul sumbu dan label kategori tidak terpotong.
 const normalizeChartGrid = (option) => {
     const xAxes = Array.isArray(option.xAxis) ? option.xAxis : (option.xAxis ? [option.xAxis] : []);
     const yAxes = Array.isArray(option.yAxis) ? option.yAxis : (option.yAxis ? [option.yAxis] : []);
     const hasCategoryX = xAxes.some((axis) => axis?.type === 'category');
-    const requiredLeft = 24;
+    const longestYLabel = yAxes.reduce((max, axis) => Math.max(
+        max,
+        axisTextLength(axis?.name),
+        axisTextLength(axis?.data),
+    ), 0);
+    const longestXLabel = xAxes.reduce((max, axis) => Math.max(
+        max,
+        axisTextLength(axis?.name),
+        axisTextLength(axis?.data),
+    ), 0);
+    const requiredLeft = Math.min(340, Math.max(48, longestYLabel * 7 + 36));
+    const requiredBottom = hasCategoryX
+        ? Math.min(128, Math.max(72, longestXLabel * 2.6 + 42))
+        : 40;
     const grids = Array.isArray(option.grid) ? option.grid : (option.grid ? [option.grid] : []);
 
     grids.forEach((grid) => {
         grid.left = Math.max(Number(grid.left) || 0, requiredLeft);
         grid.right = Math.max(Number(grid.right) || 0, 32);
         grid.top = Math.max(Number(grid.top) || 0, 24);
-        grid.bottom = Math.max(Number(grid.bottom) || 0, hasCategoryX ? 72 : 40);
+        grid.bottom = Math.max(Number(grid.bottom) || 0, requiredBottom);
         grid.containLabel = true;
     });
 
@@ -182,10 +202,18 @@ const normalizeChartGrid = (option) => {
             left: requiredLeft,
             right: 32,
             top: 24,
-            bottom: hasCategoryX ? 72 : 40,
+            bottom: requiredBottom,
             containLabel: true,
         }];
     }
+
+    yAxes.forEach((axis) => {
+        if (axis?.type !== 'category') return;
+        axis.axisLabel = axis.axisLabel || {};
+        axis.axisLabel.width = Math.max(Number(axis.axisLabel.width) || 0, Math.min(320, longestYLabel * 7 + 12));
+        axis.axisLabel.lineHeight = Math.max(Number(axis.axisLabel.lineHeight) || 0, 16);
+        axis.axisLabel.overflow = 'break';
+    });
 };
 
 // Menghapus warna lokal yang tidak konsisten, border, dan shadow dari setiap elemen data.
@@ -197,6 +225,43 @@ const normalizeChartStyle = (style, color) => {
     style.borderWidth = 0;
     style.shadowBlur = 0;
     style.shadowColor = 'transparent';
+};
+
+// Menentukan urutan segmen bertumpuk secara semantik dan stabil antarindikator.
+const stackOrderKey = (label) => {
+    const text = String(label || '').toLowerCase();
+    const scale = text.match(/^([1-5])\s*=/);
+    if (scale) return [0, Number(scale[1]), text];
+    const orderedTerms = [
+        'setelah',
+        'sebelum',
+        'tidak mencari',
+        'bekerja',
+        'wiraswasta',
+        'melanjutkan',
+        'mencari kerja',
+        'belum',
+    ];
+    const priority = orderedTerms.findIndex((term) => text.includes(term));
+    return [1, priority < 0 ? orderedTerms.length : priority, text];
+};
+
+// Mengurutkan seri pada setiap kelompok stack tanpa mengubah seri non-stack.
+const normalizeStackOrder = (series) => {
+    const stackNames = [...new Set(series.filter((item) => item?.stack).map((item) => item.stack))];
+    stackNames.forEach((stackName) => {
+        const indexes = series
+            .map((item, index) => item?.stack === stackName ? index : -1)
+            .filter((index) => index >= 0);
+        const ordered = indexes.map((index) => series[index]).sort((left, right) => {
+            const leftKey = stackOrderKey(left.name);
+            const rightKey = stackOrderKey(right.name);
+            return leftKey[0] - rightKey[0] || leftKey[1] - rightKey[1] || leftKey[2].localeCompare(rightKey[2], 'id');
+        });
+        indexes.forEach((index, position) => {
+            series[index] = ordered[position];
+        });
+    });
 };
 
 // Menyamakan warna seri, tooltip, legenda, dan elemen sumbu pada semua tipe grafik.
@@ -261,6 +326,7 @@ export const normalizeAnalyticsOption = (option) => {
     }
 
     if (Array.isArray(normalized.series)) {
+        normalizeStackOrder(normalized.series);
         normalized.series.forEach((series, seriesIndex) => {
             const scaleValue = /^([1-5])\s*=/.exec(String(series.name || ''))?.[1];
             const seriesColor = scaleValue
@@ -277,6 +343,23 @@ export const normalizeAnalyticsOption = (option) => {
             }
             normalizeChartStyle(series.emphasis?.itemStyle, seriesColor);
             if (series.emphasis?.lineStyle) series.emphasis.lineStyle.color = seriesColor;
+            if (series.type === 'bar' && series.stack) {
+                const percentageAxis = normalized.xAxis?.max === 100
+                    || normalized.yAxis?.max === 100
+                    || (Array.isArray(series.data) && series.data.some((datum) => Number(typeof datum === 'object' ? datum.value : datum) > 1));
+                const originalFormatter = series.label?.formatter;
+                series.label = {
+                    ...(series.label || {}),
+                    show: true,
+                    position: series.label?.position || 'inside',
+                    color: series.label?.color || ([analyticsColors.green, analyticsColors.greenMid].includes(seriesColor) ? analyticsColors.white : analyticsColors.textStrong),
+                    formatter: originalFormatter || ((params) => {
+                        const value = Number(params?.value ?? params?.data?.value ?? 0);
+                        if (value <= 0) return '';
+                        return percentageAxis ? `${formatNumber(value, 1)}%` : formatNumber(value, 0);
+                    }),
+                };
+            }
             if (series.label && series.label.color !== analyticsColors.white) {
                 series.label.color = analyticsColors.textStrong;
             }
@@ -284,6 +367,14 @@ export const normalizeAnalyticsOption = (option) => {
                 series.markLine.lineStyle = series.markLine.lineStyle || {};
                 series.markLine.lineStyle.color = analyticsColors.greenMid;
                 if (series.markLine.label) series.markLine.label.color = analyticsColors.text;
+            }
+            if (series.type === 'sankey' && Array.isArray(series.links)) {
+                series.links.forEach((link, linkIndex) => {
+                    link.lineStyle = link.lineStyle || {};
+                    link.lineStyle.color = analyticsPalette[linkIndex % analyticsPalette.length];
+                    link.lineStyle.opacity = 0.42;
+                    link.lineStyle.shadowBlur = 0;
+                });
             }
 
             if (Array.isArray(series.data)) {
@@ -308,6 +399,30 @@ export const normalizeAnalyticsOption = (option) => {
                     if (datum.label && datum.label.color !== analyticsColors.white) datum.label.color = analyticsColors.textStrong;
                 });
             }
+        });
+    }
+
+    if (Array.isArray(normalized.series)) {
+        normalized.series.forEach((series) => {
+            if (series.type !== 'pie') return;
+            series.label = {
+                ...(series.label || {}),
+                show: true,
+                position: 'outside',
+                color: analyticsColors.textStrong,
+                overflow: 'break',
+            };
+            series.labelLine = {
+                ...(series.labelLine || {}),
+                show: true,
+                length: Math.max(Number(series.labelLine?.length) || 0, 14),
+                length2: Math.max(Number(series.labelLine?.length2) || 0, 10),
+                lineStyle: {
+                    ...(series.labelLine?.lineStyle || {}),
+                    color: analyticsColors.greenMid,
+                    width: 1.5,
+                },
+            };
         });
     }
 
@@ -962,7 +1077,12 @@ export const heatmap = (records, selectedLabel, mode = 'count') => {
  * Batang 100% bertumpuk antarprogram studi dengan tabel ringkasan.
  */
 export const stackedByProdi = (records, selectedLabel) => {
-    const prodis = [...new Set(records.map((record) => record.nama_prodi || 'Tanpa prodi'))];
+    const prodis = [...new Set(records.map((record) => record.nama_prodi || 'Tanpa prodi'))]
+        .sort((left, right) => {
+            const leftTotal = records.filter((record) => (record.nama_prodi || 'Tanpa prodi') === left).length;
+            const rightTotal = records.filter((record) => (record.nama_prodi || 'Tanpa prodi') === right).length;
+            return rightTotal - leftTotal || left.localeCompare(right, 'id');
+        });
     const categories = [...new Set(records.map(recordCategory))];
 
     const option = {

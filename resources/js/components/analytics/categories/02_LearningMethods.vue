@@ -536,7 +536,7 @@ const methodsStackedOption = computed(() => {
             label: {
                 show: true,
                 position: 'inside',
-                formatter: ({ value }) => (value >= 10 ? `${formatNumber(value, 0)}%` : ''),
+                formatter: ({ value }) => (value > 0 ? `${formatNumber(value, 0)}%` : ''),
                 color: lvl === 5 ? '#FFFFFF' : '#0F172A',
                 fontSize: 10,
                 fontWeight: 600,
@@ -840,28 +840,6 @@ const summaryTableData = computed(() => {
     });
 });
 
-// Konteks visual aktif menjelaskan nama grafik dan alasan pemilihannya kepada pengguna.
-const chartContext = computed(() => ({
-    radar: {
-        type: 'Diagram Radar',
-        reason: 'Dipilih untuk melihat profil tujuh metode pembelajaran sekaligus dalam skala Likert 1-5.',
-    },
-    line: {
-        type: 'Diagram Garis Median',
-        reason: 'Dipilih untuk membandingkan median penekanan setiap metode secara berurutan pada skala yang sama.',
-    },
-    stacked: {
-        type: 'Diagram Batang Bertumpuk 100%',
-        reason: 'Dipilih untuk memperlihatkan komposisi jawaban skala 1-5 pada setiap metode pembelajaran.',
-    },
-    heatmap: {
-        type: 'Peta Panas Antarprogram Studi',
-        reason: 'Dipilih untuk menemukan pola intensitas skor metode pembelajaran pada setiap program studi.',
-    },
-}[activeChartTab.value] || {
-    type: 'Visualisasi Analitik',
-    reason: 'Dipilih untuk membantu membaca pola data indikator secara ringkas.',
-}));
 </script>
 
 <template>
@@ -875,10 +853,10 @@ const chartContext = computed(() => ({
                     <span class="rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-[#0D542B]">Indikator 02</span>
                     <h3 class="text-base font-extrabold text-slate-900">
                         <template v-if="activeViewMode === 'table'">Tabel Data Penekanan Metode Pembelajaran</template>
-                        <template v-else-if="activeChartTab === 'radar'">Jaring Laba-laba Profil Penekanan Belajar</template>
-                        <template v-else-if="activeChartTab === 'line'">Penekanan Metode Pembelajaran (Rata-rata Skor INT)</template>
-                        <template v-else-if="activeChartTab === 'stacked'">Distribusi Pilihan Skala Responden (100% Stacked)</template>
-                        <template v-else>Pola Penekanan Antarprogram Studi</template>
+                        <template v-else-if="activeChartTab === 'radar'">Radar Chart Penekanan Metode Pembelajaran</template>
+                        <template v-else-if="activeChartTab === 'line'">Line Chart Median Penekanan Metode Pembelajaran</template>
+                        <template v-else-if="activeChartTab === 'stacked'">100% Stacked Bar Chart Distribusi Skala</template>
+                        <template v-else>Heatmap Penekanan Antarprogram Studi</template>
                     </h3>
                 </div>
                 <p class="mt-1 text-xs text-slate-500">
@@ -898,16 +876,6 @@ const chartContext = computed(() => ({
                         Matriks perbandingan skor rata-rata penekanan metode pembelajaran pada masing-masing program studi.
                     </template>
                 </p>
-                <!-- Konteks pemilihan visual menjelaskan nama dan tujuan grafik aktif. -->
-                <div v-if="activeViewMode === 'chart'" class="mt-3 grid gap-2 text-xs sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start sm:gap-x-3">
-                    <span class="inline-flex w-fit rounded bg-slate-100 px-2 py-1 font-bold text-slate-700">
-                        Jenis grafik: {{ chartContext.type }}
-                    </span>
-                    <p class="leading-relaxed text-slate-600">
-                        <span class="font-bold text-[#0D542B]">Alasan pemilihan:</span>
-                        {{ chartContext.reason }}
-                    </p>
-                </div>
             </div>
 
             <!-- Kolom Kanan: Switcher Tab Tetap (Stay di Kanan Atas, Bebas dari Layout Shift) -->
@@ -920,7 +888,7 @@ const chartContext = computed(() => ({
                         :class="activeChartTab === 'radar' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeChartTab = 'radar'"
                     >
-                        Jaring Laba-laba
+                        Radar Chart
                     </button>
                     <button
                         type="button"
@@ -928,7 +896,7 @@ const chartContext = computed(() => ({
                         :class="activeChartTab === 'line' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeChartTab = 'line'"
                     >
-                        Grafik Garis
+                        Line Chart
                     </button>
                     <button
                         type="button"
@@ -1020,6 +988,10 @@ const chartContext = computed(() => ({
                     <p class="mt-1 text-xs text-slate-600 leading-relaxed">
                         {{ radarAnalysis.detail }}
                     </p>
+                    <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
+                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan (Radar Chart):</span>
+                        Dipilih untuk melihat profil tujuh metode pembelajaran sekaligus dalam skala Likert 1-5.
+                    </p>
                 </div>
 
                 <!-- Keterangan Footer Bersih & Minimalis -->
@@ -1063,6 +1035,10 @@ const chartContext = computed(() => ({
                     <p class="mt-1 text-xs text-slate-600 leading-relaxed">
                         {{ lineAnalysis.detail }}
                     </p>
+                    <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
+                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan (Line Chart):</span>
+                        Dipilih untuk membandingkan median penekanan setiap metode secara berurutan pada skala yang sama.
+                    </p>
                 </div>
 
                 <div class="flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-xs">
@@ -1104,6 +1080,10 @@ const chartContext = computed(() => ({
                     </p>
                     <p class="mt-1 text-xs text-slate-600 leading-relaxed">
                         {{ stackedAnalysis.detail }}
+                    </p>
+                    <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
+                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan (100% Stacked Bar Chart):</span>
+                        Dipilih untuk memperlihatkan komposisi jawaban skala 1-5 pada setiap metode pembelajaran.
                     </p>
                 </div>
 
@@ -1171,6 +1151,10 @@ const chartContext = computed(() => ({
                     </p>
                     <p class="mt-1 text-xs text-slate-600 leading-relaxed">
                         {{ heatmapAnalysis.detail }}
+                    </p>
+                    <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
+                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan (Heatmap):</span>
+                        Dipilih untuk menemukan pola intensitas skor metode pembelajaran pada setiap program studi.
                     </p>
                 </div>
             </div>

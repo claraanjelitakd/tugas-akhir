@@ -3,7 +3,7 @@
  * Komponen Indikator 04: Cara Mencari Pekerjaan (F4).
  *
  * Mengelola visualisasi saluran pencarian pekerjaan resmi Tracer Study UKDW:
- * 1. Horizontal Bar: Seluruh 15 opsi instrumen resmi F4 lengkap tanpa pemotongan teks.
+ * 1. Horizontal Bar: Opsi instrumen F4 yang benar-benar terisi, tanpa menampilkan kategori nol.
  * 2. Tabel Isian Saluran Lainnya: Transparansi data isian teks bebas responden.
  * Dilengkapi narasi analisis mendalam mencakup tinjauan universitas dan variasi antarprogram studi.
  */
@@ -40,7 +40,7 @@ const validResponses = computed(() => props.chart?.summary?.answered_count || re
 // -----------------------------------------------------------------------------
 const barOption = computed(() => {
     // Urutkan dari frekuensi terendah ke tertinggi agar di horizontal bar tampak tertinggi di atas
-    const rows = [...series.value].map((item) => {
+    const rows = [...series.value].filter((item) => seriesMetric(item) > 0).map((item) => {
         const label = seriesLabel(item);
         const count = seriesMetric(item);
         const selected = !props.selectedLabel || props.selectedLabel === label;
@@ -116,7 +116,7 @@ const barTable = computed(() => ({
         { key: 'count', label: 'Jumlah Alumni', align: 'right' },
         { key: 'percentage', label: 'Persentase Responden', align: 'right' },
     ],
-    rows: series.value.map((item) => ({
+    rows: series.value.filter((item) => seriesMetric(item) > 0).map((item) => ({
         name: seriesLabel(item),
         count: formatNumber(seriesMetric(item), 0),
         percentage: formatPercentage(item.percentage || 0),
@@ -150,18 +150,19 @@ const lainnyaTable = computed(() => ({
 
 // Konfigurasi views untuk kontainer terpadu
 const views = computed(() => {
-    const topMethod = series.value[0];
-    const secondMethod = series.value[1];
+    const filledSeries = series.value.filter((item) => seriesMetric(item) > 0);
+    const topMethod = filledSeries[0];
+    const secondMethod = filledSeries[1];
 
     const list = [
         {
             key: 'distribution',
             tabLabel: 'Distribusi Saluran',
             title: 'Distribusi saluran pencarian pekerjaan alumni UKDW',
-            description: 'Seluruh 15 opsi resmi instrumen Tracer Study F4 untuk penelusuran saluran perolehan kerja alumni.',
+            description: 'Opsi resmi instrumen Tracer Study F4 yang memiliki jawaban terisi untuk penelusuran saluran perolehan kerja alumni.',
             option: barOption.value,
             tableData: barTable.value,
-            height: Math.max(620, series.value.length * 40 + 90),
+            height: Math.max(380, filledSeries.length * 40 + 90),
             analysis: {
                 title: 'Kilas Analisis Saluran Pencarian Kerja',
                 statusBadge: 'Saluran Utama',

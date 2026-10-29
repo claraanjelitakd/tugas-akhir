@@ -54,9 +54,9 @@ const chartTypeLabels = {
     distribution: 'Diagram Batang Horizontal',
     activity_bar: 'Diagram Batang Horizontal',
     reasons_distribution: 'Diagram Batang Horizontal',
-    stacked: 'Diagram Batang Bertumpuk 100%',
-    by_prodi: 'Diagram Batang Bertumpuk 100%',
-    stacked_kualifikasi: 'Diagram Batang Bertumpuk 100%',
+    stacked: '100% Stacked Column Chart',
+    by_prodi: '100% Stacked Bar Chart',
+    stacked_kualifikasi: '100% Stacked Bar Chart',
     diverging: 'Diagram Batang Divergen',
     methods_line: 'Diagram Garis Median',
     likert: 'Diagram Batang Median',
@@ -76,7 +76,7 @@ const chartTypeLabels = {
     pie: 'Diagram Donat',
     univ_distribution: 'Diagram Donat',
     degree_view: 'Diagram Donat',
-    funding_view: 'Diagram Donat',
+    funding_view: 'Diagram Batang Horizontal',
     bullet: 'Diagram Bullet',
     prodi_ump_bullet: 'Diagram Bullet',
     heatmap: 'Peta Panas',
@@ -99,7 +99,7 @@ const chartTypeReasons = {
     distribution: 'Dipilih untuk menunjukkan frekuensi setiap kategori secara berurutan dan mudah dibandingkan.',
     activity_bar: 'Dipilih untuk membandingkan jumlah dan persentase status aktivitas secara langsung.',
     reasons_distribution: 'Dipilih untuk mengurutkan alasan berdasarkan frekuensi jawaban responden.',
-    stacked: 'Dipilih untuk memperlihatkan komposisi bagian terhadap total 100% pada setiap program studi.',
+    stacked: 'Dipilih untuk memperlihatkan komposisi beberapa fase atau kategori dalam satu total 100% menggunakan kolom vertikal.',
     by_prodi: 'Dipilih untuk membandingkan komposisi kategori di setiap program studi dalam satu skala 100%.',
     stacked_kualifikasi: 'Dipilih untuk memperlihatkan komposisi kualifikasi pendidikan pada setiap program studi.',
     diverging: 'Dipilih untuk memperjelas perbedaan kategori yang berada di dua sisi titik acuan.',
@@ -121,7 +121,7 @@ const chartTypeReasons = {
     pie: 'Dipilih untuk membaca proporsi kategori universitas dengan pembagian bagian yang sederhana.',
     univ_distribution: 'Dipilih untuk melihat komposisi jawaban tingkat universitas secara ringkas.',
     degree_view: 'Dipilih untuk membandingkan proporsi jenjang studi lanjut yang ditempuh alumni.',
-    funding_view: 'Dipilih untuk membandingkan proporsi sumber pembiayaan studi lanjut alumni.',
+    funding_view: 'Dipilih untuk membandingkan jumlah dan proporsi sumber pembiayaan studi lanjut alumni tanpa menyembunyikan perbedaan antar kategori.',
     bullet: 'Dipilih untuk membandingkan capaian terhadap ambang atau target yang telah ditentukan.',
     prodi_ump_bullet: 'Dipilih untuk membandingkan persentase pemenuhan ambang UMP per program studi.',
     heatmap: 'Dipilih untuk menemukan pola intensitas antarprogram studi dan kategori melalui warna sel.',
@@ -141,7 +141,7 @@ const chartTypeReasons = {
 const currentChartType = computed(() => chartTypeLabels[currentView.value.key] || 'Visualisasi Analitik');
 
 // Alasan grafik aktif dipilih berdasarkan tujuan pengukuran dan dapat dioverride oleh view tertentu.
-const currentChartReason = computed(() => currentView.value.reason || chartTypeReasons[currentView.value.key] || 'Dipilih agar pola data pada indikator ini dapat dibandingkan secara langsung.');
+const currentChartReason = computed(() => currentView.value.reason || currentView.value.analysis?.reason || chartTypeReasons[currentView.value.key] || 'Dipilih agar pola data pada indikator ini dapat dibandingkan secara langsung.');
 
 // Penanganan klik pada elemen grafik EChart
 const handleChartClick = (params) => {
@@ -315,16 +315,6 @@ watch(() => props.selectedLabel, () => {
                     </template>
                 </p>
 
-                <!-- Konteks pemilihan visual menjelaskan nama jenis grafik dan alasan analitiknya. -->
-                <div v-if="activeViewMode === 'chart'" class="mt-3 grid gap-2 text-xs sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start sm:gap-x-3">
-                    <span class="inline-flex w-fit rounded bg-slate-100 px-2 py-1 font-bold text-slate-700">
-                        Jenis grafik: {{ currentChartType }}
-                    </span>
-                    <p class="leading-relaxed text-slate-600">
-                        <span class="font-bold text-[#0D542B]">Alasan pemilihan:</span>
-                        {{ currentChartReason }}
-                    </p>
-                </div>
             </div>
 
             <!-- Kolom Kanan: Switcher Tab Tetap (Stay di Kanan Atas, Bebas dari Layout Shift) -->
@@ -399,6 +389,10 @@ watch(() => props.selectedLabel, () => {
                 </p>
                 <p v-if="computedAnalysis.detail" class="mt-1 text-xs text-slate-600 leading-relaxed">
                     {{ computedAnalysis.detail }}
+                </p>
+                <p v-if="activeViewMode === 'chart'" class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
+                    <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ currentChartType }}):</span>
+                    {{ currentChartReason }}
                 </p>
             </div>
 

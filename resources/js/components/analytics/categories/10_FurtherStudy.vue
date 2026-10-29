@@ -137,12 +137,10 @@ const degreeTable = computed(() => ({
 }));
 
 // -----------------------------------------------------------------------------
-// 2. DONUT / BAR CHART: Sumber Pembiayaan Studi (F12)
+// 2. HORIZONTAL BAR CHART: Sumber Pembiayaan Studi (F12)
 // -----------------------------------------------------------------------------
-const fundingPalette = ['#0D542B', '#334155', '#D97706', '#0F766E', '#64748B'];
-
 const fundingOption = computed(() => {
-    const data = fundingSeries.value.map((item, index) => {
+    const data = [...fundingSeries.value].map((item) => {
         const label = seriesLabel(item);
         const count = seriesMetric(item);
         const selected = !props.selectedLabel || props.selectedLabel === label;
@@ -151,44 +149,51 @@ const fundingOption = computed(() => {
             value: count,
             percentage: item.percentage || 0,
             itemStyle: {
-                color: fundingPalette[index % fundingPalette.length],
+                color: '#0D542B',
                 opacity: selected ? 1 : 0.22,
+                borderRadius: [0, 5, 5, 0],
             },
         };
-    });
+    }).sort((left, right) => right.value - left.value).reverse();
 
     return {
         ...baseOption(validResponses.value),
-        legend: {
-            orient: 'horizontal',
-            bottom: 0,
-            icon: 'circle',
-            textStyle: { color: '#334155', fontSize: 11, fontWeight: 600 },
+        grid: { left: 180, right: 84, top: 24, bottom: 36, containLabel: true },
+        xAxis: {
+            type: 'value',
+            name: 'Jumlah Alumni',
+            nameLocation: 'middle',
+            nameGap: 28,
+            axisLabel: { formatter: (value) => formatNumber(value, 0) },
+            splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
+        },
+        yAxis: {
+            type: 'category',
+            data: data.map((item) => item.name),
+            axisLabel: { width: 160, overflow: 'break', color: '#334155' },
         },
         tooltip: {
             ...baseOption().tooltip,
-            trigger: 'item',
-            formatter: ({ data }) => `<strong>${escapeHtml(data.name)}</strong><br>Jumlah: <strong>${formatNumber(data.value, 0)} alumni</strong><br>Proporsi: <strong>${formatPercentage(data.percentage)}</strong>`,
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: (params) => {
+                const item = params[0]?.data;
+                return item ? `<strong>${escapeHtml(item.name)}</strong><br>Jumlah: <strong>${formatNumber(item.value, 0)} alumni</strong><br>Proporsi: <strong>${formatPercentage(item.percentage)}</strong>` : '';
+            },
         },
         series: [{
             name: 'Sumber Pembiayaan',
-            type: 'pie',
-            radius: ['44%', '70%'],
-            center: ['50%', '46%'],
-            avoidLabelOverlap: true,
-            itemStyle: {
-                borderRadius: 4,
-                borderColor: '#FFFFFF',
-                borderWidth: 2,
-            },
+            type: 'bar',
+            barMaxWidth: 30,
+            data,
             label: {
                 show: true,
-                formatter: ({ data }) => `${formatPercentage(data.percentage)}`,
+                position: 'right',
+                formatter: ({ data }) => `${formatNumber(data.value, 0)} (${formatPercentage(data.percentage)})`,
                 fontSize: 11,
                 fontWeight: 'bold',
                 color: '#1E293B',
             },
-            data,
         }],
     };
 });

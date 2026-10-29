@@ -62,17 +62,6 @@ const currentTarget = computed(() => {
     return Number(props.chart?.summary?.target ?? 60.0);
 });
 
-// Konteks visual aktif menjelaskan nama grafik dan alasan pemilihannya kepada pengguna.
-const chartContext = computed(() => activeChartTab.value === 'stacked'
-    ? {
-        type: 'Diagram Batang Bertumpuk 100%',
-        reason: 'Dipilih untuk memperlihatkan proporsi alumni yang sudah dan belum mengisi pada setiap program studi dalam total 100%.',
-    }
-    : {
-        type: 'Diagram Batang Horizontal dengan Garis Target',
-        reason: 'Dipilih untuk mengurutkan response rate antarprogram studi dan membandingkannya dengan target universitas.',
-    });
-
 // Seri yang dinormalisasi dengan data populasi, responden, dan belum mengisi.
 const displaySeries = computed(() => {
     return series.value.map((item) => {
@@ -145,7 +134,7 @@ const naturalSummary = computed(() => {
         }
 
         return {
-            title: `Kilas Komposisi Partisipasi Kohort ${year}`,
+            title: `Kilas Komposisi Partisipasi Kohort ${year} · Distribusi Komposisi`,
             statusBadge: 'Distribusi Komposisi',
             badgeClass: 'bg-white text-slate-700 border border-slate-300',
             lead: `Dari total ${formatNumber(pop, 0)} alumni kohort ${year}, tercatat ${formatNumber(resp, 0)} alumni (${formatNumber(rate, 1)}%) telah berpartisipasi mengisi kuesioner, sementara ${formatNumber(unans, 0)} alumni (${formatNumber(unansRate, 1)}%) masih berstatus belum mengisi.`,
@@ -251,7 +240,7 @@ const stackedBarOption = computed(() => {
                 label: {
                     show: true,
                     position: 'inside',
-                    formatter: ({ value }) => (value >= 12 ? `${formatNumber(value, 1)}%` : ''),
+                    formatter: ({ value }) => (value > 0 ? `${formatNumber(value, 1)}%` : ''),
                     color: '#FFFFFF',
                     fontWeight: 600,
                     fontSize: 10,
@@ -282,7 +271,7 @@ const stackedBarOption = computed(() => {
                 label: {
                     show: true,
                     position: 'inside',
-                    formatter: ({ value }) => (value >= 12 ? `${formatNumber(value, 1)}%` : ''),
+                    formatter: ({ value }) => (value > 0 ? `${formatNumber(value, 1)}%` : ''),
                     color: '#0F172A',
                     fontWeight: 600,
                     fontSize: 10,
@@ -520,22 +509,12 @@ const downloadExcel = (statusTarget = null) => {
                     <div class="flex items-center gap-2">
                         <span class="rounded bg-white px-2 py-0.5 text-xs font-bold text-[#0D542B] border border-[#0D542B]/25">Indikator 01</span>
                         <h3 class="text-base font-extrabold text-slate-900">
-                            {{ activeChartTab === 'stacked' ? 'Distribusi Komposisi Responden (100% Stacked)' : 'Ranking Response Rate' }}
+                            {{ activeChartTab === 'stacked' ? 'Distribusi Komposisi Responden' : 'Ranking Response Rate dan Target' }}
                         </h3>
                     </div>
                     <p class="mt-1 text-xs text-slate-500">
                         {{ activeChartTab === 'stacked' ? 'Klik segmen batang untuk langsung membuka data responden di bawah grafik.' : `Garis putus-putus abu-abu gelap menandai ambang target ${formatNumber(currentTarget, 1)}%.` }}
                     </p>
-                <!-- Konteks pemilihan visual menjelaskan nama dan tujuan grafik aktif. -->
-                <div class="mt-3 grid gap-2 text-xs sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start sm:gap-x-3">
-                    <span class="inline-flex w-fit rounded bg-slate-100 px-2 py-1 font-bold text-slate-700">
-                        Jenis grafik: {{ chartContext.type }}
-                    </span>
-                    <p class="leading-relaxed text-slate-600">
-                        <span class="font-bold text-[#0D542B]">Alasan pemilihan:</span>
-                        {{ chartContext.reason }}
-                    </p>
-                </div>
                 </div>
 
                 <!-- Switcher 2 Visualisasi Utama -->
@@ -610,6 +589,10 @@ const downloadExcel = (statusTarget = null) => {
                         <p class="mt-1 text-xs text-slate-600 leading-relaxed">
                             {{ naturalSummary.detail }}
                         </p>
+                        <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
+                            <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ activeChartTab === 'stacked' ? '100% Stacked Bar Chart' : 'Bullet Chart' }}):</span>
+                            {{ activeChartTab === 'stacked' ? 'Dipilih untuk memperlihatkan proporsi alumni yang sudah dan belum mengisi pada setiap program studi dalam total 100%.' : 'Dipilih untuk membandingkan response rate setiap program studi dengan target universitas melalui batang aktual dan penanda target.' }}
+                        </p>
                     </div>
                 </div>
 
@@ -638,6 +621,10 @@ const downloadExcel = (statusTarget = null) => {
                         </p>
                         <p class="mt-1 text-xs text-slate-600 leading-relaxed">
                             {{ naturalSummary.detail }}
+                        </p>
+                        <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
+                            <span class="font-semibold text-[#0D542B]">Alasan pemilihan (Bullet Chart):</span>
+                            Dipilih untuk membandingkan response rate setiap program studi dengan target universitas melalui batang aktual dan penanda target.
                         </p>
                     </div>
                 </div>
