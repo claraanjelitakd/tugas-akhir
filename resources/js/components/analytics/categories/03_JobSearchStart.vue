@@ -106,48 +106,73 @@ const afterCount = computed(() => {
         .reduce((acc, curr) => acc + seriesMetric(curr), 0);
 });
 
+// Total jawaban F3 menjadi denominator tunggal untuk seluruh rentang waktu.
+const totalTimingCount = computed(() => series.value.reduce((total, item) => total + seriesMetric(item), 0));
+
+// Jumlah alumni yang memilih tidak mencari pekerjaan dipisahkan dari rentang waktu.
+const notSearchingCount = computed(() => series.value
+    .filter((item) => seriesLabel(item).toLowerCase().includes('tidak mencari'))
+    .reduce((acc, curr) => acc + seriesMetric(curr), 0));
+
 const beforePercentage = computed(() => {
-    const total = beforeCount.value + afterCount.value;
+    const total = totalTimingCount.value;
     return total > 0 ? ((beforeCount.value / total) * 100).toFixed(1) : '0';
 });
 
 const afterPercentage = computed(() => {
-    const total = beforeCount.value + afterCount.value;
+    const total = totalTimingCount.value;
     return total > 0 ? ((afterCount.value / total) * 100).toFixed(1) : '0';
 });
 
-// Mengelompokkan kategori rinci F3 menjadi tiga fase yang mudah dibandingkan.
-const timingComposition = computed(() => {
-    const groups = [
-        { key: 'after', label: 'Setelah lulus', count: 0 },
-        { key: 'before', label: 'Sebelum lulus', count: 0 },
-        { key: 'none', label: 'Tidak mencari kerja', count: 0 },
+// Mengubah label mentah menjadi tiga rentang waktu yang konsisten.
+const classifyTimingRange = (rawLabel) => {
+    const label = String(rawLabel || '').toLowerCase();
+    if (label.includes('tidak mencari')) return { phase: 'Tidak mencari kerja', range: '' };
+    const months = Number(label.match(/(\d+)/)?.[1] || 0);
+    if (label.includes('>')) return { phase: label.includes('sebelum') ? 'Sebelum lulus' : 'Setelah lulus', range: '> 6 bulan' };
+    if (months <= 2) return { phase: label.includes('sebelum') ? 'Sebelum lulus' : 'Setelah lulus', range: '< 2 bulan' };
+    if (months <= 6) return { phase: label.includes('sebelum') ? 'Sebelum lulus' : 'Setelah lulus', range: '2–6 bulan' };
+    return { phase: label.includes('sebelum') ? 'Sebelum lulus' : 'Setelah lulus', range: '> 6 bulan' };
+};
+
+// Agregasi rentang sebelum/setelah lulus serta kategori tidak mencari kerja.
+const timingRangeRows = computed(() => {
+    const order = [
+        ['Sebelum lulus', '< 2 bulan'],
+        ['Sebelum lulus', '2–6 bulan'],
+        ['Sebelum lulus', '> 6 bulan'],
+        ['Setelah lulus', '< 2 bulan'],
+        ['Setelah lulus', '2–6 bulan'],
+        ['Setelah lulus', '> 6 bulan'],
+        ['Tidak mencari kerja', ''],
     ];
+    const grouped = new Map(order.map(([phase, range]) => [`${phase}|${range}`, { phase, range, count: 0 }]));
 
     series.value.forEach((item) => {
-        const label = seriesLabel(item).toLowerCase();
-        const target = label.includes('tidak mencari')
-            ? groups[2]
-            : (label.includes('sebelum') ? groups[1] : groups[0]);
-        target.count += seriesMetric(item);
+        const classification = classifyTimingRange(seriesLabel(item));
+        const key = `${classification.phase}|${classification.range}`;
+        if (!grouped.has(key)) grouped.set(key, { ...classification, count: 0 });
+        grouped.get(key).count += seriesMetric(item);
     });
 
-    const total = groups.reduce((sum, group) => sum + group.count, 0);
-    return groups.map((group) => ({
-        ...group,
-        percentage: total > 0 ? Number(((group.count / total) * 100).toFixed(1)) : 0,
-    }));
+    return [...grouped.values()]
+        .filter((item) => item.count > 0)
+        .map((item) => ({
+            ...item,
+            label: item.range ? `${item.phase}\n${item.range}` : item.phase,
+            percentage: totalTimingCount.value > 0 ? Number(((item.count / totalTimingCount.value) * 100).toFixed(1)) : 0,
+        }));
 });
 
-// Menyajikan satu kolom vertikal 100% agar urutan fase terbaca konsisten.
-const timingStackedOption = computed(() => ({
+// Diagram batang vertikal biru menampilkan distribusi rentang waktu secara langsung.
+const timingRangeOption = computed(() => ({
     ...baseOption(validResponses.value),
-    grid: { left: 72, right: 32, top: 24, bottom: 68, containLabel: true },
-    legend: { bottom: 8, textStyle: { color: '#334155' } },
+    themePalette: ['#2F6DB0'],
+    grid: { left: 64, right: 36, top: 28, bottom: 92, containLabel: true },
     xAxis: {
         type: 'category',
-        data: ['Komposisi responden'],
-        axisLabel: { color: '#334155', fontWeight: '600' },
+        data: timingRangeRows.value.map((item) => item.label),
+        axisLabel: { color: '#334155', fontWeight: '600', interval: 0, lineHeight: 16 },
     },
     yAxis: {
         type: 'value',
@@ -162,37 +187,38 @@ const timingStackedOption = computed(() => ({
         ...baseOption().tooltip,
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        formatter: (params) => params
-            .map((param) => `<strong>${escapeHtml(param.seriesName)}</strong>: ${formatNumber(param.value, 1)}% (${formatNumber(timingComposition.value[param.seriesIndex]?.count, 0)} alumni)`)
-            .join('<br>'),
+        formatter: (params) => {
+            const item = timingRangeRows.value[params[0]?.dataIndex];
+            return item ? `<strong>${escapeHtml(item.phase)}${item.range ? ` · ${escapeHtml(item.range)}` : ''}</strong><br>Jumlah: <strong>${formatNumber(item.count, 0)} alumni</strong><br>Proporsi: <strong>${formatNumber(item.percentage, 1)}%</strong>` : '';
+        },
     },
-    series: timingComposition.value.map((group) => ({
-        name: group.label,
+    series: [{
+        name: 'Alumni',
         type: 'bar',
-        stack: 'total',
-        barMaxWidth: 160,
-        data: [group.percentage],
+        barMaxWidth: 52,
+        itemStyle: { color: '#2F6DB0', borderRadius: [5, 5, 0, 0] },
+        data: timingRangeRows.value.map((item) => ({ value: item.percentage, count: item.count, phase: item.phase, range: item.range })),
         label: {
-            show: group.percentage >= 3,
-            position: 'inside',
-            formatter: `${formatNumber(group.percentage, 1)}%`,
-            color: '#FFFFFF',
+            show: true,
+            position: 'top',
+            formatter: ({ data }) => `${formatNumber(data.value, 1)}%`,
+            color: '#1E4F82',
             fontWeight: 'bold',
         },
-    })),
+    }],
 }));
 
-// Tabel ringkas mengikuti urutan segmen yang sama dengan kolom bertumpuk.
-const timingStackedTable = computed(() => ({
+// Tabel ringkas mengikuti urutan rentang waktu pada diagram batang.
+const timingRangeTable = computed(() => ({
     columns: [
-        { key: 'label', label: 'Fase Mulai Mencari Kerja' },
+        { key: 'label', label: 'Rentang Waktu Mulai Mencari' },
         { key: 'count', label: 'Jumlah Alumni', align: 'right' },
         { key: 'percentage', label: 'Persentase', align: 'right' },
     ],
-    rows: timingComposition.value.map((group) => ({
-        label: group.label,
-        count: formatNumber(group.count, 0),
-        percentage: `${formatNumber(group.percentage, 1)}%`,
+    rows: timingRangeRows.value.map((item) => ({
+        label: item.range ? `${item.phase} · ${item.range}` : item.phase,
+        count: formatNumber(item.count, 0),
+        percentage: `${formatNumber(item.percentage, 1)}%`,
     })),
 }));
 
@@ -357,20 +383,20 @@ const distributionBarTable = computed(() => ({
 // Konfigurasi views untuk kontainer terpadu
 const views = computed(() => [
     {
-        key: 'stacked',
-        tabLabel: 'Komposisi Waktu',
-        title: 'Komposisi waktu mulai mencari kerja terhadap kelulusan',
-        description: 'Kolom bertumpuk membandingkan proporsi alumni yang mulai mencari kerja setelah lulus, sebelum lulus, dan yang tidak mencari kerja.',
-        option: timingStackedOption.value,
-        tableData: timingStackedTable.value,
+        key: 'range',
+        tabLabel: 'Rentang Waktu',
+        title: 'Sebaran rentang waktu mulai mencari pekerjaan',
+        description: 'Batang biru membandingkan proporsi alumni berdasarkan rentang waktu sebelum lulus, setelah lulus, dan yang tidak mencari kerja.',
+        option: timingRangeOption.value,
+        tableData: timingRangeTable.value,
         height: 420,
         analysis: {
             title: 'Kilas Kesiapan Karir Alumni UKDW',
             statusBadge: 'Perilaku Kesiapan',
             badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-            lead: `Data menunjukkan mayoritas lulusan, yakni sebanyak ${formatNumber(beforeCount.value, 0)} alumni (${beforePercentage.value}%), telah aktif mencari kerja sebelum resmi dinyatakan lulus/wisuda. Sementara itu, ${formatNumber(afterCount.value, 0)} alumni (${afterPercentage.value}%) baru memulai pencarian setelah kelulusan.`,
-            detail: 'Inisiatif pencarian kerja sebelum wisuda (terbanyak pada rentang 4 sampai 6 bulan sebelum lulus) membuktikan tingginya proaktivitas alumni dalam memanfaatkan masa penyusunan tugas akhir/magang untuk menjajaki bursa kerja. Hal ini berkontribusi langsung pada pemendekan masa tunggu perolehan kerja pertama lulusan UKDW di dunia industri.',
-            reason: 'Dipilih sebagai Stacked Column Chart 100% agar komposisi tiga fase waktu dapat dibandingkan dalam satu total responden yang sama.',
+            lead: `Sebanyak ${formatNumber(beforeCount.value, 0)} alumni (${beforePercentage.value}%) mulai mencari kerja sebelum lulus, ${formatNumber(afterCount.value, 0)} alumni (${afterPercentage.value}%) setelah lulus, dan ${formatNumber(notSearchingCount.value, 0)} alumni tidak mencari kerja.`,
+            detail: 'Rentang waktu diseragamkan menjadi < 2 bulan, 2–6 bulan, dan > 6 bulan agar perbedaan momentum pencarian kerja antar fase dapat dibandingkan secara konsisten.',
+            reason: 'Dipilih sebagai Vertical Bar Chart agar frekuensi setiap rentang waktu terbaca langsung, dengan satuan dan batas rentang yang konsisten.',
         },
     },
 ]);

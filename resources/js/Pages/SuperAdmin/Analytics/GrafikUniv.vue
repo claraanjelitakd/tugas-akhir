@@ -838,10 +838,6 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                     <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-emerald-100">
                         <Link href="/superadmin/dashboard" class="font-semibold hover:text-white">Dashboard</Link>
                         <span class="text-emerald-300/70">/</span>
-                        <Link href="/superadmin/alumni" class="font-semibold hover:text-white">Data Alumni</Link>
-                        <span class="px-1 text-emerald-300/70">→</span>
-                        <Link href="/superadmin/dashboard" class="font-semibold hover:text-white">Tracer Study</Link>
-                        <span class="text-emerald-300/70">/</span>
                         <span class="rounded bg-white/10 px-2 py-0.5 font-bold text-white">Grafik Universitas</span>
                     </div>
                     <div class="mt-5 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
