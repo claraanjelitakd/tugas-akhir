@@ -157,6 +157,7 @@ const views = computed(() => {
     const list = [
         {
             key: 'distribution',
+            chartType: 'horizontal_bar',
             tabLabel: 'Distribusi Saluran',
             title: 'Distribusi saluran pencarian pekerjaan alumni UKDW',
             description: 'Opsi resmi instrumen Tracer Study F4 yang memiliki jawaban terisi untuk penelusuran saluran perolehan kerja alumni.',
@@ -179,6 +180,7 @@ const views = computed(() => {
     if (lainnyaRecords.value.length > 0) {
         list.push({
             key: 'lainnya_detail',
+            chartType: 'table',
             tabLabel: `Isian Lainnya (${lainnyaRecords.value.length})`,
             title: 'Rincian isian alumni pada opsi saluran lainnya',
             description: 'Daftar jawaban bebas dan metode alternatif yang disampaikan alumni pada instrumen F4.',

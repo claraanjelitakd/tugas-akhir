@@ -211,6 +211,7 @@ const stagesBarTable = computed(() => ({
 const views = computed(() => [
     {
         key: 'pipeline_line',
+        chartType: 'median_line',
         tabLabel: 'Pipeline per Prodi',
         title: 'Perusahaan dilamar, merespon, dan wawancara per program studi',
         description: 'Perbandingan median tiga tahapan lamaran per prodi (mengadopsi Gambar 4.7 Laporan Tracer Study UKDW).',
@@ -227,6 +228,7 @@ const views = computed(() => [
     },
     {
         key: 'stages',
+        chartType: 'horizontal_bar',
         tabLabel: 'Median Universitas',
         title: 'Median tahapan proses lamaran universitas',
         description: 'Perbandingan agregat median perusahaan yang dilamar, merespon, dan mewawancara di tingkat perguruan tinggi.',

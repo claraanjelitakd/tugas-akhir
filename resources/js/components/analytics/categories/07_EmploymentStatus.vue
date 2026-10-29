@@ -314,6 +314,7 @@ const sankeyTable = computed(() => stackedTable.value);
 const views = computed(() => [
     {
         key: 'donut',
+        chartType: 'donut',
         tabLabel: 'Proporsi Universitas',
         title: 'Proporsi status pekerjaan universitas',
         description: 'Distribusi status alumni (Bekerja, Melanjutkan Pendidikan, Wiraswasta, dan Mencari Kerja) tingkat universitas.',
@@ -332,6 +333,7 @@ const views = computed(() => [
     },
     {
         key: 'stacked',
+        chartType: 'stacked_horizontal_100',
         tabLabel: 'Komposisi Prodi',
         title: 'Komposisi status pekerjaan per program studi',
         description: 'Perbandingan distribusi persentase dan jumlah responden (n) status pekerjaan di setiap jurusan.',
@@ -348,6 +350,7 @@ const views = computed(() => [
     },
     {
         key: 'sankey',
+        chartType: 'sankey',
         tabLabel: 'Alur Keterserapan',
         title: 'Sankey Diagram: Aliran Program Studi ke Status Pekerjaan',
         description: 'Ketebalan setiap pita menunjukkan jumlah alumni yang mengalir dari program studi asal menuju status pekerjaan atau studi lanjut.',

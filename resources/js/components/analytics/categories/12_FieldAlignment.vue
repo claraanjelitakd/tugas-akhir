@@ -344,6 +344,7 @@ const dynamicHorizontalAnalysis = computed(() => {
 const views = computed(() => [
     {
         key: 'stacked',
+        chartType: 'stacked_horizontal_100',
         tabLabel: 'Komposisi Antarprodi',
         title: 'Komposisi keselarasan bidang per program studi',
         description: 'Perbandingan komposisi keselarasan bidang kerja antarprogram studi dengan persentase pada setiap segmen.',
@@ -362,6 +363,7 @@ const views = computed(() => [
     },
     {
         key: 'line_match',
+        chartType: 'percentage_line',
         tabLabel: 'Horizontal Match Garis',
         title: 'Tren horizontal match (persentase selaras) per program studi',
         description: 'Grafik garis persentase alumni yang menyatakan bidang pekerjaannya selaras (Sangat Erat dan Erat) dengan disiplin ilmu kuliah.',
@@ -372,6 +374,7 @@ const views = computed(() => [
     },
     {
         key: 'univ_distribution',
+        chartType: 'donut',
         tabLabel: 'Distribusi Universitas',
         title: 'Hubungan bidang studi dengan pekerjaan tingkat universitas',
         description: 'Distribusi jawaban kuesioner resmi instrumen F14 seluruh universitas beserta tabulasi data alumni per kategori.',

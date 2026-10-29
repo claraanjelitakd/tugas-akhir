@@ -251,6 +251,7 @@ const dynamicVerticalAnalysis = computed(() => {
 const views = computed(() => [
     {
         key: 'vertical_match',
+        chartType: 'percentage_line',
         tabLabel: 'Vertical Match Garis',
         title: 'Keselarasan tingkat pendidikan sesuai pekerjaan per prodi (Diagram Garis)',
         description: 'Diagram garis respon alumni terhadap tingkat pendidikan sesuai pekerjaan per program studi (mengadopsi Gambar 4.14 Laporan Tracer Study UKDW).',
@@ -261,6 +262,7 @@ const views = computed(() => [
     },
     {
         key: 'stacked_kualifikasi',
+        chartType: 'stacked_horizontal_100',
         tabLabel: 'Komposisi Kualifikasi',
         title: 'Komposisi kualifikasi pendidikan per program studi',
         description: 'Sebaran lengkap pilihan jawaban kuesioner: Setingkat Lebih Tinggi, Sama, Setingkat Lebih Rendah, dan Tidak Perlu Pendidikan Tinggi.',

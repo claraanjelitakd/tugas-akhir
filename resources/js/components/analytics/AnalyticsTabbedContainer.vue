@@ -8,11 +8,17 @@
  */
 import { computed, ref, watch } from 'vue';
 import AnalyticsEChart from './AnalyticsEChart.vue';
-import { escapeHtml, formatNumber } from './analyticsChartOptions';
+import {
+    analyticsChartTypeReasons,
+    analyticsChartTypes,
+    escapeHtml,
+    formatNumber,
+    getAnalyticsChartHeight,
+} from './analyticsChartOptions';
 
 // Kontrak properti kontainer terpadu
 const props = defineProps({
-    // Daftar tampilan visualisasi: [{ key, tabLabel, title, description, reason, option, tableData, height, analysis, isMap }]
+    // Daftar tampilan visualisasi: [{ key, chartType, tabLabel, title, description, reason, option, tableData, height, analysis, isMap }]
     views: { type: Array, required: true },
     // Catatan record responden untuk drill-down inline
     rows: { type: Array, default: () => [] },
@@ -47,105 +53,14 @@ const currentView = computed(() => {
     return props.views.find((v) => v.key === activeTabKey.value) || props.views[0] || {};
 });
 
-// Nama jenis grafik yang digunakan agar label visualisasi tidak memakai istilah teknis internal.
-const chartTypeLabels = {
-    grouped: 'Diagram Batang Berkelompok',
-    rate: 'Diagram Batang Horizontal',
-    distribution: 'Diagram Batang Horizontal',
-    range: 'Vertical Bar Chart',
-    activity_bar: 'Diagram Batang Horizontal',
-    reasons_distribution: 'Diagram Batang Horizontal',
-    stacked: '100% Stacked Column Chart',
-    timing_stacked: 'Stacked Column Chart',
-    by_prodi: '100% Stacked Bar Chart',
-    stacked_kualifikasi: '100% Stacked Bar Chart',
-    diverging: 'Diagram Batang Divergen',
-    methods_line: 'Diagram Garis Median',
-    likert: 'Diagram Batang Median',
-    prodi_line: 'Diagram Garis Median per Program Studi',
-    prodi_quartiles: 'Diagram Garis Kuartil dan Median',
-    line_match: 'Diagram Garis Persentase',
-    vertical_match: 'Diagram Garis Persentase',
-    pipeline_line: 'Diagram Garis Median Tahapan',
-    prodi_salary_line: 'Diagram Garis Kuartil dan Median',
-    histogram: 'Histogram Distribusi',
-    boxplot: 'Diagram Box Plot',
-    cumulative: 'Kurva Kumulatif',
-    funnel: 'Diagram Corong',
-    scatter: 'Diagram Sebar',
-    donut: 'Diagram Donat',
-    proportion: 'Diagram Donat',
-    pie: 'Diagram Donat',
-    univ_distribution: 'Diagram Donat',
-    degree_view: 'Diagram Donat',
-    funding_view: 'Diagram Batang Horizontal',
-    bullet: 'Diagram Bullet',
-    prodi_ump_bullet: 'Diagram Bullet',
-    heatmap: 'Peta Panas',
-    sankey: 'Diagram Aliran Sankey',
-    treemap: 'Treemap',
-    competency_line: 'Diagram Garis Perbandingan',
-    dumbbell: 'Diagram Dumbbell',
-    radar: 'Diagram Radar',
-    unified_gap: 'Diagram Kombinasi Batang dan Garis',
-    province_status: 'Diagram Batang Horizontal',
-    map: 'Peta Geografis Interaktif',
-    lainnya_detail: 'Tabel Data Detail',
-    records_view: 'Tabel Data Detail',
-};
+// Label jenis grafik aktif memakai tipe eksplisit dari view dan kamus pusat.
+const currentChartType = computed(() => analyticsChartTypes[currentView.value.chartType] || 'Visualisasi Analitik');
 
-// Alasan pemilihan grafik menjelaskan kecocokan bentuk visual dengan pertanyaan analitiknya.
-const chartTypeReasons = {
-    grouped: 'Dipilih untuk membandingkan dua atau lebih jumlah pada kategori yang sama secara berdampingan.',
-    rate: 'Dipilih untuk mengurutkan capaian antarprogram studi sehingga perbedaan peringkat mudah dibaca.',
-    distribution: 'Dipilih untuk menunjukkan frekuensi setiap kategori secara berurutan dan mudah dibandingkan.',
-    range: 'Dipilih untuk membandingkan frekuensi setiap rentang waktu pada skala yang sama dengan satuan kategori yang konsisten.',
-    activity_bar: 'Dipilih untuk membandingkan jumlah dan persentase status aktivitas secara langsung.',
-    reasons_distribution: 'Dipilih untuk mengurutkan alasan berdasarkan frekuensi jawaban responden.',
-    stacked: 'Dipilih untuk memperlihatkan komposisi beberapa fase atau kategori dalam satu total 100% menggunakan kolom vertikal.',
-    timing_stacked: 'Dipilih untuk mempertahankan tiga fase utama dalam tiga batang, lalu membagi masing-masing batang berdasarkan rentang waktu yang sama.',
-    by_prodi: 'Dipilih untuk membandingkan komposisi kategori di setiap program studi dalam satu skala 100%.',
-    stacked_kualifikasi: 'Dipilih untuk memperlihatkan komposisi kualifikasi pendidikan pada setiap program studi.',
-    diverging: 'Dipilih untuk memperjelas perbedaan kategori yang berada di dua sisi titik acuan.',
-    methods_line: 'Dipilih untuk membaca pola median antar-metode secara berurutan pada skala yang sama.',
-    likert: 'Dipilih untuk membandingkan skor median setiap metode tanpa terpengaruh jumlah responden per kategori.',
-    prodi_line: 'Dipilih untuk membandingkan nilai median antarprogram studi dan melihat pola perbedaannya.',
-    prodi_quartiles: 'Dipilih untuk menunjukkan median dan rentang kuartil waktu tunggu antarprogram studi.',
-    line_match: 'Dipilih untuk membandingkan persentase keselarasan antarprogram studi dalam urutan yang jelas.',
-    vertical_match: 'Dipilih untuk membaca perubahan persentase keselarasan tingkat pendidikan antarprogram studi.',
-    pipeline_line: 'Dipilih untuk membaca perubahan median dari lamaran, respons perusahaan, hingga wawancara.',
-    prodi_salary_line: 'Dipilih untuk menunjukkan posisi median sekaligus rentang kuartil pendapatan per program studi.',
-    histogram: 'Dipilih untuk melihat konsentrasi frekuensi data pada setiap rentang nilai.',
-    boxplot: 'Dipilih untuk melihat median, kuartil, sebaran, dan pencilan dalam satu tampilan ringkas.',
-    cumulative: 'Dipilih untuk menunjukkan akumulasi persentase alumni dari waktu ke waktu.',
-    funnel: 'Dipilih untuk memperlihatkan penyusutan jumlah pada setiap tahap proses lamaran.',
-    scatter: 'Dipilih untuk melihat hubungan dua variabel pada tingkat responden individual.',
-    donut: 'Dipilih untuk membaca proporsi kategori terhadap keseluruhan responden secara cepat.',
-    proportion: 'Dipilih untuk membaca proporsi jenis tempat bekerja terhadap keseluruhan responden.',
-    pie: 'Dipilih untuk membaca proporsi kategori universitas dengan pembagian bagian yang sederhana.',
-    univ_distribution: 'Dipilih untuk melihat komposisi jawaban tingkat universitas secara ringkas.',
-    degree_view: 'Dipilih untuk membandingkan proporsi jenjang studi lanjut yang ditempuh alumni.',
-    funding_view: 'Dipilih untuk membandingkan jumlah dan proporsi sumber pembiayaan studi lanjut alumni tanpa menyembunyikan perbedaan antar kategori.',
-    bullet: 'Dipilih untuk membandingkan capaian terhadap ambang atau target yang telah ditentukan.',
-    prodi_ump_bullet: 'Dipilih untuk membandingkan persentase pemenuhan ambang UMP per program studi.',
-    heatmap: 'Dipilih untuk menemukan pola intensitas antarprogram studi dan kategori melalui warna sel.',
-    sankey: 'Dipilih untuk memperlihatkan aliran hubungan dari program studi ke kategori tujuan.',
-    treemap: 'Dipilih untuk membandingkan besaran kategori melalui luas area yang proporsional.',
-    competency_line: 'Dipilih untuk membandingkan dua seri skor pada dimensi kompetensi yang sama.',
-    dumbbell: 'Dipilih untuk menonjolkan jarak atau gap antara dua nilai pada setiap dimensi.',
-    radar: 'Dipilih untuk melihat profil beberapa dimensi sekaligus dalam satu skala kompetensi.',
-    unified_gap: 'Dipilih untuk melihat skor saat lulus, kebutuhan kerja, dan gap dalam satu tampilan terpadu.',
-    province_status: 'Dipilih untuk membandingkan status pemenuhan ambang pendapatan antarprovinsi.',
-    map: 'Dipilih untuk memperlihatkan lokasi geografis penempatan alumni dan mendukung penyaringan berbasis wilayah.',
-    lainnya_detail: 'Dipilih sebagai tabel detail karena jawaban bebas perlu dibaca utuh, bukan diagregasi menjadi bentuk grafik.',
-    records_view: 'Dipilih sebagai tabel detail karena data individu perlu ditampilkan dalam bentuk baris yang dapat ditelusuri.',
-};
+// Alasan pemilihan grafik memakai tipe eksplisit agar tidak bergantung pada nama key view.
+const currentChartReason = computed(() => currentView.value.reason || currentView.value.analysis?.reason || analyticsChartTypeReasons[currentView.value.chartType] || 'Dipilih agar pola data pada indikator ini dapat dibandingkan secara langsung.');
 
-// Label jenis grafik aktif untuk konteks visual dan aksesibilitas.
-const currentChartType = computed(() => chartTypeLabels[currentView.value.key] || 'Visualisasi Analitik');
-
-// Alasan grafik aktif dipilih berdasarkan tujuan pengukuran dan dapat dioverride oleh view tertentu.
-const currentChartReason = computed(() => currentView.value.reason || currentView.value.analysis?.reason || chartTypeReasons[currentView.value.key] || 'Dipilih agar pola data pada indikator ini dapat dibandingkan secara langsung.');
+// Tinggi grafik memakai preset pusat ketika view tidak menetapkan kebutuhan khusus.
+const currentChartHeight = computed(() => currentView.value.height || getAnalyticsChartHeight(currentView.value.chartType));
 
 // Penanganan klik pada elemen grafik EChart
 const handleChartClick = (params) => {
@@ -376,7 +291,7 @@ watch(() => props.selectedLabel, () => {
             <figure v-else class="w-full">
                 <AnalyticsEChart
                     :option="currentView.option"
-                    :height="currentView.height || 400"
+                    :height="currentChartHeight"
                     :loading="loading"
                     @click="handleChartClick"
                 />

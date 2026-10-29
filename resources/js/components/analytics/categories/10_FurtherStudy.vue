@@ -289,6 +289,7 @@ const dynamicFundingAnalysis = computed(() => {
 const views = computed(() => [
     {
         key: 'degree_view',
+        chartType: 'horizontal_bar',
         tabLabel: 'Jenjang Studi Lanjut',
         title: 'Distribusi jenjang studi lanjut alumni UKDW',
         description: 'Sebaran jenjang studi yang ditempuh lulusan (klik salah satu jenjang untuk melihat rincian universitas tujuan).',
@@ -299,6 +300,7 @@ const views = computed(() => [
     },
     {
         key: 'funding_view',
+        chartType: 'horizontal_bar',
         tabLabel: 'Sumber Pembiayaan',
         title: 'Skema pembiayaan studi lanjut alumni (Instrumen F12)',
         description: 'Perbandingan sumber pendanaan antara biaya mandiri/keluarga dengan beasiswa pemerintah, perusahaan, atau lembaga mitra.',
@@ -309,6 +311,7 @@ const views = computed(() => [
     },
     {
         key: 'records_view',
+        chartType: 'table',
         tabLabel: `Rincian Alumni (${records.value.length})`,
         title: 'Tabulasi lengkap responden alumni studi lanjut',
         description: 'Daftar nama alumni, program studi asal UKDW, perguruan tinggi tujuan, program studi lanjut, dan skema pembiayaan.',

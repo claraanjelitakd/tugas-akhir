@@ -240,6 +240,7 @@ const views = computed(() => {
     return [
         {
             key: 'proportion',
+            chartType: 'donut',
             tabLabel: 'Proporsi Universitas',
             title: 'Proporsi jenis tempat bekerja tingkat universitas',
             description: 'Distribusi alumni bekerja berdasarkan klasifikasi badan usaha atau instansi tempat kerja (Instrumen F11).',
@@ -258,6 +259,7 @@ const views = computed(() => {
         },
         {
             key: 'by_prodi',
+            chartType: 'stacked_horizontal_100',
             tabLabel: 'Komposisi per Prodi',
             title: 'Komposisi jenis tempat bekerja per program studi',
             description: 'Perbandingan proporsi sektor tempat bekerja alumni pada masing-masing program studi di lingkungan UKDW.',

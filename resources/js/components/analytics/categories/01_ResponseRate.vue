@@ -17,6 +17,8 @@ import { computed, ref, watch } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AnalyticsEChart from '../AnalyticsEChart.vue';
 import {
+    analyticsChartTypeReasons,
+    analyticsChartTypes,
     baseOption,
     escapeHtml,
     formatNumber,
@@ -36,6 +38,10 @@ const emit = defineEmits(['select', 'reset', 'show-data']);
 
 // Tab visualisasi aktif: 'stacked' (100% Stacked Bar) atau 'ranking' (Target Dinamis).
 const activeChartTab = ref('stacked');
+
+// Label dan alasan grafik aktif mengambil sumber dari kamus tipe pusat.
+const activeChartType = computed(() => activeChartTab.value === 'stacked' ? analyticsChartTypes.stacked_horizontal_100 : analyticsChartTypes.bullet);
+const activeChartReason = computed(() => activeChartTab.value === 'stacked' ? analyticsChartTypeReasons.stacked_horizontal_100 : analyticsChartTypeReasons.bullet);
 
 // State seleksi program studi dan status pengisian.
 const selectedProdiName = ref('');
@@ -525,7 +531,7 @@ const downloadExcel = (statusTarget = null) => {
                         :class="activeChartTab === 'stacked' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeChartTab = 'stacked'"
                     >
-                        100% Stacked Bar
+                        Komposisi 100%
                     </button>
                     <button
                         type="button"
@@ -594,8 +600,8 @@ const downloadExcel = (statusTarget = null) => {
                             {{ naturalSummary.detail }}
                         </p>
                         <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
-                            <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ activeChartTab === 'stacked' ? '100% Stacked Bar Chart' : 'Bullet Chart' }}):</span>
-                            {{ activeChartTab === 'stacked' ? 'Dipilih untuk memperlihatkan proporsi alumni yang sudah dan belum mengisi pada setiap program studi dalam total 100%.' : 'Dipilih untuk membandingkan response rate setiap program studi dengan target universitas melalui batang aktual dan penanda target.' }}
+                            <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ activeChartType }}):</span>
+                            {{ activeChartReason }}
                         </p>
                     </div>
                 </div>
@@ -631,8 +637,8 @@ const downloadExcel = (statusTarget = null) => {
                             {{ naturalSummary.detail }}
                         </p>
                         <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
-                            <span class="font-semibold text-[#0D542B]">Alasan pemilihan (Bullet Chart):</span>
-                            Dipilih untuk membandingkan response rate setiap program studi dengan target universitas melalui batang aktual dan penanda target.
+                            <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ activeChartType }}):</span>
+                            {{ activeChartReason }}
                         </p>
                     </div>
                 </div>

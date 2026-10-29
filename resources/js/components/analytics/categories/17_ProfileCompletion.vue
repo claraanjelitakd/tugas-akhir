@@ -70,6 +70,7 @@ const heatmapTable = computed(() => heatmapChart.value.tableData);
 const views = computed(() => [
     {
         key: 'donut',
+        chartType: 'donut',
         tabLabel: 'Proporsi Donut',
         title: 'Proporsi kelengkapan profil alumni',
         description: 'Persentase alumni dengan profil lengkap, belum lengkap, atau belum diverifikasi.',
@@ -86,6 +87,7 @@ const views = computed(() => [
     },
     {
         key: 'stacked',
+        chartType: 'stacked_horizontal_100',
         tabLabel: 'Komposisi Prodi',
         title: 'Komposisi kelengkapan profil per program studi',
         description: 'Tingkat partisipasi pembaruan data profil lulusan pada masing-masing jurusan.',
@@ -102,6 +104,7 @@ const views = computed(() => [
     },
     {
         key: 'heatmap',
+        chartType: 'heatmap',
         tabLabel: 'Antar Prodi',
         title: 'Pola kelengkapan data antarprogram studi',
         description: props.heatmapMode === 'percentage'

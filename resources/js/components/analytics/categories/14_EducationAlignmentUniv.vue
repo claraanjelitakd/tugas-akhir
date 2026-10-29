@@ -240,6 +240,7 @@ const stackedTable = computed(() => ({
 const views = computed(() => [
     {
         key: 'stacked',
+        chartType: 'stacked_horizontal_100',
         tabLabel: 'Komposisi Antarprodi',
         title: 'Komposisi keselarasan tingkat pendidikan per program studi',
         description: 'Perbandingan kualifikasi tingkat pendidikan yang dianggap sesuai untuk pekerjaan antarprogram studi (mengadopsi Gambar 4.14 Laporan Tracer Study UKDW).',
@@ -256,6 +257,7 @@ const views = computed(() => [
     },
     {
         key: 'pie',
+        chartType: 'donut',
         tabLabel: 'Proporsi Universitas',
         title: 'Keselarasan tingkat pendidikan tingkat universitas',
         description: 'Proporsi keseluruhan kualifikasi tingkat pendidikan yang dianggap sesuai dengan pekerjaan alumni pada tingkat universitas (Gambar 4.15).',

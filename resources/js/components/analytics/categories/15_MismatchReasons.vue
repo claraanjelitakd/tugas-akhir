@@ -147,6 +147,7 @@ const views = computed(() => {
     const list = [
         {
             key: 'reasons_distribution',
+            chartType: 'horizontal_bar',
             tabLabel: 'Distribusi Alasan',
             title: 'Alasan mengambil pekerjaan yang tidak sesuai pendidikan',
             description: 'Respon alumni terhadap alasan mengambil pekerjaan yang tidak sesuai pendidikan (mengadopsi Gambar 4.16 Laporan Tracer Study UKDW).',
@@ -166,6 +167,7 @@ const views = computed(() => {
     if (lainnyaRecords.value.length > 0) {
         list.push({
             key: 'lainnya_detail',
+            chartType: 'table',
             tabLabel: `Isian Lainnya (${lainnyaRecords.value.length})`,
             title: 'Rincian isian alumni pada opsi alasan lainnya',
             description: 'Daftar jawaban bebas dan pertimbangan personal alternatif yang disampaikan alumni pada instrumen F16.',

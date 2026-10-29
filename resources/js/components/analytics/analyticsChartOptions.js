@@ -47,6 +47,91 @@ export const analyticsScalePalette = [
     analyticsColors.scaleFive,
 ];
 
+// Kamus pusat nama tipe grafik agar label tampilan tidak bergantung pada nama key view.
+export const analyticsChartTypes = Object.freeze({
+    horizontal_bar: 'Diagram Batang Horizontal',
+    stacked_horizontal_100: 'Diagram Batang Bertumpuk 100% Horizontal',
+    stacked_vertical: 'Diagram Kolom Bertumpuk',
+    grouped_bar: 'Diagram Batang Berkelompok',
+    diverging_bar: 'Diagram Batang Divergen',
+    line: 'Diagram Garis',
+    median_line: 'Diagram Garis Median',
+    quartile_line: 'Diagram Garis Kuartil dan Median',
+    percentage_line: 'Diagram Garis Persentase',
+    comparison_line: 'Diagram Garis Perbandingan',
+    radar: 'Diagram Radar',
+    donut: 'Diagram Donat',
+    heatmap: 'Peta Panas',
+    sankey: 'Diagram Aliran Sankey',
+    treemap: 'Treemap',
+    funnel: 'Diagram Corong',
+    boxplot: 'Diagram Box Plot',
+    histogram: 'Histogram Distribusi',
+    cumulative: 'Kurva Kumulatif',
+    scatter: 'Diagram Sebar',
+    bullet: 'Diagram Bullet',
+    dumbbell: 'Diagram Dumbbell',
+    combo_bar_line: 'Diagram Kombinasi Batang dan Garis',
+    map: 'Peta Geografis Interaktif',
+    table: 'Tabel Data Detail',
+});
+
+// Alasan pemilihan grafik disimpan bersama kamus tipe agar narasi tetap konsisten.
+export const analyticsChartTypeReasons = Object.freeze({
+    horizontal_bar: 'Dipilih untuk membandingkan jumlah atau persentase kategori secara langsung dari satu baseline horizontal.',
+    stacked_horizontal_100: 'Dipilih untuk membandingkan komposisi kategori dalam total 100% pada setiap program studi.',
+    stacked_vertical: 'Dipilih untuk membandingkan beberapa fase dalam batang vertikal dengan pembagian kategori yang konsisten.',
+    grouped_bar: 'Dipilih untuk membandingkan dua atau lebih jumlah pada kategori yang sama secara berdampingan.',
+    diverging_bar: 'Dipilih untuk memperjelas perbedaan kategori yang berada di dua sisi titik acuan.',
+    line: 'Dipilih untuk membaca perubahan nilai antar kategori dalam urutan yang jelas.',
+    median_line: 'Dipilih untuk membandingkan nilai median antar kategori tanpa terpengaruh pencilan.',
+    quartile_line: 'Dipilih untuk menunjukkan median sekaligus rentang kuartil pada setiap program studi.',
+    percentage_line: 'Dipilih untuk membandingkan persentase capaian antar program studi dalam urutan yang jelas.',
+    comparison_line: 'Dipilih untuk membandingkan dua seri nilai pada dimensi yang sama.',
+    radar: 'Dipilih untuk melihat profil beberapa dimensi sekaligus dalam satu skala.',
+    donut: 'Dipilih untuk membaca proporsi kategori terhadap keseluruhan responden secara cepat.',
+    heatmap: 'Dipilih untuk menemukan pola intensitas antar program studi dan kategori melalui warna sel.',
+    sankey: 'Dipilih untuk memperlihatkan aliran hubungan dari program studi ke kategori tujuan.',
+    treemap: 'Dipilih untuk membandingkan besaran kategori melalui luas area yang proporsional.',
+    funnel: 'Dipilih untuk memperlihatkan penyusutan jumlah pada setiap tahap proses.',
+    boxplot: 'Dipilih untuk melihat median, kuartil, sebaran, dan pencilan dalam satu tampilan ringkas.',
+    histogram: 'Dipilih untuk melihat konsentrasi frekuensi data pada setiap rentang nilai.',
+    cumulative: 'Dipilih untuk menunjukkan akumulasi persentase alumni dari waktu ke waktu.',
+    scatter: 'Dipilih untuk melihat hubungan dua variabel pada tingkat responden individual.',
+    bullet: 'Dipilih untuk membandingkan capaian terhadap ambang atau target yang telah ditentukan.',
+    dumbbell: 'Dipilih untuk menonjolkan jarak antara dua nilai pada setiap kategori.',
+    combo_bar_line: 'Dipilih untuk melihat dua ukuran batang dan satu ukuran gap dalam satu tampilan terpadu.',
+    map: 'Dipilih untuk memperlihatkan lokasi geografis penempatan alumni dan mendukung penyaringan berbasis wilayah.',
+    table: 'Dipilih sebagai tabel detail karena data individu perlu ditampilkan dalam bentuk baris yang dapat ditelusuri.',
+});
+
+// Preset grid bersama menjaga margin dan ruang label tetap seragam antar tipe grafik.
+export const analyticsChartGrids = Object.freeze({
+    standard: { left: 40, right: 32, top: 24, bottom: 40, containLabel: true },
+    category_x: { left: 40, right: 32, top: 24, bottom: 72, containLabel: true },
+    category_y: { left: 40, right: 32, top: 24, bottom: 40, containLabel: true },
+    stacked_horizontal: { left: 40, right: 32, top: 24, bottom: 56, containLabel: true },
+    stacked_vertical: { left: 40, right: 32, top: 24, bottom: 72, containLabel: true },
+    heatmap: { left: 56, right: 24, top: 24, bottom: 88, containLabel: true },
+});
+
+// Menghasilkan grid baru dari preset agar override lokal tidak mengubah preset pusat.
+export const getAnalyticsChartGrid = (preset = 'standard', overrides = {}) => ({
+    ...(analyticsChartGrids[preset] || analyticsChartGrids.standard),
+    ...overrides,
+    containLabel: true,
+});
+
+// Menghasilkan tinggi standar berdasarkan tipe grafik dan jumlah kategori yang ditampilkan.
+export const getAnalyticsChartHeight = (chartType = 'standard', itemCount = 0) => {
+    const count = Math.max(0, Number(itemCount) || 0);
+    if (chartType === 'heatmap') return Math.max(360, Math.min(count * 34 + 140, 580));
+    if (chartType === 'stacked_horizontal_100') return Math.max(380, Math.min(count * 36 + 120, 620));
+    if (chartType === 'horizontal_bar') return Math.max(360, Math.min(count * 38 + 100, 640));
+    if (chartType === 'stacked_vertical') return 420;
+    return 400;
+};
+
 // Format angka Indonesia untuk label, tooltip, dan sumbu.
 export const formatNumber = (value, digits = 1) => Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: digits });
 
@@ -185,16 +270,17 @@ const normalizeChartGrid = (option) => {
     ), 0);
     // `containLabel` sudah menambahkan ruang label di luar grid; jangan menggandakan
     // lebar label ke grid.left karena hasilnya membuat plot terdorong terlalu kanan.
-    const requiredLeft = 40;
+    const defaultGrid = getAnalyticsChartGrid(hasCategoryX ? 'category_x' : 'standard');
+    const requiredLeft = defaultGrid.left;
     const requiredBottom = hasCategoryX
         ? Math.min(128, Math.max(72, longestXLabel * 2.6 + 42))
-        : 40;
+        : defaultGrid.bottom;
     const grids = Array.isArray(option.grid) ? option.grid : (option.grid ? [option.grid] : []);
 
     grids.forEach((grid) => {
         grid.left = Math.max(Number(grid.left) || 0, requiredLeft);
-        grid.right = Math.max(Number(grid.right) || 0, 32);
-        grid.top = Math.max(Number(grid.top) || 0, 24);
+        grid.right = Math.max(Number(grid.right) || 0, defaultGrid.right);
+        grid.top = Math.max(Number(grid.top) || 0, defaultGrid.top);
         grid.bottom = Math.max(Number(grid.bottom) || 0, requiredBottom);
         grid.containLabel = true;
     });
@@ -202,8 +288,8 @@ const normalizeChartGrid = (option) => {
     if (grids.length === 0 && (xAxes.length > 0 || yAxes.length > 0)) {
         option.grid = [{
             left: requiredLeft,
-            right: 32,
-            top: 24,
+            right: defaultGrid.right,
+            top: defaultGrid.top,
             bottom: requiredBottom,
             containLabel: true,
         }];

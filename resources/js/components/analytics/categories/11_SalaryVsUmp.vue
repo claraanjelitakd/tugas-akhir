@@ -491,6 +491,7 @@ const dynamicProvinceAnalysis = computed(() => {
 const views = computed(() => [
     {
         key: 'prodi_salary_line',
+        chartType: 'quartile_line',
         tabLabel: 'Median & Kuartil Prodi',
         title: 'Statistik pendapatan per bulan per program studi',
         description: 'Menampilkan diagram garis 3 parameter utama: Kuartil 1 (Q1), Median (Q2 di-highlight), dan Kuartil 3 (Q3) per program studi.',
@@ -501,6 +502,7 @@ const views = computed(() => [
     },
     {
         key: 'prodi_ump_bullet',
+        chartType: 'stacked_horizontal_100',
         tabLabel: 'Gaji vs Ambang UMP',
         title: 'Persentase pemenuhan ambang 1,2× UMP per program studi',
         description: 'Perbandingan proporsi alumni yang berhasil melampaui ambang standar kelayakan pendapatan 1,2× UMP provinsi tempat bekerja.',
@@ -511,6 +513,7 @@ const views = computed(() => [
     },
     {
         key: 'province_status',
+        chartType: 'stacked_horizontal_100',
         tabLabel: 'Status per Provinsi',
         title: 'Status pemenuhan ambang 1,2× UMP per provinsi penempatan',
         description: 'Daftar provinsi tempat bekerja alumni beserta proporsi pemenuhan ambang 1,2× UMP, median pendapatan daerah, dan status kelayakan.',

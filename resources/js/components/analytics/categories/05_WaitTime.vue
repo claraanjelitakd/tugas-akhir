@@ -221,6 +221,7 @@ const prodiTable = computed(() => ({
 const views = computed(() => [
     {
         key: 'prodi_quartiles',
+        chartType: 'quartile_line',
         tabLabel: 'Waktu Tunggu per Prodi',
         title: 'Sebaran waktu memperoleh pekerjaan per program studi',
         description: 'Visualisasi median (Q2) disertai kuartil bawah (Q1) dan kuartil atas (Q3) untuk memperlihatkan dispersi dan jarak serapan kerja ke median.',

@@ -267,6 +267,7 @@ const dynamicGapAnalysis = computed(() => {
 const views = computed(() => [
     {
         key: 'unified_gap',
+        chartType: 'combo_bar_line',
         tabLabel: 'Kompetensi & Gap Selisih',
         title: 'Kompetensi saat lulus, diperlukan kerja, dan gap selisih',
         description: 'Grafik terpadu: batang hijau mengukur bekal saat lulus UKDW, batang slate mengukur kebutuhan dunia kerja, dan garis hijau-slate memperlihatkan gap selisih kompetensi.',

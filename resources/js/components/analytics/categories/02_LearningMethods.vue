@@ -15,6 +15,8 @@
 import { computed, ref, watch } from 'vue';
 import AnalyticsEChart from '../AnalyticsEChart.vue';
 import {
+    analyticsChartTypeReasons,
+    analyticsChartTypes,
     baseOption,
     escapeHtml,
     formatNumber,
@@ -35,6 +37,20 @@ const emit = defineEmits(['select', 'reset']);
 
 // Mode tab visualisasi aktif: 'radar' (Jaring Laba-laba), 'line' (Garis Utama), 'stacked' (Distribusi Skala), atau 'heatmap' (Antar Prodi).
 const activeChartTab = ref('radar');
+
+// Label dan alasan grafik aktif mengambil sumber dari kamus tipe pusat.
+const activeChartType = computed(() => ({
+    radar: analyticsChartTypes.radar,
+    line: analyticsChartTypes.median_line,
+    stacked: analyticsChartTypes.stacked_horizontal_100,
+    heatmap: analyticsChartTypes.heatmap,
+}[activeChartTab.value] || analyticsChartTypes.table));
+const activeChartReason = computed(() => ({
+    radar: analyticsChartTypeReasons.radar,
+    line: analyticsChartTypeReasons.median_line,
+    stacked: analyticsChartTypeReasons.stacked_horizontal_100,
+    heatmap: analyticsChartTypeReasons.heatmap,
+}[activeChartTab.value] || analyticsChartTypeReasons.table));
 
 // Mode tampilan: 'chart' (Visualisasi Interaktif) atau 'table' (Data Ringkasan).
 const activeViewMode = ref('chart');
@@ -853,10 +869,10 @@ const summaryTableData = computed(() => {
                     <span class="rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-[#0D542B]">Indikator 02</span>
                     <h3 class="text-base font-extrabold text-slate-900">
                         <template v-if="activeViewMode === 'table'">Tabel Data Penekanan Metode Pembelajaran</template>
-                        <template v-else-if="activeChartTab === 'radar'">Radar Chart Penekanan Metode Pembelajaran</template>
-                        <template v-else-if="activeChartTab === 'line'">Line Chart Median Penekanan Metode Pembelajaran</template>
-                        <template v-else-if="activeChartTab === 'stacked'">100% Stacked Bar Chart Distribusi Skala</template>
-                        <template v-else>Heatmap Penekanan Antarprogram Studi</template>
+                        <template v-else-if="activeChartTab === 'radar'">{{ activeChartType }} Penekanan Metode Pembelajaran</template>
+                        <template v-else-if="activeChartTab === 'line'">{{ activeChartType }} Penekanan Metode Pembelajaran</template>
+                        <template v-else-if="activeChartTab === 'stacked'">{{ activeChartType }} Distribusi Skala</template>
+                        <template v-else>{{ activeChartType }} Penekanan Antarprogram Studi</template>
                     </h3>
                 </div>
                 <p class="mt-1 text-xs text-slate-500">
@@ -888,7 +904,7 @@ const summaryTableData = computed(() => {
                         :class="activeChartTab === 'radar' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeChartTab = 'radar'"
                     >
-                        Radar Chart
+                        Diagram Radar
                     </button>
                     <button
                         type="button"
@@ -896,7 +912,7 @@ const summaryTableData = computed(() => {
                         :class="activeChartTab === 'line' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeChartTab = 'line'"
                     >
-                        Line Chart
+                        Diagram Garis
                     </button>
                     <button
                         type="button"
@@ -993,8 +1009,8 @@ const summaryTableData = computed(() => {
                         {{ radarAnalysis.detail }}
                     </p>
                     <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
-                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan (Radar Chart):</span>
-                        Dipilih untuk melihat profil tujuh metode pembelajaran sekaligus dalam skala Likert 1-5.
+                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ activeChartType }}):</span>
+                        {{ activeChartReason }}
                     </p>
                 </div>
 
@@ -1044,8 +1060,8 @@ const summaryTableData = computed(() => {
                         {{ lineAnalysis.detail }}
                     </p>
                     <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
-                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan (Line Chart):</span>
-                        Dipilih untuk membandingkan median penekanan setiap metode secara berurutan pada skala yang sama.
+                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ activeChartType }}):</span>
+                        {{ activeChartReason }}
                     </p>
                 </div>
 
@@ -1094,8 +1110,8 @@ const summaryTableData = computed(() => {
                         {{ stackedAnalysis.detail }}
                     </p>
                     <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
-                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan (100% Stacked Bar Chart):</span>
-                        Dipilih untuk memperlihatkan komposisi jawaban skala 1-5 pada setiap metode pembelajaran.
+                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ activeChartType }}):</span>
+                        {{ activeChartReason }}
                     </p>
                 </div>
 
@@ -1169,8 +1185,8 @@ const summaryTableData = computed(() => {
                         {{ heatmapAnalysis.detail }}
                     </p>
                     <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
-                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan (Heatmap):</span>
-                        Dipilih untuk menemukan pola intensitas skor metode pembelajaran pada setiap program studi.
+                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ activeChartType }}):</span>
+                        {{ activeChartReason }}
                     </p>
                 </div>
             </div>

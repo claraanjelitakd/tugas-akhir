@@ -130,6 +130,7 @@ const views = computed(() => {
     return [
         {
             key: 'activity_bar',
+            chartType: 'horizontal_bar',
             tabLabel: 'Keaktifan 4 Minggu Terakhir',
             title: 'Keaktifan mencari pekerjaan dalam 4 minggu terakhir',
             description: 'Distribusi status keaktifan alumni dalam mencari pekerjaan pada periode 4 minggu terakhir (Instrumen F10).',

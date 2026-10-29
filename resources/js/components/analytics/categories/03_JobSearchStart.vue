@@ -469,6 +469,7 @@ const distributionBarTable = computed(() => ({
 const views = computed(() => [
     {
         key: 'timing_stacked',
+        chartType: 'stacked_vertical',
         tabLabel: 'Rentang Waktu Bertumpuk',
         title: 'Sebaran rentang waktu mulai mencari pekerjaan',
         description: 'Tiga batang hijau menunjukkan fase sebelum lulus, setelah lulus, dan tidak mencari kerja; setiap batang dibagi menurut rentang < 2 bulan, 2-6 bulan, dan > 6 bulan.',

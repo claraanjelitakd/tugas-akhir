@@ -76,6 +76,7 @@ const prodisCount = computed(() => new Set(records.value.map((r) => r.nama_prodi
 const views = computed(() => [
     {
         key: 'distribution',
+        chartType: 'horizontal_bar',
         tabLabel: 'Distribusi Provinsi',
         title: 'Distribusi provinsi tempat bekerja alumni',
         description: 'Daftar provinsi tempat perusahaan atau kantor alumni beroperasi.',
@@ -92,6 +93,7 @@ const views = computed(() => [
     },
     {
         key: 'treemap',
+        chartType: 'treemap',
         tabLabel: 'Komposisi Bidang',
         title: 'Komposisi wilayah karir alumni',
         description: 'Luas blok merefleksikan konsentrasi serapan alumni pada masing-masing daerah.',
@@ -108,6 +110,7 @@ const views = computed(() => [
     },
     {
         key: 'heatmap',
+        chartType: 'heatmap',
         tabLabel: 'Antar Prodi',
         title: 'Pola sebaran geografis antarprogram studi',
         description: props.heatmapMode === 'percentage'
@@ -126,6 +129,7 @@ const views = computed(() => [
     },
     {
         key: 'map',
+        chartType: 'map',
         tabLabel: 'Peta Wilayah',
         title: 'Peta sebaran wilayah kerja alumni',
         description: 'Sebaran provinsi perusahaan tempat alumni berkarir. Klik wilayah untuk menelusuri data.',
