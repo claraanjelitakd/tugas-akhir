@@ -515,59 +515,6 @@ const isKpiCardActive = (card) => {
     return false;
 };
 
-// Menangani klik interaktif kartu ringkasan KPI untuk navigasi & filter seketika.
-const handleKpiCardClick = (card) => {
-    if (!card) return;
-
-    // 1. Response Rate Status Filter
-    if (card.action === 'status_filter') {
-        if (card.key === 'rate') {
-            activePanel.value = 'charts';
-            return;
-        }
-        if (statusFilter.value === card.key) {
-            statusFilter.value = 'all';
-        } else {
-            statusFilter.value = card.key;
-        }
-        currentPage.value = 1;
-        return;
-    }
-
-    // 2. Filter Gaji UMP
-    if (card.action === 'filter_meets') {
-        if (selectedItem.value?.meets === card.meets) {
-            selectedItem.value = null;
-        } else {
-            selectedItem.value = { meets: card.meets, label: card.label };
-        }
-        activePanel.value = 'data';
-        return;
-    }
-
-    // 3. Sorot Kategori Dominan / Gap Terbesar pada Grafik
-    if (card.action === 'highlight' && card.target) {
-        activePanel.value = 'charts';
-        if (selectedItem.value?.label === card.target) {
-            selectedItem.value = null;
-        } else {
-            selectSeriesItem({ label: card.target });
-        }
-        return;
-    }
-
-    // 4. Buka Data Responden
-    if (card.action === 'data') {
-        showDataPanel();
-        return;
-    }
-
-    // 5. Fokus ke Grafik
-    if (card.action === 'chart') {
-        activePanel.value = 'charts';
-    }
-};
-
 // Insight otomatis disusun dari hasil perhitungan aktual, bukan teks statis umum.
 const automaticInsights = computed(() => {
     const summary = chart.value.summary || {};
@@ -887,7 +834,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                     </div>
                 </section>
 
-                <!-- Identitas indikator dan kartu ringkasan KPI interaktif (Full-width, proporsional, dan interaktif) -->
+                <!-- Identitas indikator dan kartu ringkasan KPI informatif tanpa aksi klik. -->
                 <section class="bg-white p-5 sm:p-6 rounded-xl border border-slate-200">
                     <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                         <div class="min-w-0">
@@ -916,16 +863,14 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                         <div
                             v-for="card in kpiCards"
                             :key="card.label"
-                            @click="handleKpiCardClick(card)"
-                            class="group relative bg-white rounded-xl p-4.5 border transition-all duration-200 select-none cursor-pointer flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5"
+                            class="relative bg-white rounded-xl p-4.5 border transition-colors duration-200 flex flex-col justify-between"
                             :class="isKpiCardActive(card)
                                 ? 'border-[#0D542B] ring-2 ring-[#0D542B]/20 bg-emerald-50/15'
-                                : 'border-slate-200 hover:border-[#0D542B]/60'"
-                            :title="card.hint || card.note"
+                                : 'border-slate-200'"
                         >
                             <div>
                                 <div class="flex items-center justify-between gap-1.5">
-                                    <dt class="text-[11px] font-bold text-slate-500 uppercase tracking-wider group-hover:text-[#0D542B] transition-colors">
+                                    <dt class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                                         {{ card.label }}
                                     </dt>
                                 </div>
@@ -942,9 +887,6 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                             </div>
                             <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
                                 <p class="text-slate-500 leading-relaxed line-clamp-2" :title="card.note">{{ card.note }}</p>
-                                <span class="text-[11px] font-semibold text-[#0D542B] opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                    Pilih &rarr;
-                                </span>
                             </div>
                         </div>
                     </div>
