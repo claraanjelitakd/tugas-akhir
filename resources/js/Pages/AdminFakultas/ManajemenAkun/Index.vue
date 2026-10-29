@@ -116,28 +116,27 @@ const submitEditUser = () => {
     });
 };
 
-const handleResetToDefaultAndNotify = (userData) => {
+// Mengirim tautan reset agar alumni menetapkan password baru melalui email
+const handleSendPasswordResetLink = (userData) => {
     Swal.fire({
-        title: 'Reset Kredensial Awal?',
-        html: `
-            <div class="text-xs text-left space-y-2">
-                <p>Kredensial awal akun <strong>${userData.name}</strong> akan direset. Nilai password tidak ditampilkan demi keamanan.</p>
-                <p class="pt-1">Alumni wajib mengganti password setelah berhasil login:</p>
-                <div class="font-mono font-bold text-[#0D542B] bg-emerald-50 p-2 rounded border border-emerald-200">${userData.email}</div>
-            </div>
-        `,
+        title: 'Kirim Tautan Reset Kata Sandi?',
+        text: `Tautan reset untuk ${userData.name} akan dikirim ke ${userData.email}.`,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonText: 'Ya, Reset & Kirim Email',
+        confirmButtonText: 'Ya, Kirim Tautan',
         cancelButtonText: 'Batal',
         confirmButtonColor: '#0D542B',
         cancelButtonColor: '#6B7280',
     }).then((res) => {
         if (res.isConfirmed) {
-            router.post(`/fakultas/manajemen-akun/${userData.id}/reset-default-notify`, {}, {
-                onSuccess: () => {
-                    Swal.fire('Berhasil Di-reset!', `Kredensial awal ${userData.name} telah direset.`, 'success');
-                }
+            router.post(`/fakultas/manajemen-akun/${userData.id}/password-reset`, {}, {
+                preserveScroll: true,
+                onSuccess: (page) => {
+                    Swal.fire('Email Berhasil Dikirim', page.props.flash?.success || `Tautan reset telah dikirim ke ${userData.email}.`, 'success');
+                },
+                onError: (errors) => {
+                    Swal.fire('Gagal Mengirim', errors.reset || 'Tautan reset tidak dapat dikirim.', 'error');
+                },
             });
         }
     });
@@ -165,7 +164,7 @@ const handleResetToDefaultAndNotify = (userData) => {
                             Manajemen Akun Mahasiswa & Alumni {{ currentFakultas?.nama_fakultas }}
                         </h1>
                         <p class="text-xs text-gray-500 mt-0.5">
-                            Pengelolaan akun seluruh mahasiswa lingkup fakultas, pembaruan email pribadi, dan 1-Klik reset password ke tanggal lahir.
+                            Pengelolaan akun mahasiswa fakultas dan pengiriman tautan reset kata sandi ke email terdaftar.
                         </p>
                     </div>
 
@@ -228,11 +227,11 @@ const handleResetToDefaultAndNotify = (userData) => {
                                             Edit
                                         </button>
                                         <button
-                                            @click="handleResetToDefaultAndNotify(u)"
+                                            @click="handleSendPasswordResetLink(u)"
                                             class="px-2.5 py-1 bg-[#0D542B] text-white font-semibold rounded text-[11px] hover:bg-[#08381c] cursor-pointer"
-                                            title="Reset kredensial awal alumni"
+                                            title="Kirim tautan reset kata sandi"
                                         >
-                                            Reset Password
+                                            Kirim Tautan Reset
                                         </button>
                                     </div>
                                 </td>

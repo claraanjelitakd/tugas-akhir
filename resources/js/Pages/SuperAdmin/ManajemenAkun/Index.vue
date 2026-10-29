@@ -4,7 +4,7 @@
 
   Fitur:
   1. Sunting/Edit Data Pengguna (Email, Nama, Username, Role, Prodi/Fakultas).
-  2. Reset Password 1-Klik Otomatis ke Tanggal Lahir (ddmmyyyy) + Kirim Email Konfirmasi ke Email Terdaftar.
+  2. Mengirim tautan reset kata sandi ke email akun admin atau alumni.
   3. Desain Bersih Enterprise tanpa highlight background aneh pada sidebar.
 -->
 <script setup>
@@ -295,29 +295,27 @@ const submitEditUser = () => {
     });
 };
 
-// Reset kredensial awal alumni tanpa menampilkan nilai password
-const handleResetToDefaultAndNotify = (userData) => {
+// Mengirim tautan reset tanpa menampilkan atau mengirim password dalam teks biasa
+const handleSendPasswordResetLink = (userData) => {
     Swal.fire({
-        title: 'Reset Kredensial Awal?',
-        html: `
-            <div class="text-xs text-left space-y-2">
-                <p>Kredensial awal akun <strong>${userData.name}</strong> akan direset. Nilai password tidak ditampilkan demi keamanan.</p>
-                <p class="pt-1">Alumni wajib mengganti password setelah berhasil login.</p>
-                <div class="font-mono font-bold text-[#0D542B] bg-emerald-50 p-2 rounded border border-emerald-200">${userData.email}</div>
-            </div>
-        `,
+        title: 'Kirim Tautan Reset Kata Sandi?',
+        text: `Tautan reset untuk ${userData.name} akan dikirim ke ${userData.email}.`,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonText: 'Ya, Reset & Kirim Email',
+        confirmButtonText: 'Ya, Kirim Tautan',
         cancelButtonText: 'Batal',
         confirmButtonColor: '#0D542B',
         cancelButtonColor: '#6B7280',
     }).then((res) => {
         if (res.isConfirmed) {
-            router.post(`/superadmin/manajemen-akun/${userData.id}/reset-default-notify`, {}, {
-                onSuccess: () => {
-                    Swal.fire('Berhasil Di-reset!', `Kredensial awal ${userData.name} telah direset.`, 'success');
-                }
+            router.post(`/superadmin/manajemen-akun/${userData.id}/password-reset`, {}, {
+                preserveScroll: true,
+                onSuccess: (page) => {
+                    Swal.fire('Email Berhasil Dikirim', page.props.flash?.success || `Tautan reset telah dikirim ke ${userData.email}.`, 'success');
+                },
+                onError: (errors) => {
+                    Swal.fire('Gagal Mengirim', errors.reset || 'Tautan reset tidak dapat dikirim.', 'error');
+                },
             });
         }
     });
@@ -344,7 +342,7 @@ const handleResetToDefaultAndNotify = (userData) => {
                             Manajemen Akun Pengguna
                         </h1>
                         <p class="text-xs text-emerald-100/90 mt-1 max-w-2xl leading-relaxed">
-                            Pengelolaan akun terpadu, pembaruan identitas, dan reset kredensial awal alumni.
+                            Pengelolaan akun terpadu, pembaruan identitas, dan pengiriman tautan reset kata sandi.
                         </p>
                     </div>
 
@@ -497,13 +495,13 @@ const handleResetToDefaultAndNotify = (userData) => {
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                             </svg>
                                         </button>
-                                        <!-- Tombol Reset Password (Key) -->
+                                        <!-- Tombol pengiriman tautan reset untuk semua akun selain Super Admin -->
                                         <button
-                                            v-if="u.role === 'alumni'"
+                                            v-if="u.role !== 'superadmin'"
                                             type="button"
-                                            @click="handleResetToDefaultAndNotify(u)"
+                                            @click="handleSendPasswordResetLink(u)"
                                             class="p-1.5 text-gray-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
-                                            title="Reset kredensial awal alumni"
+                                            title="Kirim tautan reset kata sandi"
                                         >
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />

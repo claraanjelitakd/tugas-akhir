@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Mail\ResetPasswordMail;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\Prodi;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -115,6 +117,62 @@ class SuperAdminManajemenAkunTest extends TestCase
 
         $response->assertRedirect();
         $response->assertSessionHas('info');
+    }
+
+    /**
+     * Memastikan Super Admin dapat mengirim tautan reset ke akun admin.
+     */
+    public function test_superadmin_can_send_password_reset_link_to_admin_account(): void
+    {
+        $admin = User::create([
+            'username' => 'admin_prodi_reset',
+            'name' => 'Admin Prodi Reset',
+            'email' => 'admin.prodi.reset@ukdw.ac.id',
+            'password' => Hash::make('password-lama'),
+            'role' => 'admin_prodi',
+            'must_change_password' => false,
+        ]);
+
+        Mail::fake();
+
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('superadmin.manajemen-akun.password-reset', $admin->id));
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        Mail::assertSent(ResetPasswordMail::class, function (ResetPasswordMail $mail) use ($admin): bool {
+            return $mail->hasTo($admin->email) && $mail->user->is($admin);
+        });
+        $this->assertDatabaseHas('password_reset_tokens', [
+            'email' => $admin->email,
+        ]);
+    }
+
+    /**
+     * Memastikan akun tanpa email valid ditolak tanpa membuat token reset.
+     */
+    public function test_password_reset_link_is_not_sent_when_admin_email_is_invalid(): void
+    {
+        $admin = User::create([
+            'username' => 'admin_prodi_invalid_email',
+            'name' => 'Admin Prodi Invalid Email',
+            'email' => 'alamat-tidak-valid',
+            'password' => Hash::make('password-lama'),
+            'role' => 'admin_prodi',
+            'must_change_password' => false,
+        ]);
+
+        Mail::fake();
+
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('superadmin.manajemen-akun.password-reset', $admin->id));
+
+        $response->assertRedirect();
+        $response->assertSessionHasErrors('reset');
+        Mail::assertNothingSent();
+        $this->assertDatabaseMissing('password_reset_tokens', [
+            'email' => $admin->email,
+        ]);
     }
 
     /**

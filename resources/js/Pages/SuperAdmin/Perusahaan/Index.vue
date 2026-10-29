@@ -6,12 +6,12 @@
   - Header solid hijau resmi UKDW #0D542B dengan kartu statistik interaktif (-mt-10) yang dapat diklik untuk memfilter data
   - Modal "Tambah Perusahaan Baru" identik 100% dengan rancangan visual form profil (Radio Lokasi, F11, Provinsi/Kabupaten/Negara, Kode Pos, Skala, Alamat)
   - Tabel institusi formal, bersih, tanpa kolom Alumni Bekerja terpisah
-  - Bilah Aksi horizontal (inline-flex, whitespace-nowrap) memuat Hamburger (Alumni), Mata (Review), V (Setujui), X (Tolak dengan Alasan), dan Pensil (Edit)
+  - Bilah Aksi menonjolkan daftar alumni, memakai ikon untuk detail/edit/hapus, dan dropdown keputusan hanya untuk usulan yang belum menjadi master
   - Modal Konsolidasi Master Data terstruktur dan elegan
 -->
 <script setup>
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import Swal from 'sweetalert2';
 import SuperAdminSidebar from '../Components/Sidebar.vue';
 import AdminFakultasSidebar from '../../AdminFakultas/Components/Sidebar.vue';
@@ -178,6 +178,9 @@ const getCompanyAlumniList = (company) => {
     return [];
 };
 
+// Menyajikan jumlah alumni yang terlihat pengguna, termasuk fallback relasi pengaju.
+const getCompanyAlumniCount = (company) => company?.biodata_count ?? getCompanyAlumniList(company).length;
+
 const getAlumniDisplayName = (alumni) => {
     return alumni.data_akademik?.nama || alumni.user?.name || alumni.nama || 'Nama Alumni';
 };
@@ -253,39 +256,64 @@ const filteredAlumniList = computed(() => {
 const showReviewModal = ref(false);
 const activeCompanyForReview = ref(null);
 
-// State indikator pemuatan rekomendasi kemiripan asinkron (on-demand)
+// State indikator pemuatan rekomendasi kemiripan otomatis per halaman.
 const isLoadingRecommendations = ref(false);
+// Cache promise mencegah satu perusahaan dipanggil lebih dari sekali saat halaman dan modal meminta data bersamaan.
+const recommendationRequests = new Map();
 
-// Mengambil rekomendasi kemiripan master resmi dari server secara on-demand
+// Mengambil rekomendasi kemiripan master resmi tanpa menunggu klik pengguna.
 const fetchCompanyRecommendations = async (company) => {
     if (!company || !company.id) return [];
     if (Array.isArray(company.recommendations)) {
         return company.recommendations;
     }
-
-    company.isLoadingRecommendations = true;
-    try {
-        const response = await fetch(`${props.basePath}/${company.id}/recommendations`, {
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        });
-        if (response.ok) {
-            const data = await response.json();
-            company.recommendations = Array.isArray(data) ? data : [];
-        } else {
-            company.recommendations = [];
-        }
-    } catch (e) {
-        console.error('Gagal mengambil rekomendasi kemiripan:', e);
-        company.recommendations = [];
-    } finally {
-        company.isLoadingRecommendations = false;
+    if (recommendationRequests.has(company.id)) {
+        return recommendationRequests.get(company.id);
     }
 
-    return company.recommendations;
+    const request = (async () => {
+        company.isLoadingRecommendations = true;
+        try {
+            const response = await fetch(`${props.basePath}/${company.id}/recommendations`, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+            if (response.ok) {
+                const data = await response.json();
+                company.recommendations = Array.isArray(data) ? data : [];
+            } else {
+                company.recommendations = [];
+            }
+        } catch (e) {
+            console.error('Gagal mengambil rekomendasi kemiripan:', e);
+            company.recommendations = [];
+        } finally {
+            company.isLoadingRecommendations = false;
+            recommendationRequests.delete(company.id);
+        }
+
+        return company.recommendations;
+    })();
+
+    recommendationRequests.set(company.id, request);
+
+    return request;
 };
+
+// Memuat rekomendasi untuk seluruh perusahaan pada halaman aktif tanpa tombol perantara.
+const loadPageRecommendations = async () => {
+    const pageCompanies = props.companies?.data || [];
+    await Promise.all(pageCompanies.map((company) => fetchCompanyRecommendations(company)));
+};
+
+// Mengulang pemuatan hanya saat isi halaman berubah, misalnya setelah filter atau pindah halaman.
+watch(
+    () => (props.companies?.data || []).map((company) => company.id).join(','),
+    loadPageRecommendations,
+    { immediate: true },
+);
 
 const openReviewModal = async (company) => {
     activeCompanyForReview.value = company;
@@ -437,6 +465,7 @@ const setQuickReason = (reason) => {
 
 const submitReject = () => {
     if (!activeCompanyForReject.value) return;
+    const rejectedCompanyName = activeCompanyForReject.value.nama_perusahaan;
     isSubmittingReject.value = true;
     router.post(`${props.basePath}/${activeCompanyForReject.value.id}/reject`, {
         alasan: rejectReason.value.trim() || undefined,
@@ -449,7 +478,7 @@ const submitReject = () => {
             Swal.fire({
                 icon: 'success',
                 title: 'Usulan Ditolak',
-                text: `Pengajuan "${activeCompanyForReject.value.nama_perusahaan}" telah ditandai Ditolak.`,
+                text: `Pengajuan "${rejectedCompanyName}" telah ditandai Ditolak.`,
                 confirmButtonColor: '#0D542B',
             });
         },
@@ -798,6 +827,15 @@ const handleVerifyDirect = (company) => {
         }
     });
 };
+
+// Menyatukan keputusan verifikasi dalam satu menu yang hanya berisi Terima atau Tolak.
+const handleVerificationAction = (company, event) => {
+    const action = event.target.value;
+    event.target.value = '';
+
+    if (action === 'approve') handleVerifyDirect(company);
+    if (action === 'reject') openRejectModal(company);
+};
 </script>
 
 <template>
@@ -1034,7 +1072,7 @@ const handleVerifyDirect = (company) => {
                                 <th class="border-r border-slate-200 px-3.5 py-3 min-w-[170px]">Pengaju Usulan</th>
                                 <th class="border-r border-slate-200 px-3.5 py-3 min-w-[210px]">Status & Info Verifikasi</th>
                                 <th class="border-r border-slate-200 px-3.5 py-3 min-w-[190px]">Rekomendasi Master</th>
-                                <th class="px-4 py-3 text-center min-w-[170px] whitespace-nowrap">Aksi</th>
+                                <th class="px-4 py-3 text-center min-w-[230px] whitespace-nowrap">Aksi</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
@@ -1222,96 +1260,73 @@ const handleVerifyDirect = (company) => {
                                         </div>
                                     </div>
                                     <div v-else-if="company.isLoadingRecommendations" class="text-[11px] text-slate-500 italic">
-                                        Memeriksa...
+                                        Menyiapkan rekomendasi...
                                     </div>
-                                    <button
-                                        v-else-if="company.recommendations === undefined"
-                                        type="button"
-                                        @click="fetchCompanyRecommendations(company)"
-                                        class="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-slate-600 hover:text-[#0D542B] bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded transition-colors cursor-pointer"
-                                        title="Periksa kemiripan nama dengan master resmi"
-                                    >
-                                        <svg class="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                        </svg>
-                                        <span>Cek Kemiripan</span>
-                                    </button>
-                                    <span v-else class="text-slate-400 italic text-[11px]">-</span>
+                                    <span v-else class="text-slate-400 italic text-[11px]">Tidak ada master yang cukup mirip</span>
                                 </td>
 
-                                <!-- Kolom Aksi Terpadu Horizontal -->
+                                <!-- Kolom aksi memisahkan navigasi data dari satu dropdown keputusan verifikasi. -->
                                 <td class="px-4 py-3 text-center whitespace-nowrap">
-                                    <div class="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
-                                        <!-- 1. Tombol Ikon Hamburger (Daftar Alumni Bekerja) -->
+                                    <div class="flex min-w-[210px] flex-col items-stretch justify-center gap-2">
+                                        <select
+                                            v-if="company.status_verifikasi !== 'Terverifikasi'"
+                                            aria-label="Pilih keputusan verifikasi"
+                                            class="h-9 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 cursor-pointer"
+                                            @change="handleVerificationAction(company, $event)"
+                                        >
+                                            <option value="">Pilih keputusan verifikasi</option>
+                                            <option value="approve">Terima sebagai master resmi</option>
+                                            <option v-if="company.status_verifikasi !== 'Ditolak'" value="reject">Tolak usulan</option>
+                                        </select>
+
                                         <button
                                             type="button"
                                             @click="openAlumniModal(company)"
-                                            class="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer shrink-0"
-                                            title="Lihat Daftar Alumni Bekerja (Menu List)"
+                                            class="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-[11px] font-bold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer"
+                                            :title="`Lihat daftar alumni (${getCompanyAlumniCount(company)})`"
                                         >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                                            </svg>
+                                            <span>Lihat daftar alumni</span>
+                                            <span class="rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-[10px]">{{ getCompanyAlumniCount(company) }}</span>
                                         </button>
 
-                                        <!-- 2. Tombol Detail Peninjauan (Ikon Mata) -->
-                                        <button
-                                            type="button"
-                                            @click="openReviewModal(company)"
-                                            class="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer shrink-0"
-                                            title="Peninjauan Lengkap Usulan Perusahaan & Alumni"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        </button>
+                                        <!-- Ikon detail, sunting, dan hapus memiliki tooltip serta label aksesibilitas yang jelas. -->
+                                        <div class="flex h-9 items-center justify-center gap-1.5">
+                                            <button
+                                                type="button"
+                                                @click="openReviewModal(company)"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                                                title="Lihat detail perusahaan"
+                                                aria-label="Lihat detail perusahaan"
+                                            >
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="openEditModal(company)"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                                                title="Sunting data perusahaan"
+                                                aria-label="Sunting data perusahaan"
+                                            >
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="confirmDeleteCompany(company)"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-rose-700 cursor-pointer"
+                                                title="Hapus data perusahaan"
+                                                aria-label="Hapus data perusahaan"
+                                            >
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
 
-                                        <!-- 3. Tombol Cepat V (Setujui Langsung) jika Menunggu Verifikasi -->
-                                        <button
-                                            v-if="company.status_verifikasi !== 'Terverifikasi'"
-                                            type="button"
-                                            @click="handleVerifyDirect(company)"
-                                            class="w-7 h-7 flex items-center justify-center font-bold text-xs bg-[#0D542B] hover:bg-[#08381c] text-white rounded-lg shadow-2xs transition-colors cursor-pointer shrink-0"
-                                            title="Setujui sebagai Master Resmi (Tombol V)"
-                                        >
-                                            V
-                                        </button>
-
-                                        <!-- 4. Tombol Cepat X (Tolak Usulan) jika Belum Ditolak -->
-                                        <button
-                                            v-if="company.status_verifikasi !== 'Ditolak'"
-                                            type="button"
-                                            @click="openRejectModal(company)"
-                                            class="w-7 h-7 flex items-center justify-center font-bold text-xs bg-gray-100 hover:bg-rose-50 text-gray-600 hover:text-rose-700 border border-gray-300 rounded-lg shadow-2xs transition-colors cursor-pointer shrink-0"
-                                            title="Tolak Usulan dengan Alasan (Tombol X)"
-                                        >
-                                            X
-                                        </button>
-
-                                        <!-- 5. Tombol Sunting (Pensil) -->
-                                        <button
-                                            type="button"
-                                            @click="openEditModal(company)"
-                                            class="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer shrink-0"
-                                            title="Sunting Data Institusi"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                        </button>
-
-                                        <!-- 6. Tombol Hapus (Trash) -->
-                                        <button
-                                            type="button"
-                                            @click="confirmDeleteCompany(company)"
-                                            class="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
-                                            title="Hapus Data Perusahaan"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -1622,7 +1637,7 @@ const handleVerifyDirect = (company) => {
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span>Menganalisis kemiripan master institusi resmi...</span>
+                             <span>Menyiapkan rekomendasi master terkait...</span>
                         </div>
                     </div>
 
@@ -1687,20 +1702,21 @@ const handleVerifyDirect = (company) => {
             <div class="px-6 py-3.5 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
                     <button
-                        v-if="activeCompanyForReview.status_verifikasi !== 'Ditolak'"
-                        type="button"
-                        @click="openRejectModal(activeCompanyForReview)"
-                        class="px-4 py-2 border border-rose-300 text-rose-700 hover:bg-rose-50 font-bold rounded-xl text-xs transition-colors cursor-pointer"
-                    >
-                        Tolak Usulan (X)
-                    </button>
-                    <button
                         type="button"
                         @click="openEditModal(activeCompanyForReview)"
                         class="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
                     >
                         Sunting Data
                     </button>
+                    <select
+                        aria-label="Pilih keputusan usulan perusahaan"
+                        class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none transition focus:border-[#0D542B] focus:ring-2 focus:ring-[#0D542B]/10 cursor-pointer"
+                        @change="handleVerificationAction(activeCompanyForReview, $event)"
+                    >
+                        <option value="">Pilih keputusan</option>
+                        <option v-if="activeCompanyForReview.status_verifikasi !== 'Terverifikasi'" value="approve">Terima sebagai master resmi</option>
+                        <option v-if="activeCompanyForReview.status_verifikasi !== 'Ditolak'" value="reject">Tolak usulan</option>
+                    </select>
                 </div>
                 <div class="flex items-center gap-2">
                     <button
@@ -1709,14 +1725,6 @@ const handleVerifyDirect = (company) => {
                         class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl text-xs transition-colors cursor-pointer"
                     >
                         Tutup
-                    </button>
-                    <button
-                        v-if="activeCompanyForReview.status_verifikasi !== 'Terverifikasi'"
-                        type="button"
-                        @click="handleVerifyDirect(activeCompanyForReview)"
-                        class="px-5 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white font-bold rounded-xl text-xs transition-colors shadow-xs cursor-pointer"
-                    >
-                        Setujui sebagai Master Resmi (V)
                     </button>
                 </div>
             </div>

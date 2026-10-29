@@ -4,6 +4,7 @@ namespace App\Services\Alumni;
 
 use App\Models\EvaluasiAtasan;
 use App\Models\LinkedinSyncResult;
+use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,20 +45,25 @@ class AlumniDirectoryQueryService
         $scopedProdiId = $options['prodi_id'] ?? null;
         $scopedFakultasId = $options['fakultas_id'] ?? null;
         $scopedProdiIds = $options['prodi_ids'] ?? null;
+        $serverPagination = (bool) ($options['server_pagination'] ?? false);
+        $perPage = min(max((int) $request->input('per_page', 10), 5), 50);
 
         // Prodis terpilih dari filter input (jika tidak discoped ketat oleh peran Prodi)
         $prodiIdTerpilih = $scopedProdiId ?: $request->input('prodi_id');
 
-        // 2. Kueri daftar tahun kelulusan unik untuk dropdown filter melalui view profil resmi v_alumni_profile_summary
-        $tahunQuery = DB::table('v_alumni_profile_summary')
+        // 2. Ambil metadata tahun dan target dalam satu pembacaan ringan ke view profil.
+        $profileOptionsQuery = DB::table('v_alumni_profile_summary')
+            ->select(['tahun_lulus', 'tahun_akademik_lulus'])
             ->where(function ($q) {
                 $q->whereNotNull('tahun_lulus')
                     ->orWhereNotNull('tahun_akademik_lulus');
             });
 
-        $this->applyScope($tahunQuery, $scopedProdiId, $scopedFakultasId, $scopedProdiIds);
+        $this->applyScope($profileOptionsQuery, $scopedProdiId, $scopedFakultasId, $scopedProdiIds);
 
-        $daftarTahun = $tahunQuery->pluck('tahun_lulus')
+        $profileOptions = $profileOptionsQuery->get();
+
+        $daftarTahun = $profileOptions->pluck('tahun_lulus')
             ->filter()
             ->map(function ($item) {
                 if (preg_match('/(\d{4})/', (string) $item, $matches)) {
@@ -79,16 +85,10 @@ class AlumniDirectoryQueryService
             $tahunTerpilih = $tahunTerbaru;
         }
 
-        // 3. Kueri daftar target periode kelulusan unik melalui view profil resmi v_alumni_profile_summary
-        $targetQuery = DB::table('v_alumni_profile_summary')
-            ->whereNotNull('tahun_akademik_lulus')
-            ->where('tahun_akademik_lulus', '!=', '');
-
-        $this->applyScope($targetQuery, $scopedProdiId, $scopedFakultasId, $scopedProdiIds);
-
-        $daftarTarget = $targetQuery->distinct()
-            ->pluck('tahun_akademik_lulus')
+        // 3. Bentuk daftar target dari hasil metadata yang sama tanpa scan view kedua.
+        $daftarTarget = $profileOptions->pluck('tahun_akademik_lulus')
             ->filter()
+            ->unique()
             ->sortDesc()
             ->values()
             ->all();
@@ -137,7 +137,56 @@ class AlumniDirectoryQueryService
             $query->where('is_complete_total', 0);
         }
 
-        $semuaAlumni = $query->orderBy('nim', 'asc')->get();
+        // Filter LinkedIn diterapkan di database agar pagination tidak menyisakan halaman kosong.
+        if ($serverPagination) {
+            $this->applyLinkedinStatusFilter($query, $linkedinStatusTerpilih);
+        }
+
+        $pagination = null;
+        $totalSemua = 0;
+        $totalSelesai = 0;
+        $totalBelumSelesai = 0;
+        $totalLinkedinSynced = 0;
+
+        if ($serverPagination) {
+            $summary = (clone $query)
+                ->selectRaw('COUNT(*) AS total_alumni, SUM(CASE WHEN is_complete_total = 1 THEN 1 ELSE 0 END) AS total_selesai')
+                ->first();
+
+            $totalSemua = (int) ($summary->total_alumni ?? 0);
+            $totalSelesai = (int) ($summary->total_selesai ?? 0);
+            $totalBelumSelesai = $totalSemua - $totalSelesai;
+
+            $matchingBiodataIds = (clone $query)->select('biodata_id');
+            $latestSyncIds = DB::table('linkedin_sync_results as latest_sync')
+                ->selectRaw('MAX(latest_sync.id)')
+                ->whereIn('latest_sync.biodata_id', $matchingBiodataIds)
+                ->groupBy('latest_sync.biodata_id');
+
+            $totalLinkedinSynced = (int) DB::table('linkedin_sync_results')
+                ->whereIn('id', $latestSyncIds)
+                ->where('status', 'approved')
+                ->count();
+
+            $requestedPage = max((int) $request->input('page', 1), 1);
+            $lastPage = max((int) ceil($totalSemua / $perPage), 1);
+            $currentPage = min($requestedPage, $lastPage);
+
+            $semuaAlumni = $query
+                ->orderBy('nim', 'asc')
+                ->forPage($currentPage, $perPage)
+                ->get();
+            $pagination = [
+                'current_page' => $currentPage,
+                'from' => $totalSemua > 0 ? (($currentPage - 1) * $perPage) + 1 : null,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'to' => $totalSemua > 0 ? min($currentPage * $perPage, $totalSemua) : null,
+                'total' => $totalSemua,
+            ];
+        } else {
+            $semuaAlumni = $query->orderBy('nim', 'asc')->get();
+        }
 
         // 5. Muat data relasi eksternal (Evaluasi Atasan & Hasil Sinkronisasi LinkedIn)
         $biodataIds = $semuaAlumni->pluck('biodata_id')->filter()->all();
@@ -152,18 +201,31 @@ class AlumniDirectoryQueryService
             ->get()
             ->groupBy('biodata_id');
 
+        // Ambil akun yang memulai sinkronisasi dari audit log, bukan dari reviewer hasilnya.
+        $syncInitiatorMap = DB::table('log_activities as sync_log')
+            ->leftJoin('users as sync_user', 'sync_user.id', '=', 'sync_log.user_id')
+            ->where('sync_log.action', 'linkedin_sync_apify')
+            ->whereIn('sync_log.model_id', $biodataIds)
+            ->orderByDesc('sync_log.id')
+            ->get([
+                'sync_log.model_id',
+                'sync_user.name as actor_name',
+                'sync_user.username as actor_username',
+            ])
+            ->unique('model_id')
+            ->keyBy('model_id');
+
         // 6. Mapping data reaktif untuk Frontend
         $alumniList = [];
-        $totalSelesai = 0;
-        $totalBelumSelesai = 0;
-        $totalLinkedinSynced = 0;
 
         foreach ($semuaAlumni as $item) {
             $isComplete = (bool) $item->is_complete_total;
-            if ($isComplete) {
-                $totalSelesai++;
-            } else {
-                $totalBelumSelesai++;
+            if (! $serverPagination) {
+                if ($isComplete) {
+                    $totalSelesai++;
+                } else {
+                    $totalBelumSelesai++;
+                }
             }
 
             // Parsing semester kelulusan
@@ -187,13 +249,15 @@ class AlumniDirectoryQueryService
             $latestSync = $syncList ? $syncList->first() : null;
             $syncCount = $syncList ? $syncList->count() : 0;
             $currentLinkedinStatus = $latestSync?->status ?? 'belum_sinkron';
+            $syncInitiator = $syncInitiatorMap->get($item->biodata_id);
+            $syncInitiatorName = $syncInitiator?->actor_name ?: ($syncInitiator?->actor_username ?: null);
 
-            if ($currentLinkedinStatus === 'approved') {
+            if (! $serverPagination && $currentLinkedinStatus === 'approved') {
                 $totalLinkedinSynced++;
             }
 
             // Filter status LinkedIn di level memori
-            if ($linkedinStatusTerpilih && $linkedinStatusTerpilih !== 'all') {
+            if (! $serverPagination && $linkedinStatusTerpilih && $linkedinStatusTerpilih !== 'all') {
                 if ($linkedinStatusTerpilih === 'sudah_sinkron' && $currentLinkedinStatus !== 'approved') {
                     continue;
                 }
@@ -216,19 +280,19 @@ class AlumniDirectoryQueryService
                 } elseif ($latestSync->status === 'approved') {
                     $reviewerName = 'Administrator';
                 } elseif ($latestSync->status === 'pending') {
-                    $reviewerName = 'Sistem (Scraper)';
+                    $reviewerName = $syncInitiatorName ?: 'Sistem (Scraper)';
                 }
             }
 
             // Format tanggal audit terakhir
             $waktuTerakhir = null;
             if ($latestSync) {
-                if ($latestSync->reviewed_at) {
-                    $waktuTerakhir = $latestSync->reviewed_at->format('d/m/Y H:i');
-                } elseif ($latestSync->scraped_at) {
-                    $waktuTerakhir = $latestSync->scraped_at->format('d/m/Y H:i');
-                } elseif ($latestSync->updated_at) {
-                    $waktuTerakhir = $latestSync->updated_at->format('d/m/Y H:i');
+                if ($latestSync->getRawOriginal('reviewed_at')) {
+                    $waktuTerakhir = $this->formatStoredTimestamp($latestSync->getRawOriginal('reviewed_at'));
+                } elseif ($latestSync->getRawOriginal('scraped_at')) {
+                    $waktuTerakhir = $this->formatStoredTimestamp($latestSync->getRawOriginal('scraped_at'));
+                } elseif ($latestSync->getRawOriginal('updated_at')) {
+                    $waktuTerakhir = $this->formatStoredTimestamp($latestSync->getRawOriginal('updated_at'));
                 }
             }
 
@@ -312,9 +376,14 @@ class AlumniDirectoryQueryService
                         'rejected' => 'Ditolak',
                         default => 'Belum Disinkron'
                     },
-                    'scraped_at' => $latestSync?->scraped_at ? $latestSync->scraped_at->format('d/m/Y H:i') : null,
-                    'reviewed_at' => $latestSync?->reviewed_at ? $latestSync->reviewed_at->format('d/m/Y H:i') : null,
+                    'scraped_at' => $latestSync?->getRawOriginal('scraped_at')
+                        ? $this->formatStoredTimestamp($latestSync->getRawOriginal('scraped_at'))
+                        : null,
+                    'reviewed_at' => $latestSync?->getRawOriginal('reviewed_at')
+                        ? $this->formatStoredTimestamp($latestSync->getRawOriginal('reviewed_at'))
+                        : null,
                     'waktu_terakhir' => $waktuTerakhir,
+                    'initiator_name' => $syncInitiatorName,
                     'reviewer_name' => $reviewerName,
                     'last_job' => $latestSync?->preview['current_job'] ?? null,
                     'last_company' => $latestSync?->preview['current_company'] ?? null,
@@ -324,13 +393,15 @@ class AlumniDirectoryQueryService
         }
 
         // 7. Hitung rasio & kartu statistik
-        $totalSemua = count($semuaAlumni);
+        if (! $serverPagination) {
+            $totalSemua = count($semuaAlumni);
+        }
         $rasioSelesai = $totalSemua > 0 ? (int) round(($totalSelesai / $totalSemua) * 100) : 0;
         $rasioLinkedin = $totalSemua > 0 ? (int) round(($totalLinkedinSynced / $totalSemua) * 100) : 0;
 
         return [
             'alumnis' => $alumniList,
-            'biodatas' => $alumniList, // kompatibilitas balik
+            'pagination' => $pagination,
             'daftarTahun' => $daftarTahun,
             'daftarTarget' => $daftarTarget,
             'filters' => [
@@ -351,6 +422,67 @@ class AlumniDirectoryQueryService
                 'persentase_linkedin' => $rasioLinkedin,
             ],
         ];
+    }
+
+    /**
+     * Memformat timestamp yang tersimpan dalam UTC ke timezone aplikasi.
+     *
+     * @param  string|null  $timestamp  Nilai timestamp mentah dari database
+     * @return string|null Timestamp siap tampil atau null jika nilai kosong
+     */
+    protected function formatStoredTimestamp(?string $timestamp): ?string
+    {
+        if (blank($timestamp)) {
+            return null;
+        }
+
+        return Carbon::parse($timestamp, 'UTC')
+            ->setTimezone(config('app.timezone'))
+            ->format('d/m/Y H:i');
+    }
+
+    /**
+     * Terapkan filter status LinkedIn pada query utama sebelum pagination server.
+     *
+     * @param  Builder  $query  Query direktori alumni yang sedang dibangun
+     * @param  string  $status  Kode status LinkedIn dari filter pengguna
+     */
+    protected function applyLinkedinStatusFilter(Builder $query, string $status): void
+    {
+        if ($status === '' || $status === 'all') {
+            return;
+        }
+
+        $latestSyncIds = DB::table('linkedin_sync_results as latest_sync')
+            ->selectRaw('MAX(latest_sync.id)')
+            ->groupBy('latest_sync.biodata_id');
+
+        if ($status === 'belum_sinkron') {
+            $query->whereNotIn(
+                'biodata_id',
+                DB::table('linkedin_sync_results')
+                    ->select('biodata_id')
+                    ->whereIn('id', $latestSyncIds),
+            );
+
+            return;
+        }
+
+        $statusMap = [
+            'sudah_sinkron' => 'approved',
+            'pending' => 'pending',
+            'ditolak' => 'rejected',
+        ];
+
+        if (isset($statusMap[$status])) {
+            $query->whereIn(
+                'biodata_id',
+                DB::table('linkedin_sync_results')
+                    ->select('biodata_id')
+                    ->whereIn('id', $latestSyncIds)
+                    ->where('status', $statusMap[$status]),
+            );
+        }
     }
 
     /**

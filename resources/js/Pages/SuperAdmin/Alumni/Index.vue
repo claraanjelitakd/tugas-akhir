@@ -47,6 +47,10 @@ const props = defineProps({
             persentase_linkedin: 0,
         }),
     },
+    pagination: {
+        type: Object,
+        default: null,
+    },
 });
 
 // State Filter
@@ -83,22 +87,70 @@ watch(() => props.filters, (newFilters) => {
     }
 }, { deep: true });
 
-// Pagination lokal ala DataTables
-const perPage = ref(10);
-const currentPage = ref(1);
+// Pagination server-side agar browser hanya menerima data pada halaman aktif.
+const perPage = ref(props.pagination?.per_page || 10);
+const currentPage = ref(props.pagination?.current_page || 1);
 
 const totalPages = computed(() => {
-    return Math.ceil(props.alumnis.length / perPage.value) || 1;
+    return props.pagination?.last_page || 1;
+});
+
+// Menampilkan jendela nomor halaman agar daftar 54 halaman tidak memenuhi layar.
+const paginationItems = computed(() => {
+    const total = totalPages.value;
+    const current = currentPage.value;
+
+    if (total <= 7) {
+        return Array.from({ length: total }, (_, index) => ({ type: 'page', value: index + 1 }));
+    }
+
+    const items = [{ type: 'page', value: 1 }];
+
+    if (current > 4) {
+        items.push({ type: 'ellipsis', value: 'start' });
+    }
+
+    const start = Math.max(2, current - 1);
+    const end = Math.min(total - 1, current + 1);
+
+    for (let page = start; page <= end; page += 1) {
+        items.push({ type: 'page', value: page });
+    }
+
+    if (current < total - 3) {
+        items.push({ type: 'ellipsis', value: 'end' });
+    }
+
+    items.push({ type: 'page', value: total });
+
+    return items;
 });
 
 const paginatedAlumnis = computed(() => {
-    const start = (currentPage.value - 1) * perPage.value;
-    return props.alumnis.slice(start, start + perPage.value);
+    return props.alumnis;
+});
+
+// Menyediakan rentang dan total dari paginator server untuk ringkasan tabel.
+const paginationFrom = computed(() => props.pagination?.from || 0);
+const paginationTo = computed(() => props.pagination?.to || 0);
+const paginationTotal = computed(() => props.pagination?.total || 0);
+
+// Menyelaraskan halaman aktif dan jumlah data saat server mengembalikan props baru.
+watch(() => props.pagination, (newPagination) => {
+    if (newPagination) {
+        currentPage.value = newPagination.current_page || 1;
+        perPage.value = newPagination.per_page || perPage.value;
+    }
+}, { deep: true });
+
+// Kembalikan posisi ke halaman pertama ketika jumlah data per halaman berubah.
+watch(perPage, () => {
+    applyFilters(1);
 });
 
 const goToPage = (page) => {
     if (page >= 1 && page <= totalPages.value) {
-        currentPage.value = page;
+        applyFilters(page);
     }
 };
 
@@ -114,8 +166,8 @@ const getInitials = (name) => {
 
 // Terapkan Filter ke URL
 let searchTimeout = null;
-const applyFilters = () => {
-    currentPage.value = 1;
+const applyFilters = (page = 1) => {
+    currentPage.value = page;
     router.get('/superadmin/alumni', {
         search: search.value || undefined,
         tahun: tahun.value || undefined,
@@ -124,8 +176,11 @@ const applyFilters = () => {
         status: status.value !== 'all' ? status.value : undefined,
         prodi_id: prodiId.value !== 'all' ? prodiId.value : undefined,
         linkedin_status: linkedinStatus.value !== 'all' ? linkedinStatus.value : undefined,
+        page,
+        per_page: perPage.value,
     }, {
         preserveState: true,
+        preserveScroll: true,
         replace: true,
     });
 };
@@ -168,7 +223,7 @@ const resetFilters = () => {
     prodiId.value = 'all';
     linkedinStatus.value = 'all';
     currentPage.value = 1;
-    router.get('/superadmin/alumni', { tahun: tahun.value }, { preserveState: true });
+    applyFilters(1);
 };
 
 // Fitur Unduh ZIP per Program Studi untuk Tahun Filter Tertentu
@@ -319,63 +374,79 @@ const activeLinkedInAlumni = ref(null);
 const linkedInHistoryList = ref([]);
 const isLoadingHistory = ref(false);
 
+// Memastikan URL yang diketik menunjuk ke profil LinkedIn sebelum dikirim ke server.
+const isValidLinkedInProfileUrl = (value) => {
+    try {
+        const url = new URL(value);
+
+        return ['http:', 'https:'].includes(url.protocol)
+            && /(^|\.)linkedin\.com$/i.test(url.hostname)
+            && url.pathname.toLowerCase().startsWith('/in/');
+    } catch {
+        return false;
+    }
+};
+
+// Menyimpan URL baru melalui endpoint khusus agar perubahan tercatat dan tervalidasi.
+const saveLinkedInUrl = async (alumni, linkedinUrl) => {
+    const response = await fetch(`/superadmin/linkedin-sync/${alumni.id}/url`, {
+        method: 'PATCH',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+        body: JSON.stringify({ linkedin_url: linkedinUrl }),
+    });
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+        throw new Error(data.message || data.errors?.linkedin_url?.[0] || 'URL LinkedIn gagal diperbarui.');
+    }
+
+    alumni.linkedin_url = data.linkedin_url || linkedinUrl;
+};
+
+// Meminta URL terbaru, menyimpannya, lalu menjalankan sinkronisasi untuk alumni terpilih.
 const handleSyncLinkedIn = async (alumni) => {
-    if (!alumni.linkedin_url) {
-        Swal.fire({
-            title: 'URL LinkedIn Belum Diisi',
-            html: `<p class="text-xs text-slate-600">Alumni <b>${alumni.nama}</b> (${alumni.nim}) belum memiliki URL profil LinkedIn di database.</p>
-                   <p class="text-xs text-slate-500 mt-2">Masukkan URL profil LinkedIn untuk memulai sinkronisasi:</p>`,
-            icon: 'info',
-            input: 'url',
-            inputPlaceholder: 'https://www.linkedin.com/in/username',
-            showCancelButton: true,
-            confirmButtonText: 'Simpan & Sinkronkan',
-            cancelButtonText: 'Batal',
-            confirmButtonColor: '#0077B5',
-            inputValidator: (val) => {
-                if (!val || !val.includes('linkedin.com')) {
-                    return 'Harap masukkan tautan profil LinkedIn yang valid!';
-                }
+    const result = await Swal.fire({
+        title: alumni.linkedin_url ? 'Perbarui URL LinkedIn' : 'Masukkan URL LinkedIn',
+        html: `<p class="text-xs text-slate-600">URL ini akan digunakan sebagai sumber sinkronisasi profil <b>${alumni.nama}</b> (${alumni.nim}).</p>`,
+        icon: 'info',
+        input: 'url',
+        inputValue: alumni.linkedin_url || '',
+        inputPlaceholder: 'https://www.linkedin.com/in/username',
+        showCancelButton: true,
+        confirmButtonText: 'Simpan & Sinkronkan',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#94a3b8',
+        inputValidator: (value) => {
+            if (!isValidLinkedInProfileUrl(value?.trim())) {
+                return 'Masukkan URL profil LinkedIn yang valid dengan pola linkedin.com/in/.';
             }
-        }).then(async (res) => {
-            if (res.isConfirmed && res.value) {
-                try {
-                    await fetch(`/superadmin/alumni/${alumni.id}/profile`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                        },
-                        body: JSON.stringify({ linkedin_url: res.value })
-                    });
-                    alumni.linkedin_url = res.value;
-                    executeLinkedInSync(alumni);
-                } catch (e) {
-                    executeLinkedInSync(alumni);
-                }
-            }
-        });
+        },
+    });
+
+    if (!result.isConfirmed || !result.value) {
         return;
     }
 
-    Swal.fire({
-        title: 'Sinkronkan LinkedIn?',
-        html: `<p class="text-xs text-slate-600">Jalankan sinkronisasi profil LinkedIn untuk alumni <b>${alumni.nama}</b>?</p>
-               <div class="mt-2 text-xs font-mono text-blue-700 bg-blue-50 p-2 rounded-lg break-all border border-blue-200/60">${alumni.linkedin_url}</div>`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#0077B5',
-        cancelButtonColor: '#94a3b8',
-        confirmButtonText: 'Ya, Sinkronkan Sekarang',
-        cancelButtonText: 'Batal',
-    }).then((res) => {
-        if (res.isConfirmed) {
-            executeLinkedInSync(alumni);
-        }
-    });
+    try {
+        await saveLinkedInUrl(alumni, result.value.trim());
+        await executeLinkedInSync(alumni);
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'URL LinkedIn Gagal Disimpan',
+            text: error.message || 'URL LinkedIn tidak dapat diperbarui.',
+            confirmButtonColor: '#0D542B',
+        });
+    }
 };
 
+// Menjalankan sinkronisasi dan mengarahkan hasilnya ke tab LinkedIn detail alumni.
 const executeLinkedInSync = async (alumni) => {
     Swal.fire({
         title: 'Menyinkronkan LinkedIn...',
@@ -400,6 +471,17 @@ const executeLinkedInSync = async (alumni) => {
         Swal.close();
 
         if (response.ok && data.success) {
+            if (data.sync_result_id) {
+                router.get(`/superadmin/alumni/${alumni.id}`, {
+                    tab: 'linkedin',
+                }, {
+                    replace: true,
+                    preserveScroll: false,
+                });
+
+                return;
+            }
+
             await Swal.fire({
                 icon: 'success',
                 title: 'Sinkronisasi Berhasil!',
@@ -747,9 +829,9 @@ const handleOpenLinkedInHistory = async (alumni) => {
                         </div>
 
                         <div class="text-xs text-gray-500 font-medium">
-                            Menampilkan <span class="font-bold text-gray-900">{{ (currentPage - 1) * perPage + (alumnis.length > 0 ? 1 : 0) }}</span> &ndash; 
-                            <span class="font-bold text-gray-900">{{ Math.min(currentPage * perPage, alumnis.length) }}</span> dari 
-                            <span class="font-bold text-gray-900">{{ alumnis.length }}</span> total mahasiswa (Tahun {{ tahun }})
+                            Menampilkan <span class="font-bold text-gray-900">{{ paginationFrom }}</span> &ndash;
+                            <span class="font-bold text-gray-900">{{ paginationTo }}</span> dari
+                            <span class="font-bold text-gray-900">{{ paginationTotal }}</span> total mahasiswa (Tahun {{ tahun }})
                         </div>
                     </div>
 
@@ -764,7 +846,7 @@ const handleOpenLinkedInHistory = async (alumni) => {
                                     <th class="border border-gray-300 px-3 py-2.5 min-w-[160px] w-44 whitespace-nowrap">Target Kelulusan</th>
                                     <th class="border border-gray-300 px-3 py-2.5 min-w-[210px] w-56 whitespace-nowrap">Status Kelengkapan</th>
                                     <th class="border border-gray-300 px-3 py-2.5 min-w-[240px] w-64 whitespace-nowrap">Sinkronisasi LinkedIn</th>
-                                    <th class="border border-gray-300 px-2.5 py-2.5 text-center w-32 whitespace-nowrap">Aksi</th>
+                                    <th class="border border-gray-300 px-2.5 py-2.5 text-center min-w-[220px] w-56 whitespace-nowrap">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -781,7 +863,7 @@ const handleOpenLinkedInHistory = async (alumni) => {
                                 >
                                     <!-- No -->
                                     <td class="border border-gray-300 px-2.5 py-3 text-center font-mono font-medium text-gray-500">
-                                        {{ (currentPage - 1) * perPage + idx + 1 }}
+                                        {{ paginationFrom + idx }}
                                     </td>
 
                                     <!-- Identitas Mahasiswa (Nama & NIM Bersih) -->
@@ -844,7 +926,7 @@ const handleOpenLinkedInHistory = async (alumni) => {
                                         </div>
                                     </td>
 
-                                    <!-- Kolom Sinkronisasi LinkedIn: Keterangan Waktu, Reviewer, dan Pekerjaan -->
+                                    <!-- Kolom Sinkronisasi LinkedIn: waktu, akun pelaku, dan pekerjaan -->
                                     <td class="border border-gray-300 px-3.5 py-3">
                                         <div class="space-y-1">
                                             <!-- Status Badge -->
@@ -875,15 +957,19 @@ const handleOpenLinkedInHistory = async (alumni) => {
                                                 </span>
                                             </div>
 
-                                            <!-- Terakhir Kapan & Oleh Siapa -->
+                                            <!-- Tampilkan akun yang melakukan sinkronisasi atau meninjau hasil. -->
                                             <div v-if="alumni.linkedin_sync?.waktu_terakhir" class="text-[11px] text-gray-600 leading-tight pt-0.5">
                                                 <div>
                                                     <span class="text-gray-400">Terakhir:</span> 
                                                     <span class="font-medium text-gray-700 ml-1">{{ alumni.linkedin_sync.waktu_terakhir }}</span>
                                                 </div>
-                                                <div v-if="alumni.linkedin_sync.reviewer_name" class="text-gray-500 truncate max-w-[210px]" :title="alumni.linkedin_sync.reviewer_name">
-                                                    <span class="text-gray-400">Oleh:</span> 
-                                                    <span class="font-medium text-gray-700 ml-1">{{ alumni.linkedin_sync.reviewer_name }}</span>
+                                                <div
+                                                    v-if="alumni.linkedin_sync.initiator_name || alumni.linkedin_sync.reviewer_name"
+                                                    class="text-gray-500 truncate max-w-[210px]"
+                                                    :title="alumni.linkedin_sync.status === 'pending' ? (alumni.linkedin_sync.initiator_name || alumni.linkedin_sync.reviewer_name) : alumni.linkedin_sync.reviewer_name"
+                                                >
+                                                    <span class="text-gray-400">{{ alumni.linkedin_sync.status === 'pending' ? 'Disinkronkan oleh:' : 'Ditinjau oleh:' }}</span>
+                                                    <span class="font-medium text-gray-700 ml-1">{{ alumni.linkedin_sync.status === 'pending' ? (alumni.linkedin_sync.initiator_name || alumni.linkedin_sync.reviewer_name) : alumni.linkedin_sync.reviewer_name }}</span>
                                                 </div>
                                             </div>
                                             <div v-else class="text-[11px] text-gray-400 italic pt-0.5">
@@ -901,73 +987,75 @@ const handleOpenLinkedInHistory = async (alumni) => {
                                         </div>
                                     </td>
 
-                                    <!-- Kolom Aksi Terpadu (Monokrom, Formal & Bersih) -->
-                                    <td class="border border-gray-300 px-2.5 py-3 text-center">
-                                        <div class="inline-flex items-center justify-center gap-1">
-                                            <!-- 1. Detail Profil & Kuesioner -->
-                                            <Link 
-                                                :href="`/superadmin/alumni/${alumni.id}`" 
-                                                class="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-                                                title="Lihat Detail Alumni & Kuesioner"
-                                                aria-label="Lihat Detail Alumni"
+                                    <!-- Kolom aksi menampilkan tindakan profil, komunikasi, dan LinkedIn secara ringkas. -->
+                                    <td class="border border-gray-300 px-2.5 py-3 text-center min-w-[220px] w-56">
+                                        <div class="grid grid-cols-3 gap-1">
+                                            <!-- Aksi profil dan komunikasi tetap diberi label agar mudah dikenali. -->
+                                            <Link
+                                                :href="`/superadmin/alumni/${alumni.id}`"
+                                                class="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-1.5 py-1.5 text-[10px] font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                                                title="Lihat detail alumni dan kuesioner"
+                                                aria-label="Lihat detail alumni"
                                             >
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                                 </svg>
                                             </Link>
 
-                                            <!-- 2. WhatsApp -->
-                                            <button 
+                                            <button
                                                 type="button"
                                                 @click="openWhatsAppModal(alumni)"
-                                                class="p-1.5 text-gray-600 hover:text-emerald-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-                                                title="Hubungi via WhatsApp (Undangan Kuesioner)"
-                                                aria-label="Hubungi via WhatsApp"
+                                                class="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-1.5 py-1.5 text-[10px] font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                                                title="Hubungi alumni melalui WhatsApp"
+                                                aria-label="Hubungi alumni melalui WhatsApp"
                                             >
-                                                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                                <svg class="h-4 w-4 shrink-0 fill-current" viewBox="0 0 24 24">
                                                     <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
                                                 </svg>
                                             </button>
 
-                                            <!-- 3. Kirim Email Pengingat -->
-                                            <button 
+                                            <button
                                                 type="button"
                                                 @click="handleSendSingleEmail(alumni)"
-                                                class="p-1.5 text-gray-600 hover:text-sky-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-                                                title="Kirim Email Pengingat Kuesioner Langsung"
-                                                aria-label="Kirim Email Pengingat"
+                                                class="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-1.5 py-1.5 text-[10px] font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                                                title="Kirim email pengingat kuesioner"
+                                                aria-label="Kirim email pengingat kuesioner"
                                             >
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                                 </svg>
                                             </button>
 
-                                            <!-- 4. Riwayat / Sinkronisasi LinkedIn Direct -->
+                                            <!-- LinkedIn memakai baris penuh agar status dan aksi tetap terbaca. -->
+                                            <div class="col-span-3 flex items-center justify-center">
+                                            <!-- Status pending diarahkan ke riwayat agar tidak memicu sinkronisasi ganda. -->
                                             <Link
-                                                v-if="alumni.linkedin_sync?.status === 'approved' || alumni.linkedin_sync?.status === 'pending'"
+                                                v-if="alumni.linkedin_sync?.status === 'pending'"
                                                 :href="`/superadmin/alumni/${alumni.id}?tab=linkedin`"
-                                                class="p-1.5 rounded-lg transition-colors cursor-pointer"
-                                                :class="alumni.linkedin_sync.status === 'approved' ? 'text-[#0077B5] hover:bg-sky-50' : 'text-amber-700 hover:bg-amber-50'"
-                                                :title="`Buka Riwayat LinkedIn: Status ${alumni.linkedin_sync.status_label}`"
-                                                aria-label="Buka Riwayat LinkedIn"
+                                                class="inline-flex h-9 w-full max-w-[180px] items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                                                title="Lihat status review LinkedIn"
+                                                aria-label="Lihat status review LinkedIn"
                                             >
-                                                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                                <svg class="h-4 w-4 shrink-0 fill-current" viewBox="0 0 24 24">
                                                     <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
                                                 </svg>
+                                                <span>Menunggu Review</span>
                                             </Link>
-                                            <button 
+                                            <button
                                                 v-else
                                                 type="button"
                                                 @click="handleSyncLinkedIn(alumni)"
-                                                class="p-1.5 text-gray-400 hover:text-[#0077B5] hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-                                                :title="alumni.linkedin_url ? `Sinkronkan LinkedIn: ${alumni.linkedin_url}` : 'Sinkronkan LinkedIn Alumni (Belum Disinkron)'"
-                                                aria-label="Sinkronkan LinkedIn"
+                                                class="inline-flex h-9 w-full max-w-[180px] items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                                                :title="alumni.linkedin_sync?.has_sync ? 'Sinkronkan ulang profil LinkedIn' : 'Sinkronkan profil LinkedIn'"
+                                                aria-label="Sinkronkan profil LinkedIn"
                                             >
-                                                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                                <svg class="h-4 w-4 shrink-0 fill-current" viewBox="0 0 24 24">
                                                     <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
                                                 </svg>
+                                                <span>{{ alumni.linkedin_sync?.has_sync ? 'Sinkronkan Ulang' : 'Sinkronkan LinkedIn' }}</span>
                                             </button>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -976,7 +1064,7 @@ const handleOpenLinkedInHistory = async (alumni) => {
                     </div>
 
                     <!-- DataTables Pagination Controls Modern -->
-                    <div v-if="alumnis.length > 0" class="p-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+                    <div v-if="paginationTotal > 0" class="p-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
                         <div class="text-xs text-slate-500 font-medium">
                             Halaman <span class="font-bold text-slate-900">{{ currentPage }}</span> dari <span class="font-bold text-slate-900">{{ totalPages }}</span>
                         </div>
@@ -994,16 +1082,25 @@ const handleOpenLinkedInHistory = async (alumni) => {
                                 <span>Sebelumnya</span>
                             </button>
                             
-                            <!-- Nomor Halaman -->
-                            <button 
-                                v-for="p in totalPages" 
-                                :key="p"
-                                @click="goToPage(p)"
-                                class="w-8 h-8 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
-                                :class="currentPage === p ? 'bg-[#0D542B] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'"
-                            >
-                                {{ p }}
-                            </button>
+                            <!-- Nomor halaman ringkas dengan ellipsis untuk daftar panjang -->
+                            <template v-for="item in paginationItems" :key="`${item.type}-${item.value}`">
+                                <span
+                                    v-if="item.type === 'ellipsis'"
+                                    class="flex h-8 w-8 items-center justify-center text-xs font-bold text-slate-400"
+                                    aria-hidden="true"
+                                >
+                                    …
+                                </span>
+                                <button
+                                    v-else
+                                    @click="goToPage(item.value)"
+                                    class="h-8 w-8 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                                    :class="currentPage === item.value ? 'bg-[#0D542B] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'"
+                                    :aria-label="`Buka halaman ${item.value}`"
+                                >
+                                    {{ item.value }}
+                                </button>
+                            </template>
 
                             <!-- Tombol Selanjutnya -->
                             <button 

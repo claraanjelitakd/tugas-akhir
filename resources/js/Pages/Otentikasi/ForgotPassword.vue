@@ -66,6 +66,9 @@ const submit = () => {
                         <div v-if="form.errors.username_atau_email" class="mb-5 rounded-2xl bg-[#FFF1F0] px-4 py-3 text-sm leading-6 text-[#B42318]">
                             {{ form.errors.username_atau_email }}
                         </div>
+                        <div v-if="$page.props.errors?.email" class="mb-5 rounded-2xl bg-[#FFF1F0] px-4 py-3 text-sm leading-6 text-[#B42318]">
+                            {{ $page.props.errors.email }}
+                        </div>
 
                         <form class="space-y-5" @submit.prevent="submit">
                             <div>

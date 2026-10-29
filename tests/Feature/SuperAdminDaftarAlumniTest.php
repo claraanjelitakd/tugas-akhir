@@ -115,12 +115,15 @@ class SuperAdminDaftarAlumniTest extends TestCase
     public function test_superadmin_can_view_alumni_index_page(): void
     {
         $response = $this->actingAs($this->superadmin)
-            ->get(route('superadmin.alumni.index'));
+            ->get(route('superadmin.alumni.index', ['per_page' => 5]));
 
         $response->assertStatus(200);
         $response->assertInertia(fn (Assert $page) => $page
             ->component('SuperAdmin/Alumni/Index')
             ->has('alumnis', 1)
+            ->where('pagination.per_page', 5)
+            ->where('pagination.current_page', 1)
+            ->where('pagination.total', 1)
             ->has('daftarTahun')
             ->has('prodis')
             ->has('filters')

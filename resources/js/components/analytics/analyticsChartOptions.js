@@ -467,17 +467,29 @@ export const normalizeAnalyticsOption = (option) => {
                     || normalized.yAxis?.max === 100
                     || (Array.isArray(series.data) && series.data.some((datum) => Number(typeof datum === 'object' ? datum.value : datum) > 1));
                 const originalFormatter = series.label?.formatter;
+                // Pertahankan formatter lokal, tetapi pulihkan label positif yang sengaja dikosongkan karena segmennya kecil.
+                const stackedLabelFormatter = (params) => {
+                    const value = Number(params?.value ?? params?.data?.value ?? 0);
+                    const formatted = typeof originalFormatter === 'function' ? originalFormatter(params) : '';
+
+                    if (formatted !== undefined && formatted !== null && String(formatted).trim() !== '') {
+                        return formatted;
+                    }
+
+                    if (value <= 0) return '';
+
+                    return percentageAxis ? `${formatNumber(value, 1)}%` : formatNumber(value, 0);
+                };
+
                 series.label = {
                     ...(series.label || {}),
                     show: true,
                     position: series.label?.position || 'inside',
                     color: readableLabelColor(seriesColor),
-                    formatter: originalFormatter || ((params) => {
-                        const value = Number(params?.value ?? params?.data?.value ?? 0);
-                        if (value <= 0) return '';
-                        return percentageAxis ? `${formatNumber(value, 1)}%` : formatNumber(value, 0);
-                    }),
+                    formatter: typeof originalFormatter === 'string' ? originalFormatter : stackedLabelFormatter,
                 };
+                // Jangan menghilangkan label hanya karena dua segmen kecil berada pada satu batang.
+                series.labelLayout = { ...(series.labelLayout || {}), hideOverlap: false };
             }
             if (series.label && series.type === 'bar') {
                 series.label.color = readableLabelColor(seriesColor);

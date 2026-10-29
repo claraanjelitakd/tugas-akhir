@@ -35,7 +35,9 @@ class DaftarAlumniSuperAdminController extends Controller
      */
     public function index(Request $request, AlumniDirectoryQueryService $directoryService): Response
     {
-        $data = $directoryService->getDirectoryData($request);
+        $data = $directoryService->getDirectoryData($request, [
+            'server_pagination' => true,
+        ]);
         $data['prodis'] = Prodi::orderBy('kode_prodi', 'asc')->get();
 
         return Inertia::render('SuperAdmin/Alumni/Index', $data);

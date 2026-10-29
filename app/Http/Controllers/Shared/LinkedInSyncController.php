@@ -486,6 +486,52 @@ class LinkedInSyncController extends Controller
     }
 
     /**
+     * Memperbarui URL profil LinkedIn sebelum proses sinkronisasi dijalankan.
+     *
+     * @param  Request  $request  Request JSON yang membawa URL profil baru
+     * @param  int  $id  ID biodata alumni yang URL-nya diperbarui
+     */
+    public function updateUrl(Request $request, int $id): JsonResponse
+    {
+        $scope = $this->getUserScope($request);
+        $biodata = Biodata::findOrFail($id);
+        $this->validateAlumniScope($biodata, $scope);
+
+        $validated = $request->validate([
+            'linkedin_url' => ['required', 'string', 'max:500'],
+        ]);
+        $linkedinUrl = trim($validated['linkedin_url']);
+
+        if (! ApifyLinkedInProvider::isValidLinkedInUrl($linkedinUrl)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Format URL LinkedIn tidak valid. Gunakan URL profil dengan pola linkedin.com/in/.',
+            ], 422);
+        }
+
+        $oldUrl = $biodata->linkedin_url;
+        $biodata->update([
+            'linkedin_url' => $linkedinUrl,
+        ]);
+
+        if ($oldUrl !== $linkedinUrl) {
+            LogActivity::record(
+                action: 'linkedin_url_updated',
+                description: "URL profil LinkedIn diperbarui untuk alumni {$biodata->nama} ({$biodata->nim}).",
+                subject: $biodata,
+                oldValues: ['linkedin_url' => $oldUrl],
+                newValues: ['linkedin_url' => $linkedinUrl],
+            );
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'URL profil LinkedIn berhasil diperbarui.',
+            'linkedin_url' => $linkedinUrl,
+        ]);
+    }
+
+    /**
      * Memproses sinkronisasi profil LinkedIn untuk satu alumni.
      * Mengembalikan respons JSON agar tidak memicu reload halaman penuh.
      */

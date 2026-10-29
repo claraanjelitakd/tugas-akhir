@@ -9,6 +9,7 @@ use App\Models\LogActivity;
 use App\Models\Prodi;
 use App\Models\RefFakultas;
 use App\Models\User;
+use App\Services\Otentikasi\PasswordResetNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,9 +17,34 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
+/**
+ * Mengelola akun pengguna, sinkronisasi alumni, dan pemulihan kata sandi.
+ */
 class ManajemenAkunController extends Controller
 {
+    /**
+     * Role yang dapat menerima tautan reset dari Manajemen Akun Super Admin.
+     *
+     * @var array<int, string>
+     */
+    private const RESETTABLE_ROLES = [
+        'admin_biro3',
+        'admin_fakultas',
+        'admin_prodi',
+        'alumni',
+    ];
+
+    /**
+     * Menyiapkan service pengiriman tautan reset kata sandi.
+     *
+     * @param  PasswordResetNotificationService  $passwordResetNotificationService  Service reset kata sandi terpusat.
+     */
+    public function __construct(
+        private PasswordResetNotificationService $passwordResetNotificationService
+    ) {}
+
     /**
      * Tampilkan Halaman Manajemen Akun Pengguna
      */
@@ -152,51 +178,42 @@ class ManajemenAkunController extends Controller
     }
 
     /**
-     * Reset Password Otomatis ke Tanggal Lahir (ddmmyyyy) atau Password Default,
-     * sekaligus Mengirimkan Email Konfirmasi Pemulihan ke Email Terdaftar
+     * Mengirim tautan reset kata sandi ke akun admin atau alumni yang dipilih.
+     *
+     * Password baru ditetapkan oleh pemilik akun setelah membuka tautan email,
+     * sehingga password tidak pernah ditampilkan atau dikirim sebagai teks biasa.
+     *
+     * @param  int  $id  ID akun yang menerima tautan reset.
+     * @return RedirectResponse Redirect kembali dengan status keberhasilan atau error.
      */
-    public function resetToDefaultAndNotify(Request $request, $id)
+    public function sendPasswordResetLink(int $id): RedirectResponse
     {
         $user = User::findOrFail($id);
 
-        if ($user->role !== 'alumni') {
+        if (! in_array($user->role, self::RESETTABLE_ROLES, true)) {
             return back()->withErrors([
-                'reset' => 'Reset kredensial tanggal lahir hanya tersedia untuk akun alumni.',
+                'reset' => 'Akun ini tidak dapat menerima tautan reset dari Manajemen Akun.',
             ]);
         }
 
-        // 1. Cari tanggal lahir (ddmmyyyy) jika alumni
-        $newPasswordPlain = null;
-        if ($user->biodata && $user->biodata->tanggal_lahir) {
-            $newPasswordPlain = Carbon::parse($user->biodata->tanggal_lahir)->format('dmY');
-        } elseif ($user->biodata && $user->biodata->dataAkademik && $user->biodata->dataAkademik->tanggal_lahir) {
-            $newPasswordPlain = Carbon::parse($user->biodata->dataAkademik->tanggal_lahir)->format('dmY');
-        } else {
-            $dataAkad = DataAkademik::where('nim', $user->username)->first();
-            if ($dataAkad && $dataAkad->tanggal_lahir) {
-                $newPasswordPlain = Carbon::parse($dataAkad->tanggal_lahir)->format('dmY');
-            }
-        }
+        try {
+            $email = $this->passwordResetNotificationService->send($user);
+        } catch (Throwable $exception) {
+            report($exception);
 
-        if (! $newPasswordPlain) {
             return back()->withErrors([
-                'reset' => 'Tanggal lahir alumni belum tersedia. Gunakan alur lupa password melalui email.',
+                'reset' => 'Tautan reset gagal dikirim. Periksa email akun dan konfigurasi mail server.',
             ]);
         }
-
-        // 2. Reset password & set wajib ganti password awal (must_change_password = true)
-        $user->password = Hash::make($newPasswordPlain);
-        $user->must_change_password = true;
-        $user->save();
 
         // Catat Audit Trail ke tabel log_activities
         LogActivity::record(
-            'RESET_PASSWORD_DOB',
-            "Super Admin mereset kredensial awal akun {$user->name} (@{$user->username}).",
+            'REQUEST_PASSWORD_RESET',
+            "Super Admin mengirim tautan reset kata sandi untuk akun {$user->name} (@{$user->username}).",
             $user
         );
 
-        return back()->with('success', "Kredensial awal untuk {$user->name} berhasil direset. Pengguna wajib mengganti password setelah login.");
+        return back()->with('success', "Tautan reset kata sandi untuk {$user->name} telah dikirim ke {$email}.");
     }
 
     /**

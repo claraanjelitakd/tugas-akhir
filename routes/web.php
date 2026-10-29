@@ -195,11 +195,12 @@ Route::middleware('auth')->group(function () {
             // Manajemen Akun Mahasiswa / Alumni Prodi Sendiri
             Route::get('/prodi/manajemen-akun', [ManajemenAkunProdiController::class, 'index'])->name('prodi.manajemen-akun.index');
             Route::put('/prodi/manajemen-akun/{id}', [ManajemenAkunProdiController::class, 'update'])->name('prodi.manajemen-akun.update');
-            Route::post('/prodi/manajemen-akun/{id}/reset-default-notify', [ManajemenAkunProdiController::class, 'resetToDefaultAndNotify'])->name('prodi.manajemen-akun.reset-default-notify');
+            Route::post('/prodi/manajemen-akun/{id}/password-reset', [ManajemenAkunProdiController::class, 'sendPasswordResetLink'])->name('prodi.manajemen-akun.password-reset');
 
             // Sinkronisasi Profil LinkedIn Khusus Program Studi
             Route::get('/prodi/linkedin-sync', [LinkedInSyncController::class, 'index'])->name('prodi.linkedin-sync.index');
             Route::post('/prodi/linkedin-sync/batch', [LinkedInSyncController::class, 'syncBatch'])->name('prodi.linkedin-sync.batch');
+            Route::patch('/prodi/linkedin-sync/{id}/url', [LinkedInSyncController::class, 'updateUrl'])->name('prodi.linkedin-sync.url.update');
             Route::post('/prodi/linkedin-sync/{id}', [LinkedInSyncController::class, 'syncSingle'])->name('prodi.linkedin-sync.single');
             Route::get('/prodi/linkedin-sync/results/{id}', [LinkedInSyncController::class, 'showResult'])->name('prodi.linkedin-sync.result.show');
             Route::post('/prodi/linkedin-sync/results/{id}/approve', [LinkedInSyncController::class, 'approveResult'])->name('prodi.linkedin-sync.result.approve');
@@ -249,11 +250,12 @@ Route::middleware('auth')->group(function () {
             // Manajemen Akun Mahasiswa / Alumni Se-Fakultas
             Route::get('/fakultas/manajemen-akun', [ManajemenAkunFakultasController::class, 'index'])->name('fakultas.manajemen-akun.index');
             Route::put('/fakultas/manajemen-akun/{id}', [ManajemenAkunFakultasController::class, 'update'])->name('fakultas.manajemen-akun.update');
-            Route::post('/fakultas/manajemen-akun/{id}/reset-default-notify', [ManajemenAkunFakultasController::class, 'resetToDefaultAndNotify'])->name('fakultas.manajemen-akun.reset-default-notify');
+            Route::post('/fakultas/manajemen-akun/{id}/password-reset', [ManajemenAkunFakultasController::class, 'sendPasswordResetLink'])->name('fakultas.manajemen-akun.password-reset');
 
             // Sinkronisasi Profil LinkedIn Khusus Lingkup Fakultas
             Route::get('/fakultas/linkedin-sync', [LinkedInSyncController::class, 'index'])->name('fakultas.linkedin-sync.index');
             Route::post('/fakultas/linkedin-sync/batch', [LinkedInSyncController::class, 'syncBatch'])->name('fakultas.linkedin-sync.batch');
+            Route::patch('/fakultas/linkedin-sync/{id}/url', [LinkedInSyncController::class, 'updateUrl'])->name('fakultas.linkedin-sync.url.update');
             Route::post('/fakultas/linkedin-sync/{id}', [LinkedInSyncController::class, 'syncSingle'])->name('fakultas.linkedin-sync.single');
             Route::get('/fakultas/linkedin-sync/results/{id}', [LinkedInSyncController::class, 'showResult'])->name('fakultas.linkedin-sync.result.show');
             Route::post('/fakultas/linkedin-sync/results/{id}/approve', [LinkedInSyncController::class, 'approveResult'])->name('fakultas.linkedin-sync.result.approve');
@@ -338,7 +340,7 @@ Route::middleware('auth')->group(function () {
             // Manajemen Akun Terpadu & Pemulihan Kata Sandi (Admin Fakultas, Admin Prodi, Mahasiswa per Prodi)
             Route::get('/superadmin/manajemen-akun', [ManajemenAkunController::class, 'index'])->name('superadmin.manajemen-akun.index');
             Route::put('/superadmin/manajemen-akun/{id}', [ManajemenAkunController::class, 'update'])->name('superadmin.manajemen-akun.update');
-            Route::post('/superadmin/manajemen-akun/{id}/reset-default-notify', [ManajemenAkunController::class, 'resetToDefaultAndNotify'])->name('superadmin.manajemen-akun.reset-default-notify');
+            Route::post('/superadmin/manajemen-akun/{id}/password-reset', [ManajemenAkunController::class, 'sendPasswordResetLink'])->name('superadmin.manajemen-akun.password-reset');
             Route::post('/superadmin/manajemen-akun/sync-alumni', [ManajemenAkunController::class, 'syncAlumniAccounts'])->name('superadmin.manajemen-akun.sync-alumni');
 
             // Pengaturan Kuesioner Prodi (Superadmin Scope: Pilih Prodi lalu Kelola Section & Pertanyaan)
@@ -371,6 +373,7 @@ Route::middleware('auth')->group(function () {
             // Sinkronisasi LinkedIn Super Admin
             Route::get('/superadmin/linkedin-sync', [LinkedInSyncController::class, 'index'])->name('superadmin.linkedin-sync.index');
             Route::post('/superadmin/linkedin-sync/batch', [LinkedInSyncController::class, 'syncBatch'])->name('superadmin.linkedin-sync.batch');
+            Route::patch('/superadmin/linkedin-sync/{id}/url', [LinkedInSyncController::class, 'updateUrl'])->name('superadmin.linkedin-sync.url.update');
             Route::post('/superadmin/linkedin-sync/{id}', [LinkedInSyncController::class, 'syncSingle'])->name('superadmin.linkedin-sync.single');
             Route::get('/superadmin/linkedin-sync/results/{id}', [LinkedInSyncController::class, 'showResult'])->name('superadmin.linkedin-sync.result.show');
             Route::post('/superadmin/linkedin-sync/results/{id}/approve', [LinkedInSyncController::class, 'approveResult'])->name('superadmin.linkedin-sync.result.approve');

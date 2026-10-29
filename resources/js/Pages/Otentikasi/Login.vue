@@ -90,7 +90,7 @@ const submit = () => {
                             <div>
                                 <label for="password" class="mb-2 block text-sm font-bold">Kata sandi</label>
                                 <div class="relative">
-                                    <input id="password" v-model="form.password" :type="showPassword ? 'text' : 'password'" required placeholder="Masukkan kata sandi" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-12 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#0D542B] focus:ring-4 focus:ring-[#0D542B]/10" />
+                                    <input id="password" v-model="form.password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" required placeholder="Masukkan kata sandi" class="password-input w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-12 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#0D542B] focus:ring-4 focus:ring-[#0D542B]/10" />
                                     <button type="button" class="absolute inset-y-0 right-0 px-4 text-slate-400 hover:text-[#0D542B]" aria-label="Tampilkan kata sandi" @click="showPassword = !showPassword">
                                         <svg v-if="!showPassword" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7C7.523 19 3.732 16.057 2.458 12z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                         <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18M10.584 10.587a2 2 0 002.829 2.828M9.88 4.24A10.7 10.7 0 0112 4c4.478 0 8.268 2.943 9.542 7a10.7 10.7 0 01-4.04 5.496M6.228 6.228C4.466 7.555 3.154 9.17 2.458 12c.8 2.55 2.6 4.63 5.02 5.796"/></svg>
@@ -117,3 +117,12 @@ const submit = () => {
 
     </AuthBackdrop>
 </template>
+
+<style scoped>
+/* Sembunyikan ikon reveal bawaan browser agar hanya tombol visibilitas aplikasi yang tampil. */
+:global(input.password-input::-ms-reveal),
+:global(input.password-input::-ms-clear),
+:global(input.password-input::-webkit-textfield-decoration-container) {
+    display: none !important;
+}
+</style>

@@ -3,20 +3,32 @@
 namespace App\Http\Controllers\AdminFakultas;
 
 use App\Http\Controllers\Controller;
-use App\Models\DataAkademik;
 use App\Models\LogActivity;
 use App\Models\Prodi;
 use App\Models\RefFakultas;
 use App\Models\User;
-use Carbon\Carbon;
+use App\Services\Otentikasi\PasswordResetNotificationService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
+/**
+ * Mengelola akun alumni dalam lingkup fakultas admin yang sedang login.
+ */
 class ManajemenAkunFakultasController extends Controller
 {
+    /**
+     * Menyiapkan service pengiriman tautan reset kata sandi.
+     *
+     * @param  PasswordResetNotificationService  $passwordResetNotificationService  Service reset kata sandi terpusat.
+     */
+    public function __construct(
+        private PasswordResetNotificationService $passwordResetNotificationService
+    ) {}
+
     /**
      * Tampilkan Halaman Manajemen Akun Mahasiswa / Alumni Se-Fakultas
      */
@@ -104,43 +116,34 @@ class ManajemenAkunFakultasController extends Controller
     }
 
     /**
-     * Reset Password ke Tanggal Lahir (ddmmyyyy) oleh Admin Fakultas
+     * Mengirim tautan reset kata sandi kepada alumni dalam fakultas admin.
+     *
+     * @param  int  $id  ID akun alumni yang menerima tautan reset.
+     * @return RedirectResponse Redirect kembali dengan status keberhasilan atau error.
      */
-    public function resetToDefaultAndNotify(Request $request, $id)
+    public function sendPasswordResetLink(int $id): RedirectResponse
     {
         $adminUser = Auth::user();
         $prodiIdsInFakultas = Prodi::where('fakultas_id', $adminUser->fakultas_id)->pluck('id')->toArray();
         $user = User::whereIn('prodi_id', $prodiIdsInFakultas)->where('role', 'alumni')->findOrFail($id);
 
-        $newPasswordPlain = null;
-        if ($user->biodata && $user->biodata->tanggal_lahir) {
-            $newPasswordPlain = Carbon::parse($user->biodata->tanggal_lahir)->format('dmY');
-        } elseif ($user->biodata && $user->biodata->dataAkademik && $user->biodata->dataAkademik->tanggal_lahir) {
-            $newPasswordPlain = Carbon::parse($user->biodata->dataAkademik->tanggal_lahir)->format('dmY');
-        } else {
-            $dataAkad = DataAkademik::where('nim', $user->username)->first();
-            if ($dataAkad && $dataAkad->tanggal_lahir) {
-                $newPasswordPlain = Carbon::parse($dataAkad->tanggal_lahir)->format('dmY');
-            }
-        }
+        try {
+            $email = $this->passwordResetNotificationService->send($user);
+        } catch (Throwable $exception) {
+            report($exception);
 
-        if (! $newPasswordPlain) {
             return back()->withErrors([
-                'reset' => 'Tanggal lahir alumni belum tersedia. Gunakan alur lupa password melalui email.',
+                'reset' => 'Tautan reset gagal dikirim. Periksa email alumni dan konfigurasi mail server.',
             ]);
         }
 
-        $user->password = Hash::make($newPasswordPlain);
-        $user->must_change_password = true;
-        $user->save();
-
         // Catat Audit Trail ke tabel log_activities
         LogActivity::record(
-            'RESET_PASSWORD_DOB',
-            "Admin Fakultas mereset kredensial awal mahasiswa {$user->name} (@{$user->username}).",
+            'REQUEST_PASSWORD_RESET',
+            "Admin Fakultas mengirim tautan reset kata sandi untuk mahasiswa {$user->name} (@{$user->username}).",
             $user
         );
 
-        return back()->with('success', "Kredensial awal untuk {$user->name} berhasil direset. Alumni wajib mengganti password setelah login.");
+        return back()->with('success', "Tautan reset kata sandi untuk {$user->name} telah dikirim ke {$email}.");
     }
 }

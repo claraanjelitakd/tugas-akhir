@@ -53,7 +53,8 @@ class LinkedinTraceHelper
         $handledKeys = array_merge($handledKeys, ['li_profile_image_url', 'profile_picture', 'profilePicture', 'picture_url']);
 
         // 2. Posisi Jabatan / Job Title
-        $scrapedJob = $preview['current_job'] ?? ($item['job_title'] ?? ($item['jobTitle'] ?? ($item['headline'] ?? null)));
+        // Headline adalah teks branding profil, bukan sumber posisi atau jabatan.
+        $scrapedJob = $preview['current_job'] ?? ($item['job_title'] ?? ($item['jobTitle'] ?? null));
         $dbJob = $alumni->posisi_jabatan;
         $rows[] = [
             'key' => 'job_title',

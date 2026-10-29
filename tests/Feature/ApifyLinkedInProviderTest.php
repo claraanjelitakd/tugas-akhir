@@ -5,9 +5,12 @@ namespace Tests\Feature;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\LinkedinSyncResult;
+use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\User;
+use App\Services\Alumni\AlumniDirectoryQueryService;
+use App\Services\Alumni\LinkedinTraceHelper;
 use App\Services\LinkedIn\Contracts\LinkedInProfileProvider;
 use App\Services\LinkedIn\Exceptions\LinkedInProfileNotFoundException;
 use App\Services\LinkedIn\Exceptions\LinkedInSyncException;
@@ -15,6 +18,7 @@ use App\Services\LinkedIn\Providers\ApifyLinkedInProvider;
 use App\Services\LinkedIn\Providers\MockLinkedInProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -410,6 +414,92 @@ class ApifyLinkedInProviderTest extends TestCase
     // -------------------------------------------------------------------------
     // Test 18: Sync Single Saves As Pending Without Modifying Biodata
     // -------------------------------------------------------------------------
+    /**
+     * Memastikan Super Admin dapat mengganti URL LinkedIn sebelum sinkronisasi.
+     */
+    public function test_superadmin_can_update_linkedin_url_before_sync(): void
+    {
+        $alumni = $this->createAlumni('71190000', 'Alumni URL', 'https://www.linkedin.com/in/url-lama');
+        $newUrl = 'https://www.linkedin.com/in/url-baru';
+
+        $response = $this->actingAs($this->superadmin)
+            ->patchJson(route('superadmin.linkedin-sync.url.update', $alumni), [
+                'linkedin_url' => $newUrl,
+            ]);
+
+        $response->assertOk()->assertJson([
+            'success' => true,
+            'linkedin_url' => $newUrl,
+        ]);
+
+        $this->assertDatabaseHas('biodata', [
+            'id' => $alumni->id,
+            'linkedin_url' => $newUrl,
+        ]);
+    }
+
+    /**
+     * Memastikan URL non-profil LinkedIn ditolak dan URL lama tetap tersimpan.
+     */
+    public function test_superadmin_cannot_update_linkedin_url_with_invalid_profile_url(): void
+    {
+        $oldUrl = 'https://www.linkedin.com/in/url-lama';
+        $alumni = $this->createAlumni('71190000', 'Alumni URL Invalid', $oldUrl);
+
+        $response = $this->actingAs($this->superadmin)
+            ->patchJson(route('superadmin.linkedin-sync.url.update', $alumni), [
+                'linkedin_url' => 'https://example.com/not-linkedin',
+            ]);
+
+        $response->assertUnprocessable()->assertJson([
+            'success' => false,
+        ]);
+
+        $this->assertDatabaseHas('biodata', [
+            'id' => $alumni->id,
+            'linkedin_url' => $oldUrl,
+        ]);
+    }
+
+    /**
+     * Memastikan daftar alumni menampilkan akun pemicu sinkronisasi dan waktu Jakarta.
+     */
+    public function test_alumni_directory_shows_sync_actor_and_local_time(): void
+    {
+        Config::set('app.timezone', 'Asia/Jakarta');
+
+        $alumni = $this->createAlumni('71190000', 'Alumni Directory Sync');
+        $result = LinkedinSyncResult::create([
+            'biodata_id' => $alumni->id,
+            'linkedin_url' => $alumni->linkedin_url,
+            'scraped_data' => [],
+            'status' => 'pending',
+            'scraped_at' => '2026-10-29 20:59:00',
+        ]);
+
+        LogActivity::create([
+            'user_id' => $this->superadmin->id,
+            'action' => 'linkedin_sync_apify',
+            'model_type' => Biodata::class,
+            'model_id' => $alumni->id,
+            'description' => 'Sinkronisasi LinkedIn untuk pengujian.',
+            'new_values' => ['sync_result_id' => $result->id],
+        ]);
+
+        $directory = app(AlumniDirectoryQueryService::class)->getDirectoryData(
+            Request::create('/superadmin/alumni', 'GET', [
+                'tahun' => '2024',
+                'per_page' => 10,
+            ]),
+            ['server_pagination' => true],
+        );
+        $row = collect($directory['alumnis'])->firstWhere('id', $alumni->id);
+
+        $this->assertNotNull($row);
+        $this->assertSame('Super Administrator Apify', $row['linkedin_sync']['initiator_name']);
+        $this->assertSame('30/10/2026 03:59', $row['linkedin_sync']['waktu_terakhir']);
+    }
+
     public function test_18_sync_single_saves_to_linkedin_sync_results_as_pending_without_modifying_biodata(): void
     {
         Config::set('services.linkedin.provider', 'apify');
@@ -612,6 +702,38 @@ class ApifyLinkedInProviderTest extends TestCase
         $fresh = $alumni->fresh(['perusahaan']);
         $this->assertNotNull($fresh->posisi_jabatan);
         $this->assertNotNull($fresh->perusahaan);
+    }
+
+    /**
+     * Memastikan headline LinkedIn tidak dipakai sebagai posisi atau jabatan.
+     * Jabatan harus berasal dari pengalaman kerja atau metadata jabatan eksplisit.
+     */
+    public function test_preview_uses_experience_title_instead_of_headline_for_job_position(): void
+    {
+        $alumni = $this->createAlumni('71190008', 'Andhika Galuh');
+
+        $result = LinkedinSyncResult::create([
+            'biodata_id' => $alumni->id,
+            'linkedin_url' => $alumni->linkedin_url,
+            'scraped_data' => [[
+                'headline' => 'ridging technology, governance, and innovation to create meaningful impact.',
+                'past_job_title' => 'Business Consultant',
+                'experiences' => [[
+                    'title' => 'Business Consultant',
+                    'date' => 'Jan 2014 - Dec 2015',
+                ]],
+            ]],
+            'status' => 'pending',
+            'scraped_at' => now(),
+        ]);
+
+        $preview = $result->preview;
+        $traceMapping = LinkedinTraceHelper::buildTraceMapping($alumni, $result);
+        $jobMapping = collect($traceMapping)->firstWhere('key', 'job_title');
+
+        $this->assertSame('Business Consultant', $preview['current_job']);
+        $this->assertNotSame($preview['headline'], $preview['current_job']);
+        $this->assertSame('Business Consultant', $jobMapping['scraped_value']);
     }
 
     // -------------------------------------------------------------------------

@@ -262,23 +262,12 @@ class LinkedinSyncResult extends Model
             $currentJob = trim($item['job_title']);
         }
 
-        // 3. Jika currentJob belum didapat tapi ada headline, ekstrak jabatan saat ini dari headline
-        if (! $currentJob && ! empty($item['headline'])) {
-            $rawHeadline = trim($item['headline']);
-            $segments = preg_split('/\s*\|\s*|\s*•\s*/', $rawHeadline);
-            if (! empty($segments[0])) {
-                $firstSegment = trim($segments[0]);
-                if (preg_match('/^(.*?)\s+(?:at|di)\s+/i', $firstSegment, $matches)) {
-                    $currentJob = trim($matches[1]);
-                } else {
-                    $currentJob = $firstSegment;
-                }
-            } else {
-                $currentJob = $rawHeadline;
-            }
+        // 3. Gunakan jabatan eksplisit dari metadata atau pengalaman kerja.
+        if (! $currentJob && ! empty($item['past_job_title'])) {
+            $currentJob = trim($item['past_job_title']);
         }
 
-        // 4. Fallback jika tidak ada data aktif dan root company kosong
+        // 4. Fallback terakhir memakai pengalaman kerja pertama yang memiliki jabatan.
         if (! $currentJob && $firstJob) {
             $currentJob = $firstJob;
         }
