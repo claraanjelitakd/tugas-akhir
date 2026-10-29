@@ -440,7 +440,7 @@ class SuperAdminAnalyticsTest extends TestCase
     }
 
     /**
-     * Memastikan payload response rate menyediakan data populasi, responden, belum mengisi, target, dan kriteria.
+     * Memastikan payload response rate menyediakan data populasi, responden, belum mengisi, dan target.
      */
     public function test_response_rate_chart_returns_enhanced_payload(): void
     {
@@ -493,6 +493,21 @@ class SuperAdminAnalyticsTest extends TestCase
 
         $this->assertSame(75.0, (float) $result['chart']['summary']['target']);
         $this->assertArrayHasKey('target_gap', $result['chart']['summary']);
+    }
+
+    /**
+     * Filter semua tahun tersedia, sedangkan tanpa parameter tetap memakai tahun berjalan.
+     */
+    public function test_all_year_filter_is_available_and_current_year_remains_default(): void
+    {
+        $service = app(TracerAnalyticsService::class);
+
+        $defaultResult = $service->buildUniversityChart('response_rate');
+        $allYearsResult = $service->buildUniversityChart('response_rate', 'ALL');
+
+        $this->assertSame((string) now()->year, $defaultResult['filters']['selected_year']);
+        $this->assertSame('ALL', $allYearsResult['filters']['selected_year']);
+        $this->assertSame('ALL', $allYearsResult['filters']['available_years'][0]);
     }
 
     /**

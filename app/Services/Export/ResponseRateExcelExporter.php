@@ -31,7 +31,7 @@ class ResponseRateExcelExporter
         }
 
         $query = DB::table('v_analytics_response_rate')
-            ->where('tahun_lulus', $year)
+            ->when($year !== 'ALL', fn ($q) => $q->where('tahun_lulus', $year))
             ->when($prodiId, fn ($q) => $q->where('prodi_id', $prodiId));
 
         if ($statusKey === 'sudah') {
@@ -84,7 +84,7 @@ class ResponseRateExcelExporter
         $summaryRows = collect();
         if ($status === 'all') {
             $summaryQuery = DB::table('v_analytics_response_rate')
-                ->where('tahun_lulus', $year)
+                ->when($year !== 'ALL', fn ($q) => $q->where('tahun_lulus', $year))
                 ->when($prodiId, fn ($q) => $q->where('prodi_id', $prodiId));
 
             $allRows = $summaryQuery->get();
@@ -102,7 +102,6 @@ class ResponseRateExcelExporter
                     'belum' => $belum,
                     'pct_sudah' => $pctSudah,
                     'pct_belum' => $pctBelum,
-                    'kriteria' => $pctSudah >= 70 ? 'Sangat Baik' : ($pctSudah >= 60 ? 'Memenuhi Target' : 'Perlu Peningkatan'),
                 ];
             })->sortByDesc('pct_sudah')->values();
         }
@@ -276,7 +275,6 @@ class ResponseRateExcelExporter
     <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Belum Mengisi</Data></Cell>
     <Cell ss:StyleID="TableHeader"><Data ss:Type="String">% Sudah</Data></Cell>
     <Cell ss:StyleID="TableHeader"><Data ss:Type="String">% Belum</Data></Cell>
-    <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Kriteria Capaian</Data></Cell>
    </Row>
 
    <!-- Rows Data -->
@@ -297,7 +295,6 @@ class ResponseRateExcelExporter
     <Cell ss:StyleID="TableBodyRight"><Data ss:Type="Number"><?= $sRow['belum'] ?></Data></Cell>
     <Cell ss:StyleID="TableBodyRight"><Data ss:Type="String"><?= number_format($sRow['pct_sudah'], 1, ',', '.') ?>%</Data></Cell>
     <Cell ss:StyleID="TableBodyRight"><Data ss:Type="String"><?= number_format($sRow['pct_belum'], 1, ',', '.') ?>%</Data></Cell>
-    <Cell ss:StyleID="TableBodyCenter"><Data ss:Type="String"><?= $sRow['kriteria'] ?></Data></Cell>
    </Row>
    <?php } ?>
 
@@ -314,7 +311,6 @@ class ResponseRateExcelExporter
     <Cell ss:StyleID="TableTotal"><Data ss:Type="Number"><?= $totalBelum ?></Data></Cell>
     <Cell ss:StyleID="TableTotal"><Data ss:Type="String"><?= number_format($totalPctSudah, 1, ',', '.') ?>%</Data></Cell>
     <Cell ss:StyleID="TableTotal"><Data ss:Type="String"><?= number_format($totalPctBelum, 1, ',', '.') ?>%</Data></Cell>
-    <Cell ss:StyleID="TableTotal"><Data ss:Type="String"><?= $totalPctSudah >= 70 ? 'Sangat Baik' : ($totalPctSudah >= 60 ? 'Memenuhi Target' : 'Perlu Peningkatan') ?></Data></Cell>
    </Row>
   </Table>
  </Worksheet>

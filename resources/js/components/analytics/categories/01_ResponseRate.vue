@@ -26,6 +26,7 @@ import {
 // Kontrak properti data indikator, filter aktif, dan status pemuatan data.
 const props = defineProps({
     chart: { type: Object, default: () => ({}) },
+    selectedYear: { type: String, default: '' },
     selectedLabel: { type: String, default: '' },
     loading: { type: Boolean, default: false },
 });
@@ -52,7 +53,9 @@ const forceShowTable = ref(false);
 // Ekstraksi data seri program studi dan catatan alumni dari payload.
 const series = computed(() => props.chart?.series || []);
 const records = computed(() => props.chart?.records || []);
-const activeYear = computed(() => records.value[0]?.tahun_lulus || String(new Date().getFullYear()));
+const activeYear = computed(() => props.selectedYear === 'ALL'
+    ? 'Semua Tahun'
+    : (props.selectedYear || records.value[0]?.tahun_lulus || String(new Date().getFullYear())));
 
 // Target response rate dinamis dari backend summary atau item seri (default: 60%)
 const currentTarget = computed(() => {
@@ -69,8 +72,6 @@ const displaySeries = computed(() => {
         const unansRate = pop > 0 ? Number(((unans / pop) * 100).toFixed(1)) : 0;
         const target = Number(item.target ?? currentTarget.value);
         const gap = Number(item.target_gap ?? Number((rate - target).toFixed(1)));
-        const criteria = item.criteria || (rate >= (target + 10) ? 'Sangat Baik' : (rate >= target ? 'Memenuhi Target' : 'Perlu Peningkatan'));
-
         return {
             prodi_id: item.prodi_id,
             nama_prodi: item.nama_prodi || 'Tanpa prodi',
@@ -81,7 +82,6 @@ const displaySeries = computed(() => {
             unanswered_rate: unansRate,
             target,
             target_gap: gap,
-            criteria,
         };
     });
 });
@@ -118,7 +118,6 @@ const naturalSummary = computed(() => {
     const list = [...displaySeries.value].sort((a, b) => b.response_rate - a.response_rate);
     const highest = list[0];
     const lowest = list[list.length - 1];
-    const aboveTargetCount = list.filter((item) => item.response_rate >= target).length;
     const totalProdi = list.length;
 
     // --- ANALISIS MODE 1: 100% STACKED BAR (DISTRIBUSI KOMPOSISI) ---
@@ -145,32 +144,28 @@ const naturalSummary = computed(() => {
         };
     }
 
-    // --- ANALISIS MODE 2: RANKING & TARGET (CAPAIAN AMBANG STANDAR) ---
+    // --- ANALISIS MODE 2: RANKING & TARGET ---
     if (selectedProdiItem.value) {
         const p = selectedProdiItem.value;
         const pGapSign = p.target_gap >= 0 ? '+' : '';
-        const isMet = p.target_gap >= 0;
         const rankIndex = list.findIndex((item) => item.nama_prodi === p.nama_prodi) + 1;
         return {
-            title: `Kilas Evaluasi Target · ${p.nama_prodi}`,
-            statusBadge: p.criteria,
-            badgeClass: isMet ? 'bg-white text-[#0D542B] border border-[#0D542B]/30' : 'bg-white text-[#7A5B00] border border-[#D6A928]/60',
+            title: `Kilas Ranking · ${p.nama_prodi}`,
+            statusBadge: `${formatNumber(p.response_rate, 1)}% Response Rate`,
+            badgeClass: 'bg-white text-[#0D542B] border border-[#0D542B]/30',
             lead: `Program studi ${p.nama_prodi} menempati peringkat ${rankIndex} dari ${totalProdi} program studi dengan response rate ${formatNumber(p.response_rate, 1)}% (${pGapSign}${formatNumber(p.target_gap, 1)}% terhadap target standar ${formatNumber(p.target, 1)}%).`,
-            detail: isMet
-                ? `Capaian ini memenuhi standar kinerja universitas dengan predikat ${p.criteria}. Sebanyak ${formatNumber(p.respondents, 0)} alumni telah tercatat sebagai responden valid.`
-                : `Capaian ini masih berada di bawah ambang target standar sebesar ${Math.abs(p.target_gap)}%. Diperlukan tindak lanjut untuk mencapai target minimal ${formatNumber(p.target, 1)}%.`,
+            detail: `Sebanyak ${formatNumber(p.respondents, 0)} alumni telah tercatat sebagai responden valid. Selisih terhadap target standar adalah ${pGapSign}${formatNumber(p.target_gap, 1)}%.`,
         };
     }
 
-    const isUnivMet = gap >= 0;
     return {
-        title: `Kilas Evaluasi Target & Ranking Kohort ${year}`,
-        statusBadge: isUnivMet ? 'Target Standar Terlampaui' : 'Perlu Peningkatan',
-        badgeClass: isUnivMet ? 'bg-white text-[#0D542B] border border-[#0D542B]/30' : 'bg-white text-[#7A5B00] border border-[#D6A928]/60',
-        lead: `Sebanyak ${aboveTargetCount} dari ${totalProdi} program studi berhasil melampaui target standar universitas (${formatNumber(target, 1)}%), dengan rata-rata selisih universitas ${gapSign}${formatNumber(gap, 1)}% (Capaian: ${formatNumber(rate, 1)}%).`,
+        title: `Kilas Ranking Response Rate · ${year}`,
+        statusBadge: `${formatNumber(rate, 1)}% Response Rate`,
+        badgeClass: 'bg-white text-[#0D542B] border border-[#0D542B]/30',
+        lead: `Response rate universitas tercatat ${formatNumber(rate, 1)}% dengan selisih ${gapSign}${formatNumber(gap, 1)}% terhadap target standar ${formatNumber(target, 1)}%.`,
         detail: highest && lowest && highest.nama_prodi !== lowest.nama_prodi
-            ? `Peringkat pertama dipimpin oleh ${highest.nama_prodi} (${formatNumber(highest.response_rate, 1)}%, surplus +${formatNumber(highest.target_gap, 1)}%), sementara ${lowest.nama_prodi} berada pada peringkat terbawah (${formatNumber(lowest.response_rate, 1)}%, selisih ${lowest.target_gap}%). Garis putus-putus abu-abu gelap menandai batas minimal target.`
-            : 'Garis putus-putus abu-abu gelap menandai batas minimal target kepatuhan universitas.',
+            ? `Peringkat pertama dipimpin oleh ${highest.nama_prodi} (${formatNumber(highest.response_rate, 1)}%), sementara ${lowest.nama_prodi} berada pada peringkat terbawah (${formatNumber(lowest.response_rate, 1)}%). Garis target menunjukkan ambang pembanding universitas.`
+            : 'Garis target menunjukkan ambang pembanding universitas.',
     };
 });
 
@@ -336,9 +331,6 @@ const rankingChartOption = computed(() => {
                         <div style="display: flex; justify-content: space-between; gap: 16px; color: #7A5B00;"><span>Target Standar:</span><strong>${formatNumber(item.target, 1)}%</strong></div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; font-weight: 700; color: ${item.target_gap >= 0 ? '#0D542B' : '#7A5B00'};">
                             <span>Selisih Target:</span><strong>${gapSign}${formatNumber(item.target_gap, 1)}%</strong>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; gap: 16px; margin-top: 4px; border-top: 1px solid #E2E8F0; padding-top: 4px;">
-                            <span>Kriteria:</span><strong>${escapeHtml(item.criteria)}</strong>
                         </div>
                     </div>
                 `;
@@ -517,7 +509,7 @@ const downloadExcel = (statusTarget = null) => {
                     <div class="flex items-center gap-2">
                         <span class="rounded bg-white px-2 py-0.5 text-xs font-bold text-[#0D542B] border border-[#0D542B]/25">Indikator 01</span>
                         <h3 class="text-base font-extrabold text-slate-900">
-                            {{ activeChartTab === 'stacked' ? 'Distribusi Komposisi Responden (100% Stacked)' : 'Ranking Response Rate & Kriteria Capaian' }}
+                            {{ activeChartTab === 'stacked' ? 'Distribusi Komposisi Responden (100% Stacked)' : 'Ranking Response Rate' }}
                         </h3>
                     </div>
                     <p class="mt-1 text-xs text-slate-500">

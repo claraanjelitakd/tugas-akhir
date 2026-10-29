@@ -16,6 +16,9 @@ use Illuminate\Support\Facades\DB;
  */
 class TracerAnalyticsService
 {
+    /** Sentinel filter value that includes every available graduation year. */
+    private const ALL_YEARS = 'ALL';
+
     /**
      * Kode pertanyaan yang dipakai untuk indikator analitik tahap pertama.
      *
@@ -366,7 +369,7 @@ class TracerAnalyticsService
      */
     private function availableYears(): array
     {
-        return DB::table('data_akademik')
+        $years = DB::table('data_akademik')
             ->whereNotNull('tahun_lulus')
             ->pluck('tahun_lulus')
             ->filter()
@@ -376,6 +379,8 @@ class TracerAnalyticsService
             ->sortDesc()
             ->values()
             ->all();
+
+        return [self::ALL_YEARS, ...$years];
     }
 
     /**
@@ -388,7 +393,7 @@ class TracerAnalyticsService
     {
         return DB::table('biodata')
             ->join('data_akademik', 'data_akademik.nim', '=', 'biodata.nim')
-            ->where('data_akademik.tahun_lulus', $selectedYear)
+            ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('data_akademik.tahun_lulus', $selectedYear))
             ->when($prodiId, fn ($query) => $query->where('biodata.prodi_id', $prodiId))
             ->count();
     }
@@ -468,7 +473,7 @@ class TracerAnalyticsService
     {
         if (isset(self::QUESTION_CHART_VIEWS[$chartKey])) {
             return DB::table(self::QUESTION_CHART_VIEWS[$chartKey])
-                ->where('tahun_lulus', $selectedYear)
+                ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
                 ->when($prodiId, fn ($query) => $query->where('prodi_id', $prodiId))
                 ->get();
         }
@@ -485,7 +490,7 @@ class TracerAnalyticsService
         };
 
         return DB::table($view)
-            ->where('tahun_lulus', $selectedYear)
+            ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
             ->when($prodiId, fn ($query) => $query->where('prodi_id', $prodiId))
             ->when($chartKey === 'salary_vs_ump', fn ($query) => $query->where(function ($umpQuery) use ($selectedUmpYear): void {
                 $umpQuery->where('ump_year', $selectedUmpYear)->orWhereNull('ump_year');
@@ -1037,7 +1042,7 @@ class TracerAnalyticsService
     private function alumniRows(string $selectedYear, ?int $prodiId): Collection
     {
         return DB::table('v_analytics_response_rate')
-            ->where('tahun_lulus', $selectedYear)
+            ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
             ->when($prodiId, fn ($query) => $query->where('prodi_id', $prodiId))
             ->get();
     }
@@ -1567,11 +1572,6 @@ class TracerAnalyticsService
             $rate = $this->percentage($respondents, $population);
             $unansweredRate = $this->percentage($unanswered, $population);
             $gap = round($rate - $target, 1);
-            $criteria = match (true) {
-                $rate >= ($target + 10.0) => 'Sangat Baik',
-                $rate >= $target => 'Memenuhi Target',
-                default => 'Perlu Peningkatan',
-            };
 
             return [
                 'prodi_id' => (int) $prodiRows->first()->prodi_id,
@@ -1583,7 +1583,6 @@ class TracerAnalyticsService
                 'unanswered_rate' => $unansweredRate,
                 'target' => $target,
                 'target_gap' => $gap,
-                'criteria' => $criteria,
             ];
         })->sortByDesc('response_rate')->values()->all();
     }

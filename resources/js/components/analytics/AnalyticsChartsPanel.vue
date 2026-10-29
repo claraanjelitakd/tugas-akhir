@@ -30,6 +30,7 @@ const WorkLocation = defineAsyncComponent(() => import('./categories/18_WorkLoca
 const props = defineProps({
     chart: { type: Object, default: () => ({}) },
     selectedChart: { type: String, default: 'response_rate' },
+    selectedYear: { type: String, default: '' },
     availableUmpYears: { type: Array, default: () => [] },
     selectedUmpYear: { type: String, default: '' },
     selectedLabel: { type: String, default: '' },
@@ -140,6 +141,7 @@ watch(() => props.selectedChart, () => {
                 :is="activeComponent"
                 :chart="chart"
                 :selected-label="selectedLabel"
+                :selected-year="selectedYear"
                 :heatmap-mode="heatmapMode"
                 :available-ump-years="availableUmpYears"
                 :selected-ump-year="selectedUmpYear"

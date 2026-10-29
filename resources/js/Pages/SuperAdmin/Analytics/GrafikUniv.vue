@@ -873,7 +873,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                         <label class="block text-xs font-bold uppercase tracking-wide text-slate-500">
                             Tahun lulusan
                             <select id="select-year" name="year" v-model="selectedYear" class="mt-2 block w-full rounded bg-slate-100 px-3 py-3 text-sm font-bold normal-case text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-[#0D542B]" @change="scheduleLoad()">
-                                <option v-for="year in currentAnalytics.filters?.available_years || []" :key="year" :value="String(year)">{{ year }}</option>
+                                <option v-for="year in currentAnalytics.filters?.available_years || []" :key="year" :value="String(year)">{{ year === 'ALL' ? 'Semua Tahun' : year }}</option>
                             </select>
                         </label>
                         <label class="block min-w-0 text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -977,6 +977,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                         <AnalyticsChartsPanel
                             :chart="chart"
                             :selected-chart="selectedChart"
+                            :selected-year="selectedYear"
                             :selected-label="selectedItem?.label || ''"
                             :available-ump-years="currentAnalytics.filters?.available_ump_years || []"
                             :selected-ump-year="selectedUmpYear"
