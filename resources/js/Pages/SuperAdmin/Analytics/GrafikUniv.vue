@@ -969,7 +969,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                 <template v-else>
                     <!-- Navigasi dua fungsi utama: Grafik dan Data (Analisis terintegrasi langsung pada grafik) -->
                     <nav class="flex gap-1 bg-white p-1.5 rounded-xl border border-slate-200" role="tablist" aria-label="Tampilan analitik">
-                        <button v-for="panel in (selectedChart === 'response_rate' ? [{ key: 'charts', label: 'Grafik' }] : [{ key: 'charts', label: 'Grafik' }, { key: 'data', label: 'Data' }])" :key="panel.key" type="button" role="tab" :aria-selected="activePanel === panel.key" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition-all cursor-pointer" :class="activePanel === panel.key ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'" @click="activePanel = panel.key">{{ panel.label }}</button>
+                        <button v-for="panel in [{ key: 'charts', label: 'Grafik' }, { key: 'data', label: 'Data' }]" :key="panel.key" type="button" role="tab" :aria-selected="activePanel === panel.key" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition-all cursor-pointer" :class="activePanel === panel.key ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'" @click="activePanel = panel.key">{{ panel.label }}</button>
                     </nav>
 
                     <!-- Panel Grafik ECharts Utama Tanpa Suspense -->
