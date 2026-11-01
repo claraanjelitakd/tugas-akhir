@@ -10,13 +10,13 @@ use Illuminate\Database\Eloquent\Model;
  *
  * Mengelola data master riwayat akademik mahasiswa/alumni UKDW.
  * Merupakan Single Source of Truth untuk:
- * - Identitas master (nama, tempat/tanggal lahir, jenis kelamin, agama, golongan darah, warga negara)
- * - Identitas pendukung akademik (nisn, no_bpjs)
+ * - Identitas master (nama, tempat/tanggal lahir, jenis kelamin, warga negara)
  * - Riwayat akademik (angkatan, IPK, total SKS, status kelulusan, tahun & periode kelulusan)
  * - Email resmi mahasiswa (email_students)
  *
  * Kontak dan domisili aktif alumni berada di Biodata agar tidak ada dua sumber
  * perubahan untuk alamat, telepon, email pribadi, dan wilayah tempat tinggal.
+ * Kolom no_bpjs, golongan_darah, agama, dan nisn dihapus sesuai kepatuhan privasi UU PDP No. 27/2022.
  */
 class DataAkademik extends Model
 {
@@ -30,13 +30,9 @@ class DataAkademik extends Model
         'angkatan_masuk',
         'tempat_lahir',
         'tanggal_lahir',
-        'agama',
         'jenis_kelamin',
-        'golongan_darah',
         'warga_negara',
         'email_students',
-        'nisn',
-        'no_bpjs',
         'asal_sekolah',
         'alamat_asal_sekolah',
         'kota_kabupaten_asal_sekolah',

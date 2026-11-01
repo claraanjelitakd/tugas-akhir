@@ -441,12 +441,28 @@ class MasterWilayahController extends Controller
      */
     public function getKabupatenByProvinsi(int $propinsiId): JsonResponse
     {
-        $kabupatens = Cache::remember("wilayah:kabupaten:prov_{$propinsiId}", 86400, function () use ($propinsiId) {
-            return Kabupaten::select('id', 'propinsi_id', 'nama_kabupaten')
-                ->where('propinsi_id', $propinsiId)
-                ->orderBy('nama_kabupaten')
-                ->get();
-        });
+        $cacheKey = "wilayah:kabupaten:prov_{$propinsiId}";
+
+        try {
+            $cached = Cache::get($cacheKey);
+            if (is_array($cached)) {
+                return response()->json($cached);
+            }
+        } catch (\Throwable) {
+            Cache::forget($cacheKey);
+        }
+
+        $kabupatens = Kabupaten::select('id', 'propinsi_id', 'nama_kabupaten')
+            ->where('propinsi_id', $propinsiId)
+            ->orderBy('nama_kabupaten')
+            ->get()
+            ->toArray();
+
+        try {
+            Cache::put($cacheKey, $kabupatens, 86400);
+        } catch (\Throwable) {
+            // Abaikan error penyimpanan cache jika terjadi kendala driver
+        }
 
         return response()->json($kabupatens);
     }

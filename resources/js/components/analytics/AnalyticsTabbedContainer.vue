@@ -460,6 +460,22 @@ const drillDownSearch = ref('');
 const drillDownPage = ref(1);
 const drillDownPageSize = 8;
 
+const drillDownHasCompany = computed(() => {
+    return drillDownRecords.value.some((r) => r.nama_perusahaan && r.nama_perusahaan !== '-');
+});
+
+const drillDownHasRegionalSplit = computed(() => {
+    return drillDownRecords.value.some((r) =>
+        (r.provinsi && r.provinsi !== '-') ||
+        (r.kabupaten && r.kabupaten !== '-') ||
+        (r.negara && r.negara !== '-')
+    );
+});
+
+const drillDownHasRegion = computed(() => {
+    return drillDownRecords.value.some((r) => (r.wilayah && r.wilayah !== '-') || (r.province_name && r.province_name !== '-') || (r.skala && r.skala !== '-'));
+});
+
 const filteredDrillDownRecords = computed(() => {
     const q = drillDownSearch.value.trim().toLowerCase();
     if (!q) return drillDownRecords.value;
@@ -467,7 +483,13 @@ const filteredDrillDownRecords = computed(() => {
     return drillDownRecords.value.filter((r) => {
         return String(r.nama || '').toLowerCase().includes(q)
             || String(r.nim || '').toLowerCase().includes(q)
-            || String(r.nama_prodi || '').toLowerCase().includes(q);
+            || String(r.nama_prodi || '').toLowerCase().includes(q)
+            || String(r.nama_perusahaan || '').toLowerCase().includes(q)
+            || String(r.provinsi || '').toLowerCase().includes(q)
+            || String(r.kabupaten || '').toLowerCase().includes(q)
+            || String(r.negara || '').toLowerCase().includes(q)
+            || String(r.wilayah || '').toLowerCase().includes(q)
+            || String(r.province_name || '').toLowerCase().includes(q);
     });
 });
 
@@ -663,6 +685,13 @@ watch(() => props.selectedLabel, () => {
                                 <th class="p-2 font-bold">Nama Alumni</th>
                                 <th class="p-2 font-bold">NIM</th>
                                 <th class="p-2 font-bold">Program Studi</th>
+                                <th v-if="drillDownHasCompany" class="p-2 font-bold">Nama Perusahaan / Usaha</th>
+                                <template v-if="drillDownHasRegionalSplit">
+                                    <th class="p-2 font-bold">Provinsi</th>
+                                    <th class="p-2 font-bold">Kabupaten / Kota</th>
+                                    <th class="p-2 font-bold">Negara</th>
+                                </template>
+                                <th v-else-if="drillDownHasRegion" class="p-2 font-bold">Wilayah / Region</th>
                                 <th class="p-2 font-bold">Keterangan / Jawaban</th>
                             </tr>
                         </thead>
@@ -671,6 +700,35 @@ watch(() => props.selectedLabel, () => {
                                 <td class="p-2 font-semibold text-slate-900">{{ rec.nama || '-' }}</td>
                                 <td class="p-2 font-mono text-slate-600">{{ rec.nim || '-' }}</td>
                                 <td class="p-2 text-slate-700">{{ rec.nama_prodi || '-' }}</td>
+                                <td v-if="drillDownHasCompany" class="p-2 font-medium text-slate-900">
+                                    {{ rec.nama_perusahaan || '-' }}
+                                </td>
+                                <template v-if="drillDownHasRegionalSplit">
+                                    <td class="p-2 text-slate-700">
+                                        {{ rec.provinsi || '-' }}
+                                    </td>
+                                    <td class="p-2 text-slate-700">
+                                        {{ rec.kabupaten || '-' }}
+                                    </td>
+                                    <td class="p-2 text-slate-700">
+                                        <span v-if="rec.negara && rec.negara !== '-'" class="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-700">
+                                            {{ rec.negara }}
+                                        </span>
+                                        <span v-else>-</span>
+                                    </td>
+                                </template>
+                                <td v-else-if="drillDownHasRegion" class="p-2 text-slate-600">
+                                    <span v-if="rec.wilayah && rec.wilayah !== '-'" class="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                        {{ rec.wilayah }}
+                                    </span>
+                                    <span v-else-if="rec.province_name && rec.province_name !== '-'" class="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                        {{ rec.province_name }}
+                                    </span>
+                                    <span v-else-if="rec.skala && rec.skala !== '-'" class="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                        {{ rec.skala }}
+                                    </span>
+                                    <span v-else>-</span>
+                                </td>
                                 <td class="p-2 font-medium text-[#0D542B]">{{ recordDisplayAnswer(rec) }}</td>
                             </tr>
                         </tbody>

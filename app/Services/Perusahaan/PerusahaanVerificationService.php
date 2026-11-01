@@ -79,6 +79,38 @@ class PerusahaanVerificationService
             $query->where('status_verifikasi', $status);
         }
 
+        if (! empty($filters['negara']) && $filters['negara'] !== 'all') {
+            if ($filters['negara'] === 'Luar Negeri') {
+                $query->where('jenis_lokasi', 'Luar Negeri');
+            } else {
+                $query->where('negara', $filters['negara']);
+            }
+        }
+
+        if (! empty($filters['propinsi_id'])) {
+            $query->where('propinsi_id', $filters['propinsi_id']);
+        }
+
+        if (! empty($filters['kabupaten_id'])) {
+            $query->where('kabupaten_id', $filters['kabupaten_id']);
+        }
+
+        if (! empty($filters['negara']) && $filters['negara'] !== 'all') {
+            if ($filters['negara'] === 'Luar Negeri') {
+                $query->where('jenis_lokasi', 'Luar Negeri');
+            } else {
+                $query->where('negara', $filters['negara']);
+            }
+        }
+
+        if (! empty($filters['propinsi_id'])) {
+            $query->where('propinsi_id', $filters['propinsi_id']);
+        }
+
+        if (! empty($filters['kabupaten_id'])) {
+            $query->where('kabupaten_id', $filters['kabupaten_id']);
+        }
+
         // Filter apakah hanya pengajuan dari alumni prodi ini atau semua
         $scope = $filters['scope'] ?? 'prodi';
         if ($scope === 'prodi') {
@@ -132,6 +164,22 @@ class PerusahaanVerificationService
         $status = $filters['status'] ?? 'all';
         if ($status !== 'all') {
             $query->where('status_verifikasi', $status);
+        }
+
+        if (! empty($filters['negara']) && $filters['negara'] !== 'all') {
+            if ($filters['negara'] === 'Luar Negeri') {
+                $query->where('jenis_lokasi', 'Luar Negeri');
+            } else {
+                $query->where('negara', $filters['negara']);
+            }
+        }
+
+        if (! empty($filters['propinsi_id'])) {
+            $query->where('propinsi_id', $filters['propinsi_id']);
+        }
+
+        if (! empty($filters['kabupaten_id'])) {
+            $query->where('kabupaten_id', $filters['kabupaten_id']);
         }
 
         if (! empty($filters['prodi_id']) && in_array((int) $filters['prodi_id'], $prodiIds)) {

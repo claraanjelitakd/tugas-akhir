@@ -46,7 +46,6 @@ class AlumniDashboardPercentageTest extends TestCase
             'email_pribadi' => 'budi.pribadi@gmail.com',
             'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2000-01-01',
-            'agama' => 'Kristen',
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '08123456789',
             'alamat_saat_ini' => 'Jl. Solo Km 10',

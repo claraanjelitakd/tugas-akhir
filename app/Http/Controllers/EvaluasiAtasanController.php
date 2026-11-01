@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\KonfirmasiEvaluasiAtasanTerkirimMail;
 use App\Models\Atasan;
 use App\Models\EvaluasiAtasan;
 use App\Models\PertanyaanEvaluasiAtasan;
@@ -10,6 +11,8 @@ use App\Models\ResponEvaluasiAtasan;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -54,9 +57,27 @@ class EvaluasiAtasanController extends Controller
             ])
             ->first();
 
-        if (! $evaluasi || $evaluasi->is_submitted) {
+        if (! $evaluasi) {
             return Inertia::render('Public/EvaluasiAtasanNotFound', [
-                'message' => 'Tautan formulir evaluasi tidak ditemukan atau sudah tidak berlaku.',
+                'status' => 'not_found',
+                'title' => 'Tautan Evaluasi Belum Teridentifikasi',
+                'message' => 'Tautan formulir evaluasi tidak ditemukan atau kode token tidak valid.',
+            ]);
+        }
+
+        if ($evaluasi->is_submitted) {
+            $biodata = $evaluasi->biodata;
+            $atasan = $evaluasi->atasan;
+            $perusahaan = $evaluasi->perusahaan ?? $biodata?->perusahaan;
+
+            $alumniName = $biodata?->nama ?? $biodata?->dataAkademik?->nama ?? 'Alumni UKDW';
+            $supervisorName = $atasan?->nama ?? 'Bapak/Ibu Pimpinan / Atasan';
+            $companyName = $perusahaan?->nama_perusahaan ?? 'Perusahaan';
+
+            return Inertia::render('Public/EvaluasiAtasanNotFound', [
+                'status' => 'submitted',
+                'title' => 'Evaluasi Kinerja Lulusan Telah Selesai',
+                'message' => "Terima kasih yang sebesar-besarnya kepada {$supervisorName} di {$companyName} atas partisipasi dan evaluasi obyektif yang telah diberikan terhadap alumni kami, {$alumniName}. Respon evaluasi telah tersimpan secara resmi di sistem Tracer Study UKDW.",
             ]);
         }
 
@@ -336,6 +357,10 @@ class EvaluasiAtasanController extends Controller
             ], static fn (?string $value): bool => $value !== null && trim($value) !== '');
 
             if ($atasanData !== []) {
+                if ($perusahaan?->id) {
+                    $atasanData['perusahaan_id'] = $perusahaan->id;
+                }
+
                 $atasan = $lockedEvaluation->atasan;
                 if ($atasan) {
                     $atasan->update($atasanData);
@@ -359,6 +384,21 @@ class EvaluasiAtasanController extends Controller
                 'is_submitted' => true,
                 'submitted_at' => now(),
             ]);
+
+            // Kirim email tanda terima / konfirmasi jawaban langsung ke alamat email atasan
+            $targetEmail = $validated['email_atasan'] ?? ($lockedEvaluation->atasan?->email ?? null);
+            if (! empty($targetEmail) && filter_var($targetEmail, FILTER_VALIDATE_EMAIL)) {
+                try {
+                    $biodataFresh = $lockedEvaluation->biodata?->fresh(['perusahaan', 'atasan', 'dataAkademik', 'prodi']);
+                    $evaluasiFresh = $lockedEvaluation->fresh(['perusahaan', 'atasan']);
+                    if ($biodataFresh && $evaluasiFresh) {
+                        Mail::to($targetEmail)->send(new KonfirmasiEvaluasiAtasanTerkirimMail($biodataFresh, $evaluasiFresh));
+                        Log::info("Email bukti penerimaan evaluasi terkirim ke atasan: {$targetEmail} | Token: {$token}");
+                    }
+                } catch (\Throwable $e) {
+                    Log::error("Gagal mengirim email tanda terima evaluasi ke atasan ({$targetEmail}): ".$e->getMessage());
+                }
+            }
         });
 
         return redirect()->back()->with('success', 'Terima kasih! Respon evaluasi kinerja lulusan UKDW berhasil disimpan.');

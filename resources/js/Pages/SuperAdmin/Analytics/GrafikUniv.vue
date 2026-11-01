@@ -44,8 +44,8 @@ const selectedProvince = ref(null);
 // Mengatur status buka/tutup panel samping (Drawer) yang menampilkan rincian alumni hasil cross-filter.
 const drawerOpen = ref(false);
 
-// Mengatur visibilitas dan status buka/tutup bagian metodologi perhitungan indikator (default terbuka).
-const methodologyOpen = ref(true);
+// Mengatur visibilitas dan status buka/tutup bagian metodologi perhitungan indikator (default tersembunyi).
+const methodologyOpen = ref(false);
 
 // Nilai filter tahun lulusan aktif yang dipilih pengguna pada dropdown tahun (default: tahun aktif backend).
 const selectedYear = ref(String(props.analytics?.filters?.selected_year || new Date().getFullYear()));

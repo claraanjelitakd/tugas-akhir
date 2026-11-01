@@ -56,9 +56,7 @@ class AdminAlumniProfileService
             'nama' => $summary?->nama ?? ($alumni->nama ?? ($dataAkademik?->nama ?? '')),
             'tempat_lahir' => $summary?->tempat_lahir ?? ($alumni->tempat_lahir ?? ($dataAkademik?->tempat_lahir ?? '')),
             'tanggal_lahir' => $summary?->tanggal_lahir ?? ($alumni->tanggal_lahir ?? ($dataAkademik?->tanggal_lahir ?? '')),
-            'agama' => $summary?->agama ?? ($alumni->agama ?? ($dataAkademik?->agama ?? '')),
             'jenis_kelamin' => $summary?->jenis_kelamin ?? ($alumni->jenis_kelamin ?? ($dataAkademik?->jenis_kelamin ?? '')),
-            'golongan_darah' => $summary?->golongan_darah ?? ($alumni->golongan_darah ?? ($dataAkademik?->golongan_darah ?? '')),
             'warga_negara' => $summary?->warga_negara ?? ($alumni->warga_negara ?? ($dataAkademik?->warga_negara ?? 'WNI')),
             'foto' => $alumni->foto ?? '',
 
@@ -265,12 +263,14 @@ class AdminAlumniProfileService
             $atasan = ! empty($biodata->atasan_id) ? Atasan::find($biodata->atasan_id) : null;
             if ($atasan) {
                 $atasan->update([
+                    'perusahaan_id' => $perusahaanId ?: $atasan->perusahaan_id,
                     'nama' => $namaAtasan ?: $atasan->nama,
                     'email' => $emailAtasan,
                     'telepon' => $teleponAtasan,
                 ]);
             } else {
                 $atasan = Atasan::create([
+                    'perusahaan_id' => $perusahaanId,
                     'nama' => $namaAtasan ?: 'Atasan',
                     'email' => $emailAtasan,
                     'telepon' => $teleponAtasan,

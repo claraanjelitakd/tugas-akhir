@@ -19,7 +19,7 @@ import AlumniStepper from '@/Components/AlumniAudit/AlumniStepper.vue';
 import TabProfil from '@/Components/AlumniAudit/TabProfil.vue';
 import TabKuesionerUniv from '@/Components/AlumniAudit/TabKuesionerUniv.vue';
 import TabKuesionerProdi from '@/Components/AlumniAudit/TabKuesionerProdi.vue';
-import TabEvaluasiAtasan from '@/Components/AlumniAudit/TabEvaluasiAtasan.vue';
+import TabEvaluasiAtasan from '@/components/AlumniAudit/TabEvaluasiAtasan.vue';
 import TabLinkedin from '@/Components/AlumniAudit/TabLinkedin.vue';
 
 const props = defineProps({

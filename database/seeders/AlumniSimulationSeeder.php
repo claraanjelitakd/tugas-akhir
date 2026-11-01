@@ -282,10 +282,9 @@ class AlumniSimulationSeeder extends Seeder
                     $nim = '72220099';
                 }
 
-                $alumniBio = $prodiNamaList[$i] ?? ['nama' => 'Alumni '.$kodeProdiStr.' '.$i, 'jk' => 'Laki-laki', 'agama' => 'Kristen Protestan'];
+                $alumniBio = $prodiNamaList[$i] ?? ['nama' => 'Alumni '.$kodeProdiStr.' '.$i, 'jk' => 'Laki-laki'];
                 $nama = $alumniBio['nama'];
                 $isLaki = ($alumniBio['jk'] === 'Laki-laki');
-                $agama = $alumniBio['agama'];
                 $birthYear = (int) $angkatan - 18;
                 $birthDate = $birthYear.'-08-15';
                 $defaultPassword = Carbon::parse($birthDate)->format('dmY');
@@ -322,12 +321,8 @@ class AlumniSimulationSeeder extends Seeder
                         'total_angka_kualitas' => round($ipk * $totalSks, 2),
                         'tempat_lahir' => ($i % 2 === 0 ? 'Yogyakarta' : 'Jakarta'),
                         'tanggal_lahir' => $birthDate,
-                        'agama' => $agama,
                         'jenis_kelamin' => $alumniBio['jk'],
-                        'golongan_darah' => ['O', 'A', 'B', 'AB'][$i % 4],
                         'warga_negara' => 'WNI',
-                        'nisn' => '003'.str_pad((string) (1234500 + (int) $kodeProdiStr * 10 + $i), 7, '0', STR_PAD_LEFT),
-                        'no_bpjs' => '000189'.str_pad((string) (7654000 + (int) $kodeProdiStr * 10 + $i), 7, '0', STR_PAD_LEFT),
                         'email_students' => $nim.'@students.ukdw.ac.id',
                         'asal_sekolah' => 'SMA Negeri '.(($i % 5) + 1).' Yogyakarta',
                         'alamat_asal_sekolah' => 'Jl. Kebangsaan No. 10',
@@ -483,6 +478,7 @@ class AlumniSimulationSeeder extends Seeder
             $atasan = Atasan::firstOrCreate(
                 ['email' => 'atasan.mandiri.'.$nim.'@mandiri.co.id'],
                 [
+                    'perusahaan_id' => $perusahaanId,
                     'nama' => 'Hartono Kusumo, S.E., MBA.',
                     'telepon' => '081223344001',
                 ]
@@ -514,6 +510,7 @@ class AlumniSimulationSeeder extends Seeder
             $atasan = Atasan::firstOrCreate(
                 ['email' => 'partner.'.$nim.'@inovasimandiri.id'],
                 [
+                    'perusahaan_id' => $perusahaanId,
                     'nama' => 'Rendra Pratama, S.Kom. (Co-Founder)',
                     'telepon' => '081223344002',
                 ]
@@ -547,6 +544,7 @@ class AlumniSimulationSeeder extends Seeder
             $atasan = Atasan::firstOrCreate(
                 ['email' => 'kaprodi.s2.'.$nim.'@mail.ugm.ac.id'],
                 [
+                    'perusahaan_id' => $perusahaanId,
                     'nama' => 'Prof. Dr. Ir. Wahyu Wibowo, M.Sc. (Dosen Pembimbing S2)',
                     'telepon' => '081223344003',
                 ]
@@ -577,6 +575,7 @@ class AlumniSimulationSeeder extends Seeder
             $atasan = Atasan::firstOrCreate(
                 ['email' => 'lead.goto.'.$nim.'@gotocompany.com'],
                 [
+                    'perusahaan_id' => $perusahaanId,
                     'nama' => 'Maya Indrawati, S.T., M.Kom. (Engineering Manager)',
                     'telepon' => '081223344004',
                 ]

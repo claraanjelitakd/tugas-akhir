@@ -386,12 +386,14 @@ class SimpanJawabanController extends Controller
 
             if ($biodata->atasan_id && $biodata->atasan) {
                 $biodata->atasan->update([
+                    'perusahaan_id' => $biodata->perusahaan_id ?: $biodata->atasan->perusahaan_id,
                     'nama' => $namaAtasan,
                     'email' => $emailAtasan,
                     'telepon' => $teleponAtasan,
                 ]);
             } elseif (! empty($namaAtasan) || ! empty($emailAtasan)) {
                 $atasan = Atasan::create([
+                    'perusahaan_id' => $biodata->perusahaan_id,
                     'nama' => $namaAtasan,
                     'email' => $emailAtasan,
                     'telepon' => $teleponAtasan,

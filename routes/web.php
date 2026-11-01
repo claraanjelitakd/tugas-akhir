@@ -25,6 +25,7 @@ use App\Http\Controllers\Otentikasi\LoginController;
 use App\Http\Controllers\Otentikasi\LupaKataSandiController;
 use App\Http\Controllers\Otentikasi\UbahKataSandiController;
 use App\Http\Controllers\Shared\LinkedInSyncController;
+use App\Http\Controllers\SuperAdmin\Analytics\ProdiAnalyticsController;
 use App\Http\Controllers\SuperAdmin\Analytics\TracerAnalyticsController;
 use App\Http\Controllers\SuperAdmin\KelolaAlumni\DaftarAlumniSuperAdminController;
 use App\Http\Controllers\SuperAdmin\KelolaAlumni\DetailAlumniSuperAdminController;
@@ -284,6 +285,8 @@ Route::middleware('auth')->group(function () {
             Route::get('/superadmin/analitik', [TracerAnalyticsController::class, 'index'])->name('superadmin.analytics.index');
             Route::get('/superadmin/analitik/data', [TracerAnalyticsController::class, 'data'])->name('superadmin.analytics.data');
             Route::get('/superadmin/analitik/export-response-rate', [TracerAnalyticsController::class, 'exportResponseRate'])->name('superadmin.analytics.export_response_rate');
+            Route::get('/superadmin/analitik-prodi', [ProdiAnalyticsController::class, 'index'])->name('superadmin.analytics-prodi.index');
+            Route::get('/superadmin/analitik-prodi/data', [ProdiAnalyticsController::class, 'data'])->name('superadmin.analytics-prodi.data');
 
             // Kelola Butir Pertanyaan, Opsi Jawaban, & Alur Branching Kuesioner (Modular Controllers)
             Route::get('/superadmin/pertanyaan', [DaftarPertanyaanController::class, 'index'])->name('superadmin.pertanyaan.index');

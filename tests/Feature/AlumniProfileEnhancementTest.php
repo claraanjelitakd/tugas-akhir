@@ -70,9 +70,7 @@ class AlumniProfileEnhancementTest extends TestCase
             'tempat_lahir' => 'Sleman',
             'tanggal_lahir' => '2001-08-15',
             'jenis_kelamin' => 'Perempuan',
-            'golongan_darah' => 'O',
             'warga_negara' => 'WNI',
-            'nisn' => '0031234567',
         ]);
 
         $this->biodata = Biodata::create([
@@ -108,8 +106,6 @@ class AlumniProfileEnhancementTest extends TestCase
     public function test_sensitive_reference_data_is_not_exposed_on_alumni_profile_and_is_preserved_on_save(): void
     {
         DataAkademik::where('nim', $this->biodata->nim)->update([
-            'nisn' => '0031234567',
-            'no_bpjs' => '0001234567890',
             'email_students' => '71200001@students.ukdw.ac.id',
         ]);
 

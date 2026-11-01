@@ -73,14 +73,8 @@ class JoshuaAndreanSeeder extends Seeder
                 // Identitas Diri
                 'tempat_lahir' => 'Yogyakarta',
                 'tanggal_lahir' => '2004-08-15',
-                'agama' => 'Kristen Protestan',
                 'jenis_kelamin' => 'Laki-laki',
-                'golongan_darah' => 'O',
                 'warga_negara' => 'WNI',
-
-                // Identitas pendukung akademik
-                'nisn' => '0041234567',
-                'no_bpjs' => '0001897654321',
 
                 'email_students' => $nim.'@students.ukdw.ac.id',
 

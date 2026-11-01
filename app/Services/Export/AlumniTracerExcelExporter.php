@@ -140,14 +140,10 @@ class AlumniTracerExcelExporter
 
         // 1. Data Pribadi & Kontak (Diutamakan dari view v_alumni_profile_summary)
         $namaLengkap = $summary?->nama ?: ($alumni->nama ?: ($dataAkademik?->nama ?: ($alumni->user?->name ?: '-')));
-        $noBpjs = $summary?->no_bpjs ?: ($alumni->no_bpjs ?: ($dataAkademik?->no_bpjs ?: '-'));
-        $nisn = $summary?->nisn ?: ($alumni->nisn ?: ($dataAkademik?->nisn ?: '-'));
         $jenisKelamin = $summary?->jenis_kelamin ?: ($dataAkademik?->jenis_kelamin ?: '-');
         $tempatLahir = $summary?->tempat_lahir ?: ($dataAkademik?->tempat_lahir ?: '-');
         $tglLahirVal = $summary?->tanggal_lahir ?: $dataAkademik?->tanggal_lahir;
         $tanggalLahir = $tglLahirVal ? date('d-m-Y', strtotime($tglLahirVal)) : '-';
-        $agama = $summary?->agama ?: ($dataAkademik?->agama ?: '-');
-        $golDarah = $summary?->golongan_darah ?: ($dataAkademik?->golongan_darah ?: '-');
         $wargaNegara = $summary?->warga_negara ?: ($dataAkademik?->warga_negara ?: 'WNI');
         $telepon = $summary?->nomor_telepon ?: ($alumni->nomor_telepon ?: '-');
         $emailPribadi = $summary?->email_pribadi ?: ($alumni->email_pribadi ?: '-');
@@ -268,12 +264,6 @@ class AlumniTracerExcelExporter
         echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$namaLengkap}</td>\n";
         echo "  </tr>\n";
         echo "  <tr>\n";
-        echo "    <td class=\"box-identitas-label\">No. BPJS / Asuransi</td>\n";
-        echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$noBpjs}</td>\n";
-        echo "  </tr>\n";
-        echo "  <tr>\n";
-        echo "    <td class=\"box-identitas-label\">NISN</td>\n";
-        echo "    <td class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$nisn}</td>\n";
         echo "    <td class=\"box-identitas-label\">Jenis Kelamin</td>\n";
         echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$jenisKelamin}</td>\n";
         echo "  </tr>\n";
@@ -282,12 +272,6 @@ class AlumniTracerExcelExporter
         echo "    <td class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$tempatLahir}</td>\n";
         echo "    <td class=\"box-identitas-label\">Tanggal Lahir</td>\n";
         echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$tanggalLahir}</td>\n";
-        echo "  </tr>\n";
-        echo "  <tr>\n";
-        echo "    <td class=\"box-identitas-label\">Agama</td>\n";
-        echo "    <td class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$agama}</td>\n";
-        echo "    <td class=\"box-identitas-label\">Golongan Darah</td>\n";
-        echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$golDarah}</td>\n";
         echo "  </tr>\n";
         echo "  <tr>\n";
         echo "    <td class=\"box-identitas-label\">Kewarganegaraan</td>\n";

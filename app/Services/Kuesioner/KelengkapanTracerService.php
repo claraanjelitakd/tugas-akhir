@@ -87,7 +87,6 @@ class KelengkapanTracerService
             'NIM' => $summary?->nim ?? $biodata->nim,
             'Tempat Lahir' => $summary?->tempat_lahir ?? $dataAkademik?->tempat_lahir,
             'Tanggal Lahir' => $summary?->tanggal_lahir ?? $dataAkademik?->tanggal_lahir,
-            'Agama' => $summary?->agama ?? $dataAkademik?->agama,
             'Jenis Kelamin' => $summary?->jenis_kelamin ?? $dataAkademik?->jenis_kelamin,
             'Nomor Telepon/HP' => $summary?->nomor_telepon ?? $biodata->nomor_telepon,
             'Email Pribadi' => $summary?->email_pribadi ?? ($biodata->email_pribadi ?? $biodata->user?->email),

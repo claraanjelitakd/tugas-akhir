@@ -54,7 +54,6 @@ class SuperAdminDashboardTest extends TestCase
             'email_pribadi' => 'alumni1@test.com',
             'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2001-08-15',
-            'agama' => 'Kristen',
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',
             'alamat_saat_ini' => 'Jl. Dr. Wahidin',

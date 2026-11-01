@@ -118,10 +118,14 @@ class BiodataSeeder extends Seeder
             $atasan = Atasan::firstOrCreate(
                 ['email' => 'atasan.'.$index.'.'.$atasanInfo['email']],
                 [
+                    'perusahaan_id' => $perusahaanId,
                     'nama' => $atasanInfo['nama'],
                     'telepon' => $atasanInfo['telepon'],
                 ]
             );
+            if ($perusahaanId && ! $atasan->perusahaan_id) {
+                $atasan->update(['perusahaan_id' => $perusahaanId]);
+            }
 
             $cleanUsername = strtolower(str_replace(' ', '', explode(' ', $user->name ?? 'alumni')[0])).$index;
 

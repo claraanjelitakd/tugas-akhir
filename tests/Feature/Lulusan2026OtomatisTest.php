@@ -99,7 +99,6 @@ class Lulusan2026OtomatisTest extends TestCase
             'total_sks' => 144,
             'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2002-12-25',
-            'agama' => 'Kristen Protestan',
             'jenis_kelamin' => 'Laki-laki',
             'kabupaten_id' => $kabupaten->id,
             'propinsi_id' => $propinsi->id,

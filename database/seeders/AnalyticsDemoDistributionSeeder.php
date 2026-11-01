@@ -118,7 +118,11 @@ class AnalyticsDemoDistributionSeeder extends Seeder
                     $salary = $isBelowUmp ? 2000000 + (($index % 4) * 150000) : 7500000 + (($index % 7) * 750000);
                     $atasan = Atasan::firstOrCreate(
                         ['email' => 'analytics.demo.'.$biodata->nim.'@example.test'],
-                        ['nama' => 'Atasan Demo Analitik '.$biodata->nim, 'telepon' => '0812'.str_pad((string) ($index + 1), 8, '0', STR_PAD_LEFT)],
+                        [
+                            'perusahaan_id' => $company->id,
+                            'nama' => 'Atasan Demo Analitik '.$biodata->nim,
+                            'telepon' => '0812'.str_pad((string) ($index + 1), 8, '0', STR_PAD_LEFT),
+                        ],
                     );
 
                     $biodata->update([

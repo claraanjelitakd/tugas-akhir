@@ -51,7 +51,6 @@ class AlumniLinkedinPlotViewTest extends TestCase
             'email_pribadi' => "{$nim}@gmail.com",
             'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2001-01-01',
-            'agama' => 'Kristen',
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',
             'alamat_saat_ini' => 'Jl. Solo Km 5',

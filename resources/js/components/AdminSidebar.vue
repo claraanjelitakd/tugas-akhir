@@ -71,7 +71,10 @@ const createSections = (role) => {
             label: 'Ringkasan & Analisis',
             items: [
                 createMenuItem('dashboard', definition.dashboard, 'Dashboard Utama', 'home'),
-                ...(capabilities.analytics ? [createMenuItem('analytics', '/superadmin/analitik', 'Grafik Universitas', 'chart')] : []),
+                ...(capabilities.analytics ? [
+                    createMenuItem('analytics', '/superadmin/analitik', 'Grafik Universitas', 'chart', ['/superadmin/analitik']),
+                    createMenuItem('analytics-prodi', '/superadmin/analitik-prodi', 'Grafik Prodi', 'chart', ['/superadmin/analitik-prodi']),
+                ] : []),
                 createMenuItem('alumni', `/${prefix}/alumni`, definition.alumniLabel, 'users'),
                 ...(capabilities.linkedin ? [createMenuItem('linkedin-sync', `/${prefix}/linkedin-sync`, 'Sinkronisasi LinkedIn', 'linkedin')] : []),
             ],

@@ -2,6 +2,49 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 02 November 2026
+
+- **Penyelarasan ERD dan Kamus Data Skripsi (Relasi Master Perusahaan dan Atasan)**:
+  - Mengonfirmasi penguatan relasi langsung antara entitas `perusahaan` dan `atasan` sesuai kaidah perancangan skripsi (1 perusahaan menaungi banyak atasan, `1 : N`).
+  - Memperbarui diagram ERD Modul 6 (Evaluasi Pengguna Lulusan) pada [ERD.md](file:///c:/study/tracer-ta/ERD.md) dan [storage/app/tugas-akhir-publication/ERD.md](file:///c:/study/tracer-ta/storage/app/tugas-akhir-publication/ERD.md) dengan menyertakan relasi eksplisit `perusahaan ||--o{ atasan : "menaungi (perusahaan_id)"` serta kotak entitas `atasan` dan `perusahaan`.
+  - Memperbarui Kamus Data Tabel `atasan` (Tabel 13) dengan kolom `perusahaan_id` (`bigint unsigned`, `FK`, nullable, referensi ke `perusahaan.id` `ON DELETE SET NULL`) dan `user_id` (`bigint unsigned`, `FK`, nullable, referensi ke `users.id` `ON DELETE SET NULL`).
+  - Menandai pembuatan migration database baru (`perusahaan_id` pada tabel `atasan`) sebagai agenda revisi kode berikutnya agar skema runtime aktif saat ini tetap stabil selama penyusunan naskah skripsi.
+- **Penambahan Menu & Halaman Grafik Program Studi (Super Admin)**:
+  - Menambahkan menu **Grafik Prodi** pada sidebar Super Admin ([AdminSidebar.vue](file:///c:/study/tracer-ta/resources/js/components/AdminSidebar.vue)) di bawah kelompok *Ringkasan & Analisis* berdampingan dengan *Grafik Universitas*.
+  - Menyediakan rute web `/superadmin/analitik-prodi` dan endpoint data asinkron `/superadmin/analitik-prodi/data` ([web.php](file:///c:/study/tracer-ta/routes/web.php)).
+  - Mengimplementasikan [ProdiAnalyticsController.php](file:///c:/study/tracer-ta/app/Http/Controllers/SuperAdmin/Analytics/ProdiAnalyticsController.php) dan [ProdiAnalyticsService.php](file:///c:/study/tracer-ta/app/Services/Analytics/ProdiAnalyticsService.php) untuk mengagregasi respon alumni pada kuesioner program studi (`prodi_response`, `prodi_question`, `prodi_question_section`, `prodi_question_option`).
+  - Mengonfigurasi default pemilih program studi ke **Sistem Informasi** (dengan opsi dropdown untuk beralih ke program studi lain beserta empty state informatif jika prodi lain belum memiliki instrumen soal).
+  - Menyajikan visualisasi ECharts interaktif ([GrafikProdi.vue](file:///c:/study/tracer-ta/resources/js/Pages/SuperAdmin/Analytics/GrafikProdi.vue)) untuk 9 seksi instrumen Sistem Informasi (skala Likert 1-5, distribusi peminatan/kontribusi donat, dan umpan balik teks), kartu ringkasan KPI alami (ala iOS Weather), narasi kilas analisis, serta tabel detail respon alumni terintegrasi.
+  - Menambahkan pengujian fitur otomatis pada [SuperAdminProdiAnalyticsTest.php](file:///c:/study/tracer-ta/tests/Feature/SuperAdminProdiAnalyticsTest.php) (3 tests passed, 36 assertions).
+- **Optimalisasi Filter Wilayah & Tabel Perusahaan (Super Admin)**:
+  - Memperjelas relasi program studi pada kolom *Pengaju Usulan* di [SuperAdmin/Perusahaan/Index.vue](file:///c:/study/tracer-ta/resources/js/Pages/SuperAdmin/Perusahaan/Index.vue): saat filter program studi aktif, sistem menampilkan badge jumlah alumni dari prodi tersebut yang bekerja di perusahaan, sehingga pengguna langsung memahami mengapa instansi bersangkutan masuk ke dalam filter meskipun akun pembuat awal (*creator*) berasal dari prodi lain.
+  - Memperbaiki penggabungan query filter di [VerifikasiPerusahaanSuperAdminController.php](file:///c:/study/tracer-ta/app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php) dan [PerusahaanVerificationService.php](file:///c:/study/tracer-ta/app/Services/Perusahaan/PerusahaanVerificationService.php) agar filter wilayah (*negara*, *provinsi*, *kabupaten*) tetap berjalan serentak saat filter program studi sedang aktif.
+  - Memperbaiki bug status `(MEMUAT...)` dan kekosongan daftar kabupaten saat memilih provinsi pada filter wilayah dengan:
+    1. Mengamankan endpoint `getKabupatenByProvinsi` di [MasterWilayahController.php](file:///c:/study/tracer-ta/app/Http/Controllers/SuperAdmin/MasterWilayah/MasterWilayahController.php) agar menyimpan dan mengembalikan plain array data (mencegah *serialization error* objek incomplete class di cache).
+    2. Menambahkan `try ... finally` pada `handlePropinsiChangeFilter` dan validasi `Array.isArray()` di [SuperAdmin/Perusahaan/Index.vue](file:///c:/study/tracer-ta/resources/js/Pages/SuperAdmin/Perusahaan/Index.vue) agar indikator loading selalu berakhir tepat waktu.
+    3. Menambahkan watcher otomatis pada `props.kabupatens` untuk sinkronisasi instan saat Inertia merender data halaman.
+  - Menyediakan bilah filter bertingkat untuk **Negara**, **Provinsi**, dan **Kabupaten / Kota** di atas tabel perusahaan ([SuperAdmin/Perusahaan/Index.vue](file:///c:/study/tracer-ta/resources/js/Pages/SuperAdmin/Perusahaan/Index.vue) dan [VerifikasiPerusahaanSuperAdminController.php](file:///c:/study/tracer-ta/app/Http/Controllers/SuperAdmin/Perusahaan/VerifikasiPerusahaanSuperAdminController.php)).
+  - Mengembalikan struktur tabel perusahaan menjadi format ringkas 7 kolom (*No*, *Nama Institusi / Perusahaan*, *Wilayah & Alamat Kantor*, *Pengaju Usulan*, *Status & Info Verifikasi*, *Rekomendasi Master*, *Aksi*) sehingga pas dalam satu layar tanpa perlu menggeser tabel secara horizontal (*no horizontal scroll*).
+  - Rincian wilayah lengkap (Negara, Provinsi, Kabupaten/Kota, Alamat, Kode Pos, Homepage, dll.) tetap dapat ditinjau melalui modal *Peninjauan Usulan Perusahaan Alumni*.
+  - Menyelaraskan header kolom **Angkatan** pada modal *Daftar Alumni Bekerja* dan modal *Peninjauan Usulan Perusahaan Alumni* menjadi **Tahun Lulus** (`tahun_lulus`), sehingga sesuai dengan terminologi kohort Tracer Study UKDW.
+- **Pemisahan Entitas Wilayah Perusahaan (Negara, Provinsi, Kabupaten/Kota)**:
+  - Memisahkan kolom wilayah pada tabel data master & usulan perusahaan di [SuperAdmin/Perusahaan/Index.vue](file:///c:/study/tracer-ta/resources/js/Pages/SuperAdmin/Perusahaan/Index.vue) menjadi **Alamat Kantor**, **Kabupaten / Kota**, **Provinsi**, dan **Negara**.
+  - Menerapkan pemisahan wilayah serupa pada tabel drill-down *Rincian Data Terpilih* di [AnalyticsTabbedContainer.vue](file:///c:/study/tracer-ta/resources/js/components/analytics/AnalyticsTabbedContainer.vue) serta query rekaman analitik di [TracerAnalyticsService.php](file:///c:/study/tracer-ta/app/Services/Analytics/TracerAnalyticsService.php).
+  - Menerapkan pemisahan atribut wilayah (Negara, Provinsi, Kabupaten/Kota, Kode Pos) pada blok *Profil & Karakteristik Instansi* di [TabEvaluasiAtasan.vue](file:///c:/study/tracer-ta/resources/js/components/AlumniAudit/TabEvaluasiAtasan.vue).
+- **Penyempurnaan Tab Evaluasi Atasan pada Detail Alumni Super Admin & Admin Terkait**:
+  - Menghapus tombol *Salin Link Kuesioner* dan *Kirim Email ke Atasan* dari antarmuka tab Evaluasi Atasan (`TabEvaluasiAtasan.vue`).
+  - Memperkaya data audit `EvaluasiAtasan.php` (`toAdminAuditArray()`) sehingga memuat seluruh atribut yang ada di formulir atasan: profil lengkap perusahaan (bentuk lembaga, skala, jumlah pegawai, no telp/fax, website/homepage, wilayah), identitas atasan penilai, karakteristik keberadaan alumni UKDW (`jumlah_alumni_ukdw`), serta standar gaji pertama (`standar_gaji_pertama`).
+  - Menampilkan ringkasan penempatan karier (posisi jabatan, bidang divisi, kategori aktivitas) dan riwayat studi lanjut alumni secara terpadu.
+  - Memisahkan butir *Tingkat Kesiapan Kerja* ke dalam kartu indikator hasil penilaian khusus.
+  - Memformat nilai pada tabel 12 aspek kompetensi secara dinamis dalam rentang 1 - 5 (dengan keterangan `1 Paling Rendah`, e.g. `5 - Sangat Tinggi`), menghapus hardcode skala 1-4, menghilangkan kolom *Catatan Penilai* dari setiap baris tabel, serta menyajikan teks skor secara polos (tanpa *outline*, *shadow*, dan *border*).
+  - Menyatukan seluruh saran terbuka dan umpan balik kualitatif penilai ke dalam satu kotak *Catatan & Masukan Penilai* di bagian paling bawah antarmuka.
+- **Penyempurnaan Tampilan Grafik Universitas & Rincian Data Drill-Down**:
+  - Mengubah pengaturan default visibilitas panel *Sumber dan Metodologi Perhitungan* (rumus, denominator, view SQL) pada `GrafikUniv.vue` menjadi tertutup/tersembunyi (*collapsed*) secara bawaan, dengan opsi tombol *Tampilkan Rincian* bagi pengguna yang ingin membukanya.
+  - Menambahkan kolom **Nama Perusahaan / Usaha** dan **Wilayah / Region** (nama kabupaten, provinsi, atau negara/skala) pada tabel inline *Rincian Data Terpilih* (`AnalyticsTabbedContainer.vue`), serta memperkaya query data rekaman `workplace_type` di `TracerAnalyticsService.php`.
+- **Halaman Penutup & Email Tanda Terima Evaluasi Pengguna Lulusan**:
+  - Menata ulang halaman konfirmasi terima formulir evaluasi atasan (`EvaluasiAtasanNotFound.vue`) dengan tema flat, responsif full-page, warna institusi UKDW (hijau tua `#0D542B` & kuning `#FDC700`), bebas dari elemen bayangan/border/centang berlebih.
+  - Mengirimkan email konfirmasi tanda terima resmi secara otomatis ke email atasan setelah formulir survei evaluasi berhasil dikirim (`KonfirmasiEvaluasiAtasanTerkirimMail.php`).
+
 ## 01 November 2026
 
 - **Sinkronisasi Dua Arah Data Perusahaan (Alumni & Evaluasi Atasan)**:

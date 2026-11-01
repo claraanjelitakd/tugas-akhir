@@ -363,22 +363,6 @@ class Biodata extends Model
     }
 
     /**
-     * Akses golongan darah (dari data_akademik).
-     */
-    public function getGolonganDarahAttribute(): ?string
-    {
-        return $this->dataAkademik?->golongan_darah;
-    }
-
-    /**
-     * Akses agama (dari data_akademik).
-     */
-    public function getAgamaAttribute(): ?string
-    {
-        return $this->dataAkademik?->agama;
-    }
-
-    /**
      * Akses tahun kelulusan resmi (otomatis mengambil dari data_akademik).
      */
     public function getTahunLulusAttribute(): ?string
@@ -400,16 +384,6 @@ class Biodata extends Model
     public function getWargaNegaraAttribute(): string
     {
         return $this->dataAkademik?->warga_negara ?? 'WNI';
-    }
-
-    public function getNisnAttribute(): ?string
-    {
-        return $this->dataAkademik?->nisn;
-    }
-
-    public function getNoBpjsAttribute(): ?string
-    {
-        return $this->dataAkademik?->no_bpjs;
     }
 
     /**

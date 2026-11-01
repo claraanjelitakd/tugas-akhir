@@ -19,7 +19,7 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "data_akademik" ("id" integer primary key autoincrement not null, "nim" varchar not null, "nama" varchar, "angkatan_masuk" integer, "tempat_lahir" varchar, "tanggal_lahir" date, "agama" varchar check ("agama" in ('Islam', 'Kristen', 'Kristen Protestan', 'Katolik', 'Hindu', 'Buddha', 'Konghucu', 'Lainnya')), "jenis_kelamin" varchar check ("jenis_kelamin" in ('Laki-laki', 'Perempuan')), "golongan_darah" varchar, "warga_negara" varchar not null default 'WNI', "email_students" varchar, "nisn" varchar, "no_bpjs" varchar, "asal_sekolah" varchar, "alamat_asal_sekolah" text, "kota_kabupaten_asal_sekolah" varchar, "provinsi_asal_sekolah" varchar, "jurusan_asal_sekolah" varchar, "status_mahasiswa" varchar check ("status_mahasiswa" in ('Lulus', 'Aktif', 'Cuti', 'Drop Out', 'Lainnya', 'AR', 'AK', 'AS', 'L')) not null default 'Lulus', "tahun_akademik_lulus" varchar, "tahun_lulus" integer, "tanggal_lulus" date, "ip_kumulatif" numeric, "total_sks" integer, "total_angka_kualitas" numeric, "created_at" datetime, "updated_at" datetime);
+CREATE TABLE "data_akademik" ("id" integer primary key autoincrement not null, "nim" varchar not null, "nama" varchar, "angkatan_masuk" integer, "tempat_lahir" varchar, "tanggal_lahir" date, "jenis_kelamin" varchar check ("jenis_kelamin" in ('Laki-laki', 'Perempuan')), "warga_negara" varchar not null default 'WNI', "email_students" varchar, "asal_sekolah" varchar, "alamat_asal_sekolah" text, "kota_kabupaten_asal_sekolah" varchar, "provinsi_asal_sekolah" varchar, "jurusan_asal_sekolah" varchar, "status_mahasiswa" varchar check ("status_mahasiswa" in ('Lulus', 'Aktif', 'Cuti', 'Drop Out', 'Lainnya', 'AR', 'AK', 'AS', 'L')) not null default 'Lulus', "tahun_akademik_lulus" varchar, "tahun_lulus" integer, "tanggal_lulus" date, "ip_kumulatif" numeric, "total_sks" integer, "total_angka_kualitas" numeric, "created_at" datetime, "updated_at" datetime);
 SQL
             );
 
@@ -42,13 +42,9 @@ CREATE TABLE `data_akademik` (
   `angkatan_masuk` year DEFAULT NULL COMMENT 'Tahun angkatan masuk perkuliahan (YYYY)',
   `tempat_lahir` varchar(60) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Kota/kabupaten tempat lahir',
   `tanggal_lahir` date DEFAULT NULL COMMENT 'Tanggal lahir',
-  `agama` enum('Islam','Kristen','Kristen Protestan','Katolik','Hindu','Buddha','Konghucu','Lainnya') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Agama yang dianut',
   `jenis_kelamin` enum('Laki-laki','Perempuan') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Jenis kelamin',
-  `golongan_darah` varchar(5) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Golongan darah (A, B, AB, O)',
   `warga_negara` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'WNI' COMMENT 'Kewarganegaraan (WNI/WNA)',
   `email_students` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Alamat email resmi kampus (@students.ukdw.ac.id)',
-  `nisn` varchar(15) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Nomor Induk Siswa Nasional',
-  `no_bpjs` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Nomor BPJS Kesehatan',
   `asal_sekolah` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Nama sekolah menengah asal',
   `alamat_asal_sekolah` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Alamat lengkap sekolah menengah asal',
   `kota_kabupaten_asal_sekolah` varchar(60) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Kota/kabupaten sekolah asal',

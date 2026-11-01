@@ -38,6 +38,9 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             'scope' => $request->query('scope', 'all'), // 'all' atau 'prodi'
             'prodi_id' => $request->query('prodi_id', ''),
             'status' => $request->query('status', 'all'),
+            'negara' => $request->query('negara', ''),
+            'propinsi_id' => $request->query('propinsi_id', ''),
+            'kabupaten_id' => $request->query('kabupaten_id', ''),
             'per_page' => (int) $request->query('per_page', 10),
         ];
 
@@ -45,44 +48,76 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             ->orderBy('nama_prodi')
             ->get();
 
+        $query = Perusahaan::query()
+            ->with([
+                'propinsi',
+                'kabupaten',
+                'creator:id,name,role,username',
+                'creator.biodata.prodi:id,nama_prodi',
+                'creator.biodata.dataAkademik:nim,nama,tahun_lulus,angkatan_masuk',
+                'createdProdi:id,nama_prodi',
+                'latestVerificationLog.user:id,name,role,username',
+                'biodata' => function ($q) {
+                    $q->select('id', 'user_id', 'nim', 'prodi_id', 'posisi_jabatan', 'kategori_pekerjaan', 'perusahaan_id')
+                        ->with(['dataAkademik:nim,nama,tahun_lulus,angkatan_masuk', 'prodi:id,nama_prodi']);
+                },
+            ])
+            ->withCount('biodata');
+
         if (! empty($filters['prodi_id'])) {
             $prodiId = (int) $filters['prodi_id'];
-            $companies = $this->verificationService->getPendingForProdi($prodiId, $filters);
-        } else {
-            $query = Perusahaan::query()
-                ->with([
-                    'propinsi',
-                    'kabupaten',
-                    'creator:id,name,role,username',
-                    'creator.biodata.prodi:id,nama_prodi',
-                    'creator.biodata.dataAkademik:nim,nama,tahun_lulus,angkatan_masuk',
-                    'createdProdi:id,nama_prodi',
-                    'latestVerificationLog.user:id,name,role,username',
-                    'biodata' => function ($q) {
-                        $q->select('id', 'user_id', 'nim', 'prodi_id', 'posisi_jabatan', 'kategori_pekerjaan', 'perusahaan_id')
-                            ->with(['dataAkademik:nim,nama,tahun_lulus,angkatan_masuk', 'prodi:id,nama_prodi']);
-                    },
-                ])
-                ->withCount('biodata');
+            $scope = $filters['scope'] ?? 'all';
 
-            if ($filters['status'] !== 'all') {
-                $query->where('status_verifikasi', $filters['status']);
-            }
-
-            if (! empty($filters['search'])) {
-                $search = trim($filters['search']);
-                $query->where(function ($q) use ($search) {
-                    $q->where('nama_perusahaan', 'like', "%{$search}%")
-                        ->orWhere('alamat', 'like', "%{$search}%")
-                        ->orWhereHas('propinsi', fn ($p) => $p->where('nama_provinsi', 'like', "%{$search}%"))
-                        ->orWhereHas('kabupaten', fn ($k) => $k->where('nama_kabupaten', 'like', "%{$search}%"))
-                        ->orWhereHas('biodata', fn ($b) => $b->where('nim', 'like', "%{$search}%")->orWhereHas('dataAkademik', fn ($da) => $da->where('nama', 'like', "%{$search}%")))
-                        ->orWhereHas('creator', fn ($u) => $u->where('name', 'like', "%{$search}%")->orWhere('username', 'like', "%{$search}%"));
+            if ($scope === 'pengusul') {
+                $query->where(function ($q) use ($prodiId) {
+                    $q->where('created_by_prodi_id', $prodiId)
+                        ->orWhereHas('creator', fn ($u) => $u->where('prodi_id', $prodiId));
+                });
+            } elseif ($scope === 'pekerja') {
+                $query->whereHas('biodata', fn ($b) => $b->where('prodi_id', $prodiId));
+            } else {
+                // 'all' atau 'prodi': cocok jika menjadi pengusul atau ada alumni yang bekerja di sini
+                $query->where(function ($q) use ($prodiId) {
+                    $q->where('created_by_prodi_id', $prodiId)
+                        ->orWhereHas('biodata', fn ($b) => $b->where('prodi_id', $prodiId))
+                        ->orWhereHas('creator', fn ($u) => $u->where('prodi_id', $prodiId));
                 });
             }
-
-            $companies = $query->latest('updated_at')->paginate($filters['per_page'])->withQueryString();
         }
+
+        if ($filters['status'] !== 'all') {
+            $query->where('status_verifikasi', $filters['status']);
+        }
+
+        if (! empty($filters['negara']) && $filters['negara'] !== 'all') {
+            if ($filters['negara'] === 'Luar Negeri') {
+                $query->where('jenis_lokasi', 'Luar Negeri');
+            } else {
+                $query->where('negara', $filters['negara']);
+            }
+        }
+
+        if (! empty($filters['propinsi_id'])) {
+            $query->where('propinsi_id', $filters['propinsi_id']);
+        }
+
+        if (! empty($filters['kabupaten_id'])) {
+            $query->where('kabupaten_id', $filters['kabupaten_id']);
+        }
+
+        if (! empty($filters['search'])) {
+            $search = trim($filters['search']);
+            $query->where(function ($q) use ($search) {
+                $q->where('nama_perusahaan', 'like', "%{$search}%")
+                    ->orWhere('alamat', 'like', "%{$search}%")
+                    ->orWhereHas('propinsi', fn ($p) => $p->where('nama_provinsi', 'like', "%{$search}%"))
+                    ->orWhereHas('kabupaten', fn ($k) => $k->where('nama_kabupaten', 'like', "%{$search}%"))
+                    ->orWhereHas('biodata', fn ($b) => $b->where('nim', 'like', "%{$search}%")->orWhereHas('dataAkademik', fn ($da) => $da->where('nama', 'like', "%{$search}%")))
+                    ->orWhereHas('creator', fn ($u) => $u->where('name', 'like', "%{$search}%")->orWhere('username', 'like', "%{$search}%"));
+            });
+        }
+
+        $companies = $query->latest('updated_at')->paginate($filters['per_page'])->withQueryString();
 
         // Normalisasi data relasi pengusul biodata tanpa kalkulasi kemiripan berat di setiap muat halaman (AJAX on-demand).
         $companies->getCollection()->transform(function ($company) {
@@ -97,9 +132,17 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
         });
 
         $propinsis = Propinsi::select('id', 'nama_provinsi')->orderBy('nama_provinsi')->get();
-        // Optimasi: Kabupaten tidak dimuat 514 baris sekaligus, melainkan via cascading dropdown asinkron berdasarkan provinsi
-        $kabupatens = [];
+        $kabupatens = ! empty($filters['propinsi_id'])
+            ? Kabupaten::where('propinsi_id', $filters['propinsi_id'])->select('id', 'nama_kabupaten')->orderBy('nama_kabupaten')->get()
+            : [];
         $negaras = RefNegara::select('id', 'nama_negara')->orderBy('nama_negara')->get();
+        $distinctNegaras = Perusahaan::whereNotNull('negara')
+            ->where('negara', '!=', '')
+            ->distinct()
+            ->pluck('negara')
+            ->filter()
+            ->sort()
+            ->values();
 
         return Inertia::render('SuperAdmin/Perusahaan/Index', [
             'user' => $user,
@@ -112,6 +155,7 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             'propinsis' => $propinsis,
             'kabupatens' => $kabupatens,
             'negaras' => $negaras,
+            'filterNegaras' => $distinctNegaras,
             'filters' => $filters,
             'stats' => [
                 'total_all' => Perusahaan::count(),

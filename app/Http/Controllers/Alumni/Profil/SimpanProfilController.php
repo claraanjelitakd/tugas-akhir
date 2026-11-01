@@ -177,6 +177,7 @@ class SimpanProfilController extends Controller
         if (! empty($namaAtasan) || ! empty($emailAtasan) || ! empty($teleponAtasan)) {
             if ($biodata->atasan_id && $biodata->atasan) {
                 $biodata->atasan->update([
+                    'perusahaan_id' => $idPerusahaan ?: $biodata->atasan->perusahaan_id,
                     'nama' => $namaAtasan ?: $biodata->atasan->nama,
                     'email' => $emailAtasan ?: $biodata->atasan->email,
                     'telepon' => $teleponAtasan ?: $biodata->atasan->telepon,
@@ -184,6 +185,7 @@ class SimpanProfilController extends Controller
                 $idAtasan = $biodata->atasan->id;
             } else {
                 $atasan = Atasan::create([
+                    'perusahaan_id' => $idPerusahaan,
                     'nama' => $namaAtasan ?: ($dataTervalidasi['nama'] ?? 'Atasan'),
                     'email' => $emailAtasan,
                     'telepon' => $teleponAtasan,
@@ -338,12 +340,14 @@ class SimpanProfilController extends Controller
 
             if ($lockedBiodata->atasan) {
                 $lockedBiodata->atasan->update([
+                    'perusahaan_id' => $lockedBiodata->perusahaan_id ?: $lockedBiodata->atasan->perusahaan_id,
                     'nama' => $namaAtasan,
                     'email' => $emailAtasan,
                     'telepon' => $teleponAtasan,
                 ]);
             } else {
                 $atasan = Atasan::create([
+                    'perusahaan_id' => $lockedBiodata->perusahaan_id,
                     'nama' => $namaAtasan,
                     'email' => $emailAtasan,
                     'telepon' => $teleponAtasan,

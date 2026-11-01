@@ -435,9 +435,9 @@ watch(() => form.answers, (newAnswers) => {
 <template>
     <Head :title="'Kuesioner Program Studi ' + (prodi?.nama_prodi || '')" />
 
-    <div class="min-h-screen bg-slate-50 font-sans text-gray-900 antialiased flex flex-col relative pb-20 md:pb-6">
+    <div class="relative flex min-h-screen w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-slate-50 pb-20 font-sans text-gray-900 antialiased md:pb-6">
         <!-- Header Atas: Navbar & Stepper Tahapan -->
-        <header class="sticky top-0 z-50 w-full shadow-md bg-white">
+        <header class="relative z-50 w-full bg-white shadow-md">
             <!-- 1. Navbar Atas -->
             <Navbar />
 
@@ -454,7 +454,7 @@ watch(() => form.answers, (newAnswers) => {
         </header>
 
         <!-- Area Konten Formulir Utama (Ukuran Sama Persis Kuesioner Universitas) -->
-        <main class="flex-1 px-3 py-4 sm:px-4 md:px-6 lg:px-8 w-full mx-auto mt-3 sm:mt-6 md:mt-8 max-w-6xl xl:max-w-7xl">
+        <main class="box-border min-w-0 w-full max-w-6xl flex-1 overflow-x-hidden px-3 py-4 mx-auto mt-3 sm:px-4 sm:mt-6 md:px-6 md:mt-8 lg:px-8 xl:max-w-7xl">
             
             <!-- Pesan jika prodi belum memiliki pertanyaan -->
             <div v-if="questions.length === 0" class="bg-white rounded-3xl p-8 sm:p-12 text-center shadow-xs border border-gray-100">

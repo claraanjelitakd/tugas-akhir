@@ -26,7 +26,7 @@ defineProps({
 <template>
     <Head title="Dashboard Alumni - Tracer Study UKDW" />
 
-    <div class="relative flex min-h-screen flex-col overflow-hidden bg-[#f7f8f6] font-sans text-slate-900">
+    <div class="relative flex min-h-screen w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-[#f7f8f6] font-sans text-slate-900">
         <!-- Dekorasi visual dashboard: foto wisuda dibuat blur dan diberi overlay terang agar tidak mengganggu data. -->
         <div class="pointer-events-none absolute inset-x-0 top-[82px] z-0 h-[570px] overflow-hidden" aria-hidden="true">
             <div class="absolute inset-0 bg-cover bg-center opacity-[0.32]" style="background-image: url('/uploads/auth/ukdw-wisuda.png');"></div>
@@ -37,18 +37,19 @@ defineProps({
             <Navbar :user="user" />
         </div>
 
-        <main class="relative z-10 w-full flex-1">
-            <div class="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pt-10 lg:px-8">
+        <main class="relative z-10 min-w-0 w-full flex-1">
+            <div class="mx-auto w-full min-w-0 max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pt-10 lg:px-8">
                 <section class="" aria-label="Tahapan pengisian tracer study">
-                    <div class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-                        <article class="flex min-h-[370px] flex-col justify-between rounded-2xl border border-slate-200 border-t-4 border-t-[#0D542B] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-shadow duration-200 hover:shadow-[0_12px_30px_rgba(15,23,42,0.08)] sm:p-7">
+                    <!-- Kartu tahapan dibuat menyusut bersama viewport agar judul dan isi tidak terpotong pada layar sempit. -->
+                    <div class="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+                        <article class="flex min-w-0 min-h-[370px] flex-col justify-between rounded-2xl border border-slate-200 border-t-4 border-t-[#0D542B] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-shadow duration-200 hover:shadow-[0_12px_30px_rgba(15,23,42,0.08)] sm:p-7">
                             <div>
                                 <div class="mb-8 flex items-center justify-between gap-3">
                                     <span class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Tahap 1</span>
                                     <span v-if="profileCompleted" class="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-[#0D542B]">Selesai</span>
                                     <span v-else class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">Belum Lengkap</span>
                                 </div>
-                                <h2 class="text-xl font-bold tracking-tight text-slate-950">Profil &amp; Riwayat Karier</h2>
+                                <h2 class="break-words text-xl font-bold tracking-tight text-slate-950">Profil &amp; Riwayat Karier</h2>
                                 <p class="mt-2 text-sm leading-6 text-slate-500">Pemutakhiran data domisili, kontak, serta riwayat pekerjaan alumni.</p>
                                 <div class="mt-7 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
                                     <div class="mb-2 flex items-center justify-between gap-3 text-sm">
@@ -66,14 +67,14 @@ defineProps({
                             </Link>
                         </article>
 
-                        <article class="flex min-h-[370px] flex-col justify-between rounded-2xl border border-slate-200 border-t-4 border-t-[#0D542B] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-shadow duration-200 hover:shadow-[0_12px_30px_rgba(15,23,42,0.08)] sm:p-7">
+                        <article class="flex min-w-0 min-h-[370px] flex-col justify-between rounded-2xl border border-slate-200 border-t-4 border-t-[#0D542B] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-shadow duration-200 hover:shadow-[0_12px_30px_rgba(15,23,42,0.08)] sm:p-7">
                             <div>
                                 <div class="mb-8 flex items-center justify-between gap-3">
                                     <span class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Tahap 2</span>
                                     <span v-if="questionnaireCompleted" class="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-[#0D542B]">Selesai</span>
                                     <span v-else class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">Belum Lengkap</span>
                                 </div>
-                                <h2 class="text-xl font-bold tracking-tight text-slate-950">Kuesioner Universitas</h2>
+                                <h2 class="break-words text-xl font-bold tracking-tight text-slate-950">Kuesioner Universitas</h2>
                                 <p class="mt-2 text-sm leading-6 text-slate-500">Kuesioner pelacakan jejak alumni standar nasional Dikti.</p>
                                 <div class="mt-7 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
                                     <div class="mb-2 flex items-center justify-between gap-3 text-sm">
@@ -91,7 +92,7 @@ defineProps({
                             </Link>
                         </article>
 
-                        <article class="flex min-h-[370px] flex-col justify-between rounded-2xl border border-slate-200 border-t-4 border-t-[#0D542B] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-shadow duration-200 hover:shadow-[0_12px_30px_rgba(15,23,42,0.08)] md:col-span-2 lg:col-span-1 sm:p-7">
+                        <article class="flex min-w-0 min-h-[370px] flex-col justify-between rounded-2xl border border-slate-200 border-t-4 border-t-[#0D542B] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-shadow duration-200 hover:shadow-[0_12px_30px_rgba(15,23,42,0.08)] md:col-span-2 lg:col-span-1 sm:p-7">
                             <div>
                                 <div class="mb-8 flex items-center justify-between gap-3">
                                     <span class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Tahap 3</span>
@@ -99,7 +100,7 @@ defineProps({
                                     <span v-else-if="prodiQuestionsCount === 0" class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">Belum Ada Soal</span>
                                     <span v-else class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">Belum Lengkap</span>
                                 </div>
-                                <h2 class="text-xl font-bold tracking-tight text-slate-950">Kuesioner Program Studi</h2>
+                                <h2 class="break-words text-xl font-bold tracking-tight text-slate-950">Kuesioner Program Studi</h2>
                                 <p class="mt-2 text-sm leading-6 text-slate-500">Evaluasi kurikulum dan proses pembelajaran tingkat program studi.</p>
                                 <div class="mt-7 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
                                     <div class="mb-2 flex items-center justify-between gap-3 text-sm">
@@ -129,7 +130,7 @@ defineProps({
 
 
         <footer class="relative z-10 border-t border-slate-200 bg-white">
-            <div class="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+            <div class="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-1 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
                 <p class="font-medium text-slate-600">Tracer Study Alumni · Universitas Kristen Duta Wacana</p>
             </div>
         </footer>

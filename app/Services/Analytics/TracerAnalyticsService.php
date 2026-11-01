@@ -568,11 +568,18 @@ class TracerAnalyticsService
             $biodataIds = $records->pluck('biodata_id')->unique()->all();
             $perusahaanInfo = DB::table('biodata')
                 ->leftJoin('perusahaan', 'biodata.perusahaan_id', '=', 'perusahaan.id')
+                ->leftJoin('propinsi', 'perusahaan.propinsi_id', '=', 'propinsi.id')
+                ->leftJoin('kabupaten', 'perusahaan.kabupaten_id', '=', 'kabupaten.id')
                 ->whereIn('biodata.id', $biodataIds)
                 ->select(
                     'biodata.id as biodata_id',
                     'perusahaan.nama_perusahaan',
-                    'perusahaan.jenis_perusahaan_lainnya'
+                    'perusahaan.jenis_perusahaan_lainnya',
+                    'perusahaan.skala',
+                    'perusahaan.jenis_lokasi',
+                    'perusahaan.negara',
+                    'propinsi.nama_provinsi',
+                    'kabupaten.nama_kabupaten'
                 )
                 ->get()
                 ->keyBy('biodata_id');
@@ -581,6 +588,29 @@ class TracerAnalyticsService
                 $info = $perusahaanInfo->get($rec['biodata_id']);
                 $rec['nama_perusahaan'] = $info?->nama_perusahaan ?: '-';
                 $rec['jenis_perusahaan_lainnya'] = $info?->jenis_perusahaan_lainnya ?: '-';
+
+                // Pemecahan entitas wilayah perusahaan: Negara, Provinsi, Kabupaten/Kota
+                $isLuarNegeri = ($info?->jenis_lokasi === 'Luar Negeri');
+                $rec['jenis_lokasi'] = $info?->jenis_lokasi ?: 'Dalam Negeri';
+                $rec['negara'] = $isLuarNegeri ? ($info?->negara ?: 'Luar Negeri') : 'Indonesia';
+                $rec['provinsi'] = $isLuarNegeri ? '-' : ($info?->nama_provinsi ?: '-');
+                $rec['kabupaten'] = $isLuarNegeri ? '-' : ($info?->nama_kabupaten ?: '-');
+
+                // Tentukan nama wilayah/region operasional terpadu (backward compatibility)
+                $regionParts = [];
+                if ($isLuarNegeri) {
+                    $regionParts[] = $rec['negara'];
+                } else {
+                    if ($info?->nama_kabupaten) {
+                        $regionParts[] = $info->nama_kabupaten;
+                    }
+                    if ($info?->nama_provinsi) {
+                        $regionParts[] = $info->nama_provinsi;
+                    }
+                }
+
+                $rec['wilayah'] = ! empty($regionParts) ? implode(', ', $regionParts) : ($info?->skala ?: '-');
+                $rec['skala'] = $info?->skala ?: '-';
 
                 return $rec;
             });

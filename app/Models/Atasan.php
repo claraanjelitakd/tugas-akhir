@@ -18,10 +18,19 @@ class Atasan extends Model
 
     protected $fillable = [
         'user_id',
+        'perusahaan_id',
         'nama',
         'email',
         'telepon',
     ];
+
+    /**
+     * Relasi ke Institusi / Perusahaan tempat atasan bertugas
+     */
+    public function perusahaan()
+    {
+        return $this->belongsTo(Perusahaan::class, 'perusahaan_id');
+    }
 
     /**
      * Relasi ke User Login

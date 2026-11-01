@@ -36,8 +36,6 @@ class DataAkademikSeeder extends Seeder
             'Vanessa Stephanie Tanudjaja',
         ];
 
-        $agamaList = ['Kristen Protestan', 'Katolik', 'Islam', 'Kristen Protestan', 'Katolik'];
-        $golDarahList = ['O', 'A', 'B', 'AB'];
         $periodeLulusList = ['Gasal 2023/2024', 'Genap 2023/2024', 'Gasal 2024/2025', 'Genap 2024/2025'];
         $ipkList = [3.85, 3.72, 3.90, 3.65, 3.80, 3.75, 3.95, 3.68, 3.88, 3.78];
 
@@ -83,14 +81,8 @@ class DataAkademikSeeder extends Seeder
                     // Identitas Diri
                     'tempat_lahir' => ($index % 3 == 0) ? 'Sleman' : (($index % 3 == 1) ? 'Jakarta' : 'Tapaktuan'),
                     'tanggal_lahir' => '2001-08-15',
-                    'agama' => $agamaList[$index % count($agamaList)],
                     'jenis_kelamin' => ($index % 2 == 0) ? 'Perempuan' : 'Laki-laki',
-                    'golongan_darah' => $golDarahList[$index % count($golDarahList)],
                     'warga_negara' => 'WNI',
-
-                    // Identitas pendukung akademik
-                    'nisn' => '003'.str_pad((string) (1234567 + $index), 7, '0', STR_PAD_LEFT),
-                    'no_bpjs' => '000189'.str_pad((string) (7654321 + $index), 7, '0', STR_PAD_LEFT),
 
                     // Email institusi tetap menjadi bagian dari sumber data akademik resmi.
                     'email_students' => $nim.'@students.ukdw.ac.id',

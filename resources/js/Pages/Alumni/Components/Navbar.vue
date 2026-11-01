@@ -123,22 +123,24 @@ const handleLogout = () => {
 </script>
 
 <template>
-    <nav class="sticky top-0 z-50 border-b border-slate-200 bg-white">
-        <div class="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-10">
-            <div class="grid min-h-[82px] grid-cols-[auto_1fr_auto] items-center gap-5 lg:gap-8">
+    <nav class="sticky top-0 z-50 w-full min-w-0 border-b border-slate-200 bg-white">
+        <div class="mx-auto w-full min-w-0 max-w-[1800px] px-4 sm:px-6 lg:px-10">
+            <!-- Baris utama memakai flex agar identitas dan avatar tetap muat pada viewport mobile. -->
+            <div class="flex min-h-[82px] w-full min-w-0 items-center justify-between gap-3 sm:gap-5 lg:gap-8">
                 <!-- Kiri: Identitas Aplikasi & Logo UKDW -->
-                <Link href="/alumni/dashboard" class="group flex min-w-0 items-center gap-3">
+                <Link href="/alumni/dashboard" class="group flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
                     <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm transition-shadow group-hover:shadow-md">
                         <img src="/uploads/logo/logo-ukdw.png" alt="Logo UKDW" class="h-full w-full object-contain" />
                     </div>
                     <div class="min-w-0">
-                        <span class="block truncate text-[15px] font-bold tracking-tight text-slate-950 transition-colors group-hover:text-[#0D542B] sm:text-lg">Tracer Study UKDW</span>
+                        <span class="block max-w-[11rem] truncate text-[15px] font-bold tracking-tight text-slate-950 transition-colors group-hover:text-[#0D542B] sm:max-w-none sm:text-lg">Tracer Study UKDW</span>
                         <span class="block text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Portal Alumni</span>
                     </div>
                 </Link>
 
                 <!-- Tengah: Menu Navigasi Desktop -->
-                <div class="hidden items-center justify-center gap-1 lg:flex">
+                <!-- Desktop nav baru tampil pada lebar ekstra agar layout tablet tidak terpotong. -->
+                <div class="hidden items-center justify-center gap-1 xl:flex">
                     <Link
                         v-for="item in navigationItems"
                         :key="item.href"
@@ -153,7 +155,7 @@ const handleLogout = () => {
                 </div>
 
                 <!-- Kanan: Lingkaran Avatar + Caping Bawah (Dropdown Nama, NIM, & Keluar) -->
-                <div ref="dropdownRef" class="relative flex items-center justify-end">
+                <div ref="dropdownRef" class="relative flex shrink-0 items-center justify-end">
                     <button
                         type="button"
                         @click="toggleDropdown"
@@ -197,7 +199,7 @@ const handleLogout = () => {
                     >
                         <div
                             v-if="isDropdownOpen"
-                            class="absolute right-0 top-full mt-2 w-60 origin-top-right rounded-2xl border border-slate-200 bg-white py-2 shadow-lg ring-1 ring-black/5 z-50"
+                            class="absolute right-0 top-full z-50 mt-2 w-[min(15rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] origin-top-right rounded-2xl border border-slate-200 bg-white py-2 shadow-lg ring-1 ring-black/5"
                         >
                             <!-- Informasi Nama & NIM Alumni -->
                             <div class="border-b border-slate-100 px-4 py-3">
@@ -240,7 +242,8 @@ const handleLogout = () => {
         </div>
 
         <!-- Menu Navigasi Mobile -->
-        <div class="flex gap-1 overflow-x-auto border-t border-slate-100 px-3 py-2 text-xs lg:hidden">
+        <!-- Navigasi horizontal tetap tersedia pada tablet dan layar kecil tanpa memaksa lebar halaman. -->
+        <div class="flex min-w-0 max-w-full gap-1 overflow-x-auto border-t border-slate-100 px-3 py-2 text-xs xl:hidden">
             <Link
                 v-for="item in navigationItems"
                 :key="`mobile-${item.href}`"

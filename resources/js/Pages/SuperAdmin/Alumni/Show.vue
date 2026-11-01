@@ -15,12 +15,12 @@ import { ref, computed, watch, onMounted } from 'vue';
 import Sidebar from '../Components/Sidebar.vue';
 
 // Sub-komponen modular untuk setiap tab audit alumni
-import AlumniStepper from '@/Components/AlumniAudit/AlumniStepper.vue';
-import TabProfil from '@/Components/AlumniAudit/TabProfil.vue';
-import TabKuesionerUniv from '@/Components/AlumniAudit/TabKuesionerUniv.vue';
-import TabKuesionerProdi from '@/Components/AlumniAudit/TabKuesionerProdi.vue';
-import TabEvaluasiAtasan from '@/Components/AlumniAudit/TabEvaluasiAtasan.vue';
-import TabLinkedin from '@/Components/AlumniAudit/TabLinkedin.vue';
+import AlumniStepper from '@/components/AlumniAudit/AlumniStepper.vue';
+import TabProfil from '@/components/AlumniAudit/TabProfil.vue';
+import TabKuesionerUniv from '@/components/AlumniAudit/TabKuesionerUniv.vue';
+import TabKuesionerProdi from '@/components/AlumniAudit/TabKuesionerProdi.vue';
+import TabEvaluasiAtasan from '@/components/AlumniAudit/TabEvaluasiAtasan.vue';
+import TabLinkedin from '@/components/AlumniAudit/TabLinkedin.vue';
 
 const props = defineProps({
     alumni: {

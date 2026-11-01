@@ -45,9 +45,7 @@ class ProfilController extends Controller
             'nama' => $biodata?->nama ?? ($dataAkademik?->nama ?? ''),
             'tempat_lahir' => $biodata?->tempat_lahir ?? ($dataAkademik?->tempat_lahir ?? ''),
             'tanggal_lahir' => $biodata?->tanggal_lahir ?? ($dataAkademik?->tanggal_lahir ?? ''),
-            'agama' => $biodata?->agama ?? ($dataAkademik?->agama ?? ''),
             'jenis_kelamin' => $biodata?->jenis_kelamin ?? ($dataAkademik?->jenis_kelamin ?? ''),
-            'golongan_darah' => $biodata?->golongan_darah ?? ($dataAkademik?->golongan_darah ?? ''),
             'warga_negara' => $biodata?->warga_negara ?? ($dataAkademik?->warga_negara ?? 'WNI'),
             'foto' => $biodata?->foto ?? '',
 

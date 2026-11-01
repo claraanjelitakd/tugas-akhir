@@ -20,6 +20,9 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
+/**
+ * Mengisi skenario demo dashboard beserta jawaban kuesioner yang bervariasi.
+ */
 class DashboardScenarioSeeder extends Seeder
 {
     /**
@@ -122,7 +125,11 @@ class DashboardScenarioSeeder extends Seeder
             $company = $hasCareer ? Perusahaan::query()->first() : null;
             $atasan = $hasCareer ? Atasan::firstOrCreate(
                 ['email' => 'atasan.demo.'.strtolower($nim).'@example.test'],
-                ['nama' => 'Atasan '.$prodi->nama_prodi.' '.$sequence, 'telepon' => '0812'.str_pad((string) $sequence, 8, '0', STR_PAD_LEFT)],
+                [
+                    'perusahaan_id' => $company?->id,
+                    'nama' => 'Atasan '.$prodi->nama_prodi.' '.$sequence,
+                    'telepon' => '0812'.str_pad((string) $sequence, 8, '0', STR_PAD_LEFT),
+                ],
             ) : null;
 
             $user = User::create([
@@ -150,13 +157,9 @@ class DashboardScenarioSeeder extends Seeder
                 'total_angka_kualitas' => round($ipk * $totalSks, 2),
                 'tempat_lahir' => ['Yogyakarta', 'Semarang', 'Jakarta', 'Surabaya'][$sequence % 4],
                 'tanggal_lahir' => $birthDate,
-                'agama' => ['Kristen Protestan', 'Katolik', 'Islam', 'Buddha'][$sequence % 4],
                 'jenis_kelamin' => $sequence % 2 === 0 ? 'Perempuan' : 'Laki-laki',
-                'golongan_darah' => ['O', 'A', 'B', 'AB'][$sequence % 4],
                 'warga_negara' => 'WNI',
                 'email_students' => $nim.'@students.ukdw.ac.id',
-                'nisn' => $isProfileComplete ? '005'.str_pad((string) (1000000 + $sequence), 7, '0', STR_PAD_LEFT) : null,
-                'no_bpjs' => $isProfileComplete ? '0002'.str_pad((string) (7000000 + $sequence), 10, '0', STR_PAD_LEFT) : null,
                 'asal_sekolah' => 'SMA Negeri '.(($sequence % 6) + 1),
                 'alamat_asal_sekolah' => 'Jl. Pendidikan No. '.($sequence + 1),
                 'kota_kabupaten_asal_sekolah' => 'Kabupaten Sleman',
@@ -244,20 +247,37 @@ class DashboardScenarioSeeder extends Seeder
     }
 
     /**
+     * Menyimpan jawaban prodi demo dengan distribusi opsi yang tersebar.
+     *
      * @param  Collection<int, ProdiQuestion>  $questions
      */
     private function seedProdiResponses(Biodata $biodata, $questions): void
     {
         foreach ($questions as $question) {
-            $answer = $question->options->first()?->option_text ?? 'Data simulasi '.$question->code;
+            $options = $question->options->values();
+            $answerJson = null;
+            $answer = $options->first()?->option_text ?? 'Data simulasi '.$question->code;
 
             if (in_array($question->type, ['text', 'textarea'], true)) {
                 $answer = 'Respon simulasi alumni untuk '.$question->question_text;
+            } elseif ($options->isNotEmpty()) {
+                $primaryOption = $options->get(($biodata->id + $question->id) % $options->count());
+                $answer = $primaryOption?->option_text ?? $answer;
+
+                if ($question->type === 'multiple_choice') {
+                    $selectedOptions = collect([$primaryOption]);
+                    if ($options->count() > 1 && ($biodata->id + $question->id) % 3 === 0) {
+                        $selectedOptions->push($options->get(($biodata->id + $question->id + 1) % $options->count()));
+                    }
+                    $selectedOptions = $selectedOptions->filter()->unique('id')->values();
+                    $answer = $selectedOptions->pluck('option_text')->implode(', ');
+                    $answerJson = $selectedOptions->pluck('option_text')->values()->all();
+                }
             }
 
-            ProdiResponse::firstOrCreate(
+            ProdiResponse::updateOrCreate(
                 ['biodata_id' => $biodata->id, 'prodi_question_id' => $question->id],
-                ['answer_text' => $answer],
+                ['answer_text' => $answer, 'answer_json' => $answerJson],
             );
         }
     }

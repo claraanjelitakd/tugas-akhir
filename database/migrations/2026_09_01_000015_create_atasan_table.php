@@ -19,13 +19,14 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "atasan" ("id" integer primary key autoincrement not null, "user_id" integer, "nama" varchar not null, "email" varchar, "telepon" varchar, "created_at" datetime, "updated_at" datetime, foreign key("user_id") references "users"("id") on delete set null);
+CREATE TABLE "atasan" ("id" integer primary key autoincrement not null, "perusahaan_id" integer, "user_id" integer, "nama" varchar not null, "email" varchar, "telepon" varchar, "created_at" datetime, "updated_at" datetime, foreign key("perusahaan_id") references "perusahaan"("id") on delete set null, foreign key("user_id") references "users"("id") on delete set null);
 SQL
             );
         } else {
             DB::unprepared(<<<'SQL'
 CREATE TABLE `atasan` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID unik data atasan langsung',
+  `perusahaan_id` bigint unsigned DEFAULT NULL,
   `user_id` bigint unsigned DEFAULT NULL,
   `nama` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nama lengkap atasan penilai',
   `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Alamat email resmi atasan',
@@ -33,7 +34,9 @@ CREATE TABLE `atasan` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
+  KEY `atasan_perusahaan_id_foreign` (`perusahaan_id`),
   KEY `atasan_user_id_foreign` (`user_id`),
+  CONSTRAINT `atasan_perusahaan_id_foreign` FOREIGN KEY (`perusahaan_id`) REFERENCES `perusahaan` (`id`) ON DELETE SET NULL,
   CONSTRAINT `atasan_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 SQL

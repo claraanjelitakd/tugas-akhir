@@ -60,6 +60,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    filterNegaras: {
+        type: Array,
+        default: () => [],
+    },
     filters: {
         type: Object,
         default: () => ({}),
@@ -97,7 +101,42 @@ const search = ref(props.filters.search || '');
 const selectedProdiId = ref(props.filters.prodi_id || '');
 const scope = ref(props.filters.scope || 'all');
 const statusFilter = ref(props.filters.status || 'all');
+const selectedNegara = ref(props.filters.negara || '');
+const selectedPropinsiId = ref(props.filters.propinsi_id || '');
+const selectedKabupatenId = ref(props.filters.kabupaten_id || '');
 const perPage = ref(props.filters.per_page || 10);
+const availableKabupatensForFilter = ref(props.kabupatens || []);
+const isLoadingKabupatenFilter = ref(false);
+
+// Sinkronisasi opsi kabupaten saat menerima props dari server
+watch(() => props.kabupatens, (newKabupatens) => {
+    availableKabupatensForFilter.value = Array.isArray(newKabupatens) ? newKabupatens : [];
+    isLoadingKabupatenFilter.value = false;
+}, { immediate: true });
+
+const negaraOptions = computed(() => {
+    const list = new Set(['Indonesia']);
+    if (props.filterNegaras && Array.isArray(props.filterNegaras)) {
+        props.filterNegaras.forEach((n) => { if (n) list.add(n); });
+    }
+    if (props.negaras && Array.isArray(props.negaras)) {
+        props.negaras.forEach((n) => { if (n.nama_negara) list.add(n.nama_negara); });
+    }
+    return Array.from(list);
+});
+
+const hasActiveFilters = computed(() => {
+    return !!(
+        search.value ||
+        selectedProdiId.value ||
+        scope.value !== 'all' ||
+        statusFilter.value !== 'all' ||
+        selectedNegara.value ||
+        selectedPropinsiId.value ||
+        selectedKabupatenId.value ||
+        perPage.value != 10
+    );
+});
 
 let searchTimeout = null;
 const handleSearch = () => {
@@ -112,16 +151,40 @@ const filterByStatus = (newStatus) => {
     applyFilters();
 };
 
+const handleNegaraChangeFilter = () => {
+    if (selectedNegara.value && selectedNegara.value !== 'Indonesia') {
+        selectedPropinsiId.value = '';
+        selectedKabupatenId.value = '';
+        availableKabupatensForFilter.value = [];
+    }
+    applyFilters();
+};
+
+const handlePropinsiChangeFilter = () => {
+    selectedKabupatenId.value = '';
+    availableKabupatensForFilter.value = [];
+    if (selectedPropinsiId.value) {
+        isLoadingKabupatenFilter.value = true;
+    }
+    applyFilters();
+};
+
 const applyFilters = () => {
     router.get(props.basePath, {
         search: search.value || undefined,
         prodi_id: selectedProdiId.value || undefined,
         scope: scope.value !== 'all' ? scope.value : undefined,
         status: statusFilter.value !== 'all' ? statusFilter.value : undefined,
+        negara: selectedNegara.value || undefined,
+        propinsi_id: selectedPropinsiId.value || undefined,
+        kabupaten_id: selectedKabupatenId.value || undefined,
         per_page: perPage.value != 10 ? perPage.value : undefined,
     }, {
         preserveState: true,
         replace: true,
+        onFinish: () => {
+            isLoadingKabupatenFilter.value = false;
+        },
     });
 };
 
@@ -130,6 +193,10 @@ const resetFilters = () => {
     selectedProdiId.value = '';
     scope.value = 'all';
     statusFilter.value = 'all';
+    selectedNegara.value = '';
+    selectedPropinsiId.value = '';
+    selectedKabupatenId.value = '';
+    availableKabupatensForFilter.value = [];
     perPage.value = 10;
     router.get(props.basePath, {}, { preserveState: true });
 };
@@ -189,12 +256,31 @@ const getAlumniProdi = (alumni) => {
     return alumni.prodi?.nama_prodi || '-';
 };
 
+const getFilteredProdiAlumni = (company) => {
+    if (!selectedProdiId.value || !company?.biodata) return null;
+    return company.biodata.find((b) => String(b.prodi_id) === String(selectedProdiId.value)) || null;
+};
+
+const getAlumniFromFilteredProdi = (company) => {
+    if (!selectedProdiId.value || !company?.biodata) return [];
+    return company.biodata.filter((b) => String(b.prodi_id) === String(selectedProdiId.value));
+};
+
+const getSelectedProdiName = () => {
+    if (!selectedProdiId.value || !props.prodis) return '';
+    const p = props.prodis.find((item) => String(item.id) === String(selectedProdiId.value));
+    return p ? p.nama_prodi : '';
+};
+
 const getAlumniAngkatan = (alumni) => {
-    if (alumni.data_akademik?.angkatan_masuk) {
-        return `Angkatan ${alumni.data_akademik.angkatan_masuk}`;
-    }
     if (alumni.data_akademik?.tahun_lulus) {
-        return `Lulus ${alumni.data_akademik.tahun_lulus}`;
+        return String(alumni.data_akademik.tahun_lulus);
+    }
+    if (alumni.tahun_lulus) {
+        return String(alumni.tahun_lulus);
+    }
+    if (alumni.data_akademik?.angkatan_masuk) {
+        return `Msk ${alumni.data_akademik.angkatan_masuk}`;
     }
     return '-';
 };
@@ -596,7 +682,7 @@ const isLoadingKabupatenEdit = ref(false);
 // Mengambil daftar kabupaten dari server berdasarkan ID provinsi terpilih
 const fetchKabupatensByProvinsi = async (propinsiId) => {
     if (!propinsiId) return [];
-    if (kabupatensCache.value[propinsiId]) {
+    if (Array.isArray(kabupatensCache.value[propinsiId])) {
         return kabupatensCache.value[propinsiId];
     }
 
@@ -609,8 +695,10 @@ const fetchKabupatensByProvinsi = async (propinsiId) => {
         });
         if (response.ok) {
             const data = await response.json();
-            kabupatensCache.value[propinsiId] = data;
-            return data;
+            if (Array.isArray(data)) {
+                kabupatensCache.value[propinsiId] = data;
+                return data;
+            }
         }
     } catch (e) {
         console.error('Gagal mengambil daftar kabupaten:', e);
@@ -968,7 +1056,7 @@ const handleVerificationAction = (company, event) => {
                             </span>
                         </div>
                         <button
-                            v-if="search || selectedProdiId || scope !== 'all' || statusFilter !== 'all' || perPage != 10"
+                            v-if="hasActiveFilters"
                             @click="resetFilters"
                             class="text-xs font-bold text-slate-500 hover:text-[#0D542B] transition-colors cursor-pointer"
                         >
@@ -979,7 +1067,7 @@ const handleVerificationAction = (company, event) => {
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 text-xs">
                         <!-- Kotak Pencarian -->
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Cari Nama / Kota</label>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Cari Nama / Alamat</label>
                             <div class="relative">
                                 <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1034,8 +1122,68 @@ const handleVerificationAction = (company, event) => {
                                 @change="applyFilters"
                                 class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B] font-medium cursor-pointer"
                             >
-                                <option value="all">Seluruh Universitas</option>
-                                <option value="prodi">Sesuai Prodi Terpilih</option>
+                                <option value="all">Semua Keterkaitan (Pengusul & Bekerja)</option>
+                                <option value="pengusul">Hanya Pengusul dari Prodi Terpilih</option>
+                                <option value="pekerja">Hanya Alumni Bekerja di Sini</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Baris Filter Wilayah: Negara, Provinsi, Kabupaten/Kota -->
+                    <div class="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
+                        <!-- Filter Negara -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Negara</label>
+                            <select
+                                v-model="selectedNegara"
+                                @change="handleNegaraChangeFilter"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B] font-medium cursor-pointer"
+                            >
+                                <option value="">Semua Negara</option>
+                                <option value="Indonesia">Indonesia</option>
+                                <option value="Luar Negeri">Luar Negeri (Semua)</option>
+                                <option
+                                    v-for="neg in negaraOptions.filter(n => n !== 'Indonesia' && n !== 'Luar Negeri')"
+                                    :key="neg"
+                                    :value="neg"
+                                >
+                                    {{ neg }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Filter Provinsi -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Provinsi</label>
+                            <select
+                                v-model="selectedPropinsiId"
+                                @change="handlePropinsiChangeFilter"
+                                :disabled="selectedNegara !== '' && selectedNegara !== 'Indonesia'"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B] font-medium cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                            >
+                                <option value="">Semua Provinsi</option>
+                                <option v-for="prov in propinsis" :key="prov.id" :value="prov.id">
+                                    {{ prov.nama_provinsi }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Filter Kabupaten / Kota -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+                                Kabupaten / Kota
+                                <span v-if="isLoadingKabupatenFilter" class="text-slate-400 font-normal ml-1">(Memuat...)</span>
+                            </label>
+                            <select
+                                v-model="selectedKabupatenId"
+                                @change="applyFilters"
+                                :disabled="!selectedPropinsiId || (selectedNegara !== '' && selectedNegara !== 'Indonesia')"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B] font-medium cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                            >
+                                <option value="">Semua Kabupaten / Kota</option>
+                                <option v-for="kab in availableKabupatensForFilter" :key="kab.id" :value="kab.id">
+                                    {{ kab.nama_kabupaten }}
+                                </option>
                             </select>
                         </div>
                     </div>
@@ -1121,9 +1269,29 @@ const handleVerificationAction = (company, event) => {
                                     </div>
                                 </td>
 
-                                <!-- Kolom Pengaju Usulan -->
+                                <!-- Kolom Pengaju Usulan / Alumni Terkait -->
                                 <td class="border-r border-slate-100 px-3.5 py-3">
-                                    <div v-if="company.creator?.biodata">
+                                    <!-- Jika sedang memfilter prodi dan ada alumni dari prodi tersebut yang bekerja di sini -->
+                                    <div v-if="selectedProdiId && getFilteredProdiAlumni(company)">
+                                        <div class="font-semibold text-slate-900 leading-tight">
+                                            {{ getAlumniDisplayName(getFilteredProdiAlumni(company)) }}
+                                        </div>
+                                        <div class="text-slate-500 text-[11px] font-mono mt-0.5">
+                                            {{ getFilteredProdiAlumni(company).nim || '-' }} • {{ getAlumniProdi(getFilteredProdiAlumni(company)) }}
+                                        </div>
+                                        <div class="mt-1.5 flex flex-col gap-1">
+                                            <span class="inline-block text-[10px] font-semibold text-[#0D542B] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded leading-tight">
+                                                {{ getAlumniFromFilteredProdi(company).length }} alumni {{ getSelectedProdiName() }} bekerja di sini
+                                            </span>
+                                            <span v-if="company.creator?.biodata && String(company.creator.biodata.prodi_id) !== String(selectedProdiId)" class="text-[10px] text-slate-400">
+                                                Pengusul awal: {{ getAlumniDisplayName(company.creator.biodata) }} ({{ getAlumniProdi(company.creator.biodata) }})
+                                            </span>
+                                            <span v-else-if="company.biodata && company.biodata[0] && String(company.biodata[0].prodi_id) !== String(selectedProdiId)" class="text-[10px] text-slate-400">
+                                                Pengusul awal: {{ getAlumniDisplayName(company.biodata[0]) }} ({{ getAlumniProdi(company.biodata[0]) }})
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div v-else-if="company.creator?.biodata">
                                         <div class="font-semibold text-slate-900 leading-tight">
                                             {{ getAlumniDisplayName(company.creator.biodata) }}
                                         </div>
@@ -1423,7 +1591,7 @@ const handleVerificationAction = (company, event) => {
                             <th class="border border-slate-200 px-3 py-2 min-w-[180px]">Nama Mahasiswa / Alumni</th>
                             <th class="border border-slate-200 px-3 py-2 w-28">NIM</th>
                             <th class="border border-slate-200 px-3 py-2 min-w-[150px]">Program Studi</th>
-                            <th class="border border-slate-200 px-3 py-2 w-28 text-center">Angkatan</th>
+                            <th class="border border-slate-200 px-3 py-2 w-28 text-center">Tahun Lulus</th>
                             <th class="border border-slate-200 px-3 py-2 min-w-[140px]">Jabatan / Posisi</th>
                             <th class="border border-slate-200 px-3 py-2 text-center w-20">Aksi</th>
                         </tr>
@@ -1570,7 +1738,7 @@ const handleVerificationAction = (company, event) => {
                                     <th class="px-3 py-2 border-r border-slate-200">Nama Lengkap Alumni</th>
                                     <th class="px-3 py-2 border-r border-slate-200 w-28">NIM</th>
                                     <th class="px-3 py-2 border-r border-slate-200 min-w-[140px]">Program Studi</th>
-                                    <th class="px-3 py-2 border-r border-slate-200 w-24 text-center">Angkatan</th>
+                                    <th class="px-3 py-2 border-r border-slate-200 w-24 text-center">Tahun Lulus</th>
                                     <th class="px-3 py-2 border-r border-slate-200 min-w-[130px]">Posisi / Jabatan</th>
                                     <th class="px-3 py-2 text-center w-16">Aksi</th>
                                 </tr>
