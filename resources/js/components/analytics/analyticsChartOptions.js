@@ -492,7 +492,10 @@ export const normalizeAnalyticsOption = (option) => {
                 series.labelLayout = { ...(series.labelLayout || {}), hideOverlap: false };
             }
             if (series.label && series.type === 'bar') {
-                series.label.color = readableLabelColor(seriesColor);
+                const labelPosition = String(series.label.position || (series.stack ? 'inside' : 'right')).toLowerCase();
+                series.label.color = labelPosition.startsWith('inside')
+                    ? readableLabelColor(seriesColor)
+                    : analyticsColors.textStrong;
             } else if (series.label && series.label.color !== analyticsColors.white) {
                 series.label.color = analyticsColors.textStrong;
             }

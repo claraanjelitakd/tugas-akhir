@@ -44,8 +44,8 @@ const selectedProvince = ref(null);
 // Mengatur status buka/tutup panel samping (Drawer) yang menampilkan rincian alumni hasil cross-filter.
 const drawerOpen = ref(false);
 
-// Mengatur visibilitas dan status buka/tutup bagian metodologi perhitungan indikator.
-const methodologyOpen = ref(false);
+// Mengatur visibilitas dan status buka/tutup bagian metodologi perhitungan indikator (default terbuka).
+const methodologyOpen = ref(true);
 
 // Nilai filter tahun lulusan aktif yang dipilih pengguna pada dropdown tahun (default: tahun aktif backend).
 const selectedYear = ref(String(props.analytics?.filters?.selected_year || new Date().getFullYear()));
@@ -557,6 +557,7 @@ const tableColumns = computed(() => {
     if (chart.value.type === 'application_pipeline') return ['Nama', 'NIM', 'Program studi', 'Tahap', 'Jumlah'];
     if (chart.value.type === 'learning_methods') return ['Nama', 'NIM', 'Program studi', 'Metode', 'Skor'];
     if (chart.value.type === 'competency') return ['Nama', 'NIM', 'Program studi', 'Kompetensi', 'Saat lulus', 'Dibutuhkan', 'Gap'];
+    if (selectedChart.value === 'workplace_type') return ['Nama', 'NIM', 'Program studi', 'Instansi', 'Nama Perusahaan', 'Jenis Instansi Lainnya'];
     return ['Nama', 'NIM', 'Program studi', 'Jawaban'];
 });
 
@@ -569,6 +570,7 @@ const tableCells = (record) => {
     if (chart.value.type === 'application_pipeline') return [record.nama, record.nim, record.nama_prodi, record.kode_pertanyaan, formatNumber(record.value)];
     if (chart.value.type === 'learning_methods') return [record.nama, record.nim, record.nama_prodi, record.method, formatNumber(record.score, 2)];
     if (chart.value.type === 'competency') return [record.nama, record.nim, record.nama_prodi, record.competency, formatNumber(record.graduation_score, 2), formatNumber(record.need_score, 2), formatNumber(record.gap, 2)];
+    if (selectedChart.value === 'workplace_type') return [record.nama, record.nim, record.nama_prodi, record.answer || '-', record.nama_perusahaan || '-', record.jenis_perusahaan_lainnya || '-'];
     return [record.nama, record.nim, record.nama_prodi, record.answer || record.status];
 };
 
@@ -666,7 +668,7 @@ const changeChart = (event) => {
     scheduleLoad(selectedChartKey.value, true);
 };
 
-// Menangani aksi klik pada elemen data grafik untuk menyaring data responden dan membuka panel Drawer.
+// Menangani aksi klik pada elemen data grafik untuk menyaring data responden dan memperbarui analisis inline.
 const selectSeriesItem = (item) => {
     if (!item?.label || item?.label === 'Tanpa kategori') {
         selectedItem.value = null;
@@ -675,20 +677,15 @@ const selectSeriesItem = (item) => {
     }
     selectedItem.value = item;
 
-    // Pada indikator response rate, data drilldown sudah tersaji inline di bawah grafik tanpa perlu drawer samping.
-    if (selectedChart.value === 'response_rate') {
-        drawerOpen.value = false;
-        return;
-    }
-
-    drawerOpen.value = true;
+    // Analisis dan rincian data drill-down sudah tampil secara inline tepat di bawah grafik tanpa perlu drawer samping.
+    drawerOpen.value = false;
 };
 
 // Menangani aksi klik pada wilayah provinsi di peta interaktif MapLibre untuk menerapkan filter geografis.
 const selectProvince = (province) => {
     selectedProvince.value = selectedProvince.value?.province_code === province.province_code ? null : province;
     selectedItem.value = selectedProvince.value ? { label: province.province_name } : null;
-    drawerOpen.value = Boolean(selectedProvince.value);
+    drawerOpen.value = false;
 };
 
 // Memformat nomor telepon alumni untuk tautan WhatsApp resmi tanpa karakter non-angka
@@ -789,7 +786,6 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                     </div>
                     <div class="mt-5 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
                         <div>
-                            <p class="text-xs font-bold uppercase tracking-[0.18em] text-emerald-100">Tracer Study Universitas</p>
                             <h1 class="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">Grafik Universitas</h1>
                             <p class="mt-2 max-w-2xl text-sm leading-6 text-emerald-100/90">Eksplorasi indikator tracer study dengan denominator, metodologi, dan data pembentuk yang dapat ditelusuri.</p>
                         </div>
@@ -841,17 +837,17 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                             <h2 class="text-xl font-extrabold text-slate-900 sm:text-2xl">{{ chart.title }}</h2>
                             <p class="mt-1 max-w-3xl text-xs sm:text-sm text-slate-500 leading-relaxed">{{ chart.subtitle }}</p>
                         </div>
-                        <div v-if="selectedItem?.label" class="flex items-center gap-2 self-start sm:self-auto">
-                            <span class="text-xs text-slate-500">Filter Aktif:</span>
+                        <div v-if="selectedItem?.label" class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                            <span class="text-xs text-slate-500">Analisis Terpilih:</span>
                             <span class="rounded bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-bold text-[#0D542B]">
                                 {{ selectedItem.label }}
                             </span>
                             <button
                                 type="button"
-                                class="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
-                                @click="selectedItem = null; drawerOpen = false"
+                                class="rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
+                                @click="selectedItem = null; selectedProvince = null; drawerOpen = false"
                             >
-                                Reset
+                                Kembali ke Analisis Keseluruhan
                             </button>
                         </div>
                     </div>
@@ -1181,16 +1177,126 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                     </section>
                 </template>
 
-                <!-- Metodologi dapat dibuka dari toolbar chart dan selalu berada pada indikator aktif. -->
-                <details id="analytics-methodology" :open="methodologyOpen" class="bg-slate-200 p-5 sm:p-6" @toggle="methodologyOpen = $event.target.open">
-                    <summary class="cursor-pointer text-sm font-extrabold uppercase tracking-wide text-[#0D542B]">Sumber dan metodologi perhitungan</summary>
-                    <dl class="mt-4 grid gap-4 text-sm md:grid-cols-2 xl:grid-cols-5">
-                        <div><dt class="font-bold text-slate-800">Rumus</dt><dd class="mt-1 leading-6 text-slate-600">{{ chart.methodology?.formula }}</dd></div>
-                        <div><dt class="font-bold text-slate-800">Denominator</dt><dd class="mt-1 leading-6 text-slate-600">{{ chart.methodology?.denominator }}</dd></div>
-                        <div><dt class="font-bold text-slate-800">Sumber data</dt><dd class="mt-1 break-words font-mono text-xs leading-6 text-slate-600">{{ chart.methodology?.source }}</dd></div>
-                        <div><dt class="font-bold text-slate-800">Tipe dan missing data</dt><dd class="mt-1 leading-6 text-slate-600">{{ chart.metadata?.data_type }}. {{ formatNumber(chart.metadata?.missing_count, 0) }} alumni belum masuk perhitungan.</dd></div>
-                        <div><dt class="font-bold text-slate-800">Pembaruan</dt><dd class="mt-1 leading-6 text-slate-600">Dihitung {{ chart.metadata?.generated_at ? new Date(chart.metadata.generated_at).toLocaleString('id-ID') : '-' }}.<br>{{ chart.metadata?.percentage_basis }}</dd></div>
-                    </dl>
+                <!-- Sumber dan Metodologi Perhitungan Lengkap per Indikator dan per Grafik Visualisasi -->
+                <details id="analytics-methodology" :open="methodologyOpen" class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs" @toggle="methodologyOpen = $event.target.open">
+                    <summary class="cursor-pointer select-none flex items-center justify-between gap-3">
+                        <div>
+                            <span class="text-xs font-extrabold uppercase tracking-wider text-[#0D542B]">Sumber dan metodologi perhitungan</span>
+                            <p class="mt-0.5 text-xs text-slate-500">Rumus matematis, sumber tabel database, view SQL, serta metodologi spesifik untuk setiap grafik pada indikator {{ chart.title }}.</p>
+                        </div>
+                        <span class="rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                            {{ methodologyOpen ? 'Sembunyikan' : 'Tampilkan Rincian' }}
+                        </span>
+                    </summary>
+
+                    <div class="mt-5 space-y-5 border-t border-slate-100 pt-5">
+                        <!-- 1. Ringkasan Rumus Utama, Denominator, Tipe Data & Basis Persentase -->
+                        <div class="grid gap-4 lg:grid-cols-12">
+                            <div class="lg:col-span-7 rounded-lg border border-emerald-200/80 bg-emerald-50/30 p-4">
+                                <dt class="text-xs font-extrabold uppercase tracking-wider text-[#0D542B]">Rumus Perhitungan Utama Indikator</dt>
+                                <dd class="mt-2 rounded-md border border-emerald-200/60 bg-white p-3 font-mono text-xs sm:text-sm font-semibold leading-relaxed text-slate-900">
+                                    {{ chart.methodology?.formula || '-' }}
+                                </dd>
+                                <div class="mt-3 grid gap-3 sm:grid-cols-2 text-xs">
+                                    <div>
+                                        <span class="font-bold text-slate-700">Denominator (Pembagi):</span>
+                                        <p class="mt-0.5 leading-relaxed text-slate-600">{{ chart.methodology?.denominator || '-' }}</p>
+                                    </div>
+                                    <div>
+                                        <span class="font-bold text-slate-700">Basis Persentase / Skala:</span>
+                                        <p class="mt-0.5 leading-relaxed text-slate-600">{{ chart.metadata?.percentage_basis || '-' }}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="lg:col-span-5 rounded-lg border border-slate-200 bg-slate-50/70 p-4 flex flex-col justify-between space-y-3 text-xs">
+                                <div>
+                                    <dt class="font-extrabold uppercase tracking-wider text-slate-700">Tipe Statistik &amp; Missing Data</dt>
+                                    <dd class="mt-1.5 leading-relaxed text-slate-600">
+                                        <strong class="text-slate-900">{{ chart.metadata?.data_type || '-' }}.</strong>
+                                        Terdapat <strong class="text-slate-900">{{ formatNumber(chart.metadata?.missing_count, 0) }} alumni</strong> pada populasi kohort yang belum masuk ke dalam perhitungan indikator ini.
+                                    </dd>
+                                </div>
+                                <div class="border-t border-slate-200/80 pt-2.5">
+                                    <dt class="font-bold text-slate-700">Ringkasan Sumber Data:</dt>
+                                    <dd class="mt-1 break-words font-mono text-[11px] leading-relaxed text-slate-600">
+                                        {{ chart.methodology?.source || '-' }}
+                                    </dd>
+                                </div>
+                                <div class="border-t border-slate-200/80 pt-2 text-[11px] text-slate-500">
+                                    Waktu kompilasi data: <span class="font-semibold text-slate-700">{{ chart.metadata?.generated_at ? new Date(chart.metadata.generated_at).toLocaleString('id-ID') : '-' }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. Rumus Perhitungan Spesifik per Grafik / Tab Visualisasi -->
+                        <div v-if="chart.methodology?.charts?.length" class="space-y-2.5">
+                            <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-800">
+                                Rumus &amp; Sumber Spesifik per Grafik Visualisasi ({{ chart.methodology.charts.length }} Grafik)
+                            </h4>
+                            <div class="grid gap-3 md:grid-cols-2">
+                                <div
+                                    v-for="subChart in chart.methodology.charts"
+                                    :key="subChart.key"
+                                    class="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5 flex flex-col justify-between gap-2"
+                                >
+                                    <div>
+                                        <div class="flex items-center justify-between gap-2">
+                                            <span class="text-xs font-extrabold text-slate-900">{{ subChart.title }}</span>
+                                            <span class="rounded bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-mono text-[10px] font-bold text-[#0D542B]">
+                                                {{ subChart.key }}
+                                            </span>
+                                        </div>
+                                        <div class="mt-2 rounded border border-slate-200 bg-white px-2.5 py-2 font-mono text-xs leading-relaxed text-slate-800">
+                                            {{ subChart.formula }}
+                                        </div>
+                                    </div>
+                                    <div class="text-[11px] text-slate-500">
+                                        <span class="font-bold text-slate-700">Sumber Tabel / View:</span>
+                                        <span class="ml-1 font-mono text-slate-600">{{ subChart.source }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. Rincian Tabel Database, Kolom Pembentuk & SQL Views -->
+                        <div v-if="chart.methodology?.tables?.length || chart.methodology?.views?.length" class="space-y-2.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-800">
+                                    Daftar Tabel Database &amp; Kolom Pembentuk Indikator
+                                </h4>
+                                <div v-if="chart.methodology?.views?.length" class="flex flex-wrap items-center gap-1.5 text-xs">
+                                    <span class="font-bold text-slate-600">SQL Views Aktif:</span>
+                                    <span
+                                        v-for="viewName in chart.methodology.views"
+                                        :key="viewName"
+                                        class="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-[11px] font-bold text-[#0D542B]"
+                                    >
+                                        {{ viewName }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div v-if="chart.methodology?.tables?.length" class="overflow-x-auto rounded-lg border border-slate-200">
+                                <table class="min-w-full divide-y divide-slate-200 text-left text-xs">
+                                    <thead class="bg-slate-50 font-bold text-slate-700">
+                                        <tr>
+                                            <th class="px-3.5 py-2.5 w-56">Nama Tabel Database</th>
+                                            <th class="px-3.5 py-2.5 w-72">Kolom yang Digunakan</th>
+                                            <th class="px-3.5 py-2.5">Peran dalam Perhitungan Indikator</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100 bg-white">
+                                        <tr v-for="tbl in chart.methodology.tables" :key="tbl.table" class="hover:bg-slate-50/70">
+                                            <td class="px-3.5 py-2 font-mono font-bold text-[#0D542B] whitespace-nowrap">{{ tbl.table }}</td>
+                                            <td class="px-3.5 py-2 font-mono text-slate-700">{{ tbl.columns }}</td>
+                                            <td class="px-3.5 py-2 text-slate-600">{{ tbl.role }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </details>
             </div>
         </main>

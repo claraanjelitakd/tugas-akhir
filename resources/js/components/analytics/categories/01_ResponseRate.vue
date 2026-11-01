@@ -103,6 +103,21 @@ watch([selectedProdiName, selectedStatus, searchQuery], () => {
     currentPage.value = 1;
 });
 
+// Sinkronisasi apabila selectedLabel direset dari komponen induk.
+watch(() => props.selectedLabel, (newVal) => {
+    if (!newVal && selectedProdiName.value) {
+        selectedProdiName.value = '';
+        selectedStatus.value = 'all';
+        forceShowTable.value = false;
+    } else if (newVal && newVal !== selectedProdiName.value) {
+        const matched = displaySeries.value.find((item) => item.nama_prodi === newVal);
+        if (matched) {
+            selectedProdiName.value = matched.nama_prodi;
+            forceShowTable.value = true;
+        }
+    }
+});
+
 // -----------------------------------------------------------------------------
 // KARTU RINGKASAN ALAMI (Daily Summary Ala Apple iOS Weather)
 // Berganti secara cerdas menyesuaikan mode grafik yang aktif:
@@ -562,7 +577,7 @@ const downloadExcel = (statusTarget = null) => {
                         class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
                         @click="resetSelection"
                     >
-                        Tampilkan Seluruh Universitas
+                        Kembali ke Analisis Keseluruhan
                     </button>
                 </div>
             </div>
@@ -585,13 +600,23 @@ const downloadExcel = (statusTarget = null) => {
 
                     <!-- Kotak Analisis Khusus Mode 100% Stacked Bar -->
                     <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-                        <div class="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
                             <span class="text-xs font-bold uppercase tracking-wider text-slate-700">
                                 {{ naturalSummary.title }}
                             </span>
-                            <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="naturalSummary.badgeClass">
-                                {{ naturalSummary.statusBadge }}
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="naturalSummary.badgeClass">
+                                    {{ naturalSummary.statusBadge }}
+                                </span>
+                                <button
+                                    v-if="selectedProdiName"
+                                    type="button"
+                                    class="rounded border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-[#0D542B] hover:bg-emerald-50 cursor-pointer transition-colors"
+                                    @click="resetSelection"
+                                >
+                                    Kembali ke Analisis Keseluruhan
+                                </button>
+                            </div>
                         </div>
                         <p class="mt-2.5 text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
                             {{ naturalSummary.lead }}
@@ -622,13 +647,23 @@ const downloadExcel = (statusTarget = null) => {
 
                     <!-- Kotak Analisis Khusus Mode Ranking & Target -->
                     <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-                        <div class="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
                             <span class="text-xs font-bold uppercase tracking-wider text-slate-700">
                                 {{ naturalSummary.title }}
                             </span>
-                            <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="naturalSummary.badgeClass">
-                                {{ naturalSummary.statusBadge }}
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="naturalSummary.badgeClass">
+                                    {{ naturalSummary.statusBadge }}
+                                </span>
+                                <button
+                                    v-if="selectedProdiName"
+                                    type="button"
+                                    class="rounded border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-[#0D542B] hover:bg-emerald-50 cursor-pointer transition-colors"
+                                    @click="resetSelection"
+                                >
+                                    Kembali ke Analisis Keseluruhan
+                                </button>
+                            </div>
                         </div>
                         <p class="mt-2.5 text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
                             {{ naturalSummary.lead }}

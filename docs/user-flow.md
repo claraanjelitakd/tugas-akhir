@@ -423,12 +423,14 @@ flowchart TD
 ```
 
 ### Rincian Alur Atasan:
-1. **Pemicu Undangan**: penyimpanan profil menyiapkan record `evaluasi_atasan` bila data atasan tersedia. Pengiriman email dilakukan melalui aksi terpisah `POST /alumni/kirim-email-atasan` oleh alumni atau admin yang diizinkan. Token dihasilkan sepanjang 40 karakter; kapasitas kolom database 64 karakter.
-2. **Akses Formulir Tanpa Hambatan**: Atasan membuka tautan langsung dari email (`/evaluasi-atasan/{token}`). Tidak dibutuhkan proses registrasi atau login akun.
-3. **Penyempurnaan Profil Instansi (Bagian I)**: Atasan dapat memverifikasi atau melengkapi nama instansi, alamat, no telp/fax, website, bentuk perusahaan, skala usaha, jumlah pegawai, jumlah alumni UKDW, dan standar gaji pertama. Data perusahaan dan atasan disinkronkan ke tabel master `perusahaan` dan `atasan`.
-4. **Penilaian Kesiapan & Kinerja (Bagian II)**:
-   - Menilai tingkat kesiapan alumni dalam bekerja (pilihan ganda).
-   - Menilai butir aspek kinerja lulusan pada tabel ber-header lengket (*sticky header*) yang memuat nama alumni.
+1. **Pemicu Undangan**: penyimpanan profil menyiapkan record `evaluasi_atasan` bila data atasan tersedia. Pengiriman email dilakukan melalui aksi terpisah `POST /alumni/kirim-email-atasan` oleh alumni atau admin yang diizinkan (tombol aktif selama nama dan email atasan valid). Token dihasilkan sepanjang 40 karakter; kapasitas kolom database 64 karakter.
+2. **Akses Formulir Tanpa Hambatan**: Atasan membuka tautan langsung dari email (`/evaluasi-atasan/{token}`). Tidak dibutuhkan proses registrasi atau login akun. Header kanan atas menampilkan foto bundar alumni ber-dropdown (nama, NIM, prodi, fakultas), sedangkan banner pengantar menyapa nama atasan secara formal dan menyajikan ringkasan jabatan/divisi, instansi penempatan, serta studi lanjut alumni.
+3. **Penyempurnaan Profil & Karakteristik Instansi (Langkah 1 & Langkah 2)**:
+   - **Langkah 1 (Profil Perusahaan)**: Atasan memverifikasi atau memperbarui nama perusahaan, jenis instansi (F11), cakupan wilayah (Dalam/Luar Negeri), provinsi/kabupaten atau negara, kode pos, alamat lengkap, no. telp/fax, dan website/homepage. Perubahan tersinkronisasi dua arah dengan profil karier alumni pada tabel `perusahaan`.
+   - **Langkah 2 (Karakteristik Perusahaan)**: Atasan memilih bentuk perusahaan, skala perusahaan, jumlah pegawai keseluruhan (`perusahaan.jumlah_pegawai`), jumlah alumni UKDW (`evaluasi_atasan.jumlah_alumni_ukdw`), dan standar gaji pertama (`evaluasi_atasan.standar_gaji_pertama`). Pilihan mendukung pembatalan jawaban (*uncheck*) dengan klik ulang atau klik dua kali.
+4. **Penilaian Kesiapan & Kinerja (Langkah 3)**:
+   - Menilai tingkat kesiapan alumni dalam bekerja dengan urutan skala dari kiri ke kanan: *Tidak siap*, *Kurang siap*, *Cukup Siap*, hingga *Sangat siap*.
+   - Menilai 12 butir aspek kinerja lulusan pada matriks Likert dengan urutan skala dari kiri ke kanan: *Sangat Kurang*, *Kurang*, *Cukup*, *Tinggi*, hingga *Sangat Tinggi* (mendukung pembatalan pilihan dengan klik ulang/klik 2x).
    - Menyampaikan saran/masukan konstruktif untuk universitas.
 5. **Konfirmasi & Audit**: Respon tersimpan ke tabel `respon_evaluasi_atasan` dan status berubah menjadi *"Sudah Selesai Diisi"*.
 

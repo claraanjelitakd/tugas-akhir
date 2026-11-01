@@ -125,9 +125,16 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
             </p>
 
             <!-- Foto Profil Resmi Alumni -->
-            <div class="mb-6 p-4 sm:p-5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-center sm:items-start gap-5">
+            <div
+                class="mb-6 p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row items-center sm:items-start gap-5 transition-colors"
+                :class="fotoPreview || form.foto ? 'bg-slate-50 border-slate-200' : 'bg-emerald-50/40 border-[#0D542B]/30'"
+            >
                 <div class="relative shrink-0">
-                    <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shadow-xs border-2 border-white bg-slate-100 flex items-center justify-center">
+                    <div
+                        class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shadow-xs flex items-center justify-center transition-colors cursor-pointer"
+                        :class="fotoPreview || form.foto ? 'border-2 border-white bg-slate-100' : 'border-2 border-dashed border-[#0D542B]/50 bg-white hover:bg-emerald-50/50'"
+                        @click="!fotoPreview && !form.foto ? triggerFileInput() : null"
+                    >
                         <img 
                             v-if="fotoPreview" 
                             :src="fotoPreview" 
@@ -140,28 +147,30 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                             :alt="form.nama || 'Foto Profil'" 
                             class="w-full h-full object-cover object-top" 
                         />
-                        <div v-else class="flex flex-col items-center justify-center text-slate-400">
-                            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                            <span class="text-[10px] font-bold text-slate-400 mt-1">Belum Ada</span>
+                        <div v-else class="flex flex-col items-center justify-center text-[#0D542B] px-2 text-center">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                            <span class="text-[10px] font-extrabold text-[#0D542B] mt-1 leading-tight">Wajib Diisi</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="flex-1 text-center sm:text-left space-y-2">
                     <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                        <h3 class="text-sm font-bold text-gray-900">Foto Profil Mahasiswa / Alumni</h3>
-                        <span v-if="form.foto && typeof form.foto === 'string' && form.foto.includes('uploads/profile')" class="px-2 py-0.5 bg-slate-200 text-slate-700 text-[10px] font-bold rounded-md">
+                        <h3 class="text-sm font-bold text-gray-900">
+                            Foto Profil Mahasiswa / Alumni <span class="text-rose-500 font-bold">*</span>
+                        </h3>
+                        <span v-if="form.foto && typeof form.foto === 'string' && form.foto.includes('uploads/profile')" class="px-2 py-0.5 bg-emerald-100 text-[#0D542B] text-[10px] font-bold rounded-md">
                             Tersinkron LinkedIn / Terverifikasi
                         </span>
-                        <span v-else-if="form.foto" class="px-2 py-0.5 bg-slate-200 text-slate-700 text-[10px] font-bold rounded-md">
+                        <span v-else-if="fotoPreview || form.foto" class="px-2 py-0.5 bg-emerald-100 text-[#0D542B] text-[10px] font-bold rounded-md">
                             Foto Tersedia
                         </span>
-                        <span v-else class="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-md">
+                        <span v-else class="px-2 py-0.5 bg-emerald-50 text-[#0D542B] border border-[#0D542B]/30 text-[10px] font-bold rounded-md">
                             Belum Ada Foto
                         </span>
                     </div>
 
-                    <p class="text-xs text-gray-500 leading-relaxed max-w-xl">
+                    <p class="text-xs text-gray-600 leading-relaxed max-w-xl">
                         Foto resmi alumni akan ditampilkan pada direktori alumni kampus, berkas tracer study, dan verifikasi profil lulusan. Dapat disinkronkan otomatis dari LinkedIn atau diunggah mandiri (JPG/PNG max 2MB).
                     </p>
 
@@ -176,16 +185,17 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                         <button 
                             type="button" 
                             @click="triggerFileInput" 
-                            class="px-3.5 py-1.5 bg-white hover:bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-700 transition shadow-2xs cursor-pointer"
+                            class="px-4 py-2 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                            :class="fotoPreview || form.foto ? 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-700' : 'bg-[#0D542B] hover:bg-[#093d1f] text-white'"
                         >
-                            <span>{{ form.foto ? 'Ganti Foto' : 'Unggah Foto' }}</span>
+                            <span>{{ fotoPreview || form.foto ? 'Ganti Foto' : 'Unggah Foto Sekarang' }}</span>
                         </button>
 
                         <button
                             v-if="fotoPreview || (form.foto && typeof form.foto === 'string')"
                             type="button"
                             @click="previewFoto"
-                            class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                            class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
                         >
                             <span>Lihat Foto</span>
                         </button>

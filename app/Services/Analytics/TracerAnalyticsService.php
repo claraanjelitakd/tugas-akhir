@@ -254,6 +254,10 @@ class TracerAnalyticsService
             default => throw new \LogicException('Grafik analitik tidak tersedia.'),
         };
         $populationCount = $this->populationCount($selectedYear, $prodiId);
+        $chart['methodology'] = array_merge(
+            $chart['methodology'] ?? [],
+            $this->chartMethodology($chartKey, $this->resolveTargetResponseRate($selectedYear), $selectedUmpYear),
+        );
         $chart['data_availability'] = $this->dataAvailability($chartKey, $chart, $populationCount);
         $validRespondentCount = collect($chart['records'] ?? [])
             ->pluck('biodata_id')
@@ -560,6 +564,27 @@ class TracerAnalyticsService
             ],
         ][$chartKey];
         $records = $this->questionRecords($rows);
+        if ($chartKey === 'workplace_type') {
+            $biodataIds = $records->pluck('biodata_id')->unique()->all();
+            $perusahaanInfo = DB::table('biodata')
+                ->leftJoin('perusahaan', 'biodata.perusahaan_id', '=', 'perusahaan.id')
+                ->whereIn('biodata.id', $biodataIds)
+                ->select(
+                    'biodata.id as biodata_id',
+                    'perusahaan.nama_perusahaan',
+                    'perusahaan.jenis_perusahaan_lainnya'
+                )
+                ->get()
+                ->keyBy('biodata_id');
+
+            $records = $records->map(function (array $rec) use ($perusahaanInfo): array {
+                $info = $perusahaanInfo->get($rec['biodata_id']);
+                $rec['nama_perusahaan'] = $info?->nama_perusahaan ?: '-';
+                $rec['jenis_perusahaan_lainnya'] = $info?->jenis_perusahaan_lainnya ?: '-';
+
+                return $rec;
+            });
+        }
         $questionCode = match ($chartKey) {
             'job_search_methods' => 'F4',
             'mismatch_reasons' => 'F16',
@@ -858,7 +883,7 @@ class TracerAnalyticsService
                 }
             }
             if (empty($degree)) {
-                $degree = 'S2';
+                $degree = ! empty($f18cAnswer) ? 'Lainnya' : 'S2';
             }
 
             // Perguruan tinggi studi lanjut
@@ -880,7 +905,7 @@ class TracerAnalyticsService
             ]);
         }
 
-        $allDegrees = ['S1', 'S2', 'S3', 'Profesi', 'Spesialis'];
+        $allDegrees = ['S1', 'S2', 'S3', 'Profesi', 'Spesialis', 'Lainnya'];
         $degreeCounts = $alumniList->groupBy('degree');
         $degreeSeries = collect($allDegrees)->map(function (string $deg) use ($degreeCounts, $alumniList): array {
             $group = $degreeCounts->get($deg, collect());
@@ -890,7 +915,7 @@ class TracerAnalyticsService
                 'count' => $group->count(),
                 'percentage' => $this->percentage($group->count(), max($alumniList->count(), 1)),
             ];
-        })->sortByDesc('count')->values()->all();
+        })->filter(fn (array $item): bool => $item['count'] > 0)->sortByDesc('count')->values()->all();
 
         // Seluruh opsi resmi kuesioner instrumen F12
         $allFundings = [
@@ -912,12 +937,16 @@ class TracerAnalyticsService
         })->sortByDesc('count')->values()->all();
 
         $universityByDegree = [];
-        foreach ($allDegrees as $deg) {
+        $recordedDegrees = collect($allDegrees)->merge($degreeCounts->keys())->unique();
+        foreach ($recordedDegrees as $deg) {
             $items = $degreeCounts->get($deg, collect());
-            $universityByDegree[$deg] = $items->groupBy('university')->map(fn (Collection $group, string $univ): array => [
+            $universityByDegree[$deg] = $items->groupBy(function ($item) {
+                return $item['university'] ?: 'Universitas Mitra';
+            })->map(fn (Collection $group, string $univ): array => [
                 'university' => $univ,
                 'count' => $group->count(),
                 'percentage' => $this->percentage($group->count(), max($items->count(), 1)),
+                'programs' => $group->pluck('study_program')->filter(fn ($p) => $p && $p !== '-')->unique()->values()->all(),
             ])->sortByDesc('count')->values()->all();
         }
 
@@ -1853,6 +1882,524 @@ class TracerAnalyticsService
                 'source' => 'v_analytics_response_rate.answered_mandatory_univ',
             ],
         ];
+    }
+
+    /**
+     * Menyusun rumus matematis eksplisit, asal tabel/kolom database, view SQL,
+     * serta rincian metodologi per grafik untuk setiap indikator analitik.
+     *
+     * @return array<string, mixed>
+     */
+    private function chartMethodology(string $chartKey, float $targetResponseRate = 60.0, ?int $umpYear = null): array
+    {
+        $targetFormatted = number_format($targetResponseRate, 1, ',', '.');
+        $umpYearLabel = $umpYear !== null ? (string) $umpYear : 'terpilih';
+
+        return match ($chartKey) {
+            'response_rate' => [
+                'formula' => "Response Rate (%) = (Σ Alumni Responden Valid / Σ Populasi Kohort) × 100%  |  Belum Mengisi (%) = 100% - Response Rate (%)  |  Selisih Target (Gap) = Response Rate (%) - Target ({$targetFormatted}%)",
+                'denominator' => 'N_populasi = seluruh baris alumni pada tabel biodata yang berelasi dengan data_akademik pada tahun lulusan & program studi terpilih.',
+                'source' => 'Tabel: biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi), tracer (biodata_id, question_id, answer, answer_json, updated_at), ref_subpertanyaan2021 (id, kode_pertanyaan, wajib, type), kuesioner (year, target_response_rate) — View: v_analytics_response_rate, v_analytics_population',
+                'tables' => [
+                    ['table' => 'biodata', 'columns' => 'id, user_id, nim, prodi_id, nomor_telepon, email_pribadi', 'role' => 'Master identitas populasi alumni'],
+                    ['table' => 'data_akademik', 'columns' => 'nim, nama, tahun_lulus', 'role' => 'Filter kohort tahun kelulusan'],
+                    ['table' => 'prodi', 'columns' => 'id, kode_prodi, nama_prodi', 'role' => 'Pengelompokan program studi'],
+                    ['table' => 'tracer', 'columns' => 'biodata_id, question_id, kode_pertanyaan, answer, answer_json, updated_at', 'role' => 'Jawaban kuesioner universitas per alumni'],
+                    ['table' => 'ref_subpertanyaan2021', 'columns' => 'id, kode_pertanyaan, wajib, type', 'role' => 'Penentu pertanyaan wajib (wajib = 1)'],
+                    ['table' => 'kuesioner', 'columns' => 'year, is_active, target_response_rate', 'role' => "Ambang target response rate ({$targetFormatted}%)"],
+                ],
+                'views' => ['v_analytics_response_rate', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'stacked',
+                        'title' => 'Distribusi Komposisi Responden (100% Stacked Bar)',
+                        'formula' => 'Sudah Mengisi_p (%) = (n_responden,p / N_populasi,p) × 100% ; Belum Mengisi_p (%) = ((N_populasi,p - n_responden,p) / N_populasi,p) × 100%',
+                        'source' => 'v_analytics_response_rate (kolom answered, prodi_id, nama_prodi)',
+                    ],
+                    [
+                        'key' => 'ranking',
+                        'title' => 'Ranking Response Rate & Target Standar',
+                        'formula' => "Response Rate_p (%) = (n_responden,p / N_populasi,p) × 100% ; Gap Target_p = Response Rate_p (%) - {$targetFormatted}%",
+                        'source' => 'v_analytics_response_rate + kuesioner.target_response_rate',
+                    ],
+                ],
+            ],
+            'learning_methods' => [
+                'formula' => 'Rerata Skor Metode (x̄_k) = (Σ_{i=1..n_k} Skor_{i,k}) / n_k  |  Skor Bulat (INT) = ROUND(x̄_k) pada Skala Likert 1..5  |  Proporsi Skala s (%) = (n_{k,s} / n_k) × 100%',
+                'scale_legend' => '1 = Tidak Sama Sekali | 2 = Kurang | 3 = Cukup Besar | 4 = Besar | 5 = Sangat Besar',
+                'denominator' => 'n_k = jumlah alumni yang memberikan jawaban valid skala 1–5 pada metode pembelajaran ke-k (instrumen F21 s.d. F27).',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F21..F27], answer, answer_json), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_learning_methods, v_analytics_tracer_answers, v_analytics_population',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F21..F27), answer, answer_json', 'role' => 'Skor penilaian 7 metode pembelajaran (1–5)'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Relasi responden ke program studi'],
+                    ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus', 'role' => 'Filter kohort tahun lulusan'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi per program studi'],
+                ],
+                'views' => ['v_analytics_learning_methods', 'v_analytics_tracer_answers', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'radar',
+                        'title' => 'Diagram Radar Penekanan 7 Metode Pembelajaran',
+                        'formula' => 'Skor_k = ROUND((Σ Skor_{i,k}) / n_k) untuk k ∈ {F21..F27}',
+                        'source' => 'v_analytics_learning_methods (kode_pertanyaan F21–F27)',
+                    ],
+                    [
+                        'key' => 'line',
+                        'title' => 'Diagram Garis Rata-rata Skor Penekanan Belajar (Gambar 4.3)',
+                        'formula' => 'x̄_k = (Σ Skor_{i,k}) / n_k ; Skor INT_k = ROUND(x̄_k)',
+                        'source' => 'v_analytics_learning_methods (kode_pertanyaan F21–F27)',
+                    ],
+                    [
+                        'key' => 'stacked',
+                        'title' => 'Distribusi Pilihan Skala Responden (100% Stacked Bar)',
+                        'formula' => 'Proporsi_{k,s} (%) = (Jumlah Alumni memilih skala s pada metode k / n_k) × 100%, dengan Σ_{s=1..5} Proporsi_{k,s} = 100%',
+                        'source' => 'v_analytics_learning_methods (distribusi skala 1–5 per kode_pertanyaan)',
+                    ],
+                    [
+                        'key' => 'heatmap',
+                        'title' => 'Peta Panas (Heatmap) Penekanan Antarprogram Studi',
+                        'formula' => 'Skor_{p,k} = ROUND((Σ_{i ∈ prodi p} Skor_{i,k}) / n_{p,k})',
+                        'source' => 'v_analytics_learning_methods dikelompokkan per (nama_prodi, kode_pertanyaan)',
+                    ],
+                ],
+            ],
+            'job_search_start' => [
+                'formula' => 'Proporsi Fase f & Rentang r (%) = (n_{f,r} / N_valid_F3) × 100%  |  Proporsi Fase f (%) = (Σ_r n_{f,r} / N_valid_F3) × 100%',
+                'denominator' => 'N_valid_F3 = jumlah alumni dengan jawaban valid pada instrumen waktu mulai mencari pekerjaan (F3).',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F3, answer, answer_json), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_job_search_start, v_analytics_tracer_answers',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F3), answer, answer_json', 'role' => 'Jawaban waktu mulai mencari kerja (sebelum/setelah lulus & bulan)'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas alumni'],
+                    ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus', 'role' => 'Filter kohort tahun lulusan'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Master program studi'],
+                ],
+                'views' => ['v_analytics_job_search_start', 'v_analytics_tracer_answers', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'timing_stacked',
+                        'title' => 'Diagram Kolom Bertumpuk Rentang Waktu Mulai Mencari Kerja',
+                        'formula' => 'Proporsi Segmen (f, r) (%) = (n_{f,r} / N_valid_F3) × 100%, dengan f ∈ {Sebelum lulus, Setelah lulus, Tidak mencari kerja} dan r ∈ {< 2 bulan, 2–6 bulan, > 6 bulan}',
+                        'source' => 'v_analytics_job_search_start (tracer.kode_pertanyaan = F3)',
+                    ],
+                ],
+            ],
+            'job_search_methods' => [
+                'formula' => 'Frekuensi Saluran m = n_m (jumlah pilihan pada opsi m)  |  Proporsi Pilihan m (%) = (n_m / Σ_j n_j) × 100% (Pertanyaan Pilihan Jamak / Multiple Response F4)',
+                'denominator' => 'N_respon_F4 = total catatan pilihan saluran pencarian kerja valid yang dipilih alumni pada instrumen F4 (N_alumni = jumlah responden unik).',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F4, answer, answer_json), ref_subpertanyaan_detil (kode_pertanyaan = F4, option_text, order), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_job_search_methods, v_analytics_tracer_answers',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F4), answer, answer_json', 'role' => 'Jawaban pilihan jamak saluran pencarian kerja'],
+                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F4), option_text, order', 'role' => 'Referensi 15 opsi saluran resmi kuesioner F4'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas alumni'],
+                    ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus', 'role' => 'Filter kohort tahun lulusan'],
+                ],
+                'views' => ['v_analytics_job_search_methods', 'v_analytics_tracer_answers', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'distribution',
+                        'title' => 'Diagram Batang Horizontal Distribusi Saluran Pencarian Pekerjaan',
+                        'formula' => 'n_m = COUNT(biodata_id memilih saluran m) ; Persentase_m (%) = (n_m / Total Respon F4) × 100%',
+                        'source' => 'v_analytics_job_search_methods + ref_subpertanyaan_detil (F4)',
+                    ],
+                    [
+                        'key' => 'lainnya_detail',
+                        'title' => 'Tabel Rincian Isian Saluran Lainnya',
+                        'formula' => 'Filter baris dengan answer LIKE "%lain%" atau jawaban bebas di luar opsi baku F4',
+                        'source' => 'v_analytics_job_search_methods (kolom nim, nama, nama_prodi, answer)',
+                    ],
+                ],
+            ],
+            'wait_time' => [
+                'formula' => 'Bulan Tunggu (W_i) = COALESCE(F502_i, F506_i)  |  Median (Q2) = P_50(W)  |  Kuartil Bawah (Q1) = P_25(W)  |  Kuartil Atas (Q3) = P_75(W)  |  IQR = Q3 - Q1',
+                'denominator' => 'n_valid = jumlah alumni yang memiliki nilai numerik masa tunggu kerja (W_i >= 0 bulan) pada instrumen F502 atau F506.',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F502, F504, F506], answer), biodata (id, nim, prodi_id, perusahaan_id), perusahaan (id, nama_perusahaan), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_wait_time, v_analytics_population',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F502, F504, F506), answer', 'role' => 'Nilai bulan memperoleh pekerjaan pertama (F502 ≤ 6 bln, F506 > 6 bln)'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, perusahaan_id', 'role' => 'Identitas alumni & relasi perusahaan'],
+                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan', 'role' => 'Nama tempat bekerja alumni'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Pengelompokan kuartil per program studi'],
+                ],
+                'views' => ['v_analytics_wait_time', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'prodi_quartiles',
+                        'title' => 'Diagram Garis Kuartil & Median Waktu Tunggu per Program Studi',
+                        'formula' => 'Pos(p) = (p/100) × (n_prodi - 1) ; Q1 = P_25(W_prodi), Median (Q2) = P_50(W_prodi), Q3 = P_75(W_prodi), IQR = Q3 - Q1',
+                        'source' => 'v_analytics_wait_time (kolom wait_months, wait_source, nama_prodi)',
+                    ],
+                ],
+            ],
+            'application_pipeline' => [
+                'formula' => 'Median Tahap t (Q2_t) = P_50(X_t) untuk t ∈ {F6 (Dilamar), F7 (Merespon), F7A (Wawancara)}  |  Rasio Partisipasi Tahap t (%) = (n_t / n_F6) × 100%',
+                'denominator' => 'n_t = jumlah alumni yang mengisikan angka numerik valid (X_{i,t} >= 0) pada pertanyaan F6, F7, atau F7A.',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F6, F7, F7A], answer), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_application_pipeline, v_analytics_tracer_answers',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F6, F7, F7A), answer', 'role' => 'Jumlah perusahaan dilamar (F6), merespon (F7), dan mewawancara (F7A)'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
+                    ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus', 'role' => 'Filter kohort tahun lulusan'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi median pipeline per prodi'],
+                ],
+                'views' => ['v_analytics_application_pipeline', 'v_analytics_tracer_answers', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'prodi_pipeline',
+                        'title' => 'Diagram Garis Pipeline Lamaran per Program Studi (Gambar 4.7)',
+                        'formula' => 'Dilamar_p = Median(F6_p) ; Merespon_p = Median(F7_p) ; Wawancara_p = Median(F7A_p)',
+                        'source' => 'v_analytics_application_pipeline dikelompokkan per nama_prodi',
+                    ],
+                    [
+                        'key' => 'stages',
+                        'title' => 'Diagram Batang Horizontal Median Tahapan Lamaran Universitas',
+                        'formula' => 'Median_univ(t) = P_50({X_{i,t} | i ∈ seluruh responden valid tahap t})',
+                        'source' => 'v_analytics_application_pipeline (agregat universitas F6, F7, F7A)',
+                    ],
+                ],
+            ],
+            'employment_status' => [
+                'formula' => 'Proporsi Status s (%) = (n_s / N_valid_F8) × 100%  |  Capaian IKU 1 Awal (%) = ((n_Bekerja + n_Wiraswasta + n_StudiLanjut) / N_valid_F8) × 100%',
+                'denominator' => 'N_valid_F8 = jumlah alumni yang memberikan jawaban status pekerjaan valid pada instrumen F8.',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F8, F5B, F5C, F11, F18a..F18d], answer), biodata (id, nim, prodi_id, perusahaan_id), perusahaan (id, nama_perusahaan, propinsi_id), propinsi (id, nama_provinsi), prodi (id, nama_prodi) — View: v_analytics_employment_status, v_analytics_population',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F8, F5B, F5C, F11, F18a–F18d), answer', 'role' => 'Status aktivitas saat ini (F8) & detail pekerjaan/studi lanjut'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, perusahaan_id', 'role' => 'Identitas alumni & relasi perusahaan'],
+                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, propinsi_id', 'role' => 'Perusahaan/usaha tempat alumni bekerja'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Komposisi dan aliran status per prodi'],
+                ],
+                'views' => ['v_analytics_employment_status', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'donut',
+                        'title' => 'Diagram Donat Proporsi Status Pekerjaan Universitas',
+                        'formula' => 'Proporsi_s (%) = (n_s / N_valid_F8) × 100% ; IKU 1 (%) = ((n_Bekerja + n_Wiraswasta + n_MelanjutkanPendidikan) / N_valid_F8) × 100%',
+                        'source' => 'v_analytics_employment_status (kolom f8_answer)',
+                    ],
+                    [
+                        'key' => 'stacked',
+                        'title' => 'Diagram Batang Bertumpuk 100% Komposisi Status per Prodi',
+                        'formula' => 'Proporsi_{p,s} (%) = (n_{p,s} / n_p) × 100%, dengan n_p = total responden F8 pada prodi p',
+                        'source' => 'v_analytics_employment_status dikelompokkan per (nama_prodi, status)',
+                    ],
+                    [
+                        'key' => 'sankey',
+                        'title' => 'Diagram Aliran Sankey Program Studi ke Status Pekerjaan',
+                        'formula' => 'Bobot Aliran w(Prodi p → Status s) = COUNT(alumni ∈ prodi p dengan status F8 = s)',
+                        'source' => 'v_analytics_employment_status (pasangan node nama_prodi → status)',
+                    ],
+                ],
+            ],
+            'job_search_activity' => [
+                'formula' => 'Proporsi Keaktifan k (%) = (n_k / N_valid_F10) × 100%',
+                'denominator' => 'N_valid_F10 = jumlah alumni yang memberikan jawaban valid pada instrumen keaktifan mencari pekerjaan dalam 4 minggu terakhir (F10).',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F10, answer, answer_json), ref_subpertanyaan_detil (kode_pertanyaan = F10, option_text), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_job_search_activity, v_analytics_tracer_answers',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F10), answer, answer_json', 'role' => 'Jawaban status keaktifan mencari kerja 4 minggu terakhir'],
+                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F10), option_text, order', 'role' => 'Daftar opsi baku instrumen F10'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Program studi alumni'],
+                ],
+                'views' => ['v_analytics_job_search_activity', 'v_analytics_tracer_answers', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'activity_bar',
+                        'title' => 'Diagram Batang Horizontal Keaktifan Mencari Pekerjaan (F10)',
+                        'formula' => 'n_k = COUNT(alumni dengan jawaban F10 = k) ; Persentase_k (%) = (n_k / N_valid_F10) × 100%',
+                        'source' => 'v_analytics_job_search_activity + ref_subpertanyaan_detil (F10)',
+                    ],
+                ],
+            ],
+            'workplace_type' => [
+                'formula' => 'Proporsi Jenis Instansi j (%) = (n_j / N_valid_F11) × 100%  |  Proporsi per Prodi (p, j) (%) = (n_{p,j} / n_p) × 100%',
+                'denominator' => 'N_valid_F11 = jumlah alumni yang menjawab jenis tempat/instansi bekerja pada instrumen F11.',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F11, answer, answer_json), ref_subpertanyaan_detil (kode_pertanyaan = F11, option_text), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_workplace_type, v_analytics_tracer_answers',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F11), answer, answer_json', 'role' => 'Jawaban jenis instansi/perusahaan tempat bekerja'],
+                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F11), option_text, order', 'role' => 'Referensi kategori jenis tempat kerja F11'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi komposisi sektor per prodi'],
+                ],
+                'views' => ['v_analytics_workplace_type', 'v_analytics_tracer_answers', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'univ_proportion',
+                        'title' => 'Diagram Donat Proporsi Jenis Instansi Universitas',
+                        'formula' => 'Proporsi_j (%) = (n_j / N_valid_F11) × 100%',
+                        'source' => 'v_analytics_workplace_type (tracer.kode_pertanyaan = F11)',
+                    ],
+                    [
+                        'key' => 'by_prodi',
+                        'title' => 'Diagram Batang Bertumpuk 100% Komposisi Jenis Tempat Kerja per Prodi',
+                        'formula' => 'Proporsi_{p,j} (%) = (n_{p,j} / n_p) × 100%, dengan Σ_j Proporsi_{p,j} = 100%',
+                        'source' => 'v_analytics_workplace_type dikelompokkan per (nama_prodi, answer)',
+                    ],
+                ],
+            ],
+            'further_study' => [
+                'formula' => 'Proporsi Jenjang d (%) = (n_d / N_studi_lanjut) × 100%  |  Proporsi Sumber Biaya b (%) = (n_b / N_studi_lanjut) × 100%  |  Proporsi PT Tujuan u pada Jenjang d (%) = (n_{d,u} / n_d) × 100%',
+                'denominator' => 'N_studi_lanjut = jumlah alumni unik yang memiliki rekaman studi lanjut valid pada instrumen F12/F18 dan profil pendidikan lanjut.',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F12, F18b, F18c, F18d], answer), biodata (id, nim, prodi_id, pendidikan_tingkat, perguruan_tinggi, pendidikan_prodi), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_further_study, v_analytics_tracer_answers',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F12, F18b, F18c, F18d), answer', 'role' => 'Sumber biaya (F12), perguruan tinggi (F18b), prodi lanjut (F18c), jenjang (F18d)'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, pendidikan_tingkat, perguruan_tinggi, pendidikan_prodi', 'role' => 'Atribut studi lanjut pada profil alumni'],
+                    ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus', 'role' => 'Filter kohort tahun lulusan'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Program studi asal alumni di UKDW'],
+                ],
+                'views' => ['v_analytics_further_study', 'v_analytics_tracer_answers', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'degree_view',
+                        'title' => 'Diagram Batang Horizontal Distribusi Jenjang Studi Lanjut',
+                        'formula' => 'Proporsi Jenjang d (%) = (n_d / N_studi_lanjut) × 100% ; Drill-down PT: Proporsi_{d,u} (%) = (n_{d,u} / n_d) × 100%',
+                        'source' => 'v_analytics_further_study + biodata (pendidikan_tingkat, perguruan_tinggi, F18b, F18c)',
+                    ],
+                    [
+                        'key' => 'funding_view',
+                        'title' => 'Diagram Batang Horizontal Sumber Pembiayaan Studi (F12)',
+                        'formula' => 'Proporsi Biaya b (%) = (n_b / N_studi_lanjut) × 100%',
+                        'source' => 'v_analytics_further_study (tracer.kode_pertanyaan = F12)',
+                    ],
+                    [
+                        'key' => 'records_view',
+                        'title' => 'Tabel Tabulasi Lengkap Responden Studi Lanjut',
+                        'formula' => 'Proyeksi individu: COALESCE(biodata.perguruan_tinggi, F18b), COALESCE(biodata.pendidikan_prodi, F18c), F12',
+                        'source' => 'v_analytics_further_study JOIN biodata',
+                    ],
+                ],
+            ],
+            'salary_vs_ump' => [
+                'formula' => "Ambang Provinsi = ROUND(1,2 × ump.besaran, 2)  |  Status Memenuhi = 1 jika biodata.gaji >= 1,2 × UMP (tahun {$umpYearLabel})  |  Persentase Memenuhi (%) = (n_memenuhi / n_comparable) × 100%  |  Kuartil Gaji: Q1 = P_25, Median (Q2) = P_50, Q3 = P_75",
+                'denominator' => 'n_comparable = jumlah alumni yang memiliki biodata.gaji > 0, terhubung ke perusahaan.propinsi_id, dan memiliki nilai ump.besaran pada tahun UMP terpilih.',
+                'source' => 'Tabel: biodata (id, nim, prodi_id, gaji, perusahaan_id), perusahaan (id, nama_perusahaan, propinsi_id), propinsi (id, kode_provinsi, nama_provinsi), ump (kode_provinsi, tahun, besaran), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_salary_ump, v_analytics_population',
+                'tables' => [
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, gaji, perusahaan_id', 'role' => 'Nominal pendapatan bulanan alumni (gaji > 0)'],
+                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, propinsi_id', 'role' => 'Lokasi provinsi tempat bekerja'],
+                    ['table' => 'propinsi', 'columns' => 'id, kode_provinsi, nama_provinsi', 'role' => 'Kode provinsi penghubung ke tabel UMP'],
+                    ['table' => 'ump', 'columns' => 'kode_provinsi, tahun, besaran', 'role' => "Besaran Upah Minimum Provinsi tahun {$umpYearLabel}"],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi kuartil gaji & pemenuhan UMP per prodi'],
+                ],
+                'views' => ['v_analytics_salary_ump', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'prodi_salary',
+                        'title' => 'Diagram Garis Kuartil & Median Pendapatan per Program Studi',
+                        'formula' => 'Min_p = MIN(Gaji_p), Q1_p = P_25(Gaji_p), Median_p (Q2) = P_50(Gaji_p), Q3_p = P_75(Gaji_p), Max_p = MAX(Gaji_p)',
+                        'source' => 'v_analytics_salary_ump (kolom gaji, nama_prodi)',
+                    ],
+                    [
+                        'key' => 'prodi_ump',
+                        'title' => 'Diagram Batang Bertumpuk 100% Pemenuhan 1,2× UMP per Prodi',
+                        'formula' => 'Memenuhi_p (%) = (COUNT(gaji >= 1,2 × ump pada prodi p) / n_p) × 100% ; Belum Memenuhi_p (%) = 100% - Memenuhi_p (%)',
+                        'source' => 'v_analytics_salary_ump (kolom gaji, ump, threshold, meets_ump, nama_prodi)',
+                    ],
+                    [
+                        'key' => 'province_ump',
+                        'title' => 'Diagram Batang Bertumpuk 100% Status Pemenuhan 1,2× UMP per Provinsi',
+                        'formula' => 'Memenuhi_{prov} (%) = (COUNT(gaji >= 1,2 × ump_{prov}) / n_{prov}) × 100% ; Median_{prov} = P_50(Gaji_{prov})',
+                        'source' => 'v_analytics_salary_ump dikelompokkan per workplace_province_name',
+                    ],
+                ],
+            ],
+            'field_alignment' => [
+                'formula' => 'Proporsi Kategori k (%) = (n_k / N_valid_F14) × 100%  |  Horizontal Match Prodi p (%) = ((n_{p, Sangat Erat} + n_{p, Erat}) / n_p) × 100%',
+                'denominator' => 'N_valid_F14 = jumlah alumni yang menjawab tingkat hubungan bidang studi dengan pekerjaan pada instrumen F14.',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F14, answer), ref_subpertanyaan_detil (kode_pertanyaan = F14, option_text), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_alignment (indicator_code = F14), v_analytics_population',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F14), answer', 'role' => 'Jawaban hubungan bidang studi dengan pekerjaan (Sangat Erat s.d. Tidak Sama Sekali)'],
+                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F14), option_text', 'role' => 'Kamus skala keselarasan horizontal F14'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi keselarasan per program studi'],
+                ],
+                'views' => ['v_analytics_alignment', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'stacked_prodi',
+                        'title' => 'Diagram Batang Bertumpuk 100% Komposisi Keselarasan Bidang per Prodi',
+                        'formula' => 'Proporsi_{p,k} (%) = (n_{p,k} / n_p) × 100% untuk k ∈ {Sangat erat, Erat, Cukup erat, Kurang erat, Tidak sama sekali}',
+                        'source' => 'v_analytics_alignment WHERE indicator_code = "F14"',
+                    ],
+                    [
+                        'key' => 'line_match',
+                        'title' => 'Diagram Garis Persentase Horizontal Match per Program Studi',
+                        'formula' => 'Horizontal Match_p (%) = ((n_{p, Sangat erat} + n_{p, Erat}) / n_p) × 100%',
+                        'source' => 'v_analytics_alignment WHERE indicator_code = "F14" dikelompokkan per nama_prodi',
+                    ],
+                    [
+                        'key' => 'univ_distribution',
+                        'title' => 'Diagram Donat Distribusi Keselarasan Bidang Tingkat Universitas',
+                        'formula' => 'Proporsi_k (%) = (n_k / N_valid_F14) × 100%',
+                        'source' => 'v_analytics_alignment WHERE indicator_code = "F14"',
+                    ],
+                ],
+            ],
+            'education_alignment' => [
+                'formula' => 'Vertical Match Prodi p (%) = (n_{p, Tingkat yang sama} / n_p) × 100% (Gambar 4.14)  |  Proporsi Kualifikasi k pada Prodi p (%) = (n_{p,k} / n_p) × 100%',
+                'denominator' => 'n_p = jumlah alumni pada program studi p yang memberikan jawaban valid pada instrumen keselarasan tingkat pendidikan (F15).',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F15, answer), ref_subpertanyaan_detil (kode_pertanyaan = F15, option_text), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_alignment (indicator_code = F15), v_analytics_population',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F15), answer', 'role' => 'Jawaban tingkat pendidikan yang sesuai pekerjaan (F15)'],
+                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F15), option_text', 'role' => 'Opsi tingkat pendidikan (Setingkat lebih tinggi, Tingkat yang sama, Setingkat lebih rendah, Tidak perlu pendidikan tinggi)'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi vertical match per program studi'],
+                ],
+                'views' => ['v_analytics_alignment', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'vertical_match',
+                        'title' => 'Diagram Garis Keselarasan Tingkat Pendidikan Sesuai Pekerjaan per Prodi (Gambar 4.14)',
+                        'formula' => 'Vertical Match_p (%) = (COUNT(answer = "Tingkat yang sama" pada prodi p) / n_p) × 100%',
+                        'source' => 'v_analytics_alignment WHERE indicator_code = "F15" per nama_prodi',
+                    ],
+                    [
+                        'key' => 'stacked_kualifikasi',
+                        'title' => 'Diagram Batang Bertumpuk 100% Komposisi Kualifikasi Pendidikan per Prodi',
+                        'formula' => 'Proporsi_{p,k} (%) = (n_{p,k} / n_p) × 100%, dengan Σ_k Proporsi_{p,k} = 100%',
+                        'source' => 'v_analytics_alignment WHERE indicator_code = "F15" per (nama_prodi, answer_value)',
+                    ],
+                ],
+            ],
+            'education_alignment_university' => [
+                'formula' => 'Proporsi Universitas k (%) = (n_k / N_valid_F15) × 100% (Gambar 4.15)  |  Proporsi Prodi (p, k) (%) = (n_{p,k} / n_p) × 100%',
+                'denominator' => 'N_valid_F15 = total seluruh alumni di tingkat universitas yang memberikan jawaban valid pada instrumen F15.',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F15, answer), ref_subpertanyaan_detil (kode_pertanyaan = F15, option_text), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_alignment (indicator_code = F15), v_analytics_population',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F15), answer', 'role' => 'Jawaban kesesuaian tingkat pendidikan dengan pekerjaan (F15)'],
+                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F15), option_text', 'role' => 'Referensi 4 kategori kualifikasi pendidikan F15'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Perbandingan distribusi antarprodi & universitas'],
+                ],
+                'views' => ['v_analytics_alignment', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'stacked_prodi',
+                        'title' => 'Diagram Batang Bertumpuk 100% Komposisi Keselarasan Pendidikan per Prodi',
+                        'formula' => 'Proporsi_{p,k} (%) = (n_{p,k} / n_p) × 100%',
+                        'source' => 'v_analytics_alignment WHERE indicator_code = "F15" per (nama_prodi, answer_value)',
+                    ],
+                    [
+                        'key' => 'pie',
+                        'title' => 'Diagram Donat Keselarasan Tingkat Pendidikan Tingkat Universitas (Gambar 4.15)',
+                        'formula' => 'Proporsi_k (%) = (COUNT(answer_value = k) / N_valid_F15) × 100%',
+                        'source' => 'v_analytics_alignment WHERE indicator_code = "F15" (agregat universitas)',
+                    ],
+                ],
+            ],
+            'mismatch_reasons' => [
+                'formula' => 'Frekuensi Alasan r = n_r (jumlah pilihan pada alasan r)  |  Proporsi Alasan r (%) = (n_r / Σ_j n_j) × 100% (Pertanyaan Pilihan Jamak F16)',
+                'denominator' => 'N_respon_F16 = total pilihan alasan ketidaksesuaian pekerjaan yang dicantumkan alumni pada instrumen F16 (N_alumni = responden unik F16).',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F16, answer, answer_json), ref_subpertanyaan_detil (kode_pertanyaan = F16, option_text, order), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_mismatch_reasons, v_analytics_tracer_answers',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F16), answer, answer_json', 'role' => 'Jawaban pilihan jamak alasan mengambil pekerjaan tidak sesuai pendidikan'],
+                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F16), option_text, order', 'role' => 'Referensi 13+ opsi resmi alasan pada instrumen F16'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Program studi alumni'],
+                ],
+                'views' => ['v_analytics_mismatch_reasons', 'v_analytics_tracer_answers', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'reasons_bar',
+                        'title' => 'Diagram Batang Horizontal Alasan Mengambil Pekerjaan Tidak Sesuai Pendidikan (Gambar 4.16)',
+                        'formula' => 'n_r = COUNT(pilihan alasan r pada F16) ; Persentase_r (%) = (n_r / Total Respon F16) × 100%',
+                        'source' => 'v_analytics_mismatch_reasons + ref_subpertanyaan_detil (F16)',
+                    ],
+                    [
+                        'key' => 'lainnya_detail',
+                        'title' => 'Tabel Rincian Isian Alasan Lainnya (F16)',
+                        'formula' => 'Filter baris dengan answer LIKE "%lain%" atau isian teks bebas di luar opsi baku F16',
+                        'source' => 'v_analytics_mismatch_reasons (kolom nim, nama, nama_prodi, answer)',
+                    ],
+                ],
+            ],
+            'competency_gap' => [
+                'formula' => 'Saat Lulus (A_d) = Median(F17a_d)  |  Diperlukan Kerja (B_d) = Median(F17b_d)  |  Gap Visual (Surplus/Defisit) = A_d - B_d  |  Gap Kebutuhan = B_d - A_d (Skala Likert 1–5)',
+                'denominator' => 'n_d = jumlah alumni yang memiliki pasangan jawaban lengkap F17a_d (saat lulus) dan F17b_d (kebutuhan kerja) pada dimensi kompetensi ke-d (d ∈ {1..7}).',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F17a1..F17a7, F17b1..F17b7], answer), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_competency_gap, v_analytics_tracer_answers',
+                'tables' => [
+                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F17a1–F17a7 & F17b1–F17b7), answer', 'role' => 'Skor penguasaan kompetensi saat lulus (F17a) & tuntutan pekerjaan (F17b)'],
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
+                    ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus', 'role' => 'Filter kohort tahun lulusan'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Program studi alumni'],
+                ],
+                'views' => ['v_analytics_competency_gap', 'v_analytics_tracer_answers', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'unified_gap',
+                        'title' => 'Diagram Kombinasi Batang & Garis Kompetensi Saat Lulus, Diperlukan Kerja, dan Gap (Gambar 4.17)',
+                        'formula' => 'A_d = P_50(F17a_d) ; B_d = P_50(F17b_d) ; Selisih Surplus/Defisit = A_d - B_d (Surplus jika >= 0, Defisit jika < 0)',
+                        'source' => 'v_analytics_competency_gap (pasangan kode F17a1..7 dan F17b1..7)',
+                    ],
+                ],
+            ],
+            'profile_completion' => [
+                'formula' => 'Status Lengkap (is_profile_complete = 1) ⇔ (nama IS NOT NULL ∧ nim IS NOT NULL ∧ nomor_telepon IS NOT NULL ∧ email IS NOT NULL)  |  Kelengkapan (%) = (n_lengkap / N_populasi) × 100%',
+                'denominator' => 'N_populasi = seluruh alumni terdaftar pada kohort tahun lulusan dan program studi terpilih.',
+                'source' => 'Tabel: biodata (id, user_id, nim, prodi_id, nomor_telepon, email_pribadi), users (id, name, email), data_akademik (nim, nama, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_profile_completion, v_analytics_population',
+                'tables' => [
+                    ['table' => 'biodata', 'columns' => 'id, user_id, nim, prodi_id, nomor_telepon, email_pribadi', 'role' => 'Atribut kontak dan NIM alumni yang diaudit'],
+                    ['table' => 'users', 'columns' => 'id, name, email', 'role' => 'Fallback nama dan email akun alumni'],
+                    ['table' => 'data_akademik', 'columns' => 'nim, nama, tahun_lulus', 'role' => 'Data akademik nama dan tahun kelulusan'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi kelengkapan profil per program studi'],
+                ],
+                'views' => ['v_analytics_profile_completion', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'donut',
+                        'title' => 'Diagram Donat Proporsi Kelengkapan Profil Universitas',
+                        'formula' => 'Lengkap (%) = (Σ is_profile_complete / N_populasi) × 100% ; Belum Lengkap (%) = ((N_populasi - Σ is_profile_complete) / N_populasi) × 100%',
+                        'source' => 'v_analytics_profile_completion (kolom is_profile_complete)',
+                    ],
+                    [
+                        'key' => 'stacked',
+                        'title' => 'Diagram Batang Bertumpuk 100% Komposisi Kelengkapan per Prodi',
+                        'formula' => 'Lengkap_p (%) = (n_{p,lengkap} / N_p) × 100% ; Belum Lengkap_p (%) = (n_{p,belum} / N_p) × 100%',
+                        'source' => 'v_analytics_profile_completion dikelompokkan per nama_prodi',
+                    ],
+                    [
+                        'key' => 'heatmap',
+                        'title' => 'Peta Panas (Heatmap) Pola Kelengkapan Antarprogram Studi',
+                        'formula' => 'Sel (p, status) = COUNT(alumni ∈ prodi p dengan status kelengkapan terkait)',
+                        'source' => 'v_analytics_profile_completion (matriks nama_prodi × status)',
+                    ],
+                ],
+            ],
+            'work_location' => [
+                'formula' => 'Jumlah Alumni Provinsi prov (n_{prov}) = COUNT(biodata_id dengan workplace_province_code = prov)  |  Proporsi Provinsi prov (%) = (n_{prov} / N_terpetakan) × 100%',
+                'denominator' => 'N_terpetakan = jumlah alumni yang telah terhubung ke entitas perusahaan dengan provinsi tempat kerja teridentifikasi (workplace_province_code IS NOT NULL).',
+                'source' => 'Tabel: biodata (id, nim, prodi_id, perusahaan_id), perusahaan (id, nama_perusahaan, propinsi_id, kabupaten_id, jenis_lokasi, negara), propinsi (id, kode_provinsi, nama_provinsi), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_work_location, v_analytics_population',
+                'tables' => [
+                    ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, perusahaan_id', 'role' => 'Relasi alumni ke perusahaan tempat bekerja'],
+                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, propinsi_id, jenis_lokasi, negara', 'role' => 'Entitas perusahaan dan referensi provinsi kerja'],
+                    ['table' => 'propinsi', 'columns' => 'id, kode_provinsi, nama_provinsi', 'role' => 'Master wilayah provinsi Indonesia'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Sebaran wilayah kerja per program studi'],
+                ],
+                'views' => ['v_analytics_work_location', 'v_analytics_population'],
+                'charts' => [
+                    [
+                        'key' => 'bar',
+                        'title' => 'Diagram Batang Horizontal Distribusi Provinsi Tempat Bekerja',
+                        'formula' => 'n_{prov} = COUNT(biodata_id pada provinsi prov) ; Proporsi_{prov} (%) = (n_{prov} / N_terpetakan) × 100%',
+                        'source' => 'v_analytics_work_location (kolom workplace_province_code, workplace_province_name)',
+                    ],
+                    [
+                        'key' => 'treemap',
+                        'title' => 'Treemap Komposisi Wilayah Kerja',
+                        'formula' => 'Luas Area_{prov} ∝ n_{prov} / N_terpetakan',
+                        'source' => 'v_analytics_work_location (agregasi per workplace_province_name)',
+                    ],
+                    [
+                        'key' => 'heatmap',
+                        'title' => 'Peta Panas (Heatmap) Sebaran Wilayah Kerja Antarprogram Studi',
+                        'formula' => 'Sel (p, prov) = COUNT(alumni ∈ prodi p yang bekerja di provinsi prov)',
+                        'source' => 'v_analytics_work_location (matriks nama_prodi × workplace_province_name)',
+                    ],
+                    [
+                        'key' => 'map',
+                        'title' => 'Peta Geospasial Interaktif Sebaran Wilayah Kerja',
+                        'formula' => 'Titik Provinsi (kode_provinsi) = Σ Alumni bekerja pada perusahaan dengan propinsi.kode_provinsi terkait',
+                        'source' => 'v_analytics_work_location JOIN propinsi (kode_provinsi)',
+                    ],
+                ],
+            ],
+            default => [],
+        };
     }
 
     /**

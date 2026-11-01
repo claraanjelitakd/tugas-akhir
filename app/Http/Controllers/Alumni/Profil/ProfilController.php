@@ -104,6 +104,9 @@ class ProfilController extends Controller
             'nama_perusahaan' => $biodata?->perusahaan?->nama_perusahaan ?? '',
             'perusahaan_alamat' => $biodata?->perusahaan?->alamat ?? '',
             'perusahaan_skala' => $biodata?->perusahaan?->skala ?? '',
+            'perusahaan_bentuk' => $biodata?->perusahaan?->bentuk_perusahaan ?? '',
+            'perusahaan_no_telp_fax' => $biodata?->perusahaan?->no_telp_fax ?? '',
+            'perusahaan_homepage' => $biodata?->perusahaan?->homepage ?? '',
             'perusahaan_jenis_perusahaan' => $biodata?->perusahaan?->jenis_perusahaan ?? '',
             'perusahaan_jenis_perusahaan_lainnya' => $biodata?->perusahaan?->jenis_perusahaan_lainnya ?? '',
             'perusahaan_jenis_lokasi' => $biodata?->perusahaan?->jenis_lokasi ?? 'Dalam Negeri',
@@ -115,6 +118,9 @@ class ProfilController extends Controller
             // Fallback key untuk kompatibilitas frontend
             'company_alamat' => $biodata?->perusahaan?->alamat ?? '',
             'company_skala' => $biodata?->perusahaan?->skala ?? '',
+            'company_bentuk' => $biodata?->perusahaan?->bentuk_perusahaan ?? '',
+            'company_no_telp_fax' => $biodata?->perusahaan?->no_telp_fax ?? '',
+            'company_homepage' => $biodata?->perusahaan?->homepage ?? '',
             'company_jenis_perusahaan' => $biodata?->perusahaan?->jenis_perusahaan ?? '',
             'company_jenis_perusahaan_lainnya' => $biodata?->perusahaan?->jenis_perusahaan_lainnya ?? '',
             'company_jenis_lokasi' => $biodata?->perusahaan?->jenis_lokasi ?? 'Dalam Negeri',
@@ -143,7 +149,7 @@ class ProfilController extends Controller
             ->toArray();
 
         // Get all perusahaan for Autocomplete
-        $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'propinsi_id', 'kabupaten_id', 'alamat', 'kode_pos', 'skala', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'jenis_lokasi', 'negara', 'status_verifikasi')->get();
+        $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'propinsi_id', 'kabupaten_id', 'alamat', 'kode_pos', 'skala', 'bentuk_perusahaan', 'no_telp_fax', 'homepage', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'jenis_lokasi', 'negara', 'status_verifikasi')->get();
 
         return inertia('Alumni/Profil/Index', [
             // Hanya kirim konteks minimum yang dibutuhkan FormKarier; relasi akademik/keluarga

@@ -96,19 +96,38 @@ const jenisPerusahaanOptions = computed(() => {
     ];
 });
 
+// Pilihan Bentuk Perusahaan / Institusi (Sinkron dengan Evaluasi Atasan)
+const bentukPerusahaanOptions = [
+    { value: 'BUMN', label: 'BUMN' },
+    { value: 'Perusahaan Terbatas', label: 'Perusahaan Terbatas' },
+    { value: 'Koperasi', label: 'Koperasi' },
+    { value: 'CV', label: 'CV' },
+    { value: 'Firma', label: 'Firma' },
+];
+
 // Pilihan Skala Perusahaan (F2H / F5D)
 const skalaOptions = computed(() => {
+    let opts = [];
     if (props.refOptions?.F2H && props.refOptions.F2H.length > 0) {
-        return props.refOptions.F2H.map(opt => ({
+        opts = props.refOptions.F2H.map(opt => ({
             value: opt.option_text,
             label: opt.option_text
         }));
+    } else {
+        opts = [
+            { value: 'Regional/Lokal', label: 'Regional / Lokal' },
+            { value: 'Nasional', label: 'Nasional' },
+            { value: 'Internasional', label: 'Internasional' },
+        ];
     }
-    return [
-        { value: 'Regional/Lokal', label: 'Regional / Lokal' },
-        { value: 'Nasional', label: 'Nasional' },
-        { value: 'Internasional', label: 'Internasional' },
-    ];
+
+    // Sinkronisasi nilai 'Lokal' dari form evaluasi atasan ke 'Regional/Lokal' bila ada di opsi F2H
+    if (props.form?.company_skala === 'Lokal' && opts.some(o => o.value === 'Regional/Lokal') && !opts.some(o => o.value === 'Lokal')) {
+        props.form.company_skala = 'Regional/Lokal';
+        props.form.perusahaan_skala = 'Regional/Lokal';
+    }
+
+    return opts;
 });
 
 // Pilihan bidang pekerjaan / divisi (BIO_BIDANG_DIVISI) disimpan langsung ke biodata.
@@ -307,9 +326,9 @@ const isVerifiedCompany = computed(() => {
     return props.form.company_status_verifikasi === 'Terverifikasi' || props.form.perusahaan_status_verifikasi === 'Terverifikasi';
 });
 
-// Alumni hanya boleh mengedit detail perusahaan jika belum terverifikasi atau bertindak sebagai Owner
+// Alumni selalu dapat melengkapi/memperbarui detail perusahaan agar tersinkronisasi dua arah dengan form atasan
 const canEditCompanyDetails = computed(() => {
-    return !isVerifiedCompany.value || isOwner.value;
+    return true;
 });
 
 // Mengisi data atasan otomatis dengan kontak alumni jika pemilik usaha
@@ -369,18 +388,8 @@ const handleKirimEmailAtasan = () => {
     if (!email || !isValidEmail(email)) {
         Swal.fire({
             title: 'Email Belum Valid',
-            text: 'Harap masukkan alamat email atasan yang valid sebelum mengirimkan undangan survei.',
+            text: 'Harap masukkan alamat email atasan yang valid (contoh: atasan@perusahaan.co.id) sebelum mengirimkan undangan survei.',
             icon: 'warning',
-            confirmButtonColor: '#005B3C',
-        });
-        return;
-    }
-
-    if (props.form.isDirty) {
-        Swal.fire({
-            title: 'Simpan Profil Terlebih Dahulu',
-            text: 'Ada perubahan data kontak atasan atau profil Anda yang belum disimpan. Silakan klik tombol Simpan Perubahan terlebih dahulu agar data terbarui.',
-            icon: 'info',
             confirmButtonColor: '#005B3C',
         });
         return;
@@ -401,9 +410,12 @@ const handleKirimEmailAtasan = () => {
             sendingEmail.value = true;
             router.post('/alumni/kirim-email-atasan', {
                 biodata_id: props.alumniData?.id || props.form?.biodata_id || props.form?.id,
+                nama_atasan: props.form.nama_atasan?.trim() || '',
                 email_atasan: email,
+                telepon_atasan: props.form.telepon_atasan?.trim() || '',
             }, {
                 preserveScroll: true,
+                preserveState: true,
                 onFinish: () => {
                     sendingEmail.value = false;
                 },
@@ -418,7 +430,7 @@ const handleKirimEmailAtasan = () => {
                 onError: (err) => {
                     Swal.fire({
                         title: 'Gagal Mengirim Email',
-                        text: err?.message || 'Terjadi kesalahan sistem saat mengirim email ke atasan.',
+                        text: err?.email_atasan || err?.message || 'Terjadi kesalahan sistem saat mengirim email ke atasan.',
                         icon: 'error',
                         confirmButtonColor: '#005B3C',
                     });
@@ -434,6 +446,24 @@ watch(() => props.form.company_skala, (newVal) => {
 });
 watch(() => props.form.perusahaan_skala, (newVal) => {
     if (newVal && !props.form.company_skala) props.form.company_skala = newVal;
+});
+watch(() => props.form.company_bentuk, (newVal) => {
+    props.form.perusahaan_bentuk = newVal;
+});
+watch(() => props.form.perusahaan_bentuk, (newVal) => {
+    if (newVal && !props.form.company_bentuk) props.form.company_bentuk = newVal;
+});
+watch(() => props.form.company_no_telp_fax, (newVal) => {
+    props.form.perusahaan_no_telp_fax = newVal;
+});
+watch(() => props.form.perusahaan_no_telp_fax, (newVal) => {
+    if (newVal && !props.form.company_no_telp_fax) props.form.company_no_telp_fax = newVal;
+});
+watch(() => props.form.company_homepage, (newVal) => {
+    props.form.perusahaan_homepage = newVal;
+});
+watch(() => props.form.perusahaan_homepage, (newVal) => {
+    if (newVal && !props.form.company_homepage) props.form.company_homepage = newVal;
 });
 watch(() => props.form.company_alamat, (newVal) => {
     props.form.perusahaan_alamat = newVal;
@@ -674,6 +704,18 @@ const selectCompany = (company) => {
         props.form.company_skala = company.skala;
         props.form.perusahaan_skala = company.skala;
     }
+    if (company.bentuk_perusahaan) {
+        props.form.company_bentuk = company.bentuk_perusahaan;
+        props.form.perusahaan_bentuk = company.bentuk_perusahaan;
+    }
+    if (company.no_telp_fax) {
+        props.form.company_no_telp_fax = company.no_telp_fax;
+        props.form.perusahaan_no_telp_fax = company.no_telp_fax;
+    }
+    if (company.homepage) {
+        props.form.company_homepage = company.homepage;
+        props.form.perusahaan_homepage = company.homepage;
+    }
     if (company.kode_pos) {
         props.form.zipcode = company.kode_pos;
         props.form.company_kode_pos = company.kode_pos;
@@ -703,6 +745,12 @@ const clearCompany = () => {
     props.form.perusahaan_alamat = '';
     props.form.company_skala = '';
     props.form.perusahaan_skala = '';
+    props.form.company_bentuk = '';
+    props.form.perusahaan_bentuk = '';
+    props.form.company_no_telp_fax = '';
+    props.form.perusahaan_no_telp_fax = '';
+    props.form.company_homepage = '';
+    props.form.perusahaan_homepage = '';
     props.form.zipcode = '';
     props.form.company_kode_pos = '';
     props.form.perusahaan_kode_pos = '';
@@ -738,6 +786,7 @@ const companyModalError = ref('');
 // Objek form reaktif untuk menampung seluruh nilai input dari formulir modal
 const newCompanyForm = ref({
     nama_perusahaan: '',
+    bentuk_perusahaan: 'Perusahaan Terbatas',
     jenis_lokasi: 'Dalam Negeri',
     negara: 'Indonesia',
     province_id: '',
@@ -747,6 +796,8 @@ const newCompanyForm = ref({
     jenis_perusahaan: 'Perusahaan swasta',
     jenis_perusahaan_lainnya: '',
     alamat: '',
+    no_telp_fax: '',
+    homepage: '',
 });
 
 // computed() menghasilkan nilai turunan (kalkulasi otomatis).
@@ -810,6 +861,7 @@ const openAddCompanyModal = () => {
 
     newCompanyForm.value = {
         nama_perusahaan: '',
+        bentuk_perusahaan: props.form.company_bentuk || props.form.perusahaan_bentuk || 'Perusahaan Terbatas',
         jenis_lokasi: initialJenisLokasi,
         negara: isLuar ? (props.form.company_negara || '') : 'Indonesia',
         province_id: isLuar ? '' : (props.form.company_province_id || ''),
@@ -819,6 +871,8 @@ const openAddCompanyModal = () => {
         jenis_perusahaan: props.form.company_jenis_perusahaan || 'Perusahaan swasta',
         jenis_perusahaan_lainnya: props.form.company_jenis_perusahaan_lainnya || '',
         alamat: props.form.company_alamat || '',
+        no_telp_fax: props.form.company_no_telp_fax || props.form.perusahaan_no_telp_fax || '',
+        homepage: props.form.company_homepage || props.form.perusahaan_homepage || '',
     };
 
     isAddCompanyModalOpen.value = true;
@@ -883,6 +937,7 @@ const submitNewCompany = async () => {
             },
             body: JSON.stringify({
                 nama_perusahaan: nama,
+                bentuk_perusahaan: formVal.bentuk_perusahaan || null,
                 jenis_lokasi: formVal.jenis_lokasi,
                 negara: isLuar ? formVal.negara : 'Indonesia',
                 province_id: isLuar ? null : formVal.province_id,
@@ -892,6 +947,8 @@ const submitNewCompany = async () => {
                 jenis_perusahaan: formVal.jenis_perusahaan || 'Perusahaan swasta',
                 jenis_perusahaan_lainnya: formVal.jenis_perusahaan === 'Lainnya' ? (formVal.jenis_perusahaan_lainnya ? formVal.jenis_perusahaan_lainnya.trim() : null) : null,
                 alamat: formVal.alamat ? formVal.alamat.trim() : '',
+                no_telp_fax: formVal.no_telp_fax ? formVal.no_telp_fax.trim() : null,
+                homepage: formVal.homepage ? formVal.homepage.trim() : null,
             }),
         });
 
@@ -907,6 +964,8 @@ const submitNewCompany = async () => {
         localCompanies.value.unshift(newCompany);
 
         props.form.nama_perusahaan = newCompany.nama_perusahaan;
+        props.form.company_bentuk = newCompany.bentuk_perusahaan || '';
+        props.form.perusahaan_bentuk = props.form.company_bentuk;
         props.form.company_jenis_lokasi = newCompany.jenis_lokasi || (newCompany.negara && newCompany.negara !== 'Indonesia' ? 'Luar Negeri' : 'Dalam Negeri');
         props.form.perusahaan_jenis_lokasi = props.form.company_jenis_lokasi;
         props.form.company_negara = newCompany.negara || (props.form.company_jenis_lokasi === 'Luar Negeri' ? '' : 'Indonesia');
@@ -916,7 +975,8 @@ const submitNewCompany = async () => {
         props.form.company_kabupaten_id = newCompany.kabupaten_id;
         props.form.perusahaan_kabupaten_id = newCompany.kabupaten_id;
         props.form.company_alamat = newCompany.alamat || '';
-        props.form.company_skala = newCompany.skala || 'Regional/Lokal';
+        props.form.company_skala = newCompany.skala === 'Lokal' ? 'Regional/Lokal' : (newCompany.skala || 'Regional/Lokal');
+        props.form.perusahaan_skala = props.form.company_skala;
         props.form.zipcode = newCompany.kode_pos || '';
         props.form.company_kode_pos = newCompany.kode_pos || '';
         props.form.perusahaan_kode_pos = newCompany.kode_pos || '';
@@ -924,6 +984,10 @@ const submitNewCompany = async () => {
         props.form.perusahaan_jenis_perusahaan = props.form.company_jenis_perusahaan;
         props.form.company_jenis_perusahaan_lainnya = newCompany.jenis_perusahaan_lainnya || '';
         props.form.perusahaan_jenis_perusahaan_lainnya = props.form.company_jenis_perusahaan_lainnya;
+        props.form.company_no_telp_fax = newCompany.no_telp_fax || '';
+        props.form.perusahaan_no_telp_fax = props.form.company_no_telp_fax;
+        props.form.company_homepage = newCompany.homepage || '';
+        props.form.perusahaan_homepage = props.form.company_homepage;
         props.form.company_status_verifikasi = 'Menunggu Verifikasi';
 
         isAddCompanyModalOpen.value = false;
@@ -1814,8 +1878,30 @@ onUnmounted(() => {
                         />
                     </div>
 
+                    <!-- Bentuk Perusahaan / Institusi -->
+                    <div>
+                        <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
+                            Bentuk Perusahaan / Institusi <span v-if="form.kategori_pekerjaan === 'Pekerja'" class="text-rose-500 font-bold">*</span>
+                        </label>
+                        <select
+                            v-model="form.company_bentuk"
+                            @change="form.perusahaan_bentuk = form.company_bentuk"
+                            :disabled="!canEditCompanyDetails"
+                            class="block w-full border rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors"
+                            :class="[
+                                !canEditCompanyDetails ? 'bg-gray-100/90 text-gray-500 cursor-not-allowed border-gray-200' :
+                                'border-gray-300 bg-white text-gray-900 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none'
+                            ]"
+                        >
+                            <option value="">-- Pilih Bentuk Perusahaan --</option>
+                            <option v-for="opt in bentukPerusahaanOptions" :key="opt.value" :value="opt.value">
+                                {{ opt.label }}
+                            </option>
+                        </select>
+                    </div>
+
                     <!-- Skala Perusahaan / Instansi (F2H / F5D Dinamis) -->
-                    <div class="md:col-span-2">
+                    <div>
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                             Skala Perusahaan / Instansi (F2H / F5D) <span v-if="form.kategori_pekerjaan === 'Pekerja'" class="text-rose-500 font-bold">*</span>
                         </label>
@@ -1856,7 +1942,7 @@ onUnmounted(() => {
                     </div>
 
                     <!-- Kode Pos Perusahaan -->
-                    <div class="md:col-span-2">
+                    <div>
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                             Kode Pos Kantor / Perusahaan <span class="text-rose-500 font-bold">*</span>
                         </label>
@@ -1872,6 +1958,46 @@ onUnmounted(() => {
                                 'border-gray-300 bg-white text-gray-900 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none'
                             ]"
                             placeholder="Kode Pos Kantor (Cth: 55281)"
+                        />
+                    </div>
+
+                    <!-- No. Telp / Fax Perusahaan -->
+                    <div>
+                        <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
+                            No. Telp / Fax Perusahaan
+                        </label>
+                        <input
+                            type="text"
+                            v-model="form.company_no_telp_fax"
+                            @input="form.perusahaan_no_telp_fax = form.company_no_telp_fax"
+                            autocomplete="off"
+                            :disabled="!canEditCompanyDetails"
+                            class="block w-full border rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors"
+                            :class="[
+                                !canEditCompanyDetails ? 'bg-gray-100/90 text-gray-500 cursor-not-allowed border-gray-200' :
+                                'border-gray-300 bg-white text-gray-900 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none'
+                            ]"
+                            placeholder="Contoh: 0274-563929"
+                        />
+                    </div>
+
+                    <!-- Website / Homepage Perusahaan -->
+                    <div class="md:col-span-2">
+                        <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
+                            Website / Homepage Perusahaan
+                        </label>
+                        <input
+                            type="text"
+                            v-model="form.company_homepage"
+                            @input="form.perusahaan_homepage = form.company_homepage"
+                            autocomplete="off"
+                            :disabled="!canEditCompanyDetails"
+                            class="block w-full border rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors"
+                            :class="[
+                                !canEditCompanyDetails ? 'bg-gray-100/90 text-gray-500 cursor-not-allowed border-gray-200' :
+                                'border-gray-300 bg-white text-gray-900 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none'
+                            ]"
+                            placeholder="Contoh: https://perusahaan.com"
                         />
                     </div>
                 </div>
@@ -1961,32 +2087,32 @@ onUnmounted(() => {
                         <span class="text-xs sm:text-sm font-bold text-gray-900">Undangan Evaluasi Atasan</span>
                         <span
                             v-if="evaluasiAtasan?.is_submitted"
-                            class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#0D542B] text-white"
                         >
                             Atasan Sudah Mengisi
                         </span>
                         <span
                             v-else-if="evaluasiAtasan?.has_invitation"
-                            class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200"
+                            class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-[#0D542B] border border-[#0D542B]/30"
                         >
                             Tautan Siap / Terkirim
                         </span>
                         <span
                             v-else
-                            class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200"
+                            class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-gray-100 text-gray-600 border border-gray-200"
                         >
                             Belum Terkirim
                         </span>
                     </div>
                     <p class="text-xs text-gray-500 mt-1 max-w-xl leading-relaxed">
-                        Email survei evaluasi tidak dikirim secara otomatis saat menyimpan profil untuk mencegah kesalahan penulisan email. Klik tombol di samping setelah Anda yakin data email atasan sudah benar.
+                        Email survei evaluasi tidak dikirim secara otomatis saat menyimpan profil untuk mencegah kesalahan penulisan email. Klik tombol di samping setelah Anda memastikan alamat email atasan sudah benar.
                     </p>
                 </div>
 
                 <button
                     type="button"
                     @click="handleKirimEmailAtasan"
-                    :disabled="sendingEmail || !form.email_atasan || !isValidEmail(form.email_atasan)"
+                    :disabled="sendingEmail || Boolean(evaluasiAtasan?.is_submitted)"
                     class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-[#0D542B] hover:bg-[#093d1f] transition-all shadow-xs shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <svg v-if="sendingEmail" class="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
@@ -2095,23 +2221,42 @@ onUnmounted(() => {
                             />
                         </div>
 
-                        <!-- Jenis Perusahaan / Instansi (F11) -->
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
-                                Jenis Perusahaan / Instansi (F11)
-                            </label>
-                            <select
-                                v-model="newCompanyForm.jenis_perusahaan"
-                                class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
-                            >
-                                <option
-                                    v-for="opt in jenisPerusahaanOptions"
-                                    :key="opt.value"
-                                    :value="opt.value"
+                        <!-- Bentuk Perusahaan & Jenis Perusahaan (F11) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                    Bentuk Perusahaan / Institusi
+                                </label>
+                                <select
+                                    v-model="newCompanyForm.bentuk_perusahaan"
+                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
                                 >
-                                    {{ opt.label }}
-                                </option>
-                            </select>
+                                    <option
+                                        v-for="opt in bentukPerusahaanOptions"
+                                        :key="opt.value"
+                                        :value="opt.value"
+                                    >
+                                        {{ opt.label }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                    Jenis Perusahaan / Instansi (F11)
+                                </label>
+                                <select
+                                    v-model="newCompanyForm.jenis_perusahaan"
+                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                                >
+                                    <option
+                                        v-for="opt in jenisPerusahaanOptions"
+                                        :key="opt.value"
+                                        :value="opt.value"
+                                    >
+                                        {{ opt.label }}
+                                    </option>
+                                </select>
+                            </div>
                         </div>
 
                         <!-- Input Tambahan jika Jenis Perusahaan 'Lainnya' -->
@@ -2231,6 +2376,32 @@ onUnmounted(() => {
                                 class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all resize-y"
                                 placeholder="Nama Jalan, Gedung, Nomor..."
                             ></textarea>
+                        </div>
+
+                        <!-- No. Telp / Fax & Website / Homepage -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                    No. Telp / Fax Perusahaan
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="newCompanyForm.no_telp_fax"
+                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                                    placeholder="Contoh: 0274-563929"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                    Website / Homepage Perusahaan
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="newCompanyForm.homepage"
+                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                                    placeholder="Contoh: https://perusahaan.com"
+                                />
+                            </div>
                         </div>
 
                         <!-- Footer / Tombol Aksi -->

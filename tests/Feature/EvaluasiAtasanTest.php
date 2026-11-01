@@ -119,6 +119,8 @@ class EvaluasiAtasanTest extends TestCase
         $postData = [
             'nama_perusahaan' => 'PT Makmur Sentosa',
             'alamat_lengkap' => 'Jl. Magelang KM 5, Yogyakarta',
+            'kode_pos' => '55284',
+            'jenis_perusahaan' => 'Perusahaan swasta',
             'no_telp_fax' => '0274-123456',
             'homepage' => 'https://makmursentosa.com',
             'nama_atasan' => 'Bapak Atasan',
@@ -126,6 +128,12 @@ class EvaluasiAtasanTest extends TestCase
             'telepon_atasan' => '08123456789',
             'bentuk_perusahaan' => 'Perusahaan Terbatas',
             'skala_perusahaan' => 'Nasional',
+            'bidang_pekerjaan' => 'Software Engineering',
+            'posisi_jabatan' => 'Supervisor',
+            'is_melanjutkan_studi' => true,
+            'pendidikan_tingkat' => 'S2',
+            'perguruan_tinggi' => 'Universitas Gadjah Mada',
+            'pendidikan_prodi' => 'Magister Ilmu Komputer',
             'jumlah_pegawai' => '51 - 100 Orang',
             'jumlah_alumni_ukdw' => '< 5 Orang',
             'standar_gaji_pertama' => '3.000.000 – 4.000.000',
@@ -149,10 +157,21 @@ class EvaluasiAtasanTest extends TestCase
             'id' => $perusahaan->id,
             'nama_perusahaan' => 'PT Makmur Sentosa',
             'alamat' => 'Jl. Magelang KM 5, Yogyakarta',
+            'kode_pos' => '55284',
+            'jenis_perusahaan' => 'Perusahaan swasta',
             'bentuk_perusahaan' => 'Perusahaan Terbatas',
             'jumlah_pegawai' => '51 - 100 Orang',
             'homepage' => 'https://makmursentosa.com',
             'no_telp_fax' => '0274-123456',
+        ]);
+
+        $this->assertDatabaseHas('biodata', [
+            'id' => $biodata->id,
+            'bidang_pekerjaan' => 'Software Engineering',
+            'posisi_jabatan' => 'Supervisor',
+            'pendidikan_tingkat' => 'S2',
+            'perguruan_tinggi' => 'Universitas Gadjah Mada',
+            'pendidikan_prodi' => 'Magister Ilmu Komputer',
         ]);
 
         $this->assertDatabaseHas('respon_evaluasi_atasan', [

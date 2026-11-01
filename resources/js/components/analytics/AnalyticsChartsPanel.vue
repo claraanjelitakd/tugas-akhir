@@ -74,16 +74,30 @@ const categoryComponents = {
 // Komponen aktif berdasarkan indikator yang dipilih di filter
 const activeComponent = computed(() => categoryComponents[props.selectedChart] || ResponseRate);
 
+// Pembersih label hasil klik dari informasi jumlah sampel seperti "(n=15)"
+const cleanLabel = (raw) => String(raw || '')
+    .replace(/\s*\(n=\d+\)/gi, '')
+    .replace(/\n+/g, ' ')
+    .trim();
+
 // Normalisasi label hasil klik pada elemen chart atau tabel data
 const selectionFromParams = (params) => {
-    const data = params?.data || {};
-    const label = data.category || data.target || data.name || data.prodi || params?.name || '';
+    if (typeof params === 'string') {
+        const cleaned = cleanLabel(params);
+        return { label: cleaned, name: cleaned };
+    }
+    const data = params?.data && typeof params.data === 'object' && !Array.isArray(params.data)
+        ? params.data
+        : {};
+    const rawLabel = params?.label || data.category || data.target || data.name || data.prodi || params?.category || params?.name || '';
+    const label = cleanLabel(rawLabel);
 
     return {
         ...data,
+        ...params,
         label,
-        series_name: params?.seriesName || '',
-        data_type: params?.dataType || '',
+        series_name: params?.seriesName || params?.series_name || '',
+        data_type: params?.dataType || params?.data_type || '',
     };
 };
 
@@ -92,9 +106,8 @@ const selectPoint = (params) => {
     const selection = selectionFromParams(params);
     if (!selection.label) return;
 
-    const isClearing = selectedLabel.value === selection.label;
-    selectedLabel.value = isClearing ? '' : selection.label;
-    emit('select-category', isClearing ? { label: '' } : selection);
+    selectedLabel.value = selection.label;
+    emit('select-category', selection);
 };
 
 // Reset selection mengembalikan filter lokal dan global

@@ -50,16 +50,22 @@ watch([degreeSeries, () => props.selectedLabel], ([series, selected]) => {
     }
 }, { immediate: true });
 
-const handleDegreeSelect = (label) => {
-    activeSelectedDegree.value = label;
-    emit('select', label);
+// Menangani pemilihan jenjang atau sumber pembiayaan dari klik grafik maupun tombol pill
+const handleDegreeSelect = (payload) => {
+    const label = typeof payload === 'string' ? payload : (payload?.label || payload?.name || '');
+    if (!label) return;
+    if (degreeSeries.value.some((s) => s.label === label)) {
+        activeSelectedDegree.value = label;
+    }
+    emit('select', typeof payload === 'string' ? { label, name: label } : payload);
 };
 
 // -----------------------------------------------------------------------------
-// 1. BAR CHART: Jenjang Studi Lanjut (S1, S2, S3, Profesi, Spesialis)
+// 1. BAR CHART: Jenjang Studi Lanjut (Hanya Menampilkan Jenjang yang Ada Data)
 // -----------------------------------------------------------------------------
 const degreeBarOption = computed(() => {
-    const rows = [...degreeSeries.value].map((item) => {
+    // Hanya tampilkan jenjang yang memiliki data (>0)
+    const rows = [...degreeSeries.value].filter((item) => seriesMetric(item) > 0).map((item) => {
         const label = seriesLabel(item);
         const count = seriesMetric(item);
         const isSelected = activeSelectedDegree.value === label || (!activeSelectedDegree.value && (!props.selectedLabel || props.selectedLabel === label));
@@ -75,9 +81,11 @@ const degreeBarOption = computed(() => {
         };
     }).reverse();
 
+    const chartHeight = Math.max(260, rows.length * 52 + 70);
+
     return {
         ...baseOption(validResponses.value),
-        grid: { left: 24, right: 60, top: 20, bottom: 30, containLabel: true },
+        grid: { left: 24, right: 90, top: 20, bottom: 30, containLabel: true },
         xAxis: { type: 'value', name: 'Jumlah Alumni', splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
         yAxis: {
             type: 'category',
@@ -91,23 +99,25 @@ const degreeBarOption = computed(() => {
             formatter: (params) => {
                 const item = rows[params[0]?.dataIndex];
                 if (!item) return '';
-                return `<strong>Jenjang: ${escapeHtml(item.name)}</strong><br>Jumlah: <strong>${formatNumber(item.value, 0)} alumni</strong><br>Proporsi: <strong>${formatPercentage(item.percentage)}</strong><br><span class="text-xs text-emerald-300">Klik untuk melihat sebaran universitas</span>`;
+                return `<strong>Jenjang: ${escapeHtml(item.name)}</strong><br>Jumlah: <strong>${formatNumber(item.value, 0)} alumni</strong><br><span class="text-xs text-slate-500">Klik untuk melihat sebaran universitas</span>`;
             },
         },
         series: [{
             name: 'Jumlah Alumni',
             type: 'bar',
-            barMaxWidth: 28,
+            barMaxWidth: 26,
             data: rows,
             label: {
                 show: true,
                 position: 'right',
-                formatter: ({ data }) => `${formatNumber(data.value, 0)} (${formatPercentage(data.percentage)})`,
+                distance: 8,
+                formatter: ({ data }) => `${formatNumber(data.value, 0)} alumni`,
                 fontSize: 11,
                 fontWeight: 'bold',
                 color: '#0D542B',
             },
         }],
+        _dynamicHeight: chartHeight,
     };
 });
 
@@ -178,7 +188,7 @@ const fundingOption = computed(() => {
             axisPointer: { type: 'shadow' },
             formatter: (params) => {
                 const item = params[0]?.data;
-                return item ? `<strong>${escapeHtml(item.name)}</strong><br>Jumlah: <strong>${formatNumber(item.value, 0)} alumni</strong><br>Proporsi: <strong>${formatPercentage(item.percentage)}</strong>` : '';
+                return item ? `<strong>${escapeHtml(item.name)}</strong><br>Jumlah: <strong>${formatNumber(item.value, 0)} alumni</strong>` : '';
             },
         },
         series: [{
@@ -189,7 +199,7 @@ const fundingOption = computed(() => {
             label: {
                 show: true,
                 position: 'right',
-                formatter: ({ data }) => `${formatNumber(data.value, 0)} (${formatPercentage(data.percentage)})`,
+                formatter: ({ data }) => `${formatNumber(data.value, 0)} alumni`,
                 fontSize: 11,
                 fontWeight: 'bold',
                 color: '#1E293B',
@@ -285,7 +295,7 @@ const dynamicFundingAnalysis = computed(() => {
     };
 });
 
-// Konfigurasi views untuk kontainer terpadu
+// Konfigurasi views untuk kontainer terpadu: hanya 2 grafik utama (rincian alumni dihapus)
 const views = computed(() => [
     {
         key: 'degree_view',
@@ -295,7 +305,7 @@ const views = computed(() => [
         description: 'Sebaran jenjang studi yang ditempuh lulusan (klik salah satu jenjang untuk melihat rincian universitas tujuan).',
         option: degreeBarOption.value,
         tableData: degreeTable.value,
-        height: 340,
+        height: Math.max(260, degreeSeries.value.filter((s) => s.count > 0).length * 52 + 70),
         analysis: dynamicDegreeAnalysis.value,
     },
     {
@@ -308,23 +318,6 @@ const views = computed(() => [
         tableData: fundingTable.value,
         height: 380,
         analysis: dynamicFundingAnalysis.value,
-    },
-    {
-        key: 'records_view',
-        chartType: 'table',
-        tabLabel: `Rincian Alumni (${records.value.length})`,
-        title: 'Tabulasi lengkap responden alumni studi lanjut',
-        description: 'Daftar nama alumni, program studi asal UKDW, perguruan tinggi tujuan, program studi lanjut, dan skema pembiayaan.',
-        option: degreeBarOption.value,
-        tableData: recordsTable.value,
-        height: 340,
-        analysis: {
-            title: 'Kilas Pelacakan Perguruan Tinggi',
-            statusBadge: 'Daftar Lengkap',
-            badgeClass: 'bg-slate-100 text-slate-700',
-            lead: `Menampilkan seluruh ${records.value.length} alumni yang terekam melanjutkan studi ke jenjang lebih tinggi.`,
-            detail: 'Data ini menjadi rujukan resmi akreditasi program studi dan pemetaan jejaring alumni UKDW di berbagai perguruan tinggi terkemuka dalam dan luar negeri.',
-        },
     },
 ]);
 </script>
@@ -377,10 +370,10 @@ const views = computed(() => [
                 <table class="w-full text-left text-xs">
                     <thead class="bg-slate-50 text-[11px] font-bold uppercase text-slate-600">
                         <tr>
-                            <th class="px-3 py-2.5">No</th>
+                            <th class="px-3 py-2.5 w-12">No</th>
                             <th class="px-3 py-2.5">Perguruan Tinggi Tujuan</th>
-                            <th class="px-3 py-2.5 text-right">Jumlah Alumni</th>
-                            <th class="px-3 py-2.5 text-right">Proporsi</th>
+                            <th class="px-3 py-2.5">Program Studi / Bidang Peminatan</th>
+                            <th class="px-3 py-2.5 text-right w-36">Jumlah Alumni</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-slate-800">
@@ -393,11 +386,14 @@ const views = computed(() => [
                             <td class="px-3 py-2.5 font-semibold text-slate-900">
                                 {{ item.university }}
                             </td>
+                            <td class="px-3 py-2.5 text-slate-600">
+                                <span v-if="item.programs && item.programs.length">
+                                    {{ item.programs.join(', ') }}
+                                </span>
+                                <span v-else class="text-slate-400 italic">Program studi tidak spesifik</span>
+                            </td>
                             <td class="px-3 py-2.5 text-right font-bold text-[#0D542B]">
                                 {{ formatNumber(item.count, 0) }} orang
-                            </td>
-                            <td class="px-3 py-2.5 text-right font-medium text-slate-600">
-                                {{ formatPercentage(item.percentage) }}
                             </td>
                         </tr>
                         <tr v-if="currentUniversityList.length === 0">

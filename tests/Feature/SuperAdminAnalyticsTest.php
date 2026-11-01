@@ -190,6 +190,13 @@ class SuperAdminAnalyticsTest extends TestCase
             $this->assertSame($chartKey, $result['selected_chart']);
             $this->assertArrayHasKey('records', $result['chart']);
             $this->assertArrayHasKey('data_availability', $result['chart']);
+            $this->assertArrayHasKey('methodology', $result['chart']);
+            $this->assertNotEmpty($result['chart']['methodology']['formula'] ?? '');
+            $this->assertNotEmpty($result['chart']['methodology']['denominator'] ?? '');
+            $this->assertNotEmpty($result['chart']['methodology']['source'] ?? '');
+            $this->assertNotEmpty($result['chart']['methodology']['tables'] ?? []);
+            $this->assertNotEmpty($result['chart']['methodology']['views'] ?? []);
+            $this->assertNotEmpty($result['chart']['methodology']['charts'] ?? []);
         }
     }
 

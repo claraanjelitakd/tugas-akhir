@@ -183,6 +183,7 @@ const analysisContext = computed(() => {
 
 // 1. Analisis Radar Chart (Jaring Laba-laba Profil 7 Dimensi)
 const radarAnalysis = computed(() => {
+    if (drilldownAnalysis.value) return drilldownAnalysis.value;
     const ctx = analysisContext.value;
     if (!ctx) {
         return {
@@ -205,6 +206,7 @@ const radarAnalysis = computed(() => {
 
 // 2. Analisis Line Chart (Rata-rata Skor INT Bab 4.3 Laporan Resmi)
 const lineAnalysis = computed(() => {
+    if (drilldownAnalysis.value) return drilldownAnalysis.value;
     const ctx = analysisContext.value;
     if (!ctx) {
         return {
@@ -230,6 +232,7 @@ const lineAnalysis = computed(() => {
 
 // 3. Analisis Stacked Bar Chart (Distribusi Skala Responden)
 const stackedAnalysis = computed(() => {
+    if (drilldownAnalysis.value) return drilldownAnalysis.value;
     const ctx = analysisContext.value;
     if (!ctx) {
         return {
@@ -255,6 +258,7 @@ const stackedAnalysis = computed(() => {
 
 // 4. Analisis Heatmap (Pola Antarprogram Studi)
 const heatmapAnalysis = computed(() => {
+    if (drilldownAnalysis.value) return drilldownAnalysis.value;
     const ctx = analysisContext.value;
     if (!ctx) {
         return {
@@ -344,6 +348,7 @@ const methodsRadarOption = computed(() => {
         radar: {
             shape: 'polygon',
             indicator: indicators,
+            triggerEvent: true,
             splitNumber: 4,
             radius: '78%',
             center: ['50%', '50%'],
@@ -793,7 +798,8 @@ const selectMethod = (key) => {
         selectedMethodKey.value = key;
         const item = series.value.find((s) => s.key === key);
         if (item) {
-            emit('select', seriesLabel(item));
+            const label = seriesLabel(item);
+            emit('select', { name: label, category: label, key: item.key });
         }
     }
 };
@@ -806,12 +812,16 @@ const resetMethodSelection = () => {
 
 // Menangani event klik dari grafik ECharts.
 const handleChartClick = (params) => {
-    const key = params.data?.key || params.data?.methodKey;
+    const key = params?.data?.key || params?.data?.methodKey;
     if (key) {
         selectMethod(key);
         return;
     }
-    const matched = series.value.find((item) => seriesLabel(item) === params.name);
+    const rawName = String(params?.name || '').replace(/\n+/g, ' ').trim();
+    const matched = series.value.find((item) => {
+        const lbl = seriesLabel(item);
+        return lbl === rawName || lbl.toLowerCase().includes(rawName.toLowerCase()) || rawName.toLowerCase().includes(lbl.toLowerCase());
+    });
     if (matched) {
         selectMethod(matched.key);
     }
@@ -962,7 +972,7 @@ const summaryTableData = computed(() => {
                     :option="methodsRadarOption"
                     :height="500"
                     :loading="loading"
-                    @click="handleChartClick"
+                    @select="handleChartClick"
                 />
                 <p class="px-1 text-xs leading-relaxed text-slate-500">
                     <span class="font-semibold text-slate-700">Caption:</span>
@@ -994,13 +1004,23 @@ const summaryTableData = computed(() => {
 
                 <!-- Kotak Analisis Khusus Grafik Jaring Laba-laba -->
                 <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-                    <div class="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
                         <span class="text-xs font-bold uppercase tracking-wider text-slate-700">
                             {{ radarAnalysis.title }}
                         </span>
-                        <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="radarAnalysis.badgeClass">
-                            {{ radarAnalysis.statusBadge }}
-                        </span>
+                        <div class="flex items-center gap-2">
+                            <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="radarAnalysis.badgeClass">
+                                {{ radarAnalysis.statusBadge }}
+                            </span>
+                            <button
+                                v-if="selectedMethodKey"
+                                type="button"
+                                class="rounded border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-[#0D542B] hover:bg-emerald-50 cursor-pointer transition-colors"
+                                @click="resetMethodSelection"
+                            >
+                                Kembali ke Analisis Keseluruhan
+                            </button>
+                        </div>
                     </div>
                     <p class="mt-2.5 text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
                         {{ radarAnalysis.lead }}
@@ -1036,7 +1056,7 @@ const summaryTableData = computed(() => {
                     :option="methodsLineOption"
                     :height="430"
                     :loading="loading"
-                    @click="handleChartClick"
+                    @select="handleChartClick"
                 />
                 <p class="px-1 text-xs leading-relaxed text-slate-500">
                     <span class="font-semibold text-slate-700">Caption:</span>
@@ -1045,13 +1065,23 @@ const summaryTableData = computed(() => {
 
                 <!-- Kotak Analisis Khusus Grafik Garis -->
                 <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-                    <div class="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
                         <span class="text-xs font-bold uppercase tracking-wider text-slate-700">
                             {{ lineAnalysis.title }}
                         </span>
-                        <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="lineAnalysis.badgeClass">
-                            {{ lineAnalysis.statusBadge }}
-                        </span>
+                        <div class="flex items-center gap-2">
+                            <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="lineAnalysis.badgeClass">
+                                {{ lineAnalysis.statusBadge }}
+                            </span>
+                            <button
+                                v-if="selectedMethodKey"
+                                type="button"
+                                class="rounded border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-[#0D542B] hover:bg-emerald-50 cursor-pointer transition-colors"
+                                @click="resetMethodSelection"
+                            >
+                                Kembali ke Analisis Keseluruhan
+                            </button>
+                        </div>
                     </div>
                     <p class="mt-2.5 text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
                         {{ lineAnalysis.lead }}
@@ -1086,7 +1116,7 @@ const summaryTableData = computed(() => {
                     :option="methodsStackedOption"
                     :height="430"
                     :loading="loading"
-                    @click="handleChartClick"
+                    @select="handleChartClick"
                 />
                 <p class="px-1 text-xs leading-relaxed text-slate-500">
                     <span class="font-semibold text-slate-700">Caption:</span>
@@ -1095,13 +1125,23 @@ const summaryTableData = computed(() => {
 
                 <!-- Kotak Analisis Khusus Distribusi Skala -->
                 <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-                    <div class="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
                         <span class="text-xs font-bold uppercase tracking-wider text-slate-700">
                             {{ stackedAnalysis.title }}
                         </span>
-                        <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="stackedAnalysis.badgeClass">
-                            {{ stackedAnalysis.statusBadge }}
-                        </span>
+                        <div class="flex items-center gap-2">
+                            <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="stackedAnalysis.badgeClass">
+                                {{ stackedAnalysis.statusBadge }}
+                            </span>
+                            <button
+                                v-if="selectedMethodKey"
+                                type="button"
+                                class="rounded border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-[#0D542B] hover:bg-emerald-50 cursor-pointer transition-colors"
+                                @click="resetMethodSelection"
+                            >
+                                Kembali ke Analisis Keseluruhan
+                            </button>
+                        </div>
                     </div>
                     <p class="mt-2.5 text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
                         {{ stackedAnalysis.lead }}
@@ -1131,7 +1171,7 @@ const summaryTableData = computed(() => {
                     :option="heatmapOption"
                     :height="500"
                     :loading="loading"
-                    @click="handleChartClick"
+                    @select="handleChartClick"
                 />
                 <p class="px-1 text-xs leading-relaxed text-slate-500">
                     <span class="font-semibold text-slate-700">Caption:</span>
@@ -1170,13 +1210,23 @@ const summaryTableData = computed(() => {
 
                 <!-- Kotak Analisis Khusus Antar Prodi -->
                 <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-                    <div class="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
                         <span class="text-xs font-bold uppercase tracking-wider text-slate-700">
                             {{ heatmapAnalysis.title }}
                         </span>
-                        <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="heatmapAnalysis.badgeClass">
-                            {{ heatmapAnalysis.statusBadge }}
-                        </span>
+                        <div class="flex items-center gap-2">
+                            <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="heatmapAnalysis.badgeClass">
+                                {{ heatmapAnalysis.statusBadge }}
+                            </span>
+                            <button
+                                v-if="selectedMethodKey"
+                                type="button"
+                                class="rounded border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-[#0D542B] hover:bg-emerald-50 cursor-pointer transition-colors"
+                                @click="resetMethodSelection"
+                            >
+                                Kembali ke Analisis Keseluruhan
+                            </button>
+                        </div>
                     </div>
                     <p class="mt-2.5 text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
                         {{ heatmapAnalysis.lead }}
@@ -1291,7 +1341,7 @@ const summaryTableData = computed(() => {
                             class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors shadow-2xs"
                             @click="resetMethodSelection"
                         >
-                            Tutup Rincian
+                            Kembali ke Analisis Keseluruhan
                         </button>
                     </div>
                 </div>

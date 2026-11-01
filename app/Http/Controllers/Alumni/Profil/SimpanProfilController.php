@@ -78,6 +78,9 @@ class SimpanProfilController extends Controller
             $jenisPerusahaan = ! empty($dataTervalidasi['company_jenis_perusahaan']) ? $dataTervalidasi['company_jenis_perusahaan'] : (! empty($dataTervalidasi['perusahaan_jenis_perusahaan']) ? $dataTervalidasi['perusahaan_jenis_perusahaan'] : null);
             $jenisPerusahaanLainnya = ! empty($dataTervalidasi['company_jenis_perusahaan_lainnya']) ? $dataTervalidasi['company_jenis_perusahaan_lainnya'] : (! empty($dataTervalidasi['perusahaan_jenis_perusahaan_lainnya']) ? $dataTervalidasi['perusahaan_jenis_perusahaan_lainnya'] : null);
             $skala = ! empty($dataTervalidasi['company_skala']) ? $dataTervalidasi['company_skala'] : (! empty($dataTervalidasi['perusahaan_skala']) ? $dataTervalidasi['perusahaan_skala'] : null);
+            $bentukPerusahaan = ! empty($dataTervalidasi['company_bentuk']) ? $dataTervalidasi['company_bentuk'] : (! empty($dataTervalidasi['perusahaan_bentuk']) ? $dataTervalidasi['perusahaan_bentuk'] : null);
+            $noTelpFax = ! empty($dataTervalidasi['company_no_telp_fax']) ? $dataTervalidasi['company_no_telp_fax'] : (! empty($dataTervalidasi['perusahaan_no_telp_fax']) ? $dataTervalidasi['perusahaan_no_telp_fax'] : null);
+            $homepage = ! empty($dataTervalidasi['company_homepage']) ? $dataTervalidasi['company_homepage'] : (! empty($dataTervalidasi['perusahaan_homepage']) ? $dataTervalidasi['perusahaan_homepage'] : null);
             $alamat = ! empty($dataTervalidasi['company_alamat']) ? $dataTervalidasi['company_alamat'] : (! empty($dataTervalidasi['perusahaan_alamat']) ? $dataTervalidasi['perusahaan_alamat'] : null);
             $kodePos = ! empty($dataTervalidasi['company_kode_pos']) ? $dataTervalidasi['company_kode_pos'] : (! empty($dataTervalidasi['perusahaan_kode_pos']) ? $dataTervalidasi['perusahaan_kode_pos'] : (! empty($dataTervalidasi['zipcode']) ? $dataTervalidasi['zipcode'] : null));
 
@@ -90,6 +93,9 @@ class SimpanProfilController extends Controller
                     'alamat' => $alamat,
                     'kode_pos' => $kodePos,
                     'skala' => $skala ?: 'Nasional',
+                    'bentuk_perusahaan' => $bentukPerusahaan,
+                    'no_telp_fax' => $noTelpFax,
+                    'homepage' => $homepage,
                     'jenis_perusahaan' => $jenisPerusahaan,
                     'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya,
                     'jenis_lokasi' => $jenisLokasi,
@@ -100,26 +106,21 @@ class SimpanProfilController extends Controller
                 ]
             );
 
-            // Jika perusahaan belum terverifikasi atau alumni adalah founder/wiraswasta, perbarui data master
-            $kategoriPekerjaan = $dataTervalidasi['kategori_pekerjaan'] ?? null;
-            $posisiJabatan = $dataTervalidasi['posisi_jabatan'] ?? null;
-            $isOwnerOrFounder = ($kategoriPekerjaan === 'Wiraswasta') || ($posisiJabatan && in_array(strtolower((string) $posisiJabatan), [
-                'owner', 'founder', 'wiraswasta', 'wirausaha', 'wiraswasta / wirausaha', 'owner / founder',
-            ]));
-
-            if ($perusahaan->status_verifikasi !== 'Terverifikasi' || $isOwnerOrFounder) {
-                $perusahaan->update([
-                    'propinsi_id' => $propinsiId,
-                    'kabupaten_id' => $kabupatenId,
-                    'alamat' => $alamat ?: $perusahaan->alamat,
-                    'kode_pos' => $kodePos ?: $perusahaan->kode_pos,
-                    'skala' => $skala ?: $perusahaan->skala,
-                    'jenis_perusahaan' => $jenisPerusahaan ?: $perusahaan->jenis_perusahaan,
-                    'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya,
-                    'jenis_lokasi' => $jenisLokasi,
-                    'negara' => $negara,
-                ]);
-            }
+            // Perbarui data perusahaan agar tersinkronisasi dua arah antara profil alumni dan form evaluasi atasan
+            $perusahaan->update([
+                'propinsi_id' => $propinsiId,
+                'kabupaten_id' => $kabupatenId,
+                'alamat' => $alamat ?: $perusahaan->alamat,
+                'kode_pos' => $kodePos ?: $perusahaan->kode_pos,
+                'skala' => $skala ?: $perusahaan->skala,
+                'bentuk_perusahaan' => $bentukPerusahaan ?: $perusahaan->bentuk_perusahaan,
+                'no_telp_fax' => $noTelpFax ?: $perusahaan->no_telp_fax,
+                'homepage' => $homepage ?: $perusahaan->homepage,
+                'jenis_perusahaan' => $jenisPerusahaan ?: $perusahaan->jenis_perusahaan,
+                'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya,
+                'jenis_lokasi' => $jenisLokasi,
+                'negara' => $negara,
+            ]);
             $idPerusahaan = $perusahaan->id;
         }
 
@@ -322,22 +323,30 @@ class SimpanProfilController extends Controller
         }
 
         $emailAtasan = $request->input('email_atasan') ?: ($biodata->atasan?->email ?: null);
+        $namaAtasan = $request->input('nama_atasan') ?: ($biodata->atasan?->nama ?: 'Atasan');
+        $teleponAtasan = $request->input('telepon_atasan') ?: ($biodata->atasan?->telepon ?: null);
+
         if (! $emailAtasan || ! filter_var($emailAtasan, FILTER_VALIDATE_EMAIL)) {
             return redirect()->back()->with('error', 'Alamat email atasan belum diisi atau format tidak valid. Mohon lengkapi pada form atasan terlebih dahulu.');
         }
 
-        [$biodata, $evaluasi] = DB::transaction(function () use ($biodata, $emailAtasan): array {
+        [$biodata, $evaluasi] = DB::transaction(function () use ($biodata, $emailAtasan, $namaAtasan, $teleponAtasan): array {
             $lockedBiodata = Biodata::with(['perusahaan', 'atasan', 'dataAkademik'])
                 ->whereKey($biodata->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
             if ($lockedBiodata->atasan) {
-                $lockedBiodata->atasan->update(['email' => $emailAtasan]);
+                $lockedBiodata->atasan->update([
+                    'nama' => $namaAtasan,
+                    'email' => $emailAtasan,
+                    'telepon' => $teleponAtasan,
+                ]);
             } else {
                 $atasan = Atasan::create([
-                    'nama' => 'Atasan',
+                    'nama' => $namaAtasan,
                     'email' => $emailAtasan,
+                    'telepon' => $teleponAtasan,
                 ]);
                 $lockedBiodata->update(['atasan_id' => $atasan->id]);
                 $lockedBiodata->setRelation('atasan', $atasan);
@@ -401,6 +410,9 @@ class SimpanProfilController extends Controller
             'kode_pos' => 'nullable|string|max:15',
             'alamat' => 'nullable|string',
             'skala' => 'nullable|string',
+            'bentuk_perusahaan' => 'nullable|string|max:100',
+            'no_telp_fax' => 'nullable|string|max:100',
+            'homepage' => 'nullable|string|max:150',
             'jenis_perusahaan' => 'nullable|string|max:50',
             'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
         ];
@@ -432,6 +444,9 @@ class SimpanProfilController extends Controller
             'alamat' => $validated['alamat'] ?? null,
             'kode_pos' => $validated['kode_pos'] ?? null,
             'skala' => $validated['skala'] ?? ($jenisLokasi === 'Luar Negeri' ? 'Internasional' : 'Lokal'),
+            'bentuk_perusahaan' => $validated['bentuk_perusahaan'] ?? null,
+            'no_telp_fax' => $validated['no_telp_fax'] ?? null,
+            'homepage' => $validated['homepage'] ?? null,
             'jenis_perusahaan' => $validated['jenis_perusahaan'] ?? null,
             'jenis_perusahaan_lainnya' => $validated['jenis_perusahaan_lainnya'] ?? null,
             'status_verifikasi' => 'Menunggu Verifikasi',

@@ -50,11 +50,13 @@ const workplaceColorMap = {
 const getWorkplaceColor = (label) => workplaceColorMap[label] || '#475569';
 
 // -----------------------------------------------------------------------------
-// 1. DONUT CHART: Proporsi Jenis Tempat Bekerja Universitas
+// 1. BAR CHART: Proporsi Jenis Tempat Bekerja Universitas (Horizontal Bar)
 // -----------------------------------------------------------------------------
-const donutOption = computed(() => {
+const barOption = computed(() => {
     // Filter hanya kategori yang memiliki respon (>0) agar tampilan bersih
-    const activeSeries = series.value.filter((item) => seriesMetric(item) > 0);
+    const activeSeries = [...series.value]
+        .filter((item) => seriesMetric(item) > 0)
+        .sort((a, b) => seriesMetric(a) - seriesMetric(b)); // Naik agar teratas adalah nilai terbanyak
 
     const data = activeSeries.map((item) => {
         const label = seriesLabel(item);
@@ -65,59 +67,100 @@ const donutOption = computed(() => {
             value: count,
             percentage: item.percentage || 0,
             itemStyle: {
-                color: getWorkplaceColor(label),
+                color: '#0D542B',
                 opacity: selected ? 1 : 0.22,
+                borderRadius: [0, 4, 4, 0],
             },
         };
     });
 
+    const chartHeight = Math.max(340, data.length * 44 + 70);
+
     return {
         ...baseOption(validResponses.value),
-        legend: {
-            orient: 'horizontal',
-            bottom: 0,
-            icon: 'circle',
-            textStyle: { color: '#334155', fontSize: 11, fontWeight: 600 },
+        grid: {
+            left: 20,
+            right: 110,
+            top: 24,
+            bottom: 40,
+            containLabel: true,
+        },
+        xAxis: {
+            type: 'value',
+            name: 'Jumlah Alumni',
+            nameLocation: 'middle',
+            nameGap: 28,
+            splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
+        },
+        yAxis: {
+            type: 'category',
+            data: data.map((d) => d.name),
+            axisLabel: {
+                width: 260,
+                overflow: 'break',
+                fontSize: 11,
+                lineHeight: 14,
+                color: '#334155',
+            },
         },
         tooltip: {
             ...baseOption().tooltip,
-            trigger: 'item',
-            formatter: ({ data }) => `<strong>${escapeHtml(data.name)}</strong><br>Jumlah: <strong>${formatNumber(data.value, 0)} alumni</strong><br>Proporsi: <strong>${formatPercentage(data.percentage)}</strong>`,
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: (params) => {
+                const item = data[params[0]?.dataIndex];
+                if (!item) return '';
+                return `<strong>${escapeHtml(item.name)}</strong><br>Jumlah: <strong>${formatNumber(item.value, 0)} alumni</strong>`;
+            },
         },
         series: [{
-            name: 'Jenis Tempat Bekerja',
-            type: 'pie',
-            radius: ['42%', '70%'],
-            center: ['50%', '46%'],
-            avoidLabelOverlap: true,
-            itemStyle: {
-                borderRadius: 4,
-                borderColor: '#FFFFFF',
-                borderWidth: 2,
-            },
+            name: 'Jumlah Alumni',
+            type: 'bar',
+            barMaxWidth: 22,
+            data,
             label: {
                 show: true,
-                formatter: ({ data }) => `${formatPercentage(data.percentage)}`,
+                position: 'right',
+                distance: 8,
+                formatter: ({ data }) => `${formatNumber(data.value, 0)} alumni`,
                 fontSize: 11,
-                fontWeight: 'bold',
-                color: '#1E293B',
+                fontWeight: 700,
+                color: '#0F172A',
             },
-            data,
+            labelLayout: {
+                hideOverlap: false,
+            },
         }],
+        _dynamicHeight: chartHeight,
     };
 });
 
-const donutTable = computed(() => ({
+const barTable = computed(() => ({
     columns: [
         { key: 'name', label: 'Jenis Perusahaan / Instansi (F11)' },
         { key: 'count', label: 'Jumlah Alumni (n)', align: 'right' },
         { key: 'percentage', label: 'Persentase', align: 'right' },
+        { key: 'details', label: 'Keterangan Tambahan / Jenis Instansi Lainnya' },
     ],
-    rows: series.value.map((item) => ({
-        name: seriesLabel(item),
-        count: formatNumber(seriesMetric(item), 0),
-        percentage: formatPercentage(item.percentage || 0),
-    })),
+    rows: series.value.map((item) => {
+        const label = seriesLabel(item);
+        let details = '-';
+        if (label === 'Lainnya') {
+            const otherTexts = records.value
+                .filter((r) => (r.answer === 'Lainnya' || r.category === 'Lainnya') && r.jenis_perusahaan_lainnya && r.jenis_perusahaan_lainnya !== '-')
+                .map((r) => r.jenis_perusahaan_lainnya);
+            const uniqueOthers = [...new Set(otherTexts)];
+            if (uniqueOthers.length > 0) {
+                details = uniqueOthers.join(', ');
+            }
+        }
+        return {
+            name: label,
+            count: formatNumber(seriesMetric(item), 0),
+            percentage: formatPercentage(item.percentage || 0),
+            details,
+        };
+    }),
 }));
 
 // -----------------------------------------------------------------------------
@@ -240,13 +283,13 @@ const views = computed(() => {
     return [
         {
             key: 'proportion',
-            chartType: 'donut',
+            chartType: 'horizontal_bar',
             tabLabel: 'Proporsi Universitas',
-            title: 'Proporsi jenis tempat bekerja tingkat universitas',
+            title: 'Distribusi jenis tempat bekerja tingkat universitas',
             description: 'Distribusi alumni bekerja berdasarkan klasifikasi badan usaha atau instansi tempat kerja (Instrumen F11).',
-            option: donutOption.value,
-            tableData: donutTable.value,
-            height: 380,
+            option: barOption.value,
+            tableData: barTable.value,
+            height: Math.max(340, series.value.filter((s) => seriesMetric(s) > 0).length * 44 + 70),
             analysis: {
                 title: 'Kilas Penyerapan Sektor Kerja Alumni',
                 statusBadge: 'Klasifikasi Sektor F11',

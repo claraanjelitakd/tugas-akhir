@@ -50,6 +50,57 @@ const getCleanKeterangan = (text) => {
     return clean;
 };
 
+// Instruksi bawaan (default) sesuai tipe pertanyaan agar konsisten di seluruh kartu soal
+const getTypeInstruction = (type) => {
+    switch (type) {
+        case 'radio':
+        case 'single_choice':
+            return 'Pilih salah satu jawaban';
+        case 'checkbox':
+        case 'multiple_choice':
+            return 'Jawaban bisa lebih dari satu (centang yang sesuai)';
+        case 'radio_text':
+            return 'Pilih salah satu jawaban (tuliskan keterangan jika memilih Lainnya)';
+        case 'radio_input':
+            return 'Pilih salah satu jawaban dan lengkapi angka pada kolom isian';
+        case 'rating_5':
+            return 'Pilih satu angka skala 1 s/d 5';
+        case 'dropdown':
+        case 'searchable_select':
+            return 'Pilih salah satu opsi dari daftar';
+        case 'multiple_number':
+            return 'Isi nominal angka pada kolom yang tersedia (bisa lebih dari satu)';
+        case 'multiple_textbox':
+            return 'Lengkapi kolom-kolom isian di bawah ini';
+        case 'matrix':
+        case 'matrix_dual':
+            return 'Pilih satu tingkat penilaian pada setiap baris aspek';
+        case 'number':
+            return 'Masukkan jawaban berupa angka';
+        case 'text':
+            return 'Tuliskan jawaban singkat pada kolom di bawah ini';
+        case 'textarea':
+            return 'Tuliskan uraian jawaban pada kolom di bawah ini';
+        case 'date':
+            return 'Pilih tanggal sesuai kalender';
+        case 'time':
+            return 'Pilih waktu (jam dan menit)';
+        case 'file':
+            return 'Unggah berkas dokumen pendukung';
+        default:
+            return '';
+    }
+};
+
+// Deteksi apakah opsi membutuhkan input teks kustom (Lainnya / Other / Tuliskan / ...)
+const isCustomOption = (opt) => {
+    if (!opt) return false;
+    if (typeof opt === 'object' && opt.is_other) return true;
+    const text = (typeof opt === 'object' ? opt.option_text : opt) || '';
+    const lower = String(text).trim().toLowerCase();
+    return lower === 'other' || lower.includes('lainnya') || lower.includes('tuliskan') || lower.includes('...') || lower.includes('…');
+};
+
 // Mencegah karakter aneh pada input angka
 const filterNumberInput = (event) => {
     if (['e', 'E', '+', '-', '.'].includes(event.key)) {
@@ -286,9 +337,9 @@ const stepNumberInput = (qId, delta) => {
 
 <template>
     <!-- KARTU KHUSUS TIPE HEADER / INSTRUKSI -->
-    <div 
-        v-if="subpertanyaan.type === 'header'" 
-        v-show="isVisible" 
+    <div
+        v-if="subpertanyaan.type === 'header'"
+        v-show="isVisible"
         class="bg-emerald-50/70 border border-emerald-200/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xs"
     >
         <div class="flex items-start gap-3 sm:gap-4">
@@ -307,9 +358,9 @@ const stepNumberInput = (qId, delta) => {
     </div>
 
     <!-- KARTU PERTANYAAN STANDAR -->
-    <div 
+    <div
         v-else
-        v-show="isVisible" 
+        v-show="isVisible"
         class="bg-white p-5 sm:p-7 md:p-8 rounded-2xl sm:rounded-3xl shadow-xs border border-gray-100 relative z-0 transition-all hover:border-emerald-200"
         :class="[
             isPaired ? 'flex flex-col justify-between h-full' : ''
@@ -332,13 +383,20 @@ const stepNumberInput = (qId, delta) => {
             <p v-if="getCleanKeterangan(subpertanyaan.keterangan || subpertanyaan.sub_detail)" class="text-xs sm:text-sm text-gray-600 font-medium mt-1">
                 {{ getCleanKeterangan(subpertanyaan.keterangan || subpertanyaan.sub_detail) }}
             </p>
+
+            <!-- Badge Instruksi Default Sesuai Tipe Pertanyaan -->
+            <div v-if="getTypeInstruction(subpertanyaan.type)" class="mt-2.5">
+                <span class="inline-block px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-[11px] font-semibold text-slate-700">
+                    {{ getTypeInstruction(subpertanyaan.type) }}
+                </span>
+            </div>
         </div>
 
         <!-- TIPE INPUT: Teks Biasa -->
         <div v-if="subpertanyaan.type === 'text'">
-            <input 
-                type="text" 
-                v-model="form.answers[subpertanyaan.id]" 
+            <input
+                type="text"
+                v-model="form.answers[subpertanyaan.id]"
                 :required="subpertanyaan.wajib && isVisible"
                 class="w-full rounded-xl sm:rounded-2xl bg-gray-50/90 p-3.5 sm:p-5 text-gray-900 font-bold focus:bg-white focus:ring-2 focus:ring-[#005B3C] transition-all text-sm sm:text-base border-0 shadow-xs"
                 placeholder="Ketik jawabanmu di sini..."
@@ -347,8 +405,8 @@ const stepNumberInput = (qId, delta) => {
 
         <!-- TIPE INPUT: Paragraf / Textarea -->
         <div v-else-if="subpertanyaan.type === 'textarea'">
-            <textarea 
-                v-model="form.answers[subpertanyaan.id]" 
+            <textarea
+                v-model="form.answers[subpertanyaan.id]"
                 :required="subpertanyaan.wajib && isVisible"
                 rows="4"
                 class="w-full rounded-xl sm:rounded-2xl bg-gray-50/90 p-3.5 sm:p-5 text-gray-900 font-medium focus:bg-white focus:ring-2 focus:ring-[#005B3C] transition-all text-sm sm:text-base border-0 shadow-xs resize-y"
@@ -361,7 +419,7 @@ const stepNumberInput = (qId, delta) => {
             <div class="flex items-center gap-2.5 sm:gap-3">
                 <div class="inline-flex items-center bg-gray-50 border border-gray-200/90 rounded-xl p-1 shadow-2xs">
                     <!-- Tombol Kurang (-) -->
-                    <button 
+                    <button
                         type="button"
                         @click="stepNumberInput(subpertanyaan.id, -1)"
                         class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white hover:bg-gray-100 text-gray-700 font-black text-base flex items-center justify-center transition-all shadow-2xs active:scale-95 border border-gray-200/80 cursor-pointer"
@@ -371,9 +429,9 @@ const stepNumberInput = (qId, delta) => {
                     </button>
 
                     <!-- Input Nilai -->
-                    <input 
-                        type="number" 
-                        v-model="form.answers[subpertanyaan.id]" 
+                    <input
+                        type="number"
+                        v-model="form.answers[subpertanyaan.id]"
                         :required="subpertanyaan.wajib && isVisible"
                         @keydown="filterNumberInput"
                         min="0"
@@ -382,7 +440,7 @@ const stepNumberInput = (qId, delta) => {
                     >
 
                     <!-- Tombol Tambah (+) -->
-                    <button 
+                    <button
                         type="button"
                         @click="stepNumberInput(subpertanyaan.id, 1)"
                         class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white hover:bg-gray-100 text-gray-700 font-black text-base flex items-center justify-center transition-all shadow-2xs active:scale-95 border border-gray-200/80 cursor-pointer"
@@ -406,9 +464,9 @@ const stepNumberInput = (qId, delta) => {
                 class="w-full rounded-xl sm:rounded-2xl bg-gray-50/90 p-3.5 sm:p-5 text-gray-900 font-bold focus:bg-white focus:ring-2 focus:ring-[#005B3C] transition-all text-sm sm:text-base border-0 shadow-xs cursor-pointer"
             >
                 <option value="" disabled>-- Pilih salah satu opsi --</option>
-                <option 
-                    v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" 
-                    :key="opt.id" 
+                <option
+                    v-for="opt in (subpertanyaan.detils || subpertanyaan.options)"
+                    :key="opt.id"
                     :value="opt.option_text"
                 >
                     {{ opt.option_text }}
@@ -418,9 +476,9 @@ const stepNumberInput = (qId, delta) => {
 
         <!-- TIPE INPUT: Tanggal (Date) -->
         <div v-else-if="subpertanyaan.type === 'date'" class="max-w-xs">
-            <input 
-                type="date" 
-                v-model="form.answers[subpertanyaan.id]" 
+            <input
+                type="date"
+                v-model="form.answers[subpertanyaan.id]"
                 :required="subpertanyaan.wajib && isVisible"
                 class="w-full rounded-xl sm:rounded-2xl bg-gray-50/90 p-3.5 sm:p-4 text-gray-900 font-bold focus:bg-white focus:ring-2 focus:ring-[#005B3C] transition-all text-sm sm:text-base border-0 shadow-xs"
             >
@@ -428,9 +486,9 @@ const stepNumberInput = (qId, delta) => {
 
         <!-- TIPE INPUT: Waktu (Time) -->
         <div v-else-if="subpertanyaan.type === 'time'" class="max-w-xs">
-            <input 
-                type="time" 
-                v-model="form.answers[subpertanyaan.id]" 
+            <input
+                type="time"
+                v-model="form.answers[subpertanyaan.id]"
                 :required="subpertanyaan.wajib && isVisible"
                 class="w-full rounded-xl sm:rounded-2xl bg-gray-50/90 p-3.5 sm:p-4 text-gray-900 font-bold focus:bg-white focus:ring-2 focus:ring-[#005B3C] transition-all text-sm sm:text-base border-0 shadow-xs"
             >
@@ -438,8 +496,8 @@ const stepNumberInput = (qId, delta) => {
 
         <!-- TIPE INPUT: Upload Berkas (File) -->
         <div v-else-if="subpertanyaan.type === 'file'" class="p-6 border-2 border-dashed border-gray-300 rounded-2xl text-center bg-gray-50/70 hover:bg-emerald-50/50 transition-colors">
-            <input 
-                type="file" 
+            <input
+                type="file"
                 :id="'file_' + subpertanyaan.id"
                 class="sr-only"
                 @change="handleFileUpload(subpertanyaan.id, $event)"
@@ -456,11 +514,11 @@ const stepNumberInput = (qId, delta) => {
 
         <!-- TIPE INPUT: Searchable Select -->
         <div v-else-if="subpertanyaan.type === 'searchable_select'" class="relative">
-            <SearchableSelect 
-                v-model="form.answers[subpertanyaan.id]" 
-                :options="subpertanyaan.detils || subpertanyaan.options" 
-                :required="subpertanyaan.wajib && isVisible" 
-                placeholder="Cari bidang pekerjaan..." 
+            <SearchableSelect
+                v-model="form.answers[subpertanyaan.id]"
+                :options="subpertanyaan.detils || subpertanyaan.options"
+                :required="subpertanyaan.wajib && isVisible"
+                placeholder="Cari bidang pekerjaan..."
             />
         </div>
 
@@ -473,21 +531,21 @@ const stepNumberInput = (qId, delta) => {
                         <span>Sangat Tinggi</span>
                     </div>
                     <div class="flex items-center justify-between gap-2 sm:gap-4">
-                        <label 
-                            v-for="score in 5" 
-                            :key="score" 
+                        <label
+                            v-for="score in 5"
+                            :key="score"
                             class="cursor-pointer select-none flex-1 flex flex-col items-center group"
                         >
-                            <input 
-                                type="radio" 
-                                :name="'question_' + subpertanyaan.id" 
-                                :value="score" 
+                            <input
+                                type="radio"
+                                :name="'question_' + subpertanyaan.id"
+                                :value="score"
                                 :checked="isRatingScoreSelected(subpertanyaan.id, score)"
                                 @change="setRatingScore(subpertanyaan.id, score)"
-                                :required="subpertanyaan.wajib && isVisible" 
+                                :required="subpertanyaan.wajib && isVisible"
                                 class="sr-only"
                             >
-                            <div 
+                            <div
                                 class="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center font-black text-sm sm:text-base shadow-2xs transition-all active:scale-95"
                                 :class="[
                                     isRatingScoreSelected(subpertanyaan.id, score)
@@ -507,23 +565,23 @@ const stepNumberInput = (qId, delta) => {
         <div v-else-if="subpertanyaan.type === 'radio' || subpertanyaan.type === 'single_choice'">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
                 <label v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" :key="opt.id" class="cursor-pointer group block select-none">
-                    <input 
-                        type="radio" 
-                        :name="'question_'+subpertanyaan.id" 
-                        :value="opt.option_text" 
-                        v-model="form.answers[subpertanyaan.id]" 
-                        :required="subpertanyaan.wajib && isVisible" 
+                    <input
+                        type="radio"
+                        :name="'question_'+subpertanyaan.id"
+                        :value="opt.option_text"
+                        v-model="form.answers[subpertanyaan.id]"
+                        :required="subpertanyaan.wajib && isVisible"
                         class="sr-only"
                     >
-                    <div 
+                    <div
                         class="p-3.5 sm:p-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-3 border shadow-2xs"
                         :class="[
                             form.answers[subpertanyaan.id] === opt.option_text
-                                ? 'bg-emerald-50/90 border-[#005B3C] text-[#005B3C] ring-1 ring-[#005B3C]' 
+                                ? 'bg-emerald-50/90 border-[#005B3C] text-[#005B3C] ring-1 ring-[#005B3C]'
                                 : 'bg-gray-50/70 border-gray-200/90 text-gray-800 hover:bg-emerald-50/30 hover:border-[#005B3C]'
                         ]"
                     >
-                        <div 
+                        <div
                             class="w-4 h-4 sm:w-5 sm:h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors"
                             :class="form.answers[subpertanyaan.id] === opt.option_text ? 'border-[#005B3C] bg-[#005B3C]' : 'border-gray-300 bg-white'"
                         >
@@ -533,7 +591,7 @@ const stepNumberInput = (qId, delta) => {
                         <div class="flex-1 text-left">
                             <div v-if="getSplitDotsText(opt.option_text).hasDots" class="inline-flex flex-wrap items-center gap-1.5 leading-relaxed">
                                 <span v-if="getSplitDotsText(opt.option_text).before">{{ getSplitDotsText(opt.option_text).before }}</span>
-                                <input 
+                                <input
                                     type="text"
                                     v-model="form.answers[subpertanyaan.id + '_custom']"
                                     @click.stop="form.answers[subpertanyaan.id] = opt.option_text"
@@ -546,16 +604,16 @@ const stepNumberInput = (qId, delta) => {
                             </div>
                             <span v-else>{{ opt.option_text }}</span>
 
-                            <div 
-                                v-if="!getSplitDotsText(opt.option_text).hasDots && form.answers[subpertanyaan.id] === opt.option_text && (opt.option_text.toLowerCase().includes('lainnya') || opt.option_text.toLowerCase().includes('tuliskan') || opt.option_text.includes('...') || opt.option_text.includes('…'))" 
-                                class="w-full mt-2" 
+                            <div
+                                v-if="!getSplitDotsText(opt.option_text).hasDots && form.answers[subpertanyaan.id] === opt.option_text && isCustomOption(opt)"
+                                class="w-full mt-2"
                                 @click.stop
                             >
-                                <input 
-                                    type="text" 
-                                    v-model="form.answers[subpertanyaan.id + '_custom']" 
-                                    placeholder="Tuliskan jawaban spesifik di sini..." 
-                                    class="w-full rounded-lg bg-white text-gray-900 placeholder-gray-400 p-2 text-xs sm:text-sm font-semibold border border-gray-300 focus:ring-1 focus:ring-[#005B3C] focus:outline-none" 
+                                <input
+                                    type="text"
+                                    v-model="form.answers[subpertanyaan.id + '_custom']"
+                                    placeholder="Tuliskan jawaban spesifik di sini..."
+                                    class="w-full rounded-lg bg-white text-gray-900 placeholder-gray-400 p-2 text-xs sm:text-sm font-semibold border border-gray-300 focus:ring-1 focus:ring-[#005B3C] focus:outline-none"
                                     required
                                 >
                             </div>
@@ -569,22 +627,22 @@ const stepNumberInput = (qId, delta) => {
         <div v-else-if="subpertanyaan.type === 'checkbox' || subpertanyaan.type === 'multiple_choice'">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
                 <label v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" :key="opt.id" class="cursor-pointer group block select-none">
-                    <input 
-                        type="checkbox" 
-                        :value="opt.option_text" 
+                    <input
+                        type="checkbox"
+                        :value="opt.option_text"
                         :checked="isCheckboxChecked(subpertanyaan.id, opt.option_text)"
                         @change="toggleCheckboxOption(subpertanyaan.id, opt.option_text)"
                         class="sr-only"
                     >
-                    <div 
+                    <div
                         class="p-3.5 sm:p-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-3 border shadow-2xs"
                         :class="[
                             isCheckboxChecked(subpertanyaan.id, opt.option_text)
-                                ? 'bg-emerald-50/90 border-[#005B3C] text-[#005B3C] ring-1 ring-[#005B3C]' 
+                                ? 'bg-emerald-50/90 border-[#005B3C] text-[#005B3C] ring-1 ring-[#005B3C]'
                                 : 'bg-gray-50/70 border-gray-200/90 text-gray-800 hover:bg-emerald-50/30 hover:border-[#005B3C]'
                         ]"
                     >
-                        <div 
+                        <div
                             class="w-4 h-4 sm:w-5 sm:h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors"
                             :class="isCheckboxChecked(subpertanyaan.id, opt.option_text) ? 'border-[#005B3C] bg-[#005B3C] text-white' : 'border-gray-300 bg-white'"
                         >
@@ -594,7 +652,7 @@ const stepNumberInput = (qId, delta) => {
                         <div class="flex-1 text-left">
                             <div v-if="getSplitDotsText(opt.option_text).hasDots" class="inline-flex flex-wrap items-center gap-1.5 leading-relaxed">
                                 <span v-if="getSplitDotsText(opt.option_text).before">{{ getSplitDotsText(opt.option_text).before }}</span>
-                                <input 
+                                <input
                                     type="text"
                                     v-model="form.answers[subpertanyaan.id + '_custom']"
                                     @click.stop="() => { if (!isCheckboxChecked(subpertanyaan.id, opt.option_text)) toggleCheckboxOption(subpertanyaan.id, opt.option_text); }"
@@ -606,16 +664,16 @@ const stepNumberInput = (qId, delta) => {
                             </div>
                             <span v-else>{{ opt.option_text }}</span>
 
-                            <div 
-                                v-if="!getSplitDotsText(opt.option_text).hasDots && isCheckboxChecked(subpertanyaan.id, opt.option_text) && (opt.option_text.toLowerCase().includes('lainnya') || opt.option_text.toLowerCase().includes('tuliskan') || opt.option_text.includes('...') || opt.option_text.includes('…'))" 
-                                class="w-full mt-2" 
+                            <div
+                                v-if="!getSplitDotsText(opt.option_text).hasDots && isCheckboxChecked(subpertanyaan.id, opt.option_text) && isCustomOption(opt)"
+                                class="w-full mt-2"
                                 @click.stop
                             >
-                                <input 
-                                    type="text" 
-                                    v-model="form.answers[subpertanyaan.id + '_custom']" 
-                                    placeholder="Tuliskan jawaban spesifik di sini..." 
-                                    class="w-full rounded-lg bg-white text-gray-900 placeholder-gray-400 p-2 text-xs sm:text-sm font-semibold border border-gray-300 focus:ring-1 focus:ring-[#005B3C] focus:outline-none" 
+                                <input
+                                    type="text"
+                                    v-model="form.answers[subpertanyaan.id + '_custom']"
+                                    placeholder="Tuliskan jawaban spesifik di sini..."
+                                    class="w-full rounded-lg bg-white text-gray-900 placeholder-gray-400 p-2 text-xs sm:text-sm font-semibold border border-gray-300 focus:ring-1 focus:ring-[#005B3C] focus:outline-none"
                                 >
                             </div>
                         </div>
@@ -629,23 +687,23 @@ const stepNumberInput = (qId, delta) => {
         <div v-else-if="subpertanyaan.type === 'radio_input' || subpertanyaan.type === 'radio_text'">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
                 <label v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" :key="opt.id" class="cursor-pointer group block select-none">
-                    <input 
-                        type="radio" 
-                        :name="'question_'+subpertanyaan.id" 
-                        :value="opt.option_text" 
-                        v-model="form.answers[subpertanyaan.id].selected" 
-                        @change="handleRadioOptionSelect(subpertanyaan.id, opt.id, opt.option_text)" 
+                    <input
+                        type="radio"
+                        :name="'question_'+subpertanyaan.id"
+                        :value="opt.option_text"
+                        v-model="form.answers[subpertanyaan.id].selected"
+                        @change="handleRadioOptionSelect(subpertanyaan.id, opt.id, opt.option_text)"
                         class="sr-only"
                     >
-                    <div 
+                    <div
                         class="p-3.5 sm:p-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-3 border shadow-2xs"
                         :class="[
                             form.answers[subpertanyaan.id]?.selected === opt.option_text
-                                ? 'bg-emerald-50/90 border-[#005B3C] text-[#005B3C] ring-1 ring-[#005B3C]' 
+                                ? 'bg-emerald-50/90 border-[#005B3C] text-[#005B3C] ring-1 ring-[#005B3C]'
                                 : 'bg-gray-50/70 border-gray-200/90 text-gray-800 hover:bg-emerald-50/30 hover:border-[#005B3C]'
                         ]"
                     >
-                        <div 
+                        <div
                             class="w-4 h-4 sm:w-5 sm:h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors"
                             :class="form.answers[subpertanyaan.id]?.selected === opt.option_text ? 'border-[#005B3C] bg-[#005B3C]' : 'border-gray-300 bg-white'"
                         >
@@ -655,7 +713,7 @@ const stepNumberInput = (qId, delta) => {
                         <div class="flex-1 text-left">
                             <div v-if="getSplitDotsText(opt.option_text).hasDots" class="inline-flex flex-wrap items-center gap-1.5 leading-relaxed">
                                 <span v-if="getSplitDotsText(opt.option_text).before">{{ getSplitDotsText(opt.option_text).before }}</span>
-                                <input 
+                                <input
                                     :type="subpertanyaan.type === 'radio_input' ? 'number' : 'text'"
                                     :value="getRadioInputVal(subpertanyaan.id, opt.id)"
                                     @input="setRadioInputVal(subpertanyaan.id, opt.id, $event.target.value, opt.option_text)"
@@ -671,18 +729,18 @@ const stepNumberInput = (qId, delta) => {
                             </div>
                             <span v-else>{{ opt.option_text }}</span>
 
-                            <div 
-                                v-if="!getSplitDotsText(opt.option_text).hasDots && form.answers[subpertanyaan.id]?.selected === opt.option_text && (opt.option_text.toLowerCase().includes('lainnya') || opt.option_text.toLowerCase().includes('tuliskan') || opt.option_text.includes('...') || opt.option_text.includes('…'))" 
-                                class="w-full mt-2" 
+                            <div
+                                v-if="!getSplitDotsText(opt.option_text).hasDots && form.answers[subpertanyaan.id]?.selected === opt.option_text && isCustomOption(opt)"
+                                class="w-full mt-2"
                                 @click.stop
                             >
-                                <input 
+                                <input
                                     :type="subpertanyaan.type === 'radio_input' ? 'number' : 'text'"
                                     :value="getRadioInputVal(subpertanyaan.id, opt.id)"
                                     @input="setRadioInputVal(subpertanyaan.id, opt.id, $event.target.value, opt.option_text)"
                                     :placeholder="subpertanyaan.type === 'radio_input' ? 'Masukkan angka...' : 'Tuliskan di sini...'"
                                     @keydown="subpertanyaan.type === 'radio_input' ? filterNumberInput($event) : null"
-                                    class="w-full rounded-lg bg-white text-gray-900 placeholder-gray-400 p-2 text-xs sm:text-sm font-semibold border border-gray-300 focus:ring-1 focus:ring-[#005B3C] focus:outline-none" 
+                                    class="w-full rounded-lg bg-white text-gray-900 placeholder-gray-400 p-2 text-xs sm:text-sm font-semibold border border-gray-300 focus:ring-1 focus:ring-[#005B3C] focus:outline-none"
                                     required
                                 >
                             </div>
@@ -704,8 +762,8 @@ const stepNumberInput = (qId, delta) => {
             </div>
 
             <div class="grid grid-cols-1 gap-3 sm:gap-4">
-                <div 
-                    v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" 
+                <div
+                    v-for="opt in (subpertanyaan.detils || subpertanyaan.options)"
                     :key="opt.id"
                     class="flex flex-col md:flex-row md:items-center justify-between p-3.5 sm:p-5 bg-gray-50/90 rounded-xl sm:rounded-2xl gap-3 sm:gap-4 shadow-xs"
                 >
@@ -720,8 +778,8 @@ const stepNumberInput = (qId, delta) => {
                         <!-- Input Box Terformat Langsung -->
                         <div class="relative w-full flex items-center rounded-lg sm:rounded-xl bg-white border border-gray-200 shadow-xs focus-within:ring-2 focus-within:ring-[#005B3C] focus-within:border-transparent transition-all overflow-hidden">
                             <span class="pl-3.5 pr-1 font-bold text-gray-400 select-none text-sm sm:text-base">Rp</span>
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 :value="formatNumberWithDots(form.answers[subpertanyaan.id]?.[opt.kode_opsi || opt.code || opt.id])"
                                 @input="handleMultipleNumberInput(subpertanyaan.id, opt.kode_opsi || opt.code || opt.id, $event)"
                                 placeholder="0"
@@ -762,9 +820,9 @@ const stepNumberInput = (qId, delta) => {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
-                        <tr 
-                            v-for="item in (subpertanyaan.detils || subpertanyaan.options || [])" 
-                            :key="item.kode_opsi || item.id" 
+                        <tr
+                            v-for="item in (subpertanyaan.detils || subpertanyaan.options || [])"
+                            :key="item.kode_opsi || item.id"
                             class="hover:bg-gray-50/80 transition-colors"
                         >
                             <td class="p-3 sm:p-4 font-bold text-gray-800">
@@ -775,9 +833,9 @@ const stepNumberInput = (qId, delta) => {
                             </td>
                             <td v-for="score in 5" :key="score" class="p-2 sm:p-3 text-center">
                                 <label class="cursor-pointer block py-1">
-                                    <input 
-                                        type="radio" 
-                                        :name="'matrix_' + subpertanyaan.id + '_' + (item.kode_opsi || item.id)" 
+                                    <input
+                                        type="radio"
+                                        :name="'matrix_' + subpertanyaan.id + '_' + (item.kode_opsi || item.id)"
                                         :value="score"
                                         :checked="form.answers[subpertanyaan.id]?.[item.kode_opsi || item.id] == score"
                                         @change="if (!form.answers[subpertanyaan.id] || typeof form.answers[subpertanyaan.id] !== 'object') form.answers[subpertanyaan.id] = {}; form.answers[subpertanyaan.id][item.kode_opsi || item.id] = score"
@@ -794,9 +852,9 @@ const stepNumberInput = (qId, delta) => {
         <!-- TIPE INPUT: Multiple Textbox (Dinamis dari subpertanyaan.detils) -->
         <div v-else-if="subpertanyaan.type === 'multiple_textbox'" class="space-y-3 sm:space-y-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div 
-                    v-for="field in (subpertanyaan.detils && subpertanyaan.detils.length > 0 ? subpertanyaan.detils : (subpertanyaan.options || []))" 
-                    :key="field.id || field.kode_opsi" 
+                <div
+                    v-for="field in (subpertanyaan.detils && subpertanyaan.detils.length > 0 ? subpertanyaan.detils : (subpertanyaan.options || []))"
+                    :key="field.id || field.kode_opsi"
                     class="space-y-1"
                 >
                     <label class="block text-xs font-bold text-gray-700">
@@ -805,7 +863,7 @@ const stepNumberInput = (qId, delta) => {
                         </span>
                         {{ field.option_text }}
                     </label>
-                    <input 
+                    <input
                         :type="(field.kode_opsi && field.kode_opsi.toUpperCase().endsWith('D')) || (field.option_text && field.option_text.toLowerCase().includes('tanggal')) ? 'date' : 'text'"
                         :value="form.answers[subpertanyaan.id]?.[field.kode_opsi || field.id] || ''"
                         @input="if (!form.answers[subpertanyaan.id] || typeof form.answers[subpertanyaan.id] !== 'object') form.answers[subpertanyaan.id] = {}; form.answers[subpertanyaan.id][field.kode_opsi || field.id] = $event.target.value"

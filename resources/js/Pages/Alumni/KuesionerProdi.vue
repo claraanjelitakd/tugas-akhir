@@ -181,29 +181,58 @@ const filterNumberInput = (event) => {
 };
 
 
+// Helper deteksi apakah nilai jawaban termasuk opsi kustom (Lainnya / Other / Tuliskan / ...)
+const isCustomAnswerText = (text) => {
+    if (!text) return false;
+    const lower = String(text).trim().toLowerCase();
+    return lower === 'other' || lower.includes('lainnya') || lower.includes('tuliskan') || lower.includes('...') || lower.includes('…');
+};
+
 // Validasi kelengkapan per butir pertanyaan
 const isQuestionAnswered = (q) => {
     if (!q) return false;
+    if (q.type === 'header') return true;
     const ans = form.answers[q.id];
     if (ans === undefined || ans === null || ans === '') return false;
-    if (Array.isArray(ans)) return ans.length > 0;
-    if (typeof ans === 'object') return !!ans.selected;
+    if (Array.isArray(ans)) {
+        if (ans.length === 0) return false;
+        if (ans.some(v => isCustomAnswerText(v))) {
+            const customAns = form.answers[q.id + '_custom'];
+            return customAns !== undefined && customAns !== null && String(customAns).trim() !== '';
+        }
+        return true;
+    }
+    if (typeof ans === 'object') {
+        if (!ans.selected || String(ans.selected).trim() === '') return false;
+        if (isCustomAnswerText(ans.selected)) {
+            return ans.input !== undefined && ans.input !== null && String(ans.input).trim() !== '';
+        }
+        return true;
+    }
+    const str = String(ans).trim();
+    if (str === '') return false;
+    if ((q.type === 'single_choice' || q.type === 'radio') && isCustomAnswerText(str)) {
+        const customAns = form.answers[q.id + '_custom'];
+        return customAns !== undefined && customAns !== null && String(customAns).trim() !== '';
+    }
     return true;
 };
 
 // Validasi kelengkapan satu seksi
 const isSectionAnswered = (section) => {
-    if (!section || !section.questions || section.questions.length === 0) return true;
-    const requiredQuestions = section.questions.filter(q => q.is_required);
-    if (requiredQuestions.length === 0) return true;
-    return requiredQuestions.every(q => isQuestionAnswered(q));
+    if (!section || !section.questions || section.questions.length === 0) return false;
+    const validQuestions = section.questions.filter(q => q.type !== 'header');
+    if (validQuestions.length === 0) return false;
+    const requiredQuestions = validQuestions.filter(q => q.is_required);
+    const targetQuestions = requiredQuestions.length > 0 ? requiredQuestions : validQuestions;
+    return targetQuestions.every(q => isQuestionAnswered(q));
 };
 
-// Status kelengkapan seksi untuk stepper
+// Status kelengkapan seksi untuk stepper (hanya ceklist jika seluruh soal wajib di seksi tersebut benar-benar terjawab)
 const isSectionCompleted = (index) => {
     const sec = groupedSections.value[index];
     if (!sec) return false;
-    return isSectionAnswered(sec) || completedSectionIndices.value.has(index);
+    return isSectionAnswered(sec);
 };
 
 const isLineCompleted = (index) => {
@@ -249,9 +278,7 @@ const progressStats = computed(() => {
 
 // Navigasi Section
 const setSection = (index) => {
-    if (currentSection.value && isSectionAnswered(currentSection.value)) {
-        completedSectionIndices.value.add(activeSectionIndex.value);
-    }
+    syncSectionCompletion();
     activeSectionIndex.value = index;
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -331,8 +358,8 @@ const handleNextOrSubmit = () => {
             }
         });
     } else {
-        // Lanjut ke section berikutnya secara INSTAN (1x klik) & simpan progres ke database di latar belakang
-        completedSectionIndices.value.add(activeSectionIndex.value);
+        // Lanjut ke section berikutnya & sinkronkan status kelengkapan hanya berdasarkan jawaban nyata
+        syncSectionCompletion();
         activeSectionIndex.value++;
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -344,7 +371,7 @@ const handleNextOrSubmit = () => {
             preserveState: true,
             only: ['initialAnswers'],
             onSuccess: () => {
-                completedSectionIndices.value.add(activeSectionIndex.value - 1);
+                syncSectionCompletion();
             }
         });
     }

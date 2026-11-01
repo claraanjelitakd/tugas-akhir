@@ -36,7 +36,7 @@ const records = computed(() => props.chart?.records || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || records.value.length);
 
 // -----------------------------------------------------------------------------
-// 1. HORIZONTAL BAR: Distribusi Seluruh Saluran (15 Opsi Lengkap Tanpa Terpotong)
+// 1. HORIZONTAL BAR: Distribusi Seluruh Saluran (Opsi Terisi)
 // -----------------------------------------------------------------------------
 const barOption = computed(() => {
     // Urutkan dari frekuensi terendah ke tertinggi agar di horizontal bar tampak tertinggi di atas
@@ -56,20 +56,22 @@ const barOption = computed(() => {
         };
     }).reverse();
 
-    const chartHeight = Math.max(620, rows.length * 40 + 90);
+    const chartHeight = Math.max(380, rows.length * 48 + 80);
 
     return {
         ...baseOption(validResponses.value),
         grid: {
             left: 20,
-            right: 80,
+            right: 130,
             top: 24,
-            bottom: 30,
+            bottom: 44,
             containLabel: true,
         },
         xAxis: {
             type: 'value',
             name: 'Jumlah Alumni',
+            nameLocation: 'middle',
+            nameGap: 28,
             splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
         },
         yAxis: {
@@ -90,7 +92,7 @@ const barOption = computed(() => {
             formatter: (params) => {
                 const item = rows[params[0]?.dataIndex];
                 if (!item) return '';
-                return `<strong>${escapeHtml(item.name)}</strong><br>Jumlah: <strong>${formatNumber(item.value, 0)} alumni</strong><br>Proporsi: <strong>${formatPercentage(item.percentage)}</strong>`;
+                return `<strong>${escapeHtml(item.name)}</strong><br>Jumlah: <strong>${formatNumber(item.value, 0)} alumni</strong>`;
             },
         },
         series: [{
@@ -101,9 +103,14 @@ const barOption = computed(() => {
             label: {
                 show: true,
                 position: 'right',
-                formatter: ({ data }) => data.value > 0 ? `${formatNumber(data.value, 0)} (${formatPercentage(data.percentage)})` : '0',
-                fontSize: 10,
-                color: '#475569',
+                distance: 8,
+                formatter: ({ data }) => data.value > 0 ? `${formatNumber(data.value, 0)} alumni` : '0',
+                fontSize: 11,
+                fontWeight: 700,
+                color: '#0F172A',
+            },
+            labelLayout: {
+                hideOverlap: false,
             },
         }],
         _dynamicHeight: chartHeight,

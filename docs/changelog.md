@@ -2,6 +2,22 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 01 November 2026
+
+- **Sinkronisasi Dua Arah Data Perusahaan (Alumni & Evaluasi Atasan)**:
+  - Menambahkan field `bentuk_perusahaan`, `no_telp_fax`, dan `homepage` pada form karier alumni (`FormKarier.vue`) serta modal tambah perusahaan baru agar seluruh atribut perusahaan di form evaluasi atasan juga dapat diisi dan diperbarui dari sisi alumni.
+  - Membuka sinkronisasi dua arah penuh pada `SimpanProfilController.php` dan `EvaluasiAtasanController.php` terhadap tabel `perusahaan`.
+  - Menyamakan casing path import `@/components/AlumniProfil/...` pada `Alumni/Profil/Index.vue`.
+- **Refinement Halaman Evaluasi Pengguna Lulusan (`/evaluasi-atasan/{token}`)**:
+  - Menambahkan dropdown profil bundar alumni di header kanan atas, banner sapaan formal langsung kepada atasan (tanpa *Bapak/Ibu*), serta ringkasan informasi jabatan, penempatan, dan studi lanjut alumni.
+  - Menyusun formulir dalam 3 tahapan stepper (*Profil Perusahaan*, *Karakteristik*, *Penilaian Kinerja*), membalik urutan skala Kesiapan Kerja (*Tidak siap* s/d *Sangat siap*) dan Likert 12 Aspek Kinerja (*Sangat Kurang* s/d *Sangat Tinggi*), serta mendukung pembatalan jawaban (*uncheck*) dengan klik ulang / klik 2x.
+- **Penyatuan Desain & Instruksi Default Kuesioner Universitas dan Prodi**:
+  - Menyamakan tampilan kartu soal dan opsi pilihan pada `KartuPertanyaanProdi.vue` dengan `KartuPertanyaan.vue` (indikator lingkaran radio button untuk pilihan tunggal, kotak centang untuk pilihan ganda, input teks kustom untuk opsi `Lainnya` / `Other`, serta stepper angka `-`/`+`).
+  - Menambahkan badge instruksi default otomatis di setiap tipe pertanyaan pada Kuesioner Universitas dan Kuesioner Prodi.
+  - Memperbaiki logika ceklist stepper di `KuesionerProdi.vue` agar hanya menandai bagian selesai ketika seluruh pertanyaan wajib di bagian tersebut sudah dijawab.
+- **Penyempurnaan UX Profil Alumni & Analitik**:
+  - Mengubah alert perubahan belum disimpan menjadi *floating bottom bar* hijau UKDW, menyederhanakan navbar alumni menjadi avatar bundar ber-dropdown, memperbaiki pengiriman email atasan, menampilkan rincian *Jenis Instansi Lainnya* pada tabel drill-down Indikator 09, dan menghilangkan *double-loading* pada `GrafikUniv.vue`.
+
 ## 28 Oktober 2026
 
 - **Penyelarasan Visualisasi Grafik Universitas & Harmoni Indikator Laporan Resmi**:

@@ -144,7 +144,22 @@ Halaman self-service `/alumni/profile` hanya menerima props yang diperlukan untu
 
 Kontak dan domisili aktif hanya ditulis ke `biodata`. Migrasi final melakukan backfill dari kolom legacy sebelum kolom duplikat dihapus, tanpa menimpa nilai biodata yang sudah ada. Database terpisah `tracer` tidak disentuh.
 
-Payload audit evaluasi atasan juga dipetakan melalui \`EvaluasiAtasan::toAdminAuditArray()\`. Payload tersebut hanya membawa status, identitas atasan, instansi, dan jawaban per butir; token akses survei tidak dikirim ke halaman detail alumni. Nilai jawaban dibaca dari kolom sumber \`respon_evaluasi_atasan.nilai\`, bukan alias \`skor\`.
+Payload audit evaluasi atasan juga dipetakan melalui `EvaluasiAtasan::toAdminAuditArray()`. Payload tersebut hanya membawa status, identitas atasan, instansi, dan jawaban per butir; token akses survei tidak dikirim ke halaman detail alumni. Nilai jawaban dibaca dari kolom sumber `respon_evaluasi_atasan.nilai`, bukan alias `skor`.
+
+### Sinkronisasi Dua Arah Data Perusahaan (Profil Alumni dan Evaluasi Atasan)
+
+Atribut perusahaan pada halaman profil alumni (`FormKarier.vue` dan `SimpanProfilController`) serta halaman evaluasi pengguna lulusan (`EvaluasiAtasanForm.vue` dan `EvaluasiAtasanController`) membaca dan menulis langsung ke record master `perusahaan` yang sama:
+- Field yang tersinkronisasi dua arah: `nama_perusahaan`, `bentuk_perusahaan`, `jenis_perusahaan`, `jenis_perusahaan_lainnya`, `skala`, `jenis_lokasi`, `negara`, `propinsi_id`, `kabupaten_id`, `alamat`, `kode_pos`, `no_telp_fax`, dan `homepage`.
+- Tiga pertanyaan karakteristik survei pengguna lulusan yang diisi khusus oleh atasan disimpan sesuai peruntukannya: `jumlah_pegawai` disimpan pada tabel `perusahaan`, sedangkan `jumlah_alumni_ukdw` dan `standar_gaji_pertama` disimpan pada tabel `evaluasi_atasan`.
+- Penempatan kerja (`bidang_pekerjaan`, `posisi_jabatan`) dan studi lanjut alumni ditampilkan sebagai ringkasan informasi di bagian atas halaman evaluasi atasan (tanpa membebani atasan dengan input ulang), serta identitas alumni ditampilkan melalui avatar bundar ber-dropdown di header kanan atas.
+
+### Keseragaman Komponen Kartu Pertanyaan Kuesioner Universitas dan Prodi
+
+Komponen `KartuPertanyaan.vue` (Kuesioner Universitas) dan `KartuPertanyaanProdi.vue` (Kuesioner Program Studi) menggunakan pola visual dan kontrak interaksi yang sama:
+- Setiap kartu soal secara otomatis menampilkan badge instruksi bawaan (*default*) sesuai tipe pertanyaan (`Pilih salah satu jawaban`, `Jawaban bisa lebih dari satu (centang yang sesuai)`, dsb.).
+- Tipe pilihan tunggal (`single_choice`, `radio`, `radio_text`, `radio_input`) menampilkan indikator lingkaran radio button (`rounded-full`) di sisi kiri opsi, sedangkan tipe pilihan ganda (`multiple_choice`, `checkbox`) menampilkan indikator kotak centang (`rounded-md` dengan ikon centang).
+- Opsi `Lainnya` / `Other` pada pilihan tunggal maupun pilihan ganda membuka input teks spesifik (`_custom`) yang divalidasi dan disimpan ke database.
+- Indikator ceklist selesai pada Stepper `KuesionerProdi.vue` hanya aktif apabila seluruh pertanyaan wajib (atau seluruh pertanyaan non-header) pada bagian tersebut telah terjawab valid.
 
 ## Pengujian
 

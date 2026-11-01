@@ -1,5 +1,24 @@
 # Changelog Tracer Study
 
+## [2026-11-01] Sinkronisasi Dua Arah Perusahaan (Alumni & Atasan), Evaluasi Atasan 3 Langkah, dan Penyatuan Desain Kuesioner Univ-Prodi
+
+- **Sinkronisasi Dua Arah Data Perusahaan (`FormKarier.vue`, `ProfilController.php`, `SimpanProfilController.php`, `EvaluasiAtasanController.php`)**:
+  - Menambahkan field **Bentuk Perusahaan / Institusi**, **No. Telp / Fax Perusahaan**, dan **Website / Homepage Perusahaan** pada kartu Data Perusahaan dan modal Tambah Perusahaan Baru di halaman profil karier alumni (`/alumni/profile?tab=karier`).
+  - Membuka sinkronisasi dua arah penuh pada record `perusahaan`: pembaruan dari alumni langsung tampil pada form evaluasi atasan (`/evaluasi-atasan/{token}`), dan pembaruan dari atasan langsung memperbarui profil karier alumni.
+  - Memperbaiki penulisan path import `@/components/AlumniProfil/...` di `Alumni/Profil/Index.vue` agar konsisten dengan struktur direktori dan HMR Vite.
+- **Penyempurnaan Antarmuka Evaluasi Pengguna Lulusan (`EvaluasiAtasanForm.vue`)**:
+  - Menampilkan avatar bundar alumni dengan dropdown informasi (Nama, NIM, Prodi, Fakultas) di pojok kanan atas header, seragam dengan navbar portal alumni.
+  - Menyajikan banner sapaan formal langsung kepada nama atasan (tanpa kata *Bapak/Ibu*) dan merangkum informasi jabatan/divisi, instansi penempatan, serta studi lanjut alumni dalam blok informasi ringkas.
+  - Mengembalikan struktur **3 Stepper** (*Profil Perusahaan*, *Karakteristik*, *Penilaian Kinerja*).
+  - Membalik urutan skala **Tingkat Kesiapan Kerja** (kiri ke kanan: *Tidak siap* s/d *Sangat siap*) dan **12 Aspek Kinerja Likert** (kiri ke kanan: *Sangat Kurang* s/d *Sangat Tinggi*), serta menambahkan fitur batal pilih (*uncheck*) dengan klik ulang / klik 2x.
+- **Penyatuan Desain Kartu Pertanyaan & Stepper Kuesioner Universitas dan Prodi (`KartuPertanyaan.vue`, `KartuPertanyaanProdi.vue`, `KuesionerProdi.vue`, `KuesionerProdiController.php`)**:
+  - Menambahkan badge instruksi bawaan (*default*) otomatis sesuai tipe pertanyaan pada seluruh kartu soal Universitas dan Prodi.
+  - Menyeragamkan desain opsi `KartuPertanyaanProdi.vue` dengan `KartuPertanyaan.vue`: indikator lingkaran radio (`rounded-full`) untuk pilihan tunggal dan kotak centang (`rounded-md` dengan ikon centang) untuk pilihan ganda, lengkap dengan kolom isian teks kustom saat memilih opsi `Lainnya` / `Other`.
+  - Memperbaiki indikator ceklist pada Stepper `KuesionerProdi.vue` agar hanya menampilkan tanda centang selesai jika seluruh soal pada bagian tersebut telah terjawab valid.
+- **Perbaikan UX Profil Alumni & Grafik Analitik**:
+  - Mengubah notifikasi perubahan belum disimpan di `Alumni/Profil/Index.vue` menjadi *floating bottom bar* hijau UKDW yang tidak menghalangi pengisian, merapikan tombol navigasi bawah, memperbaiki pengiriman email atasan langsung dari form, serta memperjelas kartu unggah foto profil di `FormPribadi.vue`.
+  - Menampilkan kolom rincian *Sebutkan Jenis Instansi Lainnya* pada tabel drill-down Indikator 09 (`09_WorkplaceType.vue` & `TracerAnalyticsService.php`) dan menghilangkan *double-loading* grafik di `GrafikUniv.vue`.
+
 ## [2026-10-28] Penyelarasan Visualisasi Grafik Universitas & Harmoni Indikator Laporan Resmi
 
 - **Indikator 16 (Kompetensi Saat Lulus, Diperlukan Kerja, dan Gap Selisih)**:
