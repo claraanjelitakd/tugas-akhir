@@ -1,4 +1,5 @@
 <script setup>
+// Sidebar terpadu: menu, hak akses, dan penanda aktif mengikuti URL Inertia saat ini.
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import Swal from 'sweetalert2';
@@ -74,6 +75,7 @@ const createSections = (role) => {
                 ...(capabilities.analytics ? [
                     createMenuItem('analytics', '/superadmin/analitik', 'Grafik Universitas', 'chart', ['/superadmin/analitik']),
                     createMenuItem('analytics-prodi', '/superadmin/analitik-prodi', 'Grafik Prodi', 'chart', ['/superadmin/analitik-prodi']),
+                    ...(capabilities.supervisorEvaluation ? [createMenuItem('analytics-atasan', '/superadmin/analitik-atasan', 'Grafik Evaluasi Atasan', 'chart', ['/superadmin/analitik-atasan'])] : []),
                 ] : []),
                 createMenuItem('alumni', `/${prefix}/alumni`, definition.alumniLabel, 'users'),
                 ...(capabilities.linkedin ? [createMenuItem('linkedin-sync', `/${prefix}/linkedin-sync`, 'Sinkronisasi LinkedIn', 'linkedin')] : []),
@@ -121,6 +123,20 @@ const currentUser = computed(() => props.user?.name ? props.user : (page.props.a
     email: roleConfig.value.fallbackEmail,
 }));
 
+// Menghapus query string dan slash terakhir agar menu tetap aktif setelah filter berubah.
+const currentPath = computed(() => {
+    const path = String(page.url || '').split(/[?#]/)[0].replace(/\/+$/, '');
+
+    return path || '/';
+});
+
+// Menyamakan format prefix menu dengan format path halaman Inertia.
+const normalizePath = (path) => {
+    const normalized = String(path || '').split(/[?#]/)[0].replace(/\/+$/, '');
+
+    return normalized || '/';
+};
+
 const currentScope = computed(() => {
     if (props.role === 'admin_prodi') {
         return props.prodi?.nama_prodi || page.props.auth?.user?.prodi?.nama_prodi || 'Program Studi';
@@ -141,7 +157,11 @@ const isActive = (item) => {
         return true;
     }
 
-    return (item.prefixes || [item.href]).some((prefix) => page.url === prefix || page.url.startsWith(`${prefix}/`));
+    return (item.prefixes || [item.href]).some((prefix) => {
+        const normalizedPrefix = normalizePath(prefix);
+
+        return currentPath.value === normalizedPrefix || currentPath.value.startsWith(`${normalizedPrefix}/`);
+    });
 };
 
 const toggleMobileMenu = () => { isMobileOpen.value = !isMobileOpen.value; };

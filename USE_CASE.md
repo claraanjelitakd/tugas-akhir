@@ -96,6 +96,7 @@ flowchart LR
 | UC20 | Memantau log aktivitas | Superadmin | `/superadmin/logs`, tabel `log_activities` |
 | UC21 | Analitik universitas | Superadmin | `/superadmin/analitik`, view `v_analytics_*` |
 | UC22 | Analitik prodi | Superadmin | `/superadmin/analitik-prodi`, tabel `prodi_response` |
+| UC26 | Analitik evaluasi pengguna lulusan | Superadmin | `/superadmin/analitik-atasan`, tabel `evaluasi_atasan` dan `respon_evaluasi_atasan` |
 | UC23 | Ekspor data ke Excel | Admin Prodi, Fakultas, Biro III, Superadmin | `*/alumni/*/export-excel`, `*/alumni/export-zip` |
 | UC24 | Mengelola data alumni | Superadmin dan admin sesuai scope | daftar/detail alumni dan update profil admin |
 | UC25 | Logout dan pengelolaan sesi | Seluruh pengguna login | `POST /logout`, `sessions` |
@@ -421,6 +422,18 @@ flowchart LR
 | UC23 | - | - | - | X | X | X | X |
 | UC24 | - | - | - | X | X | X | X |
 | UC25 | - | X | - | X | X | X | X |
+
+### UC26 - Analitik Evaluasi Pengguna Lulusan
+
+| Elemen | Spesifikasi |
+| :--- | :--- |
+| Aktor | Superadmin. |
+| Deskripsi | Menampilkan rata-rata aspek kinerja Likert, distribusi kesiapan kerja, dan perbandingan skor antarprogram studi dari evaluasi atasan. |
+| Prasyarat | Superadmin login; master pertanyaan aktif dan tabel evaluasi dapat dibaca. |
+| Pasca-syarat | Payload grafik, tabel respon, dan metodologi tampil tanpa mengubah data transaksi. |
+| Alur dasar | 1. Superadmin membuka `/superadmin/analitik-atasan`.<br>2. Sistem memuat evaluasi terkirim beserta tahun lulusan, prodi, perusahaan, atasan, dan respons.<br>3. Superadmin memilih filter tahun atau prodi.<br>4. Service menghitung response rate, distribusi kesiapan, rata-rata Likert, dan ringkasan per prodi.<br>5. Vue menampilkan tiga grafik dan tabel penelusuran. |
+| Alur alternatif | A1. Filter memanggil endpoint `/superadmin/analitik-atasan/data` tanpa reload penuh.<br>A2. Label dan opsi mengikuti master `pertanyaan_evaluasi_atasan`.<br>A3. Data kosong menampilkan empty state tanpa baris sintetis. |
+| Alur eksepsi | E1. Filter tidak valid dikembalikan ke `ALL`.<br>E2. Respons non-Likert tidak masuk rata-rata kinerja.<br>E3. Kegagalan endpoint menampilkan pesan pemuatan ringkas. |
 
 ## 7. Catatan konsistensi implementasi
 

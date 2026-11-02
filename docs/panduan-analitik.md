@@ -4,6 +4,7 @@ Dokumen ini menjelaskan cara data kuesioner berubah menjadi grafik pada halaman 
 
 - `/superadmin/analitik` untuk analitik tingkat Universitas.
 - `/superadmin/analitik-prodi` untuk analitik berdasarkan bagian kuesioner Program Studi.
+- `/superadmin/analitik-atasan` untuk analitik evaluasi pengguna lulusan oleh atasan.
 
 > Catatan: backend tidak mengirim gambar grafik. Backend menghitung data dan mengirim payload JSON. Vue dan ECharts membaca payload tersebut lalu menggambar visualisasinya.
 
@@ -93,6 +94,46 @@ const categoryComponents = {
     9: HopesAndFeedback,
 };
 ```
+
+### Analitik Evaluasi Atasan
+
+```text
+/superadmin/analitik-atasan
+  -> AtasanAnalyticsController@index()
+  -> AtasanAnalyticsService::build()
+  -> GrafikAtasan.vue
+  -> AnalyticsEChart.vue
+```
+
+Halaman ini membaca `evaluasi_atasan`, `respon_evaluasi_atasan`,
+`pertanyaan_evaluasi_atasan`, `biodata`, `data_akademik`, dan `prodi`. Tiga
+visualisasi dibentuk dari payload yang sama:
+
+1. Rata-rata aspek kinerja: hanya pertanyaan bertipe `likert_5`; opsi pertama
+   pada master bernilai 5 dan opsi terakhir bernilai 1.
+2. Tingkat kesiapan alumni: distribusi frekuensi dari opsi pertanyaan
+   `tingkat_kesiapan_kerja`, termasuk opsi tanpa jawaban agar instrumen tetap
+   terlihat lengkap.
+3. Perbandingan program studi: rata-rata skor Likert per prodi dari evaluasi
+   yang sudah dikirim.
+
+Filter tahun dan program studi menggunakan endpoint berikut:
+
+```text
+GET /superadmin/analitik-atasan/data?tahun=2026&prodi_id=2
+```
+
+Tidak ada nama aspek, pilihan jawaban, jumlah responden, atau nilai contoh
+yang ditulis di Vue. Jika database kosong, halaman menampilkan empty state.
+Kartu data respon di bawah grafik menjadi sumber penelusuran setiap agregasi.
+
+### Highlight sidebar
+
+Semua wrapper sidebar role memakai `AdminSidebar.vue`. Komponen tersebut
+menormalkan URL aktif sebelum membandingkan prefix, sehingga menu tetap
+ter-highlight pada halaman dengan query string filter, hash, atau trailing
+slash. Halaman yang memiliki konteks khusus dapat mengirim `active-menu`,
+sedangkan halaman lain otomatis mengikuti path Inertia saat ini.
 
 ## 2. Bentuk payload yang perlu dipahami
 

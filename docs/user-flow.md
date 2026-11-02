@@ -484,6 +484,23 @@ Pada sisi backend, request memilih satu view analitik sesuai parameter `grafik`.
 
 Untuk indikator studi lanjut, backend membaca F12, F18b, F18c, dan F18d dari `v_analytics_further_study`, lalu menandai setiap jawaban sebagai dimensi sumber biaya, perguruan tinggi, program studi, atau tanggal mulai sebelum agregasi dan cross-filter dibuat.
 
+### Alur Grafik Evaluasi Atasan
+
+```mermaid
+flowchart TD
+    A[Superadmin membuka /superadmin/analitik-atasan] --> B[Controller memuat evaluasi terkirim]
+    B --> C[AtasanAnalyticsService memetakan opsi dan menghitung skor]
+    C --> D[Tampilkan grafik Likert, kesiapan, dan perbandingan prodi]
+    A --> E[Pilih tahun atau prodi]
+    E --> F[GET /superadmin/analitik-atasan/data]
+    F --> C
+    D --> G[Tabel respon dan metodologi]
+```
+
+Sidebar admin menggunakan komponen bersama `AdminSidebar.vue`. URL query,
+hash, dan trailing slash dinormalisasi sebelum menu dibandingkan, sehingga
+menu halaman aktif tetap ter-highlight di seluruh role.
+
 ## Ringkasan Matriks Akses Peran (RBAC Matrix)
 
 Matriks berikut mencerminkan hak akses aktual berdasarkan middleware peran (`role:superadmin`, `role:admin_biro3`, `role:admin_fakultas`, `role:admin_prodi`, `role:alumni`, dan rute publik) pada aplikasi:
