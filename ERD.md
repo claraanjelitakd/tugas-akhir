@@ -57,6 +57,7 @@ erDiagram
     kabupaten ||--o{ biodata : "domisili_kota"
     propinsi ||--o{ perusahaan : "lokasi_provinsi"
     kabupaten ||--o{ perusahaan : "lokasi_kota"
+    ref_negara ||..o{ perusahaan : "validasi_negara_non_fk"
     perusahaan ||--o{ biodata : "tempat_bekerja"
     perusahaan ||--o{ atasan : "instansi_atasan"
     atasan ||--o{ biodata : "atasan_langsung"

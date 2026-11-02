@@ -6,7 +6,7 @@
 
 - **Audit Konsistensi Wilayah dan UMP**:
   - Menambahkan [audit-konsistensi-wilayah.md](audit-konsistensi-wilayah.md) yang memisahkan foreign key `propinsi_id` dari natural key `ump.kode_provinsi` dan mencatat hasil pemeriksaan orphan/duplikasi runtime.
-  - Memperjelas catatan kunci wilayah pada [ERD.md](../ERD.md) agar relasi UMP berbasis kode tidak disalahartikan sebagai kolom `provinsi_id` yang hilang.
+  - Memperjelas catatan kunci wilayah pada [ERD.md](../ERD.md) agar relasi UMP berbasis kode tidak disalahartikan sebagai kolom `provinsi_id` yang hilang, serta menampilkan relasi logis `ref_negara` ke `perusahaan.negara` sebagai validasi non-FK.
   - Memperbaiki `UmpFactory` yang sebelumnya mengimpor model `Province` yang tidak tersedia menjadi model aktif `Propinsi`, serta menambahkan regression test.
 
 - **Dokumentasi Analitik**:

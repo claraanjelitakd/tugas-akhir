@@ -19,6 +19,9 @@ Ada satu pengecualian desain yang perlu dipahami saat membaca ERD:
   `propinsi_id`, bukan kolom database baru.
 - `data_akademik.provinsi_asal_sekolah` adalah teks asal sekolah, sehingga
   tidak boleh diperlakukan sebagai relasi master wilayah.
+- `ref_negara` dipakai sebagai master validasi untuk `perusahaan.negara`,
+  tetapi belum menjadi foreign key. ERD menggambarkannya sebagai relasi logis
+  bergaris putus-putus agar hubungan bisnis terlihat tanpa memalsukan schema.
 
 ## Pemeriksaan runtime
 
