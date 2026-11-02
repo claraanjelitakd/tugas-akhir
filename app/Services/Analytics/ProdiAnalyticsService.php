@@ -170,7 +170,7 @@ class ProdiAnalyticsService
     {
         $section = $sectionKey ? $sections->firstWhere('id', (int) $sectionKey) : null;
 
-        return $section ?? $sections->firstWhere('order', 2) ?? $sections->first();
+        return $section ?? $sections->firstWhere('order', 1) ?? $sections->first();
     }
 
     /**

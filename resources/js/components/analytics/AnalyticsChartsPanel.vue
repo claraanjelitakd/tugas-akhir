@@ -5,26 +5,26 @@
  * Mengarahkan pemilihan indikator ke 16 komponen kategori visualisasi terpisah,
  * menjaga konsistensi state seleksi cross-filter, serta mode heatmap jumlah/persentase.
  */
-import { computed, defineAsyncComponent, ref, watch } from 'vue';
+import { computed, onErrorCaptured, ref, watch } from 'vue';
 
 import ResponseRate from './categories/01_ResponseRate.vue';
-const LearningMethods = defineAsyncComponent(() => import('./categories/02_LearningMethods.vue'));
-const JobSearchStart = defineAsyncComponent(() => import('./categories/03_JobSearchStart.vue'));
-const JobSearchMethods = defineAsyncComponent(() => import('./categories/04_JobSearchMethods.vue'));
-const WaitTime = defineAsyncComponent(() => import('./categories/05_WaitTime.vue'));
-const ApplicationPipeline = defineAsyncComponent(() => import('./categories/06_ApplicationPipeline.vue'));
-const EmploymentStatus = defineAsyncComponent(() => import('./categories/07_EmploymentStatus.vue'));
-const JobSearchActivity = defineAsyncComponent(() => import('./categories/08_JobSearchActivity.vue'));
-const WorkplaceType = defineAsyncComponent(() => import('./categories/09_WorkplaceType.vue'));
-const FurtherStudy = defineAsyncComponent(() => import('./categories/10_FurtherStudy.vue'));
-const SalaryVsUmp = defineAsyncComponent(() => import('./categories/11_SalaryVsUmp.vue'));
-const FieldAlignment = defineAsyncComponent(() => import('./categories/12_FieldAlignment.vue'));
-const EducationAlignment = defineAsyncComponent(() => import('./categories/13_EducationAlignment.vue'));
-const EducationAlignmentUniv = defineAsyncComponent(() => import('./categories/14_EducationAlignmentUniv.vue'));
-const MismatchReasons = defineAsyncComponent(() => import('./categories/15_MismatchReasons.vue'));
-const CompetencyGap = defineAsyncComponent(() => import('./categories/16_CompetencyGap.vue'));
-const ProfileCompletion = defineAsyncComponent(() => import('./categories/17_ProfileCompletion.vue'));
-const WorkLocation = defineAsyncComponent(() => import('./categories/18_WorkLocation.vue'));
+import LearningMethods from './categories/02_LearningMethods.vue';
+import JobSearchStart from './categories/03_JobSearchStart.vue';
+import JobSearchMethods from './categories/04_JobSearchMethods.vue';
+import WaitTime from './categories/05_WaitTime.vue';
+import ApplicationPipeline from './categories/06_ApplicationPipeline.vue';
+import EmploymentStatus from './categories/07_EmploymentStatus.vue';
+import JobSearchActivity from './categories/08_JobSearchActivity.vue';
+import WorkplaceType from './categories/09_WorkplaceType.vue';
+import FurtherStudy from './categories/10_FurtherStudy.vue';
+import SalaryVsUmp from './categories/11_SalaryVsUmp.vue';
+import FieldAlignment from './categories/12_FieldAlignment.vue';
+import EducationAlignment from './categories/13_EducationAlignment.vue';
+import EducationAlignmentUniv from './categories/14_EducationAlignmentUniv.vue';
+import MismatchReasons from './categories/15_MismatchReasons.vue';
+import CompetencyGap from './categories/16_CompetencyGap.vue';
+import ProfileCompletion from './categories/17_ProfileCompletion.vue';
+import WorkLocation from './categories/18_WorkLocation.vue';
 
 // Kontrak properti data indikator aktif dari controller
 const props = defineProps({
@@ -43,6 +43,14 @@ const emit = defineEmits(['select-category', 'select-province', 'change-ump-year
 // Selection lokal untuk cross-filter, disinkronkan dengan prop selectedLabel
 const selectedLabel = ref(props.selectedLabel || '');
 const heatmapMode = ref('count');
+const componentError = ref('');
+
+// Menampilkan error setup komponen agar kegagalan grafik tidak berubah menjadi ruang kosong.
+onErrorCaptured((error, _instance, info) => {
+    componentError.value = `${error?.message || 'Kesalahan tidak diketahui'} (${info})`;
+    console.error('[AnalyticsChartsPanel] Gagal merender kategori grafik.', error);
+    return false;
+});
 
 // Sinkronisasi bila props.selectedLabel berubah dari luar (misal klik KPI card di atas)
 watch(() => props.selectedLabel, (val) => {
@@ -125,8 +133,13 @@ watch(() => props.selectedChart, () => {
 
 <template>
     <div class="relative space-y-6">
-        <!-- Status pemuatan ditampilkan satu kali oleh halaman agar tidak muncul ganda. -->
-        <div :class="{ 'opacity-60 pointer-events-none transition-opacity duration-200': loading }">
+        <!-- Error runtime ditampilkan inline agar diagnosis grafik dapat dilakukan tanpa console. -->
+        <div v-if="componentError" class="rounded-xl border border-red-200 bg-red-50 p-6" role="alert">
+            <p class="text-sm font-semibold text-red-800">Grafik gagal dirender.</p>
+            <p class="mt-1 text-xs leading-relaxed text-red-700">{{ componentError }}</p>
+        </div>
+
+        <div v-else :class="{ 'opacity-60 pointer-events-none transition-opacity duration-200': loading }">
             <component
                 :is="activeComponent"
                 :chart="chart"

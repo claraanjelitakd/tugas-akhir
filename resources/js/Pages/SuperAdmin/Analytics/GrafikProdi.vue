@@ -327,11 +327,6 @@ watch(() => props.analytics, (newAnalytics) => {
                                 <h2 class="text-xl font-extrabold text-slate-900 sm:text-2xl">{{ chart.title }}</h2>
                                 <p class="mt-1 max-w-3xl text-xs leading-relaxed text-slate-500 sm:text-sm">{{ chart.subtitle }}</p>
                             </div>
-                            <div v-if="selectedItem" class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-                                <span class="text-xs text-slate-500">Analisis Terpilih:</span>
-                                <span class="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-[#0D542B]">{{ selectedItem.label }}</span>
-                                <button type="button" class="rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100" @click="clearSelection">Kembali ke analisis keseluruhan</button>
-                            </div>
                         </div>
                         <div class="mt-5 grid w-full grid-cols-2 gap-3.5 lg:grid-cols-4">
                             <div v-for="card in kpiCards" :key="card.label" class="relative flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4.5">
@@ -355,6 +350,10 @@ watch(() => props.analytics, (newAnalytics) => {
                             <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Visualisasi Grafik</p>
                             <h2 class="mt-1 text-xl font-extrabold text-slate-900">{{ chart.title }}</h2>
                             <p class="mt-1 text-xs leading-5 text-slate-500">{{ chart.caption }}</p>
+                            <!-- Skala Likert dijelaskan di dekat grafik agar tidak hilang di kartu header. -->
+                            <p v-if="chart.type === 'likert'" class="mt-2 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+                                Skala Penilaian: 1 = Sangat Tidak Setuju, 2 = Tidak Setuju, 3 = Netral, 4 = Setuju, 5 = Sangat Setuju.
+                            </p>
                         </div>
 
                         <div class="mt-5 min-w-0">
@@ -374,8 +373,12 @@ watch(() => props.analytics, (newAnalytics) => {
                             <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                                 <div class="min-w-0">
                                     <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Analisis terpilih</p>
-                                    <h3 class="mt-1 text-base font-extrabold leading-6 text-slate-900">{{ selectedItem.label }}</h3>
-                                    <p class="mt-1 text-xs leading-5 text-slate-600">{{ selectedItem.item?.title }}</p>
+                                    <!-- Pertanyaan lengkap dipindahkan ke kartu inline agar tidak terpotong di header. -->
+                                    <h3 class="mt-1 break-words text-base font-extrabold leading-6 text-slate-900">{{ selectedItem.item?.type === 'choice' ? selectedItem.label : selectedItem.item?.title }}</h3>
+                                    <p class="mt-1 text-xs leading-5 text-slate-600">
+                                        <span v-if="selectedItem.item?.type === 'choice'">Pertanyaan: {{ selectedItem.item?.title }}</span>
+                                        <span v-else>Skor yang dipilih: {{ selectedItem.value ?? '-' }} / 5</span>
+                                    </p>
                                 </div>
                                 <button type="button" class="shrink-0 rounded-lg bg-[#0D542B] px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0A4322]" @click="activePanel = 'data'; dataView = 'records'">Lihat data pembentuk ({{ selectedRecords.length }})</button>
                             </div>

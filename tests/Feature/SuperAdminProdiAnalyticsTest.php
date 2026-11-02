@@ -84,6 +84,48 @@ class SuperAdminProdiAnalyticsTest extends TestCase
     }
 
     /**
+     * Bagian pertama menjadi pilihan default ketika filter section belum dipilih.
+     */
+    public function test_first_section_is_selected_by_default(): void
+    {
+        $prodi = Prodi::create([
+            'kode_prodi' => '72',
+            'nama_prodi' => 'Sistem Informasi',
+        ]);
+        $secondSection = ProdiQuestionSection::create([
+            'prodi_id' => $prodi->id,
+            'title' => 'Bagian Kedua',
+            'order' => 2,
+        ]);
+        $firstSection = ProdiQuestionSection::create([
+            'prodi_id' => $prodi->id,
+            'title' => 'Bagian Pertama',
+            'order' => 1,
+        ]);
+        ProdiQuestion::create([
+            'prodi_id' => $prodi->id,
+            'prodi_question_section_id' => $secondSection->id,
+            'code' => 'PSI-2-01',
+            'question_text' => 'Pertanyaan bagian kedua',
+            'type' => 'rating_5',
+            'order' => 1,
+        ]);
+        ProdiQuestion::create([
+            'prodi_id' => $prodi->id,
+            'prodi_question_section_id' => $firstSection->id,
+            'code' => 'PSI-1-01',
+            'question_text' => 'Pertanyaan bagian pertama',
+            'type' => 'rating_5',
+            'order' => 1,
+        ]);
+
+        $analytics = app(ProdiAnalyticsService::class)->buildProdiChart($prodi->id, null, 'ALL');
+
+        $this->assertSame($firstSection->id, $analytics['filters']['selected_section_id']);
+        $this->assertSame('Bagian Pertama', $analytics['chart']['title']);
+    }
+
+    /**
      * Superadmin dapat meminta data JSON analitik prodi asinkron.
      */
     public function test_superadmin_can_fetch_async_prodi_analytics_data(): void

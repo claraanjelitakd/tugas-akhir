@@ -84,6 +84,7 @@ const emit = defineEmits(['select', 'legend-change', 'zoom-change']);
 const chartElement = ref(null);
 let chartInstance = null;
 let resizeObserver = null;
+let dimensionRetryCount = 0;
 
 // Menghormati preferensi reduced motion pada sistem operasi pengguna.
 const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -95,8 +96,15 @@ const renderChart = async () => {
 
     // Hindari inisialisasi jika elemen belum memiliki dimensi (misal saat tersembunyi pada tab)
     if (chartElement.value.clientWidth === 0 || chartElement.value.clientHeight === 0) {
+        // Coba ulang beberapa frame untuk mengatasi mount setelah transisi atau layout async.
+        if (dimensionRetryCount < 3) {
+            dimensionRetryCount += 1;
+            requestAnimationFrame(() => renderChart());
+        }
         return;
     }
+
+    dimensionRetryCount = 0;
 
     if (!chartInstance) {
         chartInstance = echarts.init(chartElement.value, null, { renderer: 'canvas' });

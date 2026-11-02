@@ -4,12 +4,12 @@
  * permintaan, memperbarui data melalui HTTP JSON, dan mempertahankan konteks
  * eksplorasi pada tab Analisis, Grafik, serta Data.
  */
-import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { Head, Link, useHttp } from '@inertiajs/vue3';
 import Sidebar from '../Components/Sidebar.vue';
 
-// Memuat panel visualisasi ECharts secara terpisah (lazy loading) agar halaman dan filter tampil lebih cepat.
-const AnalyticsChartsPanel = defineAsyncComponent(() => import('@/components/analytics/AnalyticsChartsPanel.vue'));
+// Panel visualisasi dimuat langsung agar kegagalan chunk async tidak membuat area grafik kosong.
+import AnalyticsChartsPanel from '@/components/analytics/AnalyticsChartsPanel.vue';
 
 // Data awal yang dikirim dari TracerAnalyticsController@index melalui Inertia (berisi user & payload analytics).
 const props = defineProps({
