@@ -40,6 +40,8 @@ const activePanel = ref('charts');
 const dataView = ref('records');
 // Elemen grafik yang dipilih untuk drill-down responden inline.
 const selectedItem = ref(null);
+// Menyimpan status buka/tutup metodologi agar pola informasi sama dengan Grafik Universitas.
+const methodologyOpen = ref(false);
 
 // State pencarian dan paginasi untuk tabel data pembentuk grafik.
 const tableSearch = ref('');
@@ -64,6 +66,28 @@ const defaultYear = () => {
 
 // Memformat angka dengan format Indonesia untuk kartu dan tabel.
 const formatNumber = (value, digits = 1) => Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: digits });
+
+// Membuat tautan WhatsApp dari nomor alumni tanpa mengubah data kontak yang tersimpan.
+const formatWhatsAppUrl = (record) => {
+    const raw = String(record.nomor_telepon || '').replace(/\D/g, '');
+    if (!raw) return '';
+    const formatted = raw.startsWith('0') ? `62${raw.slice(1)}` : (raw.startsWith('62') ? raw : `62${raw}`);
+    const text = encodeURIComponent(`Halo ${record.nama || 'Alumni'}, kami dari Tracer Study UKDW ingin menindaklanjuti jawaban kuesioner program studi Anda. Terima kasih.`);
+
+    return `https://wa.me/${formatted}?text=${text}`;
+};
+
+// Membuat tautan email untuk tindak lanjut jawaban alumni.
+const formatEmailUrl = (record) => {
+    if (!record.email) return '';
+    const subject = encodeURIComponent('Tindak lanjut kuesioner Program Studi UKDW');
+    const body = encodeURIComponent(`Halo ${record.nama || 'Alumni'},\n\nKami dari Tracer Study UKDW ingin menindaklanjuti jawaban kuesioner program studi Anda.\n\nTerima kasih.`);
+
+    return `mailto:${record.email}?subject=${subject}&body=${body}`;
+};
+
+// Mengarahkan aksi detail ke halaman alumni yang sama dengan Grafik Universitas.
+const detailUrl = (record) => `/superadmin/alumni/${record.biodata_id}`;
 
 // Menampilkan kartu ringkasan dengan ukuran dan hierarki yang sama seperti universitas.
 const kpiCards = computed(() => {
@@ -295,15 +319,6 @@ watch(() => props.analytics, (newAnalytics) => {
                         </div>
                     </section>
 
-                    <!-- Narasi ringkas menjelaskan arti angka sebelum grafik dibaca. -->
-                    <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
-                        <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Kilas Analisis</p>
-                        <p class="mt-2 text-sm font-semibold leading-6 text-slate-900">{{ chart.insights?.headline }}</p>
-                        <ul class="mt-3 space-y-1.5 text-xs leading-5 text-slate-600">
-                            <li v-for="(point, index) in chart.insights?.points || []" :key="index">{{ point }}</li>
-                        </ul>
-                    </section>
-
                     <!-- Tab utama hanya dua seperti Grafik Universitas; analisis klik tampil inline. -->
                     <nav class="flex gap-1 rounded-xl border border-slate-200 bg-white p-1.5" role="tablist" aria-label="Tampilan analitik program studi">
                         <button v-for="panel in [{ key: 'charts', label: 'Grafik' }, { key: 'data', label: 'Data' }]" :key="panel.key" type="button" role="tab" :aria-selected="activePanel === panel.key" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition-all" :class="activePanel === panel.key ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'" @click="activePanel = panel.key">{{ panel.label }}</button>
@@ -318,10 +333,19 @@ watch(() => props.analytics, (newAnalytics) => {
                         </div>
 
                         <div class="mt-5 min-w-0">
-                            <ProdiLikertChart v-if="chart.type === 'likert'" :items="visualizations" :caption="chart.caption" @select="handleChartSelect" />
+                            <ProdiLikertChart v-if="chart.type === 'likert'" :items="visualizations" @select="handleChartSelect" />
                             <ProdiChoiceChart v-else-if="chart.type === 'choice'" :items="visualizations" @select="handleChartSelect" />
                             <ProdiTextResponses v-else :items="visualizations" />
                         </div>
+
+                        <!-- Kilas tetap berada setelah grafik, sementara detail rumus mengikuti panel metodologi universitas. -->
+                        <section class="mt-6 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                            <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Kilas Analisis</p>
+                            <p class="mt-2 text-sm font-semibold leading-6 text-slate-900">{{ chart.insights?.headline }}</p>
+                            <ul class="mt-3 space-y-1.5 text-xs leading-5 text-slate-600">
+                                <li v-for="(point, index) in chart.insights?.points || []" :key="index">{{ point }}</li>
+                            </ul>
+                        </section>
 
                         <section v-if="selectedItem" class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
                             <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
@@ -333,12 +357,18 @@ watch(() => props.analytics, (newAnalytics) => {
                                 <button type="button" class="shrink-0 rounded-lg bg-[#0D542B] px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0A4322]" @click="activePanel = 'data'; dataView = 'records'">Lihat data pembentuk ({{ selectedRecords.length }})</button>
                             </div>
                             <p class="mt-3 border-t border-emerald-200 pt-3 text-sm leading-6 text-slate-700">Klik grafik menyaring responden yang membentuk nilai atau kategori tersebut. Data lengkap tetap tersedia pada tab Data.</p>
-                            <!-- Pratinjau nama membuat hasil klik dapat dipahami tanpa berpindah halaman. -->
-                            <div v-if="selectedRecords.length" class="mt-3 grid gap-2 border-t border-emerald-200 pt-3 sm:grid-cols-2 lg:grid-cols-3">
-                                <div v-for="record in selectedRecords.slice(0, 6)" :key="record.response_id" class="rounded-lg border border-emerald-100 bg-white px-3 py-2">
-                                    <p class="truncate text-xs font-bold text-slate-800">{{ record.nama }}</p>
-                                    <p class="mt-0.5 text-[11px] text-slate-500">{{ record.nim }} · {{ record.tahun_lulus }}</p>
-                                </div>
+                            <!-- Tabel ringkas mempertahankan konteks klik sekaligus memberi aksi tindak lanjut alumni. -->
+                            <div class="mt-4 overflow-x-auto rounded-lg border border-emerald-200 bg-white">
+                                <table class="min-w-[760px] w-full divide-y divide-slate-200 text-left text-xs">
+                                    <thead class="bg-emerald-50/60 font-semibold text-slate-700"><tr><th class="px-3 py-2.5">Alumni</th><th class="px-3 py-2.5">NIM</th><th class="px-3 py-2.5">Jawaban</th><th class="px-3 py-2.5">Isian Lainnya</th><th class="px-3 py-2.5 text-center">Aksi</th></tr></thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        <tr v-for="record in selectedRecords.slice(0, 6)" :key="record.response_id" class="hover:bg-slate-50">
+                                            <td class="px-3 py-2.5 font-semibold text-slate-800">{{ record.nama }}</td><td class="px-3 py-2.5 font-mono text-slate-600">{{ record.nim }}</td><td class="px-3 py-2.5 text-slate-700">{{ record.jawaban_label || '-' }}</td><td class="px-3 py-2.5 text-slate-700">{{ record.jawaban_lainnya || '-' }}</td>
+                                            <td class="px-3 py-2.5"><div class="flex items-center justify-center gap-1"><Link :href="detailUrl(record)" class="rounded p-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900" title="Lihat detail alumni"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></Link><a v-if="record.nomor_telepon" :href="formatWhatsAppUrl(record)" target="_blank" class="rounded p-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-emerald-700" title="Hubungi melalui WhatsApp"><svg class="h-4 w-4 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" /></svg></a><a v-if="record.email" :href="formatEmailUrl(record)" class="rounded p-1.5 text-slate-600 transition-colors hover:bg-slate-100 hover:text-sky-700" title="Kirim email"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 00-2-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg></a></div></td>
+                                        </tr>
+                                        <tr v-if="selectedRecords.length === 0"><td colspan="5" class="px-3 py-6 text-center text-slate-500">Tidak ada responden yang membentuk pilihan ini.</td></tr>
+                                    </tbody>
+                                </table>
                             </div>
                             <p v-if="selectedRecords.length > 6" class="mt-2 text-[11px] text-slate-500">Menampilkan 6 nama pertama dari {{ selectedRecords.length }} responden. Buka Data untuk melihat semuanya.</p>
                         </section>
@@ -370,12 +400,12 @@ watch(() => props.analytics, (newAnalytics) => {
                                 </label>
                             </div>
                             <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200">
-                                <table class="min-w-[920px] w-full divide-y divide-slate-200 text-left text-xs">
-                                    <thead><tr class="bg-slate-100 font-semibold text-slate-700"><th class="w-12 px-3 py-3 text-center">No</th><th class="px-3 py-3">Nama Alumni</th><th class="px-3 py-3">NIM</th><th class="px-3 py-3">Tahun Lulus</th><th class="px-3 py-3 min-w-[300px]">Pertanyaan</th><th class="px-3 py-3 min-w-[190px]">Jawaban</th><th class="px-3 py-3 text-center">Skor</th></tr></thead>
+                                <table class="min-w-[1080px] w-full divide-y divide-slate-200 text-left text-xs">
+                                    <thead><tr class="bg-slate-100 font-semibold text-slate-700"><th class="w-12 px-3 py-3 text-center">No</th><th class="px-3 py-3">Nama Alumni</th><th class="px-3 py-3">NIM</th><th class="px-3 py-3">Tahun Lulus</th><th class="px-3 py-3 min-w-[300px]">Pertanyaan</th><th class="px-3 py-3 min-w-[190px]">Jawaban</th><th class="px-3 py-3 min-w-[190px]">Isian Lainnya</th><th class="px-3 py-3 text-center">Skor</th></tr></thead>
                                     <tbody class="divide-y divide-slate-100 bg-white">
-                                        <tr v-if="paginatedRecords.length === 0"><td colspan="7" class="px-3 py-8 text-center text-slate-500">Tidak ada data responden yang sesuai.</td></tr>
+                                        <tr v-if="paginatedRecords.length === 0"><td colspan="8" class="px-3 py-8 text-center text-slate-500">Tidak ada data responden yang sesuai.</td></tr>
                                         <tr v-for="(row, index) in paginatedRecords" :key="row.response_id || index" class="transition-colors hover:bg-slate-50">
-                                            <td class="px-3 py-2.5 text-center font-mono text-slate-400">{{ (currentPage - 1) * rowsPerPage + index + 1 }}</td><td class="px-3 py-2.5 font-semibold text-slate-800">{{ row.nama }}</td><td class="px-3 py-2.5 font-mono text-slate-700">{{ row.nim }}</td><td class="px-3 py-2.5 text-slate-600">{{ row.tahun_lulus }}</td><td class="px-3 py-2.5 leading-5 text-slate-700">{{ row.aspek }}</td><td class="px-3 py-2.5 font-medium leading-5 text-slate-800">{{ row.jawaban_label || '-' }}</td><td class="px-3 py-2.5 text-center font-bold text-slate-700">{{ row.skor ?? '-' }}</td>
+                                            <td class="px-3 py-2.5 text-center font-mono text-slate-400">{{ (currentPage - 1) * rowsPerPage + index + 1 }}</td><td class="px-3 py-2.5 font-semibold text-slate-800">{{ row.nama }}</td><td class="px-3 py-2.5 font-mono text-slate-700">{{ row.nim }}</td><td class="px-3 py-2.5 text-slate-600">{{ row.tahun_lulus }}</td><td class="px-3 py-2.5 leading-5 text-slate-700">{{ row.aspek }}</td><td class="px-3 py-2.5 font-medium leading-5 text-slate-800">{{ row.jawaban_label || '-' }}</td><td class="px-3 py-2.5 leading-5 text-slate-700">{{ row.jawaban_lainnya || '-' }}</td><td class="px-3 py-2.5 text-center font-bold text-slate-700">{{ row.skor ?? '-' }}</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -385,6 +415,32 @@ watch(() => props.analytics, (newAnalytics) => {
                         <ProdiPivotTable v-else :pivot="pivotRows" />
                     </section>
                 </template>
+
+                <!-- Metodologi mengikuti pola collapsible Grafik Universitas agar rumus lengkap tersedia tanpa mengganggu pembacaan grafik. -->
+                <details v-if="hasData" id="prodi-analytics-methodology" :open="methodologyOpen" class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6" @toggle="methodologyOpen = $event.target.open">
+                    <summary class="flex cursor-pointer select-none items-center justify-between gap-3">
+                        <div>
+                            <span class="text-xs font-extrabold uppercase tracking-wider text-[#0D542B]">Sumber dan metodologi perhitungan</span>
+                            <p class="mt-0.5 text-xs text-slate-500">Rumus, penyebut, dan sumber tabel untuk visualisasi {{ chart.title }}.</p>
+                        </div>
+                        <span class="rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">{{ methodologyOpen ? 'Sembunyikan' : 'Tampilkan Rincian' }}</span>
+                    </summary>
+
+                    <div class="mt-5 space-y-5 border-t border-slate-100 pt-5">
+                        <div class="grid gap-4 lg:grid-cols-12">
+                            <section class="rounded-lg border border-emerald-200/80 bg-emerald-50/30 p-4 lg:col-span-7">
+                                <p class="text-xs font-extrabold uppercase tracking-wider text-[#0D542B]">Rumus Perhitungan Utama</p>
+                                <p class="mt-2 rounded-md border border-emerald-200/60 bg-white p-3 font-mono text-xs font-semibold leading-relaxed text-slate-900 sm:text-sm">{{ chart.methodology?.formula || '-' }}</p>
+                                <div class="mt-3 grid gap-3 text-xs sm:grid-cols-2"><div><span class="font-bold text-slate-700">Denominator (Pembagi):</span><p class="mt-0.5 leading-relaxed text-slate-600">{{ chart.methodology?.denominator || '-' }}</p></div><div><span class="font-bold text-slate-700">Basis Persentase / Skala:</span><p class="mt-0.5 leading-relaxed text-slate-600">{{ chart.metadata?.percentage_basis || '-' }}</p></div></div>
+                            </section>
+                            <section class="flex flex-col justify-between space-y-3 rounded-lg border border-slate-200 bg-slate-50/70 p-4 text-xs lg:col-span-5"><div><p class="font-extrabold uppercase tracking-wider text-slate-700">Tipe Statistik &amp; Missing Data</p><p class="mt-1.5 leading-relaxed text-slate-600"><strong class="text-slate-900">{{ chart.metadata?.data_type || '-' }}.</strong> Sebanyak <strong class="text-slate-900">{{ formatNumber(chart.metadata?.missing_count, 0) }} alumni</strong> pada populasi terpilih belum masuk perhitungan.</p></div><div class="border-t border-slate-200/80 pt-2.5"><p class="font-bold text-slate-700">Ringkasan Sumber Data:</p><p class="mt-1 break-words font-mono text-[11px] leading-relaxed text-slate-600">{{ chart.methodology?.source || '-' }}</p></div><p class="border-t border-slate-200/80 pt-2 text-[11px] text-slate-500">Waktu kompilasi: <span class="font-semibold text-slate-700">{{ chart.metadata?.generated_at ? new Date(chart.metadata.generated_at).toLocaleString('id-ID') : '-' }}</span></p></section>
+                        </div>
+
+                        <section v-if="chart.methodology?.charts?.length" class="space-y-2.5"><h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-800">Rumus per butir visualisasi ({{ chart.methodology.charts.length }} butir)</h3><div class="grid gap-3 md:grid-cols-2"><article v-for="subChart in chart.methodology.charts" :key="subChart.key" class="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5"><div class="flex items-center justify-between gap-2"><p class="text-xs font-extrabold text-slate-900">{{ subChart.title }}</p><span class="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-[10px] font-bold text-[#0D542B]">{{ subChart.key }}</span></div><p class="mt-2 rounded border border-slate-200 bg-white px-2.5 py-2 font-mono text-xs leading-relaxed text-slate-800">{{ subChart.formula }}</p><p class="mt-2 text-[11px] text-slate-500"><span class="font-bold text-slate-700">Sumber:</span> <span class="font-mono text-slate-600">{{ subChart.source }}</span></p></article></div></section>
+
+                        <section v-if="chart.methodology?.tables?.length" class="space-y-2.5"><h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-800">Daftar Tabel Database &amp; Kolom Pembentuk</h3><div class="overflow-x-auto rounded-lg border border-slate-200"><table class="min-w-[760px] w-full divide-y divide-slate-200 text-left text-xs"><thead class="bg-slate-50 font-bold text-slate-700"><tr><th class="w-48 px-3.5 py-2.5">Tabel</th><th class="w-80 px-3.5 py-2.5">Kolom</th><th class="px-3.5 py-2.5">Peran</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white"><tr v-for="table in chart.methodology.tables" :key="table.table" class="hover:bg-slate-50/70"><td class="px-3.5 py-2 font-mono font-bold text-[#0D542B]">{{ table.table }}</td><td class="px-3.5 py-2 font-mono text-slate-700">{{ table.columns }}</td><td class="px-3.5 py-2 text-slate-600">{{ table.role }}</td></tr></tbody></table></div></section>
+                    </div>
+                </details>
             </div>
         </main>
     </div>

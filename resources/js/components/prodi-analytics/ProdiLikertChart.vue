@@ -10,14 +10,10 @@ import AnalyticsEChart from '@/components/analytics/AnalyticsEChart.vue';
 // Data visualisasi per butir yang sudah dihitung oleh service analitik.
 const props = defineProps({
     items: { type: Array, default: () => [] },
-    caption: { type: String, default: '' },
 });
 
 // Event klik membawa butir pertanyaan agar halaman induk dapat menampilkan records.
 const emit = defineEmits(['select']);
-
-// Mengatur tinggi berdasarkan jumlah butir agar grafik tidak memadat atau terpotong.
-const chartHeight = computed(() => Math.max(420, props.items.length * 62 + 80));
 
 // Memecah label panjang ke beberapa baris tanpa mengubah teks sumber.
 const wrapLabel = (label) => {
@@ -35,6 +31,15 @@ const wrapLabel = (label) => {
     if (current) lines.push(current);
     return lines.join('\n');
 };
+
+// Menghitung tinggi per butir dari jumlah baris label agar teks panjang tidak saling bertumpuk.
+const chartHeight = computed(() => Math.max(460, props.items.reduce((total, item) => {
+    const labelHeight = wrapLabel(item.title).split('\n').length * 18;
+    return total + Math.max(76, labelHeight + 28);
+}, 72)));
+
+// Grid membiarkan ECharts menghitung ruang label, sehingga batang tidak terdorong ke kanan pada layar lebar.
+const chartGrid = { left: 20, right: 44, top: 20, bottom: 36, containLabel: true };
 
 // Mengubah event ECharts menjadi payload drill-down yang stabil untuk halaman induk.
 const handleSelect = (params) => {
@@ -61,10 +66,10 @@ const chartOption = computed(() => ({
             const point = params?.[0];
             const item = props.items[point?.dataIndex] || {};
             const stat = item.stat || {};
-            return `<strong>${item.title || point?.name || ''}</strong><br/>Rata-rata: <b>${stat.average ?? 0}</b> / 5<br/>Median: <b>${stat.median ?? 0}</b><br/>Jawaban valid: ${stat.valid_count ?? 0}`;
+            return `<strong>${item.title || point?.name || ''}</strong><br/>Skor: <b>${stat.average ?? 0}</b> / 5<br/>Median: <b>${stat.median ?? 0}</b><br/>Jawaban valid: ${stat.valid_count ?? 0}`;
         },
     },
-    grid: { left: 340, right: 50, top: 20, bottom: 36, containLabel: true },
+    grid: chartGrid,
     xAxis: {
         type: 'value',
         min: 0,
@@ -80,11 +85,11 @@ const chartOption = computed(() => ({
         type: 'category',
         inverse: true,
         data: props.items.map((item) => wrapLabel(item.title)),
-        axisLabel: { color: '#334155', fontSize: 11, lineHeight: 16, width: 310, overflow: 'break' },
+        axisLabel: { color: '#334155', fontSize: 11, lineHeight: 16, width: 260, overflow: 'break' },
         axisLine: { lineStyle: { color: '#CBD5E1' } },
     },
     series: [{
-        name: 'Rata-rata skor',
+        name: 'Skor penilaian',
         type: 'bar',
         barMaxWidth: 28,
         data: props.items.map((item) => item.stat?.average || 0),
@@ -96,11 +101,13 @@ const chartOption = computed(() => ({
 </script>
 
 <template>
-    <!-- Kontrak visual: caption selalu berada dekat grafik dan tidak ikut terpotong. -->
+    <!-- Grafik menerima satu caption dari halaman induk agar informasi tidak tampil ganda. -->
     <section class="min-w-0 space-y-3">
-        <p class="text-xs leading-5 text-slate-600">{{ caption }}</p>
         <div v-if="items.length" class="min-w-0 overflow-x-auto">
-            <AnalyticsEChart :option="chartOption" :height="chartHeight" aria-label="Grafik rata-rata skor Likert program studi" @select="handleSelect" />
+            <!-- Lebar minimum menjaga label dan batang tetap terbaca; layar kecil dapat menggulir horizontal. -->
+            <div class="min-w-[720px]">
+                <AnalyticsEChart :option="chartOption" :height="chartHeight" aria-label="Grafik rata-rata skor Likert program studi" @select="handleSelect" />
+            </div>
         </div>
         <p v-else class="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">Belum ada butir yang dapat divisualisasikan.</p>
     </section>

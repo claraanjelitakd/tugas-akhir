@@ -4,6 +4,16 @@
 
 ## 02 November 2026
 
+- **Penyempurnaan Data Demo dan Tampilan Indikator 02 (Penekanan Metode Pembelajaran)**:
+  - Mengubah profil jawaban demo F21-F27 pada `AnalyticsDemoDistributionSeeder` agar setiap program studi memiliki pola penekanan metode yang berbeda, dengan variasi kecil antarresponden; matriks perbandingan tidak lagi menampilkan nilai seragam.
+  - Mengganti label visualisasi dari *Peta Panas Penekanan Antarprogram Studi* menjadi **Perbandingan Metode per Program Studi** agar tujuan grafik lebih langsung dipahami.
+  - Menghapus indikator loading kedua di panel grafik; status pembaruan kini hanya ditampilkan pada filter halaman Analitik Universitas.
+- **Penyempurnaan Grafik Program Studi**:
+  - Membulatkan rata-rata dan median Likert menjadi skor bilangan bulat pada sumber payload, grafik, ringkasan, dan analisis; rumus serta penyebut perhitungan kini tampil tepat di bawah visualisasi.
+  - Menghitung tinggi grafik Likert berdasarkan label pernyataan yang terbungkus agar label dan batang tidak bertumpuk, serta menghapus caption visualisasi yang tampil dua kali.
+  - Memisahkan grafik pilihan menjadi tab per pertanyaan dengan analisis untuk pertanyaan aktif sehingga beberapa grafik tidak saling bertabrakan.
+  - Menyelaraskan panel sumber dan metodologi dengan Grafik Universitas, menyediakan drill-down responden dengan aksi detail, WhatsApp, dan email, serta menormalkan opsi `Other` menjadi **Lainnya** sambil mempertahankan isi bebasnya.
+  - Memperbarui data demo aman-jalankan-ulang untuk menyebarkan skor, pilihan, dan isian Lainnya pada kuesioner prodi sehingga setiap visualisasi memiliki kombinasi respons yang berbeda.
 - **Penyelarasan ERD dan Kamus Data Skripsi (Relasi Master Perusahaan dan Atasan)**:
   - Mengonfirmasi penguatan relasi langsung antara entitas `perusahaan` dan `atasan` sesuai kaidah perancangan skripsi (1 perusahaan menaungi banyak atasan, `1 : N`).
   - Memperbarui diagram ERD Modul 6 (Evaluasi Pengguna Lulusan) pada [ERD.md](file:///c:/study/tracer-ta/ERD.md) dan [storage/app/tugas-akhir-publication/ERD.md](file:///c:/study/tracer-ta/storage/app/tugas-akhir-publication/ERD.md) dengan menyertakan relasi eksplisit `perusahaan ||--o{ atasan : "menaungi (perusahaan_id)"` serta kotak entitas `atasan` dan `perusahaan`.

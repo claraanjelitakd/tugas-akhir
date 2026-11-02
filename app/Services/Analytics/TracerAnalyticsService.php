@@ -475,6 +475,10 @@ class TracerAnalyticsService
      */
     private function analyticsRows(string $chartKey, string $selectedYear, ?int $selectedUmpYear, ?int $prodiId): Collection
     {
+        if ($chartKey === 'response_rate') {
+            return $this->responseRateRows($selectedYear, $prodiId);
+        }
+
         if (isset(self::QUESTION_CHART_VIEWS[$chartKey])) {
             return DB::table(self::QUESTION_CHART_VIEWS[$chartKey])
                 ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
@@ -488,7 +492,6 @@ class TracerAnalyticsService
             'work_location' => 'v_analytics_work_location',
             'employment_status' => 'v_analytics_employment_status',
             'field_alignment', 'education_alignment', 'education_alignment_university' => 'v_analytics_alignment',
-            'response_rate' => 'v_analytics_response_rate',
             'profile_completion' => 'v_analytics_profile_completion',
             default => 'v_analytics_population',
         };
@@ -501,6 +504,84 @@ class TracerAnalyticsService
             }))
             ->when(in_array($chartKey, ['field_alignment', 'education_alignment', 'education_alignment_university'], true), fn ($query) => $query->where('indicator_code', $chartKey === 'field_alignment' ? 'F14' : 'F15'))
             ->get();
+    }
+
+    /**
+     * Mengambil populasi dan status respons hanya untuk kohort yang aktif.
+     *
+     * View response-rate lama mengagregasi seluruh tabel tracer sebelum filter
+     * tahun atau prodi dari halaman diterapkan. Dua query terarah di bawah
+     * mempertahankan definisi responden yang sama, tetapi membatasi agregasi
+     * jawaban ke biodata yang memang sedang ditampilkan.
+     *
+     * @return Collection<int, object>
+     */
+    private function responseRateRows(string $selectedYear, ?int $prodiId): Collection
+    {
+        $population = DB::table('biodata')
+            ->leftJoin('users', 'users.id', '=', 'biodata.user_id')
+            ->leftJoin('data_akademik as academic', 'academic.nim', '=', 'biodata.nim')
+            ->leftJoin('prodi as study_program', 'study_program.id', '=', 'biodata.prodi_id')
+            ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('academic.tahun_lulus', $selectedYear))
+            ->when($prodiId, fn ($query) => $query->where('biodata.prodi_id', $prodiId))
+            ->select([
+                'biodata.id as biodata_id',
+                'biodata.user_id',
+                'biodata.nim',
+                DB::raw("COALESCE(academic.nama, users.name, 'Mahasiswa UKDW') as nama"),
+                'biodata.prodi_id',
+                'study_program.nama_prodi',
+                'academic.tahun_lulus',
+                'biodata.nomor_telepon',
+                DB::raw('COALESCE(biodata.email_pribadi, users.email) as email'),
+            ])
+            ->get();
+
+        if ($population->isEmpty()) {
+            return $population;
+        }
+
+        $respondents = DB::table('tracer')
+            ->join('ref_subpertanyaan2021 as questions', 'questions.id', '=', 'tracer.question_id')
+            ->whereIn('tracer.biodata_id', $population->pluck('biodata_id')->all())
+            ->where(function ($query): void {
+                $query->where(function ($mandatoryQuery): void {
+                    $mandatoryQuery
+                        ->where('questions.wajib', 1)
+                        ->where('questions.type', '!=', 'header')
+                        ->whereNotIn(DB::raw('UPPER(questions.kode_pertanyaan)'), [
+                            'F1', 'F2A', 'F2B', 'F2C', 'F2D',
+                            'BIO_TEMPAT_LAHIR', 'BIO_TANGGAL_LAHIR', 'BIO_JK',
+                            'BIO_TGL_LULUS', 'BIO_JUDUL_TA',
+                            'F5A1', 'F5A2', 'F5B', 'F5C', 'F5D', 'F510',
+                            'F2E', 'F2E1', 'F2E2', 'F2E3', 'F2F', 'F2G', 'F2H',
+                            'F11', 'F505', 'F502', 'F506',
+                        ]);
+                })->orWhereIn(DB::raw('UPPER(questions.kode_pertanyaan)'), ['F502', 'F506']);
+            })
+            ->where(function ($answerQuery): void {
+                $answerQuery
+                    ->whereNotNull('tracer.answer')
+                    ->whereRaw("TRIM(tracer.answer) != ''")
+                    ->orWhere(function ($jsonQuery): void {
+                        $jsonQuery
+                            ->whereNotNull('tracer.answer_json')
+                            ->whereNotIn('tracer.answer_json', ['', '[]', '{}']);
+                    });
+            })
+            ->selectRaw('tracer.biodata_id, MAX(tracer.updated_at) as last_response_at')
+            ->groupBy('tracer.biodata_id')
+            ->get()
+            ->keyBy('biodata_id');
+
+        return $population->map(function (object $alumnus) use ($respondents): object {
+            $respondent = $respondents->get($alumnus->biodata_id);
+            $alumnus->answered_mandatory_univ = $respondent === null ? 0 : 1;
+            $alumnus->answered = $alumnus->answered_mandatory_univ;
+            $alumnus->last_response_at = $respondent?->last_response_at;
+
+            return $alumnus;
+        });
     }
 
     /**

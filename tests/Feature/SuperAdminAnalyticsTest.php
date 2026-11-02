@@ -94,6 +94,103 @@ class SuperAdminAnalyticsTest extends TestCase
     }
 
     /**
+     * Response rate hanya mengagregasi jawaban dari kohort dan prodi yang
+     * diminta tanpa memasukkan respons dari populasi lain.
+     */
+    public function test_response_rate_scopes_respondents_to_the_selected_cohort_and_study_program(): void
+    {
+        $year = (int) now()->year;
+        $includedProdi = Prodi::create([
+            'kode_prodi' => '72',
+            'nama_prodi' => 'Sistem Informasi',
+        ]);
+        $excludedProdi = Prodi::create([
+            'kode_prodi' => '71',
+            'nama_prodi' => 'Informatika',
+        ]);
+        $includedUser = User::create([
+            'username' => 'response-rate-included',
+            'name' => 'Alumni Terpilih',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+        $excludedUser = User::create([
+            'username' => 'response-rate-excluded',
+            'name' => 'Alumni Tidak Terpilih',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+        DataAkademik::create([
+            'nim' => '72200011',
+            'nama' => 'Alumni Terpilih',
+            'tanggal_lahir' => '2001-08-15',
+            'tahun_lulus' => $year,
+        ]);
+        DataAkademik::create([
+            'nim' => '71200011',
+            'nama' => 'Alumni Tidak Terpilih',
+            'tanggal_lahir' => '2001-08-15',
+            'tahun_lulus' => $year,
+        ]);
+        $includedBiodata = Biodata::create([
+            'user_id' => $includedUser->id,
+            'nim' => '72200011',
+            'prodi_id' => $includedProdi->id,
+            'nomor_telepon' => '081234567811',
+            'email_pribadi' => 'included@example.test',
+        ]);
+        $excludedBiodata = Biodata::create([
+            'user_id' => $excludedUser->id,
+            'nim' => '71200011',
+            'prodi_id' => $excludedProdi->id,
+            'nomor_telepon' => '081234567812',
+            'email_pribadi' => 'excluded@example.test',
+        ]);
+        $questionId = DB::table('ref_subpertanyaan2021')->insertGetId([
+            'kelompok' => 'F3',
+            'kode_pertanyaan' => 'F3',
+            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
+            'type' => 'radio',
+            'wajib' => true,
+            'order' => 1,
+        ]);
+        DB::table('tracer')->insert([
+            'biodata_id' => $includedBiodata->id,
+            'question_id' => $questionId,
+            'nim' => $includedBiodata->nim,
+            'kelompok' => 'F3',
+            'kode_pertanyaan' => 'F3',
+            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
+            'answer' => 'Sebelum lulus',
+            'tahun_lulus' => $year,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('tracer')->insert([
+            'biodata_id' => $excludedBiodata->id,
+            'question_id' => $questionId,
+            'nim' => $excludedBiodata->nim,
+            'kelompok' => 'F3',
+            'kode_pertanyaan' => 'F3',
+            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
+            'answer' => 'Setelah lulus',
+            'tahun_lulus' => $year,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $analytics = app(TracerAnalyticsService::class)
+            ->buildUniversityChart('response_rate', (string) $year, null, $includedProdi->id);
+
+        $this->assertSame(1, $analytics['chart']['summary']['population']);
+        $this->assertSame(1, $analytics['chart']['summary']['respondents']);
+        $this->assertSame('72200011', $analytics['chart']['records'][0]['nim']);
+        $this->assertTrue($analytics['chart']['records'][0]['answered']);
+    }
+
+    /**
      * Agregasi gaji memakai array hasil normalisasi tanpa error object access.
      */
     public function test_analytics_can_aggregate_salary_rows_by_prodi(): void

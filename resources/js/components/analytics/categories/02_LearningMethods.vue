@@ -7,7 +7,7 @@
  *    bersih, formal, elegan, tanpa warna biru atau teks dekoratif yang membingungkan.
  * 2. Visualisasi 2: Line Chart Penekanan Metode Belajar Rata-rata Skor INT (Gambar 4.3 Laporan Resmi UKDW).
  * 3. Visualisasi 3: Distribusi Pilihan Skala Responden (100% Horizontal Stacked Bar) label utuh tanpa terpotong.
- * 4. Visualisasi 4: Pola Penekanan Antarprogram Studi (Heatmap ECharts dengan gradasi monokromatik hijau UKDW yang adem).
+ * 4. Visualisasi 4: Perbandingan Metode per Program Studi (matriks ECharts dengan gradasi monokromatik hijau UKDW).
  * 5. Kartu Kilas Indikator Alami: Narasi 100% dinamis terhitung dari data aktif (bebas hardcode).
  * 6. Inline Data Drill-Down ("Don't Make Me Think"): Rincian distribusi skala (1 warna konsisten hijau UKDW)
  *    dan ranking prodi terbuka mulus saat metode diklik.
@@ -35,7 +35,7 @@ const props = defineProps({
 // Event seleksi data diteruskan ke panel induk untuk cross-filtering.
 const emit = defineEmits(['select', 'reset']);
 
-// Mode tab visualisasi aktif: 'radar' (Jaring Laba-laba), 'line' (Garis Utama), 'stacked' (Distribusi Skala), atau 'heatmap' (Antar Prodi).
+// Mode tab visualisasi aktif: 'radar', 'line', 'stacked', atau 'heatmap' (perbandingan prodi).
 const activeChartTab = ref('radar');
 
 // Label dan alasan grafik aktif mengambil sumber dari kamus tipe pusat.
@@ -256,13 +256,13 @@ const stackedAnalysis = computed(() => {
     };
 });
 
-// 4. Analisis Heatmap (Pola Antarprogram Studi)
+// 4. Analisis matriks perbandingan program studi.
 const heatmapAnalysis = computed(() => {
     if (drilldownAnalysis.value) return drilldownAnalysis.value;
     const ctx = analysisContext.value;
     if (!ctx) {
         return {
-            title: 'Analisis Pola Penekanan Antarprogram Studi',
+            title: 'Analisis Perbandingan Metode per Program Studi',
             statusBadge: 'Memuat...',
             badgeClass: 'bg-slate-100 text-slate-600 border border-slate-200',
             lead: 'Menunggu data respon alumni.',
@@ -275,7 +275,7 @@ const heatmapAnalysis = computed(() => {
     const bottomProdi = prodiList.length > 1 ? prodiList[prodiList.length - 1] : null;
 
     return {
-        title: 'Analisis Pola Penekanan Antarprogram Studi',
+        title: 'Analisis Perbandingan Metode per Program Studi',
         statusBadge: `${prodis.value.length} Program Studi`,
         badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
         lead: `Matriks perbandingan penekanan pembelajaran menunjukkan konsistensi mutu akademik di ${prodis.value.length} program studi UKDW dengan capaian kumulatif universitas berada di kategori ${ctx.overallLabel.toLowerCase()} (Skor = ${ctx.overallInt}).`,
@@ -637,7 +637,7 @@ const methodsStackedOption = computed(() => {
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-// 4. HEATMAP: Pola Penekanan Antarprogram Studi
+// 4. HEATMAP: Matriks perbandingan metode per program studi.
 // Palet hijau monokromatik yang bersih, formal, dan kontras tinggi.
 // Setiap skor 1-5 memiliki warna sel dan teks terdedikasi agar angka selalu terbaca
 // sempurna dan tidak pernah hilang saat kursor di-hover ke atas sel.
@@ -882,7 +882,7 @@ const summaryTableData = computed(() => {
                         <template v-else-if="activeChartTab === 'radar'">{{ activeChartType }} Penekanan Metode Pembelajaran</template>
                         <template v-else-if="activeChartTab === 'line'">{{ activeChartType }} Penekanan Metode Pembelajaran</template>
                         <template v-else-if="activeChartTab === 'stacked'">{{ activeChartType }} Distribusi Skala</template>
-                        <template v-else>{{ activeChartType }} Penekanan Antarprogram Studi</template>
+                        <template v-else>Perbandingan Metode per Program Studi</template>
                     </h3>
                 </div>
                 <p class="mt-1 text-xs text-slate-500">
@@ -938,7 +938,7 @@ const summaryTableData = computed(() => {
                         :class="activeChartTab === 'heatmap' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeChartTab = 'heatmap'"
                     >
-                        Antar Prodi
+                        Perbandingan Prodi
                     </button>
                 </div>
 
@@ -1208,7 +1208,7 @@ const summaryTableData = computed(() => {
                     </div>
                 </div>
 
-                <!-- Kotak Analisis Khusus Antar Prodi -->
+                <!-- Kotak analisis khusus perbandingan program studi. -->
                 <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
                     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
                         <span class="text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -1235,7 +1235,7 @@ const summaryTableData = computed(() => {
                         {{ heatmapAnalysis.detail }}
                     </p>
                     <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
-                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ activeChartType }}):</span>
+                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan (Matriks Perbandingan):</span>
                         {{ activeChartReason }}
                     </p>
                 </div>

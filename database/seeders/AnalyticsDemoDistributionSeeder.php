@@ -6,6 +6,8 @@ use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\Kabupaten;
 use App\Models\Perusahaan;
+use App\Models\ProdiQuestion;
+use App\Models\ProdiResponse;
 use App\Models\Propinsi;
 use App\Models\RefSubpertanyaan2021;
 use Illuminate\Database\Seeder;
@@ -20,6 +22,30 @@ use Illuminate\Support\Facades\DB;
  */
 class AnalyticsDemoDistributionSeeder extends Seeder
 {
+    /**
+     * Profil penekanan metode pembelajaran per kode prodi untuk data demo.
+     *
+     * Urutan skor mengikuti F21 sampai F27. Profil ini memberi setiap prodi
+     * pola agregat yang berbeda, sedangkan variasi kecil per alumni tetap
+     * menjaga distribusi respons tidak tampak sintetis.
+     *
+     * @var array<string, array<int, int>>
+     */
+    private const LEARNING_METHOD_PROFILES = [
+        '71' => [5, 4, 4, 5, 4, 3, 4],
+        '72' => [4, 3, 5, 4, 4, 3, 5],
+        '11' => [3, 4, 3, 4, 4, 3, 4],
+        '12' => [3, 3, 3, 4, 3, 3, 4],
+        '21' => [4, 4, 4, 3, 5, 4, 3],
+        '22' => [4, 5, 4, 4, 4, 3, 4],
+        '41' => [3, 4, 4, 3, 3, 4, 4],
+        '42' => [4, 3, 4, 4, 3, 4, 3],
+        '61' => [5, 4, 5, 4, 5, 4, 4],
+        '31' => [3, 3, 4, 3, 4, 3, 4],
+        '81' => [4, 5, 4, 5, 3, 4, 4],
+        '82' => [3, 4, 3, 4, 3, 4, 5],
+    ];
+
     /**
      * Baris jawaban yang dikumpulkan sebelum bulk upsert untuk menghindari
      * query per pertanyaan pada ratusan alumni demo.
@@ -86,6 +112,14 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             return;
         }
 
+        $prodiQuestions = ProdiQuestion::query()
+            ->whereIn('prodi_id', $demoBiodata->pluck('prodi_id')->filter()->unique())
+            ->where('type', '!=', 'header')
+            ->with(['options' => static fn ($query) => $query->orderBy('order')])
+            ->orderBy('order')
+            ->get()
+            ->groupBy('prodi_id');
+
         $questions = RefSubpertanyaan2021::query()
             ->whereIn('kode_pertanyaan', [
                 'F3', 'F4', 'F6', 'F7', 'F7A', 'F8', 'F10', 'F11', 'F12',
@@ -97,7 +131,7 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             ->get()
             ->keyBy(fn (RefSubpertanyaan2021 $question): string => strtoupper($question->kode_pertanyaan));
 
-        DB::transaction(function () use ($demoBiodata, $companies, $questions): void {
+        DB::transaction(function () use ($demoBiodata, $companies, $questions, $prodiQuestions): void {
             $this->pendingTracerRows = [];
 
             foreach ($demoBiodata->values() as $index => $biodata) {
@@ -135,6 +169,7 @@ class AnalyticsDemoDistributionSeeder extends Seeder
                 }
 
                 $this->seedTracerAnalyticsAnswers($biodata, $index, $status, $questions);
+                $this->seedProdiAnalyticsAnswers($biodata, $index, $prodiQuestions->get($biodata->prodi_id, collect()));
             }
 
             collect($this->pendingTracerRows)
@@ -254,7 +289,8 @@ class AnalyticsDemoDistributionSeeder extends Seeder
         $this->saveAnswer($biodata, $questions, 'F18d', $isFurtherStudy ? '2026-08-01' : null);
 
         foreach (range(21, 27) as $offset => $number) {
-            $this->saveAnswer($biodata, $questions, 'F'.$number, $learningScale[($index + $offset) % count($learningScale)]);
+            $score = $this->learningMethodScore($biodata, $offset, $index);
+            $this->saveAnswer($biodata, $questions, 'F'.$number, $learningScale[$score - 1]);
         }
 
         foreach (range(1, 7) as $competency) {
@@ -263,6 +299,93 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             $this->saveAnswer($biodata, $questions, 'F17a'.$competency, $competencyScale[$graduationScore - 1]);
             $this->saveAnswer($biodata, $questions, 'F17b'.$competency, $competencyScale[$needScore - 1]);
         }
+    }
+
+    /**
+     * Menghasilkan skor demo metode belajar yang khas untuk tiap program studi.
+     *
+     * @param  int  $methodOffset  Posisi F21 sampai F27 pada profil prodi.
+     * @param  int  $respondentIndex  Urutan alumni demo untuk variasi terbatas.
+     */
+    private function learningMethodScore(Biodata $biodata, int $methodOffset, int $respondentIndex): int
+    {
+        $profile = self::LEARNING_METHOD_PROFILES[$biodata->prodi?->kode_prodi ?? ''] ?? [3, 3, 3, 3, 3, 3, 3];
+        $variation = match ($respondentIndex % 11) {
+            0 => 1,
+            7 => -1,
+            default => 0,
+        };
+
+        return min(5, max(1, $profile[$methodOffset] + $variation));
+    }
+
+    /**
+     * Menyusun respons kuesioner prodi demo yang bervariasi untuk setiap butir.
+     *
+     * @param  Collection<int, ProdiQuestion>  $questions
+     */
+    private function seedProdiAnalyticsAnswers(Biodata $biodata, int $respondentIndex, Collection $questions): void
+    {
+        $otherDetails = ['Menjadi mentor proyek mahasiswa', 'Berbagi pengalaman karier', 'Membuka jejaring mitra industri', 'Mendampingi pengembangan kurikulum'];
+
+        foreach ($questions as $question) {
+            $options = $question->options->values();
+            $answerText = null;
+            $answerJson = null;
+
+            if ($question->type === 'rating_5') {
+                $score = min(5, max(1, 3 + (($respondentIndex + ($question->order * 2)) % 3) - 1 + ($question->order % 4 === 0 ? 1 : 0)));
+                $answerText = (string) $score;
+            } elseif (in_array($question->type, ['text', 'textarea'], true)) {
+                $answerText = 'Respons demo '.(($respondentIndex % 4) + 1).' untuk '.$question->question_text;
+            } elseif ($options->isNotEmpty()) {
+                $primaryOption = $options->get(($respondentIndex * 2 + $question->order) % $options->count());
+                $selectedOptions = collect([$primaryOption])->filter();
+                $otherOption = $options->first(fn ($option): bool => $this->isOtherOption((string) $option->option_text));
+                $customDetail = null;
+
+                if ($otherOption && ($respondentIndex + $question->order) % 7 === 0) {
+                    $selectedOptions = $question->type === 'multiple_choice'
+                        ? $selectedOptions->push($otherOption)->unique('id')->values()
+                        : collect([$otherOption]);
+                    $customDetail = $otherDetails[($respondentIndex + $question->order) % count($otherDetails)];
+                } elseif ($question->type === 'multiple_choice' && $options->count() > 1 && ($respondentIndex + $question->order) % 3 === 0) {
+                    $selectedOptions->push($options->get(($respondentIndex + $question->order + 1) % $options->count()));
+                    $selectedOptions = $selectedOptions->filter()->unique('id')->values();
+                }
+
+                $selectedLabels = $selectedOptions
+                    ->map(fn ($option): string => $this->isOtherOption((string) $option->option_text) ? 'Lainnya (Tuliskan)' : (string) $option->option_text)
+                    ->all();
+                $answerText = implode(', ', $selectedLabels);
+                $answerJson = $question->type === 'multiple_choice'
+                    ? ['selected' => $selectedLabels, 'custom' => $customDetail]
+                    : ['selected' => $selectedLabels[0] ?? '', 'custom' => $customDetail];
+
+                if ($customDetail !== null && $question->type !== 'multiple_choice') {
+                    $answerText .= ' ('.$customDetail.')';
+                }
+            }
+
+            if ($answerText !== null) {
+                ProdiResponse::updateOrCreate(
+                    ['biodata_id' => $biodata->id, 'prodi_question_id' => $question->id],
+                    ['answer_text' => $answerText, 'answer_json' => $answerJson],
+                );
+            }
+        }
+    }
+
+    /**
+     * Menentukan opsi isian bebas lama maupun baru agar fixture memakai satu format Lainnya.
+     */
+    private function isOtherOption(string $label): bool
+    {
+        $normalized = mb_strtolower(trim($label));
+
+        return $normalized === 'other'
+            || str_contains($normalized, 'lainnya')
+            || str_contains($normalized, 'tuliskan');
     }
 
     /**
