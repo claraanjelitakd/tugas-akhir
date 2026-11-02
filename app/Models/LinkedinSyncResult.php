@@ -149,6 +149,10 @@ class LinkedinSyncResult extends Model
             ?? $item['profile_picture']
             ?? $item['picture_url']
             ?? null;
+        if (is_array($profilePicture)) {
+            $profilePicture = $profilePicture['url']
+                ?? ($profilePicture['sizes'][0]['url'] ?? null);
+        }
 
         // 3. Nama Lengkap
         $name = null;
@@ -173,7 +177,12 @@ class LinkedinSyncResult extends Model
         // 6. Lokasi
         $location = null;
         if (! empty($item['location'])) {
-            $location = is_array($item['location']) ? ($item['location']['name'] ?? null) : $item['location'];
+            $location = is_array($item['location'])
+                ? ($item['location']['parsed']['text']
+                    ?? $item['location']['linkedinText']
+                    ?? $item['location']['name']
+                    ?? null)
+                : $item['location'];
         } elseif (! empty($item['locationName'])) {
             $location = $item['locationName'];
         } elseif (! empty($item['geoCountryName'])) {
@@ -182,6 +191,10 @@ class LinkedinSyncResult extends Model
 
         // 7. Pengalaman Kerja (Experience / Experiences)
         $rawExp = $item['experiences'] ?? $item['experience'] ?? $item['positions'] ?? $item['position'] ?? [];
+        $currentPositions = $this->asList($item['currentPosition'] ?? []);
+        if ($currentPositions !== []) {
+            $rawExp = array_merge($currentPositions, $this->asList($rawExp));
+        }
         $experienceList = [];
         $currentJob = null;
         $currentCompany = null;
@@ -209,10 +222,12 @@ class LinkedinSyncResult extends Model
                 $loc = $pos['location'] ?? $pos['locationName'] ?? null;
                 $compUrl = $pos['li_company_url'] ?? $pos['company_url'] ?? $pos['companyUrl'] ?? null;
                 $dateStr = $pos['date'] ?? '';
+                $endDate = $pos['endDate'] ?? null;
+                $endDateText = is_array($endDate) ? ($endDate['text'] ?? null) : $endDate;
 
                 $isCurrent = (isset($pos['isCurrent']) && $pos['isCurrent'] === true)
                     || (is_string($dateStr) && (str_contains(strtolower($dateStr), 'present') || str_contains(strtolower($dateStr), 'saat ini')))
-                    || (array_key_exists('endDate', $pos) && (is_null($pos['endDate']) || $pos['endDate'] === 'Present' || $pos['endDate'] === 'Saat ini'));
+                    || (array_key_exists('endDate', $pos) && (is_null($endDateText) || $endDateText === 'Present' || $endDateText === 'Saat ini'));
 
                 $experienceList[] = [
                     'position' => $jobTitle,
@@ -278,7 +293,7 @@ class LinkedinSyncResult extends Model
         }
 
         // 8. Pendidikan (Education / Educations)
-        $rawEdu = $item['education'] ?? $item['educations'] ?? $item['schools'] ?? [];
+        $rawEdu = $item['education'] ?? $item['educations'] ?? $item['schools'] ?? $item['profileTopEducation'] ?? [];
         $educationList = [];
         if (is_array($rawEdu)) {
             foreach ($rawEdu as $edu) {
@@ -304,10 +319,12 @@ class LinkedinSyncResult extends Model
             ?? $item['skills_list']
             ?? $item['featured_skills']
             ?? $item['skill_list']
+            ?? $item['topSkills']
             ?? [];
 
         if (is_string($rawSkills) && ! empty($rawSkills)) {
-            $rawSkills = array_map('trim', explode(',', $rawSkills));
+            $rawSkills = preg_split('/[,•|]/u', $rawSkills) ?: [];
+            $rawSkills = array_map('trim', $rawSkills);
         }
 
         $skillsList = [];
@@ -364,11 +381,30 @@ class LinkedinSyncResult extends Model
             'current_company' => $currentCompany,
             'current_company_location' => $currentCompanyLocation,
             'current_company_url' => $currentCompanyUrl,
-            'handle' => $item['li_profile_handle'] ?? null,
-            'followers' => isset($item['li_number_followers']) ? (int) $item['li_number_followers'] : null,
-            'connections' => isset($item['li_number_connections']) ? (int) $item['li_number_connections'] : null,
+            'handle' => $item['li_profile_handle'] ?? $item['publicIdentifier'] ?? null,
+            'followers' => isset($item['li_number_followers'])
+                ? (int) $item['li_number_followers']
+                : (isset($item['followerCount']) ? (int) $item['followerCount'] : null),
+            'connections' => isset($item['li_number_connections'])
+                ? (int) $item['li_number_connections']
+                : (isset($item['connectionsCount']) ? (int) $item['connectionsCount'] : null),
             'scraped_at' => $item['scraped_at'] ?? null,
             'operation' => $item['operation'] ?? null,
         ];
+    }
+
+    /**
+     * Mengubah nilai actor yang dapat berupa satu objek atau daftar objek menjadi daftar seragam.
+     *
+     * @param  mixed  $value  Nilai mentah dari respons actor.
+     * @return list<array<string, mixed>>
+     */
+    private function asList(mixed $value): array
+    {
+        if (! is_array($value) || $value === []) {
+            return [];
+        }
+
+        return array_is_list($value) ? $value : [$value];
     }
 }

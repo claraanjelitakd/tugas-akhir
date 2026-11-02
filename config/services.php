@@ -49,6 +49,7 @@ return [
             'APIFY_LINKEDIN_ACTOR_ID',
             'data_forge_org~linkedin-scraper'
         ),
+        'mock_path' => env('APIFY_MOCK_PATH', storage_path('app/mock/apify')),
     ],
 
 ];

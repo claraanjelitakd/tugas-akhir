@@ -4,6 +4,35 @@
 
 ## 03 November 2026
 
+- **Mock Apify untuk Pengujian Sinkronisasi LinkedIn**:
+  - Menambahkan `MockApifyLinkedInProvider` yang membaca fixture actor dari
+    `storage/app/mock/apify` tanpa request jaringan atau konsumsi kredit.
+  - Menambahkan fixture terpisah untuk dataset actor yang sudah tervalidasi
+    (`people.enrich`): `eunike-alelang`, `argo-wibowo-99180935`, `aydierahma`,
+    `evanhansefri`, `rafif-hadyan`, dan `andhikagaluh`. Array profil yang ditempel
+    berurutan dipisahkan menjadi satu file JSON per handle agar dapat dipilih oleh
+    mock berdasarkan URL alumni.
+  - Memperluas preview/DTO normalizer untuk `currentPosition`,
+    `profileTopEducation`, `profilePicture`, lokasi nested, metrik follower, dan
+    objek tanggal `startDate`/`endDate` tanpa mengubah kontrak database.
+  - Menambahkan konfigurasi `LINKEDIN_PROVIDER=mock_apify`, fixture payload
+    `people.enrich`, serta pengujian staging yang memastikan data masuk ke
+    `linkedin_sync_results` tanpa mengubah profil utama sebelum approval.
+  - Memperbaiki deteksi dataset actor yang mengembalikan
+    `entity_type=error`/`error_label=BLOCKED`, sehingga respons HTTP 200 yang
+    sebenarnya ditolak LinkedIn tidak disimpan sebagai hasil pending palsu.
+
+- **Grafik Evaluasi Atasan dan Highlight Sidebar**:
+  - Menambahkan halaman `/superadmin/analitik-atasan` beserta endpoint data
+    berbasis `AtasanAnalyticsService`; grafik rata-rata aspek Likert, kesiapan
+    kerja, dan perbandingan program studi seluruhnya dibentuk dari data evaluasi
+    database.
+  - Menambahkan kartu ringkasan, filter tahun/prodi, tabel respon penelusuran,
+    empty state, dan penjelasan metodologi tanpa hardcode data contoh di Vue.
+  - Menormalkan pencocokan URL pada `AdminSidebar.vue` agar menu aktif tetap
+    ter-highlight ketika halaman memiliki query string, hash, atau trailing
+    slash. Perbaikan berlaku untuk seluruh wrapper sidebar role.
+
 - **Audit hardcode dan opsi evaluasi**:
   - Opsi evaluasi atasan (kesiapan dan Likert) kini disimpan pada master pertanyaan melalui seeder; formulir publik tidak lagi membawa daftar jawaban cadangan di JavaScript.
   - Dataset analitik tidak membuat nama perusahaan, jabatan, provinsi, perguruan tinggi, atau jenjang studi sintetis ketika data kosong; tabel menampilkan tanda kosong dan grafik tetap memakai baris database yang valid.

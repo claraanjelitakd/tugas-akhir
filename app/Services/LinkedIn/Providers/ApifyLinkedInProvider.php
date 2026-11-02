@@ -183,9 +183,15 @@ class ApifyLinkedInProvider implements LinkedInProfileProvider
                 throw new LinkedInProfileNotFoundException($cleanUrl);
             }
 
-            // Cek apakah dataset berisi pesan error khusus dari Actor
-            if (isset($data[0]['error']) && ! empty($data[0]['error'])) {
-                $err = $data[0]['error'];
+            // Actor dapat mengembalikan HTTP 200 tetapi menaruh kegagalan di item dataset.
+            $actorItem = $data[0] ?? [];
+            $actorError = $actorItem['error'] ?? null;
+            $actorMessage = $actorItem['message'] ?? null;
+            $isBlocked = ($actorItem['entity_type'] ?? null) === 'error'
+                || strtoupper((string) ($actorItem['error_label'] ?? '')) === 'BLOCKED';
+
+            if ($isBlocked || ! empty($actorError)) {
+                $err = (string) ($actorError ?: $actorMessage ?: 'Actor Apify mengembalikan error tanpa pesan.');
                 if (stripos($err, 'not found') !== false || stripos($err, 'private') !== false) {
                     throw new LinkedInProfileNotFoundException($cleanUrl);
                 }
@@ -271,13 +277,14 @@ class ApifyLinkedInProvider implements LinkedInProfileProvider
 
         // Ekstraksi vanity name dari URL
         $vanity = '';
-        if (preg_match('#linkedin\.com/in/([^/?#]+)#i', $sourceUrl, $matches)) {
+        if (preg_match('~linkedin\.com/in/([^/?#]+)~i', $sourceUrl, $matches)) {
             $vanity = $matches[1];
         }
 
         // Ekstraksi pengalaman kerja / positions
         $positions = [];
-        $rawExp = $item['experience'] ?? $item['experiences'] ?? $item['positions'] ?? [];
+        $rawExp = $this->asList($item['experience'] ?? $item['experiences'] ?? $item['positions'] ?? []);
+        $rawExp = array_merge($this->asList($item['currentPosition'] ?? []), $rawExp);
 
         if (is_array($rawExp)) {
             foreach ($rawExp as $pos) {
@@ -293,25 +300,8 @@ class ApifyLinkedInProvider implements LinkedInProfileProvider
 
                 $startYear = null;
                 $startMonth = null;
-                if (! empty($pos['startDate'])) {
-                    if (preg_match('/(\d{4})/', $pos['startDate'], $m)) {
-                        $startYear = (int) $m[1];
-                    }
-                    if (preg_match('/-(\d{1,2})/', $pos['startDate'], $m)) {
-                        $startMonth = (int) $m[1];
-                    }
-                }
-
-                $endYear = null;
-                $endMonth = null;
-                if (! empty($pos['endDate']) && $pos['endDate'] !== 'Present') {
-                    if (preg_match('/(\d{4})/', $pos['endDate'], $m)) {
-                        $endYear = (int) $m[1];
-                    }
-                    if (preg_match('/-(\d{1,2})/', $pos['endDate'], $m)) {
-                        $endMonth = (int) $m[1];
-                    }
-                }
+                [$startYear, $startMonth] = $this->dateParts($pos['startDate'] ?? null);
+                [$endYear, $endMonth] = $this->dateParts($pos['endDate'] ?? null);
 
                 $positions[] = new LinkedInPosition(
                     id: (string) ($pos['id'] ?? uniqid('pos_')),
@@ -321,7 +311,7 @@ class ApifyLinkedInProvider implements LinkedInProfileProvider
                     localizedCompanyName: $company,
                     startMonthYear: $startYear ? ['year' => $startYear, 'month' => $startMonth ?? 1] : null,
                     endMonthYear: $endYear ? ['year' => $endYear, 'month' => $endMonth ?? 1] : null,
-                    locationName: $location ? ['localized' => ['en_US' => $location]] : null,
+                    geoPositionLocation: $location ? ['localizedDisplayLocationName' => $location] : null,
                     localizedDisplayLocationName: $location,
                 );
             }
@@ -336,8 +326,72 @@ class ApifyLinkedInProvider implements LinkedInProfileProvider
             headline: ['localized' => ['en_US' => $headline]],
             localizedHeadline: $headline,
             vanityName: $vanity,
-            profilePicture: ! empty($item['profilePicture']) ? ['url' => $item['profilePicture']] : null,
+            profilePicture: $this->profilePicture($item['profilePicture'] ?? null),
             positions: $positions,
         );
+    }
+
+    /**
+     * Mengubah nilai actor yang dapat berupa satu objek atau daftar objek menjadi daftar.
+     *
+     * @param  mixed  $value  Nilai mentah dari actor.
+     * @return list<array<string, mixed>>
+     */
+    private function asList(mixed $value): array
+    {
+        if (! is_array($value) || $value === []) {
+            return [];
+        }
+
+        return array_is_list($value) ? $value : [$value];
+    }
+
+    /**
+     * Membaca tanggal actor berbentuk string maupun objek month/year/text.
+     *
+     * @param  mixed  $value  Nilai tanggal dari actor.
+     * @return array{0: ?int, 1: ?int}
+     */
+    private function dateParts(mixed $value): array
+    {
+        if (is_array($value)) {
+            $year = isset($value['year']) ? (int) $value['year'] : null;
+            $month = isset($value['month']) && is_numeric($value['month']) ? (int) $value['month'] : null;
+
+            return [$year, $month];
+        }
+
+        if (! is_string($value) || trim($value) === '' || strcasecmp(trim($value), 'Present') === 0) {
+            return [null, null];
+        }
+
+        preg_match('/(\d{4})/', $value, $yearMatch);
+        preg_match('/-(\d{1,2})/', $value, $monthMatch);
+
+        return [
+            isset($yearMatch[1]) ? (int) $yearMatch[1] : null,
+            isset($monthMatch[1]) ? (int) $monthMatch[1] : null,
+        ];
+    }
+
+    /**
+     * Menyamakan struktur foto profil actor menjadi bentuk URL DTO.
+     *
+     * @param  mixed  $value  Objek foto atau URL mentah dari actor.
+     * @return array{url: string}|null
+     */
+    private function profilePicture(mixed $value): ?array
+    {
+        if (is_string($value) && trim($value) !== '') {
+            return ['url' => trim($value)];
+        }
+
+        if (! is_array($value)) {
+            return null;
+        }
+
+        $url = $value['url'] ?? ($value['sizes'][0]['url'] ?? null);
+
+        return is_string($url) && trim($url) !== '' ? ['url' => trim($url)] : null;
     }
 }

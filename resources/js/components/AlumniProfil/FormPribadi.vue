@@ -122,7 +122,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
             </div>
 
             <p class="text-xs text-gray-500 mb-5 leading-relaxed bg-slate-50 border border-slate-200/80 p-3.5 rounded-xl">
-                Identitas kependudukan dan akademik (Nama, Tempat/Tanggal Lahir, Jenis Kelamin, Agama, Golongan Darah, Dokumen) terhubung langsung dari Pangkalan Data Akademik resmi kampus dan dikunci secara permanen untuk menjamin validitas serta mencegah duplikasi data.
+                Nama, tanggal lahir, jenis kelamin, kewarganegaraan, dan dokumen akademik terhubung langsung dari Pangkalan Data Akademik resmi kampus dan dikunci secara permanen untuk menjamin validitas serta mencegah duplikasi data.
             </p>
 
             <!-- Foto Profil Resmi Alumni -->
@@ -228,21 +228,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     />
                 </div>
 
-                <!-- Tempat Lahir (Terkunci dari Data Akademik) -->
-                <div>
-                    <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Tempat Lahir</span>
-                        <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
-                    </label>
-                    <input
-                        type="text"
-                        disabled
-                        :class="lockedInputClass"
-                        placeholder="Kota / Kabupaten Kelahiran"
-                    />
-                </div>
-
-                <!-- Tanggal Lahir (Terkunci dari Data Akademik) -->
+                <!-- Tanggal Lahir tersedia di data_akademik dan tetap ditampilkan sebagai data terkunci. -->
                 <div>
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
                         <span>Tanggal Lahir</span>
@@ -256,7 +242,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     />
                 </div>
 
-                <!-- Jenis Kelamin (Terkunci dari Data Akademik) -->
+                <!-- Jenis Kelamin tersedia di data_akademik dan tetap ditampilkan sebagai data terkunci. -->
                 <div>
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
                         <span>Jenis Kelamin</span>
@@ -270,35 +256,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     />
                 </div>
 
-                <!-- Agama (Terkunci dari Data Akademik) -->
-                <div>
-                    <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Agama</span>
-                        <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
-                    </label>
-                    <input
-                        type="text"
-                        :value="form.agama"
-                        disabled
-                        :class="lockedInputClass"
-                    />
-                </div>
-
-                <!-- Golongan Darah (Terkunci dari Data Akademik) -->
-                <div>
-                    <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Golongan Darah</span>
-                        <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
-                    </label>
-                    <input
-                        type="text"
-                        :value="form.golongan_darah || '-'"
-                        disabled
-                        :class="lockedInputClass"
-                    />
-                </div>
-
-                <!-- Kewarganegaraan (Terkunci dari Data Akademik) -->
+                <!-- Kewarganegaraan tersedia di data_akademik dan tetap ditampilkan sebagai data terkunci. -->
                 <div>
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
                         <span>Kewarganegaraan</span>
@@ -311,6 +269,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                         :class="lockedInputClass"
                     />
                 </div>
+
             </div>
         </div>
 

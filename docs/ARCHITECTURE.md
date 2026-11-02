@@ -52,6 +52,39 @@ resources/js/
         └── Components/Sidebar.vue
 ```
 
+### Modul Analitik Evaluasi Atasan
+
+Analitik evaluasi pengguna lulusan memakai alur data yang sama dengan modul
+analitik lain, tetapi sumbernya adalah tabel transaksi evaluasi atasan:
+
+| Lapisan | Implementasi | Tanggung jawab |
+| --- | --- | --- |
+| Route | `GET /superadmin/analitik-atasan` dan `/data` | Menyediakan navigasi dan payload JSON untuk Superadmin. |
+| Controller | `AtasanAnalyticsController` | Mengirim props Inertia atau JSON tanpa menghitung agregasi di Vue. |
+| Service | `AtasanAnalyticsService` | Memuat evaluasi terkirim, memetakan opsi master ke skor, dan menghitung ringkasan. |
+| View | `SuperAdmin/Analytics/GrafikAtasan.vue` | Mengelola filter, empty state, tiga grafik, tabel, dan metodologi. |
+| Chart | `AnalyticsEChart.vue` | Merender opsi ECharts dan menangani resize/loading bersama. |
+
+Nilai aspek dan opsi tidak ditulis ulang pada view. Perubahan instrumen aktif di
+`pertanyaan_evaluasi_atasan` langsung tercermin pada payload selama tipe dan
+opsinya valid.
+
+### Provider LinkedIn dan mode mock Apify
+
+Pemilihan provider sinkronisasi dikendalikan oleh `LINKEDIN_PROVIDER` pada
+konfigurasi server. Nilai `mock_apify` memakai kontrak staging yang sama dengan
+Apify, tetapi membaca fixture JSON lokal dari `APIFY_MOCK_PATH`; token dan
+request eksternal tidak digunakan. Mode ini menjaga pengembangan lokal tetap
+aman ketika LinkedIn mengembalikan `HTTP 999` atau kuota actor habis. Provider
+mock tidak boleh dianggap sebagai data produksi dan tetap mengharuskan proses
+review sebelum perubahan biodata diterapkan.
+
+Normalizer staging menerima dua bentuk respons actor: format legacy `people.enrich`
+dan format detail profil terbaru yang memakai `publicIdentifier`, `currentPosition`,
+`profileTopEducation`, `profilePicture`, serta objek tanggal nested. Field tersebut
+diproyeksikan ke preview kanonik sebelum approval; fixture lokal tidak menyimpan email
+atau daftar `moreProfiles` yang tidak diperlukan oleh tracer study.
+
 ### Komponen bersama
 
 | File | Tanggung jawab |

@@ -13,6 +13,7 @@ use App\Services\LinkedIn\Exceptions\LinkedInSyncException;
 use App\Services\LinkedIn\LinkedInProfileService;
 use App\Services\LinkedIn\Mappers\LinkedInProfileMapper;
 use App\Services\LinkedIn\Providers\ApifyLinkedInProvider;
+use App\Services\LinkedIn\Providers\MockApifyLinkedInProvider;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -298,7 +299,7 @@ class LinkedInSyncController extends Controller
                 $terplotBiodata++;
             }
 
-            if ($provider === 'apify') {
+            if (in_array($provider, ['apify', 'mock_apify'], true)) {
                 if ($hasUrl) {
                     $denganLinkedin++;
                 } else {
@@ -546,7 +547,7 @@ class LinkedInSyncController extends Controller
         // =====================================================================
         // FLOW APIFY: STAGING PER-ALUMNI (STATUS PENDING)
         // =====================================================================
-        if ($provider === 'apify') {
+        if (in_array($provider, ['apify', 'mock_apify'], true)) {
             $url = trim($biodata->linkedin_url ?? '');
 
             // 1. Validasi URL tidak boleh kosong
@@ -568,8 +569,10 @@ class LinkedInSyncController extends Controller
             }
 
             try {
-                /** @var ApifyLinkedInProvider $apify */
-                $apify = app(ApifyLinkedInProvider::class);
+                /** @var ApifyLinkedInProvider|MockApifyLinkedInProvider $apify */
+                $apify = $provider === 'mock_apify'
+                    ? app(MockApifyLinkedInProvider::class)
+                    : app(ApifyLinkedInProvider::class);
 
                 // Jalankan request ke Apify Actor (tepat 1 alumni -> 1 request)
                 $scrapedData = $apify->scrapeProfile($url);
@@ -822,27 +825,33 @@ class LinkedInSyncController extends Controller
             // 3. Pemetaan Foto Profil (Diunduh ke public/uploads/profile)
             $syncFoto = $request->has('sync_foto') ? $request->boolean('sync_foto') : true;
             if ($syncFoto && ! empty($preview['profile_picture'])) {
-                try {
-                    $photoUrl = $preview['profile_picture'];
-                    $imageResponse = Http::timeout(10)->get($photoUrl);
+                // Fixture mock tidak boleh memicu request jaringan saat approval.
+                if (config('services.linkedin.provider') === 'mock_apify') {
+                    $updates['foto'] = $preview['profile_picture'];
+                    $changesSummary[] = 'Foto profil mock ditautkan tanpa mengunduh aset eksternal';
+                } else {
+                    try {
+                        $photoUrl = $preview['profile_picture'];
+                        $imageResponse = Http::timeout(10)->get($photoUrl);
 
-                    if ($imageResponse->successful() && ! empty($imageResponse->body())) {
-                        $dir = public_path('uploads/profile');
-                        if (! file_exists($dir)) {
-                            mkdir($dir, 0755, true);
+                        if ($imageResponse->successful() && ! empty($imageResponse->body())) {
+                            $dir = public_path('uploads/profile');
+                            if (! file_exists($dir)) {
+                                mkdir($dir, 0755, true);
+                            }
+                            $safeNim = preg_replace('/[^a-zA-Z0-9_-]/', '', $biodata->nim ?: 'alumni');
+                            $filename = "profile_{$safeNim}_".time().'.jpg';
+                            file_put_contents("{$dir}/{$filename}", $imageResponse->body());
+                            $updates['foto'] = "/uploads/profile/{$filename}";
+                            $changesSummary[] = "Foto profil diunduh dan disimpan ke /uploads/profile/{$filename}";
+                        } else {
+                            $updates['foto'] = $photoUrl;
+                            $changesSummary[] = 'Foto profil ditautkan dari URL LinkedIn';
                         }
-                        $safeNim = preg_replace('/[^a-zA-Z0-9_-]/', '', $biodata->nim ?: 'alumni');
-                        $filename = "profile_{$safeNim}_".time().'.jpg';
-                        file_put_contents("{$dir}/{$filename}", $imageResponse->body());
-                        $updates['foto'] = "/uploads/profile/{$filename}";
-                        $changesSummary[] = "Foto profil diunduh dan disimpan ke /uploads/profile/{$filename}";
-                    } else {
-                        $updates['foto'] = $photoUrl;
+                    } catch (\Throwable $e) {
+                        $updates['foto'] = $preview['profile_picture'];
                         $changesSummary[] = 'Foto profil ditautkan dari URL LinkedIn';
                     }
-                } catch (\Throwable $e) {
-                    $updates['foto'] = $preview['profile_picture'];
-                    $changesSummary[] = 'Foto profil ditautkan dari URL LinkedIn';
                 }
             }
 
@@ -1145,11 +1154,11 @@ class LinkedInSyncController extends Controller
         $scope = $this->getUserScope($request);
         $provider = config('services.linkedin.provider', 'official');
 
-        // Untuk provider Apify, bulk scraping dinonaktifkan demi Cost Safety
-        if ($provider === 'apify') {
+        // Alur Apify, termasuk mock lokalnya, hanya mendukung staging per alumni.
+        if (in_array($provider, ['apify', 'mock_apify'], true)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bulk sync dinonaktifkan untuk provider Apify demi keamanan biaya (Cost Safety). Silakan lakukan sinkronisasi per alumni.',
+                'message' => 'Bulk sync dinonaktifkan untuk alur Apify demi keamanan biaya dan konsistensi staging. Silakan lakukan sinkronisasi per alumni.',
             ], 400);
         }
 

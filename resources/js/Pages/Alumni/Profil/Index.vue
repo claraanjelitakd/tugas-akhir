@@ -157,8 +157,6 @@ const tabCompleteness = computed(() => {
     if (!form.nama || !String(form.nama).trim()) missingPribadi.push('Nama Lengkap');
     if (!form.tanggal_lahir) missingPribadi.push('Tanggal Lahir');
     if (!form.jenis_kelamin) missingPribadi.push('Jenis Kelamin');
-    if (!form.agama) missingPribadi.push('Agama');
-    if (!form.golongan_darah) missingPribadi.push('Golongan Darah');
     if (!form.warga_negara || !String(form.warga_negara).trim()) missingPribadi.push('Kewarganegaraan');
     if (!form.nomor_telepon || !isValidPhone(form.nomor_telepon)) missingPribadi.push('Nomor Telepon / WhatsApp');
     if (!form.email_pribadi || !isValidEmail(form.email_pribadi)) missingPribadi.push('Email Pribadi');
