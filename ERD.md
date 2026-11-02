@@ -152,6 +152,20 @@ erDiagram
     }
 ```
 
+#### Catatan kunci wilayah dan UMP
+
+`propinsi_id` adalah foreign key kanonik berbasis `propinsi.id` untuk tabel
+`kabupaten`, `biodata`, dan `perusahaan`. Tabel `ump` memakai pengecualian
+yang disengaja: `ump.kode_provinsi` menjadi foreign key ke
+`propinsi.kode_provinsi`, karena data UMP tahunan diterbitkan dan di-seed
+berdasarkan kode BPS/Kemendagri. Jadi `kode_provinsi` pada ERD bukan kolom
+relasi yang hilang, melainkan natural key resmi untuk dataset UMP.
+
+`provinsi_id` yang muncul pada beberapa payload controller/frontend hanyalah
+nama alias untuk kebutuhan tampilan; kolom database aktif tetap
+`propinsi_id`. `data_akademik.provinsi_asal_sekolah` juga merupakan teks asal
+sekolah, bukan foreign key ke tabel `propinsi`.
+
 ---
 
 ### 1.4 ERD Modul 3: Profil Alumni, Akademik, Karier, & LinkedIn Sync

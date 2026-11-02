@@ -4,11 +4,21 @@
 
 ## 02 November 2026
 
+- **Audit Konsistensi Wilayah dan UMP**:
+  - Menambahkan [audit-konsistensi-wilayah.md](audit-konsistensi-wilayah.md) yang memisahkan foreign key `propinsi_id` dari natural key `ump.kode_provinsi` dan mencatat hasil pemeriksaan orphan/duplikasi runtime.
+  - Memperjelas catatan kunci wilayah pada [ERD.md](../ERD.md) agar relasi UMP berbasis kode tidak disalahartikan sebagai kolom `provinsi_id` yang hilang.
+  - Memperbaiki `UmpFactory` yang sebelumnya mengimpor model `Province` yang tidak tersedia menjadi model aktif `Propinsi`, serta menambahkan regression test.
+
+- **Dokumentasi Analitik**:
+  - Menambahkan [Panduan Analitik Universitas dan Program Studi](panduan-analitik.md) yang menjelaskan alur route-controller-service-payload-ECharts, struktur komponen kategori, rumus 18 indikator Universitas, rumus 9 bagian Prodi, serta panduan menelusuri tiga grafik Bagian 01.
+
 - **Penyempurnaan Data Demo dan Tampilan Indikator 02 (Penekanan Metode Pembelajaran)**:
   - Mengubah profil jawaban demo F21-F27 pada `AnalyticsDemoDistributionSeeder` agar setiap program studi memiliki pola penekanan metode yang berbeda, dengan variasi kecil antarresponden; matriks perbandingan tidak lagi menampilkan nilai seragam.
   - Mengganti label visualisasi dari *Peta Panas Penekanan Antarprogram Studi* menjadi **Perbandingan Metode per Program Studi** agar tujuan grafik lebih langsung dipahami.
   - Menghapus indikator loading kedua di panel grafik; status pembaruan kini hanya ditampilkan pada filter halaman Analitik Universitas.
 - **Penyempurnaan Grafik Program Studi**:
+  - Menyusun visualisasi Prodi mengikuti pola modular Analitik Universitas: hub `ProdiAnalyticsChartsPanel.vue` kini memetakan sembilan bagian instrumen Sistem Informasi ke berkas kategori mandiri, dari `01_InterestAndContribution.vue` sampai `09_HopesAndFeedback.vue`. Opsi ECharts yang berulang dipusatkan di `prodiChartOptions.js`, tanpa folder renderer tambahan, sehingga setiap file kategori mudah dibaca dan diedit.
+  - Menjabarkan tiga grafik pada `01_InterestAndContribution.vue` secara eksplisit (konsentrasi, kesediaan kontribusi, dan bentuk kontribusi), dengan tab tiga kolom yang membungkus judul pertanyaan agar mudah diedit dan tetap terbaca pada layar kecil.
   - Membulatkan rata-rata dan median Likert menjadi skor bilangan bulat pada sumber payload, grafik, ringkasan, dan analisis; rumus serta penyebut perhitungan kini tampil tepat di bawah visualisasi.
   - Menghitung tinggi grafik Likert berdasarkan label pernyataan yang terbungkus agar label dan batang tidak bertumpuk, serta menghapus caption visualisasi yang tampil dua kali.
   - Memisahkan grafik pilihan menjadi tab per pertanyaan dengan analisis untuk pertanyaan aktif sehingga beberapa grafik tidak saling bertabrakan.

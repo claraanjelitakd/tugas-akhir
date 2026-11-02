@@ -101,7 +101,13 @@ class ProdiAnalyticsService
             return $this->emptyPayload($availableProdis, $selectedProdi, $selectedYear, $availableYears);
         }
 
+        // ALUR 1: filter section memilih satu bagian kuesioner berdasarkan ID.
+        // `order` bagian ini nanti dipakai frontend untuk memilih file
+        // categories/01_... sampai categories/09_....
         $selectedSection = $this->resolveSection($sections, $sectionKey);
+
+        // ALUR 2: pertanyaan dan opsi pada section aktif diambil dari metadata
+        // database. Karena itu frontend tidak perlu menulis nama pertanyaan.
         $questions = ProdiQuestion::query()
             ->where('prodi_question_section_id', $selectedSection->id)
             ->with(['options' => static fn ($query) => $query->orderBy('order')])
@@ -255,6 +261,10 @@ class ProdiAnalyticsService
 
         foreach ($questions as $question) {
             $questionResponses = $responses->where('prodi_question_id', $question->id)->values();
+
+            // ALUR 3: `type` pertanyaan menentukan cara menghitung datanya.
+            // rating_5 menjadi skor Likert, text menjadi kartu jawaban terbuka,
+            // sedangkan tipe lain menjadi distribusi pilihan batang horizontal.
             $item = match ($question->type) {
                 'rating_5' => $this->formatLikertQuestion($question, $questionResponses),
                 'text', 'textarea' => $this->formatTextQuestion($question, $questionResponses),
@@ -268,6 +278,10 @@ class ProdiAnalyticsService
         $chartType = $types->every(static fn (string $type): bool => $type === 'rating_5')
             ? 'likert'
             : ($types->every(static fn (string $type): bool => in_array($type, ['text', 'textarea'], true)) ? 'text' : 'choice');
+
+        // ALUR 4: service mengirim `type`, `visualizations`, dan metadata
+        // pertanyaan. Frontend tidak menerima gambar jadi; frontend membangun
+        // ECharts dari arrays ini agar grafik tetap interaktif.
         $responseRate = $totalPopulation > 0 ? round(($totalRespondents / $totalPopulation) * 100, 1) : 0;
         $validScores = collect($items)->flatMap(static fn (array $item): array => $item['scores'] ?? [])->values()->all();
         $questionStats = collect($items)->map(static fn (array $item): array => $item['stat'])->values();

@@ -42,6 +42,22 @@ class UmpTest extends TestCase
     }
 
     /**
+     * Test factory UMP memakai model Propinsi yang tersedia pada schema aktif.
+     */
+    public function test_ump_factory_uses_existing_propinsi_model(): void
+    {
+        $propinsi = Propinsi::create([
+            'kode_provinsi' => '34',
+            'nama_provinsi' => 'DI Yogyakarta',
+        ]);
+
+        $ump = Ump::factory()->create();
+
+        $this->assertSame($propinsi->kode_provinsi, $ump->kode_provinsi);
+        $this->assertTrue($ump->propinsi->is($propinsi));
+    }
+
+    /**
      * Test seeder UmpSeeder berhasil memasukkan 38 provinsi.
      */
     public function test_ump_seeder_successfully_seeds_all_provinces(): void

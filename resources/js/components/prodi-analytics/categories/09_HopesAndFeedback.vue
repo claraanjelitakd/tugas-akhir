@@ -1,24 +1,23 @@
 <script setup>
 /**
- * Panel jawaban terbuka program studi.
- * Jawaban tidak diringkas menjadi angka sehingga konteks masukan alumni tetap
- * dapat dibaca lengkap pada tab visualisasi maupun tab data.
+ * Bagian 09: Harapan dan Masukan Program Studi.
+ *
+ * Grafik angka tidak dipaksakan untuk jawaban terbuka. Setiap respons
+ * ditampilkan sebagai kartu agar isi saran alumni tetap utuh dan interaktif.
  */
 import { computed } from 'vue';
 
-// Menerima visualisasi text dan records yang sudah dinormalisasi backend.
-const props = defineProps({
-    items: { type: Array, default: () => [] },
-});
+// Daftar pertanyaan terbuka dan records jawaban dari payload analitik.
+const props = defineProps({ items: { type: Array, default: () => [] } });
 
-// Menggabungkan respons seluruh pertanyaan terbuka untuk ringkasan visual.
+// Menggabungkan respons dari dua pertanyaan terbuka pada bagian ini.
 const responses = computed(() => props.items.flatMap((item) => item.records || []));
 </script>
 
 <template>
-    <!-- Caption menjelaskan mengapa jawaban text ditampilkan sebagai daftar, bukan grafik angka. -->
+    <!-- Jawaban dibaca sebagai data kualitatif, bukan diringkas menjadi angka. -->
     <section class="space-y-4">
-        <p class="text-xs leading-5 text-slate-600">Jawaban terbuka ditampilkan apa adanya agar pembaca dapat menilai konteks harapan dan masukan alumni.</p>
+        <p class="text-xs leading-5 text-slate-600">Harapan dan masukan ditampilkan apa adanya agar konteks alumni tetap terbaca.</p>
         <div v-if="responses.length" class="grid gap-3 lg:grid-cols-2">
             <article v-for="record in responses" :key="record.response_id" class="min-w-0 rounded-xl border border-slate-200 bg-white p-4">
                 <div class="flex min-w-0 items-start justify-between gap-3">

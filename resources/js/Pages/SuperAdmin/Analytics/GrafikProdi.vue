@@ -8,10 +8,8 @@
 import { computed, ref, watch } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import Sidebar from '../Components/Sidebar.vue';
-import ProdiChoiceChart from '@/components/prodi-analytics/ProdiChoiceChart.vue';
-import ProdiLikertChart from '@/components/prodi-analytics/ProdiLikertChart.vue';
+import ProdiAnalyticsChartsPanel from '@/components/prodi-analytics/ProdiAnalyticsChartsPanel.vue';
 import ProdiPivotTable from '@/components/prodi-analytics/ProdiPivotTable.vue';
-import ProdiTextResponses from '@/components/prodi-analytics/ProdiTextResponses.vue';
 
 // Props awal dari controller berisi filter, instrumen, ringkasan, grafik, dan records.
 const props = defineProps({
@@ -24,14 +22,18 @@ const props = defineProps({
 
 // Menyimpan payload analitik aktif agar filter dapat dimuat tanpa reload halaman penuh.
 const currentAnalytics = ref(props.analytics);
-// Menandai request data yang sedang berlangsung dan error yang perlu dilihat pengguna.
+// Menandai request data JSON yang sedang berlangsung.
 const isLoading = ref(false);
+// Menyimpan pesan error request agar dapat ditampilkan di bawah filter.
 const loadError = ref('');
+// Menahan request filter selama 250 ms agar perubahan dropdown tidak bertubi-tubi.
 let filterTimer = null;
 
-// Nilai filter aktif yang dikirim ke endpoint JSON analitik prodi.
+// ID prodi aktif yang dikirim ke endpoint JSON.
 const selectedProdiId = ref(String(props.analytics?.filters?.selected_prodi_id || '2'));
+// ID bagian pertanyaan aktif yang dikirim ke endpoint JSON.
 const selectedSectionId = ref(String(props.analytics?.filters?.selected_section_id || ''));
+// Tahun lulusan aktif yang dikirim ke endpoint JSON.
 const selectedYear = ref(String(props.analytics?.filters?.selected_year || 'ALL'));
 
 // Panel utama mengikuti Grafik Universitas: Grafik atau Data.
@@ -40,23 +42,39 @@ const activePanel = ref('charts');
 const dataView = ref('records');
 // Elemen grafik yang dipilih untuk drill-down responden inline.
 const selectedItem = ref(null);
+// Pertanyaan choice yang sedang aktif; dipakai agar KPI tidak selalu membaca item pertama.
+const activeQuestionContext = ref(null);
 // Menyimpan status buka/tutup metodologi agar pola informasi sama dengan Grafik Universitas.
 const methodologyOpen = ref(false);
 
 // State pencarian dan paginasi untuk tabel data pembentuk grafik.
 const tableSearch = ref('');
+// Nomor halaman tabel records yang sedang dibuka.
 const currentPage = ref(1);
+// Batas jumlah records per halaman.
 const rowsPerPage = ref(20);
 
-// Nilai turunan dari payload backend yang dipakai oleh template dan komponen grafik.
+// Menentukan apakah payload memiliki data yang dapat divisualisasikan.
 const hasData = computed(() => Boolean(currentAnalytics.value?.has_data));
+// Mengambil identitas program studi aktif dari payload backend.
 const currentProdi = computed(() => currentAnalytics.value?.prodi || {});
+// Mengambil seluruh filter dan pilihan section dari payload backend.
 const filters = computed(() => currentAnalytics.value?.filters || {});
+// Mengambil konfigurasi chart bagian aktif dari payload backend.
 const chart = computed(() => currentAnalytics.value?.chart || {});
+// Mengambil ringkasan KPI bagian aktif.
 const summary = computed(() => chart.value?.summary || {});
+// Mengambil daftar item pertanyaan untuk komponen kategori.
 const visualizations = computed(() => chart.value?.visualizations || []);
+// Mengambil data pivot untuk tab Data Ringkasan.
 const pivotRows = computed(() => chart.value?.pivot || []);
+// Mengambil records alumni untuk tabel dan drill-down.
 const records = computed(() => chart.value?.records || []);
+// ALUR 11: ID section dari filter dicocokkan ke metadata section untuk
+// mendapatkan order. Order ini diteruskan ke hub agar file kategori yang tepat
+// dapat dimount tanpa menebak dari judul pertanyaan.
+const selectedSectionOrder = computed(() => Number((filters.value.sections || [])
+    .find((section) => String(section.id) === String(filters.value.selected_section_id))?.order || 0));
 
 // Memilih tahun berjalan bila tersedia dan ALL bila tahun berjalan belum ada.
 const defaultYear = () => {
@@ -91,8 +109,8 @@ const detailUrl = (record) => `/superadmin/alumni/${record.biodata_id}`;
 
 // Menampilkan kartu ringkasan dengan ukuran dan hierarki yang sama seperti universitas.
 const kpiCards = computed(() => {
-    const firstItem = visualizations.value[0] || {};
-    const firstStat = firstItem.stat || {};
+    const activeItem = activeQuestionContext.value || visualizations.value[0] || {};
+    const activeStat = activeItem.stat || {};
 
     if (chart.value.type === 'likert') {
         return [
@@ -106,9 +124,9 @@ const kpiCards = computed(() => {
     if (chart.value.type === 'choice') {
         return [
             { label: 'Responden Evaluasi', value: formatNumber(summary.value.total_respondents, 0), note: `Dari ${formatNumber(summary.value.population_count, 0)} alumni terdata` },
-            { label: 'Pertanyaan Aktif', value: formatNumber(summary.value.total_questions, 0), note: 'Pertanyaan pilihan pada bagian aktif' },
-            { label: 'Pilihan Terbanyak', value: firstStat.top_choice || '-', note: `${firstStat.top_count || 0} jawaban pada pertanyaan pertama` },
-            { label: 'Jawaban Valid', value: formatNumber(summary.value.valid_answers, 0), note: 'Jawaban yang masuk distribusi' },
+            { label: 'Pertanyaan Aktif', value: activeItem.title || '-', note: `${formatNumber(summary.value.total_questions, 0)} pertanyaan pilihan pada bagian aktif` },
+            { label: 'Pilihan Terbanyak', value: activeStat.top_choice || '-', note: `${activeStat.top_count || 0} jawaban pada pertanyaan aktif` },
+            { label: 'Jawaban Valid', value: formatNumber(activeStat.valid_count, 0), note: 'Jawaban pada pertanyaan aktif' },
         ];
     }
 
@@ -127,6 +145,7 @@ const scheduleLoad = () => {
         isLoading.value = true;
         loadError.value = '';
         selectedItem.value = null;
+        activeQuestionContext.value = null;
         const params = new URLSearchParams({
             prodi_id: selectedProdiId.value,
             section_id: selectedSectionId.value,
@@ -166,6 +185,7 @@ const resetFilters = () => {
     selectedSectionId.value = '';
     selectedYear.value = defaultYear();
     selectedItem.value = null;
+    activeQuestionContext.value = null;
     activePanel.value = 'charts';
     dataView.value = 'records';
     tableSearch.value = '';
@@ -177,6 +197,11 @@ const handleChartSelect = (selection) => {
     selectedItem.value = selection;
     activePanel.value = 'charts';
     currentPage.value = 1;
+};
+
+// Menyimpan tab pertanyaan aktif agar kartu ringkasan selalu ikut berganti.
+const handleQuestionContext = (item) => {
+    activeQuestionContext.value = item || null;
 };
 
 // Menghapus filter drill-down agar grafik kembali ke ringkasan seluruh bagian.
@@ -333,13 +358,11 @@ watch(() => props.analytics, (newAnalytics) => {
                         </div>
 
                         <div class="mt-5 min-w-0">
-                            <ProdiLikertChart v-if="chart.type === 'likert'" :items="visualizations" @select="handleChartSelect" />
-                            <ProdiChoiceChart v-else-if="chart.type === 'choice'" :items="visualizations" @select="handleChartSelect" />
-                            <ProdiTextResponses v-else :items="visualizations" />
+                            <ProdiAnalyticsChartsPanel :items="visualizations" :section-order="selectedSectionOrder" @select="handleChartSelect" @context-change="handleQuestionContext" />
                         </div>
 
-                        <!-- Kilas tetap berada setelah grafik, sementara detail rumus mengikuti panel metodologi universitas. -->
-                        <section class="mt-6 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                        <!-- Pilihan sudah memiliki analisis di bawah grafik; tipe lain memakai Kilas global. -->
+                        <section v-if="chart.type !== 'choice'" class="mt-6 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
                             <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Kilas Analisis</p>
                             <p class="mt-2 text-sm font-semibold leading-6 text-slate-900">{{ chart.insights?.headline }}</p>
                             <ul class="mt-3 space-y-1.5 text-xs leading-5 text-slate-600">
