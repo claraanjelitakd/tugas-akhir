@@ -1,0 +1,18 @@
+@startuml
+title AD-12 Pengelolaan Instrumen Kuesioner Prodi
+|Superadmin/Admin Prodi/Admin Fakultas|
+start
+:Pilih prodi atau buka prodi sendiri;
+|Backend|
+:Periksa scope prodi/fakultas;
+if (Scope valid?) then (ya)
+  :Validasi CRUD section/question/option;
+  |Database|
+  :Simpan instrumen prodi;
+  |Backend|
+  :Kembalikan halaman Inertia;
+else (tidak)
+  :Kembalikan 403 atau 404;
+endif
+stop
+@enduml

@@ -15,19 +15,18 @@ import { Head, router, useForm, usePage, Link } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import Swal from 'sweetalert2';
 
-import FormPribadi from '@/Components/AlumniProfil/FormPribadi.vue';
-import FormAkademik from '@/Components/AlumniProfil/FormAkademik.vue';
-import FormOrangTua from '@/Components/AlumniProfil/FormOrangTua.vue';
-import FormKarier from '@/Components/AlumniProfil/FormKarier.vue';
-import Stepper from '@/Components/AlumniProfil/Stepper.vue';
+import FormPribadi from '@/components/AlumniProfil/FormPribadi.vue';
+import FormAkademik from '@/components/AlumniProfil/FormAkademik.vue';
+import FormKarier from '@/components/AlumniProfil/FormKarier.vue';
+import Stepper from '@/components/AlumniProfil/Stepper.vue';
 import Navbar from '../Components/Navbar.vue';
 
 /**
  * ====================================================================
  * MENERIMA DATA (PROPS) DARI CONTROLLER (ProfilController.php)
  * ====================================================================
- * - alumniData : Objek detail model Alumni dari database
- * - formData   : Objek data awal gabungan (data akademik, pribadi, orang tua, pekerjaan)
+ * - alumniData : Konteks minimum alumni yang dibutuhkan FormKarier
+ * - formData   : Objek data awal gabungan (data akademik, pribadi, domisili, pekerjaan)
  * - provinces  : Array master data provinsi dari tabel 'provinces'
  * - kabupatens : Array master data kabupaten dari tabel 'kabupatens'
  * - companies  : Array master data perusahaan dari tabel 'companies'
@@ -49,7 +48,7 @@ const user = computed(() => page.props.auth.user);
 
 // Storage key untuk mengingat tab aktif saat refresh
 const PROFILE_TAB_STORAGE_KEY = 'tracerstudy_alumni_profile_tab';
-const PROFILE_TAB_IDS = ['pribadi', 'karier', 'akademik', 'orangtua'];
+const PROFILE_TAB_IDS = ['pribadi', 'karier', 'akademik'];
 
 const normalizeProfileTab = (tabName) => {
     return PROFILE_TAB_IDS.includes(tabName) ? tabName : 'pribadi';
@@ -81,10 +80,9 @@ const getInitialTab = () => {
  * Di sinilah 'form' lahir!
  * Nilai awalnya diambil dari props.formData yang dikirim oleh ProfilController.php.
  * 
- * Objek 'form' inilah yang nanti dioper ke 4 komponen anak:
+ * Objek 'form' inilah yang nanti dioper ke 3 komponen anak:
  * <FormPribadi  :form="form" />
  * <FormAkademik :form="form" />
- * <FormOrangTua :form="form" />
  * <FormKarier   :form="form" />
  */
 const form = useForm(JSON.parse(JSON.stringify(props.formData || {}))).transform((data) => {
@@ -123,22 +121,14 @@ watch(() => props.formData, (newData) => {
     }
 }, { deep: true });
 
-// State untuk tab yang sedang aktif ('pribadi', 'akademik', 'orangtua', 'karier')
+// State untuk tab yang sedang aktif ('pribadi', 'akademik', 'karier')
 const activeTab = ref(normalizeProfileTab(getInitialTab()));
 
 const tabs = [
     { id: 'pribadi', name: 'Identitas & Alamat', subtitle: 'Biodata & Kontak', step: '1' },
     { id: 'karier', name: 'Karier & Jejaring', subtitle: 'Pekerjaan & Medsos', step: '2' },
-    { id: 'akademik', name: 'Akademik & Yudisium', subtitle: 'Riwayat Studi', step: '3' },
-    { id: 'orangtua', name: 'Data Orang Tua', subtitle: 'Kontak Keluarga', step: '4' },
+    { id: 'akademik', name: 'Akademik', subtitle: 'Riwayat Studi', step: '3' },
 ];
-
-// Helper validasi NPWP (15 atau 16 digit per UU HPP & PMK 112/PMK.03/2022)
-const isValidNpwp = (val) => {
-    if (!val) return false;
-    const clean = String(val).replace(/[^0-9]/g, '');
-    return clean.length === 15 || clean.length === 16;
-};
 
 // Helper validasi email
 const isValidEmail = (val) => {
@@ -164,19 +154,15 @@ const tabCompleteness = computed(() => {
     // 1. Tab Pribadi
     const missingPribadi = [];
     if (!form.nama || !String(form.nama).trim()) missingPribadi.push('Nama Lengkap');
-    if (!form.npwp || !isValidNpwp(form.npwp)) missingPribadi.push('NPWP (15/16 Digit)');
     if (!form.tempat_lahir || !String(form.tempat_lahir).trim()) missingPribadi.push('Tempat Lahir');
     if (!form.tanggal_lahir) missingPribadi.push('Tanggal Lahir');
     if (!form.jenis_kelamin) missingPribadi.push('Jenis Kelamin');
     if (!form.agama) missingPribadi.push('Agama');
     if (!form.golongan_darah) missingPribadi.push('Golongan Darah');
     if (!form.warga_negara || !String(form.warga_negara).trim()) missingPribadi.push('Kewarganegaraan');
-    if (!form.no_kk || !String(form.no_kk).trim()) missingPribadi.push('Nomor Kartu Keluarga (KK)');
-    if (!form.nisn || !String(form.nisn).trim()) missingPribadi.push('NISN');
-    if (!form.no_bpjs || !String(form.no_bpjs).trim()) missingPribadi.push('Nomor BPJS');
     if (!form.nomor_telepon || !isValidPhone(form.nomor_telepon)) missingPribadi.push('Nomor Telepon / WhatsApp');
     if (!form.email_pribadi || !isValidEmail(form.email_pribadi)) missingPribadi.push('Email Pribadi');
-    if ((!form.alamat_saat_ini || !String(form.alamat_saat_ini).trim()) && (!form.alamat || !String(form.alamat).trim())) missingPribadi.push('Alamat Domisili');
+    if (!form.alamat_saat_ini || !String(form.alamat_saat_ini).trim()) missingPribadi.push('Alamat Domisili');
     if (!form.provinsi_id && !form.propinsi_id) missingPribadi.push('Provinsi Domisili');
     if (!form.kabupaten_id) missingPribadi.push('Kabupaten/Kota Domisili');
     if (!form.kecamatan || !String(form.kecamatan).trim()) missingPribadi.push('Kecamatan Domisili');
@@ -189,10 +175,10 @@ const tabCompleteness = computed(() => {
     if (!form.linkedin_username || !String(form.linkedin_username).trim()) missingKarier.push('LinkedIn Username');
     if (!form.instagram_url || !isValidUrl(form.instagram_url)) missingKarier.push('Instagram URL');
     if (!form.facebook_url || !isValidUrl(form.facebook_url)) missingKarier.push('Facebook URL');
-    const hasSkills = (form.skills && String(form.skills).trim()) || (form.expert && String(form.expert).trim());
+    const hasSkills = form.skills && String(form.skills).trim();
     if (!hasSkills) missingKarier.push('Keahlian (Skills)');
 
-    const hasExperience = (form.experience && String(form.experience).trim()) || (form.minat && String(form.minat).trim());
+    const hasExperience = form.experience && String(form.experience).trim();
     if (!hasExperience) missingKarier.push('Pengalaman Kerja (Experience)');
 
     const kategori = (form.kategori_pekerjaan || '').trim();
@@ -200,6 +186,7 @@ const tabCompleteness = computed(() => {
         missingKarier.push('Status Pekerjaan / Aktivitas Utama');
     } else if (kategori === 'Pekerja') {
         if (!form.nama_perusahaan || !String(form.nama_perusahaan).trim()) missingKarier.push('Nama Perusahaan / Instansi');
+        if (!form.perusahaan_bentuk && !form.company_bentuk) missingKarier.push('Bentuk Perusahaan / Institusi');
         if ((!form.perusahaan_alamat || !String(form.perusahaan_alamat).trim()) && (!form.company_alamat || !String(form.company_alamat).trim())) missingKarier.push('Alamat Perusahaan');
         if (!form.perusahaan_skala && !form.company_skala) missingKarier.push('Skala Perusahaan');
         if (!form.perusahaan_jenis_perusahaan && !form.company_jenis_perusahaan) missingKarier.push('Jenis Perusahaan');
@@ -241,9 +228,6 @@ const tabCompleteness = computed(() => {
     const missingAkademik = [];
     if (!form.nim) missingAkademik.push('NIM');
 
-    // 4. Tab Orang Tua
-    const missingOrangTua = [];
-
     return {
         pribadi: {
             isComplete: missingPribadi.length === 0,
@@ -256,10 +240,6 @@ const tabCompleteness = computed(() => {
         akademik: {
             isComplete: missingAkademik.length === 0,
             missing: missingAkademik,
-        },
-        orangtua: {
-            isComplete: missingOrangTua.length === 0,
-            missing: missingOrangTua,
         },
     };
 });
@@ -411,31 +391,6 @@ const submit = (nextTabId = null, redirectTo = null) => {
                     />
                 </div>
 
-                <!-- Notifikasi Peringatan Perubahan Belum Disimpan (Modern Top Notification Banner) -->
-                <transition 
-                    enter-active-class="transition duration-300 ease-out" 
-                    enter-from-class="transform -translate-y-2 opacity-0" 
-                    enter-to-class="transform translate-y-0 opacity-100" 
-                    leave-active-class="transition duration-200 ease-in" 
-                    leave-from-class="transform translate-y-0 opacity-100" 
-                    leave-to-class="transform -translate-y-2 opacity-0"
-                >
-                    <div v-if="form.isDirty" class="mx-6 sm:mx-8 md:mx-12 mt-6 p-4 rounded-2xl bg-amber-50/90 border border-amber-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                            </div>
-                            <div>
-                                <p class="text-xs sm:text-sm font-bold text-amber-900">Ada Perubahan Belum Disimpan</p>
-                                <p class="text-[11px] text-amber-700">Anda telah mengubah data profil. Jangan lupa simpan perubahan agar data tersimpan di sistem.</p>
-                            </div>
-                        </div>
-                        <span class="text-[11px] font-semibold text-amber-800 shrink-0">
-                            Gunakan tombol simpan di bagian bawah formulir.
-                        </span>
-                    </div>
-                </transition>
-
                 <!-- ============================================================= -->
                 <!-- KONTEN TAB FORM PROFIL -->
                 <!-- ============================================================= -->
@@ -465,13 +420,9 @@ const submit = (nextTabId = null, redirectTo = null) => {
                         <FormAkademik :form="form" />
                     </div>
 
-                    <!-- Tab 4: Data Orang Tua / Wali -->
-                    <div v-show="activeTab === 'orangtua'">
-                        <FormOrangTua :form="form" :provinces="provinces" :kabupatens="kabupatens" />
-                    </div>
                 </div>
 
-                <!-- Bottom Sticky / Action Bar: Navigasi Antar Tab & Tombol Simpan -->
+                <!-- Bottom Sticky / Action Bar: Navigasi Antar Tab & Tombol Simpan di Langkah Terakhir -->
                 <div class="px-6 sm:px-8 md:px-12 py-5 bg-gray-50/90 backdrop-blur-md rounded-b-[2rem] flex flex-col md:flex-row justify-between items-center gap-4 border-t border-gray-100">
                     <!-- Left: Navigasi Sebelumnya -->
                     <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
@@ -487,30 +438,17 @@ const submit = (nextTabId = null, redirectTo = null) => {
                         <span v-else class="text-xs text-gray-400 font-medium">Langkah 1 dari {{ tabs.length }}</span>
                     </div>
                     
-                    <!-- Right: Alur Simpan & Lanjut (Tidak Ada Tombol Double Yang Bersaing) -->
+                    <!-- Right: Alur Lanjut Antar Langkah (Tanpa Duplikasi Tombol Simpan) -->
                     <div class="flex items-center gap-3 w-full md:w-auto justify-end">
-                        <!-- Opsi Simpan Saja (halus/sekunder) jika ada langkah berikutnya -->
-                        <button 
-                            v-if="nextTab"
-                            type="button"
-                            @click="submit()"
-                            :disabled="form.processing"
-                            class="px-4 py-2.5 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-xs sm:text-sm font-semibold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
-                        >
-                            Simpan Saja
-                        </button>
-
-                        <!-- Tombol Utama: Simpan & Lanjut ke Langkah Berikutnya -->
+                        <!-- Tombol Lanjut ke Langkah Berikutnya -->
                         <button 
                             v-if="nextTab" 
                             type="button" 
-                            @click="submit(nextTab.id)"
-                            :disabled="form.processing"
-                            class="px-6 py-3 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                            @click="switchTab(nextTab.id)"
+                            class="px-6 py-3 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
                         >
-                            <svg v-if="form.processing" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            <span>{{ form.processing ? 'Menyimpan...' : `Simpan & Lanjut: ${nextTab.name}` }}</span>
-                            <svg v-if="!form.processing" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                            <span>Lanjut: {{ nextTab.name }}</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </button>
 
                         <!-- Tombol Utama di Langkah Terakhir: Simpan Seluruh Profil -->
@@ -528,6 +466,43 @@ const submit = (nextTabId = null, redirectTo = null) => {
                 </div>
             </form>
         </main>
+
+        <!-- Popup Melayang Indikator Perubahan Belum Disimpan (Non-Intrusive Floating Bar) -->
+        <transition
+            enter-active-class="transition duration-300 ease-out"
+            enter-from-class="transform translate-y-6 opacity-0"
+            enter-to-class="transform translate-y-0 opacity-100"
+            leave-active-class="transition duration-200 ease-in"
+            leave-from-class="transform translate-y-0 opacity-100"
+            leave-to-class="transform translate-y-6 opacity-0"
+        >
+            <div
+                v-if="form.isDirty"
+                class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-5rem)] max-w-xl pointer-events-none"
+            >
+                <div class="pointer-events-auto flex items-center justify-between gap-4 rounded-2xl border border-[#0D542B]/30 bg-white px-5 py-3.5 text-gray-900 shadow-lg ring-1 ring-[#0D542B]/10">
+                    <div class="min-w-0 flex-1 flex items-center gap-3">
+                        <span class="h-2.5 w-2.5 rounded-full bg-[#0D542B] shrink-0"></span>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-xs sm:text-sm font-bold text-gray-900 truncate">
+                                Perubahan Belum Disimpan
+                            </p>
+                            <p class="text-[11px] text-gray-500 truncate">
+                                Silakan lanjutkan pengisian hingga selesai, lalu simpan perubahan.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        @click="submit()"
+                        :disabled="form.processing"
+                        class="shrink-0 rounded-xl bg-[#0D542B] hover:bg-[#093d1f] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                    >
+                        {{ form.processing ? 'Menyimpan...' : 'Simpan Sekarang' }}
+                    </button>
+                </div>
+            </div>
+        </transition>
 
         <!-- Tombol Gulir Cepat (Caping Ke Atas / Ke Bawah) -->
         <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2">

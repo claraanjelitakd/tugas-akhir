@@ -1,0 +1,19 @@
+@startuml
+title AD-03 Pengajuan Perusahaan oleh Alumni
+|Alumni|
+start
+:Isi data perusahaan;
+|Backend|
+:Validasi role, field, dan duplikasi;
+if (Valid?) then (ya)
+  :Normalisasi domestic/international;
+  |Database|
+  :Buat perusahaan berstatus Menunggu Verifikasi;
+  :Simpan relasi creator;
+  |Backend|
+  :Tulis log dan kembalikan hasil;
+else (tidak)
+  :Kembalikan validation error;
+endif
+stop
+@enduml

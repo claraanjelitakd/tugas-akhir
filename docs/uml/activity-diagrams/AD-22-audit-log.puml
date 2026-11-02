@@ -1,0 +1,13 @@
+@startuml
+title AD-22 Audit Log
+|Superadmin|
+start
+:Buka log dan pilih filter;
+|Backend|
+:Validasi filter dan eager-load user;
+|Database|
+:Ambil LogActivity;
+|Backend|
+:Render daftar log Inertia;
+stop
+@enduml

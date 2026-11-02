@@ -52,140 +52,165 @@ const totalQuestionsCount = computed(() => {
 });
 
 // ========================================================
-// SWEETALERT2: TAMBAH & EDIT SECTION PRODI
+// STATE REAKTIF UNTUK MODAL (VUE 3)
 // ========================================================
+// Catatan Belajar: 'ref' adalah fungsi dasar Vue 3 Composition API untuk membuat state reaktif.
+// Saat nilai properti 'value' diubah di dalam JavaScript, Vue secara otomatis memperbarui tampilan HTML (DOM).
+
+// 1. State Modal Form Bagian (Tambah & Sunting)
+// Status apakah modal form terbuka (true) atau tertutup (false)
+const isSectionModalOpen = ref(false);
+// Menandai apakah sedang dalam mode edit data yang sudah ada
+const isEditingSection = ref(false);
+// Menyimpan ID bagian kuesioner yang sedang disunting
+const editingSectionId = ref(null);
+// Objek penampung inputan pengguna untuk form bagian
+const sectionFormData = ref({
+    title: '',
+    description: '',
+    order: 1,
+});
+// Status indikator proses kirim data sedang berlangsung
+const isSubmittingSection = ref(false);
+// Objek penampung pesan error validasi frontend maupun backend
+const sectionFormErrors = ref({});
+
+// 2. State Modal Detail Bagian
+// Menentukan apakah modal tampilan detail sedang terbuka
+const isDetailModalOpen = ref(false);
+// Menyimpan data baris bagian kuesioner yang dipilih pengguna
+const selectedSectionDetail = ref(null);
+
+// ========================================================
+// FUNGSI KONTROL: MODAL FORM BAGIAN (SECTION)
+// ========================================================
+
+/**
+ * Membuka modal form bagian kuesioner.
+ * Jika parameter sectionToEdit diisi objek, modal akan beralih ke mode Edit.
+ * Jika tidak ada parameter, modal terbuka sebagai form Tambah Baru.
+ */
 const openSectionModal = (sectionToEdit = null) => {
-    const isEdit = !!sectionToEdit;
-    const initialTitle = sectionToEdit?.title || '';
-    const initialDesc = sectionToEdit?.description || '';
-    const initialOrder = sectionToEdit?.order || (props.sections.length + 1);
+    sectionFormErrors.value = {};
 
-    const htmlContent = `
-        <div class="text-left space-y-3.5 text-xs">
-            <div>
-                <label class="block font-bold text-gray-700 mb-1">Program Studi</label>
-                <div class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-semibold text-xs">
-                    ${props.prodi?.nama_prodi || 'Program Studi Terhubung'}
-                </div>
-            </div>
+    if (sectionToEdit) {
+        // Mode Sunting: Ambil nilai awal dari data yang diklik pengguna
+        isEditingSection.value = true;
+        editingSectionId.value = sectionToEdit.id;
+        sectionFormData.value = {
+            title: sectionToEdit.title || '',
+            description: sectionToEdit.description || '',
+            order: sectionToEdit.order ?? (props.sections.length + 1),
+        };
+    } else {
+        // Mode Tambah: Buat inputan bersih dengan nomor urut selanjutnya
+        isEditingSection.value = false;
+        editingSectionId.value = null;
+        sectionFormData.value = {
+            title: '',
+            description: '',
+            order: props.sections.length + 1,
+        };
+    }
 
-            <div>
-                <label class="block font-bold text-gray-700 mb-1">Judul Bagian (Section Title) *</label>
-                <input id="swal-section-title" type="text" value="${initialTitle}" placeholder="Contoh: Relevansi Kurikulum & Kompetensi Kerja" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700" />
-            </div>
+    isSectionModalOpen.value = true;
+};
 
-            <div>
-                <label class="block font-bold text-gray-700 mb-1">Deskripsi / Petunjuk Pengisian (Opsional)</label>
-                <textarea id="swal-section-desc" rows="3" placeholder="Ketikkan petunjuk pengisian bagi responden alumni..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700 leading-relaxed">${initialDesc}</textarea>
-            </div>
+/**
+ * Menutup modal form dan membersihkan error
+ */
+const closeSectionModal = () => {
+    isSectionModalOpen.value = false;
+    isSubmittingSection.value = false;
+    sectionFormErrors.value = {};
+};
 
-            <div>
-                <label class="block font-bold text-gray-700 mb-1">Nomor Urut Posisi</label>
-                <input id="swal-section-order" type="number" value="${initialOrder}" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700" />
-            </div>
-        </div>
-    `;
+/**
+ * Mengirimkan data form ke controller backend via Inertia
+ */
+const submitSectionForm = () => {
+    sectionFormErrors.value = {};
 
-    Swal.fire({
-        title: isEdit ? 'Sunting Bagian Kuesioner' : 'Tambah Bagian Kuesioner Baru',
-        html: htmlContent,
-        showCancelButton: true,
-        confirmButtonText: isEdit ? 'Simpan Perubahan' : 'Tambah Bagian',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#0D542B',
-        cancelButtonColor: '#6B7280',
-        width: '500px',
-        focusConfirm: false,
-        didOpen: () => {
-            const elTitle = document.getElementById('swal-section-title');
-            if (elTitle && !isEdit) elTitle.focus();
-        },
-        preConfirm: () => {
-            const title = document.getElementById('swal-section-title').value.trim();
-            const description = document.getElementById('swal-section-desc').value.trim();
-            const order = parseInt(document.getElementById('swal-section-order').value, 10) || null;
+    // Validasi judul wajib diisi
+    if (!sectionFormData.value.title || !sectionFormData.value.title.trim()) {
+        sectionFormErrors.value.title = 'Judul bagian kuesioner wajib diisi.';
+        return;
+    }
 
-            if (!title) {
-                Swal.showValidationMessage('Judul bagian kuesioner wajib diisi.');
-                return false;
-            }
+    isSubmittingSection.value = true;
 
-            return {
-                title,
-                description,
-                order,
-            };
-        },
-    }).then((result) => {
-        if (result.isConfirmed && result.value) {
-            if (isEdit) {
-                router.put(`/prodi/sections/${sectionToEdit.id}`, result.value, {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        Swal.fire('Berhasil', 'Bagian kuesioner berhasil diperbarui.', 'success');
-                    },
-                    onError: (errors) => {
-                        Swal.fire('Gagal Menyimpan', Object.values(errors).join('<br>'), 'error');
-                    },
+    // Catatan Belajar: 'router.put' dan 'router.post' adalah method bawaan @inertiajs/vue3
+    // untuk melakukan request AJAX SPA (Single Page Application) tanpa refresh halaman.
+    if (isEditingSection.value) {
+        router.put(`/prodi/sections/${editingSectionId.value}`, sectionFormData.value, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeSectionModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Bagian kuesioner berhasil diperbarui.',
+                    timer: 2000,
+                    showConfirmButton: false,
                 });
-            } else {
-                router.post('/prodi/sections', result.value, {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        Swal.fire('Berhasil', 'Bagian kuesioner baru berhasil ditambahkan.', 'success');
-                    },
-                    onError: (errors) => {
-                        Swal.fire('Gagal Menyimpan', Object.values(errors).join('<br>'), 'error');
-                    },
+            },
+            onError: (errors) => {
+                sectionFormErrors.value = errors;
+            },
+            onFinish: () => {
+                isSubmittingSection.value = false;
+            },
+        });
+    } else {
+        router.post('/prodi/sections', sectionFormData.value, {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeSectionModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'Bagian kuesioner baru berhasil ditambahkan.',
+                    timer: 2000,
+                    showConfirmButton: false,
                 });
-            }
-        }
-    });
+            },
+            onError: (errors) => {
+                sectionFormErrors.value = errors;
+            },
+            onFinish: () => {
+                isSubmittingSection.value = false;
+            },
+        });
+    }
 };
 
 // ========================================================
-// SWEETALERT2: DETAIL SECTION
+// FUNGSI KONTROL: MODAL DETAIL BAGIAN
 // ========================================================
+
+/**
+ * Membuka modal detail bagian
+ */
 const openDetailModal = (sec) => {
-    const questionCount = sec.questions_count ?? (sec.questions?.length ?? 0);
-    const contentHtml = `
-        <div class="text-left space-y-3 text-xs">
-            <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-200">
-                <span class="text-gray-500 font-medium block">Judul Bagian:</span>
-                <p class="text-gray-900 font-bold mt-0.5 text-sm">${sec.title}</p>
-                ${sec.description ? `<p class="text-gray-600 mt-1.5 leading-relaxed">${sec.description}</p>` : '<p class="text-gray-400 italic mt-1">Tidak ada deskripsi tambahan.</p>'}
-            </div>
+    selectedSectionDetail.value = sec;
+    isDetailModalOpen.value = true;
+};
 
-            <div class="grid grid-cols-2 gap-2">
-                <div class="p-2 rounded-lg bg-gray-50 border border-gray-200">
-                    <span class="text-gray-500 block">Nomor Urut:</span>
-                    <span class="font-bold text-gray-800 text-xs">Bagian ${sec.order}</span>
-                </div>
-                <div class="p-2 rounded-lg bg-gray-50 border border-gray-200">
-                    <span class="text-gray-500 block">Program Studi:</span>
-                    <span class="font-bold text-gray-800 text-xs">${props.prodi?.nama_prodi || 'Program Studi'}</span>
-                </div>
-            </div>
-
-            <div class="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between">
-                <span class="font-bold text-emerald-900">Total Butir Pertanyaan Terdaftar:</span>
-                <span class="font-bold text-emerald-900 text-xs">${questionCount} Butir Soal</span>
-            </div>
-        </div>
-    `;
-
-    Swal.fire({
-        title: `Detail Bagian #${sec.order}`,
-        html: contentHtml,
-        confirmButtonText: 'Tutup',
-        confirmButtonColor: '#0D542B',
-        width: '500px',
-    });
+/**
+ * Menutup modal detail bagian
+ */
+const closeDetailModal = () => {
+    isDetailModalOpen.value = false;
+    selectedSectionDetail.value = null;
 };
 
 // ========================================================
-// SWEETALERT2: HAPUS SECTION
+// FUNGSI KONTROL: HAPUS & PINDAH URUTAN
 // ========================================================
+
+/**
+ * Konfirmasi SweetAlert2 sebelum menghapus data bagian kuesioner
+ */
 const handleDeleteSection = (sec) => {
     const questionCount = sec.questions_count ?? (sec.questions?.length ?? 0);
     Swal.fire({
@@ -202,7 +227,13 @@ const handleDeleteSection = (sec) => {
             router.delete(`/prodi/sections/${sec.id}`, {
                 preserveScroll: true,
                 onSuccess: () => {
-                    Swal.fire('Berhasil', 'Bagian kuesioner telah dihapus.', 'success');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil',
+                        text: 'Bagian kuesioner telah dihapus.',
+                        timer: 2000,
+                        showConfirmButton: false,
+                    });
                 },
                 onError: () => {
                     Swal.fire('Gagal', 'Terjadi kesalahan saat menghapus data bagian.', 'error');
@@ -212,9 +243,9 @@ const handleDeleteSection = (sec) => {
     });
 };
 
-// ========================================================
-// SWEETALERT2: PINDAHKAN URUTAN (REORDER)
-// ========================================================
+/**
+ * Memindahkan urutan tampilan posisi bagian ke atas atau ke bawah
+ */
 const handleMoveSection = (sec, direction) => {
     isReordering.value = true;
     router.post(
@@ -448,5 +479,188 @@ const handleMoveSection = (sec, direction) => {
                 </div>
             </main>
         </div>
+
+        <!-- ======================================================== -->
+        <!-- MODAL TELEPORT VUE 3: FORM TAMBAH / SUNTING BAGIAN PRODI -->
+        <!-- ======================================================== -->
+        <!-- Catatan Belajar: <Teleport to="body"> merender modal ini langsung di tingkat paling atas DOM (di dalam <body>), -->
+        <!-- sehingga modal tidak terpotong oleh tata letak sidebar atau tabel yang memiliki style overflow. -->
+        <Teleport to="body">
+            <div
+                v-if="isSectionModalOpen"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+                @click.self="closeSectionModal"
+                @keydown.esc="closeSectionModal"
+            >
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+                    <!-- Header Modal -->
+                    <div class="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-gray-900">
+                            {{ isEditingSection ? 'Sunting Bagian Kuesioner' : 'Tambah Bagian Kuesioner Baru' }}
+                        </h3>
+                        <button
+                            type="button"
+                            @click="closeSectionModal"
+                            class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Form Isi Modal -->
+                    <form @submit.prevent="submitSectionForm" class="p-6 space-y-4 text-xs">
+                        <!-- Informasi Program Studi -->
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">Program Studi</label>
+                            <div class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-semibold text-xs">
+                                {{ prodi?.nama_prodi || 'Program Studi Terhubung' }}
+                            </div>
+                        </div>
+
+                        <!-- Judul Bagian -->
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Judul Bagian (Section Title) <span class="text-rose-600">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                v-model="sectionFormData.title"
+                                placeholder="Contoh: Relevansi Kurikulum & Kompetensi Kerja"
+                                class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                :class="sectionFormErrors.title ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
+                            />
+                            <p v-if="sectionFormErrors.title" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ sectionFormErrors.title }}
+                            </p>
+                        </div>
+
+                        <!-- Deskripsi / Petunjuk Pengisian -->
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Deskripsi / Petunjuk Pengisian (Opsional)
+                            </label>
+                            <textarea
+                                v-model="sectionFormData.description"
+                                rows="3"
+                                placeholder="Ketikkan petunjuk pengisian bagi responden alumni..."
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700 leading-relaxed"
+                            ></textarea>
+                        </div>
+
+                        <!-- Nomor Urut Posisi -->
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Nomor Urut Posisi
+                            </label>
+                            <input
+                                type="number"
+                                v-model.number="sectionFormData.order"
+                                min="1"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                            />
+                        </div>
+
+                        <!-- Tombol Aksi Bawah -->
+                        <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                @click="closeSectionModal"
+                                :disabled="isSubmittingSection"
+                                class="px-3.5 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="isSubmittingSection"
+                                class="px-4 py-2 text-xs font-semibold text-white bg-[#0D542B] hover:bg-[#08381c] rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 shadow-xs"
+                            >
+                                <svg v-if="isSubmittingSection" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                <span>{{ isSubmittingSection ? 'Menyimpan...' : (isEditingSection ? 'Simpan Perubahan' : 'Tambah Bagian') }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- ======================================================== -->
+        <!-- MODAL TELEPORT VUE 3: DETAIL BAGIAN KUESIONER PRODI -->
+        <!-- ======================================================== -->
+        <Teleport to="body">
+            <div
+                v-if="isDetailModalOpen && selectedSectionDetail"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+                @click.self="closeDetailModal"
+                @keydown.esc="closeDetailModal"
+            >
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+                    <div class="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-gray-900">
+                            Detail Bagian #{{ selectedSectionDetail.order }}
+                        </h3>
+                        <button
+                            type="button"
+                            @click="closeDetailModal"
+                            class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="p-6 space-y-3.5 text-xs">
+                        <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                            <span class="text-gray-500 font-medium block">Judul Bagian:</span>
+                            <p class="text-gray-900 font-bold mt-0.5 text-sm leading-snug">
+                                {{ selectedSectionDetail.title }}
+                            </p>
+                            <p v-if="selectedSectionDetail.description" class="text-gray-600 mt-1.5 leading-relaxed">
+                                {{ selectedSectionDetail.description }}
+                            </p>
+                            <p v-else class="text-gray-400 italic mt-1">
+                                Tidak ada deskripsi tambahan.
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-200">
+                                <span class="text-gray-500 block">Nomor Urut:</span>
+                                <span class="font-bold text-gray-800 text-xs">Bagian {{ selectedSectionDetail.order }}</span>
+                            </div>
+                            <div class="p-2.5 rounded-lg bg-gray-50 border border-gray-200">
+                                <span class="text-gray-500 block">Program Studi:</span>
+                                <span class="font-bold text-gray-800 text-xs">
+                                    {{ prodi?.nama_prodi || 'Program Studi' }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                            <span class="font-bold text-emerald-900">Total Butir Pertanyaan Terdaftar:</span>
+                            <span class="font-bold text-emerald-900 text-xs">
+                                {{ selectedSectionDetail.questions_count ?? (selectedSectionDetail.questions?.length ?? 0) }} Butir Soal
+                            </span>
+                        </div>
+
+                        <div class="pt-3 border-t border-gray-100 flex justify-end">
+                            <button
+                                type="button"
+                                @click="closeDetailModal"
+                                class="px-4 py-2 text-xs font-semibold text-white bg-[#0D542B] hover:bg-[#08381c] rounded-lg transition-colors cursor-pointer"
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>

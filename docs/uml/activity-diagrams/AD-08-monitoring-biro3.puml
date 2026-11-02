@@ -1,0 +1,25 @@
+@startuml
+title AD-08 Monitoring dan Komunikasi Biro 3
+|Biro 3|
+start
+:Buka dashboard atau direktori;
+|Backend|
+:Hitung monitoring universitas;
+|Database|
+:Ambil populasi, response, dan status;
+|Backend|
+if (Blast email?) then (ya)
+  :Pilih alumni tidak lengkap;
+  repeat
+    |Mail Service|
+    :Kirim email per alumni;
+    |Backend|
+    :Catat sukses atau error dan lanjutkan;
+  repeat while (Penerima tersisa?) is (ya)
+else (tidak)
+  :Render detail baca atau ekspor;
+endif
+|Biro 3|
+:Jika mencoba update, terima warning read-only;
+stop
+@enduml

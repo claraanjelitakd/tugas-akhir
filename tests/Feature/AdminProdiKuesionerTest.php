@@ -70,11 +70,9 @@ class AdminProdiKuesionerTest extends TestCase
             'email_pribadi' => 'alumni.si@gmail.com',
             'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2001-08-15',
-            'agama' => 'Kristen',
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',
             'alamat_saat_ini' => 'Jl. Dr. Wahidin',
-            'nik' => '3471012345670002',
             'ip_kumulatif' => 3.80,
             'tahun_akademik_lulus' => 'Genap 2024/2025',
         ]);

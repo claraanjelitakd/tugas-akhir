@@ -4,7 +4,7 @@
   Hak Akses: Super Administrator
 -->
 <script setup>
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import Sidebar from '../Components/Sidebar.vue';
@@ -20,6 +20,7 @@ const props = defineProps({
         default: () => ({
             total_provinsi: 0,
             total_kabupaten: 0,
+            total_negara: 0,
             total_ump_configured: 0,
             avg_ump: 0,
             min_ump: { besaran: 0, provinsi: '-' },
@@ -35,11 +36,19 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    all_continents: {
+        type: Array,
+        default: () => [],
+    },
     provinces: {
         type: Array,
         default: () => [],
     },
     kabupatens: {
+        type: Object,
+        default: () => ({ data: [], links: [] }),
+    },
+    negaras: {
         type: Object,
         default: () => ({ data: [], links: [] }),
     },
@@ -60,6 +69,7 @@ const currentTab = ref(props.active_tab || 'provinsi');
 const search = ref(props.filters.search || '');
 const selectedYear = ref(props.filters.tahun || 2026);
 const selectedProvinsiId = ref(props.filters.propinsi_id || '');
+const selectedBenua = ref(props.filters.benua || '');
 const perPage = ref(props.filters.per_page || 15);
 const filterStatusUmp = ref('all'); // 'all', 'configured', 'unconfigured'
 
@@ -139,7 +149,8 @@ const applyFilters = () => {
         search: search.value || undefined,
         tahun: selectedYear.value != 2026 ? selectedYear.value : undefined,
         propinsi_id: currentTab.value === 'kabupaten' && selectedProvinsiId.value ? selectedProvinsiId.value : undefined,
-        per_page: currentTab.value === 'kabupaten' && perPage.value != 15 ? perPage.value : undefined,
+        benua: currentTab.value === 'negara' && selectedBenua.value ? selectedBenua.value : undefined,
+        per_page: (currentTab.value === 'kabupaten' || currentTab.value === 'negara') && perPage.value != 15 ? perPage.value : undefined,
     }, {
         preserveState: true,
         replace: true,
@@ -149,6 +160,7 @@ const applyFilters = () => {
 const resetFilters = () => {
     search.value = '';
     selectedProvinsiId.value = '';
+    selectedBenua.value = '';
     selectedYear.value = 2026;
     perPage.value = 15;
     filterStatusUmp.value = 'all';
@@ -540,6 +552,152 @@ const submitCopyYear = () => {
         },
     });
 };
+
+// ==========================================
+// STATE MODAL MASTER NEGARA (MURNI CRUD)
+// ==========================================
+// Menyimpan status visibilitas modal form negara
+const showNegaraModal = ref(false);
+
+// Menandai apakah sedang mode sunting (true) atau tambah baru (false)
+const isEditingNegara = ref(false);
+
+// Objek form reaktif untuk data master negara
+const formNegara = ref({
+    id: null,
+    kode_iso2: '',
+    kode_iso3: '',
+    nama_negara: '',
+    nama_resmi: '',
+    benua: '',
+    ibu_kota: '',
+});
+
+// Membuka modal untuk menambah negara baru
+const openCreateNegara = () => {
+    isEditingNegara.value = false;
+    formNegara.value = {
+        id: null,
+        kode_iso2: '',
+        kode_iso3: '',
+        nama_negara: '',
+        nama_resmi: '',
+        benua: '',
+        ibu_kota: '',
+    };
+    showNegaraModal.value = true;
+};
+
+// Membuka modal untuk mengedit negara yang dipilih
+const openEditNegara = (item) => {
+    isEditingNegara.value = true;
+    formNegara.value = {
+        id: item.id,
+        kode_iso2: item.kode_iso2,
+        kode_iso3: item.kode_iso3 || '',
+        nama_negara: item.nama_negara,
+        nama_resmi: item.nama_resmi || '',
+        benua: item.benua || '',
+        ibu_kota: item.ibu_kota || '',
+    };
+    showNegaraModal.value = true;
+};
+
+// Menyimpan data negara baru atau pembaruan negara
+const submitNegara = () => {
+    if (!formNegara.value.kode_iso2 || !formNegara.value.nama_negara) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Form Belum Lengkap',
+            text: 'Kode ISO-2 dan Nama Negara wajib diisi.',
+            confirmButtonColor: '#0D542B',
+        });
+        return;
+    }
+
+    isSubmitting.value = true;
+    const payload = {
+        kode_iso2: formNegara.value.kode_iso2.toUpperCase(),
+        kode_iso3: formNegara.value.kode_iso3 ? formNegara.value.kode_iso3.toUpperCase() : null,
+        nama_negara: formNegara.value.nama_negara,
+        nama_resmi: formNegara.value.nama_resmi || null,
+        benua: formNegara.value.benua || null,
+        ibu_kota: formNegara.value.ibu_kota || null,
+    };
+
+    if (isEditingNegara.value) {
+        router.put(`/superadmin/master-wilayah/negara/${formNegara.value.id}`, payload, {
+            onSuccess: () => {
+                showNegaraModal.value = false;
+                isSubmitting.value = false;
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil Diperbarui',
+                    text: 'Data negara berhasil diperbarui.',
+                    timer: 1600,
+                    showConfirmButton: false,
+                });
+            },
+            onError: (err) => {
+                isSubmitting.value = false;
+                const msg = Object.values(err)[0] || 'Gagal memperbarui data negara.';
+                Swal.fire({ icon: 'error', title: 'Terjadi Kesalahan', text: msg, confirmButtonColor: '#0D542B' });
+            },
+        });
+    } else {
+        router.post('/superadmin/master-wilayah/negara', payload, {
+            onSuccess: () => {
+                showNegaraModal.value = false;
+                isSubmitting.value = false;
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil Ditambahkan',
+                    text: 'Negara baru berhasil ditambahkan ke master referensi.',
+                    timer: 1600,
+                    showConfirmButton: false,
+                });
+            },
+            onError: (err) => {
+                isSubmitting.value = false;
+                const msg = Object.values(err)[0] || 'Gagal menambahkan negara baru.';
+                Swal.fire({ icon: 'error', title: 'Terjadi Kesalahan', text: msg, confirmButtonColor: '#0D542B' });
+            },
+        });
+    }
+};
+
+// Menampilkan dialog konfirmasi penghapusan data negara
+const confirmDeleteNegara = (item) => {
+    Swal.fire({
+        title: 'Hapus Master Negara?',
+        html: `Apakah Anda yakin ingin menghapus data negara <b>${item.nama_negara}</b> (${item.kode_iso2})?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#DC2626',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.delete(`/superadmin/master-wilayah/negara/${item.id}`, {
+                onSuccess: () => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Terhapus',
+                        text: 'Negara berhasil dihapus dari master data.',
+                        timer: 1600,
+                        showConfirmButton: false,
+                    });
+                },
+                onError: (err) => {
+                    const msg = Object.values(err)[0] || 'Gagal menghapus negara.';
+                    Swal.fire({ icon: 'error', title: 'Penghapusan Gagal', text: msg, confirmButtonColor: '#0D542B' });
+                },
+            });
+        }
+    });
+};
 </script>
 
 <template>
@@ -595,6 +753,18 @@ const submitCopyYear = () => {
                             <span>Tambah Kabupaten/Kota</span>
                         </button>
 
+                        <button
+                            v-if="currentTab === 'negara'"
+                            type="button"
+                            @click="openCreateNegara"
+                            class="px-4 py-2 bg-white text-[#0D542B] hover:bg-emerald-50 font-bold text-xs rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span>Tambah Negara</span>
+                        </button>
+
                         <template v-if="currentTab === 'ump'">
                             <button
                                 type="button"
@@ -626,7 +796,7 @@ const submitCopyYear = () => {
             <!-- ISI KONTEN UTAMA -->
             <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
                 <!-- KARTU STATISTIK RINGKASAN: Formal, Flat, 2-Tone -->
-                <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
                     <!-- Kartu 1: Total Provinsi -->
                     <div class="bg-white rounded-xl p-4.5 border border-slate-200 shadow-2xs">
                         <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Master Provinsi</p>
@@ -641,14 +811,21 @@ const submitCopyYear = () => {
                         <p class="text-xs text-slate-500 mt-1">Wilayah Tingkat II</p>
                     </div>
 
-                    <!-- Kartu 3: Regulasi UMP Tahun Ini -->
+                    <!-- Kartu 3: Total Master Negara -->
+                    <div class="bg-white rounded-xl p-4.5 border border-slate-200 shadow-2xs">
+                        <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Master Negara</p>
+                        <p class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1.5">{{ stats.total_negara || 0 }}</p>
+                        <p class="text-xs text-slate-500 mt-1">Referensi Global ISO</p>
+                    </div>
+
+                    <!-- Kartu 4: Regulasi UMP Tahun Ini -->
                     <div class="bg-white rounded-xl p-4.5 border border-slate-200 shadow-2xs">
                         <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ketetapan UMP {{ selectedYear }}</p>
                         <p class="text-2xl sm:text-3xl font-extrabold text-[#0D542B] tracking-tight mt-1.5">{{ stats.total_ump_configured }} / {{ stats.total_provinsi }}</p>
                         <p class="text-xs text-slate-500 mt-1">{{ stats.total_ump_configured === stats.total_provinsi ? '100% Seluruh Provinsi Terdata' : `${stats.total_provinsi - stats.total_ump_configured} Provinsi Belum Diatur` }}</p>
                     </div>
 
-                    <!-- Kartu 4: Rentang UMP Nasional -->
+                    <!-- Kartu 5: Rentang UMP Nasional -->
                     <div class="bg-white rounded-xl p-4.5 border border-slate-200 shadow-2xs">
                         <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Rata-rata UMP Nasional</p>
                         <p class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1.5">{{ formatRupiah(stats.avg_ump) }}</p>
@@ -680,6 +857,16 @@ const submitCopyYear = () => {
 
                     <button
                         type="button"
+                        @click="switchTab('negara')"
+                        class="px-4 py-2 text-xs font-bold rounded-lg transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                        :class="currentTab === 'negara' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'"
+                    >
+                        <span>Master Negara</span>
+                        <span class="px-2 py-0.5 rounded text-[11px] font-semibold" :class="currentTab === 'negara' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-700'">{{ stats.total_negara || 0 }}</span>
+                    </button>
+
+                    <button
+                        type="button"
                         @click="switchTab('ump')"
                         class="px-4 py-2 text-xs font-bold rounded-lg transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap"
                         :class="currentTab === 'ump' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'"
@@ -703,6 +890,21 @@ const submitCopyYear = () => {
                                 <option value="">Semua Provinsi</option>
                                 <option v-for="p in all_provinces" :key="p.id" :value="p.id">
                                     [{{ p.kode_provinsi }}] {{ p.nama_provinsi }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Filter Benua (Khusus Tab Negara) -->
+                        <div v-if="currentTab === 'negara'" class="flex items-center gap-1.5">
+                            <span class="font-bold text-gray-700">Wilayah Benua:</span>
+                            <select
+                                v-model="selectedBenua"
+                                @change="applyFilters"
+                                class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 font-medium cursor-pointer"
+                            >
+                                <option value="">Semua Benua</option>
+                                <option v-for="b in all_continents" :key="b" :value="b">
+                                    {{ b }}
                                 </option>
                             </select>
                         </div>
@@ -734,8 +936,8 @@ const submitCopyYear = () => {
                             </select>
                         </div>
 
-                        <!-- Per Page Dropdown (Khusus Tab Kabupaten) -->
-                        <div v-if="currentTab === 'kabupaten'" class="flex items-center gap-1.5">
+                        <!-- Per Page Dropdown (Khusus Tab Kabupaten & Negara) -->
+                        <div v-if="currentTab === 'kabupaten' || currentTab === 'negara'" class="flex items-center gap-1.5">
                             <span class="text-gray-500 font-medium">Tampilkan:</span>
                             <select
                                 v-model="perPage"
@@ -761,7 +963,7 @@ const submitCopyYear = () => {
                             type="text"
                             v-model="search"
                             @input="handleSearch"
-                            :placeholder="currentTab === 'provinsi' ? 'Cari nama / kode provinsi...' : (currentTab === 'kabupaten' ? 'Cari nama / kode kabupaten...' : 'Cari nama / kode provinsi UMP...')"
+                            :placeholder="currentTab === 'provinsi' ? 'Cari nama / kode provinsi...' : (currentTab === 'kabupaten' ? 'Cari nama / kode kabupaten...' : (currentTab === 'negara' ? 'Cari nama negara / kode ISO / ibu kota...' : 'Cari nama / kode provinsi UMP...'))"
                             class="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700 bg-white text-gray-900 placeholder-gray-400"
                         />
                     </div>
@@ -775,12 +977,15 @@ const submitCopyYear = () => {
                     <span v-else-if="currentTab === 'kabupaten'">
                         Menampilkan <strong class="text-gray-900">{{ kabupatens.data?.length || 0 }}</strong> dari total <strong class="text-gray-900">{{ kabupatens.total || 0 }}</strong> kabupaten/kota
                     </span>
+                    <span v-else-if="currentTab === 'negara'">
+                        Menampilkan <strong class="text-gray-900">{{ negaras.data?.length || 0 }}</strong> dari total <strong class="text-gray-900">{{ negaras.total || 0 }}</strong> negara terdaftar
+                    </span>
                     <span v-else>
                         Menampilkan <strong class="text-gray-900">{{ filteredUmps.length }}</strong> provinsi ketetapan UMP Tahun {{ selectedYear }}
                     </span>
 
                     <button
-                        v-if="search || selectedProvinsiId || (currentTab === 'ump' && filterStatusUmp !== 'all')"
+                        v-if="search || selectedProvinsiId || selectedBenua || (currentTab === 'ump' && filterStatusUmp !== 'all')"
                         @click="resetFilters"
                         class="text-[#0D542B] font-semibold hover:underline cursor-pointer"
                     >
@@ -1054,6 +1259,112 @@ const submitCopyYear = () => {
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- ======================================================== -->
+                <!-- TABEL 3: MASTER NEGARA                                  -->
+                <!-- ======================================================== -->
+                <div v-if="currentTab === 'negara'" class="bg-white rounded-xl border border-gray-300 overflow-x-auto shadow-2xs">
+                    <table class="w-full min-w-full text-left border-collapse border border-gray-300 text-xs bg-white">
+                        <thead>
+                            <tr class="bg-gray-100 text-gray-800 font-semibold border-b border-gray-300 text-[11px] whitespace-nowrap">
+                                <th class="border border-gray-300 px-2.5 py-2 text-center w-12 whitespace-nowrap">No</th>
+                                <th class="border border-gray-300 px-3 py-2 w-28 whitespace-nowrap">Kode ISO</th>
+                                <th class="border border-gray-300 px-3 py-2 whitespace-nowrap">Nama Negara</th>
+                                <th class="border border-gray-300 px-3 py-2 whitespace-nowrap">Nama Resmi</th>
+                                <th class="border border-gray-300 px-3 py-2 w-36 whitespace-nowrap">Benua</th>
+                                <th class="border border-gray-300 px-3 py-2 w-40 whitespace-nowrap">Ibu Kota</th>
+                                <th class="border border-gray-300 px-2.5 py-2 text-center w-24 whitespace-nowrap">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-if="!negaras.data || negaras.data.length === 0">
+                                <td colspan="7" class="border border-gray-300 p-8 text-center text-gray-400 italic">
+                                    Tidak ada data negara yang sesuai kriteria pencarian atau filter.
+                                </td>
+                            </tr>
+                            <tr
+                                v-for="(n, idx) in negaras.data"
+                                :key="n.id"
+                                class="hover:bg-gray-50/80 transition-colors"
+                            >
+                                <td class="border border-gray-300 px-2.5 py-2 text-center text-gray-600 font-medium">
+                                    {{ ((negaras.current_page - 1) * negaras.per_page) + idx + 1 }}
+                                </td>
+                                <td class="border border-gray-300 px-3 py-2 font-mono text-gray-900">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
+                                        {{ n.kode_iso2 }}
+                                    </span>
+                                    <span v-if="n.kode_iso3" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-600 border border-gray-200">
+                                        {{ n.kode_iso3 }}
+                                    </span>
+                                </td>
+                                <td class="border border-gray-300 px-3 py-2 font-bold text-gray-900">
+                                    {{ n.nama_negara }}
+                                </td>
+                                <td class="border border-gray-300 px-3 py-2 text-gray-700">
+                                    {{ n.nama_resmi || '-' }}
+                                </td>
+                                <td class="border border-gray-300 px-3 py-2">
+                                    <span v-if="n.benua" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                        {{ n.benua }}
+                                    </span>
+                                    <span v-else class="text-gray-400">-</span>
+                                </td>
+                                <td class="border border-gray-300 px-3 py-2 text-gray-700">
+                                    {{ n.ibu_kota || '-' }}
+                                </td>
+                                <td class="border border-gray-300 px-2.5 py-2 text-center">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <!-- Sunting (Pencil) -->
+                                        <button
+                                            type="button"
+                                            @click="openEditNegara(n)"
+                                            class="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                                            title="Edit Data Negara"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                        </button>
+
+                                        <!-- Hapus (Trash) -->
+                                        <button
+                                            type="button"
+                                            @click="confirmDeleteNegara(n)"
+                                            class="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                            title="Hapus Negara"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Paginasi Tabel Negara -->
+                    <div
+                        v-if="negaras.links && negaras.links.length > 3"
+                        class="p-3 border-t border-gray-300 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs bg-gray-50"
+                    >
+                        <div class="text-gray-500">
+                            Menampilkan {{ negaras.from || 0 }} - {{ negaras.to || 0 }} dari {{ negaras.total || 0 }} negara
+                        </div>
+                        <div class="flex items-center gap-1 flex-wrap">
+                            <button
+                                v-for="(lnk, idx) in negaras.links"
+                                :key="idx"
+                                :disabled="!lnk.url"
+                                @click="lnk.url && router.visit(lnk.url, { preserveState: true })"
+                                class="px-2.5 py-1 rounded border text-xs font-medium transition-colors"
+                                :class="lnk.active ? 'bg-[#0D542B] text-white border-[#0D542B]' : (lnk.url ? 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100 cursor-pointer' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed')"
+                                v-html="lnk.label"
+                            />
+                        </div>
+                    </div>
                 </div>
             </main>
         </div>
@@ -1417,6 +1728,141 @@ const submitCopyYear = () => {
                             class="px-4 py-2 text-xs font-bold bg-[#0D542B] text-white rounded-lg hover:bg-[#0a4222] transition-colors cursor-pointer disabled:opacity-50 shadow-2xs"
                         >
                             {{ isSubmitting ? 'Memproses...' : 'Mulai Salin Data' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- MODAL 4: TAMBAH / EDIT MASTER NEGARA (MURNI CRUD)        -->
+        <!-- ======================================================== -->
+        <div
+            v-if="showNegaraModal"
+            class="fixed inset-0 z-50 overflow-y-auto bg-black/40 flex items-center justify-center p-4 backdrop-blur-xs"
+            @click.self="showNegaraModal = false"
+        >
+            <div class="bg-white rounded-xl border border-gray-300 shadow-2xl max-w-lg w-full overflow-hidden transition-all">
+                <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                    <div>
+                        <h3 class="text-sm font-bold text-gray-900">
+                            {{ isEditingNegara ? 'Edit Data Negara' : 'Tambah Master Negara Baru' }}
+                        </h3>
+                        <p class="text-[11px] text-gray-500 mt-0.5">Master Data Referensi Negara Seluruh Dunia (ref_negara)</p>
+                    </div>
+                    <button
+                        type="button"
+                        @click="showNegaraModal = false"
+                        class="text-gray-400 hover:text-gray-600 cursor-pointer p-1 rounded-md hover:bg-gray-200/50"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitNegara" class="p-5 space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">
+                                Kode ISO-2 (2 Huruf) <span class="text-rose-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                v-model="formNegara.kode_iso2"
+                                placeholder="Misal: ID, SG, JP"
+                                maxlength="2"
+                                class="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 font-mono font-bold uppercase"
+                                required
+                            />
+                            <span class="text-[10px] text-gray-400 mt-0.5 block">Standar ISO 3166-1 alpha-2</span>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">
+                                Kode ISO-3 (3 Huruf)
+                            </label>
+                            <input
+                                type="text"
+                                v-model="formNegara.kode_iso3"
+                                placeholder="Misal: IDN, SGP, JPN"
+                                maxlength="3"
+                                class="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 font-mono uppercase"
+                            />
+                            <span class="text-[10px] text-gray-400 mt-0.5 block">Standar ISO 3166-1 alpha-3</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">
+                            Nama Negara (Bahasa Indonesia) <span class="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            v-model="formNegara.nama_negara"
+                            placeholder="Contoh: Indonesia, Singapura, Jepang"
+                            class="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 font-semibold"
+                            required
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">
+                            Nama Resmi Kenegaraan
+                        </label>
+                        <input
+                            type="text"
+                            v-model="formNegara.nama_resmi"
+                            placeholder="Contoh: Republik Indonesia, Republic of Singapore"
+                            class="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                        />
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">
+                                Wilayah Benua
+                            </label>
+                            <select
+                                v-model="formNegara.benua"
+                                class="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 font-medium"
+                            >
+                                <option value="">Pilih Benua...</option>
+                                <option value="Asia">Asia</option>
+                                <option value="Eropa">Eropa</option>
+                                <option value="Afrika">Afrika</option>
+                                <option value="Amerika Utara">Amerika Utara</option>
+                                <option value="Amerika Selatan">Amerika Selatan</option>
+                                <option value="Oseania">Oseania</option>
+                                <option value="Antartika">Antartika</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">
+                                Ibu Kota
+                            </label>
+                            <input
+                                type="text"
+                                v-model="formNegara.ibu_kota"
+                                placeholder="Contoh: Jakarta, Tokyo"
+                                class="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-gray-200 flex items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            @click="showNegaraModal = false"
+                            class="px-3.5 py-2 text-xs text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="isSubmitting"
+                            class="px-4 py-2 text-xs font-bold bg-[#0D542B] text-white rounded-lg hover:bg-[#0a4222] transition-colors cursor-pointer disabled:opacity-50 shadow-2xs"
+                        >
+                            {{ isSubmitting ? 'Menyimpan...' : (isEditingNegara ? 'Simpan Perubahan' : 'Tambahkan Negara') }}
                         </button>
                     </div>
                 </form>

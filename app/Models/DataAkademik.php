@@ -10,10 +10,13 @@ use Illuminate\Database\Eloquent\Model;
  *
  * Mengelola data master riwayat akademik mahasiswa/alumni UKDW.
  * Merupakan Single Source of Truth untuk:
- * - Identitas master (nama, tempat/tanggal lahir, jenis kelamin, agama, golongan darah, warga negara)
- * - Dokumen kependudukan (nik, no_kk, nisn, no_bpjs)
+ * - Identitas master (nama, tempat/tanggal lahir, jenis kelamin, warga negara)
  * - Riwayat akademik (angkatan, IPK, total SKS, status kelulusan, tahun & periode kelulusan)
  * - Email resmi mahasiswa (email_students)
+ *
+ * Kontak dan domisili aktif alumni berada di Biodata agar tidak ada dua sumber
+ * perubahan untuk alamat, telepon, email pribadi, dan wilayah tempat tinggal.
+ * Kolom no_bpjs, golongan_darah, agama, dan nisn dihapus sesuai kepatuhan privasi UU PDP No. 27/2022.
  */
 class DataAkademik extends Model
 {
@@ -27,24 +30,9 @@ class DataAkademik extends Model
         'angkatan_masuk',
         'tempat_lahir',
         'tanggal_lahir',
-        'agama',
         'jenis_kelamin',
-        'golongan_darah',
         'warga_negara',
-        'nomor_telepon',
-        'email_pribadi',
         'email_students',
-        'alamat_saat_ini',
-        'kelurahan',
-        'kecamatan',
-        'kabupaten_id',
-        'propinsi_id',
-        'kode_pos',
-        'nik',
-        'no_kk',
-        'nisn',
-        'no_bpjs',
-        'npwp',
         'asal_sekolah',
         'alamat_asal_sekolah',
         'kota_kabupaten_asal_sekolah',
@@ -76,34 +64,10 @@ class DataAkademik extends Model
     }
 
     /**
-     * Relasi ke model Yudisium (status lulus, skripsi, & pembimbing).
+     * Relasi ke model Yudisium (status lulus, tugas akhir, dan publikasi).
      */
     public function yudisium()
     {
         return $this->hasOne(Yudisium::class, 'nim', 'nim');
-    }
-
-    /**
-     * Relasi ke model DataOrangTua.
-     */
-    public function orangTua()
-    {
-        return $this->hasOne(DataOrangTua::class, 'nim', 'nim');
-    }
-
-    /**
-     * Relasi ke Propinsi asal/domisili akademik.
-     */
-    public function propinsi()
-    {
-        return $this->belongsTo(Propinsi::class, 'propinsi_id');
-    }
-
-    /**
-     * Relasi ke Kabupaten asal/domisili akademik.
-     */
-    public function kabupaten()
-    {
-        return $this->belongsTo(Kabupaten::class, 'kabupaten_id');
     }
 }

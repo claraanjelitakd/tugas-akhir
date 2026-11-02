@@ -1,0 +1,21 @@
+@startuml
+title AD-14 Manajemen Akun dan Reset Password
+|Superadmin/Admin Prodi/Admin Fakultas|
+start
+:Buka daftar akun;
+|Backend|
+:Validasi role dan scope;
+if (Resource dalam scope?) then (ya)
+  :Validasi perubahan identitas;
+  |Database|
+  :Simpan akun dan tulis log;
+  if (Reset default?) then (ya)
+    :Set password/default flag;
+    |Mail Service|
+    :Kirim notifikasi bila diminta;
+  endif
+else (tidak)
+  :Kembalikan akses ditolak;
+endif
+stop
+@enduml

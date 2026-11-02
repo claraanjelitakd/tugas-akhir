@@ -70,11 +70,7 @@ class DaftarAlumniController extends Controller
 
             $alumnis = $fallbackQuery->with([
                 'dataAkademik.yudisium',
-                'dataAkademik.orangTua',
-                'dataAkademik.propinsi',
-                'dataAkademik.kabupaten',
                 'yudisium',
-                'orangTua',
                 'propinsi',
                 'kabupaten',
                 'perusahaan.propinsi',
@@ -90,11 +86,7 @@ class DaftarAlumniController extends Controller
             $alumnis = Biodata::whereIn('id', $biodataIds)
                 ->with([
                     'dataAkademik.yudisium',
-                    'dataAkademik.orangTua',
-                    'dataAkademik.propinsi',
-                    'dataAkademik.kabupaten',
                     'yudisium',
-                    'orangTua',
                     'propinsi',
                     'kabupaten',
                     'perusahaan.propinsi',
@@ -147,7 +139,7 @@ class DaftarAlumniController extends Controller
     public function sendReminderEmail(Request $request, $id): RedirectResponse
     {
         $alumni = Biodata::with(['user', 'dataAkademik'])->findOrFail($id);
-        $targetEmail = $alumni->email_pribadi ?: ($alumni->dataAkademik?->email_pribadi ?: $alumni->user?->email);
+        $targetEmail = $alumni->email_pribadi ?: $alumni->user?->email;
 
         if (! $targetEmail || ! filter_var($targetEmail, FILTER_VALIDATE_EMAIL)) {
             return back()->with('error', "Gagal: Alumni {$alumni->nama} ({$alumni->nim}) belum memiliki alamat email yang valid di sistem.");

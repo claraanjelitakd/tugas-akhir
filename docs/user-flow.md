@@ -309,6 +309,10 @@ flowchart TD
     K1 --> Z
 ```
 
+### Kontrak metrik Dashboard Superadmin
+
+Response rate ditampilkan dengan tiga status: merah di bawah 50%, kuning 50–74,9%, dan hijau mulai 75%. Panel kelengkapan hanya menilai Profil Alumni, Kuesioner Universitas, dan gabungan keduanya. Kuesioner Prodi tidak memengaruhi angka kelengkapan universitas.
+
 ### Rincian Alur Superadmin Sebenarnya:
 1. **Dashboard Superadmin (`/superadmin/dashboard`)**:
    - Pusat pemantauan menyeluruh: Statistik pengisian tracer, ringkasan instrumen kuesioner, status approval perusahaan, dan peringatan operasional.
@@ -419,16 +423,66 @@ flowchart TD
 ```
 
 ### Rincian Alur Atasan:
-1. **Pemicu Undangan**: penyimpanan profil menyiapkan record `evaluasi_atasan` bila data atasan tersedia. Pengiriman email dilakukan melalui aksi terpisah `POST /alumni/kirim-email-atasan` oleh alumni atau admin yang diizinkan. Token dihasilkan sepanjang 40 karakter; kapasitas kolom database 64 karakter.
-2. **Akses Formulir Tanpa Hambatan**: Atasan membuka tautan langsung dari email (`/evaluasi-atasan/{token}`). Tidak dibutuhkan proses registrasi atau login akun.
-3. **Penyempurnaan Profil Instansi (Bagian I)**: Atasan dapat memverifikasi atau melengkapi nama instansi, alamat, no telp/fax, website, bentuk perusahaan, skala usaha, jumlah pegawai, jumlah alumni UKDW, dan standar gaji pertama. Data perusahaan dan atasan disinkronkan ke tabel master `perusahaan` dan `atasan`.
-4. **Penilaian Kesiapan & Kinerja (Bagian II)**:
-   - Menilai tingkat kesiapan alumni dalam bekerja (pilihan ganda).
-   - Menilai butir aspek kinerja lulusan pada tabel ber-header lengket (*sticky header*) yang memuat nama alumni.
+1. **Pemicu Undangan**: penyimpanan profil menyiapkan record `evaluasi_atasan` bila data atasan tersedia. Pengiriman email dilakukan melalui aksi terpisah `POST /alumni/kirim-email-atasan` oleh alumni atau admin yang diizinkan (tombol aktif selama nama dan email atasan valid). Token dihasilkan sepanjang 40 karakter; kapasitas kolom database 64 karakter.
+2. **Akses Formulir Tanpa Hambatan**: Atasan membuka tautan langsung dari email (`/evaluasi-atasan/{token}`). Tidak dibutuhkan proses registrasi atau login akun. Header kanan atas menampilkan foto bundar alumni ber-dropdown (nama, NIM, prodi, fakultas), sedangkan banner pengantar menyapa nama atasan secara formal dan menyajikan ringkasan jabatan/divisi, instansi penempatan, serta studi lanjut alumni.
+3. **Penyempurnaan Profil & Karakteristik Instansi (Langkah 1 & Langkah 2)**:
+   - **Langkah 1 (Profil Perusahaan)**: Atasan memverifikasi atau memperbarui nama perusahaan, jenis instansi (F11), cakupan wilayah (Dalam/Luar Negeri), provinsi/kabupaten atau negara, kode pos, alamat lengkap, no. telp/fax, dan website/homepage. Perubahan tersinkronisasi dua arah dengan profil karier alumni pada tabel `perusahaan`.
+   - **Langkah 2 (Karakteristik Perusahaan)**: Atasan memilih bentuk perusahaan, skala perusahaan, jumlah pegawai keseluruhan (`perusahaan.jumlah_pegawai`), jumlah alumni UKDW (`evaluasi_atasan.jumlah_alumni_ukdw`), dan standar gaji pertama (`evaluasi_atasan.standar_gaji_pertama`). Pilihan mendukung pembatalan jawaban (*uncheck*) dengan klik ulang atau klik dua kali.
+4. **Penilaian Kesiapan & Kinerja (Langkah 3)**:
+   - Menilai tingkat kesiapan alumni dalam bekerja dengan urutan skala dari kiri ke kanan: *Tidak siap*, *Kurang siap*, *Cukup Siap*, hingga *Sangat siap*.
+   - Menilai 12 butir aspek kinerja lulusan pada matriks Likert dengan urutan skala dari kiri ke kanan: *Sangat Kurang*, *Kurang*, *Cukup*, *Tinggi*, hingga *Sangat Tinggi* (mendukung pembatalan pilihan dengan klik ulang/klik 2x).
    - Menyampaikan saran/masukan konstruktif untuk universitas.
 5. **Konfirmasi & Audit**: Respon tersimpan ke tabel `respon_evaluasi_atasan` dan status berubah menjadi *"Sudah Selesai Diisi"*.
 
 ---
+
+## Alur Detail Perusahaan dan Konsistensi Jawaban
+
+Pada daftar Master Data Perusahaan, administrator membuka peninjauan untuk melihat seluruh field master: identitas, lokasi, alamat, kontak, website, sektor, skala, bentuk perusahaan, jumlah pegawai, status verifikasi, pembuat, dan timestamp. Rekomendasi master memiliki tombol informasi yang membuka detail kandidat sebelum konsolidasi.
+
+Pada penyimpanan jawaban tracer, `tracer.question_id` menyimpan ID subpertanyaan dari `ref_subpertanyaan2021`, sementara `kode_pertanyaan` dan teks pertanyaan dipertahankan sebagai snapshot laporan. Sistem mempertahankan answer untuk tampilan teks dan mengisi answer_json sebagai proyeksi terstruktur. F505 (Take Home Pay) selalu disinkronkan dari `biodata.gaji`, termasuk menimpa nilai F505 lama. Data lama yang hanya memiliki answer dinormalisasi tanpa menghapus nilai asli. Request API LinkedIn tetap menerima JSON, sedangkan request Inertia menerima redirect valid dengan flash message.
+
+Pada halaman profil alumni, alur self-service hanya mengirim dan menampilkan data yang diperlukan untuk tracer. NIK, NPWP, KK, data orang tua, dan data pembimbing/penguji tidak lagi berada pada schema aktif. NISN, BPJS, email mahasiswa, dan publikasi tetap berada di sumber akademik untuk kebutuhan admin, tetapi tidak dikirim sebagai props halaman alumni. Judul tugas akhir dan tanggal kelulusan tetap dikirim sebagai referensi akademik non-sensitif. Penyimpanan profil parsial tidak mengosongkan field yang tidak dikirim.
+
+Pada detail admin, hasil evaluasi atasan menampilkan nilai dari kolom \`respon_evaluasi_atasan.nilai\` dan status survei berdasarkan \`evaluasi_atasan.is_submitted\`. Token akses tidak ditampilkan pada detail alumni karena merupakan kredensial tautan survei publik.
+
+## Alur Analitik Superadmin
+
+```mermaid
+flowchart TD
+    A[Superadmin membuka /superadmin/analitik] --> B[Pilih tahun lulusan]
+    B --> C[Pilih satu grafik universitas]
+    C --> D[Pilih semua prodi atau satu prodi]
+    D --> E[Pilih tahun UMP bila grafik pendapatan]
+    E --> R[Frontend mengirim GET JSON tanpa reload halaman]
+    R --> F[Backend mengambil hanya database view indikator aktif]
+    F --> G{Jenis grafik}
+    G -->|Waktu| H[Normalisasi F502/F506 sesuai F504 lalu hitung median]
+    G -->|Gaji| I[Bandingkan gaji dengan 1,2 kali UMP provinsi kerja]
+    G -->|Wilayah| J[Kelompokkan perusahaan berdasarkan provinsi kerja]
+    G -->|Kategori| K[Kelompokkan F8, F14, atau F15]
+    G -->|Tracer lanjutan| P[Pilih view indikator yang dibangun dari jawaban kanonik]
+    P --> Q[Hitung kategori, median, funnel, atau gap kompetensi]
+    H --> L[Bangun payload statistik, metadata, dan detail]
+    I --> L
+    J --> L
+    K --> L
+    Q --> L
+    L --> S[Render kombinasi Apache ECharts atau MapLibre]
+    S --> T{Pengguna berinteraksi}
+    T -->|Hover| U[Tampilkan tooltip jumlah, proporsi, dan N valid]
+    T -->|Klik elemen| V[Cross-filter grafik terkait dan buka drawer]
+    T -->|Zoom atau pan| W[Perbarui viewport tanpa request data]
+    V --> M{Pilih panel}
+    M -->|Analisis| N[Tampilkan temuan otomatis dari statistik aktual]
+    M -->|Data| O[Tampilkan tabel dengan pencarian, sorting, dan pagination]
+```
+
+Halaman `GrafikUniv.vue` hanya memuat satu indikator aktif agar waktu tunggu awal lebih ringan. Enam belas indikator evaluasi wajib disusun mengikuti urutan laporan resmi dan analitik profil/wilayah ditempatkan sebagai tambahan. Modul visualisasi dirender oleh 18 berkas kategori mandiri di `components/analytics/categories/` via `AnalyticsChartsPanel.vue`, dan dibungkus oleh komponen terpadu `AnalyticsTabbedContainer.vue`. Setiap visualisasi dilengkapi navigasi tab, analisis naratif dinamis data-driven ("Kilas Indikator"), seleksi data dua arah, serta seamless inline drill-down seketika tanpa pergeseran tata letak maupun loncat tab terpisah ("Don't Make Me Think"). Visual mengadopsi grafik resmi Tracer Study (Gambar 4.3 metode belajar dengan skor bulat INT 1-5, Gambar 4.6 waktu tunggu prodi, Gambar 4.7 tahapan lamaran, Gambar 4.10 kuartil pendapatan per prodi, Gambar 4.14 vertical match diagram garis, dan Gambar 4.17 dual-axis kompetensi dan gap selisih) serta palet warna harmonis UKDW (hijau institusi `#0D542B`, slate netral lembut `#94A3B8`, dan slate tegas `#334155`). Sumbu X kategori prodi dirotasi 30 derajat guna mencegah nama prodi panjang bertumpuk. Kuesioner prodi tidak masuk ke alur grafik universitas.
+
+Pada sisi backend, request memilih satu view analitik sesuai parameter `grafik`. View yang dipakai tidak memuat indikator lain. View indikator lanjutan mengambil jawaban kanonik dari fondasi `v_analytics_tracer_answers` sebelum service menghitung median, kategori, funnel, atau gap kompetensi. Tabel `tracer` menjamin satu record per alumni dan kode pertanyaan, sehingga view tidak lagi melakukan agregasi `MAX(id)`. Status partisipasi wajib hanya dihitung pada `v_analytics_response_rate`, sedangkan indikator lain memakai `v_analytics_population` yang ringan. Endpoint JSON mengembalikan metadata tipe data, N valid, missing data, dasar persentase, dan waktu kalkulasi. Bila tidak ada record, backend mengirim status ketersediaan yang membedakan tidak ada populasi, belum dijawab, dan tidak berlaku karena percabangan.
+
+Untuk indikator studi lanjut, backend membaca F12, F18b, F18c, dan F18d dari `v_analytics_further_study`, lalu menandai setiap jawaban sebagai dimensi sumber biaya, perguruan tinggi, program studi, atau tanggal mulai sebelum agregasi dan cross-filter dibuat.
 
 ## Ringkasan Matriks Akses Peran (RBAC Matrix)
 

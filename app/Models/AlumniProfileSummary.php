@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Model AlumniProfileSummary
  *
  * Terhubung ke Database View `v_alumni_profile_summary` yang merangkum data biodata,
- * akademik, yudisium, prodi, fakultas, pekerjaan, dan orang tua alumni.
+ * akademik, yudisium, prodi, fakultas, pekerjaan, dan atasan alumni.
  */
 class AlumniProfileSummary extends Model
 {

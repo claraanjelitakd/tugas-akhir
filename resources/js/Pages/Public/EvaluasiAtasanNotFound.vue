@@ -1,78 +1,94 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Head } from '@inertiajs/vue3';
 
-defineProps({
+const props = defineProps({
     message: String,
+    title: String,
+    status: {
+        type: String,
+        default: 'not_found', // 'submitted' atau 'not_found'
+    },
 });
 
+const isSubmitted = computed(() => props.status === 'submitted');
 </script>
 
 <template>
-    <Head title="Akses Formulir Evaluasi - UKDW" />
+    <Head :title="(isSubmitted ? 'Evaluasi Berhasil Diterima' : 'Akses Formulir Evaluasi') + ' - UKDW'" />
 
-    <div class="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 antialiased">
-        <!-- TOPBAR FULL WIDTH: IDENTITAS RESMI UNIVERSITAS -->
-        <header class="bg-[#0D542B] text-white border-b-4 border-[#FDC700] shadow-sm w-full sticky top-0 z-30">
-            <div class="w-full px-4 sm:px-6 lg:px-10 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 shadow-xs border border-white/20">
-                        <img 
-                            src="/images/logo-ukdw.png" 
-                            alt="Logo UKDW" 
-                            class="w-full h-full object-contain"
-                            onerror="this.src='/images/ukdw.png'"
-                        />
-                    </div>
-                    <div>
-                        <h1 class="text-sm sm:text-base font-extrabold tracking-tight text-white uppercase leading-tight">
-                            Universitas Kristen Duta Wacana
-                        </h1>
-                        <p class="text-[11px] sm:text-xs text-emerald-100 font-medium">
-                            Pusat Karir & Alumni &bull; Evaluasi Kinerja & Kepuasan Pengguna Lulusan
-                        </p>
-                    </div>
-                </div>
-
-                <div class="hidden sm:flex items-center gap-2 text-xs font-semibold text-emerald-100 bg-white/10 px-3 py-1.5 rounded-md border border-white/15">
-                    <span class="w-2 h-2 rounded-full bg-[#FDC700]"></span>
-                    <span>Portal Resmi Evaluasi Atasan</span>
-                </div>
+    <!-- LAYOUT RESPONSIF FULL PAGE CLEAN TANPA BORDER DAN SHADOW DENGAN PALET HIJAU TUA & KUNING UKDW -->
+    <div class="min-h-screen w-full bg-white flex flex-col justify-between font-sans text-slate-900 antialiased selection:bg-[#0D542B] selection:text-white">
+        <!-- HEADER INSTITUSI DENGAN LOGO RESMI DAN AKSEN KUNING EMAS UKDW -->
+        <header class="w-full pt-8 sm:pt-12 px-6 flex flex-col items-center text-center">
+            <div class="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+                <img
+                    src="/uploads/logo/logo-ukdw.png"
+                    alt="Logo UKDW"
+                    class="w-full h-full object-contain"
+                />
             </div>
+            <h1 class="mt-4 text-base sm:text-lg font-black tracking-tight text-[#0D542B] uppercase leading-snug">
+                Universitas Kristen Duta Wacana
+            </h1>
+            <p class="text-xs sm:text-sm font-semibold text-[#0D542B]">
+                Pusat Alumni &amp; Karir &bull; Evaluasi Pengguna Lulusan
+            </p>
+            <!-- AKSEN GARIS KUNING UKDW -->
+            <div class="mt-3 w-12 h-1 bg-[#FDC700] rounded-full"></div>
         </header>
 
-        <!-- MAIN CONTAINER -->
-        <main class="flex-1 flex items-center justify-center p-4 sm:p-6 w-full">
-            <div class="max-w-lg w-full bg-white rounded-xl border border-slate-200 p-6 sm:p-8 text-center shadow-2xs space-y-5">
-                <div class="w-14 h-14 bg-amber-50 text-[#0D542B] border border-amber-200 rounded-full flex items-center justify-center mx-auto text-xl font-bold shadow-2xs">
-                    <svg class="w-7 h-7 text-[#0D542B]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
+        <!-- KONTEN TENGAH BERSIH DAN FLAT ALA ILUSTRASI THANK YOU -->
+        <main class="flex-1 flex items-center justify-center px-6 py-8 w-full max-w-xl mx-auto text-center">
+            <div class="w-full space-y-6">
+                <!-- ILUSTRASI SURAT / PESAN TERKIRIM BERKUALITAS DARI ASSETS RESMI -->
+                <div class="w-32 h-32 sm:w-40 sm:h-40 mx-auto flex items-center justify-center">
+                    <img
+                        v-if="isSubmitted"
+                        src="/uploads/pigo/pigo-update-data.png"
+                        alt="Evaluasi Selesai"
+                        class="w-full h-full object-contain"
+                    />
+                    <img
+                        v-else
+                        src="/uploads/pigo/loading-pigo.png"
+                        alt="Informasi Evaluasi"
+                        class="w-full h-full object-contain"
+                    />
                 </div>
 
-                <div>
-                    <h2 class="text-base sm:text-lg font-bold text-slate-900">Tautan Evaluasi Belum Teridentifikasi</h2>
-                    <p class="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
+                <!-- PESAN UCAPAN TERIMA KASIH UTAMA -->
+                <div class="space-y-3">
+                    <h2 class="text-2xl sm:text-3xl font-black text-[#0D542B] tracking-tight">
+                        {{ isSubmitted ? 'Terima Kasih!' : 'Tautan Evaluasi Belum Teridentifikasi' }}
+                    </h2>
+                    <p class="text-sm sm:text-base text-slate-700 leading-relaxed font-medium">
                         {{ message || 'Tautan formulir evaluasi atasan yang Anda buka tidak memiliki token valid atau telah kadaluarsa.' }}
+                    </p>
+                    <p v-if="isSubmitted" class="text-xs sm:text-sm text-slate-500 font-normal">
+                        Salinan konfirmasi respon evaluasi telah kami kirimkan ke alamat email Anda.
                     </p>
                 </div>
 
-                <div class="pt-2">
-                    <Link 
-                        href="/" 
-                        class="inline-flex items-center justify-center px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors border border-slate-200"
+                <!-- TOMBOL FLAT FORMAL TANPA ARROW, HANYA HIJAU TUA DENGAN HOVER KUNING -->
+                <div class="pt-4 flex justify-center">
+                    <a
+                        v-if="isSubmitted"
+                        href="https://www.ukdw.ac.id"
+                        target="_blank"
+                        class="px-8 py-3 bg-[#0D542B] hover:bg-[#0a4222] text-[#FDC700] hover:text-white font-extrabold text-sm rounded-lg transition-colors cursor-pointer"
                     >
-                        Kembali ke Halaman Utama Tracer Study
-                    </Link>
+                        Kunjungi Situs Resmi UKDW
+                    </a>
                 </div>
             </div>
         </main>
 
-        <!-- FOOTER FULL WIDTH -->
-        <footer class="bg-white border-t border-slate-200 py-4 text-xs text-slate-500 w-full">
-            <div class="w-full px-4 sm:px-6 lg:px-10 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
-                <span class="text-[11px] text-slate-400">Pusat Karir & Alumni Universitas Kristen Duta Wacana</span>
-                <span class="text-[11px] text-slate-400">&copy; {{ new Date().getFullYear() }} UKDW</span>
-            </div>
+        <!-- FOOTER FORMAL -->
+        <footer class="py-6 text-center text-xs text-slate-500">
+            <p class="font-medium text-slate-500">
+                Pusat Alumni &amp; Karir Universitas Kristen Duta Wacana
+            </p>
         </footer>
     </div>
 </template>

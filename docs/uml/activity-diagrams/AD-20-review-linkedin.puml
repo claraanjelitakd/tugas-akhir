@@ -1,0 +1,25 @@
+@startuml
+title AD-20 Review, Approve, Plot Ulang, dan Reject LinkedIn
+|Admin Scope|
+start
+:Buka hasil pending;
+:Pilih approve, plot ulang, reject, atau history;
+|Backend|
+:Validasi scope dan status hasil;
+if (Approve atau plot ulang?) then (ya)
+  |Database|
+  :Lock hasil dalam transaksi;
+  |Backend|
+  :Pilih posisi terbaru dan map data;
+  :Pertahankan field existing sesuai aturan;
+  :Append pengalaman tanpa duplikasi;
+  |Database|
+  :Update biodata, hasil, dan log;
+else (Reject?) then (ya)
+  |Database|
+  :Set hasil rejected dan tulis log;
+else (History)
+  :Baca history sync;
+endif
+stop
+@enduml

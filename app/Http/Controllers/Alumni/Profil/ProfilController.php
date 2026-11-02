@@ -14,7 +14,7 @@ use Illuminate\Http\Request;
 /**
  * ProfilController
  *
- * Fungsi: Mengelola halaman pengisian profil alumni (biodata diri, data akademik, dan orang tua).
+ * Fungsi: Mengelola halaman pengisian profil alumni (biodata diri dan data akademik).
  * Tujuan: Menyediakan antarmuka bagi alumni untuk memperbarui data pribadi dan pekerjaan mereka.
  */
 class ProfilController extends Controller
@@ -25,14 +25,13 @@ class ProfilController extends Controller
     public function tampilkanHalamanProfil(Request $request)
     {
         $pengguna = $request->user();
-        $biodata = $pengguna->biodata()->with(['prodi.fakultas', 'perusahaan', 'perusahaan.propinsi', 'perusahaan.kabupaten', 'dataAkademik', 'yudisium', 'orangTua', 'atasan', 'evaluasiAtasan'])->first();
+        $biodata = $pengguna->biodata()->with(['prodi.fakultas', 'perusahaan', 'perusahaan.propinsi', 'perusahaan.kabupaten', 'dataAkademik', 'yudisium', 'atasan', 'evaluasiAtasan'])->first();
 
         $propinsi = Propinsi::all();
         $kabupaten = Kabupaten::all();
         $negaras = RefNegara::orderBy('nama_negara')->get(['id', 'nama_negara', 'kode_iso2', 'benua']);
         $dataAkademik = $biodata?->dataAkademik;
-        $orangTua = $biodata?->orangTua ?? $biodata?->dataAkademik?->orangTua;
-        $yudisium = $biodata?->yudisium ?? $biodata?->dataAkademik?->yudisium;
+        $yudisium = $biodata?->yudisium ?? $dataAkademik?->yudisium;
         $atasan = $biodata?->atasan;
         $profileQuestions = KuesionerSyncService::getDynamicProfileQuestions();
         $dynamicProfileAnswers = $biodata
@@ -46,72 +45,40 @@ class ProfilController extends Controller
             'nama' => $biodata?->nama ?? ($dataAkademik?->nama ?? ''),
             'tempat_lahir' => $biodata?->tempat_lahir ?? ($dataAkademik?->tempat_lahir ?? ''),
             'tanggal_lahir' => $biodata?->tanggal_lahir ?? ($dataAkademik?->tanggal_lahir ?? ''),
-            'agama' => $biodata?->agama ?? ($dataAkademik?->agama ?? ''),
             'jenis_kelamin' => $biodata?->jenis_kelamin ?? ($dataAkademik?->jenis_kelamin ?? ''),
-            'golongan_darah' => $biodata?->golongan_darah ?? ($dataAkademik?->golongan_darah ?? ''),
             'warga_negara' => $biodata?->warga_negara ?? ($dataAkademik?->warga_negara ?? 'WNI'),
-            'nik' => $biodata?->nik ?? ($dataAkademik?->nik ?? ''),
-            'no_kk' => $biodata?->no_kk ?? ($dataAkademik?->no_kk ?? ''),
-            'nisn' => $biodata?->nisn ?? ($dataAkademik?->nisn ?? ''),
-            'no_bpjs' => $biodata?->no_bpjs ?? ($dataAkademik?->no_bpjs ?? ''),
-            'npwp' => $biodata?->npwp ?? '',
             'foto' => $biodata?->foto ?? '',
 
             // Kontak & Alamat Pribadi
-            'alamat_saat_ini' => $biodata?->alamat ?? ($dataAkademik?->alamat_saat_ini ?? ''),
-            'alamat' => $biodata?->alamat ?? ($dataAkademik?->alamat_saat_ini ?? ''),
-            'kelurahan' => $biodata?->kelurahan ?? ($dataAkademik?->kelurahan ?? ''),
-            'kecamatan' => $biodata?->kecamatan ?? ($dataAkademik?->kecamatan ?? ''),
-            'kabupaten_id' => $biodata?->kabupaten_id ?? ($dataAkademik?->kabupaten_id ?? ''),
-            'propinsi_id' => $biodata?->propinsi_id ?? ($dataAkademik?->propinsi_id ?? ''),
-            'provinsi_id' => $biodata?->propinsi_id ?? ($dataAkademik?->propinsi_id ?? ''),
-            'kode_pos' => $biodata?->kode_pos ?? ($dataAkademik?->kode_pos ?? ''),
-            'nomor_telepon' => $biodata?->nomor_telepon ?? ($dataAkademik?->nomor_telepon ?? ''),
-            'email_pribadi' => $biodata?->email_pribadi ?? ($dataAkademik?->email_pribadi ?? $pengguna->email),
-            'email_students' => $dataAkademik?->email_students ?? '',
+            'alamat_saat_ini' => $biodata?->alamat_saat_ini ?? '',
+            'kelurahan' => $biodata?->kelurahan ?? '',
+            'kecamatan' => $biodata?->kecamatan ?? '',
+            'kabupaten_id' => $biodata?->kabupaten_id ?? '',
+            'propinsi_id' => $biodata?->propinsi_id ?? '',
+            'provinsi_id' => $biodata?->propinsi_id ?? '',
+            'kode_pos' => $biodata?->kode_pos ?? '',
+            'nomor_telepon' => $biodata?->nomor_telepon ?? '',
+            'email_pribadi' => $biodata?->email_pribadi ?? $pengguna->email,
 
             // Data Akademik & Yudisium
             'prodi_id' => $biodata?->prodi_id,
-            'kode_prodi' => $biodata?->prodi?->kode_prodi ?? ($dataAkademik?->program_studi ?? ''),
-            'program_studi' => $biodata?->prodi?->nama_prodi ?? ($dataAkademik?->program_studi ?? ''),
-            'fakultas' => $biodata?->prodi?->fakultas?->nama_fakultas ?? ($dataAkademik?->fakultas ?? ''),
+            'kode_prodi' => $biodata?->prodi?->kode_prodi ?? '',
+            'program_studi' => $biodata?->prodi?->nama_prodi ?? '',
+            'fakultas' => $biodata?->prodi?->fakultas?->nama_fakultas ?? '',
             'angkatan_masuk' => $dataAkademik?->angkatan_masuk ?? '',
             'status_mahasiswa' => $dataAkademik?->status_mahasiswa ?? 'AR',
             'tahun_akademik_lulus' => $dataAkademik?->tahun_akademik_lulus ?? '',
             'tahun_lulus' => $dataAkademik?->tahun_lulus ? (string) $dataAkademik->tahun_lulus : '',
             'ipk' => $dataAkademik?->ip_kumulatif ?? '',
             'ip_kumulatif' => $dataAkademik?->ip_kumulatif ?? '',
-            'strata' => $dataAkademik?->strata ?? 'S1',
-            'no_ijazah' => $dataAkademik?->no_ijazah ?? '',
             'total_sks' => $dataAkademik?->total_sks ?? '',
             'total_angka_kualitas' => $dataAkademik?->total_angka_kualitas ?? '',
             'asal_sekolah' => $dataAkademik?->asal_sekolah ?? '',
 
-            // Yudisium (Skripsi & Dosen)
+            // Tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai data akademik non-sensitif.
             'judul_ta' => $yudisium?->judul_ta ?? '',
             'judul_ta_inggris' => $yudisium?->judul_ta_inggris ?? '',
-            'dosen_pembimbing_1' => $yudisium?->dosen_pembimbing_1 ?? '',
-            'dosen_pembimbing_2' => $yudisium?->dosen_pembimbing_2 ?? '',
-            'dosen_penguji_1' => $yudisium?->dosen_penguji_1 ?? '',
-            'dosen_penguji_2' => $yudisium?->dosen_penguji_2 ?? '',
-            'url_publikasi' => $yudisium?->url_publikasi ?? '',
-            'jenis_publikasi' => $yudisium?->jenis_publikasi ?? '',
-            'status_publikasi' => $yudisium?->status_publikasi ?? '',
-            'status_lulus' => $yudisium?->status_lulus ?? 'Belum',
-            'status_yudisium' => $yudisium?->status_lulus ?? 'Belum',
-            'keterangan_hasil_yudisium' => $yudisium?->keterangan_hasil_yudisium ?? '',
-            'proses_yudisium' => $yudisium?->status_lulus ?? 'Belum',
-
-            // Data Orang Tua / Wali
-            'nama_orang_tua' => $orangTua?->nama_orang_tua ?? '',
-            'pekerjaan_orang_tua' => $orangTua?->pekerjaan ?? '',
-            'alamat_orang_tua' => $orangTua?->alamat ?? '',
-            'kota_orang_tua' => $orangTua?->kota ?? '',
-            'kabupaten_id_orang_tua' => $orangTua?->kabupaten_id ?? '',
-            'propinsi_id_orang_tua' => $orangTua?->propinsi_id ?? '',
-            'provinsi_id_orang_tua' => $orangTua?->propinsi_id ?? '',
-            'kode_pos_orang_tua' => $orangTua?->kode_pos ?? '',
-            'nomor_telepon_orang_tua' => $orangTua?->nomor_telepon ?? '',
+            'tanggal_lulus' => $dataAkademik?->tanggal_lulus?->format('Y-m-d') ?? '',
 
             // Karier / Profil Profesional & Penghasilan
             'instagram_url' => $biodata?->instagram_url ?? '',
@@ -119,10 +86,8 @@ class ProfilController extends Controller
             'linkedin_url' => $biodata?->linkedin_url ?? '',
             'linkedin_username' => $biodata?->linkedin_username ?? '',
 
-            'skills' => $biodata?->skills ?? $biodata?->expert ?? '',
-            'experience' => $biodata?->experience ?? $biodata?->minat ?? '',
-            'expert' => $biodata?->skills ?? $biodata?->expert ?? '',
-            'minat' => $biodata?->experience ?? $biodata?->minat ?? '',
+            'skills' => $biodata?->skills ?? '',
+            'experience' => $biodata?->experience ?? '',
             'kategori_pekerjaan' => $biodata?->kategori_pekerjaan ?? '',
             'posisi_jabatan' => $biodata?->posisi_jabatan ?? '',
             'bidang_pekerjaan' => $biodata?->bidang_pekerjaan ?? '',
@@ -137,6 +102,9 @@ class ProfilController extends Controller
             'nama_perusahaan' => $biodata?->perusahaan?->nama_perusahaan ?? '',
             'perusahaan_alamat' => $biodata?->perusahaan?->alamat ?? '',
             'perusahaan_skala' => $biodata?->perusahaan?->skala ?? '',
+            'perusahaan_bentuk' => $biodata?->perusahaan?->bentuk_perusahaan ?? '',
+            'perusahaan_no_telp_fax' => $biodata?->perusahaan?->no_telp_fax ?? '',
+            'perusahaan_homepage' => $biodata?->perusahaan?->homepage ?? '',
             'perusahaan_jenis_perusahaan' => $biodata?->perusahaan?->jenis_perusahaan ?? '',
             'perusahaan_jenis_perusahaan_lainnya' => $biodata?->perusahaan?->jenis_perusahaan_lainnya ?? '',
             'perusahaan_jenis_lokasi' => $biodata?->perusahaan?->jenis_lokasi ?? 'Dalam Negeri',
@@ -148,6 +116,9 @@ class ProfilController extends Controller
             // Fallback key untuk kompatibilitas frontend
             'company_alamat' => $biodata?->perusahaan?->alamat ?? '',
             'company_skala' => $biodata?->perusahaan?->skala ?? '',
+            'company_bentuk' => $biodata?->perusahaan?->bentuk_perusahaan ?? '',
+            'company_no_telp_fax' => $biodata?->perusahaan?->no_telp_fax ?? '',
+            'company_homepage' => $biodata?->perusahaan?->homepage ?? '',
             'company_jenis_perusahaan' => $biodata?->perusahaan?->jenis_perusahaan ?? '',
             'company_jenis_perusahaan_lainnya' => $biodata?->perusahaan?->jenis_perusahaan_lainnya ?? '',
             'company_jenis_lokasi' => $biodata?->perusahaan?->jenis_lokasi ?? 'Dalam Negeri',
@@ -176,12 +147,22 @@ class ProfilController extends Controller
             ->toArray();
 
         // Get all perusahaan for Autocomplete
-        $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'propinsi_id', 'kabupaten_id', 'alamat', 'kode_pos', 'skala', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'jenis_lokasi', 'negara', 'status_verifikasi')->get();
+        $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'propinsi_id', 'kabupaten_id', 'alamat', 'kode_pos', 'skala', 'bentuk_perusahaan', 'no_telp_fax', 'homepage', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'jenis_lokasi', 'negara', 'status_verifikasi')->get();
 
         return inertia('Alumni/Profil/Index', [
-            'biodataData' => $biodata,
-            'alumniData' => $biodata,
-            'evaluasiAtasan' => $biodata?->evaluasiAtasan,
+            // Hanya kirim konteks minimum yang dibutuhkan FormKarier; relasi akademik/keluarga
+            // tidak diserialisasikan ke browser alumni.
+            'alumniData' => [
+                'id' => $biodata?->id,
+                'nim' => $biodata?->nim,
+                'prodi' => [
+                    'kode_prodi' => $biodata?->prodi?->kode_prodi,
+                ],
+            ],
+            'evaluasiAtasan' => $biodata?->evaluasiAtasan ? [
+                'is_submitted' => (bool) $biodata->evaluasiAtasan->is_submitted,
+                'has_invitation' => filled($biodata->evaluasiAtasan->token),
+            ] : null,
             'formData' => $formData,
             'propinsis' => $propinsi,
             'provinces' => $propinsi,

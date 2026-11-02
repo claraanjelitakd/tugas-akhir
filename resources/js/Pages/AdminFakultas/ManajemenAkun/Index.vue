@@ -27,76 +27,116 @@ const applyFilters = () => {
     }, { preserveState: true, replace: true });
 };
 
+// ========================================================
+// STATE REAKTIF UNTUK MODAL EDIT AKUN MAHASISWA / ALUMNI
+// ========================================================
+// Catatan Belajar: 'ref' adalah pondasi reaktivitas Vue.
+// Ketika 'isEditModalOpen.value' berubah nilainya, Vue otomatis mengatur visibilitas modal di layar.
+
+// Menentukan apakah modal edit akun sedang terbuka
+const isEditModalOpen = ref(false);
+// Menyimpan ID user yang datanya sedang diedit
+const editingUserId = ref(null);
+// Objek penampung nilai input form edit
+const editForm = ref({
+    name: '',
+    email: '',
+    username: '',
+});
+// Penampung pesan error validasi input
+const editErrors = ref({});
+// Indikator loading saat proses simpan data berjalan
+const isSubmitting = ref(false);
+
+/**
+ * Membuka modal edit dan mengisi form dengan data pengguna yang diklik
+ */
 const openEditUserModal = (u) => {
-    Swal.fire({
-        title: `<span class="text-base font-bold text-slate-900">Edit</span>`,
-        html: `
-            <div class="text-left text-xs space-y-3 pt-1 text-slate-800">
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">Nama Lengkap *</label>
-                    <input id="swal-edit-name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" value="${(u.name || '').replace(/"/g, '&quot;')}" />
-                </div>
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">Email Terdaftar (Pribadi) *</label>
-                    <input id="swal-edit-email" type="email" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" value="${u.email || ''}" />
-                </div>
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">NIM / Username *</label>
-                    <input id="swal-edit-username" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" value="${u.username || ''}" />
-                </div>
-            </div>
-        `,
-        width: '480px',
-        showCancelButton: true,
-        confirmButtonText: 'Simpan Perubahan',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#0D542B',
-        cancelButtonColor: '#6B7280',
-        preConfirm: () => {
-            const name = document.getElementById('swal-edit-name')?.value?.trim();
-            const email = document.getElementById('swal-edit-email')?.value?.trim();
-            const username = document.getElementById('swal-edit-username')?.value?.trim();
+    editErrors.value = {};
+    editingUserId.value = u.id;
+    editForm.value = {
+        name: u.name || '',
+        email: u.email || '',
+        username: u.username || '',
+    };
+    isEditModalOpen.value = true;
+};
 
-            if (!name || !email || !username) {
-                Swal.showValidationMessage('Nama, Email, dan NIM wajib diisi.');
-                return false;
-            }
+/**
+ * Menutup modal edit pengguna dan membersihkan error
+ */
+const closeEditUserModal = () => {
+    isEditModalOpen.value = false;
+    editingUserId.value = null;
+    editErrors.value = {};
+    isSubmitting.value = false;
+};
 
-            return { name, email, username };
-        }
-    }).then((res) => {
-        if (res.isConfirmed && res.value) {
-            router.put(`/fakultas/manajemen-akun/${u.id}`, res.value, {
-                onSuccess: () => {
-                    Swal.fire('Berhasil!', 'Data akun mahasiswa telah diperbarui.', 'success');
-                }
+/**
+ * Mengirimkan data pembaruan akun ke backend Laravel
+ */
+const submitEditUser = () => {
+    editErrors.value = {};
+
+    // Validasi frontend
+    if (!editForm.value.name.trim()) {
+        editErrors.value.name = 'Nama lengkap wajib diisi.';
+    }
+    if (!editForm.value.email.trim()) {
+        editErrors.value.email = 'Email wajib diisi.';
+    }
+    if (!editForm.value.username.trim()) {
+        editErrors.value.username = 'NIM / Username wajib diisi.';
+    }
+
+    if (Object.keys(editErrors.value).length > 0) {
+        return;
+    }
+
+    isSubmitting.value = true;
+
+    router.put(`/fakultas/manajemen-akun/${editingUserId.value}`, editForm.value, {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeEditUserModal();
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: 'Data akun mahasiswa telah diperbarui.',
+                timer: 2000,
+                showConfirmButton: false,
             });
-        }
+        },
+        onError: (errs) => {
+            editErrors.value = errs;
+        },
+        onFinish: () => {
+            isSubmitting.value = false;
+        },
     });
 };
 
-const handleResetToDefaultAndNotify = (userData) => {
+// Mengirim tautan reset agar alumni menetapkan password baru melalui email
+const handleSendPasswordResetLink = (userData) => {
     Swal.fire({
-        title: 'Reset Kredensial Awal?',
-        html: `
-            <div class="text-xs text-left space-y-2">
-                <p>Kredensial awal akun <strong>${userData.name}</strong> akan direset. Nilai password tidak ditampilkan demi keamanan.</p>
-                <p class="pt-1">Alumni wajib mengganti password setelah berhasil login:</p>
-                <div class="font-mono font-bold text-[#0D542B] bg-emerald-50 p-2 rounded border border-emerald-200">${userData.email}</div>
-            </div>
-        `,
+        title: 'Kirim Tautan Reset Kata Sandi?',
+        text: `Tautan reset untuk ${userData.name} akan dikirim ke ${userData.email}.`,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonText: 'Ya, Reset & Kirim Email',
+        confirmButtonText: 'Ya, Kirim Tautan',
         cancelButtonText: 'Batal',
         confirmButtonColor: '#0D542B',
         cancelButtonColor: '#6B7280',
     }).then((res) => {
         if (res.isConfirmed) {
-            router.post(`/fakultas/manajemen-akun/${userData.id}/reset-default-notify`, {}, {
-                onSuccess: () => {
-                    Swal.fire('Berhasil Di-reset!', `Kredensial awal ${userData.name} telah direset.`, 'success');
-                }
+            router.post(`/fakultas/manajemen-akun/${userData.id}/password-reset`, {}, {
+                preserveScroll: true,
+                onSuccess: (page) => {
+                    Swal.fire('Email Berhasil Dikirim', page.props.flash?.success || `Tautan reset telah dikirim ke ${userData.email}.`, 'success');
+                },
+                onError: (errors) => {
+                    Swal.fire('Gagal Mengirim', errors.reset || 'Tautan reset tidak dapat dikirim.', 'error');
+                },
             });
         }
     });
@@ -124,7 +164,7 @@ const handleResetToDefaultAndNotify = (userData) => {
                             Manajemen Akun Mahasiswa & Alumni {{ currentFakultas?.nama_fakultas }}
                         </h1>
                         <p class="text-xs text-gray-500 mt-0.5">
-                            Pengelolaan akun seluruh mahasiswa lingkup fakultas, pembaruan email pribadi, dan 1-Klik reset password ke tanggal lahir.
+                            Pengelolaan akun mahasiswa fakultas dan pengiriman tautan reset kata sandi ke email terdaftar.
                         </p>
                     </div>
 
@@ -187,11 +227,11 @@ const handleResetToDefaultAndNotify = (userData) => {
                                             Edit
                                         </button>
                                         <button
-                                            @click="handleResetToDefaultAndNotify(u)"
+                                            @click="handleSendPasswordResetLink(u)"
                                             class="px-2.5 py-1 bg-[#0D542B] text-white font-semibold rounded text-[11px] hover:bg-[#08381c] cursor-pointer"
-                                            title="Reset kredensial awal alumni"
+                                            title="Kirim tautan reset kata sandi"
                                         >
-                                            Reset Password
+                                            Kirim Tautan Reset
                                         </button>
                                     </div>
                                 </td>
@@ -201,5 +241,112 @@ const handleResetToDefaultAndNotify = (userData) => {
                 </div>
             </main>
         </div>
+
+        <!-- ======================================================== -->
+        <!-- MODAL TELEPORT VUE 3: SUNTING DATA MAHASISWA / ALUMNI -->
+        <!-- ======================================================== -->
+        <Teleport to="body">
+            <div
+                v-if="isEditModalOpen"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+                @click.self="closeEditUserModal"
+                @keydown.esc="closeEditUserModal"
+            >
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+                    <!-- Header Modal -->
+                    <div class="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-gray-900">
+                            Sunting Data Akun
+                        </h3>
+                        <button
+                            type="button"
+                            @click="closeEditUserModal"
+                            class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Form Isi Modal -->
+                    <form @submit.prevent="submitEditUser" class="p-6 space-y-4 text-xs">
+                        <!-- Nama Lengkap -->
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">
+                                Nama Lengkap <span class="text-rose-600">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                v-model="editForm.name"
+                                placeholder="Masukkan nama lengkap mahasiswa/alumni..."
+                                class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                :class="editErrors.name ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'"
+                            />
+                            <p v-if="editErrors.name" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ editErrors.name }}
+                            </p>
+                        </div>
+
+                        <!-- Email Terdaftar -->
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">
+                                Email Terdaftar (Pribadi) <span class="text-rose-600">*</span>
+                            </label>
+                            <input
+                                type="email"
+                                v-model="editForm.email"
+                                placeholder="nama@email.com"
+                                class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                :class="editErrors.email ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'"
+                            />
+                            <p v-if="editErrors.email" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ editErrors.email }}
+                            </p>
+                        </div>
+
+                        <!-- NIM / Username -->
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">
+                                NIM / Username <span class="text-rose-600">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                v-model="editForm.username"
+                                placeholder="Contoh: 71200001"
+                                class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                :class="editErrors.username ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'"
+                            />
+                            <p v-if="editErrors.username" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ editErrors.username }}
+                            </p>
+                        </div>
+
+                        <!-- Tombol Aksi Bawah -->
+                        <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                @click="closeEditUserModal"
+                                :disabled="isSubmitting"
+                                class="px-3.5 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="isSubmitting"
+                                class="px-4 py-2 text-xs font-semibold text-white bg-[#0D542B] hover:bg-[#08381c] rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 shadow-xs"
+                            >
+                                <svg v-if="isSubmitting" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                <span>{{ isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan' }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>

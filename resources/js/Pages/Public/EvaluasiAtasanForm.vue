@@ -1,8 +1,18 @@
+<!--
+  Halaman Publik: Formulir Evaluasi Pengguna Lulusan (Atasan)
+  File: resources/js/Pages/Public/EvaluasiAtasanForm.vue
+
+  Deskripsi:
+  Menampilkan sapaan formal kepada atasan, ringkasan informasi alumni yang dikelompokkan
+  secara ringkas (tanpa puluhan card terpisah), avatar profil alumni bergaya dropdown di header,
+  serta 3 langkah pengisian evaluasi atasan.
+-->
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
 
+// Props dari EvaluasiAtasanController@show
 const props = defineProps({
     token: String,
     evaluasi: Object,
@@ -23,7 +33,35 @@ const props = defineProps({
     isSubmitted: Boolean,
 });
 
-// Stepper steps definisi identik dengan /alumni/profile
+// State dropdown profil alumni di pojok kanan header (identik dengan navbar alumni)
+const isAlumniMenuOpen = ref(false);
+const alumniMenuRef = ref(null);
+
+const closeAlumniMenuOnClickOutside = (event) => {
+    if (alumniMenuRef.value && !alumniMenuRef.value.contains(event.target)) {
+        isAlumniMenuOpen.value = false;
+    }
+};
+
+onMounted(() => {
+    document.addEventListener('click', closeAlumniMenuOnClickOutside);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('click', closeAlumniMenuOnClickOutside);
+});
+
+// Inisial nama alumni jika belum memiliki foto
+const alumniInitials = computed(() => {
+    const rawName = String(props.alumniInfo?.nama || 'A').trim();
+    const parts = rawName.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return rawName.slice(0, 2).toUpperCase();
+});
+
+// Definisi 3 langkah stepper evaluasi atasan
 const activeStep = ref('instansi');
 
 const steps = [
@@ -36,33 +74,127 @@ const steps = [
 const likertPertanyaanList = computed(() => props.pertanyaanList.filter((q) => q.kode !== 'tingkat_kesiapan_kerja'));
 const kesiapanPertanyaan = computed(() => props.pertanyaanList.find((q) => q.kode === 'tingkat_kesiapan_kerja'));
 
+// Urutan opsi kesiapan kerja dari paling kiri (Tidak siap) ke paling kanan (Sangat siap)
+const kesiapanOptions = ['Tidak siap', 'Kurang siap', 'Cukup Siap', 'Sangat siap'];
+
+// Urutan opsi skala 12 aspek kompetensi dari paling kiri (Sangat Kurang) ke paling kanan (Sangat Tinggi)
+const skalaNilaiOptions = ['Sangat Kurang', 'Kurang', 'Cukup', 'Tinggi', 'Sangat Tinggi'];
+
 // Siapkan state default jawaban untuk setiap butir pertanyaan
 const initialJawaban = {};
 props.pertanyaanList.forEach((q) => {
     initialJawaban[q.kode] = props.existingResponses[q.kode] || '';
 });
 
+// Normalisasi nilai skala perusahaan dari profil alumni agar cocok dengan pilihan Langkah 2
+const normalizeSkala = (val) => {
+    if (!val) return '';
+    if (val === 'Regional/Lokal') return 'Lokal';
+    return val;
+};
+
+// State form utama Inertia
 const form = useForm({
-    // Bagian I: Informasi Perusahaan & Atasan
+    // Langkah 1: Informasi Perusahaan & Nama Atasan
     nama_perusahaan: props.initialCompany?.nama || '',
     alamat_lengkap: props.initialCompany?.alamat || '',
     no_telp_fax: props.initialCompany?.no_telp_fax || '',
     homepage: props.initialCompany?.homepage || '',
     nama_atasan: props.initialCompany?.nama_atasan || '',
-    email_atasan: props.initialCompany?.email_atasan || '',
-    telepon_atasan: props.initialCompany?.telepon_atasan || '',
 
-    // Karakteristik Keberadaan Alumni UKDW
+    // Langkah 2: Karakteristik Perusahaan & Sebaran Alumni UKDW
     bentuk_perusahaan: props.initialCompany?.bentuk || '',
-    skala_perusahaan: props.initialCompany?.skala || '',
+    skala_perusahaan: normalizeSkala(props.initialCompany?.skala || ''),
     jumlah_pegawai: props.initialCompany?.jumlah_pegawai || '',
     jumlah_alumni_ukdw: props.evaluasi?.jumlah_alumni_ukdw || '',
     standar_gaji_pertama: props.evaluasi?.standar_gaji_pertama || '',
 
-    // Bagian II: Jawaban Kuesioner Evaluasi & Saran
+    // Langkah 3: Jawaban Kuesioner Evaluasi & Saran
     jawaban: initialJawaban,
     catatan_lainnya: props.existingCatatan || '',
 });
+
+// Helper cek nilai teks tidak kosong
+const cleanText = (val) => {
+    const str = String(val ?? '').trim();
+    return str !== '' && str !== '-' ? str : '';
+};
+
+// Nama atasan untuk sapaan pembuka
+const greetingSupervisorName = computed(() => {
+    return cleanText(form.nama_atasan) || cleanText(props.initialCompany?.nama_atasan) || 'Pimpinan / Atasan Penilai';
+});
+
+// Ringkasan terstruktur menjadi maksimal 3 grup bersih (Jabatan, Instansi, Studi Lanjut) agar tidak bertumpuk banyak card
+const careerSummary = computed(() => {
+    const info = props.alumniInfo || {};
+    const jabatan = cleanText(info.posisi_jabatan);
+    const divisi = cleanText(info.bidang_pekerjaan);
+    const kategori = cleanText(info.kategori_pekerjaan);
+
+    const primaryLine = [jabatan, divisi].filter(Boolean).join(' — ') || kategori;
+    const secondaryLine = jabatan || divisi ? (kategori ? `Status Aktivitas: ${kategori}` : '') : '';
+
+    if (!primaryLine && !secondaryLine) return null;
+    return { primaryLine, secondaryLine };
+});
+
+const companySummary = computed(() => {
+    const info = props.alumniInfo || {};
+    const nama = cleanText(form.nama_perusahaan) || cleanText(info.perusahaan);
+    const jenis = cleanText(info.jenis_perusahaan);
+    const bentuk = cleanText(form.bentuk_perusahaan) || cleanText(info.bentuk_perusahaan);
+    const skala = cleanText(form.skala_perusahaan) || cleanText(info.skala_perusahaan);
+    const alamat = cleanText(form.alamat_lengkap) || cleanText(info.alamat_perusahaan);
+    const lokasi = cleanText(info.lokasi_perusahaan);
+    const kodePos = cleanText(info.kode_pos_perusahaan);
+    const cakupan = cleanText(info.jenis_lokasi);
+
+    const metaParts = [jenis, bentuk, skala ? `Skala ${skala}` : '', cakupan].filter(Boolean);
+    const locationParts = [alamat, lokasi !== alamat ? lokasi : '', kodePos].filter(Boolean);
+
+    if (!nama && metaParts.length === 0 && locationParts.length === 0) return null;
+    return {
+        nama: nama || 'Instansi Tempat Bekerja',
+        metaLine: metaParts.join(' • '),
+        locationLine: locationParts.join(', '),
+    };
+});
+
+const studySummary = computed(() => {
+    const info = props.alumniInfo || {};
+    const jenjang = cleanText(info.pendidikan_tingkat);
+    const prodi = cleanText(info.pendidikan_prodi);
+    const univ = cleanText(info.perguruan_tinggi);
+
+    if (!jenjang && !prodi && !univ) return null;
+    const primaryLine = [jenjang, prodi].filter(Boolean).join(' — ') || univ;
+    const secondaryLine = (jenjang || prodi) && univ ? univ : '';
+
+    return { primaryLine, secondaryLine };
+});
+
+// Fungsi toggle / batal pilih (cancel) untuk field Langkah 2
+const toggleFieldOption = (fieldName, val) => {
+    if (form[fieldName] === val) {
+        form[fieldName] = '';
+    } else {
+        form[fieldName] = val;
+    }
+};
+
+// Fungsi toggle / batal pilih (cancel) untuk jawaban Langkah 3
+const toggleJawaban = (kode, nilai) => {
+    if (form.jawaban[kode] === nilai) {
+        form.jawaban[kode] = '';
+    } else {
+        form.jawaban[kode] = nilai;
+    }
+};
+
+const clearJawaban = (kode) => {
+    form.jawaban[kode] = '';
+};
 
 const submitSuccess = ref(props.isSubmitted || false);
 
@@ -72,9 +204,7 @@ const isStepCompleted = (stepId) => {
         return !!(
             form.nama_perusahaan &&
             form.alamat_lengkap &&
-            form.nama_atasan &&
-            form.email_atasan &&
-            form.email_atasan.includes('@')
+            form.nama_atasan
         );
     }
     if (stepId === 'karakteristik') {
@@ -106,7 +236,7 @@ const nextStep = () => {
             Swal.fire({
                 icon: 'warning',
                 title: 'Data Belum Lengkap',
-                text: 'Mohon lengkapi Nama Perusahaan, Alamat, Nama Atasan, dan Email Atasan sebelum melanjutkan.',
+                text: 'Mohon lengkapi Nama Perusahaan, Alamat Perusahaan, dan Nama Atasan sebelum melanjutkan.',
                 confirmButtonColor: '#0D542B',
             });
             return;
@@ -135,13 +265,12 @@ const prevStep = () => {
 };
 
 const submitForm = () => {
-    // Validasi apakah seluruh pertanyaan pada langkah 3 sudah dinilai
     const missingKeys = props.pertanyaanList.filter((q) => !form.jawaban[q.kode]);
     if (missingKeys.length > 0) {
         Swal.fire({
             icon: 'warning',
             title: 'Penilaian Belum Lengkap',
-            text: `Mohon kesediaan Bapak/Ibu untuk melengkapi penilaian pada semua aspek (${missingKeys.length} pertanyaan/aspek belum dinilai).`,
+            text: `Mohon lengkapi penilaian pada semua aspek (${missingKeys.length} pertanyaan/aspek belum dinilai).`,
             confirmButtonColor: '#0D542B',
         });
         return;
@@ -154,129 +283,169 @@ const submitForm = () => {
             Swal.fire({
                 icon: 'success',
                 title: 'Evaluasi Berhasil Disimpan',
-                text: 'Terima kasih atas waktu dan evaluasi obyektif yang Bapak/Ibu berikan untuk peningkatan mutu lulusan Universitas Kristen Duta Wacana.',
+                text: 'Terima kasih atas waktu dan evaluasi obyektif yang telah diberikan untuk peningkatan mutu lulusan Universitas Kristen Duta Wacana.',
                 confirmButtonColor: '#0D542B',
             });
         },
     });
 };
-
-const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat Kurang'];
 </script>
 
 <template>
     <Head title="Form Evaluasi Kepuasan & Kinerja Lulusan - UKDW" />
 
-    <!-- Full Page Container (Clean 2-Tone Layout) -->
+    <!-- Kontainer Halaman Utama -->
     <div class="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 antialiased selection:bg-emerald-100 selection:text-emerald-900">
-        
-        <!-- Header Bersih & Formal UKDW (Full Page) -->
+
+        <!-- Header Resmi UKDW dengan Avatar Dropdown Alumni di Kanan (Seperti Navbar Alumni) -->
         <header class="bg-[#0D542B] text-white shadow-xs w-full">
-            <div class="w-full px-4 sm:px-6 lg:px-10 py-4 sm:py-5">
-                <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-                    <div class="flex items-center gap-3.5">
+            <div class="w-full px-4 sm:px-6 lg:px-10 py-3.5 sm:py-4">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-3.5 min-w-0">
                         <div class="bg-white p-2 rounded-xl border border-emerald-100 shrink-0 shadow-2xs">
-                            <img 
-                                src="/uploads/logo/logo-ukdw.png" 
-                                alt="Logo UKDW" 
-                                class="h-10 sm:h-11 w-auto object-contain" 
+                            <img
+                                src="/uploads/logo/logo-ukdw.png"
+                                alt="Logo UKDW"
+                                class="h-9 sm:h-10 w-auto object-contain"
                                 onerror="this.style.display='none'"
                             />
                         </div>
-                        <div>
-                            <span class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-200 block">
+                        <div class="min-w-0">
+                            <span class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-200 block truncate">
                                 Pusat Karir &amp; Alumni (PKA) UKDW
                             </span>
-                            <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white leading-tight mt-0.5">
+                            <h1 class="text-sm sm:text-lg font-extrabold tracking-tight text-white leading-tight mt-0.5 truncate">
                                 Formulir Evaluasi Pengguna Lulusan (Atasan)
                             </h1>
-                            <p class="text-[11px] text-emerald-100/90 mt-0.5">
+                            <p class="text-[11px] text-emerald-100/90 mt-0.5 hidden sm:block">
                                 Universitas Kristen Duta Wacana &bull; Yogyakarta
                             </p>
                         </div>
                     </div>
 
-                    <div class="hidden md:flex flex-col items-end text-right text-xs bg-white/10 px-3.5 py-2 rounded-lg border border-white/15 shrink-0">
-                        <span class="font-bold text-white text-[11px] uppercase tracking-wide">Standar Akreditasi Nasional</span>
-                        <span class="text-emerald-100 text-[11px] mt-0.5">Instrumen Evaluasi Kinerja Alumni</span>
+                    <!-- Pill Lingkaran Foto & Dropdown Informasi Alumni (Gaya Identik dengan Halaman Alumni) -->
+                    <div ref="alumniMenuRef" class="relative shrink-0">
+                        <button
+                            type="button"
+                            @click.stop="isAlumniMenuOpen = !isAlumniMenuOpen"
+                            class="flex items-center gap-2 p-1 pr-2.5 rounded-full bg-white text-slate-800 border border-white/90 hover:bg-emerald-50 transition-all cursor-pointer shadow-xs"
+                            title="Lihat Identitas Alumni"
+                        >
+                            <div class="w-9 h-9 rounded-full overflow-hidden bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+                                <img
+                                    v-if="alumniInfo.foto"
+                                    :src="alumniInfo.foto"
+                                    :alt="alumniInfo.nama"
+                                    class="w-full h-full object-cover object-top"
+                                />
+                                <span v-else class="text-xs font-extrabold text-[#0D542B] tracking-tight">
+                                    {{ alumniInitials }}
+                                </span>
+                            </div>
+                            <svg
+                                class="w-4 h-4 text-slate-600 transition-transform duration-200"
+                                :class="{ 'rotate-180 text-[#0D542B]': isAlumniMenuOpen }"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+
+                        <!-- Dropdown Detail Identitas Alumni -->
+                        <div
+                            v-if="isAlumniMenuOpen"
+                            class="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-lg border border-slate-200 py-3 z-50 text-slate-800"
+                        >
+                            <div class="px-4 pb-2.5 border-b border-slate-100">
+                                <p class="text-sm font-bold text-slate-900 truncate">{{ alumniInfo.nama }}</p>
+                                <p class="text-xs font-mono text-slate-500 mt-0.5">NIM: {{ alumniInfo.nim }}</p>
+                            </div>
+                            <div class="px-4 pt-2.5 space-y-1 text-xs">
+                                <div class="flex justify-between gap-2">
+                                    <span class="text-slate-400">Program Studi</span>
+                                    <span class="font-semibold text-slate-800 text-right">{{ alumniInfo.prodi }}</span>
+                                </div>
+                                <div v-if="alumniInfo.fakultas && alumniInfo.fakultas !== '-'" class="flex justify-between gap-2">
+                                    <span class="text-slate-400">Fakultas</span>
+                                    <span class="font-medium text-slate-700 text-right">{{ alumniInfo.fakultas }}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </header>
 
-        <!-- Konten Utama Formulir (Full Page) -->
+        <!-- Konten Utama Formulir -->
         <main class="flex-1 w-full px-4 sm:px-6 lg:px-10 py-6 sm:py-8 space-y-6">
 
-            <!-- KARTU INFORMASI ALUMNI YANG DINILAI -->
-            <div class="w-full bg-white rounded-xl border border-slate-200 shadow-2xs p-5 sm:p-6 space-y-5">
-                <!-- Header Nama, Foto & Identitas Pokok Akademik -->
-                <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 pb-4 border-b border-slate-100">
-                    <!-- Avatar Foto Profil Alumni -->
-                    <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-slate-200/90 shadow-2xs bg-slate-100 shrink-0 flex items-center justify-center">
-                        <img 
-                            v-if="alumniInfo.foto" 
-                            :src="alumniInfo.foto" 
-                            :alt="alumniInfo.nama" 
-                            class="w-full h-full object-cover object-top"
-                        />
-                        <div v-else class="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400 font-bold text-xl sm:text-2xl uppercase">
-                            {{ (alumniInfo.nama || 'A').charAt(0) }}
-                        </div>
-                    </div>
-
-                    <!-- Detail Nama & Info Pokok -->
-                    <div class="space-y-1 flex-1 min-w-0">
-                        <span class="text-[10px] font-bold uppercase tracking-wider text-[#0D542B] bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200 inline-block">
-                            Alumni Yang Dinilai
-                        </span>
-                        <h2 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight truncate">
-                            {{ alumniInfo.nama }}
-                        </h2>
-                        <div class="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600 font-medium">
-                            <span>Program Studi: <strong class="text-slate-900 font-semibold">{{ alumniInfo.prodi }}</strong></span>
-                            <span v-if="alumniInfo.fakultas && alumniInfo.fakultas !== '-'" class="text-slate-300 hidden sm:inline">&bull;</span>
-                            <span v-if="alumniInfo.fakultas && alumniInfo.fakultas !== '-'">{{ alumniInfo.fakultas }}</span>
-                            <span class="text-slate-300 hidden sm:inline">&bull;</span>
-                            <span>NIM: <strong class="text-slate-900 font-mono font-semibold">{{ alumniInfo.nim }}</strong></span>
-                        </div>
+            <!-- BANNER SAPAAN FORMAL & RINGKASAN PROFIL ALUMNI (TERPADU, TANPA BANYAK CARD) -->
+            <div class="w-full bg-white rounded-xl border border-slate-200 shadow-2xs p-5 sm:p-6 space-y-4">
+                <!-- Sapaan Ramah & Formal kepada Atasan + Identitas Ringkas Alumni -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                    <div class="space-y-1">
+                        <p class="text-sm sm:text-base font-bold text-slate-900">
+                            Yth. <span class="text-[#0D542B]">{{ greetingSupervisorName }}</span>,
+                        </p>
+                        <p class="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-4xl">
+                            Terima kasih atas kesediaan Anda meluangkan waktu untuk memberikan evaluasi terhadap lulusan kami,
+                            <strong class="text-slate-900 font-semibold">{{ alumniInfo.nama }}</strong>
+                            (Program Studi <strong class="text-slate-800 font-semibold">{{ alumniInfo.prodi }}</strong><span v-if="alumniInfo.fakultas && alumniInfo.fakultas !== '-'">, {{ alumniInfo.fakultas }}</span> &bull; NIM <span class="font-mono font-semibold text-slate-800">{{ alumniInfo.nim }}</span>).
+                        </p>
                     </div>
                 </div>
 
-                <!-- Grid Informasi Posisi, Status Aktivitas, dan Perusahaan -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                    <div class="bg-slate-50/80 rounded-lg p-3.5 border border-slate-200/80">
-                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                            Posisi / Jabatan Struktural (F2G)
+                <!-- Ringkasan Terpadu (Maksimal 3 Kolom Bersih: Peran Kerja, Instansi, & Studi Lanjut jika ada) -->
+                <div
+                    v-if="careerSummary || companySummary || studySummary"
+                    class="grid grid-cols-1 gap-4"
+                    :class="[
+                        careerSummary && companySummary && studySummary ? 'md:grid-cols-3' :
+                        (careerSummary && companySummary) || (careerSummary && studySummary) || (companySummary && studySummary) ? 'md:grid-cols-2' :
+                        'md:grid-cols-1'
+                    ]"
+                >
+                    <!-- 1. Ringkasan Jabatan & Divisi -->
+                    <div v-if="careerSummary" class="bg-slate-50/70 rounded-lg px-4 py-3 border border-slate-200/80">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                            Jabatan &amp; Divisi Alumni
                         </span>
-                        <p class="text-sm font-semibold text-slate-900 mt-1">
-                            {{ alumniInfo.posisi_jabatan || '-' }}
+                        <p class="text-xs sm:text-sm font-bold text-slate-900 mt-0.5">
+                            {{ careerSummary.primaryLine }}
+                        </p>
+                        <p v-if="careerSummary.secondaryLine" class="text-[11px] text-slate-500 mt-0.5">
+                            {{ careerSummary.secondaryLine }}
                         </p>
                     </div>
 
-                    <div class="bg-slate-50/80 rounded-lg p-3.5 border border-slate-200/80">
-                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                            Status Pekerjaan / Aktivitas Utama
+                    <!-- 2. Ringkasan Instansi & Lokasi Kerja -->
+                    <div v-if="companySummary" class="bg-slate-50/70 rounded-lg px-4 py-3 border border-slate-200/80">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                            Instansi &amp; Lokasi Penempatan
                         </span>
-                        <p class="text-sm font-semibold text-slate-900 mt-1">
-                            {{ alumniInfo.kategori_pekerjaan || '-' }}
+                        <p class="text-xs sm:text-sm font-bold text-slate-900 mt-0.5">
+                            {{ companySummary.nama }}
+                        </p>
+                        <p v-if="companySummary.metaLine" class="text-[11px] text-slate-600 font-medium mt-0.5">
+                            {{ companySummary.metaLine }}
+                        </p>
+                        <p v-if="companySummary.locationLine" class="text-[11px] text-slate-500 mt-0.5">
+                            {{ companySummary.locationLine }}
                         </p>
                     </div>
 
-                    <div class="bg-slate-50/80 rounded-lg p-3.5 border border-slate-200/80">
-                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                            Perusahaan / Tempat Bekerja
+                    <!-- 3. Ringkasan Studi Lanjut (Hanya muncul apabila alumni mengisi studi lanjut) -->
+                    <div v-if="studySummary" class="bg-slate-50/70 rounded-lg px-4 py-3 border border-slate-200/80">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                            Pendidikan / Studi Lanjut Saat Ini
                         </span>
-                        <p class="text-sm font-semibold text-slate-900 mt-1 truncate" :title="alumniInfo.perusahaan">
-                            {{ alumniInfo.perusahaan || '-' }}
+                        <p class="text-xs sm:text-sm font-bold text-slate-900 mt-0.5">
+                            {{ studySummary.primaryLine }}
                         </p>
-                    </div>
-
-                    <div class="bg-slate-50/80 rounded-lg p-3.5 border border-slate-200/80">
-                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                            Lokasi / Kota Penempatan
-                        </span>
-                        <p class="text-sm font-semibold text-slate-900 mt-1 truncate" :title="alumniInfo.lokasi_perusahaan">
-                            {{ alumniInfo.lokasi_perusahaan || '-' }}
+                        <p v-if="studySummary.secondaryLine" class="text-[11px] text-slate-500 mt-0.5">
+                            {{ studySummary.secondaryLine }}
                         </p>
                     </div>
                 </div>
@@ -289,7 +458,7 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                 </div>
                 <h3 class="text-xl sm:text-2xl font-bold text-slate-900">Evaluasi Berhasil Diterima</h3>
                 <p class="text-slate-600 text-xs sm:text-sm max-w-2xl mx-auto leading-relaxed">
-                    Terima kasih yang sebesar-besarnya kepada Bapak/Ibu pimpinan di <strong>{{ form.nama_perusahaan }}</strong> atas waktu, evaluasi obyektif, dan masukan konstruktif yang telah diberikan terhadap alumni kami, <strong>{{ alumniInfo.nama }}</strong>. Data respon Anda telah tersimpan secara resmi di sistem Tracer Study UKDW.
+                    Terima kasih yang sebesar-besarnya kepada <strong>{{ greetingSupervisorName }}</strong> di <strong>{{ form.nama_perusahaan }}</strong> atas waktu, evaluasi obyektif, dan masukan konstruktif yang telah diberikan terhadap alumni kami, <strong>{{ alumniInfo.nama }}</strong>. Data respon Anda telah tersimpan secara resmi di sistem Tracer Study UKDW.
                 </p>
                 <div class="pt-2">
                     <a href="https://www.ukdw.ac.id" target="_blank" class="inline-flex items-center px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors border border-slate-300">
@@ -298,55 +467,55 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                 </div>
             </div>
 
-            <!-- FORMULIR INPUT DENGAN STEPPER (TAMPILAN CLEAN & 2-TONE) -->
+            <!-- FORMULIR INPUT DENGAN 3 STEPPER -->
             <form v-else @submit.prevent="submitForm" class="space-y-6">
 
-                <!-- STEPPER NAVIGASI IDENTIK DENGAN /alumni/profile -->
+                <!-- STEPPER NAVIGASI 3 LANGKAH -->
                 <div class="w-full bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
                     <div class="overflow-x-auto py-3.5 sm:py-4 px-4 sm:px-8 border-b border-slate-200 bg-slate-50/50">
                         <div class="flex items-center justify-between w-full min-w-[500px] px-2 sm:px-6 md:px-12">
                             <template v-for="(tab, index) in steps" :key="tab.id">
                                 <!-- Lingkaran & Label Langkah -->
-                                <div 
+                                <div
                                     class="flex flex-col items-center justify-center cursor-pointer group px-2 py-1 transition-all"
                                     @click="goToStep(tab.id)"
                                     :title="'Langkah ' + tab.step + ': ' + tab.name"
                                 >
-                                    <div 
+                                    <div
                                         class="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full font-bold text-xs sm:text-sm transition-all duration-200 z-10 shadow-xs relative"
                                         :class="[
                                             activeStep === tab.id
-                                                ? 'bg-[#0D542B] text-white ring-4 ring-[#0D542B]/20 shadow-md scale-105' : 
+                                                ? 'bg-[#0D542B] text-white ring-4 ring-[#0D542B]/20 shadow-md scale-105' :
                                             (isStepCompleted(tab.id)
-                                                ? 'bg-[#0D542B] text-white shadow-xs group-hover:bg-[#08381c]' : 
+                                                ? 'bg-[#0D542B] text-white shadow-xs group-hover:bg-[#08381c]' :
                                                 'bg-white text-slate-500 border border-slate-300 group-hover:bg-slate-100 group-hover:text-slate-700')
                                         ]"
                                     >
-                                        <svg 
-                                            v-if="isStepCompleted(tab.id) && activeStep !== tab.id" 
-                                            class="w-4 h-4 text-white" 
-                                            fill="none" 
-                                            stroke="currentColor" 
+                                        <svg
+                                            v-if="isStepCompleted(tab.id) && activeStep !== tab.id"
+                                            class="w-4 h-4 text-white"
+                                            fill="none"
+                                            stroke="currentColor"
                                             viewBox="0 0 24 24"
                                         >
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
                                         </svg>
                                         <span v-else>{{ tab.step }}</span>
                                     </div>
-                                    <span 
+                                    <span
                                         class="text-[11px] sm:text-xs mt-1.5 text-center leading-tight transition-colors"
                                         :class="activeStep === tab.id ? 'text-[#0D542B] font-extrabold' : (isStepCompleted(tab.id) ? 'text-slate-800 font-semibold' : 'text-slate-400 font-medium')"
                                     >
                                         {{ tab.name }}
                                     </span>
-                                    <span 
-                                        v-if="isStepCompleted(tab.id)" 
+                                    <span
+                                        v-if="isStepCompleted(tab.id)"
                                         class="text-[9px] sm:text-[10px] text-emerald-800 font-bold mt-0.5"
                                     >
                                         Sudah Lengkap
                                     </span>
-                                    <span 
-                                        v-else 
+                                    <span
+                                        v-else
                                         class="text-[9px] sm:text-[10px] text-slate-400 font-normal mt-0.5"
                                     >
                                         {{ tab.subtitle }}
@@ -354,9 +523,9 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                                 </div>
 
                                 <!-- Garis Penghubung -->
-                                <div 
-                                    v-if="index < steps.length - 1" 
-                                    class="flex-1 h-1 sm:h-1.5 rounded-full transition-colors duration-300 mx-3 sm:mx-6 min-w-[30px]" 
+                                <div
+                                    v-if="index < steps.length - 1"
+                                    class="flex-1 h-1 sm:h-1.5 rounded-full transition-colors duration-300 mx-3 sm:mx-6 min-w-[30px]"
                                     :class="isStepCompleted(tab.id) ? 'bg-[#0D542B]' : 'bg-slate-200'"
                                 ></div>
                             </template>
@@ -364,7 +533,7 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                     </div>
 
                     <!-- ========================================================= -->
-                    <!-- LANGKAH 1: PROFIL PERUSAHAAN & ATASAN                     -->
+                    <!-- LANGKAH 1: PROFIL PERUSAHAAN & NAMA ATASAN                -->
                     <!-- ========================================================= -->
                     <div v-show="activeStep === 'instansi'" class="p-5 sm:p-7 space-y-5">
                         <div class="border-b border-slate-200 pb-3">
@@ -372,97 +541,72 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                                 Langkah 1: Informasi Perusahaan &amp; Atasan Langsung
                             </h3>
                             <p class="text-xs text-slate-500 mt-0.5">
-                                Identitas resmi tempat alumni bekerja serta kontak pimpinan yang berwenang memberikan evaluasi.
+                                Data di bawah ini telah diisi oleh alumni. Anda cukup memeriksa atau memperbaruinya jika terdapat perubahan.
                             </p>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                             <!-- Nama Perusahaan -->
-                            <div class="sm:col-span-2 lg:col-span-3 xl:col-span-2">
+                            <div class="sm:col-span-2 lg:col-span-1">
                                 <label class="block text-xs font-bold text-slate-700 mb-1.5">
                                     Nama Perusahaan / Lembaga / Institusi <span class="text-rose-500">*</span>
                                 </label>
-                                <input 
-                                    type="text" 
-                                    v-model="form.nama_perusahaan" 
+                                <input
+                                    type="text"
+                                    v-model="form.nama_perusahaan"
                                     required
                                     class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
-                                    placeholder="Nama resmi instansi tempat alumni bekerja" 
+                                    placeholder="Nama resmi instansi tempat alumni bekerja"
                                 />
                             </div>
 
-                            <!-- Alamat Lengkap -->
-                            <div class="sm:col-span-2 lg:col-span-3 xl:col-span-2">
+                            <!-- Nama Atasan Langsung -->
+                            <div>
                                 <label class="block text-xs font-bold text-slate-700 mb-1.5">
-                                    Alamat Lengkap Perusahaan <span class="text-rose-500">*</span>
+                                    Nama Atasan Langsung <span class="text-rose-500">*</span>
                                 </label>
-                                <textarea 
-                                    v-model="form.alamat_lengkap" 
-                                    rows="2"
+                                <input
+                                    type="text"
+                                    v-model="form.nama_atasan"
                                     required
-                                    class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white leading-relaxed outline-none"
-                                    placeholder="Jalan, Gedung, Kota/Kabupaten, Kode Pos..."
-                                ></textarea>
+                                    class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
+                                    placeholder="Nama lengkap atasan langsung alumni"
+                                />
                             </div>
 
                             <!-- No Telp / Fax -->
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 mb-1.5">No. Telp / Fax Perusahaan</label>
-                                <input 
-                                    type="text" 
-                                    v-model="form.no_telp_fax" 
+                                <input
+                                    type="text"
+                                    v-model="form.no_telp_fax"
                                     class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
-                                    placeholder="Contoh: 0274-563929" 
+                                    placeholder="Contoh: 0274-563929"
+                                />
+                            </div>
+
+                            <!-- Alamat Lengkap -->
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                                    Alamat Lengkap Perusahaan <span class="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="form.alamat_lengkap"
+                                    required
+                                    class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
+                                    placeholder="Jalan, Gedung, Kota/Kabupaten, Kode Pos..."
                                 />
                             </div>
 
                             <!-- Homepage -->
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 mb-1.5">Website / Homepage Perusahaan</label>
-                                <input 
-                                    type="text" 
-                                    v-model="form.homepage" 
+                                <input
+                                    type="text"
+                                    v-model="form.homepage"
                                     class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
-                                    placeholder="Contoh: https://perusahaan.com" 
-                                />
-                            </div>
-
-                            <!-- Nama Atasan -->
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1.5">
-                                    Nama Atasan Langsung <span class="text-rose-500">*</span>
-                                </label>
-                                <input 
-                                    type="text" 
-                                    v-model="form.nama_atasan" 
-                                    required
-                                    class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
-                                    placeholder="Nama lengkap atasan langsung alumni" 
-                                />
-                            </div>
-
-                            <!-- Email Atasan -->
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1.5">
-                                    Email Atasan (Contact Person) <span class="text-rose-500">*</span>
-                                </label>
-                                <input 
-                                    type="email" 
-                                    v-model="form.email_atasan" 
-                                    required
-                                    class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
-                                    placeholder="atasan@perusahaan.com" 
-                                />
-                            </div>
-
-                            <!-- No Telp Atasan -->
-                            <div class="sm:col-span-2 lg:col-span-3 xl:col-span-4">
-                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Nomor Telepon / WhatsApp Atasan</label>
-                                <input 
-                                    type="tel" 
-                                    v-model="form.telepon_atasan" 
-                                    class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
-                                    placeholder="081234567890" 
+                                    placeholder="Contoh: https://perusahaan.com"
                                 />
                             </div>
                         </div>
@@ -489,7 +633,7 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                                 Langkah 2: Karakteristik Perusahaan &amp; Sebaran Alumni UKDW
                             </h3>
                             <p class="text-xs text-slate-500 mt-0.5">
-                                Gambaran umum skala organisasi dan jumlah alumni UKDW yang berkarier di perusahaan ini.
+                                Gambaran umum skala organisasi dan jumlah alumni UKDW yang berkarier di perusahaan ini (klik ulang atau klik 2x untuk membatalkan pilihan).
                             </p>
                         </div>
 
@@ -499,15 +643,23 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                                 1. Bentuk Perusahaan / Institusi <span class="text-rose-500">*</span>
                             </label>
                             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
-                                <label 
-                                    v-for="opt in ['BUMN', 'Perusahaan Terbatas', 'Koperasi', 'CV', 'Firma']" 
+                                <div
+                                    v-for="opt in ['BUMN', 'Perusahaan Terbatas', 'Koperasi', 'CV', 'Firma']"
                                     :key="opt"
+                                    @click="toggleFieldOption('bentuk_perusahaan', opt)"
+                                    @dblclick.stop="form.bentuk_perusahaan = ''"
                                     class="flex items-center gap-2.5 p-3 border rounded-lg cursor-pointer text-xs font-semibold transition-colors select-none"
                                     :class="form.bentuk_perusahaan === opt ? 'border-[#0D542B] bg-emerald-50 text-[#0D542B] ring-1 ring-[#0D542B] font-bold' : 'border-slate-200 text-slate-700 hover:bg-slate-50'"
                                 >
-                                    <input type="radio" v-model="form.bentuk_perusahaan" :value="opt" class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0" />
+                                    <input
+                                        type="radio"
+                                        :checked="form.bentuk_perusahaan === opt"
+                                        :value="opt"
+                                        readonly
+                                        class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0 pointer-events-none"
+                                    />
                                     <span class="truncate">{{ opt }}</span>
-                                </label>
+                                </div>
                             </div>
                         </div>
 
@@ -517,15 +669,23 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                                 2. Skala Perusahaan / Organisasi <span class="text-rose-500">*</span>
                             </label>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                <label 
-                                    v-for="opt in ['Lokal', 'Nasional', 'Internasional']" 
+                                <div
+                                    v-for="opt in ['Lokal', 'Nasional', 'Internasional']"
                                     :key="opt"
+                                    @click="toggleFieldOption('skala_perusahaan', opt)"
+                                    @dblclick.stop="form.skala_perusahaan = ''"
                                     class="flex items-center gap-2.5 p-3 border rounded-lg cursor-pointer text-xs font-semibold transition-colors select-none"
                                     :class="form.skala_perusahaan === opt ? 'border-[#0D542B] bg-emerald-50 text-[#0D542B] ring-1 ring-[#0D542B] font-bold' : 'border-slate-200 text-slate-700 hover:bg-slate-50'"
                                 >
-                                    <input type="radio" v-model="form.skala_perusahaan" :value="opt" class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0" />
+                                    <input
+                                        type="radio"
+                                        :checked="form.skala_perusahaan === opt"
+                                        :value="opt"
+                                        readonly
+                                        class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0 pointer-events-none"
+                                    />
                                     <span>{{ opt }}</span>
-                                </label>
+                                </div>
                             </div>
                         </div>
 
@@ -535,15 +695,23 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                                 3. Jumlah Pegawai Keseluruhan di Perusahaan ini <span class="text-rose-500">*</span>
                             </label>
                             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                                <label 
-                                    v-for="opt in ['< 50 Orang', '51 - 100 Orang', '101 – 150 Orang', '151 – 300 Orang', '301 – 500 Orang', '> 500 Orang']" 
+                                <div
+                                    v-for="opt in ['< 50 Orang', '51 - 100 Orang', '101 – 150 Orang', '151 – 300 Orang', '301 – 500 Orang', '> 500 Orang']"
                                     :key="opt"
+                                    @click="toggleFieldOption('jumlah_pegawai', opt)"
+                                    @dblclick.stop="form.jumlah_pegawai = ''"
                                     class="flex items-center gap-2.5 p-3 border rounded-lg cursor-pointer text-xs font-semibold transition-colors select-none"
                                     :class="form.jumlah_pegawai === opt ? 'border-[#0D542B] bg-emerald-50 text-[#0D542B] ring-1 ring-[#0D542B] font-bold' : 'border-slate-200 text-slate-700 hover:bg-slate-50'"
                                 >
-                                    <input type="radio" v-model="form.jumlah_pegawai" :value="opt" class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0" />
+                                    <input
+                                        type="radio"
+                                        :checked="form.jumlah_pegawai === opt"
+                                        :value="opt"
+                                        readonly
+                                        class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0 pointer-events-none"
+                                    />
                                     <span class="truncate">{{ opt }}</span>
-                                </label>
+                                </div>
                             </div>
                         </div>
 
@@ -553,15 +721,23 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                                 4. Jumlah Alumni UKDW yang Bekerja di Perusahaan ini <span class="text-rose-500">*</span>
                             </label>
                             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                                <label 
-                                    v-for="opt in ['< 5 Orang', '6 - 10 Orang', '11 – 20 Orang', '> 21 Orang']" 
+                                <div
+                                    v-for="opt in ['< 5 Orang', '6 - 10 Orang', '11 – 20 Orang', '> 21 Orang']"
                                     :key="opt"
+                                    @click="toggleFieldOption('jumlah_alumni_ukdw', opt)"
+                                    @dblclick.stop="form.jumlah_alumni_ukdw = ''"
                                     class="flex items-center gap-2.5 p-3 border rounded-lg cursor-pointer text-xs font-semibold transition-colors select-none"
                                     :class="form.jumlah_alumni_ukdw === opt ? 'border-[#0D542B] bg-emerald-50 text-[#0D542B] ring-1 ring-[#0D542B] font-bold' : 'border-slate-200 text-slate-700 hover:bg-slate-50'"
                                 >
-                                    <input type="radio" v-model="form.jumlah_alumni_ukdw" :value="opt" class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0" />
+                                    <input
+                                        type="radio"
+                                        :checked="form.jumlah_alumni_ukdw === opt"
+                                        :value="opt"
+                                        readonly
+                                        class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0 pointer-events-none"
+                                    />
                                     <span>{{ opt }}</span>
-                                </label>
+                                </div>
                             </div>
                         </div>
 
@@ -571,15 +747,23 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                                 5. Standar Gaji Pertama (per bulan) yang Diberikan ke Alumni UKDW <span class="text-rose-500">*</span>
                             </label>
                             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                                <label 
-                                    v-for="opt in ['< 1.000.000', '1.000.000 – 1.500.000', '1.500.000 – 2.000.000', '2.000.000 – 3.000.000', '3.000.000 – 4.000.000', '> 5.000.000']" 
+                                <div
+                                    v-for="opt in ['< 1.000.000', '1.000.000 – 1.500.000', '1.500.000 – 2.000.000', '2.000.000 – 3.000.000', '3.000.000 – 4.000.000', '> 5.000.000']"
                                     :key="opt"
+                                    @click="toggleFieldOption('standar_gaji_pertama', opt)"
+                                    @dblclick.stop="form.standar_gaji_pertama = ''"
                                     class="flex items-center gap-2.5 p-3 border rounded-lg cursor-pointer text-xs font-semibold transition-colors select-none"
                                     :class="form.standar_gaji_pertama === opt ? 'border-[#0D542B] bg-emerald-50 text-[#0D542B] ring-1 ring-[#0D542B] font-bold' : 'border-slate-200 text-slate-700 hover:bg-slate-50'"
                                 >
-                                    <input type="radio" v-model="form.standar_gaji_pertama" :value="opt" class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0" />
+                                    <input
+                                        type="radio"
+                                        :checked="form.standar_gaji_pertama === opt"
+                                        :value="opt"
+                                        readonly
+                                        class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0 pointer-events-none"
+                                    />
                                     <span class="truncate">{{ opt }}</span>
-                                </label>
+                                </div>
                             </div>
                         </div>
 
@@ -614,7 +798,7 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                                     Langkah 3: Penilaian Kesiapan &amp; Kinerja Lulusan
                                 </h3>
                                 <p class="text-xs text-slate-500 mt-0.5">
-                                    Penilaian obyektif terhadap performa kerja alumni atas nama <strong class="text-slate-900">{{ alumniInfo.nama }}</strong>.
+                                    Penilaian obyektif terhadap performa kerja alumni atas nama <strong class="text-slate-900">{{ alumniInfo.nama }}</strong> (klik ulang atau klik 2x pada pilihan yang aktif untuk membatalkan jawaban).
                                 </p>
                             </div>
                             <span class="text-xs text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 font-semibold self-start sm:self-auto">
@@ -622,48 +806,51 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                             </span>
                         </div>
 
-                        <!-- 1. Kesiapan Kerja -->
+                        <!-- 1. Kesiapan Kerja (Urutan paling kiri Tidak siap, paling kanan Sangat siap) -->
                         <div v-if="kesiapanPertanyaan" class="p-4 sm:p-5 rounded-lg bg-slate-50 border border-slate-200 space-y-3">
                             <label class="block text-xs font-bold text-slate-900 leading-snug">
                                 1. Tingkat kesiapan alumni UKDW dalam bekerja di Perusahaan ini <span class="text-rose-500">*</span>
                                 <span class="block text-[11px] font-normal text-slate-500 mt-0.5">
-                                    {{ kesiapanPertanyaan.deskripsi || 'Evaluasi kesiapan alumni dalam mengemban tugas dan adaptasi di tempat kerja.' }}
+                                    {{ kesiapanPertanyaan.deskripsi || 'Tingkat kesiapan alumni UKDW dalam bekerja dan beradaptasi di Perusahaan / Institusi ini.' }}
                                 </span>
                             </label>
                             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                                <label 
-                                    v-for="opt in ['Sangat siap', 'Cukup Siap', 'Kurang siap', 'Tidak siap']" 
+                                <div
+                                    v-for="opt in kesiapanOptions"
                                     :key="opt"
+                                    @click="toggleJawaban(kesiapanPertanyaan.kode, opt)"
+                                    @dblclick.stop="clearJawaban(kesiapanPertanyaan.kode)"
                                     class="flex items-center gap-2.5 p-3.5 border rounded-lg cursor-pointer text-xs font-semibold transition-colors select-none bg-white"
                                     :class="form.jawaban[kesiapanPertanyaan.kode] === opt ? 'border-[#0D542B] bg-emerald-50 text-[#0D542B] ring-1 ring-[#0D542B] font-bold' : 'border-slate-200 text-slate-700 hover:bg-slate-100'"
                                 >
-                                    <input 
-                                        type="radio" 
+                                    <input
+                                        type="radio"
                                         :name="`jawaban_${kesiapanPertanyaan.kode}`"
-                                        v-model="form.jawaban[kesiapanPertanyaan.kode]" 
-                                        :value="opt" 
-                                        class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0" 
+                                        :checked="form.jawaban[kesiapanPertanyaan.kode] === opt"
+                                        :value="opt"
+                                        readonly
+                                        class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0 pointer-events-none"
                                     />
                                     <span>{{ opt }}</span>
-                                </label>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- 2. Matriks 12 Aspek Kinerja Likert -->
+                        <!-- 2. Matriks 12 Aspek Kinerja Likert (Urutan paling kiri Sangat Kurang, paling kanan Sangat Tinggi) -->
                         <div class="space-y-3">
                             <div>
                                 <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800">
                                     2. Aspek Kinerja Lulusan (Alumni) UKDW <span class="text-rose-500">*</span>
                                 </h4>
                                 <p class="text-xs text-slate-500 mt-0.5">
-                                    Pilih satu tingkat penilaian pada setiap aspek kompetensi di bawah ini:
+                                    Pilih satu tingkat penilaian pada setiap aspek kompetensi di bawah ini (klik kembali atau klik 2x untuk membatalkan pilihan):
                                 </p>
                             </div>
 
                             <!-- Tampilan Mobile (< 768px): Card Sentuh -->
                             <div class="block md:hidden space-y-3">
-                                <div 
-                                    v-for="(pertanyaan, idx) in likertPertanyaanList" 
+                                <div
+                                    v-for="(pertanyaan, idx) in likertPertanyaanList"
                                     :key="`m_${pertanyaan.id}`"
                                     class="p-4 rounded-xl border transition-colors bg-white shadow-2xs space-y-3"
                                     :class="form.jawaban[pertanyaan.kode] ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-200'"
@@ -687,10 +874,11 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                                             v-for="skala in skalaNilaiOptions"
                                             :key="skala"
                                             type="button"
-                                            @click="form.jawaban[pertanyaan.kode] = skala"
+                                            @click="toggleJawaban(pertanyaan.kode, skala)"
+                                            @dblclick.stop="clearJawaban(pertanyaan.kode)"
                                             class="w-full py-2 px-3 text-xs font-semibold rounded-lg border transition-colors flex items-center justify-between cursor-pointer"
-                                            :class="form.jawaban[pertanyaan.kode] === skala 
-                                                ? 'bg-[#0D542B] text-white border-[#0D542B] font-bold' 
+                                            :class="form.jawaban[pertanyaan.kode] === skala
+                                                ? 'bg-[#0D542B] text-white border-[#0D542B] font-bold'
                                                 : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'"
                                         >
                                             <span>{{ skala }}</span>
@@ -715,9 +903,9 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-200 bg-white">
-                                        <tr 
-                                            v-for="(pertanyaan, idx) in likertPertanyaanList" 
-                                            :key="`d_${pertanyaan.id}`" 
+                                        <tr
+                                            v-for="(pertanyaan, idx) in likertPertanyaanList"
+                                            :key="`d_${pertanyaan.id}`"
                                             class="hover:bg-slate-50 transition-colors"
                                             :class="idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'"
                                         >
@@ -728,20 +916,22 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                                                 <div class="font-bold text-slate-900 text-xs leading-snug">{{ pertanyaan.aspek }}</div>
                                                 <div v-if="pertanyaan.deskripsi" class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{{ pertanyaan.deskripsi }}</div>
                                             </td>
-                                            <td 
-                                                v-for="skala in skalaNilaiOptions" 
-                                                :key="skala" 
+                                            <td
+                                                v-for="skala in skalaNilaiOptions"
+                                                :key="skala"
                                                 class="p-3 text-center border-r border-slate-100 last:border-r-0 cursor-pointer select-none transition-colors"
                                                 :class="form.jawaban[pertanyaan.kode] === skala ? 'bg-emerald-50 text-[#0D542B] font-bold' : 'hover:bg-slate-100/60'"
-                                                @click="form.jawaban[pertanyaan.kode] = skala"
+                                                @click="toggleJawaban(pertanyaan.kode, skala)"
+                                                @dblclick.stop="clearJawaban(pertanyaan.kode)"
                                             >
                                                 <div class="flex items-center justify-center">
-                                                    <input 
-                                                        type="radio" 
+                                                    <input
+                                                        type="radio"
                                                         :name="`d_jawaban_${pertanyaan.kode}`"
-                                                        v-model="form.jawaban[pertanyaan.kode]" 
-                                                        :value="skala" 
-                                                        class="w-4 h-4 accent-[#0D542B] cursor-pointer" 
+                                                        :checked="form.jawaban[pertanyaan.kode] === skala"
+                                                        :value="skala"
+                                                        readonly
+                                                        class="w-4 h-4 accent-[#0D542B] cursor-pointer pointer-events-none"
                                                     />
                                                 </div>
                                             </td>
@@ -756,8 +946,8 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                             <label class="block text-xs font-bold text-slate-800">
                                 Catatan Tambahan / Saran Khusus (Opsional):
                             </label>
-                            <textarea 
-                                v-model="form.catatan_lainnya" 
+                            <textarea
+                                v-model="form.catatan_lainnya"
                                 rows="3"
                                 class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white leading-relaxed outline-none"
                                 placeholder="Saran, kritik, atau catatan khusus mengenai kinerja dan pengembangan kompetensi lulusan UKDW..."
@@ -774,8 +964,8 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                                 <span>Kembali ke Karakteristik</span>
                             </button>
-                            <button 
-                                type="submit" 
+                            <button
+                                type="submit"
                                 :disabled="form.processing"
                                 class="w-full sm:w-auto px-7 py-3 bg-[#0D542B] hover:bg-[#08381c] text-white font-bold text-xs sm:text-sm rounded-lg transition-colors shadow-xs disabled:opacity-50 cursor-pointer inline-flex items-center justify-center gap-2"
                             >
@@ -791,7 +981,7 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
             </form>
         </main>
 
-        <!-- Footer Bersih & Formal (Full Page) -->
+        <!-- Footer Resmi -->
         <footer class="bg-white border-t border-slate-200 mt-10 py-5 text-xs text-slate-500 w-full">
             <div class="w-full px-4 sm:px-6 lg:px-10 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
                 <div>
@@ -799,7 +989,7 @@ const skalaNilaiOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat
                     <span class="text-[11px] text-slate-400">Jl. Dr. Wahidin Sudirohusodo No. 5-19, Yogyakarta 55224 | Telp: 0274-563929</span>
                 </div>
                 <div class="text-[11px] text-slate-400">
-                    &copy; {{ new Date().getFullYear() }} UKDW. Hak Cipta Dilindungi.
+                    &copy; {{ new Date().getFullYear() }} Sistem Tracer Study UKDW
                 </div>
             </div>
         </footer>

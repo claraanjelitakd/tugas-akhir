@@ -9,7 +9,7 @@ use Illuminate\Database\Seeder;
 /**
  * Seeder Yudisium
  *
- * Mengisi data kelulusan tugas akhir, dosen pembimbing & penguji, serta status yudisium.
+ * Mengisi data tugas akhir, publikasi, dan status yudisium.
  * Tanpa duplikasi tahun akademik / tahun lulus (terkelola di DataAkademik).
  */
 class YudisiumSeeder extends Seeder
@@ -49,16 +49,6 @@ class YudisiumSeeder extends Seeder
             'Logistics Distribution Route Optimization Using Genetic Algorithm',
         ];
 
-        $dosenList = [
-            'Dr. Budi Susanto, S.Kom., M.T.',
-            'Prof. Dr. Ir. Eko Sediyono, M.Kom.',
-            'Willy Sudiarto Raharjo, S.Kom., M.Cs.',
-            'Gloria Virginia, S.Kom., MAI., Ph.D.',
-            'Laurentius Kuncoro Probo Saputro, S.T., M.Eng.',
-            'Umi Proboyekti, S.Kom., MLIS.',
-            'Drs. Jong Jek Siang, M.Sc.',
-        ];
-
         $predikatList = [
             'Lulus dengan Pujian',
             'Sangat Memuaskan',
@@ -73,11 +63,6 @@ class YudisiumSeeder extends Seeder
             Yudisium::updateOrCreate(
                 ['nim' => $nim],
                 [
-                    'dosen_pembimbing_1' => $dosenList[$index % count($dosenList)],
-                    'dosen_pembimbing_2' => $dosenList[($index + 1) % count($dosenList)],
-                    'dosen_penguji_1' => $dosenList[($index + 2) % count($dosenList)],
-                    'dosen_penguji_2' => $dosenList[($index + 3) % count($dosenList)],
-
                     'judul_ta' => $taIndonesia[$index % count($taIndonesia)],
                     'judul_ta_inggris' => $taInggris[$index % count($taInggris)],
                     'url_publikasi' => 'https://repository.ukdw.ac.id/handle/123456789/'.$nim,

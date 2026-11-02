@@ -116,7 +116,7 @@ class ProdiQuestionnaireSeeder extends Seeder
             'Kuliah Umum / Dosen Praktisi',
             'Kerjasama Magang',
             'Sponsor',
-            'Other',
+            'Lainnya (Tuliskan)',
         ];
         foreach ($bentukOpts as $idx => $optText) {
             $num = $idx + 1;

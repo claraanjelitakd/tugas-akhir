@@ -1,0 +1,18 @@
+@startuml
+title AD-13 Pengelolaan Instrumen Evaluasi Atasan
+|Superadmin|
+start
+:Buka instrumen evaluasi;
+:Pilih CRUD, toggle aktif, atau reorder;
+|Backend|
+:Validasi kode, label, dan urutan;
+if (Valid?) then (ya)
+  |Database|
+  :Simpan PertanyaanEvaluasiAtasan;
+  |Backend|
+  :Form publik membaca butir aktif;
+else (tidak)
+  :Kembalikan validation error;
+endif
+stop
+@enduml

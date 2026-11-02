@@ -57,7 +57,6 @@ class DatabaseSeeder extends Seeder
             PerusahaanSeeder::class,
             DataAkademikSeeder::class,
             BiodataSeeder::class,
-            DataOrangTuaSeeder::class,
             YudisiumSeeder::class,
         ]);
 
@@ -85,6 +84,16 @@ class DatabaseSeeder extends Seeder
         // 7. Seed Tambahan 10 Alumni Lulusan 2026 (Profil Karier Kosong / Skeleton)
         $this->call([
             Lulusan2026Seeder::class,
+        ]);
+
+        // 8. Skenario populasi dashboard lintas tahun dan program studi
+        $this->call([
+            DashboardScenarioSeeder::class,
+        ]);
+
+        // 9. Distribusi data demo khusus untuk menguji analitik lintas wilayah dan status karier
+        $this->call([
+            AnalyticsDemoDistributionSeeder::class,
         ]);
     }
 }

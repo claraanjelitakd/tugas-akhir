@@ -31,7 +31,7 @@ class Yudisium extends Model
             // Ketika referensi yudisium menyatakan lulus, siapkan profil tracer tanpa mengubah sumber akademik.
             if ($yudisium->status_lulus === 'Lulus') {
                 // Jika lulus di Yudisium, otomatis masukkan ke Biodata alumni!
-                // Seluruh relasi yudisium_id, orang_tua_id, prodi_id, dan akun user
+                // Seluruh relasi yudisium_id, prodi_id, dan akun user
                 // otomatis dirakit langsung oleh Model Biodata::booted (creating hook).
                 Biodata::firstOrCreate(['nim' => $yudisium->nim]);
             }

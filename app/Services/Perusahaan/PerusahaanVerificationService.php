@@ -79,6 +79,38 @@ class PerusahaanVerificationService
             $query->where('status_verifikasi', $status);
         }
 
+        if (! empty($filters['negara']) && $filters['negara'] !== 'all') {
+            if ($filters['negara'] === 'Luar Negeri') {
+                $query->where('jenis_lokasi', 'Luar Negeri');
+            } else {
+                $query->where('negara', $filters['negara']);
+            }
+        }
+
+        if (! empty($filters['propinsi_id'])) {
+            $query->where('propinsi_id', $filters['propinsi_id']);
+        }
+
+        if (! empty($filters['kabupaten_id'])) {
+            $query->where('kabupaten_id', $filters['kabupaten_id']);
+        }
+
+        if (! empty($filters['negara']) && $filters['negara'] !== 'all') {
+            if ($filters['negara'] === 'Luar Negeri') {
+                $query->where('jenis_lokasi', 'Luar Negeri');
+            } else {
+                $query->where('negara', $filters['negara']);
+            }
+        }
+
+        if (! empty($filters['propinsi_id'])) {
+            $query->where('propinsi_id', $filters['propinsi_id']);
+        }
+
+        if (! empty($filters['kabupaten_id'])) {
+            $query->where('kabupaten_id', $filters['kabupaten_id']);
+        }
+
         // Filter apakah hanya pengajuan dari alumni prodi ini atau semua
         $scope = $filters['scope'] ?? 'prodi';
         if ($scope === 'prodi') {
@@ -119,8 +151,10 @@ class PerusahaanVerificationService
             ->with([
                 'propinsi',
                 'kabupaten',
+                'creator:id,name,role,username',
                 'creator.biodata.prodi:id,nama_prodi',
                 'createdProdi:id,nama_prodi',
+                'latestVerificationLog.user:id,name,role,username',
                 'biodata' => function ($q) {
                     $q->select('id', 'user_id', 'nim', 'prodi_id', 'posisi_jabatan', 'kategori_pekerjaan', 'perusahaan_id')
                         ->with(['dataAkademik:nim,nama,tahun_lulus', 'prodi:id,nama_prodi']);
@@ -130,6 +164,22 @@ class PerusahaanVerificationService
         $status = $filters['status'] ?? 'all';
         if ($status !== 'all') {
             $query->where('status_verifikasi', $status);
+        }
+
+        if (! empty($filters['negara']) && $filters['negara'] !== 'all') {
+            if ($filters['negara'] === 'Luar Negeri') {
+                $query->where('jenis_lokasi', 'Luar Negeri');
+            } else {
+                $query->where('negara', $filters['negara']);
+            }
+        }
+
+        if (! empty($filters['propinsi_id'])) {
+            $query->where('propinsi_id', $filters['propinsi_id']);
+        }
+
+        if (! empty($filters['kabupaten_id'])) {
+            $query->where('kabupaten_id', $filters['kabupaten_id']);
         }
 
         if (! empty($filters['prodi_id']) && in_array((int) $filters['prodi_id'], $prodiIds)) {
@@ -240,7 +290,12 @@ class PerusahaanVerificationService
         // [BARIS 6] Menjalankan query Eloquent untuk mengambil seluruh data master perusahaan yang sudah 'Terverifikasi'
         // Variabel $verifiedCompanies (Collection): Kumpulan objek model Perusahaan terverifikasi dari tabel database.
         $verifiedCompanies = Perusahaan::query()
-            ->with(['propinsi:id,nama_provinsi', 'kabupaten:id,nama_kabupaten'])
+            ->with([
+                'propinsi:id,nama_provinsi',
+                'kabupaten:id,nama_kabupaten',
+                'createdProdi:id,nama_prodi',
+                'creator:id,name,role,username',
+            ])
             ->where('status_verifikasi', 'Terverifikasi')
             ->where('id', '!=', $pendingCompany->id)
             ->get();
@@ -459,9 +514,25 @@ class PerusahaanVerificationService
                     'kabupaten_id' => $verified->kabupaten_id,
                     'nama_provinsi' => $verified->propinsi?->nama_provinsi ?? '-',
                     'nama_kabupaten' => $verified->kabupaten?->nama_kabupaten ?? '-',
+                    'homepage' => $verified->homepage,
+                    'no_telp_fax' => $verified->no_telp_fax,
+                    'kode_pos' => $verified->kode_pos,
                     'sektor' => $verified->sektor ?? '-',
                     'skala' => $verified->skala ?? '-',
+                    'bentuk_perusahaan' => $verified->bentuk_perusahaan,
+                    'jumlah_pegawai' => $verified->jumlah_pegawai,
                     'jenis_perusahaan' => $verified->jenis_perusahaan ?? '-',
+                    'jenis_perusahaan_lainnya' => $verified->jenis_perusahaan_lainnya,
+                    'jenis_lokasi' => $verified->jenis_lokasi,
+                    'negara' => $verified->negara,
+                    'status_verifikasi' => $verified->status_verifikasi,
+                    'created_by_user_id' => $verified->created_by_user_id,
+                    'created_by_prodi_id' => $verified->created_by_prodi_id,
+                    'creator_name' => $verified->creator?->name,
+                    'creator_role' => $verified->creator?->role,
+                    'created_prodi_name' => $verified->createdProdi?->nama_prodi,
+                    'created_at' => $verified->created_at,
+                    'updated_at' => $verified->updated_at,
                     'similarity_score' => $totalScore,
                     'is_same_city' => $isSameCity,
                     'is_same_province' => $isSameProvince,

@@ -6,12 +6,12 @@
   - Header solid hijau resmi UKDW #0D542B dengan kartu statistik interaktif (-mt-10) yang dapat diklik untuk memfilter data
   - Modal "Tambah Perusahaan Baru" identik 100% dengan rancangan visual form profil (Radio Lokasi, F11, Provinsi/Kabupaten/Negara, Kode Pos, Skala, Alamat)
   - Tabel institusi formal, bersih, tanpa kolom Alumni Bekerja terpisah
-  - Bilah Aksi horizontal (inline-flex, whitespace-nowrap) memuat Hamburger (Alumni), Mata (Review), V (Setujui), X (Tolak dengan Alasan), dan Pensil (Edit)
+  - Bilah Aksi menonjolkan daftar alumni, memakai ikon untuk detail/edit/hapus, dan dropdown keputusan hanya untuk usulan yang belum menjadi master
   - Modal Konsolidasi Master Data terstruktur dan elegan
 -->
 <script setup>
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import Swal from 'sweetalert2';
 import SuperAdminSidebar from '../Components/Sidebar.vue';
 import AdminFakultasSidebar from '../../AdminFakultas/Components/Sidebar.vue';
@@ -60,6 +60,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    filterNegaras: {
+        type: Array,
+        default: () => [],
+    },
     filters: {
         type: Object,
         default: () => ({}),
@@ -97,7 +101,42 @@ const search = ref(props.filters.search || '');
 const selectedProdiId = ref(props.filters.prodi_id || '');
 const scope = ref(props.filters.scope || 'all');
 const statusFilter = ref(props.filters.status || 'all');
+const selectedNegara = ref(props.filters.negara || '');
+const selectedPropinsiId = ref(props.filters.propinsi_id || '');
+const selectedKabupatenId = ref(props.filters.kabupaten_id || '');
 const perPage = ref(props.filters.per_page || 10);
+const availableKabupatensForFilter = ref(props.kabupatens || []);
+const isLoadingKabupatenFilter = ref(false);
+
+// Sinkronisasi opsi kabupaten saat menerima props dari server
+watch(() => props.kabupatens, (newKabupatens) => {
+    availableKabupatensForFilter.value = Array.isArray(newKabupatens) ? newKabupatens : [];
+    isLoadingKabupatenFilter.value = false;
+}, { immediate: true });
+
+const negaraOptions = computed(() => {
+    const list = new Set(['Indonesia']);
+    if (props.filterNegaras && Array.isArray(props.filterNegaras)) {
+        props.filterNegaras.forEach((n) => { if (n) list.add(n); });
+    }
+    if (props.negaras && Array.isArray(props.negaras)) {
+        props.negaras.forEach((n) => { if (n.nama_negara) list.add(n.nama_negara); });
+    }
+    return Array.from(list);
+});
+
+const hasActiveFilters = computed(() => {
+    return !!(
+        search.value ||
+        selectedProdiId.value ||
+        scope.value !== 'all' ||
+        statusFilter.value !== 'all' ||
+        selectedNegara.value ||
+        selectedPropinsiId.value ||
+        selectedKabupatenId.value ||
+        perPage.value != 10
+    );
+});
 
 let searchTimeout = null;
 const handleSearch = () => {
@@ -112,16 +151,40 @@ const filterByStatus = (newStatus) => {
     applyFilters();
 };
 
+const handleNegaraChangeFilter = () => {
+    if (selectedNegara.value && selectedNegara.value !== 'Indonesia') {
+        selectedPropinsiId.value = '';
+        selectedKabupatenId.value = '';
+        availableKabupatensForFilter.value = [];
+    }
+    applyFilters();
+};
+
+const handlePropinsiChangeFilter = () => {
+    selectedKabupatenId.value = '';
+    availableKabupatensForFilter.value = [];
+    if (selectedPropinsiId.value) {
+        isLoadingKabupatenFilter.value = true;
+    }
+    applyFilters();
+};
+
 const applyFilters = () => {
     router.get(props.basePath, {
         search: search.value || undefined,
         prodi_id: selectedProdiId.value || undefined,
         scope: scope.value !== 'all' ? scope.value : undefined,
         status: statusFilter.value !== 'all' ? statusFilter.value : undefined,
+        negara: selectedNegara.value || undefined,
+        propinsi_id: selectedPropinsiId.value || undefined,
+        kabupaten_id: selectedKabupatenId.value || undefined,
         per_page: perPage.value != 10 ? perPage.value : undefined,
     }, {
         preserveState: true,
         replace: true,
+        onFinish: () => {
+            isLoadingKabupatenFilter.value = false;
+        },
     });
 };
 
@@ -130,6 +193,10 @@ const resetFilters = () => {
     selectedProdiId.value = '';
     scope.value = 'all';
     statusFilter.value = 'all';
+    selectedNegara.value = '';
+    selectedPropinsiId.value = '';
+    selectedKabupatenId.value = '';
+    availableKabupatensForFilter.value = [];
     perPage.value = 10;
     router.get(props.basePath, {}, { preserveState: true });
 };
@@ -178,6 +245,9 @@ const getCompanyAlumniList = (company) => {
     return [];
 };
 
+// Menyajikan jumlah alumni yang terlihat pengguna, termasuk fallback relasi pengaju.
+const getCompanyAlumniCount = (company) => company?.biodata_count ?? getCompanyAlumniList(company).length;
+
 const getAlumniDisplayName = (alumni) => {
     return alumni.data_akademik?.nama || alumni.user?.name || alumni.nama || 'Nama Alumni';
 };
@@ -186,18 +256,51 @@ const getAlumniProdi = (alumni) => {
     return alumni.prodi?.nama_prodi || '-';
 };
 
+const getFilteredProdiAlumni = (company) => {
+    if (!selectedProdiId.value || !company?.biodata) return null;
+    return company.biodata.find((b) => String(b.prodi_id) === String(selectedProdiId.value)) || null;
+};
+
+const getAlumniFromFilteredProdi = (company) => {
+    if (!selectedProdiId.value || !company?.biodata) return [];
+    return company.biodata.filter((b) => String(b.prodi_id) === String(selectedProdiId.value));
+};
+
+const getSelectedProdiName = () => {
+    if (!selectedProdiId.value || !props.prodis) return '';
+    const p = props.prodis.find((item) => String(item.id) === String(selectedProdiId.value));
+    return p ? p.nama_prodi : '';
+};
+
 const getAlumniAngkatan = (alumni) => {
-    if (alumni.data_akademik?.angkatan_masuk) {
-        return `Angkatan ${alumni.data_akademik.angkatan_masuk}`;
-    }
     if (alumni.data_akademik?.tahun_lulus) {
-        return `Lulus ${alumni.data_akademik.tahun_lulus}`;
+        return String(alumni.data_akademik.tahun_lulus);
+    }
+    if (alumni.tahun_lulus) {
+        return String(alumni.tahun_lulus);
+    }
+    if (alumni.data_akademik?.angkatan_masuk) {
+        return `Msk ${alumni.data_akademik.angkatan_masuk}`;
     }
     return '-';
 };
 
 const getAlumniJabatan = (alumni) => {
     return alumni.posisi_jabatan || 'Alumni / Pegawai Aktif';
+};
+
+const alumniDetailPath = (alumniId) => {
+    if (!alumniId) return null;
+
+    if (isFaculty.value) {
+        return '/fakultas/alumni/' + alumniId;
+    }
+
+    if (isProdi.value) {
+        return '/prodi/alumni/' + alumniId;
+    }
+
+    return '/superadmin/alumni/' + alumniId;
 };
 
 // ========================================================
@@ -239,14 +342,143 @@ const filteredAlumniList = computed(() => {
 const showReviewModal = ref(false);
 const activeCompanyForReview = ref(null);
 
-const openReviewModal = (company) => {
+// State indikator pemuatan rekomendasi kemiripan otomatis per halaman.
+const isLoadingRecommendations = ref(false);
+// Cache promise mencegah satu perusahaan dipanggil lebih dari sekali saat halaman dan modal meminta data bersamaan.
+const recommendationRequests = new Map();
+
+// Mengambil rekomendasi kemiripan master resmi tanpa menunggu klik pengguna.
+const fetchCompanyRecommendations = async (company) => {
+    if (!company || !company.id) return [];
+    if (Array.isArray(company.recommendations)) {
+        return company.recommendations;
+    }
+    if (recommendationRequests.has(company.id)) {
+        return recommendationRequests.get(company.id);
+    }
+
+    const request = (async () => {
+        company.isLoadingRecommendations = true;
+        try {
+            const response = await fetch(`${props.basePath}/${company.id}/recommendations`, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+            if (response.ok) {
+                const data = await response.json();
+                company.recommendations = Array.isArray(data) ? data : [];
+            } else {
+                company.recommendations = [];
+            }
+        } catch (e) {
+            console.error('Gagal mengambil rekomendasi kemiripan:', e);
+            company.recommendations = [];
+        } finally {
+            company.isLoadingRecommendations = false;
+            recommendationRequests.delete(company.id);
+        }
+
+        return company.recommendations;
+    })();
+
+    recommendationRequests.set(company.id, request);
+
+    return request;
+};
+
+// Memuat rekomendasi untuk seluruh perusahaan pada halaman aktif tanpa tombol perantara.
+const loadPageRecommendations = async () => {
+    const pageCompanies = props.companies?.data || [];
+    await Promise.all(pageCompanies.map((company) => fetchCompanyRecommendations(company)));
+};
+
+// Mengulang pemuatan hanya saat isi halaman berubah, misalnya setelah filter atau pindah halaman.
+watch(
+    () => (props.companies?.data || []).map((company) => company.id).join(','),
+    loadPageRecommendations,
+    { immediate: true },
+);
+
+const openReviewModal = async (company) => {
     activeCompanyForReview.value = company;
     showReviewModal.value = true;
+
+    // Jika rekomendasi belum dimuat, ambil secara asinkron saat modal dibuka
+    if (company && company.recommendations === undefined) {
+        isLoadingRecommendations.value = true;
+        await fetchCompanyRecommendations(company);
+        isLoadingRecommendations.value = false;
+    }
 };
 
 const closeReviewModal = () => {
     showReviewModal.value = false;
     activeCompanyForReview.value = null;
+};
+
+const displayValue = (value) => {
+    return value === null || value === undefined || value === '' ? '-' : String(value);
+};
+
+const getCompanyDetailFields = (company) => {
+    if (!company) return [];
+
+    return [
+        ['ID Master', company.id],
+        ['Nama Perusahaan / Instansi', company.nama_perusahaan],
+        ['Provinsi', company.propinsi?.nama_provinsi || company.nama_provinsi || company.propinsi_id],
+        ['Kabupaten / Kota', company.kabupaten?.nama_kabupaten || company.nama_kabupaten || company.kabupaten_id],
+        ['Alamat', company.alamat],
+        ['Kode Pos', company.kode_pos],
+        ['Homepage / Website', company.homepage],
+        ['Nomor Telepon / Fax', company.no_telp_fax],
+        ['Sektor', company.sektor],
+        ['Skala', company.skala],
+        ['Bentuk Perusahaan', company.bentuk_perusahaan],
+        ['Jumlah Pegawai', company.jumlah_pegawai],
+        ['Jenis Perusahaan', company.jenis_perusahaan],
+        ['Jenis Perusahaan Lainnya', company.jenis_perusahaan_lainnya],
+        ['Jenis Lokasi', company.jenis_lokasi],
+        ['Negara', company.negara],
+        ['Status Verifikasi', company.status_verifikasi],
+        ['Dibuat Oleh', company.creator?.name || company.creator_name || company.created_by_user_id],
+        ['Role Pembuat', company.creator?.role || company.creator_role ? getRoleLabel(company.creator?.role || company.creator_role) : '-'],
+        ['Prodi Pengusul', company.createdProdi?.nama_prodi || company.created_prodi_name || company.created_by_prodi_id],
+        ['Dibuat Pada', formatDate(company.created_at)],
+        ['Diperbarui Pada', formatDate(company.updated_at)],
+    ].map(([label, value]) => ({ label, value: displayValue(value) }));
+};
+
+const escapeHtml = (value) => String(value ?? '-')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+// State reaktif untuk visibilitas dan data rincian rekomendasi master perusahaan
+// 1. ref(false) menandai modal dalam kondisi tertutup secara default
+// 2. ref(null) menyimpan referensi objek data perusahaan rekomendasi yang sedang diklik
+const showRecommendationModal = ref(false);
+const activeRecommendation = ref(null);
+
+/**
+ * Membuka modal detail rekomendasi perusahaan master
+ * @param {Object} recommendation Objek perusahaan rekomendasi yang dipilih
+ */
+const openRecommendationDetail = (recommendation) => {
+    activeRecommendation.value = recommendation;
+    showRecommendationModal.value = true;
+};
+
+/**
+ * Menutup modal detail rekomendasi perusahaan master dan membersihkan objek data aktif
+ */
+const closeRecommendationModal = () => {
+    showRecommendationModal.value = false;
+    activeRecommendation.value = null;
 };
 
 // ========================================================
@@ -319,6 +551,7 @@ const setQuickReason = (reason) => {
 
 const submitReject = () => {
     if (!activeCompanyForReject.value) return;
+    const rejectedCompanyName = activeCompanyForReject.value.nama_perusahaan;
     isSubmittingReject.value = true;
     router.post(`${props.basePath}/${activeCompanyForReject.value.id}/reject`, {
         alasan: rejectReason.value.trim() || undefined,
@@ -331,13 +564,71 @@ const submitReject = () => {
             Swal.fire({
                 icon: 'success',
                 title: 'Usulan Ditolak',
-                text: `Pengajuan "${activeCompanyForReject.value.nama_perusahaan}" telah ditandai Ditolak.`,
+                text: `Pengajuan "${rejectedCompanyName}" telah ditandai Ditolak.`,
                 confirmButtonColor: '#0D542B',
             });
         },
         onError: () => {
             isSubmittingReject.value = false;
         },
+    });
+};
+
+// ========================================================
+// AKSI HAPUS PERUSAHAAN (DENGAN PENGECEKAN DEPENDENSI)
+// ========================================================
+// Menampilkan konfirmasi sebelum menghapus instansi perusahaan
+const confirmDeleteCompany = (company) => {
+    // Menghitung jumlah alumni yang terikat pada perusahaan ini
+    const alumniCount = company.biodata ? company.biodata.length : 0;
+
+    // Jika perusahaan masih memiliki relasi alumni, tolak penghapusan langsung
+    if (alumniCount > 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Perusahaan Tidak Dapat Dihapus',
+            html: `Perusahaan <b>"${company.nama_perusahaan}"</b> masih terhubung dengan <b>${alumniCount} data alumni</b>.<br><br>Untuk menjaga integritas data riwayat karir alumni, silakan gunakan tombol <b>"Sinkronkan"</b> untuk mengalihkan alumni ke master terverifikasi sebelum menghapus usulan ini.`,
+            confirmButtonColor: '#0D542B',
+            confirmButtonText: 'Mengerti',
+        });
+        return;
+    }
+
+    // Konfirmasi dialog hapus data perusahaan yang tidak memiliki relasi alumni
+    Swal.fire({
+        title: 'Hapus Perusahaan?',
+        html: `Apakah Anda yakin ingin menghapus data instansi <b>"${company.nama_perusahaan}"</b>?<br><span class="text-xs text-slate-500 mt-2 block">Data yang dihapus tidak dapat dipulihkan kembali.</span>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#DC2626',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.delete(`${props.basePath}/${company.id}`, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Terhapus',
+                        text: `Perusahaan "${company.nama_perusahaan}" berhasil dihapus dari sistem.`,
+                        timer: 1600,
+                        showConfirmButton: false,
+                    });
+                },
+                onError: (err) => {
+                    const msg = Object.values(err)[0] || 'Gagal menghapus data perusahaan.';
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Penghapusan Gagal',
+                        text: msg,
+                        confirmButtonColor: '#0D542B',
+                    });
+                },
+            });
+        }
     });
 };
 
@@ -370,6 +661,7 @@ const openCreateModal = () => {
         skala: 'Nasional',
         alamat: '',
     };
+    availableKabupatensForCreate.value = [];
     showCreateModal.value = true;
 };
 
@@ -377,13 +669,65 @@ const closeCreateModal = () => {
     showCreateModal.value = false;
 };
 
-const filteredKabupatensForCreate = computed(() => {
-    if (!createForm.value.propinsi_id) return [];
-    return props.kabupatens.filter(k => k.propinsi_id == createForm.value.propinsi_id);
-});
+// ========================================================
+// OPTIMASI WILAYAH: CASCADING DROPDOWN KABUPATEN ASINKRON
+// ========================================================
+// Cache daftar kabupaten per provinsi di memori browser agar request tidak berulang
+const kabupatensCache = ref({});
+const availableKabupatensForCreate = ref([]);
+const availableKabupatensForEdit = ref([]);
+const isLoadingKabupatenCreate = ref(false);
+const isLoadingKabupatenEdit = ref(false);
 
-const handlePropinsiChangeCreate = () => {
+// Mengambil daftar kabupaten dari server berdasarkan ID provinsi terpilih
+const fetchKabupatensByProvinsi = async (propinsiId) => {
+    if (!propinsiId) return [];
+    if (Array.isArray(kabupatensCache.value[propinsiId])) {
+        return kabupatensCache.value[propinsiId];
+    }
+
+    try {
+        const response = await fetch(`/api/wilayah/kabupaten/${propinsiId}`, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data)) {
+                kabupatensCache.value[propinsiId] = data;
+                return data;
+            }
+        }
+    } catch (e) {
+        console.error('Gagal mengambil daftar kabupaten:', e);
+    }
+    return [];
+};
+
+const handlePropinsiChangeCreate = async () => {
     createForm.value.kabupaten_id = '';
+    const propId = createForm.value.propinsi_id;
+    if (propId) {
+        isLoadingKabupatenCreate.value = true;
+        availableKabupatensForCreate.value = await fetchKabupatensByProvinsi(propId);
+        isLoadingKabupatenCreate.value = false;
+    } else {
+        availableKabupatensForCreate.value = [];
+    }
+};
+
+const handlePropinsiChangeEdit = async () => {
+    editForm.value.kabupaten_id = '';
+    const propId = editForm.value.propinsi_id;
+    if (propId) {
+        isLoadingKabupatenEdit.value = true;
+        availableKabupatensForEdit.value = await fetchKabupatensByProvinsi(propId);
+        isLoadingKabupatenEdit.value = false;
+    } else {
+        availableKabupatensForEdit.value = [];
+    }
 };
 
 const submitCreateForm = () => {
@@ -472,7 +816,7 @@ const editForm = ref({
     alamat: '',
 });
 
-const openEditModal = (company) => {
+const openEditModal = async (company) => {
     editForm.value = {
         id: company.id,
         jenis_lokasi: company.jenis_lokasi || 'Dalam Negeri',
@@ -486,20 +830,21 @@ const openEditModal = (company) => {
         alamat: company.alamat || '',
     };
     showEditModal.value = true;
+
+    // Prefetch daftar kabupaten untuk provinsi yang sedang aktif diedit
+    if (company.propinsi_id) {
+        isLoadingKabupatenEdit.value = true;
+        availableKabupatensForEdit.value = await fetchKabupatensByProvinsi(company.propinsi_id);
+        isLoadingKabupatenEdit.value = false;
+    } else {
+        availableKabupatensForEdit.value = [];
+    }
 };
 
 const closeEditModal = () => {
     showEditModal.value = false;
     editForm.value.id = null;
-};
-
-const filteredKabupatensForEdit = computed(() => {
-    if (!editForm.value.propinsi_id) return [];
-    return props.kabupatens.filter(k => k.propinsi_id == editForm.value.propinsi_id);
-});
-
-const handlePropinsiChangeEdit = () => {
-    editForm.value.kabupaten_id = '';
+    availableKabupatensForEdit.value = [];
 };
 
 const submitEditForm = () => {
@@ -569,6 +914,15 @@ const handleVerifyDirect = (company) => {
             });
         }
     });
+};
+
+// Menyatukan keputusan verifikasi dalam satu menu yang hanya berisi Terima atau Tolak.
+const handleVerificationAction = (company, event) => {
+    const action = event.target.value;
+    event.target.value = '';
+
+    if (action === 'approve') handleVerifyDirect(company);
+    if (action === 'reject') openRejectModal(company);
 };
 </script>
 
@@ -702,7 +1056,7 @@ const handleVerifyDirect = (company) => {
                             </span>
                         </div>
                         <button
-                            v-if="search || selectedProdiId || scope !== 'all' || statusFilter !== 'all' || perPage != 10"
+                            v-if="hasActiveFilters"
                             @click="resetFilters"
                             class="text-xs font-bold text-slate-500 hover:text-[#0D542B] transition-colors cursor-pointer"
                         >
@@ -713,7 +1067,7 @@ const handleVerifyDirect = (company) => {
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 text-xs">
                         <!-- Kotak Pencarian -->
                         <div>
-                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Cari Nama / Kota</label>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Cari Nama / Alamat</label>
                             <div class="relative">
                                 <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -768,8 +1122,68 @@ const handleVerifyDirect = (company) => {
                                 @change="applyFilters"
                                 class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B] font-medium cursor-pointer"
                             >
-                                <option value="all">Seluruh Universitas</option>
-                                <option value="prodi">Sesuai Prodi Terpilih</option>
+                                <option value="all">Semua Keterkaitan (Pengusul & Bekerja)</option>
+                                <option value="pengusul">Hanya Pengusul dari Prodi Terpilih</option>
+                                <option value="pekerja">Hanya Alumni Bekerja di Sini</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Baris Filter Wilayah: Negara, Provinsi, Kabupaten/Kota -->
+                    <div class="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
+                        <!-- Filter Negara -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Negara</label>
+                            <select
+                                v-model="selectedNegara"
+                                @change="handleNegaraChangeFilter"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B] font-medium cursor-pointer"
+                            >
+                                <option value="">Semua Negara</option>
+                                <option value="Indonesia">Indonesia</option>
+                                <option value="Luar Negeri">Luar Negeri (Semua)</option>
+                                <option
+                                    v-for="neg in negaraOptions.filter(n => n !== 'Indonesia' && n !== 'Luar Negeri')"
+                                    :key="neg"
+                                    :value="neg"
+                                >
+                                    {{ neg }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Filter Provinsi -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Provinsi</label>
+                            <select
+                                v-model="selectedPropinsiId"
+                                @change="handlePropinsiChangeFilter"
+                                :disabled="selectedNegara !== '' && selectedNegara !== 'Indonesia'"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B] font-medium cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                            >
+                                <option value="">Semua Provinsi</option>
+                                <option v-for="prov in propinsis" :key="prov.id" :value="prov.id">
+                                    {{ prov.nama_provinsi }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Filter Kabupaten / Kota -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+                                Kabupaten / Kota
+                                <span v-if="isLoadingKabupatenFilter" class="text-slate-400 font-normal ml-1">(Memuat...)</span>
+                            </label>
+                            <select
+                                v-model="selectedKabupatenId"
+                                @change="applyFilters"
+                                :disabled="!selectedPropinsiId || (selectedNegara !== '' && selectedNegara !== 'Indonesia')"
+                                class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B] font-medium cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                            >
+                                <option value="">Semua Kabupaten / Kota</option>
+                                <option v-for="kab in availableKabupatensForFilter" :key="kab.id" :value="kab.id">
+                                    {{ kab.nama_kabupaten }}
+                                </option>
                             </select>
                         </div>
                     </div>
@@ -806,7 +1220,7 @@ const handleVerifyDirect = (company) => {
                                 <th class="border-r border-slate-200 px-3.5 py-3 min-w-[170px]">Pengaju Usulan</th>
                                 <th class="border-r border-slate-200 px-3.5 py-3 min-w-[210px]">Status & Info Verifikasi</th>
                                 <th class="border-r border-slate-200 px-3.5 py-3 min-w-[190px]">Rekomendasi Master</th>
-                                <th class="px-4 py-3 text-center min-w-[170px] whitespace-nowrap">Aksi</th>
+                                <th class="px-4 py-3 text-center min-w-[230px] whitespace-nowrap">Aksi</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
@@ -855,9 +1269,29 @@ const handleVerifyDirect = (company) => {
                                     </div>
                                 </td>
 
-                                <!-- Kolom Pengaju Usulan -->
+                                <!-- Kolom Pengaju Usulan / Alumni Terkait -->
                                 <td class="border-r border-slate-100 px-3.5 py-3">
-                                    <div v-if="company.creator?.biodata">
+                                    <!-- Jika sedang memfilter prodi dan ada alumni dari prodi tersebut yang bekerja di sini -->
+                                    <div v-if="selectedProdiId && getFilteredProdiAlumni(company)">
+                                        <div class="font-semibold text-slate-900 leading-tight">
+                                            {{ getAlumniDisplayName(getFilteredProdiAlumni(company)) }}
+                                        </div>
+                                        <div class="text-slate-500 text-[11px] font-mono mt-0.5">
+                                            {{ getFilteredProdiAlumni(company).nim || '-' }} • {{ getAlumniProdi(getFilteredProdiAlumni(company)) }}
+                                        </div>
+                                        <div class="mt-1.5 flex flex-col gap-1">
+                                            <span class="inline-block text-[10px] font-semibold text-[#0D542B] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded leading-tight">
+                                                {{ getAlumniFromFilteredProdi(company).length }} alumni {{ getSelectedProdiName() }} bekerja di sini
+                                            </span>
+                                            <span v-if="company.creator?.biodata && String(company.creator.biodata.prodi_id) !== String(selectedProdiId)" class="text-[10px] text-slate-400">
+                                                Pengusul awal: {{ getAlumniDisplayName(company.creator.biodata) }} ({{ getAlumniProdi(company.creator.biodata) }})
+                                            </span>
+                                            <span v-else-if="company.biodata && company.biodata[0] && String(company.biodata[0].prodi_id) !== String(selectedProdiId)" class="text-[10px] text-slate-400">
+                                                Pengusul awal: {{ getAlumniDisplayName(company.biodata[0]) }} ({{ getAlumniProdi(company.biodata[0]) }})
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div v-else-if="company.creator?.biodata">
                                         <div class="font-semibold text-slate-900 leading-tight">
                                             {{ getAlumniDisplayName(company.creator.biodata) }}
                                         </div>
@@ -960,7 +1394,21 @@ const handleVerifyDirect = (company) => {
                                             :key="rec.id"
                                             class="p-1.5 bg-slate-50 border border-slate-200 rounded text-[11px]"
                                         >
-                                            <div class="font-semibold text-slate-900 truncate">{{ rec.nama_perusahaan }}</div>
+                                            <div class="flex items-start justify-between gap-1">
+                                                <div class="font-semibold text-slate-900 truncate">{{ rec.nama_perusahaan }}</div>
+                                                <button
+                                                    type="button"
+                                                    @click="openRecommendationDetail(rec)"
+                                                    class="inline-flex items-center justify-center w-5 h-5 shrink-0 rounded border border-slate-300 text-slate-600 hover:text-[#0D542B] hover:border-[#0D542B] transition-colors cursor-pointer"
+                                                    title="Lihat detail rekomendasi master"
+                                                    aria-label="Lihat detail rekomendasi master"
+                                                >
+                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <circle cx="12" cy="12" r="9" stroke-width="2" />
+                                                        <path stroke-linecap="round" stroke-width="2" d="M12 11v5m0-8h.01" />
+                                                    </svg>
+                                                </button>
+                                            </div>
                                             <div class="text-slate-500 text-[10px] truncate">
                                                 {{ rec.nama_kabupaten || '-' }}, {{ rec.nama_provinsi || '-' }}
                                             </div>
@@ -979,70 +1427,74 @@ const handleVerifyDirect = (company) => {
                                             </div>
                                         </div>
                                     </div>
-                                    <span v-else class="text-slate-400 italic text-[11px]">-</span>
+                                    <div v-else-if="company.isLoadingRecommendations" class="text-[11px] text-slate-500 italic">
+                                        Menyiapkan rekomendasi...
+                                    </div>
+                                    <span v-else class="text-slate-400 italic text-[11px]">Tidak ada master yang cukup mirip</span>
                                 </td>
 
-                                <!-- Kolom Aksi Terpadu Horizontal -->
+                                <!-- Kolom aksi memisahkan navigasi data dari satu dropdown keputusan verifikasi. -->
                                 <td class="px-4 py-3 text-center whitespace-nowrap">
-                                    <div class="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
-                                        <!-- 1. Tombol Ikon Hamburger (Daftar Alumni Bekerja) -->
+                                    <div class="flex min-w-[210px] flex-col items-stretch justify-center gap-2">
+                                        <select
+                                            v-if="company.status_verifikasi !== 'Terverifikasi'"
+                                            aria-label="Pilih keputusan verifikasi"
+                                            class="h-9 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 cursor-pointer"
+                                            @change="handleVerificationAction(company, $event)"
+                                        >
+                                            <option value="">Pilih keputusan verifikasi</option>
+                                            <option value="approve">Terima sebagai master resmi</option>
+                                            <option v-if="company.status_verifikasi !== 'Ditolak'" value="reject">Tolak usulan</option>
+                                        </select>
+
                                         <button
                                             type="button"
                                             @click="openAlumniModal(company)"
-                                            class="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer shrink-0"
-                                            title="Lihat Daftar Alumni Bekerja (Menu List)"
+                                            class="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-[11px] font-bold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer"
+                                            :title="`Lihat daftar alumni (${getCompanyAlumniCount(company)})`"
                                         >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                                            </svg>
+                                            <span>Lihat daftar alumni</span>
+                                            <span class="rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-[10px]">{{ getCompanyAlumniCount(company) }}</span>
                                         </button>
 
-                                        <!-- 2. Tombol Detail Peninjauan (Ikon Mata) -->
-                                        <button
-                                            type="button"
-                                            @click="openReviewModal(company)"
-                                            class="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer shrink-0"
-                                            title="Peninjauan Lengkap Usulan Perusahaan & Alumni"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        </button>
+                                        <!-- Ikon detail, sunting, dan hapus memiliki tooltip serta label aksesibilitas yang jelas. -->
+                                        <div class="flex h-9 items-center justify-center gap-1.5">
+                                            <button
+                                                type="button"
+                                                @click="openReviewModal(company)"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                                                title="Lihat detail perusahaan"
+                                                aria-label="Lihat detail perusahaan"
+                                            >
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="openEditModal(company)"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                                                title="Sunting data perusahaan"
+                                                aria-label="Sunting data perusahaan"
+                                            >
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="confirmDeleteCompany(company)"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-rose-700 cursor-pointer"
+                                                title="Hapus data perusahaan"
+                                                aria-label="Hapus data perusahaan"
+                                            >
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
 
-                                        <!-- 3. Tombol Cepat V (Setujui Langsung) jika Menunggu Verifikasi -->
-                                        <button
-                                            v-if="company.status_verifikasi !== 'Terverifikasi'"
-                                            type="button"
-                                            @click="handleVerifyDirect(company)"
-                                            class="w-7 h-7 flex items-center justify-center font-bold text-xs bg-[#0D542B] hover:bg-[#08381c] text-white rounded-lg shadow-2xs transition-colors cursor-pointer shrink-0"
-                                            title="Setujui sebagai Master Resmi (Tombol V)"
-                                        >
-                                            V
-                                        </button>
-
-                                        <!-- 4. Tombol Cepat X (Tolak Usulan) jika Belum Ditolak -->
-                                        <button
-                                            v-if="company.status_verifikasi !== 'Ditolak'"
-                                            type="button"
-                                            @click="openRejectModal(company)"
-                                            class="w-7 h-7 flex items-center justify-center font-bold text-xs bg-gray-100 hover:bg-rose-50 text-gray-600 hover:text-rose-700 border border-gray-300 rounded-lg shadow-2xs transition-colors cursor-pointer shrink-0"
-                                            title="Tolak Usulan dengan Alasan (Tombol X)"
-                                        >
-                                            X
-                                        </button>
-
-                                        <!-- 5. Tombol Sunting (Pensil) -->
-                                        <button
-                                            type="button"
-                                            @click="openEditModal(company)"
-                                            class="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer shrink-0"
-                                            title="Sunting Data Institusi"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -1139,7 +1591,7 @@ const handleVerifyDirect = (company) => {
                             <th class="border border-slate-200 px-3 py-2 min-w-[180px]">Nama Mahasiswa / Alumni</th>
                             <th class="border border-slate-200 px-3 py-2 w-28">NIM</th>
                             <th class="border border-slate-200 px-3 py-2 min-w-[150px]">Program Studi</th>
-                            <th class="border border-slate-200 px-3 py-2 w-28 text-center">Angkatan</th>
+                            <th class="border border-slate-200 px-3 py-2 w-28 text-center">Tahun Lulus</th>
                             <th class="border border-slate-200 px-3 py-2 min-w-[140px]">Jabatan / Posisi</th>
                             <th class="border border-slate-200 px-3 py-2 text-center w-20">Aksi</th>
                         </tr>
@@ -1176,7 +1628,7 @@ const handleVerifyDirect = (company) => {
                             <td class="border border-slate-200 px-3 py-2 text-center">
                                 <Link
                                     v-if="alumni.id"
-                                    :href="`/superadmin/alumni/${alumni.id}`"
+                                    :href="alumniDetailPath(alumni.id)"
                                     class="inline-flex items-center justify-center p-1.5 text-blue-700 hover:bg-blue-50 rounded transition-colors"
                                     title="Lihat Detail Profil Alumni"
                                 >
@@ -1260,22 +1712,16 @@ const handleVerifyDirect = (company) => {
                         <div class="font-medium text-slate-900">{{ activeCompanyForReview.alamat || 'Alamat tidak dicantumkan' }}</div>
                     </div>
 
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-slate-200 text-[11px]">
-                        <div>
-                            <span class="text-slate-500 block">Provinsi:</span>
-                            <strong class="text-slate-900">{{ activeCompanyForReview.propinsi?.nama_provinsi || '-' }}</strong>
-                        </div>
-                        <div>
-                            <span class="text-slate-500 block">Kabupaten/Kota:</span>
-                            <strong class="text-slate-900">{{ activeCompanyForReview.kabupaten?.nama_kabupaten || '-' }}</strong>
-                        </div>
-                        <div>
-                            <span class="text-slate-500 block">Skala Institusi:</span>
-                            <strong class="text-slate-900">{{ activeCompanyForReview.skala || '-' }}</strong>
-                        </div>
-                        <div>
-                            <span class="text-slate-500 block">Jenis Usaha:</span>
-                            <strong class="text-slate-900">{{ activeCompanyForReview.jenis_perusahaan || '-' }}</strong>
+                    <div class="pt-2 border-t border-slate-200">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-2 text-[11px]">
+                            <div
+                                v-for="field in getCompanyDetailFields(activeCompanyForReview)"
+                                :key="field.label"
+                                class="grid grid-cols-[minmax(130px,0.7fr)_minmax(0,1fr)] gap-2 border-b border-slate-100 py-1.5"
+                            >
+                                <span class="text-slate-500">{{ field.label }}</span>
+                                <strong class="text-slate-900 break-words">{{ field.value }}</strong>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1292,7 +1738,7 @@ const handleVerifyDirect = (company) => {
                                     <th class="px-3 py-2 border-r border-slate-200">Nama Lengkap Alumni</th>
                                     <th class="px-3 py-2 border-r border-slate-200 w-28">NIM</th>
                                     <th class="px-3 py-2 border-r border-slate-200 min-w-[140px]">Program Studi</th>
-                                    <th class="px-3 py-2 border-r border-slate-200 w-24 text-center">Angkatan</th>
+                                    <th class="px-3 py-2 border-r border-slate-200 w-24 text-center">Tahun Lulus</th>
                                     <th class="px-3 py-2 border-r border-slate-200 min-w-[130px]">Posisi / Jabatan</th>
                                     <th class="px-3 py-2 text-center w-16">Aksi</th>
                                 </tr>
@@ -1326,7 +1772,7 @@ const handleVerifyDirect = (company) => {
                                     <td class="px-3 py-2 text-center">
                                         <Link
                                             v-if="alumni.id"
-                                            :href="`/superadmin/alumni/${alumni.id}`"
+                                            :href="alumniDetailPath(alumni.id)"
                                             class="inline-flex items-center justify-center p-1 text-blue-700 hover:bg-blue-50 rounded transition-colors"
                                             title="Buka Profil Lengkap Alumni"
                                         >
@@ -1348,8 +1794,23 @@ const handleVerifyDirect = (company) => {
                     <span class="font-bold text-slate-700 tracking-wider text-[11px] uppercase block">
                         3. REKOMENDASI MASTER TERVERIFIKASI (KONSOLIDASI DATA)
                     </span>
+
+                    <!-- Indikator Loading Rekomendasi Asinkron -->
                     <div
-                        v-if="activeCompanyForReview.recommendations && activeCompanyForReview.recommendations.length > 0"
+                        v-if="isLoadingRecommendations || activeCompanyForReview.isLoadingRecommendations"
+                        class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs text-slate-500 animate-pulse"
+                    >
+                        <div class="inline-flex items-center gap-2 text-slate-700 font-medium">
+                            <svg class="animate-spin h-4 w-4 text-[#0D542B]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                             <span>Menyiapkan rekomendasi master terkait...</span>
+                        </div>
+                    </div>
+
+                    <div
+                        v-else-if="activeCompanyForReview.recommendations && activeCompanyForReview.recommendations.length > 0"
                         class="border border-slate-200 rounded-xl overflow-hidden bg-white"
                     >
                         <table class="w-full text-left border-collapse text-xs">
@@ -1367,7 +1828,21 @@ const handleVerifyDirect = (company) => {
                                     class="hover:bg-slate-50"
                                 >
                                     <td class="px-3 py-2 font-bold text-slate-900 border-r border-slate-100">
-                                        {{ rec.nama_perusahaan }}
+                                        <div class="flex items-center justify-between gap-2">
+                                            <span>{{ rec.nama_perusahaan }}</span>
+                                            <button
+                                                type="button"
+                                                @click="openRecommendationDetail(rec)"
+                                                class="inline-flex items-center justify-center w-5 h-5 shrink-0 rounded border border-slate-300 text-slate-600 hover:text-[#0D542B] hover:border-[#0D542B] transition-colors cursor-pointer"
+                                                title="Lihat detail rekomendasi master"
+                                                aria-label="Lihat detail rekomendasi master"
+                                            >
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <circle cx="12" cy="12" r="9" stroke-width="2" />
+                                                    <path stroke-linecap="round" stroke-width="2" d="M12 11v5m0-8h.01" />
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </td>
                                     <td class="px-3 py-2 text-slate-600 border-r border-slate-100">
                                         {{ rec.nama_kabupaten || '-' }}, {{ rec.nama_provinsi || '-' }}
@@ -1395,20 +1870,21 @@ const handleVerifyDirect = (company) => {
             <div class="px-6 py-3.5 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
                     <button
-                        v-if="activeCompanyForReview.status_verifikasi !== 'Ditolak'"
-                        type="button"
-                        @click="openRejectModal(activeCompanyForReview)"
-                        class="px-4 py-2 border border-rose-300 text-rose-700 hover:bg-rose-50 font-bold rounded-xl text-xs transition-colors cursor-pointer"
-                    >
-                        Tolak Usulan (X)
-                    </button>
-                    <button
                         type="button"
                         @click="openEditModal(activeCompanyForReview)"
                         class="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
                     >
                         Sunting Data
                     </button>
+                    <select
+                        aria-label="Pilih keputusan usulan perusahaan"
+                        class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none transition focus:border-[#0D542B] focus:ring-2 focus:ring-[#0D542B]/10 cursor-pointer"
+                        @change="handleVerificationAction(activeCompanyForReview, $event)"
+                    >
+                        <option value="">Pilih keputusan</option>
+                        <option v-if="activeCompanyForReview.status_verifikasi !== 'Terverifikasi'" value="approve">Terima sebagai master resmi</option>
+                        <option v-if="activeCompanyForReview.status_verifikasi !== 'Ditolak'" value="reject">Tolak usulan</option>
+                    </select>
                 </div>
                 <div class="flex items-center gap-2">
                     <button
@@ -1417,14 +1893,6 @@ const handleVerifyDirect = (company) => {
                         class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl text-xs transition-colors cursor-pointer"
                     >
                         Tutup
-                    </button>
-                    <button
-                        v-if="activeCompanyForReview.status_verifikasi !== 'Terverifikasi'"
-                        type="button"
-                        @click="handleVerifyDirect(activeCompanyForReview)"
-                        class="px-5 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white font-bold rounded-xl text-xs transition-colors shadow-xs cursor-pointer"
-                    >
-                        Setujui sebagai Master Resmi (V)
                     </button>
                 </div>
             </div>
@@ -1722,11 +2190,13 @@ const handleVerifyDirect = (company) => {
                         </label>
                         <select
                             v-model="createForm.kabupaten_id"
-                            :disabled="!createForm.propinsi_id"
+                            :disabled="!createForm.propinsi_id || isLoadingKabupatenCreate"
                             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
                         >
-                            <option value="">-- Pilih Kabupaten --</option>
-                            <option v-for="k in filteredKabupatensForCreate" :key="k.id" :value="k.id">
+                            <option value="">
+                                {{ isLoadingKabupatenCreate ? 'Memuat kabupaten/kota...' : (createForm.propinsi_id ? '-- Pilih Kabupaten / Kota --' : '-- Pilih Provinsi Dahulu --') }}
+                            </option>
+                            <option v-for="k in availableKabupatensForCreate" :key="k.id" :value="k.id">
                                 {{ k.nama_kabupaten }}
                             </option>
                         </select>
@@ -1914,11 +2384,13 @@ const handleVerifyDirect = (company) => {
                         </label>
                         <select
                             v-model="editForm.kabupaten_id"
-                            :disabled="!editForm.propinsi_id"
+                            :disabled="!editForm.propinsi_id || isLoadingKabupatenEdit"
                             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
                         >
-                            <option value="">-- Pilih Kabupaten --</option>
-                            <option v-for="k in filteredKabupatensForEdit" :key="k.id" :value="k.id">
+                            <option value="">
+                                {{ isLoadingKabupatenEdit ? 'Memuat kabupaten/kota...' : (editForm.propinsi_id ? '-- Pilih Kabupaten / Kota --' : '-- Pilih Provinsi Dahulu --') }}
+                            </option>
+                            <option v-for="k in availableKabupatensForEdit" :key="k.id" :value="k.id">
                                 {{ k.nama_kabupaten }}
                             </option>
                         </select>
@@ -2001,4 +2473,53 @@ const handleVerifyDirect = (company) => {
             </form>
         </div>
     </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL VUE: DETAIL REKOMENDASI MASTER PERUSAHAAN          -->
+    <!-- ======================================================== -->
+    <Teleport to="body">
+        <div
+            v-if="showRecommendationModal && activeRecommendation"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        >
+            <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-gray-900">Detail Rekomendasi Master</h3>
+                        <p class="text-xs text-gray-500 mt-0.5">Informasi lengkap data profil perusahaan master terdaftar.</p>
+                    </div>
+                    <button
+                        type="button"
+                        @click="closeRecommendationModal"
+                        class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="overflow-y-auto px-6 py-4 divide-y divide-gray-100 text-xs">
+                    <div
+                        v-for="field in getCompanyDetailFields(activeRecommendation)"
+                        :key="field.label"
+                        class="grid grid-cols-[160px_1fr] gap-3 py-2.5"
+                    >
+                        <span class="text-gray-500 font-medium">{{ field.label }}</span>
+                        <strong class="text-gray-900 font-semibold break-words">{{ field.value }}</strong>
+                    </div>
+                </div>
+
+                <div class="px-6 py-3 border-t border-gray-100 bg-gray-50 flex justify-end">
+                    <button
+                        type="button"
+                        @click="closeRecommendationModal"
+                        class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                    >
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+    </Teleport>
 </template>

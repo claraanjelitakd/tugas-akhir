@@ -1,0 +1,19 @@
+@startuml
+title AD-10 Dashboard Superadmin Universitas
+|Superadmin|
+start
+:Pilih tahun kelulusan;
+|Backend|
+:Validasi filter dan scope universitas;
+|Database|
+:Ambil populasi, response, status audit, dan tindak lanjut;
+|Backend|
+:Hitung response rate dan completion;
+if (Ada antrean perusahaan?) then (ya)
+  :Tampilkan tindak lanjut lintas tahun;
+else (tidak)
+  :Tampilkan keadaan kosong;
+endif
+:Render dashboard Inertia;
+stop
+@enduml

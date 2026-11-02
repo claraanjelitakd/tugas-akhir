@@ -15,11 +15,18 @@ use Inertia\Response as InertiaResponse;
 
 /**
  * Controller untuk Kuesioner Khusus Program Studi bagi Alumni.
+ *
+ * Bertanggung jawab memuat daftar bagian (section), butir pertanyaan, dan riwayat jawaban
+ * kuesioner program studi alumni, serta menyimpan jawaban standar maupun jawaban kustom
+ * (opsi Lainnya / Other) ke tabel `prodi_responses`.
  */
 class KuesionerProdiController extends Controller
 {
     /**
-     * Menampilkan halaman kuesioner khusus program studi alumni.
+     * Menampilkan halaman kuesioner khusus program studi alumni beserta jawaban awal.
+     *
+     * Memetakan jawaban tersimpan dari `prodi_responses` (termasuk input teks kustom
+     * pada tipe pilihan tunggal dan pilihan ganda) ke dalam struktur `initialAnswers`.
      */
     public function tampilkanKuesionerProdi(): InertiaResponse
     {
@@ -83,7 +90,12 @@ class KuesionerProdiController extends Controller
 
             if ($resp) {
                 if ($q->type === 'multiple_choice' || $q->type === 'checkbox') {
-                    $initialAnswers[$q->id] = $resp->answer_json ?? (array) $resp->answer_text;
+                    if (is_array($resp->answer_json) && array_key_exists('selected', $resp->answer_json)) {
+                        $initialAnswers[$q->id] = (array) ($resp->answer_json['selected'] ?? []);
+                        $initialAnswers[$q->id.'_custom'] = (string) ($resp->answer_json['custom'] ?? '');
+                    } else {
+                        $initialAnswers[$q->id] = $resp->answer_json ?? (array) $resp->answer_text;
+                    }
                 } elseif ($q->type === 'radio_input' || $q->type === 'radio_text') {
                     $initialAnswers[$q->id] = [
                         'selected' => $resp->answer_text ?? '',
@@ -92,6 +104,10 @@ class KuesionerProdiController extends Controller
                     ];
                 } else {
                     $val = $resp->answer_text ?? '';
+                    if (is_array($resp->answer_json) && isset($resp->answer_json['custom'])) {
+                        $val = (string) ($resp->answer_json['selected'] ?? $val);
+                        $initialAnswers[$q->id.'_custom'] = (string) $resp->answer_json['custom'];
+                    }
                     // Jika data tersimpan kosong tetapi ada data akademik otomatis, gunakan data akademik
                     $initialAnswers[$q->id] = (! empty($val) || $autoVal === null) ? $val : (string) $autoVal;
                 }
@@ -138,7 +154,10 @@ class KuesionerProdiController extends Controller
     }
 
     /**
-     * Menyimpan jawaban kuesioner prodi alumni.
+     * Menyimpan jawaban kuesioner prodi alumni (baik simpan progres parsial maupun kirim akhir).
+     *
+     * Menangani format jawaban teks, array pilihan ganda, radio dengan input tambahan,
+     * serta penggabungan keterangan kustom (`_custom`) untuk opsi Lainnya / Other.
      */
     public function simpanJawaban(Request $request): RedirectResponse
     {
@@ -158,6 +177,7 @@ class KuesionerProdiController extends Controller
 
         foreach ($questions as $qId => $q) {
             $jawaban = $jawabanMasuk[$qId] ?? null;
+            $customText = isset($jawabanMasuk[$qId.'_custom']) ? trim((string) $jawabanMasuk[$qId.'_custom']) : '';
             $answerValue = null;
             $answerJson = null;
 
@@ -165,8 +185,18 @@ class KuesionerProdiController extends Controller
                 if ($q->type === 'multiple_choice' || $q->type === 'checkbox') {
                     $cleaned = array_values(array_filter($jawaban));
                     if (! empty($cleaned)) {
-                        $answerJson = $cleaned;
-                        $answerValue = implode(', ', $cleaned);
+                        $answerJson = $customText !== ''
+                            ? ['selected' => $cleaned, 'custom' => $customText]
+                            : $cleaned;
+                        $displayItems = array_map(function ($item) use ($customText) {
+                            $lower = strtolower(trim((string) $item));
+                            if ($customText !== '' && ($lower === 'other' || str_contains($lower, 'lainnya') || str_contains($lower, 'tuliskan') || str_contains($lower, '...'))) {
+                                return "{$item} ({$customText})";
+                            }
+
+                            return $item;
+                        }, $cleaned);
+                        $answerValue = implode(', ', $displayItems);
                     }
                 } elseif ($q->type === 'radio_input' || $q->type === 'radio_text') {
                     $selected = is_array($jawaban) ? trim((string) ($jawaban['selected'] ?? '')) : trim((string) $jawaban);
@@ -183,6 +213,12 @@ class KuesionerProdiController extends Controller
                 $answerValue = trim((string) $jawaban);
                 if ($q->type === 'radio_input' || $q->type === 'radio_text') {
                     $answerJson = ['selected' => $answerValue, 'input' => ''];
+                } elseif (($q->type === 'single_choice' || $q->type === 'radio') && $customText !== '') {
+                    $lower = strtolower($answerValue);
+                    if ($lower === 'other' || str_contains($lower, 'lainnya') || str_contains($lower, 'tuliskan') || str_contains($lower, '...')) {
+                        $answerJson = ['selected' => $answerValue, 'custom' => $customText];
+                        $answerValue = "{$answerValue} ({$customText})";
+                    }
                 }
             }
 

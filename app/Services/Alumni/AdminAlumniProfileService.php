@@ -8,7 +8,6 @@ use App\Models\Biodata;
 use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\RefSubpertanyaanDetil;
-use App\Models\Yudisium;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
@@ -29,7 +28,7 @@ use Illuminate\Validation\ValidationException;
  *
  * Alasan sentralisasi:
  * Mengoptimalkan pembacaan data profil menggunakan Database View `v_alumni_profile_summary`
- * sehingga seluruh 4 sub-tab (Pribadi, Akademik, Orang Tua, Karier) teragregasi instan
+ * sehingga data profil teragregasi instan
  * tanpa overhead N+1 query.
  */
 class AdminAlumniProfileService
@@ -47,7 +46,6 @@ class AdminAlumniProfileService
     {
         $summary = $alumni->profileSummary ?? AlumniProfileSummary::where('biodata_id', $alumni->id)->first();
         $dataAkademik = $alumni->dataAkademik;
-        $orangTua = $alumni->orangTua ?? $dataAkademik?->orangTua;
         $yudisium = $alumni->yudisium ?? $dataAkademik?->yudisium;
         $atasan = $alumni->atasan;
         $perusahaan = $alumni->perusahaan;
@@ -58,83 +56,49 @@ class AdminAlumniProfileService
             'nama' => $summary?->nama ?? ($alumni->nama ?? ($dataAkademik?->nama ?? '')),
             'tempat_lahir' => $summary?->tempat_lahir ?? ($alumni->tempat_lahir ?? ($dataAkademik?->tempat_lahir ?? '')),
             'tanggal_lahir' => $summary?->tanggal_lahir ?? ($alumni->tanggal_lahir ?? ($dataAkademik?->tanggal_lahir ?? '')),
-            'agama' => $summary?->agama ?? ($alumni->agama ?? ($dataAkademik?->agama ?? '')),
             'jenis_kelamin' => $summary?->jenis_kelamin ?? ($alumni->jenis_kelamin ?? ($dataAkademik?->jenis_kelamin ?? '')),
-            'golongan_darah' => $summary?->golongan_darah ?? ($alumni->golongan_darah ?? ($dataAkademik?->golongan_darah ?? '')),
             'warga_negara' => $summary?->warga_negara ?? ($alumni->warga_negara ?? ($dataAkademik?->warga_negara ?? 'WNI')),
-            'nik' => $summary?->nik ?? ($alumni->nik ?? ($dataAkademik?->nik ?? '')),
-            'no_kk' => $summary?->no_kk ?? ($alumni->no_kk ?? ($dataAkademik?->no_kk ?? '')),
-            'nisn' => $summary?->nisn ?? ($alumni->nisn ?? ($dataAkademik?->nisn ?? '')),
-            'no_bpjs' => $summary?->no_bpjs ?? ($alumni->no_bpjs ?? ($dataAkademik?->no_bpjs ?? '')),
-            'npwp' => $summary?->npwp ?? ($alumni->npwp ?? ''),
             'foto' => $alumni->foto ?? '',
 
             // Kontak & Alamat Pribadi
-            'alamat_saat_ini' => $summary?->alamat ?? ($alumni->alamat ?? ($dataAkademik?->alamat_saat_ini ?? '')),
-            'alamat' => $summary?->alamat ?? ($alumni->alamat ?? ($dataAkademik?->alamat_saat_ini ?? '')),
-            'kelurahan' => $summary?->kelurahan ?? ($alumni->kelurahan ?? ($dataAkademik?->kelurahan ?? '')),
-            'kecamatan' => $summary?->kecamatan ?? ($alumni->kecamatan ?? ($dataAkademik?->kecamatan ?? '')),
-            'kabupaten_id' => $summary?->kabupaten_id ?? ($alumni->kabupaten_id ?? ($dataAkademik?->kabupaten_id ?? '')),
-            'propinsi_id' => $summary?->propinsi_id ?? ($alumni->propinsi_id ?? ($dataAkademik?->propinsi_id ?? '')),
-            'provinsi_id' => $summary?->propinsi_id ?? ($alumni->propinsi_id ?? ($dataAkademik?->propinsi_id ?? '')),
-            'kode_pos' => $summary?->kode_pos ?? ($alumni->kode_pos ?? ($dataAkademik?->kode_pos ?? '')),
-            'nomor_telepon' => $summary?->nomor_telepon ?? ($alumni->nomor_telepon ?? ($dataAkademik?->nomor_telepon ?? '')),
-            'email_pribadi' => $summary?->email_pribadi ?? ($alumni->email_pribadi ?? ($dataAkademik?->email_pribadi ?? '')),
-            'email' => $summary?->email ?? ($alumni->email_pribadi ?? ($dataAkademik?->email_pribadi ?? '')),
-            'email_students' => $summary?->email_students ?? ($dataAkademik?->email_students ?? ''),
+            'alamat_saat_ini' => $summary?->alamat ?? ($alumni->alamat_saat_ini ?? ''),
+            'kelurahan' => $summary?->kelurahan ?? ($alumni->kelurahan ?? ''),
+            'kecamatan' => $summary?->kecamatan ?? ($alumni->kecamatan ?? ''),
+            'kabupaten_id' => $summary?->kabupaten_id ?? ($alumni->kabupaten_id ?? ''),
+            'propinsi_id' => $summary?->propinsi_id ?? ($alumni->propinsi_id ?? ''),
+            'provinsi_id' => $summary?->propinsi_id ?? ($alumni->propinsi_id ?? ''),
+            'kode_pos' => $summary?->kode_pos ?? ($alumni->kode_pos ?? ''),
+            'nomor_telepon' => $summary?->nomor_telepon ?? ($alumni->nomor_telepon ?? ''),
+            'email_pribadi' => $summary?->email_pribadi ?? ($alumni->email_pribadi ?? ''),
+            'email' => $summary?->email ?? ($alumni->email_pribadi ?? ''),
 
             // 2. Data Akademik
             'prodi_id' => $summary?->prodi_id ?? ($alumni->prodi_id ?? ($dataAkademik?->prodi_id ?? '')),
-            'kode_prodi' => $summary?->kode_prodi ?? ($alumni->prodi?->kode_prodi ?? ($dataAkademik?->program_studi ?? '')),
-            'program_studi' => $summary?->nama_prodi ?? ($alumni->prodi?->nama_prodi ?? ($dataAkademik?->program_studi ?? '')),
-            'fakultas' => $summary?->nama_fakultas ?? ($alumni->prodi?->fakultas?->nama_fakultas ?? ($dataAkademik?->fakultas ?? '')),
+            'kode_prodi' => $summary?->kode_prodi ?? ($alumni->prodi?->kode_prodi ?? ''),
+            'program_studi' => $summary?->nama_prodi ?? ($alumni->prodi?->nama_prodi ?? ''),
+            'fakultas' => $summary?->nama_fakultas ?? ($alumni->prodi?->fakultas?->nama_fakultas ?? ''),
             'angkatan_masuk' => $summary?->angkatan_masuk ?? ($dataAkademik?->angkatan_masuk ?? ''),
             'status_mahasiswa' => $summary?->status_mahasiswa ?? ($dataAkademik?->status_mahasiswa ?? 'AR'),
             'tahun_akademik_lulus' => $summary?->tahun_akademik_lulus ?? ($dataAkademik?->tahun_akademik_lulus ?? ''),
             'tahun_lulus' => $summary?->tahun_lulus ? (string) $summary->tahun_lulus : ($dataAkademik?->tahun_lulus ? (string) $dataAkademik->tahun_lulus : ''),
             'ipk' => $summary?->ipk ?? ($dataAkademik?->ip_kumulatif ?? ''),
             'ip_kumulatif' => $summary?->ipk ?? ($dataAkademik?->ip_kumulatif ?? ''),
-            'strata' => $dataAkademik?->strata ?? 'S1',
-            'no_ijazah' => $dataAkademik?->no_ijazah ?? '',
             'total_sks' => $summary?->total_sks ?? ($dataAkademik?->total_sks ?? ''),
             'total_angka_kualitas' => $summary?->total_angka_kualitas ?? ($dataAkademik?->total_angka_kualitas ?? ''),
             'asal_sekolah' => $summary?->asal_sekolah ?? ($dataAkademik?->asal_sekolah ?? ''),
 
-            // Yudisium (Terintegrasi dari view & relasi)
-            'judul_ta' => $summary?->judul_ta ?? ($yudisium?->judul_ta ?? ''),
-            'judul_ta_inggris' => $summary?->judul_ta_inggris ?? ($yudisium?->judul_ta_inggris ?? ''),
-            'dosen_pembimbing_1' => $summary?->dosen_pembimbing_1 ?? ($yudisium?->dosen_pembimbing_1 ?? ''),
-            'dosen_pembimbing_2' => $summary?->dosen_pembimbing_2 ?? ($yudisium?->dosen_pembimbing_2 ?? ''),
-            'dosen_penguji_1' => $summary?->dosen_penguji_1 ?? ($yudisium?->dosen_penguji_1 ?? ''),
-            'dosen_penguji_2' => $summary?->dosen_penguji_2 ?? ($yudisium?->dosen_penguji_2 ?? ''),
-            'url_publikasi' => $summary?->url_publikasi ?? ($yudisium?->url_publikasi ?? ''),
-            'jenis_publikasi' => $summary?->jenis_publikasi ?? ($yudisium?->jenis_publikasi ?? ''),
-            'status_publikasi' => $summary?->status_publikasi ?? ($yudisium?->status_publikasi ?? ''),
-            'status_lulus' => $summary?->status_yudisium ?? ($yudisium?->status_lulus ?? 'Belum'),
-            'status_yudisium' => $summary?->status_yudisium ?? ($yudisium?->status_lulus ?? 'Belum'),
-            'keterangan_hasil_yudisium' => $summary?->keterangan_hasil_yudisium ?? ($yudisium?->keterangan_hasil_yudisium ?? ''),
-            'proses_yudisium' => $summary?->status_yudisium ?? ($yudisium?->status_lulus ?? 'Belum'),
+            // Tugas akhir dan tanggal kelulusan tetap tersedia; data sensitif lain tetap diminimalkan.
+            'judul_ta' => $yudisium?->judul_ta ?? '',
+            'judul_ta_inggris' => $yudisium?->judul_ta_inggris ?? '',
+            'tanggal_lulus' => $dataAkademik?->tanggal_lulus?->format('Y-m-d') ?? '',
 
-            // 3. Data Orang Tua
-            'nama_orang_tua' => $summary?->nama_orang_tua ?? ($orangTua?->nama_orang_tua ?? ''),
-            'pekerjaan_orang_tua' => $summary?->pekerjaan_orang_tua ?? ($orangTua?->pekerjaan ?? ''),
-            'alamat_orang_tua' => $summary?->alamat_orang_tua ?? ($orangTua?->alamat ?? ''),
-            'kota_orang_tua' => $summary?->kota_orang_tua ?? ($orangTua?->kota ?? ''),
-            'kabupaten_id_orang_tua' => $orangTua?->kabupaten_id ?? '',
-            'propinsi_id_orang_tua' => $orangTua?->propinsi_id ?? '',
-            'provinsi_id_orang_tua' => $orangTua?->propinsi_id ?? '',
-            'kode_pos_orang_tua' => $summary?->kode_pos_orang_tua ?? ($orangTua?->kode_pos ?? ''),
-            'nomor_telepon_orang_tua' => $summary?->nomor_telepon_orang_tua ?? ($orangTua?->nomor_telepon ?? ''),
-
-            // 4. Karier, Media Sosial, Keahlian & Penghasilan
+            // 2. Karier, Media Sosial, Keahlian & Penghasilan
             'instagram_url' => $summary?->instagram_url ?? ($alumni->instagram_url ?? ''),
             'facebook_url' => $summary?->facebook_url ?? ($alumni->facebook_url ?? ''),
             'linkedin_url' => $summary?->linkedin_url ?? ($alumni->linkedin_url ?? ''),
             'linkedin_username' => $summary?->linkedin_username ?? ($alumni->linkedin_username ?? ''),
-            'skills' => $summary?->skills ?? ($alumni->skills ?? ($alumni->expert ?? '')),
-            'experience' => $summary?->experience ?? ($alumni->experience ?? ($alumni->minat ?? '')),
-            'expert' => $summary?->skills ?? ($alumni->skills ?? ($alumni->expert ?? '')),
-            'minat' => $summary?->experience ?? ($alumni->experience ?? ($alumni->minat ?? '')),
+            'skills' => $summary?->skills ?? ($alumni->skills ?? ''),
+            'experience' => $summary?->experience ?? ($alumni->experience ?? ''),
             'kategori_pekerjaan' => $summary?->kategori_pekerjaan ?? ($alumni->kategori_pekerjaan ?? ''),
             'posisi_jabatan' => $summary?->posisi_jabatan ?? ($alumni->posisi_jabatan ?? ''),
             'bidang_pekerjaan' => $summary?->bidang_pekerjaan ?? ($alumni->bidang_pekerjaan ?? ''),
@@ -206,7 +170,7 @@ class AdminAlumniProfileService
     /**
      * Simpan seluruh pembaruan profil alumni oleh Admin secara atomik.
      *
-     * Data akademik, orang tua, dan yudisium hanya digunakan sebagai referensi.
+     * Data akademik dan yudisium hanya digunakan sebagai referensi.
      * Perubahan disimpan pada data transaksi tracer study seperti perusahaan,
      * atasan, biodata, dan jawaban kuesioner.
      *
@@ -299,12 +263,14 @@ class AdminAlumniProfileService
             $atasan = ! empty($biodata->atasan_id) ? Atasan::find($biodata->atasan_id) : null;
             if ($atasan) {
                 $atasan->update([
+                    'perusahaan_id' => $perusahaanId ?: $atasan->perusahaan_id,
                     'nama' => $namaAtasan ?: $atasan->nama,
                     'email' => $emailAtasan,
                     'telepon' => $teleponAtasan,
                 ]);
             } else {
                 $atasan = Atasan::create([
+                    'perusahaan_id' => $perusahaanId,
                     'nama' => $namaAtasan ?: 'Atasan',
                     'email' => $emailAtasan,
                     'telepon' => $teleponAtasan,
@@ -339,18 +305,16 @@ class AdminAlumniProfileService
         $biodataUpdates = [
             'nomor_telepon' => ! empty($data['nomor_telepon']) ? $data['nomor_telepon'] : null,
             'email_pribadi' => ! empty($data['email_pribadi']) ? $data['email_pribadi'] : (! empty($data['email']) ? $data['email'] : $biodata->email_pribadi),
-            'alamat_saat_ini' => ! empty($data['alamat_saat_ini']) ? $data['alamat_saat_ini'] : (! empty($data['alamat']) ? $data['alamat'] : null),
+            'alamat_saat_ini' => ! empty($data['alamat_saat_ini']) ? $data['alamat_saat_ini'] : null,
             'kabupaten_id' => ! empty($data['kabupaten_id']) ? $data['kabupaten_id'] : null,
             'propinsi_id' => ! empty($data['propinsi_id']) ? $data['propinsi_id'] : (! empty($data['provinsi_id']) ? $data['provinsi_id'] : null),
             'kode_pos' => ! empty($data['kode_pos']) ? $data['kode_pos'] : null,
-            'nik' => ! empty($data['nik']) ? $data['nik'] : null,
-            'npwp' => ! empty($data['npwp']) ? $data['npwp'] : null,
             'instagram_url' => ! empty($data['instagram_url']) ? $data['instagram_url'] : null,
             'facebook_url' => ! empty($data['facebook_url']) ? $data['facebook_url'] : null,
             'linkedin_url' => ! empty($data['linkedin_url']) ? $data['linkedin_url'] : null,
             'linkedin_username' => ! empty($data['linkedin_username']) ? $data['linkedin_username'] : null,
-            'skills' => ! empty($data['skills']) ? $data['skills'] : (! empty($data['expert']) ? $data['expert'] : null),
-            'experience' => ! empty($data['experience']) ? $data['experience'] : (! empty($data['minat']) ? $data['minat'] : null),
+            'skills' => ! empty($data['skills']) ? $data['skills'] : null,
+            'experience' => ! empty($data['experience']) ? $data['experience'] : null,
             'kategori_pekerjaan' => $kategoriPekerjaan,
             'posisi_jabatan' => $posisiJabatan,
             'bidang_pekerjaan' => $bidangPekerjaan,

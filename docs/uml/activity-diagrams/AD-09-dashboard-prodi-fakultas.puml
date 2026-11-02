@@ -1,0 +1,19 @@
+@startuml
+title AD-09 Dashboard Admin Prodi dan Fakultas
+|Admin Prodi/Fakultas|
+start
+:Buka dashboard;
+|Backend|
+:Baca role dan scope;
+if (Admin Prodi?) then (ya)
+  :Gunakan user.prodi_id;
+else (Admin Fakultas)
+  :Bangun daftar prodi dari user.fakultas_id;
+endif
+|Database|
+:Ambil populasi dan status audit scoped;
+|Backend|
+:Hitung response, completion, company, LinkedIn;
+:Render dashboard Inertia;
+stop
+@enduml

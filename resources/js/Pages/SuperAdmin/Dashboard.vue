@@ -1,11 +1,18 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { ref, computed, watch } from 'vue';
 import Sidebar from '@/Pages/SuperAdmin/Components/Sidebar.vue';
-import AdminPageHeader from '@/components/AdminPageHeader.vue';
 
 const props = defineProps({
     user: Object,
+    availableYears: {
+        type: Array,
+        default: () => [],
+    },
+    selectedYear: {
+        type: [String, Number],
+        default: () => new Date().getFullYear(),
+    },
     stats: {
         type: Object,
         default: () => ({
@@ -16,7 +23,20 @@ const props = defineProps({
             total_prodi: 0,
             total_pending_perusahaan: 0,
             response_rate: 0,
+            response_rate_status: {
+                code: 'red',
+                label: 'Di bawah 50%',
+            },
             total_linkedin: 0,
+        }),
+    },
+    completionMetrics: {
+        type: Object,
+        default: () => ({
+            population: 0,
+            profile: { completed_count: 0, population: 0, percentage: 0 },
+            university_questionnaire: { completed_count: 0, population: 0, percentage: 0 },
+            profile_and_university: { completed_count: 0, population: 0, percentage: 0 },
         }),
     },
     prodiSummaries: {
@@ -39,6 +59,43 @@ const props = defineProps({
 
 // State Tab Interaktif
 const activeTab = ref('prodi'); // 'prodi' | 'alumni' | 'logs' | 'perusahaan'
+const activeCompletionMetric = ref('profile_and_university');
+const selectedYear = ref(String(props.selectedYear));
+
+watch(() => props.selectedYear, (year) => {
+    selectedYear.value = String(year);
+});
+
+const applyYearFilter = () => {
+    router.get('/superadmin/dashboard', {
+        tahun: selectedYear.value,
+    }, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+};
+
+const focusDashboardSection = (section) => {
+    if (section === 'response') {
+        activeTab.value = 'prodi';
+    }
+
+    if (section === 'population') {
+        activeTab.value = 'alumni';
+    }
+
+    if (section === 'completion') {
+        activeCompletionMetric.value = 'profile_and_university';
+    }
+
+    requestAnimationFrame(() => {
+        document.getElementById(section === 'completion' ? 'completion-detail' : 'dashboard-detail')?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+        });
+    });
+};
 
 // State Pencarian & Sorting Prodi
 const searchProdiQuery = ref('');
@@ -47,6 +104,56 @@ const sortByRate = ref(true); // true = desc, false = asc
 // State Pencarian & Filter Alumni
 const searchAlumniQuery = ref('');
 const filterStatus = ref('all'); // 'all' | 'responded' | 'not_responded' | 'linkedin'
+
+const responseRateClasses = {
+    red: {
+        text: 'text-[#0D542B]',
+        bar: 'bg-[#FDC700]',
+    },
+    yellow: {
+        text: 'text-[#0D542B]',
+        bar: 'bg-[#FDC700]',
+    },
+    green: {
+        text: 'text-[#0D542B]',
+        bar: 'bg-[#0D542B]',
+    },
+};
+
+const getResponseRateClass = (code, part) => {
+    return responseRateClasses[code]?.[part] || responseRateClasses.yellow[part];
+};
+
+const getCompletionBarClass = (percentage) => {
+    return percentage >= 100 ? 'bg-[#0D542B]' : 'bg-[#FDC700]';
+};
+
+const completionMetricOptions = [
+    {
+        key: 'profile_and_university',
+        label: 'Gabungan',
+        description: 'Profil dan kuesioner universitas lengkap',
+    },
+    {
+        key: 'profile',
+        label: 'Profil',
+        description: 'Data profil alumni lengkap',
+    },
+    {
+        key: 'university_questionnaire',
+        label: 'Kuesioner Univ.',
+        description: 'Kuesioner universitas lengkap',
+    },
+];
+
+const selectedCompletionMetric = computed(() => {
+    return props.completionMetrics?.[activeCompletionMetric.value] || {
+        label: 'Kelengkapan',
+        completed_count: 0,
+        population: 0,
+        percentage: 0,
+    };
+});
 
 // Filter & Sort Prodi se-Universitas
 const filteredProdis = computed(() => {
@@ -99,202 +206,180 @@ const filteredAlumni = computed(() => {
 
     <div class="min-h-screen bg-[#f8fafc] text-gray-800 flex font-sans">
         
-        <!-- Sidebar Terpadu Super Admin -->
         <Sidebar :user="user" />
 
-        <!-- Area Konten Utama -->
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             
-            <AdminPageHeader
-                eyebrow="Pusat Kendali"
-                title="Dashboard Super Administrator"
-                description="Kendali menyeluruh instrumen kuesioner universitas dan prodi, verifikasi perusahaan, direktori mahasiswa, serta audit log."
-                context-label="Otoritas Pusat"
-                :context-value="`${user?.name || 'Super Admin'} (Universitas)`"
-            />
+            <header class="bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8">
+                <div class="w-full max-w-[1440px] mx-auto">
+                    <nav class="flex items-center gap-2 text-xs text-emerald-100 font-medium mb-2.5">
+                        <span>Tracer Study</span>
+                        <span class="text-emerald-300/60">/</span>
+                        <span class="text-white font-bold bg-white/10 px-2 py-0.5 rounded-md">Pusat Kendali</span>
+                    </nav>
 
-            <!-- Main Body Area -->
-            <main class="flex-1 p-6 space-y-6 overflow-x-auto min-w-0">
-                
-                <!-- Notifikasi Peringatan: Pending Verifikasi Perusahaan -->
-                <div 
-                    v-if="stats?.total_pending_perusahaan > 0" 
-                    class="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-300"
-                >
-                    <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-xl bg-amber-200/80 text-amber-900 flex items-center justify-center shrink-0">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                            </svg>
+                    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
+                        Dashboard Super Administrator
+                    </h1>
+                    <p class="text-emerald-100/90 text-xs sm:text-sm font-normal mt-1.5 max-w-2xl leading-relaxed">
+                        Pantau partisipasi, kelengkapan, dan tindak lanjut utama universitas.
+                    </p>
+                    <!-- Navigasi analitik utama agar halaman grafik dapat dibuka langsung dari pusat kendali. -->
+                    <div class="mt-5 flex flex-wrap items-center gap-2">
+                        <label for="dashboard-year" class="text-xs font-bold text-white">Tahun lulusan</label>
+                        <select
+                            id="dashboard-year"
+                            v-model="selectedYear"
+                            @change="applyYearFilter"
+                            aria-label="Pilih tahun lulusan dashboard"
+                            class="appearance-none cursor-pointer rounded-lg bg-[#FDC700] px-3 py-2 text-xs font-extrabold text-[#0D542B] outline-none focus:outline-none"
+                        >
+                            <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
+                        </select>
+                        <Link
+                            href="/superadmin/analitik"
+                            class="inline-flex items-center rounded-lg bg-white px-3 py-2 text-xs font-extrabold text-[#0D542B] transition-colors hover:bg-[#FDC700] focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D542B]"
+                        >
+                            Buka Grafik Universitas
+                        </Link>
+                    </div>
+                </div>
+            </header>
+
+            <main class="admin-page-main relative z-10 w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+                <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
+                    <button
+                        type="button"
+                        @click="focusDashboardSection('response')"
+                        aria-controls="dashboard-detail"
+                        class="group bg-white rounded-xl p-5 shadow-sm min-w-0 text-left cursor-pointer transition-shadow hover:shadow-md focus:outline-none focus-visible:bg-slate-50"
+                    >
+                        <div class="flex items-start justify-between gap-3">
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-[#0D542B]">Response rate universitas</p>
                         </div>
-                        <div>
-                            <span class="text-xs font-bold text-amber-900 block">Antrean ACC Perusahaan Terpusat</span>
-                            <span class="text-xs text-amber-800">
-                                Terdapat <strong>{{ stats.total_pending_perusahaan }} perusahaan baru</strong> yang diajukan oleh alumni dari seluruh program studi menanti verifikasi Anda.
+                        <div class="mt-4 flex items-end gap-2">
+                            <p class="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0D542B]">{{ stats?.response_rate || 0 }}%</p>
+                            <p class="pb-1 text-xs text-slate-500">{{ stats?.total_responden || 0 }} dari {{ stats?.total_alumni || 0 }} alumni</p>
+                        </div>
+                        <div class="mt-4 h-2 rounded-full bg-white overflow-hidden">
+                            <div
+                                :class="['h-2 rounded-full transition-all duration-500', getResponseRateClass(stats?.response_rate_status?.code, 'bar')]"
+                                :style="{ width: (Math.min(stats?.response_rate || 0, 100) + '%') }"
+                            ></div>
+                        </div>
+                        <p class="mt-3 text-[11px] font-bold text-[#0D542B] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Lihat partisipasi per prodi</p>
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="focusDashboardSection('completion')"
+                        aria-controls="completion-detail"
+                        class="group bg-white rounded-xl p-5 shadow-sm min-w-0 text-left cursor-pointer transition-shadow hover:shadow-md focus:outline-none focus-visible:bg-slate-50"
+                    >
+                        <div class="flex items-start justify-between gap-3">
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Kelengkapan gabungan</p>
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#FDC700] text-[#0D542B] shrink-0">
+                                Profil + Univ.
                             </span>
                         </div>
-                    </div>
-                    <Link 
-                        href="/superadmin/perusahaan" 
-                        class="inline-flex items-center justify-center px-4 py-2 text-xs font-bold rounded-xl bg-[#0D542B] text-white hover:bg-[#08381c] transition-colors shrink-0 cursor-pointer"
+                        <div class="mt-4 flex items-end gap-2">
+                            <p class="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0D542B]">{{ completionMetrics?.profile_and_university?.percentage || 0 }}%</p>
+                            <p class="pb-1 text-xs text-slate-500">{{ completionMetrics?.profile_and_university?.completed_count || 0 }} alumni lengkap</p>
+                        </div>
+                        <div class="mt-4 h-2 rounded-full bg-slate-200 overflow-hidden">
+                            <div
+                                :class="['h-2 rounded-full transition-all duration-500', getCompletionBarClass(completionMetrics?.profile_and_university?.percentage || 0)]"
+                                :style="{ width: (Math.min(completionMetrics?.profile_and_university?.percentage || 0, 100) + '%') }"
+                            ></div>
+                        </div>
+                        <p class="mt-3 text-[11px] font-bold text-[#0D542B] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Lihat rincian kelengkapan</p>
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="focusDashboardSection('population')"
+                        aria-controls="dashboard-detail"
+                        class="group bg-white rounded-xl p-5 shadow-sm min-w-0 sm:col-span-2 xl:col-span-1 text-left cursor-pointer transition-shadow hover:shadow-md focus:outline-none focus-visible:bg-slate-50"
                     >
-                        Kelola ACC Perusahaan &rarr;
-                    </Link>
-                </div>
+                        <div class="flex items-start justify-between gap-3">
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Populasi lulusan</p>
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#0D542B] text-white shrink-0">
+                                Universitas
+                            </span>
+                        </div>
+                        <div class="mt-4 flex items-end gap-2">
+                            <p class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">{{ stats?.total_alumni || 0 }}</p>
+                            <p class="pb-1 text-xs text-slate-500">alumni terdata</p>
+                        </div>
+                        <p class="mt-4 text-xs text-slate-500">
+                            Tahun lulusan {{ selectedYear }} pada {{ stats?.total_prodi || 0 }} program studi.
+                        </p>
+                        <p class="mt-3 text-[11px] font-bold text-[#0D542B] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Lihat daftar alumni terbaru</p>
+                    </button>
+                </section>
 
-                <!-- Grid 4 Kartu KPI Metrik Eksekutif (Real Data) -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <section id="completion-detail" class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                    <div class="px-5 sm:px-6 py-5">
+                        <h2 class="text-sm font-extrabold text-slate-900">Kelengkapan data</h2>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Pilih satu indikator untuk melihat detail. Kuesioner prodi tidak dihitung.
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
+                            <button
+                                v-for="option in completionMetricOptions"
+                                :key="option.key"
+                                type="button"
+                                @click="activeCompletionMetric = option.key"
+                                :title="option.description"
+                                :aria-pressed="activeCompletionMetric === option.key"
+                                :class="[
+                                    'w-full px-3 py-2.5 rounded-lg text-xs font-bold text-left transition-colors',
+                                    activeCompletionMetric === option.key
+                                        ? 'bg-[#0D542B] text-white'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-[#FDC700] hover:text-[#0D542B]'
+                                ]"
+                            >
+                                {{ option.label }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-6 p-5 sm:p-6">
+                        <div>
+                            <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">{{ selectedCompletionMetric.label }}</p>
+                            <div class="mt-3 flex items-end gap-2">
+                                <span class="text-4xl font-extrabold tracking-tight text-[#0D542B]">{{ selectedCompletionMetric.percentage || 0 }}%</span>
+                                <span class="pb-1 text-xs text-slate-500">lengkap</span>
+                            </div>
+                            <p class="mt-2 text-xs text-slate-500">
+                                {{ selectedCompletionMetric.completed_count || 0 }} dari {{ selectedCompletionMetric.population || 0 }} alumni
+                            </p>
+                        </div>
+                        <div class="flex flex-col justify-center">
+                            <div class="h-3 rounded-full bg-slate-200 overflow-hidden">
+                                <div
+                                    :class="['h-3 rounded-full transition-all duration-500', getCompletionBarClass(selectedCompletionMetric.percentage || 0)]"
+                                    :style="{ width: (Math.min(selectedCompletionMetric.percentage || 0, 100) + '%') }"
+                                ></div>
+                            </div>
+                            <p class="mt-3 text-xs leading-5 text-slate-500">
+                                Persentase mengikuti status audit data. Pertanyaan yang tidak berlaku karena alur percabangan tidak dihitung sebagai kekurangan.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <div id="dashboard-detail" class="bg-white rounded-2xl shadow-sm overflow-hidden">
                     
-                    <!-- KPI 1: Total Alumni Terdaftar -->
-                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs transition-shadow">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Alumni</span>
-                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">Database</span>
-                        </div>
-                        <div class="text-3xl font-extrabold text-slate-900 tracking-tight mt-3">
-                            {{ stats?.total_alumni || 0 }}
-                        </div>
-                        <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
-                            <span>Dari {{ stats?.total_prodi || 0 }} Program Studi</span>
-                            <span class="text-blue-700 font-semibold">{{ stats?.total_linkedin || 0 }} LinkedIn</span>
-                        </div>
-                    </div>
-
-                    <!-- KPI 2: Responden Masuk & Response Rate -->
-                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs transition-shadow">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-[#0D542B] uppercase tracking-wider">Responden Masuk</span>
-                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-[#0D542B] border border-emerald-200">Partisipasi</span>
-                        </div>
-                        <div class="text-3xl font-extrabold text-[#0D542B] tracking-tight mt-3">
-                            {{ stats?.total_responden || 0 }}
-                        </div>
-                        <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
-                            <span>Tingkat respon kampus:</span>
-                            <span class="font-bold text-[#0D542B]">{{ stats?.response_rate || 0 }}%</span>
-                        </div>
-                    </div>
-
-                    <!-- KPI 3: Total Butir Pertanyaan & Section -->
-                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs transition-shadow">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Instrumen Kuesioner</span>
-                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">Dikti</span>
-                        </div>
-                        <div class="text-3xl font-extrabold text-slate-900 tracking-tight mt-3">
-                            {{ stats?.total_pertanyaan || 0 }}
-                        </div>
-                        <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
-                            <span>Terbagi dalam</span>
-                            <span class="font-bold text-slate-700">{{ stats?.total_sections || 0 }} Section</span>
-                        </div>
-                    </div>
-
-                    <!-- KPI 4: Pending ACC Perusahaan -->
-                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs hover:shadow-xs transition-shadow">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-amber-900 uppercase tracking-wider">ACC Perusahaan</span>
-                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200">Approval</span>
-                        </div>
-                        <div class="text-3xl font-extrabold text-amber-900 tracking-tight mt-3">
-                            {{ stats?.total_pending_perusahaan || 0 }}
-                        </div>
-                        <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
-                            <span>Status:</span>
-                            <span class="font-bold text-amber-800">Menunggu Verifikasi</span>
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- Modul Pintasan Aksi Cepat Superadmin (Navigation Hub) -->
-                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs">
-                    <div class="flex items-center justify-between mb-3.5">
-                        <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Pusat Kendali Cepat Super Administrator</span>
-                        <span class="text-xs text-slate-400">Akses Modul Utama</span>
-                    </div>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-                        <Link 
-                            href="/superadmin/alumni" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Direktori Alumni</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/perusahaan" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex flex-col items-center text-center group relative cursor-pointer"
-                        >
-                            <span v-if="stats?.total_pending_perusahaan > 0" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500"></span>
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">ACC Perusahaan</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/linkedin-sync" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.62 1.62 0 1 0 0 3.24 1.62 1.62 0 0 0 0-3.24Z"/></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Sync LinkedIn</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/pertanyaan" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Kuesioner Inti</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/sections" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Section Univ</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/prodi-kuesioner" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Kuesioner Prodi</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/manajemen-akun" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Kelola Akun</span>
-                        </Link>
-
-                        <Link 
-                            href="/superadmin/logs" 
-                            class="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-200 transition-all flex flex-col items-center text-center group cursor-pointer"
-                        >
-                            <svg class="w-5 h-5 text-slate-600 group-hover:text-[#0D542B] mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                            <span class="text-xs font-bold text-slate-700 group-hover:text-[#0D542B]">Audit Trail</span>
-                        </Link>
-                    </div>
-                </div>
-
-                <!-- Area Panel Interaktif: Tab Switcher 4 Tab (Prodi, Alumni, Logs, Pending Perusahaan) -->
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-                    
-                    <!-- Tab Header Bar -->
-                    <div class="px-6 pt-5 pb-0 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
+                    <div class="px-6 pt-5 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white">
                         <div class="flex items-center gap-1.5 flex-wrap">
                             <button 
                                 type="button"
                                 @click="activeTab = 'prodi'"
                                 :class="[
-                                    'px-3.5 py-2.5 text-xs font-bold rounded-t-xl transition-all cursor-pointer border-b-2',
+                                    'px-3.5 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer',
                                     activeTab === 'prodi'
-                                        ? 'border-[#0D542B] text-[#0D542B] bg-white shadow-2xs'
-                                        : 'border-transparent text-slate-500 hover:text-slate-900'
+                                        ? 'text-white bg-[#0D542B]'
+                                        : 'text-slate-500 hover:text-[#0D542B] hover:bg-slate-100'
                                 ]"
                             >
                                 Partisipasi Seluruh Prodi ({{ prodiSummaries.length }})
@@ -303,10 +388,10 @@ const filteredAlumni = computed(() => {
                                 type="button"
                                 @click="activeTab = 'alumni'"
                                 :class="[
-                                    'px-3.5 py-2.5 text-xs font-bold rounded-t-xl transition-all cursor-pointer border-b-2',
+                                    'px-3.5 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer',
                                     activeTab === 'alumni'
-                                        ? 'border-[#0D542B] text-[#0D542B] bg-white shadow-2xs'
-                                        : 'border-transparent text-slate-500 hover:text-slate-900'
+                                        ? 'text-white bg-[#0D542B]'
+                                        : 'text-slate-500 hover:text-[#0D542B] hover:bg-slate-100'
                                 ]"
                             >
                                 Alumni Terbaru ({{ recentAlumni.length }})
@@ -315,10 +400,10 @@ const filteredAlumni = computed(() => {
                                 type="button"
                                 @click="activeTab = 'logs'"
                                 :class="[
-                                    'px-3.5 py-2.5 text-xs font-bold rounded-t-xl transition-all cursor-pointer border-b-2',
+                                    'px-3.5 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer',
                                     activeTab === 'logs'
-                                        ? 'border-[#0D542B] text-[#0D542B] bg-white shadow-2xs'
-                                        : 'border-transparent text-slate-500 hover:text-slate-900'
+                                        ? 'text-white bg-[#0D542B]'
+                                        : 'text-slate-500 hover:text-[#0D542B] hover:bg-slate-100'
                                 ]"
                             >
                                 Log Audit Sistem ({{ recentLogs.length }})
@@ -328,10 +413,10 @@ const filteredAlumni = computed(() => {
                                 type="button"
                                 @click="activeTab = 'perusahaan'"
                                 :class="[
-                                    'px-3.5 py-2.5 text-xs font-bold rounded-t-xl transition-all cursor-pointer border-b-2',
+                                    'px-3.5 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer',
                                     activeTab === 'perusahaan'
-                                        ? 'border-amber-600 text-amber-900 bg-white shadow-2xs'
-                                        : 'border-transparent text-slate-500 hover:text-slate-900'
+                                        ? 'text-white bg-[#0D542B]'
+                                        : 'text-slate-500 hover:text-[#0D542B] hover:bg-slate-100'
                                 ]"
                             >
                                 Antrean ACC Perusahaan ({{ pendingPerusahaanList.length }})
@@ -342,23 +427,21 @@ const filteredAlumni = computed(() => {
                             :href="activeTab === 'alumni' ? '/superadmin/alumni' : (activeTab === 'logs' ? '/superadmin/logs' : (activeTab === 'perusahaan' ? '/superadmin/perusahaan' : '/superadmin/alumni'))"
                             class="text-xs font-bold text-[#0D542B] hover:underline mb-2 sm:mb-0"
                         >
-                            Lihat Modul Lengkap &rarr;
+                            Lihat Modul Lengkap
                         </Link>
                     </div>
 
-                    <!-- TAB KONTEN 1: MATRIKS PARTISIPASI SELURUH PRODI KAMPUS -->
                     <div v-if="activeTab === 'prodi'" class="p-6 space-y-4">
                         
-                        <!-- Filter & Sorting Bar -->
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div class="flex items-center gap-2">
                                 <button 
                                     @click="sortByRate = !sortByRate" 
                                     type="button"
-                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-xs font-bold text-slate-700 hover:bg-[#FDC700] hover:text-[#0D542B] cursor-pointer"
                                 >
                                     <span>Urutkan Response Rate:</span>
-                                    <span class="text-[#0D542B]">{{ sortByRate ? 'Tertinggi ↓' : 'Terendah ↑' }}</span>
+                                    <span class="text-[#0D542B]">{{ sortByRate ? 'Tertinggi' : 'Terendah' }}</span>
                                 </button>
                             </div>
 
@@ -367,16 +450,15 @@ const filteredAlumni = computed(() => {
                                     v-model="searchProdiQuery" 
                                     type="text" 
                                     placeholder="Cari program studi..." 
-                                    class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] bg-white"
+                                    class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-100 focus:outline-none focus:bg-white"
                                 />
                                 <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                             </div>
                         </div>
 
-                        <!-- Tabel Partisipasi Prodi Interaktif -->
-                        <div class="overflow-x-auto rounded-xl border border-slate-200">
+                        <div class="overflow-x-auto rounded-xl bg-slate-50">
                             <table class="w-full text-left text-xs">
-                                <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+                                <thead class="bg-slate-100 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                                     <tr>
                                         <th class="py-3 px-4">Kode</th>
                                         <th class="py-3 px-4">Program Studi</th>
@@ -408,19 +490,21 @@ const filteredAlumni = computed(() => {
                                             <div class="flex items-center gap-2">
                                                 <div class="flex-1 bg-slate-200 rounded-full h-2 overflow-hidden">
                                                     <div 
-                                                        class="bg-[#0D542B] h-2 rounded-full transition-all duration-500" 
+                                                        :class="[getResponseRateClass(p.response_rate_status?.code, 'bar'), 'h-2 rounded-full transition-all duration-500']"
                                                         :style="{ width: `${p.response_rate}%` }"
                                                     ></div>
                                                 </div>
-                                                <span class="font-extrabold text-xs text-slate-800 w-12 text-right">{{ p.response_rate }}%</span>
+                                                <span :class="['font-extrabold text-xs w-12 text-right', getResponseRateClass(p.response_rate_status?.code, 'text')]">
+                                                    {{ p.response_rate }}%
+                                                </span>
                                             </div>
                                         </td>
                                         <td class="py-3 px-4 text-right">
                                             <Link 
                                                 :href="`/superadmin/alumni?prodi_id=${p.id}`" 
-                                                class="inline-flex items-center px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-300 text-[#0D542B] hover:bg-emerald-50 transition-colors cursor-pointer"
+                                                class="inline-flex items-center px-2.5 py-1 text-[11px] font-bold rounded-lg bg-[#0D542B] text-white hover:bg-[#08381c] transition-colors cursor-pointer"
                                             >
-                                                Filter Alumni &rarr;
+                                                Filter Alumni
                                             </Link>
                                         </td>
                                     </tr>
@@ -434,10 +518,8 @@ const filteredAlumni = computed(() => {
                         </div>
                     </div>
 
-                    <!-- TAB KONTEN 2: PRATINJAU ALUMNI TERBARU -->
                     <div v-else-if="activeTab === 'alumni'" class="p-6 space-y-4">
                         
-                        <!-- Toolbar Filter Alumni -->
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div class="flex items-center gap-1.5 flex-wrap">
                                 <button 
@@ -460,7 +542,7 @@ const filteredAlumni = computed(() => {
                                 </button>
                                 <button 
                                     @click="filterStatus = 'linkedin'" 
-                                    :class="['px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-colors', filterStatus === 'linkedin' ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100']"
+                                    :class="['px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-colors', filterStatus === 'linkedin' ? 'bg-[#0D542B] text-white' : 'bg-slate-100 text-slate-600 hover:bg-[#FDC700] hover:text-[#0D542B]']"
                                 >
                                     Ada LinkedIn
                                 </button>
@@ -471,16 +553,15 @@ const filteredAlumni = computed(() => {
                                     v-model="searchAlumniQuery" 
                                     type="text" 
                                     placeholder="Cari NIM, Nama, atau Prodi..." 
-                                    class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] bg-white"
+                                    class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-100 focus:outline-none focus:bg-white"
                                 />
                                 <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                             </div>
                         </div>
 
-                        <!-- Tabel Alumni Interaktif -->
-                        <div class="overflow-x-auto rounded-xl border border-slate-200">
+                        <div class="overflow-x-auto rounded-xl bg-slate-50">
                             <table class="w-full text-left text-xs">
-                                <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+                                <thead class="bg-slate-100 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                                     <tr>
                                         <th class="py-3 px-4">NIM & Mahasiswa</th>
                                         <th class="py-3 px-4">Program Studi</th>
@@ -509,13 +590,13 @@ const filteredAlumni = computed(() => {
                                         <td class="py-3 px-4 text-center">
                                             <span 
                                                 v-if="alumni.has_responded" 
-                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-[#0D542B] border border-emerald-200"
+                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#0D542B] text-white"
                                             >
                                                 Sudah Respon
                                             </span>
                                             <span 
                                                 v-else 
-                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200"
+                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FDC700] text-[#0D542B]"
                                             >
                                                 Belum Mengisi
                                             </span>
@@ -523,7 +604,7 @@ const filteredAlumni = computed(() => {
                                         <td class="py-3 px-4 text-center">
                                             <span 
                                                 v-if="alumni.has_linkedin" 
-                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200"
+                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#0D542B] text-white"
                                             >
                                                 Terhubung
                                             </span>
@@ -532,9 +613,9 @@ const filteredAlumni = computed(() => {
                                         <td class="py-3 px-4 text-right">
                                             <Link 
                                                 :href="`/superadmin/alumni/${alumni.id}`" 
-                                                class="inline-flex items-center px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                                                class="inline-flex items-center px-2.5 py-1 text-[11px] font-bold rounded-lg bg-[#0D542B] text-white hover:bg-[#08381c] transition-colors cursor-pointer"
                                             >
-                                                Audit &rarr;
+                                                Audit
                                             </Link>
                                         </td>
                                     </tr>
@@ -548,13 +629,12 @@ const filteredAlumni = computed(() => {
                         </div>
                     </div>
 
-                    <!-- TAB KONTEN 3: AUDIT TRAIL LOG SISTEM TERKINI -->
                     <div v-else-if="activeTab === 'logs'" class="p-6">
                         <div class="space-y-3">
                             <div 
                                 v-for="log in recentLogs" 
                                 :key="log.id" 
-                                class="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
+                                class="p-4 rounded-xl bg-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-200 transition-colors"
                             >
                                 <div class="flex items-start gap-3">
                                     <span class="w-8 h-8 rounded-lg bg-slate-200 text-slate-700 font-bold flex items-center justify-center text-xs shrink-0 mt-0.5">
@@ -582,18 +662,17 @@ const filteredAlumni = computed(() => {
                         </div>
                     </div>
 
-                    <!-- TAB KONTEN 4: ANTREAN ACC PERUSAHAAN -->
                     <div v-else-if="activeTab === 'perusahaan'" class="p-6">
                         <div class="space-y-3">
                             <div 
                                 v-for="c in pendingPerusahaanList" 
                                 :key="c.id" 
-                                class="p-4 rounded-xl border border-amber-200 bg-amber-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-amber-50 transition-colors"
+                                class="p-4 rounded-xl bg-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-200 transition-colors"
                             >
                                 <div>
                                     <div class="flex items-center gap-2">
                                         <span class="text-xs font-bold text-slate-900">{{ c.nama }}</span>
-                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#0D542B] text-white">
                                             Menunggu Verifikasi
                                         </span>
                                     </div>
@@ -605,7 +684,7 @@ const filteredAlumni = computed(() => {
                                     href="/superadmin/perusahaan" 
                                     class="inline-flex items-center px-3 py-1.5 text-xs font-bold rounded-lg bg-[#0D542B] text-white hover:bg-[#08381c] transition-colors shrink-0 cursor-pointer"
                                 >
-                                    Verifikasi Sekarang &rarr;
+                                    Verifikasi Sekarang
                                 </Link>
                             </div>
 
@@ -619,8 +698,7 @@ const filteredAlumni = computed(() => {
 
             </main>
 
-            <!-- Footer -->
-            <footer class="text-slate-400 text-xs text-center py-5 border-t border-slate-100">
+            <footer class="text-slate-400 text-xs text-center py-5">
                 &copy; {{ new Date().getFullYear() }} Universitas Kristen Duta Wacana. Hak Cipta Dilindungi.
             </footer>
 

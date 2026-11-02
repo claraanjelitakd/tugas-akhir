@@ -5,10 +5,13 @@ namespace Tests\Feature;
 use App\Mail\PengingatKuesionerAlumniMail;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
+use App\Models\EvaluasiAtasan;
 use App\Models\KelompokPertanyaan;
 use App\Models\Kuesioner;
+use App\Models\PertanyaanEvaluasiAtasan;
 use App\Models\Prodi;
 use App\Models\RefSubpertanyaan2021;
+use App\Models\ResponEvaluasiAtasan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -112,12 +115,15 @@ class SuperAdminDaftarAlumniTest extends TestCase
     public function test_superadmin_can_view_alumni_index_page(): void
     {
         $response = $this->actingAs($this->superadmin)
-            ->get(route('superadmin.alumni.index'));
+            ->get(route('superadmin.alumni.index', ['per_page' => 5]));
 
         $response->assertStatus(200);
         $response->assertInertia(fn (Assert $page) => $page
             ->component('SuperAdmin/Alumni/Index')
             ->has('alumnis', 1)
+            ->where('pagination.per_page', 5)
+            ->where('pagination.current_page', 1)
+            ->where('pagination.total', 1)
             ->has('daftarTahun')
             ->has('prodis')
             ->has('filters')
@@ -273,6 +279,25 @@ class SuperAdminDaftarAlumniTest extends TestCase
      */
     public function test_superadmin_detail_alumni_includes_evaluasi_atasan(): void
     {
+        $question = PertanyaanEvaluasiAtasan::create([
+            'kode' => 'integritas',
+            'aspek' => 'Integritas',
+            'kategori' => 'Kinerja',
+            'tipe' => 'likert_5',
+            'is_active' => true,
+            'order' => 1,
+        ]);
+        $evaluasiAtasan = EvaluasiAtasan::create([
+            'biodata_id' => $this->alumni->id,
+            'token' => 'secret-evaluation-token',
+            'is_submitted' => true,
+        ]);
+        ResponEvaluasiAtasan::create([
+            'evaluasi_atasan_id' => $evaluasiAtasan->id,
+            'pertanyaan_id' => $question->id,
+            'nilai' => 'Sangat Tinggi',
+        ]);
+
         $response = $this->actingAs($this->superadmin)
             ->get(route('superadmin.alumni.show', $this->alumni->id));
 
@@ -281,6 +306,10 @@ class SuperAdminDaftarAlumniTest extends TestCase
             ->component('SuperAdmin/Alumni/Show')
             ->has('evaluasiAtasan')
             ->has('pertanyaanEvaluasiAtasan')
+            ->where('evaluasiAtasan.is_submitted', true)
+            ->where('evaluasiAtasan.status', 'Selesai')
+            ->where('evaluasiAtasan.respons.0.nilai', 'Sangat Tinggi')
+            ->missing('evaluasiAtasan.token')
         );
     }
 

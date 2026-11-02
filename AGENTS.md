@@ -26,6 +26,11 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
   - Dilarang keras menggunakan emoticon atau emoji dalam template antarmuka pengguna maupun dalam komentar kode.
   - Dilarang menggunakan icon dekoratif yang berlebihan (seperti icon corong filter pada header filter, icon grafik/bar chart pada kartu statistik ringkasan, icon jam/orang dekoratif, dsb). Tampilan harus formal, flat, bersih, dan berfokus pada kejelasan data/tipografi.
   - Dilarang membuat widget status kolom tabel bertumpuk dengan titik-titik warna (multi-dot status pill). Gunakan badge atau label teks status yang ringkas, bersih, dan konsisten (seperti badge status pada halaman Perusahaan).
+  - **PRINSIP DESAIN & ALUR INTERAKSI ("DON'T MAKE ME THINK" & INSPIRASI APPLE/IOS WEATHER)**:
+    - **Seamless Inline Context (Hindari Lompat Tab)**: Jangan memaksa pengguna melompat ke tab terpisah hanya untuk membaca data detail dari elemen grafik yang sedang diamati. Saat segmen/elemen grafik diklik, data tabel terkait (drill-down) harus langsung muncul secara mulus (*flowless*) tepat di bawah/di samping grafik dalam satu alur visual yang kohesif.
+    - **Kartu Ringkasan Alami (Daily/Indicator Summary ala iOS Weather)**: Sajikan narasi singkat yang manusiawi dan informatif ("Kilas Indikator") yang merangkum esensi data, capaian target, dan perbandingan tertinggi/terendah dengan bahasa yang lugas, elegan, dan bebas dari gaya "AI slop".
+    - **Harmoni Palet Warna (No Clashing Colors)**: Hindari warna silau atau bentrok (seperti kuning/oranye menyala disandingkan dengan hijau institusi UKDW `#0D542B`, atau garis target merah menyala yang bertubrukan). Gunakan hijau UKDW `#0D542B` sebagai jangkar primer, slate netral lembut (`#94A3B8` / `#64748B`) untuk status penyeimbang/belum, serta slate tegas (`#334155` / `#475569`) untuk batas target.
+    - **Eliminasi Redundansi & Duplikasi Teks**: Dilarang mengulang-ulang judul indikator, tahun, prodi, dan angka statistik yang sama secara berulang di header, banner pilihan, dan tubuh kartu. Setiap elemen harus punya peran unik yang ringkas dan fungsional.
 
 ## Verification Scripts
 
@@ -200,3 +205,13 @@ Vue components must have a single root element.
 - IMPORTANT: Activate `inertia-vue-development` when working with Inertia Vue client-side patterns.
 
 </laravel-boost-guidelines>
+
+## Project-specific documentation and schema rules
+
+- Setiap file PHP yang baru dibuat atau diubah wajib memiliki PHPDoc di tingkat file/class dan method publik. Jelaskan tanggung jawab, input/output, serta keputusan non-obvious; gunakan komentar inline hanya untuk logika yang memang sulit dipahami.
+- Setiap komponen Vue yang diubah wajib memiliki komentar di awal blok script dan komentar singkat untuk const, computed, function, serta section template yang memiliki kontrak data khusus. Komentar tidak boleh memakai emoji.
+- Setiap perubahan tabel, kolom, foreign key, view, seeder, atau sumber data wajib memperbarui ERD, arsitektur, use case atau user flow yang terdampak serta catatan perubahan.
+- Migrasi fresh-install harus konsisten dengan schema runtime. Untuk database lama, lakukan backfill ke field kanonik sebelum menghapus duplikasi. Jangan menghapus data yang tidak termasuk field yang secara eksplisit diputuskan dihapus.
+- Seeder harus hanya mengisi tabel dan kolom yang masih aktif. Jangan menambahkan kembali field sensitif, tabel orang tua, alias legacy, atau kolom duplikat kontak/domisi.
+- Struktur database aktif disimpan dalam `database/migrations` dengan satu migration untuk setiap tabel atau view. Jangan membuat migration `add`, `refresh`, `backfill`, atau placeholder; perubahan schema harus dirapikan ke migration pembentuk tabel/view yang terkait dan dokumentasi ERD.
+- Sebelum handoff, jalankan `git diff --check`, formatter PHP, test terdekat, dan build frontend jika perubahan frontend atau view Inertia terdampak.

@@ -25,6 +25,8 @@ use App\Http\Controllers\Otentikasi\LoginController;
 use App\Http\Controllers\Otentikasi\LupaKataSandiController;
 use App\Http\Controllers\Otentikasi\UbahKataSandiController;
 use App\Http\Controllers\Shared\LinkedInSyncController;
+use App\Http\Controllers\SuperAdmin\Analytics\ProdiAnalyticsController;
+use App\Http\Controllers\SuperAdmin\Analytics\TracerAnalyticsController;
 use App\Http\Controllers\SuperAdmin\KelolaAlumni\DaftarAlumniSuperAdminController;
 use App\Http\Controllers\SuperAdmin\KelolaAlumni\DetailAlumniSuperAdminController;
 use App\Http\Controllers\SuperAdmin\KelolaEvaluasiAtasanController;
@@ -56,6 +58,7 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [LoginController::class, 'prosesLogin'])->middleware('throttle:5,1');
 
     // Lupa & Reset Kata Sandi via Email
+    Route::get('/forgot-password', [LupaKataSandiController::class, 'tampilkanHalamanLupaKataSandi'])->name('password.request');
     Route::post('/forgot-password', [LupaKataSandiController::class, 'prosesKirimLinkReset'])->middleware('throttle:3,1')->name('password.email');
     Route::get('/reset-password/{token}', [LupaKataSandiController::class, 'tampilkanHalamanResetKataSandi'])->name('password.reset');
     Route::post('/reset-password', [LupaKataSandiController::class, 'prosesResetKataSandi'])->middleware('throttle:5,1')->name('password.update');
@@ -75,6 +78,9 @@ Route::middleware('auth')->group(function () {
     // Ganti kata sandi wajib
     Route::get('/change-password', [UbahKataSandiController::class, 'tampilkanUbahKataSandi'])->name('change-password');
     Route::post('/change-password', [UbahKataSandiController::class, 'prosesUbahKataSandi']);
+
+    // API endpoint helper wilayah untuk cascading dropdown asinkron (Kabupaten berdasarkan Provinsi)
+    Route::get('/api/wilayah/kabupaten/{propinsiId}', [MasterWilayahController::class, 'getKabupatenByProvinsi'])->name('api.wilayah.kabupaten');
 
     // Rute yang mengharuskan password bawaan sudah diganti
     Route::middleware('must_change_password')->group(function () {
@@ -183,16 +189,19 @@ Route::middleware('auth')->group(function () {
             Route::post('/prodi/perusahaan/{id}/replace', [VerifikasiPerusahaanProdiController::class, 'replace'])->name('prodi.perusahaan.replace');
             Route::put('/prodi/perusahaan/{id}', [VerifikasiPerusahaanProdiController::class, 'updateAndVerify'])->name('prodi.perusahaan.update');
             Route::post('/prodi/perusahaan/{id}/reject', [VerifikasiPerusahaanProdiController::class, 'reject'])->name('prodi.perusahaan.reject');
+            Route::delete('/prodi/perusahaan/{id}', [VerifikasiPerusahaanProdiController::class, 'destroy'])->name('prodi.perusahaan.destroy');
             Route::get('/prodi/perusahaan/search-verified', [VerifikasiPerusahaanProdiController::class, 'searchVerified'])->name('prodi.perusahaan.search-verified');
+            Route::get('/prodi/perusahaan/{id}/recommendations', [VerifikasiPerusahaanProdiController::class, 'recommendations'])->name('prodi.perusahaan.recommendations');
 
             // Manajemen Akun Mahasiswa / Alumni Prodi Sendiri
             Route::get('/prodi/manajemen-akun', [ManajemenAkunProdiController::class, 'index'])->name('prodi.manajemen-akun.index');
             Route::put('/prodi/manajemen-akun/{id}', [ManajemenAkunProdiController::class, 'update'])->name('prodi.manajemen-akun.update');
-            Route::post('/prodi/manajemen-akun/{id}/reset-default-notify', [ManajemenAkunProdiController::class, 'resetToDefaultAndNotify'])->name('prodi.manajemen-akun.reset-default-notify');
+            Route::post('/prodi/manajemen-akun/{id}/password-reset', [ManajemenAkunProdiController::class, 'sendPasswordResetLink'])->name('prodi.manajemen-akun.password-reset');
 
             // Sinkronisasi Profil LinkedIn Khusus Program Studi
             Route::get('/prodi/linkedin-sync', [LinkedInSyncController::class, 'index'])->name('prodi.linkedin-sync.index');
             Route::post('/prodi/linkedin-sync/batch', [LinkedInSyncController::class, 'syncBatch'])->name('prodi.linkedin-sync.batch');
+            Route::patch('/prodi/linkedin-sync/{id}/url', [LinkedInSyncController::class, 'updateUrl'])->name('prodi.linkedin-sync.url.update');
             Route::post('/prodi/linkedin-sync/{id}', [LinkedInSyncController::class, 'syncSingle'])->name('prodi.linkedin-sync.single');
             Route::get('/prodi/linkedin-sync/results/{id}', [LinkedInSyncController::class, 'showResult'])->name('prodi.linkedin-sync.result.show');
             Route::post('/prodi/linkedin-sync/results/{id}/approve', [LinkedInSyncController::class, 'approveResult'])->name('prodi.linkedin-sync.result.approve');
@@ -235,16 +244,19 @@ Route::middleware('auth')->group(function () {
             Route::post('/fakultas/perusahaan/{id}/replace', [VerifikasiPerusahaanFakultasController::class, 'replace'])->name('fakultas.perusahaan.replace');
             Route::put('/fakultas/perusahaan/{id}', [VerifikasiPerusahaanFakultasController::class, 'updateAndVerify'])->name('fakultas.perusahaan.update');
             Route::post('/fakultas/perusahaan/{id}/reject', [VerifikasiPerusahaanFakultasController::class, 'reject'])->name('fakultas.perusahaan.reject');
+            Route::delete('/fakultas/perusahaan/{id}', [VerifikasiPerusahaanFakultasController::class, 'destroy'])->name('fakultas.perusahaan.destroy');
             Route::get('/fakultas/perusahaan/search-verified', [VerifikasiPerusahaanFakultasController::class, 'searchVerified'])->name('fakultas.perusahaan.search-verified');
+            Route::get('/fakultas/perusahaan/{id}/recommendations', [VerifikasiPerusahaanFakultasController::class, 'recommendations'])->name('fakultas.perusahaan.recommendations');
 
             // Manajemen Akun Mahasiswa / Alumni Se-Fakultas
             Route::get('/fakultas/manajemen-akun', [ManajemenAkunFakultasController::class, 'index'])->name('fakultas.manajemen-akun.index');
             Route::put('/fakultas/manajemen-akun/{id}', [ManajemenAkunFakultasController::class, 'update'])->name('fakultas.manajemen-akun.update');
-            Route::post('/fakultas/manajemen-akun/{id}/reset-default-notify', [ManajemenAkunFakultasController::class, 'resetToDefaultAndNotify'])->name('fakultas.manajemen-akun.reset-default-notify');
+            Route::post('/fakultas/manajemen-akun/{id}/password-reset', [ManajemenAkunFakultasController::class, 'sendPasswordResetLink'])->name('fakultas.manajemen-akun.password-reset');
 
             // Sinkronisasi Profil LinkedIn Khusus Lingkup Fakultas
             Route::get('/fakultas/linkedin-sync', [LinkedInSyncController::class, 'index'])->name('fakultas.linkedin-sync.index');
             Route::post('/fakultas/linkedin-sync/batch', [LinkedInSyncController::class, 'syncBatch'])->name('fakultas.linkedin-sync.batch');
+            Route::patch('/fakultas/linkedin-sync/{id}/url', [LinkedInSyncController::class, 'updateUrl'])->name('fakultas.linkedin-sync.url.update');
             Route::post('/fakultas/linkedin-sync/{id}', [LinkedInSyncController::class, 'syncSingle'])->name('fakultas.linkedin-sync.single');
             Route::get('/fakultas/linkedin-sync/results/{id}', [LinkedInSyncController::class, 'showResult'])->name('fakultas.linkedin-sync.result.show');
             Route::post('/fakultas/linkedin-sync/results/{id}/approve', [LinkedInSyncController::class, 'approveResult'])->name('fakultas.linkedin-sync.result.approve');
@@ -270,6 +282,11 @@ Route::middleware('auth')->group(function () {
 
             // Dashboard Utama Superadmin
             Route::get('/superadmin/dashboard', [App\Http\Controllers\SuperAdmin\Dashboard\DashboardController::class, 'tampilkanDashboard'])->name('superadmin.dashboard');
+            Route::get('/superadmin/analitik', [TracerAnalyticsController::class, 'index'])->name('superadmin.analytics.index');
+            Route::get('/superadmin/analitik/data', [TracerAnalyticsController::class, 'data'])->name('superadmin.analytics.data');
+            Route::get('/superadmin/analitik/export-response-rate', [TracerAnalyticsController::class, 'exportResponseRate'])->name('superadmin.analytics.export_response_rate');
+            Route::get('/superadmin/analitik-prodi', [ProdiAnalyticsController::class, 'index'])->name('superadmin.analytics-prodi.index');
+            Route::get('/superadmin/analitik-prodi/data', [ProdiAnalyticsController::class, 'data'])->name('superadmin.analytics-prodi.data');
 
             // Kelola Butir Pertanyaan, Opsi Jawaban, & Alur Branching Kuesioner (Modular Controllers)
             Route::get('/superadmin/pertanyaan', [DaftarPertanyaanController::class, 'index'])->name('superadmin.pertanyaan.index');
@@ -301,7 +318,9 @@ Route::middleware('auth')->group(function () {
             Route::post('/superadmin/perusahaan/{id}/replace', [VerifikasiPerusahaanSuperAdminController::class, 'replace'])->name('superadmin.perusahaan.replace');
             Route::put('/superadmin/perusahaan/{id}', [VerifikasiPerusahaanSuperAdminController::class, 'updateAndVerify'])->name('superadmin.perusahaan.update');
             Route::post('/superadmin/perusahaan/{id}/reject', [VerifikasiPerusahaanSuperAdminController::class, 'reject'])->name('superadmin.perusahaan.reject');
+            Route::delete('/superadmin/perusahaan/{id}', [VerifikasiPerusahaanSuperAdminController::class, 'destroy'])->name('superadmin.perusahaan.destroy');
             Route::get('/superadmin/perusahaan/search-verified', [VerifikasiPerusahaanSuperAdminController::class, 'searchVerified'])->name('superadmin.perusahaan.search-verified');
+            Route::get('/superadmin/perusahaan/{id}/recommendations', [VerifikasiPerusahaanSuperAdminController::class, 'recommendations'])->name('superadmin.perusahaan.recommendations');
 
             // Master Data Wilayah Administrasi & Regulasi Standar UMP (Provinsi, Kabupaten/Kota, UMP Daerah)
             Route::get('/superadmin/master-wilayah', [MasterWilayahController::class, 'index'])->name('superadmin.master-wilayah.index');
@@ -317,10 +336,15 @@ Route::middleware('auth')->group(function () {
             Route::delete('/superadmin/master-wilayah/ump/{id}', [MasterWilayahController::class, 'destroyUmp'])->name('superadmin.master-wilayah.ump.destroy');
             Route::post('/superadmin/master-wilayah/ump/copy-year', [MasterWilayahController::class, 'copyYearUmp'])->name('superadmin.master-wilayah.ump.copy-year');
 
+            Route::post('/superadmin/master-wilayah/negara', [MasterWilayahController::class, 'storeNegara'])->name('superadmin.master-wilayah.negara.store');
+            Route::put('/superadmin/master-wilayah/negara/{id}', [MasterWilayahController::class, 'updateNegara'])->name('superadmin.master-wilayah.negara.update');
+            Route::delete('/superadmin/master-wilayah/negara/{id}', [MasterWilayahController::class, 'destroyNegara'])->name('superadmin.master-wilayah.negara.destroy');
+
             // Manajemen Akun Terpadu & Pemulihan Kata Sandi (Admin Fakultas, Admin Prodi, Mahasiswa per Prodi)
             Route::get('/superadmin/manajemen-akun', [ManajemenAkunController::class, 'index'])->name('superadmin.manajemen-akun.index');
             Route::put('/superadmin/manajemen-akun/{id}', [ManajemenAkunController::class, 'update'])->name('superadmin.manajemen-akun.update');
-            Route::post('/superadmin/manajemen-akun/{id}/reset-default-notify', [ManajemenAkunController::class, 'resetToDefaultAndNotify'])->name('superadmin.manajemen-akun.reset-default-notify');
+            Route::post('/superadmin/manajemen-akun/{id}/password-reset', [ManajemenAkunController::class, 'sendPasswordResetLink'])->name('superadmin.manajemen-akun.password-reset');
+            Route::post('/superadmin/manajemen-akun/sync-alumni', [ManajemenAkunController::class, 'syncAlumniAccounts'])->name('superadmin.manajemen-akun.sync-alumni');
 
             // Pengaturan Kuesioner Prodi (Superadmin Scope: Pilih Prodi lalu Kelola Section & Pertanyaan)
             Route::get('/superadmin/prodi-kuesioner', [KelolaKuesionerProdiSuperAdminController::class, 'index'])->name('superadmin.prodi-kuesioner.index');
@@ -352,6 +376,7 @@ Route::middleware('auth')->group(function () {
             // Sinkronisasi LinkedIn Super Admin
             Route::get('/superadmin/linkedin-sync', [LinkedInSyncController::class, 'index'])->name('superadmin.linkedin-sync.index');
             Route::post('/superadmin/linkedin-sync/batch', [LinkedInSyncController::class, 'syncBatch'])->name('superadmin.linkedin-sync.batch');
+            Route::patch('/superadmin/linkedin-sync/{id}/url', [LinkedInSyncController::class, 'updateUrl'])->name('superadmin.linkedin-sync.url.update');
             Route::post('/superadmin/linkedin-sync/{id}', [LinkedInSyncController::class, 'syncSingle'])->name('superadmin.linkedin-sync.single');
             Route::get('/superadmin/linkedin-sync/results/{id}', [LinkedInSyncController::class, 'showResult'])->name('superadmin.linkedin-sync.result.show');
             Route::post('/superadmin/linkedin-sync/results/{id}/approve', [LinkedInSyncController::class, 'approveResult'])->name('superadmin.linkedin-sync.result.approve');

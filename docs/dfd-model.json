@@ -67,7 +67,7 @@
     },
     "D12": {
       "name": "Referensi Akademik dan Kelulusan",
-      "tables": "data_akademik, yudisium, data_orang_tua"
+      "tables": "data_akademik, yudisium"
     },
     "D13": {
       "name": "Referensi Organisasi dan Wilayah",
@@ -643,13 +643,13 @@
       "id": "F095",
       "source": "D12",
       "target": "P2",
-      "label": "Identitas, akademik, yudisium dan orang tua"
+      "label": "Identitas, akademik, yudisium, dan status kelulusan"
     },
     {
       "id": "F096",
       "source": "P2",
       "target": "D12",
-      "label": "Pembaruan kelulusan dan data orang tua yang diizinkan"
+      "label": "Referensi kelulusan yang tersedia untuk audit"
     },
     {
       "id": "F097",

@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\DataOrangTua;
 use App\Models\Kabupaten;
 use App\Models\Prodi;
 use App\Models\Propinsi;
@@ -100,17 +99,7 @@ class Lulusan2026OtomatisTest extends TestCase
             'total_sks' => 144,
             'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2002-12-25',
-            'agama' => 'Kristen Protestan',
             'jenis_kelamin' => 'Laki-laki',
-            'kabupaten_id' => $kabupaten->id,
-            'propinsi_id' => $propinsi->id,
-        ]);
-
-        // 2. Tambahkan HANYA di data_orang_tua
-        DataOrangTua::create([
-            'nim' => $testNim,
-            'nama_orang_tua' => 'Ir. Bambang Putra',
-            'pekerjaan' => 'Dosen / Akademisi',
             'kabupaten_id' => $kabupaten->id,
             'propinsi_id' => $propinsi->id,
         ]);
@@ -118,7 +107,7 @@ class Lulusan2026OtomatisTest extends TestCase
         // Pastikan saat ini BELUM ada baris di biodata
         $this->assertNull(Biodata::where('nim', $testNim)->first());
 
-        // 3. Tambahkan di yudisium dengan status 'Lulus' (Trigger Lifecycle Event)
+        // 2. Tambahkan di yudisium dengan status 'Lulus' (Trigger Lifecycle Event)
         $yudisium = Yudisium::create([
             'nim' => $testNim,
             'judul_ta' => 'Pengembangan Sistem Cerdas Terintegrasi',
@@ -145,6 +134,6 @@ class Lulusan2026OtomatisTest extends TestCase
         $this->assertNotNull($viewRow);
         $this->assertEquals('Bintang Pratama Putra', $viewRow->nama);
         $this->assertEquals(2026, $viewRow->tahun_lulus);
-        $this->assertEquals('Ir. Bambang Putra', $viewRow->nama_orang_tua);
+        $this->assertFalse(property_exists($viewRow, 'nama_orang_tua'));
     }
 }

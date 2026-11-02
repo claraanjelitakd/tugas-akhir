@@ -21,11 +21,15 @@ class RefNegara extends Model
 
     /**
      * Atribut yang dapat diisi secara massal (mass assignable).
+     *
+     * @var array<int, string>
      */
     protected $fillable = [
-        'nama_negara',
-        'ibu_kota',
         'kode_iso2',
+        'kode_iso3',
+        'nama_negara',
+        'nama_resmi',
         'benua',
+        'ibu_kota',
     ];
 }

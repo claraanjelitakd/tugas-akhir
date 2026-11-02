@@ -1,15 +1,15 @@
 <!--
   Halaman Manajemen Akun Pengguna Terpadu (Super Admin)
   File: resources/js/Pages/SuperAdmin/ManajemenAkun/Index.vue
-  
+
   Fitur:
   1. Sunting/Edit Data Pengguna (Email, Nama, Username, Role, Prodi/Fakultas).
-  2. Reset Password 1-Klik Otomatis ke Tanggal Lahir (ddmmyyyy) + Kirim Email Konfirmasi ke Email Terdaftar.
+  2. Mengirim tautan reset kata sandi ke email akun admin atau alumni.
   3. Desain Bersih Enterprise tanpa highlight background aneh pada sidebar.
 -->
 <script setup>
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import Sidebar from '../Components/Sidebar.vue';
 
@@ -20,12 +20,158 @@ const props = defineProps({
     fakultas: Array,
     filters: Object,
     stats: Object,
+    unsynced_candidates: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const search = ref(props.filters.search || '');
 const selectedRole = ref(props.filters.role || 'all');
 const selectedProdi = ref(props.filters.prodi_id || '');
 const selectedFakultas = ref(props.filters.fakultas_id || '');
+const isSyncing = ref(false);
+
+// State Modal Sinkronisasi Akun Lulusan dengan Checklist
+const isSyncModalOpen = ref(false);
+const selectedCandidateNims = ref([]);
+const candidateSearch = ref('');
+const candidateFilterYear = ref('all');
+
+const candidateYears = computed(() => {
+    const years = (props.unsynced_candidates || []).map(c => c.tahun_lulus).filter(y => y && y !== '-');
+    return [...new Set(years)].sort().reverse();
+});
+
+const filteredCandidates = computed(() => {
+    return (props.unsynced_candidates || []).filter(c => {
+        const q = candidateSearch.value.trim().toLowerCase();
+        const matchesSearch = !q ||
+            c.nim.toLowerCase().includes(q) ||
+            c.nama.toLowerCase().includes(q) ||
+            c.prodi_nama.toLowerCase().includes(q);
+
+        const matchesYear = candidateFilterYear.value === 'all' || c.tahun_lulus === candidateFilterYear.value;
+
+        return matchesSearch && matchesYear;
+    });
+});
+
+const isAllCandidatesSelected = computed(() => {
+    if (filteredCandidates.value.length === 0) return false;
+    return filteredCandidates.value.every(c => selectedCandidateNims.value.includes(c.nim));
+});
+
+const openSyncModal = () => {
+    if (!props.unsynced_candidates || props.unsynced_candidates.length === 0) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Semua Akun Sudah Sinkron',
+            text: 'Seluruh data mahasiswa berstatus Lulus di data akademik sudah memiliki akun pengguna dan profil biodata.',
+            confirmButtonColor: '#0D542B',
+        });
+        return;
+    }
+
+    candidateSearch.value = '';
+    candidateFilterYear.value = 'all';
+    selectedCandidateNims.value = props.unsynced_candidates.map(c => c.nim);
+    isSyncModalOpen.value = true;
+};
+
+const closeSyncModal = () => {
+    isSyncModalOpen.value = false;
+};
+
+const toggleSelectAllCandidates = () => {
+    if (isAllCandidatesSelected.value) {
+        const nimsToRemove = new Set(filteredCandidates.value.map(c => c.nim));
+        selectedCandidateNims.value = selectedCandidateNims.value.filter(nim => !nimsToRemove.has(nim));
+    } else {
+        const newSelected = new Set(selectedCandidateNims.value);
+        filteredCandidates.value.forEach(c => newSelected.add(c.nim));
+        selectedCandidateNims.value = Array.from(newSelected);
+    }
+};
+
+const toggleCandidate = (nim) => {
+    const idx = selectedCandidateNims.value.indexOf(nim);
+    if (idx > -1) {
+        selectedCandidateNims.value.splice(idx, 1);
+    } else {
+        selectedCandidateNims.value.push(nim);
+    }
+};
+
+const submitSyncCandidates = () => {
+    if (selectedCandidateNims.value.length === 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Pilih Mahasiswa',
+            text: 'Silakan centang setidaknya satu mahasiswa yang ingin disinkronkan akunnya.',
+            confirmButtonColor: '#0D542B',
+        });
+        return;
+    }
+
+    const count = selectedCandidateNims.value.length;
+
+    Swal.fire({
+        title: 'Konfirmasi Sinkronisasi',
+        text: `Apakah Anda yakin ingin menyinkronkan ${count} akun mahasiswa lulusan terpilih?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Ya, Sinkronkan',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#6B7280',
+    }).then((res) => {
+        if (res.isConfirmed) {
+            isSyncing.value = true;
+            router.post('/superadmin/manajemen-akun/sync-alumni', {
+                selected_nims: selectedCandidateNims.value,
+            }, {
+                preserveScroll: true,
+                onSuccess: (page) => {
+                    isSyncing.value = false;
+                    closeSyncModal();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sinkronisasi Selesai',
+                        text: page.props.flash?.success || `Berhasil menyinkronkan ${count} akun alumni baru.`,
+                        confirmButtonColor: '#0D542B',
+                    });
+                },
+                onError: () => {
+                    isSyncing.value = false;
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: 'Terjadi kendala saat menyinkronkan akun alumni.',
+                        confirmButtonColor: '#0D542B',
+                    });
+                },
+                onFinish: () => {
+                    isSyncing.value = false;
+                }
+            });
+        }
+    });
+};
+
+const roleTabs = computed(() => [
+    { role: 'all', label: 'Semua Akun', count: props.stats?.total_users || 0 },
+    { role: 'alumni', label: 'Alumni', count: props.stats?.total_alumni || 0 },
+    { role: 'admin_prodi', label: 'Admin Prodi', count: props.stats?.total_admin_prodi || 0 },
+    { role: 'admin_fakultas', label: 'Admin Fakultas', count: props.stats?.total_admin_fakultas || 0 },
+    { role: 'admin_biro3', label: 'Admin Biro 3', count: props.stats?.total_admin_biro3 || 0 },
+    { role: 'superadmin', label: 'Super Admin', count: props.stats?.total_superadmin || 0 },
+]);
+
+const selectTab = (role) => {
+    selectedRole.value = role;
+    applyFilters();
+};
 
 const applyFilters = () => {
     router.get('/superadmin/manajemen-akun', {
@@ -36,136 +182,140 @@ const applyFilters = () => {
     }, { preserveState: true, replace: true });
 };
 
-// Modal Edit User Data
+// ========================================================
+// STATE REAKTIF UNTUK MODAL EDIT PENGGUNA (VUE 3)
+// ========================================================
+// Catatan Belajar: 'ref' membuat variabel reaktif yang dapat dipantau oleh Vue.
+// Ketika nilai 'isEditModalOpen.value' berubah menjadi true, Vue langsung merender popup modal.
+
+// Menentukan apakah modal edit akun pengguna sedang terbuka
+const isEditModalOpen = ref(false);
+// Menyimpan ID pengguna yang datanya sedang disunting
+const editingUserId = ref(null);
+// Objek penampung nilai form edit akun
+const editForm = ref({
+    name: '',
+    email: '',
+    username: '',
+    role: 'alumni',
+    prodi_id: '',
+    fakultas_id: '',
+});
+// Menampung pesan error validasi input
+const editErrors = ref({});
+// Status loading saat request pengiriman sedang berlangsung
+const isSubmitting = ref(false);
+
+/**
+ * Membuka modal edit pengguna dan mengisi form dengan data yang dipilih
+ * Catatan Belajar: Mengisi objek form sebelum membuka modal memastikan pengguna
+ * langsung melihat data lama yang siap disunting.
+ */
 const openEditUserModal = (u) => {
+    editErrors.value = {};
+    editingUserId.value = u.id;
+
     const currentFakultasId = u.fakultas_id || u.prodi?.fakultas_id || u.prodi?.fakultas?.id || '';
 
-    const prodiOptions = props.prodis.map(p => 
-        `<option value="${p.id}" ${p.id == u.prodi_id ? 'selected' : ''}>${p.nama_prodi}</option>`
-    ).join('');
+    editForm.value = {
+        name: u.name || '',
+        email: u.email || '',
+        username: u.username || '',
+        role: u.role || 'alumni',
+        prodi_id: u.prodi_id || '',
+        fakultas_id: currentFakultasId,
+    };
 
-    const fakultasOptions = props.fakultas.map(f => 
-        `<option value="${f.id}" ${f.id == currentFakultasId ? 'selected' : ''}>${f.nama_fakultas}</option>`
-    ).join('');
+    isEditModalOpen.value = true;
+};
 
-    Swal.fire({
-        title: `<span class="text-base font-bold text-slate-900">Edit</span>`,
-        html: `
-            <div class="text-left text-xs space-y-3 pt-1 text-slate-800">
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">Nama Lengkap *</label>
-                    <input id="swal-edit-name" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" value="${(u.name || '').replace(/"/g, '&quot;')}" />
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Email Terdaftar (Pribadi) *</label>
-                        <input id="swal-edit-email" type="email" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" value="${u.email || ''}" />
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Username / NIM *</label>
-                        <input id="swal-edit-username" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" value="${u.username || ''}" />
-                    </div>
-                </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Peran (Role)</label>
-                        <select id="swal-edit-role" class="w-full px-2 py-2 border border-slate-300 rounded-lg text-xs bg-white">
-                            <option value="superadmin" ${u.role === 'superadmin' ? 'selected' : ''}>Super Admin</option>
-                            <option value="admin_biro3" ${u.role === 'admin_biro3' ? 'selected' : ''}>Admin Biro 3</option>
-                            <option value="admin_fakultas" ${u.role === 'admin_fakultas' ? 'selected' : ''}>Admin Fakultas</option>
-                            <option value="admin_prodi" ${u.role === 'admin_prodi' ? 'selected' : ''}>Admin Prodi</option>
-                            <option value="alumni" ${u.role === 'alumni' ? 'selected' : ''}>Alumni</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Program Studi</label>
-                        <select id="swal-edit-prodi" class="w-full px-2 py-2 border border-slate-300 rounded-lg text-xs bg-white">
-                            <option value="">-- Pilih Prodi --</option>
-                            ${prodiOptions}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">Fakultas</label>
-                        <select id="swal-edit-fakultas" class="w-full px-2 py-2 border border-slate-300 rounded-lg text-xs bg-white">
-                            <option value="">-- Pilih Fakultas --</option>
-                            ${fakultasOptions}
-                        </select>
-                    </div>
-                </div>
-            </div>
-        `,
-        width: '560px',
-        showCancelButton: true,
-        confirmButtonText: 'Simpan Perubahan',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#0D542B',
-        cancelButtonColor: '#6B7280',
-        didOpen: () => {
-            const prodiSelect = document.getElementById('swal-edit-prodi');
-            const fakultasSelect = document.getElementById('swal-edit-fakultas');
-            if (prodiSelect && fakultasSelect) {
-                prodiSelect.addEventListener('change', (e) => {
-                    const selectedProdiId = e.target.value;
-                    const foundProdi = props.prodis.find(p => p.id == selectedProdiId);
-                    if (foundProdi && foundProdi.fakultas_id) {
-                        fakultasSelect.value = foundProdi.fakultas_id;
-                    }
-                });
-            }
-        },
-        preConfirm: () => {
-            const name = document.getElementById('swal-edit-name')?.value?.trim();
-            const email = document.getElementById('swal-edit-email')?.value?.trim();
-            const username = document.getElementById('swal-edit-username')?.value?.trim();
+/**
+ * Menutup modal edit pengguna dan mereset state error
+ */
+const closeEditUserModal = () => {
+    isEditModalOpen.value = false;
+    editingUserId.value = null;
+    editErrors.value = {};
+    isSubmitting.value = false;
+};
 
-            if (!name || !email || !username) {
-                Swal.showValidationMessage('Nama, Email, dan Username wajib diisi.');
-                return false;
-            }
+/**
+ * Menangani perubahan pilihan Program Studi.
+ * Saat Program Studi dipilih, Fakultas yang menaunginya akan otomatis terpilih secara cerdas.
+ */
+const handleProdiChange = () => {
+    if (!editForm.value.prodi_id) return;
+    const foundProdi = props.prodis.find((p) => p.id == editForm.value.prodi_id);
+    if (foundProdi && foundProdi.fakultas_id) {
+        editForm.value.fakultas_id = foundProdi.fakultas_id;
+    }
+};
 
-            return {
-                name,
-                email,
-                username,
-                role: document.getElementById('swal-edit-role')?.value,
-                prodi_id: document.getElementById('swal-edit-prodi')?.value || null,
-                fakultas_id: document.getElementById('swal-edit-fakultas')?.value || null,
-            };
-        }
-    }).then((res) => {
-        if (res.isConfirmed && res.value) {
-            router.put(`/superadmin/manajemen-akun/${u.id}`, res.value, {
-                onSuccess: () => {
-                    Swal.fire('Berhasil!', 'Data akun pengguna telah diperbarui.', 'success');
-                }
+/**
+ * Mengirimkan data pembaruan akun pengguna ke server (Laravel Controller)
+ */
+const submitEditUser = () => {
+    editErrors.value = {};
+
+    // Validasi frontend
+    if (!editForm.value.name.trim()) {
+        editErrors.value.name = 'Nama lengkap wajib diisi.';
+    }
+    if (!editForm.value.email.trim()) {
+        editErrors.value.email = 'Email wajib diisi.';
+    }
+    if (!editForm.value.username.trim()) {
+        editErrors.value.username = 'Username / NIM wajib diisi.';
+    }
+
+    if (Object.keys(editErrors.value).length > 0) {
+        return;
+    }
+
+    isSubmitting.value = true;
+
+    router.put(`/superadmin/manajemen-akun/${editingUserId.value}`, editForm.value, {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeEditUserModal();
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: 'Data akun pengguna telah diperbarui.',
+                timer: 2000,
+                showConfirmButton: false,
             });
-        }
+        },
+        onError: (errs) => {
+            editErrors.value = errs;
+        },
+        onFinish: () => {
+            isSubmitting.value = false;
+        },
     });
 };
 
-// Reset kredensial awal alumni tanpa menampilkan nilai password
-const handleResetToDefaultAndNotify = (userData) => {
+// Mengirim tautan reset tanpa menampilkan atau mengirim password dalam teks biasa
+const handleSendPasswordResetLink = (userData) => {
     Swal.fire({
-        title: 'Reset Kredensial Awal?',
-        html: `
-            <div class="text-xs text-left space-y-2">
-                <p>Kredensial awal akun <strong>${userData.name}</strong> akan direset. Nilai password tidak ditampilkan demi keamanan.</p>
-                <p class="pt-1">Alumni wajib mengganti password setelah berhasil login.</p>
-                <div class="font-mono font-bold text-[#0D542B] bg-emerald-50 p-2 rounded border border-emerald-200">${userData.email}</div>
-            </div>
-        `,
+        title: 'Kirim Tautan Reset Kata Sandi?',
+        text: `Tautan reset untuk ${userData.name} akan dikirim ke ${userData.email}.`,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonText: 'Ya, Reset & Kirim Email',
+        confirmButtonText: 'Ya, Kirim Tautan',
         cancelButtonText: 'Batal',
         confirmButtonColor: '#0D542B',
         cancelButtonColor: '#6B7280',
     }).then((res) => {
         if (res.isConfirmed) {
-            router.post(`/superadmin/manajemen-akun/${userData.id}/reset-default-notify`, {}, {
-                onSuccess: () => {
-                    Swal.fire('Berhasil Di-reset!', `Kredensial awal ${userData.name} telah direset.`, 'success');
-                }
+            router.post(`/superadmin/manajemen-akun/${userData.id}/password-reset`, {}, {
+                preserveScroll: true,
+                onSuccess: (page) => {
+                    Swal.fire('Email Berhasil Dikirim', page.props.flash?.success || `Tautan reset telah dikirim ke ${userData.email}.`, 'success');
+                },
+                onError: (errors) => {
+                    Swal.fire('Gagal Mengirim', errors.reset || 'Tautan reset tidak dapat dikirim.', 'error');
+                },
             });
         }
     });
@@ -192,7 +342,7 @@ const handleResetToDefaultAndNotify = (userData) => {
                             Manajemen Akun Pengguna
                         </h1>
                         <p class="text-xs text-emerald-100/90 mt-1 max-w-2xl leading-relaxed">
-                            Pengelolaan akun terpadu, pembaruan identitas, dan reset kredensial awal alumni.
+                            Pengelolaan akun terpadu, pembaruan identitas, dan pengiriman tautan reset kata sandi.
                         </p>
                     </div>
 
@@ -212,8 +362,56 @@ const handleResetToDefaultAndNotify = (userData) => {
             </div>
 
             <!-- Kontainer Konten Utama -->
-            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
-                <!-- Filter bar -->
+            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-5 pb-12">
+                <!-- Tab Navigasi Role & Tombol Aksi Sinkronisasi -->
+                <div class="bg-white p-3 rounded-xl border border-gray-300 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <!-- Tab Kategori Peran (Role) -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 text-xs">
+                        <button
+                            v-for="tab in roleTabs"
+                            :key="tab.role"
+                            type="button"
+                            @click="selectTab(tab.role)"
+                            :class="[
+                                'flex items-center gap-2 px-3.5 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-xs cursor-pointer',
+                                selectedRole === tab.role
+                                    ? 'bg-[#0D542B] text-white shadow-xs font-semibold'
+                                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900 border border-gray-200'
+                            ]"
+                        >
+                            <span>{{ tab.label }}</span>
+                            <span
+                                :class="[
+                                    'px-1.5 py-0.5 rounded-full text-[10px] font-bold tabular-nums',
+                                    selectedRole === tab.role ? 'bg-white/20 text-white' : 'bg-white text-gray-600 border border-gray-200'
+                                ]"
+                            >
+                                {{ tab.count }}
+                            </span>
+                        </button>
+                    </div>
+
+                    <!-- Tombol Aksi Sinkronisasi Data Alumni -->
+                    <div class="flex items-center gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-gray-100">
+                        <button
+                            type="button"
+                            @click="openSyncModal"
+                            :disabled="isSyncing"
+                            class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-[#0D542B] text-white hover:bg-[#0a4222] transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                            <span v-if="isSyncing">Menyinkronkan...</span>
+                            <span v-else>Sinkronkan Akun Alumni</span>
+                            <span
+                                v-if="stats?.unsynced_alumni_count > 0 && !isSyncing"
+                                class="px-1.5 py-0.5 rounded-full text-[10px] bg-[#FDC700] text-gray-900 font-bold tabular-nums"
+                            >
+                                {{ stats.unsynced_alumni_count }} Baru
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Baris Filter Pencarian & Program Studi -->
                 <div class="bg-white p-3.5 rounded-xl border border-gray-300 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs shadow-2xs">
                     <div class="flex items-center gap-3 flex-wrap flex-1">
                         <input
@@ -221,24 +419,18 @@ const handleResetToDefaultAndNotify = (userData) => {
                             @keyup.enter="applyFilters"
                             type="text"
                             placeholder="Cari nama, email, atau username..."
-                            class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs w-64 focus:outline-none focus:ring-1 focus:ring-[#0D542B] bg-white text-gray-900 placeholder-gray-400"
+                            class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs w-72 focus:outline-none focus:ring-1 focus:ring-[#0D542B] bg-white text-gray-900 placeholder-gray-400"
                         />
-
-                        <!-- Filter Role -->
-                        <select v-model="selectedRole" @change="applyFilters" class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs bg-white text-gray-700 font-medium">
-                            <option value="all">Semua Peran (Role)</option>
-                            <option value="superadmin">Super Admin</option>
-                            <option value="admin_biro3">Admin Biro 3</option>
-                            <option value="admin_fakultas">Admin Fakultas</option>
-                            <option value="admin_prodi">Admin Prodi</option>
-                            <option value="alumni">Alumni</option>
-                        </select>
 
                         <!-- Filter Prodi -->
                         <select v-model="selectedProdi" @change="applyFilters" class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs bg-white text-gray-700 font-medium">
                             <option value="">Semua Program Studi</option>
                             <option v-for="p in prodis" :key="p.id" :value="p.id">{{ p.nama_prodi }}</option>
                         </select>
+                    </div>
+
+                    <div class="text-[11px] text-gray-500 font-medium self-end md:self-center">
+                        Menampilkan <span class="font-bold text-gray-900">{{ users.total || 0 }}</span> akun pengguna
                     </div>
                 </div>
 
@@ -303,13 +495,13 @@ const handleResetToDefaultAndNotify = (userData) => {
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                             </svg>
                                         </button>
-                                        <!-- Tombol Reset Password (Key) -->
+                                        <!-- Tombol pengiriman tautan reset untuk semua akun selain Super Admin -->
                                         <button
-                                            v-if="u.role === 'alumni'"
+                                            v-if="u.role !== 'superadmin'"
                                             type="button"
-                                            @click="handleResetToDefaultAndNotify(u)"
+                                            @click="handleSendPasswordResetLink(u)"
                                             class="p-1.5 text-gray-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
-                                            title="Reset kredensial awal alumni"
+                                            title="Kirim tautan reset kata sandi"
                                         >
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -347,5 +539,303 @@ const handleResetToDefaultAndNotify = (userData) => {
                 </div>
             </main>
         </div>
+
+        <!-- ======================================================== -->
+        <!-- MODAL TELEPORT VUE 3: SUNTING DATA PENGGUNA -->
+        <!-- ======================================================== -->
+        <Teleport to="body">
+            <div
+                v-if="isEditModalOpen"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+                @click.self="closeEditUserModal"
+                @keydown.esc="closeEditUserModal"
+            >
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+                    <!-- Header Modal -->
+                    <div class="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-gray-900">
+                            Sunting Data Pengguna
+                        </h3>
+                        <button
+                            type="button"
+                            @click="closeEditUserModal"
+                            class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Form Isi Modal -->
+                    <form @submit.prevent="submitEditUser" class="p-6 space-y-4 text-xs">
+                        <!-- Nama Lengkap -->
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">
+                                Nama Lengkap <span class="text-rose-600">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                v-model="editForm.name"
+                                placeholder="Masukkan nama lengkap pengguna..."
+                                class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                :class="editErrors.name ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'"
+                            />
+                            <p v-if="editErrors.name" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ editErrors.name }}
+                            </p>
+                        </div>
+
+                        <!-- Email & Username -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">
+                                    Email Terdaftar (Pribadi) <span class="text-rose-600">*</span>
+                                </label>
+                                <input
+                                    type="email"
+                                    v-model="editForm.email"
+                                    placeholder="nama@email.com"
+                                    class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                    :class="editErrors.email ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'"
+                                />
+                                <p v-if="editErrors.email" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                    {{ editErrors.email }}
+                                </p>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">
+                                    Username / NIM <span class="text-rose-600">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="editForm.username"
+                                    placeholder="Contoh: 71200001"
+                                    class="w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                    :class="editErrors.username ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'"
+                                />
+                                <p v-if="editErrors.username" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                    {{ editErrors.username }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Peran (Role), Prodi, Fakultas -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Peran (Role)</label>
+                                <select
+                                    v-model="editForm.role"
+                                    class="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                >
+                                    <option value="superadmin">Super Admin</option>
+                                    <option value="admin_biro3">Admin Biro 3</option>
+                                    <option value="admin_fakultas">Admin Fakultas</option>
+                                    <option value="admin_prodi">Admin Prodi</option>
+                                    <option value="alumni">Alumni</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Program Studi</label>
+                                <select
+                                    v-model="editForm.prodi_id"
+                                    @change="handleProdiChange"
+                                    class="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                >
+                                    <option value="">-- Pilih Prodi --</option>
+                                    <option v-for="p in prodis" :key="p.id" :value="p.id">
+                                        {{ p.nama_prodi }}
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">Fakultas</label>
+                                <select
+                                    v-model="editForm.fakultas_id"
+                                    class="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                                >
+                                    <option value="">-- Pilih Fakultas --</option>
+                                    <option v-for="f in fakultas" :key="f.id" :value="f.id">
+                                        {{ f.nama_fakultas }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Tombol Aksi Bawah -->
+                        <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                @click="closeEditUserModal"
+                                :disabled="isSubmitting"
+                                class="px-3.5 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="isSubmitting"
+                                class="px-4 py-2 text-xs font-semibold text-white bg-[#0D542B] hover:bg-[#08381c] rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 shadow-xs"
+                            >
+                                <svg v-if="isSubmitting" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                <span>{{ isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan' }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- Modal Checklist Sinkronisasi Akun Mahasiswa Lulusan -->
+        <Teleport to="body">
+            <div
+                v-if="isSyncModalOpen"
+                class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6"
+                @click.self="closeSyncModal"
+            >
+                <div class="bg-white rounded-2xl shadow-xl w-full max-w-4xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh]">
+                    <!-- Header Modal -->
+                    <div class="px-6 py-4 bg-[#0D542B] text-white flex items-center justify-between border-b border-emerald-900/40">
+                        <div>
+                            <h3 class="text-base font-bold text-white tracking-tight">
+                                Sinkronisasi Akun Mahasiswa Lulusan
+                            </h3>
+                            <p class="text-xs text-emerald-100/90 mt-0.5">
+                                Pilih mahasiswa dari Data Akademik untuk dibuatkan akun pengguna dan profil biodata alumni.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            @click="closeSyncModal"
+                            class="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors text-lg leading-none cursor-pointer"
+                            aria-label="Tutup"
+                        >
+                            &times;
+                        </button>
+                    </div>
+
+                    <!-- Toolbar Pencarian & Filter di dalam Modal -->
+                    <div class="px-6 py-3 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                        <div class="flex items-center gap-3 flex-wrap flex-1">
+                            <input
+                                v-model="candidateSearch"
+                                type="text"
+                                placeholder="Cari NIM, nama, atau prodi..."
+                                class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs w-60 bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            />
+
+                            <select
+                                v-model="candidateFilterYear"
+                                class="px-3 py-1.5 border border-gray-300 rounded-lg text-xs bg-white text-gray-700 font-medium"
+                            >
+                                <option value="all">Semua Tahun Lulus</option>
+                                <option v-for="yr in candidateYears" :key="yr" :value="yr">
+                                    Tahun {{ yr }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="text-xs text-gray-600 font-medium">
+                            Terpilih <span class="font-bold text-[#0D542B]">{{ selectedCandidateNims.length }}</span> dari {{ unsynced_candidates?.length || 0 }} mahasiswa
+                        </div>
+                    </div>
+
+                    <!-- Tabel Daftar Calon Mahasiswa Lulusan -->
+                    <div class="overflow-y-auto flex-1 p-6">
+                        <div class="border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead class="bg-gray-100 text-gray-800 font-semibold border-b border-gray-300 text-[11px] sticky top-0 z-10">
+                                    <tr>
+                                        <th class="p-3 w-10 text-center border-r border-gray-200">
+                                            <input
+                                                type="checkbox"
+                                                :checked="isAllCandidatesSelected"
+                                                @change="toggleSelectAllCandidates"
+                                                class="rounded border-gray-300 text-[#0D542B] focus:ring-[#0D542B] cursor-pointer"
+                                            />
+                                        </th>
+                                        <th class="px-3 py-2.5 border-r border-gray-200">NIM</th>
+                                        <th class="px-3 py-2.5 border-r border-gray-200">Nama Lengkap</th>
+                                        <th class="px-3 py-2.5 border-r border-gray-200">Program Studi</th>
+                                        <th class="px-3 py-2.5 text-center border-r border-gray-200">Tahun Lulus</th>
+                                        <th class="px-3 py-2.5 text-center">Tanggal Lahir</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 bg-white">
+                                    <tr v-if="filteredCandidates.length === 0">
+                                        <td colspan="6" class="p-8 text-center text-gray-400 italic">
+                                            Tidak ada data mahasiswa yang sesuai dengan pencarian atau filter tahun.
+                                        </td>
+                                    </tr>
+                                    <tr
+                                        v-for="c in filteredCandidates"
+                                        :key="c.nim"
+                                        @click="toggleCandidate(c.nim)"
+                                        :class="[
+                                            'transition-colors cursor-pointer',
+                                            selectedCandidateNims.includes(c.nim) ? 'bg-emerald-50/60 hover:bg-emerald-50' : 'hover:bg-gray-50'
+                                        ]"
+                                    >
+                                        <td class="p-3 text-center border-r border-gray-200" @click.stop>
+                                            <input
+                                                type="checkbox"
+                                                :value="c.nim"
+                                                v-model="selectedCandidateNims"
+                                                class="rounded border-gray-300 text-[#0D542B] focus:ring-[#0D542B] cursor-pointer"
+                                            />
+                                        </td>
+                                        <td class="px-3 py-2.5 font-mono font-bold text-gray-900 border-r border-gray-200">
+                                            {{ c.nim }}
+                                        </td>
+                                        <td class="px-3 py-2.5 font-medium text-gray-900 border-r border-gray-200">
+                                            {{ c.nama }}
+                                        </td>
+                                        <td class="px-3 py-2.5 text-gray-700 border-r border-gray-200">
+                                            {{ c.prodi_nama }}
+                                        </td>
+                                        <td class="px-3 py-2.5 text-center font-bold text-gray-800 border-r border-gray-200">
+                                            {{ c.tahun_lulus }}
+                                        </td>
+                                        <td class="px-3 py-2.5 text-center text-gray-600 font-mono text-[11px]">
+                                            {{ c.tanggal_lahir || '-' }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Footer Modal Aksi -->
+                    <div class="px-6 py-3.5 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                        <div class="text-[11px] text-gray-500">
+                            Akun baru akan dibuatkan username sesuai NIM dengan password awal berupa tanggal lahir (ddmmyyyy).
+                        </div>
+                        <div class="flex items-center gap-2 self-end sm:self-center">
+                            <button
+                                type="button"
+                                @click="closeSyncModal"
+                                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-medium cursor-pointer"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                @click="submitSyncCandidates"
+                                :disabled="isSyncing || selectedCandidateNims.length === 0"
+                                class="px-4 py-2 bg-[#0D542B] text-white rounded-lg hover:bg-[#0a4222] transition-colors font-semibold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                                <span v-if="isSyncing">Memproses...</span>
+                                <span v-else>Sinkronkan ({{ selectedCandidateNims.length }} Terpilih)</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>

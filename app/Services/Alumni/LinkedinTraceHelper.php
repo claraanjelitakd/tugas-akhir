@@ -53,7 +53,8 @@ class LinkedinTraceHelper
         $handledKeys = array_merge($handledKeys, ['li_profile_image_url', 'profile_picture', 'profilePicture', 'picture_url']);
 
         // 2. Posisi Jabatan / Job Title
-        $scrapedJob = $preview['current_job'] ?? ($item['job_title'] ?? ($item['jobTitle'] ?? ($item['headline'] ?? null)));
+        // Headline adalah teks branding profil, bukan sumber posisi atau jabatan.
+        $scrapedJob = $preview['current_job'] ?? ($item['job_title'] ?? ($item['jobTitle'] ?? null));
         $dbJob = $alumni->posisi_jabatan;
         $rows[] = [
             'key' => 'job_title',
@@ -287,7 +288,7 @@ class LinkedinTraceHelper
             }
         }
         $scrapedSkills = ! empty($skillsList) ? implode(', ', array_slice($skillsList, 0, 10)) : null;
-        $dbSkills = $alumni->skills ?? $alumni->expert;
+        $dbSkills = $alumni->skills;
         $rows[] = [
             'key' => 'skills',
             'label' => 'Keahlian Alumni (Skills)',
@@ -307,7 +308,7 @@ class LinkedinTraceHelper
             $countExp = count($rawExp);
             $firstExpTitle = $rawExp[0]['title'] ?? ($rawExp[0]['position'] ?? '-');
             $firstExpComp = $rawExp[0]['company_name'] ?? ($rawExp[0]['company'] ?? '-');
-            $dbExp = $alumni->experience ?? $alumni->minat;
+            $dbExp = $alumni->experience;
             $rows[] = [
                 'key' => 'experiences',
                 'label' => "Riwayat Pengalaman Kerja ({$countExp} entri)",

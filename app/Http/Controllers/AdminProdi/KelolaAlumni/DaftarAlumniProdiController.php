@@ -77,9 +77,7 @@ class DaftarAlumniProdiController extends Controller
 
         $alumni = Biodata::with([
             'dataAkademik.yudisium',
-            'dataAkademik.orangTua',
             'yudisium',
-            'orangTua',
             'perusahaan.propinsi',
             'perusahaan.kabupaten',
             'atasan',
@@ -286,9 +284,11 @@ class DaftarAlumniProdiController extends Controller
 
         // Ambil Data Evaluasi Atasan (Pengguna Lulusan)
         $evaluasiAtasan = EvaluasiAtasan::where('biodata_id', $alumni->id)
-            ->with(['atasan', 'perusahaan', 'respons.pertanyaan'])
+            ->with(['atasan', 'perusahaan.kabupaten', 'perusahaan.propinsi', 'respons.pertanyaan'])
             ->latest('updated_at')
             ->first();
+
+        $evaluasiAtasanData = $evaluasiAtasan?->toAdminAuditArray();
 
         $pertanyaanEvaluasiAtasan = PertanyaanEvaluasiAtasan::where('is_active', true)
             ->orderBy('order', 'asc')
@@ -300,7 +300,7 @@ class DaftarAlumniProdiController extends Controller
             'biodata' => $alumni,
             'alumni' => $alumni,
             'evaluasi' => $evaluasi,
-            'evaluasiAtasan' => $evaluasiAtasan,
+            'evaluasiAtasan' => $evaluasiAtasanData,
             'pertanyaanEvaluasiAtasan' => $pertanyaanEvaluasiAtasan,
             'sections' => $univSectionsWithAnswers,
             'univSections' => $univSectionsWithAnswers,
@@ -359,7 +359,7 @@ class DaftarAlumniProdiController extends Controller
             ->with(['user', 'dataAkademik'])
             ->findOrFail($id);
 
-        $targetEmail = $alumni->email_pribadi ?: ($alumni->dataAkademik?->email_pribadi ?: $alumni->user?->email);
+        $targetEmail = $alumni->email_pribadi ?: $alumni->user?->email;
 
         if (! $targetEmail || ! filter_var($targetEmail, FILTER_VALIDATE_EMAIL)) {
             return back()->with('error', "Gagal: Alumni {$alumni->nama} ({$alumni->nim}) belum memiliki alamat email yang valid di sistem.");

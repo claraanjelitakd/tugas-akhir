@@ -88,31 +88,11 @@ const isValidEmail = (val) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(val).trim());
 };
 
-// Helper validasi NPWP (15 atau 16 digit per UU HPP & PMK 112/PMK.03/2022)
-const isValidNpwp = (val) => {
-    if (!val) return false;
-    const clean = String(val).replace(/[^0-9]/g, '');
-    return clean.length === 15 || clean.length === 16;
-};
-
 // Helper validasi No HP
 const isValidPhone = (val) => {
     if (!val) return false;
     const clean = String(val).replace(/[^0-9+]/g, '');
     return clean.length >= 10 && clean.length <= 15;
-};
-
-// Handler input NPWP hanya angka max 16 digit
-const handleNpwpInput = (e) => {
-    const raw = e.target.value.replace(/[^0-9]/g, '').slice(0, 16);
-    props.form.npwp = raw;
-};
-
-// Salin NIK sebagai NPWP 16 digit
-const copyNikToNpwp = () => {
-    if (props.form.nik) {
-        props.form.npwp = String(props.form.nik).replace(/[^0-9]/g, '').slice(0, 16);
-    }
 };
 
 // Handler input telepon hanya angka & tanda +
@@ -145,9 +125,16 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
             </p>
 
             <!-- Foto Profil Resmi Alumni -->
-            <div class="mb-6 p-4 sm:p-5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-center sm:items-start gap-5">
+            <div
+                class="mb-6 p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row items-center sm:items-start gap-5 transition-colors"
+                :class="fotoPreview || form.foto ? 'bg-slate-50 border-slate-200' : 'bg-emerald-50/40 border-[#0D542B]/30'"
+            >
                 <div class="relative shrink-0">
-                    <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shadow-xs border-2 border-white bg-slate-100 flex items-center justify-center">
+                    <div
+                        class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shadow-xs flex items-center justify-center transition-colors cursor-pointer"
+                        :class="fotoPreview || form.foto ? 'border-2 border-white bg-slate-100' : 'border-2 border-dashed border-[#0D542B]/50 bg-white hover:bg-emerald-50/50'"
+                        @click="!fotoPreview && !form.foto ? triggerFileInput() : null"
+                    >
                         <img 
                             v-if="fotoPreview" 
                             :src="fotoPreview" 
@@ -160,28 +147,30 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                             :alt="form.nama || 'Foto Profil'" 
                             class="w-full h-full object-cover object-top" 
                         />
-                        <div v-else class="flex flex-col items-center justify-center text-slate-400">
-                            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                            <span class="text-[10px] font-bold text-slate-400 mt-1">Belum Ada</span>
+                        <div v-else class="flex flex-col items-center justify-center text-[#0D542B] px-2 text-center">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                            <span class="text-[10px] font-extrabold text-[#0D542B] mt-1 leading-tight">Wajib Diisi</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="flex-1 text-center sm:text-left space-y-2">
                     <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                        <h3 class="text-sm font-bold text-gray-900">Foto Profil Mahasiswa / Alumni</h3>
-                        <span v-if="form.foto && typeof form.foto === 'string' && form.foto.includes('uploads/profile')" class="px-2 py-0.5 bg-slate-200 text-slate-700 text-[10px] font-bold rounded-md">
+                        <h3 class="text-sm font-bold text-gray-900">
+                            Foto Profil Mahasiswa / Alumni <span class="text-rose-500 font-bold">*</span>
+                        </h3>
+                        <span v-if="form.foto && typeof form.foto === 'string' && form.foto.includes('uploads/profile')" class="px-2 py-0.5 bg-emerald-100 text-[#0D542B] text-[10px] font-bold rounded-md">
                             Tersinkron LinkedIn / Terverifikasi
                         </span>
-                        <span v-else-if="form.foto" class="px-2 py-0.5 bg-slate-200 text-slate-700 text-[10px] font-bold rounded-md">
+                        <span v-else-if="fotoPreview || form.foto" class="px-2 py-0.5 bg-emerald-100 text-[#0D542B] text-[10px] font-bold rounded-md">
                             Foto Tersedia
                         </span>
-                        <span v-else class="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-md">
+                        <span v-else class="px-2 py-0.5 bg-emerald-50 text-[#0D542B] border border-[#0D542B]/30 text-[10px] font-bold rounded-md">
                             Belum Ada Foto
                         </span>
                     </div>
 
-                    <p class="text-xs text-gray-500 leading-relaxed max-w-xl">
+                    <p class="text-xs text-gray-600 leading-relaxed max-w-xl">
                         Foto resmi alumni akan ditampilkan pada direktori alumni kampus, berkas tracer study, dan verifikasi profil lulusan. Dapat disinkronkan otomatis dari LinkedIn atau diunggah mandiri (JPG/PNG max 2MB).
                     </p>
 
@@ -196,16 +185,17 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                         <button 
                             type="button" 
                             @click="triggerFileInput" 
-                            class="px-3.5 py-1.5 bg-white hover:bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-700 transition shadow-2xs cursor-pointer"
+                            class="px-4 py-2 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                            :class="fotoPreview || form.foto ? 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-700' : 'bg-[#0D542B] hover:bg-[#093d1f] text-white'"
                         >
-                            <span>{{ form.foto ? 'Ganti Foto' : 'Unggah Foto' }}</span>
+                            <span>{{ fotoPreview || form.foto ? 'Ganti Foto' : 'Unggah Foto Sekarang' }}</span>
                         </button>
 
                         <button
                             v-if="fotoPreview || (form.foto && typeof form.foto === 'string')"
                             type="button"
                             @click="previewFoto"
-                            class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                            class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
                         >
                             <span>Lihat Foto</span>
                         </button>
@@ -237,44 +227,6 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     />
                 </div>
 
-                <!-- NIK (Terkunci dari Data Akademik) -->
-                <div>
-                    <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Nomor Induk Kependudukan (NIK)</span>
-                        <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
-                    </label>
-                    <input type="text" :value="form.nik" disabled :class="lockedInputClass" placeholder="16 Digit NIK" title="NIK bersifat permanen dan terdaftar resmi di pangkalan data kampus" />
-                </div>
-
-                <!-- NPWP (16 Digit NIK / 15 Digit PMK 112) -->
-                <div>
-                    <div class="flex items-center justify-between mb-1.5 flex-wrap gap-1">
-                        <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                            Nomor Pokok Wajib Pajak (NPWP) <span class="text-rose-500 font-bold">*</span>
-                        </label>
-                        <button 
-                            v-if="form.nik && form.npwp !== form.nik"
-                            type="button" 
-                            @click="copyNikToNpwp" 
-                            class="text-[11px] font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 px-2.5 py-0.5 rounded-lg border border-gray-300 transition-colors cursor-pointer"
-                            title="Gunakan 16 Digit NIK sebagai NPWP sesuai PMK 112/2022"
-                        >
-                            Gunakan NIK (16 Digit)
-                        </button>
-                    </div>
-                    <input 
-                        type="text" 
-                        :value="form.npwp" 
-                        @input="handleNpwpInput"
-                        maxlength="16"
-                        class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-mono font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="16 Digit NIK / 15 Digit NPWP" 
-                    />
-                    <p class="text-[11px] text-gray-400 mt-1 font-medium">
-                        Sesuai UU HPP & PMK No. 112/PMK.03/2022, Wajib Pajak Orang Pribadi menggunakan 16 digit NIK sebagai format NPWP terbaru.
-                    </p>
-                </div>
-                
                 <!-- Tempat Lahir (Terkunci dari Data Akademik) -->
                 <div>
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
@@ -363,63 +315,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
         </div>
 
         <!-- ================================================================= -->
-        <!-- BAGIAN 2: DOKUMEN PENDUKUNG (DARI DATA AKADEMIK)                  -->
-        <!-- ================================================================= -->
-        <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
-            <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-100 flex-wrap gap-2">
-                <h2 class="text-lg sm:text-xl font-black text-gray-900 flex items-center gap-2">
-                    <span class="w-2.5 h-6 bg-[#005B3C] rounded-full inline-block"></span>
-                    Dokumen Pendukung
-                </h2>
-                <span class="text-xs font-semibold px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg border border-gray-200">
-                    Data Induk Akademik (Terkunci Otomatis)
-                </span>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div>
-                    <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Nomor Kartu Keluarga (KK)</span>
-                        <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        :value="form.no_kk || '-'" 
-                        disabled 
-                        :class="lockedInputClass" 
-                        placeholder="Nomor KK (16 digit)" 
-                    />
-                </div>
-                <div>
-                    <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>NISN</span>
-                        <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        :value="form.nisn || '-'" 
-                        disabled 
-                        :class="lockedInputClass" 
-                        placeholder="10 Digit NISN" 
-                    />
-                </div>
-                <div>
-                    <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Nomor BPJS Kesehatan</span>
-                        <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        :value="form.no_bpjs || '-'" 
-                        disabled 
-                        :class="lockedInputClass" 
-                        placeholder="13 Digit Nomor BPJS" 
-                    />
-                </div>
-            </div>
-        </div>
-
-        <!-- ================================================================= -->
-        <!-- BAGIAN 3: KONTAK & ALAMAT DOMISILI                                -->
+        <!-- BAGIAN 2: KONTAK & ALAMAT DOMISILI                                -->
         <!-- ================================================================= -->
         <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
             <div class="flex items-center justify-between mb-6 pb-3 border-b border-gray-100">

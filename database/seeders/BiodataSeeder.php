@@ -4,8 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Atasan;
 use App\Models\Biodata;
-use App\Models\DataAkademik;
-use App\Models\DataOrangTua;
 use App\Models\Kabupaten;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
@@ -61,7 +59,7 @@ class BiodataSeeder extends Seeder
             'Supervisor',
         ];
 
-        $expertList = [
+        $skillsList = [
             'Web Development & Cloud Computing',
             'Data Science & Predictive Analytics',
             'UI/UX Design & User Research',
@@ -74,7 +72,7 @@ class BiodataSeeder extends Seeder
             'English Curriculum & Instructional Design',
         ];
 
-        $minatList = [
+        $experienceList = [
             'Open Source, IoT, Artificial Intelligence',
             'Big Data, Deep Learning, Cloud Architecture',
             'Design Systems, Accessibility, Interaction Design',
@@ -98,7 +96,6 @@ class BiodataSeeder extends Seeder
         foreach ($alumniUsers as $index => $user) {
             $nim = $user->username;
             $parsedInfo = Biodata::parseNim($nim);
-            $kodeProdi = $parsedInfo ? $parsedInfo['kode_prodi'] : '71';
             $lokasi = $lokasiList[$index % count($lokasiList)];
 
             $prodiId = null;
@@ -121,15 +118,17 @@ class BiodataSeeder extends Seeder
             $atasan = Atasan::firstOrCreate(
                 ['email' => 'atasan.'.$index.'.'.$atasanInfo['email']],
                 [
+                    'perusahaan_id' => $perusahaanId,
                     'nama' => $atasanInfo['nama'],
                     'telepon' => $atasanInfo['telepon'],
                 ]
             );
+            if ($perusahaanId && ! $atasan->perusahaan_id) {
+                $atasan->update(['perusahaan_id' => $perusahaanId]);
+            }
 
             $cleanUsername = strtolower(str_replace(' ', '', explode(' ', $user->name ?? 'alumni')[0])).$index;
 
-            $dataAkademik = DataAkademik::where('nim', $nim)->first();
-            $dataOrangTua = DataOrangTua::where('nim', $nim)->first();
             $yudisium = Yudisium::where('nim', $nim)->first();
 
             $gajiList = [5000000, 6500000, 8000000, 10000000, 12500000, 7500000, 9000000];
@@ -139,23 +138,22 @@ class BiodataSeeder extends Seeder
                 ['user_id' => $user->id],
                 [
                     'nim' => $nim,
-                    'orang_tua_id' => $dataOrangTua?->id,
                     'yudisium_id' => $yudisium?->id,
                     'prodi_id' => $prodiId,
                     'nomor_telepon' => '0812'.rand(1000, 9999).str_pad((string) $index, 4, '0', STR_PAD_LEFT),
                     'email_pribadi' => $personalEmail,
                     'alamat_saat_ini' => 'Jl. Kenanga No. '.($index + 12).', RT 03/RW 05',
+                    'kelurahan' => $lokasi['kel'],
+                    'kecamatan' => $lokasi['kec'],
                     'kabupaten_id' => $lokasi['kab'],
                     'propinsi_id' => $lokasi['prov'],
                     'kode_pos' => $lokasi['kodepos'],
-                    'nik' => '3404'.str_pad((string) (100000000000 + $index * 1234), 12, '0', STR_PAD_LEFT),
-                    'npwp' => '09.'.rand(100, 999).'.'.rand(100, 999).'.'.rand(1, 9).'-541.000',
                     'instagram_url' => 'https://instagram.com/'.$cleanUsername,
                     'facebook_url' => 'https://facebook.com/'.$cleanUsername,
                     'linkedin_url' => 'https://linkedin.com/in/'.$cleanUsername,
                     'linkedin_username' => $cleanUsername,
-                    'skills' => $expertList[$index % count($expertList)],
-                    'experience' => $minatList[$index % count($minatList)],
+                    'skills' => $skillsList[$index % count($skillsList)],
+                    'experience' => $experienceList[$index % count($experienceList)],
                     'perusahaan_id' => $perusahaanId,
                     'atasan_id' => $atasan?->id,
                     'kategori_pekerjaan' => 'Pekerja',

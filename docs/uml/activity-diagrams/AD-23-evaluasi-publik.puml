@@ -1,0 +1,26 @@
+@startuml
+title AD-23 Evaluasi Publik oleh Atasan
+|Atasan|
+start
+:Buka URL token;
+|Backend|
+:Cari dan validasi token;
+if (Token valid dan belum ditolak?) then (ya)
+  :Muat instrumen aktif;
+  |Atasan|
+  :Isi identitas, skor, dan catatan;
+  |Backend|
+  :Validasi throttle dan input;
+  if (Input valid?) then (ya)
+    |Database|
+    :Upsert atasan dan ResponEvaluasiAtasan;
+    |Backend|
+    :Tampilkan sukses;
+  else (tidak)
+    :Tampilkan validation error;
+  endif
+else (tidak)
+  :Tampilkan token error;
+endif
+stop
+@enduml

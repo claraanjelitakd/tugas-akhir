@@ -12,9 +12,11 @@ use App\Models\Perusahaan;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * SimpanProfilController
@@ -32,6 +34,12 @@ class SimpanProfilController extends Controller
         $request->validate([
             'profile_answers' => ['nullable', 'array'],
             'profile_answer_custom' => ['nullable', 'array'],
+            'nomor_telepon' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+() .-]{8,20}$/'],
+            'email_pribadi' => ['nullable', 'email', 'max:100'],
+            'alamat_saat_ini' => ['nullable', 'string', 'max:1000'],
+            'kelurahan' => ['nullable', 'string', 'max:50'],
+            'kecamatan' => ['nullable', 'string', 'max:50'],
+            'kode_pos' => ['nullable', 'digits:5'],
         ]);
 
         if ($request->hasFile('foto')) {
@@ -70,6 +78,9 @@ class SimpanProfilController extends Controller
             $jenisPerusahaan = ! empty($dataTervalidasi['company_jenis_perusahaan']) ? $dataTervalidasi['company_jenis_perusahaan'] : (! empty($dataTervalidasi['perusahaan_jenis_perusahaan']) ? $dataTervalidasi['perusahaan_jenis_perusahaan'] : null);
             $jenisPerusahaanLainnya = ! empty($dataTervalidasi['company_jenis_perusahaan_lainnya']) ? $dataTervalidasi['company_jenis_perusahaan_lainnya'] : (! empty($dataTervalidasi['perusahaan_jenis_perusahaan_lainnya']) ? $dataTervalidasi['perusahaan_jenis_perusahaan_lainnya'] : null);
             $skala = ! empty($dataTervalidasi['company_skala']) ? $dataTervalidasi['company_skala'] : (! empty($dataTervalidasi['perusahaan_skala']) ? $dataTervalidasi['perusahaan_skala'] : null);
+            $bentukPerusahaan = ! empty($dataTervalidasi['company_bentuk']) ? $dataTervalidasi['company_bentuk'] : (! empty($dataTervalidasi['perusahaan_bentuk']) ? $dataTervalidasi['perusahaan_bentuk'] : null);
+            $noTelpFax = ! empty($dataTervalidasi['company_no_telp_fax']) ? $dataTervalidasi['company_no_telp_fax'] : (! empty($dataTervalidasi['perusahaan_no_telp_fax']) ? $dataTervalidasi['perusahaan_no_telp_fax'] : null);
+            $homepage = ! empty($dataTervalidasi['company_homepage']) ? $dataTervalidasi['company_homepage'] : (! empty($dataTervalidasi['perusahaan_homepage']) ? $dataTervalidasi['perusahaan_homepage'] : null);
             $alamat = ! empty($dataTervalidasi['company_alamat']) ? $dataTervalidasi['company_alamat'] : (! empty($dataTervalidasi['perusahaan_alamat']) ? $dataTervalidasi['perusahaan_alamat'] : null);
             $kodePos = ! empty($dataTervalidasi['company_kode_pos']) ? $dataTervalidasi['company_kode_pos'] : (! empty($dataTervalidasi['perusahaan_kode_pos']) ? $dataTervalidasi['perusahaan_kode_pos'] : (! empty($dataTervalidasi['zipcode']) ? $dataTervalidasi['zipcode'] : null));
 
@@ -82,6 +93,9 @@ class SimpanProfilController extends Controller
                     'alamat' => $alamat,
                     'kode_pos' => $kodePos,
                     'skala' => $skala ?: 'Nasional',
+                    'bentuk_perusahaan' => $bentukPerusahaan,
+                    'no_telp_fax' => $noTelpFax,
+                    'homepage' => $homepage,
                     'jenis_perusahaan' => $jenisPerusahaan,
                     'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya,
                     'jenis_lokasi' => $jenisLokasi,
@@ -92,26 +106,21 @@ class SimpanProfilController extends Controller
                 ]
             );
 
-            // Jika perusahaan belum terverifikasi atau alumni adalah founder/wiraswasta, perbarui data master
-            $kategoriPekerjaan = $dataTervalidasi['kategori_pekerjaan'] ?? null;
-            $posisiJabatan = $dataTervalidasi['posisi_jabatan'] ?? null;
-            $isOwnerOrFounder = ($kategoriPekerjaan === 'Wiraswasta') || ($posisiJabatan && in_array(strtolower((string) $posisiJabatan), [
-                'owner', 'founder', 'wiraswasta', 'wirausaha', 'wiraswasta / wirausaha', 'owner / founder',
-            ]));
-
-            if ($perusahaan->status_verifikasi !== 'Terverifikasi' || $isOwnerOrFounder) {
-                $perusahaan->update([
-                    'propinsi_id' => $propinsiId,
-                    'kabupaten_id' => $kabupatenId,
-                    'alamat' => $alamat ?: $perusahaan->alamat,
-                    'kode_pos' => $kodePos ?: $perusahaan->kode_pos,
-                    'skala' => $skala ?: $perusahaan->skala,
-                    'jenis_perusahaan' => $jenisPerusahaan ?: $perusahaan->jenis_perusahaan,
-                    'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya,
-                    'jenis_lokasi' => $jenisLokasi,
-                    'negara' => $negara,
-                ]);
-            }
+            // Perbarui data perusahaan agar tersinkronisasi dua arah antara profil alumni dan form evaluasi atasan
+            $perusahaan->update([
+                'propinsi_id' => $propinsiId,
+                'kabupaten_id' => $kabupatenId,
+                'alamat' => $alamat ?: $perusahaan->alamat,
+                'kode_pos' => $kodePos ?: $perusahaan->kode_pos,
+                'skala' => $skala ?: $perusahaan->skala,
+                'bentuk_perusahaan' => $bentukPerusahaan ?: $perusahaan->bentuk_perusahaan,
+                'no_telp_fax' => $noTelpFax ?: $perusahaan->no_telp_fax,
+                'homepage' => $homepage ?: $perusahaan->homepage,
+                'jenis_perusahaan' => $jenisPerusahaan ?: $perusahaan->jenis_perusahaan,
+                'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya,
+                'jenis_lokasi' => $jenisLokasi,
+                'negara' => $negara,
+            ]);
             $idPerusahaan = $perusahaan->id;
         }
 
@@ -168,6 +177,7 @@ class SimpanProfilController extends Controller
         if (! empty($namaAtasan) || ! empty($emailAtasan) || ! empty($teleponAtasan)) {
             if ($biodata->atasan_id && $biodata->atasan) {
                 $biodata->atasan->update([
+                    'perusahaan_id' => $idPerusahaan ?: $biodata->atasan->perusahaan_id,
                     'nama' => $namaAtasan ?: $biodata->atasan->nama,
                     'email' => $emailAtasan ?: $biodata->atasan->email,
                     'telepon' => $teleponAtasan ?: $biodata->atasan->telepon,
@@ -175,6 +185,7 @@ class SimpanProfilController extends Controller
                 $idAtasan = $biodata->atasan->id;
             } else {
                 $atasan = Atasan::create([
+                    'perusahaan_id' => $idPerusahaan,
                     'nama' => $namaAtasan ?: ($dataTervalidasi['nama'] ?? 'Atasan'),
                     'email' => $emailAtasan,
                     'telepon' => $teleponAtasan,
@@ -183,13 +194,6 @@ class SimpanProfilController extends Controller
             }
 
         }
-
-        // =========================================================================================
-        // 4. ATURAN NIK: TIDAK DAPAT DIUBAH ALUMNI JIKA SUDAH ADA
-        // =========================================================================================
-        $nikPermanen = ! empty($biodata->nik)
-            ? $biodata->nik
-            : (! empty($dataTervalidasi['nik']) ? $dataTervalidasi['nik'] : null);
 
         // Gaji / Take Home Pay (bersihkan karakter non-digit dan simpan nominal murni)
         $gajiNominal = null;
@@ -224,18 +228,18 @@ class SimpanProfilController extends Controller
         $biodata->update([
             'nomor_telepon' => ! empty($dataTervalidasi['nomor_telepon']) ? $dataTervalidasi['nomor_telepon'] : null,
             'email_pribadi' => ! empty($dataTervalidasi['email_pribadi']) ? $dataTervalidasi['email_pribadi'] : null,
-            'alamat_saat_ini' => ! empty($dataTervalidasi['alamat_saat_ini']) ? $dataTervalidasi['alamat_saat_ini'] : (! empty($dataTervalidasi['alamat']) ? $dataTervalidasi['alamat'] : null),
+            'alamat_saat_ini' => ! empty($dataTervalidasi['alamat_saat_ini']) ? $dataTervalidasi['alamat_saat_ini'] : null,
+            'kelurahan' => ! empty($dataTervalidasi['kelurahan']) ? $dataTervalidasi['kelurahan'] : null,
+            'kecamatan' => ! empty($dataTervalidasi['kecamatan']) ? $dataTervalidasi['kecamatan'] : null,
             'kabupaten_id' => ! empty($dataTervalidasi['kabupaten_id']) ? $dataTervalidasi['kabupaten_id'] : null,
             'propinsi_id' => ! empty($dataTervalidasi['propinsi_id']) ? $dataTervalidasi['propinsi_id'] : (! empty($dataTervalidasi['provinsi_id']) ? $dataTervalidasi['provinsi_id'] : null),
             'kode_pos' => ! empty($dataTervalidasi['kode_pos']) ? $dataTervalidasi['kode_pos'] : null,
-            'nik' => $nikPermanen,
-            'npwp' => ! empty($dataTervalidasi['npwp']) ? $dataTervalidasi['npwp'] : null,
             'instagram_url' => ! empty($dataTervalidasi['instagram_url']) ? $dataTervalidasi['instagram_url'] : null,
             'facebook_url' => ! empty($dataTervalidasi['facebook_url']) ? $dataTervalidasi['facebook_url'] : null,
             'linkedin_url' => ! empty($dataTervalidasi['linkedin_url']) ? $dataTervalidasi['linkedin_url'] : null,
             'linkedin_username' => ! empty($dataTervalidasi['linkedin_username']) ? $dataTervalidasi['linkedin_username'] : null,
-            'skills' => ! empty($dataTervalidasi['skills']) ? $dataTervalidasi['skills'] : (! empty($dataTervalidasi['expert']) ? $dataTervalidasi['expert'] : null),
-            'experience' => ! empty($dataTervalidasi['experience']) ? $dataTervalidasi['experience'] : (! empty($dataTervalidasi['minat']) ? $dataTervalidasi['minat'] : null),
+            'skills' => ! empty($dataTervalidasi['skills']) ? $dataTervalidasi['skills'] : null,
+            'experience' => ! empty($dataTervalidasi['experience']) ? $dataTervalidasi['experience'] : null,
             'kategori_pekerjaan' => $kategoriPekerjaan,
             'posisi_jabatan' => $posisiJabatan,
             'bidang_pekerjaan' => $bidangPekerjaan,
@@ -281,37 +285,6 @@ class SimpanProfilController extends Controller
             $dataTervalidasi['profile_answer_custom'] ?? []
         );
 
-        // Jika data atasan dan email atasan terisi, buat / sinkronkan token evaluasi publik (email dikirim terpisah via tombol kirim)
-        if ($idAtasan && $emailAtasan && filter_var($emailAtasan, FILTER_VALIDATE_EMAIL)) {
-            try {
-                $evaluasi = EvaluasiAtasan::firstOrCreate(
-                    ['biodata_id' => $biodata->id],
-                    [
-                        'perusahaan_id' => $biodata->perusahaan_id,
-                        'atasan_id' => $idAtasan,
-                        'token' => Str::random(40),
-                        'nama_perusahaan' => $biodata->perusahaan?->nama_perusahaan,
-                        'alamat_lengkap' => $biodata->perusahaan?->alamat,
-                    ]
-                );
-
-                $evaluasiUpdates = [];
-                if ($evaluasi->atasan_id !== $idAtasan) {
-                    $evaluasiUpdates['atasan_id'] = $idAtasan;
-                }
-                if ($biodata->perusahaan_id && $evaluasi->perusahaan_id !== $biodata->perusahaan_id) {
-                    $evaluasiUpdates['perusahaan_id'] = $biodata->perusahaan_id;
-                    $evaluasiUpdates['nama_perusahaan'] = $biodata->perusahaan?->nama_perusahaan;
-                    $evaluasiUpdates['alamat_lengkap'] = $biodata->perusahaan?->alamat;
-                }
-                if (! empty($evaluasiUpdates)) {
-                    $evaluasi->update($evaluasiUpdates);
-                }
-            } catch (\Throwable $e) {
-                Log::error('Gagal menyinkronkan data evaluasi atasan: '.$e->getMessage());
-            }
-        }
-
         return redirect()->back()->with('success', 'Profil biodata berhasil diperbarui.');
     }
 
@@ -352,51 +325,65 @@ class SimpanProfilController extends Controller
         }
 
         $emailAtasan = $request->input('email_atasan') ?: ($biodata->atasan?->email ?: null);
+        $namaAtasan = $request->input('nama_atasan') ?: ($biodata->atasan?->nama ?: 'Atasan');
+        $teleponAtasan = $request->input('telepon_atasan') ?: ($biodata->atasan?->telepon ?: null);
+
         if (! $emailAtasan || ! filter_var($emailAtasan, FILTER_VALIDATE_EMAIL)) {
             return redirect()->back()->with('error', 'Alamat email atasan belum diisi atau format tidak valid. Mohon lengkapi pada form atasan terlebih dahulu.');
         }
 
-        // Sinkronkan email ke tabel atasan jika belum ada atau berbeda
-        if ($biodata->atasan) {
-            if ($biodata->atasan->email !== $emailAtasan) {
-                $biodata->atasan->update(['email' => $emailAtasan]);
+        [$biodata, $evaluasi] = DB::transaction(function () use ($biodata, $emailAtasan, $namaAtasan, $teleponAtasan): array {
+            $lockedBiodata = Biodata::with(['perusahaan', 'atasan', 'dataAkademik'])
+                ->whereKey($biodata->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedBiodata->atasan) {
+                $lockedBiodata->atasan->update([
+                    'perusahaan_id' => $lockedBiodata->perusahaan_id ?: $lockedBiodata->atasan->perusahaan_id,
+                    'nama' => $namaAtasan,
+                    'email' => $emailAtasan,
+                    'telepon' => $teleponAtasan,
+                ]);
+            } else {
+                $atasan = Atasan::create([
+                    'perusahaan_id' => $lockedBiodata->perusahaan_id,
+                    'nama' => $namaAtasan,
+                    'email' => $emailAtasan,
+                    'telepon' => $teleponAtasan,
+                ]);
+                $lockedBiodata->update(['atasan_id' => $atasan->id]);
+                $lockedBiodata->setRelation('atasan', $atasan);
             }
-        } else {
-            $atasan = Atasan::create([
-                'nama' => 'Atasan',
-                'email' => $emailAtasan,
-            ]);
-            $biodata->update(['atasan_id' => $atasan->id]);
-            $biodata->setRelation('atasan', $atasan);
-        }
 
-        $idAtasan = $biodata->atasan_id;
-        $evaluasi = EvaluasiAtasan::firstOrCreate(
-            ['biodata_id' => $biodata->id],
-            [
-                'perusahaan_id' => $biodata->perusahaan_id,
-                'atasan_id' => $idAtasan,
-                'token' => Str::random(40),
-                'nama_perusahaan' => $biodata->perusahaan?->nama_perusahaan,
-                'alamat_lengkap' => $biodata->perusahaan?->alamat,
-            ]
-        );
+            $evaluasi = EvaluasiAtasan::where('biodata_id', $lockedBiodata->id)
+                ->lockForUpdate()
+                ->latest('id')
+                ->first();
 
-        // Pastikan token selalu terisi jika record evaluasi sudah ada sebelumnya tanpa token
-        if (empty($evaluasi->token)) {
-            $evaluasi->token = Str::random(40);
-        }
-        if (! $evaluasi->atasan_id && $idAtasan) {
-            $evaluasi->atasan_id = $idAtasan;
-        }
-        if (! $evaluasi->perusahaan_id && $biodata->perusahaan_id) {
-            $evaluasi->perusahaan_id = $biodata->perusahaan_id;
-            $evaluasi->nama_perusahaan = $biodata->perusahaan?->nama_perusahaan;
-            $evaluasi->alamat_lengkap = $biodata->perusahaan?->alamat;
-        }
-        if ($evaluasi->isDirty()) {
-            $evaluasi->save();
-        }
+            if ($evaluasi?->is_submitted) {
+                throw ValidationException::withMessages([
+                    'email_atasan' => 'Evaluasi atasan sudah dikirim. Token sebelumnya sudah tidak berlaku.',
+                ]);
+            }
+
+            if (! $evaluasi) {
+                $evaluasi = EvaluasiAtasan::create([
+                    'biodata_id' => $lockedBiodata->id,
+                    'perusahaan_id' => $lockedBiodata->perusahaan_id,
+                    'atasan_id' => $lockedBiodata->atasan_id,
+                    'token' => Str::random(40),
+                ]);
+            } else {
+                $evaluasi->update([
+                    'perusahaan_id' => $lockedBiodata->perusahaan_id,
+                    'atasan_id' => $lockedBiodata->atasan_id,
+                    'token' => $evaluasi->token ?: Str::random(40),
+                ]);
+            }
+
+            return [$lockedBiodata->fresh(['perusahaan', 'atasan', 'dataAkademik']), $evaluasi->fresh()];
+        });
 
         try {
             Mail::to($emailAtasan)->send(new UndanganEvaluasiAtasanMail($biodata, $evaluasi));
@@ -427,6 +414,9 @@ class SimpanProfilController extends Controller
             'kode_pos' => 'nullable|string|max:15',
             'alamat' => 'nullable|string',
             'skala' => 'nullable|string',
+            'bentuk_perusahaan' => 'nullable|string|max:100',
+            'no_telp_fax' => 'nullable|string|max:100',
+            'homepage' => 'nullable|string|max:150',
             'jenis_perusahaan' => 'nullable|string|max:50',
             'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
         ];
@@ -458,6 +448,9 @@ class SimpanProfilController extends Controller
             'alamat' => $validated['alamat'] ?? null,
             'kode_pos' => $validated['kode_pos'] ?? null,
             'skala' => $validated['skala'] ?? ($jenisLokasi === 'Luar Negeri' ? 'Internasional' : 'Lokal'),
+            'bentuk_perusahaan' => $validated['bentuk_perusahaan'] ?? null,
+            'no_telp_fax' => $validated['no_telp_fax'] ?? null,
+            'homepage' => $validated['homepage'] ?? null,
             'jenis_perusahaan' => $validated['jenis_perusahaan'] ?? null,
             'jenis_perusahaan_lainnya' => $validated['jenis_perusahaan_lainnya'] ?? null,
             'status_verifikasi' => 'Menunggu Verifikasi',

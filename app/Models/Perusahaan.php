@@ -64,6 +64,16 @@ class Perusahaan extends Model
         return $this->hasMany(EvaluasiAtasan::class, 'perusahaan_id');
     }
 
+    public function atasan()
+    {
+        return $this->hasMany(Atasan::class, 'perusahaan_id');
+    }
+
+    public function atasans()
+    {
+        return $this->atasan();
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by_user_id');

@@ -32,9 +32,8 @@
  * - form.total_angka_kualitas : Total nilai mutu akademik
  * - form.jalur_masuk          : Jalur seleksi saat masuk kampus
  * - form.beasiswa             : Keterangan penerima beasiswa
- * - form.nomor_sk_yudisium    : Nomor SK kelulusan resmi
- * - form.tanggal_yudisium     : Tanggal resmi yudisium
- * - form.predikat_kelulusan   : Predikat yudisium (Cumlaude, Sangat Memuaskan, dll)
+ * Data pembimbing/penguji, publikasi, dan email institusi tidak dikirim ke
+ * profil self-service alumni karena merupakan data referensi resmi.
  */
 defineProps({
     form: Object,
@@ -97,85 +96,32 @@ const labelClass = "block text-sm font-semibold text-gray-700 mb-1.5";
                     <input type="text" :value="form.total_angka_kualitas" disabled :class="lockedInputClass" />
                 </div>
 
-                <div class="md:col-span-2">
-                    <label :class="labelClass">Email Mahasiswa (Students UKDW)</label>
-                    <input type="text" :value="form.email_students" disabled :class="lockedInputClass" />
-                </div>
             </div>
         </div>
 
-        <!-- Bagian 2: Skripsi & Publikasi Ilmiah (Data Resmi Kampus) -->
+        <!-- Bagian 2: Tugas Akhir & Kelulusan -->
         <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
             <h2 class="text-lg sm:text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                 <span class="w-1.5 h-5 bg-[#0D542B] rounded-full inline-block"></span>
-                Skripsi & Publikasi Ilmiah
+                Tugas Akhir & Kelulusan
             </h2>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div class="md:col-span-2">
-                    <label :class="labelClass">Judul Tugas Akhir / Skripsi (Bahasa Indonesia)</label>
-                    <textarea :value="form.judul_ta" rows="2" disabled :class="lockedInputClass"></textarea>
+                    <label :class="labelClass">Judul Tugas Akhir / Skripsi</label>
+                    <textarea :value="form.judul_ta" rows="3" disabled :class="lockedInputClass"></textarea>
                 </div>
 
                 <div class="md:col-span-2">
                     <label :class="labelClass">Judul Tugas Akhir (Bahasa Inggris)</label>
-                    <textarea :value="form.judul_ta_inggris" rows="2" disabled :class="lockedInputClass"></textarea>
-                </div>
-                
-                <div class="md:col-span-2">
-                    <label :class="labelClass">URL Publikasi Ilmiah / Repositori</label>
-                    <input type="text" :value="form.url_publikasi" disabled :class="lockedInputClass" />
+                    <textarea :value="form.judul_ta_inggris" rows="3" disabled :class="lockedInputClass"></textarea>
                 </div>
 
                 <div>
-                    <label :class="labelClass">Jenis Publikasi</label>
-                    <input type="text" :value="form.jenis_publikasi" disabled :class="lockedInputClass" />
-                </div>
-
-                <div>
-                    <label :class="labelClass">Status Publikasi</label>
-                    <input type="text" :value="form.status_publikasi" disabled :class="lockedInputClass" />
-                </div>
-                
-                <!-- Dosen Pembimbing -->
-                <div>
-                    <label :class="labelClass">Dosen Pembimbing 1</label>
-                    <input type="text" :value="form.dosen_pembimbing_1" disabled :class="lockedInputClass" />
-                </div>
-                <div>
-                    <label :class="labelClass">Dosen Pembimbing 2</label>
-                    <input type="text" :value="form.dosen_pembimbing_2" disabled :class="lockedInputClass" />
-                </div>
-
-                <!-- Dosen Penguji -->
-                <div>
-                    <label :class="labelClass">Dosen Penguji 1</label>
-                    <input type="text" :value="form.dosen_penguji_1" disabled :class="lockedInputClass" />
-                </div>
-                <div>
-                    <label :class="labelClass">Dosen Penguji 2</label>
-                    <input type="text" :value="form.dosen_penguji_2" disabled :class="lockedInputClass" />
+                    <label :class="labelClass">Tanggal Kelulusan</label>
+                    <input type="date" :value="form.tanggal_lulus" disabled :class="lockedInputClass" />
                 </div>
             </div>
         </div>
-
-        <!-- Bagian 3: Data Yudisium -->
-        <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
-            <h2 class="text-lg sm:text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <span class="w-1.5 h-5 bg-[#0D542B] rounded-full inline-block"></span>
-                Data Yudisium & Predikat Kelulusan
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                    <label :class="labelClass">Keterangan Hasil Yudisium / Predikat</label>
-                    <input type="text" :value="form.keterangan_hasil_yudisium" disabled :class="lockedInputClass" />
-                </div>
-                <div>
-                    <label :class="labelClass">Status Yudisium</label>
-                    <input type="text" :value="form.proses_yudisium" disabled :class="lockedInputClass" />
-                </div>
-            </div>
-        </div>
-        
     </div>
 </template>

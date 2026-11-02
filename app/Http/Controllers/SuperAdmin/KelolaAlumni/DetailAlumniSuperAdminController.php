@@ -35,7 +35,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * kuesioner tracer study bagi Super Admin.
  *
  * Fitur:
- * 1. Rekap profil lengkap (Data Pribadi, Data Akademik, Yudisium, Orang Tua, Perusahaan, Atasan).
+ * 1. Rekap profil lengkap (Data Pribadi, Data Akademik, Yudisium, Perusahaan, Atasan).
  * 2. Form lengkap pengeditan profil oleh Super Admin untuk membantu alumni memperbarui datanya.
  * 3. Tabulasi jawaban kuesioner tracer study per section dengan hitungan belum dijawab.
  * 4. Indikator butir pertanyaan Wajib vs Opsional secara visual.
@@ -53,9 +53,7 @@ class DetailAlumniSuperAdminController extends Controller
     {
         $alumni = Biodata::with([
             'dataAkademik.yudisium',
-            'dataAkademik.orangTua',
             'yudisium',
-            'orangTua',
             'perusahaan.propinsi',
             'perusahaan.kabupaten',
             'atasan',
@@ -286,9 +284,11 @@ class DetailAlumniSuperAdminController extends Controller
 
         // Ambil Data Evaluasi Atasan (Pengguna Lulusan)
         $evaluasiAtasan = EvaluasiAtasan::where('biodata_id', $alumni->id)
-            ->with(['atasan', 'perusahaan', 'respons.pertanyaan'])
+            ->with(['atasan', 'perusahaan.kabupaten', 'perusahaan.propinsi', 'respons.pertanyaan'])
             ->latest('updated_at')
             ->first();
+
+        $evaluasiAtasanData = $evaluasiAtasan?->toAdminAuditArray();
 
         $pertanyaanEvaluasiAtasan = PertanyaanEvaluasiAtasan::where('is_active', true)
             ->orderBy('order', 'asc')
@@ -298,7 +298,7 @@ class DetailAlumniSuperAdminController extends Controller
             'biodata' => $alumni,
             'alumni' => $alumni,
             'evaluasi' => $evaluasi,
-            'evaluasiAtasan' => $evaluasiAtasan,
+            'evaluasiAtasan' => $evaluasiAtasanData,
             'pertanyaanEvaluasiAtasan' => $pertanyaanEvaluasiAtasan,
             'sections' => $sectionsWithAnswers,
             'prodiSections' => $prodiSectionsWithAnswers,

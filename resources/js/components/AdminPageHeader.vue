@@ -9,23 +9,21 @@ defineProps({
 </script>
 
 <template>
-    <header class="border-b border-slate-200 bg-white px-6 py-5">
-        <div class="flex w-full flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <header class="bg-[#0D542B] px-6 py-7 text-white lg:px-8">
+        <div class="flex w-full flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <div>
-                <div class="mb-1 flex items-center gap-2 text-xs font-medium text-slate-500">
+                <div class="mb-2 flex items-center gap-2 text-xs font-medium text-emerald-100">
                     <span>Tracer Study</span>
-                    <span>/</span>
-                    <span class="font-bold text-slate-800">{{ eyebrow }}</span>
+                    <span class="text-emerald-300">/</span>
+                    <span class="font-bold text-white">{{ eyebrow }}</span>
                 </div>
-                <h1 class="text-xl font-bold text-slate-900">{{ title }}</h1>
-                <p v-if="description" class="mt-0.5 text-xs text-slate-500">{{ description }}</p>
+                <h1 class="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">{{ title }}</h1>
+                <p v-if="description" class="mt-1.5 max-w-3xl text-xs leading-relaxed text-emerald-100 sm:text-sm">{{ description }}</p>
             </div>
 
-            <div v-if="contextLabel || contextValue" class="flex items-center gap-2.5">
-                <div class="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-1.5 text-xs text-slate-700">
-                    <span v-if="contextLabel" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500">{{ contextLabel }}</span>
-                    <span class="text-xs font-extrabold text-[#0D542B]">{{ contextValue }}</span>
-                </div>
+            <div v-if="contextLabel || contextValue" class="shrink-0 rounded-lg bg-[#FDC700] px-3.5 py-2 text-[#0D542B]">
+                <span v-if="contextLabel" class="block text-[10px] font-bold uppercase tracking-wider">{{ contextLabel }}</span>
+                <span class="text-xs font-extrabold">{{ contextValue }}</span>
             </div>
         </div>
     </header>

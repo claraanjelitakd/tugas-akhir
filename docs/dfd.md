@@ -33,8 +33,8 @@ Nama proses menyatakan pekerjaan; nama entitas, simpanan, dan panah menyatakan d
 
 1. Batas sistem adalah perangkat lunak SERU. Staf universitas tetap entitas luar terhadap perangkat lunak meskipun bekerja di organisasi yang sama.
 2. Role akun adalah `superadmin`, `admin_prodi`, `admin_fakultas`, `admin_biro3`, dan `alumni`. Publik serta atasan bertoken bukan role akun tambahan.
-3. Tidak ditemukan konektor aktif SIAKAD dalam rute/controller yang diperiksa. Data akademik, yudisium, dan orang tua tersedia pada tabel lokal; model menempatkannya sebagai D12. Seeder/pemuatan awal berada di luar alur transaksi web yang dimodelkan. Integrasi SIAKAD langsung harus ditambahkan sebagai perubahan model apabila benar-benar diimplementasikan.
-4. D12 tidak digambarkan di konteks. Pada Diagram 0 ia menjadi referensi untuk profil, reset sandi, dan laporan. Pembaruan yang ditampilkan mencakup otomasi status kelulusan dan data orang tua yang diizinkan; ini tidak berarti semua master akademik boleh diedit pengguna.
+3. Tidak ditemukan konektor aktif SIAKAD dalam rute/controller yang diperiksa. Data akademik dan yudisium tersedia pada tabel lokal; model menempatkannya sebagai D12. Seeder/pemuatan awal berada di luar alur transaksi web yang dimodelkan. Integrasi SIAKAD langsung harus ditambahkan sebagai perubahan model apabila benar-benar diimplementasikan.
+4. D12 tidak digambarkan di konteks. Pada Diagram 0 ia menjadi referensi untuk profil, reset sandi, dan laporan. Pembaruan yang ditampilkan mencakup otomasi status kelulusan; ini tidak berarti semua master akademik boleh diedit pengguna.
 5. Biro III membaca profil dan riwayat LinkedIn, mengekspor laporan, serta mengirim pengingat. Handler pembaruan profilnya menolak perubahan dan tidak ada rute sinkronisasi LinkedIn Biro III. Rute bersama masih mengizinkan pencatatan perusahaan dan permintaan email evaluasi; karena itu Biro III tidak dinyatakan sepenuhnya bebas operasi tulis.
 6. Menyimpan profil dapat menyiapkan record/token evaluasi; email undangan dikirim melalui permintaan terpisah. Token yang dibuat controller adalah 40 karakter. Jangan mengasumsikan masa berlaku otomatis tanpa aturan implementasi.
 7. LinkedIn melalui Apify menggunakan penampungan hasil dan peninjauan; driver mock/API memiliki perilaku berbeda. Penyedia data LinkedIn adalah satu entitas abstrak E8. Mock lokal tidak berarti ada komunikasi eksternal sungguhan.
@@ -70,7 +70,7 @@ Nama proses menyatakan pekerjaan; nama entitas, simpanan, dan panah menyatakan d
 | D9 | Undangan dan Jawaban Evaluasi | `evaluasi_atasan, respon_evaluasi_atasan` |
 | D10 | Hasil dan Peninjauan LinkedIn | `linkedin_sync_results` |
 | D11 | Catatan Aktivitas | `log_activities` |
-| D12 | Referensi Akademik dan Kelulusan | `data_akademik, yudisium, data_orang_tua` |
+| D12 | Referensi Akademik dan Kelulusan | `data_akademik, yudisium` |
 | D13 | Referensi Organisasi dan Wilayah | `prodi, ref_fakultas, propinsi, kabupaten, ref_negara, ump` |
 
 D11 menunjukkan catatan pada operasi yang memang direkam kode; diagram tidak menyatakan semua pembacaan atau semua login pasti dicatat. D13 memuat referensi yang sudah tersedia; superadmin mengelola wilayah dan UMP, bukan berarti seluruh referensi punya CRUD web.
@@ -250,8 +250,8 @@ Kode F yang sama digunakan dalam XML draw.io, SVG dan JSON. Sandi login dikirim 
 | F092 | P1 | D1 | Akun dan token pemulihan terbarui |
 | F093 | D12 | P1 | Tanggal lahir referensi reset sandi |
 | F094 | D13 | P1 | Lingkup program studi dan fakultas |
-| F095 | D12 | P2 | Identitas, akademik, yudisium dan orang tua |
-| F096 | P2 | D12 | Pembaruan kelulusan dan data orang tua yang diizinkan |
+| F095 | D12 | P2 | Identitas, akademik, yudisium, dan status kelulusan |
+| F096 | P2 | D12 | Referensi kelulusan yang tersedia untuk audit |
 | F097 | D1 | P2 | Akun alumni |
 | F098 | P2 | D1 | Akun alumni hasil inisialisasi biodata |
 | F099 | D2 | P2 | Profil dan atasan tersimpan |
