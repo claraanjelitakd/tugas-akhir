@@ -19,27 +19,18 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "propinsi" ("id" integer primary key autoincrement not null, "kode_provinsi" varchar, "nama_provinsi" varchar not null, "created_at" datetime, "updated_at" datetime);
+CREATE TABLE "propinsi" ("kode_provinsi" varchar primary key not null, "nama_provinsi" varchar not null, "created_at" datetime, "updated_at" datetime);
 SQL
             );
 
-            foreach ([
-                <<<'SQL'
-CREATE UNIQUE INDEX "propinsi_kode_provinsi_unique" on "propinsi" ("kode_provinsi");
-SQL,
-            ] as $indexSql) {
-                DB::statement($indexSql);
-            }
         } else {
             DB::unprepared(<<<'SQL'
 CREATE TABLE `propinsi` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID unik referensi provinsi',
-  `kode_provinsi` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Kode BPS/Kemendagri provinsi (misal: 34)',
+  `kode_provinsi` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Kode BPS/Kemendagri provinsi (misal: 34)',
   `nama_provinsi` varchar(60) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nama resmi provinsi (misal: DI Yogyakarta)',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `propinsi_kode_provinsi_unique` (`kode_provinsi`)
+  PRIMARY KEY (`kode_provinsi`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 SQL
             );

@@ -10,9 +10,11 @@ use App\Models\PertanyaanEvaluasiAtasan;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\User;
+use Database\Seeders\PertanyaanEvaluasiAtasanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class EvaluasiAtasanTest extends TestCase
@@ -25,6 +27,49 @@ class EvaluasiAtasanTest extends TestCase
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page->component('Public/EvaluasiAtasanNotFound'));
+    }
+
+    /**
+     * Memastikan lima field karakteristik perusahaan masuk ke pengelolaan pertanyaan
+     * dan metadata langkah stepper dikirim ke halaman SuperAdmin.
+     */
+    public function test_superadmin_can_manage_company_characteristic_questions_and_stepper(): void
+    {
+        $admin = User::create([
+            'username' => 'superadmin_questions',
+            'name' => 'Super Administrator',
+            'email' => 'superadmin_questions@example.com',
+            'password' => bcrypt('password'),
+            'role' => 'superadmin',
+        ]);
+
+        $this->seed(PertanyaanEvaluasiAtasanSeeder::class);
+
+        $this->actingAs($admin)
+            ->get('/superadmin/evaluasi-atasan')
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('SuperAdmin/EvaluasiAtasan/Index')
+                ->where('sections.1.key', 'karakteristik')
+                ->where('sections.0.source', 'perusahaan, atasan, evaluasi_atasan')
+                ->where('stepperOptions.1.value', 'karakteristik')
+                ->where('questions', fn ($questions) => collect($questions)->contains(fn ($question) => $question['kode'] === 'bentuk_perusahaan'))
+            );
+
+        $question = PertanyaanEvaluasiAtasan::where('kode', 'integritas')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->put("/superadmin/evaluasi-atasan/pertanyaan/{$question->id}", [
+                'aspek' => $question->aspek,
+                'deskripsi' => $question->deskripsi,
+                'langkah' => 'karakteristik',
+                'order' => $question->order,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('pertanyaan_evaluasi_atasan', [
+            'id' => $question->id,
+            'kategori' => 'Karakteristik Perusahaan',
+        ]);
     }
 
     public function test_public_can_view_evaluasi_atasan_form_with_valid_token(): void
@@ -65,6 +110,7 @@ class EvaluasiAtasanTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->component('Public/EvaluasiAtasanForm')
             ->where('token', $evaluasi->token)
+            ->where('sections.1.key', 'karakteristik')
             ->where('alumniInfo.nama', 'Budi Alumni')
         );
     }

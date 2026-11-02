@@ -67,7 +67,6 @@ class AlumniProfileEnhancementTest extends TestCase
         $dataAkademik = DataAkademik::create([
             'nim' => '71200001',
             'nama' => 'Clara Anjelita',
-            'tempat_lahir' => 'Sleman',
             'tanggal_lahir' => '2001-08-15',
             'jenis_kelamin' => 'Perempuan',
             'warga_negara' => 'WNI',
@@ -105,10 +104,6 @@ class AlumniProfileEnhancementTest extends TestCase
 
     public function test_sensitive_reference_data_is_not_exposed_on_alumni_profile_and_is_preserved_on_save(): void
     {
-        DataAkademik::where('nim', $this->biodata->nim)->update([
-            'email_students' => '71200001@students.ukdw.ac.id',
-        ]);
-
         $page = $this->actingAs($this->alumniUser)->get(route('alumni.profile'));
 
         $page->assertInertia(fn ($assertion) => $assertion

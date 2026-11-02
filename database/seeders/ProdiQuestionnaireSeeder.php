@@ -10,6 +10,9 @@ use App\Models\ProdiQuestionSection;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Database\Seeder;
 
+/**
+ * Menyediakan instrumen pertanyaan dan opsi kuesioner khusus program studi.
+ */
 class ProdiQuestionnaireSeeder extends Seeder
 {
     /**
@@ -116,7 +119,7 @@ class ProdiQuestionnaireSeeder extends Seeder
             'Kuliah Umum / Dosen Praktisi',
             'Kerjasama Magang',
             'Sponsor',
-            'Lainnya (Tuliskan)',
+            'Lainnya',
         ];
         foreach ($bentukOpts as $idx => $optText) {
             $num = $idx + 1;

@@ -181,7 +181,7 @@ class AlumniKuesionerSimpanPayloadTest extends TestCase
             'skala' => 'Nasional',
             'status_verifikasi' => 'Menunggu Verifikasi',
             'jenis_lokasi' => 'Dalam Negeri',
-            'negara' => 'Indonesia',
+            'kode_negara' => 'ID',
         ]);
         $this->alumni->update(['perusahaan_id' => $company->id]);
 

@@ -61,19 +61,25 @@ class SimpanProfilController extends Controller
         // Cek apakah alumni mengisi nama perusahaan pada FormKarier
         if (! empty($dataTervalidasi['nama_perusahaan'])) {
             $jenisLokasi = ! empty($dataTervalidasi['perusahaan_jenis_lokasi']) ? $dataTervalidasi['perusahaan_jenis_lokasi'] : (! empty($dataTervalidasi['company_jenis_lokasi']) ? $dataTervalidasi['company_jenis_lokasi'] : 'Dalam Negeri');
-            $rawNegara = ! empty($dataTervalidasi['perusahaan_negara']) ? $dataTervalidasi['perusahaan_negara'] : (! empty($dataTervalidasi['company_negara']) ? $dataTervalidasi['company_negara'] : null);
-            $negara = 'Indonesia';
+            $rawKodeNegara = ! empty($dataTervalidasi['perusahaan_kode_negara']) ? $dataTervalidasi['perusahaan_kode_negara'] : (! empty($dataTervalidasi['company_kode_negara']) ? $dataTervalidasi['company_kode_negara'] : null);
+            $kodeNegara = 'ID';
             if ($jenisLokasi === 'Luar Negeri') {
-                $negara = ($rawNegara && strtolower((string) $rawNegara) !== 'indonesia') ? $rawNegara : 'Singapura';
+                if (empty($rawKodeNegara)) {
+                    throw ValidationException::withMessages([
+                        'perusahaan_kode_negara' => 'Kode negara ISO wajib dipilih untuk perusahaan luar negeri.',
+                    ]);
+                }
+
+                $kodeNegara = strtoupper((string) $rawKodeNegara);
             }
 
-            $propinsiId = $jenisLokasi === 'Luar Negeri'
+            $kodeProvinsi = $jenisLokasi === 'Luar Negeri'
                 ? null
-                : (! empty($dataTervalidasi['company_province_id']) ? $dataTervalidasi['company_province_id'] : (! empty($dataTervalidasi['perusahaan_propinsi_id']) ? $dataTervalidasi['perusahaan_propinsi_id'] : null));
+                : (! empty($dataTervalidasi['company_kode_provinsi']) ? $dataTervalidasi['company_kode_provinsi'] : (! empty($dataTervalidasi['perusahaan_kode_provinsi']) ? $dataTervalidasi['perusahaan_kode_provinsi'] : null));
 
-            $kabupatenId = $jenisLokasi === 'Luar Negeri'
+            $kodeKabupaten = $jenisLokasi === 'Luar Negeri'
                 ? null
-                : (! empty($dataTervalidasi['company_kabupaten_id']) ? $dataTervalidasi['company_kabupaten_id'] : (! empty($dataTervalidasi['perusahaan_kabupaten_id']) ? $dataTervalidasi['perusahaan_kabupaten_id'] : null));
+                : (! empty($dataTervalidasi['company_kode_kabupaten']) ? $dataTervalidasi['company_kode_kabupaten'] : (! empty($dataTervalidasi['perusahaan_kode_kabupaten']) ? $dataTervalidasi['perusahaan_kode_kabupaten'] : null));
 
             $jenisPerusahaan = ! empty($dataTervalidasi['company_jenis_perusahaan']) ? $dataTervalidasi['company_jenis_perusahaan'] : (! empty($dataTervalidasi['perusahaan_jenis_perusahaan']) ? $dataTervalidasi['perusahaan_jenis_perusahaan'] : null);
             $jenisPerusahaanLainnya = ! empty($dataTervalidasi['company_jenis_perusahaan_lainnya']) ? $dataTervalidasi['company_jenis_perusahaan_lainnya'] : (! empty($dataTervalidasi['perusahaan_jenis_perusahaan_lainnya']) ? $dataTervalidasi['perusahaan_jenis_perusahaan_lainnya'] : null);
@@ -88,8 +94,8 @@ class SimpanProfilController extends Controller
             $perusahaan = Perusahaan::firstOrCreate(
                 ['nama_perusahaan' => $dataTervalidasi['nama_perusahaan']],
                 [
-                    'propinsi_id' => $propinsiId,
-                    'kabupaten_id' => $kabupatenId,
+                    'kode_provinsi' => $kodeProvinsi,
+                    'kode_kabupaten' => $kodeKabupaten,
                     'alamat' => $alamat,
                     'kode_pos' => $kodePos,
                     'skala' => $skala ?: 'Nasional',
@@ -99,7 +105,7 @@ class SimpanProfilController extends Controller
                     'jenis_perusahaan' => $jenisPerusahaan,
                     'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya,
                     'jenis_lokasi' => $jenisLokasi,
-                    'negara' => $negara,
+                    'kode_negara' => $kodeNegara,
                     'status_verifikasi' => 'Menunggu Verifikasi',
                     'created_by_user_id' => $pengguna?->id,
                     'created_by_prodi_id' => $prodiIdPengaju,
@@ -108,8 +114,8 @@ class SimpanProfilController extends Controller
 
             // Perbarui data perusahaan agar tersinkronisasi dua arah antara profil alumni dan form evaluasi atasan
             $perusahaan->update([
-                'propinsi_id' => $propinsiId,
-                'kabupaten_id' => $kabupatenId,
+                'kode_provinsi' => $kodeProvinsi,
+                'kode_kabupaten' => $kodeKabupaten,
                 'alamat' => $alamat ?: $perusahaan->alamat,
                 'kode_pos' => $kodePos ?: $perusahaan->kode_pos,
                 'skala' => $skala ?: $perusahaan->skala,
@@ -119,7 +125,7 @@ class SimpanProfilController extends Controller
                 'jenis_perusahaan' => $jenisPerusahaan ?: $perusahaan->jenis_perusahaan,
                 'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya,
                 'jenis_lokasi' => $jenisLokasi,
-                'negara' => $negara,
+                'kode_negara' => $kodeNegara,
             ]);
             $idPerusahaan = $perusahaan->id;
         }
@@ -231,8 +237,8 @@ class SimpanProfilController extends Controller
             'alamat_saat_ini' => ! empty($dataTervalidasi['alamat_saat_ini']) ? $dataTervalidasi['alamat_saat_ini'] : null,
             'kelurahan' => ! empty($dataTervalidasi['kelurahan']) ? $dataTervalidasi['kelurahan'] : null,
             'kecamatan' => ! empty($dataTervalidasi['kecamatan']) ? $dataTervalidasi['kecamatan'] : null,
-            'kabupaten_id' => ! empty($dataTervalidasi['kabupaten_id']) ? $dataTervalidasi['kabupaten_id'] : null,
-            'propinsi_id' => ! empty($dataTervalidasi['propinsi_id']) ? $dataTervalidasi['propinsi_id'] : (! empty($dataTervalidasi['provinsi_id']) ? $dataTervalidasi['provinsi_id'] : null),
+            'kode_kabupaten' => ! empty($dataTervalidasi['kode_kabupaten']) ? $dataTervalidasi['kode_kabupaten'] : null,
+            'kode_provinsi' => $dataTervalidasi['kode_provinsi'] ?? null,
             'kode_pos' => ! empty($dataTervalidasi['kode_pos']) ? $dataTervalidasi['kode_pos'] : null,
             'instagram_url' => ! empty($dataTervalidasi['instagram_url']) ? $dataTervalidasi['instagram_url'] : null,
             'facebook_url' => ! empty($dataTervalidasi['facebook_url']) ? $dataTervalidasi['facebook_url'] : null,
@@ -407,10 +413,9 @@ class SimpanProfilController extends Controller
         $rules = [
             'nama_perusahaan' => 'required|string|max:255',
             'jenis_lokasi' => 'nullable|string|in:Dalam Negeri,Luar Negeri',
-            'negara' => $jenisLokasi === 'Luar Negeri' ? 'required|string|max:100|not_in:Indonesia|exists:ref_negara,nama_negara' : 'nullable|string|max:100',
-            'propinsi_id' => 'nullable|exists:propinsi,id',
-            'province_id' => 'nullable|exists:propinsi,id',
-            'kabupaten_id' => $jenisLokasi === 'Luar Negeri' ? 'nullable|exists:kabupaten,id' : 'required|exists:kabupaten,id',
+            'kode_negara' => $jenisLokasi === 'Luar Negeri' ? 'required|string|size:2|not_in:ID|exists:ref_negara,kode_negara' : 'nullable|size:2|exists:ref_negara,kode_negara',
+            'kode_provinsi' => 'nullable|exists:propinsi,kode_provinsi',
+            'kode_kabupaten' => $jenisLokasi === 'Luar Negeri' ? 'nullable|exists:kabupaten,kode_kabupaten' : 'required|exists:kabupaten,kode_kabupaten',
             'kode_pos' => 'nullable|string|max:15',
             'alamat' => 'nullable|string',
             'skala' => 'nullable|string',
@@ -423,17 +428,17 @@ class SimpanProfilController extends Controller
 
         $messages = [
             'nama_perusahaan.required' => 'Nama perusahaan wajib diisi.',
-            'kabupaten_id.required' => 'Kabupaten/Kota perusahaan wajib dipilih untuk lokasi Dalam Negeri.',
-            'negara.required' => 'Nama negara tempat perusahaan berada wajib dipilih.',
-            'negara.not_in' => 'Indonesia tidak dapat dipilih untuk lokasi Luar Negeri.',
-            'negara.exists' => 'Negara yang dipilih tidak terdaftar dalam master data negara resmi dunia.',
+            'kode_kabupaten.required' => 'Kabupaten/Kota perusahaan wajib dipilih untuk lokasi Dalam Negeri.',
+            'kode_negara.required' => 'Kode negara wajib dipilih untuk lokasi Luar Negeri.',
+            'kode_negara.not_in' => 'Kode ID tidak dapat dipilih untuk lokasi Luar Negeri.',
+            'kode_negara.exists' => 'Kode negara yang dipilih tidak terdaftar dalam master data negara resmi dunia.',
         ];
 
         $validated = $request->validate($rules, $messages);
 
-        $propinsiId = $jenisLokasi === 'Luar Negeri' ? null : ($validated['propinsi_id'] ?? ($validated['province_id'] ?? null));
-        $kabupatenId = $jenisLokasi === 'Luar Negeri' ? null : ($validated['kabupaten_id'] ?? null);
-        $negara = $jenisLokasi === 'Luar Negeri' ? $validated['negara'] : 'Indonesia';
+        $kodeProvinsi = $jenisLokasi === 'Luar Negeri' ? null : ($validated['kode_provinsi'] ?? null);
+        $kodeKabupaten = $jenisLokasi === 'Luar Negeri' ? null : ($validated['kode_kabupaten'] ?? null);
+        $kodeNegara = $jenisLokasi === 'Luar Negeri' ? strtoupper($validated['kode_negara']) : 'ID';
 
         $user = Auth::user();
         $biodata = $user?->biodata;
@@ -442,9 +447,9 @@ class SimpanProfilController extends Controller
         $perusahaan = Perusahaan::create([
             'nama_perusahaan' => $validated['nama_perusahaan'],
             'jenis_lokasi' => $jenisLokasi,
-            'negara' => $negara,
-            'propinsi_id' => $propinsiId,
-            'kabupaten_id' => $kabupatenId,
+            'kode_negara' => $kodeNegara,
+            'kode_provinsi' => $kodeProvinsi,
+            'kode_kabupaten' => $kodeKabupaten,
             'alamat' => $validated['alamat'] ?? null,
             'kode_pos' => $validated['kode_pos'] ?? null,
             'skala' => $validated['skala'] ?? ($jenisLokasi === 'Luar Negeri' ? 'Internasional' : 'Lokal'),

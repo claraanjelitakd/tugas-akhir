@@ -128,9 +128,6 @@ const mandatoryOptions = computed(() => mandatoryChartKeys
     })
     .filter(Boolean));
 
-// Opsi dropdown untuk indikator tambahan di luar 16 laporan resmi (Profil Alumni dan Wilayah Kerja).
-const additionalOptions = computed(() => chartOptions.value.filter((option) => !mandatoryChartKeys.includes(option.key)));
-
 // Fungsi pemformat angka numerik dengan pemisah ribuan standar Indonesia (titik).
 const formatNumber = (value, digits = 1) => Number(value || 0).toLocaleString('id-ID', { maximumFractionDigits: digits });
 
@@ -804,9 +801,6 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                                 <optgroup label="16 indikator evaluasi wajib">
                                     <option v-for="option in mandatoryOptions" :key="option.key" :value="option.key">{{ String(option.number).padStart(2, '0') }} · {{ option.label }}</option>
                                 </optgroup>
-                                <optgroup v-if="additionalOptions.length" label="Analitik tambahan">
-                                    <option v-for="option in additionalOptions" :key="option.key" :value="option.key">{{ option.label }}</option>
-                                </optgroup>
                             </select>
                         </label>
                         <label class="block text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -874,7 +868,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                                     class="mt-1.5 font-extrabold tracking-tight"
                                     :class="[
                                         card.key === 'sudah' ? 'text-[#0D542B]' : (card.key === 'belum' ? 'text-slate-800' : 'text-slate-900'),
-                                        String(card.value || '').length > 18 ? 'text-sm sm:text-base leading-snug line-clamp-2' : (String(card.value || '').length > 10 ? 'text-xl sm:text-2xl leading-tight' : 'text-2xl sm:text-3xl')
+                                        String(card.value || '').length > 18 ? 'text-sm sm:text-base leading-snug break-words whitespace-normal' : (String(card.value || '').length > 10 ? 'text-xl sm:text-2xl leading-tight break-words whitespace-normal' : 'text-2xl sm:text-3xl')
                                     ]"
                                     :title="card.value"
                                 >

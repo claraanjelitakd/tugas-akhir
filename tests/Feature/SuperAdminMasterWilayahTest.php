@@ -62,7 +62,7 @@ class SuperAdminMasterWilayahTest extends TestCase
         ]);
 
         Kabupaten::create([
-            'propinsi_id' => $provinsi->id,
+            'kode_provinsi' => $provinsi->kode_provinsi,
             'kode_kabupaten' => '34.71',
             'nama_kabupaten' => 'KOTA YOGYAKARTA',
         ]);
@@ -126,7 +126,7 @@ class SuperAdminMasterWilayahTest extends TestCase
             'nama_provinsi' => 'JAWA BARAT',
         ]);
 
-        $response = $this->actingAs($this->superadmin)->put(route('superadmin.master-wilayah.provinsi.update', $provinsi->id), [
+        $response = $this->actingAs($this->superadmin)->put(route('superadmin.master-wilayah.provinsi.update', $provinsi->kode_provinsi), [
             'kode_provinsi' => '32',
             'nama_provinsi' => 'PROVINSI JAWA BARAT',
         ]);
@@ -135,7 +135,7 @@ class SuperAdminMasterWilayahTest extends TestCase
         $response->assertSessionHas('success');
 
         $this->assertDatabaseHas('propinsi', [
-            'id' => $provinsi->id,
+            'kode_provinsi' => '32',
             'nama_provinsi' => 'PROVINSI JAWA BARAT',
         ]);
     }
@@ -150,13 +150,13 @@ class SuperAdminMasterWilayahTest extends TestCase
             'nama_provinsi' => 'PROVINSI UJI COBA',
         ]);
 
-        $response = $this->actingAs($this->superadmin)->delete(route('superadmin.master-wilayah.provinsi.destroy', $provinsi->id));
+        $response = $this->actingAs($this->superadmin)->delete(route('superadmin.master-wilayah.provinsi.destroy', $provinsi->kode_provinsi));
 
         $response->assertRedirect();
         $response->assertSessionHas('success');
 
         $this->assertDatabaseMissing('propinsi', [
-            'id' => $provinsi->id,
+            'kode_provinsi' => '99',
         ]);
     }
 
@@ -171,16 +171,16 @@ class SuperAdminMasterWilayahTest extends TestCase
         ]);
 
         Kabupaten::create([
-            'propinsi_id' => $provinsi->id,
+            'kode_provinsi' => $provinsi->kode_provinsi,
             'kode_kabupaten' => '34.04',
             'nama_kabupaten' => 'KABUPATEN SLEMAN',
         ]);
 
-        $response = $this->actingAs($this->superadmin)->delete(route('superadmin.master-wilayah.provinsi.destroy', $provinsi->id));
+        $response = $this->actingAs($this->superadmin)->delete(route('superadmin.master-wilayah.provinsi.destroy', $provinsi->kode_provinsi));
 
         $response->assertSessionHasErrors(['error']);
         $this->assertDatabaseHas('propinsi', [
-            'id' => $provinsi->id,
+            'kode_provinsi' => '34',
         ]);
     }
 
@@ -196,7 +196,7 @@ class SuperAdminMasterWilayahTest extends TestCase
 
         // 1. Tambah
         $storeResponse = $this->actingAs($this->superadmin)->post(route('superadmin.master-wilayah.kabupaten.store'), [
-            'propinsi_id' => $provinsi->id,
+            'kode_provinsi' => $provinsi->kode_provinsi,
             'kode_kabupaten' => '33.74',
             'nama_kabupaten' => 'KOTA SEMARANG',
         ]);
@@ -210,23 +210,23 @@ class SuperAdminMasterWilayahTest extends TestCase
         $kabupaten = Kabupaten::where('kode_kabupaten', '33.74')->first();
 
         // 2. Edit
-        $updateResponse = $this->actingAs($this->superadmin)->put(route('superadmin.master-wilayah.kabupaten.update', $kabupaten->id), [
-            'propinsi_id' => $provinsi->id,
+        $updateResponse = $this->actingAs($this->superadmin)->put(route('superadmin.master-wilayah.kabupaten.update', $kabupaten->kode_kabupaten), [
+            'kode_provinsi' => $provinsi->kode_provinsi,
             'kode_kabupaten' => '33.74',
             'nama_kabupaten' => 'KOTA SEMARANG HEBAT',
         ]);
 
         $updateResponse->assertRedirect();
         $this->assertDatabaseHas('kabupaten', [
-            'id' => $kabupaten->id,
+            'kode_kabupaten' => '33.74',
             'nama_kabupaten' => 'KOTA SEMARANG HEBAT',
         ]);
 
         // 3. Hapus
-        $deleteResponse = $this->actingAs($this->superadmin)->delete(route('superadmin.master-wilayah.kabupaten.destroy', $kabupaten->id));
+        $deleteResponse = $this->actingAs($this->superadmin)->delete(route('superadmin.master-wilayah.kabupaten.destroy', $kabupaten->kode_kabupaten));
         $deleteResponse->assertRedirect();
         $this->assertDatabaseMissing('kabupaten', [
-            'id' => $kabupaten->id,
+            'kode_kabupaten' => '33.74',
         ]);
     }
 

@@ -75,7 +75,7 @@ class VerifikasiPerusahaanFakultasController extends Controller
 
         $companies = $this->verificationService->getPendingForFakultas($fakultasId, $filters);
 
-        $propinsis = Propinsi::select('id', 'nama_provinsi')->orderBy('nama_provinsi')->get();
+        $propinsis = Propinsi::select('kode_provinsi', 'nama_provinsi')->orderBy('nama_provinsi')->get();
         // Optimasi: Kabupaten tidak dimuat 514 baris sekaligus, melainkan via cascading dropdown asinkron berdasarkan provinsi
         $kabupatens = [];
 
@@ -145,15 +145,15 @@ class VerifikasiPerusahaanFakultasController extends Controller
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
             'alamat' => 'nullable|string',
-            'propinsi_id' => 'nullable|exists:propinsi,id',
-            'kabupaten_id' => 'nullable|exists:kabupaten,id',
+            'kode_provinsi' => 'nullable|exists:propinsi,kode_provinsi',
+            'kode_kabupaten' => 'nullable|exists:kabupaten,kode_kabupaten',
             'kode_pos' => 'nullable|string|max:15',
             'sektor' => 'nullable|string|max:100',
             'skala' => 'nullable|string|in:Lokal,Nasional,Internasional',
             'jenis_perusahaan' => 'nullable|string|max:100',
             'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
             'jenis_lokasi' => 'required|string|in:Dalam Negeri,Luar Negeri',
-            'negara' => 'nullable|string|max:100',
+            'kode_negara' => 'nullable|string|size:2|exists:ref_negara,kode_negara',
         ]);
 
         $this->verificationService->updateAndVerify($company, $validated, true);

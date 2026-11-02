@@ -79,19 +79,12 @@ class DataAkademikSeeder extends Seeder
                     'total_angka_kualitas' => $angkaKualitas,
 
                     // Identitas Diri
-                    'tempat_lahir' => ($index % 3 == 0) ? 'Sleman' : (($index % 3 == 1) ? 'Jakarta' : 'Tapaktuan'),
                     'tanggal_lahir' => '2001-08-15',
                     'jenis_kelamin' => ($index % 2 == 0) ? 'Perempuan' : 'Laki-laki',
                     'warga_negara' => 'WNI',
 
                     // Email institusi tetap menjadi bagian dari sumber data akademik resmi.
-                    'email_students' => $nim.'@students.ukdw.ac.id',
                     // Data Asal Sekolah
-                    'asal_sekolah' => $sekolah['nama'],
-                    'alamat_asal_sekolah' => $sekolah['alamat'],
-                    'kota_kabupaten_asal_sekolah' => $sekolah['kota'],
-                    'provinsi_asal_sekolah' => $sekolah['prov'],
-                    'jurusan_asal_sekolah' => $sekolah['jurusan'],
                 ]
             );
         }

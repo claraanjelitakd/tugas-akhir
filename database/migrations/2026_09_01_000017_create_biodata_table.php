@@ -19,7 +19,7 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "biodata" ("id" integer primary key autoincrement not null, "user_id" integer not null, "nim" varchar not null, "yudisium_id" integer, "prodi_id" integer, "foto" varchar, "nomor_telepon" varchar, "email_pribadi" varchar, "alamat_saat_ini" text, "kelurahan" varchar, "kecamatan" varchar, "kabupaten_id" integer, "propinsi_id" integer, "kode_pos" varchar, "instagram_url" varchar, "facebook_url" varchar, "linkedin_url" varchar, "linkedin_username" varchar, "skills" text, "experience" text, "perusahaan_id" integer, "atasan_id" integer, "kategori_pekerjaan" varchar, "posisi_jabatan" varchar, "posisi_wiraswasta" varchar, "pendidikan_tingkat" varchar, "perguruan_tinggi" varchar, "pendidikan_prodi" varchar, "gaji" numeric, "jenis_pekerjaan" varchar, "created_at" datetime, "updated_at" datetime, "bidang_pekerjaan" varchar, foreign key("user_id") references "users"("id") on delete cascade, foreign key("nim") references "data_akademik"("nim") on delete cascade, foreign key("yudisium_id") references "yudisium"("id") on delete set null, foreign key("prodi_id") references "prodi"("id") on delete set null, foreign key("kabupaten_id") references "kabupaten"("id") on delete set null, foreign key("propinsi_id") references "propinsi"("id") on delete set null, foreign key("perusahaan_id") references "perusahaan"("id") on delete set null, foreign key("atasan_id") references "atasan"("id") on delete set null);
+CREATE TABLE "biodata" ("id" integer primary key autoincrement not null, "user_id" integer not null, "nim" varchar not null, "yudisium_id" integer, "prodi_id" integer, "foto" varchar, "nomor_telepon" varchar, "email_pribadi" varchar, "alamat_saat_ini" text, "kelurahan" varchar, "kecamatan" varchar, "kode_kabupaten" varchar, "kode_provinsi" varchar, "kode_pos" varchar, "instagram_url" varchar, "facebook_url" varchar, "linkedin_url" varchar, "linkedin_username" varchar, "skills" text, "experience" text, "perusahaan_id" integer, "atasan_id" integer, "kategori_pekerjaan" varchar, "posisi_jabatan" varchar, "posisi_wiraswasta" varchar, "pendidikan_tingkat" varchar, "perguruan_tinggi" varchar, "pendidikan_prodi" varchar, "gaji" numeric, "jenis_pekerjaan" varchar, "created_at" datetime, "updated_at" datetime, "bidang_pekerjaan" varchar, foreign key("user_id") references "users"("id") on delete cascade, foreign key("nim") references "data_akademik"("nim") on delete cascade, foreign key("yudisium_id") references "yudisium"("id") on delete set null, foreign key("prodi_id") references "prodi"("id") on delete set null, foreign key("kode_kabupaten") references "kabupaten"("kode_kabupaten") on delete set null, foreign key("kode_provinsi") references "propinsi"("kode_provinsi") on delete set null, foreign key("perusahaan_id") references "perusahaan"("id") on delete set null, foreign key("atasan_id") references "atasan"("id") on delete set null);
 SQL
             );
 
@@ -44,8 +44,8 @@ CREATE TABLE `biodata` (
   `alamat_saat_ini` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Alamat domisili tempat tinggal alumni saat ini',
   `kelurahan` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Kelurahan/desa domisili alumni saat ini',
   `kecamatan` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Kecamatan domisili alumni saat ini',
-  `kabupaten_id` bigint unsigned DEFAULT NULL,
-  `propinsi_id` bigint unsigned DEFAULT NULL,
+  `kode_kabupaten` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `kode_provinsi` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `kode_pos` char(5) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Kode pos tempat tinggal alumni saat ini (5 digit)',
   `instagram_url` varchar(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Tautan profil Instagram',
   `facebook_url` varchar(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Tautan profil Facebook',
@@ -71,16 +71,16 @@ CREATE TABLE `biodata` (
   KEY `biodata_user_id_foreign` (`user_id`),
   KEY `biodata_yudisium_id_foreign` (`yudisium_id`),
   KEY `biodata_prodi_id_foreign` (`prodi_id`),
-  KEY `biodata_kabupaten_id_foreign` (`kabupaten_id`),
-  KEY `biodata_propinsi_id_foreign` (`propinsi_id`),
+  KEY `biodata_kode_kabupaten_foreign` (`kode_kabupaten`),
+  KEY `biodata_kode_provinsi_foreign` (`kode_provinsi`),
   KEY `biodata_perusahaan_id_foreign` (`perusahaan_id`),
   KEY `biodata_atasan_id_foreign` (`atasan_id`),
   CONSTRAINT `biodata_atasan_id_foreign` FOREIGN KEY (`atasan_id`) REFERENCES `atasan` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `biodata_kabupaten_id_foreign` FOREIGN KEY (`kabupaten_id`) REFERENCES `kabupaten` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `biodata_kode_kabupaten_foreign` FOREIGN KEY (`kode_kabupaten`) REFERENCES `kabupaten` (`kode_kabupaten`) ON DELETE SET NULL,
   CONSTRAINT `biodata_nim_foreign` FOREIGN KEY (`nim`) REFERENCES `data_akademik` (`nim`) ON DELETE CASCADE,
   CONSTRAINT `biodata_perusahaan_id_foreign` FOREIGN KEY (`perusahaan_id`) REFERENCES `perusahaan` (`id`) ON DELETE SET NULL,
   CONSTRAINT `biodata_prodi_id_foreign` FOREIGN KEY (`prodi_id`) REFERENCES `prodi` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `biodata_propinsi_id_foreign` FOREIGN KEY (`propinsi_id`) REFERENCES `propinsi` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `biodata_kode_provinsi_foreign` FOREIGN KEY (`kode_provinsi`) REFERENCES `propinsi` (`kode_provinsi`) ON DELETE SET NULL,
   CONSTRAINT `biodata_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `biodata_yudisium_id_foreign` FOREIGN KEY (`yudisium_id`) REFERENCES `yudisium` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Profil tracer alumni; kontak, domisili, skills, dan experience adalah field aktif.';

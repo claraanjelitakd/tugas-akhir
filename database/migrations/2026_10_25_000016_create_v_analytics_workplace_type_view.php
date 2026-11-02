@@ -11,6 +11,7 @@ return new class extends Migration
     /** Membuat proyeksi khusus indikator jenis tempat kerja. */
     public function up(): void
     {
+        DB::statement('DROP VIEW IF EXISTS v_analytics_workplace_type');
         DB::statement('CREATE VIEW v_analytics_workplace_type AS SELECT * FROM v_analytics_tracer_answers WHERE kode_pertanyaan = \'F11\'');
     }
 

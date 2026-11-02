@@ -457,10 +457,10 @@ const drillDownType = computed(() => {
                             </td>
                             <td class="px-3 py-2">{{ r.nama_prodi }}</td>
                             <td class="px-3 py-2 font-medium text-slate-900">{{ r.study_univ || 'UKDW / Perguruan Tinggi Mitra' }}</td>
-                            <td class="px-3 py-2 text-slate-600">{{ r.study_prodi || 'Program Pascasarjana' }}</td>
+                            <td class="px-3 py-2 text-slate-600">{{ r.study_prodi || '-' }}</td>
                             <td class="px-3 py-2 text-center">
                                 <span class="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">
-                                    {{ r.study_jenjang || 'S2' }}
+                                    {{ r.study_jenjang || '-' }}
                                 </span>
                             </td>
                         </tr>
@@ -488,11 +488,11 @@ const drillDownType = computed(() => {
                                 <span class="block text-[10px] text-slate-400 font-normal">NIM: {{ r.nim }}</span>
                             </td>
                             <td class="px-3 py-2">{{ r.nama_prodi }}</td>
-                            <td class="px-3 py-2 font-bold text-[#0D542B]">{{ r.nama_perusahaan || 'Perusahaan Mitra' }}</td>
-                            <td class="px-3 py-2 text-slate-700">{{ r.posisi_jabatan || 'Staf Profesional' }}</td>
+                            <td class="px-3 py-2 font-bold text-[#0D542B]">{{ r.nama_perusahaan || '-' }}</td>
+                            <td class="px-3 py-2 text-slate-700">{{ r.posisi_jabatan || '-' }}</td>
                             <td class="px-3 py-2 text-slate-600">
                                 <span class="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-[#0D542B]">
-                                    {{ r.workplace_province_name || 'D.I. Yogyakarta' }}
+                                    {{ r.workplace_nama_provinsi || '-' }}
                                 </span>
                             </td>
                             <td class="px-3 py-2 text-[11px] text-slate-500">{{ r.workplace_type || '-' }}</td>
@@ -526,7 +526,7 @@ const drillDownType = computed(() => {
                                     {{ r.posisi_jabatan || 'Founder / Owner' }}
                                 </span>
                             </td>
-                            <td class="px-3 py-2 text-slate-600">{{ r.workplace_province_name || 'D.I. Yogyakarta' }}</td>
+                            <td class="px-3 py-2 text-slate-600">{{ r.workplace_nama_provinsi || '-' }}</td>
                         </tr>
                     </tbody>
                 </table>

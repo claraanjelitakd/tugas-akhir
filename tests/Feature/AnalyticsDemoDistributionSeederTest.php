@@ -35,7 +35,7 @@ class AnalyticsDemoDistributionSeederTest extends TestCase
             'nama_provinsi' => 'DI Yogyakarta',
         ]);
         Kabupaten::create([
-            'propinsi_id' => $province->id,
+            'kode_provinsi' => $province->kode_provinsi,
             'kode_kabupaten' => '34.71',
             'nama_kabupaten' => 'Kota Yogyakarta',
         ]);
@@ -60,7 +60,7 @@ class AnalyticsDemoDistributionSeederTest extends TestCase
             'type' => 'multiple_choice',
             'order' => 1,
         ]);
-        foreach (['Kuliah Umum / Dosen Praktisi', 'Kerjasama Magang', 'Lainnya (Tuliskan)'] as $order => $optionText) {
+        foreach (['Kuliah Umum / Dosen Praktisi', 'Kerjasama Magang', 'Sponsor', 'Lainnya (Tuliskan)'] as $order => $optionText) {
             ProdiQuestionOption::create([
                 'prodi_question_id' => $prodiQuestion->id,
                 'code' => 'PSI-1-04-0'.($order + 1),
@@ -80,8 +80,10 @@ class AnalyticsDemoDistributionSeederTest extends TestCase
         $informatikaBiodata = $this->createDemoAlumnus('71000001', $informatika);
         $sistemInformasiBiodata = $this->createDemoAlumnus('72000001', $sistemInformasi);
         $sistemInformasiBiodataLain = $this->createDemoAlumnus('72000002', $sistemInformasi);
+        $sistemInformasiBiodataSponsor = $this->createDemoAlumnus('72000003', $sistemInformasi);
+        $sistemInformasiBiodataMagang = $this->createDemoAlumnus('72000004', $sistemInformasi);
 
-        foreach ([$informatikaBiodata, $sistemInformasiBiodata, $sistemInformasiBiodataLain] as $biodata) {
+        foreach ([$informatikaBiodata, $sistemInformasiBiodata, $sistemInformasiBiodataLain, $sistemInformasiBiodataSponsor, $sistemInformasiBiodataMagang] as $biodata) {
             DB::table('tracer')->insert([
                 'biodata_id' => $biodata->id,
                 'question_id' => $questions['F8'],
@@ -111,12 +113,22 @@ class AnalyticsDemoDistributionSeederTest extends TestCase
         $this->assertDatabaseHas('prodi_response', [
             'biodata_id' => $sistemInformasiBiodata->id,
             'prodi_question_id' => $prodiQuestion->id,
-            'answer_text' => 'Kuliah Umum / Dosen Praktisi',
+            'answer_text' => 'Sponsor',
         ]);
         $this->assertDatabaseHas('prodi_response', [
             'biodata_id' => $sistemInformasiBiodataLain->id,
             'prodi_question_id' => $prodiQuestion->id,
-            'answer_text' => 'Lainnya (Tuliskan), Kerjasama Magang',
+            'answer_text' => 'Lainnya, Kuliah Umum / Dosen Praktisi',
+        ]);
+        $this->assertDatabaseHas('prodi_response', [
+            'biodata_id' => $sistemInformasiBiodataSponsor->id,
+            'prodi_question_id' => $prodiQuestion->id,
+            'answer_text' => 'Kuliah Umum / Dosen Praktisi',
+        ]);
+        $this->assertDatabaseHas('prodi_response', [
+            'biodata_id' => $sistemInformasiBiodataMagang->id,
+            'prodi_question_id' => $prodiQuestion->id,
+            'answer_text' => 'Kerjasama Magang',
         ]);
         $this->assertNotSame(
             ProdiResponse::where('biodata_id', $sistemInformasiBiodata->id)->where('prodi_question_id', $prodiQuestion->id)->value('answer_text'),

@@ -1,4 +1,5 @@
 <script setup>
+// Kontrak komponen peta alumni: lokasi, karier, dan daftar alumni berasal dari props backend.
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -100,7 +101,7 @@ const availableKabupaten = computed(() => {
         );
         if (!provObj) return props.allKabupaten.map(k => k.nama_kabupaten).sort();
         return props.allKabupaten
-            .filter(k => k.propinsi_id === provObj.id)
+            .filter(k => k.kode_provinsi === provObj.id)
             .map(k => k.nama_kabupaten)
             .sort();
     }
@@ -122,7 +123,7 @@ const availableKabupaten = computed(() => {
 // Filter Alumni Real-Time Berdasarkan Pencarian & Wilayah Perusahaan (Karier)
 const filteredAlumni = computed(() => {
     const query = searchQuery.value.toLowerCase().trim();
-    
+
     return props.alumniList.filter(alumni => {
         // Filter Kategori Aktivitas Karier (Perusahaan, Wirausaha, Lanjut Pendidikan)
         if (selectedAktivitasFilter.value !== 'ALL') {
@@ -202,7 +203,7 @@ watch([searchQuery, selectedProvFilter, selectedKabFilter, selectedAktivitasFilt
 // Ambil Ringkasan Wilayah (Total, Daftar PT, dan Daftar Alumni) untuk Hover Tooltip
 const getProvinceSummary = (provName) => {
     const targetNorm = normalizeProvinceName(provName);
-    
+
     // Cari dari summary jika ada
     if (props.alumniWilayah?.summary) {
         for (const [key, data] of Object.entries(props.alumniWilayah.summary)) {
@@ -270,7 +271,7 @@ const resetHighlight = (e) => {
 // Interaksi saat Polygon Provinsi Diklik: Filter Langsung Kolom Kanan
 const handleProvinceClick = (e, feature) => {
     const provName = feature.properties.PROVINSI;
-    
+
     selectedProvFilter.value = provName;
     selectedKabFilter.value = 'ALL';
     selectedProvince.value = provName;
@@ -349,7 +350,7 @@ const resetMapToIndonesia = () => {
     currentPage.value = 1;
 };
 
-// Buka Detail Menggunakan SweetAlert2 — sekaligus zoom peta
+// Buka Detail Menggunakan SweetAlert2 - sekaligus zoom peta
 const openDetailSweetAlert = (alumni) => {
     // Langsung zoom peta saat kartu diklik
     focusAlumniOnMap(alumni);
@@ -358,13 +359,13 @@ const openDetailSweetAlert = (alumni) => {
     if (alumni.linkedin_url || alumni.instagram_url || alumni.facebook_url) {
         medsosHtml = '<div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">';
         if (alumni.linkedin_url) {
-            medsosHtml += `<a href="${alumni.linkedin_url}" target="_blank" style="padding: 4px 10px; border-radius: 8px; background: #e0f2fe; color: #0369a1; font-size: 11px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">LinkedIn ↗</a>`;
+            medsosHtml += `<a href="${alumni.linkedin_url}" target="_blank" style="padding: 4px 10px; border-radius: 8px; background: #e0f2fe; color: #0369a1; font-size: 11px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">LinkedIn</a>`;
         }
         if (alumni.instagram_url) {
-            medsosHtml += `<a href="${alumni.instagram_url}" target="_blank" style="padding: 4px 10px; border-radius: 8px; background: #fce7f3; color: #be185d; font-size: 11px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">Instagram ↗</a>`;
+            medsosHtml += `<a href="${alumni.instagram_url}" target="_blank" style="padding: 4px 10px; border-radius: 8px; background: #fce7f3; color: #be185d; font-size: 11px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">Instagram</a>`;
         }
         if (alumni.facebook_url) {
-            medsosHtml += `<a href="${alumni.facebook_url}" target="_blank" style="padding: 4px 10px; border-radius: 8px; background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">Facebook ↗</a>`;
+            medsosHtml += `<a href="${alumni.facebook_url}" target="_blank" style="padding: 4px 10px; border-radius: 8px; background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">Facebook</a>`;
         }
         medsosHtml += '</div>';
     } else {
@@ -389,7 +390,7 @@ const openDetailSweetAlert = (alumni) => {
         lanjutStudiHtml = `
             <div style="background: #fefce8; border: 1px solid #fef08a; border-radius: 12px; padding: 10px; margin-top: 10px; text-align: left;">
                 <span style="font-size: 10px; font-weight: 800; color: #854d0e; text-transform: uppercase; display: block;">Studi Lanjut</span>
-                <p style="font-size: 11px; font-weight: 700; color: #1e293b; margin: 2px 0 0 0;">${alumni.pendidikan_tingkat || 'S2'} — ${alumni.pendidikan_prodi || 'Pascasarjana'}</p>
+                <p style="font-size: 11px; font-weight: 700; color: #1e293b; margin: 2px 0 0 0;">${alumni.pendidikan_tingkat || '-'} - ${alumni.pendidikan_prodi || '-'}</p>
                 <p style="font-size: 11px; color: #475569; margin: 0;">${alumni.perguruan_tinggi}</p>
             </div>
         `;
@@ -408,7 +409,7 @@ const openDetailSweetAlert = (alumni) => {
                     />
                     <div style="min-width: 0; flex: 1;">
                         <h3 style="font-size: 15px; font-weight: 900; color: #0f172a; margin: 0 0 2px 0; line-height: 1.3;">${alumni.nama}</h3>
-                        <p style="font-size: 11px; color: #64748b; margin: 0; font-weight: 600;">${alumni.prodi} — Lulus ${alumni.tahun_lulus}</p>
+                        <p style="font-size: 11px; color: #64748b; margin: 0; font-weight: 600;">${alumni.prodi} - Lulus ${alumni.tahun_lulus}</p>
                     </div>
                 </div>
 
@@ -434,7 +435,7 @@ const openDetailSweetAlert = (alumni) => {
                 ${alumni.perguruan_tinggi ? `
                 <div style="background: #fefce8; border: 1px solid #fef08a; border-radius: 10px; padding: 10px; margin-bottom: 8px;">
                     <span style="font-size: 9px; font-weight: 800; color: #854d0e; text-transform: uppercase; letter-spacing: 0.06em; display: block; margin-bottom: 3px;">Studi Lanjut</span>
-                    <p style="font-size: 11px; font-weight: 700; color: #0f172a; margin: 0;">${alumni.pendidikan_tingkat || 'S2'} — ${alumni.pendidikan_prodi || 'Pascasarjana'} — ${alumni.perguruan_tinggi}</p>
+                    <p style="font-size: 11px; font-weight: 700; color: #0f172a; margin: 0;">${alumni.pendidikan_tingkat || '-'} - ${alumni.pendidikan_prodi || '-'} - ${alumni.perguruan_tinggi || '-'}</p>
                 </div>` : ''}
 
                 <!-- Jejaring Sosial -->
@@ -580,7 +581,7 @@ const renderProvinsiLayer = () => {
                 `;
             }
 
-            // Bind Tooltip hover — pastikan teks wrap dan tidak meluber keluar kotak
+            // Bind Tooltip hover - pastikan teks wrap dan tidak meluber keluar kotak
             layer.bindTooltip(`
                 <div style="width: 100%; box-sizing: border-box;">
                     <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
@@ -612,7 +613,7 @@ const renderProvinsiLayer = () => {
     }).addTo(map);
 };
 
-// Pantau dropdown provinsi → update peta otomatis
+// Pantau dropdown provinsi  - update peta otomatis
 watch(selectedProvFilter, (newProv) => {
     if (newProv === 'ALL') {
         resetMapToIndonesia();
@@ -629,7 +630,7 @@ watch(selectedProvFilter, (newProv) => {
     }
 });
 
-// Pantau dropdown kabupaten → auto-zoom ke kabupaten di peta
+// Pantau dropdown kabupaten - auto-zoom ke kabupaten di peta
 watch(selectedKabFilter, (newKab) => {
     if (newKab === 'ALL' || !kabupatenGeoLayer || !map) return;
     const targetKab = newKab.toLowerCase();
@@ -659,8 +660,8 @@ defineExpose({
         <div v-if="isLightBg" class="absolute -bottom-32 -right-32 w-96 h-96 bg-amber-600/15 rounded-full blur-3xl pointer-events-none"></div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full relative z-10">
-            
-            <!-- 
+
+            <!--
               ========================================================================
               HEADER SECTION (Glossy Frosted Design Language)
               ========================================================================
@@ -688,7 +689,7 @@ defineExpose({
                 </div>
             </div>
 
-            <!-- 
+            <!--
               ========================================================================
               FILTER BAR (Glossy Frosted Glass Card)
               Sesuai /profile: Aktivitas (Perusahaan, Wirausaha, Lanjut Studi),
@@ -697,10 +698,10 @@ defineExpose({
             -->
             <div :class="isLightBg ? 'bg-white/90 border-amber-300/80 shadow-xl' : 'bg-white/10 border-white/20 shadow-2xl'" class="backdrop-blur-2xl rounded-3xl p-4 sm:p-5 border mb-6">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
-                    
+
                     <!-- 1. Search Input (Col 4) -->
                     <div class="lg:col-span-4 relative">
-                        <input 
+                        <input
                             type="text"
                             v-model="searchQuery"
                             placeholder="Cari nama, jabatan, perusahaan, prodi..."
@@ -712,7 +713,7 @@ defineExpose({
 
                     <!-- 2. Dropdown Kategori Aktivitas Karier (Col 2) -->
                     <div class="lg:col-span-2">
-                        <select 
+                        <select
                             v-model="selectedAktivitasFilter"
                             :class="isLightBg ? 'border-amber-300/80 text-slate-900 bg-white focus:border-[#004D25]' : 'border-white/20 text-white bg-slate-900/90 focus:border-[#FFC700]'"
                             class="w-full px-3 py-2.5 rounded-2xl border text-xs sm:text-sm font-medium focus:outline-none transition-all cursor-pointer shadow-inner"
@@ -726,7 +727,7 @@ defineExpose({
 
                     <!-- 3. Dropdown Jenis Wilayah (Col 2) -->
                     <div class="lg:col-span-2">
-                        <select 
+                        <select
                             v-model="selectedLokasiFilter"
                             :class="isLightBg ? 'border-amber-300/80 text-slate-900 bg-white focus:border-[#004D25]' : 'border-white/20 text-white bg-slate-900/90 focus:border-[#FFC700]'"
                             class="w-full px-3 py-2.5 rounded-2xl border text-xs sm:text-sm font-medium focus:outline-none transition-all cursor-pointer shadow-inner"
@@ -739,7 +740,7 @@ defineExpose({
 
                     <!-- 4. Dropdown Provinsi (Col 2) -->
                     <div class="lg:col-span-2">
-                        <select 
+                        <select
                             v-model="selectedProvFilter"
                             :disabled="selectedLokasiFilter === 'Luar Negeri'"
                             :class="isLightBg ? 'border-amber-300/80 text-slate-900 bg-white focus:border-[#004D25]' : 'border-white/20 text-white bg-slate-900/90 focus:border-[#FFC700]'"
@@ -767,7 +768,7 @@ defineExpose({
                 </div>
             </div>
 
-            <!-- 
+            <!--
               ========================================================================
               LAYOUT 2 KOLOM TETAP (Fixed Heights, Tidak Peyot Saat Dikecilkan/Diperbesar)
               - KIRI (7 Kolom) : PETA INTERAKTIF OPENSTREETMAP (Nasional Indonesia)
@@ -775,7 +776,7 @@ defineExpose({
               ========================================================================
             -->
             <div id="alumni-map-container" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                
+
                 <!-- KOLOM KIRI (7 Kolom): PETA INTERAKTIF OPENSTREETMAP -->
                 <div :class="isLightBg ? 'bg-white/95 border-amber-300/80 shadow-xl' : 'bg-white/10 border-white/20 shadow-2xl'" class="lg:col-span-7 backdrop-blur-2xl rounded-3xl border overflow-hidden flex flex-col min-h-[540px]">
                     <!-- Header Bar Peta Glossy Style -->
@@ -815,8 +816,8 @@ defineExpose({
                         <div :class="isLightBg ? 'bg-white/90 border-amber-300/80 text-slate-900' : 'bg-black/60 border-white/20 text-white'" class="absolute bottom-3 left-3 z-20 backdrop-blur-md px-3.5 py-1.5 rounded-full border shadow-md">
                             <div class="flex items-center gap-3 text-[10px] font-bold">
                                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#004D25] border border-white/30"></span> &gt;50</span>
-                                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#03542B] border border-white/30"></span> 21–50</span>
-                                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#FFC700]"></span> 1–20</span>
+                                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#03542B] border border-white/30"></span> 21-50</span>
+                                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#FFC700]"></span> 1-20</span>
                                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-500 border border-slate-400"></span> 0</span>
                             </div>
                         </div>
@@ -833,7 +834,7 @@ defineExpose({
 
                 <!-- KOLOM KANAN (5 Kolom): DIREKTORI ALUMNI (Glossy Squircle Cards Sesuai Gambar) -->
                 <div class="lg:col-span-5 flex flex-col justify-between min-h-[540px]">
-                    
+
                     <!-- Header Kolom Kanan -->
                     <div class="mb-3 flex items-center justify-between gap-2 px-1">
                         <div>
@@ -855,7 +856,7 @@ defineExpose({
                                 :class="isLightBg ? 'text-slate-900 hover:bg-amber-100' : 'text-white hover:bg-white/20'"
                                 class="px-2.5 py-1 rounded-full text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                             >
-                                ‹
+                                >
                             </button>
                             <span :class="isLightBg ? 'text-[#004D25]' : 'text-[#FFC700]'" class="text-xs font-black px-1">
                                 {{ currentPage }}/{{ totalPages }}
@@ -867,12 +868,12 @@ defineExpose({
                                 :class="isLightBg ? 'text-slate-900 hover:bg-amber-100' : 'text-white hover:bg-white/20'"
                                 class="px-2.5 py-1 rounded-full text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                             >
-                                ›
+                                >
                             </button>
                         </div>
                     </div>
 
-                    <!-- 
+                    <!--
                       Grid 2x2 Kartu Alumni Glossy Style:
                       - Tampilan Squircle (rounded-3xl)
                       - Foto Profil Berukuran Nyata /uploads/profile
@@ -897,14 +898,14 @@ defineExpose({
                                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                         loading="lazy"
                                     />
-                                    
+
                                     <!-- Badge Kategori Aktivitas (Glossy Frosted Pill) -->
                                     <span class="absolute top-2 left-2 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white font-bold text-[9px] uppercase tracking-wider shadow-xs border border-white/20">
                                         {{ alumni.kategori_aktivitas || 'Perusahaan' }}
                                     </span>
 
                                     <!-- Badge Lokasi (Dalam Negeri / Luar Negeri) -->
-                                    <span 
+                                    <span
                                         :class="alumni.jenis_lokasi === 'Luar Negeri' ? 'bg-[#FFC700] text-slate-950 font-black' : 'bg-white/80 text-slate-900 font-bold'"
                                         class="absolute top-2 right-2 px-2 py-0.5 rounded-full backdrop-blur-md text-[9px] shadow-xs"
                                     >
@@ -925,7 +926,7 @@ defineExpose({
 
                                 <!-- Jabatan & Tempat Kerja / Perguruan Tinggi -->
                                 <p :class="isLightBg ? 'text-slate-700' : 'text-white/80'" class="text-[11px] font-semibold truncate mt-0.5">
-                                    {{ alumni.posisi_jabatan || 'Alumni' }} • {{ alumni.perusahaan_nama || alumni.perguruan_tinggi || 'UKDW' }}
+                                    {{ alumni.posisi_jabatan || 'Alumni' }} - {{ alumni.perusahaan_nama || alumni.perguruan_tinggi || 'UKDW' }}
                                 </p>
 
                                 <!-- Mini Stats/Chips Row (Glossy Style) -->

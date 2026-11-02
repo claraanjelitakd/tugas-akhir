@@ -2,11 +2,37 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 03 November 2026
+
+- **Audit hardcode dan opsi evaluasi**:
+  - Opsi evaluasi atasan (kesiapan dan Likert) kini disimpan pada master pertanyaan melalui seeder; formulir publik tidak lagi membawa daftar jawaban cadangan di JavaScript.
+  - Dataset analitik tidak membuat nama perusahaan, jabatan, provinsi, perguruan tinggi, atau jenjang studi sintetis ketika data kosong; tabel menampilkan tanda kosong dan grafik tetap memakai baris database yang valid.
+  - Default tahun master UMP mengikuti tahun berjalan saat props/filter belum tersedia, sehingga tidak mengunci aplikasi pada tahun tertentu.
+  - Pemeriksaan akhir frontend menggunakan `npm run build`, sedangkan perubahan PHP diformat dengan Pint dan diuji pada suite fitur analitik, evaluasi atasan, wilayah, profil, dan verifikasi perusahaan.
+
+- **Pembaruan ERD dan Use Case**:
+  - Mengaudit `ERD.md` terhadap migration berstatus `Ran` dan database runtime `tracer`; dokumentasi kini menegaskan PK/FK kanonik `kode_provinsi`, `kode_kabupaten`, dan `kode_negara` ISO-3166-1.
+  - Memperbaiki kamus data agar tipe kolom, aturan `ON DELETE`, tabel jawaban, dan relasi akun-biodata mengikuti schema aktif.
+  - Menulis ulang `USE_CASE.md` dalam format tabel Dr. Surya dengan 25 use case, aktor, prasyarat, pasca-syarat, alur dasar, alternatif, dan eksepsi yang merujuk route serta tabel aktual.
+
 ## 02 November 2026
 
+- **Pengelolaan Pertanyaan Evaluasi Atasan Berbasis Stepper**:
+  - Menambahkan lima metadata pertanyaan karakteristik perusahaan (bentuk, skala, jumlah pegawai, jumlah alumni UKDW, dan standar gaji pertama) ke `PertanyaanEvaluasiAtasanSeeder` agar ikut tampil di tabel Kelola Pertanyaan.
+  - Menambahkan label langkah stepper pada tabel dan modal `/superadmin/evaluasi-atasan`; field karakteristik perusahaan dikunci pada Langkah 2 karena tersimpan ke kolom profil perusahaan/evaluasi.
+  - Menyediakan metadata opsi dari database ke formulir publik, memisahkan field perusahaan dari jawaban penilaian, dan mempertahankan validasi respons agar tidak meminta field profil sebagai jawaban Likert.
+  - Menyamakan pola halaman kelola dengan Kuesioner Prodi melalui tab **Daftar Bagian (Section)** dan **Daftar Pertanyaan (Kuesioner)**; metadata section yang sama sekarang dikirim ke halaman admin dan formulir publik.
+  - Menambahkan filter section pada daftar pertanyaan dan menampilkan sumber tabel kanonik (`perusahaan`, `atasan`, `evaluasi_atasan`, atau `respon_evaluasi_atasan`) agar kunci `instansi` tidak disalahartikan sebagai nama tabel.
+
+- **Cutover Schema Runtime dan Konsistensi Master**:
+  - Mengaktifkan `tracer` sebagai database runtime canonical, menyimpan backup legacy di `storage/backups/`, lalu mengimpor 152 users, 131 data akademik, 131 biodata, 44 perusahaan, 1.405 jawaban tracer, dan tabel aktif lain tanpa mengimpor tabel legacy orang tua.
+  - Menghapus field tempat lahir dan seluruh field sekolah asal dari schema aktif; tanggal lahir tetap berasal dari `data_akademik`.
+  - Menegakkan FK `users.prodi_id`, `users.fakultas_id`, `perusahaan.created_by_prodi_id`, dan `perusahaan.kode_negara → ref_negara.kode_negara`; seluruh pemeriksaan orphan menghasilkan nol.
+  - Membuat migration view analitik idempotent dengan `DROP VIEW IF EXISTS` agar `migrate:fresh` dapat dijalankan ulang tanpa view tertinggal.
+
 - **Audit Konsistensi Wilayah dan UMP**:
-  - Menambahkan [audit-konsistensi-wilayah.md](audit-konsistensi-wilayah.md) yang memisahkan foreign key `propinsi_id` dari natural key `ump.kode_provinsi` dan mencatat hasil pemeriksaan orphan/duplikasi runtime.
-  - Memperjelas catatan kunci wilayah pada [ERD.md](../ERD.md) agar relasi UMP berbasis kode tidak disalahartikan sebagai kolom `provinsi_id` yang hilang, serta menampilkan relasi logis `ref_negara` ke `perusahaan.negara` sebagai validasi non-FK.
+  - Menambahkan [audit-konsistensi-wilayah.md](audit-konsistensi-wilayah.md) yang mendokumentasikan satu standar FK `kode_provinsi`/`kode_kabupaten` dan hasil pemeriksaan orphan/duplikasi runtime.
+  - Memperjelas catatan kunci wilayah pada [ERD.md](../ERD.md) agar seluruh relasi memakai kode natural dan menampilkan relasi `ref_negara` ke `perusahaan.kode_negara` sebagai FK.
   - Memperbaiki `UmpFactory` yang sebelumnya mengimpor model `Province` yang tidak tersedia menjadi model aktif `Propinsi`, serta menambahkan regression test.
 
 - **Dokumentasi Analitik**:
@@ -23,7 +49,14 @@
   - Menghitung tinggi grafik Likert berdasarkan label pernyataan yang terbungkus agar label dan batang tidak bertumpuk, serta menghapus caption visualisasi yang tampil dua kali.
   - Memisahkan grafik pilihan menjadi tab per pertanyaan dengan analisis untuk pertanyaan aktif sehingga beberapa grafik tidak saling bertabrakan.
   - Menyelaraskan panel sumber dan metodologi dengan Grafik Universitas, menyediakan drill-down responden dengan aksi detail, WhatsApp, dan email, serta menormalkan opsi `Other` menjadi **Lainnya** sambil mempertahankan isi bebasnya.
-  - Memperbarui data demo aman-jalankan-ulang untuk menyebarkan skor, pilihan, dan isian Lainnya pada kuesioner prodi sehingga setiap visualisasi memiliki kombinasi respons yang berbeda.
+  - Memperbarui data demo aman-jalankan-ulang untuk menyebarkan skor, pilihan, dan isian Lainnya pada kuesioner prodi sehingga setiap visualisasi memiliki kombinasi respons yang berbeda; opsi kontribusi Sistem Informasi kini berputar ke seluruh pilihan aktif.
+  - Mengambil pilihan F15/F16 langsung dari metadata pertanyaan, menghapus opsi legacy `Lainnya isian`, menormalkan kapitalisasi F15, dan menjaga gaji demo Yogyakarta minimal 1,2× UMP berdasarkan tahun lulusan.
+  - Mengubah agregasi gap kompetensi Likert menjadi rata-rata per dimensi dan memberi profil seeding berbeda agar gap tidak seragam.
+  - Menampilkan skor kompetensi A, B, dan gap sebagai bilangan bulat konsisten pada payload service, grafik, tooltip, tabel, dan narasi analisis.
+  - Memisahkan opsi F16 `Lainnya` dari batang grafik sehingga rincian isian bebas hanya tampil pada tabel drill-down; data demo studi lanjut kini mencakup seluruh jenjang S1, S2, S3, Profesi, Spesialis, dan lima opsi pembiayaan F12.
+  - Menghapus dua opsi "Analitik tambahan" dari navigasi utama Grafik Universitas; endpoint lama tetap dipertahankan untuk kompatibilitas internal.
+  - Menetapkan Sistem Informasi (kode prodi 72) sebagai pilihan default Grafik Prodi berdasarkan kode master, bukan ID database; label batang pilihan kini hanya menampilkan jumlah dan persentase tersedia pada tooltip.
+  - Memperluas analisis Prodi dengan rincian pilihan dominan, frekuensi terendah, total pilihan tercatat, validasi skor, dan konteks perbandingan antarpertanyaan.
 - **Penyelarasan ERD dan Kamus Data Skripsi (Relasi Master Perusahaan dan Atasan)**:
   - Mengonfirmasi penguatan relasi langsung antara entitas `perusahaan` dan `atasan` sesuai kaidah perancangan skripsi (1 perusahaan menaungi banyak atasan, `1 : N`).
   - Memperbarui diagram ERD Modul 6 (Evaluasi Pengguna Lulusan) pada [ERD.md](file:///c:/study/tracer-ta/ERD.md) dan [storage/app/tugas-akhir-publication/ERD.md](file:///c:/study/tracer-ta/storage/app/tugas-akhir-publication/ERD.md) dengan menyertakan relasi eksplisit `perusahaan ||--o{ atasan : "menaungi (perusahaan_id)"` serta kotak entitas `atasan` dan `perusahaan`.

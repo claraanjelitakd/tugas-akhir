@@ -27,7 +27,7 @@ class KelengkapanTracerService
      */
     public const PROFILE_MANAGED_CODES = [
         'F1', 'F2A', 'F2B', 'F2C', 'F2D',
-        'BIO_TEMPAT_LAHIR', 'BIO_TANGGAL_LAHIR', 'BIO_JK', 'BIO_TGL_LULUS', 'BIO_JUDUL_TA',
+        'BIO_TANGGAL_LAHIR', 'BIO_JK', 'BIO_TGL_LULUS', 'BIO_JUDUL_TA',
         'F5A1', 'F5A2', 'F510', 'F5B', 'F5C', 'F5D',
         'F2E', 'F2E1', 'F2E2', 'F2E3', 'F2F', 'F2G', 'F2H',
         'F11', 'F505', 'BIO_PEND_TINGKAT', 'BIO_BIDANG_DIVISI',
@@ -85,7 +85,6 @@ class KelengkapanTracerService
             // Data Pribadi & Kontak
             'Nama Lengkap' => $summary?->nama ?? ($dataAkademik?->nama ?? $biodata->user?->name),
             'NIM' => $summary?->nim ?? $biodata->nim,
-            'Tempat Lahir' => $summary?->tempat_lahir ?? $dataAkademik?->tempat_lahir,
             'Tanggal Lahir' => $summary?->tanggal_lahir ?? $dataAkademik?->tanggal_lahir,
             'Jenis Kelamin' => $summary?->jenis_kelamin ?? $dataAkademik?->jenis_kelamin,
             'Nomor Telepon/HP' => $summary?->nomor_telepon ?? $biodata->nomor_telepon,
@@ -100,8 +99,8 @@ class KelengkapanTracerService
             'Nama Perusahaan' => $summary?->nama_perusahaan ?? $perusahaan?->nama_perusahaan,
             'Alamat Perusahaan' => $summary?->alamat_perusahaan ?? $perusahaan?->alamat,
             'Skala Perusahaan' => $summary?->skala_perusahaan ?? $perusahaan?->skala,
-            'Provinsi Perusahaan' => $summary?->propinsi_id ?? $perusahaan?->propinsi_id,
-            'Kabupaten Perusahaan' => $summary?->kabupaten_id ?? $perusahaan?->kabupaten_id,
+            'Provinsi Perusahaan' => $summary?->kode_provinsi ?? $perusahaan?->kode_provinsi,
+            'Kabupaten Perusahaan' => $summary?->kode_kabupaten ?? $perusahaan?->kode_kabupaten,
             'Nama Atasan' => $summary?->nama_atasan ?? $atasan?->nama,
             'Email Atasan' => $summary?->email_atasan ?? $atasan?->email,
             'Nomor Telepon Atasan' => $summary?->telepon_atasan ?? $atasan?->telepon,

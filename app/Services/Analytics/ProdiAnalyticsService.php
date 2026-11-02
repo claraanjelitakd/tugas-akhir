@@ -351,7 +351,7 @@ class ProdiAnalyticsService
                 'generated_at' => now()->toIso8601String(),
             ],
             'summary' => $summary,
-            'insights' => $this->buildInsights($section, $prodi, $chartType, $summary, $highest, $lowest),
+            'insights' => $this->buildInsights($section, $prodi, $chartType, $summary, $highest, $lowest, $items),
             'series' => $this->legacySeries($items, $chartType),
             'visualizations' => $items,
             'pivot' => $questionStats->all(),
@@ -681,6 +681,7 @@ class ProdiAnalyticsService
      * @param  array<string, mixed>  $summary
      * @param  array<string, mixed>|null  $highest
      * @param  array<string, mixed>|null  $lowest
+     * @param  array<int, array<string, mixed>>  $items
      * @return array{headline: string, points: array<int, string>}
      */
     private function buildInsights(
@@ -690,18 +691,48 @@ class ProdiAnalyticsService
         array $summary,
         ?array $highest,
         ?array $lowest,
+        array $items,
     ): array {
         $headline = match ($chartType) {
             'likert' => "Evaluasi {$section->title} pada Program Studi {$prodi->nama_prodi} memiliki skor {$summary['average_score']} pada skala 1-5.",
             'text' => "Terdapat {$summary['valid_answers']} jawaban terbuka yang dapat ditinjau pada bagian {$section->title}.",
-            default => "Distribusi jawaban untuk {$section->title} ditampilkan per pertanyaan agar setiap pilihan dapat dibandingkan secara langsung.",
+            default => "Distribusi {$summary['total_questions']} pertanyaan pilihan pada {$section->title} diringkas berdasarkan frekuensi jawaban valid.",
         };
         $points = ["{$summary['total_respondents']} alumni memberikan jawaban dari populasi {$summary['population_count']} alumni pada filter aktif."];
         if ($chartType === 'likert' && $highest && $lowest) {
             $points[] = "Rata-rata tertinggi terdapat pada \"{$highest['question_text']}\" sebesar {$highest['average']} dengan {$highest['valid_count']} jawaban valid.";
             if ($highest['question_id'] !== $lowest['question_id']) {
-                $points[] = "Rata-rata terendah terdapat pada \"{$lowest['question_text']}\" sebesar {$lowest['average']} dan perlu dibaca bersama distribusi skornya.";
+                $points[] = "Rata-rata terendah terdapat pada \"{$lowest['question_text']}\" sebesar {$lowest['average']} dengan {$lowest['valid_count']} jawaban valid.";
             }
+            $points[] = "Rata-rata keseluruhan bagian adalah {$summary['average_score']} dari 5, sedangkan median keseluruhan adalah {$summary['median_score']}.";
+        } elseif ($chartType === 'choice') {
+            $choiceSummaries = collect($items)
+                ->map(function (array $item): ?array {
+                    $top = collect($item['stat']['categories'] ?? [])
+                        ->filter(static fn (array $category): bool => (int) ($category['count'] ?? 0) > 0)
+                        ->sortByDesc('count')
+                        ->first();
+
+                    return $top ? [
+                        'question' => $item['title'],
+                        'label' => $top['label'],
+                        'count' => (int) $top['count'],
+                        'percentage' => $top['percentage'],
+                    ] : null;
+                })
+                ->filter()
+                ->sortByDesc('count')
+                ->values();
+
+            if ($choiceSummaries->isNotEmpty()) {
+                $top = $choiceSummaries->first();
+                $points[] = "Pilihan terbanyak adalah \"{$top['label']}\" pada pertanyaan \"{$top['question']}\" dengan {$top['count']} jawaban ({$top['percentage']}%).";
+                $points[] = "Sebanyak {$summary['valid_answers']} jawaban valid membentuk distribusi pilihan; pada pertanyaan ganda, satu alumni dapat menyumbang lebih dari satu pilihan.";
+                $points[] = 'Pertanyaan aktif dapat dibandingkan melalui tab masing-masing, sedangkan rincian alumni tersedia pada tabel data pembentuk.';
+            }
+        } elseif ($chartType === 'text') {
+            $points[] = "Sebanyak {$summary['valid_answers']} respons terisi dapat ditelusuri per alumni pada tab Data.";
+            $points[] = 'Jawaban terbuka dipertahankan apa adanya agar konteks masukan alumni tidak hilang karena kategorisasi otomatis.';
         }
 
         return ['headline' => $headline, 'points' => $points];

@@ -10,6 +10,7 @@
   - Modal Konsolidasi Master Data terstruktur dan elegan
 -->
 <script setup>
+// Halaman perusahaan superadmin: tabel dan filter memakai relasi wilayah serta negara berbasis kode.
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import Swal from 'sweetalert2';
@@ -101,9 +102,9 @@ const search = ref(props.filters.search || '');
 const selectedProdiId = ref(props.filters.prodi_id || '');
 const scope = ref(props.filters.scope || 'all');
 const statusFilter = ref(props.filters.status || 'all');
-const selectedNegara = ref(props.filters.negara || '');
-const selectedPropinsiId = ref(props.filters.propinsi_id || '');
-const selectedKabupatenId = ref(props.filters.kabupaten_id || '');
+const selectedKodeNegara = ref(props.filters.kode_negara || '');
+const selectedPropinsiId = ref(props.filters.kode_provinsi || '');
+const selectedKabupatenId = ref(props.filters.kode_kabupaten || '');
 const perPage = ref(props.filters.per_page || 10);
 const availableKabupatensForFilter = ref(props.kabupatens || []);
 const isLoadingKabupatenFilter = ref(false);
@@ -115,14 +116,10 @@ watch(() => props.kabupatens, (newKabupatens) => {
 }, { immediate: true });
 
 const negaraOptions = computed(() => {
-    const list = new Set(['Indonesia']);
-    if (props.filterNegaras && Array.isArray(props.filterNegaras)) {
-        props.filterNegaras.forEach((n) => { if (n) list.add(n); });
-    }
-    if (props.negaras && Array.isArray(props.negaras)) {
-        props.negaras.forEach((n) => { if (n.nama_negara) list.add(n.nama_negara); });
-    }
-    return Array.from(list);
+    return (props.negaras || []).map((negara) => ({
+        kode_negara: negara.kode_negara,
+        nama_negara: negara.nama_negara,
+    }));
 });
 
 const hasActiveFilters = computed(() => {
@@ -131,7 +128,7 @@ const hasActiveFilters = computed(() => {
         selectedProdiId.value ||
         scope.value !== 'all' ||
         statusFilter.value !== 'all' ||
-        selectedNegara.value ||
+        selectedKodeNegara.value ||
         selectedPropinsiId.value ||
         selectedKabupatenId.value ||
         perPage.value != 10
@@ -152,7 +149,7 @@ const filterByStatus = (newStatus) => {
 };
 
 const handleNegaraChangeFilter = () => {
-    if (selectedNegara.value && selectedNegara.value !== 'Indonesia') {
+    if (selectedKodeNegara.value && selectedKodeNegara.value !== 'ID') {
         selectedPropinsiId.value = '';
         selectedKabupatenId.value = '';
         availableKabupatensForFilter.value = [];
@@ -175,9 +172,9 @@ const applyFilters = () => {
         prodi_id: selectedProdiId.value || undefined,
         scope: scope.value !== 'all' ? scope.value : undefined,
         status: statusFilter.value !== 'all' ? statusFilter.value : undefined,
-        negara: selectedNegara.value || undefined,
-        propinsi_id: selectedPropinsiId.value || undefined,
-        kabupaten_id: selectedKabupatenId.value || undefined,
+        kode_negara: selectedKodeNegara.value || undefined,
+        kode_provinsi: selectedPropinsiId.value || undefined,
+        kode_kabupaten: selectedKabupatenId.value || undefined,
         per_page: perPage.value != 10 ? perPage.value : undefined,
     }, {
         preserveState: true,
@@ -193,7 +190,7 @@ const resetFilters = () => {
     selectedProdiId.value = '';
     scope.value = 'all';
     statusFilter.value = 'all';
-    selectedNegara.value = '';
+    selectedKodeNegara.value = '';
     selectedPropinsiId.value = '';
     selectedKabupatenId.value = '';
     availableKabupatensForFilter.value = [];
@@ -428,8 +425,8 @@ const getCompanyDetailFields = (company) => {
     return [
         ['ID Master', company.id],
         ['Nama Perusahaan / Instansi', company.nama_perusahaan],
-        ['Provinsi', company.propinsi?.nama_provinsi || company.nama_provinsi || company.propinsi_id],
-        ['Kabupaten / Kota', company.kabupaten?.nama_kabupaten || company.nama_kabupaten || company.kabupaten_id],
+        ['Provinsi', company.propinsi?.nama_provinsi || company.nama_provinsi || company.kode_provinsi],
+        ['Kabupaten / Kota', company.kabupaten?.nama_kabupaten || company.nama_kabupaten || company.kode_kabupaten],
         ['Alamat', company.alamat],
         ['Kode Pos', company.kode_pos],
         ['Homepage / Website', company.homepage],
@@ -441,7 +438,7 @@ const getCompanyDetailFields = (company) => {
         ['Jenis Perusahaan', company.jenis_perusahaan],
         ['Jenis Perusahaan Lainnya', company.jenis_perusahaan_lainnya],
         ['Jenis Lokasi', company.jenis_lokasi],
-        ['Negara', company.negara],
+        ['Kode negara', company.kode_negara],
         ['Status Verifikasi', company.status_verifikasi],
         ['Dibuat Oleh', company.creator?.name || company.creator_name || company.created_by_user_id],
         ['Role Pembuat', company.creator?.role || company.creator_role ? getRoleLabel(company.creator?.role || company.creator_role) : '-'],
@@ -641,9 +638,9 @@ const createForm = ref({
     jenis_lokasi: 'Dalam Negeri',
     nama_perusahaan: '',
     jenis_perusahaan: '3 - Perusahaan swasta',
-    propinsi_id: '',
-    kabupaten_id: '',
-    negara: '',
+    kode_provinsi: '',
+    kode_kabupaten: '',
+    kode_negara: 'ID',
     kode_pos: '',
     skala: 'Nasional',
     alamat: '',
@@ -654,9 +651,9 @@ const openCreateModal = () => {
         jenis_lokasi: 'Dalam Negeri',
         nama_perusahaan: '',
         jenis_perusahaan: '3 - Perusahaan swasta',
-        propinsi_id: '',
-        kabupaten_id: '',
-        negara: '',
+        kode_provinsi: '',
+        kode_kabupaten: '',
+        kode_negara: 'ID',
         kode_pos: '',
         skala: 'Nasional',
         alamat: '',
@@ -707,8 +704,8 @@ const fetchKabupatensByProvinsi = async (propinsiId) => {
 };
 
 const handlePropinsiChangeCreate = async () => {
-    createForm.value.kabupaten_id = '';
-    const propId = createForm.value.propinsi_id;
+    createForm.value.kode_kabupaten = '';
+    const propId = createForm.value.kode_provinsi;
     if (propId) {
         isLoadingKabupatenCreate.value = true;
         availableKabupatensForCreate.value = await fetchKabupatensByProvinsi(propId);
@@ -719,8 +716,8 @@ const handlePropinsiChangeCreate = async () => {
 };
 
 const handlePropinsiChangeEdit = async () => {
-    editForm.value.kabupaten_id = '';
-    const propId = editForm.value.propinsi_id;
+    editForm.value.kode_kabupaten = '';
+    const propId = editForm.value.kode_provinsi;
     if (propId) {
         isLoadingKabupatenEdit.value = true;
         availableKabupatensForEdit.value = await fetchKabupatensByProvinsi(propId);
@@ -742,7 +739,7 @@ const submitCreateForm = () => {
     }
 
     if (createForm.value.jenis_lokasi === 'Dalam Negeri') {
-        if (!createForm.value.propinsi_id) {
+        if (!createForm.value.kode_provinsi) {
             Swal.fire({
                 icon: 'error',
                 title: 'Validasi Data',
@@ -751,7 +748,7 @@ const submitCreateForm = () => {
             });
             return;
         }
-        if (!createForm.value.kabupaten_id) {
+        if (!createForm.value.kode_kabupaten) {
             Swal.fire({
                 icon: 'error',
                 title: 'Validasi Data',
@@ -761,7 +758,7 @@ const submitCreateForm = () => {
             return;
         }
     } else {
-        if (!createForm.value.negara) {
+        if (!createForm.value.kode_negara) {
             Swal.fire({
                 icon: 'error',
                 title: 'Validasi Data',
@@ -808,9 +805,9 @@ const editForm = ref({
     jenis_lokasi: 'Dalam Negeri',
     nama_perusahaan: '',
     jenis_perusahaan: '3 - Perusahaan swasta',
-    propinsi_id: '',
-    kabupaten_id: '',
-    negara: '',
+    kode_provinsi: '',
+    kode_kabupaten: '',
+    kode_negara: 'ID',
     kode_pos: '',
     skala: 'Nasional',
     alamat: '',
@@ -822,9 +819,9 @@ const openEditModal = async (company) => {
         jenis_lokasi: company.jenis_lokasi || 'Dalam Negeri',
         nama_perusahaan: company.nama_perusahaan || '',
         jenis_perusahaan: company.jenis_perusahaan || '3 - Perusahaan swasta',
-        propinsi_id: company.propinsi_id ? String(company.propinsi_id) : '',
-        kabupaten_id: company.kabupaten_id ? String(company.kabupaten_id) : '',
-        negara: company.negara || '',
+        kode_provinsi: company.kode_provinsi ? String(company.kode_provinsi) : '',
+        kode_kabupaten: company.kode_kabupaten ? String(company.kode_kabupaten) : '',
+        kode_negara: company.kode_negara || 'ID',
         kode_pos: company.kode_pos || '',
         skala: company.skala || 'Nasional',
         alamat: company.alamat || '',
@@ -832,9 +829,9 @@ const openEditModal = async (company) => {
     showEditModal.value = true;
 
     // Prefetch daftar kabupaten untuk provinsi yang sedang aktif diedit
-    if (company.propinsi_id) {
+    if (company.kode_provinsi) {
         isLoadingKabupatenEdit.value = true;
-        availableKabupatensForEdit.value = await fetchKabupatensByProvinsi(company.propinsi_id);
+        availableKabupatensForEdit.value = await fetchKabupatensByProvinsi(company.kode_provinsi);
         isLoadingKabupatenEdit.value = false;
     } else {
         availableKabupatensForEdit.value = [];
@@ -1135,19 +1132,19 @@ const handleVerificationAction = (company, event) => {
                         <div>
                             <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Negara</label>
                             <select
-                                v-model="selectedNegara"
+                                v-model="selectedKodeNegara"
                                 @change="handleNegaraChangeFilter"
                                 class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B] font-medium cursor-pointer"
                             >
                                 <option value="">Semua Negara</option>
-                                <option value="Indonesia">Indonesia</option>
+                                <option value="ID">Indonesia</option>
                                 <option value="Luar Negeri">Luar Negeri (Semua)</option>
                                 <option
-                                    v-for="neg in negaraOptions.filter(n => n !== 'Indonesia' && n !== 'Luar Negeri')"
-                                    :key="neg"
-                                    :value="neg"
+                                    v-for="neg in negaraOptions.filter(n => n.kode_negara !== 'ID')"
+                                    :key="neg.kode_negara"
+                                    :value="neg.kode_negara"
                                 >
-                                    {{ neg }}
+                                    {{ neg.nama_negara }}
                                 </option>
                             </select>
                         </div>
@@ -1158,11 +1155,11 @@ const handleVerificationAction = (company, event) => {
                             <select
                                 v-model="selectedPropinsiId"
                                 @change="handlePropinsiChangeFilter"
-                                :disabled="selectedNegara !== '' && selectedNegara !== 'Indonesia'"
+                                :disabled="selectedKodeNegara !== '' && selectedKodeNegara !== 'ID'"
                                 class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B] font-medium cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                             >
                                 <option value="">Semua Provinsi</option>
-                                <option v-for="prov in propinsis" :key="prov.id" :value="prov.id">
+                                <option v-for="prov in propinsis" :key="prov.kode_provinsi" :value="prov.kode_provinsi">
                                     {{ prov.nama_provinsi }}
                                 </option>
                             </select>
@@ -1177,11 +1174,11 @@ const handleVerificationAction = (company, event) => {
                             <select
                                 v-model="selectedKabupatenId"
                                 @change="applyFilters"
-                                :disabled="!selectedPropinsiId || (selectedNegara !== '' && selectedNegara !== 'Indonesia')"
+                                :disabled="!selectedPropinsiId || (selectedKodeNegara !== '' && selectedKodeNegara !== 'ID')"
                                 class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B] font-medium cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                             >
                                 <option value="">Semua Kabupaten / Kota</option>
-                                <option v-for="kab in availableKabupatensForFilter" :key="kab.id" :value="kab.id">
+                                <option v-for="kab in availableKabupatensForFilter" :key="kab.kode_kabupaten" :value="kab.kode_kabupaten">
                                     {{ kab.nama_kabupaten }}
                                 </option>
                             </select>
@@ -1246,7 +1243,7 @@ const handleVerificationAction = (company, event) => {
                                     </div>
                                     <div class="text-[11px] text-slate-500 mt-0.5">
                                         <span>{{ company.skala || 'Nasional' }}</span>
-                                        <span v-if="company.jenis_perusahaan"> • {{ company.jenis_perusahaan }}</span>
+                                        <span v-if="company.jenis_perusahaan"> - {{ company.jenis_perusahaan }}</span>
                                     </div>
                                     <div v-if="company.homepage" class="text-[10px] text-slate-600 font-mono mt-0.5 truncate max-w-[180px]">
                                         {{ company.homepage }}
@@ -1261,11 +1258,11 @@ const handleVerificationAction = (company, event) => {
                                     <div class="text-slate-600 text-[11px]">
                                         <span v-if="company.kabupaten">{{ company.kabupaten.nama_kabupaten }}, </span>
                                         <span v-if="company.propinsi">{{ company.propinsi.nama_provinsi }}</span>
-                                        <span v-if="!company.kabupaten && !company.propinsi">{{ company.negara || 'Indonesia' }}</span>
+                                        <span v-if="!company.kabupaten && !company.propinsi">{{ company.kode_negara || 'ID' }}</span>
                                         <span v-if="company.kode_pos" class="font-mono text-slate-400"> ({{ company.kode_pos }})</span>
                                     </div>
                                     <div class="text-[10px] text-slate-400 mt-0.5">
-                                        {{ company.jenis_lokasi || 'Dalam Negeri' }} • {{ company.negara || 'Indonesia' }}
+                                        {{ company.jenis_lokasi || 'Dalam Negeri' }} - {{ company.kode_negara || 'ID' }}
                                     </div>
                                 </td>
 
@@ -1277,7 +1274,7 @@ const handleVerificationAction = (company, event) => {
                                             {{ getAlumniDisplayName(getFilteredProdiAlumni(company)) }}
                                         </div>
                                         <div class="text-slate-500 text-[11px] font-mono mt-0.5">
-                                            {{ getFilteredProdiAlumni(company).nim || '-' }} • {{ getAlumniProdi(getFilteredProdiAlumni(company)) }}
+                                            {{ getFilteredProdiAlumni(company).nim || '-' }} - {{ getAlumniProdi(getFilteredProdiAlumni(company)) }}
                                         </div>
                                         <div class="mt-1.5 flex flex-col gap-1">
                                             <span class="inline-block text-[10px] font-semibold text-[#0D542B] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded leading-tight">
@@ -1296,7 +1293,7 @@ const handleVerificationAction = (company, event) => {
                                             {{ getAlumniDisplayName(company.creator.biodata) }}
                                         </div>
                                         <div class="text-slate-500 text-[11px] font-mono mt-0.5">
-                                            {{ company.creator.biodata.nim || '-' }} • {{ getAlumniProdi(company.creator.biodata) }}
+                                            {{ company.creator.biodata.nim || '-' }} - {{ getAlumniProdi(company.creator.biodata) }}
                                         </div>
                                         <div class="text-[10px] text-slate-400 mt-0.5">
                                             Diajukan: {{ formatDate(company.created_at) }}
@@ -1318,7 +1315,7 @@ const handleVerificationAction = (company, event) => {
                                             {{ getAlumniDisplayName(company.biodata[0]) }}
                                         </div>
                                         <div class="text-slate-500 text-[11px] font-mono mt-0.5">
-                                            {{ company.biodata[0].nim || '-' }} • {{ getAlumniProdi(company.biodata[0]) }}
+                                            {{ company.biodata[0].nim || '-' }} - {{ getAlumniProdi(company.biodata[0]) }}
                                         </div>
                                         <div class="text-[10px] text-slate-400 mt-0.5">
                                             Tercatat: {{ formatDate(company.created_at) }}
@@ -2173,12 +2170,12 @@ const handleVerificationAction = (company, event) => {
                             Provinsi <span class="text-rose-600">*</span>
                         </label>
                         <select
-                            v-model="createForm.propinsi_id"
+                            v-model="createForm.kode_provinsi"
                             @change="handlePropinsiChangeCreate"
                             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
                         >
                             <option value="">-- Pilih Provinsi --</option>
-                            <option v-for="p in propinsis" :key="p.id" :value="p.id">
+                            <option v-for="p in propinsis" :key="p.kode_provinsi" :value="p.kode_provinsi">
                                 {{ p.nama_provinsi }}
                             </option>
                         </select>
@@ -2189,14 +2186,14 @@ const handleVerificationAction = (company, event) => {
                             Kabupaten / Kota <span class="text-rose-600">*</span>
                         </label>
                         <select
-                            v-model="createForm.kabupaten_id"
-                            :disabled="!createForm.propinsi_id || isLoadingKabupatenCreate"
+                            v-model="createForm.kode_kabupaten"
+                            :disabled="!createForm.kode_provinsi || isLoadingKabupatenCreate"
                             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
                         >
                             <option value="">
-                                {{ isLoadingKabupatenCreate ? 'Memuat kabupaten/kota...' : (createForm.propinsi_id ? '-- Pilih Kabupaten / Kota --' : '-- Pilih Provinsi Dahulu --') }}
+                                {{ isLoadingKabupatenCreate ? 'Memuat kabupaten/kota...' : (createForm.kode_provinsi ? '-- Pilih Kabupaten / Kota --' : '-- Pilih Provinsi Dahulu --') }}
                             </option>
-                            <option v-for="k in availableKabupatensForCreate" :key="k.id" :value="k.id">
+                            <option v-for="k in availableKabupatensForCreate" :key="k.kode_kabupaten" :value="k.kode_kabupaten">
                                 {{ k.nama_kabupaten }}
                             </option>
                         </select>
@@ -2209,12 +2206,12 @@ const handleVerificationAction = (company, event) => {
                         Negara Tempat Bekerja <span class="text-rose-600">*</span>
                     </label>
                     <select
-                        v-model="createForm.negara"
+                        v-model="createForm.kode_negara"
                         required
                         class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
                     >
                         <option value="">-- Pilih Negara di Luar Negeri --</option>
-                        <option v-for="n in negaras" :key="n.id" :value="n.nama_negara">
+                        <option v-for="n in negaras" :key="n.kode_negara" :value="n.kode_negara">
                             {{ n.nama_negara }}
                         </option>
                     </select>
@@ -2367,12 +2364,12 @@ const handleVerificationAction = (company, event) => {
                             Provinsi <span class="text-rose-600">*</span>
                         </label>
                         <select
-                            v-model="editForm.propinsi_id"
+                            v-model="editForm.kode_provinsi"
                             @change="handlePropinsiChangeEdit"
                             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
                         >
                             <option value="">-- Pilih Provinsi --</option>
-                            <option v-for="p in propinsis" :key="p.id" :value="p.id">
+                            <option v-for="p in propinsis" :key="p.kode_provinsi" :value="p.kode_provinsi">
                                 {{ p.nama_provinsi }}
                             </option>
                         </select>
@@ -2383,14 +2380,14 @@ const handleVerificationAction = (company, event) => {
                             Kabupaten / Kota <span class="text-rose-600">*</span>
                         </label>
                         <select
-                            v-model="editForm.kabupaten_id"
-                            :disabled="!editForm.propinsi_id || isLoadingKabupatenEdit"
+                            v-model="editForm.kode_kabupaten"
+                            :disabled="!editForm.kode_provinsi || isLoadingKabupatenEdit"
                             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
                         >
                             <option value="">
-                                {{ isLoadingKabupatenEdit ? 'Memuat kabupaten/kota...' : (editForm.propinsi_id ? '-- Pilih Kabupaten / Kota --' : '-- Pilih Provinsi Dahulu --') }}
+                                {{ isLoadingKabupatenEdit ? 'Memuat kabupaten/kota...' : (editForm.kode_provinsi ? '-- Pilih Kabupaten / Kota --' : '-- Pilih Provinsi Dahulu --') }}
                             </option>
-                            <option v-for="k in availableKabupatensForEdit" :key="k.id" :value="k.id">
+                            <option v-for="k in availableKabupatensForEdit" :key="k.kode_kabupaten" :value="k.kode_kabupaten">
                                 {{ k.nama_kabupaten }}
                             </option>
                         </select>
@@ -2402,12 +2399,12 @@ const handleVerificationAction = (company, event) => {
                         Negara Tempat Bekerja <span class="text-rose-600">*</span>
                     </label>
                     <select
-                        v-model="editForm.negara"
+                        v-model="editForm.kode_negara"
                         required
                         class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
                     >
                         <option value="">-- Pilih Negara di Luar Negeri --</option>
-                        <option v-for="n in negaras" :key="n.id" :value="n.nama_negara">
+                        <option v-for="n in negaras" :key="n.kode_negara" :value="n.kode_negara">
                             {{ n.nama_negara }}
                         </option>
                     </select>

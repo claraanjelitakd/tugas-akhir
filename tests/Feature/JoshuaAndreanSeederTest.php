@@ -33,7 +33,6 @@ class JoshuaAndreanSeederTest extends TestCase
         $this->assertEquals('Joshua Andrean', $dataAkademik->nama);
         $this->assertEquals('2022', $dataAkademik->angkatan_masuk);
         $this->assertEquals(2026, $dataAkademik->tahun_lulus);
-        $this->assertEquals('SMA Negeri 3 Yogyakarta', $dataAkademik->asal_sekolah);
 
         $yudisium = Yudisium::where('nim', '72220001')->first();
         $this->assertNotNull($yudisium, 'Data yudisium harus terisi.');

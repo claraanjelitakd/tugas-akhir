@@ -38,17 +38,18 @@ SELECT
     company.nama_perusahaan,
     biodata.perusahaan_id,
     company.jenis_lokasi AS jenis_lokasi_perusahaan,
-    company.negara AS negara_perusahaan,
-    company.propinsi_id AS workplace_province_id,
-    company.kabupaten_id AS workplace_regency_id,
-    workplace_province.kode_provinsi AS workplace_province_code,
-    workplace_province.nama_provinsi AS workplace_province_name
+    company.kode_negara AS kode_negara_perusahaan,
+    country.nama_negara AS nama_negara_perusahaan,
+    company.kode_provinsi AS workplace_kode_provinsi,
+    company.kode_kabupaten AS workplace_kode_kabupaten,
+    workplace_province.nama_provinsi AS workplace_nama_provinsi
 FROM biodata
 LEFT JOIN users ON users.id = biodata.user_id
 LEFT JOIN data_akademik AS academic ON academic.nim = biodata.nim
 LEFT JOIN prodi AS study_program ON study_program.id = biodata.prodi_id
 LEFT JOIN perusahaan AS company ON company.id = biodata.perusahaan_id
-LEFT JOIN propinsi AS workplace_province ON workplace_province.id = company.propinsi_id
+LEFT JOIN ref_negara AS country ON country.kode_negara = company.kode_negara
+LEFT JOIN propinsi AS workplace_province ON workplace_province.kode_provinsi = company.kode_provinsi
 SQL);
     }
 

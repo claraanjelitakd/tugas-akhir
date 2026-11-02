@@ -155,16 +155,9 @@ class DashboardScenarioSeeder extends Seeder
                 'ip_kumulatif' => $ipk,
                 'total_sks' => $totalSks,
                 'total_angka_kualitas' => round($ipk * $totalSks, 2),
-                'tempat_lahir' => ['Yogyakarta', 'Semarang', 'Jakarta', 'Surabaya'][$sequence % 4],
                 'tanggal_lahir' => $birthDate,
                 'jenis_kelamin' => $sequence % 2 === 0 ? 'Perempuan' : 'Laki-laki',
                 'warga_negara' => 'WNI',
-                'email_students' => $nim.'@students.ukdw.ac.id',
-                'asal_sekolah' => 'SMA Negeri '.(($sequence % 6) + 1),
-                'alamat_asal_sekolah' => 'Jl. Pendidikan No. '.($sequence + 1),
-                'kota_kabupaten_asal_sekolah' => 'Kabupaten Sleman',
-                'provinsi_asal_sekolah' => 'DI Yogyakarta',
-                'jurusan_asal_sekolah' => in_array($prodi->kode_prodi, ['11', '12'], true) ? 'IPS' : 'IPA',
             ]);
 
             $biodata = Biodata::create([
@@ -176,8 +169,8 @@ class DashboardScenarioSeeder extends Seeder
                 'alamat_saat_ini' => 'Jl. Kaliurang Km. '.(($sequence % 9) + 1).' No. '.($sequence + 10).', Sleman',
                 'kelurahan' => 'Condongcatur',
                 'kecamatan' => 'Depok',
-                'kabupaten_id' => $kabupaten->id,
-                'propinsi_id' => $propinsi->id,
+                'kode_kabupaten' => $kabupaten->kode_kabupaten,
+                'kode_provinsi' => $propinsi->kode_provinsi,
                 'kode_pos' => '55281',
                 'linkedin_url' => $sequence % 4 === 0 ? null : 'https://www.linkedin.com/in/demo-'.$nim,
                 'linkedin_username' => $sequence % 4 === 0 ? null : 'demo-'.$nim,

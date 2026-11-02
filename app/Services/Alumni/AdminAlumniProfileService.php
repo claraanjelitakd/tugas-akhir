@@ -54,7 +54,6 @@ class AdminAlumniProfileService
             // 1. Identitas Pribadi (Diutamakan dari view v_alumni_profile_summary)
             'nim' => $summary?->nim ?? ($alumni->nim ?? ($dataAkademik?->nim ?? '')),
             'nama' => $summary?->nama ?? ($alumni->nama ?? ($dataAkademik?->nama ?? '')),
-            'tempat_lahir' => $summary?->tempat_lahir ?? ($alumni->tempat_lahir ?? ($dataAkademik?->tempat_lahir ?? '')),
             'tanggal_lahir' => $summary?->tanggal_lahir ?? ($alumni->tanggal_lahir ?? ($dataAkademik?->tanggal_lahir ?? '')),
             'jenis_kelamin' => $summary?->jenis_kelamin ?? ($alumni->jenis_kelamin ?? ($dataAkademik?->jenis_kelamin ?? '')),
             'warga_negara' => $summary?->warga_negara ?? ($alumni->warga_negara ?? ($dataAkademik?->warga_negara ?? 'WNI')),
@@ -64,9 +63,8 @@ class AdminAlumniProfileService
             'alamat_saat_ini' => $summary?->alamat ?? ($alumni->alamat_saat_ini ?? ''),
             'kelurahan' => $summary?->kelurahan ?? ($alumni->kelurahan ?? ''),
             'kecamatan' => $summary?->kecamatan ?? ($alumni->kecamatan ?? ''),
-            'kabupaten_id' => $summary?->kabupaten_id ?? ($alumni->kabupaten_id ?? ''),
-            'propinsi_id' => $summary?->propinsi_id ?? ($alumni->propinsi_id ?? ''),
-            'provinsi_id' => $summary?->propinsi_id ?? ($alumni->propinsi_id ?? ''),
+            'kode_kabupaten' => $summary?->kode_kabupaten ?? ($alumni->kode_kabupaten ?? ''),
+            'kode_provinsi' => $summary?->kode_provinsi ?? ($alumni->kode_provinsi ?? ''),
             'kode_pos' => $summary?->kode_pos ?? ($alumni->kode_pos ?? ''),
             'nomor_telepon' => $summary?->nomor_telepon ?? ($alumni->nomor_telepon ?? ''),
             'email_pribadi' => $summary?->email_pribadi ?? ($alumni->email_pribadi ?? ''),
@@ -85,7 +83,6 @@ class AdminAlumniProfileService
             'ip_kumulatif' => $summary?->ipk ?? ($dataAkademik?->ip_kumulatif ?? ''),
             'total_sks' => $summary?->total_sks ?? ($dataAkademik?->total_sks ?? ''),
             'total_angka_kualitas' => $summary?->total_angka_kualitas ?? ($dataAkademik?->total_angka_kualitas ?? ''),
-            'asal_sekolah' => $summary?->asal_sekolah ?? ($dataAkademik?->asal_sekolah ?? ''),
 
             // Tugas akhir dan tanggal kelulusan tetap tersedia; data sensitif lain tetap diminimalkan.
             'judul_ta' => $yudisium?->judul_ta ?? '',
@@ -118,9 +115,9 @@ class AdminAlumniProfileService
             'perusahaan_jenis_perusahaan' => $perusahaan?->jenis_perusahaan ?? '',
             'perusahaan_jenis_perusahaan_lainnya' => $perusahaan?->jenis_perusahaan_lainnya ?? '',
             'perusahaan_jenis_lokasi' => $perusahaan?->jenis_lokasi ?? 'Dalam Negeri',
-            'perusahaan_negara' => $perusahaan?->negara ?? 'Indonesia',
-            'perusahaan_propinsi_id' => $perusahaan?->propinsi_id ?? '',
-            'perusahaan_kabupaten_id' => $perusahaan?->kabupaten_id ?? '',
+            'perusahaan_kode_negara' => $perusahaan?->kode_negara ?? 'ID',
+            'perusahaan_kode_provinsi' => $perusahaan?->kode_provinsi ?? '',
+            'perusahaan_kode_kabupaten' => $perusahaan?->kode_kabupaten ?? '',
             'perusahaan_status_verifikasi' => $perusahaan?->status_verifikasi ?? '',
 
             // Alias Company untuk kompatibilitas frontend
@@ -129,9 +126,9 @@ class AdminAlumniProfileService
             'company_jenis_perusahaan' => $perusahaan?->jenis_perusahaan ?? '',
             'company_jenis_perusahaan_lainnya' => $perusahaan?->jenis_perusahaan_lainnya ?? '',
             'company_jenis_lokasi' => $perusahaan?->jenis_lokasi ?? 'Dalam Negeri',
-            'company_negara' => $perusahaan?->negara ?? 'Indonesia',
-            'company_province_id' => $perusahaan?->propinsi_id ?? '',
-            'company_kabupaten_id' => $perusahaan?->kabupaten_id ?? '',
+            'company_kode_negara' => $perusahaan?->kode_negara ?? 'ID',
+            'company_kode_provinsi' => $perusahaan?->kode_provinsi ?? '',
+            'company_kode_kabupaten' => $perusahaan?->kode_kabupaten ?? '',
             'company_kode_pos' => $perusahaan?->kode_pos ?? '',
             'perusahaan_kode_pos' => $perusahaan?->kode_pos ?? '',
             'company_status_verifikasi' => $perusahaan?->status_verifikasi ?? '',
@@ -191,9 +188,9 @@ class AdminAlumniProfileService
         $namaPerusahaan = ! empty($data['nama_perusahaan']) ? trim($data['nama_perusahaan']) : null;
         if ($namaPerusahaan) {
             $jenisLokasi = ! empty($data['company_jenis_lokasi']) ? $data['company_jenis_lokasi'] : (! empty($data['perusahaan_jenis_lokasi']) ? $data['perusahaan_jenis_lokasi'] : 'Dalam Negeri');
-            $negara = ($jenisLokasi === 'Luar Negeri') ? (! empty($data['company_negara']) ? $data['company_negara'] : (! empty($data['perusahaan_negara']) ? $data['perusahaan_negara'] : '')) : 'Indonesia';
-            $provId = ($jenisLokasi === 'Luar Negeri') ? null : (! empty($data['company_province_id']) ? $data['company_province_id'] : (! empty($data['perusahaan_propinsi_id']) ? $data['perusahaan_propinsi_id'] : null));
-            $kabId = ($jenisLokasi === 'Luar Negeri') ? null : (! empty($data['company_kabupaten_id']) ? $data['company_kabupaten_id'] : (! empty($data['perusahaan_kabupaten_id']) ? $data['perusahaan_kabupaten_id'] : null));
+            $kodeNegara = ($jenisLokasi === 'Luar Negeri') ? (! empty($data['company_kode_negara']) ? $data['company_kode_negara'] : (! empty($data['perusahaan_kode_negara']) ? $data['perusahaan_kode_negara'] : '')) : 'ID';
+            $kodeProvinsi = ($jenisLokasi === 'Luar Negeri') ? null : (! empty($data['company_kode_provinsi']) ? $data['company_kode_provinsi'] : (! empty($data['perusahaan_kode_provinsi']) ? $data['perusahaan_kode_provinsi'] : null));
+            $kodeKabupaten = ($jenisLokasi === 'Luar Negeri') ? null : (! empty($data['company_kode_kabupaten']) ? $data['company_kode_kabupaten'] : (! empty($data['perusahaan_kode_kabupaten']) ? $data['perusahaan_kode_kabupaten'] : null));
             $alamat = ! empty($data['company_alamat']) ? $data['company_alamat'] : (! empty($data['perusahaan_alamat']) ? $data['perusahaan_alamat'] : null);
             $skala = ! empty($data['company_skala']) ? $data['company_skala'] : (! empty($data['perusahaan_skala']) ? $data['perusahaan_skala'] : null);
             $jenisPerusahaan = ! empty($data['company_jenis_perusahaan']) ? $data['company_jenis_perusahaan'] : (! empty($data['perusahaan_jenis_perusahaan']) ? $data['perusahaan_jenis_perusahaan'] : null);
@@ -204,9 +201,9 @@ class AdminAlumniProfileService
                 ['nama_perusahaan' => $namaPerusahaan],
                 [
                     'jenis_lokasi' => $jenisLokasi,
-                    'negara' => $negara,
-                    'propinsi_id' => $provId,
-                    'kabupaten_id' => $kabId,
+                    'kode_negara' => $kodeNegara,
+                    'kode_provinsi' => $kodeProvinsi,
+                    'kode_kabupaten' => $kodeKabupaten,
                     'alamat' => $alamat,
                     'kode_pos' => $kodePosKantor,
                     'skala' => $skala,
@@ -218,9 +215,9 @@ class AdminAlumniProfileService
 
             $perusahaan->update([
                 'jenis_lokasi' => $jenisLokasi,
-                'negara' => $negara,
-                'propinsi_id' => $provId,
-                'kabupaten_id' => $kabId,
+                'kode_negara' => $kodeNegara,
+                'kode_provinsi' => $kodeProvinsi,
+                'kode_kabupaten' => $kodeKabupaten,
                 'alamat' => $alamat ?: $perusahaan->alamat,
                 'kode_pos' => $kodePosKantor ?: $perusahaan->kode_pos,
                 'skala' => $skala ?: $perusahaan->skala,
@@ -306,8 +303,8 @@ class AdminAlumniProfileService
             'nomor_telepon' => ! empty($data['nomor_telepon']) ? $data['nomor_telepon'] : null,
             'email_pribadi' => ! empty($data['email_pribadi']) ? $data['email_pribadi'] : (! empty($data['email']) ? $data['email'] : $biodata->email_pribadi),
             'alamat_saat_ini' => ! empty($data['alamat_saat_ini']) ? $data['alamat_saat_ini'] : null,
-            'kabupaten_id' => ! empty($data['kabupaten_id']) ? $data['kabupaten_id'] : null,
-            'propinsi_id' => ! empty($data['propinsi_id']) ? $data['propinsi_id'] : (! empty($data['provinsi_id']) ? $data['provinsi_id'] : null),
+            'kode_kabupaten' => ! empty($data['kode_kabupaten']) ? $data['kode_kabupaten'] : null,
+            'kode_provinsi' => $data['kode_provinsi'] ?? null,
             'kode_pos' => ! empty($data['kode_pos']) ? $data['kode_pos'] : null,
             'instagram_url' => ! empty($data['instagram_url']) ? $data['instagram_url'] : null,
             'facebook_url' => ! empty($data['facebook_url']) ? $data['facebook_url'] : null,

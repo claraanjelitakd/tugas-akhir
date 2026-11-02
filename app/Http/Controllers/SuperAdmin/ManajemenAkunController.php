@@ -265,7 +265,7 @@ class ManajemenAkunController extends Controller
                     $plainPassword = Carbon::parse($record->tanggal_lahir)->format('dmY');
                 }
 
-                $email = $record->email_students ?: ($nim.'@students.ukdw.ac.id');
+                $email = $record->email ?: ($nim.'@students.ukdw.ac.id');
                 // Pastikan email unik jika sudah ada user lain yang menggunakan email sama
                 if (User::where('email', $email)->exists()) {
                     $email = $nim.'.'.time().'@students.ukdw.ac.id';

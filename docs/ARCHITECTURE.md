@@ -16,7 +16,7 @@ Dokumen ini menjelaskan struktur antarmuka dan batas akses untuk Superadmin, Adm
 - NIK, No KK, dan NPWP tidak lagi menjadi bagian dari data aplikasi. Kolom tersebut tidak dibuat pada migration schema aktif.
 - Tabel `data_orang_tua` dan foreign key `biodata.orang_tua_id` tidak ada pada schema aktif karena data orang tua tidak digunakan dalam profil maupun ekspor Excel.
 - Data pembimbing/penguji dihapus dari `yudisium`; judul tugas akhir, tanggal lulus, status lulus, dan publikasi yang masih digunakan tetap dipertahankan.
-- NISN, BPJS, email mahasiswa, dan negara belum dihapus karena masih menjadi bagian dari sumber akademik/integrasi yang tersedia; visibilitasnya tetap dikendalikan oleh payload halaman.
+- Data sekolah asal dan tempat lahir tidak termasuk schema aktif. Domisili alumni dan lokasi perusahaan memakai `kode_provinsi` serta `kode_kabupaten` sebagai foreign key berbasis primary key natural; negara perusahaan memakai `kode_negara` sebagai FK ke `ref_negara.kode_negara`.
 
 ### Kontrak migration schema
 
@@ -149,8 +149,9 @@ Payload audit evaluasi atasan juga dipetakan melalui `EvaluasiAtasan::toAdminAud
 ### Sinkronisasi Dua Arah Data Perusahaan (Profil Alumni dan Evaluasi Atasan)
 
 Atribut perusahaan pada halaman profil alumni (`FormKarier.vue` dan `SimpanProfilController`) serta halaman evaluasi pengguna lulusan (`EvaluasiAtasanForm.vue` dan `EvaluasiAtasanController`) membaca dan menulis langsung ke record master `perusahaan` yang sama:
-- Field yang tersinkronisasi dua arah: `nama_perusahaan`, `bentuk_perusahaan`, `jenis_perusahaan`, `jenis_perusahaan_lainnya`, `skala`, `jenis_lokasi`, `negara`, `propinsi_id`, `kabupaten_id`, `alamat`, `kode_pos`, `no_telp_fax`, dan `homepage`.
-- Tiga pertanyaan karakteristik survei pengguna lulusan yang diisi khusus oleh atasan disimpan sesuai peruntukannya: `jumlah_pegawai` disimpan pada tabel `perusahaan`, sedangkan `jumlah_alumni_ukdw` dan `standar_gaji_pertama` disimpan pada tabel `evaluasi_atasan`.
+- Field yang tersinkronisasi dua arah: `nama_perusahaan`, `bentuk_perusahaan`, `jenis_perusahaan`, `jenis_perusahaan_lainnya`, `skala`, `jenis_lokasi`, `kode_negara`, `kode_provinsi`, `kode_kabupaten`, `alamat`, `kode_pos`, `no_telp_fax`, dan `homepage`.
+- Lima pertanyaan karakteristik survei pengguna lulusan yang diisi khusus oleh atasan dikelola dari master `pertanyaan_evaluasi_atasan` dan disimpan sesuai peruntukannya: `bentuk_perusahaan`, `skala_perusahaan`, serta `jumlah_pegawai` disimpan pada tabel `perusahaan`, sedangkan `jumlah_alumni_ukdw` dan `standar_gaji_pertama` disimpan pada tabel `evaluasi_atasan`.
+- Section formulir evaluasi atasan (`instansi`, `karakteristik`, `penilaian`) didefinisikan sekali pada `PertanyaanEvaluasiAtasan::STEPPER_SECTIONS`, lalu dipakai bersama oleh halaman kelola (`Daftar Bagian`/`Daftar Pertanyaan`) dan formulir publik. Penempatan pertanyaan reguler disimpan melalui kategori kompatibilitas yang dipetakan menjadi kunci stepper.
 - Penempatan kerja (`bidang_pekerjaan`, `posisi_jabatan`) dan studi lanjut alumni ditampilkan sebagai ringkasan informasi di bagian atas halaman evaluasi atasan (tanpa membebani atasan dengan input ulang), serta identitas alumni ditampilkan melalui avatar bundar ber-dropdown di header kanan atas.
 
 ### Keseragaman Komponen Kartu Pertanyaan Kuesioner Universitas dan Prodi
@@ -270,8 +271,8 @@ jawaban valid, dan jawaban yang tidak berlaku akibat percabangan.
 | --- | --- | --- |
 | Response rate | `v_analytics_response_rate.answered_mandatory_univ` | Bar horizontal per prodi |
 | Waktu memperoleh pekerjaan | `tracer.F502`, `tracer.F504`, `tracer.F506` | Distribusi bucket dan median per prodi |
-| Gaji dibandingkan 1,2× UMP | `biodata.gaji`, `perusahaan.propinsi_id`, `propinsi`, `ump` | Dispersi kuartil Q1/Q2/Q3 garis per prodi, kelayakan UMP per prodi, dan status per provinsi |
-| Wilayah kerja | `perusahaan.propinsi_id`, `propinsi` | Peta choropleth dan ranking provinsi |
+| Gaji dibandingkan 1,2× UMP | `biodata.gaji`, `perusahaan.kode_provinsi`, `propinsi`, `ump` | Dispersi kuartil Q1/Q2/Q3 garis per prodi, kelayakan UMP per prodi, dan status per provinsi |
+| Wilayah kerja | `perusahaan.kode_provinsi`, `propinsi` | Peta choropleth dan ranking provinsi |
 | Status pekerjaan dan IKU 1 awal | `tracer.F8` | Bar status dan KPI |
 | Hubungan bidang studi | `tracer.F14`, `ref_subpertanyaan_detil` | Bar kategori dan line chart keselarasan per prodi |
 | Keselarasan tingkat pendidikan | `tracer.F15`, `ref_subpertanyaan_detil` | Bar kategori dan line chart keselarasan vertikal per prodi (Gambar 4.14) |

@@ -5,6 +5,7 @@ namespace App\Services\LinkedIn\Mappers;
 use App\Models\Biodata;
 use App\Models\Perusahaan;
 use App\Models\Propinsi;
+use App\Models\RefNegara;
 use App\Services\LinkedIn\DTOs\LinkedInPosition;
 use App\Services\LinkedIn\DTOs\LinkedInProfile;
 use Illuminate\Support\Facades\Auth;
@@ -87,15 +88,15 @@ class LinkedInProfileMapper
         }
 
         // 2. Pemetaan lokasi dasar jika terdeteksi dengan jelas (tanpa tebak-tebakan agresif)
-        $propinsiId = null;
-        $negara = 'Indonesia';
+        $kodeProvinsi = null;
+        $kodeNegara = 'ID';
 
         if ($locationName) {
             $lowerLoc = strtolower($locationName);
             if (str_contains($lowerLoc, 'yogyakarta') || str_contains($lowerLoc, 'diy')) {
-                $propinsiId = Propinsi::where('nama_provinsi', 'like', '%Yogyakarta%')->value('id');
+                $kodeProvinsi = Propinsi::where('nama_provinsi', 'like', '%Yogyakarta%')->value('kode_provinsi');
             } elseif (str_contains($lowerLoc, 'jakarta')) {
-                $propinsiId = Propinsi::where('nama_provinsi', 'like', '%Jakarta%')->value('id');
+                $kodeProvinsi = Propinsi::where('nama_provinsi', 'like', '%Jakarta%')->value('kode_provinsi');
             }
 
             if (! str_contains($lowerLoc, 'indonesia')) {
@@ -103,7 +104,7 @@ class LinkedInProfileMapper
                 $parts = array_map('trim', explode(',', $locationName));
                 $lastPart = end($parts);
                 if (! empty($lastPart) && strlen($lastPart) > 2) {
-                    $negara = $lastPart;
+                    $kodeNegara = RefNegara::where('nama_negara', 'like', $lastPart)->value('kode_negara') ?: 'ID';
                 }
             }
         }
@@ -112,9 +113,9 @@ class LinkedInProfileMapper
         return Perusahaan::create([
             'nama_perusahaan' => $cleanName,
             'status_verifikasi' => 'Menunggu Verifikasi', // Kebijakan mutlak: Menunggu Verifikasi
-            'propinsi_id' => $propinsiId,
-            'kabupaten_id' => null, // Jangan menebak kabupaten tanpa data pasti
-            'negara' => $negara,
+            'kode_provinsi' => $kodeProvinsi,
+            'kode_kabupaten' => null, // Jangan menebak kabupaten tanpa data pasti
+            'kode_negara' => $kodeNegara,
             'sektor' => 'Teknologi Informasi & Jasa Profesional',
             'skala' => 'Nasional',
             'created_by_user_id' => Auth::id(),

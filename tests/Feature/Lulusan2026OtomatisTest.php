@@ -84,7 +84,7 @@ class Lulusan2026OtomatisTest extends TestCase
         $testNim = '71220099';
 
         $propinsi = Propinsi::firstOrCreate(['kode_provinsi' => '34'], ['nama_provinsi' => 'DI Yogyakarta']);
-        $kabupaten = Kabupaten::firstOrCreate(['kode_kabupaten' => '34.04'], ['propinsi_id' => $propinsi->id, 'nama_kabupaten' => 'Kabupaten Sleman']);
+        $kabupaten = Kabupaten::firstOrCreate(['kode_kabupaten' => '34.04'], ['kode_provinsi' => $propinsi->kode_provinsi, 'nama_kabupaten' => 'Kabupaten Sleman']);
 
         // 1. Tambahkan HANYA di data_akademik
         $dataAkademik = DataAkademik::create([
@@ -97,11 +97,10 @@ class Lulusan2026OtomatisTest extends TestCase
             'tanggal_lulus' => '2026-09-01',
             'ip_kumulatif' => 3.95,
             'total_sks' => 144,
-            'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2002-12-25',
             'jenis_kelamin' => 'Laki-laki',
-            'kabupaten_id' => $kabupaten->id,
-            'propinsi_id' => $propinsi->id,
+            'kode_kabupaten' => $kabupaten->kode_kabupaten,
+            'kode_provinsi' => $propinsi->kode_provinsi,
         ]);
 
         // Pastikan saat ini BELUM ada baris di biodata

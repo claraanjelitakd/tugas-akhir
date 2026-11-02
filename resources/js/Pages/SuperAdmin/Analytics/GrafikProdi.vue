@@ -29,8 +29,19 @@ const loadError = ref('');
 // Menahan request filter selama 250 ms agar perubahan dropdown tidak bertubi-tubi.
 let filterTimer = null;
 
+// Mengambil ID Sistem Informasi dari metadata prodi, bukan mengunci ID database.
+const defaultProdiId = (payload) => {
+    const prodis = payload?.filters?.available_prodis || [];
+    return String(
+        prodis.find((prodi) => String(prodi.kode_prodi) === '72')?.id
+        || prodis.find((prodi) => prodi.has_questions)?.id
+        || prodis[0]?.id
+        || '',
+    );
+};
+
 // ID prodi aktif yang dikirim ke endpoint JSON.
-const selectedProdiId = ref(String(props.analytics?.filters?.selected_prodi_id || '2'));
+const selectedProdiId = ref(String(props.analytics?.filters?.selected_prodi_id || defaultProdiId(props.analytics)));
 // ID bagian pertanyaan aktif yang dikirim ke endpoint JSON.
 const selectedSectionId = ref(String(props.analytics?.filters?.selected_section_id || ''));
 // Tahun lulusan aktif yang dikirim ke endpoint JSON.
@@ -181,7 +192,7 @@ const handleProdiChange = () => {
 
 // Mengembalikan filter ke Sistem Informasi, bagian default, dan tahun berjalan.
 const resetFilters = () => {
-    selectedProdiId.value = '2';
+    selectedProdiId.value = defaultProdiId(currentAnalytics.value);
     selectedSectionId.value = '';
     selectedYear.value = defaultYear();
     selectedItem.value = null;
@@ -248,7 +259,7 @@ watch(totalPages, () => {
 // Menyelaraskan filter lokal setelah server mengembalikan payload baru.
 watch(() => props.analytics, (newAnalytics) => {
     currentAnalytics.value = newAnalytics;
-    selectedProdiId.value = String(newAnalytics?.filters?.selected_prodi_id || '2');
+    selectedProdiId.value = String(newAnalytics?.filters?.selected_prodi_id || defaultProdiId(newAnalytics));
     selectedSectionId.value = String(newAnalytics?.filters?.selected_section_id || '');
     selectedYear.value = String(newAnalytics?.filters?.selected_year || 'ALL');
 }, { deep: true });
@@ -272,7 +283,6 @@ watch(() => props.analytics, (newAnalytics) => {
                     </div>
                     <div class="mt-5 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
                         <div class="min-w-0">
-                            <p class="text-xs font-bold uppercase tracking-[0.18em] text-emerald-200">Tracer Study Program Studi</p>
                             <h1 class="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">Grafik Prodi</h1>
                             <p class="mt-2 max-w-3xl text-sm leading-6 text-emerald-100/90">Eksplorasi instrumen dan jawaban alumni {{ currentProdi.nama_prodi || 'program studi' }} dengan perhitungan yang dapat ditelusuri.</p>
                         </div>
@@ -332,7 +342,13 @@ watch(() => props.analytics, (newAnalytics) => {
                             <div v-for="card in kpiCards" :key="card.label" class="relative flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4.5">
                                 <div>
                                     <dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">{{ card.label }}</dt>
-                                    <dd class="mt-1.5 line-clamp-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl" :title="String(card.value)">{{ card.value }}</dd>
+                                    <dd
+                                        class="mt-1.5 break-words whitespace-normal font-extrabold tracking-tight text-slate-900"
+                                        :class="String(card.value || '').length > 18 ? 'text-sm leading-snug sm:text-base' : (String(card.value || '').length > 10 ? 'text-xl leading-tight sm:text-2xl' : 'text-2xl sm:text-3xl')"
+                                        :title="String(card.value)"
+                                    >
+                                        {{ card.value }}
+                                    </dd>
                                 </div>
                                 <p class="mt-2.5 border-t border-slate-100 pt-2 text-xs leading-relaxed text-slate-500">{{ card.note }}</p>
                             </div>

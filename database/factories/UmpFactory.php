@@ -20,7 +20,7 @@ class UmpFactory extends Factory
     {
         return [
             'kode_provinsi' => Propinsi::inRandomOrder()->value('kode_provinsi') ?? '31',
-            'tahun' => 2026,
+            'tahun' => (int) now()->year,
             'besaran' => fake()->numberBetween(2500000, 5500000),
             'catatan' => null,
         ];

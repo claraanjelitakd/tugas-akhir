@@ -8,6 +8,7 @@
   nominal penghasilan bulanan (tanpa auto-multiplier), serta data kontak atasan langsung.
 -->
 <script setup>
+// Form karier alumni: opsi perusahaan, wilayah, negara, dan pertanyaan berasal dari props database.
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
@@ -513,30 +514,30 @@ if (!props.form.company_jenis_lokasi && !props.form.perusahaan_jenis_lokasi) {
     props.form.company_jenis_lokasi = 'Dalam Negeri';
     props.form.perusahaan_jenis_lokasi = 'Dalam Negeri';
 }
-if (!props.form.company_negara && !props.form.perusahaan_negara) {
-    props.form.company_negara = props.form.company_jenis_lokasi === 'Luar Negeri' ? '' : 'Indonesia';
-    props.form.perusahaan_negara = props.form.company_negara;
+if (!props.form.company_kode_negara && !props.form.perusahaan_kode_negara) {
+    props.form.company_kode_negara = props.form.company_jenis_lokasi === 'Luar Negeri' ? '' : 'ID';
+    props.form.perusahaan_kode_negara = props.form.company_kode_negara;
 }
 
 watch(() => props.form.company_jenis_lokasi, (newVal) => {
     props.form.perusahaan_jenis_lokasi = newVal;
     if (newVal === 'Luar Negeri') {
-        props.form.company_province_id = null;
-        props.form.perusahaan_propinsi_id = null;
-        props.form.company_kabupaten_id = null;
-        props.form.perusahaan_kabupaten_id = null;
-        if (!props.form.company_negara || props.form.company_negara === 'Indonesia') {
-            props.form.company_negara = '';
-            props.form.perusahaan_negara = '';
+        props.form.company_kode_provinsi = null;
+        props.form.perusahaan_kode_provinsi = null;
+        props.form.company_kode_kabupaten = null;
+        props.form.perusahaan_kode_kabupaten = null;
+        if (!props.form.company_kode_negara || props.form.company_kode_negara === 'ID') {
+            props.form.company_kode_negara = '';
+            props.form.perusahaan_kode_negara = '';
         }
     } else {
-        props.form.company_negara = 'Indonesia';
-        props.form.perusahaan_negara = 'Indonesia';
+        props.form.company_kode_negara = 'ID';
+        props.form.perusahaan_kode_negara = 'ID';
     }
 });
 
-watch(() => props.form.company_negara, (newVal) => {
-    props.form.perusahaan_negara = newVal;
+watch(() => props.form.company_kode_negara, (newVal) => {
+    props.form.perusahaan_kode_negara = newVal;
 });
 
 // Dropdown Provinsi
@@ -544,8 +545,8 @@ const showProvinsiDropdown = ref(false);
 const searchProvinsiQuery = ref('');
 
 const selectedProvinceName = computed(() => {
-    if (!props.form.company_province_id || !props.provinces) return '';
-    const prov = props.provinces.find(p => p.id == props.form.company_province_id);
+    if (!props.form.company_kode_provinsi || !props.provinces) return '';
+    const prov = props.provinces.find(p => p.kode_provinsi == props.form.company_kode_provinsi);
     return prov ? prov.nama_provinsi : '';
 });
 
@@ -557,19 +558,19 @@ const filteredProvinces = computed(() => {
 });
 
 const selectProvinsi = (prov) => {
-    props.form.company_province_id = prov.id;
-    props.form.perusahaan_propinsi_id = prov.id;
-    props.form.company_kabupaten_id = '';
-    props.form.perusahaan_kabupaten_id = '';
+    props.form.company_kode_provinsi = prov.kode_provinsi;
+    props.form.perusahaan_kode_provinsi = prov.kode_provinsi;
+    props.form.company_kode_kabupaten = '';
+    props.form.perusahaan_kode_kabupaten = '';
     showProvinsiDropdown.value = false;
     searchProvinsiQuery.value = '';
 };
 
 const clearProvinsi = () => {
-    props.form.company_province_id = null;
-    props.form.perusahaan_propinsi_id = null;
-    props.form.company_kabupaten_id = null;
-    props.form.perusahaan_kabupaten_id = null;
+    props.form.company_kode_provinsi = null;
+    props.form.perusahaan_kode_provinsi = null;
+    props.form.company_kode_kabupaten = null;
+    props.form.perusahaan_kode_kabupaten = null;
     showProvinsiDropdown.value = false;
     searchProvinsiQuery.value = '';
 };
@@ -579,15 +580,15 @@ const showKabupatenDropdown = ref(false);
 const searchKabupatenQuery = ref('');
 
 const selectedKabupatenName = computed(() => {
-    if (!props.form.company_kabupaten_id || !props.kabupatens) return '';
-    const kab = props.kabupatens.find(k => k.id == props.form.company_kabupaten_id);
+    if (!props.form.company_kode_kabupaten || !props.kabupatens) return '';
+    const kab = props.kabupatens.find(k => k.kode_kabupaten == props.form.company_kode_kabupaten);
     return kab ? kab.nama_kabupaten : '';
 });
 
 const filteredKabupatens = computed(() => {
     let list = props.kabupatens || [];
-    if (props.form.company_province_id) {
-        list = list.filter(k => k.province_id == props.form.company_province_id);
+    if (props.form.company_kode_provinsi) {
+        list = list.filter(k => k.kode_provinsi == props.form.company_kode_provinsi);
     }
     if (!searchKabupatenQuery.value.trim()) return list;
     const q = searchKabupatenQuery.value.toLowerCase();
@@ -595,15 +596,15 @@ const filteredKabupatens = computed(() => {
 });
 
 const selectKabupaten = (kab) => {
-    props.form.company_kabupaten_id = kab.id;
-    props.form.perusahaan_kabupaten_id = kab.id;
+    props.form.company_kode_kabupaten = kab.kode_kabupaten;
+    props.form.perusahaan_kode_kabupaten = kab.kode_kabupaten;
     showKabupatenDropdown.value = false;
     searchKabupatenQuery.value = '';
 };
 
 const clearKabupaten = () => {
-    props.form.company_kabupaten_id = null;
-    props.form.perusahaan_kabupaten_id = null;
+    props.form.company_kode_kabupaten = null;
+    props.form.perusahaan_kode_kabupaten = null;
     showKabupatenDropdown.value = false;
     searchKabupatenQuery.value = '';
 };
@@ -613,8 +614,8 @@ const showNegaraDropdown = ref(false);
 const searchNegaraQuery = ref('');
 
 const selectedNegaraName = computed(() => {
-    if (!props.form.company_negara || props.form.company_negara === 'Indonesia') return '';
-    return props.form.company_negara;
+    if (!props.form.company_kode_negara || props.form.company_kode_negara === 'ID') return '';
+    return props.form.company_kode_negara;
 });
 
 const filteredNegaras = computed(() => {
@@ -625,20 +626,20 @@ const filteredNegaras = computed(() => {
         n.nama_negara.toLowerCase().includes(q) ||
         (n.benua && n.benua.toLowerCase().includes(q)) ||
         (n.ibu_kota && n.ibu_kota.toLowerCase().includes(q)) ||
-        (n.kode_iso2 && n.kode_iso2.toLowerCase().includes(q))
+        (n.kode_negara && n.kode_negara.toLowerCase().includes(q))
     );
 });
 
 const selectNegara = (neg) => {
-    props.form.company_negara = neg.nama_negara;
-    props.form.perusahaan_negara = neg.nama_negara;
+    props.form.company_kode_negara = neg.kode_negara;
+    props.form.perusahaan_kode_negara = neg.kode_negara;
     showNegaraDropdown.value = false;
     searchNegaraQuery.value = '';
 };
 
 const clearNegara = () => {
-    props.form.company_negara = '';
-    props.form.perusahaan_negara = '';
+    props.form.company_kode_negara = '';
+    props.form.perusahaan_kode_negara = '';
     showNegaraDropdown.value = false;
     searchNegaraQuery.value = '';
 };
@@ -655,16 +656,16 @@ const filteredCompanies = computed(() => {
     }
 
     if (props.form.company_jenis_lokasi === 'Luar Negeri') {
-        if (props.form.company_negara && props.form.company_negara !== 'Indonesia') {
-            const qNegara = props.form.company_negara.toLowerCase();
-            list = list.filter(c => c.negara && c.negara.toLowerCase() === qNegara);
+        if (props.form.company_kode_negara && props.form.company_kode_negara !== 'ID') {
+            const qNegara = props.form.company_kode_negara.toLowerCase();
+            list = list.filter(c => c.kode_negara && c.kode_negara.toLowerCase() === qNegara);
         }
     } else {
-        if (props.form.company_province_id) {
-            list = list.filter(c => c.province_id == props.form.company_province_id);
+        if (props.form.company_kode_provinsi) {
+            list = list.filter(c => c.kode_provinsi == props.form.company_kode_provinsi);
         }
-        if (props.form.company_kabupaten_id) {
-            list = list.filter(c => c.kabupaten_id == props.form.company_kabupaten_id);
+        if (props.form.company_kode_kabupaten) {
+            list = list.filter(c => c.kode_kabupaten == props.form.company_kode_kabupaten);
         }
     }
 
@@ -672,7 +673,7 @@ const filteredCompanies = computed(() => {
     const q = searchCompanyQuery.value.toLowerCase();
     return list.filter(c =>
         c.nama_perusahaan.toLowerCase().includes(q) ||
-        (c.negara && c.negara.toLowerCase().includes(q)) ||
+        (c.kode_negara && c.kode_negara.toLowerCase().includes(q)) ||
         (c.alamat && c.alamat.toLowerCase().includes(q))
     );
 });
@@ -684,17 +685,17 @@ const selectCompany = (company) => {
         props.form.company_jenis_lokasi = company.jenis_lokasi;
         props.form.perusahaan_jenis_lokasi = company.jenis_lokasi;
     }
-    if (company.negara) {
-        props.form.company_negara = company.negara;
-        props.form.perusahaan_negara = company.negara;
+    if (company.kode_negara) {
+        props.form.company_kode_negara = company.kode_negara;
+        props.form.perusahaan_kode_negara = company.kode_negara;
     }
-    if (company.province_id) {
-        props.form.company_province_id = company.province_id;
-        props.form.perusahaan_propinsi_id = company.province_id;
+    if (company.kode_provinsi) {
+        props.form.company_kode_provinsi = company.kode_provinsi;
+        props.form.perusahaan_kode_provinsi = company.kode_provinsi;
     }
-    if (company.kabupaten_id) {
-        props.form.company_kabupaten_id = company.kabupaten_id;
-        props.form.perusahaan_kabupaten_id = company.kabupaten_id;
+    if (company.kode_kabupaten) {
+        props.form.company_kode_kabupaten = company.kode_kabupaten;
+        props.form.perusahaan_kode_kabupaten = company.kode_kabupaten;
     }
     if (company.alamat) {
         props.form.company_alamat = company.alamat;
@@ -788,9 +789,9 @@ const newCompanyForm = ref({
     nama_perusahaan: '',
     bentuk_perusahaan: 'Perusahaan Terbatas',
     jenis_lokasi: 'Dalam Negeri',
-    negara: 'Indonesia',
-    province_id: '',
-    kabupaten_id: '',
+    kode_negara: 'ID',
+    kode_provinsi: '',
+    kode_kabupaten: '',
     kode_pos: '',
     skala: 'Regional/Lokal',
     jenis_perusahaan: 'Perusahaan swasta',
@@ -811,20 +812,20 @@ const foreignCountries = computed(() => {
 // agar HANYA menampilkan kabupaten yang berada di bawah provinsi yang dipilih pengguna saat ini.
 const modalFilteredKabupatens = computed(() => {
     // Jika provinsi belum dipilih, kosongkan opsi kabupaten
-    if (!newCompanyForm.value.province_id) {
+    if (!newCompanyForm.value.kode_provinsi) {
         return [];
     }
     // Filter array kabupaten berdasarkan kecocokan ID provinsi
-    return (props.kabupatens || []).filter(k => String(k.province_id) === String(newCompanyForm.value.province_id));
+    return (props.kabupatens || []).filter(k => String(k.kode_provinsi) === String(newCompanyForm.value.kode_provinsi));
 });
 
 // watch() adalah pemantau (listener) yang berjalan setiap kali variabel tertentu berubah nilai.
-// Di bawah ini, jika pengguna mengganti provinsi (province_id), watch akan memeriksa:
+// Di bawah ini, jika pengguna mengganti provinsi (kode_provinsi), watch akan memeriksa:
 // apakah kabupaten yang dipilih sebelumnya masih ada di provinsi baru? Jika tidak, reset jadi kosong.
-watch(() => newCompanyForm.value.province_id, (newProvId) => {
-    const isKabupatenStillValid = modalFilteredKabupatens.value.some(k => String(k.id) === String(newCompanyForm.value.kabupaten_id));
+watch(() => newCompanyForm.value.kode_provinsi, (newProvId) => {
+    const isKabupatenStillValid = modalFilteredKabupatens.value.some(k => String(k.id) === String(newCompanyForm.value.kode_kabupaten));
     if (!newProvId || !isKabupatenStillValid) {
-        newCompanyForm.value.kabupaten_id = '';
+        newCompanyForm.value.kode_kabupaten = '';
     }
 });
 
@@ -833,14 +834,14 @@ watch(() => newCompanyForm.value.province_id, (newProvId) => {
 watch(() => newCompanyForm.value.jenis_lokasi, (newLokasi) => {
     if (newLokasi === 'Luar Negeri') {
         // Jika Luar Negeri, kita tidak butuh provinsi & kabupaten Indonesia
-        newCompanyForm.value.province_id = '';
-        newCompanyForm.value.kabupaten_id = '';
+        newCompanyForm.value.kode_provinsi = '';
+        newCompanyForm.value.kode_kabupaten = '';
         if (newCompanyForm.value.skala === 'Regional/Lokal') {
             newCompanyForm.value.skala = 'Internasional';
         }
     } else {
         // Jika Dalam Negeri, otomatis atur nama negara ke Indonesia
-        newCompanyForm.value.negara = 'Indonesia';
+        newCompanyForm.value.kode_negara = 'ID';
         if (newCompanyForm.value.skala === 'Internasional') {
             newCompanyForm.value.skala = 'Nasional';
         }
@@ -863,9 +864,9 @@ const openAddCompanyModal = () => {
         nama_perusahaan: '',
         bentuk_perusahaan: props.form.company_bentuk || props.form.perusahaan_bentuk || 'Perusahaan Terbatas',
         jenis_lokasi: initialJenisLokasi,
-        negara: isLuar ? (props.form.company_negara || '') : 'Indonesia',
-        province_id: isLuar ? '' : (props.form.company_province_id || ''),
-        kabupaten_id: isLuar ? '' : (props.form.company_kabupaten_id || ''),
+        kode_negara: isLuar ? (props.form.company_kode_negara || '') : 'ID',
+        kode_provinsi: isLuar ? '' : (props.form.company_kode_provinsi || ''),
+        kode_kabupaten: isLuar ? '' : (props.form.company_kode_kabupaten || ''),
         kode_pos: props.form.zipcode || props.form.company_kode_pos || '',
         skala: props.form.company_skala || (isLuar ? 'Internasional' : 'Regional/Lokal'),
         jenis_perusahaan: props.form.company_jenis_perusahaan || 'Perusahaan swasta',
@@ -904,16 +905,16 @@ const submitNewCompany = async () => {
 
     // 2. Validasi wilayah berdasarkan jenis lokasi
     if (isLuar) {
-        if (!formVal.negara || formVal.negara === 'Indonesia' || !foreignCountries.value.some(n => n.nama_negara === formVal.negara)) {
+        if (!formVal.kode_negara || formVal.kode_negara === 'ID' || !foreignCountries.value.some(n => n.kode_negara === formVal.kode_negara)) {
             companyModalError.value = 'Silakan pilih salah satu negara di luar negeri dari daftar master resmi.';
             return;
         }
     } else {
-        if (!formVal.province_id) {
+        if (!formVal.kode_provinsi) {
             companyModalError.value = 'Provinsi Perusahaan wajib dipilih.';
             return;
         }
-        if (!formVal.kabupaten_id) {
+        if (!formVal.kode_kabupaten) {
             companyModalError.value = 'Kabupaten / Kota Perusahaan wajib dipilih.';
             return;
         }
@@ -939,9 +940,9 @@ const submitNewCompany = async () => {
                 nama_perusahaan: nama,
                 bentuk_perusahaan: formVal.bentuk_perusahaan || null,
                 jenis_lokasi: formVal.jenis_lokasi,
-                negara: isLuar ? formVal.negara : 'Indonesia',
-                province_id: isLuar ? null : formVal.province_id,
-                kabupaten_id: isLuar ? null : formVal.kabupaten_id,
+                kode_negara: isLuar ? formVal.kode_negara : 'ID',
+                kode_provinsi: isLuar ? null : formVal.kode_provinsi,
+                kode_kabupaten: isLuar ? null : formVal.kode_kabupaten,
                 kode_pos: formVal.kode_pos ? formVal.kode_pos.trim() : null,
                 skala: formVal.skala || (isLuar ? 'Internasional' : 'Regional/Lokal'),
                 jenis_perusahaan: formVal.jenis_perusahaan || 'Perusahaan swasta',
@@ -966,14 +967,14 @@ const submitNewCompany = async () => {
         props.form.nama_perusahaan = newCompany.nama_perusahaan;
         props.form.company_bentuk = newCompany.bentuk_perusahaan || '';
         props.form.perusahaan_bentuk = props.form.company_bentuk;
-        props.form.company_jenis_lokasi = newCompany.jenis_lokasi || (newCompany.negara && newCompany.negara !== 'Indonesia' ? 'Luar Negeri' : 'Dalam Negeri');
+        props.form.company_jenis_lokasi = newCompany.jenis_lokasi || (newCompany.kode_negara && newCompany.kode_negara !== 'ID' ? 'Luar Negeri' : 'Dalam Negeri');
         props.form.perusahaan_jenis_lokasi = props.form.company_jenis_lokasi;
-        props.form.company_negara = newCompany.negara || (props.form.company_jenis_lokasi === 'Luar Negeri' ? '' : 'Indonesia');
-        props.form.perusahaan_negara = props.form.company_negara;
-        props.form.company_province_id = newCompany.province_id;
-        props.form.perusahaan_propinsi_id = newCompany.province_id;
-        props.form.company_kabupaten_id = newCompany.kabupaten_id;
-        props.form.perusahaan_kabupaten_id = newCompany.kabupaten_id;
+        props.form.company_kode_negara = newCompany.kode_negara || (props.form.company_jenis_lokasi === 'Luar Negeri' ? '' : 'ID');
+        props.form.perusahaan_kode_negara = props.form.company_kode_negara;
+        props.form.company_kode_provinsi = newCompany.kode_provinsi;
+        props.form.perusahaan_kode_provinsi = newCompany.kode_provinsi;
+        props.form.company_kode_kabupaten = newCompany.kode_kabupaten;
+        props.form.perusahaan_kode_kabupaten = newCompany.kode_kabupaten;
         props.form.company_alamat = newCompany.alamat || '';
         props.form.company_skala = newCompany.skala === 'Lokal' ? 'Regional/Lokal' : (newCompany.skala || 'Regional/Lokal');
         props.form.perusahaan_skala = props.form.company_skala;
@@ -1577,14 +1578,14 @@ onUnmounted(() => {
                                 :key="neg.id"
                                 @click="selectNegara(neg)"
                                 class="px-4 py-2.5 hover:bg-slate-50 hover:text-[#0D542B] cursor-pointer text-sm font-medium transition-colors flex items-center justify-between"
-                                :class="{'bg-slate-100 text-[#0D542B] font-semibold': form.company_negara === neg.nama_negara}"
+                                :class="{'bg-slate-100 text-[#0D542B] font-semibold': form.company_kode_negara === neg.kode_negara}"
                             >
                                 <div class="flex items-center gap-2">
                                     <span>{{ neg.nama_negara }}</span>
-                                    <span v-if="neg.kode_iso2" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 uppercase">{{ neg.kode_iso2 }}</span>
+                                    <span v-if="neg.kode_negara" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 uppercase">{{ neg.kode_negara }}</span>
                                 </div>
                                 <div class="text-xs text-gray-400 font-normal">
-                                    {{ neg.benua || 'Luar Negeri' }} <span v-if="neg.ibu_kota">• {{ neg.ibu_kota }}</span>
+                                    {{ neg.benua || 'Luar Negeri' }} <span v-if="neg.ibu_kota"> - {{ neg.ibu_kota }}</span>
                                 </div>
                             </li>
                             <li v-if="filteredNegaras.length === 0" class="px-4 py-6 text-center text-sm text-gray-400">
@@ -1603,7 +1604,7 @@ onUnmounted(() => {
                                 Provinsi Perusahaan <span class="text-rose-500 font-bold">*</span>
                             </label>
                             <button
-                                v-if="form.company_province_id"
+                                v-if="form.company_kode_provinsi"
                                 type="button"
                                 @click="clearProvinsi"
                                 class="text-[11px] font-bold text-gray-500 hover:text-rose-600 cursor-pointer"
@@ -1639,10 +1640,10 @@ onUnmounted(() => {
                             <ul class="max-h-52 overflow-y-auto">
                                 <li
                                     v-for="prov in filteredProvinces"
-                                    :key="prov.id"
+                                    :key="prov.kode_provinsi"
                                     @click="selectProvinsi(prov)"
                                     class="px-4 py-2.5 hover:bg-slate-50 hover:text-[#0D542B] cursor-pointer text-sm font-medium transition-colors border-b border-gray-50 last:border-b-0"
-                                    :class="{'bg-slate-100 text-[#0D542B] font-semibold': form.company_province_id == prov.id}"
+                                    :class="{'bg-slate-100 text-[#0D542B] font-semibold': form.company_kode_provinsi == prov.kode_provinsi}"
                                 >
                                     {{ prov.nama_provinsi }}
                                 </li>
@@ -1660,7 +1661,7 @@ onUnmounted(() => {
                                 Kabupaten / Kota Perusahaan <span class="text-rose-500 font-bold">*</span>
                             </label>
                             <button
-                                v-if="form.company_kabupaten_id"
+                                v-if="form.company_kode_kabupaten"
                                 type="button"
                                 @click="clearKabupaten"
                                 class="text-[11px] font-bold text-gray-500 hover:text-rose-600 cursor-pointer"
@@ -1670,21 +1671,21 @@ onUnmounted(() => {
                         </div>
 
                         <div
-                            @click="if (form.company_province_id) { showKabupatenDropdown = !showKabupatenDropdown; if (showKabupatenDropdown) searchKabupatenQuery = ''; }"
+                            @click="if (form.company_kode_provinsi) { showKabupatenDropdown = !showKabupatenDropdown; if (showKabupatenDropdown) searchKabupatenQuery = ''; }"
                             class="w-full rounded-xl border px-4 py-3 text-sm font-medium cursor-pointer flex justify-between items-center shadow-xs transition-colors"
                             :class="[
-                                !form.company_province_id ? 'opacity-60 cursor-not-allowed bg-gray-50 border-gray-200 text-gray-400' :
+                                !form.company_kode_provinsi ? 'opacity-60 cursor-not-allowed bg-gray-50 border-gray-200 text-gray-400' :
                                 'border-gray-300 bg-white text-gray-900 hover:border-[#0D542B]'
                             ]"
                         >
                             <span v-if="selectedKabupatenName" class="text-gray-900 font-medium">{{ selectedKabupatenName }}</span>
                             <span v-else class="text-gray-400">
-                                {{ form.company_province_id ? 'Pilih Kabupaten/Kota...' : 'Pilih Provinsi terlebih dahulu' }}
+                                {{ form.company_kode_provinsi ? 'Pilih Kabupaten/Kota...' : 'Pilih Provinsi terlebih dahulu' }}
                             </span>
                             <svg class="w-4 h-4 text-gray-400 shrink-0 ml-2 transition-transform duration-200" :class="{'rotate-180': showKabupatenDropdown}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </div>
 
-                        <div v-if="showKabupatenDropdown && form.company_province_id" class="absolute z-50 w-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+                        <div v-if="showKabupatenDropdown && form.company_kode_provinsi" class="absolute z-50 w-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
                             <div class="p-2.5 border-b border-gray-100 bg-gray-50/80">
                                 <div class="relative">
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1702,10 +1703,10 @@ onUnmounted(() => {
                             <ul class="max-h-52 overflow-y-auto">
                                 <li
                                     v-for="kab in filteredKabupatens"
-                                    :key="kab.id"
+                                    :key="kab.kode_kabupaten"
                                     @click="selectKabupaten(kab)"
                                     class="px-4 py-2.5 hover:bg-slate-50 hover:text-[#0D542B] cursor-pointer text-sm font-medium transition-colors border-b border-gray-50 last:border-b-0"
-                                    :class="{'bg-slate-100 text-[#0D542B] font-semibold': form.company_kabupaten_id == kab.id}"
+                                    :class="{'bg-slate-100 text-[#0D542B] font-semibold': form.company_kode_kabupaten == kab.kode_kabupaten}"
                                 >
                                     {{ kab.nama_kabupaten }}
                                 </li>
@@ -1734,7 +1735,7 @@ onUnmounted(() => {
                         >
                             <span v-if="form.nama_perusahaan" class="text-gray-900 font-semibold truncate">{{ form.nama_perusahaan }}</span>
                             <span v-else class="text-gray-400">
-                                {{ (form.company_province_id || form.company_negara) ? 'Pilih atau cari perusahaan di wilayah ini...' : 'Pilih atau cari nama perusahaan...' }}
+                                {{ (form.company_kode_provinsi || form.company_kode_negara) ? 'Pilih atau cari perusahaan di wilayah ini...' : 'Pilih atau cari nama perusahaan...' }}
                             </span>
                             <svg class="w-4 h-4 text-gray-400 shrink-0 ml-2 transition-transform duration-200" :class="{'rotate-180': showCompanyDropdown}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </div>
@@ -1747,7 +1748,7 @@ onUnmounted(() => {
                             class="px-3.5 py-3 bg-gray-100 hover:bg-rose-50 text-gray-600 hover:text-rose-600 rounded-xl transition-colors shrink-0 text-xs font-bold border border-gray-200 cursor-pointer flex items-center gap-1 shadow-2xs"
                             title="Kosongkan Pilihan Perusahaan"
                         >
-                            <span>✕ Kosongkan</span>
+                            <span>Kosongkan</span>
                         </button>
 
                         <!-- Tombol Tambah Perusahaan Baru -->
@@ -1785,7 +1786,7 @@ onUnmounted(() => {
                                 @click="clearCompany"
                                 class="px-4 py-2.5 hover:bg-rose-50 text-rose-600 cursor-pointer text-xs font-bold border-b border-gray-100 flex items-center gap-1.5 transition-colors"
                             >
-                                <span>✕ Kosongkan Pilihan Perusahaan</span>
+                                <span>Kosongkan Pilihan Perusahaan</span>
                             </li>
 
                             <li
@@ -1799,12 +1800,12 @@ onUnmounted(() => {
                                     <span class="block text-gray-800" :class="{'text-[#0D542B] font-bold': form.nama_perusahaan === company.nama_perusahaan}">
                                         {{ company.nama_perusahaan }}
                                     </span>
-                                    <span class="text-xs text-gray-400" v-if="company.jenis_lokasi === 'Luar Negeri' || (company.negara && company.negara !== 'Indonesia')">
-                                        {{ company.negara || 'Luar Negeri' }}
+                                    <span class="text-xs text-gray-400" v-if="company.jenis_lokasi === 'Luar Negeri' || (company.kode_negara && company.kode_negara !== 'ID')">
+                                        {{ company.kode_negara || 'Luar Negeri' }}
                                     </span>
-                                    <span class="text-xs text-gray-400" v-else-if="company.province_id">
-                                        {{ provinces.find(p => p.id == company.province_id)?.nama_provinsi || '' }}
-                                        {{ company.kabupaten_id ? ' - ' + (kabupatens.find(k => k.id == company.kabupaten_id)?.nama_kabupaten || '') : '' }}
+                                    <span class="text-xs text-gray-400" v-else-if="company.kode_provinsi">
+                                        {{ provinces.find(p => p.kode_provinsi == company.kode_provinsi)?.nama_provinsi || '' }}
+                                        {{ company.kode_kabupaten ? ' - ' + (kabupatens.find(k => k.kode_kabupaten == company.kode_kabupaten)?.nama_kabupaten || '') : '' }}
                                     </span>
                                 </div>
                                 <span v-if="company.status_verifikasi === 'Terverifikasi'" class="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold shrink-0 ml-2">
@@ -2278,14 +2279,14 @@ onUnmounted(() => {
                                 Negara Tempat Bekerja <span class="text-rose-500">*</span>
                             </label>
                             <select
-                                v-model="newCompanyForm.negara"
+                                v-model="newCompanyForm.kode_negara"
                                 class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
                             >
                                 <option value="">-- Pilih Negara di Luar Negeri --</option>
                                 <option
                                     v-for="n in foreignCountries"
-                                    :key="n.id || n.nama_negara"
-                                    :value="n.nama_negara"
+                                    :key="n.kode_negara"
+                                    :value="n.kode_negara"
                                 >
                                     {{ n.nama_negara }} ({{ n.benua || 'Dunia' }})
                                 </option>
@@ -2299,14 +2300,14 @@ onUnmounted(() => {
                                     Provinsi <span class="text-rose-500">*</span>
                                 </label>
                                 <select
-                                    v-model="newCompanyForm.province_id"
+                                    v-model="newCompanyForm.kode_provinsi"
                                     class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
                                 >
                                     <option value="">-- Pilih Provinsi --</option>
                                     <option
                                         v-for="prov in props.provinces || []"
-                                        :key="prov.id"
-                                        :value="prov.id"
+                                        :key="prov.kode_provinsi"
+                                        :value="prov.kode_provinsi"
                                     >
                                         {{ prov.nama_provinsi }}
                                     </option>
@@ -2317,15 +2318,15 @@ onUnmounted(() => {
                                     Kabupaten / Kota <span class="text-rose-500">*</span>
                                 </label>
                                 <select
-                                    v-model="newCompanyForm.kabupaten_id"
-                                    :disabled="!newCompanyForm.province_id"
+                                    v-model="newCompanyForm.kode_kabupaten"
+                                    :disabled="!newCompanyForm.kode_provinsi"
                                     class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all disabled:bg-slate-100 disabled:text-slate-400"
                                 >
                                     <option value="">-- Pilih Kabupaten --</option>
                                     <option
                                         v-for="kab in modalFilteredKabupatens"
-                                        :key="kab.id"
-                                        :value="kab.id"
+                                        :key="kab.kode_kabupaten"
+                                        :value="kab.kode_kabupaten"
                                     >
                                         {{ kab.nama_kabupaten }}
                                     </option>

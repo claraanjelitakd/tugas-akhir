@@ -291,10 +291,10 @@ if ($percent >= 60 && (int) $percent > $nameScore) {
 ### Tahap 4: Pembobotan Lokasi Geografis (Geographic Location Bonus)
 
 Perusahaan dengan nama mirip akan memiliki probabilitas kecocokan yang jauh lebih tinggi jika berdomisili di wilayah yang sama:
-- **Kota/Kabupaten Sama** (`kabupaten_id` identik) & Skor Nama $\ge 35$:
+- **Kota/Kabupaten Sama** (`kode_kabupaten` identik) & Skor Nama $\ge 35$:
   $$\text{totalScore} += 20 \text{ poin}$$
   Alasan: `"Kota/Kabupaten Sama (Nama Kabupaten)"`
-- **Provinsi Sama** (`propinsi_id` identik) & Skor Nama $\ge 35$:
+- **Provinsi Sama** (`kode_provinsi` identik) & Skor Nama $\ge 35$:
   $$\text{totalScore} += 10 \text{ poin}$$
   Alasan: `"Provinsi Sama (Nama Provinsi)"`
 - Nilai total dibatasi maksimal 100 poin (`min(100, $totalScore)`).
@@ -323,8 +323,8 @@ Setiap item rekomendasi menghasilkan payload berikut untuk dirender di antarmuka
   "id": 12,
   "nama_perusahaan": "PT Bank Central Asia Tbk",
   "alamat": "Jl. Sudirman No. 45",
-  "propinsi_id": 14,
-  "kabupaten_id": 204,
+  "kode_provinsi": "34",
+  "kode_kabupaten": "34.04",
   "nama_provinsi": "D.I. Yogyakarta",
   "nama_kabupaten": "Kota Yogyakarta",
   "sektor": "Perbankan & Keuangan",

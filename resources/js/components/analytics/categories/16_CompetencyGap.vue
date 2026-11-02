@@ -3,7 +3,7 @@
  * Komponen Indikator 16: Gap Kompetensi Lulusan (F17).
  *
  * Mengelola visualisasi gap kompetensi lulusan dalam 1 grafik terpadu:
- * - Batang (Bar): Kompetensi Saat Lulus (A) dan Kompetensi Diperlukan di Pekerjaan (B).
+ * - Batang (Bar): Rata-rata Kompetensi Saat Lulus (A) dan Kompetensi Diperlukan di Pekerjaan (B).
  * - Garis (Line): Gap Selisih (A - B) dengan penanda surplus (+) atau defisit (-).
  * Dilengkapi narasi analisis mendalam berstandar laporan resmi Tracer Study UKDW Subbab 4.17.
  */
@@ -43,7 +43,7 @@ const chartColors = {
 };
 
 // -----------------------------------------------------------------------------
-// 1 GRAFIK TERPADU: Batang (Saat Lulus & Diperlukan) + Garis (Gap Selisih)
+// 1 GRAFIK TERPADU: Batang rata-rata (Saat Lulus & Diperlukan) + Garis (Gap Selisih)
 // -----------------------------------------------------------------------------
 const unifiedOption = computed(() => {
     const labels = series.value.map(seriesLabel);
@@ -52,7 +52,7 @@ const unifiedOption = computed(() => {
     const gapScores = series.value.map((item) => {
         const grad = Number(item.graduation_score || 0);
         const need = Number(item.need_score || 0);
-        return Number((grad - need).toFixed(2));
+        return Math.round(grad - need);
     });
 
     return {
@@ -113,7 +113,7 @@ const unifiedOption = computed(() => {
                 const titleText = escapeHtml(params[0]?.name || '');
                 const grad = Number(params.find((p) => p.seriesName.includes('Saat Lulus'))?.value || 0);
                 const need = Number(params.find((p) => p.seriesName.includes('Diperlukan'))?.value || 0);
-                const gap = Number((grad - need).toFixed(2));
+                const gap = Math.round(grad - need);
                 const gapSign = gap > 0 ? `+${gap}` : `${gap}`;
                 const gapStatus = gap >= 0
                     ? '<span style="color:#0D542B;font-weight:700">Surplus (Bekal Terpenuhi)</span>'
@@ -122,8 +122,8 @@ const unifiedOption = computed(() => {
                 return `
                     <div class="space-y-1">
                         <p class="font-extrabold text-sm border-b border-emerald-100 pb-1 text-[#0D542B]">${titleText}</p>
-                        <p class="text-xs text-slate-600">Saat Lulus (A): <strong class="text-[#0D542B]">${formatNumber(grad, 2)}</strong></p>
-                        <p class="text-xs text-slate-600">Diperlukan Kerja (B): <strong class="text-[#0D542B]">${formatNumber(need, 2)}</strong></p>
+                        <p class="text-xs text-slate-600">Saat Lulus (A): <strong class="text-[#0D542B]">${formatNumber(grad, 0)}</strong></p>
+                        <p class="text-xs text-slate-600">Diperlukan Kerja (B): <strong class="text-[#0D542B]">${formatNumber(need, 0)}</strong></p>
                         <p class="text-xs text-slate-600">Gap Selisih (A - B): <strong class="text-[#0D542B]">${gapSign}</strong> (${gapStatus})</p>
                     </div>
                 `;
@@ -141,7 +141,7 @@ const unifiedOption = computed(() => {
                 label: {
                     show: true,
                     position: 'top',
-                    formatter: ({ value }) => formatNumber(value, 2),
+                    formatter: ({ value }) => formatNumber(value, 0),
                     fontSize: 10,
                     fontWeight: 'bold',
                     color: chartColors.graduation,
@@ -158,7 +158,7 @@ const unifiedOption = computed(() => {
                 label: {
                     show: true,
                     position: 'top',
-                    formatter: ({ value }) => formatNumber(value, 2),
+                    formatter: ({ value }) => formatNumber(value, 0),
                     fontSize: 10,
                     fontWeight: 'bold',
                     color: '#475569',
@@ -183,7 +183,7 @@ const unifiedOption = computed(() => {
 
                         if (dataIndex !== firstIndex) return '';
 
-                        return value > 0 ? `+${formatNumber(value, 2)}` : formatNumber(value, 2);
+                        return value > 0 ? `+${formatNumber(value, 0)}` : formatNumber(value, 0);
                     },
                     fontSize: 10,
                     fontWeight: 'bold',
@@ -205,12 +205,12 @@ const unifiedTable = computed(() => ({
     rows: series.value.map((item) => {
         const grad = Number(item.graduation_score || 0);
         const need = Number(item.need_score || 0);
-        const gap = Number((grad - need).toFixed(2));
+        const gap = Math.round(grad - need);
         return {
             name: seriesLabel(item),
-            graduation: formatNumber(grad, 2),
-            need: formatNumber(need, 2),
-            gap: gap > 0 ? `+${formatNumber(gap, 2)}` : formatNumber(gap, 2),
+            graduation: formatNumber(grad, 0),
+            need: formatNumber(need, 0),
+            gap: gap > 0 ? `+${formatNumber(gap, 0)}` : formatNumber(gap, 0),
             status: gap >= 0 ? 'Surplus (Terpenuhi)' : 'Defisit (Evaluasi)',
         };
     }),
@@ -221,7 +221,7 @@ const dynamicGapAnalysis = computed(() => {
     const items = series.value.map((item) => {
         const grad = Number(item.graduation_score || 0);
         const need = Number(item.need_score || 0);
-        const gap = Number((grad - need).toFixed(2));
+        const gap = Math.round(grad - need);
         return {
             name: seriesLabel(item),
             grad,
@@ -248,11 +248,11 @@ const dynamicGapAnalysis = computed(() => {
     const topGrad = sortedByGrad[0];
     const bottomGrad = sortedByGrad[sortedByGrad.length - 1];
 
-    const rincianList = sortedByGap.map((i, idx) => `${idx + 1}. ${i.name} (gap: ${i.gap > 0 ? `+${formatNumber(i.gap, 2)}` : formatNumber(i.gap, 2)})`).join(', ');
+    const rincianList = sortedByGap.map((i, idx) => `${idx + 1}. ${i.name} (gap: ${i.gap > 0 ? `+${formatNumber(i.gap, 0)}` : formatNumber(i.gap, 0)})`).join(', ');
 
-    const lead = `Gambar 4.17 menyajikan perbandingan bekal kompetensi saat lulus dengan kebutuhan dunia kerja beserta gap selisihnya pada 7 dimensi. Kompetensi dengan kepemilikan tertinggi saat lulus adalah ${topGrad.name} (skor ${formatNumber(topGrad.grad, 2)}), sedangkan terendah adalah ${bottomGrad.name} (skor ${formatNumber(bottomGrad.grad, 2)}).`;
+    const lead = `Gambar 4.17 menyajikan perbandingan bekal kompetensi saat lulus dengan kebutuhan dunia kerja beserta gap selisihnya pada 7 dimensi. Kompetensi dengan kepemilikan tertinggi saat lulus adalah ${topGrad.name} (skor ${formatNumber(topGrad.grad, 0)}), sedangkan terendah adalah ${bottomGrad.name} (skor ${formatNumber(bottomGrad.grad, 0)}).`;
 
-    const detail = `Berdasarkan selisih gap (bekal lulus dikurangi kebutuhan kerja), dimensi dengan gap paling surplus/selaras adalah ${topGap.name} (${topGap.gap > 0 ? `+${formatNumber(topGap.gap, 2)}` : formatNumber(topGap.gap, 2)}), sementara dimensi dengan defisit terbesar yang paling membutuhkan penguatan kurikulum adalah ${bottomGap.name} (${bottomGap.gap > 0 ? `+${formatNumber(bottomGap.gap, 2)}` : formatNumber(bottomGap.gap, 2)}). Rincian urutan gap 7 dimensi dari tertinggi ke terendah: ${rincianList}.`;
+    const detail = `Berdasarkan selisih gap (bekal lulus dikurangi kebutuhan kerja), dimensi dengan gap paling surplus/selaras adalah ${topGap.name} (${topGap.gap > 0 ? `+${formatNumber(topGap.gap, 0)}` : formatNumber(topGap.gap, 0)}), sementara dimensi dengan defisit terbesar yang paling membutuhkan penguatan kurikulum adalah ${bottomGap.name} (${bottomGap.gap > 0 ? `+${formatNumber(bottomGap.gap, 0)}` : formatNumber(bottomGap.gap, 0)}). Rincian urutan gap 7 dimensi dari tertinggi ke terendah: ${rincianList}.`;
 
     return {
         title: 'Kilas Analisis Kompetensi & Gap Lulusan (Gambar 4.17)',
@@ -269,8 +269,8 @@ const views = computed(() => [
         key: 'unified_gap',
         chartType: 'combo_bar_line',
         tabLabel: 'Kompetensi & Gap Selisih',
-        title: 'Kompetensi saat lulus, diperlukan kerja, dan gap selisih',
-        description: 'Grafik terpadu: batang hijau mengukur bekal saat lulus UKDW, batang slate mengukur kebutuhan dunia kerja, dan garis hijau-slate memperlihatkan gap selisih kompetensi.',
+        title: 'Rata-rata kompetensi saat lulus, diperlukan kerja, dan gap selisih',
+        description: 'Grafik terpadu: batang hijau menunjukkan rata-rata bekal saat lulus UKDW, batang slate menunjukkan rata-rata kebutuhan dunia kerja, dan garis hijau-slate memperlihatkan gap selisih.',
         option: unifiedOption.value,
         tableData: unifiedTable.value,
         height: 420,

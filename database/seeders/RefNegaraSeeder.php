@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Schema;
  * - Pengecekan skema tabel untuk mencegah error saat proses migrasi bertahap.
  * - Resolusi jalur berkas CSV bertingkat (data/ -> database/data/ -> root).
  * - Stream reading via fgetcsv untuk efisiensi memori dan akurasi karakter enclosure/delimiter.
- * - Pencegahan konflik Integrity Constraint Violation (Unique Key) pada kolom `kode_iso2` dan `nama_negara`.
+ * - Pencegahan konflik Integrity Constraint Violation pada kolom `kode_negara` dan `nama_negara`.
  */
 class RefNegaraSeeder extends Seeder
 {
@@ -70,22 +70,22 @@ class RefNegaraSeeder extends Seeder
 
             $namaNegara = trim($row[0] ?? '');
             $ibuKota = trim($row[1] ?? '');
-            $kodeIso2 = strtoupper(substr(trim($row[2] ?? ''), 0, 2));
+            $kodeNegara = strtoupper(substr(trim($row[2] ?? ''), 0, 2));
             $benua = isset($row[3]) ? trim($row[3]) : null;
 
-            if (empty($namaNegara) || empty($kodeIso2)) {
+            if (empty($namaNegara) || empty($kodeNegara)) {
                 continue;
             }
 
-            // Cari berdasarkan kode_iso2 atau nama_negara untuk mencegah konflik unique constraint
-            $negara = RefNegara::where('kode_iso2', $kodeIso2)
+            // Cari berdasarkan kode negara atau nama negara untuk mencegah konflik unique constraint.
+            $negara = RefNegara::where('kode_negara', $kodeNegara)
                 ->orWhere('nama_negara', $namaNegara)
                 ->first();
 
             $attributes = [
                 'nama_negara' => $namaNegara,
                 'ibu_kota' => $ibuKota ?: null,
-                'kode_iso2' => $kodeIso2,
+                'kode_negara' => $kodeNegara,
                 'benua' => $benua ?: null,
             ];
 

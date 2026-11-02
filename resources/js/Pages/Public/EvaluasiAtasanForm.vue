@@ -8,6 +8,7 @@
   serta 3 langkah pengisian evaluasi atasan.
 -->
 <script setup>
+// Form publik evaluasi atasan: section dan pertanyaan dirender dari metadata backend.
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
@@ -17,6 +18,11 @@ const props = defineProps({
     token: String,
     evaluasi: Object,
     pertanyaanList: {
+        type: Array,
+        default: () => [],
+    },
+    // Metadata section stepper dari backend agar formulir mengikuti kontrak master.
+    sections: {
         type: Array,
         default: () => [],
     },
@@ -64,25 +70,49 @@ const alumniInitials = computed(() => {
 // Definisi 3 langkah stepper evaluasi atasan
 const activeStep = ref('instansi');
 
-const steps = [
-    { id: 'instansi', name: 'Profil Perusahaan', subtitle: 'Identitas & Pimpinan', step: '1' },
-    { id: 'karakteristik', name: 'Karakteristik', subtitle: 'Skala & Sebaran Alumni', step: '2' },
-    { id: 'penilaian', name: 'Penilaian Kinerja', subtitle: '13 Aspek Kompetensi', step: '3' },
-];
+// Daftar langkah publik mengikuti section yang dikirim controller, dengan fallback untuk data lama.
+const steps = computed(() => props.sections.length
+    ? props.sections.map((section) => ({
+        id: section.key,
+        name: section.title,
+        subtitle: section.description,
+        step: String(section.order),
+    }))
+    : [
+        { id: 'instansi', name: 'Profil Perusahaan & Atasan', subtitle: 'Identitas perusahaan, alamat, dan atasan langsung.', step: '1' },
+        { id: 'karakteristik', name: 'Karakteristik Perusahaan & Sebaran Alumni', subtitle: 'Skala organisasi dan sebaran alumni UKDW.', step: '2' },
+        { id: 'penilaian', name: 'Penilaian Kesiapan & Kinerja Alumni', subtitle: 'Kesiapan kerja dan kompetensi alumni.', step: '3' },
+    ]);
 
-// Pisahkan butir pertanyaan: Kesiapan Kerja & 12 Aspek Kinerja Likert
-const likertPertanyaanList = computed(() => props.pertanyaanList.filter((q) => q.kode !== 'tingkat_kesiapan_kerja'));
-const kesiapanPertanyaan = computed(() => props.pertanyaanList.find((q) => q.kode === 'tingkat_kesiapan_kerja'));
+// Pisahkan field perusahaan dari butir penilaian agar satu tabel master dapat mengatur seluruh stepper.
+const companyQuestions = computed(() => props.pertanyaanList.filter((q) => q.is_company_field));
+const evaluationQuestions = computed(() => props.pertanyaanList.filter((q) => !q.is_company_field));
+const evaluationQuestionsForStep = (stepId) => evaluationQuestions.value.filter((q) => q.langkah === stepId);
+const likertPertanyaanList = computed(() => evaluationQuestionsForStep('penilaian').filter((q) => q.kode !== 'tingkat_kesiapan_kerja'));
+const kesiapanPertanyaan = computed(() => evaluationQuestionsForStep('penilaian').find((q) => q.kode === 'tingkat_kesiapan_kerja'));
+// Opsi kesiapan kerja dibaca dari pertanyaan aktif agar perubahan master langsung terlihat di formulir.
+const kesiapanOptions = computed(() => kesiapanPertanyaan.value?.pilihan_jawaban || []);
+// Opsi skala kinerja dibaca dari metadata butir Likert pertama pada langkah penilaian.
+const skalaNilaiOptions = computed(() => likertPertanyaanList.value[0]?.pilihan_jawaban || []);
 
-// Urutan opsi kesiapan kerja dari paling kiri (Tidak siap) ke paling kanan (Sangat siap)
-const kesiapanOptions = ['Tidak siap', 'Kurang siap', 'Cukup Siap', 'Sangat siap'];
+// Menentukan field perusahaan yang harus dirender pada langkah yang dipilih admin.
+const companyQuestionsForStep = (stepId) => companyQuestions.value.filter((q) => q.langkah === stepId);
 
-// Urutan opsi skala 12 aspek kompetensi dari paling kiri (Sangat Kurang) ke paling kanan (Sangat Tinggi)
-const skalaNilaiOptions = ['Sangat Kurang', 'Kurang', 'Cukup', 'Tinggi', 'Sangat Tinggi'];
+// Status aktif field perusahaan mengikuti tombol Aktif/Nonaktif pada halaman kelola pertanyaan.
+const isCompanyQuestionActive = (code) => companyQuestions.value.some((question) => question.kode === code);
+
+// Mengambil metadata satu field perusahaan untuk membaca opsi dari database.
+const companyQuestion = (code) => companyQuestions.value.find((question) => question.kode === code);
+
+// Mengambil opsi pilihan yang disimpan pada master pertanyaan.
+const optionsForCompanyQuestion = (question) => question.pilihan_jawaban || [];
+
+// Menentukan opsi pertanyaan umum dari metadata database tanpa daftar pilihan hardcode.
+const optionsForEvaluationQuestion = (question) => question.pilihan_jawaban || [];
 
 // Siapkan state default jawaban untuk setiap butir pertanyaan
 const initialJawaban = {};
-props.pertanyaanList.forEach((q) => {
+evaluationQuestions.value.forEach((q) => {
     initialJawaban[q.kode] = props.existingResponses[q.kode] || '';
 });
 
@@ -201,25 +231,26 @@ const submitSuccess = ref(props.isSubmitted || false);
 // Evaluasi kelengkapan per langkah
 const isStepCompleted = (stepId) => {
     if (stepId === 'instansi') {
+        const companyFieldsCompleted = companyQuestionsForStep(stepId).every((question) => !!form[question.kode]);
+        const evaluationFieldsCompleted = evaluationQuestionsForStep(stepId).every((question) => !!form.jawaban[question.kode]);
         return !!(
             form.nama_perusahaan &&
             form.alamat_lengkap &&
-            form.nama_atasan
+            form.nama_atasan &&
+            companyFieldsCompleted &&
+            evaluationFieldsCompleted
         );
     }
     if (stepId === 'karakteristik') {
-        return !!(
-            form.bentuk_perusahaan &&
-            form.skala_perusahaan &&
-            form.jumlah_pegawai &&
-            form.jumlah_alumni_ukdw &&
-            form.standar_gaji_pertama
-        );
+        const companyFieldsCompleted = companyQuestionsForStep(stepId).every((question) => !!form[question.kode]);
+        const evaluationFieldsCompleted = evaluationQuestionsForStep(stepId).every((question) => !!form.jawaban[question.kode]);
+        return companyFieldsCompleted && evaluationFieldsCompleted;
     }
     if (stepId === 'penilaian') {
         const kesiapanOk = kesiapanPertanyaan.value ? !!form.jawaban[kesiapanPertanyaan.value.kode] : true;
         const likertOk = likertPertanyaanList.value.every((q) => !!form.jawaban[q.kode]);
-        return kesiapanOk && likertOk;
+        const companyFieldsCompleted = companyQuestionsForStep(stepId).every((question) => !!form[question.kode]);
+        return kesiapanOk && likertOk && companyFieldsCompleted && evaluationQuestionsForStep(stepId).every((question) => !!form.jawaban[question.kode]);
     }
     return false;
 };
@@ -265,7 +296,7 @@ const prevStep = () => {
 };
 
 const submitForm = () => {
-    const missingKeys = props.pertanyaanList.filter((q) => !form.jawaban[q.kode]);
+    const missingKeys = evaluationQuestions.value.filter((q) => !form.jawaban[q.kode]);
     if (missingKeys.length > 0) {
         Swal.fire({
             icon: 'warning',
@@ -611,6 +642,17 @@ const submitForm = () => {
                             </div>
                         </div>
 
+                        <!-- Butir evaluasi yang dipindahkan admin ke langkah 1 tetap dirender dari master DB. -->
+                        <div v-if="evaluationQuestionsForStep('instansi').length" class="space-y-4 pt-2 border-t border-slate-200">
+                            <div v-for="question in evaluationQuestionsForStep('instansi')" :key="question.id" class="space-y-2">
+                                <label class="block text-xs font-bold text-slate-800">{{ question.aspek }} <span class="text-rose-500">*</span></label>
+                                <p v-if="question.deskripsi" class="text-xs text-slate-500">{{ question.deskripsi }}</p>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                                    <button v-for="option in optionsForEvaluationQuestion(question)" :key="option" type="button" @click="toggleJawaban(question.kode, option)" @dblclick.stop="clearJawaban(question.kode)" class="p-3 border rounded-lg text-xs font-semibold text-left transition-colors" :class="form.jawaban[question.kode] === option ? 'border-[#0D542B] bg-emerald-50 text-[#0D542B]' : 'border-slate-200 text-slate-700 hover:bg-slate-50'">{{ option }}</button>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Tombol Navigasi Langkah 1 -->
                         <div class="pt-4 border-t border-slate-200 flex items-center justify-end">
                             <button
@@ -638,13 +680,13 @@ const submitForm = () => {
                         </div>
 
                         <!-- 1. Bentuk Perusahaan -->
-                        <div class="space-y-2">
+                        <div v-if="isCompanyQuestionActive('bentuk_perusahaan')" class="space-y-2">
                             <label class="block text-xs font-bold text-slate-800">
-                                1. Bentuk Perusahaan / Institusi <span class="text-rose-500">*</span>
+                                {{ companyQuestion('bentuk_perusahaan')?.aspek || 'Bentuk Perusahaan / Institusi' }} <span class="text-rose-500">*</span>
                             </label>
                             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
                                 <div
-                                    v-for="opt in ['BUMN', 'Perusahaan Terbatas', 'Koperasi', 'CV', 'Firma']"
+                                    v-for="opt in optionsForCompanyQuestion(companyQuestion('bentuk_perusahaan'))"
                                     :key="opt"
                                     @click="toggleFieldOption('bentuk_perusahaan', opt)"
                                     @dblclick.stop="form.bentuk_perusahaan = ''"
@@ -664,13 +706,13 @@ const submitForm = () => {
                         </div>
 
                         <!-- 2. Skala Perusahaan -->
-                        <div class="space-y-2">
+                        <div v-if="isCompanyQuestionActive('skala_perusahaan')" class="space-y-2">
                             <label class="block text-xs font-bold text-slate-800">
-                                2. Skala Perusahaan / Organisasi <span class="text-rose-500">*</span>
+                                {{ companyQuestion('skala_perusahaan')?.aspek || 'Skala Perusahaan / Organisasi' }} <span class="text-rose-500">*</span>
                             </label>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                                 <div
-                                    v-for="opt in ['Lokal', 'Nasional', 'Internasional']"
+                                    v-for="opt in optionsForCompanyQuestion(companyQuestion('skala_perusahaan'))"
                                     :key="opt"
                                     @click="toggleFieldOption('skala_perusahaan', opt)"
                                     @dblclick.stop="form.skala_perusahaan = ''"
@@ -690,13 +732,13 @@ const submitForm = () => {
                         </div>
 
                         <!-- 3. Jumlah Pegawai Keseluruhan -->
-                        <div class="space-y-2">
+                        <div v-if="isCompanyQuestionActive('jumlah_pegawai')" class="space-y-2">
                             <label class="block text-xs font-bold text-slate-800">
-                                3. Jumlah Pegawai Keseluruhan di Perusahaan ini <span class="text-rose-500">*</span>
+                                {{ companyQuestion('jumlah_pegawai')?.aspek || 'Jumlah Pegawai Keseluruhan di Perusahaan ini' }} <span class="text-rose-500">*</span>
                             </label>
                             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                                 <div
-                                    v-for="opt in ['< 50 Orang', '51 - 100 Orang', '101 – 150 Orang', '151 – 300 Orang', '301 – 500 Orang', '> 500 Orang']"
+                                    v-for="opt in optionsForCompanyQuestion(companyQuestion('jumlah_pegawai'))"
                                     :key="opt"
                                     @click="toggleFieldOption('jumlah_pegawai', opt)"
                                     @dblclick.stop="form.jumlah_pegawai = ''"
@@ -716,13 +758,13 @@ const submitForm = () => {
                         </div>
 
                         <!-- 4. Jumlah Alumni UKDW yang Bekerja -->
-                        <div class="space-y-2">
+                        <div v-if="isCompanyQuestionActive('jumlah_alumni_ukdw')" class="space-y-2">
                             <label class="block text-xs font-bold text-slate-800">
-                                4. Jumlah Alumni UKDW yang Bekerja di Perusahaan ini <span class="text-rose-500">*</span>
+                                {{ companyQuestion('jumlah_alumni_ukdw')?.aspek || 'Jumlah Alumni UKDW yang Bekerja di Perusahaan ini' }} <span class="text-rose-500">*</span>
                             </label>
                             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                                 <div
-                                    v-for="opt in ['< 5 Orang', '6 - 10 Orang', '11 – 20 Orang', '> 21 Orang']"
+                                    v-for="opt in optionsForCompanyQuestion(companyQuestion('jumlah_alumni_ukdw'))"
                                     :key="opt"
                                     @click="toggleFieldOption('jumlah_alumni_ukdw', opt)"
                                     @dblclick.stop="form.jumlah_alumni_ukdw = ''"
@@ -742,13 +784,13 @@ const submitForm = () => {
                         </div>
 
                         <!-- 5. Standar Gaji Pertama -->
-                        <div class="space-y-2">
+                        <div v-if="isCompanyQuestionActive('standar_gaji_pertama')" class="space-y-2">
                             <label class="block text-xs font-bold text-slate-800">
-                                5. Standar Gaji Pertama (per bulan) yang Diberikan ke Alumni UKDW <span class="text-rose-500">*</span>
+                                {{ companyQuestion('standar_gaji_pertama')?.aspek || 'Standar Gaji Pertama (per bulan) yang Diberikan ke Alumni UKDW' }} <span class="text-rose-500">*</span>
                             </label>
                             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                                 <div
-                                    v-for="opt in ['< 1.000.000', '1.000.000 – 1.500.000', '1.500.000 – 2.000.000', '2.000.000 – 3.000.000', '3.000.000 – 4.000.000', '> 5.000.000']"
+                                    v-for="opt in optionsForCompanyQuestion(companyQuestion('standar_gaji_pertama'))"
                                     :key="opt"
                                     @click="toggleFieldOption('standar_gaji_pertama', opt)"
                                     @dblclick.stop="form.standar_gaji_pertama = ''"
@@ -763,6 +805,17 @@ const submitForm = () => {
                                         class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0 pointer-events-none"
                                     />
                                     <span class="truncate">{{ opt }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Butir evaluasi yang dipindahkan admin ke langkah 2 tetap dirender dari master DB. -->
+                        <div v-if="evaluationQuestionsForStep('karakteristik').length" class="space-y-4 pt-2 border-t border-slate-200">
+                            <div v-for="question in evaluationQuestionsForStep('karakteristik')" :key="question.id" class="space-y-2">
+                                <label class="block text-xs font-bold text-slate-800">{{ question.aspek }} <span class="text-rose-500">*</span></label>
+                                <p v-if="question.deskripsi" class="text-xs text-slate-500">{{ question.deskripsi }}</p>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                                    <button v-for="option in optionsForEvaluationQuestion(question)" :key="option" type="button" @click="toggleJawaban(question.kode, option)" @dblclick.stop="clearJawaban(question.kode)" class="p-3 border rounded-lg text-xs font-semibold text-left transition-colors" :class="form.jawaban[question.kode] === option ? 'border-[#0D542B] bg-emerald-50 text-[#0D542B]' : 'border-slate-200 text-slate-700 hover:bg-slate-50'">{{ option }}</button>
                                 </div>
                             </div>
                         </div>

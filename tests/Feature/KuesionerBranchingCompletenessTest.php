@@ -48,7 +48,6 @@ class KuesionerBranchingCompletenessTest extends TestCase
             'nim' => '72220099',
             'nama' => 'Testing Alumni',
             'email_pribadi' => 'alumni.personal@example.com',
-            'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2001-05-15',
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',

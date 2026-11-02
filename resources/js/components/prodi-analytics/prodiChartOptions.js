@@ -126,7 +126,8 @@ export const buildChoiceOption = (item) => ({
             position: 'right',
             color: '#334155',
             fontWeight: 'bold',
-            formatter: (params) => `${params.value} (${item?.stat?.categories?.[params.dataIndex]?.percentage ?? 0}%)`,
+            // Grafik menampilkan jumlah absolut; persentase tetap tersedia saat hover.
+            formatter: (params) => `${params.value}`,
         },
     }],
 });
@@ -136,6 +137,11 @@ export const choiceAnalysis = (item) => {
     const categories = item?.stat?.categories || [];
     const highestCount = Math.max(...categories.map((category) => Number(category.count || 0)), 0);
     const leadingCategories = categories.filter((category) => Number(category.count || 0) === highestCount);
+    const validCount = Number(item?.stat?.valid_count || 0);
+    const totalSelections = categories.reduce((total, category) => total + Number(category.count || 0), 0);
+    const lowestCategory = [...categories]
+        .filter((category) => Number(category.count || 0) > 0)
+        .sort((left, right) => Number(left.count || 0) - Number(right.count || 0))[0];
 
     if (!item || highestCount === 0) {
         return null;
@@ -147,6 +153,6 @@ export const choiceAnalysis = (item) => {
         lead: leadingCategories.length > 1
             ? `Belum ada satu pilihan dominan: ${labels} masing-masing dipilih ${highestCount} alumni.`
             : `Pilihan dominan adalah ${labels} dengan ${highestCount} jawaban (${leadingCategories[0].percentage}%).`,
-        detail: `${item.stat?.valid_count || 0} jawaban valid membentuk distribusi pada pertanyaan ini.`,
+        detail: `${validCount} jawaban valid membentuk ${totalSelections} pilihan tercatat pada pertanyaan ini.${lowestCategory && lowestCategory.label !== leadingCategories[0]?.label ? ` Pilihan dengan frekuensi terendah adalah "${lowestCategory.label}" (${lowestCategory.count} jawaban).` : ''} Persentase lengkap tersedia saat grafik diarahkan dengan kursor.`,
     };
 };

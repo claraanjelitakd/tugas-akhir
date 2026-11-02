@@ -290,7 +290,7 @@ const alumniBelowUmp = computed(() => {
 const provinceStats = computed(() => {
     const provinceMap = new Map();
     records.value.forEach((r) => {
-        const prov = r.workplace_province_name || r.province_name || 'Tidak Teridentifikasi';
+        const prov = r.workplace_nama_provinsi || r.province_name || 'Tidak Teridentifikasi';
         const cur = provinceMap.get(prov) || {
             province: prov,
             total: 0,
@@ -577,7 +577,7 @@ const views = computed(() => [
                             <td class="px-3 py-2">{{ r.nama_prodi }}</td>
                             <td class="px-3 py-2">
                                 <span class="font-medium text-slate-900">{{ r.nama_perusahaan || '-' }}</span>
-                                <span class="block text-[10px] text-[#0D542B]">{{ r.workplace_province_name || r.province_name || 'D.I. Yogyakarta' }}</span>
+                                <span class="block text-[10px] text-[#0D542B]">{{ r.workplace_nama_provinsi || r.province_name || '-' }}</span>
                             </td>
                             <td class="px-3 py-2 text-right font-bold text-slate-900">
                                 {{ formatFullCurrency(r.salary) }}

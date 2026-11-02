@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -47,6 +48,17 @@ CREATE TABLE `prodi` (
 SQL
             );
         }
+
+        Schema::table('users', function (Blueprint $table): void {
+            $table->foreign('prodi_id', 'users_prodi_id_foreign')
+                ->references('id')
+                ->on('prodi')
+                ->nullOnDelete();
+            $table->foreign('fakultas_id', 'users_fakultas_id_foreign')
+                ->references('id')
+                ->on('ref_fakultas')
+                ->nullOnDelete();
+        });
     }
 
     /**

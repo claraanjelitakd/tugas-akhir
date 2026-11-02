@@ -468,7 +468,7 @@ const drillDownHasRegionalSplit = computed(() => {
     return drillDownRecords.value.some((r) =>
         (r.provinsi && r.provinsi !== '-') ||
         (r.kabupaten && r.kabupaten !== '-') ||
-        (r.negara && r.negara !== '-')
+        (r.nama_negara && r.nama_negara !== '-')
     );
 });
 
@@ -487,7 +487,7 @@ const filteredDrillDownRecords = computed(() => {
             || String(r.nama_perusahaan || '').toLowerCase().includes(q)
             || String(r.provinsi || '').toLowerCase().includes(q)
             || String(r.kabupaten || '').toLowerCase().includes(q)
-            || String(r.negara || '').toLowerCase().includes(q)
+            || String(r.nama_negara || '').toLowerCase().includes(q)
             || String(r.wilayah || '').toLowerCase().includes(q)
             || String(r.province_name || '').toLowerCase().includes(q);
     });
@@ -711,8 +711,8 @@ watch(() => props.selectedLabel, () => {
                                         {{ rec.kabupaten || '-' }}
                                     </td>
                                     <td class="p-2 text-slate-700">
-                                        <span v-if="rec.negara && rec.negara !== '-'" class="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-700">
-                                            {{ rec.negara }}
+                                        <span v-if="rec.nama_negara && rec.nama_negara !== '-'" class="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-700">
+                                            {{ rec.nama_negara }}
                                         </span>
                                         <span v-else>-</span>
                                     </td>

@@ -80,14 +80,14 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             return Perusahaan::updateOrCreate(
                 ['nama_perusahaan' => $definition['name']],
                 [
-                    'propinsi_id' => $province->id,
-                    'kabupaten_id' => $city->id,
+                    'kode_provinsi' => $province->kode_provinsi,
+                    'kode_kabupaten' => $city->kode_kabupaten,
                     'alamat' => 'Data simulasi analitik',
                     'sektor' => 'Data simulasi',
                     'skala' => 'Nasional',
                     'jenis_perusahaan' => 'Perusahaan swasta',
                     'jenis_lokasi' => 'Dalam Negeri',
-                    'negara' => 'Indonesia',
+                    'kode_negara' => 'ID',
                     'status_verifikasi' => 'Terverifikasi',
                 ],
             );
@@ -98,6 +98,9 @@ class AnalyticsDemoDistributionSeeder extends Seeder
 
             return;
         }
+
+        // Pastikan opsi F16 memakai satu pilihan "Lainnya" tanpa varian isian lama.
+        $this->normalizeMismatchOptionData();
 
         $demoBiodata = Biodata::query()
             ->with(['dataAkademik', 'prodi'])
@@ -111,6 +114,19 @@ class AnalyticsDemoDistributionSeeder extends Seeder
 
             return;
         }
+
+        // UMP diambil dari database agar syarat perbandingan gaji mengikuti tahun lulusan.
+        $umpByProvinceYear = DB::table('ump')
+            ->whereIn('kode_provinsi', $companies->pluck('kode_provinsi')->unique()->values())
+            ->whereIn('tahun', [2024, 2025, 2026])
+            ->get(['kode_provinsi', 'tahun', 'besaran'])
+            ->keyBy(fn (object $row): string => $row->kode_provinsi.'-'.$row->tahun);
+        $latestUmpByProvince = DB::table('ump')
+            ->whereIn('kode_provinsi', $companies->pluck('kode_provinsi')->unique()->values())
+            ->orderByDesc('tahun')
+            ->get(['kode_provinsi', 'besaran'])
+            ->groupBy('kode_provinsi')
+            ->map(static fn (Collection $rows): object => $rows->first());
 
         $prodiQuestions = ProdiQuestion::query()
             ->whereIn('prodi_id', $demoBiodata->pluck('prodi_id')->filter()->unique())
@@ -131,7 +147,7 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             ->get()
             ->keyBy(fn (RefSubpertanyaan2021 $question): string => strtoupper($question->kode_pertanyaan));
 
-        DB::transaction(function () use ($demoBiodata, $companies, $questions, $prodiQuestions): void {
+        DB::transaction(function () use ($demoBiodata, $companies, $questions, $prodiQuestions, $umpByProvinceYear, $latestUmpByProvince): void {
             $this->pendingTracerRows = [];
 
             foreach ($demoBiodata->values() as $index => $biodata) {
@@ -149,7 +165,13 @@ class AnalyticsDemoDistributionSeeder extends Seeder
                 } else {
                     $company = $companies[$index % $companies->count()];
                     $isBelowUmp = $index % 5 === 0;
-                    $salary = $isBelowUmp ? 2000000 + (($index % 4) * 150000) : 7500000 + (($index % 7) * 750000);
+                    $graduationYear = (int) ($biodata->dataAkademik?->tahun_lulus ?? 0);
+                    $ump = $umpByProvinceYear->get($company->kode_provinsi.'-'.$graduationYear)?->besaran
+                        ?? $latestUmpByProvince->get($company->kode_provinsi)?->besaran;
+                    $minimumSalary = $ump !== null ? (int) ceil((float) $ump * 1.2) : 0;
+                    $salary = $company->kode_provinsi === '34'
+                        ? $minimumSalary + (($index % 4) * 250000)
+                        : ($isBelowUmp ? 2000000 + (($index % 4) * 150000) : 7500000 + (($index % 7) * 750000));
                     $atasan = Atasan::firstOrCreate(
                         ['email' => 'analytics.demo.'.$biodata->nim.'@example.test'],
                         [
@@ -228,7 +250,9 @@ class AnalyticsDemoDistributionSeeder extends Seeder
         $isSearching = $status === 'Tidak Kerja tetapi sedang mencari kerja';
         $workplaceTypes = ['Perusahaan swasta', 'Instansi pemerintah', 'BUMN/BUMD', 'Organisasi non-profit/LSM', 'Wiraswasta/perusahaan sendiri'];
         $alignments = ['Sangat erat', 'Erat', 'Cukup erat', 'Kurang erat', 'Tidak erat'];
-        $educationLevels = ['Tingkat yang sama', 'Setingkat lebih tinggi', 'Setingkat lebih rendah', 'Tidak perlu pendidikan tinggi'];
+        $educationLevels = $this->optionLabels($questions, 'F15');
+        $fundingOptions = $this->optionLabels($questions, 'F12');
+        $furtherStudyDegrees = ['S1', 'S2', 'S3', 'Profesi', 'Spesialis'];
         $learningScale = ['Tidak Sama Sekali', 'Kurang', 'Cukup Besar', 'Besar', 'Sangat Besar'];
         $competencyScale = ['Sangat Rendah', 'Rendah', 'Cukup', 'Tinggi', 'Sangat Tinggi'];
 
@@ -257,18 +281,21 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             $this->saveAnswer($biodata, $questions, 'F7A', (string) $interviews);
             $this->saveAnswer($biodata, $questions, 'F11', $status === 'Wiraswasta' ? 'Wiraswasta/perusahaan sendiri' : $workplaceTypes[$index % 4]);
             $this->saveAnswer($biodata, $questions, 'F14', $alignment);
-            $this->saveAnswer($biodata, $questions, 'F15', $educationLevels[$index % count($educationLevels)]);
+            if ($educationLevels !== []) {
+                $this->saveAnswer($biodata, $questions, 'F15', $educationLevels[$index % count($educationLevels)]);
+            }
             $this->saveAnswer($biodata, $questions, 'F504', $startsBeforeGraduation ? 'Ya' : 'Tidak');
             $this->saveAnswer($biodata, $questions, 'F502', $startsBeforeGraduation ? (string) $waitMonths : null);
             $this->saveAnswer($biodata, $questions, 'F506', $startsBeforeGraduation ? null : (string) $waitMonths);
-            $this->saveAnswer(
-                $biodata,
-                $questions,
-                'F16',
-                in_array($alignment, ['Kurang erat', 'Tidak erat'], true)
-                    ? ['Saya belum mendapatkan pekerjaan yang lebih sesuai', 'Pekerjaan saya saat ini lebih menarik']
-                    : ['Pertanyaan tidak sesuai; pekerjaan saya sekarang sudah sesuai dengan pendidikan saya'],
-            );
+            $mismatchOptions = $this->optionLabels($questions, 'F16');
+            if ($mismatchOptions !== []) {
+                $selectedMismatch = [$mismatchOptions[$index % count($mismatchOptions)]];
+                if (count($mismatchOptions) > 1 && $index % 5 === 0) {
+                    $selectedMismatch[] = $mismatchOptions[($index + 1) % count($mismatchOptions)];
+                }
+
+                $this->saveAnswer($biodata, $questions, 'F16', array_values(array_unique($selectedMismatch)));
+            }
         } else {
             foreach (['F3', 'F4', 'F6', 'F7', 'F7A', 'F11', 'F14', 'F15', 'F16', 'F502', 'F506'] as $code) {
                 $this->saveAnswer($biodata, $questions, $code, null);
@@ -283,9 +310,37 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             );
         }
 
-        $this->saveAnswer($biodata, $questions, 'F12', $isFurtherStudy ? ['Biaya Sendiri / Keluarga', 'Beasiswa Pemerintah'][$index % 2] : null);
-        $this->saveAnswer($biodata, $questions, 'F18b', $isFurtherStudy ? 'Universitas Gadjah Mada' : null);
-        $this->saveAnswer($biodata, $questions, 'F18c', $isFurtherStudy ? 'Magister '.$biodata->prodi?->nama_prodi : null);
+        if ($isFurtherStudy) {
+            $degree = $furtherStudyDegrees[$index % count($furtherStudyDegrees)];
+            $degreePrefix = match ($degree) {
+                'S1' => 'Sarjana',
+                'S2' => 'Magister',
+                'S3' => 'Doktor',
+                'Profesi' => 'Profesi',
+                default => 'Spesialis',
+            };
+
+            // Sinkronkan profil pendidikan lanjut agar sumber grafik tidak selalu S2.
+            $biodata->update([
+                'pendidikan_tingkat' => $degree,
+                'perguruan_tinggi' => ['Universitas Gadjah Mada', 'Universitas Indonesia', 'Institut Teknologi Bandung', 'Universitas Airlangga', 'Universitas Padjadjaran'][$index % 5],
+                'pendidikan_prodi' => $degreePrefix.' '.$biodata->prodi?->nama_prodi,
+            ]);
+        } else {
+            // Bersihkan profil studi lama pada alumni yang status terbarunya bukan studi lanjut.
+            $biodata->update([
+                'pendidikan_tingkat' => null,
+                'perguruan_tinggi' => null,
+                'pendidikan_prodi' => null,
+            ]);
+        }
+
+        $funding = $isFurtherStudy && $fundingOptions !== []
+            ? $fundingOptions[$index % count($fundingOptions)]
+            : null;
+        $this->saveAnswer($biodata, $questions, 'F12', $funding);
+        $this->saveAnswer($biodata, $questions, 'F18b', $isFurtherStudy ? $biodata->perguruan_tinggi : null);
+        $this->saveAnswer($biodata, $questions, 'F18c', $isFurtherStudy ? $biodata->pendidikan_prodi : null);
         $this->saveAnswer($biodata, $questions, 'F18d', $isFurtherStudy ? '2026-08-01' : null);
 
         foreach (range(21, 27) as $offset => $number) {
@@ -294,8 +349,11 @@ class AnalyticsDemoDistributionSeeder extends Seeder
         }
 
         foreach (range(1, 7) as $competency) {
-            $graduationScore = 2 + (($index + $competency) % 3);
-            $needScore = min(5, $graduationScore + 1 + ($index % 2));
+            // Profil dasar dibuat berbeda per dimensi agar gap rata-rata tidak seragam.
+            $graduationProfile = [3, 3, 4, 4, 2, 4, 3];
+            $needProfile = [3, 4, 3, 5, 4, 3, 5];
+            $graduationScore = min(5, max(1, $graduationProfile[$competency - 1] + (($index + $competency) % 3) - 1));
+            $needScore = min(5, max(1, $needProfile[$competency - 1] + (($index * 2 + $competency) % 3) - 1));
             $this->saveAnswer($biodata, $questions, 'F17a'.$competency, $competencyScale[$graduationScore - 1]);
             $this->saveAnswer($biodata, $questions, 'F17b'.$competency, $competencyScale[$needScore - 1]);
         }
@@ -339,7 +397,8 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             } elseif (in_array($question->type, ['text', 'textarea'], true)) {
                 $answerText = 'Respons demo '.(($respondentIndex % 4) + 1).' untuk '.$question->question_text;
             } elseif ($options->isNotEmpty()) {
-                $primaryOption = $options->get(($respondentIndex * 2 + $question->order) % $options->count());
+                // Putar satu per satu agar semua opsi aktif terisi, termasuk Lainnya.
+                $primaryOption = $options->get(($respondentIndex + $question->order) % $options->count());
                 $selectedOptions = collect([$primaryOption])->filter();
                 $otherOption = $options->first(fn ($option): bool => $this->isOtherOption((string) $option->option_text));
                 $customDetail = null;
@@ -355,7 +414,7 @@ class AnalyticsDemoDistributionSeeder extends Seeder
                 }
 
                 $selectedLabels = $selectedOptions
-                    ->map(fn ($option): string => $this->isOtherOption((string) $option->option_text) ? 'Lainnya (Tuliskan)' : (string) $option->option_text)
+                    ->map(fn ($option): string => $this->isOtherOption((string) $option->option_text) ? 'Lainnya' : (string) $option->option_text)
                     ->all();
                 $answerText = implode(', ', $selectedLabels);
                 $answerJson = $question->type === 'multiple_choice'
@@ -386,6 +445,57 @@ class AnalyticsDemoDistributionSeeder extends Seeder
         return $normalized === 'other'
             || str_contains($normalized, 'lainnya')
             || str_contains($normalized, 'tuliskan');
+    }
+
+    /**
+     * Mengambil label opsi aktif dari metadata pertanyaan, bukan menyalin label ke seeder.
+     *
+     * @param  Collection<string, RefSubpertanyaan2021>  $questions
+     * @return array<int, string>
+     */
+    private function optionLabels(Collection $questions, string $code): array
+    {
+        $question = $questions->get(strtoupper($code));
+        if (! $question) {
+            return [];
+        }
+
+        return $question->detils()
+            ->orderBy('order')
+            ->pluck('option_text')
+            ->map(static fn (mixed $label): string => trim((string) $label))
+            ->filter(static fn (string $label): bool => $label !== '' && mb_strtolower($label) !== 'lainnya isian')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Menghapus opsi legacy dan menormalkan label jawaban agar metadata dan data respons konsisten.
+     */
+    private function normalizeMismatchOptionData(): void
+    {
+        DB::table('ref_subpertanyaan_detil')
+            ->where('kode_pertanyaan', 'F16')
+            ->where('option_text', 'Lainnya isian')
+            ->delete();
+
+        DB::table('tracer')
+            ->where('kode_pertanyaan', 'F16')
+            ->where('answer', 'like', '%Lainnya isian%')
+            ->update([
+                'answer' => DB::raw("REPLACE(answer, 'Lainnya isian', 'Lainnya')"),
+                'answer_json' => DB::raw("REPLACE(answer_json, 'Lainnya isian', 'Lainnya')"),
+                'updated_at' => now(),
+            ]);
+
+        DB::table('tracer')
+            ->where('kode_pertanyaan', 'F15')
+            ->where('answer', 'like', '%Tingkat yang Sama%')
+            ->update([
+                'answer' => DB::raw("REPLACE(answer, 'Tingkat yang Sama', 'Tingkat yang sama')"),
+                'answer_json' => DB::raw("REPLACE(answer_json, 'Tingkat yang Sama', 'Tingkat yang sama')"),
+                'updated_at' => now(),
+            ]);
     }
 
     /**

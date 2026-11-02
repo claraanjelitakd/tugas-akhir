@@ -513,7 +513,8 @@ const detailUrl = (record) => `/superadmin/alumni/${record.biodata_id || record.
 const downloadExcel = (statusTarget = null) => {
     const statusParam = statusTarget || selectedStatus.value || 'all';
     const prodiIdParam = selectedProdiItem.value?.prodi_id || '';
-    const yearParam = activeYear.value || '2026';
+    // Gunakan tahun aktif dari filter; jika kosong, endpoint menafsirkan ALL.
+    const yearParam = activeYear.value || 'ALL';
 
     const url = `/superadmin/analitik/export-response-rate?tahun=${encodeURIComponent(yearParam)}&prodi_id=${encodeURIComponent(prodiIdParam)}&status=${encodeURIComponent(statusParam)}`;
     window.location.href = url;

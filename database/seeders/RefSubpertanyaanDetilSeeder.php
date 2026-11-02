@@ -6,6 +6,9 @@ use App\Models\RefSubpertanyaan2021;
 use App\Models\RefSubpertanyaanDetil;
 use Illuminate\Database\Seeder;
 
+/**
+ * Menyediakan metadata opsi pilihan untuk instrumen tracer aktif.
+ */
 class RefSubpertanyaanDetilSeeder extends Seeder
 {
     /**
@@ -149,7 +152,6 @@ class RefSubpertanyaanDetilSeeder extends Seeder
             ['kode_pertanyaan' => 'F16', 'order' => 11, 'kode_opsi' => 'F1611', 'option_text' => 'Pekerjaan saya saat ini dapat lebih menjamin kebutuhan keluarga saya', 'jump_to' => null],
             ['kode_pertanyaan' => 'F16', 'order' => 12, 'kode_opsi' => 'F1612', 'option_text' => 'Pada awal meniti karir ini, saya harus menerima pekerjaan yang tidak berhubungan dengan pendidikan saya', 'jump_to' => null],
             ['kode_pertanyaan' => 'F16', 'order' => 13, 'kode_opsi' => 'F1613', 'option_text' => 'Lainnya', 'jump_to' => null],
-            ['kode_pertanyaan' => 'F16', 'order' => 14, 'kode_opsi' => 'F1614', 'option_text' => 'Lainnya isian', 'jump_to' => null],
         ];
 
         // Opsi untuk F21 s/d F27 (Penekanan metode pembelajaran skala 1-5)

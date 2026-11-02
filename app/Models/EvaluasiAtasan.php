@@ -77,7 +77,7 @@ class EvaluasiAtasan extends Model
                 'nama_perusahaan' => $perusahaan->nama_perusahaan,
                 'alamat' => $perusahaan->alamat,
                 'jenis_lokasi' => $perusahaan->jenis_lokasi,
-                'negara' => $perusahaan->negara,
+                'kode_negara' => $perusahaan->kode_negara,
                 'kode_pos' => $perusahaan->kode_pos,
                 'no_telp_fax' => $perusahaan->no_telp_fax,
                 'homepage' => $perusahaan->homepage,
@@ -87,11 +87,12 @@ class EvaluasiAtasan extends Model
                 'jenis_perusahaan' => $perusahaan->jenis_perusahaan,
                 'jenis_perusahaan_lainnya' => $perusahaan->jenis_perusahaan_lainnya,
                 'kabupaten' => $perusahaan->kabupaten ? [
-                    'id' => $perusahaan->kabupaten->id,
+                    'kode_kabupaten' => $perusahaan->kabupaten->kode_kabupaten,
+                    'kode_provinsi' => $perusahaan->kabupaten->kode_provinsi,
                     'nama_kabupaten' => $perusahaan->kabupaten->nama_kabupaten,
                 ] : null,
                 'propinsi' => $perusahaan->propinsi ? [
-                    'id' => $perusahaan->propinsi->id,
+                    'kode_provinsi' => $perusahaan->propinsi->kode_provinsi,
                     'nama_provinsi' => $perusahaan->propinsi->nama_provinsi,
                 ] : null,
             ] : null,

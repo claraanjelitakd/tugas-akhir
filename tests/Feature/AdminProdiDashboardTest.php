@@ -68,7 +68,6 @@ class AdminProdiDashboardTest extends TestCase
             'nim' => '72200001',
             'nama' => 'Alumni SI 1',
             'email_pribadi' => 'alumni1@test.com',
-            'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2001-08-15',
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',

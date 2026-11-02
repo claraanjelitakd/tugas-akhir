@@ -71,8 +71,8 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
     {
         $company = Perusahaan::create([
             'nama_perusahaan' => 'PT Detail Master',
-            'propinsi_id' => null,
-            'kabupaten_id' => null,
+            'kode_provinsi' => null,
+            'kode_kabupaten' => null,
             'alamat' => 'Jl. Detail Master No. 1',
             'homepage' => 'https://detail-master.example',
             'no_telp_fax' => '0274123456',
@@ -84,7 +84,7 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
             'jenis_perusahaan' => 'Perusahaan swasta',
             'jenis_perusahaan_lainnya' => 'Unit teknologi',
             'jenis_lokasi' => 'Dalam Negeri',
-            'negara' => 'Indonesia',
+            'kode_negara' => 'ID',
             'status_verifikasi' => 'Terverifikasi',
             'created_by_user_id' => $this->superadmin->id,
             'created_by_prodi_id' => $this->prodi->id,

@@ -38,9 +38,9 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             'scope' => $request->query('scope', 'all'), // 'all' atau 'prodi'
             'prodi_id' => $request->query('prodi_id', ''),
             'status' => $request->query('status', 'all'),
-            'negara' => $request->query('negara', ''),
-            'propinsi_id' => $request->query('propinsi_id', ''),
-            'kabupaten_id' => $request->query('kabupaten_id', ''),
+            'kode_negara' => $request->query('kode_negara', ''),
+            'kode_provinsi' => $request->query('kode_provinsi', ''),
+            'kode_kabupaten' => $request->query('kode_kabupaten', ''),
             'per_page' => (int) $request->query('per_page', 10),
         ];
 
@@ -89,20 +89,20 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             $query->where('status_verifikasi', $filters['status']);
         }
 
-        if (! empty($filters['negara']) && $filters['negara'] !== 'all') {
-            if ($filters['negara'] === 'Luar Negeri') {
+        if (! empty($filters['kode_negara']) && $filters['kode_negara'] !== 'all') {
+            if ($filters['kode_negara'] === 'Luar Negeri') {
                 $query->where('jenis_lokasi', 'Luar Negeri');
             } else {
-                $query->where('negara', $filters['negara']);
+                $query->where('kode_negara', $filters['kode_negara']);
             }
         }
 
-        if (! empty($filters['propinsi_id'])) {
-            $query->where('propinsi_id', $filters['propinsi_id']);
+        if (! empty($filters['kode_provinsi'])) {
+            $query->where('kode_provinsi', $filters['kode_provinsi']);
         }
 
-        if (! empty($filters['kabupaten_id'])) {
-            $query->where('kabupaten_id', $filters['kabupaten_id']);
+        if (! empty($filters['kode_kabupaten'])) {
+            $query->where('kode_kabupaten', $filters['kode_kabupaten']);
         }
 
         if (! empty($filters['search'])) {
@@ -131,15 +131,15 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             return $company;
         });
 
-        $propinsis = Propinsi::select('id', 'nama_provinsi')->orderBy('nama_provinsi')->get();
-        $kabupatens = ! empty($filters['propinsi_id'])
-            ? Kabupaten::where('propinsi_id', $filters['propinsi_id'])->select('id', 'nama_kabupaten')->orderBy('nama_kabupaten')->get()
+        $propinsis = Propinsi::select('kode_provinsi', 'nama_provinsi')->orderBy('nama_provinsi')->get();
+        $kabupatens = ! empty($filters['kode_provinsi'])
+            ? Kabupaten::where('kode_provinsi', $filters['kode_provinsi'])->select('kode_kabupaten', 'kode_provinsi', 'nama_kabupaten')->orderBy('nama_kabupaten')->get()
             : [];
-        $negaras = RefNegara::select('id', 'nama_negara')->orderBy('nama_negara')->get();
-        $distinctNegaras = Perusahaan::whereNotNull('negara')
-            ->where('negara', '!=', '')
+        $negaras = RefNegara::select('kode_negara', 'nama_negara')->orderBy('nama_negara')->get();
+        $distinctNegaras = Perusahaan::whereNotNull('kode_negara')
+            ->where('kode_negara', '!=', '')
             ->distinct()
-            ->pluck('negara')
+            ->pluck('kode_negara')
             ->filter()
             ->sort()
             ->values();
@@ -176,9 +176,9 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
         $rules = [
             'nama_perusahaan' => 'required|string|max:255',
             'jenis_lokasi' => 'required|string|in:Dalam Negeri,Luar Negeri',
-            'negara' => $jenisLokasi === 'Luar Negeri' ? 'required|string|max:100' : 'nullable|string|max:100',
-            'propinsi_id' => $jenisLokasi === 'Dalam Negeri' ? 'nullable|exists:propinsi,id' : 'nullable',
-            'kabupaten_id' => $jenisLokasi === 'Dalam Negeri' ? 'nullable|exists:kabupaten,id' : 'nullable',
+            'kode_negara' => $jenisLokasi === 'Luar Negeri' ? 'required|string|size:2|not_in:ID|exists:ref_negara,kode_negara' : 'nullable|size:2|exists:ref_negara,kode_negara',
+            'kode_provinsi' => $jenisLokasi === 'Dalam Negeri' ? 'nullable|exists:propinsi,kode_provinsi' : 'nullable',
+            'kode_kabupaten' => $jenisLokasi === 'Dalam Negeri' ? 'nullable|exists:kabupaten,kode_kabupaten' : 'nullable',
             'alamat' => 'nullable|string|max:500',
             'kode_pos' => 'nullable|string|max:15',
             'skala' => 'nullable|string|in:Lokal,Nasional,Internasional',
@@ -191,7 +191,7 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
 
         $messages = [
             'nama_perusahaan.required' => 'Nama perusahaan / institusi wajib diisi.',
-            'negara.required' => 'Nama negara wajib dipilih untuk instansi luar negeri.',
+            'kode_negara.required' => 'Kode negara wajib dipilih untuk instansi luar negeri.',
         ];
 
         $validated = $request->validate($rules, $messages);
@@ -199,9 +199,9 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
         $perusahaan = Perusahaan::create([
             'nama_perusahaan' => $validated['nama_perusahaan'],
             'jenis_lokasi' => $jenisLokasi,
-            'negara' => $jenisLokasi === 'Luar Negeri' ? $validated['negara'] : 'Indonesia',
-            'propinsi_id' => $jenisLokasi === 'Dalam Negeri' ? ($validated['propinsi_id'] ?? null) : null,
-            'kabupaten_id' => $jenisLokasi === 'Dalam Negeri' ? ($validated['kabupaten_id'] ?? null) : null,
+            'kode_negara' => $jenisLokasi === 'Luar Negeri' ? strtoupper($validated['kode_negara']) : 'ID',
+            'kode_provinsi' => $jenisLokasi === 'Dalam Negeri' ? ($validated['kode_provinsi'] ?? null) : null,
+            'kode_kabupaten' => $jenisLokasi === 'Dalam Negeri' ? ($validated['kode_kabupaten'] ?? null) : null,
             'alamat' => $validated['alamat'] ?? null,
             'kode_pos' => $validated['kode_pos'] ?? null,
             'skala' => $validated['skala'] ?? ($jenisLokasi === 'Luar Negeri' ? 'Internasional' : 'Nasional'),
@@ -259,15 +259,15 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
         $validated = $request->validate([
             'nama_perusahaan' => 'required|string|max:255',
             'alamat' => 'nullable|string',
-            'propinsi_id' => 'nullable|exists:propinsi,id',
-            'kabupaten_id' => 'nullable|exists:kabupaten,id',
+            'kode_provinsi' => 'nullable|exists:propinsi,kode_provinsi',
+            'kode_kabupaten' => 'nullable|exists:kabupaten,kode_kabupaten',
             'kode_pos' => 'nullable|string|max:15',
             'sektor' => 'nullable|string|max:100',
             'skala' => 'nullable|string|in:Lokal,Nasional,Internasional',
             'jenis_perusahaan' => 'nullable|string|max:100',
             'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
             'jenis_lokasi' => 'required|string|in:Dalam Negeri,Luar Negeri',
-            'negara' => 'nullable|string|max:100',
+            'kode_negara' => 'nullable|string|size:2|exists:ref_negara,kode_negara',
         ]);
 
         $this->verificationService->updateAndVerify($company, $validated, true);

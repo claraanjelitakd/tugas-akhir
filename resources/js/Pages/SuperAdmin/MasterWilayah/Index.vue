@@ -4,10 +4,14 @@
   Hak Akses: Super Administrator
 -->
 <script setup>
+// Halaman master wilayah: pilihan provinsi, kabupaten, negara, dan UMP mengikuti data referensi database.
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import Sidebar from '../Components/Sidebar.vue';
+
+// Tahun default mengikuti kalender browser ketika backend belum mengirim daftar UMP.
+const currentYear = new Date().getFullYear();
 
 const props = defineProps({
     user: Object,
@@ -25,12 +29,12 @@ const props = defineProps({
             avg_ump: 0,
             min_ump: { besaran: 0, provinsi: '-' },
             max_ump: { besaran: 0, provinsi: '-' },
-            selected_year: 2026,
+            selected_year: new Date().getFullYear(),
         }),
     },
     available_years: {
         type: Array,
-        default: () => [2026],
+        default: () => [new Date().getFullYear()],
     },
     all_provinces: {
         type: Array,
@@ -67,8 +71,8 @@ const page = usePage();
 // State Navigasi Tab & Filter
 const currentTab = ref(props.active_tab || 'provinsi');
 const search = ref(props.filters.search || '');
-const selectedYear = ref(props.filters.tahun || 2026);
-const selectedProvinsiId = ref(props.filters.propinsi_id || '');
+const selectedYear = ref(props.filters.tahun || currentYear);
+const selectedProvinsiId = ref(props.filters.kode_provinsi || '');
 const selectedBenua = ref(props.filters.benua || '');
 const perPage = ref(props.filters.per_page || 15);
 const filterStatusUmp = ref('all'); // 'all', 'configured', 'unconfigured'
@@ -97,7 +101,7 @@ const showKabupatenModal = ref(false);
 const isEditingKabupaten = ref(false);
 const formKabupaten = ref({
     id: null,
-    propinsi_id: '',
+    kode_provinsi: '',
     kode_kabupaten: '',
     nama_kabupaten: '',
 });
@@ -110,7 +114,7 @@ const isEditingUmp = ref(false);
 const formUmp = ref({
     id: null,
     kode_provinsi: '',
-    tahun: 2026,
+    tahun: currentYear,
     besaran: '',
     catatan: '',
 });
@@ -120,8 +124,8 @@ const formUmp = ref({
 // ==========================================
 const showCopyYearModal = ref(false);
 const formCopyYear = ref({
-    source_year: 2026,
-    target_year: 2027,
+    source_year: currentYear,
+    target_year: currentYear + 1,
     percentage_increase: 0,
 });
 
@@ -147,8 +151,8 @@ const applyFilters = () => {
     router.get('/superadmin/master-wilayah', {
         tab: currentTab.value,
         search: search.value || undefined,
-        tahun: selectedYear.value != 2026 ? selectedYear.value : undefined,
-        propinsi_id: currentTab.value === 'kabupaten' && selectedProvinsiId.value ? selectedProvinsiId.value : undefined,
+        tahun: selectedYear.value != currentYear ? selectedYear.value : undefined,
+        kode_provinsi: currentTab.value === 'kabupaten' && selectedProvinsiId.value ? selectedProvinsiId.value : undefined,
         benua: currentTab.value === 'negara' && selectedBenua.value ? selectedBenua.value : undefined,
         per_page: (currentTab.value === 'kabupaten' || currentTab.value === 'negara') && perPage.value != 15 ? perPage.value : undefined,
     }, {
@@ -161,7 +165,7 @@ const resetFilters = () => {
     search.value = '';
     selectedProvinsiId.value = '';
     selectedBenua.value = '';
-    selectedYear.value = 2026;
+    selectedYear.value = currentYear;
     perPage.value = 15;
     filterStatusUmp.value = 'all';
     router.get('/superadmin/master-wilayah', { tab: currentTab.value }, { preserveState: true });
@@ -195,7 +199,6 @@ const totalUmpUnconfiguredCount = computed(() => {
 const openCreateProvinsi = () => {
     isEditingProvinsi.value = false;
     formProvinsi.value = {
-        id: null,
         kode_provinsi: '',
         nama_provinsi: '',
     };
@@ -205,7 +208,7 @@ const openCreateProvinsi = () => {
 const openEditProvinsi = (prov) => {
     isEditingProvinsi.value = true;
     formProvinsi.value = {
-        id: prov.id,
+        kode_provinsi_lama: prov.kode_provinsi,
         kode_provinsi: prov.kode_provinsi,
         nama_provinsi: prov.nama_provinsi,
     };
@@ -225,7 +228,7 @@ const submitProvinsi = () => {
 
     isSubmitting.value = true;
     if (isEditingProvinsi.value) {
-        router.put(`/superadmin/master-wilayah/provinsi/${formProvinsi.value.id}`, {
+        router.put(`/superadmin/master-wilayah/provinsi/${formProvinsi.value.kode_provinsi_lama}`, {
             kode_provinsi: formProvinsi.value.kode_provinsi,
             nama_provinsi: formProvinsi.value.nama_provinsi,
         }, {
@@ -284,7 +287,7 @@ const confirmDeleteProvinsi = (prov) => {
         reverseButtons: true,
     }).then((result) => {
         if (result.isConfirmed) {
-            router.delete(`/superadmin/master-wilayah/provinsi/${prov.id}`, {
+            router.delete(`/superadmin/master-wilayah/provinsi/${prov.kode_provinsi}`, {
                 onSuccess: () => {
                     Swal.fire({
                         icon: 'success',
@@ -309,8 +312,8 @@ const confirmDeleteProvinsi = (prov) => {
 const openCreateKabupaten = () => {
     isEditingKabupaten.value = false;
     formKabupaten.value = {
-        id: null,
-        propinsi_id: selectedProvinsiId.value || (props.all_provinces[0]?.id || ''),
+        kode_provinsi_lama: null,
+        kode_provinsi: selectedProvinsiId.value || (props.all_provinces[0]?.kode_provinsi || ''),
         kode_kabupaten: '',
         nama_kabupaten: '',
     };
@@ -320,8 +323,8 @@ const openCreateKabupaten = () => {
 const openEditKabupaten = (kab) => {
     isEditingKabupaten.value = true;
     formKabupaten.value = {
-        id: kab.id,
-        propinsi_id: kab.propinsi_id,
+        kode_kabupaten_lama: kab.kode_kabupaten,
+        kode_provinsi: kab.kode_provinsi,
         kode_kabupaten: kab.kode_kabupaten,
         nama_kabupaten: kab.nama_kabupaten,
     };
@@ -329,7 +332,7 @@ const openEditKabupaten = (kab) => {
 };
 
 const submitKabupaten = () => {
-    if (!formKabupaten.value.propinsi_id || !formKabupaten.value.kode_kabupaten || !formKabupaten.value.nama_kabupaten) {
+    if (!formKabupaten.value.kode_provinsi || !formKabupaten.value.kode_kabupaten || !formKabupaten.value.nama_kabupaten) {
         Swal.fire({
             icon: 'warning',
             title: 'Form Belum Lengkap',
@@ -341,7 +344,7 @@ const submitKabupaten = () => {
 
     isSubmitting.value = true;
     if (isEditingKabupaten.value) {
-        router.put(`/superadmin/master-wilayah/kabupaten/${formKabupaten.value.id}`, formKabupaten.value, {
+        router.put(`/superadmin/master-wilayah/kabupaten/${formKabupaten.value.kode_kabupaten_lama}`, formKabupaten.value, {
             onSuccess: () => {
                 showKabupatenModal.value = false;
                 isSubmitting.value = false;
@@ -394,7 +397,7 @@ const confirmDeleteKabupaten = (kab) => {
         reverseButtons: true,
     }).then((result) => {
         if (result.isConfirmed) {
-            router.delete(`/superadmin/master-wilayah/kabupaten/${kab.id}`, {
+            router.delete(`/superadmin/master-wilayah/kabupaten/${kab.kode_kabupaten}`, {
                 onSuccess: () => {
                     Swal.fire({
                         icon: 'success',
@@ -564,8 +567,7 @@ const isEditingNegara = ref(false);
 
 // Objek form reaktif untuk data master negara
 const formNegara = ref({
-    id: null,
-    kode_iso2: '',
+    kode_negara: '',
     kode_iso3: '',
     nama_negara: '',
     nama_resmi: '',
@@ -577,8 +579,7 @@ const formNegara = ref({
 const openCreateNegara = () => {
     isEditingNegara.value = false;
     formNegara.value = {
-        id: null,
-        kode_iso2: '',
+        kode_negara: '',
         kode_iso3: '',
         nama_negara: '',
         nama_resmi: '',
@@ -592,8 +593,7 @@ const openCreateNegara = () => {
 const openEditNegara = (item) => {
     isEditingNegara.value = true;
     formNegara.value = {
-        id: item.id,
-        kode_iso2: item.kode_iso2,
+        kode_negara: item.kode_negara,
         kode_iso3: item.kode_iso3 || '',
         nama_negara: item.nama_negara,
         nama_resmi: item.nama_resmi || '',
@@ -605,7 +605,7 @@ const openEditNegara = (item) => {
 
 // Menyimpan data negara baru atau pembaruan negara
 const submitNegara = () => {
-    if (!formNegara.value.kode_iso2 || !formNegara.value.nama_negara) {
+    if (!formNegara.value.kode_negara || !formNegara.value.nama_negara) {
         Swal.fire({
             icon: 'warning',
             title: 'Form Belum Lengkap',
@@ -617,7 +617,7 @@ const submitNegara = () => {
 
     isSubmitting.value = true;
     const payload = {
-        kode_iso2: formNegara.value.kode_iso2.toUpperCase(),
+        kode_negara: formNegara.value.kode_negara.toUpperCase(),
         kode_iso3: formNegara.value.kode_iso3 ? formNegara.value.kode_iso3.toUpperCase() : null,
         nama_negara: formNegara.value.nama_negara,
         nama_resmi: formNegara.value.nama_resmi || null,
@@ -626,7 +626,7 @@ const submitNegara = () => {
     };
 
     if (isEditingNegara.value) {
-        router.put(`/superadmin/master-wilayah/negara/${formNegara.value.id}`, payload, {
+        router.put(`/superadmin/master-wilayah/negara/${formNegara.value.kode_negara}`, payload, {
             onSuccess: () => {
                 showNegaraModal.value = false;
                 isSubmitting.value = false;
@@ -670,7 +670,7 @@ const submitNegara = () => {
 const confirmDeleteNegara = (item) => {
     Swal.fire({
         title: 'Hapus Master Negara?',
-        html: `Apakah Anda yakin ingin menghapus data negara <b>${item.nama_negara}</b> (${item.kode_iso2})?`,
+        html: `Apakah Anda yakin ingin menghapus data negara <b>${item.nama_negara}</b> (${item.kode_negara})?`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#DC2626',
@@ -680,7 +680,7 @@ const confirmDeleteNegara = (item) => {
         reverseButtons: true,
     }).then((result) => {
         if (result.isConfirmed) {
-            router.delete(`/superadmin/master-wilayah/negara/${item.id}`, {
+            router.delete(`/superadmin/master-wilayah/negara/${item.kode_negara}`, {
                 onSuccess: () => {
                     Swal.fire({
                         icon: 'success',
@@ -888,7 +888,7 @@ const confirmDeleteNegara = (item) => {
                                 class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 font-medium cursor-pointer"
                             >
                                 <option value="">Semua Provinsi</option>
-                                <option v-for="p in all_provinces" :key="p.id" :value="p.id">
+                                <option v-for="p in all_provinces" :key="p.kode_provinsi" :value="p.kode_provinsi">
                                     [{{ p.kode_provinsi }}] {{ p.nama_provinsi }}
                                 </option>
                             </select>
@@ -1015,7 +1015,7 @@ const confirmDeleteNegara = (item) => {
                             </tr>
                             <tr
                                 v-for="(prov, idx) in provinces"
-                                :key="prov.id"
+                                :key="prov.kode_provinsi"
                                 class="hover:bg-gray-50/80 transition-colors"
                             >
                                 <td class="border border-gray-300 px-2.5 py-2 text-center text-gray-600 font-medium">
@@ -1087,7 +1087,7 @@ const confirmDeleteNegara = (item) => {
                                 </tr>
                                 <tr
                                     v-for="(kab, idx) in kabupatens.data"
-                                    :key="kab.id"
+                                    :key="kab.kode_kabupaten"
                                     class="hover:bg-gray-50/80 transition-colors"
                                 >
                                     <td class="border border-gray-300 px-2.5 py-2 text-center text-gray-600 font-medium">
@@ -1285,7 +1285,7 @@ const confirmDeleteNegara = (item) => {
                             </tr>
                             <tr
                                 v-for="(n, idx) in negaras.data"
-                                :key="n.id"
+                                :key="n.kode_negara"
                                 class="hover:bg-gray-50/80 transition-colors"
                             >
                                 <td class="border border-gray-300 px-2.5 py-2 text-center text-gray-600 font-medium">
@@ -1293,7 +1293,7 @@ const confirmDeleteNegara = (item) => {
                                 </td>
                                 <td class="border border-gray-300 px-3 py-2 font-mono text-gray-900">
                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
-                                        {{ n.kode_iso2 }}
+                                        {{ n.kode_negara }}
                                     </span>
                                     <span v-if="n.kode_iso3" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-600 border border-gray-200">
                                         {{ n.kode_iso3 }}
@@ -1475,12 +1475,12 @@ const confirmDeleteNegara = (item) => {
                             Provinsi Induk <span class="text-rose-500">*</span>
                         </label>
                         <select
-                            v-model="formKabupaten.propinsi_id"
+                            v-model="formKabupaten.kode_provinsi"
                             class="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
                             required
                         >
                             <option value="" disabled>-- Pilih Provinsi Induk --</option>
-                            <option v-for="p in all_provinces" :key="p.id" :value="p.id">
+                            <option v-for="p in all_provinces" :key="p.kode_provinsi" :value="p.kode_provinsi">
                                 [{{ p.kode_provinsi }}] {{ p.nama_provinsi }}
                             </option>
                         </select>
@@ -1769,7 +1769,7 @@ const confirmDeleteNegara = (item) => {
                             </label>
                             <input
                                 type="text"
-                                v-model="formNegara.kode_iso2"
+                                v-model="formNegara.kode_negara"
                                 placeholder="Misal: ID, SG, JP"
                                 maxlength="2"
                                 class="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 font-mono font-bold uppercase"

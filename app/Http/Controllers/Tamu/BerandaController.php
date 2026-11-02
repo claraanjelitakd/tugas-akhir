@@ -112,8 +112,8 @@ class BerandaController extends Controller
         // 3. Data Sebaran Alumni per Wilayah (Provinsi & Kabupaten) untuk Peta Leaflet
         // A. Berdasarkan Domisili Alumni
         $domisiliRaw = DB::table('biodata')
-            ->join('propinsi', 'biodata.propinsi_id', '=', 'propinsi.id')
-            ->leftJoin('kabupaten', 'biodata.kabupaten_id', '=', 'kabupaten.id')
+            ->join('propinsi', 'biodata.kode_provinsi', '=', 'propinsi.kode_provinsi')
+            ->leftJoin('kabupaten', 'biodata.kode_kabupaten', '=', 'kabupaten.kode_kabupaten')
             ->select(
                 'propinsi.nama_provinsi',
                 'propinsi.kode_provinsi',
@@ -145,8 +145,8 @@ class BerandaController extends Controller
         // B. Berdasarkan Lokasi Karier / Perusahaan Tempat Alumni Bekerja
         $karierRaw = DB::table('biodata')
             ->join('perusahaan', 'biodata.perusahaan_id', '=', 'perusahaan.id')
-            ->join('propinsi', 'perusahaan.propinsi_id', '=', 'propinsi.id')
-            ->leftJoin('kabupaten', 'perusahaan.kabupaten_id', '=', 'kabupaten.id')
+            ->join('propinsi', 'perusahaan.kode_provinsi', '=', 'propinsi.kode_provinsi')
+            ->leftJoin('kabupaten', 'perusahaan.kode_kabupaten', '=', 'kabupaten.kode_kabupaten')
             ->select(
                 'propinsi.nama_provinsi',
                 'kabupaten.nama_kabupaten',
@@ -177,11 +177,12 @@ class BerandaController extends Controller
         // 4. Data Rinci Seluruh Alumni Terdaftar (Termasuk Judul TA & Link Publikasi)
         $alumniList = Biodata::with([
             'prodi:id,nama_prodi',
-            'perusahaan:id,nama_perusahaan,sektor,negara,propinsi_id,kabupaten_id,alamat,kode_pos',
-            'perusahaan.propinsi:id,nama_provinsi',
-            'perusahaan.kabupaten:id,nama_kabupaten',
-            'propinsi:id,nama_provinsi',
-            'kabupaten:id,nama_kabupaten',
+            'perusahaan:id,nama_perusahaan,sektor,kode_negara,kode_provinsi,kode_kabupaten,alamat,kode_pos',
+            'perusahaan.negaraMaster:kode_negara,nama_negara',
+            'perusahaan.propinsi:kode_provinsi,nama_provinsi',
+            'perusahaan.kabupaten:kode_kabupaten,kode_provinsi,nama_kabupaten',
+            'propinsi:kode_provinsi,nama_provinsi',
+            'kabupaten:kode_kabupaten,kode_provinsi,nama_kabupaten',
             'yudisium:id,judul_ta,url_publikasi,jenis_publikasi',
         ])
             // ->whereNotNull('nama')
@@ -197,8 +198,8 @@ class BerandaController extends Controller
                     $aktivitas = 'Lanjut Pendidikan';
                 }
 
-                $negara = $b->perusahaan?->negara ?: 'Indonesia';
-                $jenisLokasi = (strtolower($negara) === 'indonesia' || empty($negara)) ? 'Dalam Negeri' : 'Luar Negeri';
+                $namaNegara = $b->perusahaan?->negaraMaster?->nama_negara ?: 'Indonesia';
+                $jenisLokasi = ($b->perusahaan?->kode_negara === 'ID' || empty($b->perusahaan?->kode_negara)) ? 'Dalam Negeri' : 'Luar Negeri';
 
                 return [
                     'id' => $b->id,
@@ -214,7 +215,8 @@ class BerandaController extends Controller
                     'jenis_lokasi' => $jenisLokasi,
                     'perusahaan_nama' => $b->perusahaan?->nama_perusahaan,
                     'perusahaan_sektor' => $b->perusahaan?->sektor,
-                    'perusahaan_negara' => $negara,
+                    'perusahaan_kode_negara' => $b->perusahaan?->kode_negara,
+                    'perusahaan_nama_negara' => $namaNegara,
                     'perusahaan_provinsi' => $b->perusahaan?->propinsi?->nama_provinsi,
                     'perusahaan_kabupaten' => $b->perusahaan?->kabupaten?->nama_kabupaten,
                     'perusahaan_alamat' => $b->perusahaan?->alamat,
@@ -238,7 +240,7 @@ class BerandaController extends Controller
 
         // 5. Agregasi Sebaran Wilayah untuk Peta Leaflet (Termasuk Nama PT & Nama Alumni untuk Tooltip Hover)
         $perusahaanPerProv = DB::table('perusahaan')
-            ->join('propinsi', 'perusahaan.propinsi_id', '=', 'propinsi.id')
+            ->join('propinsi', 'perusahaan.kode_provinsi', '=', 'propinsi.kode_provinsi')
             ->select('propinsi.nama_provinsi', DB::raw('count(*) as total'))
             ->groupBy('propinsi.nama_provinsi')
             ->pluck('total', 'nama_provinsi')
@@ -277,11 +279,11 @@ class BerandaController extends Controller
         // 6. Semua Provinsi dan Kabupaten dari Tabel Referensi (untuk Dropdown Filter)
         $allProvinsi = DB::table('propinsi')
             ->orderBy('nama_provinsi')
-            ->get(['id', 'nama_provinsi', 'kode_provinsi']);
+            ->get(['kode_provinsi', 'nama_provinsi']);
 
         $allKabupaten = DB::table('kabupaten')
             ->orderBy('nama_kabupaten')
-            ->get(['id', 'propinsi_id', 'nama_kabupaten', 'kode_kabupaten']);
+            ->get(['kode_kabupaten', 'kode_provinsi', 'nama_kabupaten']);
 
         return Inertia::render('Tamu/Beranda', [
             'stats' => $stats,

@@ -80,7 +80,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/change-password', [UbahKataSandiController::class, 'prosesUbahKataSandi']);
 
     // API endpoint helper wilayah untuk cascading dropdown asinkron (Kabupaten berdasarkan Provinsi)
-    Route::get('/api/wilayah/kabupaten/{propinsiId}', [MasterWilayahController::class, 'getKabupatenByProvinsi'])->name('api.wilayah.kabupaten');
+    Route::get('/api/wilayah/kabupaten/{kodeProvinsi}', [MasterWilayahController::class, 'getKabupatenByProvinsi'])->name('api.wilayah.kabupaten');
 
     // Rute yang mengharuskan password bawaan sudah diganti
     Route::middleware('must_change_password')->group(function () {
@@ -325,20 +325,20 @@ Route::middleware('auth')->group(function () {
             // Master Data Wilayah Administrasi & Regulasi Standar UMP (Provinsi, Kabupaten/Kota, UMP Daerah)
             Route::get('/superadmin/master-wilayah', [MasterWilayahController::class, 'index'])->name('superadmin.master-wilayah.index');
             Route::post('/superadmin/master-wilayah/provinsi', [MasterWilayahController::class, 'storeProvinsi'])->name('superadmin.master-wilayah.provinsi.store');
-            Route::put('/superadmin/master-wilayah/provinsi/{id}', [MasterWilayahController::class, 'updateProvinsi'])->name('superadmin.master-wilayah.provinsi.update');
-            Route::delete('/superadmin/master-wilayah/provinsi/{id}', [MasterWilayahController::class, 'destroyProvinsi'])->name('superadmin.master-wilayah.provinsi.destroy');
+            Route::put('/superadmin/master-wilayah/provinsi/{kodeProvinsi}', [MasterWilayahController::class, 'updateProvinsi'])->name('superadmin.master-wilayah.provinsi.update');
+            Route::delete('/superadmin/master-wilayah/provinsi/{kodeProvinsi}', [MasterWilayahController::class, 'destroyProvinsi'])->name('superadmin.master-wilayah.provinsi.destroy');
 
             Route::post('/superadmin/master-wilayah/kabupaten', [MasterWilayahController::class, 'storeKabupaten'])->name('superadmin.master-wilayah.kabupaten.store');
-            Route::put('/superadmin/master-wilayah/kabupaten/{id}', [MasterWilayahController::class, 'updateKabupaten'])->name('superadmin.master-wilayah.kabupaten.update');
-            Route::delete('/superadmin/master-wilayah/kabupaten/{id}', [MasterWilayahController::class, 'destroyKabupaten'])->name('superadmin.master-wilayah.kabupaten.destroy');
+            Route::put('/superadmin/master-wilayah/kabupaten/{kodeKabupaten}', [MasterWilayahController::class, 'updateKabupaten'])->name('superadmin.master-wilayah.kabupaten.update');
+            Route::delete('/superadmin/master-wilayah/kabupaten/{kodeKabupaten}', [MasterWilayahController::class, 'destroyKabupaten'])->name('superadmin.master-wilayah.kabupaten.destroy');
 
             Route::post('/superadmin/master-wilayah/ump', [MasterWilayahController::class, 'storeOrUpdateUmp'])->name('superadmin.master-wilayah.ump.store');
             Route::delete('/superadmin/master-wilayah/ump/{id}', [MasterWilayahController::class, 'destroyUmp'])->name('superadmin.master-wilayah.ump.destroy');
             Route::post('/superadmin/master-wilayah/ump/copy-year', [MasterWilayahController::class, 'copyYearUmp'])->name('superadmin.master-wilayah.ump.copy-year');
 
             Route::post('/superadmin/master-wilayah/negara', [MasterWilayahController::class, 'storeNegara'])->name('superadmin.master-wilayah.negara.store');
-            Route::put('/superadmin/master-wilayah/negara/{id}', [MasterWilayahController::class, 'updateNegara'])->name('superadmin.master-wilayah.negara.update');
-            Route::delete('/superadmin/master-wilayah/negara/{id}', [MasterWilayahController::class, 'destroyNegara'])->name('superadmin.master-wilayah.negara.destroy');
+            Route::put('/superadmin/master-wilayah/negara/{kodeNegara}', [MasterWilayahController::class, 'updateNegara'])->name('superadmin.master-wilayah.negara.update');
+            Route::delete('/superadmin/master-wilayah/negara/{kodeNegara}', [MasterWilayahController::class, 'destroyNegara'])->name('superadmin.master-wilayah.negara.destroy');
 
             // Manajemen Akun Terpadu & Pemulihan Kata Sandi (Admin Fakultas, Admin Prodi, Mahasiswa per Prodi)
             Route::get('/superadmin/manajemen-akun', [ManajemenAkunController::class, 'index'])->name('superadmin.manajemen-akun.index');

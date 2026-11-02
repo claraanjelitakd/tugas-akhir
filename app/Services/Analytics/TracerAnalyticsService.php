@@ -52,6 +52,7 @@ class TracerAnalyticsService
             'key' => 'work_location',
             'label' => 'Sebaran wilayah kerja',
             'description' => 'Sebaran provinsi perusahaan tempat alumni bekerja, bukan alamat domisili alumni.',
+            'visible' => false,
         ],
         [
             'key' => 'employment_status',
@@ -82,6 +83,7 @@ class TracerAnalyticsService
             'key' => 'profile_completion',
             'label' => 'Kelengkapan profil alumni',
             'description' => 'Kelengkapan profil berdasarkan status audit profil pada tahun lulusan terpilih.',
+            'visible' => false,
         ],
         [
             'key' => 'learning_methods',
@@ -135,7 +137,7 @@ class TracerAnalyticsService
             'key' => 'competency_gap',
             'label' => 'Gap kompetensi lulusan',
             'description' => 'Perbandingan kompetensi yang dikuasai saat lulus dan yang diperlukan di pekerjaan.',
-            'visual_plan' => 'Dumbbell median, radar kompetensi, dan heatmap gap.',
+            'visual_plan' => 'Batang rata-rata, radar kompetensi, dan heatmap gap.',
         ],
     ];
 
@@ -293,7 +295,7 @@ class TracerAnalyticsService
                     ->values()
                     ->all(),
             ],
-            'chart_options' => self::UNIVERSITY_CHARTS,
+            'chart_options' => $this->universityChartOptions(),
             'selected_chart' => $chartKey,
             'chart' => $chart,
         ];
@@ -306,7 +308,10 @@ class TracerAnalyticsService
      */
     public function universityChartOptions(): array
     {
-        return self::UNIVERSITY_CHARTS;
+        return collect(self::UNIVERSITY_CHARTS)
+            ->reject(fn (array $chart): bool => ($chart['visible'] ?? true) === false)
+            ->values()
+            ->all();
     }
 
     /**
@@ -429,7 +434,11 @@ class TracerAnalyticsService
         $defaultYear = (string) now()->year;
         $year = $requestedYear ?: $defaultYear;
 
-        return in_array($year, $availableYears, true) ? $year : $defaultYear;
+        if (in_array($year, $availableYears, true)) {
+            return $year;
+        }
+
+        return $availableYears[0] ?? self::ALL_YEARS;
     }
 
     /**
@@ -469,7 +478,7 @@ class TracerAnalyticsService
      * Mengambil hanya view analitik yang dibutuhkan indikator aktif.
      *
      * View ini menjaga proyeksi dan normalisasi data tetap berada di database,
-     * sementara service hanya bertugas membentuk metadata, median, dan payload UI.
+     * sementara service hanya bertugas membentuk metadata, statistik agregat, dan payload UI.
      *
      * @return Collection<int, object>
      */
@@ -649,8 +658,9 @@ class TracerAnalyticsService
             $biodataIds = $records->pluck('biodata_id')->unique()->all();
             $perusahaanInfo = DB::table('biodata')
                 ->leftJoin('perusahaan', 'biodata.perusahaan_id', '=', 'perusahaan.id')
-                ->leftJoin('propinsi', 'perusahaan.propinsi_id', '=', 'propinsi.id')
-                ->leftJoin('kabupaten', 'perusahaan.kabupaten_id', '=', 'kabupaten.id')
+                ->leftJoin('propinsi', 'perusahaan.kode_provinsi', '=', 'propinsi.kode_provinsi')
+                ->leftJoin('kabupaten', 'perusahaan.kode_kabupaten', '=', 'kabupaten.kode_kabupaten')
+                ->leftJoin('ref_negara', 'perusahaan.kode_negara', '=', 'ref_negara.kode_negara')
                 ->whereIn('biodata.id', $biodataIds)
                 ->select(
                     'biodata.id as biodata_id',
@@ -658,7 +668,8 @@ class TracerAnalyticsService
                     'perusahaan.jenis_perusahaan_lainnya',
                     'perusahaan.skala',
                     'perusahaan.jenis_lokasi',
-                    'perusahaan.negara',
+                    'perusahaan.kode_negara',
+                    'ref_negara.nama_negara',
                     'propinsi.nama_provinsi',
                     'kabupaten.nama_kabupaten'
                 )
@@ -673,14 +684,15 @@ class TracerAnalyticsService
                 // Pemecahan entitas wilayah perusahaan: Negara, Provinsi, Kabupaten/Kota
                 $isLuarNegeri = ($info?->jenis_lokasi === 'Luar Negeri');
                 $rec['jenis_lokasi'] = $info?->jenis_lokasi ?: 'Dalam Negeri';
-                $rec['negara'] = $isLuarNegeri ? ($info?->negara ?: 'Luar Negeri') : 'Indonesia';
+                $rec['kode_negara'] = $info?->kode_negara ?: 'ID';
+                $rec['nama_negara'] = $isLuarNegeri ? ($info?->nama_negara ?: 'Luar Negeri') : 'Indonesia';
                 $rec['provinsi'] = $isLuarNegeri ? '-' : ($info?->nama_provinsi ?: '-');
                 $rec['kabupaten'] = $isLuarNegeri ? '-' : ($info?->nama_kabupaten ?: '-');
 
                 // Tentukan nama wilayah/region operasional terpadu (backward compatibility)
                 $regionParts = [];
                 if ($isLuarNegeri) {
-                    $regionParts[] = $rec['negara'];
+                    $regionParts[] = $rec['nama_negara'];
                 } else {
                     if ($info?->nama_kabupaten) {
                         $regionParts[] = $info->nama_kabupaten;
@@ -746,6 +758,14 @@ class TracerAnalyticsService
                 'count' => $group->count(),
                 'percentage' => $this->percentage($group->count(), max($records->count(), 1)),
             ])->sortByDesc('count')->values()->all();
+        }
+
+        if ($chartKey === 'mismatch_reasons') {
+            // Opsi Lainnya hanya menjadi pintu ke tabel isian bebas, bukan batang grafik.
+            $series = collect($series)
+                ->reject(fn (array $item): bool => str_contains(mb_strtolower(trim((string) ($item['label'] ?? ''))), 'lainnya'))
+                ->values()
+                ->all();
         }
 
         return [
@@ -1028,14 +1048,15 @@ class TracerAnalyticsService
             ];
         })->filter(fn (array $item): bool => $item['count'] > 0)->sortByDesc('count')->values()->all();
 
-        // Seluruh opsi resmi kuesioner instrumen F12
-        $allFundings = [
-            'Biaya Sendiri / Keluarga',
-            'Beasiswa Pemerintah',
-            'Beasiswa Swasta / Perusahaan',
-            'Beasiswa Luar Negeri',
-            'Lainnya',
-        ];
+        // Seluruh opsi resmi F12 dibaca dari metadata agar grafik mengikuti instrumen aktif.
+        $allFundings = DB::table('ref_subpertanyaan_detil')
+            ->where('kode_pertanyaan', 'F12')
+            ->orderBy('order')
+            ->pluck('option_text')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
         $fundingCounts = $alumniList->groupBy('funding_source');
         $fundingSeries = collect($allFundings)->map(function (string $fnd) use ($fundingCounts, $alumniList): array {
             $group = $fundingCounts->get($fnd, collect());
@@ -1122,16 +1143,17 @@ class TracerAnalyticsService
                     'competency' => $labels[$index] ?? 'Kompetensi '.$index,
                     'graduation_score' => $scores['a']['score'],
                     'need_score' => $scores['b']['score'],
-                    'gap' => round($scores['b']['score'] - $scores['a']['score'], 2),
+                    // Skor Likert dan selisih visual selalu dikirim sebagai bilangan bulat.
+                    'gap' => (int) round($scores['b']['score'] - $scores['a']['score']),
                 ]);
             }
         }
         $series = $records->groupBy('competency')->map(fn (Collection $group, string $label): array => [
             'label' => $label,
             'count' => $group->count(),
-            'graduation_score' => $this->median($group->pluck('graduation_score')->all()),
-            'need_score' => $this->median($group->pluck('need_score')->all()),
-            'gap' => $this->median($group->pluck('gap')->all()),
+            'graduation_score' => $this->averageInteger($group->pluck('graduation_score')->all()),
+            'need_score' => $this->averageInteger($group->pluck('need_score')->all()),
+            'gap' => $this->averageInteger($group->pluck('gap')->all()),
         ])->values()->all();
 
         $sortedByGap = collect($series)->sortByDesc('gap')->values();
@@ -1145,7 +1167,7 @@ class TracerAnalyticsService
             'visual_plan' => $this->visualPlan('competency_gap'),
             'summary' => [
                 'answered_count' => $records->pluck('biodata_id')->unique()->count(),
-                'average_gap' => $this->median($records->pluck('gap')->all()),
+                'average_gap' => $this->averageInteger($records->pluck('gap')->all()),
                 'largest_gap_label' => $largestGapItem['label'] ?? null,
                 'largest_gap' => $largestGapItem['gap'] ?? null,
                 'leading_category' => $largestGapItem['label'] ?? null,
@@ -1153,7 +1175,8 @@ class TracerAnalyticsService
             'series' => $series,
             'records' => $records->all(),
             'methodology' => [
-                'formula' => 'Gap = median kebutuhan di pekerjaan - median penguasaan saat lulus.',
+                'formula' => 'Rata-rata skor A = Σ skor penguasaan saat lulus / n; rata-rata skor B = Σ skor kebutuhan kerja / n; Gap = rata-rata A - rata-rata B.',
+                'rounding' => 'ROUND ke bilangan bulat terdekat untuk skor A, skor B, dan gap visual.',
                 'denominator' => 'Pasangan jawaban F17a dan F17b yang lengkap pada kompetensi yang sama.',
                 'source' => 'tracer.F17a1-F17a7 dan tracer.F17b1-F17b7 melalui v_analytics_tracer_answers',
             ],
@@ -1349,7 +1372,7 @@ class TracerAnalyticsService
             'methodology' => [
                 'formula' => 'Memenuhi jika gaji >= 1,2 × UMP provinsi tempat kerja pada tahun UMP terpilih.',
                 'denominator' => 'Alumni dengan gaji, provinsi kerja, dan UMP yang tersedia.',
-                'source' => 'biodata.gaji, perusahaan.propinsi_id, propinsi.kode_provinsi, ump.besaran',
+                'source' => 'biodata.gaji, perusahaan.kode_provinsi, propinsi.kode_provinsi, ump.besaran',
             ],
         ];
     }
@@ -1376,9 +1399,9 @@ class TracerAnalyticsService
                 'nama' => $row->nama ?: 'Tanpa nama',
                 'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
                 'nama_perusahaan' => $row->nama_perusahaan ?: 'Belum tercatat',
-                'province_id' => $row->workplace_province_id,
-                'province_code' => $row->workplace_province_code,
-                'province_name' => $row->workplace_province_name ?: 'Tidak teridentifikasi',
+                'kode_provinsi' => $row->workplace_kode_provinsi,
+                'province_code' => $row->workplace_kode_provinsi,
+                'province_name' => $row->workplace_nama_provinsi ?: 'Tidak teridentifikasi',
                 'salary' => $salary,
                 'ump' => (float) $row->ump,
                 'threshold' => (float) $row->threshold,
@@ -1420,7 +1443,7 @@ class TracerAnalyticsService
             'methodology' => [
                 'formula' => 'Jumlah alumni dikelompokkan berdasarkan provinsi perusahaan yang terhubung ke biodata.',
                 'denominator' => 'Alumni dengan provinsi perusahaan yang terisi.',
-                'source' => 'biodata.perusahaan_id, perusahaan.propinsi_id, propinsi',
+                'source' => 'biodata.perusahaan_id, perusahaan.kode_provinsi, propinsi',
             ],
         ];
     }
@@ -1433,15 +1456,15 @@ class TracerAnalyticsService
     private function workLocationRecords(Collection $rows): Collection
     {
         return $rows
-            ->filter(fn (object $row): bool => ! empty($row->workplace_province_code))
+            ->filter(fn (object $row): bool => ! empty($row->workplace_kode_provinsi))
             ->map(fn (object $row): array => [
                 'biodata_id' => (int) $row->biodata_id,
                 'nim' => $row->nim,
                 'nama' => $row->nama ?: 'Tanpa nama',
                 'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
                 'nama_perusahaan' => $row->nama_perusahaan ?: 'Belum tercatat',
-                'province_code' => $row->workplace_province_code,
-                'province_name' => $row->workplace_province_name ?: 'Tidak teridentifikasi',
+                'province_code' => $row->workplace_kode_provinsi,
+                'province_name' => $row->workplace_nama_provinsi ?: 'Tidak teridentifikasi',
             ])
             ->values();
     }
@@ -1473,8 +1496,8 @@ class TracerAnalyticsService
                 : ($alumniResponses['F5B']['answer'] ?? $alumniResponses['F2E']['answer'] ?? null);
             $position = $alumniResponses['F5C']['answer'] ?? $alumniResponses['F2G']['answer'] ?? null;
             $workplaceType = $alumniResponses['F11']['answer'] ?? null;
-            $provinceName = property_exists($row, 'workplace_province_name') && $row->workplace_province_name
-                ? $row->workplace_province_name
+            $provinceName = property_exists($row, 'workplace_nama_provinsi') && $row->workplace_nama_provinsi
+                ? $row->workplace_nama_provinsi
                 : null;
 
             return [
@@ -1483,13 +1506,13 @@ class TracerAnalyticsService
                 'nama' => $row->nama ?: 'Tanpa nama',
                 'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
                 'status' => $label,
-                'nama_perusahaan' => $companyName ?: ($label === 'Wiraswasta' ? 'Wirausaha Mandiri' : ($label === 'Bekerja' ? 'Perusahaan Mitra' : '-')),
-                'posisi_jabatan' => $position ?: ($label === 'Wiraswasta' ? 'Owner / Founder' : ($label === 'Bekerja' ? 'Staf Profesional' : '-')),
-                'workplace_province_name' => $provinceName ?: 'D.I. Yogyakarta',
+                'nama_perusahaan' => $companyName,
+                'posisi_jabatan' => $position,
+                'workplace_nama_provinsi' => $provinceName,
                 'workplace_type' => $workplaceType ?: '-',
-                'study_univ' => $studyUniv ?: ($label === 'Melanjutkan pendidikan' ? 'Universitas Kristen Duta Wacana / Mitra' : '-'),
-                'study_prodi' => $studyProdi ?: ($label === 'Melanjutkan pendidikan' ? 'Magister (S2)' : '-'),
-                'study_jenjang' => $studyJenjang ?: ($label === 'Melanjutkan pendidikan' ? 'S2' : '-'),
+                'study_univ' => $studyUniv,
+                'study_prodi' => $studyProdi,
+                'study_jenjang' => $studyJenjang,
             ];
         })->filter()->values();
 
@@ -1808,7 +1831,7 @@ class TracerAnalyticsService
         $umpByProvince = $umpRows->keyBy('kode_provinsi');
         $comparableRows = $rows->map(function (object $row) use ($umpByProvince): ?array {
             $salary = $this->numericValue($row->gaji);
-            $ump = $row->workplace_province_code ? $umpByProvince->get($row->workplace_province_code) : null;
+            $ump = $row->workplace_kode_provinsi ? $umpByProvince->get($row->workplace_kode_provinsi) : null;
 
             if ($salary === null || $salary <= 0 || ! $ump) {
                 return null;
@@ -1824,9 +1847,9 @@ class TracerAnalyticsService
                 'nama' => $row->nama ?: 'Tanpa nama',
                 'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
                 'nama_perusahaan' => $row->nama_perusahaan ?: 'Belum tercatat',
-                'province_id' => $row->workplace_province_id,
-                'province_code' => $row->workplace_province_code,
-                'province_name' => $row->workplace_province_name ?: 'Tidak teridentifikasi',
+                'kode_provinsi' => $row->workplace_kode_provinsi,
+                'province_code' => $row->workplace_kode_provinsi,
+                'province_name' => $row->workplace_nama_provinsi ?: 'Tidak teridentifikasi',
                 'salary' => $salary,
                 'ump' => $umpValue,
                 'threshold' => $threshold,
@@ -1895,12 +1918,12 @@ class TracerAnalyticsService
     private function workLocation(Collection $rows): array
     {
         return $rows
-            ->filter(fn (object $row): bool => ! empty($row->workplace_province_code))
-            ->groupBy('workplace_province_code')
+            ->filter(fn (object $row): bool => ! empty($row->workplace_kode_provinsi))
+            ->groupBy('workplace_kode_provinsi')
             ->map(fn (Collection $group): array => [
-                'province_code' => $group->first()->workplace_province_code,
-                'province_name' => $group->first()->workplace_province_name,
-                'label' => $group->first()->workplace_province_name,
+                'province_code' => $group->first()->workplace_kode_provinsi,
+                'province_name' => $group->first()->workplace_nama_provinsi,
+                'label' => $group->first()->workplace_nama_provinsi,
                 'count' => $group->count(),
             ])
             ->sortByDesc('count')
@@ -1972,13 +1995,13 @@ class TracerAnalyticsService
                 'title' => 'Gaji dibandingkan UMP',
                 'formula' => 'Memenuhi jika biodata.gaji >= 1,2 × UMP provinsi tempat bekerja pada tahun UMP terpilih.',
                 'denominator' => 'Hanya alumni dengan gaji, provinsi kerja, dan UMP yang tersedia.',
-                'source' => 'biodata.gaji, perusahaan.propinsi_id, ump',
+                'source' => 'biodata.gaji, perusahaan.kode_provinsi, ump',
             ],
             'work_location' => [
                 'title' => 'Wilayah kerja',
                 'formula' => 'Jumlah alumni dikelompokkan berdasarkan provinsi pada perusahaan terpilih.',
                 'denominator' => 'Alumni dengan provinsi tempat kerja yang terisi.',
-                'source' => 'perusahaan.propinsi_id, propinsi',
+                'source' => 'perusahaan.kode_provinsi, propinsi',
             ],
             'employment_status' => [
                 'title' => 'Status pekerjaan dan IKU 1',
@@ -2169,11 +2192,11 @@ class TracerAnalyticsService
             'employment_status' => [
                 'formula' => 'Proporsi Status s (%) = (n_s / N_valid_F8) × 100%  |  Capaian IKU 1 Awal (%) = ((n_Bekerja + n_Wiraswasta + n_StudiLanjut) / N_valid_F8) × 100%',
                 'denominator' => 'N_valid_F8 = jumlah alumni yang memberikan jawaban status pekerjaan valid pada instrumen F8.',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F8, F5B, F5C, F11, F18a..F18d], answer), biodata (id, nim, prodi_id, perusahaan_id), perusahaan (id, nama_perusahaan, propinsi_id), propinsi (id, nama_provinsi), prodi (id, nama_prodi) — View: v_analytics_employment_status, v_analytics_population',
+                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F8, F5B, F5C, F11, F18a..F18d], answer), biodata (id, nim, prodi_id, perusahaan_id), perusahaan (id, nama_perusahaan, kode_provinsi), propinsi (kode_provinsi, nama_provinsi), prodi (id, nama_prodi) — View: v_analytics_employment_status, v_analytics_population',
                 'tables' => [
                     ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F8, F5B, F5C, F11, F18a–F18d), answer', 'role' => 'Status aktivitas saat ini (F8) & detail pekerjaan/studi lanjut'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, perusahaan_id', 'role' => 'Identitas alumni & relasi perusahaan'],
-                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, propinsi_id', 'role' => 'Perusahaan/usaha tempat alumni bekerja'],
+                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, kode_provinsi', 'role' => 'Perusahaan/usaha tempat alumni bekerja'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Komposisi dan aliran status per prodi'],
                 ],
                 'views' => ['v_analytics_employment_status', 'v_analytics_population'],
@@ -2278,12 +2301,12 @@ class TracerAnalyticsService
             ],
             'salary_vs_ump' => [
                 'formula' => "Ambang Provinsi = ROUND(1,2 × ump.besaran, 2)  |  Status Memenuhi = 1 jika biodata.gaji >= 1,2 × UMP (tahun {$umpYearLabel})  |  Persentase Memenuhi (%) = (n_memenuhi / n_comparable) × 100%  |  Kuartil Gaji: Q1 = P_25, Median (Q2) = P_50, Q3 = P_75",
-                'denominator' => 'n_comparable = jumlah alumni yang memiliki biodata.gaji > 0, terhubung ke perusahaan.propinsi_id, dan memiliki nilai ump.besaran pada tahun UMP terpilih.',
-                'source' => 'Tabel: biodata (id, nim, prodi_id, gaji, perusahaan_id), perusahaan (id, nama_perusahaan, propinsi_id), propinsi (id, kode_provinsi, nama_provinsi), ump (kode_provinsi, tahun, besaran), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_salary_ump, v_analytics_population',
+                'denominator' => 'n_comparable = jumlah alumni yang memiliki biodata.gaji > 0, terhubung ke perusahaan.kode_provinsi, dan memiliki nilai ump.besaran pada tahun UMP terpilih.',
+                'source' => 'Tabel: biodata (id, nim, prodi_id, gaji, perusahaan_id), perusahaan (id, nama_perusahaan, kode_provinsi), propinsi (kode_provinsi, nama_provinsi), ump (kode_provinsi, tahun, besaran), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_salary_ump, v_analytics_population',
                 'tables' => [
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, gaji, perusahaan_id', 'role' => 'Nominal pendapatan bulanan alumni (gaji > 0)'],
-                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, propinsi_id', 'role' => 'Lokasi provinsi tempat bekerja'],
-                    ['table' => 'propinsi', 'columns' => 'id, kode_provinsi, nama_provinsi', 'role' => 'Kode provinsi penghubung ke tabel UMP'],
+                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, kode_provinsi', 'role' => 'Lokasi provinsi tempat bekerja'],
+                    ['table' => 'propinsi', 'columns' => 'kode_provinsi, nama_provinsi', 'role' => 'Kode provinsi penghubung ke tabel UMP'],
                     ['table' => 'ump', 'columns' => 'kode_provinsi, tahun, besaran', 'role' => "Besaran Upah Minimum Provinsi tahun {$umpYearLabel}"],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi kuartil gaji & pemenuhan UMP per prodi'],
                 ],
@@ -2305,7 +2328,7 @@ class TracerAnalyticsService
                         'key' => 'province_ump',
                         'title' => 'Diagram Batang Bertumpuk 100% Status Pemenuhan 1,2× UMP per Provinsi',
                         'formula' => 'Memenuhi_{prov} (%) = (COUNT(gaji >= 1,2 × ump_{prov}) / n_{prov}) × 100% ; Median_{prov} = P_50(Gaji_{prov})',
-                        'source' => 'v_analytics_salary_ump dikelompokkan per workplace_province_name',
+                        'source' => 'v_analytics_salary_ump dikelompokkan per workplace_nama_provinsi',
                     ],
                 ],
             ],
@@ -2420,7 +2443,7 @@ class TracerAnalyticsService
                 ],
             ],
             'competency_gap' => [
-                'formula' => 'Saat Lulus (A_d) = Median(F17a_d)  |  Diperlukan Kerja (B_d) = Median(F17b_d)  |  Gap Visual (Surplus/Defisit) = A_d - B_d  |  Gap Kebutuhan = B_d - A_d (Skala Likert 1–5)',
+                'formula' => 'Saat Lulus (A_d) = Rata-rata(F17a_d)  |  Diperlukan Kerja (B_d) = Rata-rata(F17b_d)  |  Gap Visual (Surplus/Defisit) = A_d - B_d  |  Gap Kebutuhan = B_d - A_d (Skala Likert 1-5)',
                 'denominator' => 'n_d = jumlah alumni yang memiliki pasangan jawaban lengkap F17a_d (saat lulus) dan F17b_d (kebutuhan kerja) pada dimensi kompetensi ke-d (d ∈ {1..7}).',
                 'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F17a1..F17a7, F17b1..F17b7], answer), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_competency_gap, v_analytics_tracer_answers',
                 'tables' => [
@@ -2434,7 +2457,7 @@ class TracerAnalyticsService
                     [
                         'key' => 'unified_gap',
                         'title' => 'Diagram Kombinasi Batang & Garis Kompetensi Saat Lulus, Diperlukan Kerja, dan Gap (Gambar 4.17)',
-                        'formula' => 'A_d = P_50(F17a_d) ; B_d = P_50(F17b_d) ; Selisih Surplus/Defisit = A_d - B_d (Surplus jika >= 0, Defisit jika < 0)',
+                        'formula' => 'A_d = Rata-rata(F17a_d) ; B_d = Rata-rata(F17b_d) ; Selisih Surplus/Defisit = A_d - B_d (Surplus jika >= 0, Defisit jika < 0)',
                         'source' => 'v_analytics_competency_gap (pasangan kode F17a1..7 dan F17b1..7)',
                     ],
                 ],
@@ -2472,13 +2495,14 @@ class TracerAnalyticsService
                 ],
             ],
             'work_location' => [
-                'formula' => 'Jumlah Alumni Provinsi prov (n_{prov}) = COUNT(biodata_id dengan workplace_province_code = prov)  |  Proporsi Provinsi prov (%) = (n_{prov} / N_terpetakan) × 100%',
-                'denominator' => 'N_terpetakan = jumlah alumni yang telah terhubung ke entitas perusahaan dengan provinsi tempat kerja teridentifikasi (workplace_province_code IS NOT NULL).',
-                'source' => 'Tabel: biodata (id, nim, prodi_id, perusahaan_id), perusahaan (id, nama_perusahaan, propinsi_id, kabupaten_id, jenis_lokasi, negara), propinsi (id, kode_provinsi, nama_provinsi), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_work_location, v_analytics_population',
+                'formula' => 'Jumlah Alumni Provinsi prov (n_{prov}) = COUNT(biodata_id dengan workplace_kode_provinsi = prov)  |  Proporsi Provinsi prov (%) = (n_{prov} / N_terpetakan) × 100%',
+                'denominator' => 'N_terpetakan = jumlah alumni yang telah terhubung ke entitas perusahaan dengan provinsi tempat kerja teridentifikasi (workplace_kode_provinsi IS NOT NULL).',
+                'source' => 'Tabel: biodata (id, nim, prodi_id, perusahaan_id), perusahaan (id, nama_perusahaan, kode_provinsi, kode_kabupaten, jenis_lokasi, kode_negara), ref_negara (kode_negara, nama_negara), propinsi (kode_provinsi, nama_provinsi), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_work_location, v_analytics_population',
                 'tables' => [
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, perusahaan_id', 'role' => 'Relasi alumni ke perusahaan tempat bekerja'],
-                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, propinsi_id, jenis_lokasi, negara', 'role' => 'Entitas perusahaan dan referensi provinsi kerja'],
-                    ['table' => 'propinsi', 'columns' => 'id, kode_provinsi, nama_provinsi', 'role' => 'Master wilayah provinsi Indonesia'],
+                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, kode_provinsi, jenis_lokasi, kode_negara', 'role' => 'Entitas perusahaan dan referensi provinsi kerja'],
+                    ['table' => 'ref_negara', 'columns' => 'kode_negara, nama_negara', 'role' => 'Label negara untuk lokasi kerja luar negeri'],
+                    ['table' => 'propinsi', 'columns' => 'kode_provinsi, nama_provinsi', 'role' => 'Master wilayah provinsi Indonesia'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Sebaran wilayah kerja per program studi'],
                 ],
                 'views' => ['v_analytics_work_location', 'v_analytics_population'],
@@ -2487,19 +2511,19 @@ class TracerAnalyticsService
                         'key' => 'bar',
                         'title' => 'Diagram Batang Horizontal Distribusi Provinsi Tempat Bekerja',
                         'formula' => 'n_{prov} = COUNT(biodata_id pada provinsi prov) ; Proporsi_{prov} (%) = (n_{prov} / N_terpetakan) × 100%',
-                        'source' => 'v_analytics_work_location (kolom workplace_province_code, workplace_province_name)',
+                        'source' => 'v_analytics_work_location (kolom workplace_kode_provinsi, workplace_nama_provinsi)',
                     ],
                     [
                         'key' => 'treemap',
                         'title' => 'Treemap Komposisi Wilayah Kerja',
                         'formula' => 'Luas Area_{prov} ∝ n_{prov} / N_terpetakan',
-                        'source' => 'v_analytics_work_location (agregasi per workplace_province_name)',
+                        'source' => 'v_analytics_work_location (agregasi per workplace_nama_provinsi)',
                     ],
                     [
                         'key' => 'heatmap',
                         'title' => 'Peta Panas (Heatmap) Sebaran Wilayah Kerja Antarprogram Studi',
                         'formula' => 'Sel (p, prov) = COUNT(alumni ∈ prodi p yang bekerja di provinsi prov)',
-                        'source' => 'v_analytics_work_location (matriks nama_prodi × workplace_province_name)',
+                        'source' => 'v_analytics_work_location (matriks nama_prodi × workplace_nama_provinsi)',
                     ],
                     [
                         'key' => 'map',
@@ -2742,10 +2766,37 @@ class TracerAnalyticsService
     }
 
     /**
+     * Menghitung rata-rata skor numerik tanpa memasukkan nilai kosong ke distribusi.
+     *
+     * @param  array<int, mixed>  $values
+     */
+    private function average(array $values): ?float
+    {
+        $values = array_values(array_filter(array_map('floatval', $values), fn (float $value): bool => is_finite($value)));
+        if ($values === []) {
+            return null;
+        }
+
+        return round(array_sum($values) / count($values), 2);
+    }
+
+    /**
      * Menghitung persentil interpolasi sederhana untuk rentang P25–P75.
      *
      * @param  array<int, mixed>  $values
      */
+    /**
+     * Menghitung rata-rata skor lalu membulatkannya ke bilangan bulat terdekat.
+     *
+     * @param  array<int, mixed>  $values
+     */
+    private function averageInteger(array $values): ?int
+    {
+        $average = $this->average($values);
+
+        return $average === null ? null : (int) round($average);
+    }
+
     private function percentile(array $values, int $percentile): ?float
     {
         $values = array_values(array_filter(array_map('floatval', $values), fn (float $value): bool => is_finite($value)));

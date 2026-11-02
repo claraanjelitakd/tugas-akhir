@@ -3,6 +3,7 @@
   File: resources/js/Pages/AdminProdi/Perusahaan/Index.vue
 -->
 <script setup>
+// Halaman verifikasi perusahaan prodi: relasi wilayah memakai kode kanonik dari master wilayah.
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import Swal from 'sweetalert2';
@@ -168,8 +169,8 @@ const handleAutoReplace = (pendingCompany, targetVerifiedCompany) => {
                 <p>Data inputan alumni: <strong class="text-rose-700">${pendingCompany.nama_perusahaan}</strong></p>
                 <p>Akan digantikan dengan master resmi: <strong class="text-emerald-800">${targetVerifiedCompany.nama_perusahaan}</strong></p>
                 <div class="p-2.5 bg-amber-50 border border-amber-200 rounded text-amber-900 mt-2">
-                    ● Semua relasi alumni yang bekerja di perusahaan ini akan otomatis dialihkan ke master resmi.<br>
-                    ● Record pengajuan duplikat akan dibersihkan agar database tetap rapi.
+                    PERHATIAN: Semua relasi alumni yang bekerja di perusahaan ini akan otomatis dialihkan ke master resmi.<br>
+                    PERHATIAN: Record pengajuan duplikat akan dibersihkan agar database tetap rapi.
                 </div>
             </div>
         `,
@@ -238,30 +239,30 @@ const editModalError = ref('');
 const editForm = ref({
     id: null,
     nama_perusahaan: '',
-    propinsi_id: '',
-    kabupaten_id: '',
+    kode_provinsi: '',
+    kode_kabupaten: '',
     alamat: '',
     kode_pos: '',
     skala: 'Nasional',
     jenis_perusahaan: 'Perusahaan swasta',
     jenis_lokasi: 'Dalam Negeri',
-    negara: 'Indonesia',
+    kode_negara: 'ID',
 });
 
 // computed() menyaring daftar kabupaten sesuai provinsi yang dipilih pada form sunting
 const filteredKabupatensForEdit = computed(() => {
-    if (!editForm.value.propinsi_id) {
+    if (!editForm.value.kode_provinsi) {
         return [];
     }
-    return (props.kabupatens || []).filter(k => String(k.propinsi_id) === String(editForm.value.propinsi_id));
+    return (props.kabupatens || []).filter(k => String(k.kode_provinsi) === String(editForm.value.kode_provinsi));
 });
 
 // watch() memantau perubahan provinsi pada form sunting
 // Jika provinsi berubah dan kabupaten lama tidak ada di provinsi baru, kosongkan pilihan kabupaten
-watch(() => editForm.value.propinsi_id, (newPropId) => {
-    const isValid = filteredKabupatensForEdit.value.some(k => String(k.id) === String(editForm.value.kabupaten_id));
+watch(() => editForm.value.kode_provinsi, (newPropId) => {
+    const isValid = filteredKabupatensForEdit.value.some(k => String(k.kode_kabupaten) === String(editForm.value.kode_kabupaten));
     if (!newPropId || !isValid) {
-        editForm.value.kabupaten_id = '';
+        editForm.value.kode_kabupaten = '';
     }
 });
 
@@ -271,14 +272,14 @@ const openEditModal = (company) => {
     editForm.value = {
         id: company.id,
         nama_perusahaan: company.nama_perusahaan || '',
-        propinsi_id: company.propinsi_id || '',
-        kabupaten_id: company.kabupaten_id || '',
+        kode_provinsi: company.kode_provinsi || '',
+        kode_kabupaten: company.kode_kabupaten || '',
         alamat: company.alamat || '',
         kode_pos: company.kode_pos || '',
         skala: company.skala || 'Nasional',
         jenis_perusahaan: company.jenis_perusahaan || 'Perusahaan swasta',
         jenis_lokasi: company.jenis_lokasi || 'Dalam Negeri',
-        negara: company.negara || 'Indonesia',
+        kode_negara: company.kode_negara || 'ID',
     };
     showEditModal.value = true;
 };
@@ -503,7 +504,7 @@ const submitEditForm = () => {
                                         <span v-if="company.kode_pos">({{ company.kode_pos }})</span>
                                     </div>
                                     <div class="text-gray-400 text-[11px]">
-                                        {{ company.negara || 'Indonesia' }} • {{ company.skala || 'Nasional' }}
+                                        {{ company.kode_negara || 'ID' }} - {{ company.skala || 'Nasional' }}
                                     </div>
                                 </td>
 
@@ -518,11 +519,11 @@ const submitEditForm = () => {
                                 <td class="border border-gray-300 px-3 py-2 text-gray-700">
                                     <div v-if="company.biodata && company.biodata.length > 0">
                                         <div class="font-bold text-gray-900 leading-tight">{{ company.biodata[0].nama }}</div>
-                                        <div class="text-gray-500 text-[11px] font-mono mt-0.5">{{ company.biodata[0].nim }} • {{ company.biodata[0].prodi?.nama_prodi || '-' }}</div>
+                                        <div class="text-gray-500 text-[11px] font-mono mt-0.5">{{ company.biodata[0].nim }} - {{ company.biodata[0].prodi?.nama_prodi || '-' }}</div>
                                     </div>
                                     <div v-else-if="company.creator">
                                         <div class="font-bold text-gray-900 leading-tight">{{ company.creator.biodata?.nama || company.creator.name }}</div>
-                                        <div class="text-gray-500 text-[11px] font-mono mt-0.5">{{ company.creator.biodata?.nim || company.creator.username }} • {{ company.created_prodi?.nama_prodi || company.creator.biodata?.prodi?.nama_prodi || '-' }}</div>
+                                        <div class="text-gray-500 text-[11px] font-mono mt-0.5">{{ company.creator.biodata?.nim || company.creator.username }} - {{ company.created_prodi?.nama_prodi || company.creator.biodata?.prodi?.nama_prodi || '-' }}</div>
                                     </div>
                                     <span v-else class="text-gray-400 italic">-</span>
                                 </td>
@@ -688,7 +689,7 @@ const submitEditForm = () => {
                             <div><span class="text-slate-400">Provinsi:</span> <strong>{{ activeRecDetail.nama_provinsi || '-' }}</strong></div>
                             <div><span class="text-slate-400">Kabupaten/Kota:</span> <strong>{{ activeRecDetail.nama_kabupaten || '-' }}</strong></div>
                             <div><span class="text-slate-400">Kode Pos:</span> <strong>{{ activeRecDetail.kode_pos || '-' }}</strong></div>
-                            <div><span class="text-slate-400">Negara:</span> <strong>{{ activeRecDetail.negara || 'Indonesia' }}</strong></div>
+                            <div><span class="text-slate-400">Kode negara:</span> <strong>{{ activeRecDetail.kode_negara || 'ID' }}</strong></div>
                         </div>
                     </div>
                 </div>
@@ -759,7 +760,7 @@ const submitEditForm = () => {
                             <div v-if="activeCompanyForReview.biodata && activeCompanyForReview.biodata.length > 0" class="space-y-1.5">
                                 <div v-for="b in activeCompanyForReview.biodata" :key="b.id || b.nim" class="py-1 border-b border-slate-100 last:border-b-0">
                                     <span class="font-bold text-slate-900">{{ b.nama }}</span> <span class="text-slate-500 font-mono">({{ b.nim }})</span><br>
-                                    <span class="text-slate-600 text-[11px]">{{ b.prodi?.nama_prodi || '-' }} {{ b.posisi_jabatan ? '• Jabatan: ' + b.posisi_jabatan : '' }}</span>
+                                    <span class="text-slate-600 text-[11px]">{{ b.prodi?.nama_prodi || '-' }}{{ b.posisi_jabatan ? ' - Jabatan: ' + b.posisi_jabatan : '' }}</span>
                                 </div>
                             </div>
                             <div v-else-if="activeCompanyForReview.creator" class="py-1">
@@ -793,7 +794,7 @@ const submitEditForm = () => {
                                                 @click="handleAutoReplace(activeCompanyForReview, r)"
                                                 class="px-2.5 py-1 bg-[#0D542B] text-white font-semibold rounded-lg text-[11px] hover:bg-[#08381c] cursor-pointer transition-colors shadow-2xs"
                                             >
-                                                Pilih (⇄)
+                                                Pilih
                                             </button>
                                         </td>
                                     </tr>
@@ -880,11 +881,11 @@ const submitEditForm = () => {
                         <div>
                             <label class="block font-bold text-slate-700 mb-1">Provinsi</label>
                             <select
-                                v-model="editForm.propinsi_id"
+                                v-model="editForm.kode_provinsi"
                                 class="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                             >
                                 <option value="">-- Pilih Provinsi --</option>
-                                <option v-for="p in props.propinsis || []" :key="p.id" :value="p.id">
+                                <option v-for="p in props.propinsis || []" :key="p.kode_provinsi" :value="p.kode_provinsi">
                                     {{ p.nama_provinsi }}
                                 </option>
                             </select>
@@ -892,12 +893,12 @@ const submitEditForm = () => {
                         <div>
                             <label class="block font-bold text-slate-700 mb-1">Kabupaten/Kota</label>
                             <select
-                                v-model="editForm.kabupaten_id"
-                                :disabled="!editForm.propinsi_id"
+                                v-model="editForm.kode_kabupaten"
+                                :disabled="!editForm.kode_provinsi"
                                 class="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B] disabled:bg-slate-100 disabled:text-slate-400"
                             >
                                 <option value="">-- Pilih Kabupaten/Kota --</option>
-                                <option v-for="k in filteredKabupatensForEdit" :key="k.id" :value="k.id">
+                                <option v-for="k in filteredKabupatensForEdit" :key="k.kode_kabupaten" :value="k.kode_kabupaten">
                                     {{ k.nama_kabupaten }}
                                 </option>
                             </select>

@@ -98,13 +98,13 @@ class EvaluasiAtasanController extends Controller
         $jenisPerusahaan = $perusahaan?->jenis_perusahaan ?? '';
         $jenisPerusahaanLainnya = $perusahaan?->jenis_perusahaan_lainnya ?? '';
         $jenisLokasi = $perusahaan?->jenis_lokasi ?? 'Dalam Negeri';
-        $negaraPerusahaan = $perusahaan?->negara ?? ($jenisLokasi === 'Luar Negeri' ? '' : 'Indonesia');
-        $propinsiId = $perusahaan?->propinsi_id ?? '';
-        $kabupatenId = $perusahaan?->kabupaten_id ?? '';
+        $kodeNegaraPerusahaan = $perusahaan?->kode_negara ?? ($jenisLokasi === 'Luar Negeri' ? '' : 'ID');
+        $kodeProvinsi = $perusahaan?->kode_provinsi ?? '';
+        $kodeKabupaten = $perusahaan?->kode_kabupaten ?? '';
         $kodePosPerusahaan = $perusahaan?->kode_pos ?? ($biodata?->zipcode ?? '');
 
         $lokasiWilayah = $jenisLokasi === 'Luar Negeri'
-            ? ($negaraPerusahaan ?: 'Luar Negeri')
+            ? ($kodeNegaraPerusahaan ?: 'Luar Negeri')
             : ($perusahaan?->kabupaten?->nama_kabupaten
                 ? ($perusahaan?->propinsi?->nama_propinsi ? $perusahaan->kabupaten->nama_kabupaten.', '.$perusahaan->propinsi->nama_propinsi : $perusahaan->kabupaten->nama_kabupaten)
                 : ($perusahaan?->propinsi?->nama_propinsi ?? ''));
@@ -144,6 +144,7 @@ class EvaluasiAtasanController extends Controller
             'token' => $token,
             'evaluasi' => $evaluasi,
             'pertanyaanList' => $pertanyaanList,
+            'sections' => PertanyaanEvaluasiAtasan::stepperSections(),
             'existingResponses' => $existingResponses,
             'existingCatatan' => $existingCatatan,
             'alumniInfo' => [
@@ -173,9 +174,9 @@ class EvaluasiAtasanController extends Controller
                 'id' => $perusahaan?->id,
                 'nama' => $namaPerusahaan,
                 'jenis_lokasi' => $jenisLokasi,
-                'negara' => $negaraPerusahaan,
-                'propinsi_id' => $propinsiId,
-                'kabupaten_id' => $kabupatenId,
+                'kode_negara' => $kodeNegaraPerusahaan,
+                'kode_provinsi' => $kodeProvinsi,
+                'kode_kabupaten' => $kodeKabupaten,
                 'kode_pos' => $kodePosPerusahaan,
                 'alamat' => $alamatPerusahaan,
                 'jenis_perusahaan' => $jenisPerusahaan,
@@ -202,14 +203,22 @@ class EvaluasiAtasanController extends Controller
             ->with(['perusahaan', 'biodata.perusahaan', 'atasan'])
             ->firstOrFail();
 
-        $validated = $request->validate([
+        $activeQuestions = PertanyaanEvaluasiAtasan::where('is_active', true)->get();
+        $activeCompanyQuestions = $activeQuestions->filter->is_company_field;
+
+        $companyFieldRules = [];
+        foreach ($activeCompanyQuestions as $question) {
+            $companyFieldRules[$question->kode] = 'required|string|max:150';
+        }
+
+        $validated = $request->validate(array_merge([
             // Bagian I: Informasi Perusahaan (Tersimpan ke tabel Perusahaan & tersinkron ke profil alumni)
             'nama_perusahaan' => 'required|string|max:255',
             'alamat_lengkap' => 'required|string',
             'jenis_lokasi' => 'nullable|string|in:Dalam Negeri,Luar Negeri',
-            'negara' => 'nullable|string|max:100',
-            'propinsi_id' => 'nullable|exists:propinsi,id',
-            'kabupaten_id' => 'nullable|exists:kabupaten,id',
+            'kode_negara' => 'nullable|string|size:2|exists:ref_negara,kode_negara',
+            'kode_provinsi' => 'nullable|exists:propinsi,kode_provinsi',
+            'kode_kabupaten' => 'nullable|exists:kabupaten,kode_kabupaten',
             'kode_pos' => 'nullable|string|max:15',
             'jenis_perusahaan' => 'nullable|string|max:100',
             'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
@@ -240,9 +249,9 @@ class EvaluasiAtasanController extends Controller
             'jawaban' => 'required|array|min:1',
             'jawaban.*' => 'required|string|max:100',
             'catatan_lainnya' => 'nullable|string|max:2000',
-        ]);
+        ], $companyFieldRules));
 
-        $activeQuestions = PertanyaanEvaluasiAtasan::where('is_active', true)->get()->keyBy('kode');
+        $activeQuestions = $activeQuestions->reject->is_company_field->keyBy('kode');
         $submittedCodes = collect(array_keys($validated['jawaban']));
         if ($submittedCodes->diff($activeQuestions->keys())->isNotEmpty()
             || $activeQuestions->keys()->diff($submittedCodes)->isNotEmpty()) {
@@ -263,9 +272,15 @@ class EvaluasiAtasanController extends Controller
 
             $perusahaan = $lockedEvaluation->perusahaan ?? $lockedEvaluation->biodata?->perusahaan;
             $jenisLokasi = $validated['jenis_lokasi'] ?? ($perusahaan?->jenis_lokasi ?? 'Dalam Negeri');
-            $negara = $jenisLokasi === 'Luar Negeri'
-                ? (! empty($validated['negara']) && strtolower($validated['negara']) !== 'indonesia' ? $validated['negara'] : ($perusahaan?->negara ?: 'Singapura'))
-                : 'Indonesia';
+            $kodeNegara = $jenisLokasi === 'Luar Negeri'
+                ? (! empty($validated['kode_negara']) && strtoupper($validated['kode_negara']) !== 'ID' ? strtoupper($validated['kode_negara']) : $perusahaan?->kode_negara)
+                : 'ID';
+
+            if ($jenisLokasi === 'Luar Negeri' && empty($kodeNegara)) {
+                throw ValidationException::withMessages([
+                    'kode_negara' => 'Kode negara ISO wajib dipilih untuk perusahaan luar negeri.',
+                ]);
+            }
 
             $perusahaanData = [
                 'nama_perusahaan' => $validated['nama_perusahaan'],
@@ -275,14 +290,14 @@ class EvaluasiAtasanController extends Controller
                 'bentuk_perusahaan' => $validated['bentuk_perusahaan'] ?? ($perusahaan?->bentuk_perusahaan ?? null),
                 'jumlah_pegawai' => $validated['jumlah_pegawai'] ?? ($perusahaan?->jumlah_pegawai ?? null),
                 'jenis_lokasi' => $jenisLokasi,
-                'negara' => $negara,
+                'kode_negara' => $kodeNegara,
             ];
 
-            if ($request->has('propinsi_id') || $jenisLokasi === 'Luar Negeri') {
-                $perusahaanData['propinsi_id'] = $jenisLokasi === 'Luar Negeri' ? null : ($validated['propinsi_id'] ?? null);
+            if ($request->has('kode_provinsi') || $jenisLokasi === 'Luar Negeri') {
+                $perusahaanData['kode_provinsi'] = $jenisLokasi === 'Luar Negeri' ? null : ($validated['kode_provinsi'] ?? null);
             }
-            if ($request->has('kabupaten_id') || $jenisLokasi === 'Luar Negeri') {
-                $perusahaanData['kabupaten_id'] = $jenisLokasi === 'Luar Negeri' ? null : ($validated['kabupaten_id'] ?? null);
+            if ($request->has('kode_kabupaten') || $jenisLokasi === 'Luar Negeri') {
+                $perusahaanData['kode_kabupaten'] = $jenisLokasi === 'Luar Negeri' ? null : ($validated['kode_kabupaten'] ?? null);
             }
             if ($request->has('kode_pos')) {
                 $perusahaanData['kode_pos'] = $validated['kode_pos'] ?? null;

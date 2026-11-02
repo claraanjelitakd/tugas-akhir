@@ -14,11 +14,10 @@ use Illuminate\Support\Str;
  * Mengelola data profil aktif alumni untuk sistem Tracer Study UKDW.
  *
  * Kebijakan Integritas & Anti-Duplikasi Data:
- * - Data akademik master (nama, tempat/tanggal lahir, jenis kelamin, agama,
- *   golongan darah, status kelulusan, dan email_students)
+ * - Data akademik master (nama, tanggal lahir, jenis kelamin, status kelulusan)
  *   tersimpan terpusat di tabel `data_akademik`.
- * - Model Biodata ini menyediakan Accessor dinamis ke `dataAkademik` sehingga kode
- *   aplikasi yang memanggil `$biodata->nama`, `$biodata->tahun_lulus`, dsb. tetap berjalan lancar.
+ * - Model Biodata menyediakan accessor dinamis ke `dataAkademik` untuk nilai akademik yang
+ *   memang menjadi referensi master.
  * - Untuk korespondensi alumni, tabel ini hanya menyimpan `email_pribadi`.
  */
 class Biodata extends Model
@@ -127,8 +126,8 @@ class Biodata extends Model
         'alamat_saat_ini',
         'kelurahan',
         'kecamatan',
-        'kabupaten_id',
-        'propinsi_id',
+        'kode_kabupaten',
+        'kode_provinsi',
         'kode_pos',
         'instagram_url',
         'facebook_url',
@@ -206,7 +205,7 @@ class Biodata extends Model
      */
     public function propinsi()
     {
-        return $this->belongsTo(Propinsi::class, 'propinsi_id');
+        return $this->belongsTo(Propinsi::class, 'kode_provinsi', 'kode_provinsi');
     }
 
     /**
@@ -214,7 +213,7 @@ class Biodata extends Model
      */
     public function kabupaten()
     {
-        return $this->belongsTo(Kabupaten::class, 'kabupaten_id');
+        return $this->belongsTo(Kabupaten::class, 'kode_kabupaten', 'kode_kabupaten');
     }
 
     /**
@@ -328,22 +327,6 @@ class Biodata extends Model
     public function getEmailAttribute(): ?string
     {
         return $this->email_pribadi ?? $this->user?->email;
-    }
-
-    /**
-     * Akses email mahasiswa kampus (mengambil dari data_akademik saja).
-     */
-    public function getEmailStudentsAttribute(): ?string
-    {
-        return $this->dataAkademik?->email_students;
-    }
-
-    /**
-     * Akses tempat lahir (dari data_akademik).
-     */
-    public function getTempatLahirAttribute(): ?string
-    {
-        return $this->dataAkademik?->tempat_lahir;
     }
 
     /**

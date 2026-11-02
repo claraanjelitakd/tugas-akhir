@@ -78,7 +78,6 @@ class SuperAdminManajemenAkunTest extends TestCase
             'status_mahasiswa' => 'Lulus',
             'tahun_lulus' => 2026,
             'tanggal_lahir' => '2001-08-15',
-            'email_students' => '72230002@students.ukdw.ac.id',
         ]);
 
         $this->assertDatabaseMissing('users', ['username' => '72230002']);

@@ -36,7 +36,7 @@ class Lulusan2026Seeder extends Seeder
         );
         $kabupaten = Kabupaten::firstOrCreate(
             ['kode_kabupaten' => '34.04'],
-            ['propinsi_id' => $propinsi->id, 'nama_kabupaten' => 'Kabupaten Sleman']
+            ['kode_provinsi' => $propinsi->kode_provinsi, 'nama_kabupaten' => 'Kabupaten Sleman']
         );
 
         $prodiInformatika = Prodi::firstOrCreate(['kode_prodi' => '71'], ['nama_prodi' => 'Informatika']);
@@ -50,7 +50,6 @@ class Lulusan2026Seeder extends Seeder
                 'prodi' => $prodiInformatika,
                 'jk' => 'Laki-laki',
                 'tgl_lahir' => '2002-03-12',
-                'tempat_lahir' => 'Yogyakarta',
                 'ipk' => 3.82,
                 'judul_ta' => 'Implementasi Machine Learning untuk Deteksi Pola Fraud Transaksi Digital',
                 'linkedin_username' => 'marcello.christian',
@@ -61,7 +60,6 @@ class Lulusan2026Seeder extends Seeder
                 'prodi' => $prodiInformatika,
                 'jk' => 'Perempuan',
                 'tgl_lahir' => '2002-05-18',
-                'tempat_lahir' => 'Semarang',
                 'ipk' => 3.75,
                 'judul_ta' => 'Pengembangan Sistem Pengenalan Suara Berbasis Transformer untuk Aksesibilitas',
                 'linkedin_username' => 'natasha.budiman',
@@ -72,7 +70,6 @@ class Lulusan2026Seeder extends Seeder
                 'prodi' => $prodiInformatika,
                 'jk' => 'Laki-laki',
                 'tgl_lahir' => '2002-07-22',
-                'tempat_lahir' => 'Solo',
                 'ipk' => 3.68,
                 'judul_ta' => 'Optimasi Routing Pengiriman Barang Berbasis Algoritma Genetika Terdistribusi',
                 'linkedin_username' => 'rendy.pratama',
@@ -83,7 +80,6 @@ class Lulusan2026Seeder extends Seeder
                 'prodi' => $prodiInformatika,
                 'jk' => 'Perempuan',
                 'tgl_lahir' => '2002-09-05',
-                'tempat_lahir' => 'Magelang',
                 'ipk' => 3.90,
                 'judul_ta' => 'Analisis Sentimen Multi-Bahasa pada Media Sosial Menggunakan Model LLM Terkuantisasi',
                 'linkedin_username' => 'sarah.maharani',
@@ -94,7 +90,6 @@ class Lulusan2026Seeder extends Seeder
                 'prodi' => $prodiInformatika,
                 'jk' => 'Laki-laki',
                 'tgl_lahir' => '2002-11-14',
-                'tempat_lahir' => 'Surabaya',
                 'ipk' => 3.71,
                 'judul_ta' => 'Rancang Bangun Arsitektur Microservices Terdesentralisasi dengan gRPC',
                 'linkedin_username' => 'thomas.wirawan',
@@ -107,7 +102,6 @@ class Lulusan2026Seeder extends Seeder
                 'prodi' => $prodiSI,
                 'jk' => 'Laki-laki',
                 'tgl_lahir' => '2002-01-20',
-                'tempat_lahir' => 'Yogyakarta',
                 'ipk' => 3.85,
                 'judul_ta' => 'Evaluasi Kematangan Tata Kelola TI Berbasis COBIT 2019 pada Sektor Perbankan',
                 'linkedin_username' => null,
@@ -118,7 +112,6 @@ class Lulusan2026Seeder extends Seeder
                 'prodi' => $prodiSI,
                 'jk' => 'Perempuan',
                 'tgl_lahir' => '2002-04-16',
-                'tempat_lahir' => 'Jakarta',
                 'ipk' => 3.65,
                 'judul_ta' => 'Perancangan Enterprise Architecture Sistem Logistik Menggunakan TOGAF ADM',
                 'linkedin_username' => null,
@@ -129,7 +122,6 @@ class Lulusan2026Seeder extends Seeder
                 'prodi' => $prodiSI,
                 'jk' => 'Laki-laki',
                 'tgl_lahir' => '2002-06-30',
-                'tempat_lahir' => 'Medan',
                 'ipk' => 3.78,
                 'judul_ta' => 'Analisis Adopsi Pembayaran Digital QRIS pada Usaha Mikro Menggunakan Model UTAUT2',
                 'linkedin_username' => null,
@@ -140,7 +132,6 @@ class Lulusan2026Seeder extends Seeder
                 'prodi' => $prodiSI,
                 'jk' => 'Perempuan',
                 'tgl_lahir' => '2002-08-25',
-                'tempat_lahir' => 'Klaten',
                 'ipk' => 3.60,
                 'judul_ta' => 'Implementasi Customer Relationship Management Berbasis Omnichannel pada E-Commerce',
                 'linkedin_username' => null,
@@ -151,7 +142,6 @@ class Lulusan2026Seeder extends Seeder
                 'prodi' => $prodiSI,
                 'jk' => 'Laki-laki',
                 'tgl_lahir' => '2002-10-10',
-                'tempat_lahir' => 'Bandung',
                 'ipk' => 3.92,
                 'judul_ta' => 'Pemodelan Proses Bisnis dan Otomasi Layanan Akademik Kampus Berbasis BPMN 2.0',
                 'linkedin_username' => null,
@@ -177,16 +167,9 @@ class Lulusan2026Seeder extends Seeder
                     'ip_kumulatif' => $item['ipk'],
                     'total_sks' => 144,
                     'total_angka_kualitas' => round($item['ipk'] * 144, 2),
-                    'tempat_lahir' => $item['tempat_lahir'],
                     'tanggal_lahir' => $item['tgl_lahir'],
                     'jenis_kelamin' => $item['jk'],
                     'warga_negara' => 'WNI',
-                    'email_students' => $nim.'@students.ukdw.ac.id',
-                    'asal_sekolah' => 'SMA Kolese De Britto',
-                    'alamat_asal_sekolah' => 'Jl. Laksda Adisucipto No. 161',
-                    'kota_kabupaten_asal_sekolah' => 'Kabupaten Sleman',
-                    'provinsi_asal_sekolah' => 'DI Yogyakarta',
-                    'jurusan_asal_sekolah' => 'IPA',
                 ]
             );
 
@@ -236,8 +219,8 @@ class Lulusan2026Seeder extends Seeder
                     'jenis_pekerjaan' => null,
                     'gaji' => null,
                     'alamat_saat_ini' => null,
-                    'kabupaten_id' => null,
-                    'propinsi_id' => null,
+                    'kode_kabupaten' => null,
+                    'kode_provinsi' => null,
                     'kode_pos' => null,
                     'nomor_telepon' => null,
                     'email_pribadi' => null,

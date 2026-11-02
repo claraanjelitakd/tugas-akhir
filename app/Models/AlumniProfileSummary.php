@@ -67,11 +67,11 @@ class AlumniProfileSummary extends Model
 
     public function propinsi(): BelongsTo
     {
-        return $this->belongsTo(Propinsi::class, 'propinsi_id');
+        return $this->belongsTo(Propinsi::class, 'kode_provinsi', 'kode_provinsi');
     }
 
     public function kabupaten(): BelongsTo
     {
-        return $this->belongsTo(Kabupaten::class, 'kabupaten_id');
+        return $this->belongsTo(Kabupaten::class, 'kode_kabupaten', 'kode_kabupaten');
     }
 }

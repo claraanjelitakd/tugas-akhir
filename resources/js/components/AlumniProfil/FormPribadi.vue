@@ -1,14 +1,15 @@
 <!--
   Komponen Anak (Child Component): Form Data Pribadi
   File: resources/js/Pages/Alumni/Profil/Components/FormPribadi.vue
-  
+
   DIPANGGIL OLEH (Parent Component):
   - resources/js/Pages/Alumni/Profil/Index.vue
-  
+
   SUMBER DATA DARI BACKEND:
   - Controller: App\Http\Controllers\Alumni\Profil\ProfilController.php
 -->
 <script setup>
+// Form pribadi alumni: menyimpan identitas dan relasi wilayah dengan field kode kanonik.
 import { ref } from 'vue';
 import Swal from 'sweetalert2';
 
@@ -105,7 +106,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
 
 <template>
     <div class="space-y-8">
-        
+
         <!-- ================================================================= -->
         <!-- BAGIAN 1: IDENTITAS DIRI RESMI (DARI DATA AKADEMIK)              -->
         <!-- ================================================================= -->
@@ -135,17 +136,17 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                         :class="fotoPreview || form.foto ? 'border-2 border-white bg-slate-100' : 'border-2 border-dashed border-[#0D542B]/50 bg-white hover:bg-emerald-50/50'"
                         @click="!fotoPreview && !form.foto ? triggerFileInput() : null"
                     >
-                        <img 
-                            v-if="fotoPreview" 
-                            :src="fotoPreview" 
+                        <img
+                            v-if="fotoPreview"
+                            :src="fotoPreview"
                             alt="Pratinjau Foto"
-                            class="w-full h-full object-cover object-top" 
+                            class="w-full h-full object-cover object-top"
                         />
-                        <img 
-                            v-else-if="form.foto && typeof form.foto === 'string'" 
-                            :src="form.foto" 
-                            :alt="form.nama || 'Foto Profil'" 
-                            class="w-full h-full object-cover object-top" 
+                        <img
+                            v-else-if="form.foto && typeof form.foto === 'string'"
+                            :src="form.foto"
+                            :alt="form.nama || 'Foto Profil'"
+                            class="w-full h-full object-cover object-top"
                         />
                         <div v-else class="flex flex-col items-center justify-center text-[#0D542B] px-2 text-center">
                             <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
@@ -175,16 +176,16 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     </p>
 
                     <div class="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                        <input 
-                            ref="fileInputRef" 
-                            type="file" 
-                            accept="image/jpeg,image/png,image/webp,image/jpg" 
-                            class="hidden" 
-                            @change="handleFotoChange" 
+                        <input
+                            ref="fileInputRef"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/jpg"
+                            class="hidden"
+                            @change="handleFotoChange"
                         />
-                        <button 
-                            type="button" 
-                            @click="triggerFileInput" 
+                        <button
+                            type="button"
+                            @click="triggerFileInput"
                             class="px-4 py-2 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
                             :class="fotoPreview || form.foto ? 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-700' : 'bg-[#0D542B] hover:bg-[#093d1f] text-white'"
                         >
@@ -218,12 +219,12 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                         <span>Nama Lengkap (Sesuai Ijazah)</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
                     </label>
-                    <input 
-                        type="text" 
-                        :value="form.nama" 
-                        disabled 
-                        :class="lockedInputClass" 
-                        title="Nama lengkap sesuai data akademik resmi kampus" 
+                    <input
+                        type="text"
+                        :value="form.nama"
+                        disabled
+                        :class="lockedInputClass"
+                        title="Nama lengkap sesuai data akademik resmi kampus"
                     />
                 </div>
 
@@ -233,12 +234,11 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                         <span>Tempat Lahir</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
                     </label>
-                    <input 
-                        type="text" 
-                        :value="form.tempat_lahir" 
-                        disabled 
-                        :class="lockedInputClass" 
-                        placeholder="Kota / Kabupaten Kelahiran" 
+                    <input
+                        type="text"
+                        disabled
+                        :class="lockedInputClass"
+                        placeholder="Kota / Kabupaten Kelahiran"
                     />
                 </div>
 
@@ -248,25 +248,25 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                         <span>Tanggal Lahir</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
                     </label>
-                    <input 
-                        type="text" 
-                        :value="form.tanggal_lahir" 
-                        disabled 
-                        :class="lockedInputClass" 
+                    <input
+                        type="text"
+                        :value="form.tanggal_lahir"
+                        disabled
+                        :class="lockedInputClass"
                     />
                 </div>
-                
+
                 <!-- Jenis Kelamin (Terkunci dari Data Akademik) -->
                 <div>
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
                         <span>Jenis Kelamin</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
                     </label>
-                    <input 
-                        type="text" 
-                        :value="form.jenis_kelamin" 
-                        disabled 
-                        :class="lockedInputClass" 
+                    <input
+                        type="text"
+                        :value="form.jenis_kelamin"
+                        disabled
+                        :class="lockedInputClass"
                     />
                 </div>
 
@@ -276,11 +276,11 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                         <span>Agama</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
                     </label>
-                    <input 
-                        type="text" 
-                        :value="form.agama" 
-                        disabled 
-                        :class="lockedInputClass" 
+                    <input
+                        type="text"
+                        :value="form.agama"
+                        disabled
+                        :class="lockedInputClass"
                     />
                 </div>
 
@@ -290,11 +290,11 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                         <span>Golongan Darah</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
                     </label>
-                    <input 
-                        type="text" 
-                        :value="form.golongan_darah || '-'" 
-                        disabled 
-                        :class="lockedInputClass" 
+                    <input
+                        type="text"
+                        :value="form.golongan_darah || '-'"
+                        disabled
+                        :class="lockedInputClass"
                     />
                 </div>
 
@@ -304,11 +304,11 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                         <span>Kewarganegaraan</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
                     </label>
-                    <input 
-                        type="text" 
-                        :value="form.warga_negara || 'WNI'" 
-                        disabled 
-                        :class="lockedInputClass" 
+                    <input
+                        type="text"
+                        :value="form.warga_negara || 'WNI'"
+                        disabled
+                        :class="lockedInputClass"
                     />
                 </div>
             </div>
@@ -332,13 +332,13 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         Nomor Telepon / WhatsApp <span class="text-rose-500 font-bold">*</span>
                     </label>
-                    <input 
-                        type="tel" 
-                        :value="form.nomor_telepon" 
+                    <input
+                        type="tel"
+                        :value="form.nomor_telepon"
                         @input="handlePhoneInput"
                         autocomplete="off"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-mono font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="Contoh: 081234567890" 
+                        placeholder="Contoh: 081234567890"
                     />
                 </div>
 
@@ -347,12 +347,12 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         Email Pribadi <span class="text-rose-500 font-bold">*</span>
                     </label>
-                    <input 
-                        type="email" 
-                        v-model="form.email_pribadi" 
+                    <input
+                        type="email"
+                        v-model="form.email_pribadi"
                         autocomplete="off"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="contoh: nama.alumni@gmail.com" 
+                        placeholder="contoh: nama.alumni@gmail.com"
                     />
                 </div>
 
@@ -361,9 +361,9 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         Alamat Domisili Saat Ini <span class="text-rose-500 font-bold">*</span>
                     </label>
-                    <textarea 
-                        v-model="form.alamat_saat_ini" 
-                        rows="3" 
+                    <textarea
+                        v-model="form.alamat_saat_ini"
+                        rows="3"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                         placeholder="Nama Jalan, RT/RW, Dusun/Kelurahan..."
                     ></textarea>
@@ -374,12 +374,12 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         Provinsi <span class="text-rose-500 font-bold">*</span>
                     </label>
-                    <select 
-                        v-model="form.provinsi_id" 
+                    <select
+                        v-model="form.kode_provinsi"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                     >
                         <option value="">-- Pilih Provinsi --</option>
-                        <option v-for="prov in provinces" :key="prov.id" :value="prov.id">{{ prov.nama_provinsi }}</option>
+                        <option v-for="prov in provinces" :key="prov.kode_provinsi" :value="prov.kode_provinsi">{{ prov.nama_provinsi }}</option>
                     </select>
                 </div>
 
@@ -388,12 +388,12 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         Kabupaten / Kota <span class="text-rose-500 font-bold">*</span>
                     </label>
-                    <select 
-                        v-model="form.kabupaten_id" 
+                    <select
+                        v-model="form.kode_kabupaten"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                     >
                         <option value="">-- Pilih Kabupaten/Kota --</option>
-                        <option v-for="kab in kabupatens" :key="kab.id" :value="kab.id" v-show="!form.provinsi_id || kab.province_id == form.provinsi_id">
+                        <option v-for="kab in kabupatens" :key="kab.kode_kabupaten" :value="kab.kode_kabupaten" v-show="!form.kode_provinsi || kab.kode_provinsi == form.kode_provinsi">
                             {{ kab.nama_kabupaten }}
                         </option>
                     </select>
@@ -404,12 +404,12 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         Kecamatan <span class="text-rose-500 font-bold">*</span>
                     </label>
-                    <input 
-                        type="text" 
-                        v-model="form.kecamatan" 
+                    <input
+                        type="text"
+                        v-model="form.kecamatan"
                         autocomplete="off"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="Kecamatan" 
+                        placeholder="Kecamatan"
                     />
                 </div>
 
@@ -418,12 +418,12 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         Kelurahan / Desa <span class="text-rose-500 font-bold">*</span>
                     </label>
-                    <input 
-                        type="text" 
-                        v-model="form.kelurahan" 
+                    <input
+                        type="text"
+                        v-model="form.kelurahan"
                         autocomplete="off"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="Kelurahan/Desa" 
+                        placeholder="Kelurahan/Desa"
                     />
                 </div>
 
@@ -432,16 +432,16 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         Kode Pos <span class="text-rose-500 font-bold">*</span>
                     </label>
-                    <input 
-                        type="text" 
-                        v-model="form.kode_pos" 
+                    <input
+                        type="text"
+                        v-model="form.kode_pos"
                         autocomplete="off"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="Kode Pos (5 digit)" 
+                        placeholder="Kode Pos (5 digit)"
                     />
                 </div>
             </div>
         </div>
-        
+
     </div>
 </template>

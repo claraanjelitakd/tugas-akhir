@@ -1,16 +1,17 @@
 <!--
   Halaman Utama (Parent Component): Kelola Profil Alumni
   File: resources/js/Pages/Alumni/Profil/Index.vue
-  
+
   DIRELOAD OLEH BACKEND DARI:
   - Controller Tampil : App\Http\Controllers\Alumni\Profil\ProfilController.php (method tampilkanHalamanProfil)
   - Route URL (GET)   : /alumni/profile
-  
+
   DISIMPAN KE BACKEND OLEH:
   - Controller Simpan : App\Http\Controllers\Alumni\Profil\SimpanProfilController.php (method simpanProfil)
   - Route URL (POST)  : /alumni/profile
 -->
 <script setup>
+// Halaman profil alumni: form menerima data ter-normalisasi dari controller dan mengirim perubahan melalui Inertia.
 import { Head, router, useForm, usePage, Link } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import Swal from 'sweetalert2';
@@ -79,7 +80,7 @@ const getInitialTab = () => {
  * ====================================================================
  * Di sinilah 'form' lahir!
  * Nilai awalnya diambil dari props.formData yang dikirim oleh ProfilController.php.
- * 
+ *
  * Objek 'form' inilah yang nanti dioper ke 3 komponen anak:
  * <FormPribadi  :form="form" />
  * <FormAkademik :form="form" />
@@ -154,7 +155,6 @@ const tabCompleteness = computed(() => {
     // 1. Tab Pribadi
     const missingPribadi = [];
     if (!form.nama || !String(form.nama).trim()) missingPribadi.push('Nama Lengkap');
-    if (!form.tempat_lahir || !String(form.tempat_lahir).trim()) missingPribadi.push('Tempat Lahir');
     if (!form.tanggal_lahir) missingPribadi.push('Tanggal Lahir');
     if (!form.jenis_kelamin) missingPribadi.push('Jenis Kelamin');
     if (!form.agama) missingPribadi.push('Agama');
@@ -163,8 +163,8 @@ const tabCompleteness = computed(() => {
     if (!form.nomor_telepon || !isValidPhone(form.nomor_telepon)) missingPribadi.push('Nomor Telepon / WhatsApp');
     if (!form.email_pribadi || !isValidEmail(form.email_pribadi)) missingPribadi.push('Email Pribadi');
     if (!form.alamat_saat_ini || !String(form.alamat_saat_ini).trim()) missingPribadi.push('Alamat Domisili');
-    if (!form.provinsi_id && !form.propinsi_id) missingPribadi.push('Provinsi Domisili');
-    if (!form.kabupaten_id) missingPribadi.push('Kabupaten/Kota Domisili');
+    if (!form.kode_provinsi) missingPribadi.push('Provinsi Domisili');
+    if (!form.kode_kabupaten) missingPribadi.push('Kabupaten/Kota Domisili');
     if (!form.kecamatan || !String(form.kecamatan).trim()) missingPribadi.push('Kecamatan Domisili');
     if (!form.kelurahan || !String(form.kelurahan).trim()) missingPribadi.push('Kelurahan/Desa Domisili');
     if (!form.kode_pos || !String(form.kode_pos).trim()) missingPribadi.push('Kode Pos Domisili');
@@ -380,14 +380,14 @@ const submit = (nextTabId = null, redirectTo = null) => {
 
         <main id="profile-form-container" class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
             <form @submit.prevent="submit(null, currentTabIndex === tabs.length - 1 ? '/alumni/kuesioner' : null)" autocomplete="off" class="bg-white rounded-2xl shadow-xs border border-gray-200 relative transition-all duration-300">
-                
+
                 <!-- Sticky Stepper Navigation (Bersih, Formal & Konsisten) -->
                 <div class="sticky top-[72px] lg:top-20 z-40">
-                    <Stepper 
-                        :tabs="tabs" 
-                        :active-tab="activeTab" 
-                        :is-tab-completed="isTabCompleted" 
-                        @select-tab="switchTab" 
+                    <Stepper
+                        :tabs="tabs"
+                        :active-tab="activeTab"
+                        :is-tab-completed="isTabCompleted"
+                        @select-tab="switchTab"
                     />
                 </div>
 
@@ -402,16 +402,16 @@ const submit = (nextTabId = null, redirectTo = null) => {
 
                     <!-- Tab 2: Karier, Pekerjaan & Data Atasan -->
                     <div v-show="activeTab === 'karier'">
-                        <FormKarier 
-                            :form="form" 
-                            :provinces="provinces" 
-                            :kabupatens="kabupatens" 
-                            :negaras="negaras" 
-                            :companies="companies" 
-                            :alumniData="alumniData" 
-                            :refOptions="refOptions" 
+                        <FormKarier
+                            :form="form"
+                            :provinces="provinces"
+                            :kabupatens="kabupatens"
+                            :negaras="negaras"
+                            :companies="companies"
+                            :alumniData="alumniData"
+                            :refOptions="refOptions"
                             :profileQuestions="profileQuestions"
-                            :evaluasiAtasan="evaluasiAtasan" 
+                            :evaluasiAtasan="evaluasiAtasan"
                         />
                     </div>
 
@@ -426,9 +426,9 @@ const submit = (nextTabId = null, redirectTo = null) => {
                 <div class="px-6 sm:px-8 md:px-12 py-5 bg-gray-50/90 backdrop-blur-md rounded-b-[2rem] flex flex-col md:flex-row justify-between items-center gap-4 border-t border-gray-100">
                     <!-- Left: Navigasi Sebelumnya -->
                     <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-                        <button 
-                            v-if="prevTab" 
-                            type="button" 
+                        <button
+                            v-if="prevTab"
+                            type="button"
                             @click="switchTab(prevTab.id)"
                             class="px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
                         >
@@ -437,13 +437,13 @@ const submit = (nextTabId = null, redirectTo = null) => {
                         </button>
                         <span v-else class="text-xs text-gray-400 font-medium">Langkah 1 dari {{ tabs.length }}</span>
                     </div>
-                    
+
                     <!-- Right: Alur Lanjut Antar Langkah (Tanpa Duplikasi Tombol Simpan) -->
                     <div class="flex items-center gap-3 w-full md:w-auto justify-end">
                         <!-- Tombol Lanjut ke Langkah Berikutnya -->
-                        <button 
-                            v-if="nextTab" 
-                            type="button" 
+                        <button
+                            v-if="nextTab"
+                            type="button"
                             @click="switchTab(nextTab.id)"
                             class="px-6 py-3 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
                         >
@@ -452,10 +452,10 @@ const submit = (nextTabId = null, redirectTo = null) => {
                         </button>
 
                         <!-- Tombol Utama di Langkah Terakhir: Simpan Seluruh Profil -->
-                        <button 
+                        <button
                             v-else
-                            type="submit" 
-                            :disabled="form.processing" 
+                            type="submit"
+                            :disabled="form.processing"
                             class="px-8 py-3 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                         >
                             <svg v-if="form.processing" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -506,8 +506,8 @@ const submit = (nextTabId = null, redirectTo = null) => {
 
         <!-- Tombol Gulir Cepat (Caping Ke Atas / Ke Bawah) -->
         <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
-            <button 
-                type="button" 
+            <button
+                type="button"
                 @click="scrollToTop"
                 class="w-10 h-10 rounded-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
                 title="Gulir ke paling atas"
@@ -517,8 +517,8 @@ const submit = (nextTabId = null, redirectTo = null) => {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
                 </svg>
             </button>
-            <button 
-                type="button" 
+            <button
+                type="button"
                 @click="scrollToBottom"
                 class="w-10 h-10 rounded-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
                 title="Gulir ke paling bawah"

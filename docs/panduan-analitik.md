@@ -7,6 +7,8 @@ Dokumen ini menjelaskan cara data kuesioner berubah menjadi grafik pada halaman 
 
 > Catatan: backend tidak mengirim gambar grafik. Backend menghitung data dan mengirim payload JSON. Vue dan ECharts membaca payload tersebut lalu menggambar visualisasinya.
 
+Semua angka, label pilihan, dan rincian respon pada grafik berasal dari payload hasil query database. Nilai contoh hanya boleh ditambahkan melalui seeder demo. Jika data kosong, komponen menampilkan tanda `-` atau empty state, bukan membuat baris sintetis.
+
 ## 1. Gambaran besar alur data
 
 ```text
@@ -316,11 +318,13 @@ Ini pilihan jamak, sehingga total persentase boleh lebih dari 100%.
 Untuk dimensi kompetensi d:
 
 ```text
-Saat Lulus Ad = Median(F17a_d)
-Diperlukan Kerja Bd = Median(F17b_d)
-Gap Visual = Ad - Bd
-Gap Kebutuhan = Bd - Ad
+Saat Lulus A_d = ROUND(Rata-rata(F17a_d))
+Diperlukan Kerja B_d = ROUND(Rata-rata(F17b_d))
+Gap Visual = A_d - B_d
+Gap Kebutuhan = B_d - A_d
 ```
+
+Nilai A, B, dan gap dibulatkan ke bilangan bulat terdekat karena sumbernya adalah skala Likert 1-5.
 
 Gap positif berarti penguasaan saat lulus lebih tinggi daripada kebutuhan. Gap negatif berarti masih ada kekurangan.
 

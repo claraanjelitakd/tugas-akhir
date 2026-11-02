@@ -213,9 +213,9 @@ class SuperAdminAnalyticsTest extends TestCase
         ]);
         $company = Perusahaan::create([
             'nama_perusahaan' => 'Perusahaan Analitik',
-            'propinsi_id' => $province->id,
+            'kode_provinsi' => $province->kode_provinsi,
             'jenis_lokasi' => 'Dalam Negeri',
-            'negara' => 'Indonesia',
+            'kode_negara' => 'ID',
             'status_verifikasi' => 'Terverifikasi',
         ]);
         Ump::create([
@@ -294,6 +294,13 @@ class SuperAdminAnalyticsTest extends TestCase
             $this->assertNotEmpty($result['chart']['methodology']['tables'] ?? []);
             $this->assertNotEmpty($result['chart']['methodology']['views'] ?? []);
             $this->assertNotEmpty($result['chart']['methodology']['charts'] ?? []);
+
+            if ($chartKey === 'competency_gap') {
+                $this->assertSame(
+                    'ROUND ke bilangan bulat terdekat untuk skor A, skor B, dan gap visual.',
+                    $result['chart']['methodology']['rounding'],
+                );
+            }
         }
     }
 

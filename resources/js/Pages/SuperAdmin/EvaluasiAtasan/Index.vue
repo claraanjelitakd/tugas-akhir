@@ -1,4 +1,5 @@
 <script setup>
+// Halaman kelola evaluasi atasan: section stepper, pertanyaan, dan riwayat respons berasal dari backend.
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
@@ -10,6 +11,20 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    // Daftar section stepper yang dipakai bersama oleh admin dan formulir publik.
+    sections: {
+        type: Array,
+        default: () => [],
+    },
+    // Opsi langkah stepper yang disediakan backend agar penempatan tidak hardcode di frontend.
+    stepperOptions: {
+        type: Array,
+        default: () => [
+            { value: 'instansi', label: 'Profil Perusahaan' },
+            { value: 'karakteristik', label: 'Karakteristik Perusahaan' },
+            { value: 'penilaian', label: 'Penilaian Kinerja' },
+        ],
+    },
     evaluasis: {
         type: Object,
         default: () => ({ data: [] }),
@@ -18,6 +33,7 @@ const props = defineProps({
         type: Object,
         default: () => ({
             total_questions: 0,
+            total_sections: 0,
             active_questions: 0,
             total_evaluasi: 0,
             submitted_evaluasi: 0,
@@ -25,18 +41,30 @@ const props = defineProps({
     },
 });
 
-const activeTab = ref('questions'); // 'questions' atau 'responses'
+// Tab utama mengikuti pola Kuesioner Prodi: section, pertanyaan, lalu riwayat respons.
+const activeTab = ref('sections');
 const searchQuery = ref('');
+// Filter section membatasi tabel pertanyaan berdasarkan langkah stepper yang dipilih.
+const selectedSectionFilter = ref('all');
 
 const filteredQuestions = computed(() => {
-    if (!searchQuery.value.trim()) return props.questions;
+    const sectionFiltered = selectedSectionFilter.value === 'all'
+        ? props.questions
+        : props.questions.filter((item) => item.langkah === selectedSectionFilter.value);
+
+    if (!searchQuery.value.trim()) return sectionFiltered;
     const q = searchQuery.value.toLowerCase();
-    return props.questions.filter(item =>
+    return sectionFiltered.filter(item =>
         item.aspek?.toLowerCase().includes(q) ||
         item.kode?.toLowerCase().includes(q) ||
         item.deskripsi?.toLowerCase().includes(q)
     );
 });
+
+// Mengambil label langkah dari data backend untuk ditampilkan di tabel.
+const stepLabel = (question) => {
+    return props.stepperOptions.find((option) => option.value === question?.langkah)?.label || 'Penilaian Kinerja';
+};
 
 // Modal Tambah / Edit Pertanyaan
 const openQuestionModal = (question = null) => {
@@ -44,7 +72,8 @@ const openQuestionModal = (question = null) => {
     const initialAspek = question?.aspek || '';
     const initialKode = question?.kode || '';
     const initialDeskripsi = question?.deskripsi || '';
-    const initialKategori = question?.kategori || 'Kinerja';
+    const initialLangkah = question?.langkah || 'penilaian';
+    const isCompanyField = Boolean(question?.is_company_field);
     const initialOrder = question?.order || (props.questions.length + 1);
 
     const htmlContent = `
@@ -66,8 +95,11 @@ const openQuestionModal = (question = null) => {
             </div>
 
             <div>
-                <label class="block font-bold text-gray-700 mb-1">Kategori</label>
-                <input id="swal-kategori" type="text" value="${initialKategori}" placeholder="Kinerja / Kompetensi" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700" />
+                <label class="block font-bold text-gray-700 mb-1">Tampilkan di langkah stepper *</label>
+                <select id="swal-langkah" ${isCompanyField ? 'disabled' : ''} class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700 ${isCompanyField ? 'bg-gray-100 text-gray-500' : ''}">
+                    ${props.stepperOptions.map((option) => `<option value="${option.value}" ${option.value === initialLangkah ? 'selected' : ''}>${option.label}</option>`).join('')}
+                </select>
+                <p class="text-[11px] text-gray-500 mt-1">${isCompanyField ? 'Field karakteristik perusahaan terikat pada Langkah 2 agar tetap tersimpan ke kolom perusahaan.' : 'Pilihan ini menentukan bagian formulir publik tempat butir ditampilkan.'}</p>
             </div>
 
             <div>
@@ -90,7 +122,7 @@ const openQuestionModal = (question = null) => {
             const aspek = document.getElementById('swal-aspek')?.value?.trim();
             const kode = document.getElementById('swal-kode')?.value?.trim();
             const deskripsi = document.getElementById('swal-deskripsi')?.value?.trim() || null;
-            const kategori = document.getElementById('swal-kategori')?.value?.trim() || 'Kinerja';
+            const langkah = document.getElementById('swal-langkah')?.value?.trim() || 'penilaian';
             const order = parseInt(document.getElementById('swal-order')?.value, 10) || 1;
 
             if (!aspek) {
@@ -98,7 +130,7 @@ const openQuestionModal = (question = null) => {
                 return false;
             }
 
-            return { aspek, kode, deskripsi, kategori, order };
+            return { aspek, kode, deskripsi, langkah, order };
         },
     }).then((result) => {
         if (result.isConfirmed && result.value) {
@@ -215,11 +247,20 @@ const closeDetailModal = () => {
                 <div class="bg-white p-2 rounded-xl border border-gray-300 shadow-2xs flex items-center gap-2 overflow-x-auto">
                     <button
                         type="button"
+                        @click="activeTab = 'sections'"
+                        class="px-4 py-2 text-xs font-bold rounded-lg transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                        :class="activeTab === 'sections' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'"
+                    >
+                        <span>Daftar Bagian (Section)</span>
+                        <span class="px-2 py-0.5 rounded text-[11px] font-semibold" :class="activeTab === 'sections' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-700'">{{ sections.length }}</span>
+                    </button>
+                    <button
+                        type="button"
                         @click="activeTab = 'questions'"
                         class="px-4 py-2 text-xs font-bold rounded-lg transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap"
                         :class="activeTab === 'questions' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'"
                     >
-                        <span>Butir Aspek Penilaian</span>
+                        <span>Daftar Pertanyaan (Kuesioner)</span>
                         <span class="px-2 py-0.5 rounded text-[11px] font-semibold" :class="activeTab === 'questions' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-700'">{{ stats.active_questions }}</span>
                     </button>
                     <button
@@ -233,19 +274,71 @@ const closeDetailModal = () => {
                     </button>
                 </div>
 
-                <!-- Konten Tab 1: Butir Aspek Evaluasi -->
-                <div v-if="activeTab === 'questions'" class="space-y-4">
+                <!-- Konten Tab 1: Daftar Section Stepper -->
+                <div v-if="activeTab === 'sections'" class="space-y-4">
+                    <div class="bg-white p-4 rounded-xl border border-gray-300 shadow-2xs">
+                        <p class="text-xs leading-relaxed text-gray-600">
+                            Section evaluasi atasan mengikuti tiga langkah formulir publik. Urutan dan judul section menjadi kontrak bersama antara halaman kelola pertanyaan dan `/evaluasi-atasan`.
+                        </p>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-gray-300 overflow-x-auto shadow-2xs">
+                        <table class="w-full min-w-[760px] text-left border-collapse border border-gray-300 text-xs bg-white">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-800 font-semibold border-b border-gray-300 text-[11px]">
+                                    <th class="border border-gray-300 px-3 py-2 text-center w-16">No</th>
+                                    <th class="border border-gray-300 px-3 py-2 min-w-[260px]">Nama Bagian</th>
+                                    <th class="border border-gray-300 px-3 py-2">Deskripsi</th>
+                                    <th class="border border-gray-300 px-3 py-2 min-w-[220px]">Sumber Tabel</th>
+                                    <th class="border border-gray-300 px-3 py-2 text-center w-36">Jumlah Pertanyaan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="section in sections" :key="section.key" class="hover:bg-gray-50/80 transition-colors">
+                                    <td class="border border-gray-300 px-3 py-3 text-center font-bold text-gray-600">{{ section.order }}</td>
+                                    <td class="border border-gray-300 px-3 py-3">
+                                        <div class="font-bold text-gray-900">{{ section.title }}</div>
+                                        <div class="text-[11px] text-emerald-700 mt-0.5">Kunci internal stepper: {{ section.key }}</div>
+                                    </td>
+                                    <td class="border border-gray-300 px-3 py-3 text-gray-600">{{ section.description }}</td>
+                                    <td class="border border-gray-300 px-3 py-3 font-mono text-[11px] text-slate-700">{{ section.source }}</td>
+                                    <td class="border border-gray-300 px-3 py-3 text-center font-bold text-[#0D542B]">{{ section.question_count }}</td>
+                                </tr>
+                                <tr v-if="sections.length === 0">
+                                    <td colspan="5" class="border border-gray-300 p-8 text-center text-gray-400 italic">Belum ada section evaluasi atasan.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Konten Tab 2: Daftar Pertanyaan Evaluasi -->
+                <div v-else-if="activeTab === 'questions'" class="space-y-4">
                     <!-- Bilah Pencarian -->
                     <div class="bg-white p-3.5 rounded-xl border border-gray-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs shadow-2xs">
                         <span class="text-gray-600 font-medium">
                             Menampilkan <strong class="text-gray-900">{{ filteredQuestions.length }}</strong> aspek evaluasi kepuasan pengguna lulusan
                         </span>
-                        <div class="w-full sm:w-64">
+                        <div class="w-full sm:w-auto flex flex-col sm:flex-row sm:items-end gap-2">
+                            <div class="w-full sm:w-80">
+                                <label for="evaluation-section-filter" class="block text-[11px] font-bold text-gray-600 mb-1">Filter Section</label>
+                                <select
+                                    id="evaluation-section-filter"
+                                    v-model="selectedSectionFilter"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700 bg-white text-gray-900"
+                                    aria-label="Filter section pertanyaan"
+                                >
+                                    <option value="all">Semua section ({{ props.questions.length }})</option>
+                                    <option v-for="section in sections" :key="section.key" :value="section.key">
+                                        Langkah {{ section.order }} - {{ section.title }} ({{ section.question_count }})
+                                    </option>
+                                </select>
+                            </div>
                             <input
                                 type="text"
                                 v-model="searchQuery"
                                 placeholder="Cari aspek penilaian..."
-                                class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700 bg-white text-gray-900 placeholder-gray-400"
+                                class="w-full sm:w-64 px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700 bg-white text-gray-900 placeholder-gray-400"
                             />
                         </div>
                     </div>
@@ -257,14 +350,15 @@ const closeDetailModal = () => {
                                 <tr class="bg-gray-100 text-gray-800 font-semibold border-b border-gray-300 text-[11px] whitespace-nowrap">
                                     <th class="border border-gray-300 px-2.5 py-2 text-center w-12 whitespace-nowrap">No</th>
                                     <th class="border border-gray-300 px-3 py-2 w-32 whitespace-nowrap">Kode Aspek</th>
-                                    <th class="border border-gray-300 px-3 py-2 min-w-[240px] whitespace-nowrap">Aspek Penilaian</th>
+                                    <th class="border border-gray-300 px-3 py-2 min-w-[240px] whitespace-nowrap">Aspek / Pertanyaan</th>
+                                    <th class="border border-gray-300 px-3 py-2 min-w-[180px] whitespace-nowrap">Langkah Stepper</th>
                                     <th class="border border-gray-300 px-3 py-2 w-28 text-center whitespace-nowrap">Status</th>
                                     <th class="border border-gray-300 px-2.5 py-2 text-center w-24 whitespace-nowrap">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr v-if="filteredQuestions.length === 0">
-                                    <td colspan="5" class="border border-gray-300 p-8 text-center text-gray-400 italic">
+                                    <td colspan="6" class="border border-gray-300 p-8 text-center text-gray-400 italic">
                                         Belum ada butir aspek evaluasi penilaian.
                                     </td>
                                 </tr>
@@ -274,6 +368,12 @@ const closeDetailModal = () => {
                                     <td class="border border-gray-300 px-3 py-2">
                                         <div class="font-bold text-gray-900 text-xs">{{ item.aspek }}</div>
                                         <div v-if="item.deskripsi" class="text-[11px] text-gray-500 mt-0.5">{{ item.deskripsi }}</div>
+                                    </td>
+                                    <td class="border border-gray-300 px-3 py-2">
+                                        <span class="inline-flex px-2 py-1 rounded border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700">
+                                            {{ stepLabel(item) }}
+                                        </span>
+                                        <div v-if="item.is_company_field" class="text-[10px] text-emerald-700 mt-1">Field perusahaan</div>
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-center">
                                         <button

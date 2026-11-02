@@ -38,7 +38,7 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 
 - Kontak aktif: biodata.nomor_telepon dan biodata.email_pribadi.
 - Domisili aktif: biodata.alamat_saat_ini, kelurahan, kecamatan,
-  kabupaten_id, propinsi_id, dan kode_pos.
+  kode_kabupaten, kode_provinsi, dan kode_pos.
 - Identitas akademik: data_akademik.nama, tanggal lahir, NIM, NISN, BPJS,
   email mahasiswa, IPK, dan data kelulusan.
 - Tugas akhir dan publikasi: yudisium.

@@ -319,16 +319,9 @@ class AlumniSimulationSeeder extends Seeder
                         'ip_kumulatif' => $ipk,
                         'total_sks' => $totalSks,
                         'total_angka_kualitas' => round($ipk * $totalSks, 2),
-                        'tempat_lahir' => ($i % 2 === 0 ? 'Yogyakarta' : 'Jakarta'),
                         'tanggal_lahir' => $birthDate,
                         'jenis_kelamin' => $alumniBio['jk'],
                         'warga_negara' => 'WNI',
-                        'email_students' => $nim.'@students.ukdw.ac.id',
-                        'asal_sekolah' => 'SMA Negeri '.(($i % 5) + 1).' Yogyakarta',
-                        'alamat_asal_sekolah' => 'Jl. Kebangsaan No. 10',
-                        'kota_kabupaten_asal_sekolah' => 'Kota Yogyakarta',
-                        'provinsi_asal_sekolah' => 'DI Yogyakarta',
-                        'jurusan_asal_sekolah' => ($kodeProdiStr === '11' || $kodeProdiStr === '12' ? 'IPS' : 'IPA'),
                     ]
                 );
 
@@ -462,14 +455,14 @@ class AlumniSimulationSeeder extends Seeder
             $perusahaan = Perusahaan::firstOrCreate(
                 ['nama_perusahaan' => 'PT Bank Mandiri (Persero) Tbk'],
                 [
-                    'propinsi_id' => $propinsiJkt?->id,
-                    'kabupaten_id' => $kabJaksel?->id,
+                    'kode_provinsi' => $propinsiJkt?->kode_provinsi,
+                    'kode_kabupaten' => $kabJaksel?->kode_kabupaten,
                     'alamat' => 'Jl. Gatot Subroto Kav. 36-38, Senayan',
                     'sektor' => 'Perbankan & Keuangan',
                     'skala' => 'Nasional',
                     'jenis_perusahaan' => 'BUMN/BUMD',
                     'jenis_lokasi' => 'Dalam Negeri',
-                    'negara' => 'Indonesia',
+                    'kode_negara' => 'ID',
                     'status_verifikasi' => 'Terverifikasi',
                 ]
             );
@@ -494,14 +487,14 @@ class AlumniSimulationSeeder extends Seeder
             $perusahaan = Perusahaan::firstOrCreate(
                 ['nama_perusahaan' => 'CV '.explode(' ', $nama)[0].' Inovasi Mandiri'],
                 [
-                    'propinsi_id' => $propinsiDiy?->id,
-                    'kabupaten_id' => $kabSleman?->id,
+                    'kode_provinsi' => $propinsiDiy?->kode_provinsi,
+                    'kode_kabupaten' => $kabSleman?->kode_kabupaten,
                     'alamat' => 'Jl. Kaliurang Km. 5, Pogung Kidul',
                     'sektor' => 'Industri Kreatif & Digital Agency',
                     'skala' => 'Nasional',
                     'jenis_perusahaan' => 'Wiraswasta',
                     'jenis_lokasi' => 'Dalam Negeri',
-                    'negara' => 'Indonesia',
+                    'kode_negara' => 'ID',
                     'status_verifikasi' => 'Terverifikasi',
                 ]
             );
@@ -528,14 +521,14 @@ class AlumniSimulationSeeder extends Seeder
             $perusahaan = Perusahaan::firstOrCreate(
                 ['nama_perusahaan' => 'Sekolah Pascasarjana Universitas Gadjah Mada'],
                 [
-                    'propinsi_id' => $propinsiDiy?->id,
-                    'kabupaten_id' => $kabSleman?->id,
+                    'kode_provinsi' => $propinsiDiy?->kode_provinsi,
+                    'kode_kabupaten' => $kabSleman?->kode_kabupaten,
                     'alamat' => 'Jl. Teknika Utara, Pogung',
                     'sektor' => 'Pendidikan Tinggi & Riset',
                     'skala' => 'Internasional',
                     'jenis_perusahaan' => 'Instansi pemerintah',
                     'jenis_lokasi' => 'Dalam Negeri',
-                    'negara' => 'Indonesia',
+                    'kode_negara' => 'ID',
                     'status_verifikasi' => 'Terverifikasi',
                 ]
             );
@@ -559,14 +552,14 @@ class AlumniSimulationSeeder extends Seeder
             $perusahaan = Perusahaan::firstOrCreate(
                 ['nama_perusahaan' => 'PT GoTo Gojek Tokopedia Tbk'],
                 [
-                    'propinsi_id' => $propinsiJkt?->id,
-                    'kabupaten_id' => $kabJaksel?->id,
+                    'kode_provinsi' => $propinsiJkt?->kode_provinsi,
+                    'kode_kabupaten' => $kabJaksel?->kode_kabupaten,
                     'alamat' => 'Pasaraya Blok M Gedung B Lt. 6, Kebayoran Baru',
                     'sektor' => 'Teknologi Informasi & E-Commerce',
                     'skala' => 'Internasional',
                     'jenis_perusahaan' => 'Perusahaan swasta',
                     'jenis_lokasi' => 'Dalam Negeri',
-                    'negara' => 'Indonesia',
+                    'kode_negara' => 'ID',
                     'status_verifikasi' => 'Terverifikasi',
                 ]
             );
@@ -595,8 +588,8 @@ class AlumniSimulationSeeder extends Seeder
                 'alamat_saat_ini' => $alamatSaatIni,
                 'kelurahan' => 'Caturtunggal',
                 'kecamatan' => 'Depok',
-                'kabupaten_id' => $kabSleman?->id,
-                'propinsi_id' => $propinsiDiy?->id,
+                'kode_kabupaten' => $kabSleman?->kode_kabupaten,
+                'kode_provinsi' => $propinsiDiy?->kode_provinsi,
                 'kode_pos' => '55281',
                 'instagram_url' => 'https://instagram.com/'.$cleanUsername,
                 'facebook_url' => 'https://facebook.com/'.$cleanUsername,
@@ -773,8 +766,8 @@ class AlumniSimulationSeeder extends Seeder
                 'alamat_saat_ini' => $alamatSaatIni,
                 'kelurahan' => 'Caturtunggal',
                 'kecamatan' => 'Depok',
-                'kabupaten_id' => $kabSleman?->id,
-                'propinsi_id' => $propinsiDiy?->id,
+                'kode_kabupaten' => $kabSleman?->kode_kabupaten,
+                'kode_provinsi' => $propinsiDiy?->kode_provinsi,
                 'kode_pos' => '55281',
                 'instagram_url' => 'https://instagram.com/'.$cleanUsername,
                 'facebook_url' => null,
@@ -848,8 +841,8 @@ class AlumniSimulationSeeder extends Seeder
                 'alamat_saat_ini' => null,
                 'kelurahan' => null,
                 'kecamatan' => null,
-                'kabupaten_id' => null,
-                'propinsi_id' => null,
+                'kode_kabupaten' => null,
+                'kode_provinsi' => null,
                 'kode_pos' => null,
                 'instagram_url' => null,
                 'facebook_url' => null,

@@ -141,13 +141,12 @@ class AlumniTracerExcelExporter
         // 1. Data Pribadi & Kontak (Diutamakan dari view v_alumni_profile_summary)
         $namaLengkap = $summary?->nama ?: ($alumni->nama ?: ($dataAkademik?->nama ?: ($alumni->user?->name ?: '-')));
         $jenisKelamin = $summary?->jenis_kelamin ?: ($dataAkademik?->jenis_kelamin ?: '-');
-        $tempatLahir = $summary?->tempat_lahir ?: ($dataAkademik?->tempat_lahir ?: '-');
         $tglLahirVal = $summary?->tanggal_lahir ?: $dataAkademik?->tanggal_lahir;
         $tanggalLahir = $tglLahirVal ? date('d-m-Y', strtotime($tglLahirVal)) : '-';
         $wargaNegara = $summary?->warga_negara ?: ($dataAkademik?->warga_negara ?: 'WNI');
         $telepon = $summary?->nomor_telepon ?: ($alumni->nomor_telepon ?: '-');
         $emailPribadi = $summary?->email_pribadi ?: ($alumni->email_pribadi ?: '-');
-        $emailKampus = $summary?->email_students ?: ($dataAkademik?->email_students ?: '-');
+        $emailKampus = $alumni->user?->email ?: '-';
         $linkedin = $summary?->linkedin_url ?: ($summary?->linkedin_username ?: ($alumni->linkedin_url ?: ($alumni->linkedin_username ?: '-')));
         $ig = $summary?->instagram_url ?: $alumni->instagram_url;
         $fb = $summary?->facebook_url ?: $alumni->facebook_url;
@@ -172,12 +171,6 @@ class AlumniTracerExcelExporter
         $ipk = $summary?->ipk ?: ($dataAkademik?->ip_kumulatif ?: '-');
         $totalSks = $summary?->total_sks ?: ($dataAkademik?->total_sks ?: '-');
         $totalAngkaKualitas = $summary?->total_angka_kualitas ?: ($dataAkademik?->total_angka_kualitas ?: '-');
-        $asalSekolah = $summary?->asal_sekolah ?: ($dataAkademik?->asal_sekolah ?: '-');
-        $jurusanSekolah = $summary?->jurusan_asal_sekolah ?: ($dataAkademik?->jurusan_asal_sekolah ?: '-');
-        $alamatSekolah = $summary?->alamat_asal_sekolah ?: ($dataAkademik?->alamat_asal_sekolah ?: '-');
-        $kotaSekolah = $summary?->kota_kabupaten_asal_sekolah ?: $dataAkademik?->kota_kabupaten_asal_sekolah;
-        $provSekolah = $summary?->provinsi_asal_sekolah ?: $dataAkademik?->provinsi_asal_sekolah;
-        $wilayahSekolah = trim(($kotaSekolah ? $kotaSekolah : '').($provSekolah ? ', '.$provSekolah : '')) ?: '-';
 
         // 3. Data Karier, Perusahaan & Atasan
         $kategoriPekerjaan = $summary?->kategori_pekerjaan ?: ($alumni->kategori_pekerjaan ?: '-');
@@ -191,7 +184,7 @@ class AlumniTracerExcelExporter
         $skalaPerusahaan = $summary?->skala_perusahaan ?: ($perusahaan?->skala ?: '-');
         $jenisPerusahaan = $summary?->jenis_perusahaan ?: ($perusahaan?->jenis_perusahaan ?: ($alumni->jenis_pekerjaan ?: '-'));
         $lokasiPerusahaan = $summary?->jenis_lokasi_perusahaan ?: ($perusahaan?->jenis_lokasi ?: '-');
-        $negaraPerusahaan = $summary?->negara_perusahaan ?: ($perusahaan?->negara ?: 'Indonesia');
+        $negaraPerusahaan = $summary?->nama_negara_perusahaan ?: ($perusahaan?->negaraMaster?->nama_negara ?: 'Indonesia');
         $alamatPerusahaan = $summary?->alamat_perusahaan ?: ($perusahaan?->alamat ?: '-');
         $kodePosPerusahaan = $summary?->kode_pos ?: ($perusahaan?->kode_pos ?: ($alumni->zipcode ?: '-'));
         $namaAtasan = $summary?->nama_atasan ?: ($atasan?->nama ?: '-');
@@ -268,8 +261,6 @@ class AlumniTracerExcelExporter
         echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$jenisKelamin}</td>\n";
         echo "  </tr>\n";
         echo "  <tr>\n";
-        echo "    <td class=\"box-identitas-label\">Tempat Lahir</td>\n";
-        echo "    <td class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$tempatLahir}</td>\n";
         echo "    <td class=\"box-identitas-label\">Tanggal Lahir</td>\n";
         echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$tanggalLahir}</td>\n";
         echo "  </tr>\n";
@@ -329,14 +320,6 @@ class AlumniTracerExcelExporter
         echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">SKS: {$totalSks} | Angka Kualitas: {$totalAngkaKualitas}</td>\n";
         echo "  </tr>\n";
         echo "  <tr>\n";
-        echo "    <td class=\"box-identitas-label\">Asal Sekolah (SMA/SMK)</td>\n";
-        echo "    <td class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$asalSekolah}</td>\n";
-        echo "    <td class=\"box-identitas-label\">Jurusan Asal Sekolah</td>\n";
-        echo "    <td colspan=\"5\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$jurusanSekolah}</td>\n";
-        echo "  </tr>\n";
-        echo "  <tr>\n";
-        echo "    <td class=\"box-identitas-label\">Alamat Asal Sekolah</td>\n";
-        echo "    <td colspan=\"7\" class=\"box-identitas-val\" style=\"mso-number-format:'\@';\">{$alamatSekolah} ({$wilayahSekolah})</td>\n";
         echo "  </tr>\n";
 
         // Sub 3: Data Karier
@@ -581,6 +564,22 @@ class AlumniTracerExcelExporter
                 $nilaiDisplay = '-';
                 $catatanDisplay = '-';
                 $statusValClass = 'status-x';
+
+                // Field karakteristik perusahaan tidak memiliki baris respons tersendiri;
+                // ambil nilai kanonik dari perusahaan/evaluasi agar ekspor tetap lengkap.
+                if ($qAtasan->is_company_field) {
+                    $nilaiDisplay = match ($qAtasan->kode) {
+                        'bentuk_perusahaan' => $perusahaan?->bentuk_perusahaan,
+                        'skala_perusahaan' => $perusahaan?->skala,
+                        'jumlah_pegawai' => $perusahaan?->jumlah_pegawai,
+                        'jumlah_alumni_ukdw' => $evaluasiAtasan?->jumlah_alumni_ukdw,
+                        'standar_gaji_pertama' => $evaluasiAtasan?->standar_gaji_pertama,
+                        default => null,
+                    } ?: '-';
+                    if ($nilaiDisplay !== '-') {
+                        $statusValClass = 'status-v';
+                    }
+                }
 
                 if ($rAtasan && ! empty($rAtasan->nilai)) {
                     $nilaiDisplay = htmlspecialchars((string) $rAtasan->nilai);

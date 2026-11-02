@@ -44,7 +44,6 @@ class AlumniDashboardPercentageTest extends TestCase
             'nim' => '721220001',
             'nama' => 'Budi Santoso',
             'email_pribadi' => 'budi.pribadi@gmail.com',
-            'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2000-01-01',
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '08123456789',

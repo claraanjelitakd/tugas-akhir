@@ -123,12 +123,12 @@ const degreeBarOption = computed(() => {
 
 // Daftar universitas untuk jenjang yang sedang dipilih
 const currentUniversityList = computed(() => {
-    const deg = activeSelectedDegree.value || degreeSeries.value[0]?.label || 'S2';
+    const deg = activeSelectedDegree.value || degreeSeries.value[0]?.label || '';
     return universityByDegree.value[deg] || [];
 });
 
 const currentDegreeCount = computed(() => {
-    const deg = activeSelectedDegree.value || degreeSeries.value[0]?.label || 'S2';
+    const deg = activeSelectedDegree.value || degreeSeries.value[0]?.label || '';
     const found = degreeSeries.value.find((s) => s.label === deg);
     return found ? found.count : currentUniversityList.value.reduce((a, b) => a + b.count, 0);
 });
@@ -238,7 +238,7 @@ const recordsTable = computed(() => ({
         nim: r.nim || '-',
         nama: r.nama || '-',
         nama_prodi: r.nama_prodi || '-',
-        degree: r.degree || 'S2',
+        degree: r.degree || '-',
         university: r.university || 'Universitas Mitra',
         study_program: r.study_program || '-',
         funding_source: r.funding_source || 'Biaya Sendiri / Keluarga',

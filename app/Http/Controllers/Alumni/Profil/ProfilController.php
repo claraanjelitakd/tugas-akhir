@@ -29,7 +29,7 @@ class ProfilController extends Controller
 
         $propinsi = Propinsi::all();
         $kabupaten = Kabupaten::all();
-        $negaras = RefNegara::orderBy('nama_negara')->get(['id', 'nama_negara', 'kode_iso2', 'benua']);
+        $negaras = RefNegara::orderBy('nama_negara')->get(['kode_negara', 'nama_negara', 'kode_iso3', 'benua']);
         $dataAkademik = $biodata?->dataAkademik;
         $yudisium = $biodata?->yudisium ?? $dataAkademik?->yudisium;
         $atasan = $biodata?->atasan;
@@ -43,7 +43,6 @@ class ProfilController extends Controller
             // Identitas Pribadi (Prioritaskan nilai di tabel biodata, fallback ke data_akademik)
             'nim' => $biodata?->nim ?? '',
             'nama' => $biodata?->nama ?? ($dataAkademik?->nama ?? ''),
-            'tempat_lahir' => $biodata?->tempat_lahir ?? ($dataAkademik?->tempat_lahir ?? ''),
             'tanggal_lahir' => $biodata?->tanggal_lahir ?? ($dataAkademik?->tanggal_lahir ?? ''),
             'jenis_kelamin' => $biodata?->jenis_kelamin ?? ($dataAkademik?->jenis_kelamin ?? ''),
             'warga_negara' => $biodata?->warga_negara ?? ($dataAkademik?->warga_negara ?? 'WNI'),
@@ -53,9 +52,8 @@ class ProfilController extends Controller
             'alamat_saat_ini' => $biodata?->alamat_saat_ini ?? '',
             'kelurahan' => $biodata?->kelurahan ?? '',
             'kecamatan' => $biodata?->kecamatan ?? '',
-            'kabupaten_id' => $biodata?->kabupaten_id ?? '',
-            'propinsi_id' => $biodata?->propinsi_id ?? '',
-            'provinsi_id' => $biodata?->propinsi_id ?? '',
+            'kode_kabupaten' => $biodata?->kode_kabupaten ?? '',
+            'kode_provinsi' => $biodata?->kode_provinsi ?? '',
             'kode_pos' => $biodata?->kode_pos ?? '',
             'nomor_telepon' => $biodata?->nomor_telepon ?? '',
             'email_pribadi' => $biodata?->email_pribadi ?? $pengguna->email,
@@ -73,7 +71,6 @@ class ProfilController extends Controller
             'ip_kumulatif' => $dataAkademik?->ip_kumulatif ?? '',
             'total_sks' => $dataAkademik?->total_sks ?? '',
             'total_angka_kualitas' => $dataAkademik?->total_angka_kualitas ?? '',
-            'asal_sekolah' => $dataAkademik?->asal_sekolah ?? '',
 
             // Tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai data akademik non-sensitif.
             'judul_ta' => $yudisium?->judul_ta ?? '',
@@ -108,9 +105,9 @@ class ProfilController extends Controller
             'perusahaan_jenis_perusahaan' => $biodata?->perusahaan?->jenis_perusahaan ?? '',
             'perusahaan_jenis_perusahaan_lainnya' => $biodata?->perusahaan?->jenis_perusahaan_lainnya ?? '',
             'perusahaan_jenis_lokasi' => $biodata?->perusahaan?->jenis_lokasi ?? 'Dalam Negeri',
-            'perusahaan_negara' => $biodata?->perusahaan?->negara ?? 'Indonesia',
-            'perusahaan_propinsi_id' => $biodata?->perusahaan?->propinsi_id ?? '',
-            'perusahaan_kabupaten_id' => $biodata?->perusahaan?->kabupaten_id ?? '',
+            'perusahaan_kode_negara' => $biodata?->perusahaan?->kode_negara ?? 'ID',
+            'perusahaan_kode_provinsi' => $biodata?->perusahaan?->kode_provinsi ?? '',
+            'perusahaan_kode_kabupaten' => $biodata?->perusahaan?->kode_kabupaten ?? '',
             'perusahaan_status_verifikasi' => $biodata?->perusahaan?->status_verifikasi ?? '',
 
             // Fallback key untuk kompatibilitas frontend
@@ -122,9 +119,9 @@ class ProfilController extends Controller
             'company_jenis_perusahaan' => $biodata?->perusahaan?->jenis_perusahaan ?? '',
             'company_jenis_perusahaan_lainnya' => $biodata?->perusahaan?->jenis_perusahaan_lainnya ?? '',
             'company_jenis_lokasi' => $biodata?->perusahaan?->jenis_lokasi ?? 'Dalam Negeri',
-            'company_negara' => $biodata?->perusahaan?->negara ?? 'Indonesia',
-            'company_province_id' => $biodata?->perusahaan?->propinsi_id ?? '',
-            'company_kabupaten_id' => $biodata?->perusahaan?->kabupaten_id ?? '',
+            'company_kode_negara' => $biodata?->perusahaan?->kode_negara ?? 'ID',
+            'company_kode_provinsi' => $biodata?->perusahaan?->kode_provinsi ?? '',
+            'company_kode_kabupaten' => $biodata?->perusahaan?->kode_kabupaten ?? '',
             'company_kode_pos' => $biodata?->perusahaan?->kode_pos ?? '',
             'perusahaan_kode_pos' => $biodata?->perusahaan?->kode_pos ?? '',
             'company_status_verifikasi' => $biodata?->perusahaan?->status_verifikasi ?? '',
@@ -147,7 +144,7 @@ class ProfilController extends Controller
             ->toArray();
 
         // Get all perusahaan for Autocomplete
-        $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'propinsi_id', 'kabupaten_id', 'alamat', 'kode_pos', 'skala', 'bentuk_perusahaan', 'no_telp_fax', 'homepage', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'jenis_lokasi', 'negara', 'status_verifikasi')->get();
+        $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'kode_provinsi', 'kode_kabupaten', 'alamat', 'kode_pos', 'skala', 'bentuk_perusahaan', 'no_telp_fax', 'homepage', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'jenis_lokasi', 'kode_negara', 'status_verifikasi')->get();
 
         return inertia('Alumni/Profil/Index', [
             // Hanya kirim konteks minimum yang dibutuhkan FormKarier; relasi akademik/keluarga

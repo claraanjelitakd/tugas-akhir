@@ -27,7 +27,7 @@ SELECT
         ELSE 0
     END AS meets_ump
 FROM v_analytics_population AS population
-LEFT JOIN ump ON ump.kode_provinsi = population.workplace_province_code
+LEFT JOIN ump ON ump.kode_provinsi = population.workplace_kode_provinsi
 SQL);
     }
 

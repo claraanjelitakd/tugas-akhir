@@ -68,7 +68,6 @@ class AdminProdiKuesionerTest extends TestCase
             'nim' => '72200001',
             'nama' => 'Alumni SI',
             'email_pribadi' => 'alumni.si@gmail.com',
-            'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2001-08-15',
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',
