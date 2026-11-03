@@ -819,6 +819,19 @@ Menyimpan jawaban alumni terhadap butir pertanyaan kuesioner khusus Program Stud
 
 ### 3.6 Modul 6: Evaluasi Pengguna Lulusan (Atasan)
 
+#### 23B. Tabel `section_evaluasi_atasan`
+Menyimpan bagian atau seksi pengelompokan pertanyaan kuesioner evaluasi atasan yang dapat dikonfigurasi secara dinamis oleh Superadmin.
+
+| Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
+| :--- | :--- | :---: | :---: | :--- |
+| `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik bagian / section evaluasi atasan. |
+| `key` | `varchar(50)` | - | `NULL` | Kunci langkah internal stepper formulir (misal: `instansi`, `karakteristik`, `penilaian`). |
+| `title` | `varchar(150)` | - | `NOT NULL` | Nama judul bagian / section evaluasi atasan. |
+| `description` | `text` | - | `NULL` | Deskripsi penjelasan bagian kuesioner. |
+| `order` | `int` | - | `NOT NULL`, Default `'1'` | Nomor urut penampilan bagian. |
+| `created_at` | `timestamp` | - | `NULL` | Waktu pembuatan rekaman. |
+| `updated_at` | `timestamp` | - | `NULL` | Waktu pembaruan terakhir. |
+
 #### 24. Tabel `pertanyaan_evaluasi_atasan`
 Menyimpan daftar master pertanyaan Survei Pengguna Lulusan. Selain butir kesiapan/kinerja,
 tabel ini juga memuat lima field karakteristik perusahaan yang dikaitkan ke Langkah 2
@@ -827,6 +840,7 @@ dan disimpan ke kolom master `perusahaan` atau transaksi `evaluasi_atasan`.
 | Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
 | :--- | :--- | :---: | :---: | :--- |
 | `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik butir pertanyaan evaluasi atasan. |
+| `section_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `section_evaluasi_atasan.id` (`ON DELETE SET NULL`). |
 | `kode` | `varchar(50)` | `UK` | `NOT NULL` | Kode unik aspek penilaian (misal: `integritas`, `keahlian_bidang_ilmu`, `kerjasama_tim`). |
 | `aspek` | `varchar(255)` | - | `NOT NULL` | Judul aspek penilaian kinerja atau karakteristik lulusan. |
 | `deskripsi` | `text` | - | `NULL` | Penjelasan operasional mengenai aspek yang dinilai. |

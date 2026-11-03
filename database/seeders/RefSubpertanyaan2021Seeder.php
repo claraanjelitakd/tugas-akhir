@@ -87,22 +87,12 @@ class RefSubpertanyaan2021Seeder extends Seeder
             [
                 'section_kode' => '1',
                 'kelompok' => 'BIO',
-                'kode_pertanyaan' => 'BIO_TEMPAT_LAHIR',
-                'subpertanyaan' => 'Tempat lahir',
-                'type' => 'text',
-                'keterangan' => 'Tempat lahir',
-                'wajib' => 1,
-                'order' => 6,
-            ],
-            [
-                'section_kode' => '1',
-                'kelompok' => 'BIO',
                 'kode_pertanyaan' => 'BIO_TANGGAL_LAHIR',
                 'subpertanyaan' => 'Tanggal lahir',
                 'type' => 'text',
                 'keterangan' => 'Tanggal lahir',
                 'wajib' => 1,
-                'order' => 7,
+                'order' => 6,
             ],
             [
                 'section_kode' => '1',

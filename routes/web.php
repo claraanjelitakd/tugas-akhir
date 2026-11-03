@@ -367,6 +367,10 @@ Route::middleware('auth')->group(function () {
 
             // Pengaturan Kuesioner Evaluasi Atasan (SuperAdmin)
             Route::get('/superadmin/evaluasi-atasan', [KelolaEvaluasiAtasanController::class, 'index'])->name('superadmin.evaluasi-atasan.index');
+            Route::post('/superadmin/evaluasi-atasan/sections', [KelolaEvaluasiAtasanController::class, 'storeSection'])->name('superadmin.evaluasi-atasan.sections.store');
+            Route::put('/superadmin/evaluasi-atasan/sections/{id}', [KelolaEvaluasiAtasanController::class, 'updateSection'])->name('superadmin.evaluasi-atasan.sections.update');
+            Route::delete('/superadmin/evaluasi-atasan/sections/{id}', [KelolaEvaluasiAtasanController::class, 'destroySection'])->name('superadmin.evaluasi-atasan.sections.destroy');
+            Route::post('/superadmin/evaluasi-atasan/sections/reorder', [KelolaEvaluasiAtasanController::class, 'reorderSections'])->name('superadmin.evaluasi-atasan.sections.reorder');
             Route::post('/superadmin/evaluasi-atasan/pertanyaan', [KelolaEvaluasiAtasanController::class, 'storeQuestion'])->name('superadmin.evaluasi-atasan.pertanyaan.store');
             Route::put('/superadmin/evaluasi-atasan/pertanyaan/{id}', [KelolaEvaluasiAtasanController::class, 'updateQuestion'])->name('superadmin.evaluasi-atasan.pertanyaan.update');
             Route::patch('/superadmin/evaluasi-atasan/pertanyaan/{id}/toggle', [KelolaEvaluasiAtasanController::class, 'toggleQuestion'])->name('superadmin.evaluasi-atasan.pertanyaan.toggle');

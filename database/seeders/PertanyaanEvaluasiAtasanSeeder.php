@@ -20,6 +20,42 @@ class PertanyaanEvaluasiAtasanSeeder extends Seeder
      */
     public function run(): void
     {
+        $defaultSections = [
+            [
+                'order' => 1,
+                'key' => 'instansi',
+                'title' => 'Profil Perusahaan & Atasan',
+                'description' => 'Identitas perusahaan, alamat, dan atasan langsung yang menilai alumni.',
+            ],
+            [
+                'order' => 2,
+                'key' => 'karakteristik',
+                'title' => 'Karakteristik Perusahaan & Sebaran Alumni',
+                'description' => 'Bentuk, skala, jumlah pegawai, sebaran alumni UKDW, dan standar gaji pertama.',
+            ],
+            [
+                'order' => 3,
+                'key' => 'penilaian',
+                'title' => 'Penilaian Kesiapan & Kinerja Alumni',
+                'description' => 'Kesiapan kerja dan aspek kompetensi alumni yang dinilai oleh atasan.',
+            ],
+        ];
+
+        foreach ($defaultSections as $sec) {
+            DB::table('section_evaluasi_atasan')->updateOrInsert(
+                ['key' => $sec['key']],
+                [
+                    'title' => $sec['title'],
+                    'description' => $sec['description'],
+                    'order' => $sec['order'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+        }
+
+        $secMap = DB::table('section_evaluasi_atasan')->pluck('id', 'key')->all();
+
         $likertOptions = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat Kurang'];
 
         $pertanyaans = [
@@ -199,9 +235,17 @@ class PertanyaanEvaluasiAtasanSeeder extends Seeder
         ];
 
         foreach ($pertanyaans as $p) {
+            $stepKey = match (strtolower(trim((string) $p['kategori']))) {
+                'profil perusahaan', 'langkah 1', 'instansi' => 'instansi',
+                'karakteristik perusahaan', 'langkah 2', 'karakteristik' => 'karakteristik',
+                default => 'penilaian',
+            };
+            $sectionId = $secMap[$stepKey] ?? ($secMap['penilaian'] ?? null);
+
             DB::table('pertanyaan_evaluasi_atasan')->updateOrInsert(
                 ['kode' => $p['kode']],
                 [
+                    'section_id' => $sectionId,
                     'aspek' => $p['aspek'],
                     'deskripsi' => $p['deskripsi'],
                     'kategori' => $p['kategori'],

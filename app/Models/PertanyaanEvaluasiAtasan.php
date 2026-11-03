@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -47,6 +48,23 @@ class PertanyaanEvaluasiAtasan extends Model
      */
     public static function stepperSections(): array
     {
+        try {
+            $dbSections = SectionEvaluasiAtasan::orderBy('order')->get();
+            if ($dbSections->isNotEmpty()) {
+                return $dbSections->map(static fn (SectionEvaluasiAtasan $sec): array => [
+                    'key' => $sec->key ?: 'section_'.$sec->id,
+                    'title' => $sec->title,
+                    'description' => $sec->description ?? '',
+                    'source' => $sec->key === 'instansi'
+                        ? 'perusahaan, atasan, evaluasi_atasan'
+                        : ($sec->key === 'karakteristik' ? 'perusahaan, evaluasi_atasan' : 'respon_evaluasi_atasan'),
+                    'order' => (int) $sec->order,
+                ])->all();
+            }
+        } catch (\Throwable $e) {
+            // Fallback jika tabel belum termigrasi
+        }
+
         return self::STEPPER_SECTIONS;
     }
 
@@ -69,6 +87,7 @@ class PertanyaanEvaluasiAtasan extends Model
     protected $table = 'pertanyaan_evaluasi_atasan';
 
     protected $fillable = [
+        'section_id',
         'kode',
         'aspek',
         'deskripsi',
@@ -87,6 +106,14 @@ class PertanyaanEvaluasiAtasan extends Model
         'order' => 'integer',
         'pilihan_jawaban' => 'array',
     ];
+
+    /**
+     * Relasi ke bagian / section instrumen evaluasi atasan.
+     */
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(SectionEvaluasiAtasan::class, 'section_id');
+    }
 
     public function respons(): HasMany
     {

@@ -19,7 +19,7 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "pertanyaan_evaluasi_atasan" ("id" integer primary key autoincrement not null, "kode" varchar not null, "aspek" varchar not null, "deskripsi" text, "kategori" varchar not null default 'Kinerja', "tipe" varchar not null default 'likert_5', "pilihan_jawaban" text, "is_active" tinyint(1) not null default '1', "order" integer not null default '1', "created_at" datetime, "updated_at" datetime);
+CREATE TABLE "pertanyaan_evaluasi_atasan" ("id" integer primary key autoincrement not null, "section_id" integer, "kode" varchar not null, "aspek" varchar not null, "deskripsi" text, "kategori" varchar not null default 'Kinerja', "tipe" varchar not null default 'likert_5', "pilihan_jawaban" text, "is_active" tinyint(1) not null default '1', "order" integer not null default '1', "created_at" datetime, "updated_at" datetime, foreign key("section_id") references "section_evaluasi_atasan"("id") on delete set null);
 SQL
             );
 
@@ -34,6 +34,7 @@ SQL,
             DB::unprepared(<<<'SQL'
 CREATE TABLE `pertanyaan_evaluasi_atasan` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID unik butir pertanyaan evaluasi atasan',
+  `section_id` bigint unsigned DEFAULT NULL COMMENT 'ID bagian / section evaluasi atasan',
   `kode` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Kode unik butir pertanyaan (misal: integritas, tingkat_kesiapan_kerja)',
   `aspek` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Label aspek penilaian kinerja atau kesiapan alumni',
   `deskripsi` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Deskripsi penjelasan operasional aspek yang dinilai',
@@ -45,7 +46,9 @@ CREATE TABLE `pertanyaan_evaluasi_atasan` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `pertanyaan_evaluasi_atasan_kode_unique` (`kode`)
+  UNIQUE KEY `pertanyaan_evaluasi_atasan_kode_unique` (`kode`),
+  KEY `pertanyaan_evaluasi_atasan_section_id_foreign` (`section_id`),
+  CONSTRAINT `pertanyaan_evaluasi_atasan_section_id_foreign` FOREIGN KEY (`section_id`) REFERENCES `section_evaluasi_atasan` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 SQL
             );
