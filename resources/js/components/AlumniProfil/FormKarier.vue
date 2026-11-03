@@ -28,8 +28,25 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    profileQuestionConfigs: {
+        type: Object,
+        default: () => ({}),
+    },
     evaluasiAtasan: Object,
 });
+
+// Helper pembacaan konfigurasi pertanyaan dinamis dari Super Admin
+const getQuestionLabel = (code, fallback) => {
+    return props.profileQuestionConfigs?.[code]?.subpertanyaan || fallback;
+};
+
+const isQuestionRequired = (code, fallback = true) => {
+    return props.profileQuestionConfigs?.[code]?.wajib ?? fallback;
+};
+
+const getQuestionHint = (code, fallback = '') => {
+    return props.profileQuestionConfigs?.[code]?.keterangan || fallback;
+};
 
 if (!props.form.profile_answers) {
     props.form.profile_answers = {};
@@ -68,14 +85,60 @@ const jenisPerusahaanOptions = computed(() => {
     ];
 });
 
-// Pilihan Bentuk Perusahaan / Institusi (Sinkron dengan Evaluasi Atasan)
-const bentukPerusahaanOptions = [
-    { value: 'BUMN', label: 'BUMN' },
-    { value: 'Perusahaan Terbatas', label: 'Perusahaan Terbatas' },
-    { value: 'Koperasi', label: 'Koperasi' },
-    { value: 'CV', label: 'CV' },
-    { value: 'Firma', label: 'Firma' },
-];
+// Pilihan Bentuk Perusahaan / Institusi (Sinkron dengan Evaluasi Atasan & Super Admin)
+const bentukPerusahaanOptions = computed(() => {
+    const configured = props.refOptions?.BIO_INST_BENTUK || [];
+    if (configured.length > 0) {
+        return configured.map(opt => ({
+            value: opt.option_text,
+            label: opt.option_text,
+        }));
+    }
+    return [
+        { value: 'BUMN', label: 'BUMN' },
+        { value: 'Perusahaan Terbatas', label: 'Perusahaan Terbatas' },
+        { value: 'Koperasi', label: 'Koperasi' },
+        { value: 'CV', label: 'CV' },
+        { value: 'Firma', label: 'Firma' },
+        { value: 'Lainnya', label: 'Lainnya' },
+    ];
+});
+
+// Pilihan Posisi Jabatan Struktural (F2G) dari konfigurasi Super Admin
+const posisiJabatanOptions = computed(() => {
+    const configured = props.refOptions?.F2G || [];
+    if (configured.length > 0) {
+        const opts = configured.map(opt => ({
+            value: opt.option_text,
+            label: `${opt.kode_opsi} - ${opt.option_text}`,
+        }));
+        if (!opts.some(opt => isOtherOptionValue(opt.value))) {
+            opts.push({ value: 'Lainnya', label: 'Lainnya (Tuliskan jabatan spesifik)' });
+        }
+        return opts;
+    }
+    return [];
+});
+
+// Pilihan Posisi / Jabatan Wiraswasta (F5C) dari konfigurasi Super Admin
+const posisiWiraswastaOptions = computed(() => {
+    const configured = props.refOptions?.F5C || [];
+    if (configured.length > 0) {
+        return configured.map(opt => ({
+            value: opt.option_text,
+            label: opt.option_text,
+        }));
+    }
+    return [
+        { value: 'Owner', label: 'Owner' },
+        { value: 'Founder', label: 'Founder' },
+        { value: 'Co-Founder', label: 'Co-Founder' },
+        { value: 'Direktur Utama', label: 'Direktur Utama' },
+        { value: 'Pengelola Usaha', label: 'Pengelola Usaha' },
+        { value: 'Freelancer / Konsultan Mandiri', label: 'Freelancer / Konsultan Mandiri' },
+        { value: 'Lainnya', label: 'Lainnya' },
+    ];
+});
 
 // Pilihan Skala Perusahaan (F2H / F5D)
 const skalaOptions = computed(() => {
@@ -103,18 +166,40 @@ const skalaOptions = computed(() => {
 });
 
 // Pilihan bidang pekerjaan / divisi (BIO_BIDANG_DIVISI) disimpan langsung ke biodata.
+const DEFAULT_BIDANG_PEKERJAAN_OPTIONS = [
+    { value: 'Akademik / Pendidikan', label: '1 - Akademik / Pendidikan' },
+    { value: 'Administrasi / Tata Usaha', label: '2 - Administrasi / Tata Usaha' },
+    { value: 'Keuangan / Akuntansi', label: '3 - Keuangan / Akuntansi' },
+    { value: 'Sumber Daya Manusia', label: '4 - Sumber Daya Manusia' },
+    { value: 'Teknologi Informasi', label: '5 - Teknologi Informasi' },
+    { value: 'Operasional', label: '6 - Operasional' },
+    { value: 'Pemasaran / Komunikasi', label: '7 - Pemasaran / Komunikasi' },
+    { value: 'Penjualan / Pengembangan Bisnis', label: '8 - Penjualan / Pengembangan Bisnis' },
+    { value: 'Penelitian dan Pengembangan', label: '9 - Penelitian dan Pengembangan' },
+    { value: 'Pelayanan / Customer Service', label: '10 - Pelayanan / Customer Service' },
+    { value: 'Produksi / Manufaktur', label: '11 - Produksi / Manufaktur' },
+    { value: 'Kesehatan', label: '12 - Kesehatan' },
+    { value: 'Hukum', label: '13 - Hukum' },
+    { value: 'Teknik', label: '14 - Teknik' },
+    { value: 'Lainnya', label: '15 - Lainnya' },
+];
+
 const bidangPekerjaanOptions = computed(() => {
     const configured = props.refOptions?.BIO_BIDANG_DIVISI || [];
-    const options = configured.map(opt => ({
-        value: opt.option_text,
-        label: `${opt.kode_opsi} - ${opt.option_text}`,
-    }));
+    if (configured.length > 0) {
+        const options = configured.map(opt => ({
+            value: opt.option_text,
+            label: `${opt.kode_opsi} - ${opt.option_text}`,
+        }));
 
-    if (!options.some(opt => isOtherOptionValue(opt.value))) {
-        options.push({ value: 'Lainnya', label: 'Lainnya' });
+        if (!options.some(opt => isOtherOptionValue(opt.value))) {
+            options.push({ value: 'Lainnya', label: 'Lainnya' });
+        }
+
+        return options;
     }
 
-    return options;
+    return DEFAULT_BIDANG_PEKERJAAN_OPTIONS;
 });
 
 const isOtherOptionValue = (value) => {
@@ -155,6 +240,35 @@ const syncBidangPekerjaan = () => {
 
     props.form.bidang_pekerjaan = bidangPekerjaanSelection.value;
     props.form.bidang_pekerjaan_lainnya = '';
+};
+
+// Logika sinkronisasi Posisi Jabatan Struktural (F2G)
+const isConfiguredPosisiJabatan = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return posisiJabatanOptions.value.some(opt => opt.value.toLowerCase() === normalized && !isOtherOptionValue(opt.value));
+};
+
+const posisiJabatanValue = String(props.form?.posisi_jabatan || '').trim();
+const posisiJabatanSelection = ref(
+    posisiJabatanValue && isConfiguredPosisiJabatan(posisiJabatanValue)
+        ? posisiJabatanValue
+        : posisiJabatanValue
+            ? 'Lainnya'
+            : ''
+);
+
+const posisiJabatanKustom = ref(
+    posisiJabatanValue && !isConfiguredPosisiJabatan(posisiJabatanValue)
+        ? posisiJabatanValue
+        : ''
+);
+
+const syncPosisiJabatan = () => {
+    if (posisiJabatanSelection.value === 'Lainnya') {
+        props.form.posisi_jabatan = posisiJabatanKustom.value;
+    } else {
+        props.form.posisi_jabatan = posisiJabatanSelection.value;
+    }
 };
 
 const isProfileQuestionSelect = (question) => {
@@ -1021,7 +1135,7 @@ onUnmounted(() => {
                 <!-- Input: LinkedIn URL -->
                 <div>
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        LinkedIn Profil URL <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_LINKEDIN_URL', 'LinkedIn Profil URL') }} <span v-if="isQuestionRequired('BIO_LINKEDIN_URL')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         type="url"
@@ -1035,7 +1149,7 @@ onUnmounted(() => {
                 <!-- Input: LinkedIn Username -->
                 <div>
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        LinkedIn Username <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_LINKEDIN_USER', 'LinkedIn Username') }} <span v-if="isQuestionRequired('BIO_LINKEDIN_USER')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         type="text"
@@ -1049,7 +1163,7 @@ onUnmounted(() => {
                 <!-- Input: Instagram URL -->
                 <div>
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Instagram Profil URL <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_INSTAGRAM_URL', 'Instagram Profil URL') }} <span v-if="isQuestionRequired('BIO_INSTAGRAM_URL')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         type="url"
@@ -1063,7 +1177,7 @@ onUnmounted(() => {
                 <!-- Input: Facebook URL -->
                 <div>
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Facebook Profil URL <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_FACEBOOK_URL', 'Facebook Profil URL') }} <span v-if="isQuestionRequired('BIO_FACEBOOK_URL')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         type="url"
@@ -1077,7 +1191,7 @@ onUnmounted(() => {
                 <!-- Input: Keahlian (Skills) -->
                 <div class="md:col-span-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Keahlian (Skills) <span class="text-rose-500 font-bold">*</span></span>
+                        <span>{{ getQuestionLabel('BIO_SKILLS', 'Keahlian (Skills)') }} <span v-if="isQuestionRequired('BIO_SKILLS')" class="text-rose-500 font-bold">*</span></span>
                         <span class="text-[11px] font-normal text-gray-500">Sinkron dengan LinkedIn Skills</span>
                     </label>
                     <input
@@ -1092,7 +1206,7 @@ onUnmounted(() => {
                 <!-- Input: Pengalaman Kerja (Experience) -->
                 <div class="md:col-span-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Pengalaman Kerja (Experience) <span class="text-rose-500 font-bold">*</span></span>
+                        <span>{{ getQuestionLabel('BIO_EXPERIENCE', 'Pengalaman Kerja (Experience)') }} <span v-if="isQuestionRequired('BIO_EXPERIENCE')" class="text-rose-500 font-bold">*</span></span>
                         <span class="text-[11px] font-normal text-gray-500">Sinkron dengan LinkedIn Experiences</span>
                     </label>
                     <input
@@ -1108,7 +1222,7 @@ onUnmounted(() => {
                 <div class="md:col-span-2 pt-2">
                     <div class="flex items-center justify-between mb-2">
                         <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                            Status Pekerjaan / Aktivitas Utama <span class="text-rose-500 font-bold">*</span>
+                            {{ getQuestionLabel('F8', 'Status Pekerjaan / Aktivitas Utama') }} <span v-if="isQuestionRequired('F8')" class="text-rose-500 font-bold">*</span>
                         </label>
                     </div>
 
@@ -1159,7 +1273,7 @@ onUnmounted(() => {
 
                 <div class="md:col-span-2 space-y-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                        Bidang Pekerjaan / Divisi
+                        {{ getQuestionLabel('BIO_BIDANG_DIVISI', 'Bidang Pekerjaan / Divisi') }} <span v-if="isQuestionRequired('BIO_BIDANG_DIVISI', false)" class="text-rose-500 font-bold">*</span>
                     </label>
                     <select
                         v-model="bidangPekerjaanSelection"
@@ -1180,42 +1294,62 @@ onUnmounted(() => {
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                     />
                     <p class="text-[11px] text-gray-400">
-                        Pilihan dikelola dari master Superadmin. Jika belum tersedia, pilih Lainnya dan tuliskan sendiri.
+                        {{ getQuestionHint('BIO_BIDANG_DIVISI', 'Pilihan dikelola dari master Superadmin. Jika belum tersedia, pilih Lainnya dan tuliskan sendiri.') }}
                     </p>
                 </div>
 
-                <!-- Jika Karyawan/Pekerja: Posisi Jabatan Struktural (F2G) Kustom Langsung -->
+                <!-- Jika Karyawan/Pekerja: Posisi Jabatan Struktural (F2G) -->
                 <div v-if="form.kategori_pekerjaan === 'Pekerja'" class="md:col-span-2 space-y-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                        Posisi Jabatan Struktural (F2G) <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('F2G', 'Posisi Jabatan Struktural (F2G)') }} <span v-if="isQuestionRequired('F2G')" class="text-rose-500 font-bold">*</span>
                     </label>
-                    <input
-                        type="text"
-                        v-model="form.posisi_jabatan"
-                        placeholder="Contoh: Dosen, Software Engineer, Supervisor, Manager, Staff..."
-                        class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                    />
-                    <p class="text-[11px] text-gray-400">Tuliskan posisi jabatan struktural atau fungsional Anda di instansi/perusahaan tempat bekerja.</p>
+                    <div v-if="posisiJabatanOptions.length > 0" class="space-y-2">
+                        <select
+                            v-model="posisiJabatanSelection"
+                            @change="syncPosisiJabatan"
+                            class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
+                        >
+                            <option value="">-- Pilih Posisi / Jabatan --</option>
+                            <option v-for="opt in posisiJabatanOptions" :key="opt.value" :value="opt.value">
+                                {{ opt.label }}
+                            </option>
+                        </select>
+                        <input
+                            v-if="posisiJabatanSelection === 'Lainnya'"
+                            type="text"
+                            v-model="posisiJabatanKustom"
+                            @input="syncPosisiJabatan"
+                            placeholder="Tuliskan posisi jabatan struktural spesifik Anda..."
+                            class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
+                        />
+                    </div>
+                    <div v-else>
+                        <input
+                            type="text"
+                            v-model="form.posisi_jabatan"
+                            placeholder="Contoh: Dosen, Software Engineer, Supervisor, Manager, Staff..."
+                            class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
+                        />
+                    </div>
+                    <p class="text-[11px] text-gray-400">
+                        {{ getQuestionHint('F2G', 'Tuliskan posisi jabatan struktural atau fungsional Anda di instansi/perusahaan tempat bekerja.') }}
+                    </p>
                 </div>
 
                 <!-- Jika Wiraswasta: Posisi / Jabatan Wiraswasta (F5C) -->
                 <div v-else-if="form.kategori_pekerjaan === 'Wiraswasta'" class="md:col-span-2 space-y-4">
                     <div>
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            Posisi / Jabatan Wiraswasta & Startup (F5C) <span class="text-rose-500 font-bold">*</span>
+                            {{ getQuestionLabel('F5C', 'Posisi / Jabatan Wiraswasta & Startup (F5C)') }} <span v-if="isQuestionRequired('F5C')" class="text-rose-500 font-bold">*</span>
                         </label>
                         <select
                             v-model="form.posisi_wiraswasta"
                             class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                         >
                             <option value="">-- Pilih Posisi / Jabatan Wiraswasta --</option>
-                            <option value="Owner">Owner</option>
-                            <option value="Founder">Founder</option>
-                            <option value="Co-Founder">Co-Founder</option>
-                            <option value="Direktur Utama">Direktur Utama</option>
-                            <option value="Pengelola Usaha">Pengelola Usaha</option>
-                            <option value="Freelancer / Konsultan Mandiri">Freelancer / Konsultan Mandiri</option>
-                            <option value="Lainnya">Lainnya</option>
+                            <option v-for="opt in posisiWiraswastaOptions" :key="opt.value" :value="opt.value">
+                                {{ opt.label }}
+                            </option>
                         </select>
                     </div>
 
@@ -1282,7 +1416,7 @@ onUnmounted(() => {
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                                Jenjang Pendidikan <span class="text-rose-500 font-bold">*</span>
+                                {{ getQuestionLabel('BIO_PEND_TINGKAT', 'Jenjang Pendidikan') }} <span v-if="isQuestionRequired('BIO_PEND_TINGKAT')" class="text-rose-500 font-bold">*</span>
                             </label>
                             <select
                                 v-model="pendidikanTingkatSelection"
@@ -1306,7 +1440,7 @@ onUnmounted(() => {
 
                         <div>
                             <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                                Perguruan Tinggi <span class="text-rose-500 font-bold">*</span>
+                                {{ getQuestionLabel('BIO_PEND_KAMPUS', 'Perguruan Tinggi') }} <span v-if="isQuestionRequired('BIO_PEND_KAMPUS', false)" class="text-rose-500 font-bold">*</span>
                             </label>
                             <input
                                 type="text"
@@ -1318,7 +1452,7 @@ onUnmounted(() => {
 
                         <div>
                             <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                                Program Studi <span class="text-rose-500 font-bold">*</span>
+                                {{ getQuestionLabel('BIO_PEND_PRODI', 'Program Studi') }} <span v-if="isQuestionRequired('BIO_PEND_PRODI', false)" class="text-rose-500 font-bold">*</span>
                             </label>
                             <input
                                 type="text"
@@ -1334,7 +1468,7 @@ onUnmounted(() => {
                 <div class="md:col-span-2">
                     <div class="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 !mb-0">
-                            Rata-rata Pendapatan per Bulan (Take Home Pay) <span class="text-rose-500 font-bold">*</span>
+                            {{ getQuestionLabel('F505', 'Rata-rata Pendapatan per Bulan (Take Home Pay)') }} <span v-if="isQuestionRequired('F505')" class="text-rose-500 font-bold">*</span>
                         </label>
                         <span v-if="form.gaji && form.gaji >= 1000" class="text-xs text-[#0D542B] font-bold inline-flex items-center gap-1">
                             Terbaca: <strong>{{ formatRupiah(form.gaji) }}</strong> / bulan
@@ -1544,7 +1678,7 @@ onUnmounted(() => {
                     <div class="relative" ref="provinsiContainerRef">
                         <div class="flex items-center justify-between mb-1.5">
                             <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                                Provinsi Perusahaan <span class="text-rose-500 font-bold">*</span>
+                                {{ getQuestionLabel('F5A1', 'Provinsi Perusahaan') }} <span v-if="isQuestionRequired('F5A1')" class="text-rose-500 font-bold">*</span>
                             </label>
                             <button
                                 v-if="form.company_kode_provinsi"
@@ -1601,7 +1735,7 @@ onUnmounted(() => {
                     <div class="relative" ref="kabupatenContainerRef">
                         <div class="flex items-center justify-between mb-1.5">
                             <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                                Kabupaten / Kota Perusahaan <span class="text-rose-500 font-bold">*</span>
+                                {{ getQuestionLabel('F5A2', 'Kabupaten / Kota Perusahaan') }} <span v-if="isQuestionRequired('F5A2')" class="text-rose-500 font-bold">*</span>
                             </label>
                             <button
                                 v-if="form.company_kode_kabupaten"
@@ -1786,7 +1920,7 @@ onUnmounted(() => {
                     <!-- Jenis Perusahaan / Instansi (F11 Standar Dikti Dinamis) -->
                     <div class="md:col-span-2">
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            Jenis Perusahaan / Instansi (F11) <span v-if="form.kategori_pekerjaan === 'Pekerja'" class="text-rose-500 font-bold">*</span>
+                            {{ getQuestionLabel('F11', 'Jenis Perusahaan / Instansi (F11)') }} <span v-if="form.kategori_pekerjaan === 'Pekerja' && isQuestionRequired('F11')" class="text-rose-500 font-bold">*</span>
                         </label>
                         <select
                             v-model="form.company_jenis_perusahaan"
@@ -1825,7 +1959,7 @@ onUnmounted(() => {
                     <!-- Bentuk Perusahaan / Institusi -->
                     <div>
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            Bentuk Perusahaan / Institusi <span v-if="form.kategori_pekerjaan === 'Pekerja'" class="text-rose-500 font-bold">*</span>
+                            {{ getQuestionLabel('BIO_INST_BENTUK', 'Bentuk Perusahaan / Institusi') }} <span v-if="form.kategori_pekerjaan === 'Pekerja' && isQuestionRequired('BIO_INST_BENTUK')" class="text-rose-500 font-bold">*</span>
                         </label>
                         <select
                             v-model="form.company_bentuk"
@@ -1847,7 +1981,7 @@ onUnmounted(() => {
                     <!-- Skala Perusahaan / Instansi (F2H / F5D Dinamis) -->
                     <div>
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            Skala Perusahaan / Instansi (F2H / F5D) <span v-if="form.kategori_pekerjaan === 'Pekerja'" class="text-rose-500 font-bold">*</span>
+                            {{ getQuestionLabel('F2H', 'Skala Perusahaan / Instansi (F2H / F5D)') }} <span v-if="form.kategori_pekerjaan === 'Pekerja' && isQuestionRequired('F2H')" class="text-rose-500 font-bold">*</span>
                         </label>
                         <select
                             v-model="form.company_skala"
@@ -1869,7 +2003,7 @@ onUnmounted(() => {
                     <!-- Alamat Kantor / Perusahaan -->
                     <div class="md:col-span-2">
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            Alamat Perusahaan <span v-if="form.kategori_pekerjaan === 'Pekerja'" class="text-rose-500 font-bold">*</span>
+                            {{ getQuestionLabel('F2F', 'Alamat Perusahaan') }} <span v-if="form.kategori_pekerjaan === 'Pekerja' && isQuestionRequired('F2F')" class="text-rose-500 font-bold">*</span>
                         </label>
                         <input
                             type="text"
@@ -1888,7 +2022,7 @@ onUnmounted(() => {
                     <!-- Kode Pos Perusahaan -->
                     <div>
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            Kode Pos Kantor / Perusahaan <span class="text-rose-500 font-bold">*</span>
+                            {{ getQuestionLabel('BIO_INST_KODEPOS', 'Kode Pos Kantor / Perusahaan') }} <span v-if="isQuestionRequired('BIO_INST_KODEPOS')" class="text-rose-500 font-bold">*</span>
                         </label>
                         <input
                             type="text"
@@ -1980,7 +2114,7 @@ onUnmounted(() => {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div class="md:col-span-2">
                     <label for="input_nama_atasan_langsung" class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Nama Lengkap Atasan <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('F2E1', 'Nama Lengkap Atasan') }} <span v-if="isQuestionRequired('F2E1')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         id="input_nama_atasan_langsung"
@@ -1995,7 +2129,7 @@ onUnmounted(() => {
 
                 <div>
                     <label for="input_email_atasan_langsung" class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Email Atasan <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('F2E3', 'Email Atasan') }} <span v-if="isQuestionRequired('F2E3')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         id="input_email_atasan_langsung"
@@ -2010,7 +2144,7 @@ onUnmounted(() => {
 
                 <div>
                     <label for="input_telepon_atasan_langsung" class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Nomor Telepon Atasan <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('F2E2', 'Nomor Telepon Atasan') }} <span v-if="isQuestionRequired('F2E2')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         id="input_telepon_atasan_langsung"

@@ -7,6 +7,7 @@ use App\Models\Kabupaten;
 use App\Models\Perusahaan;
 use App\Models\Propinsi;
 use App\Models\RefNegara;
+use App\Models\RefSubpertanyaan2021;
 use App\Models\RefSubpertanyaanDetil;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\Request;
@@ -136,11 +137,22 @@ class ProfilController extends Controller
             'profile_answer_custom' => $dynamicProfileAnswers['custom'],
         ];
 
-        // Ambil opsi referensi kuesioner resmi dari database (F2G, F2H, F5D, F11, F8)
-        $refOptions = RefSubpertanyaanDetil::whereIn('kode_pertanyaan', ['F2G', 'F2H', 'F5D', 'F11', 'F8', 'BIO_BIDANG_DIVISI', 'BIO_PEND_TINGKAT', 'f2g', 'f2h', 'f5d', 'f11', 'f8', 'bio_bidang_divisi', 'bio_pend_tingkat'])
+        // Ambil opsi referensi kuesioner resmi dari database (F2G, F2H, F5D, F11, F8, F5C, dll)
+        $refOptions = RefSubpertanyaanDetil::whereIn('kode_pertanyaan', [
+            'F2G', 'F2H', 'F5D', 'F11', 'F8', 'F5C', 'BIO_BIDANG_DIVISI', 'BIO_PEND_TINGKAT',
+            'BIO_WARGA_NEGARA', 'BIO_INST_BENTUK', 'BIO_INST_LOKASI',
+            'f2g', 'f2h', 'f5d', 'f11', 'f8', 'f5c', 'bio_bidang_divisi', 'bio_pend_tingkat',
+            'bio_warga_negara', 'bio_inst_bentuk', 'bio_inst_lokasi',
+        ])
             ->orderBy('order')
             ->get(['id', 'kode_pertanyaan', 'kode_opsi', 'option_text', 'order'])
             ->groupBy(fn ($item) => strtoupper($item->kode_pertanyaan))
+            ->toArray();
+
+        // Konfigurasi dinamis butir pertanyaan profil dari Super Admin (label, keterangan, status wajib, tipe)
+        $profileQuestionConfigs = RefSubpertanyaan2021::whereIn('tampil_di', ['profil', 'profile', 'both'])
+            ->get(['id', 'kode_pertanyaan', 'subpertanyaan', 'keterangan', 'wajib', 'type', 'order'])
+            ->keyBy(fn ($item) => strtoupper($item->kode_pertanyaan))
             ->toArray();
 
         // Get all perusahaan for Autocomplete
@@ -169,6 +181,7 @@ class ProfilController extends Controller
             'companies' => $perusahaans,
             'refOptions' => $refOptions,
             'profileQuestions' => $profileQuestions,
+            'profileQuestionConfigs' => $profileQuestionConfigs,
         ]);
     }
 }

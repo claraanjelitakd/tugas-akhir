@@ -41,6 +41,10 @@ const props = defineProps({
     companies: Array,
     refOptions: Object,
     profileQuestions: Array,
+    profileQuestionConfigs: {
+        type: Object,
+        default: () => ({}),
+    },
     evaluasiAtasan: Object,
 });
 
@@ -150,63 +154,75 @@ const isValidUrl = (val) => {
     return /^https?:\/\/.+/i.test(String(val).trim());
 };
 
+// Helper untuk mengecek status wajib dan label butir pertanyaan dari konfigurasi Super Admin
+const isFieldMandatory = (code, fallback = true) => {
+    if (!props.profileQuestionConfigs || !props.profileQuestionConfigs[code]) {
+        return fallback;
+    }
+    return Boolean(props.profileQuestionConfigs[code].wajib);
+};
+
+const getFieldLabel = (code, fallback) => {
+    return props.profileQuestionConfigs?.[code]?.subpertanyaan || fallback;
+};
+
 // Evaluasi kelengkapan data tiap tab secara realtime
 const tabCompleteness = computed(() => {
     // 1. Tab Pribadi
     const missingPribadi = [];
-    if (!form.nama || !String(form.nama).trim()) missingPribadi.push('Nama Lengkap');
-    if (!form.tanggal_lahir) missingPribadi.push('Tanggal Lahir');
-    if (!form.jenis_kelamin) missingPribadi.push('Jenis Kelamin');
-    if (!form.warga_negara || !String(form.warga_negara).trim()) missingPribadi.push('Kewarganegaraan');
-    if (!form.nomor_telepon || !isValidPhone(form.nomor_telepon)) missingPribadi.push('Nomor Telepon / WhatsApp');
-    if (!form.email_pribadi || !isValidEmail(form.email_pribadi)) missingPribadi.push('Email Pribadi');
-    if (!form.alamat_saat_ini || !String(form.alamat_saat_ini).trim()) missingPribadi.push('Alamat Domisili');
-    if (!form.kode_provinsi) missingPribadi.push('Provinsi Domisili');
-    if (!form.kode_kabupaten) missingPribadi.push('Kabupaten/Kota Domisili');
-    if (!form.kecamatan || !String(form.kecamatan).trim()) missingPribadi.push('Kecamatan Domisili');
-    if (!form.kelurahan || !String(form.kelurahan).trim()) missingPribadi.push('Kelurahan/Desa Domisili');
-    if (!form.kode_pos || !String(form.kode_pos).trim()) missingPribadi.push('Kode Pos Domisili');
+    if (isFieldMandatory('F2A') && (!form.nama || !String(form.nama).trim())) missingPribadi.push(getFieldLabel('F2A', 'Nama Lengkap'));
+    if (isFieldMandatory('BIO_TANGGAL_LAHIR') && !form.tanggal_lahir) missingPribadi.push(getFieldLabel('BIO_TANGGAL_LAHIR', 'Tanggal Lahir'));
+    if (isFieldMandatory('BIO_JK') && !form.jenis_kelamin) missingPribadi.push(getFieldLabel('BIO_JK', 'Jenis Kelamin'));
+    if (isFieldMandatory('BIO_WARGA_NEGARA') && (!form.warga_negara || !String(form.warga_negara).trim())) missingPribadi.push(getFieldLabel('BIO_WARGA_NEGARA', 'Kewarganegaraan'));
+    if (isFieldMandatory('F2B') && (!form.nomor_telepon || !isValidPhone(form.nomor_telepon))) missingPribadi.push(getFieldLabel('F2B', 'Nomor Telepon / WhatsApp'));
+    if (isFieldMandatory('F2C') && (!form.email_pribadi || !isValidEmail(form.email_pribadi))) missingPribadi.push(getFieldLabel('F2C', 'Email Pribadi'));
+    if (isFieldMandatory('F2D') && (!form.alamat_saat_ini || !String(form.alamat_saat_ini).trim())) missingPribadi.push(getFieldLabel('F2D', 'Alamat Domisili'));
+    if (isFieldMandatory('BIO_PROVINSI') && !form.kode_provinsi) missingPribadi.push(getFieldLabel('BIO_PROVINSI', 'Provinsi Domisili'));
+    if (isFieldMandatory('BIO_KABUPATEN') && !form.kode_kabupaten) missingPribadi.push(getFieldLabel('BIO_KABUPATEN', 'Kabupaten/Kota Domisili'));
+    if (isFieldMandatory('BIO_KECAMATAN') && (!form.kecamatan || !String(form.kecamatan).trim())) missingPribadi.push(getFieldLabel('BIO_KECAMATAN', 'Kecamatan Domisili'));
+    if (isFieldMandatory('BIO_KELURAHAN') && (!form.kelurahan || !String(form.kelurahan).trim())) missingPribadi.push(getFieldLabel('BIO_KELURAHAN', 'Kelurahan/Desa Domisili'));
+    if (isFieldMandatory('BIO_KODE_POS') && (!form.kode_pos || !String(form.kode_pos).trim())) missingPribadi.push(getFieldLabel('BIO_KODE_POS', 'Kode Pos Domisili'));
 
     // 2. Tab Karier
     const missingKarier = [];
-    if (!form.linkedin_url || !isValidUrl(form.linkedin_url)) missingKarier.push('LinkedIn URL');
-    if (!form.linkedin_username || !String(form.linkedin_username).trim()) missingKarier.push('LinkedIn Username');
-    if (!form.instagram_url || !isValidUrl(form.instagram_url)) missingKarier.push('Instagram URL');
-    if (!form.facebook_url || !isValidUrl(form.facebook_url)) missingKarier.push('Facebook URL');
+    if (isFieldMandatory('BIO_LINKEDIN_URL') && (!form.linkedin_url || !isValidUrl(form.linkedin_url))) missingKarier.push(getFieldLabel('BIO_LINKEDIN_URL', 'LinkedIn URL'));
+    if (isFieldMandatory('BIO_LINKEDIN_USER') && (!form.linkedin_username || !String(form.linkedin_username).trim())) missingKarier.push(getFieldLabel('BIO_LINKEDIN_USER', 'LinkedIn Username'));
+    if (isFieldMandatory('BIO_INSTAGRAM_URL') && (!form.instagram_url || !isValidUrl(form.instagram_url))) missingKarier.push(getFieldLabel('BIO_INSTAGRAM_URL', 'Instagram URL'));
+    if (isFieldMandatory('BIO_FACEBOOK_URL') && (!form.facebook_url || !isValidUrl(form.facebook_url))) missingKarier.push(getFieldLabel('BIO_FACEBOOK_URL', 'Facebook URL'));
     const hasSkills = form.skills && String(form.skills).trim();
-    if (!hasSkills) missingKarier.push('Keahlian (Skills)');
+    if (isFieldMandatory('BIO_SKILLS') && !hasSkills) missingKarier.push(getFieldLabel('BIO_SKILLS', 'Keahlian (Skills)'));
 
     const hasExperience = form.experience && String(form.experience).trim();
-    if (!hasExperience) missingKarier.push('Pengalaman Kerja (Experience)');
+    if (isFieldMandatory('BIO_EXPERIENCE') && !hasExperience) missingKarier.push(getFieldLabel('BIO_EXPERIENCE', 'Pengalaman Kerja (Experience)'));
 
     const kategori = (form.kategori_pekerjaan || '').trim();
     if (!kategori) {
-        missingKarier.push('Status Pekerjaan / Aktivitas Utama');
+        missingKarier.push(getFieldLabel('F8', 'Status Pekerjaan / Aktivitas Utama'));
     } else if (kategori === 'Pekerja') {
-        if (!form.nama_perusahaan || !String(form.nama_perusahaan).trim()) missingKarier.push('Nama Perusahaan / Instansi');
-        if (!form.perusahaan_bentuk && !form.company_bentuk) missingKarier.push('Bentuk Perusahaan / Institusi');
-        if ((!form.perusahaan_alamat || !String(form.perusahaan_alamat).trim()) && (!form.company_alamat || !String(form.company_alamat).trim())) missingKarier.push('Alamat Perusahaan');
-        if (!form.perusahaan_skala && !form.company_skala) missingKarier.push('Skala Perusahaan');
-        if (!form.perusahaan_jenis_perusahaan && !form.company_jenis_perusahaan) missingKarier.push('Jenis Perusahaan');
+        if (isFieldMandatory('F2E') && (!form.nama_perusahaan || !String(form.nama_perusahaan).trim())) missingKarier.push(getFieldLabel('F2E', 'Nama Perusahaan / Instansi'));
+        if (isFieldMandatory('BIO_INST_BENTUK') && !form.perusahaan_bentuk && !form.company_bentuk) missingKarier.push(getFieldLabel('BIO_INST_BENTUK', 'Bentuk Perusahaan / Institusi'));
+        if (isFieldMandatory('F2F') && ((!form.perusahaan_alamat || !String(form.perusahaan_alamat).trim()) && (!form.company_alamat || !String(form.company_alamat).trim()))) missingKarier.push(getFieldLabel('F2F', 'Alamat Perusahaan'));
+        if (isFieldMandatory('F2H') && !form.perusahaan_skala && !form.company_skala) missingKarier.push(getFieldLabel('F2H', 'Skala Perusahaan'));
+        if (isFieldMandatory('F11') && !form.perusahaan_jenis_perusahaan && !form.company_jenis_perusahaan) missingKarier.push(getFieldLabel('F11', 'Jenis Perusahaan'));
         const hasKodePosKantor = (form.company_kode_pos && String(form.company_kode_pos).trim()) || (form.perusahaan_kode_pos && String(form.perusahaan_kode_pos).trim()) || (form.zipcode && String(form.zipcode).trim());
-        if (!hasKodePosKantor) missingKarier.push('Kode Pos Perusahaan');
-        if (!form.gaji || Number(form.gaji) < 1000) missingKarier.push('Rata-rata Pendapatan / Gaji (Min Rp 1.000)');
-        if (!form.posisi_jabatan || !String(form.posisi_jabatan).trim()) missingKarier.push('Posisi Jabatan');
-        if (!form.nama_atasan || !String(form.nama_atasan).trim()) missingKarier.push('Nama Atasan Langsung');
-        if (!form.email_atasan || !isValidEmail(form.email_atasan)) missingKarier.push('Email Atasan');
-        if (!form.telepon_atasan || !isValidPhone(form.telepon_atasan)) missingKarier.push('Nomor Telepon Atasan');
+        if (isFieldMandatory('BIO_INST_KODEPOS') && !hasKodePosKantor) missingKarier.push(getFieldLabel('BIO_INST_KODEPOS', 'Kode Pos Perusahaan'));
+        if (isFieldMandatory('F505') && (!form.gaji || Number(form.gaji) < 1000)) missingKarier.push(getFieldLabel('F505', 'Rata-rata Pendapatan / Gaji (Min Rp 1.000)'));
+        if (isFieldMandatory('F2G') && (!form.posisi_jabatan || !String(form.posisi_jabatan).trim())) missingKarier.push(getFieldLabel('F2G', 'Posisi Jabatan'));
+        if (isFieldMandatory('F2E1') && (!form.nama_atasan || !String(form.nama_atasan).trim())) missingKarier.push(getFieldLabel('F2E1', 'Nama Atasan Langsung'));
+        if (isFieldMandatory('F2E3') && (!form.email_atasan || !isValidEmail(form.email_atasan))) missingKarier.push(getFieldLabel('F2E3', 'Email Atasan'));
+        if (isFieldMandatory('F2E2') && (!form.telepon_atasan || !isValidPhone(form.telepon_atasan))) missingKarier.push(getFieldLabel('F2E2', 'Nomor Telepon Atasan'));
     } else if (kategori === 'Wiraswasta') {
-        if (!form.nama_perusahaan || !String(form.nama_perusahaan).trim()) missingKarier.push('Nama Usaha / Bisnis');
-        if (!form.posisi_wiraswasta) missingKarier.push('Posisi / Jabatan dalam Usaha');
-        if ((!form.perusahaan_alamat || !String(form.perusahaan_alamat).trim()) && (!form.company_alamat || !String(form.company_alamat).trim())) missingKarier.push('Alamat Usaha');
-        if (!form.perusahaan_skala && !form.company_skala) missingKarier.push('Skala Usaha');
-        if (!form.perusahaan_jenis_perusahaan && !form.company_jenis_perusahaan) missingKarier.push('Jenis Usaha');
+        if (isFieldMandatory('F2E') && (!form.nama_perusahaan || !String(form.nama_perusahaan).trim())) missingKarier.push(getFieldLabel('F2E', 'Nama Usaha / Bisnis'));
+        if (isFieldMandatory('F5C') && !form.posisi_wiraswasta) missingKarier.push(getFieldLabel('F5C', 'Posisi / Jabatan dalam Usaha'));
+        if (isFieldMandatory('F2F') && ((!form.perusahaan_alamat || !String(form.perusahaan_alamat).trim()) && (!form.company_alamat || !String(form.company_alamat).trim()))) missingKarier.push(getFieldLabel('F2F', 'Alamat Usaha'));
+        if (isFieldMandatory('F2H') && !form.perusahaan_skala && !form.company_skala) missingKarier.push(getFieldLabel('F2H', 'Skala Usaha'));
+        if (isFieldMandatory('F11') && !form.perusahaan_jenis_perusahaan && !form.company_jenis_perusahaan) missingKarier.push(getFieldLabel('F11', 'Jenis Usaha'));
         const hasKodePosUsaha = (form.company_kode_pos && String(form.company_kode_pos).trim()) || (form.perusahaan_kode_pos && String(form.perusahaan_kode_pos).trim()) || (form.zipcode && String(form.zipcode).trim());
-        if (!hasKodePosUsaha) missingKarier.push('Kode Pos Lokasi Usaha');
-        if (!form.gaji || Number(form.gaji) < 1000) missingKarier.push('Rata-rata Pendapatan / Gaji (Min Rp 1.000)');
-        if (!form.nama_atasan || !String(form.nama_atasan).trim()) missingKarier.push('Nama Atasan / Pemilik Usaha');
-        if (!form.email_atasan || !isValidEmail(form.email_atasan)) missingKarier.push('Email Atasan / Pemilik Usaha');
-        if (!form.telepon_atasan || !isValidPhone(form.telepon_atasan)) missingKarier.push('Nomor Telepon Atasan / Pemilik Usaha');
+        if (isFieldMandatory('BIO_INST_KODEPOS') && !hasKodePosUsaha) missingKarier.push(getFieldLabel('BIO_INST_KODEPOS', 'Kode Pos Lokasi Usaha'));
+        if (isFieldMandatory('F505') && (!form.gaji || Number(form.gaji) < 1000)) missingKarier.push(getFieldLabel('F505', 'Rata-rata Pendapatan / Gaji (Min Rp 1.000)'));
+        if (isFieldMandatory('F2E1') && (!form.nama_atasan || !String(form.nama_atasan).trim())) missingKarier.push(getFieldLabel('F2E1', 'Nama Atasan / Pemilik Usaha'));
+        if (isFieldMandatory('F2E3') && (!form.email_atasan || !isValidEmail(form.email_atasan))) missingKarier.push(getFieldLabel('F2E3', 'Email Atasan / Pemilik Usaha'));
+        if (isFieldMandatory('F2E2') && (!form.telepon_atasan || !isValidPhone(form.telepon_atasan))) missingKarier.push(getFieldLabel('F2E2', 'Nomor Telepon Atasan / Pemilik Usaha'));
     }
 
     for (const question of props.profileQuestions || []) {
@@ -217,14 +233,14 @@ const tabCompleteness = computed(() => {
 
     // Validasi studi lanjut jika alumni mengaktifkan studi lanjut
     if (form.pendidikan_tingkat || form.perguruan_tinggi || form.pendidikan_prodi) {
-        if (!form.pendidikan_tingkat || !String(form.pendidikan_tingkat).trim()) missingKarier.push('Jenjang Pendidikan');
-        if (!form.perguruan_tinggi || !String(form.perguruan_tinggi).trim()) missingKarier.push('Perguruan Tinggi Studi Lanjut');
-        if (!form.pendidikan_prodi || !String(form.pendidikan_prodi).trim()) missingKarier.push('Program Studi Lanjut');
+        if (isFieldMandatory('BIO_PEND_TINGKAT') && (!form.pendidikan_tingkat || !String(form.pendidikan_tingkat).trim())) missingKarier.push(getFieldLabel('BIO_PEND_TINGKAT', 'Jenjang Pendidikan'));
+        if (isFieldMandatory('BIO_PEND_KAMPUS', false) && (!form.perguruan_tinggi || !String(form.perguruan_tinggi).trim())) missingKarier.push(getFieldLabel('BIO_PEND_KAMPUS', 'Perguruan Tinggi Studi Lanjut'));
+        if (isFieldMandatory('BIO_PEND_PRODI', false) && (!form.pendidikan_prodi || !String(form.pendidikan_prodi).trim())) missingKarier.push(getFieldLabel('BIO_PEND_PRODI', 'Program Studi Lanjut'));
     }
 
     // 3. Tab Akademik
     const missingAkademik = [];
-    if (!form.nim) missingAkademik.push('NIM');
+    if (isFieldMandatory('F1') && !form.nim) missingAkademik.push(getFieldLabel('F1', 'NIM'));
 
     return {
         pribadi: {
@@ -395,7 +411,13 @@ const submit = (nextTabId = null, redirectTo = null) => {
                 <div class="p-6 sm:p-8 md:p-12 min-h-[500px]">
                     <!-- Tab 1: Identitas & Alamat Pribadi -->
                     <div v-show="activeTab === 'pribadi'">
-                        <FormPribadi :form="form" :provinces="provinces" :kabupatens="kabupatens" :negaras="negaras" />
+                        <FormPribadi
+                            :form="form"
+                            :provinces="provinces"
+                            :kabupatens="kabupatens"
+                            :negaras="negaras"
+                            :profileQuestionConfigs="profileQuestionConfigs"
+                        />
                     </div>
 
                     <!-- Tab 2: Karier, Pekerjaan & Data Atasan -->
@@ -409,13 +431,17 @@ const submit = (nextTabId = null, redirectTo = null) => {
                             :alumniData="alumniData"
                             :refOptions="refOptions"
                             :profileQuestions="profileQuestions"
+                            :profileQuestionConfigs="profileQuestionConfigs"
                             :evaluasiAtasan="evaluasiAtasan"
                         />
                     </div>
 
                     <!-- Tab 3: Data Akademik & Yudisium -->
                     <div v-show="activeTab === 'akademik'">
-                        <FormAkademik :form="form" />
+                        <FormAkademik
+                            :form="form"
+                            :profileQuestionConfigs="profileQuestionConfigs"
+                        />
                     </div>
 
                 </div>

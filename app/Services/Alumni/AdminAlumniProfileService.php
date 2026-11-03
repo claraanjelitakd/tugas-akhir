@@ -7,6 +7,7 @@ use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\LogActivity;
 use App\Models\Perusahaan;
+use App\Models\RefSubpertanyaan2021;
 use App\Models\RefSubpertanyaanDetil;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\UploadedFile;
@@ -157,10 +158,28 @@ class AdminAlumniProfileService
      */
     public static function getRefOptions(): array
     {
-        return RefSubpertanyaanDetil::whereIn('kode_pertanyaan', ['F2G', 'F2H', 'F5D', 'F11', 'F8', 'BIO_BIDANG_DIVISI', 'BIO_PEND_TINGKAT', 'f2g', 'f2h', 'f5d', 'f11', 'f8', 'bio_bidang_divisi', 'bio_pend_tingkat'])
+        return RefSubpertanyaanDetil::whereIn('kode_pertanyaan', [
+            'F2G', 'F2H', 'F5D', 'F11', 'F8', 'F5C', 'BIO_BIDANG_DIVISI', 'BIO_PEND_TINGKAT',
+            'BIO_WARGA_NEGARA', 'BIO_INST_BENTUK', 'BIO_INST_LOKASI',
+            'f2g', 'f2h', 'f5d', 'f11', 'f8', 'f5c', 'bio_bidang_divisi', 'bio_pend_tingkat',
+            'bio_warga_negara', 'bio_inst_bentuk', 'bio_inst_lokasi',
+        ])
             ->orderBy('order')
             ->get(['id', 'kode_pertanyaan', 'kode_opsi', 'option_text', 'order'])
             ->groupBy(fn ($item) => strtoupper($item->kode_pertanyaan))
+            ->toArray();
+    }
+
+    /**
+     * Mengambil seluruh konfigurasi pertanyaan profil alumni dari tabel ref_subpertanyaan2021.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public static function getProfileQuestionConfigs(): array
+    {
+        return RefSubpertanyaan2021::whereIn('tampil_di', ['profil', 'profile', 'both'])
+            ->get(['id', 'kode_pertanyaan', 'subpertanyaan', 'keterangan', 'wajib', 'type', 'order'])
+            ->keyBy(fn ($item) => strtoupper($item->kode_pertanyaan))
             ->toArray();
     }
 

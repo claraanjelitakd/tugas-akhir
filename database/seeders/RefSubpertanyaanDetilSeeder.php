@@ -55,6 +55,32 @@ class RefSubpertanyaanDetilSeeder extends Seeder
             ['kode_pertanyaan' => 'F2G', 'order' => 4, 'kode_opsi' => '4', 'option_text' => 'Low Manager', 'jump_to' => null],
             ['kode_pertanyaan' => 'F2G', 'order' => 5, 'kode_opsi' => '5', 'option_text' => 'Supervisor', 'jump_to' => null],
             ['kode_pertanyaan' => 'F2G', 'order' => 6, 'kode_opsi' => '6', 'option_text' => 'Staff', 'jump_to' => null],
+            ['kode_pertanyaan' => 'F2G', 'order' => 7, 'kode_opsi' => '7', 'option_text' => 'Lainnya', 'jump_to' => null],
+
+            // F5C (Posisi/jabatan wiraswasta)
+            ['kode_pertanyaan' => 'F5C', 'order' => 1, 'kode_opsi' => '1', 'option_text' => 'Owner', 'jump_to' => null],
+            ['kode_pertanyaan' => 'F5C', 'order' => 2, 'kode_opsi' => '2', 'option_text' => 'Founder', 'jump_to' => null],
+            ['kode_pertanyaan' => 'F5C', 'order' => 3, 'kode_opsi' => '3', 'option_text' => 'Co-Founder', 'jump_to' => null],
+            ['kode_pertanyaan' => 'F5C', 'order' => 4, 'kode_opsi' => '4', 'option_text' => 'Direktur Utama', 'jump_to' => null],
+            ['kode_pertanyaan' => 'F5C', 'order' => 5, 'kode_opsi' => '5', 'option_text' => 'Pengelola Usaha', 'jump_to' => null],
+            ['kode_pertanyaan' => 'F5C', 'order' => 6, 'kode_opsi' => '6', 'option_text' => 'Freelancer / Konsultan Mandiri', 'jump_to' => null],
+            ['kode_pertanyaan' => 'F5C', 'order' => 7, 'kode_opsi' => '7', 'option_text' => 'Lainnya', 'jump_to' => null],
+
+            // BIO_WARGA_NEGARA
+            ['kode_pertanyaan' => 'BIO_WARGA_NEGARA', 'order' => 1, 'kode_opsi' => '1', 'option_text' => 'WNI', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_WARGA_NEGARA', 'order' => 2, 'kode_opsi' => '2', 'option_text' => 'WNA', 'jump_to' => null],
+
+            // BIO_INST_BENTUK
+            ['kode_pertanyaan' => 'BIO_INST_BENTUK', 'order' => 1, 'kode_opsi' => '1', 'option_text' => 'BUMN', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_INST_BENTUK', 'order' => 2, 'kode_opsi' => '2', 'option_text' => 'Perusahaan Terbatas', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_INST_BENTUK', 'order' => 3, 'kode_opsi' => '3', 'option_text' => 'Koperasi', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_INST_BENTUK', 'order' => 4, 'kode_opsi' => '4', 'option_text' => 'CV', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_INST_BENTUK', 'order' => 5, 'kode_opsi' => '5', 'option_text' => 'Firma', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_INST_BENTUK', 'order' => 6, 'kode_opsi' => '6', 'option_text' => 'Lainnya', 'jump_to' => null],
+
+            // BIO_INST_LOKASI
+            ['kode_pertanyaan' => 'BIO_INST_LOKASI', 'order' => 1, 'kode_opsi' => '1', 'option_text' => 'Dalam Negeri', 'jump_to' => null],
+            ['kode_pertanyaan' => 'BIO_INST_LOKASI', 'order' => 2, 'kode_opsi' => '2', 'option_text' => 'Luar Negeri', 'jump_to' => null],
 
             // F2H (Skala perusahaan)
             ['kode_pertanyaan' => 'F2H', 'order' => 1, 'kode_opsi' => '1', 'option_text' => 'Regional/Lokal', 'jump_to' => null],

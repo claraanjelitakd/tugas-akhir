@@ -35,9 +35,17 @@
  * Data pembimbing/penguji, publikasi, dan email institusi tidak dikirim ke
  * profil self-service alumni karena merupakan data referensi resmi.
  */
-defineProps({
+const props = defineProps({
     form: Object,
+    profileQuestionConfigs: {
+        type: Object,
+        default: () => ({}),
+    },
 });
+
+const getQuestionLabel = (code, fallback) => {
+    return props.profileQuestionConfigs?.[code]?.subpertanyaan || fallback;
+};
 
 // Input styling: CSS kelas abu-abu untuk kolom yang terkunci (read-only/disabled)
 // karena data akademik resmi berasal dari data kampus dan tidak boleh diubah sembarangan oleh alumni
@@ -57,7 +65,7 @@ const labelClass = "block text-sm font-semibold text-gray-700 mb-1.5";
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                    <label :class="labelClass">Nomor Induk Mahasiswa (NIM)</label>
+                    <label :class="labelClass">{{ getQuestionLabel('BIO_NIM', 'Nomor Induk Mahasiswa (NIM)') }}</label>
                     <input type="text" :value="form.nim" disabled :class="lockedInputClass" />
                 </div>
 
@@ -77,7 +85,7 @@ const labelClass = "block text-sm font-semibold text-gray-700 mb-1.5";
                 </div>
 
                 <div>
-                    <label :class="labelClass">Tahun Lulus</label>
+                    <label :class="labelClass">{{ getQuestionLabel('F1', 'Tahun Lulus') }}</label>
                     <input type="text" :value="form.tahun_lulus" disabled :class="lockedInputClass" />
                 </div>
 
@@ -108,7 +116,7 @@ const labelClass = "block text-sm font-semibold text-gray-700 mb-1.5";
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div class="md:col-span-2">
-                    <label :class="labelClass">Judul Tugas Akhir / Skripsi</label>
+                    <label :class="labelClass">{{ getQuestionLabel('BIO_JUDUL_TA', 'Judul Tugas Akhir / Skripsi') }}</label>
                     <textarea :value="form.judul_ta" rows="3" disabled :class="lockedInputClass"></textarea>
                 </div>
 
@@ -118,7 +126,7 @@ const labelClass = "block text-sm font-semibold text-gray-700 mb-1.5";
                 </div>
 
                 <div>
-                    <label :class="labelClass">Tanggal Kelulusan</label>
+                    <label :class="labelClass">{{ getQuestionLabel('BIO_TGL_LULUS', 'Tanggal Kelulusan') }}</label>
                     <input type="date" :value="form.tanggal_lulus" disabled :class="lockedInputClass" />
                 </div>
             </div>
