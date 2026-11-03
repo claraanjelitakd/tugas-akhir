@@ -95,5 +95,15 @@ class DatabaseSeeder extends Seeder
         $this->call([
             AnalyticsDemoDistributionSeeder::class,
         ]);
+
+        // 10. Seed 8 Profil Alumni Unggulan Sistem Informasi FTI UKDW
+        $this->call([
+            AlumniSistemInformasiSeeder::class,
+        ]);
+
+        // 11. Preservasi data scraping LinkedIn (Staging Apify & Fixture Pengujian)
+        $this->call([
+            LinkedinSyncResultSeeder::class,
+        ]);
     }
 }

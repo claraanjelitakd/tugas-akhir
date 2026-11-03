@@ -85,22 +85,57 @@ const approveForm = useForm({
     posisi_jabatan: '',
     posisi_wiraswasta: '',
     nama_perusahaan: '',
+    bidang_pekerjaan: '',
     skills: '',
     sync_foto: true,
+    sync_studi_lanjut: false,
+    pendidikan_tingkat: '',
+    perguruan_tinggi: '',
+    pendidikan_prodi: '',
 });
 
+/**
+ * Menginisialisasi nilai awal form penyesuaian data alumni dari hasil ekstraksi preview LinkedIn
+ * atau data profil kampus saat ini.
+ */
 const initApproveForm = () => {
     if (props.linkedinSyncResult?.preview) {
         const prev = props.linkedinSyncResult.preview;
         approveForm.posisi_jabatan = prev.current_job || props.alumni.posisi_jabatan || '';
         approveForm.posisi_wiraswasta = prev.current_job || props.alumni.posisi_jabatan || '';
         approveForm.nama_perusahaan = prev.current_company || props.alumni.perusahaan?.nama_perusahaan || '';
-        approveForm.skills = props.alumni.keahlian || props.alumni.skills || '';
+        approveForm.bidang_pekerjaan = prev.bidang_pekerjaan || prev.suggested_bidang_pekerjaan || props.alumni.bidang_pekerjaan || '';
+        const topSkillsStr = Array.isArray(prev.top_skills) && prev.top_skills.length
+            ? prev.top_skills.join(', ')
+            : (Array.isArray(prev.skills) && prev.skills.length ? prev.skills.join(', ') : (prev.skills || ''));
+        approveForm.skills = topSkillsStr || props.alumni.keahlian || props.alumni.skills || '';
         approveForm.sync_foto = !!prev.profile_picture;
+
+        if (prev.further_study) {
+            approveForm.sync_studi_lanjut = true;
+            approveForm.pendidikan_tingkat = prev.further_study.pendidikan_tingkat || '';
+            approveForm.perguruan_tinggi = prev.further_study.perguruan_tinggi || '';
+            approveForm.pendidikan_prodi = prev.further_study.pendidikan_prodi || '';
+        } else if (props.alumni.perguruan_tinggi) {
+            approveForm.sync_studi_lanjut = false;
+            approveForm.pendidikan_tingkat = props.alumni.pendidikan_tingkat || '';
+            approveForm.perguruan_tinggi = props.alumni.perguruan_tinggi || '';
+            approveForm.pendidikan_prodi = props.alumni.pendidikan_prodi || '';
+        } else {
+            approveForm.sync_studi_lanjut = false;
+            approveForm.pendidikan_tingkat = '';
+            approveForm.perguruan_tinggi = '';
+            approveForm.pendidikan_prodi = '';
+        }
     } else {
         approveForm.posisi_jabatan = props.alumni.posisi_jabatan || '';
         approveForm.nama_perusahaan = props.alumni.perusahaan?.nama_perusahaan || '';
+        approveForm.bidang_pekerjaan = props.alumni.bidang_pekerjaan || '';
         approveForm.skills = props.alumni.keahlian || props.alumni.skills || '';
+        approveForm.sync_studi_lanjut = false;
+        approveForm.pendidikan_tingkat = props.alumni.pendidikan_tingkat || '';
+        approveForm.perguruan_tinggi = props.alumni.perguruan_tinggi || '';
+        approveForm.pendidikan_prodi = props.alumni.pendidikan_prodi || '';
     }
 };
 
@@ -202,7 +237,7 @@ const handlePlotAgain = async () => {
     isPlottingAgain.value = true;
 
     try {
-        const data = await postJson(`${syncBasePath.value}/results/${props.linkedinSyncResult.id}/plot-again`);
+        const data = await postJson(`${syncBasePath.value}/results/${props.linkedinSyncResult.id}/plot-again`, approveForm.data());
 
         await Swal.fire({
             icon: 'success',
@@ -608,6 +643,23 @@ const filteredTraceMapping = computed(() => {
                                     </td>
                                 </tr>
 
+                                <!-- 3b. Bidang Pekerjaan / Divisi -->
+                                <tr class="divide-x divide-slate-100">
+                                    <td class="py-3 px-4 font-semibold text-slate-900 bg-slate-50/50">Bidang Pekerjaan / Divisi</td>
+                                    <td class="py-3 px-4 font-medium">{{ alumni.bidang_pekerjaan || '- Belum diisi -' }}</td>
+                                    <td class="py-3 px-4 text-slate-700">
+                                        {{ linkedinSyncResult.preview?.bidang_pekerjaan || linkedinSyncResult.preview?.industry || '-' }}
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <input
+                                            type="text"
+                                            v-model="approveForm.bidang_pekerjaan"
+                                            placeholder="contoh: IT Services and IT Consulting"
+                                            class="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
+                                        />
+                                    </td>
+                                </tr>
+
                                 <!-- 4. Keahlian / Skills -->
                                 <tr class="divide-x divide-slate-100">
                                     <td class="py-3 px-4 font-semibold text-slate-900 bg-slate-50/50">Keahlian / Skills</td>
@@ -625,6 +677,47 @@ const filteredTraceMapping = computed(() => {
                                             placeholder="contoh: PHP, Laravel, SQL"
                                             class="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
                                         />
+                                    </td>
+                                </tr>
+
+                                <!-- 5. Riwayat Studi Lanjut -->
+                                <tr class="divide-x divide-slate-100">
+                                    <td class="py-3 px-4 font-semibold text-slate-900 bg-slate-50/50">Studi Lanjut (Kampus & Prodi)</td>
+                                    <td class="py-3 px-4 text-slate-700">
+                                        <div v-if="alumni.pendidikan_tingkat || alumni.perguruan_tinggi || alumni.pendidikan_prodi" class="space-y-0.5">
+                                            <span class="font-bold text-slate-900 block text-xs">{{ alumni.perguruan_tinggi || '-' }}</span>
+                                            <span class="text-[11px] text-slate-500 block">{{ alumni.pendidikan_tingkat }} &bull; {{ alumni.pendidikan_prodi || '-' }}</span>
+                                        </div>
+                                        <span v-else class="text-slate-400 italic">- Belum diisi -</span>
+                                    </td>
+                                    <td class="py-3 px-4 text-slate-700">
+                                        <div v-if="linkedinSyncResult.preview?.further_study" class="space-y-0.5">
+                                            <span class="font-bold text-slate-900 block text-xs">{{ linkedinSyncResult.preview.further_study.perguruan_tinggi }}</span>
+                                            <span class="text-[11px] text-slate-600 block">{{ linkedinSyncResult.preview.further_study.pendidikan_tingkat }} &bull; {{ linkedinSyncResult.preview.further_study.pendidikan_prodi || '-' }}</span>
+                                        </div>
+                                        <span v-else class="text-slate-400 italic">Tidak terdeteksi di profil</span>
+                                    </td>
+                                    <td class="py-3 px-4 space-y-2">
+                                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" v-model="approveForm.sync_studi_lanjut" class="w-4 h-4 text-[#0D542B] rounded border-slate-300 focus:ring-[#0D542B]" />
+                                            <span class="text-xs font-semibold text-slate-800">Terapkan Studi Lanjut ke Profil</span>
+                                        </label>
+                                        <div v-if="approveForm.sync_studi_lanjut" class="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                                            <input type="text" v-model="approveForm.pendidikan_tingkat" placeholder="Jenjang (S2/S3)" class="w-full px-2 py-1 text-[11px] bg-slate-50 border border-slate-200 rounded-md focus:bg-white focus:ring-1 focus:ring-[#0D542B]" />
+                                            <input type="text" v-model="approveForm.perguruan_tinggi" placeholder="Nama Kampus" class="w-full px-2 py-1 text-[11px] bg-slate-50 border border-slate-200 rounded-md focus:bg-white focus:ring-1 focus:ring-[#0D542B]" />
+                                            <input type="text" v-model="approveForm.pendidikan_prodi" placeholder="Program Studi" class="w-full px-2 py-1 text-[11px] bg-slate-50 border border-slate-200 rounded-md focus:bg-white focus:ring-1 focus:ring-[#0D542B]" />
+                                        </div>
+                                        <div v-if="linkedinSyncResult.preview?.further_studies && linkedinSyncResult.preview.further_studies.length > 1" class="flex items-center gap-1 flex-wrap pt-0.5">
+                                            <button
+                                                v-for="(st, sIdx) in linkedinSyncResult.preview.further_studies"
+                                                :key="'st-' + sIdx"
+                                                type="button"
+                                                @click="approveForm.sync_studi_lanjut = true; approveForm.pendidikan_tingkat = st.degree_normalized || st.degree || ''; approveForm.perguruan_tinggi = st.school || ''; approveForm.pendidikan_prodi = st.field_of_study || '';"
+                                                class="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
+                                            >
+                                                {{ st.school }} ({{ st.degree_normalized || st.degree || 'Lanjut' }})
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
 
@@ -920,7 +1013,7 @@ const filteredTraceMapping = computed(() => {
                                         <p v-if="row.note" class="text-[10px] text-slate-400 font-normal mt-0.5">{{ row.note }}</p>
                                     </td>
                                     <td class="py-2.5 px-3 break-words max-w-xs">
-                                        <div v-if="row.key === 'li_profile_image_url' && row.scraped_value && row.scraped_value.startsWith('http')" class="flex items-center gap-2">
+                                        <div v-if="row.key === 'li_profile_image_url' && row.scraped_value && typeof row.scraped_value === 'string' && row.scraped_value.startsWith('http')" class="flex items-center gap-2">
                                             <img :src="row.scraped_value" class="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0" />
                                             <span class="truncate text-[11px] text-blue-600 font-mono">{{ row.scraped_value }}</span>
                                         </div>
@@ -944,7 +1037,7 @@ const filteredTraceMapping = computed(() => {
                                             <img :src="row.db_value" class="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0" />
                                             <code class="text-[10px] font-mono text-[#0D542B] truncate">{{ row.db_value }}</code>
                                         </div>
-                                        <span v-else :class="row.db_value && !row.db_value.startsWith('(') ? 'text-slate-900 font-bold' : 'text-slate-400 italic font-normal'">
+                                        <span v-else :class="row.db_value && !String(row.db_value).startsWith('(') ? 'text-slate-900 font-bold' : 'text-slate-400 italic font-normal'">
                                             {{ row.db_value }}
                                         </span>
                                     </td>

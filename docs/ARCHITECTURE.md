@@ -79,11 +79,26 @@ aman ketika LinkedIn mengembalikan `HTTP 999` atau kuota actor habis. Provider
 mock tidak boleh dianggap sebagai data produksi dan tetap mengharuskan proses
 review sebelum perubahan biodata diterapkan.
 
-Normalizer staging menerima dua bentuk respons actor: format legacy `people.enrich`
-dan format detail profil terbaru yang memakai `publicIdentifier`, `currentPosition`,
-`profileTopEducation`, `profilePicture`, serta objek tanggal nested. Field tersebut
-diproyeksikan ke preview kanonik sebelum approval; fixture lokal tidak menyimpan email
-atau daftar `moreProfiles` yang tidak diperlukan oleh tracer study.
+Untuk membedakan pengujian mock lokal dengan profil live, URL LinkedIn pada
+database lokal menggunakan akhiran `-mock` (misal `jovanyulianto-mock`). Sistem
+secara otomatis mencocokkan handle bersih ke berkas kanonik di `storage/app/mock/apify`.
+
+Normalizer staging mendukung actor `harvestapi/linkedin-profile-scraper`:
+- Mengambil nama lengkap dari `firstName` dan `lastName`.
+- Mengutamakan `topSkills` (array maupun string berpemisah `•`) untuk field keahlian `skills`.
+- Mengurai posisi aktif dari `currentPosition[0]` serta menduplikasi riwayat pekerjaan secara aman.
+- Memetakan bidang industri (`industry.name`) ke atribut usulan `bidang_pekerjaan` alumni.
+- Mendeteksi riwayat studi lanjut pascasarjana secara cerdas (`further_study`: Doktor/S3, Magister/S2, Profesi, atau entri aktif non-almamater UKDW) untuk dipetakan ke `pendidikan_tingkat`, `perguruan_tinggi`, dan `pendidikan_prodi`.
+- Payload request resmi HarvestAPI dikirim dengan `"profileScraperMode": "Profile details no email ($4 per 1k)"` dan `"queries": ["https://..."]`.
+- Menyimpan payload mentah utuh pada kolom `scraped_data` (tipe `JSON` di MySQL). MySQL binary JSON secara alami mengurutkan kunci objek secara alfabetis saat disimpan. Field lokasi dan atribut lainnya dipastikan berupa string aman agar tabel pemetaan audit trace (`LinkedinTraceHelper`) tidak memicu kesalahan tipe di frontend Vue.
+
+### Aturan Preservasi Data Scraping LinkedIn (Staging & Backup)
+
+Data staging hasil scraping LinkedIn (`linkedin_sync_results`) dan tautan URL profil alumni untuk pengujian tidak boleh hilang saat `php artisan migrate:fresh --seed`:
+1. `LinkedinSyncResultSeeder` terdaftar pada `DatabaseSeeder.php` dan otomatis dijalankan saat proses migrasi fresh atau seeding ulang.
+2. Seeder membaca snapshot cadangan dari `storage/app/backup/linkedin_sync_results_backup.json` dan memulihkannya berbasis NIM alumni (bukan sekadar auto-increment `biodata_id`), sehingga perubahan ID tabel tidak merusak data scraping.
+3. Seeder memastikan profil uji kunci (Jovan Yulianto NIM `72220002` dan Argo Wibowo NIM `71170001`) selalu terhubung dengan fixture kanoniknya di `storage/app/mock/apify`.
+4. Setiap penarikan scraping baru (`syncSingle`) serta mutasi persetujuan/penolakan (`approveResult` / `rejectResult`) di `LinkedInSyncController` otomatis mencadangkan status data terkini ke berkas JSON cadangan di disk.
 
 ### Komponen bersama
 

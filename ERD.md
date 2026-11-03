@@ -585,7 +585,7 @@ Tabel sentral profil mutakhir alumni yang menyimpan kontak aktif, alamat domisil
 | `nim` | `char(8)` | `UK`, `FK` | `NOT NULL` | NIM alumni (FK ke `data_akademik.nim`, `ON DELETE CASCADE`). |
 | `yudisium_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `yudisium.id` data kelulusan (`ON DELETE SET NULL`). |
 | `prodi_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `prodi.id` program studi (`ON DELETE SET NULL`). |
-| `foto` | `varchar(200)` | - | `NULL` | Path berkas foto profil alumni pada direktori penyimpanan. |
+| `foto` | `text` | - | `NULL` | Path berkas foto profil alumni atau tautan URL CDN. |
 | `nomor_telepon` | `varchar(20)` | - | `NULL` | Nomor telepon seluler / WhatsApp aktif alumni saat ini. |
 | `email_pribadi` | `varchar(100)` | - | `NULL` | Alamat email korespondensi aktif alumni. |
 | `alamat_saat_ini` | `text` | - | `NULL` | Alamat domisili tempat tinggal alumni saat ini. |
@@ -656,7 +656,7 @@ Menyimpan identitas dan kontak pimpinan langsung alumni (pejabat penilai) yang b
 | `updated_at` | `timestamp` | - | `NULL` | Waktu pembaruan terakhir. |
 
 #### 14. Tabel `linkedin_sync_results`
-Menyimpan data *staging* hasil ekstraksi profil LinkedIn (melalui layanan integrasi Apify) sebelum ditinjau dan disetujui oleh Admin untuk memperbarui kolom `skills` dan `experience` di `biodata`.
+Menyimpan data *staging* hasil ekstraksi profil LinkedIn (melalui layanan integrasi HarvestAPI / Apify) sebelum ditinjau dan disetujui oleh Admin untuk memperbarui data jabatan, perusahaan, bidang pekerjaan, keahlian (`skills`), riwayat karier (`experience`), foto profil, serta riwayat studi lanjut (`pendidikan_tingkat`, `perguruan_tinggi`, `pendidikan_prodi`) di tabel `biodata`.
 
 | Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
 | :--- | :--- | :---: | :---: | :--- |

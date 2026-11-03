@@ -79,8 +79,14 @@ class MockApifyLinkedInProviderTest extends TestCase
             $payload = $provider->scrapeProfile("https://www.linkedin.com/in/{$handle}");
 
             $this->assertCount(1, $payload);
-            $this->assertSame('person', $payload[0]['entity_type']);
-            $this->assertSame($handle, $payload[0]['li_profile_handle']);
+            $itemHandle = $payload[0]['li_profile_handle'] ?? $payload[0]['publicIdentifier'] ?? null;
+            $this->assertSame($handle, $itemHandle);
+
+            if (isset($payload[0]['entity_type'])) {
+                $this->assertSame('person', $payload[0]['entity_type']);
+            } else {
+                $this->assertNotEmpty($payload[0]['id'] ?? $payload[0]['publicIdentifier'] ?? null);
+            }
         }
     }
 

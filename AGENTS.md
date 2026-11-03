@@ -214,4 +214,8 @@ Vue components must have a single root element.
 - Migrasi fresh-install harus konsisten dengan schema runtime. Untuk database lama, lakukan backfill ke field kanonik sebelum menghapus duplikasi. Jangan menghapus data yang tidak termasuk field yang secara eksplisit diputuskan dihapus.
 - Seeder harus hanya mengisi tabel dan kolom yang masih aktif. Jangan menambahkan kembali field sensitif, tabel orang tua, alias legacy, atau kolom duplikat kontak/domisi.
 - Struktur database aktif disimpan dalam `database/migrations` dengan satu migration untuk setiap tabel atau view. Jangan membuat migration `add`, `refresh`, `backfill`, atau placeholder; perubahan schema harus dirapikan ke migration pembentuk tabel/view yang terkait dan dokumentasi ERD.
+- **Preservasi Data Scraping LinkedIn (Staging & Backup Data)**:
+  - Data hasil scraping LinkedIn (`linkedin_sync_results`) dan tautan URL profil alumni untuk pengujian DILARANG hilang saat perintah `php artisan migrate:fresh --seed` dieksekusi.
+  - Seeder `LinkedinSyncResultSeeder` wajib selalu terdaftar dan aktif di `DatabaseSeeder.php` untuk memulihkan snapshot data staging LinkedIn berbasis NIM alumni dari berkas cadangan (`storage/app/backup/linkedin_sync_results_backup.json`) maupun fixture kanonik (`storage/app/mock/apify`).
+  - Setiap penarikan data profil scraping baru atau perubahan status approval wajib otomatis dicadangkan ke berkas JSON cadangan di disk agar snapshot hasil penarikan live (yang berbayar) tetap aman dan dapat dipulihkan kapan pun.
 - Sebelum handoff, jalankan `git diff --check`, formatter PHP, test terdekat, dan build frontend jika perubahan frontend atau view Inertia terdampak.

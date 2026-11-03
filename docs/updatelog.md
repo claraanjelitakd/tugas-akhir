@@ -1,6 +1,33 @@
 # Changelog Tracer Study
 
-## [2026-11-02] Penyelarasan ERD dan Kamus Data Skripsi (Relasi Perusahaan - Atasan)
+## [2026-11-03] Plotting Otomatis Studi Lanjut, Bidang Pekerjaan, dan Penyederhanaan Form Karier
+
+- **Plotting Riwayat Studi Lanjut LinkedIn**:
+  - Mengembangkan algoritma deteksi studi lanjut pada `LinkedinSyncResult::getPreviewData()` yang secara cerdas mendeteksi jenjang pascasarjana (Doktor/S3 dan Magister/S2 di luar S1 almamater UKDW).
+  - Menambahkan kolom penyesuaian studi lanjut (`sync_studi_lanjut`, `pendidikan_tingkat`, `perguruan_tinggi`, `pendidikan_prodi`) pada modal peninjauan dan tab audit LinkedIn.
+  - Memetakan hasil persetujuan langsung ke kolom `biodata.pendidikan_tingkat`, `biodata.perguruan_tinggi`, dan `biodata.pendidikan_prodi`.
+- **Plotting Bidang Pekerjaan / Divisi**:
+  - Mengekstrak data industri HarvestAPI (`industry.name`) menjadi usulan `bidang_pekerjaan` alumni.
+  - Menampilkan input bidang pekerjaan pada modal peninjauan dan menyimpan nilai ke `biodata.bidang_pekerjaan` saat disetujui.
+- **Penyederhanaan FormKarier.vue**:
+  - Menghapus dropdown pilihan 1-6 (Direksi s.d. Staff) dan tombol toggle pada pertanyaan Posisi Jabatan Struktural (F2G).
+  - Pertanyaan F2G kini langsung berupa input teks kustom bebas yang terikat ke `form.posisi_jabatan`.
+- **Integrasi Live HarvestAPI & Preservasi Mock**:
+  - Mengonfigurasi parameter resmi HarvestAPI: `"queries": ["https://..."]` dan `"profileScraperMode": "Profile details no email ($4 per 1k)"`.
+  - Memperbarui fixture mock Pak Argo (`argo-wibowo-99180935.json`) dengan data live Apify resmi.
+- **Seeder 8 Alumni Sistem Informasi**:
+  - Mendaftarkan seeder `AlumniSistemInformasiSeeder` dengan profil nyata lulusan Sistem Informasi dan preservasi data staging LinkedIn melalui `LinkedinSyncResultSeeder`.
+
+## [2026-11-03] Migrasi Actor Apify HarvestAPI, Pengujian Mock Berakhiran `-mock`, dan Harmonisasi Skema
+
+- **Migrasi Actor Apify HarvestAPI**:
+  - Mengalihkan Actor scraping default Apify ke `harvestapi/linkedin-profile-scraper` (Endpoint: `harvestapi~linkedin-profile-scraper/run-sync-get-dataset-items`, Console ID: `LpVuK3Zozwuipa5bp`).
+  - Mengadaptasi payload input Apify: `profileScraperMode: 'Full'`, `queries`, `profileUrls`, dan `maxItems: 1`.
+  - Memprioritaskan atribut `topSkills` untuk mengisi field keahlian `skills` alumni, mendukung tipe data array maupun string berpemisah bullet `•`.
+  - Menyelaraskan atribut profil: nama lengkap (`firstName` + `lastName`), posisi aktif (`currentPosition[0]`), sertifikasi (`certifications`), dan organisasi (`volunteering`).
+  - Menstandarisasi penanda pengujian: profil mock lokal diidentifikasi dengan akhiran `-mock` pada URL (misal: `https://www.linkedin.com/in/jovanyulianto-mock`), dan dipetakan ke fixture kanonik di `storage/app/mock/apify`.
+  - Memperbaiki galat runtime Vue pada `TabLinkedin.vue` (`row.db_value.startsWith is not a function`) saat `location` berupa objek bersarang; nilai audit dijamin bertipe string dan template frontend aman dari tipe non-string.
+  - Memperbarui dokumentasi panduan integrasi (`docs/linkedin-mcp-integration.md`), `PANDUAN_APLIKASI.md`, dan `docs/ARCHITECTURE.md`.
 
 - **Penyelarasan ERD dan Kamus Data Skripsi**:
   - Mengonfirmasi penguatan relasi langsung antara entitas `perusahaan` dan `atasan` (`1 : N`, satu perusahaan menaungi banyak atasan) untuk kebutuhan skripsi.

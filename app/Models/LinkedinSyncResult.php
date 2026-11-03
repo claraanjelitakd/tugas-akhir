@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -43,7 +44,6 @@ class LinkedinSyncResult extends Model
     ];
 
     protected $casts = [
-        'scraped_data' => 'array',
         'reviewed_at' => 'datetime',
         'scraped_at' => 'datetime',
     ];
@@ -51,6 +51,113 @@ class LinkedinSyncResult extends Model
     protected $appends = [
         'preview',
     ];
+
+    /**
+     * Accessor & Mutator agar scraped_data yang dikembalikan ke frontend selalu
+     * tersusun rapi mengikuti urutan natural scraper alih-alih alfabetis biner MySQL JSON.
+     */
+    protected function scrapedData(): Attribute
+    {
+        return Attribute::make(
+            get: function ($value) {
+                if (is_null($value) || $value === '') {
+                    return [];
+                }
+                $decoded = is_string($value) ? json_decode($value, true) : $value;
+                if (! is_array($decoded)) {
+                    return [];
+                }
+
+                return self::orderPayloadKeys($decoded);
+            },
+            set: function ($value) {
+                return is_string($value) ? $value : json_encode($value);
+            }
+        );
+    }
+
+    /**
+     * Menyusun kembali kunci objek scraped_data mengikuti urutan natural scraper
+     * alih-alih alfabetis murni dari serialisasi biner MySQL JSON.
+     */
+    public static function orderPayloadKeys(mixed $data): mixed
+    {
+        if (! is_array($data)) {
+            return $data;
+        }
+
+        if (array_is_list($data)) {
+            return array_map([self::class, 'orderPayloadKeys'], $data);
+        }
+
+        $priorityKeys = [
+            'id', 'publicIdentifier', 'linkedinUrl', 'firstName', 'lastName', 'pronoun', 'emails',
+            'headline', 'openToWork', 'hiring', 'premium', 'influencer', 'memorialized', 'creator',
+            'location', 'objectUrn', 'registeredAt', 'topSkills', 'connectionsCount', 'followerCount',
+            'verified', 'about', 'industry', 'currentPosition', 'profileTopEducation', 'profileActions',
+            'profilePicture', 'coverPicture', 'photo', 'profileLocales', 'primaryLocale', 'multiLocaleHeadline',
+            'services', 'experience', 'education', 'certifications', 'projects', 'volunteering',
+            'receivedRecommendations', 'skills', 'publications', 'courses', 'patents', 'honorsAndAwards',
+            'languages', 'organizations', 'causes', 'featured', 'composeOptionType', 'sectionTotals',
+            'openToWorkCard', 'originalQuery',
+            // Fallback legacy Apify / people.enrich
+            'entity_type', 'operation', 'input', 'source_url', 'scraped_at', 'li_profile_id', 'li_profile_handle',
+            'li_profile_url', 'full_name', 'first_name', 'last_name', 'li_profile_country',
+            'li_profile_image_url', 'li_number_followers', 'li_number_connections', 'job_title', 'company_name',
+            'li_company_url', 'past_job_title', 'past_company_name', 'past_li_company_url', 'school_name',
+            'li_school_url', 'experiences',
+        ];
+
+        $subPriority = [
+            'location' => ['linkedinText', 'countryCode', 'parsed'],
+            'parsed' => ['text', 'countryCode', 'regionCode', 'country', 'countryFull', 'state', 'city'],
+        ];
+
+        $ordered = [];
+        foreach ($priorityKeys as $key) {
+            if (array_key_exists($key, $data)) {
+                $val = $data[$key];
+                if (is_array($val) && isset($subPriority[$key]) && ! array_is_list($val)) {
+                    $orderedSub = [];
+                    foreach ($subPriority[$key] as $sk) {
+                        if (array_key_exists($sk, $val)) {
+                            $orderedSub[$sk] = self::orderPayloadKeys($val[$sk]);
+                            unset($val[$sk]);
+                        }
+                    }
+                    foreach ($val as $sk => $sv) {
+                        $orderedSub[$sk] = self::orderPayloadKeys($sv);
+                    }
+                    $ordered[$key] = $orderedSub;
+                } else {
+                    $ordered[$key] = self::orderPayloadKeys($val);
+                }
+                unset($data[$key]);
+            }
+        }
+
+        // Sub-key khusus seperti parsed di dalam location
+        if (isset($ordered['location']['parsed']) && is_array($ordered['location']['parsed']) && ! array_is_list($ordered['location']['parsed'])) {
+            $parsedVal = $ordered['location']['parsed'];
+            $orderedParsed = [];
+            foreach ($subPriority['parsed'] as $pk) {
+                if (array_key_exists($pk, $parsedVal)) {
+                    $orderedParsed[$pk] = $parsedVal[$pk];
+                    unset($parsedVal[$pk]);
+                }
+            }
+            foreach ($parsedVal as $pk => $pv) {
+                $orderedParsed[$pk] = $pv;
+            }
+            $ordered['location']['parsed'] = $orderedParsed;
+        }
+
+        foreach ($data as $key => $val) {
+            $ordered[$key] = self::orderPayloadKeys($val);
+        }
+
+        return $ordered;
+    }
 
     /**
      * Accessor untuk attribute 'preview'.
@@ -109,25 +216,53 @@ class LinkedinSyncResult extends Model
 
     /**
      * Mengekstrak field pratinjau (preview) yang benar-benar tersedia tanpa data palsu.
-     * Mendukung format Apify data_forge_org~linkedin-scraper dan skema standar.
+     * Mendukung format HarvestAPI (harvestapi~linkedin-profile-scraper),
+     * Apify data_forge_org~linkedin-scraper, serta skema standar profil LinkedIn.
      *
      * @return array{
      *     profile_url: ?string,
      *     name: ?string,
+     *     first_name: ?string,
+     *     last_name: ?string,
      *     headline: ?string,
      *     about: ?string,
      *     location: ?string,
+     *     location_parsed: ?array,
+     *     country: ?string,
      *     profile_picture: ?string,
      *     experience: array,
+     *     experiences: array,
      *     education: array,
      *     skills: array,
+     *     top_skills: array,
+     *     all_skills: array,
+     *     volunteer_experiences: array,
+     *     volunteering: array,
+     *     certifications: array,
+     *     past_job_title: ?string,
+     *     past_company_name: ?string,
+     *     past_company_url: ?string,
      *     current_job: ?string,
      *     current_company: ?string,
      *     current_company_location: ?string,
      *     current_company_url: ?string,
+     *     industry: ?string,
+     *     bidang_pekerjaan: ?string,
+     *     suggested_bidang_pekerjaan: ?string,
+     *     further_study: ?array{
+     *         has_study: bool,
+     *         pendidikan_tingkat: ?string,
+     *         degree_raw: ?string,
+     *         perguruan_tinggi: ?string,
+     *         pendidikan_prodi: ?string,
+     *         date: ?string
+     *     },
+     *     further_studies: array<int, array<string, mixed>>,
      *     handle: ?string,
      *     followers: ?int,
-     *     connections: ?int
+     *     connections: ?int,
+     *     scraped_at: ?string,
+     *     operation: ?string
      * }
      */
     public function getPreviewData(): array
@@ -146,6 +281,7 @@ class LinkedinSyncResult extends Model
         // 2. Foto Profil
         $profilePicture = $item['li_profile_image_url']
             ?? $item['profilePicture']
+            ?? $item['photo']
             ?? $item['profile_picture']
             ?? $item['picture_url']
             ?? null;
@@ -190,11 +326,26 @@ class LinkedinSyncResult extends Model
         }
 
         // 7. Pengalaman Kerja (Experience / Experiences)
-        $rawExp = $item['experiences'] ?? $item['experience'] ?? $item['positions'] ?? $item['position'] ?? [];
-        $currentPositions = $this->asList($item['currentPosition'] ?? []);
-        if ($currentPositions !== []) {
-            $rawExp = array_merge($currentPositions, $this->asList($rawExp));
+        $rawExp = $this->asList($item['currentPosition'] ?? []);
+        $rawExp = array_merge($rawExp, $this->asList($item['experience'] ?? $item['experiences'] ?? $item['positions'] ?? $item['position'] ?? []));
+
+        // Deduplikasi entri posisi pekerjaan berdasarkan judul dan nama perusahaan
+        $deduplicatedExp = [];
+        $seenPositions = [];
+        foreach ($rawExp as $pos) {
+            if (! is_array($pos)) {
+                continue;
+            }
+            $t = strtolower(trim((string) ($pos['position'] ?? $pos['title'] ?? $pos['jobTitle'] ?? $pos['role'] ?? '')));
+            $c = strtolower(trim((string) ($pos['companyName'] ?? $pos['company_name'] ?? $pos['company'] ?? $pos['name'] ?? '')));
+            $dedupKey = "{$t}|{$c}";
+            if ($dedupKey !== '|' && isset($seenPositions[$dedupKey])) {
+                continue;
+            }
+            $seenPositions[$dedupKey] = true;
+            $deduplicatedExp[] = $pos;
         }
+
         $experienceList = [];
         $currentJob = null;
         $currentCompany = null;
@@ -211,32 +362,50 @@ class LinkedinSyncResult extends Model
         $firstLoc = null;
         $firstUrl = null;
 
-        if (is_array($rawExp)) {
-            foreach ($rawExp as $pos) {
+        if (! empty($deduplicatedExp)) {
+            foreach ($deduplicatedExp as $pos) {
                 if (! is_array($pos)) {
                     continue;
                 }
 
-                $jobTitle = $pos['title'] ?? $pos['position'] ?? $pos['jobTitle'] ?? $pos['role'] ?? null;
-                $company = $pos['company_name'] ?? $pos['companyName'] ?? $pos['company'] ?? $pos['name'] ?? null;
-                $loc = $pos['location'] ?? $pos['locationName'] ?? null;
-                $compUrl = $pos['li_company_url'] ?? $pos['company_url'] ?? $pos['companyUrl'] ?? null;
-                $dateStr = $pos['date'] ?? '';
+                $jobTitle = $pos['position'] ?? $pos['title'] ?? $pos['jobTitle'] ?? $pos['role'] ?? null;
+                $company = $pos['companyName'] ?? $pos['company_name'] ?? $pos['company'] ?? $pos['name'] ?? null;
+
+                $loc = null;
+                if (! empty($pos['location'])) {
+                    $loc = is_array($pos['location'])
+                        ? ($pos['location']['parsed']['text'] ?? $pos['location']['linkedinText'] ?? null)
+                        : $pos['location'];
+                } elseif (! empty($pos['locationName'])) {
+                    $loc = $pos['locationName'];
+                }
+
+                $compUrl = $pos['companyLinkedinUrl'] ?? $pos['li_company_url'] ?? $pos['company_url'] ?? $pos['companyUrl'] ?? null;
+                $dateStr = $pos['date'] ?? ($pos['duration'] ?? '');
                 $endDate = $pos['endDate'] ?? null;
                 $endDateText = is_array($endDate) ? ($endDate['text'] ?? null) : $endDate;
 
                 $isCurrent = (isset($pos['isCurrent']) && $pos['isCurrent'] === true)
                     || (is_string($dateStr) && (str_contains(strtolower($dateStr), 'present') || str_contains(strtolower($dateStr), 'saat ini')))
-                    || (array_key_exists('endDate', $pos) && (is_null($endDateText) || $endDateText === 'Present' || $endDateText === 'Saat ini'));
+                    || (array_key_exists('endDate', $pos) && (is_null($endDateText) || strcasecmp(trim((string) $endDateText), 'Present') === 0 || strcasecmp(trim((string) $endDateText), 'Saat ini') === 0));
+
+                $companyLogo = null;
+                if (! empty($pos['companyLogo'])) {
+                    $companyLogo = is_array($pos['companyLogo'])
+                        ? ($pos['companyLogo']['url'] ?? ($pos['companyLogo']['sizes'][0]['url'] ?? null))
+                        : $pos['companyLogo'];
+                } elseif (! empty($pos['company_logo_url'])) {
+                    $companyLogo = $pos['company_logo_url'];
+                }
 
                 $experienceList[] = [
                     'position' => $jobTitle,
                     'company' => $company,
                     'location' => $loc,
                     'date' => ! empty($dateStr) ? $dateStr : null,
-                    'time_period' => $pos['job_time_period'] ?? null,
+                    'time_period' => $pos['duration'] ?? $pos['job_time_period'] ?? null,
                     'company_url' => $compUrl,
-                    'company_logo' => $pos['company_logo_url'] ?? null,
+                    'company_logo' => $companyLogo,
                     'start_date' => $pos['startDate'] ?? $pos['startYear'] ?? null,
                     'end_date' => $pos['endDate'] ?? $pos['endYear'] ?? null,
                     'is_current' => $isCurrent,
@@ -312,37 +481,53 @@ class LinkedinSyncResult extends Model
             }
         }
 
-        // 9. Keahlian (Skills) - Mendukung berbagai skema key dan ekstraksi otomatis dari summary/about
-        $rawSkills = $item['skills']
+        // 9. Keahlian (Skills):
+        // Prioritas utama menggunakan 'topSkills' sesuai permintaan pengguna ("yang skills pakai top skills")
+        $rawTopSkills = $item['topSkills'] ?? [];
+        $rawAllSkills = $item['skills']
             ?? $item['skill']
             ?? $item['all_skills']
             ?? $item['skills_list']
             ?? $item['featured_skills']
             ?? $item['skill_list']
-            ?? $item['topSkills']
             ?? [];
 
-        if (is_string($rawSkills) && ! empty($rawSkills)) {
-            $rawSkills = preg_split('/[,•|]/u', $rawSkills) ?: [];
-            $rawSkills = array_map('trim', $rawSkills);
+        $topSkillsList = [];
+        if (is_array($rawTopSkills)) {
+            foreach ($rawTopSkills as $s) {
+                if (is_string($s) && trim($s) !== '') {
+                    $topSkillsList[] = trim($s);
+                } elseif (is_array($s) && ! empty($s['name'])) {
+                    $topSkillsList[] = trim((string) $s['name']);
+                }
+            }
+        } elseif (is_string($rawTopSkills) && trim($rawTopSkills) !== '') {
+            $parts = preg_split('/[,•|]/u', $rawTopSkills) ?: [];
+            $topSkillsList = array_values(array_filter(array_map('trim', $parts)));
         }
 
-        $skillsList = [];
-        if (is_array($rawSkills)) {
-            foreach ($rawSkills as $skill) {
-                if (is_string($skill) && ! empty(trim($skill))) {
-                    $skillsList[] = trim($skill);
+        $allSkillsList = [];
+        if (is_array($rawAllSkills)) {
+            foreach ($rawAllSkills as $skill) {
+                if (is_string($skill) && trim($skill) !== '') {
+                    $allSkillsList[] = trim($skill);
                 } elseif (is_array($skill)) {
                     $skillName = $skill['name'] ?? $skill['title'] ?? $skill['skill'] ?? $skill['text'] ?? $skill['label'] ?? null;
                     if (! empty($skillName)) {
-                        $skillsList[] = trim((string) $skillName);
+                        $allSkillsList[] = trim((string) $skillName);
                     }
                 }
             }
+        } elseif (is_string($rawAllSkills) && trim($rawAllSkills) !== '') {
+            $parts = preg_split('/[,•|]/u', $rawAllSkills) ?: [];
+            $allSkillsList = array_values(array_filter(array_map('trim', $parts)));
         }
 
-        // 10. Pengalaman Sukarelawan (Volunteer Experiences) jika tersedia
-        $rawVol = $item['volunteer_experiences'] ?? $item['volunteering'] ?? [];
+        // Skills aktif: wajib utamakan topSkills jika tersedia, fallback ke allSkills
+        $skillsList = ! empty($topSkillsList) ? $topSkillsList : $allSkillsList;
+
+        // 10. Pengalaman Sukarelawan & Organisasi (Volunteering) jika tersedia
+        $rawVol = $item['volunteering'] ?? $item['volunteer_experiences'] ?? [];
         $volunteerList = [];
         if (is_array($rawVol)) {
             foreach ($rawVol as $vol) {
@@ -351,11 +536,115 @@ class LinkedinSyncResult extends Model
                 }
                 $volunteerList[] = [
                     'role' => $vol['role'] ?? $vol['title'] ?? $vol['position'] ?? null,
-                    'organization' => $vol['organization'] ?? $vol['company_name'] ?? $vol['name'] ?? null,
+                    'organization' => $vol['organizationName'] ?? $vol['organization'] ?? $vol['company_name'] ?? $vol['name'] ?? null,
                     'cause' => $vol['cause'] ?? null,
-                    'date' => $vol['date'] ?? null,
+                    'duration' => $vol['duration'] ?? $vol['date'] ?? null,
                     'description' => $vol['description'] ?? null,
+                    'start_date' => $vol['startDate'] ?? null,
+                    'end_date' => $vol['endDate'] ?? null,
                 ];
+            }
+        }
+
+        // 11. Sertifikasi & Lisensi (Certifications) jika tersedia
+        $rawCert = $item['certifications'] ?? [];
+        $certificationList = [];
+        if (is_array($rawCert)) {
+            foreach ($rawCert as $cert) {
+                if (! is_array($cert)) {
+                    continue;
+                }
+                $certLogo = null;
+                if (! empty($cert['issuedByLogo'])) {
+                    $certLogo = is_array($cert['issuedByLogo'])
+                        ? ($cert['issuedByLogo']['url'] ?? ($cert['issuedByLogo']['sizes'][0]['url'] ?? null))
+                        : $cert['issuedByLogo'];
+                }
+                $certificationList[] = [
+                    'title' => $cert['title'] ?? null,
+                    'issued_by' => $cert['issuedBy'] ?? $cert['authority'] ?? null,
+                    'issued_at' => $cert['issuedAt'] ?? null,
+                    'credential_id' => $cert['credentialId'] ?? null,
+                    'link' => $cert['link'] ?? $cert['issuedByLink'] ?? null,
+                    'logo' => $certLogo,
+                ];
+            }
+        }
+
+        // 12. Bidang Industri / Divisi Pekerjaan
+        $industry = null;
+        if (! empty($item['industry'])) {
+            $industry = is_array($item['industry']) ? ($item['industry']['name'] ?? null) : $item['industry'];
+        } elseif (! empty($item['company_industry'])) {
+            $industry = $item['company_industry'];
+        }
+
+        // 13. Deteksi Riwayat Studi Lanjut (Further Study Detection)
+        $furtherStudies = [];
+        $primaryFurtherStudy = null;
+        $highestScore = -1;
+
+        foreach ($educationList as $edu) {
+            $school = trim((string) ($edu['school'] ?? ''));
+            $degree = trim((string) ($edu['degree'] ?? ''));
+            $field = trim((string) ($edu['field_of_study'] ?? ''));
+            $date = trim((string) ($edu['date'] ?? ''));
+            $endDate = is_array($edu['end_date']) ? ($edu['end_date']['text'] ?? '') : (string) ($edu['end_date'] ?? '');
+
+            if ($school === '' && $degree === '' && $field === '') {
+                continue;
+            }
+
+            $isUkdw = str_contains(strtolower($school), 'duta wacana') || str_contains(strtolower($school), 'ukdw');
+            $isDoctor = (bool) preg_match('/(doktor|doctor|ph\.?d|s3)/i', $degree);
+            $isMaster = (bool) preg_match('/(master|magister|s2|mba|m\.sc|m\.kom|m\.ti|m\.si)/i', $degree);
+            $isProfesi = (bool) preg_match('/(profesi|spesialis)/i', $degree);
+            $isBachelor = (bool) preg_match('/(bachelor|sarjana|s1)/i', $degree);
+            $isActive = str_contains(strtolower($date), 'present') || str_contains(strtolower($endDate), 'present') || str_contains(strtolower($date), 'saat ini');
+
+            $score = 0;
+            if ($isDoctor) {
+                $score += 100;
+            } elseif ($isMaster) {
+                $score += 80;
+            } elseif ($isProfesi) {
+                $score += 70;
+            } elseif (! $isUkdw && ! $isBachelor) {
+                $score += 50;
+            } elseif (! $isUkdw) {
+                $score += 30;
+            }
+
+            if ($isActive) {
+                $score += 20;
+            }
+
+            $normalizedTingkat = $degree;
+            if ($isDoctor) {
+                $normalizedTingkat = 'S3';
+            } elseif ($isMaster) {
+                $normalizedTingkat = 'S2';
+            } elseif ($isProfesi) {
+                $normalizedTingkat = 'Profesi';
+            }
+
+            $studyItem = [
+                'school' => $school,
+                'degree' => $degree,
+                'degree_normalized' => $normalizedTingkat,
+                'field_of_study' => $field,
+                'date' => $date,
+                'is_active' => $isActive,
+                'is_almamater' => $isUkdw,
+                'score' => $score,
+            ];
+
+            if (! ($isUkdw && $isBachelor)) {
+                $furtherStudies[] = $studyItem;
+                if ($score > $highestScore) {
+                    $highestScore = $score;
+                    $primaryFurtherStudy = $studyItem;
+                }
             }
         }
 
@@ -368,12 +657,17 @@ class LinkedinSyncResult extends Model
             'headline' => $headline,
             'about' => $about,
             'location' => $location,
-            'country' => $item['li_profile_country'] ?? null,
+            'location_parsed' => is_array($item['location']['parsed'] ?? null) ? $item['location']['parsed'] : null,
+            'country' => $item['li_profile_country'] ?? ($item['location']['countryCode'] ?? null),
             'experience' => $experienceList,
             'experiences' => $experienceList,
             'education' => $educationList,
             'skills' => $skillsList,
+            'top_skills' => $topSkillsList,
+            'all_skills' => $allSkillsList,
             'volunteer_experiences' => $volunteerList,
+            'volunteering' => $volunteerList,
+            'certifications' => $certificationList,
             'past_job_title' => $item['past_job_title'] ?? null,
             'past_company_name' => $item['past_company_name'] ?? null,
             'past_company_url' => $item['past_li_company_url'] ?? null,
@@ -381,6 +675,18 @@ class LinkedinSyncResult extends Model
             'current_company' => $currentCompany,
             'current_company_location' => $currentCompanyLocation,
             'current_company_url' => $currentCompanyUrl,
+            'industry' => $industry,
+            'bidang_pekerjaan' => $industry,
+            'suggested_bidang_pekerjaan' => $industry,
+            'further_study' => $primaryFurtherStudy ? [
+                'has_study' => true,
+                'pendidikan_tingkat' => $primaryFurtherStudy['degree_normalized'],
+                'degree_raw' => $primaryFurtherStudy['degree'],
+                'perguruan_tinggi' => $primaryFurtherStudy['school'],
+                'pendidikan_prodi' => $primaryFurtherStudy['field_of_study'],
+                'date' => $primaryFurtherStudy['date'],
+            ] : null,
+            'further_studies' => $furtherStudies,
             'handle' => $item['li_profile_handle'] ?? $item['publicIdentifier'] ?? null,
             'followers' => isset($item['li_number_followers'])
                 ? (int) $item['li_number_followers']

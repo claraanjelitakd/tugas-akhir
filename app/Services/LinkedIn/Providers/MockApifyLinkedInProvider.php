@@ -44,9 +44,28 @@ class MockApifyLinkedInProvider extends ApifyLinkedInProvider
         }
 
         $handle = $this->extractHandle($url);
-        $filePath = rtrim($this->mockPath, '/\\').DIRECTORY_SEPARATOR.$handle.'.json';
+        // Hapus penanda mock di akhiran (-mock) sesuai konvensi pengujian, maupun awalan (mock-)
+        $cleanHandle = preg_replace('/[-_]mock$/i', '', $handle);
+        $cleanHandle = preg_replace('/^mock[-_]/i', '', $cleanHandle);
 
-        if (! is_file($filePath)) {
+        // Cari berkas mock dengan variasi nama (misal: 'jovanyulianto-mock.json' atau 'jovanyulianto.json')
+        $candidates = array_unique(array_filter([
+            $handle,
+            $cleanHandle,
+            $cleanHandle.'-mock',
+            'mock-'.$cleanHandle,
+        ]));
+
+        $filePath = null;
+        foreach ($candidates as $cand) {
+            $checkPath = rtrim($this->mockPath, '/\\').DIRECTORY_SEPARATOR.$cand.'.json';
+            if (is_file($checkPath)) {
+                $filePath = $checkPath;
+                break;
+            }
+        }
+
+        if (! $filePath || ! is_file($filePath)) {
             throw new LinkedInProfileNotFoundException($url);
         }
 

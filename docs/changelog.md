@@ -4,6 +4,24 @@
 
 ## 03 November 2026
 
+- **Plotting Studi Lanjut, Bidang Pekerjaan, dan Penyederhanaan Form Karier**:
+  - Memperbaiki payload request resmi HarvestAPI pada `ApifyLinkedInProvider.php` menjadi `"queries": ["https://..."]` dan `"profileScraperMode": "Profile details no email ($4 per 1k)"`, menyelesaikan kendala request kosong (results 0).
+  - Memperbarui fixture mock Pak Argo (`argo-wibowo-99180935.json` dan `argo-wibowo-99180935-mock.json`) menggunakan snapshot data live HarvestAPI resmi.
+  - Menambahkan deteksi cerdas riwayat studi lanjut (`further_study`) pada `LinkedinSyncResult::getPreviewData()` yang memprioritaskan jenjang pascasarjana (Doktor/S3 dan Master/S2 di luar S1 almamater UKDW).
+  - Menyediakan kolom penyesuaian studi lanjut (`sync_studi_lanjut`, `pendidikan_tingkat`, `perguruan_tinggi`, `pendidikan_prodi`) pada modal peninjauan SuperAdmin dan tab audit LinkedIn, serta menerapkan pembaruan ke tabel `biodata` saat disetujui atau diplot ulang.
+  - Mengekstrak industri LinkedIn (`industry.name`) menjadi usulan `bidang_pekerjaan` alumni dan memetakannya ke `biodata.bidang_pekerjaan`.
+  - Menyederhanakan pertanyaan Posisi Jabatan Struktural (F2G) pada `FormKarier.vue` menjadi input teks kustom bebas langsung tanpa batasan opsi 1-6 (Direksi s.d. Staff).
+  - Menyelaraskan sub-tab profil admin audit dengan pola `/alumni`: menghapus tombol ganda di header, menyatukan tombol navigasi bawah (Lanjut pada tab 1 & 2, Simpan Profil pada tab 3), dan mengatasi false-dirty state saat inisialisasi form.
+  - Menambahkan seeder 8 alumni Sistem Informasi berprestasi dengan riwayat karier nyata dan preservasi data staging LinkedIn.
+
+- **Migrasi Actor Apify HarvestAPI dan Harmonisasi Skema**:
+  - Mengganti Actor default Apify ke `harvestapi/linkedin-profile-scraper` (Console ID: `LpVuK3Zozwuipa5bp`, Endpoint: `harvestapi~linkedin-profile-scraper/run-sync-get-dataset-items`).
+  - Memprioritaskan atribut `topSkills` untuk field keahlian `skills` alumni, mendukung format array maupun teks berpemisah bullet (`•`).
+  - Harmonisasi field modern: nama (`firstName` + `lastName`), posisi/perusahaan saat ini (`currentPosition[0]`), sertifikasi (`certifications`), dan organisasi (`volunteering`).
+  - Standarisasi penanda pengujian: profil mock lokal diidentifikasi dengan akhiran `-mock` pada URL (`https://www.linkedin.com/in/{username}-mock`), dipetakan otomatis ke fixture kanonik di `storage/app/mock/apify`.
+  - Memperbaiki bug runtime Vue pada `TabLinkedin.vue` di mana `row.db_value.startsWith` menyebabkan layar putih ketika atribut `location` berupa objek bersarang; nilai pemetaan audit kini dijamin string dan template aman terhadap tipe non-string.
+  - Memperbarui dokumentasi panduan integrasi, arsitektur, dan langkah pengujian live Apify.
+
 - **Mock Apify untuk Pengujian Sinkronisasi LinkedIn**:
   - Menambahkan `MockApifyLinkedInProvider` yang membaca fixture actor dari
     `storage/app/mock/apify` tanpa request jaringan atau konsumsi kredit.

@@ -59,35 +59,52 @@ LINKEDIN_API_KEY=
 > Apify adalah penyedia layanan pihak ketiga (*third-party scraper*) untuk mengekstrak data profil LinkedIn publik dan **BUKAN** Official LinkedIn API. Scraping profil LinkedIn publik bergantung pada Actor pihak ketiga dan ketersediaan data publik yang tidak diprivatisasi oleh pengguna.
 
 ### Karakteristik & Spesifikasi
-- **Actor ID**: `data_forge_org~linkedin-scraper`
-- **Endpoint**: `POST https://api.apify.com/v2/actors/{actorId}/run-sync-get-dataset-items`
+- **Actor Aktif**: `harvestapi/linkedin-profile-scraper` (Console ID: `LpVuK3Zozwuipa5bp`)
+- **Endpoint**: `POST https://api.apify.com/v2/actors/harvestapi~linkedin-profile-scraper/run-sync-get-dataset-items`
 - **Autentikasi**: `Authorization: Bearer {APIFY_API_TOKEN}` pada HTTP header (tidak pernah menggunakan query parameter `?token=...`).
 - **Input Profil**: HANYA berasal dari kolom `biodata.linkedin_url`. Sistem menolak lookup berdasarkan nama, email, username, atau nomor telepon. Jika URL kosong atau format tidak valid, request dibatalkan sebelum memanggil Apify.
+- **Normalisasi Atribut**: Mendukung struktur dataset HarvestAPI:
+  - Nama: `firstName` + `lastName`
+  - Posisi & Perusahaan Aktif: `currentPosition[0]`
+  - Keahlian: Prioritas utama pada atribut `topSkills` (array maupun pemisah `•`), dengan fallback ke `skills`
+  - Edukasi: `education` / `profileTopEducation`
+  - Nilai Tambah: Menampung sertifikasi (`certifications`), kegiatan kepemimpinan/organisasi (`volunteering`), headline, dan lokasi terurai (`location.parsed`).
 
 ### Konfigurasi `.env`
-```env
-# Aktifkan Provider Apify
-LINKEDIN_PROVIDER=apify
 
-# Konfigurasi Token & Actor Apify (Hanya tersimpan di backend)
-APIFY_API_TOKEN=apify_api_token_anda_di_sini
-APIFY_LINKEDIN_ACTOR_ID=data_forge_org~linkedin-scraper
+#### Mode 1: Mock Apify (Pengujian Lokal & Hemat Saldo — Rekomendasi Development)
+Tidak memakan kuota, tidak mengakses jaringan, membaca fixture JSON lokal di `storage/app/mock/apify`:
+```env
+LINKEDIN_PROVIDER=mock_apify
+APIFY_MOCK_PATH=storage/app/mock/apify
+# Token dapat dikomentari saat mode mock aktif
+# APIFY_API_TOKEN=apify_api_...
+APIFY_LINKEDIN_ACTOR_ID=harvestapi/linkedin-profile-scraper
 ```
+*Catatan URL Mock*: Untuk membedakan pengujian mock dengan data asli, URL LinkedIn alumni mock diakhiri dengan `-mock` (contoh: `https://www.linkedin.com/in/jovanyulianto-mock`). Sistem secara cerdas memetakan handle tersebut ke fixture kanonik `storage/app/mock/apify/jovanyulianto.json`.
+
+#### Mode 2: Live Apify Scraper (Penarikan Profil LinkedIn Nyata via Server Apify)
+Memanggil server Apify secara langsung, memotong saldo/kredit resmi ($0.004 per penarikan):
+```env
+LINKEDIN_PROVIDER=apify
+APIFY_API_TOKEN=apify_api_token_anda_di_sini
+APIFY_LINKEDIN_ACTOR_ID=harvestapi/linkedin-profile-scraper
+```
+*Catatan URL Live*: Pastikan kolom URL LinkedIn pada data alumni menggunakan URL asli LinkedIn tanpa imbuhan `-mock` (contoh: `https://www.linkedin.com/in/jovanyulianto`).
 
 ### Format Request Payload
-Request sinkron dikirim dengan parameter minimal yang berfokus hanya pada data profil (menonaktifkan pos, komentar, dan lowongan untuk efisiensi waktu dan kuota):
+Request sinkron dikirim dengan parameter resmi HarvestAPI yang berfokus pada data profil utuh tanpa mengekstrak email berbayar untuk efisiensi biaya:
 ```json
 {
-    "profileUrls": [
+    "profileScraperMode": "Profile details no email ($4 per 1k)",
+    "queries": [
         "https://www.linkedin.com/in/contoh-alumni"
-    ],
-    "includeProfilePosts": false,
-    "includeComments": false,
-    "includeCompanyPosts": false,
-    "includeCompanyJobs": false,
-    "includeJobDetails": false
+    ]
 }
 ```
+
+### Catatan Tampilan JSON Mentah vs Berkas Fixture
+Saat melihat data pada tombol **{ } Lihat JSON** di antarmuka web, kunci-kunci objek JSON mungkin tampak berbeda urutannya dibandingkan dengan berkas `.json` mentah. Hal ini terjadi karena kolom `scraped_data` bertipe `JSON` pada MySQL. Berdasarkan spesifikasi biner MySQL JSON, **MySQL secara otomatis mengurutkan semua nama *key* secara alfabetis (A - Z)** saat disimpan ke basis data. Seluruh nilai data di dalamnya dijamin 100% identik.
 
 ---
 
@@ -142,21 +159,28 @@ Jika alumni yang sama disinkronkan kembali di lain waktu:
 
 ---
 
-## 5. Pemetaan Data (*Data Mapping*) Saat Disetujui (Approve)
+## 5. Pemetaan Data (*Data Mapping*) Saat Disetujui (Approve / Plot Ulang)
 
-Pemetaan hanya dijalankan setelah admin berwenang menekan tombol **Setujui (Approve)** pada hasil staging yang berstatus `pending`:
-1. **Posisi / Jabatan**:
-   - Jika tersedia entri pada array `experience`: entri posisi aktif terbaru diambil sebagai jabatan.
-   - Jika tidak tersedia array pengalaman, gunakan `headline`.
-   - Data disimpan ke kolom `posisi_jabatan` pada tabel `biodata`.
+Pemetaan dijalankan setelah admin berwenang menekan tombol **Setujui (Approve)** atau **Plot Ulang (Replot)**:
+1. **Posisi / Jabatan & Kategori**:
+   - Jika karyawan/pekerja: entri posisi aktif terbaru diambil sebagai `posisi_jabatan` pada `biodata`, kategori diset `Pekerja`.
+   - Jika wirausaha: posisi disimpan ke `posisi_wiraswasta` pada `biodata`, kategori diset `Wiraswasta`.
 2. **Perusahaan / Institusi**:
    - Nama perusahaan dari entri pengalaman dicari pada master `perusahaan`.
    - Jika belum ada, sistem mendaftarkan institusi baru dengan `status_verifikasi = 'Menunggu Verifikasi'` (tidak langsung otomatis terverifikasi).
    - Foreign key `perusahaan_id` pada `biodata` diperbarui.
-3. **Data Otoritatif Tetap Terlindungi**:
+3. **Bidang Pekerjaan / Divisi**:
+   - Diekstrak dari objek industri HarvestAPI (`industry.name`), contoh: `"IT Services and IT Consulting"`.
+   - Disimpan ke kolom `biodata.bidang_pekerjaan` dan dapat disesuaikan langsung oleh admin melalui modal approval.
+4. **Informasi Studi Lanjut (Jenjang, Kampus, Program Studi)**:
+   - Sistem secara cerdas mendeteksi entri pendidikan lanjutan dari array `education` (memprioritaskan S3/Doktor, S2/Magister, Profesi, non-S1 almamater UKDW).
+   - Data otomatis memetakan `pendidikan_tingkat` (misal `S3` / `S2`), `perguruan_tinggi` (misal `Universitas Gadjah Mada (UGM)`), dan `pendidikan_prodi` (misal `Computer Software Engineering`).
+   - Admin dapat memilih entri studi lanjut alternatif melalui *quick-pills* di modal peninjauan.
+5. **Keahlian (Skills) & Pengalaman Kerja (Experience)**:
+   - Prioritas mutlak pada atribut `topSkills` yang divalidasi pengguna di LinkedIn.
+   - Riwayat posisi terformat ke multiline string di kolom `biodata.experience`.
+6. **Data Otoritatif Tetap Terlindungi**:
    - Kolom `NIM`, `NIK`, `NPWP`, `email_pribadi`, `nomor_telepon`, `tanggal_lulus`, dan IPK **TIDAK PERNAH DIUBAH** oleh sinkronisasi LinkedIn.
-4. **Data Tanpa Mapping Jelas**:
-   - Payload lengkap tetap tersimpan pada `scraped_data`; pemetaan approve juga dapat menerapkan `skills` dan `experience` ke kolom biodata. Field lain tanpa pemetaan tetap menjadi referensi payload.
 
 ---
 
@@ -213,19 +237,23 @@ php artisan test --filter=LinkedIn
 1. Atur `.env` lokal:
    ```env
    LINKEDIN_PROVIDER=apify
-   APIFY_API_TOKEN=token_asli_apify_anda
-   APIFY_LINKEDIN_ACTOR_ID=data_forge_org~linkedin-scraper
+   APIFY_API_TOKEN=apify_api_token_asli_anda
+   APIFY_LINKEDIN_ACTOR_ID=harvestapi/linkedin-profile-scraper
    ```
-2. Bersihkan cache konfigurasi:
+2. Bersihkan cache konfigurasi jika diperlukan:
    ```bash
    php artisan optimize:clear
    ```
-3. Buka halaman SuperAdmin: **Sinkronisasi LinkedIn** (`/superadmin/linkedin-sync`).
-4. Pilih 1 alumni yang memiliki `linkedin_url` publik valid.
-5. Klik ikon petir **Sinkronkan**.
+3. Buka halaman SuperAdmin: **Sinkronisasi LinkedIn** (`/superadmin/linkedin-sync`) atau halaman Detail Alumni (`/superadmin/alumni/{id}?tab=linkedin`).
+4. Pastikan alumni yang diuji memiliki `linkedin_url` publik asli (tanpa akhiran `-mock`).
+5. Klik tombol petir **Sinkronkan** atau **Sinkronkan Ulang**.
 6. Amati status berubah menjadi badge kuning **Pending Review**.
-7. Klik tombol review untuk memeriksa perbandingan data mentah hasil scraping dengan data utama saat ini.
-8. Klik **Setujui Data (Approve)** atau **Tolak (Reject)** untuk menguji pembaruan data utama.
+7. Buka panel review atau tab LinkedIn untuk memeriksa hasil:
+   - Tab **Perbandingan & Usulan Data**: jabatan, perusahaan, keahlian (`topSkills`), foto.
+   - Tab **Riwayat Karier & Pendidikan**: pengalaman kerja terurai dan institusi studi.
+   - Tombol **Lihat JSON**: melihat payload JSON mentah dari Apify.
+8. Klik **Setujui & Terapkan Data (Approve)** atau **Tolak (Reject)** untuk menguji pembaruan data utama.
+9. Setelah selesai, kembalikan `.env` ke `LINKEDIN_PROVIDER=mock_apify` agar saldo Apify tetap aman.
 
 ## 9. Lingkup akses terkini (21 Oktober 2026)
 

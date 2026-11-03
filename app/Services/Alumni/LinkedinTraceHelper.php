@@ -197,15 +197,29 @@ class LinkedinTraceHelper
         // Lokasi profil bukan alamat rumah atau alamat kantor. Nilai ini hanya
         // disimpan sebagai bagian dari histori scraping dan tidak boleh diberi
         // status tersinkron hanya karena alamat biodata sudah terisi.
-        $scrapedLocation = $item['location'] ?? ($item['locationName'] ?? ($item['geoCountryName'] ?? null));
+        $scrapedLocation = $preview['location'] ?? null;
+        if (empty($scrapedLocation)) {
+            if (! empty($item['location'])) {
+                $scrapedLocation = is_array($item['location'])
+                    ? ($item['location']['parsed']['text']
+                        ?? $item['location']['linkedinText']
+                        ?? $item['location']['name']
+                        ?? null)
+                    : (string) $item['location'];
+            } elseif (! empty($item['locationName'])) {
+                $scrapedLocation = (string) $item['locationName'];
+            } elseif (! empty($item['geoCountryName'])) {
+                $scrapedLocation = (string) $item['geoCountryName'];
+            }
+        }
         $hasScrapedLocation = ! empty($scrapedLocation);
         $rows[] = [
             'key' => 'location',
             'label' => 'Lokasi Profil LinkedIn',
-            'scraped_value' => $scrapedLocation ?: '(Tidak tercantum)',
+            'scraped_value' => (string) ($scrapedLocation ?: '(Tidak tercantum)'),
             'target_table' => 'linkedin_sync_results',
             'target_column' => 'scraped_data->location',
-            'db_value' => $scrapedLocation ?: '(Tidak tersimpan)',
+            'db_value' => (string) ($scrapedLocation ?: '(Tidak tersimpan)'),
             'status' => $hasScrapedLocation ? 'Tersimpan di Histori' : 'Tidak Ditemukan',
             'badge' => $hasScrapedLocation ? 'emerald' : 'slate',
             'note' => 'Lokasi umum profil LinkedIn; tidak digunakan sebagai alamat rumah atau alamat perusahaan.',
@@ -333,6 +347,16 @@ class LinkedinTraceHelper
         ];
         $handledKeys = array_merge($handledKeys, $ignoredTechnicalKeys);
 
-        return $rows;
+        // Pastikan seluruh scraped_value dan db_value bertipe string agar aman dirender frontend
+        return array_map(function ($row) {
+            if (isset($row['scraped_value']) && ! is_string($row['scraped_value'])) {
+                $row['scraped_value'] = is_scalar($row['scraped_value']) ? (string) $row['scraped_value'] : json_encode($row['scraped_value']);
+            }
+            if (isset($row['db_value']) && ! is_string($row['db_value'])) {
+                $row['db_value'] = is_scalar($row['db_value']) ? (string) $row['db_value'] : json_encode($row['db_value']);
+            }
+
+            return $row;
+        }, $rows);
     }
 }

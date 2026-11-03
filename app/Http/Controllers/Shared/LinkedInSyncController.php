@@ -14,6 +14,7 @@ use App\Services\LinkedIn\LinkedInProfileService;
 use App\Services\LinkedIn\Mappers\LinkedInProfileMapper;
 use App\Services\LinkedIn\Providers\ApifyLinkedInProvider;
 use App\Services\LinkedIn\Providers\MockApifyLinkedInProvider;
+use Database\Seeders\LinkedinSyncResultSeeder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -202,6 +203,7 @@ class LinkedInSyncController extends Controller
         // 6. Kueri data alumni berbasis Database View `v_alumni_linkedin_plot` (AlumniLinkedinPlot)
         $queryAlumni = AlumniLinkedinPlot::query()->with([
             'biodata.latestLinkedinSyncLog',
+            'syncResult',
         ]);
 
         // Terapkan batasan wewenang (Role Scope)
@@ -601,6 +603,9 @@ class LinkedInSyncController extends Controller
                     ],
                 );
 
+                // Cadangkan snapshot scraping aktif ke disk agar aman dari migrate:fresh
+                LinkedinSyncResultSeeder::backupSyncResults();
+
                 return response()->json([
                     'success' => true,
                     'status' => 'PENDING',
@@ -702,6 +707,10 @@ class LinkedInSyncController extends Controller
 
     /**
      * Menampilkan detail hasil sinkronisasi staging untuk peninjauan (Review Modal).
+     *
+     * @param  Request  $request  HTTP request dengan scope peran pengguna
+     * @param  int  $id  ID hasil sinkronisasi staging (linkedin_sync_results.id)
+     * @return JsonResponse Data payload staging, preview ekstraksi, dan data aktual alumni saat ini
      */
     public function showResult(Request $request, int $id): JsonResponse
     {
@@ -728,6 +737,11 @@ class LinkedInSyncController extends Controller
                 'current_data' => [
                     'posisi_jabatan' => $result->biodata->posisi_jabatan,
                     'nama_perusahaan' => $result->biodata->perusahaan?->nama_perusahaan,
+                    'bidang_pekerjaan' => $result->biodata->bidang_pekerjaan,
+                    'kategori_pekerjaan' => $result->biodata->kategori_pekerjaan,
+                    'pendidikan_tingkat' => $result->biodata->pendidikan_tingkat,
+                    'perguruan_tinggi' => $result->biodata->perguruan_tinggi,
+                    'pendidikan_prodi' => $result->biodata->pendidikan_prodi,
                     'skills' => $result->biodata->skills,
                     'experience' => $result->biodata->experience,
                 ],
@@ -737,6 +751,14 @@ class LinkedInSyncController extends Controller
 
     /**
      * Menyetujui (Approve) hasil sinkronisasi Apify dan menerapkan data ke data utama.
+     * Mendukung pemetaan jabatan/wirausaha, perusahaan (status Menunggu Verifikasi),
+     * bidang pekerjaan (industri LinkedIn), keahlian (top skills), foto profil lokal,
+     * serta riwayat studi lanjut (jenjang, perguruan tinggi, prodi).
+     *
+     * @param  Request  $request  HTTP request berisi data usulan modifikasi dari modal review
+     * @param  int  $id  ID hasil sinkronisasi staging yang ditinjau
+     * @param  LinkedInProfileMapper  $mapper  Mapper untuk pencocokan atau pembuatan data master perusahaan
+     * @return JsonResponse|RedirectResponse Respons JSON hasil approval beserta ringkasan perubahan
      */
     public function approveResult(Request $request, int $id, LinkedInProfileMapper $mapper): JsonResponse|RedirectResponse
     {
@@ -769,6 +791,7 @@ class LinkedInSyncController extends Controller
             $customCompany = $request->filled('nama_perusahaan')
                 ? trim($request->input('nama_perusahaan'))
                 : ($request->filled('perusahaan_nama') ? trim($request->input('perusahaan_nama')) : null);
+            $customBidang = $request->filled('bidang_pekerjaan') ? trim($request->input('bidang_pekerjaan')) : null;
             $customSkills = $request->filled('skills') ? trim($request->input('skills')) : null;
             $customExperience = $request->filled('experience') ? trim($request->input('experience')) : null;
             $tipePekerjaan = $request->input('tipe_pekerjaan', 'pekerja'); // 'pekerja' atau 'wirausaha'
@@ -789,6 +812,13 @@ class LinkedInSyncController extends Controller
                     $updates['kategori_pekerjaan'] = 'Pekerja';
                     $changesSummary[] = "Jabatan diperbarui dari '".($oldJob ?: '-')."' menjadi '{$targetJob}'";
                 }
+            }
+
+            // 1b. Pemetaan Bidang Pekerjaan / Divisi
+            $targetBidang = $customBidang ?: ($preview['bidang_pekerjaan'] ?? null);
+            if (! empty($targetBidang) && $biodata->bidang_pekerjaan !== $targetBidang) {
+                $updates['bidang_pekerjaan'] = $targetBidang;
+                $changesSummary[] = "Bidang pekerjaan diselaraskan: {$targetBidang}";
             }
 
             // 2. Pemetaan Perusahaan (Otomatis ditambahkan ke tabel master perusahaan dengan status Menunggu Verifikasi)
@@ -861,20 +891,39 @@ class LinkedInSyncController extends Controller
                 $changesSummary[] = "Username LinkedIn diselaraskan: {$preview['handle']}";
             }
 
-            // 5. Pemetaan Pendidikan Lanjutan (hanya jika tersedia dan di biodata masih kosong)
-            if (! empty($preview['education'][0])) {
-                $edu = $preview['education'][0];
-                if (empty($biodata->pendidikan_tingkat) && ! empty($edu['degree'])) {
-                    $updates['pendidikan_tingkat'] = $edu['degree'];
-                    $changesSummary[] = "Pendidikan tingkat disimpan: {$edu['degree']}";
+            // 5. Pemetaan Pendidikan Lanjutan (Studi Lanjut)
+            $syncStudi = $request->has('sync_studi_lanjut') ? $request->boolean('sync_studi_lanjut') : true;
+            $customTingkat = $request->filled('pendidikan_tingkat') ? trim($request->input('pendidikan_tingkat')) : null;
+            $customKampus = $request->filled('perguruan_tinggi') ? trim($request->input('perguruan_tinggi')) : null;
+            $customProdi = $request->filled('pendidikan_prodi') ? trim($request->input('pendidikan_prodi')) : null;
+
+            if ($syncStudi) {
+                $studyCandidate = $preview['further_study'] ?? null;
+                $tingkatToSet = $customTingkat ?: ($studyCandidate['pendidikan_tingkat'] ?? null);
+                $kampusToSet = $customKampus ?: ($studyCandidate['perguruan_tinggi'] ?? null);
+                $prodiToSet = $customProdi ?: ($studyCandidate['pendidikan_prodi'] ?? null);
+
+                // Fallback ke entri pendidikan pertama jika studyCandidate belum terisi
+                if (empty($kampusToSet) && ! empty($preview['education'][0])) {
+                    $edu = $preview['education'][0];
+                    $tingkatToSet = $tingkatToSet ?: ($edu['degree'] ?? null);
+                    $kampusToSet = $edu['school'] ?? null;
+                    $prodiToSet = $prodiToSet ?: ($edu['field_of_study'] ?? null);
                 }
-                if (empty($biodata->perguruan_tinggi) && ! empty($edu['school'])) {
-                    $updates['perguruan_tinggi'] = $edu['school'];
-                    $changesSummary[] = "Perguruan tinggi studi lanjut: {$edu['school']}";
-                }
-                if (empty($biodata->pendidikan_prodi) && ! empty($edu['field_of_study'])) {
-                    $updates['pendidikan_prodi'] = $edu['field_of_study'];
-                    $changesSummary[] = "Program studi studi lanjut: {$edu['field_of_study']}";
+
+                if (! empty($kampusToSet) || ! empty($prodiToSet) || ! empty($tingkatToSet)) {
+                    if (! empty($tingkatToSet) && $biodata->pendidikan_tingkat !== $tingkatToSet) {
+                        $updates['pendidikan_tingkat'] = $tingkatToSet;
+                        $changesSummary[] = "Jenjang studi lanjut diperbarui: {$tingkatToSet}";
+                    }
+                    if (! empty($kampusToSet) && $biodata->perguruan_tinggi !== $kampusToSet) {
+                        $updates['perguruan_tinggi'] = $kampusToSet;
+                        $changesSummary[] = "Perguruan tinggi studi lanjut: {$kampusToSet}";
+                    }
+                    if (! empty($prodiToSet) && $biodata->pendidikan_prodi !== $prodiToSet) {
+                        $updates['pendidikan_prodi'] = $prodiToSet;
+                        $changesSummary[] = "Program studi studi lanjut: {$prodiToSet}";
+                    }
                 }
             }
 
@@ -945,6 +994,9 @@ class LinkedInSyncController extends Controller
 
             $plotRecord = AlumniLinkedinPlot::where('biodata_id', $fresh->id)->first();
 
+            // Cadangkan pembaruan status approved ke snapshot disk
+            LinkedinSyncResultSeeder::backupSyncResults();
+
             return $this->respondToMutation($request, [
                 'success' => true,
                 'message' => $isReplot
@@ -977,7 +1029,13 @@ class LinkedInSyncController extends Controller
     }
 
     /**
-     * Menerapkan ulang snapshot LinkedIn yang sudah pernah disetujui.
+     * Menerapkan ulang snapshot LinkedIn yang sudah pernah disetujui (Approved).
+     * Mempertahankan snapshot staging dan status audit yang sudah ada, sambil
+     * memperbarui data biodata, bidang pekerjaan, dan riwayat studi lanjut.
+     *
+     * @param  Request  $request  HTTP request
+     * @param  int  $id  ID hasil sinkronisasi yang disetujui
+     * @param  LinkedInProfileMapper  $mapper  Mapper master perusahaan
      */
     public function plotAgain(Request $request, int $id, LinkedInProfileMapper $mapper): JsonResponse|RedirectResponse
     {
@@ -1088,6 +1146,9 @@ class LinkedInSyncController extends Controller
                     'status' => 'rejected',
                 ]
             );
+
+            // Cadangkan pembaruan status rejected ke snapshot disk
+            LinkedinSyncResultSeeder::backupSyncResults();
 
             return $this->respondToMutation($request, [
                 'success' => true,

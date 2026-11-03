@@ -38,7 +38,7 @@ CREATE TABLE `biodata` (
   `nim` char(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'NIM mahasiswa/alumni (8 karakter, FK ke data_akademik)',
   `yudisium_id` bigint unsigned DEFAULT NULL,
   `prodi_id` bigint unsigned DEFAULT NULL,
-  `foto` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Path berkas foto profil alumni',
+  `foto` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Path berkas foto profil alumni atau tautan URL CDN',
   `nomor_telepon` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Nomor telepon/WhatsApp aktif alumni saat ini',
   `email_pribadi` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Alamat email aktif korespondensi alumni',
   `alamat_saat_ini` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Alamat domisili tempat tinggal alumni saat ini',

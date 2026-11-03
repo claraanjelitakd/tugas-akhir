@@ -330,14 +330,15 @@ Nama driver `official`/`api` adalah konfigurasi adapter aplikasi; bukan bukti ke
 
 ### B. Konfigurasi Environment (`.env`)
 ```env
-# 1. Mode Mock (Default Pengujian Lokal Tanpa Jaringan)
-LINKEDIN_DRIVER=mock
-LINKEDIN_MOCK_PATH=storage/app/mock/linkedin
+# 1. Mode Mock Apify (Pengujian Lokal Bebas Biaya — Rekomendasi Development)
+LINKEDIN_PROVIDER=mock_apify
+APIFY_MOCK_PATH=storage/app/mock/apify
+APIFY_LINKEDIN_ACTOR_ID=harvestapi/linkedin-profile-scraper
 
-# 2. Mode Apify Scraper (Scraping Profil LinkedIn Live via Actor Apify)
+# 2. Mode Live Apify Scraper (Scraping Profil LinkedIn Nyata via Server Apify)
 # LINKEDIN_PROVIDER=apify
 # APIFY_API_TOKEN=apify_api_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-# APIFY_LINKEDIN_ACTOR_ID=data_forge_org~linkedin-scraper
+# APIFY_LINKEDIN_ACTOR_ID=harvestapi/linkedin-profile-scraper
 
 # 3. Mode Official LinkedIn API (Server-to-Server Kemitraan Resmi)
 # LINKEDIN_PROVIDER=official
@@ -367,9 +368,11 @@ Alur berikut khusus provider **Apify**. Driver mock/API diproses melalui `Linked
 - Dilengkapi pencarian teks real-time dan JSON Viewer interaktif dengan tombol *Copy Raw JSON*.
 
 ### F. Integritas Data & Kebijakan Verifikasi Perusahaan
-- **Posisi Aktif (Current Position)**: Dipilih dengan prioritas posisi `endMonthYear == null`, kemudian tanggal mulai (`startMonthYear`) terbaru.
+- **Posisi Aktif (Current Position)**: Dipilih dengan prioritas posisi aktif saat ini (`endDate == null` atau berstatus "Present"), kemudian tanggal mulai terbaru.
+- **Pemetaan Bidang Pekerjaan / Divisi**: Diekstrak dari objek industri LinkedIn (`industry.name`), contoh: `"IT Services and IT Consulting"`, dan diselaraskan ke `biodata.bidang_pekerjaan`.
+- **Pemetaan Studi Lanjut (Pascasarjana & Profesi)**: Sistem mendeteksi entri pendidikan lanjutan dari array `education` (Doktor/S3, Magister/S2, Profesi, non-UKDW), lalu memetakan `pendidikan_tingkat`, `perguruan_tinggi`, dan `pendidikan_prodi` ke profil alumni.
 - **Kebijakan Verifikasi Mutlak**: Setiap institusi perusahaan baru yang dibuat dari sinkronisasi LinkedIn SELALU disetel ke `status_verifikasi = 'Menunggu Verifikasi'`, meskipun data alamat, provinsi, dan negara terisi lengkap.
-  - **Proteksi Data Otoritatif**: Field otoritatif alumni (NIM, email pribadi, nomor telepon, alamat domisili, dan riwayat akademik) tidak pernah ditimpa oleh data LinkedIn.
+- **Proteksi Data Otoritatif**: Field otoritatif alumni (NIM, email pribadi, nomor telepon, alamat domisili, dan riwayat akademik) tidak pernah ditimpa oleh data LinkedIn.
 - **Audit Trail**: Seluruh aktivitas sinkronisasi dicatat ke tabel `log_activities` melalui `LogActivity::record()` dengan aksi `'linkedin_sync'`.
 
 ### G. Navigasi Dua Arah & Deep Linking Terarah (Detail Alumni ⇄ LinkedIn Sync)

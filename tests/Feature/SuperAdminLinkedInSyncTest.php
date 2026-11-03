@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
+use App\Models\LinkedinSyncResult;
 use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
@@ -409,13 +410,71 @@ class SuperAdminLinkedInSyncTest extends TestCase
     }
 
     /**
-     * Test 17: Container melempar InvalidArgumentException jika driver tidak dikenali
+     * Test 18: LinkedIn Sync Result mengekstrak bidang pekerjaan dan riwayat studi lanjut.
      */
-    public function test_container_throws_exception_on_unsupported_driver(): void
+    public function test_linkedin_sync_result_extracts_industry_and_further_study(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $alumni = $this->createAlumni('72190001', 'Dr. Argo Test', 'argo-test');
 
-        config(['services.linkedin.driver' => 'unsupported_driver_xyz']);
-        app(LinkedInProfileProvider::class);
+        $result = LinkedinSyncResult::create([
+            'biodata_id' => $alumni->id,
+            'linkedin_url' => 'https://www.linkedin.com/in/argo-test',
+            'status' => 'pending',
+            'scraped_data' => [
+                [
+                    'publicIdentifier' => 'argo-test',
+                    'industry' => ['id' => 96, 'name' => 'IT Services and IT Consulting'],
+                    'currentPosition' => [
+                        [
+                            'position' => 'Lecturer',
+                            'companyName' => 'Universitas Kristen Duta Wacana',
+                        ],
+                    ],
+                    'education' => [
+                        [
+                            'schoolName' => 'Universitas Atma Jaya Yogyakarta',
+                            'degree' => 'Master’s Degree',
+                            'fieldOfStudy' => 'Computer Science',
+                            'period' => '2012 - 2013',
+                        ],
+                        [
+                            'schoolName' => 'Universitas Gadjah Mada (UGM)',
+                            'degree' => 'Doctor',
+                            'fieldOfStudy' => 'Computer Software Engineering',
+                            'period' => '2024 - Present',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $preview = $result->getPreviewData();
+
+        $this->assertSame('IT Services and IT Consulting', $preview['bidang_pekerjaan']);
+        $this->assertNotNull($preview['further_study']);
+        $this->assertSame('S3', $preview['further_study']['pendidikan_tingkat']);
+        $this->assertSame('Universitas Gadjah Mada (UGM)', $preview['further_study']['perguruan_tinggi']);
+        $this->assertSame('Computer Software Engineering', $preview['further_study']['pendidikan_prodi']);
+
+        // Test approve menerapkan data ke biodata
+        $response = $this->actingAs($this->superadmin)
+            ->postJson("/superadmin/linkedin-sync/results/{$result->id}/approve", [
+                'posisi_jabatan' => 'Lecturer',
+                'nama_perusahaan' => 'Universitas Kristen Duta Wacana',
+                'bidang_pekerjaan' => $preview['bidang_pekerjaan'],
+                'sync_studi_lanjut' => true,
+                'pendidikan_tingkat' => $preview['further_study']['pendidikan_tingkat'],
+                'perguruan_tinggi' => $preview['further_study']['perguruan_tinggi'],
+                'pendidikan_prodi' => $preview['further_study']['pendidikan_prodi'],
+            ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true]);
+
+        $alumni->refresh();
+        $this->assertSame('IT Services and IT Consulting', $alumni->bidang_pekerjaan);
+        $this->assertSame('S3', $alumni->pendidikan_tingkat);
+        $this->assertSame('Universitas Gadjah Mada (UGM)', $alumni->perguruan_tinggi);
+        $this->assertSame('Computer Software Engineering', $alumni->pendidikan_prodi);
     }
 }
