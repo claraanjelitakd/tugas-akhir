@@ -48,6 +48,13 @@ const getQuestionHint = (code, fallback = '') => {
     return props.profileQuestionConfigs?.[code]?.keterangan || fallback;
 };
 
+const isQuestionVisible = (code) => {
+    if (!props.profileQuestionConfigs || Object.keys(props.profileQuestionConfigs).length === 0) {
+        return true;
+    }
+    return Boolean(props.profileQuestionConfigs[code]);
+};
+
 if (!props.form.profile_answers) {
     props.form.profile_answers = {};
 }
@@ -1133,7 +1140,7 @@ onUnmounted(() => {
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <!-- Input: LinkedIn URL -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_LINKEDIN_URL')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('BIO_LINKEDIN_URL', 'LinkedIn Profil URL') }} <span v-if="isQuestionRequired('BIO_LINKEDIN_URL')" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -1147,7 +1154,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Input: LinkedIn Username -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_LINKEDIN_USER')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('BIO_LINKEDIN_USER', 'LinkedIn Username') }} <span v-if="isQuestionRequired('BIO_LINKEDIN_USER')" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -1161,7 +1168,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Input: Instagram URL -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_INSTAGRAM_URL')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('BIO_INSTAGRAM_URL', 'Instagram Profil URL') }} <span v-if="isQuestionRequired('BIO_INSTAGRAM_URL')" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -1175,7 +1182,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Input: Facebook URL -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_FACEBOOK_URL')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('BIO_FACEBOOK_URL', 'Facebook Profil URL') }} <span v-if="isQuestionRequired('BIO_FACEBOOK_URL')" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -1189,7 +1196,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Input: Keahlian (Skills) -->
-                <div class="md:col-span-2">
+                <div v-if="isQuestionVisible('BIO_SKILLS')" class="md:col-span-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
                         <span>{{ getQuestionLabel('BIO_SKILLS', 'Keahlian (Skills)') }} <span v-if="isQuestionRequired('BIO_SKILLS')" class="text-rose-500 font-bold">*</span></span>
                         <span class="text-[11px] font-normal text-gray-500">Sinkron dengan LinkedIn Skills</span>
@@ -1204,7 +1211,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Input: Pengalaman Kerja (Experience) -->
-                <div class="md:col-span-2">
+                <div v-if="isQuestionVisible('BIO_EXPERIENCE')" class="md:col-span-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
                         <span>{{ getQuestionLabel('BIO_EXPERIENCE', 'Pengalaman Kerja (Experience)') }} <span v-if="isQuestionRequired('BIO_EXPERIENCE')" class="text-rose-500 font-bold">*</span></span>
                         <span class="text-[11px] font-normal text-gray-500">Sinkron dengan LinkedIn Experiences</span>
@@ -1465,7 +1472,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Input Penghasilan / Take Home Pay (Format Nominal Bersih Tanpa Pengali Otomatis) -->
-                <div class="md:col-span-2">
+                <div v-if="isQuestionVisible('F505')" class="md:col-span-2">
                     <div class="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 !mb-0">
                             {{ getQuestionLabel('F505', 'Rata-rata Pendapatan per Bulan (Take Home Pay)') }} <span v-if="isQuestionRequired('F505')" class="text-rose-500 font-bold">*</span>
@@ -2093,7 +2100,7 @@ onUnmounted(() => {
         <!-- CARD 3: DATA ATASAN LANGSUNG / PIMPINAN                           -->
         <!-- (Hanya untuk Pekerja & Wiraswasta)                                -->
         <!-- ================================================================= -->
-        <div v-if="form.kategori_pekerjaan !== 'Melanjutkan Pendidikan'" class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
+        <div v-if="form.kategori_pekerjaan !== 'Melanjutkan Pendidikan' && (isQuestionVisible('F2E1') || isQuestionVisible('F2E2') || isQuestionVisible('F2E3'))" class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
             <div class="flex items-center justify-between mb-2 pb-3 border-b border-gray-100">
                 <h2 class="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
                     <span class="w-1.5 h-5 bg-[#0D542B] rounded-full inline-block"></span>
@@ -2112,7 +2119,7 @@ onUnmounted(() => {
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div class="md:col-span-2">
+                <div v-if="isQuestionVisible('F2E1')" class="md:col-span-2">
                     <label for="input_nama_atasan_langsung" class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('F2E1', 'Nama Lengkap Atasan') }} <span v-if="isQuestionRequired('F2E1')" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -2127,7 +2134,7 @@ onUnmounted(() => {
                     />
                 </div>
 
-                <div>
+                <div v-if="isQuestionVisible('F2E3')">
                     <label for="input_email_atasan_langsung" class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('F2E3', 'Email Atasan') }} <span v-if="isQuestionRequired('F2E3')" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -2142,7 +2149,7 @@ onUnmounted(() => {
                     />
                 </div>
 
-                <div>
+                <div v-if="isQuestionVisible('F2E2')">
                     <label for="input_telepon_atasan_langsung" class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('F2E2', 'Nomor Telepon Atasan') }} <span v-if="isQuestionRequired('F2E2')" class="text-rose-500 font-bold">*</span>
                     </label>

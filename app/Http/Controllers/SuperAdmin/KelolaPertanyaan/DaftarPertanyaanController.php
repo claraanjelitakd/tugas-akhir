@@ -7,6 +7,7 @@ use App\Models\KelompokPertanyaan;
 use App\Models\Kuesioner;
 use App\Models\Prodi;
 use App\Models\RefSubpertanyaan2021;
+use App\Services\Kuesioner\KelengkapanTracerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -85,8 +86,15 @@ class DaftarPertanyaanController extends Controller
             return $q->tampil_di !== 'profil' && $q->tampil_di !== 'profile';
         })->count();
 
-        $totalProfileQuestions = $subpertanyaans->filter(function ($q) {
-            return $q->tampil_di === 'profil' || $q->tampil_di === 'profile' || $q->tampil_di === 'both';
+        $profileCodes = array_map('strtoupper', KelengkapanTracerService::PROFILE_MANAGED_CODES);
+
+        $totalProfileQuestions = $subpertanyaans->filter(function ($q) use ($profileCodes) {
+            $codeUpper = strtoupper($q->kode_pertanyaan ?? '');
+
+            return in_array($codeUpper, $profileCodes, true)
+                || $q->tampil_di === 'profil'
+                || $q->tampil_di === 'profile'
+                || $q->tampil_di === 'both';
         })->count();
 
         // 8. Render komponen Vue SuperAdmin/Pertanyaan/Index
@@ -99,6 +107,7 @@ class DaftarPertanyaanController extends Controller
             'prodis' => $prodis,
             'availableJumpTargets' => $availableJumpTargets,
             'targetQuestionMap' => $targetQuestionMap,
+            'profileManagedCodes' => $profileCodes,
             'initialTab' => $request->query('tab', 'sections'),
             'stats' => [
                 'total_kuesioners' => $kuesioners->count(),

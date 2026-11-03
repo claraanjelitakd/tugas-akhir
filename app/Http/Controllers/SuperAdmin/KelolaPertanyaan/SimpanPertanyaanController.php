@@ -34,7 +34,7 @@ class SimpanPertanyaanController extends Controller
             'type' => 'required|string|in:radio,single_choice,radio_input,radio_text,multiple_choice,checkbox,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,text,textarea,number,date,time,dropdown,searchable_select,file,header',
             'keterangan' => 'nullable|string|max:500',
             'wajib' => 'required|boolean',
-            'tampil_di' => 'nullable|string|in:kuesioner,profile,profil,both',
+            'tampil_di' => 'nullable|string|in:kuesioner,profile,profil,both,hidden,none',
             'order' => 'nullable|integer',
         ]);
 
@@ -75,7 +75,7 @@ class SimpanPertanyaanController extends Controller
             'type' => 'required|string|in:radio,single_choice,radio_input,radio_text,multiple_choice,checkbox,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,text,textarea,number,date,time,dropdown,searchable_select,file,header',
             'keterangan' => 'nullable|string|max:500',
             'wajib' => 'required|boolean',
-            'tampil_di' => 'nullable|string|in:kuesioner,profile,profil,both',
+            'tampil_di' => 'nullable|string|in:kuesioner,profile,profil,both,hidden,none',
             'order' => 'nullable|integer',
         ]);
 
@@ -156,5 +156,45 @@ class SimpanPertanyaanController extends Controller
         }
 
         return redirect()->back()->withErrors(['message' => 'Parameter pengurutan tidak valid.']);
+    }
+
+    /**
+     * Mengubah visibilitas tampilnya butir pertanyaan (di Profil Alumni atau Kuesioner Tracer).
+     */
+    public function toggleVisibility(Request $request, int $id): RedirectResponse
+    {
+        $subpertanyaan = RefSubpertanyaan2021::findOrFail($id);
+        $target = $request->input('target', 'profil'); // 'profil' atau 'kuesioner'
+        $current = $subpertanyaan->tampil_di ?? 'kuesioner';
+
+        if ($target === 'profil') {
+            $isCurrentlyInProfile = in_array($current, ['profil', 'profile', 'both'], true);
+
+            if ($isCurrentlyInProfile) {
+                // Nonaktifkan dari profil
+                $newTampilDi = ($current === 'both') ? 'kuesioner' : 'hidden';
+                $message = 'Pertanyaan ['.$subpertanyaan->kode_pertanyaan.'] disembunyikan dari Profil Alumni.';
+            } else {
+                // Aktifkan ke profil
+                $newTampilDi = ($current === 'kuesioner') ? 'both' : 'profil';
+                $message = 'Pertanyaan ['.$subpertanyaan->kode_pertanyaan.'] kini ditampilkan di Profil Alumni.';
+            }
+        } else {
+            $isCurrentlyInTracer = in_array($current, ['kuesioner', 'both'], true) || empty($current);
+
+            if ($isCurrentlyInTracer) {
+                // Nonaktifkan dari kuesioner tracer
+                $newTampilDi = ($current === 'both') ? 'profil' : 'hidden';
+                $message = 'Pertanyaan ['.$subpertanyaan->kode_pertanyaan.'] disembunyikan dari Kuesioner Tracer.';
+            } else {
+                // Aktifkan ke kuesioner tracer
+                $newTampilDi = ($current === 'profil') ? 'both' : 'kuesioner';
+                $message = 'Pertanyaan ['.$subpertanyaan->kode_pertanyaan.'] kini ditampilkan di Kuesioner Tracer.';
+            }
+        }
+
+        $subpertanyaan->update(['tampil_di' => $newTampilDi]);
+
+        return redirect()->back()->with('success', $message);
     }
 }

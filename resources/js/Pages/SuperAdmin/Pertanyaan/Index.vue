@@ -47,6 +47,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    profileManagedCodes: {
+        type: Array,
+        default: () => [],
+    },
     initialTab: {
         type: String,
         default: 'sections',
@@ -64,11 +68,13 @@ const props = defineProps({
 });
 
 // ========================================================
-// HELPER LOKASI TAMPIL
+// HELPER LOKASI TAMPIL & VISIBILITAS
 // ========================================================
 const isProfileTarget = (target) => target === 'profil' || target === 'profile';
 const isBothTarget = (target) => target === 'both';
 const isTracerTarget = (target) => target === 'kuesioner' || (!target && !isProfileTarget(target));
+const isShownInProfile = (q) => isProfileTarget(q?.tampil_di) || isBothTarget(q?.tampil_di);
+const isCompoundField = (code) => ['F510', 'F5A1', 'F5A2', 'F2F'].includes(String(code || '').toUpperCase());
 
 const getTargetBadge = (target) => {
     if (isProfileTarget(target)) {
@@ -266,13 +272,26 @@ const filteredTracerQuestions = computed(() => {
 // ========================================================
 const selectedProfileSectionFilter = ref('all');
 const selectedProfileRequiredFilter = ref('all');
+const selectedProfileVisibilityFilter = ref('all');
 const selectedProfileTargetFilter = ref('all');
 const profileSearchQuery = ref('');
 
 const filteredProfileQuestions = computed(() => {
     return props.subpertanyaans.filter((q) => {
-        // Tampilkan hanya pertanyaan profil alumni (profil atau both)
-        if (!isProfileTarget(q.tampil_di) && !isBothTarget(q.tampil_di)) return false;
+        const codeUpper = String(q.kode_pertanyaan || '').toUpperCase();
+        const isManagedProfile = (props.profileManagedCodes || []).includes(codeUpper)
+            || isProfileTarget(q.tampil_di)
+            || isBothTarget(q.tampil_di);
+
+        // Hanya tampilkan jika butir ini relevan dengan profil alumni
+        if (!isManagedProfile) return false;
+
+        // Filter status visibilitas (Ditampilkan vs Disembunyikan)
+        if (selectedProfileVisibilityFilter.value !== 'all') {
+            const isVisible = isShownInProfile(q);
+            if (selectedProfileVisibilityFilter.value === 'visible' && !isVisible) return false;
+            if (selectedProfileVisibilityFilter.value === 'hidden' && isVisible) return false;
+        }
 
         if (selectedProfileSectionFilter.value !== 'all') {
             const secId = parseInt(selectedProfileSectionFilter.value, 10);
@@ -708,6 +727,24 @@ const handleDeleteQuestion = (question) => {
                 },
             });
         }
+    });
+};
+
+/**
+ * Mengubah visibilitas tampilnya butir pertanyaan (di Profil Alumni atau Kuesioner Tracer).
+ */
+const handleToggleVisibility = (question, target = 'profil') => {
+    router.patch(`/superadmin/pertanyaan/${question.id}/toggle-visibility`, {
+        target: target,
+    }, {
+        preserveScroll: true,
+        onError: () => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal',
+                text: 'Terjadi kendala saat mengubah status visibilitas pertanyaan.',
+            });
+        },
     });
 };
 
@@ -1491,6 +1528,14 @@ const handleDeleteKuesioner = (k) => {
                                 </select>
                             </div>
                             <div>
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase">Status Profil</label>
+                                <select v-model="selectedProfileVisibilityFilter" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
+                                    <option value="all">Semua Status</option>
+                                    <option value="visible">Ditampilkan (Aktif)</option>
+                                    <option value="hidden">Disembunyikan</option>
+                                </select>
+                            </div>
+                            <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase">Sifat Pengisian</label>
                                 <select v-model="selectedProfileRequiredFilter" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
                                     <option value="all">Semua Sifat</option>
@@ -1531,12 +1576,13 @@ const handleDeleteKuesioner = (k) => {
                                     <th class="px-4 py-3">Butir Data & Pertanyaan Profil</th>
                                     <th class="px-3 py-3">Tipe & Bagian (Section)</th>
                                     <th class="px-4 py-3">Opsi Jawaban (Jika Ada)</th>
+                                    <th class="px-3 py-3 text-center w-32">Status Profil</th>
                                     <th class="px-3 py-3 text-right">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
                                 <tr v-if="filteredProfileQuestions.length === 0">
-                                    <td colspan="6" class="p-8 text-center text-gray-400 italic">
+                                    <td colspan="7" class="p-8 text-center text-gray-400 italic">
                                         Belum ada butir pertanyaan profil alumni ditemukan yang sesuai filter.
                                     </td>
                                 </tr>
@@ -1581,6 +1627,12 @@ const handleDeleteKuesioner = (k) => {
                                             <span :class="q.wajib ? 'font-bold text-gray-900' : 'text-gray-400'">{{ q.wajib ? 'Wajib' : 'Opsional' }}</span>
                                             <span class="text-gray-300">&bull;</span>
                                             <span class="text-gray-500">{{ getTargetBadge(q.tampil_di).label }}</span>
+                                            <span
+                                                v-if="isCompoundField(q.kode_pertanyaan)"
+                                                class="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-medium border border-slate-200"
+                                            >
+                                                Data Gabungan Alamat
+                                            </span>
                                         </div>
                                         <p v-if="q.keterangan" class="text-[11px] text-gray-500 italic mt-1">
                                             Keterangan: {{ q.keterangan }}
@@ -1635,6 +1687,23 @@ const handleDeleteKuesioner = (k) => {
                                         <div v-else class="text-gray-400 italic text-[11px]">
                                             Input isian langsung profil tanpa opsi.
                                         </div>
+                                    </td>
+                                    <td class="px-3 py-3.5 text-center">
+                                        <span
+                                            :class="isShownInProfile(q) ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold' : 'bg-gray-100 text-gray-500 border-gray-300'"
+                                            class="inline-flex items-center px-2 py-0.5 rounded text-[11px] border"
+                                        >
+                                            {{ isShownInProfile(q) ? 'Ditampilkan' : 'Disembunyikan' }}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            @click="handleToggleVisibility(q, 'profil')"
+                                            :class="isShownInProfile(q) ? 'text-gray-500 hover:text-rose-600' : 'text-[#0D542B] hover:text-[#08381c] font-bold'"
+                                            class="text-[11px] underline block mx-auto mt-1 cursor-pointer transition-colors"
+                                            :title="isShownInProfile(q) ? 'Sembunyikan dari formulir profil alumni' : 'Tampilkan di formulir profil alumni'"
+                                        >
+                                            {{ isShownInProfile(q) ? 'Sembunyikan' : 'Tampilkan' }}
+                                        </button>
                                     </td>
                                     <td class="px-3 py-3.5 text-right">
                                         <div class="flex items-center justify-end gap-1">
@@ -1944,9 +2013,10 @@ const handleDeleteKuesioner = (k) => {
                                     v-model="questionFormData.tampil_di"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white font-bold text-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                                 >
-                                    <option value="kuesioner">Kuesioner Tracer Saja</option>
-                                    <option value="profil">Profil Alumni Saja</option>
                                     <option value="both">Keduanya (Kuesioner & Profil)</option>
+                                    <option value="profil">Profil Alumni Saja</option>
+                                    <option value="kuesioner">Kuesioner Tracer Saja (Sembunyi di Profil)</option>
+                                    <option value="hidden">Disembunyikan (Nonaktif dari Keduanya)</option>
                                 </select>
                             </div>
                         </div>

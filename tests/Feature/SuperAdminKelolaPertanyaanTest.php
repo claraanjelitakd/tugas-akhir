@@ -204,4 +204,39 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
         $this->assertEquals('1 - Sangat Rendah', $q2->detils[0]->option_text);
         $this->assertEquals('5 - Sangat Tinggi', $q2->detils[4]->option_text);
     }
+
+    /**
+     * Test superadmin dapat mengubah visibilitas tampilnya butir pertanyaan di profil alumni.
+     */
+    public function test_superadmin_can_toggle_question_visibility_for_profile(): void
+    {
+        $question = RefSubpertanyaan2021::create([
+            'kelompok' => 'F1',
+            'kelompok_pertanyaan_id' => $this->section->id,
+            'kode_pertanyaan' => 'F_TEST_TOGGLE',
+            'subpertanyaan' => 'Pertanyaan Toggle Visibilitas',
+            'type' => 'text',
+            'wajib' => true,
+            'tampil_di' => 'profil',
+            'order' => 1,
+        ]);
+
+        // Toggle pertama: dari profil -> hidden (sembunyikan)
+        $response = $this->actingAs($this->superadmin)
+            ->patch(route('superadmin.pertanyaan.toggle-visibility', $question->id), [
+                'target' => 'profil',
+            ]);
+
+        $response->assertRedirect();
+        $this->assertEquals('hidden', $question->fresh()->tampil_di);
+
+        // Toggle kedua: dari hidden -> profil (tampilkan kembali)
+        $response2 = $this->actingAs($this->superadmin)
+            ->patch(route('superadmin.pertanyaan.toggle-visibility', $question->id), [
+                'target' => 'profil',
+            ]);
+
+        $response2->assertRedirect();
+        $this->assertEquals('profil', $question->fresh()->tampil_di);
+    }
 }

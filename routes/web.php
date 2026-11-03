@@ -295,6 +295,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/superadmin/pertanyaan', [DaftarPertanyaanController::class, 'index'])->name('superadmin.pertanyaan.index');
             Route::post('/superadmin/pertanyaan', [SimpanPertanyaanController::class, 'store'])->name('superadmin.pertanyaan.store');
             Route::post('/superadmin/pertanyaan/reorder', [SimpanPertanyaanController::class, 'reorder'])->name('superadmin.pertanyaan.reorder');
+            Route::patch('/superadmin/pertanyaan/{id}/toggle-visibility', [SimpanPertanyaanController::class, 'toggleVisibility'])->name('superadmin.pertanyaan.toggle-visibility');
             Route::put('/superadmin/pertanyaan/{id}', [SimpanPertanyaanController::class, 'update'])->name('superadmin.pertanyaan.update');
             Route::delete('/superadmin/pertanyaan/{id}', [SimpanPertanyaanController::class, 'destroy'])->name('superadmin.pertanyaan.destroy');
             Route::post('/superadmin/pertanyaan/{questionId}/options', [KelolaOpsiController::class, 'storeOption'])->name('superadmin.pertanyaan.options.store');

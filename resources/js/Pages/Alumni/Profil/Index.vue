@@ -156,10 +156,23 @@ const isValidUrl = (val) => {
 
 // Helper untuk mengecek status wajib dan label butir pertanyaan dari konfigurasi Super Admin
 const isFieldMandatory = (code, fallback = true) => {
-    if (!props.profileQuestionConfigs || !props.profileQuestionConfigs[code]) {
+    if (!props.profileQuestionConfigs) {
         return fallback;
     }
-    return Boolean(props.profileQuestionConfigs[code].wajib);
+    const config = props.profileQuestionConfigs[code];
+    // Jika pertanyaan tidak terdaftar di konfigurasi aktif (disembunyikan Superadmin), otomatis tidak wajib
+    if (!config) {
+        return false;
+    }
+    return Boolean(config.wajib);
+};
+
+// Helper untuk mengecek apakah suatu field diizinkan tampil di form profil oleh Super Admin
+const isFieldVisible = (code) => {
+    if (!props.profileQuestionConfigs || Object.keys(props.profileQuestionConfigs).length === 0) {
+        return true;
+    }
+    return Boolean(props.profileQuestionConfigs[code]);
 };
 
 const getFieldLabel = (code, fallback) => {

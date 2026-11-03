@@ -47,6 +47,13 @@ const getQuestionLabel = (code, fallback) => {
     return props.profileQuestionConfigs?.[code]?.subpertanyaan || fallback;
 };
 
+const isQuestionVisible = (code) => {
+    if (!props.profileQuestionConfigs || Object.keys(props.profileQuestionConfigs).length === 0) {
+        return true;
+    }
+    return Boolean(props.profileQuestionConfigs[code]);
+};
+
 // Input styling: CSS kelas abu-abu untuk kolom yang terkunci (read-only/disabled)
 // karena data akademik resmi berasal dari data kampus dan tidak boleh diubah sembarangan oleh alumni
 const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-gray-700 rounded-xl px-4 py-3 text-sm font-medium cursor-not-allowed select-none";
@@ -115,17 +122,17 @@ const labelClass = "block text-sm font-semibold text-gray-700 mb-1.5";
             </h2>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div class="md:col-span-2">
+                <div v-if="isQuestionVisible('BIO_JUDUL_TA')" class="md:col-span-2">
                     <label :class="labelClass">{{ getQuestionLabel('BIO_JUDUL_TA', 'Judul Tugas Akhir / Skripsi') }}</label>
                     <textarea :value="form.judul_ta" rows="3" disabled :class="lockedInputClass"></textarea>
                 </div>
 
-                <div class="md:col-span-2">
+                <div v-if="isQuestionVisible('BIO_JUDUL_TA')" class="md:col-span-2">
                     <label :class="labelClass">Judul Tugas Akhir (Bahasa Inggris)</label>
                     <textarea :value="form.judul_ta_inggris" rows="3" disabled :class="lockedInputClass"></textarea>
                 </div>
 
-                <div>
+                <div v-if="isQuestionVisible('BIO_TGL_LULUS')">
                     <label :class="labelClass">{{ getQuestionLabel('BIO_TGL_LULUS', 'Tanggal Kelulusan') }}</label>
                     <input type="date" :value="form.tanggal_lulus" disabled :class="lockedInputClass" />
                 </div>

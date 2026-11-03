@@ -42,6 +42,13 @@ const getQuestionHint = (code, fallback = '') => {
     return props.profileQuestionConfigs?.[code]?.keterangan || fallback;
 };
 
+const isQuestionVisible = (code) => {
+    if (!props.profileQuestionConfigs || Object.keys(props.profileQuestionConfigs).length === 0) {
+        return true;
+    }
+    return Boolean(props.profileQuestionConfigs[code]);
+};
+
 const fotoPreview = ref(null);
 const fileInputRef = ref(null);
 
@@ -223,7 +230,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <!-- NIM (Terkunci) -->
-                <div>
+                <div v-if="isQuestionVisible('F1')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('F1', 'Nomor Induk Mahasiswa (NIM)') }}
                     </label>
@@ -231,7 +238,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                 </div>
 
                 <!-- Nama Lengkap (Terkunci dari Data Akademik) -->
-                <div>
+                <div v-if="isQuestionVisible('F2A')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
                         <span>{{ getQuestionLabel('F2A', 'Nama Lengkap (Sesuai Ijazah)') }}</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
@@ -245,8 +252,8 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     />
                 </div>
 
-                <!-- Tanggal Lahir tersedia di data_akademik dan tetap ditampilkan sebagai data terkunci. -->
-                <div>
+                <!-- Tanggal Lahir -->
+                <div v-if="isQuestionVisible('BIO_TANGGAL_LAHIR')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
                         <span>{{ getQuestionLabel('BIO_TANGGAL_LAHIR', 'Tanggal Lahir') }}</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
@@ -259,8 +266,8 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     />
                 </div>
 
-                <!-- Jenis Kelamin tersedia di data_akademik dan tetap ditampilkan sebagai data terkunci. -->
-                <div>
+                <!-- Jenis Kelamin -->
+                <div v-if="isQuestionVisible('BIO_JK')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
                         <span>{{ getQuestionLabel('BIO_JK', 'Jenis Kelamin') }}</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
@@ -273,8 +280,8 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     />
                 </div>
 
-                <!-- Kewarganegaraan tersedia di data_akademik dan tetap ditampilkan sebagai data terkunci. -->
-                <div>
+                <!-- Kewarganegaraan -->
+                <div v-if="isQuestionVisible('BIO_WARGA_NEGARA')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
                         <span>{{ getQuestionLabel('BIO_WARGA_NEGARA', 'Kewarganegaraan') }}</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
@@ -304,7 +311,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <!-- Nomor Telepon / WA -->
-                <div>
+                <div v-if="isQuestionVisible('F2B')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('F2B', 'Nomor Telepon / WhatsApp') }} <span v-if="isQuestionRequired('F2B')" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -319,7 +326,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                 </div>
 
                 <!-- Email Pribadi -->
-                <div>
+                <div v-if="isQuestionVisible('F2C')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('F2C', 'Email Pribadi') }} <span v-if="isQuestionRequired('F2C')" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -333,7 +340,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                 </div>
 
                 <!-- Alamat Domisili -->
-                <div class="md:col-span-2">
+                <div v-if="isQuestionVisible('F2D')" class="md:col-span-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('F2D', 'Alamat Domisili Saat Ini') }} <span v-if="isQuestionRequired('F2D')" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -346,7 +353,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                 </div>
 
                 <!-- Provinsi -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_PROVINSI')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('BIO_PROVINSI', 'Provinsi') }} <span v-if="isQuestionRequired('BIO_PROVINSI')" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -360,7 +367,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                 </div>
 
                 <!-- Kabupaten / Kota -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_KABUPATEN')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('BIO_KABUPATEN', 'Kabupaten / Kota') }} <span v-if="isQuestionRequired('BIO_KABUPATEN')" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -376,7 +383,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                 </div>
 
                 <!-- Kecamatan -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_KECAMATAN')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('BIO_KECAMATAN', 'Kecamatan') }} <span v-if="isQuestionRequired('BIO_KECAMATAN')" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -390,7 +397,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                 </div>
 
                 <!-- Kelurahan / Desa -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_KELURAHAN')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('BIO_KELURAHAN', 'Kelurahan / Desa') }} <span v-if="isQuestionRequired('BIO_KELURAHAN')" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -404,7 +411,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                 </div>
 
                 <!-- Kode Pos -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_KODE_POS')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
                         {{ getQuestionLabel('BIO_KODE_POS', 'Kode Pos') }} <span v-if="isQuestionRequired('BIO_KODE_POS')" class="text-rose-500 font-bold">*</span>
                     </label>
