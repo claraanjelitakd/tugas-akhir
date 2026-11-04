@@ -527,71 +527,10 @@ class TracerAnalyticsService
      */
     private function responseRateRows(string $selectedYear, ?int $prodiId): Collection
     {
-        $population = DB::table('biodata')
-            ->leftJoin('users', 'users.id', '=', 'biodata.user_id')
-            ->leftJoin('data_akademik as academic', 'academic.nim', '=', 'biodata.nim')
-            ->leftJoin('prodi as study_program', 'study_program.id', '=', 'biodata.prodi_id')
-            ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('academic.tahun_lulus', $selectedYear))
-            ->when($prodiId, fn ($query) => $query->where('biodata.prodi_id', $prodiId))
-            ->select([
-                'biodata.id as biodata_id',
-                'biodata.user_id',
-                'biodata.nim',
-                DB::raw("COALESCE(academic.nama, users.name, 'Mahasiswa UKDW') as nama"),
-                'biodata.prodi_id',
-                'study_program.nama_prodi',
-                'academic.tahun_lulus',
-                'biodata.nomor_telepon',
-                DB::raw('COALESCE(biodata.email_pribadi, users.email) as email'),
-            ])
+        return DB::table('v_analytics_response_rate')
+            ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
+            ->when($prodiId, fn ($query) => $query->where('prodi_id', $prodiId))
             ->get();
-
-        if ($population->isEmpty()) {
-            return $population;
-        }
-
-        $respondents = DB::table('kuesioner_jawaban')
-            ->join('kuesioner_pertanyaan as questions', 'questions.id', '=', 'kuesioner_jawaban.pertanyaan_id')
-            ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'questions.id')
-            ->whereIn('kuesioner_jawaban.biodata_id', $population->pluck('biodata_id')->all())
-            ->where(function ($query): void {
-                $query->where(function ($mandatoryQuery): void {
-                    $mandatoryQuery
-                        ->where('sp.wajib', 1)
-                        ->where('questions.tipe', '!=', 'header')
-                        ->whereNotIn(DB::raw('UPPER(questions.kode_pertanyaan)'), [
-                            'F1', 'F2A', 'F2B', 'F2C', 'F2D',
-                            'BIO_TEMPAT_LAHIR', 'BIO_TANGGAL_LAHIR', 'BIO_JK',
-                            'BIO_TGL_LULUS', 'BIO_JUDUL_TA',
-                            'F5A1', 'F5A2', 'F5B', 'F5C', 'F5D', 'F510',
-                            'F2E', 'F2E1', 'F2E2', 'F2E3', 'F2F', 'F2G', 'F2H',
-                            'F11', 'F505', 'F502', 'F506',
-                        ]);
-                })->orWhereIn(DB::raw('UPPER(questions.kode_pertanyaan)'), ['F502', 'F506']);
-            })
-            ->where(function ($answerQuery): void {
-                $answerQuery
-                    ->whereNotNull('kuesioner_jawaban.jawaban_teks')
-                    ->whereRaw("TRIM(kuesioner_jawaban.jawaban_teks) != ''")
-                    ->orWhere(function ($jsonQuery): void {
-                        $jsonQuery
-                            ->whereNotNull('kuesioner_jawaban.jawaban_json')
-                            ->whereNotIn('kuesioner_jawaban.jawaban_json', ['', '[]', '{}']);
-                    });
-            })
-            ->selectRaw('kuesioner_jawaban.biodata_id, MAX(kuesioner_jawaban.updated_at) as last_response_at')
-            ->groupBy('kuesioner_jawaban.biodata_id')
-            ->get()
-            ->keyBy('biodata_id');
-
-        return $population->map(function (object $alumnus) use ($respondents): object {
-            $respondent = $respondents->get($alumnus->biodata_id);
-            $alumnus->answered_mandatory_univ = $respondent === null ? 0 : 1;
-            $alumnus->answered = $alumnus->answered_mandatory_univ;
-            $alumnus->last_response_at = $respondent?->last_response_at;
-
-            return $alumnus;
-        });
     }
 
     /**
