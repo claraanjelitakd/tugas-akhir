@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\KelompokPertanyaan;
 use App\Models\Kuesioner;
+use App\Models\KuesionerSection;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -41,10 +41,12 @@ class SuperAdminKelolaSectionTest extends TestCase
      */
     public function test_superadmin_can_view_sections_page(): void
     {
-        KelompokPertanyaan::create([
-            'kuesioner_id' => $this->kuesioner->id,
-            'title' => 'Bagian Identitas Diri',
+        KuesionerSection::create([
+            'kode_section' => 'SEC-UNIV-1',
+            'target' => 'univ',
+            'judul' => 'Bagian Identitas Diri',
             'order' => 1,
+            'is_active' => true,
         ]);
 
         $response = $this->actingAs($this->superadmin)
@@ -60,15 +62,14 @@ class SuperAdminKelolaSectionTest extends TestCase
     {
         $response = $this->actingAs($this->superadmin)
             ->post(route('superadmin.sections.store'), [
-                'kuesioner_id' => $this->kuesioner->id,
                 'title' => 'Bagian Riwayat Pekerjaan',
                 'order' => 1,
             ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('kelompok_pertanyaan', [
-            'kuesioner_id' => $this->kuesioner->id,
-            'title' => 'Bagian Riwayat Pekerjaan',
+        $this->assertDatabaseHas('kuesioner_section', [
+            'target' => 'univ',
+            'judul' => 'Bagian Riwayat Pekerjaan',
             'order' => 1,
         ]);
     }
@@ -78,23 +79,24 @@ class SuperAdminKelolaSectionTest extends TestCase
      */
     public function test_superadmin_can_update_section(): void
     {
-        $section = KelompokPertanyaan::create([
-            'kuesioner_id' => $this->kuesioner->id,
-            'title' => 'Judul Lama',
+        $section = KuesionerSection::create([
+            'kode_section' => 'SEC-UNIV-OLD',
+            'target' => 'univ',
+            'judul' => 'Judul Lama',
             'order' => 1,
+            'is_active' => true,
         ]);
 
         $response = $this->actingAs($this->superadmin)
             ->put(route('superadmin.sections.update', $section->id), [
-                'kuesioner_id' => $this->kuesioner->id,
                 'title' => 'Judul Baru yang Diperbarui',
                 'order' => 1,
             ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('kelompok_pertanyaan', [
+        $this->assertDatabaseHas('kuesioner_section', [
             'id' => $section->id,
-            'title' => 'Judul Baru yang Diperbarui',
+            'judul' => 'Judul Baru yang Diperbarui',
         ]);
     }
 
@@ -103,17 +105,19 @@ class SuperAdminKelolaSectionTest extends TestCase
      */
     public function test_superadmin_can_delete_section(): void
     {
-        $section = KelompokPertanyaan::create([
-            'kuesioner_id' => $this->kuesioner->id,
-            'title' => 'Bagian untuk Dihapus',
+        $section = KuesionerSection::create([
+            'kode_section' => 'SEC-UNIV-DEL',
+            'target' => 'univ',
+            'judul' => 'Bagian untuk Dihapus',
             'order' => 1,
+            'is_active' => true,
         ]);
 
         $response = $this->actingAs($this->superadmin)
             ->delete(route('superadmin.sections.destroy', $section->id));
 
         $response->assertRedirect();
-        $this->assertDatabaseMissing('kelompok_pertanyaan', [
+        $this->assertDatabaseMissing('kuesioner_section', [
             'id' => $section->id,
         ]);
     }
@@ -123,16 +127,20 @@ class SuperAdminKelolaSectionTest extends TestCase
      */
     public function test_superadmin_can_reorder_sections_directionally(): void
     {
-        $section1 = KelompokPertanyaan::create([
-            'kuesioner_id' => $this->kuesioner->id,
-            'title' => 'Section 1',
+        $section1 = KuesionerSection::create([
+            'kode_section' => 'SEC-UNIV-1',
+            'target' => 'univ',
+            'judul' => 'Section 1',
             'order' => 1,
+            'is_active' => true,
         ]);
 
-        $section2 = KelompokPertanyaan::create([
-            'kuesioner_id' => $this->kuesioner->id,
-            'title' => 'Section 2',
+        $section2 = KuesionerSection::create([
+            'kode_section' => 'SEC-UNIV-2',
+            'target' => 'univ',
+            'judul' => 'Section 2',
             'order' => 2,
+            'is_active' => true,
         ]);
 
         // Pindahkan section 2 ke atas (direction = up)
@@ -153,16 +161,20 @@ class SuperAdminKelolaSectionTest extends TestCase
      */
     public function test_superadmin_can_bulk_reorder_sections(): void
     {
-        $secA = KelompokPertanyaan::create([
-            'kuesioner_id' => $this->kuesioner->id,
-            'title' => 'Section A',
+        $secA = KuesionerSection::create([
+            'kode_section' => 'SEC-UNIV-A',
+            'target' => 'univ',
+            'judul' => 'Section A',
             'order' => 1,
+            'is_active' => true,
         ]);
 
-        $secB = KelompokPertanyaan::create([
-            'kuesioner_id' => $this->kuesioner->id,
-            'title' => 'Section B',
+        $secB = KuesionerSection::create([
+            'kode_section' => 'SEC-UNIV-B',
+            'target' => 'univ',
+            'judul' => 'Section B',
             'order' => 2,
+            'is_active' => true,
         ]);
 
         $response = $this->actingAs($this->superadmin)

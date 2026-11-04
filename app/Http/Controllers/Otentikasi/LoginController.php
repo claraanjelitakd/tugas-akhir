@@ -29,7 +29,12 @@ class LoginController extends Controller
     }
 
     /**
-     * Proses Login Pengguna
+     * Menangani proses login pengguna ke dalam sistem.
+     *
+     * Menerima input berupa username atau email beserta kata sandi.
+     * Mendukung fallback kata sandi awal alumni (tanggal lahir ddmmyyyy atau kata sandi seeder).
+     *
+     * @return RedirectResponse
      */
     public function prosesLogin(Request $request)
     {
@@ -38,7 +43,11 @@ class LoginController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (Auth::attempt($kredensial)) {
+        $loginInput = $kredensial['username'];
+        $authField = filter_var($loginInput, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+
+        // 1. Coba autentikasi standar (mendukung username maupun email)
+        if (Auth::attempt([$authField => $loginInput, 'password' => $kredensial['password']])) {
             $request->session()->regenerate();
             $pengguna = Auth::user();
 
@@ -49,8 +58,12 @@ class LoginController extends Controller
             return self::arahkanBerdasarkanPeran($pengguna->role);
         }
 
-        // Khusus role Alumni: Dukungan masuk menggunakan kata sandi bawaan (default password) berupa tanggal lahir
-        $alumniUser = User::where('username', $kredensial['username'])
+        // 2. Khusus role Alumni: Dukungan masuk menggunakan kata sandi bawaan (default password)
+        // berupa tanggal lahir (ddmmyyyy) atau kata sandi seeder awal ('password123')
+        $alumniUser = User::where(function ($query) use ($loginInput) {
+            $query->where('username', $loginInput)
+                ->orWhere('email', $loginInput);
+        })
             ->where('role', 'alumni')
             ->first();
 
@@ -68,10 +81,13 @@ class LoginController extends Controller
                 $expectedFormat = $carbonDate->format('dmY'); // Format ddmmyyyy, contoh: 15082001
                 $cleanInput = preg_replace('/[^0-9]/', '', $kredensial['password']);
 
-                if ($cleanInput === $expectedFormat || $kredensial['password'] === $expectedFormat) {
-                    // Normalisasi akun lama yang memakai password default bersama,
-                    // lalu wajibkan alumni menetapkan password pribadi.
-                    $alumniUser->password = Hash::make($expectedFormat);
+                if (
+                    $cleanInput === $expectedFormat
+                    || $kredensial['password'] === $expectedFormat
+                    || $kredensial['password'] === 'password123'
+                ) {
+                    // Normalisasi akun awal alumni, lalu wajibkan alumni menetapkan password pribadi
+                    $alumniUser->password = Hash::make($kredensial['password']);
                     $alumniUser->must_change_password = true;
                     $alumniUser->save();
 

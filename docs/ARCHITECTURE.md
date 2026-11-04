@@ -156,9 +156,16 @@ Route didefinisikan dalam `routes/web.php`. Endpoint verifikasi, penolakan, pemb
 
 Controller Fakultas dan Prodi membatasi daftar maupun aksi melalui query lingkup yang sama. Dengan demikian, data yang dapat ditampilkan juga merupakan data yang dapat diverifikasi oleh role tersebut.
 
-## Kuesioner Per Prodi
+## Kuesioner Terpadu (Unified Survey Engine)
 
-Fungsi kuesioner program studi juga memakai satu halaman bersama:
+Aplikasi menggunakan arsitektur kuesioner terpadu (*Unified Survey Engine*) yang mengonsolidasikan seluruh jenis instrumen survei ke dalam satu set tabel kanonik:
+- `kuesioner_section`: Mengelompokkan bagian/stepper kuesioner (`target`: `'univ'`, `'prodi'`, atau `'atasan'`).
+- `kuesioner_pertanyaan`: Bank butir pertanyaan terpusat untuk kuesioner universitas, kuesioner prodi, dan kuesioner atasan.
+- `kuesioner_section_pertanyaan`: Mengatur penempatan butir pertanyaan pada bagian, urutan tampilan, dan status kewajiban (`wajib = 1` atau `0`).
+- `kuesioner_opsi`: Master opsi pilihan jawaban beserta skor bobot numerik dan kode lompatan (*jump_to*).
+- `kuesioner_jawaban`: Transaksi jawaban terpadu untuk Alumni maupun Atasan penilai (`responden_type`: `'alumni'` atau `'atasan'`).
+
+Fungsi kuesioner program studi memakai satu halaman bersama:
 
 | File tampilan | Role |
 | --- | --- |
@@ -168,13 +175,11 @@ Controller `app/Http/Controllers/SuperAdmin/KelolaPertanyaan/KelolaKuesionerProd
 
 ## Kontrak Data dan Response
 
-### Jawaban Tracer
+### Jawaban Kuesioner Terpadu
 
-Satu record tracer tetap menjadi unit jawaban per alumni dan per pertanyaan. Kolom `question_id` adalah foreign key ke `ref_subpertanyaan2021.id` meskipun namanya historis memakai istilah `question`; kolom ini menjadi identitas stabil butir untuk pemeliharaan, sedangkan `kode_pertanyaan` dan `subpertanyaan` adalah salinan untuk kompatibilitas laporan. Relasi Eloquent ke master memakai nama `masterPertanyaan` karena `subpertanyaan` sudah digunakan sebagai kolom snapshot teks. `answer` digunakan sebagai representasi teks untuk export dan kompatibilitas, sedangkan `answer_json` digunakan sebagai representasi terstruktur. Untuk jawaban teks sederhana, bentuk JSON minimum adalah { "value": "..." }. Struktur khusus jawaban lama tetap dipertahankan agar radio input, matriks, pilihan ganda, dan nominal tidak rusak.
+Satu rekaman pada `kuesioner_jawaban` menjadi unit jawaban per responden (`biodata_id` untuk alumni, atau `evaluasi_atasan_id` untuk atasan) dan per butir pertanyaan (`pertanyaan_id`). Kolom `kode_pertanyaan` dipertahankan sebagai snapshot identitas butir untuk kompatibilitas dan kecepatan kueri analitik. Nilai jawaban teks/angka disimpan pada `jawaban_teks`, sedangkan pilihan ganda terstruktur disimpan pada `jawaban_json`.
 
-F505 (Take Home Pay) memiliki sumber tunggal pada `biodata.gaji`. Setiap sinkronisasi profil menimpa jawaban F505 lama dengan nominal gaji terbaru dan menyimpannya dalam `answer` serta `answer_json`, sehingga nilai lama tidak dapat menjadi sumber berbeda.
-
-Model Tracer melengkapi proyeksi yang kosong ketika record disimpan. Migrasi backfill_legacy_tracer_answer_json mengisi record lama tanpa menghapus nilai yang sudah ada.
+F505 (Take Home Pay) memiliki sumber tunggal pada `biodata.gaji`. Setiap sinkronisasi profil menimpa jawaban F505 lama dengan nominal gaji terbaru dan menyimpannya dalam `jawaban_teks`, sehingga nilai lama tidak menjadi sumber inkonsistensi.
 
 ### Response Inertia dan API
 
@@ -190,17 +195,15 @@ Link profil alumni pada halaman bersama tidak menggunakan prefix superadmin seca
 
 Halaman self-service `/alumni/profile` hanya menerima props yang diperlukan untuk pengisian tracer. NIK, NPWP, KK, data orang tua, dan data pembimbing/penguji tidak lagi menjadi bagian dari schema aktif. NISN, BPJS, email mahasiswa, dan publikasi tetap berada pada sumber akademik yang diperlukan untuk audit/admin, tetapi tidak dikirim ke form self-service. Judul tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai referensi akademik non-sensitif.
 
-Kontak dan domisili aktif hanya ditulis ke `biodata`. Migrasi final melakukan backfill dari kolom legacy sebelum kolom duplikat dihapus, tanpa menimpa nilai biodata yang sudah ada. Database terpisah `tracer` tidak disentuh.
+Kontak dan domisili aktif hanya ditulis ke `biodata`.
 
-Payload audit evaluasi atasan juga dipetakan melalui `EvaluasiAtasan::toAdminAuditArray()`. Payload tersebut hanya membawa status, identitas atasan, instansi, dan jawaban per butir; token akses survei tidak dikirim ke halaman detail alumni. Nilai jawaban dibaca dari kolom sumber `respon_evaluasi_atasan.nilai`, bukan alias `skor`.
+Payload audit evaluasi atasan juga dipetakan melalui `EvaluasiAtasan::toAdminAuditArray()`. Payload tersebut hanya membawa status, identitas atasan, instansi, dan jawaban per butir; token akses survei tidak dikirim ke halaman detail alumni. Jawaban evaluasi atasan disimpan langsung ke `kuesioner_jawaban` dengan `responden_type = 'atasan'` dan `evaluasi_atasan_id = evaluasi_atasan.id`.
 
 ### Sinkronisasi Dua Arah Data Perusahaan (Profil Alumni dan Evaluasi Atasan)
 
 Atribut perusahaan pada halaman profil alumni (`FormKarier.vue` dan `SimpanProfilController`) serta halaman evaluasi pengguna lulusan (`EvaluasiAtasanForm.vue` dan `EvaluasiAtasanController`) membaca dan menulis langsung ke record master `perusahaan` yang sama:
 - Field yang tersinkronisasi dua arah: `nama_perusahaan`, `bentuk_perusahaan`, `jenis_perusahaan`, `jenis_perusahaan_lainnya`, `skala`, `jenis_lokasi`, `kode_negara`, `kode_provinsi`, `kode_kabupaten`, `alamat`, `kode_pos`, `no_telp_fax`, dan `homepage`.
-- Lima pertanyaan karakteristik survei pengguna lulusan yang diisi khusus oleh atasan dikelola dari master `pertanyaan_evaluasi_atasan` dan disimpan sesuai peruntukannya: `bentuk_perusahaan`, `skala_perusahaan`, serta `jumlah_pegawai` disimpan pada tabel `perusahaan`, sedangkan `jumlah_alumni_ukdw` dan `standar_gaji_pertama` disimpan pada tabel `evaluasi_atasan`.
-- Section formulir evaluasi atasan (`instansi`, `karakteristik`, `penilaian`) didefinisikan sekali pada `PertanyaanEvaluasiAtasan::STEPPER_SECTIONS`, lalu dipakai bersama oleh halaman kelola (`Daftar Bagian`/`Daftar Pertanyaan`) dan formulir publik. Penempatan pertanyaan reguler disimpan melalui kategori kompatibilitas yang dipetakan menjadi kunci stepper.
-- Penempatan kerja (`bidang_pekerjaan`, `posisi_jabatan`) dan studi lanjut alumni ditampilkan sebagai ringkasan informasi di bagian atas halaman evaluasi atasan (tanpa membebani atasan dengan input ulang), serta identitas alumni ditampilkan melalui avatar bundar ber-dropdown di header kanan atas.
+- Karakteristik survei pengguna lulusan yang diisi khusus oleh atasan disimpan sesuai peruntukannya: karakteristik instansi disimpan pada tabel `perusahaan`, sedangkan `jumlah_alumni_ukdw` dan `standar_gaji_pertama` disimpan pada tabel `evaluasi_atasan`. Seluruh skor penilaian kinerja disimpan pada tabel `kuesioner_jawaban`.
 
 ### Keseragaman Komponen Kartu Pertanyaan Kuesioner Universitas dan Prodi
 
@@ -261,10 +264,10 @@ memilahnya di PHP. View bukan cache materialisasi, sehingga indeks pada tabel
 sumber tetap menjadi bagian penting dari performa.
 
 `v_analytics_population` hanya membaca identitas, akademik, program studi,
-perusahaan, dan provinsi kerja dari tabel kanonik. Status pernah menjawab
-butir wajib dihitung khusus oleh `v_analytics_response_rate`; indikator lain
-tidak ikut membayar biaya agregasi response rate. Denominator kohort dihitung
-langsung dari `biodata` dan `data_akademik` tanpa memanggil rekap audit prodi.
+perusahaan, dan provinsi kerja dari tabel kanonik. Status responden kuesioner selesai
+dihitung khusus oleh `v_analytics_response_rate` berbasis penyelesaian 100% butir kuesioner
+universitas (`v_alumni_tracer_univ_status`), menjamin sinkronisasi mutlak dengan direktori
+alumni. Denominator kohort dihitung langsung dari `biodata` dan `data_akademik` tanpa memanggil rekap audit prodi.
 
 `v_analytics_further_study` secara khusus mencakup F12, F18b, F18c, dan F18d.
 Service memberi label dimensi sebelum agregasi agar sumber biaya tidak

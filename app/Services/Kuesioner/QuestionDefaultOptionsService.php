@@ -3,8 +3,6 @@
 namespace App\Services\Kuesioner;
 
 use App\Models\KuesionerPertanyaan;
-use App\Models\ProdiQuestion;
-use App\Models\RefSubpertanyaan2021;
 
 /**
  * Service untuk menyediakan opsi pilihan jawaban default saat butir pertanyaan baru dibuat
@@ -98,57 +96,6 @@ class QuestionDefaultOptionsService
             ],
             default => [],
         };
-    }
-
-    /**
-     * Generate opsi default untuk ProdiQuestion jika belum memiliki opsi.
-     */
-    public static function generateForProdiQuestion(ProdiQuestion $question): void
-    {
-        if ($question->options()->exists()) {
-            return;
-        }
-
-        $defaultTexts = self::getDefaultOptionTexts($question->type);
-        if (empty($defaultTexts)) {
-            return;
-        }
-
-        $order = 1;
-        foreach ($defaultTexts as $idx => $text) {
-            $code = $question->code.'-'.str_pad((string) ($idx + 1), 2, '0', STR_PAD_LEFT);
-            $question->options()->create([
-                'code' => $code,
-                'option_text' => $text,
-                'order' => $order++,
-            ]);
-        }
-    }
-
-    /**
-     * Generate opsi default untuk RefSubpertanyaan2021 jika belum memiliki opsi.
-     */
-    public static function generateForUnivQuestion(RefSubpertanyaan2021 $question): void
-    {
-        if ($question->detils()->exists()) {
-            return;
-        }
-
-        $defaultTexts = self::getDefaultOptionTexts($question->type);
-        if (empty($defaultTexts)) {
-            return;
-        }
-
-        $order = 1;
-        foreach ($defaultTexts as $idx => $text) {
-            $code = $question->kode_pertanyaan.'-'.str_pad((string) ($idx + 1), 2, '0', STR_PAD_LEFT);
-            $question->detils()->create([
-                'kode_pertanyaan' => $question->kode_pertanyaan,
-                'kode_opsi' => $code,
-                'option_text' => $text,
-                'order' => $order++,
-            ]);
-        }
     }
 
     /**

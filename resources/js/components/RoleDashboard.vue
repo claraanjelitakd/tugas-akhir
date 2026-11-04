@@ -63,7 +63,7 @@ const roleConfig = computed(() => {
             contextLabel: 'Program Studi',
             contextValue: `${props.prodi?.nama_prodi || 'Program Studi'} (Kode: ${props.prodi?.kode_prodi || '-'})`,
             prefix: '/prodi',
-            links: { alumni: '/prodi/alumni', company: '/prodi/perusahaan', linkedin: '/prodi/linkedin-sync', questionnaire: '/prodi/kuesioner', accounts: '/prodi/manajemen-akun', sections: '/prodi/sections' },
+            links: { alumni: '/prodi/alumni', company: '/prodi/perusahaan', linkedin: '/prodi/linkedin-sync', questionnaire: '/prodi/kuesioner', sections: '/prodi/sections' },
         },
         admin_fakultas: {
             label: 'Admin Fakultas',
@@ -72,7 +72,7 @@ const roleConfig = computed(() => {
             contextLabel: 'Fakultas',
             contextValue: props.fakultas?.nama_fakultas || 'Fakultas',
             prefix: '/fakultas',
-            links: { alumni: '/fakultas/alumni', company: '/fakultas/perusahaan', linkedin: '/fakultas/linkedin-sync', questionnaire: '/fakultas/prodi-kuesioner', accounts: '/fakultas/manajemen-akun' },
+            links: { alumni: '/fakultas/alumni', company: '/fakultas/perusahaan', linkedin: '/fakultas/linkedin-sync', questionnaire: '/fakultas/prodi-kuesioner' },
         },
         admin_biro3: {
             label: 'Biro 3 Kemahasiswaan',

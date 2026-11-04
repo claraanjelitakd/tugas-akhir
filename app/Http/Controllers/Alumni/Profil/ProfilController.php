@@ -7,8 +7,7 @@ use App\Models\Kabupaten;
 use App\Models\Perusahaan;
 use App\Models\Propinsi;
 use App\Models\RefNegara;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\RefSubpertanyaanDetil;
+use App\Services\Alumni\AdminAlumniProfileService;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\Request;
 
@@ -138,22 +137,10 @@ class ProfilController extends Controller
         ];
 
         // Ambil opsi referensi kuesioner resmi dari database (F2G, F2H, F5D, F11, F8, F5C, dll)
-        $refOptions = RefSubpertanyaanDetil::whereIn('kode_pertanyaan', [
-            'F2G', 'F2H', 'F5D', 'F11', 'F8', 'F5C', 'BIO_BIDANG_DIVISI', 'BIO_PEND_TINGKAT',
-            'BIO_WARGA_NEGARA', 'BIO_INST_BENTUK', 'BIO_INST_LOKASI',
-            'f2g', 'f2h', 'f5d', 'f11', 'f8', 'f5c', 'bio_bidang_divisi', 'bio_pend_tingkat',
-            'bio_warga_negara', 'bio_inst_bentuk', 'bio_inst_lokasi',
-        ])
-            ->orderBy('order')
-            ->get(['id', 'kode_pertanyaan', 'kode_opsi', 'option_text', 'order'])
-            ->groupBy(fn ($item) => strtoupper($item->kode_pertanyaan))
-            ->toArray();
+        $refOptions = AdminAlumniProfileService::getRefOptions();
 
         // Konfigurasi dinamis butir pertanyaan profil dari Super Admin (label, keterangan, status wajib, tipe)
-        $profileQuestionConfigs = RefSubpertanyaan2021::whereIn('tampil_di', ['profil', 'profile', 'both'])
-            ->get(['id', 'kode_pertanyaan', 'subpertanyaan', 'keterangan', 'wajib', 'type', 'order'])
-            ->keyBy(fn ($item) => strtoupper($item->kode_pertanyaan))
-            ->toArray();
+        $profileQuestionConfigs = AdminAlumniProfileService::getProfileQuestionConfigs();
 
         // Get all perusahaan for Autocomplete
         $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'kode_provinsi', 'kode_kabupaten', 'alamat', 'kode_pos', 'skala', 'bentuk_perusahaan', 'no_telp_fax', 'homepage', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'jenis_lokasi', 'kode_negara', 'status_verifikasi')->get();

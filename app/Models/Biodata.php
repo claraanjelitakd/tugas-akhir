@@ -217,29 +217,11 @@ class Biodata extends Model
     }
 
     /**
-     * Relasi ke Hasil Pengisian Kuesioner Universitas (Tracer).
+     * Relasi ke seluruh respon kuesioner terpadu alumni (KuesionerJawaban).
      */
-    public function tracer()
+    public function jawabanKuesioner()
     {
-        return $this->hasMany(Tracer::class, 'biodata_id');
-    }
-
-    public function tracers()
-    {
-        return $this->tracer();
-    }
-
-    /**
-     * Relasi ke Hasil Pengisian Kuesioner Khusus Program Studi.
-     */
-    public function prodiResponse()
-    {
-        return $this->hasMany(ProdiResponse::class, 'biodata_id');
-    }
-
-    public function prodiResponses()
-    {
-        return $this->prodiResponse();
+        return $this->hasMany(KuesionerJawaban::class, 'biodata_id');
     }
 
     /**

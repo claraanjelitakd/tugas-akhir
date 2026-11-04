@@ -42,21 +42,11 @@ class Prodi extends Model
 
     public function questionSections()
     {
-        return $this->hasMany(ProdiQuestionSection::class, 'prodi_id')->orderBy('order');
-    }
-
-    public function prodiQuestionSections()
-    {
-        return $this->questionSections();
+        return $this->hasMany(KuesionerSection::class, 'prodi_id')->orderBy('order');
     }
 
     public function questions()
     {
-        return $this->hasMany(ProdiQuestion::class, 'prodi_id')->orderBy('order');
-    }
-
-    public function prodiQuestions()
-    {
-        return $this->questions();
+        return $this->hasMany(KuesionerPertanyaan::class, 'pemilik_prodi_id');
     }
 }

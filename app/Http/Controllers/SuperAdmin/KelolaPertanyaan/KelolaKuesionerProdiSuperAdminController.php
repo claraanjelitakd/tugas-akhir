@@ -8,16 +8,12 @@ use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Prodi;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiQuestionOption;
-use App\Models\ProdiQuestionSection;
 use App\Models\User;
 use App\Services\Kuesioner\QuestionDefaultOptionsService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -107,38 +103,17 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
                 ->get()
             : collect();
 
-        // Jika belum ada section di kuesioner_section, sinkronkan dari legacy atau buatkan default
+        // Jika belum ada section di kuesioner_section, buatkan default
         if ($selectedProdiId && $rawSections->isEmpty()) {
-            $legacySections = Schema::hasTable('prodi_question_section')
-                ? ProdiQuestionSection::where('prodi_id', $selectedProdiId)->orderBy('order')->get()
-                : collect();
-            if ($legacySections->isNotEmpty()) {
-                foreach ($legacySections as $legSec) {
-                    KuesionerSection::firstOrCreate(
-                        [
-                            'target' => 'prodi',
-                            'prodi_id' => $selectedProdiId,
-                            'judul' => $legSec->title,
-                        ],
-                        [
-                            'kode_section' => 'PRODI_'.$selectedProdiId.'_'.Str::upper(Str::slug(Str::limit($legSec->title, 15, ''))),
-                            'deskripsi' => $legSec->description,
-                            'order' => $legSec->order,
-                            'is_active' => true,
-                        ]
-                    );
-                }
-            } else {
-                KuesionerSection::create([
-                    'target' => 'prodi',
-                    'prodi_id' => $selectedProdiId,
-                    'kode_section' => 'PRODI_'.$selectedProdiId.'_SEC1',
-                    'judul' => 'Bagian Evaluasi & Relevansi Program Studi',
-                    'deskripsi' => 'Kelompok pertanyaan kuesioner khusus Program Studi '.$selectedProdi->nama_prodi,
-                    'order' => 1,
-                    'is_active' => true,
-                ]);
-            }
+            KuesionerSection::create([
+                'target' => 'prodi',
+                'prodi_id' => $selectedProdiId,
+                'kode_section' => 'PRODI_'.$selectedProdiId.'_SEC1',
+                'judul' => 'Bagian Evaluasi & Relevansi Program Studi',
+                'deskripsi' => 'Kelompok pertanyaan kuesioner khusus Program Studi '.($selectedProdi?->nama_prodi ?? ''),
+                'order' => 1,
+                'is_active' => true,
+            ]);
 
             $rawSections = KuesionerSection::where('target', 'prodi')
                 ->where('prodi_id', $selectedProdiId)
@@ -318,16 +293,6 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             'is_active' => true,
         ]);
 
-        // Simpan mirror ke tabel legacy prodi_question_section jika ada
-        if (Schema::hasTable('prodi_question_section')) {
-            ProdiQuestionSection::create([
-                'prodi_id' => $prodiId,
-                'title' => $validated['title'],
-                'description' => $validated['description'] ?? null,
-                'order' => $validated['order'],
-            ]);
-        }
-
         return redirect()->back()->with('success', 'Bagian (section) kuesioner prodi berhasil ditambahkan.');
     }
 
@@ -338,17 +303,8 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
     {
         $user = Auth::user();
 
-        $legacySec = Schema::hasTable('prodi_question_section') ? ProdiQuestionSection::find($id) : null;
-        if ($legacySec) {
-            $this->ensureProdiAccess($user, (int) $legacySec->prodi_id);
-        }
-
-        $section = KuesionerSection::find($id);
-        if ($section) {
-            $this->ensureProdiAccess($user, (int) $section->prodi_id);
-        }
-
-        abort_if(! $legacySec && ! $section, 404);
+        $section = KuesionerSection::findOrFail($id);
+        $this->ensureProdiAccess($user, (int) $section->prodi_id);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -356,29 +312,11 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             'order' => 'nullable|integer',
         ]);
 
-        if ($section) {
-            $oldTitle = $section->judul;
-
-            $section->update([
-                'judul' => $validated['title'],
-                'deskripsi' => $validated['description'] ?? null,
-                'order' => $validated['order'] ?? $section->order,
-            ]);
-
-            // Mirror ke legacy jika tabel ada
-            if (Schema::hasTable('prodi_question_section')) {
-                ProdiQuestionSection::where('prodi_id', $section->prodi_id)
-                    ->where('title', $oldTitle)
-                    ->update([
-                        'title' => $validated['title'],
-                        'description' => $validated['description'] ?? null,
-                    ]);
-            }
-        }
-
-        if ($legacySec && $legacySec->exists) {
-            $legacySec->update($validated);
-        }
+        $section->update([
+            'judul' => $validated['title'],
+            'deskripsi' => $validated['description'] ?? null,
+            'order' => $validated['order'] ?? $section->order,
+        ]);
 
         return redirect()->back()->with('success', 'Bagian (section) kuesioner prodi berhasil diperbarui.');
     }
@@ -390,37 +328,12 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
     {
         $user = Auth::user();
 
-        $legacySec = Schema::hasTable('prodi_question_section') ? ProdiQuestionSection::find($id) : null;
-        if ($legacySec) {
-            $this->ensureProdiAccess($user, (int) $legacySec->prodi_id);
-        }
+        $section = KuesionerSection::with('sectionPertanyaan')->findOrFail($id);
+        $this->ensureProdiAccess($user, (int) $section->prodi_id);
 
-        $section = KuesionerSection::with('sectionPertanyaan')->find($id);
-        if ($section) {
-            $this->ensureProdiAccess($user, (int) $section->prodi_id);
-        }
-
-        abort_if(! $legacySec && ! $section, 404);
-
-        if ($section) {
-            $title = $section->judul;
-            $prodiId = $section->prodi_id;
-
-            // Hapus pivot penempatan di section ini
-            $section->sectionPertanyaan()->delete();
-            $section->delete();
-
-            // Mirror hapus ke legacy jika tabel ada
-            if (Schema::hasTable('prodi_question_section')) {
-                ProdiQuestionSection::where('prodi_id', $prodiId)
-                    ->where('title', $title)
-                    ->delete();
-            }
-        }
-
-        if ($legacySec && $legacySec->exists) {
-            $legacySec->delete();
-        }
+        // Hapus pivot penempatan di section ini
+        $section->sectionPertanyaan()->delete();
+        $section->delete();
 
         return redirect()->back()->with('success', 'Bagian (section) kuesioner prodi berhasil dihapus.');
     }
@@ -513,30 +426,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
 
         // Resolusi Bagian (Section) Terpadu
         $rawSectionId = $validated['prodi_question_section_id'] ?? null;
-        $unifiedSection = null;
-
-        if ($rawSectionId) {
-            $unifiedSection = KuesionerSection::find($rawSectionId);
-            if (! $unifiedSection && Schema::hasTable('prodi_question_section')) {
-                // Dukungan adaptif jika yang dikirim adalah ID legacy ProdiQuestionSection
-                $legacySec = ProdiQuestionSection::find($rawSectionId);
-                if ($legacySec) {
-                    $unifiedSection = KuesionerSection::firstOrCreate(
-                        [
-                            'target' => 'prodi',
-                            'prodi_id' => $legacySec->prodi_id,
-                            'judul' => $legacySec->title,
-                        ],
-                        [
-                            'kode_section' => 'PRODI_'.$legacySec->prodi_id.'_'.Str::upper(Str::slug(Str::limit($legacySec->title, 15, ''))),
-                            'deskripsi' => $legacySec->description,
-                            'order' => $legacySec->order,
-                            'is_active' => true,
-                        ]
-                    );
-                }
-            }
-        }
+        $unifiedSection = $rawSectionId ? KuesionerSection::find($rawSectionId) : null;
 
         if (! $unifiedSection) {
             $unifiedSection = KuesionerSection::where('target', 'prodi')
@@ -636,47 +526,6 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             QuestionDefaultOptionsService::generateForUnifiedQuestion($master);
         }
 
-        // Mirror ke tabel legacy prodi_question jika tabel legacy masih aktif
-        if (Schema::hasTable('prodi_question') && Schema::hasTable('prodi_question_section')) {
-            $legacySection = is_numeric($rawSectionId) && ProdiQuestionSection::whereKey($rawSectionId)->exists()
-                ? ProdiQuestionSection::find($rawSectionId)
-                : ProdiQuestionSection::firstOrCreate(
-                    ['prodi_id' => $prodiId],
-                    ['title' => $unifiedSection->judul, 'order' => 1]
-                );
-
-            $prodiQ = ProdiQuestion::updateOrCreate(
-                [
-                    'prodi_id' => $prodiId,
-                    'code' => $master->kode_pertanyaan,
-                ],
-                [
-                    'prodi_question_section_id' => $legacySection->id,
-                    'question_text' => $master->teks_pertanyaan,
-                    'type' => $master->tipe,
-                    'is_required' => $request->boolean('is_required', true),
-                    'order' => $order,
-                ]
-            );
-
-            // Mirror opsi legacy
-            if (Schema::hasTable('prodi_question_option')) {
-                foreach ($master->opsi as $idx => $opt) {
-                    ProdiQuestionOption::updateOrCreate(
-                        [
-                            'prodi_question_id' => $prodiQ->id,
-                            'code' => $master->kode_pertanyaan.'-'.str_pad((string) ($idx + 1), 2, '0', STR_PAD_LEFT),
-                        ],
-                        [
-                            'option_text' => $opt->label,
-                            'score' => $opt->nilai_skor,
-                            'order' => $opt->order ?: ($idx + 1),
-                        ]
-                    );
-                }
-            }
-        }
-
         return redirect()->back()->with('success', 'Pertanyaan kuesioner prodi berhasil ditambahkan ke Bank Soal dan disematkan ke bagian tujuan.');
     }
 
@@ -751,15 +600,6 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             }
         }
 
-        // Mirror update ke legacy jika tabel ada
-        if (Schema::hasTable('prodi_question')) {
-            ProdiQuestion::where('code', $master->kode_pertanyaan)->update([
-                'question_text' => $master->teks_pertanyaan,
-                'type' => $master->tipe,
-                'is_required' => $request->boolean('is_required', true),
-            ]);
-        }
-
         return redirect()->back()->with('success', 'Pertanyaan kuesioner prodi berhasil diperbarui.');
     }
 
@@ -777,17 +617,6 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
         if ($master->jawaban()->count() === 0) {
             $master->opsi()->delete();
             $master->delete();
-        }
-
-        // Mirror hapus ke legacy jika tabel ada
-        if (Schema::hasTable('prodi_question')) {
-            $legacy = ProdiQuestion::where('code', $master->kode_pertanyaan)->first();
-            if ($legacy) {
-                if (Schema::hasTable('prodi_question_option')) {
-                    $legacy->options()->delete();
-                }
-                $legacy->delete();
-            }
         }
 
         return redirect()->back()->with('success', 'Pertanyaan kuesioner berhasil dihapus dari instrumen.');
@@ -862,21 +691,6 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             'order' => $validated['order'],
         ]);
 
-        // Mirror ke legacy jika tabel ada
-        if (Schema::hasTable('prodi_question') && Schema::hasTable('prodi_question_option')) {
-            $legacyQ = ProdiQuestion::where('code', $master->kode_pertanyaan)->first();
-            if ($legacyQ) {
-                ProdiQuestionOption::create([
-                    'prodi_question_id' => $legacyQ->id,
-                    'code' => $validated['code'] ?: ($master->kode_pertanyaan.'-'.str_pad((string) $opt->order, 2, '0', STR_PAD_LEFT)),
-                    'option_text' => $opt->label,
-                    'score' => $opt->nilai_skor,
-                    'jump_to' => $opt->lompat_ke_pertanyaan_id,
-                    'order' => $opt->order,
-                ]);
-            }
-        }
-
         return redirect()->back()->with('success', 'Opsi jawaban kuesioner berhasil ditambahkan.');
     }
 
@@ -894,28 +708,12 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             'order' => 'nullable|integer',
         ]);
 
-        $oldLabel = $option->label;
-
         $option->update([
             'label' => trim($validated['option_text']),
             'nilai_skor' => is_numeric($validated['value']) ? (int) $validated['value'] : null,
             'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?: null,
             'order' => $validated['order'] ?? $option->order,
         ]);
-
-        // Mirror ke legacy jika tabel ada
-        if (Schema::hasTable('prodi_question') && Schema::hasTable('prodi_question_option')) {
-            $legacyQ = ProdiQuestion::where('code', $option->pertanyaan->kode_pertanyaan)->first();
-            if ($legacyQ) {
-                ProdiQuestionOption::where('prodi_question_id', $legacyQ->id)
-                    ->where('option_text', $oldLabel)
-                    ->update([
-                        'option_text' => $option->label,
-                        'score' => $option->nilai_skor,
-                        'jump_to' => $option->lompat_ke_pertanyaan_id,
-                    ]);
-            }
-        }
 
         return redirect()->back()->with('success', 'Opsi jawaban kuesioner berhasil diperbarui.');
     }
@@ -926,20 +724,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
     public function destroyOption(int $id): RedirectResponse
     {
         $option = KuesionerOpsi::with('pertanyaan')->findOrFail($id);
-        $oldLabel = $option->label;
-        $qCode = $option->pertanyaan->kode_pertanyaan;
-
         $option->delete();
-
-        // Mirror ke legacy jika tabel ada
-        if (Schema::hasTable('prodi_question') && Schema::hasTable('prodi_question_option')) {
-            $legacyQ = ProdiQuestion::where('code', $qCode)->first();
-            if ($legacyQ) {
-                ProdiQuestionOption::where('prodi_question_id', $legacyQ->id)
-                    ->where('option_text', $oldLabel)
-                    ->delete();
-            }
-        }
 
         return redirect()->back()->with('success', 'Opsi jawaban kuesioner berhasil dihapus.');
     }
@@ -986,41 +771,6 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
 
             if ($created->wasRecentlyCreated) {
                 $addedCount++;
-            }
-
-            // Mirror ke legacy prodi_question jika tabel masih aktif
-            if (Schema::hasTable('prodi_question')) {
-                $existingLegacy = ProdiQuestion::where('prodi_id', $prodiId)
-                    ->where('code', $bankQuestion->kode_pertanyaan)
-                    ->first();
-
-                if (! $existingLegacy && Schema::hasTable('prodi_question_section')) {
-                    $legacySec = ProdiQuestionSection::firstOrCreate(
-                        ['prodi_id' => $prodiId],
-                        ['title' => 'Bagian Kuesioner Program Studi', 'order' => 1]
-                    );
-                    $prodiQ = ProdiQuestion::create([
-                        'prodi_id' => $prodiId,
-                        'prodi_question_section_id' => $legacySec->id,
-                        'code' => $bankQuestion->kode_pertanyaan,
-                        'question_text' => $bankQuestion->teks_pertanyaan,
-                        'type' => $bankQuestion->tipe,
-                        'is_required' => true,
-                        'order' => $maxOrder,
-                    ]);
-
-                    if (Schema::hasTable('prodi_question_option')) {
-                        foreach ($bankQuestion->opsi as $idx => $opt) {
-                            ProdiQuestionOption::create([
-                                'prodi_question_id' => $prodiQ->id,
-                                'code' => $bankQuestion->kode_pertanyaan.'-'.str_pad((string) ($idx + 1), 2, '0', STR_PAD_LEFT),
-                                'option_text' => $opt->label,
-                                'score' => $opt->nilai_skor,
-                                'order' => (int) ($opt->order ?: ($idx + 1)),
-                            ]);
-                        }
-                    }
-                }
             }
         }
 

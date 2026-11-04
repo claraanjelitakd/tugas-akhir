@@ -62,16 +62,16 @@ Nama proses menyatakan pekerjaan; nama entitas, simpanan, dan panah menyatakan d
 | D1 | Akun dan Pemulihan Sandi | `users, password_reset_tokens` |
 | D2 | Profil Alumni dan Atasan | `biodata, atasan` |
 | D3 | Perusahaan | `perusahaan` |
-| D4 | Instrumen Universitas | `kuesioner, kelompok_pertanyaan, ref_subpertanyaan2021, ref_subpertanyaan_detil` |
-| D5 | Jawaban Universitas | `tracer` |
-| D6 | Instrumen Program Studi | `prodi_question_section, prodi_question, prodi_question_option` |
-| D7 | Jawaban Program Studi | `prodi_response` |
-| D8 | Instrumen Evaluasi Atasan | `pertanyaan_evaluasi_atasan` |
-| D9 | Undangan dan Jawaban Evaluasi | `evaluasi_atasan, respon_evaluasi_atasan` |
-| D10 | Hasil dan Peninjauan LinkedIn | `linkedin_sync_results` |
-| D11 | Catatan Aktivitas | `log_activities` |
-| D12 | Referensi Akademik dan Kelulusan | `data_akademik, yudisium` |
-| D13 | Referensi Organisasi dan Wilayah | `prodi, ref_fakultas, propinsi, kabupaten, ref_negara, ump` |
+| D4 | Instrumen Survei Terpadu (Univ, Prodi, Atasan) | `kuesioner, kuesioner_section, kuesioner_pertanyaan, kuesioner_section_pertanyaan, kuesioner_opsi` |
+| D5 | Transaksi Jawaban Survei Terpadu | `kuesioner_jawaban` |
+| D6 | Undangan dan Sesi Evaluasi Atasan | `evaluasi_atasan` |
+
+
+
+| D7 | Hasil dan Peninjauan LinkedIn | `linkedin_sync_results` |
+| D8 | Catatan Aktivitas | `log_activities` |
+| D9 | Referensi Akademik dan Kelulusan | `data_akademik, yudisium` |
+| D10 | Referensi Organisasi dan Wilayah | `prodi, ref_fakultas, propinsi, kabupaten, ref_negara, ump` |
 
 D11 menunjukkan catatan pada operasi yang memang direkam kode; diagram tidak menyatakan semua pembacaan atau semua login pasti dicatat. D13 memuat referensi yang sudah tersedia; superadmin mengelola wilayah dan UMP, bukan berarti seluruh referensi punya CRUD web.
 

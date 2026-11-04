@@ -199,7 +199,7 @@ const handleLogout = () => {
                     >
                         <div
                             v-if="isDropdownOpen"
-                            class="absolute right-0 top-full z-50 mt-2 w-[min(15rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] origin-top-right rounded-2xl border border-slate-200 bg-white py-2 shadow-lg ring-1 ring-black/5"
+                            class="absolute right-0 top-full z-[60] mt-2 w-[min(15rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] origin-top-right rounded-2xl border border-slate-200 bg-white py-2 shadow-lg ring-1 ring-black/5"
                         >
                             <!-- Informasi Nama & NIM Alumni -->
                             <div class="border-b border-slate-100 px-4 py-3">

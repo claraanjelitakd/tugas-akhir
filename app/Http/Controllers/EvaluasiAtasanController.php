@@ -10,7 +10,6 @@ use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
-use App\Models\PertanyaanEvaluasiAtasan;
 use App\Models\Perusahaan;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\Request;
@@ -176,7 +175,7 @@ class EvaluasiAtasanController extends Controller
             'token' => $token,
             'evaluasi' => $evaluasi,
             'pertanyaanList' => $pertanyaanList,
-            'sections' => ! empty($sections) ? $sections : PertanyaanEvaluasiAtasan::STEPPER_SECTIONS,
+            'sections' => ! empty($sections) ? $sections : EvaluasiAtasan::STEPPER_SECTIONS,
             'existingResponses' => $existingResponses,
             'existingCatatan' => $existingCatatan,
             'alumniInfo' => [
@@ -412,7 +411,9 @@ class EvaluasiAtasanController extends Controller
                         ],
                         [
                             'section_id' => $atasanSection?->id ?: 1,
+                            'kode_pertanyaan' => $pertanyaan->kode_pertanyaan,
                             'opsi_id' => $opsi?->id,
+                            'kode_opsi' => $opsi?->kode_opsi,
                             'jawaban_teks' => $value,
                             'jawaban_json' => ! empty($validated['catatan_lainnya']) ? ['catatan' => $validated['catatan_lainnya']] : null,
                         ]

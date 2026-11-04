@@ -7,85 +7,89 @@ use App\Models\KuesionerJawaban;
 use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiResponse;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\RefSubpertanyaanDetil;
-use App\Models\Tracer;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * KuesionerSyncService
  *
  * Fungsi: Menyinkronkan data profil biodata alumni (Data Akademik, Akun User, Perusahaan, dan Atasan)
- * secara otomatis ke tabel `tracer` untuk kelompok instrumen F1 s/d F2H, F5B..F5D, F510, dan BIO_*.
+ * secara otomatis ke tabel `kuesioner_jawaban` untuk butir instrumen profil kanonik.
  */
 class KuesionerSyncService
 {
     /**
      * Ambil pertanyaan tambahan yang ditandai tampil pada halaman profil.
-     * Pertanyaan profil bawaan dikeluarkan agar tidak tampil dua kali pada form khusus.
      *
-     * @return Collection<int, RefSubpertanyaan2021>
+     * @return Collection<int, KuesionerPertanyaan>
      */
     public static function getDynamicProfileQuestions(): Collection
     {
-        if (! Schema::hasTable('ref_subpertanyaan2021')) {
-            return collect();
-        }
-
         $profileCodes = array_merge(
             array_map('strtoupper', KelengkapanTracerService::PROFILE_MANAGED_CODES),
             ['BIO_BIDANG_DIVISI']
         );
 
-        return RefSubpertanyaan2021::query()
-            ->whereIn('tampil_di', ['profil', 'profile', 'both'])
-            ->whereNotIn(DB::raw('UPPER(kode_pertanyaan)'), $profileCodes)
-            ->where('type', '!=', 'header')
-            ->with('detils')
-            ->orderBy('order')
-            ->orderBy('id')
+        return KuesionerPertanyaan::query()
+            ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'kuesioner_pertanyaan.id')
+            ->whereIn('sp.tampil_di', ['profil', 'profile', 'both'])
+            ->whereNotIn(DB::raw('UPPER(kuesioner_pertanyaan.kode_pertanyaan)'), $profileCodes)
+            ->where('kuesioner_pertanyaan.tipe', '!=', 'header')
+            ->where('kuesioner_pertanyaan.is_active', true)
+            ->with('opsi')
+            ->select('kuesioner_pertanyaan.*', 'sp.wajib as pivot_wajib')
+            ->orderBy('sp.order')
+            ->orderBy('kuesioner_pertanyaan.id')
             ->get();
     }
 
     /**
      * Bentuk jawaban tambahan profil yang sudah tersimpan agar dapat dipakai kembali oleh Vue.
      *
-     * @param  Collection<int, RefSubpertanyaan2021>  $questions
+     * @param  Collection<int, KuesionerPertanyaan>  $questions
      * @return array{answers: array<int, string>, custom: array<int, string>}
      */
     public static function getDynamicProfileAnswers(Biodata $biodata, Collection $questions): array
     {
-        $questionIds = $questions->modelKeys();
-        if ($questionIds === []) {
+        if ($questions->isEmpty()) {
             return ['answers' => [], 'custom' => []];
         }
 
-        $responses = $biodata->tracer()
-            ->whereIn('question_id', $questionIds)
+        $responses = KuesionerJawaban::where('biodata_id', $biodata->id)
+            ->whereIn('pertanyaan_id', $questions->pluck('id')->all())
             ->get()
-            ->keyBy('question_id');
+            ->keyBy('pertanyaan_id');
 
         $answers = [];
         $custom = [];
 
-        foreach ($responses as $response) {
-            $json = is_array($response->answer_json) ? $response->answer_json : [];
-            $selected = $json['selected'] ?? $json['pilihan'] ?? null;
-            $customText = $json['input'] ?? $json['text'] ?? null;
-            $answerText = (string) ($response->answer ?? '');
-
-            if ($selected === null && str_starts_with($answerText, 'Lainnya: ')) {
-                $selected = 'Lainnya';
-                $customText = trim(substr($answerText, 9));
+        foreach ($questions as $question) {
+            $resp = $responses->get($question->id);
+            if (! $resp) {
+                continue;
             }
 
-            $answers[(int) $response->question_id] = (string) ($selected ?? $answerText);
-            if ($customText !== null && trim((string) $customText) !== '') {
-                $custom[(int) $response->question_id] = trim((string) $customText);
+            $rawText = $resp->jawaban_teks;
+            $rawJson = $resp->jawaban_json;
+
+            if (is_array($rawJson) && isset($rawJson['selected'])) {
+                $answers[$question->id] = (string) $rawJson['selected'];
+                if (isset($rawJson['input'])) {
+                    $custom[$question->id] = (string) $rawJson['input'];
+                }
+
+                continue;
+            }
+
+            if ($rawText !== null && str_starts_with((string) $rawText, 'Lainnya: ')) {
+                $answers[$question->id] = 'Lainnya';
+                $custom[$question->id] = trim(substr((string) $rawText, 9));
+
+                continue;
+            }
+
+            if ($rawText !== null) {
+                $answers[$question->id] = (string) $rawText;
             }
         }
 
@@ -93,8 +97,7 @@ class KuesionerSyncService
     }
 
     /**
-     * Simpan jawaban pertanyaan tambahan profil ke tabel tracer.
-     * Hanya pertanyaan yang memang ditandai untuk profil yang boleh diproses.
+     * Menyimpan respon pertanyaan dinamis tambahan profil ke tabel kuesioner_jawaban.
      *
      * @param  array<int|string, mixed>  $answers
      * @param  array<int|string, mixed>  $customAnswers
@@ -111,6 +114,8 @@ class KuesionerSyncService
         }
 
         $questions = self::getDynamicProfileQuestions()->whereIn('id', $questionIds)->keyBy('id');
+        $univSection = KuesionerSection::where('target', 'univ')->first();
+        $univSectionId = $univSection?->id ?: 1;
 
         foreach ($questionIds as $questionId) {
             $question = $questions->get($questionId);
@@ -123,24 +128,32 @@ class KuesionerSyncService
             [$answerText, $answerJson] = self::normalizeDynamicProfileAnswer($question, $rawAnswer, $customText);
 
             if ($answerText === null && $answerJson === null) {
-                Tracer::where('biodata_id', $biodata->id)
-                    ->where('question_id', $question->id)
+                KuesionerJawaban::where('biodata_id', $biodata->id)
+                    ->where('pertanyaan_id', $question->id)
                     ->delete();
 
                 continue;
             }
 
-            Tracer::updateOrCreate(
-                ['biodata_id' => $biodata->id, 'question_id' => $question->id],
+            $opsi = null;
+            if ($answerText !== null && $question->opsi->isNotEmpty()) {
+                $opsi = $question->opsi->first(fn ($o) => $o->label === $answerText || $o->kode_opsi === $answerText);
+            }
+
+            KuesionerJawaban::updateOrCreate(
                 [
-                    'nim' => $biodata->nim,
-                    'kelompok' => $question->kelompok,
+                    'responden_type' => 'alumni',
+                    'biodata_id' => $biodata->id,
+                    'pertanyaan_id' => $question->id,
+                ],
+                [
+                    'evaluasi_atasan_id' => null,
+                    'section_id' => $univSectionId,
                     'kode_pertanyaan' => $question->kode_pertanyaan,
-                    'subpertanyaan' => $question->subpertanyaan,
-                    'answer' => $answerText,
-                    'answer_json' => $answerJson,
-                    'keterangan' => $question->keterangan,
-                    'tahun_lulus' => $biodata->tahun_lulus ?? $biodata->dataAkademik?->tahun_lulus,
+                    'opsi_id' => $opsi?->id,
+                    'kode_opsi' => $opsi?->kode_opsi,
+                    'jawaban_teks' => $answerText,
+                    'jawaban_json' => $answerJson,
                 ]
             );
         }
@@ -149,7 +162,7 @@ class KuesionerSyncService
     /**
      * @return array{0: string|null, 1: array<string, mixed>|null}
      */
-    private static function normalizeDynamicProfileAnswer(RefSubpertanyaan2021 $question, mixed $rawAnswer, mixed $customText): array
+    private static function normalizeDynamicProfileAnswer(KuesionerPertanyaan $question, mixed $rawAnswer, mixed $customText): array
     {
         $selected = is_array($rawAnswer)
             ? ($rawAnswer['selected'] ?? $rawAnswer['pilihan'] ?? $rawAnswer['value'] ?? null)
@@ -163,9 +176,9 @@ class KuesionerSyncService
             return [null, null];
         }
 
-        if ($question->detils->isNotEmpty()) {
-            $selectedOption = $question->detils->first(function (RefSubpertanyaanDetil $option) use ($selectedText): bool {
-                return mb_strtolower(trim((string) $option->option_text)) === mb_strtolower($selectedText)
+        if ($question->opsi->isNotEmpty()) {
+            $selectedOption = $question->opsi->first(function (KuesionerOpsi $option) use ($selectedText): bool {
+                return mb_strtolower(trim((string) $option->label)) === mb_strtolower($selectedText)
                     || mb_strtolower(trim((string) $option->kode_opsi)) === mb_strtolower($selectedText);
             });
 
@@ -173,7 +186,7 @@ class KuesionerSyncService
                 return [null, null];
             }
 
-            $selectedText = (string) $selectedOption->option_text;
+            $selectedText = (string) $selectedOption->label;
         }
 
         $customText = trim(self::toAnswerString($custom));
@@ -192,7 +205,7 @@ class KuesionerSyncService
 
         return [
             $selectedText,
-            $question->detils->isNotEmpty() ? ['selected' => $selectedText, 'input' => ''] : null,
+            $question->opsi->isNotEmpty() ? ['selected' => $selectedText, 'input' => ''] : null,
         ];
     }
 
@@ -211,7 +224,7 @@ class KuesionerSyncService
     }
 
     /**
-     * Menyinkronkan data profil biodata alumni ke tabel tracer untuk pertanyaan identitas dan pekerjaan.
+     * Menyinkronkan data profil biodata alumni ke tabel kuesioner_jawaban untuk pertanyaan identitas dan pekerjaan.
      *
      * @param  Biodata  $biodata  Model biodata yang akan disinkronkan datanya.
      */
@@ -222,32 +235,28 @@ class KuesionerSyncService
             ->where('biodata_id', $biodata->id)
             ->first();
 
-        if (! $autofill || ! Schema::hasTable('ref_subpertanyaan2021') || ! Schema::hasTable('tracer')) {
+        if (! $autofill) {
             return;
         }
 
-        $tahunLulus = $biodata->tahun_lulus ?? ($biodata->dataAkademik?->tahun_lulus ? (string) $biodata->dataAkademik->tahun_lulus : null);
         $profileMap = (array) $autofill;
-
-        // Alias singkat digunakan sebagai kode master agar tetap muat di varchar(20).
         $profileMap['BIO_PEND_TINGKAT'] = $biodata->pendidikan_tingkat;
 
-        // Hilangkan kolom non-pertanyaan
         unset($profileMap['user_id'], $profileMap['biodata_id'], $profileMap['nim']);
 
         $profileCodesUpper = array_map('strtoupper', KelengkapanTracerService::PROFILE_MANAGED_CODES);
+        $univSection = KuesionerSection::where('target', 'univ')->first();
+        $univSectionId = $univSection?->id ?: 1;
 
         foreach ($profileMap as $code => $val) {
             $codeUpper = strtoupper($code);
 
-            // F505 selalu mengikuti nominal pada biodata.gaji sebagai sumber tunggal.
-            // Nilai dari view hanya digunakan untuk pemetaan profil lainnya.
             if ($codeUpper === 'F505') {
                 $val = $biodata->gaji;
             }
 
-            $question = RefSubpertanyaan2021::whereRaw('UPPER(kode_pertanyaan) = ?', [$codeUpper])
-                ->with('detils')
+            $question = KuesionerPertanyaan::whereRaw('UPPER(kode_pertanyaan) = ?', [$codeUpper])
+                ->with('opsi')
                 ->first();
 
             if (! $question) {
@@ -255,13 +264,9 @@ class KuesionerSyncService
             }
 
             if ($val === null || trim((string) $val) === '') {
-                // Hanya hapus baris tracer jika kolom ini memang bagian kelola profil (PROFILE_MANAGED_CODES)
                 if (in_array($codeUpper, $profileCodesUpper)) {
-                    Tracer::where('biodata_id', $biodata->id)
-                        ->where(function ($q) use ($question) {
-                            $q->where('question_id', $question->id)
-                                ->orWhere('kode_pertanyaan', $question->kode_pertanyaan);
-                        })
+                    KuesionerJawaban::where('biodata_id', $biodata->id)
+                        ->where('pertanyaan_id', $question->id)
                         ->delete();
                 }
             } else {
@@ -272,10 +277,9 @@ class KuesionerSyncService
                     $answerString = (string) $intGaji;
                     $answerJson = ['F5051' => (string) $intGaji, 'total' => $intGaji];
                 } elseif ($codeUpper === 'F8') {
-                    // Normalisasikan ke teks opsi resmi F8 di ref_subpertanyaan_detil agar selalu cocok dengan pilihan radio button di frontend
                     $vStr = strtolower(trim((string) $val));
-                    $matchedOpt = $question->detils->first(function ($opt) use ($vStr) {
-                        $optText = strtolower(trim((string) $opt->option_text));
+                    $matchedOpt = $question->opsi->first(function ($opt) use ($vStr) {
+                        $optText = strtolower(trim((string) $opt->label));
 
                         return $vStr === $optText
                             || ($vStr === 'pekerja' && str_contains($optText, 'bekerja'))
@@ -289,55 +293,31 @@ class KuesionerSyncService
                     });
 
                     if ($matchedOpt) {
-                        $answerString = $matchedOpt->option_text;
+                        $answerString = $matchedOpt->label;
                     }
                 }
 
-                // Hapus baris dengan kode_pertanyaan sama tetapi id pertanyaan berbeda jika ada
-                Tracer::where('biodata_id', $biodata->id)
-                    ->where('kode_pertanyaan', $question->kode_pertanyaan)
-                    ->where('question_id', '!=', $question->id)
-                    ->delete();
+                $opsi = null;
+                if (! empty($answerString)) {
+                    $opsi = $question->opsi->first(fn ($o) => $o->label === $answerString || $o->kode_opsi === $answerString);
+                }
 
-                Tracer::updateOrCreate(
-                    ['biodata_id' => $biodata->id, 'question_id' => $question->id],
+                KuesionerJawaban::updateOrCreate(
                     [
-                        'nim' => $biodata->nim,
-                        'kelompok' => $question->kelompok,
+                        'responden_type' => 'alumni',
+                        'biodata_id' => $biodata->id,
+                        'pertanyaan_id' => $question->id,
+                    ],
+                    [
+                        'evaluasi_atasan_id' => null,
+                        'section_id' => $univSectionId,
                         'kode_pertanyaan' => $question->kode_pertanyaan,
-                        'subpertanyaan' => $question->subpertanyaan,
-                        'answer' => $answerString,
-                        'answer_json' => $answerJson,
-                        'keterangan' => $question->keterangan,
-                        'tahun_lulus' => $tahunLulus,
+                        'opsi_id' => $opsi?->id,
+                        'kode_opsi' => $opsi?->kode_opsi,
+                        'jawaban_teks' => $answerString,
+                        'jawaban_json' => $answerJson,
                     ]
                 );
-
-                // Sinkronisasi ke kuesioner_jawaban terpadu
-                $unifiedPertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', $question->kode_pertanyaan)->first();
-                if ($unifiedPertanyaan) {
-                    $univSection = KuesionerSection::where('target', 'univ')->first();
-                    $opsi = null;
-                    if (! empty($answerString)) {
-                        $opsi = KuesionerOpsi::where('pertanyaan_id', $unifiedPertanyaan->id)
-                            ->where('label', $answerString)
-                            ->first();
-                    }
-
-                    KuesionerJawaban::updateOrCreate(
-                        [
-                            'responden_type' => 'alumni',
-                            'biodata_id' => $biodata->id,
-                            'pertanyaan_id' => $unifiedPertanyaan->id,
-                        ],
-                        [
-                            'section_id' => $univSection?->id ?: 1,
-                            'opsi_id' => $opsi?->id,
-                            'jawaban_teks' => $answerString,
-                            'jawaban_json' => $answerJson,
-                        ]
-                    );
-                }
             }
         }
 
@@ -347,7 +327,7 @@ class KuesionerSyncService
 
     /**
      * Menyinkronkan data akademik alumni (Nama, NIM, Tahun Kelulusan)
-     * secara otomatis ke tabel `prodi_response`.
+     * secara otomatis ke tabel `kuesioner_jawaban` untuk pertanyaan kuesioner prodi.
      */
     public static function syncProdiResponses(Biodata $biodata): void
     {
@@ -355,7 +335,10 @@ class KuesionerSyncService
             return;
         }
 
-        $prodiQuestions = ProdiQuestion::where('prodi_id', $biodata->prodi_id)->get();
+        $prodiQuestions = KuesionerPertanyaan::where('pemilik_prodi_id', $biodata->prodi_id)
+            ->where('is_active', true)
+            ->get();
+
         if ($prodiQuestions->isEmpty()) {
             return;
         }
@@ -370,40 +353,34 @@ class KuesionerSyncService
             'tahun kelulusan' => $tahunLulus ? (string) $tahunLulus : null,
         ];
 
+        $sec = KuesionerSection::where('target', 'prodi')
+            ->where('prodi_id', $biodata->prodi_id)
+            ->first();
+        $secId = $sec?->id ?: 1;
+
         foreach ($prodiSyncMap as $textKey => $val) {
             if ($val === null || trim((string) $val) === '') {
                 continue;
             }
 
-            $pQ = $prodiQuestions->first(fn ($q) => strtolower(trim((string) $q->question_text)) === $textKey);
+            $pQ = $prodiQuestions->first(fn ($q) => strtolower(trim((string) $q->teks_pertanyaan)) === $textKey);
             if ($pQ) {
-                ProdiResponse::updateOrCreate(
-                    ['biodata_id' => $biodata->id, 'prodi_question_id' => $pQ->id],
+                KuesionerJawaban::updateOrCreate(
                     [
-                        'answer_text' => (string) $val,
-                        'answer_json' => null,
+                        'responden_type' => 'alumni',
+                        'biodata_id' => $biodata->id,
+                        'pertanyaan_id' => $pQ->id,
+                    ],
+                    [
+                        'evaluasi_atasan_id' => null,
+                        'section_id' => $secId,
+                        'kode_pertanyaan' => $pQ->kode_pertanyaan,
+                        'opsi_id' => null,
+                        'kode_opsi' => null,
+                        'jawaban_teks' => (string) $val,
+                        'jawaban_json' => null,
                     ]
                 );
-
-                // Sinkronisasi ke kuesioner_jawaban terpadu
-                $unifiedPertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', $pQ->code)->first();
-                if ($unifiedPertanyaan) {
-                    $sec = KuesionerSection::where('target', 'prodi')
-                        ->where('prodi_id', $biodata->prodi_id)
-                        ->first();
-
-                    KuesionerJawaban::updateOrCreate(
-                        [
-                            'responden_type' => 'alumni',
-                            'biodata_id' => $biodata->id,
-                            'pertanyaan_id' => $unifiedPertanyaan->id,
-                        ],
-                        [
-                            'section_id' => $sec?->id ?: 1,
-                            'jawaban_teks' => (string) $val,
-                        ]
-                    );
-                }
             }
         }
     }

@@ -33,7 +33,7 @@ defineProps({
             <div class="absolute inset-0 bg-[#f7f8f6]/45"></div>
         </div>
 
-        <div class="relative z-30">
+        <div class="relative z-50">
             <Navbar :user="user" />
         </div>
 

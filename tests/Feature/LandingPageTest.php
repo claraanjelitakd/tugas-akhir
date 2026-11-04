@@ -32,4 +32,3 @@ class LandingPageTest extends TestCase
         );
     }
 }
-

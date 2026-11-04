@@ -5,11 +5,11 @@ namespace Database\Seeders;
 use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\Kabupaten;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\Perusahaan;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiResponse;
 use App\Models\Propinsi;
-use App\Models\RefSubpertanyaan2021;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -105,7 +105,7 @@ class AnalyticsDemoDistributionSeeder extends Seeder
         $demoBiodata = Biodata::query()
             ->with(['dataAkademik', 'prodi'])
             ->whereHas('user', fn ($query) => $query->where('email', 'like', 'demo.%@alumni.ukdw.ac.id'))
-            ->whereIn('id', DB::table('tracer')->select('biodata_id')->where('kode_pertanyaan', 'F8'))
+            ->whereIn('id', DB::table('kuesioner_jawaban')->select('biodata_id')->where('kode_pertanyaan', 'F8'))
             ->orderBy('id')
             ->get();
 
@@ -128,15 +128,22 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             ->groupBy('kode_provinsi')
             ->map(static fn (Collection $rows): object => $rows->first());
 
-        $prodiQuestions = ProdiQuestion::query()
+        $prodiSections = KuesionerSection::where('target', 'prodi')
             ->whereIn('prodi_id', $demoBiodata->pluck('prodi_id')->filter()->unique())
-            ->where('type', '!=', 'header')
-            ->with(['options' => static fn ($query) => $query->orderBy('order')])
-            ->orderBy('order')
             ->get()
-            ->groupBy('prodi_id');
+            ->keyBy('prodi_id');
 
-        $questions = RefSubpertanyaan2021::query()
+        $prodiQuestions = KuesionerPertanyaan::query()
+            ->whereIn('pemilik_prodi_id', $demoBiodata->pluck('prodi_id')->filter()->unique())
+            ->where('tipe', '!=', 'header')
+            ->with('opsi')
+            ->get()
+            ->groupBy('pemilik_prodi_id');
+
+        $univSection = KuesionerSection::where('target', 'univ')->first();
+        $univSectionId = $univSection?->id ?: 1;
+
+        $questions = KuesionerPertanyaan::query()
             ->whereIn('kode_pertanyaan', [
                 'F3', 'F4', 'F6', 'F7', 'F7A', 'F8', 'F10', 'F11', 'F12',
                 'F14', 'F15', 'F16', 'F18b', 'F18c', 'F18d', 'F502', 'F504',
@@ -144,10 +151,11 @@ class AnalyticsDemoDistributionSeeder extends Seeder
                 'F17a1', 'F17b1', 'F17a2', 'F17b2', 'F17a3', 'F17b3', 'F17a4',
                 'F17b4', 'F17a5', 'F17b5', 'F17a6', 'F17b6', 'F17a7', 'F17b7',
             ])
+            ->with(['opsi', 'sections'])
             ->get()
-            ->keyBy(fn (RefSubpertanyaan2021 $question): string => strtoupper($question->kode_pertanyaan));
+            ->keyBy(fn (KuesionerPertanyaan $question): string => strtoupper($question->kode_pertanyaan));
 
-        DB::transaction(function () use ($demoBiodata, $companies, $questions, $prodiQuestions, $umpByProvinceYear, $latestUmpByProvince): void {
+        DB::transaction(function () use ($demoBiodata, $companies, $questions, $prodiQuestions, $prodiSections, $univSectionId, $umpByProvinceYear, $latestUmpByProvince): void {
             $this->pendingTracerRows = [];
 
             foreach ($demoBiodata->values() as $index => $biodata) {
@@ -190,21 +198,21 @@ class AnalyticsDemoDistributionSeeder extends Seeder
                     ]);
                 }
 
-                $this->seedTracerAnalyticsAnswers($biodata, $index, $status, $questions);
-                $this->seedProdiAnalyticsAnswers($biodata, $index, $prodiQuestions->get($biodata->prodi_id, collect()));
+                $this->seedTracerAnalyticsAnswers($biodata, $index, $status, $questions, $univSectionId);
+                $this->seedProdiAnalyticsAnswers($biodata, $index, $prodiQuestions->get($biodata->prodi_id, collect()), $prodiSections->get($biodata->prodi_id)?->id);
             }
+
+            $demoBiodataIds = $demoBiodata->pluck('id')->all();
+            $univQuestionIds = $questions->pluck('id')->all();
+
+            KuesionerJawaban::whereIn('biodata_id', $demoBiodataIds)
+                ->whereIn('pertanyaan_id', $univQuestionIds)
+                ->delete();
 
             collect($this->pendingTracerRows)
                 ->chunk(500)
                 ->each(function (Collection $rows): void {
-                    DB::table('tracer')->upsert(
-                        $rows->all(),
-                        ['biodata_id', 'kode_pertanyaan'],
-                        [
-                            'question_id', 'nim', 'kelompok', 'subpertanyaan',
-                            'answer', 'answer_json', 'tahun_lulus', 'updated_at',
-                        ],
-                    );
+                    DB::table('kuesioner_jawaban')->insert($rows->all());
                 });
         });
 
@@ -241,9 +249,9 @@ class AnalyticsDemoDistributionSeeder extends Seeder
     /**
      * Mengisi jawaban analitik demo sesuai percabangan instrumen universitas.
      *
-     * @param  Collection<string, RefSubpertanyaan2021>  $questions
+     * @param  Collection<string, KuesionerPertanyaan>  $questions
      */
-    private function seedTracerAnalyticsAnswers(Biodata $biodata, int $index, string $status, Collection $questions): void
+    private function seedTracerAnalyticsAnswers(Biodata $biodata, int $index, string $status, Collection $questions, int $univSectionId): void
     {
         $hasCareer = in_array($status, ['Bekerja (full time/part time)', 'Wiraswasta'], true);
         $isFurtherStudy = $status === 'Melanjutkan Pendidikan';
@@ -256,8 +264,8 @@ class AnalyticsDemoDistributionSeeder extends Seeder
         $learningScale = ['Tidak Sama Sekali', 'Kurang', 'Cukup Besar', 'Besar', 'Sangat Besar'];
         $competencyScale = ['Sangat Rendah', 'Rendah', 'Cukup', 'Tinggi', 'Sangat Tinggi'];
 
-        $this->saveAnswer($biodata, $questions, 'F8', $status);
-        $this->saveAnswer($biodata, $questions, 'F505', $hasCareer ? (string) $biodata->gaji : null);
+        $this->saveAnswer($biodata, $questions, 'F8', $status, $univSectionId);
+        $this->saveAnswer($biodata, $questions, 'F505', $hasCareer ? (string) $biodata->gaji : null, $univSectionId);
 
         if ($hasCareer) {
             $startsBeforeGraduation = $index % 4 !== 0;
@@ -274,19 +282,19 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             $interviews = max(1, min($responses, (int) floor($responses * 0.6)));
             $alignment = $alignments[$index % count($alignments)];
 
-            $this->saveAnswer($biodata, $questions, 'F3', $jobSearchStart);
-            $this->saveAnswer($biodata, $questions, 'F4', $methods);
-            $this->saveAnswer($biodata, $questions, 'F6', (string) $applications);
-            $this->saveAnswer($biodata, $questions, 'F7', (string) $responses);
-            $this->saveAnswer($biodata, $questions, 'F7A', (string) $interviews);
-            $this->saveAnswer($biodata, $questions, 'F11', $status === 'Wiraswasta' ? 'Wiraswasta/perusahaan sendiri' : $workplaceTypes[$index % 4]);
-            $this->saveAnswer($biodata, $questions, 'F14', $alignment);
+            $this->saveAnswer($biodata, $questions, 'F3', $jobSearchStart, $univSectionId);
+            $this->saveAnswer($biodata, $questions, 'F4', $methods, $univSectionId);
+            $this->saveAnswer($biodata, $questions, 'F6', (string) $applications, $univSectionId);
+            $this->saveAnswer($biodata, $questions, 'F7', (string) $responses, $univSectionId);
+            $this->saveAnswer($biodata, $questions, 'F7A', (string) $interviews, $univSectionId);
+            $this->saveAnswer($biodata, $questions, 'F11', $status === 'Wiraswasta' ? 'Wiraswasta/perusahaan sendiri' : $workplaceTypes[$index % 4], $univSectionId);
+            $this->saveAnswer($biodata, $questions, 'F14', $alignment, $univSectionId);
             if ($educationLevels !== []) {
-                $this->saveAnswer($biodata, $questions, 'F15', $educationLevels[$index % count($educationLevels)]);
+                $this->saveAnswer($biodata, $questions, 'F15', $educationLevels[$index % count($educationLevels)], $univSectionId);
             }
-            $this->saveAnswer($biodata, $questions, 'F504', $startsBeforeGraduation ? 'Ya' : 'Tidak');
-            $this->saveAnswer($biodata, $questions, 'F502', $startsBeforeGraduation ? (string) $waitMonths : null);
-            $this->saveAnswer($biodata, $questions, 'F506', $startsBeforeGraduation ? null : (string) $waitMonths);
+            $this->saveAnswer($biodata, $questions, 'F504', $startsBeforeGraduation ? 'Ya' : 'Tidak', $univSectionId);
+            $this->saveAnswer($biodata, $questions, 'F502', $startsBeforeGraduation ? (string) $waitMonths : null, $univSectionId);
+            $this->saveAnswer($biodata, $questions, 'F506', $startsBeforeGraduation ? null : (string) $waitMonths, $univSectionId);
             $mismatchOptions = $this->optionLabels($questions, 'F16');
             if ($mismatchOptions !== []) {
                 $selectedMismatch = [$mismatchOptions[$index % count($mismatchOptions)]];
@@ -294,19 +302,20 @@ class AnalyticsDemoDistributionSeeder extends Seeder
                     $selectedMismatch[] = $mismatchOptions[($index + 1) % count($mismatchOptions)];
                 }
 
-                $this->saveAnswer($biodata, $questions, 'F16', array_values(array_unique($selectedMismatch)));
+                $this->saveAnswer($biodata, $questions, 'F16', array_values(array_unique($selectedMismatch)), $univSectionId);
             }
         } else {
             foreach (['F3', 'F4', 'F6', 'F7', 'F7A', 'F11', 'F14', 'F15', 'F16', 'F502', 'F506'] as $code) {
-                $this->saveAnswer($biodata, $questions, $code, null);
+                $this->saveAnswer($biodata, $questions, $code, null, $univSectionId);
             }
 
-            $this->saveAnswer($biodata, $questions, 'F504', 'Tidak');
+            $this->saveAnswer($biodata, $questions, 'F504', 'Tidak', $univSectionId);
             $this->saveAnswer(
                 $biodata,
                 $questions,
                 'F10',
                 $isSearching ? 'Tidak, tetapi saya sedang menunggu hasil lamaran kerja' : 'Tidak',
+                $univSectionId
             );
         }
 
@@ -338,14 +347,14 @@ class AnalyticsDemoDistributionSeeder extends Seeder
         $funding = $isFurtherStudy && $fundingOptions !== []
             ? $fundingOptions[$index % count($fundingOptions)]
             : null;
-        $this->saveAnswer($biodata, $questions, 'F12', $funding);
-        $this->saveAnswer($biodata, $questions, 'F18b', $isFurtherStudy ? $biodata->perguruan_tinggi : null);
-        $this->saveAnswer($biodata, $questions, 'F18c', $isFurtherStudy ? $biodata->pendidikan_prodi : null);
-        $this->saveAnswer($biodata, $questions, 'F18d', $isFurtherStudy ? '2026-08-01' : null);
+        $this->saveAnswer($biodata, $questions, 'F12', $funding, $univSectionId);
+        $this->saveAnswer($biodata, $questions, 'F18b', $isFurtherStudy ? $biodata->perguruan_tinggi : null, $univSectionId);
+        $this->saveAnswer($biodata, $questions, 'F18c', $isFurtherStudy ? $biodata->pendidikan_prodi : null, $univSectionId);
+        $this->saveAnswer($biodata, $questions, 'F18d', $isFurtherStudy ? '2026-08-01' : null, $univSectionId);
 
         foreach (range(21, 27) as $offset => $number) {
             $score = $this->learningMethodScore($biodata, $offset, $index);
-            $this->saveAnswer($biodata, $questions, 'F'.$number, $learningScale[$score - 1]);
+            $this->saveAnswer($biodata, $questions, 'F'.$number, $learningScale[$score - 1], $univSectionId);
         }
 
         foreach (range(1, 7) as $competency) {
@@ -354,8 +363,8 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             $needProfile = [3, 4, 3, 5, 4, 3, 5];
             $graduationScore = min(5, max(1, $graduationProfile[$competency - 1] + (($index + $competency) % 3) - 1));
             $needScore = min(5, max(1, $needProfile[$competency - 1] + (($index * 2 + $competency) % 3) - 1));
-            $this->saveAnswer($biodata, $questions, 'F17a'.$competency, $competencyScale[$graduationScore - 1]);
-            $this->saveAnswer($biodata, $questions, 'F17b'.$competency, $competencyScale[$needScore - 1]);
+            $this->saveAnswer($biodata, $questions, 'F17a'.$competency, $competencyScale[$graduationScore - 1], $univSectionId);
+            $this->saveAnswer($biodata, $questions, 'F17b'.$competency, $competencyScale[$needScore - 1], $univSectionId);
         }
     }
 
@@ -380,56 +389,73 @@ class AnalyticsDemoDistributionSeeder extends Seeder
     /**
      * Menyusun respons kuesioner prodi demo yang bervariasi untuk setiap butir.
      *
-     * @param  Collection<int, ProdiQuestion>  $questions
+     * @param  Collection<int, KuesionerPertanyaan>  $questions
      */
-    private function seedProdiAnalyticsAnswers(Biodata $biodata, int $respondentIndex, Collection $questions): void
+    private function seedProdiAnalyticsAnswers(Biodata $biodata, int $respondentIndex, Collection $questions, ?int $prodiSectionId = null): void
     {
         $otherDetails = ['Menjadi mentor proyek mahasiswa', 'Berbagi pengalaman karier', 'Membuka jejaring mitra industri', 'Mendampingi pengembangan kurikulum'];
 
         foreach ($questions as $question) {
-            $options = $question->options->values();
+            $options = $question->opsi->values();
             $answerText = null;
             $answerJson = null;
+            $primaryOption = null;
 
-            if ($question->type === 'rating_5') {
-                $score = min(5, max(1, 3 + (($respondentIndex + ($question->order * 2)) % 3) - 1 + ($question->order % 4 === 0 ? 1 : 0)));
+            if (in_array($question->tipe, ['rating_5', 'likert_5'], true)) {
+                $score = min(5, max(1, 3 + (($respondentIndex + 2) % 3) - 1));
                 $answerText = (string) $score;
-            } elseif (in_array($question->type, ['text', 'textarea'], true)) {
-                $answerText = 'Respons demo '.(($respondentIndex % 4) + 1).' untuk '.$question->question_text;
+            } elseif (in_array($question->tipe, ['text', 'textarea'], true)) {
+                $answerText = 'Respons demo '.(($respondentIndex % 4) + 1).' untuk '.$question->teks_pertanyaan;
             } elseif ($options->isNotEmpty()) {
                 // Putar satu per satu agar semua opsi aktif terisi, termasuk Lainnya.
-                $primaryOption = $options->get(($respondentIndex + $question->order) % $options->count());
+                $primaryOption = $options->get(($respondentIndex + 1) % $options->count());
                 $selectedOptions = collect([$primaryOption])->filter();
-                $otherOption = $options->first(fn ($option): bool => $this->isOtherOption((string) $option->option_text));
+                $otherOption = $options->first(fn ($option): bool => $this->isOtherOption((string) $option->label));
                 $customDetail = null;
 
-                if ($otherOption && ($respondentIndex + $question->order) % 7 === 0) {
-                    $selectedOptions = $question->type === 'multiple_choice'
+                $isMulti = in_array($question->tipe, ['multiple_choice', 'checkbox'], true);
+
+                if ($otherOption && ($respondentIndex + 1) % 7 === 0) {
+                    $selectedOptions = $isMulti
                         ? $selectedOptions->push($otherOption)->unique('id')->values()
                         : collect([$otherOption]);
-                    $customDetail = $otherDetails[($respondentIndex + $question->order) % count($otherDetails)];
-                } elseif ($question->type === 'multiple_choice' && $options->count() > 1 && ($respondentIndex + $question->order) % 3 === 0) {
-                    $selectedOptions->push($options->get(($respondentIndex + $question->order + 1) % $options->count()));
+                    $customDetail = $otherDetails[($respondentIndex + 1) % count($otherDetails)];
+                } elseif ($isMulti && $options->count() > 1 && ($respondentIndex + 1) % 3 === 0) {
+                    $selectedOptions->push($options->get(($respondentIndex + 2) % $options->count()));
                     $selectedOptions = $selectedOptions->filter()->unique('id')->values();
                 }
 
                 $selectedLabels = $selectedOptions
-                    ->map(fn ($option): string => $this->isOtherOption((string) $option->option_text) ? 'Lainnya' : (string) $option->option_text)
+                    ->map(fn ($option): string => $this->isOtherOption((string) $option->label) ? 'Lainnya' : (string) $option->label)
                     ->all();
                 $answerText = implode(', ', $selectedLabels);
-                $answerJson = $question->type === 'multiple_choice'
+                $answerJson = $isMulti
                     ? ['selected' => $selectedLabels, 'custom' => $customDetail]
                     : ['selected' => $selectedLabels[0] ?? '', 'custom' => $customDetail];
 
-                if ($customDetail !== null && $question->type !== 'multiple_choice') {
+                if ($customDetail !== null && ! $isMulti) {
                     $answerText .= ' ('.$customDetail.')';
                 }
             }
 
             if ($answerText !== null) {
-                ProdiResponse::updateOrCreate(
-                    ['biodata_id' => $biodata->id, 'prodi_question_id' => $question->id],
-                    ['answer_text' => $answerText, 'answer_json' => $answerJson],
+                $sectionId = $prodiSectionId ?? ($question->sections->first()?->id ?? 1);
+
+                KuesionerJawaban::updateOrCreate(
+                    [
+                        'responden_type' => 'alumni',
+                        'biodata_id' => $biodata->id,
+                        'pertanyaan_id' => $question->id,
+                    ],
+                    [
+                        'evaluasi_atasan_id' => null,
+                        'section_id' => $sectionId,
+                        'kode_pertanyaan' => $question->kode_pertanyaan,
+                        'opsi_id' => $primaryOption?->id,
+                        'kode_opsi' => $primaryOption?->kode_opsi,
+                        'jawaban_teks' => $answerText,
+                        'jawaban_json' => $answerJson,
+                    ]
                 );
             }
         }
@@ -450,7 +476,7 @@ class AnalyticsDemoDistributionSeeder extends Seeder
     /**
      * Mengambil label opsi aktif dari metadata pertanyaan, bukan menyalin label ke seeder.
      *
-     * @param  Collection<string, RefSubpertanyaan2021>  $questions
+     * @param  Collection<string, KuesionerPertanyaan>  $questions
      * @return array<int, string>
      */
     private function optionLabels(Collection $questions, string $code): array
@@ -460,9 +486,9 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             return [];
         }
 
-        return $question->detils()
-            ->orderBy('order')
-            ->pluck('option_text')
+        return $question->opsi
+            ->sortBy('order')
+            ->pluck('label')
             ->map(static fn (mixed $label): string => trim((string) $label))
             ->filter(static fn (string $label): bool => $label !== '' && mb_strtolower($label) !== 'lainnya isian')
             ->values()
@@ -474,26 +500,25 @@ class AnalyticsDemoDistributionSeeder extends Seeder
      */
     private function normalizeMismatchOptionData(): void
     {
-        DB::table('ref_subpertanyaan_detil')
-            ->where('kode_pertanyaan', 'F16')
-            ->where('option_text', 'Lainnya isian')
+        DB::table('kuesioner_opsi')
+            ->where('label', 'Lainnya isian')
             ->delete();
 
-        DB::table('tracer')
+        DB::table('kuesioner_jawaban')
             ->where('kode_pertanyaan', 'F16')
-            ->where('answer', 'like', '%Lainnya isian%')
+            ->where('jawaban_teks', 'like', '%Lainnya isian%')
             ->update([
-                'answer' => DB::raw("REPLACE(answer, 'Lainnya isian', 'Lainnya')"),
-                'answer_json' => DB::raw("REPLACE(answer_json, 'Lainnya isian', 'Lainnya')"),
+                'jawaban_teks' => DB::raw("REPLACE(jawaban_teks, 'Lainnya isian', 'Lainnya')"),
+                'jawaban_json' => DB::raw("REPLACE(jawaban_json, 'Lainnya isian', 'Lainnya')"),
                 'updated_at' => now(),
             ]);
 
-        DB::table('tracer')
+        DB::table('kuesioner_jawaban')
             ->where('kode_pertanyaan', 'F15')
-            ->where('answer', 'like', '%Tingkat yang Sama%')
+            ->where('jawaban_teks', 'like', '%Tingkat yang Sama%')
             ->update([
-                'answer' => DB::raw("REPLACE(answer, 'Tingkat yang Sama', 'Tingkat yang sama')"),
-                'answer_json' => DB::raw("REPLACE(answer_json, 'Tingkat yang Sama', 'Tingkat yang sama')"),
+                'jawaban_teks' => DB::raw("REPLACE(jawaban_teks, 'Tingkat yang Sama', 'Tingkat yang sama')"),
+                'jawaban_json' => DB::raw("REPLACE(jawaban_json, 'Tingkat yang Sama', 'Tingkat yang sama')"),
                 'updated_at' => now(),
             ]);
     }
@@ -501,13 +526,10 @@ class AnalyticsDemoDistributionSeeder extends Seeder
     /**
      * Menyimpan satu jawaban demo dengan kode dan question_id yang konsisten.
      *
-     * Nilai array disimpan di answer_json agar pilihan jamak tetap dapat
-     * diagregasi per opsi, sedangkan answer mempertahankan representasi teks.
-     *
-     * @param  Collection<string, RefSubpertanyaan2021>  $questions
+     * @param  Collection<string, KuesionerPertanyaan>  $questions
      * @param  string|array<int, string>|null  $answer
      */
-    private function saveAnswer(Biodata $biodata, Collection $questions, string $code, string|array|null $answer): void
+    private function saveAnswer(Biodata $biodata, Collection $questions, string $code, string|array|null $answer, int $univSectionId): void
     {
         $question = $questions->get(strtoupper($code));
         if (! $question) {
@@ -517,16 +539,39 @@ class AnalyticsDemoDistributionSeeder extends Seeder
         $answerText = is_array($answer) ? implode('; ', $answer) : $answer;
         $answerJson = is_array($answer) ? ['values' => array_values($answer)] : ($answer !== null ? ['value' => $answer] : null);
 
+        $matchedOpsi = null;
+        $kodeOpsi = null;
+
+        if ($question->opsi && $question->opsi->isNotEmpty()) {
+            if (is_array($answer)) {
+                $matchedList = $question->opsi->filter(function ($opt) use ($answer) {
+                    return in_array($opt->label, $answer, true) || in_array($opt->kode_opsi, $answer, true);
+                });
+                if ($matchedList->isNotEmpty()) {
+                    $kodeOpsi = json_encode($matchedList->pluck('kode_opsi')->values()->all());
+                    $matchedOpsi = $matchedList->first();
+                }
+            } elseif ($answer !== null) {
+                $matchedOpsi = $question->opsi->first(function ($opt) use ($answer) {
+                    return $opt->label === $answer || $opt->kode_opsi === $answer;
+                });
+                $kodeOpsi = $matchedOpsi?->kode_opsi;
+            }
+        }
+
+        $sectionId = $question->sections->first()?->id ?? $univSectionId;
+
         $this->pendingTracerRows[] = [
+            'responden_type' => 'alumni',
             'biodata_id' => $biodata->id,
-            'question_id' => $question->id,
-            'nim' => $biodata->nim,
-            'kelompok' => $question->kelompok,
+            'evaluasi_atasan_id' => null,
+            'section_id' => $sectionId,
+            'pertanyaan_id' => $question->id,
             'kode_pertanyaan' => $question->kode_pertanyaan,
-            'subpertanyaan' => $question->subpertanyaan,
-            'answer' => $answerText,
-            'answer_json' => $answerJson === null ? null : json_encode($answerJson, JSON_UNESCAPED_UNICODE),
-            'tahun_lulus' => $biodata->dataAkademik?->tahun_lulus,
+            'opsi_id' => $matchedOpsi?->id,
+            'kode_opsi' => $kodeOpsi,
+            'jawaban_teks' => $answerText,
+            'jawaban_json' => $answerJson === null ? null : json_encode($answerJson, JSON_UNESCAPED_UNICODE),
             'created_at' => now(),
             'updated_at' => now(),
         ];

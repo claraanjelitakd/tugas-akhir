@@ -106,24 +106,11 @@ class KelolaKuesionerController extends Controller
     }
 
     /**
-     * Menghapus kuesioner beserta relasinya jika diizinkan.
+     * Menghapus kuesioner jika diizinkan.
      */
     public function destroy(int $id): RedirectResponse
     {
-        $kuesioner = Kuesioner::withCount('kelompokPertanyaan')->findOrFail($id);
-
-        // Cek apakah kuesioner memiliki seksi / bagian
-        if ($kuesioner->kelompok_pertanyaan_count > 0) {
-            // Cek apakah ada opsi paksa hapus atau peringatan
-            // Untuk keamanan integritas data, kuesioner dengan seksi dan pertanyaan di-cascade secara aman
-            foreach ($kuesioner->kelompokPertanyaan as $section) {
-                foreach ($section->subpertanyaans as $sub) {
-                    $sub->detils()->delete();
-                }
-                $section->subpertanyaans()->delete();
-            }
-            $kuesioner->kelompokPertanyaan()->delete();
-        }
+        $kuesioner = Kuesioner::findOrFail($id);
 
         $title = $kuesioner->title;
         $kuesioner->delete();

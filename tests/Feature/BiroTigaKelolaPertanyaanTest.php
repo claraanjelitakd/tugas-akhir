@@ -2,9 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\KelompokPertanyaan;
 use App\Models\Kuesioner;
-use App\Models\RefSubpertanyaan2021;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -16,7 +17,7 @@ class BiroTigaKelolaPertanyaanTest extends TestCase
 
     protected User $admin;
 
-    protected KelompokPertanyaan $section;
+    protected KuesionerSection $section;
 
     protected function setUp(): void
     {
@@ -30,16 +31,18 @@ class BiroTigaKelolaPertanyaanTest extends TestCase
             'must_change_password' => false,
         ]);
 
-        $q = Kuesioner::create([
+        Kuesioner::create([
             'title' => 'Tracer Study',
             'year' => 2026,
             'is_active' => true,
         ]);
 
-        $this->section = KelompokPertanyaan::create([
-            'kuesioner_id' => $q->id,
-            'title' => 'Bagian I',
+        $this->section = KuesionerSection::create([
+            'kode_section' => 'SEC_UNIV_1',
+            'target' => 'univ',
+            'judul' => 'Bagian I',
             'order' => 1,
+            'is_active' => true,
         ]);
     }
 
@@ -48,12 +51,18 @@ class BiroTigaKelolaPertanyaanTest extends TestCase
      */
     public function test_can_render_kelola_pertanyaan_page(): void
     {
-        RefSubpertanyaan2021::create([
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $q = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F1',
-            'subpertanyaan' => 'Nomor Induk Mahasiswa',
-            'type' => 'text',
+            'teks_pertanyaan' => 'Nomor Induk Mahasiswa',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $q->id,
             'wajib' => true,
+            'tampil_di' => 'kuesioner',
             'order' => 1,
         ]);
 
@@ -71,21 +80,33 @@ class BiroTigaKelolaPertanyaanTest extends TestCase
      */
     public function test_can_reorder_questions_direction(): void
     {
-        $q1 = RefSubpertanyaan2021::create([
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $q1 = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F1',
-            'subpertanyaan' => 'Pertanyaan 1',
-            'type' => 'text',
+            'teks_pertanyaan' => 'Pertanyaan 1',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $q1->id,
             'wajib' => true,
+            'tampil_di' => 'kuesioner',
             'order' => 1,
         ]);
 
-        $q2 = RefSubpertanyaan2021::create([
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $q2 = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F2',
-            'subpertanyaan' => 'Pertanyaan 2',
-            'type' => 'text',
+            'teks_pertanyaan' => 'Pertanyaan 2',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $q2->id,
             'wajib' => true,
+            'tampil_di' => 'kuesioner',
             'order' => 2,
         ]);
 
@@ -96,8 +117,8 @@ class BiroTigaKelolaPertanyaanTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
-        $this->assertEquals(1, $q2->fresh()->order);
-        $this->assertEquals(2, $q1->fresh()->order);
+        $this->assertEquals(1, KuesionerSectionPertanyaan::where('pertanyaan_id', $q2->id)->first()->order);
+        $this->assertEquals(2, KuesionerSectionPertanyaan::where('pertanyaan_id', $q1->id)->first()->order);
     }
 
     /**
@@ -105,12 +126,18 @@ class BiroTigaKelolaPertanyaanTest extends TestCase
      */
     public function test_can_store_option_without_manual_order(): void
     {
-        $q = RefSubpertanyaan2021::create([
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $q = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F3',
-            'subpertanyaan' => 'Kapan mulai mencari kerja?',
-            'type' => 'single_choice',
+            'teks_pertanyaan' => 'Kapan mulai mencari kerja?',
+            'tipe' => 'single_choice',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $q->id,
             'wajib' => true,
+            'tampil_di' => 'kuesioner',
             'order' => 1,
         ]);
 
@@ -120,9 +147,9 @@ class BiroTigaKelolaPertanyaanTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('ref_subpertanyaan_detil', [
+        $this->assertDatabaseHas('kuesioner_opsi', [
             'pertanyaan_id' => $q->id,
-            'option_text' => 'Sebelum lulus',
+            'label' => 'Sebelum lulus',
             'order' => 1,
         ]);
     }
@@ -141,8 +168,8 @@ class BiroTigaKelolaPertanyaanTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
-        $q = RefSubpertanyaan2021::where('kode_pertanyaan', 'F99')->first();
+        $q = KuesionerPertanyaan::where('kode_pertanyaan', 'F99')->first();
         $this->assertNotNull($q);
-        $this->assertCount(5, $q->detils);
+        $this->assertCount(5, $q->opsi);
     }
 }

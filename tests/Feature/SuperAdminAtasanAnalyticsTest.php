@@ -6,10 +6,10 @@ use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\EvaluasiAtasan;
-use App\Models\PertanyaanEvaluasiAtasan;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerPertanyaan;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
-use App\Models\ResponEvaluasiAtasan;
 use App\Models\User;
 use Database\Seeders\PertanyaanEvaluasiAtasanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -49,7 +49,7 @@ class SuperAdminAtasanAnalyticsTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('SuperAdmin/Analytics/GrafikAtasan')
                 ->has('analytics.filters')
-                ->has('analytics.question_stats', 13)
+                ->has('analytics.question_stats', 30)
                 ->where('analytics.summary.population', 0)
                 ->where('analytics.has_data', false));
     }
@@ -81,10 +81,28 @@ class SuperAdminAtasanAnalyticsTest extends TestCase
             'submitted_at' => now(),
         ]);
 
-        $integritas = PertanyaanEvaluasiAtasan::where('kode', 'integritas')->firstOrFail();
-        $komunikasi = PertanyaanEvaluasiAtasan::where('kode', 'komunikasi')->firstOrFail();
-        ResponEvaluasiAtasan::create(['evaluasi_atasan_id' => $evaluasi->id, 'pertanyaan_id' => $integritas->id, 'nilai' => 'Sangat Tinggi']);
-        ResponEvaluasiAtasan::create(['evaluasi_atasan_id' => $evaluasi->id, 'pertanyaan_id' => $komunikasi->id, 'nilai' => 'Cukup']);
+        $integritas = KuesionerPertanyaan::where('kode_pertanyaan', 'EVA_integritas')->firstOrFail();
+        $komunikasi = KuesionerPertanyaan::where('kode_pertanyaan', 'EVA_komunikasi')->firstOrFail();
+        $sectionId = $integritas->sections()->first()?->id ?? 1;
+
+        KuesionerJawaban::create([
+            'responden_type' => 'atasan',
+            'evaluasi_atasan_id' => $evaluasi->id,
+            'biodata_id' => $biodata->id,
+            'section_id' => $sectionId,
+            'pertanyaan_id' => $integritas->id,
+            'kode_pertanyaan' => 'EVA_integritas',
+            'jawaban_teks' => 'Sangat Tinggi',
+        ]);
+        KuesionerJawaban::create([
+            'responden_type' => 'atasan',
+            'evaluasi_atasan_id' => $evaluasi->id,
+            'biodata_id' => $biodata->id,
+            'section_id' => $sectionId,
+            'pertanyaan_id' => $komunikasi->id,
+            'kode_pertanyaan' => 'EVA_komunikasi',
+            'jawaban_teks' => 'Cukup',
+        ]);
 
         $response = $this->actingAs($admin)->getJson('/superadmin/analitik-atasan/data?tahun=2026&prodi_id='.$prodi->id);
 

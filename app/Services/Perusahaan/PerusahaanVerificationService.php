@@ -603,22 +603,22 @@ class PerusahaanVerificationService
                     ->update(['perusahaan_id' => $verifiedCompany->id]);
             }
 
-            // 3. Alihkan jawaban kuesioner Tracer Study (tabel tracer) yang terhubung dengan perusahaan usulan
-            if (Schema::hasTable('tracer') && ! empty($affectedBiodataIds)) {
+            // 3. Alihkan jawaban kuesioner Tracer Study (tabel kuesioner_jawaban) yang terhubung dengan perusahaan usulan
+            if (! empty($affectedBiodataIds)) {
                 // Alihkan jawaban eksplisit bernilai nama usulan alumni
-                DB::table('tracer')
+                DB::table('kuesioner_jawaban')
                     ->whereIn('biodata_id', $affectedBiodataIds)
-                    ->where('answer', $pendingName)
-                    ->update(['answer' => $verifiedName]);
+                    ->where('jawaban_teks', $pendingName)
+                    ->update(['jawaban_teks' => $verifiedName]);
 
                 // Alihkan butir kuesioner penanda instansi/perusahaan tempat kerja (F5B / F2E)
-                DB::table('tracer')
+                DB::table('kuesioner_jawaban')
                     ->whereIn('biodata_id', $affectedBiodataIds)
                     ->where(function ($q) {
                         $q->where('kode_pertanyaan', 'LIKE', 'F5B%')
                             ->orWhere('kode_pertanyaan', 'LIKE', 'F2E%');
                     })
-                    ->update(['answer' => $verifiedName]);
+                    ->update(['jawaban_teks' => $verifiedName]);
             }
 
             // 4. Hapus record usulan perusahaan yang sudah berhasil digantikan dan dikonsolidasikan

@@ -30,7 +30,9 @@ SELECT b.id AS biodata_id,
         AND sp2.wajib = 1
         AND q2.tipe != 'header'
         AND q2.is_active = 1
-        AND UPPER(q2.kode_pertanyaan) NOT IN ('F1','F2A','F2B','F2C','F2D','BIO_TEMPAT_LAHIR','BIO_TANGGAL_LAHIR','BIO_JK','BIO_TGL_LULUS','BIO_JUDUL_TA','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
+        AND UPPER(q2.kode_pertanyaan) NOT LIKE 'BIO_%'
+        AND (sp2.tampil_di IS NULL OR LOWER(sp2.tampil_di) NOT IN ('profil', 'profile'))
+        AND UPPER(q2.kode_pertanyaan) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
      )
      + CASE WHEN EXISTS (
          SELECT 1
@@ -42,7 +44,9 @@ SELECT b.id AS biodata_id,
     ) AS total_mandatory_univ,
     COUNT(DISTINCT CASE
         WHEN sp.wajib = 1 AND q.tipe != 'header'
-         AND UPPER(q.kode_pertanyaan) NOT IN ('F1','F2A','F2B','F2C','F2D','BIO_TEMPAT_LAHIR','BIO_TANGGAL_LAHIR','BIO_JK','BIO_TGL_LULUS','BIO_JUDUL_TA','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
+         AND UPPER(q.kode_pertanyaan) NOT LIKE 'BIO_%'
+         AND (sp.tampil_di IS NULL OR LOWER(sp.tampil_di) NOT IN ('profil', 'profile'))
+         AND UPPER(q.kode_pertanyaan) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
          AND ((j.jawaban_teks IS NOT NULL AND TRIM(j.jawaban_teks) != '') OR (j.jawaban_json IS NOT NULL AND j.jawaban_json NOT IN ('','[]','{}')))
         THEN q.id
         ELSE NULL
@@ -82,7 +86,9 @@ SELECT `b`.`id` AS `biodata_id`,
         AND `sp2`.`wajib` = 1
         AND `q2`.`tipe` <> 'header'
         AND `q2`.`is_active` = 1
-        AND UPPER(`q2`.`kode_pertanyaan`) NOT IN ('F1','F2A','F2B','F2C','F2D','BIO_TEMPAT_LAHIR','BIO_TANGGAL_LAHIR','BIO_JK','BIO_TGL_LULUS','BIO_JUDUL_TA','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
+        AND UPPER(`q2`.`kode_pertanyaan`) NOT LIKE 'BIO_%'
+        AND (`sp2`.`tampil_di` IS NULL OR LOWER(`sp2`.`tampil_di`) NOT IN ('profil', 'profile'))
+        AND UPPER(`q2`.`kode_pertanyaan`) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
      )
      + CASE WHEN EXISTS (
          SELECT 1
@@ -94,7 +100,9 @@ SELECT `b`.`id` AS `biodata_id`,
     ) AS `total_mandatory_univ`,
     COUNT(DISTINCT CASE
         WHEN `sp`.`wajib` = 1 AND `q`.`tipe` <> 'header'
-         AND UPPER(`q`.`kode_pertanyaan`) NOT IN ('F1','F2A','F2B','F2C','F2D','BIO_TEMPAT_LAHIR','BIO_TANGGAL_LAHIR','BIO_JK','BIO_TGL_LULUS','BIO_JUDUL_TA','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
+         AND UPPER(`q`.`kode_pertanyaan`) NOT LIKE 'BIO_%'
+         AND (`sp`.`tampil_di` IS NULL OR LOWER(`sp`.`tampil_di`) NOT IN ('profil', 'profile'))
+         AND UPPER(`q`.`kode_pertanyaan`) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
          AND ((`j`.`jawaban_teks` IS NOT NULL AND TRIM(`j`.`jawaban_teks`) <> '') OR (`j`.`jawaban_json` IS NOT NULL AND `j`.`jawaban_json` NOT IN ('','[]','{}')))
         THEN `q`.`id`
         ELSE NULL

@@ -6,12 +6,12 @@ use App\Mail\PengingatKuesionerAlumniMail;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\EvaluasiAtasan;
-use App\Models\KelompokPertanyaan;
 use App\Models\Kuesioner;
-use App\Models\PertanyaanEvaluasiAtasan;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Prodi;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\ResponEvaluasiAtasan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -33,7 +33,7 @@ class SuperAdminDaftarAlumniTest extends TestCase
 
     protected Kuesioner $kuesioner;
 
-    protected KelompokPertanyaan $section;
+    protected KuesionerSection $section;
 
     protected function setUp(): void
     {
@@ -84,28 +84,40 @@ class SuperAdminDaftarAlumniTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->section = KelompokPertanyaan::create([
-            'kuesioner_id' => $this->kuesioner->id,
-            'title' => 'Kurikulum, Fasilitas & Nilai Kedutawacanaan',
+        $this->section = KuesionerSection::create([
+            'kode_section' => 'SEC_UNIV_9',
+            'target' => 'univ',
+            'judul' => 'Kurikulum, Fasilitas & Nilai Kedutawacanaan',
             'order' => 9,
+            'is_active' => true,
         ]);
 
-        RefSubpertanyaan2021::create([
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $q1 = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F24A',
-            'subpertanyaan' => 'Sebutkan sumberdana dalam pembiayaan kuliah S1 di UKDW :',
-            'type' => 'single_choice',
-            'wajib' => true,
+            'teks_pertanyaan' => 'Sebutkan sumberdana dalam pembiayaan kuliah S1 di UKDW :',
+            'tipe' => 'single_choice',
+            'is_active' => true,
+        ]);
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $q1->id,
             'order' => 1,
+            'wajib' => true,
+            'tampil_di' => 'kuesioner',
         ]);
 
-        RefSubpertanyaan2021::create([
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $q2 = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F24B',
-            'subpertanyaan' => 'Jika Anda melanjutkan ke jenjang pascasarjana (S2), sebutkan sumberdana dalam pembiayaan kuliah S2 Anda :',
-            'type' => 'single_choice',
-            'wajib' => true,
+            'teks_pertanyaan' => 'Jika Anda melanjutkan ke jenjang pascasarjana (S2), sebutkan sumberdana dalam pembiayaan kuliah S2 Anda :',
+            'tipe' => 'single_choice',
+            'is_active' => true,
+        ]);
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $q2->id,
             'order' => 2,
+            'wajib' => true,
+            'tampil_di' => 'kuesioner',
         ]);
     }
 
@@ -279,23 +291,43 @@ class SuperAdminDaftarAlumniTest extends TestCase
      */
     public function test_superadmin_detail_alumni_includes_evaluasi_atasan(): void
     {
-        $question = PertanyaanEvaluasiAtasan::create([
-            'kode' => 'integritas',
-            'aspek' => 'Integritas',
-            'kategori' => 'Kinerja',
-            'tipe' => 'likert_5',
-            'is_active' => true,
+        $section = KuesionerSection::create([
+            'kode_section' => 'SEC_ATASAN_1',
+            'target' => 'atasan',
+            'judul' => 'Evaluasi Pengguna Lulusan',
             'order' => 1,
+            'is_active' => true,
         ]);
+
+        $question = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'integritas',
+            'teks_pertanyaan' => 'Integritas',
+            'tipe' => 'rating_5',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $section->id,
+            'pertanyaan_id' => $question->id,
+            'order' => 1,
+            'wajib' => true,
+            'tampil_di' => 'kuesioner',
+        ]);
+
         $evaluasiAtasan = EvaluasiAtasan::create([
             'biodata_id' => $this->alumni->id,
             'token' => 'secret-evaluation-token',
             'is_submitted' => true,
         ]);
-        ResponEvaluasiAtasan::create([
+
+        KuesionerJawaban::create([
+            'responden_type' => 'atasan',
+            'biodata_id' => $this->alumni->id,
             'evaluasi_atasan_id' => $evaluasiAtasan->id,
+            'section_id' => $section->id,
             'pertanyaan_id' => $question->id,
-            'nilai' => 'Sangat Tinggi',
+            'kode_pertanyaan' => 'integritas',
+            'jawaban_teks' => 'Sangat Tinggi',
         ]);
 
         $response = $this->actingAs($this->superadmin)

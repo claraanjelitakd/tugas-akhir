@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\AdminProdi\KelolaPertanyaan;
 
 use App\Http\Controllers\Controller;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiQuestionSection;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,12 +30,21 @@ class KelolaSectionProdiController extends Controller
             abort(403, 'Akun Anda belum terhubung dengan program studi.');
         }
 
-        $sections = ProdiQuestionSection::where('prodi_id', $prodiId)
-            ->withCount('questions')
+        $rawSections = KuesionerSection::where('target', 'prodi')
+            ->where('prodi_id', $prodiId)
+            ->withCount('sectionPertanyaan as questions_count')
             ->orderBy('order', 'asc')
             ->get();
 
-        $totalQuestions = ProdiQuestion::where('prodi_id', $prodiId)->count();
+        $sections = $rawSections->map(fn ($s) => [
+            'id' => $s->id,
+            'title' => $s->judul,
+            'description' => $s->deskripsi,
+            'order' => $s->order,
+            'questions_count' => $s->questions_count,
+        ]);
+
+        $totalQuestions = KuesionerPertanyaan::where('pemilik_prodi_id', $prodiId)->count();
 
         return Inertia::render('AdminProdi/Section/Index', [
             'user' => $user,
@@ -63,14 +73,27 @@ class KelolaSectionProdiController extends Controller
             'order' => 'nullable|integer',
         ]);
 
-        $validated['prodi_id'] = $user->prodi_id;
-
         if (empty($validated['order'])) {
-            $maxOrder = ProdiQuestionSection::where('prodi_id', $user->prodi_id)->max('order') ?? 0;
+            $maxOrder = KuesionerSection::where('target', 'prodi')
+                ->where('prodi_id', $user->prodi_id)
+                ->max('order') ?? 0;
             $validated['order'] = $maxOrder + 1;
         }
 
-        ProdiQuestionSection::create($validated);
+        $code = 'PRODI_'.$user->prodi_id.'_'.Str::upper(Str::slug(Str::limit($validated['title'], 15, '')));
+        if (KuesionerSection::where('kode_section', $code)->exists()) {
+            $code .= '_'.Str::upper(Str::random(4));
+        }
+
+        KuesionerSection::create([
+            'target' => 'prodi',
+            'prodi_id' => $user->prodi_id,
+            'kode_section' => $code,
+            'judul' => $validated['title'],
+            'deskripsi' => $validated['description'] ?? null,
+            'order' => $validated['order'],
+            'is_active' => true,
+        ]);
 
         return redirect()->back()->with('success', 'Section kuesioner program studi berhasil ditambahkan.');
     }
@@ -81,7 +104,8 @@ class KelolaSectionProdiController extends Controller
     public function update(Request $request, int $id): RedirectResponse
     {
         $user = Auth::user();
-        $section = ProdiQuestionSection::where('id', $id)
+        $section = KuesionerSection::where('id', $id)
+            ->where('target', 'prodi')
             ->where('prodi_id', $user->prodi_id)
             ->firstOrFail();
 
@@ -91,11 +115,11 @@ class KelolaSectionProdiController extends Controller
             'order' => 'nullable|integer',
         ]);
 
-        if (empty($validated['order'])) {
-            unset($validated['order']);
-        }
-
-        $section->update($validated);
+        $section->update([
+            'judul' => $validated['title'],
+            'deskripsi' => $validated['description'] ?? null,
+            'order' => $validated['order'] ?? $section->order,
+        ]);
 
         return redirect()->back()->with('success', 'Section kuesioner program studi berhasil diperbarui.');
     }
@@ -106,15 +130,12 @@ class KelolaSectionProdiController extends Controller
     public function destroy(int $id): RedirectResponse
     {
         $user = Auth::user();
-        $section = ProdiQuestionSection::where('id', $id)
+        $section = KuesionerSection::where('id', $id)
+            ->where('target', 'prodi')
             ->where('prodi_id', $user->prodi_id)
-            ->with('questions.options')
             ->firstOrFail();
 
-        foreach ($section->questions as $question) {
-            $question->options()->delete();
-        }
-        $section->questions()->delete();
+        $section->sectionPertanyaan()->delete();
         $section->delete();
 
         return redirect()->back()->with('success', 'Section kuesioner program studi berhasil dihapus.');
@@ -130,18 +151,20 @@ class KelolaSectionProdiController extends Controller
 
         if ($request->has(['id', 'direction'])) {
             $validated = $request->validate([
-                'id' => 'required|exists:prodi_question_section,id',
+                'id' => 'required|exists:kuesioner_section,id',
                 'direction' => 'required|in:up,down',
             ]);
 
-            $currentSection = ProdiQuestionSection::where('id', $validated['id'])
+            $currentSection = KuesionerSection::where('id', $validated['id'])
+                ->where('target', 'prodi')
                 ->where('prodi_id', $prodiId)
                 ->firstOrFail();
 
             $operator = $validated['direction'] === 'up' ? '<' : '>';
             $sortOrder = $validated['direction'] === 'up' ? 'desc' : 'asc';
 
-            $adjacentSection = ProdiQuestionSection::where('prodi_id', $prodiId)
+            $adjacentSection = KuesionerSection::where('target', 'prodi')
+                ->where('prodi_id', $prodiId)
                 ->where('order', $operator, $currentSection->order)
                 ->orderBy('order', $sortOrder)
                 ->first();
@@ -158,12 +181,13 @@ class KelolaSectionProdiController extends Controller
         if ($request->has('orders')) {
             $validated = $request->validate([
                 'orders' => 'required|array',
-                'orders.*.id' => 'required|exists:prodi_question_section,id',
+                'orders.*.id' => 'required|exists:kuesioner_section,id',
                 'orders.*.order' => 'required|integer',
             ]);
 
             foreach ($validated['orders'] as $item) {
-                ProdiQuestionSection::where('id', $item['id'])
+                KuesionerSection::where('id', $item['id'])
+                    ->where('target', 'prodi')
                     ->where('prodi_id', $prodiId)
                     ->update(['order' => $item['order']]);
             }

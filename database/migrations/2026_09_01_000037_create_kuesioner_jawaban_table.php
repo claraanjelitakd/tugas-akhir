@@ -24,7 +24,9 @@ CREATE TABLE "kuesioner_jawaban" (
     "evaluasi_atasan_id" integer,
     "section_id" integer not null,
     "pertanyaan_id" integer not null,
+    "kode_pertanyaan" varchar(50),
     "opsi_id" integer,
+    "kode_opsi" text,
     "jawaban_teks" text,
     "jawaban_json" text,
     "created_at" datetime,
@@ -42,6 +44,7 @@ SQL
                 'CREATE INDEX "kuesioner_jawaban_alumni_idx" on "kuesioner_jawaban" ("biodata_id", "pertanyaan_id");',
                 'CREATE INDEX "kuesioner_jawaban_atasan_idx" on "kuesioner_jawaban" ("evaluasi_atasan_id", "pertanyaan_id");',
                 'CREATE INDEX "kuesioner_jawaban_section_idx" on "kuesioner_jawaban" ("section_id");',
+                'CREATE INDEX "kuesioner_jawaban_kode_pertanyaan_idx" on "kuesioner_jawaban" ("kode_pertanyaan");',
             ] as $sql) {
                 DB::statement($sql);
             }
@@ -54,7 +57,9 @@ CREATE TABLE `kuesioner_jawaban` (
   `evaluasi_atasan_id` bigint unsigned DEFAULT NULL COMMENT 'ID evaluasi atasan (jika responden = atasan)',
   `section_id` bigint unsigned NOT NULL COMMENT 'ID bagian kuesioner tempat pertanyaan diisi',
   `pertanyaan_id` bigint unsigned NOT NULL COMMENT 'ID butir pertanyaan yang dijawab',
+  `kode_pertanyaan` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Kode butir pertanyaan (contoh: F8, PSI-1-02)',
   `opsi_id` bigint unsigned DEFAULT NULL COMMENT 'ID pilihan jawaban master terpilih (jika pilihan ganda)',
+  `kode_opsi` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Kode opsi jawaban terpilih (contoh: F8-01 atau array JSON [J67, J69])',
   `jawaban_teks` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Nilai jawaban teks bebas atau angka',
   `jawaban_json` json DEFAULT NULL COMMENT 'Nilai jawaban terstruktur jika multi-select',
   `created_at` timestamp NULL DEFAULT NULL,
@@ -64,6 +69,7 @@ CREATE TABLE `kuesioner_jawaban` (
   KEY `kuesioner_jawaban_evaluasi_atasan_id_foreign` (`evaluasi_atasan_id`),
   KEY `kuesioner_jawaban_section_id_foreign` (`section_id`),
   KEY `kuesioner_jawaban_pertanyaan_id_foreign` (`pertanyaan_id`),
+  KEY `kuesioner_jawaban_kode_pertanyaan_idx` (`kode_pertanyaan`),
   KEY `kuesioner_jawaban_opsi_id_foreign` (`opsi_id`),
   KEY `kuesioner_jawaban_lookup_idx` (`responden_type`,`biodata_id`,`pertanyaan_id`),
   CONSTRAINT `kuesioner_jawaban_biodata_id_foreign` FOREIGN KEY (`biodata_id`) REFERENCES `biodata` (`id`) ON DELETE CASCADE,

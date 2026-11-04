@@ -4,12 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\KelompokPertanyaan;
 use App\Models\Kuesioner;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\Tracer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -24,6 +25,8 @@ class AlumniKuesionerSimpanPayloadTest extends TestCase
     protected Biodata $alumni;
 
     protected Kuesioner $kuesioner;
+
+    protected KuesionerSection $section;
 
     protected function setUp(): void
     {
@@ -41,7 +44,6 @@ class AlumniKuesionerSimpanPayloadTest extends TestCase
         $prodi = Prodi::create([
             'kode_prodi' => '82',
             'nama_prodi' => 'Sistem Informasi',
-            'jenjang' => 'S1',
         ]);
 
         DataAkademik::create([
@@ -66,35 +68,49 @@ class AlumniKuesionerSimpanPayloadTest extends TestCase
             'is_active' => true,
         ]);
 
-        $sec = KelompokPertanyaan::create([
-            'kuesioner_id' => $this->kuesioner->id,
-            'title' => 'Mencari Kerja',
+        $this->section = KuesionerSection::create([
+            'kode_section' => 'SEC-UNIV-3',
+            'target' => 'univ',
+            'judul' => 'Mencari Kerja',
             'order' => 3,
+            'is_active' => true,
         ]);
 
-        $qRadio = RefSubpertanyaan2021::create([
-            'id' => 14,
-            'kelompok_pertanyaan_id' => $sec->id,
+        $qRadio = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F21',
-            'subpertanyaan' => 'Perkuliahan',
-            'type' => 'radio',
-            'order' => 1,
+            'teks_pertanyaan' => 'Perkuliahan',
+            'tipe' => 'single_choice',
+            'is_reusable' => true,
+            'is_active' => true,
         ]);
 
-        $qCheck = RefSubpertanyaan2021::create([
-            'id' => 22,
-            'kelompok_pertanyaan_id' => $sec->id,
+        $qCheck = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F4',
-            'subpertanyaan' => 'Bagaimana anda mencari pekerjaan tersebut?',
-            'type' => 'multiple_choice',
+            'teks_pertanyaan' => 'Bagaimana anda mencari pekerjaan tersebut?',
+            'tipe' => 'multiple_choice',
+            'is_reusable' => true,
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $qRadio->id,
+            'order' => 1,
+            'wajib' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $qCheck->id,
             'order' => 2,
+            'wajib' => true,
         ]);
     }
 
     public function test_can_save_answers_with_nested_and_mismatched_payload(): void
     {
-        $qRadio = RefSubpertanyaan2021::where('kode_pertanyaan', 'F21')->first();
-        $qCheck = RefSubpertanyaan2021::where('kode_pertanyaan', 'F4')->first();
+        $qRadio = KuesionerPertanyaan::where('kode_pertanyaan', 'F21')->first();
+        $qCheck = KuesionerPertanyaan::where('kode_pertanyaan', 'F4')->first();
 
         $payload = [
             'answers' => [
@@ -120,16 +136,16 @@ class AlumniKuesionerSimpanPayloadTest extends TestCase
         $response->assertStatus(302);
         $response->assertSessionHas('success');
 
-        $this->assertDatabaseHas('tracer', [
+        $this->assertDatabaseHas('kuesioner_jawaban', [
             'biodata_id' => $this->alumni->id,
-            'question_id' => $qCheck->id,
-            'answer' => 'Melalui iklan di koran/majalah, brosur, Melamar ke perusahaan tanpa mengetahui lowongan yang ada',
+            'pertanyaan_id' => $qCheck->id,
+            'jawaban_teks' => 'Melalui iklan di koran/majalah, brosur, Melamar ke perusahaan tanpa mengetahui lowongan yang ada',
         ]);
     }
 
     public function test_answering_same_question_multiple_times_updates_record_without_duplication(): void
     {
-        $qCheck = RefSubpertanyaan2021::where('kode_pertanyaan', 'F4')->first();
+        $qCheck = KuesionerPertanyaan::where('kode_pertanyaan', 'F4')->first();
 
         // 1. Kirim jawaban pertama
         $payload1 = [
@@ -144,8 +160,8 @@ class AlumniKuesionerSimpanPayloadTest extends TestCase
         $response1->assertStatus(302);
 
         // Pastikan ada 1 baris
-        $count1 = Tracer::where('biodata_id', $this->alumni->id)
-            ->where('question_id', $qCheck->id)
+        $count1 = KuesionerJawaban::where('biodata_id', $this->alumni->id)
+            ->where('pertanyaan_id', $qCheck->id)
             ->count();
         $this->assertEquals(1, $count1);
 
@@ -162,16 +178,16 @@ class AlumniKuesionerSimpanPayloadTest extends TestCase
         $response2->assertStatus(302);
 
         // Pastikan jumlah baris tetap 1 (tidak duplikat) dan isinya ter-update
-        $count2 = Tracer::where('biodata_id', $this->alumni->id)
-            ->where('question_id', $qCheck->id)
+        $count2 = KuesionerJawaban::where('biodata_id', $this->alumni->id)
+            ->where('pertanyaan_id', $qCheck->id)
             ->count();
         $this->assertEquals(1, $count2);
 
-        $tracer = Tracer::where('biodata_id', $this->alumni->id)
-            ->where('question_id', $qCheck->id)
+        $jawaban = KuesionerJawaban::where('biodata_id', $this->alumni->id)
+            ->where('pertanyaan_id', $qCheck->id)
             ->first();
 
-        $this->assertEquals('Mencari lewat internet/iklan online, Dihubungi perusahaan', $tracer->answer);
+        $this->assertEquals('Mencari lewat internet/iklan online, Dihubungi perusahaan', $jawaban->jawaban_teks);
     }
 
     public function test_invalid_company_scale_answer_is_not_written_to_enum_column(): void
@@ -185,13 +201,19 @@ class AlumniKuesionerSimpanPayloadTest extends TestCase
         ]);
         $this->alumni->update(['perusahaan_id' => $company->id]);
 
-        $question = RefSubpertanyaan2021::create([
-            'id' => 24,
-            'kelompok_pertanyaan_id' => $this->kuesioner->sections()->first()->id,
+        $question = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F2H',
-            'subpertanyaan' => 'Skala perusahaan',
-            'type' => 'radio',
+            'teks_pertanyaan' => 'Skala perusahaan',
+            'tipe' => 'single_choice',
+            'is_reusable' => true,
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $question->id,
             'order' => 3,
+            'wajib' => true,
         ]);
 
         $response = $this->actingAs($this->user)->post('/alumni/kuesioner', [

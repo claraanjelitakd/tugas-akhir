@@ -2,9 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\KelompokPertanyaan;
 use App\Models\Kuesioner;
-use App\Models\RefSubpertanyaan2021;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -18,7 +19,7 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
 
     protected Kuesioner $kuesioner;
 
-    protected KelompokPertanyaan $section;
+    protected KuesionerSection $section;
 
     protected function setUp(): void
     {
@@ -38,10 +39,12 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->section = KelompokPertanyaan::create([
-            'kuesioner_id' => $this->kuesioner->id,
-            'title' => 'Bagian Identitas & Pekerjaan',
+        $this->section = KuesionerSection::create([
+            'kode_section' => 'SEC_UNIV_1',
+            'target' => 'univ',
+            'judul' => 'Bagian Identitas & Pekerjaan',
             'order' => 1,
+            'is_active' => true,
         ]);
     }
 
@@ -50,12 +53,16 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
      */
     public function test_superadmin_can_view_questions_page(): void
     {
-        RefSubpertanyaan2021::create([
-            'kelompok' => 'F1',
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $q = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F301_TEST',
-            'subpertanyaan' => 'Kapan Anda mulai mencari pekerjaan?',
-            'type' => 'single_choice',
+            'teks_pertanyaan' => 'Kapan Anda mulai mencari pekerjaan?',
+            'tipe' => 'single_choice',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $q->id,
             'wajib' => true,
             'tampil_di' => 'kuesioner',
             'order' => 1,
@@ -84,11 +91,15 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
             ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('ref_subpertanyaan2021', [
+        $this->assertDatabaseHas('kuesioner_pertanyaan', [
             'kode_pertanyaan' => 'F302_TEST',
-            'subpertanyaan' => 'Berapa banyak perusahaan yang Anda lamar?',
-            'tampil_di' => 'kuesioner',
+            'teks_pertanyaan' => 'Berapa banyak perusahaan yang Anda lamar?',
             'keterangan' => 'Isi jawaban dalam angka.',
+        ]);
+
+        $this->assertDatabaseHas('kuesioner_section_pertanyaan', [
+            'section_id' => $this->section->id,
+            'tampil_di' => 'kuesioner',
         ]);
     }
 
@@ -97,12 +108,16 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
      */
     public function test_superadmin_can_update_question_target(): void
     {
-        $question = RefSubpertanyaan2021::create([
-            'kelompok' => 'F1',
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $question = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F303_TEST',
-            'subpertanyaan' => 'Pertanyaan Awal',
-            'type' => 'text',
+            'teks_pertanyaan' => 'Pertanyaan Awal',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $question->id,
             'wajib' => true,
             'tampil_di' => 'kuesioner',
             'order' => 1,
@@ -114,17 +129,22 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
                 'kode_pertanyaan' => 'F303_TEST',
                 'subpertanyaan' => 'Pertanyaan Diperbarui',
                 'type' => 'text',
+                'keterangan' => 'Isi jawaban singkat.',
                 'wajib' => true,
                 'tampil_di' => 'profile',
                 'order' => 1,
             ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('ref_subpertanyaan2021', [
+        $this->assertDatabaseHas('kuesioner_pertanyaan', [
             'id' => $question->id,
-            'tampil_di' => 'profile',
-            'subpertanyaan' => 'Pertanyaan Diperbarui',
+            'teks_pertanyaan' => 'Pertanyaan Diperbarui',
             'keterangan' => 'Isi jawaban singkat.',
+        ]);
+
+        $this->assertDatabaseHas('kuesioner_section_pertanyaan', [
+            'pertanyaan_id' => $question->id,
+            'tampil_di' => 'profile',
         ]);
     }
 
@@ -133,23 +153,31 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
      */
     public function test_superadmin_can_reorder_questions(): void
     {
-        $q1 = RefSubpertanyaan2021::create([
-            'kelompok' => 'F1',
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $q1 = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'Q1_TEST',
-            'subpertanyaan' => 'Soal 1',
-            'type' => 'text',
+            'teks_pertanyaan' => 'Soal 1',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $q1->id,
             'wajib' => true,
             'tampil_di' => 'kuesioner',
             'order' => 1,
         ]);
 
-        $q2 = RefSubpertanyaan2021::create([
-            'kelompok' => 'F1',
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $q2 = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'Q2_TEST',
-            'subpertanyaan' => 'Soal 2',
-            'type' => 'text',
+            'teks_pertanyaan' => 'Soal 2',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $q2->id,
             'wajib' => true,
             'tampil_di' => 'kuesioner',
             'order' => 2,
@@ -162,8 +190,8 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
             ]);
 
         $response->assertRedirect();
-        $this->assertEquals(1, $q2->fresh()->order);
-        $this->assertEquals(2, $q1->fresh()->order);
+        $this->assertEquals(1, KuesionerSectionPertanyaan::where('pertanyaan_id', $q2->id)->first()->order);
+        $this->assertEquals(2, KuesionerSectionPertanyaan::where('pertanyaan_id', $q1->id)->first()->order);
     }
 
     /**
@@ -181,12 +209,12 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
             'tampil_di' => 'kuesioner',
         ])->assertRedirect();
 
-        $q = RefSubpertanyaan2021::where('kode_pertanyaan', 'F_TEST_RT')->first();
+        $q = KuesionerPertanyaan::where('kode_pertanyaan', 'F_TEST_RT')->first();
         $this->assertNotNull($q);
-        $this->assertCount(3, $q->detils);
-        $this->assertEquals('Pilihan 1', $q->detils[0]->option_text);
-        $this->assertEquals('Pilihan 2', $q->detils[1]->option_text);
-        $this->assertEquals('Lainnya (Tuliskan)', $q->detils[2]->option_text);
+        $this->assertCount(3, $q->opsi);
+        $this->assertEquals('Pilihan 1', $q->opsi[0]->label);
+        $this->assertEquals('Pilihan 2', $q->opsi[1]->label);
+        $this->assertEquals('Lainnya (Tuliskan)', $q->opsi[2]->label);
 
         // 2. Tipe rating_5 -> 5 opsi
         $this->actingAs($this->superadmin)->post(route('superadmin.pertanyaan.store'), [
@@ -198,11 +226,11 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
             'tampil_di' => 'kuesioner',
         ])->assertRedirect();
 
-        $q2 = RefSubpertanyaan2021::where('kode_pertanyaan', 'F_TEST_R5')->first();
+        $q2 = KuesionerPertanyaan::where('kode_pertanyaan', 'F_TEST_R5')->first();
         $this->assertNotNull($q2);
-        $this->assertCount(5, $q2->detils);
-        $this->assertEquals('1 - Sangat Rendah', $q2->detils[0]->option_text);
-        $this->assertEquals('5 - Sangat Tinggi', $q2->detils[4]->option_text);
+        $this->assertCount(5, $q2->opsi);
+        $this->assertEquals('1 - Sangat Rendah', $q2->opsi[0]->label);
+        $this->assertEquals('5 - Sangat Tinggi', $q2->opsi[4]->label);
     }
 
     /**
@@ -210,12 +238,16 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
      */
     public function test_superadmin_can_toggle_question_visibility_for_profile(): void
     {
-        $question = RefSubpertanyaan2021::create([
-            'kelompok' => 'F1',
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $question = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F_TEST_TOGGLE',
-            'subpertanyaan' => 'Pertanyaan Toggle Visibilitas',
-            'type' => 'text',
+            'teks_pertanyaan' => 'Pertanyaan Toggle Visibilitas',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $question->id,
             'wajib' => true,
             'tampil_di' => 'profil',
             'order' => 1,
@@ -228,7 +260,7 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
             ]);
 
         $response->assertRedirect();
-        $this->assertEquals('hidden', $question->fresh()->tampil_di);
+        $this->assertEquals('hidden', KuesionerSectionPertanyaan::where('pertanyaan_id', $question->id)->first()->tampil_di);
 
         // Toggle kedua: dari hidden -> profil (tampilkan kembali)
         $response2 = $this->actingAs($this->superadmin)
@@ -237,6 +269,6 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
             ]);
 
         $response2->assertRedirect();
-        $this->assertEquals('profil', $question->fresh()->tampil_di);
+        $this->assertEquals('profil', KuesionerSectionPertanyaan::where('pertanyaan_id', $question->id)->first()->tampil_di);
     }
 }

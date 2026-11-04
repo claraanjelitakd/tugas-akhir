@@ -4,11 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\Prodi;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiQuestionOption;
-use App\Models\ProdiQuestionSection;
-use App\Models\ProdiResponse;
 use App\Models\User;
 use App\Services\Analytics\ProdiAnalyticsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -55,20 +55,24 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'nama_prodi' => 'Sistem Informasi',
         ]);
 
-        $section = ProdiQuestionSection::create([
+        $section = KuesionerSection::create([
             'prodi_id' => $prodi->id,
-            'title' => 'Pengalaman Belajar Selama Studi',
+            'target' => 'prodi',
+            'kode_section' => 'SEC-PSI-1',
+            'judul' => 'Pengalaman Belajar Selama Studi',
             'order' => 1,
+            'is_active' => true,
         ]);
 
-        $question = ProdiQuestion::create([
-            'prodi_id' => $prodi->id,
-            'prodi_question_section_id' => $section->id,
-            'code' => 'PSI-2-01',
-            'question_text' => 'Pemahaman konsep dan praktik Sistem Informasi',
-            'type' => 'rating_5',
-            'order' => 1,
+        $question = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $prodi->id,
+            'kode_pertanyaan' => 'PSI-2-01',
+            'teks_pertanyaan' => 'Pemahaman konsep dan praktik Sistem Informasi',
+            'tipe' => 'rating_5',
+            'is_active' => true,
         ]);
+
+        $section->pertanyaan()->attach($question->id, ['order' => 1, 'wajib' => true]);
 
         $superadmin = $this->createSuperAdmin();
 
@@ -92,32 +96,39 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'kode_prodi' => '72',
             'nama_prodi' => 'Sistem Informasi',
         ]);
-        $secondSection = ProdiQuestionSection::create([
+        $secondSection = KuesionerSection::create([
             'prodi_id' => $prodi->id,
-            'title' => 'Bagian Kedua',
+            'target' => 'prodi',
+            'kode_section' => 'SEC-PSI-2',
+            'judul' => 'Bagian Kedua',
             'order' => 2,
+            'is_active' => true,
         ]);
-        $firstSection = ProdiQuestionSection::create([
+        $firstSection = KuesionerSection::create([
             'prodi_id' => $prodi->id,
-            'title' => 'Bagian Pertama',
+            'target' => 'prodi',
+            'kode_section' => 'SEC-PSI-1',
+            'judul' => 'Bagian Pertama',
             'order' => 1,
+            'is_active' => true,
         ]);
-        ProdiQuestion::create([
-            'prodi_id' => $prodi->id,
-            'prodi_question_section_id' => $secondSection->id,
-            'code' => 'PSI-2-01',
-            'question_text' => 'Pertanyaan bagian kedua',
-            'type' => 'rating_5',
-            'order' => 1,
+        $q2 = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $prodi->id,
+            'kode_pertanyaan' => 'PSI-2-01',
+            'teks_pertanyaan' => 'Pertanyaan bagian kedua',
+            'tipe' => 'rating_5',
+            'is_active' => true,
         ]);
-        ProdiQuestion::create([
-            'prodi_id' => $prodi->id,
-            'prodi_question_section_id' => $firstSection->id,
-            'code' => 'PSI-1-01',
-            'question_text' => 'Pertanyaan bagian pertama',
-            'type' => 'rating_5',
-            'order' => 1,
+        $q1 = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $prodi->id,
+            'kode_pertanyaan' => 'PSI-1-01',
+            'teks_pertanyaan' => 'Pertanyaan bagian pertama',
+            'tipe' => 'rating_5',
+            'is_active' => true,
         ]);
+
+        $secondSection->pertanyaan()->attach($q2->id, ['order' => 1, 'wajib' => true]);
+        $firstSection->pertanyaan()->attach($q1->id, ['order' => 1, 'wajib' => true]);
 
         $analytics = app(ProdiAnalyticsService::class)->buildProdiChart($prodi->id, null, 'ALL');
 
@@ -135,20 +146,24 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'nama_prodi' => 'Sistem Informasi',
         ]);
 
-        $section = ProdiQuestionSection::create([
+        $section = KuesionerSection::create([
             'prodi_id' => $prodi->id,
-            'title' => 'Pengalaman Belajar',
+            'target' => 'prodi',
+            'kode_section' => 'SEC-PSI-1',
+            'judul' => 'Pengalaman Belajar',
             'order' => 1,
+            'is_active' => true,
         ]);
 
-        $question = ProdiQuestion::create([
-            'prodi_id' => $prodi->id,
-            'prodi_question_section_id' => $section->id,
-            'code' => 'PSI-2-01',
-            'question_text' => 'Pemahaman konsep',
-            'type' => 'rating_5',
-            'order' => 1,
+        $question = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $prodi->id,
+            'kode_pertanyaan' => 'PSI-2-01',
+            'teks_pertanyaan' => 'Pemahaman konsep',
+            'tipe' => 'rating_5',
+            'is_active' => true,
         ]);
+
+        $section->pertanyaan()->attach($question->id, ['order' => 1, 'wajib' => true]);
 
         $superadmin = $this->createSuperAdmin();
 
@@ -198,19 +213,23 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'kode_prodi' => '72',
             'nama_prodi' => 'Sistem Informasi',
         ]);
-        $section = ProdiQuestionSection::create([
+        $section = KuesionerSection::create([
             'prodi_id' => $prodi->id,
-            'title' => 'Pengalaman Belajar',
+            'target' => 'prodi',
+            'kode_section' => 'SEC-PSI-1',
+            'judul' => 'Pengalaman Belajar',
             'order' => 1,
+            'is_active' => true,
         ]);
-        $question = ProdiQuestion::create([
-            'prodi_id' => $prodi->id,
-            'prodi_question_section_id' => $section->id,
-            'code' => 'PSI-2-01',
-            'question_text' => 'Pemahaman konsep',
-            'type' => 'rating_5',
-            'order' => 1,
+        $question = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $prodi->id,
+            'kode_pertanyaan' => 'PSI-2-01',
+            'teks_pertanyaan' => 'Pemahaman konsep',
+            'tipe' => 'rating_5',
+            'is_active' => true,
         ]);
+
+        $section->pertanyaan()->attach($question->id, ['order' => 1, 'wajib' => true]);
 
         foreach ([['nim' => '72100001', 'score' => '2'], ['nim' => '72100002', 'score' => '3']] as $index => $response) {
             DataAkademik::create([
@@ -230,10 +249,13 @@ class SuperAdminProdiAnalyticsTest extends TestCase
                 'nim' => $response['nim'],
                 'prodi_id' => $prodi->id,
             ]);
-            ProdiResponse::create([
+            KuesionerJawaban::create([
+                'responden_type' => 'alumni',
                 'biodata_id' => $biodata->id,
-                'prodi_question_id' => $question->id,
-                'answer_text' => $response['score'],
+                'section_id' => $section->id,
+                'pertanyaan_id' => $question->id,
+                'kode_pertanyaan' => $question->kode_pertanyaan,
+                'jawaban_teks' => $response['score'],
             ]);
         }
 
@@ -255,21 +277,26 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'kode_prodi' => '72',
             'nama_prodi' => 'Sistem Informasi',
         ]);
-        $section = ProdiQuestionSection::create([
+        $section = KuesionerSection::create([
             'prodi_id' => $prodi->id,
-            'title' => 'Kontribusi Alumni',
+            'target' => 'prodi',
+            'kode_section' => 'SEC-PSI-1',
+            'judul' => 'Kontribusi Alumni',
             'order' => 1,
+            'is_active' => true,
         ]);
-        $question = ProdiQuestion::create([
-            'prodi_id' => $prodi->id,
-            'prodi_question_section_id' => $section->id,
-            'code' => 'PSI-1-04',
-            'question_text' => 'Kontribusi yang akan diberikan',
-            'type' => 'multiple_choice',
-            'order' => 1,
+        $question = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $prodi->id,
+            'kode_pertanyaan' => 'PSI-1-04',
+            'teks_pertanyaan' => 'Kontribusi yang akan diberikan',
+            'tipe' => 'multiple_choice',
+            'is_active' => true,
         ]);
-        ProdiQuestionOption::create(['prodi_question_id' => $question->id, 'code' => 'PSI-1-04-01', 'option_text' => 'Kuliah Umum', 'order' => 1]);
-        ProdiQuestionOption::create(['prodi_question_id' => $question->id, 'code' => 'PSI-1-04-02', 'option_text' => 'Other', 'order' => 2]);
+
+        $section->pertanyaan()->attach($question->id, ['order' => 1, 'wajib' => true]);
+
+        KuesionerOpsi::create(['pertanyaan_id' => $question->id, 'kode_opsi' => 'PSI-1-04-01', 'label' => 'Kuliah Umum', 'order' => 1]);
+        KuesionerOpsi::create(['pertanyaan_id' => $question->id, 'kode_opsi' => 'PSI-1-04-02', 'label' => 'Other', 'order' => 2]);
         DataAkademik::create(['nim' => '72100003', 'nama' => 'Alumni Lainnya', 'tahun_lulus' => 2025]);
         $alumni = User::create([
             'username' => 'alumni-prodi-other',
@@ -286,11 +313,14 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'nomor_telepon' => '081234567890',
             'email_pribadi' => 'pribadi.lainnya@example.test',
         ]);
-        ProdiResponse::create([
+        KuesionerJawaban::create([
+            'responden_type' => 'alumni',
             'biodata_id' => $biodata->id,
-            'prodi_question_id' => $question->id,
-            'answer_text' => 'Other (Menjadi mentor proyek)',
-            'answer_json' => ['selected' => ['Other'], 'custom' => 'Menjadi mentor proyek'],
+            'section_id' => $section->id,
+            'pertanyaan_id' => $question->id,
+            'kode_pertanyaan' => $question->kode_pertanyaan,
+            'jawaban_teks' => 'Other (Menjadi mentor proyek)',
+            'jawaban_json' => ['selected' => ['Other'], 'custom' => 'Menjadi mentor proyek'],
         ]);
 
         $analytics = app(ProdiAnalyticsService::class)->buildProdiChart($prodi->id, $section->id, 'ALL');

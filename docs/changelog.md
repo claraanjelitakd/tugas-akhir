@@ -2,6 +2,20 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 04 November 2026
+
+- **Penyatuan Skema Kuesioner Terpadu (Unified Survey Engine)**:
+  - Mengonsolidasikan seluruh survei (Tracer Universitas, Kuesioner Khusus Program Studi, dan Evaluasi Pengguna Lulusan/Atasan) ke dalam 5 tabel terpadu: `kuesioner_section`, `kuesioner_pertanyaan`, `kuesioner_section_pertanyaan`, `kuesioner_opsi`, dan `kuesioner_jawaban`.
+  - Menghapus 11 tabel legacy silo yang redundan (`kelompok_pertanyaan`, `ref_subpertanyaan2021`, `ref_subpertanyaan_detil`, `tracer`, `prodi_question_section`, `prodi_question`, `prodi_question_option`, `prodi_response`, `section_evaluasi_atasan`, `pertanyaan_evaluasi_atasan`, `respon_evaluasi_atasan`).
+  - Menghubungkan lembar transaksi `evaluasi_atasan` secara langsung ke `kuesioner_jawaban` dengan penanda `responden_type = 'atasan'` dan kunci `evaluasi_atasan_id`.
+- **Peningkatan Fleksibilitas Autentikasi Pengguna (`LoginController.php`)**:
+  - Mendukung login menggunakan `username` maupun alamat `email` secara transparan.
+  - Menambahkan dukungan ganda kata sandi awal alumni: format tanggal lahir `ddmmyyyy` dan kata sandi seeder `password123`.
+  - Menambahkan pengujian otomatis komprehensif pada `tests/Feature/LoginAuthenticationTest.php` (6/6 skenario lulus 100%).
+- **Harmonisasi dan Audit Dokumentasi Sistem**:
+  - Memperbarui total `ERD.md`: diagram master, diagram per modul (Mermaid), tabel relasi spesifikasi foreign key, dan kamus data (*data dictionary*) untuk 21 tabel domain bisnis dan 7 tabel infrastruktur Laravel.
+  - Memperbarui `docs/ARCHITECTURE.md`, `USE_CASE.md`, dan `docs/dfd.md` agar seluruh simpanan data dan kontrak transaksi merujuk ke tabel kanonik kuesioner terpadu.
+
 ## 03 November 2026
 
 - **Plotting Studi Lanjut, Bidang Pekerjaan, dan Penyederhanaan Form Karier**:

@@ -5,10 +5,9 @@ namespace Database\Seeders;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\Kabupaten;
+use App\Models\KuesionerJawaban;
 use App\Models\Prodi;
-use App\Models\ProdiResponse;
 use App\Models\Propinsi;
-use App\Models\Tracer;
 use App\Models\User;
 use App\Models\Yudisium;
 use Illuminate\Database\Seeder;
@@ -125,8 +124,7 @@ class JoshuaAndreanSeeder extends Seeder
             ]
         );
 
-        // 6. Bersihkan respon tracer lama untuk Joshua agar fresh siap uji
-        Tracer::where('biodata_id', $biodata->id)->delete();
-        ProdiResponse::where('biodata_id', $biodata->id)->delete();
+        // 6. Bersihkan respon kuesioner untuk Joshua agar fresh siap uji
+        KuesionerJawaban::where('biodata_id', $biodata->id)->delete();
     }
 }

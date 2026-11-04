@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Biodata;
 use App\Models\LinkedinSyncResult;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\File;
@@ -62,6 +63,11 @@ class LinkedinSyncResultSeeder extends Seeder
                         $biodata->saveQuietly();
                     }
 
+                    $reviewedBy = $item['reviewed_by'] ?? null;
+                    if ($reviewedBy && ! User::where('id', $reviewedBy)->exists()) {
+                        $reviewedBy = User::where('role', 'superadmin')->value('id');
+                    }
+
                     LinkedinSyncResult::updateOrCreate(
                         [
                             'biodata_id' => $biodata->id,
@@ -71,7 +77,7 @@ class LinkedinSyncResultSeeder extends Seeder
                             'linkedin_username' => $item['linkedin_username'] ?? null,
                             'scraped_data' => $item['scraped_data'] ?? [],
                             'status' => $item['status'] ?? 'pending',
-                            'reviewed_by' => $item['reviewed_by'] ?? null,
+                            'reviewed_by' => $reviewedBy,
                             'reviewed_at' => ! empty($item['reviewed_at']) ? Carbon::parse($item['reviewed_at']) : null,
                             'scraped_at' => ! empty($item['scraped_at']) ? Carbon::parse($item['scraped_at']) : now(),
                         ]

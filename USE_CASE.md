@@ -49,9 +49,7 @@ flowchart LR
     Prodi --> UC16((UC16 Verifikasi Perusahaan))
     Fak --> UC16
     Super --> UC16
-    Prodi --> UC17((UC17 Manajemen Akun))
-    Fak --> UC17
-    Super --> UC17
+    Super --> UC17((UC17 Manajemen Akun))
     Prodi --> UC18((UC18 Sinkronisasi LinkedIn))
     Fak --> UC18
     Super --> UC18
@@ -90,13 +88,13 @@ flowchart LR
 | UC14 | Mengelola kuesioner prodi | Admin Prodi dan Superadmin | `/prodi/sections`, `/prodi/pertanyaan`, `/superadmin/prodi-kuesioner` |
 | UC15 | Mengelola instrumen evaluasi atasan | Superadmin | `/superadmin/evaluasi-atasan` |
 | UC16 | Memverifikasi perusahaan | Admin Prodi, Fakultas, Superadmin | `*/perusahaan` |
-| UC17 | Manajemen akun alumni dan reset sandi | Admin Prodi, Fakultas, Superadmin | `*/manajemen-akun` |
+| UC17 | Manajemen akun pengguna dan reset sandi | Superadmin | `/superadmin/manajemen-akun` |
 | UC18 | Sinkronisasi profil LinkedIn | Admin Prodi, Fakultas, Superadmin | `*/linkedin-sync` |
 | UC19 | Mengelola master wilayah, negara, dan UMP | Superadmin | `/superadmin/master-wilayah` |
 | UC20 | Memantau log aktivitas | Superadmin | `/superadmin/logs`, tabel `log_activities` |
 | UC21 | Analitik universitas | Superadmin | `/superadmin/analitik`, view `v_analytics_*` |
-| UC22 | Analitik prodi | Superadmin | `/superadmin/analitik-prodi`, tabel `prodi_response` |
-| UC26 | Analitik evaluasi pengguna lulusan | Superadmin | `/superadmin/analitik-atasan`, tabel `evaluasi_atasan` dan `respon_evaluasi_atasan` |
+| UC22 | Analitik prodi | Superadmin | `/superadmin/analitik-prodi`, tabel `kuesioner_jawaban` |
+| UC26 | Analitik evaluasi pengguna lulusan | Superadmin | `/superadmin/analitik-atasan`, tabel `evaluasi_atasan` dan `kuesioner_jawaban` |
 | UC23 | Ekspor data ke Excel | Admin Prodi, Fakultas, Biro III, Superadmin | `*/alumni/*/export-excel`, `*/alumni/export-zip` |
 | UC24 | Mengelola data alumni | Superadmin dan admin sesuai scope | daftar/detail alumni dan update profil admin |
 | UC25 | Logout dan pengelolaan sesi | Seluruh pengguna login | `POST /logout`, `sessions` |
@@ -181,9 +179,9 @@ flowchart LR
 | :--- | :--- |
 | Aktor | Alumni. |
 | Deskripsi | Menjawab instrumen universitas yang terdiri dari section, pertanyaan, opsi, dan branching. |
-| Prasyarat | Alumni login; kuesioner aktif tersedia pada `kuesioner`. |
-| Pasca-syarat | Jawaban tersimpan pada `tracer` dengan FK `question_id` dan snapshot kode pertanyaan. |
-| Alur dasar | 1. Sistem memuat paket aktif dan `kelompok_pertanyaan`.<br>2. Alumni menjawab input sesuai `type`.<br>3. Sistem mengevaluasi `jump_to` dan `tampil_di`.<br>4. Sistem menyimpan `answer` dan `answer_json` secara idempoten.<br>5. Dashboard memperbarui status pengisian. |
+| Prasyarat | Alumni login; kuesioner aktif tersedia pada `kuesioner` dan `kuesioner_section` (`target = 'univ'`). |
+| Pasca-syarat | Jawaban tersimpan pada `kuesioner_jawaban` dengan FK `pertanyaan_id`, `section_id`, dan snapshot `kode_pertanyaan`. |
+| Alur dasar | 1. Sistem memuat paket aktif dan `kuesioner_section`.<br>2. Alumni menjawab input sesuai `tipe`.<br>3. Sistem mengevaluasi `jump_to` dan `tampil_di`.<br>4. Sistem menyimpan `jawaban_teks` dan `jawaban_json` secara idempoten.<br>5. Dashboard memperbarui status pengisian. |
 | Alur alternatif | A1. Alumni menyimpan sebagian jawaban lalu melanjutkan kemudian.<br>A2. Jawaban pilihan ganda menyimpan array di `answer_json`. |
 | Alur eksepsi | E1. Pertanyaan wajib kosong.<br>E2. Kombinasi `biodata_id` dan kode pertanyaan duplikat; sistem memperbarui baris yang sama, bukan membuat duplikat. |
 
@@ -193,9 +191,9 @@ flowchart LR
 | :--- | :--- |
 | Aktor | Alumni. |
 | Deskripsi | Mengisi pertanyaan khusus prodi yang aktif untuk `prodi_id` alumni. |
-| Prasyarat | Section dan pertanyaan prodi tersedia pada `prodi_question_section` dan `prodi_question`. |
-| Pasca-syarat | Jawaban tersimpan pada `prodi_response` dengan unique pair alumni dan pertanyaan. |
-| Alur dasar | 1. Sistem mengambil section dan opsi sesuai prodi alumni.<br>2. Alumni menjawab tiap pertanyaan.<br>3. Sistem menyimpan `answer_text` atau `answer_json`.<br>4. Sistem menampilkan status selesai. |
+| Prasyarat | Section dan pertanyaan prodi tersedia pada `kuesioner_section` (`target = 'prodi'`) dan `kuesioner_pertanyaan`. |
+| Pasca-syarat | Jawaban tersimpan pada `kuesioner_jawaban` dengan unique pair alumni (`biodata_id`) dan pertanyaan. |
+| Alur dasar | 1. Sistem mengambil section dan opsi sesuai prodi alumni.<br>2. Alumni menjawab tiap pertanyaan.<br>3. Sistem menyimpan `jawaban_teks` atau `jawaban_json`.<br>4. Sistem menampilkan status selesai. |
 | Alur alternatif | A1. Prodi belum memiliki pertanyaan: sistem menampilkan status belum tersedia tanpa membuat data palsu.<br>A2. Pilihan `Lainnya` menyimpan detail pada `answer_json` agar dapat ditampilkan di tabel. |
 | Alur eksepsi | E1. Pertanyaan milik prodi lain ditolak.<br>E2. Pertanyaan wajib kosong atau format angka tidak sesuai. |
 
@@ -218,7 +216,7 @@ flowchart LR
 | Aktor | Pengguna lulusan atau atasan langsung tanpa akun login. |
 | Deskripsi | Mengisi form evaluasi melalui token publik; pertanyaan dan field perusahaan ditampilkan sesuai konfigurasi aktif. |
 | Prasyarat | Token ditemukan pada `evaluasi_atasan`. |
-| Pasca-syarat | `respon_evaluasi_atasan` tersimpan, `is_submitted` dan `submitted_at` diperbarui. |
+| Pasca-syarat | `kuesioner_jawaban` (`responden_type = 'atasan'`) tersimpan, `is_submitted` dan `submitted_at` diperbarui pada `evaluasi_atasan`. |
 | Alur dasar | 1. Atasan membuka `/evaluasi-atasan/{token}`.<br>2. Sistem memuat biodata, perusahaan, atasan, section, dan pertanyaan aktif.<br>3. Atasan mengisi field karakteristik perusahaan serta skala kinerja.<br>4. Sistem memvalidasi dan menyimpan detail jawaban.<br>5. Sistem menampilkan halaman terima kasih. |
 | Alur alternatif | A1. Field perusahaan yang dikelola sebagai master diperbarui di `perusahaan`, sedangkan nilai transaksi disimpan di `evaluasi_atasan`.<br>A2. Pertanyaan nonaktif tidak ditampilkan pada form baru. |
 | Alur eksepsi | E1. Token tidak ditemukan: tampilkan halaman not found.<br>E2. Nilai tidak ada pada pilihan atau skala: submit ditolak.<br>E3. Submit ulang mengikuti kebijakan controller aktif dan tidak boleh diasumsikan sebagai penguncian permanen jika tidak diterapkan server. |
@@ -254,9 +252,9 @@ flowchart LR
 | Aktor | Superadmin. |
 | Deskripsi | Mengelola paket tahunan, section, pertanyaan, opsi, urutan, status aktif, dan branching universitas. |
 | Prasyarat | Superadmin memiliki akses ke `/superadmin/sections`, `/superadmin/kuesioner`, dan `/superadmin/pertanyaan`. |
-| Pasca-syarat | Konfigurasi tersimpan pada `kuesioner`, `kelompok_pertanyaan`, `ref_subpertanyaan2021`, dan `ref_subpertanyaan_detil`. |
+| Pasca-syarat | Konfigurasi tersimpan pada `kuesioner`, `kuesioner_section`, `kuesioner_pertanyaan`, `kuesioner_section_pertanyaan`, dan `kuesioner_opsi`. |
 | Alur dasar | 1. Superadmin membuat atau mengaktifkan paket tahun.<br>2. Superadmin menambah atau mengubah section.<br>3. Superadmin menambah pertanyaan dan opsi.<br>4. Superadmin mengatur `jump_to`, `tampil_di`, dan urutan.<br>5. Form alumni menggunakan konfigurasi terbaru. |
-| Alur alternatif | A1. Paket lama dinonaktifkan tanpa menghapus riwayat `tracer`.<br>A2. Pertanyaan dapat diurutkan ulang. |
+| Alur alternatif | A1. Paket lama dinonaktifkan tanpa menghapus riwayat `kuesioner_jawaban`.<br>A2. Pertanyaan dapat diurutkan ulang. |
 | Alur eksepsi | E1. Kode pertanyaan duplikat.<br>E2. `jump_to` mengarah ke kode yang tidak ada.<br>E3. Section yang masih memiliki pertanyaan aktif tidak boleh dihapus tanpa aturan cascade yang disetujui. |
 
 ### UC14 — Mengelola Kuesioner Prodi
@@ -266,7 +264,7 @@ flowchart LR
 | Aktor | Admin Prodi dan Superadmin. |
 | Deskripsi | Membuat section, pertanyaan, opsi, tipe input, status wajib, dan urutan untuk setiap `prodi_id`. |
 | Prasyarat | Prodi target dapat diakses oleh role; section induk tersedia sebelum pertanyaan dibuat. |
-| Pasca-syarat | Struktur tersimpan pada `prodi_question_section`, `prodi_question`, dan `prodi_question_option`. |
+| Pasca-syarat | Struktur tersimpan pada `kuesioner_section`, `kuesioner_pertanyaan`, `kuesioner_section_pertanyaan`, dan `kuesioner_opsi`. |
 | Alur dasar | 1. Aktor memilih prodi.<br>2. Aktor menambah atau mengubah section melalui route `sections`.<br>3. Aktor menambah pertanyaan dengan tipe dan status wajib.<br>4. Aktor menambah opsi dan aturan lompat bila diperlukan.<br>5. Sistem memperbarui form dan analitik prodi secara dinamis. |
 | Alur alternatif | A1. Section dapat dibuat, diubah, diurutkan, dan dihapus dari menu pengelolaan section.<br>A2. Pertanyaan dapat dipindahkan urutannya tanpa mengubah jawaban lama. |
 | Alur eksepsi | E1. Kode pertanyaan sama dalam prodi yang sama.<br>E2. Section dari prodi lain dipilih.<br>E3. Penghapusan pertanyaan yang memiliki respon ditolak atau dinonaktifkan sesuai aturan historis. |
@@ -295,17 +293,17 @@ flowchart LR
 | Alur alternatif | A1. Relasi wilayah kosong ditampilkan sebagai data belum lengkap.<br>A2. Record mirip digabung ke master yang sudah terverifikasi. |
 | Alur eksepsi | E1. Negara tidak boleh dihapus jika masih direferensikan karena FK `RESTRICT`.<br>E2. Pengguna di luar scope tidak dapat mengubah record. |
 
-### UC17 — Manajemen Akun Alumni dan Reset Sandi
+### UC17 — Manajemen Akun Pengguna dan Reset Sandi
 
 | Elemen | Spesifikasi |
 | :--- | :--- |
-| Aktor | Admin Prodi, Admin Fakultas, Superadmin. |
-| Deskripsi | Mengubah data akun dan mereset kata sandi alumni dalam batas prodi, fakultas, atau universitas. |
-| Prasyarat | Role memiliki akses `*/manajemen-akun` dan akun target tersedia. |
+| Aktor | Superadmin. |
+| Deskripsi | Mengelola akun seluruh pengguna (Admin Fakultas, Admin Prodi, dan Mahasiswa/Alumni) serta mereset kata sandi dan menyinkronkan akun alumni terpadu. |
+| Prasyarat | Role memiliki akses `/superadmin/manajemen-akun` dan akun target tersedia. |
 | Pasca-syarat | Perubahan akun tersimpan; reset mengaktifkan `must_change_password`. |
-| Alur dasar | 1. Admin mencari akun berdasarkan NIM, nama, atau email.<br>2. Admin mengubah nama/email atau memilih reset.<br>3. Sistem memperbarui `users` dan menulis log.<br>4. Alumni diminta menjalankan UC04 pada login berikutnya. |
-| Alur alternatif | A1. Admin dapat menyinkronkan akun alumni dari master akademik melalui route khusus superadmin.<br>A2. Admin mengirim notifikasi email setelah reset. |
-| Alur eksepsi | E1. Username sudah dipakai.<br>E2. Data tanggal lahir yang menjadi sumber sandi bawaan tidak tersedia; reset ditolak dengan pesan validasi. |
+| Alur dasar | 1. Superadmin memfilter tab role dan mencari akun berdasarkan NIM, nama, atau email.<br>2. Superadmin mengubah nama/email atau memilih reset sandi.<br>3. Sistem memperbarui `users` dan menulis log aktivitas.<br>4. Pengguna diminta menjalankan UC04 pada login berikutnya. |
+| Alur alternatif | A1. Superadmin dapat menyinkronkan akun alumni baru dari data akademik secara massal (`syncAlumniAccounts`).<br>A2. Superadmin mengirimkan email tautan/notifikasi pemulihan sandi. |
+| Alur eksepsi | E1. Username sudah dipakai oleh entitas lain.<br>E2. Data tanggal lahir yang menjadi sumber sandi bawaan tidak tersedia; reset ditolak dengan pesan validasi. |
 
 ### UC18 — Sinkronisasi Profil LinkedIn
 
@@ -361,7 +359,7 @@ flowchart LR
 | :--- | :--- |
 | Aktor | Superadmin. |
 | Deskripsi | Membandingkan jawaban kuesioner prodi per program studi dan section dalam struktur tab/stepper yang tidak bertumpuk. |
-| Prasyarat | `prodi_question_section`, `prodi_question`, dan `prodi_response` tersedia. |
+| Prasyarat | `kuesioner_section`, `kuesioner_pertanyaan`, dan `kuesioner_jawaban` tersedia. |
 | Pasca-syarat | Hasil agregasi tampil sebagai grafik dan analisis per pertanyaan; data sumber tidak diubah. |
 | Alur dasar | 1. Superadmin memilih prodi, default `Sistem Informasi` bila tersedia.<br>2. Sistem memuat section dan pertanyaan aktif.<br>3. Sistem memilih grafik sesuai tipe pertanyaan, bukan berdasarkan nomor hardcode.<br>4. Sistem menghitung nilai integer untuk distribusi satuan dan rata-rata untuk Likert bila dikonfigurasi.<br>5. Analisis aktif tampil di bawah grafik yang dipilih. |
 | Alur alternatif | A1. Pertanyaan `multiple_choice` dapat menampilkan persentase di hover, sedangkan label batang memakai jumlah.<br>A2. Jawaban `Lainnya` tidak dimasukkan sebagai label grafik bila berupa isian bebas; detailnya tampil di tabel interaktif.<br>A3. Section baru dari pengaturan kuesioner langsung ikut dianalisis. |
@@ -439,7 +437,7 @@ flowchart LR
 
 1. Database runtime aplikasi adalah `tracer`, bukan `tracer_study`.
 2. PK/FK wilayah menggunakan `kode_provinsi` dan `kode_kabupaten`; negara menggunakan `kode_negara` ISO-3166-1 alpha-2.
-3. Jawaban universitas disimpan di `tracer`, jawaban prodi di `prodi_response`, dan jawaban evaluasi atasan di `respon_evaluasi_atasan`.
+3. Seluruh jawaban kuesioner universitas, kuesioner prodi, dan kuesioner evaluasi atasan disimpan terpusat di tabel `kuesioner_jawaban`.
 4. Tidak ada tabel `jawaban`, `prodi_response_answer`, `provinsi_id`, `propinsi_id`, `kabupaten_id`, atau `negara_id` pada schema aktif.
 5. Setiap perubahan migration, route, controller, service, view, atau sumber data yang mengubah kontrak di atas wajib memperbarui `ERD.md`, dokumen arsitektur, dan tabel use case ini.
 

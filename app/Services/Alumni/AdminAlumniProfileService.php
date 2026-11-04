@@ -5,10 +5,10 @@ namespace App\Services\Alumni;
 use App\Models\AlumniProfileSummary;
 use App\Models\Atasan;
 use App\Models\Biodata;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
 use App\Models\LogActivity;
 use App\Models\Perusahaan;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\RefSubpertanyaanDetil;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
@@ -158,27 +158,38 @@ class AdminAlumniProfileService
      */
     public static function getRefOptions(): array
     {
-        return RefSubpertanyaanDetil::whereIn('kode_pertanyaan', [
-            'F2G', 'F2H', 'F5D', 'F11', 'F8', 'F5C', 'BIO_BIDANG_DIVISI', 'BIO_PEND_TINGKAT',
-            'BIO_WARGA_NEGARA', 'BIO_INST_BENTUK', 'BIO_INST_LOKASI',
-            'f2g', 'f2h', 'f5d', 'f11', 'f8', 'f5c', 'bio_bidang_divisi', 'bio_pend_tingkat',
-            'bio_warga_negara', 'bio_inst_bentuk', 'bio_inst_lokasi',
-        ])
-            ->orderBy('order')
-            ->get(['id', 'kode_pertanyaan', 'kode_opsi', 'option_text', 'order'])
+        return KuesionerOpsi::join('kuesioner_pertanyaan', 'kuesioner_pertanyaan.id', '=', 'kuesioner_opsi.pertanyaan_id')
+            ->whereIn('kuesioner_pertanyaan.kode_pertanyaan', [
+                'F2G', 'F2H', 'F5D', 'F11', 'F8', 'F5C', 'BIO_BIDANG_DIVISI', 'BIO_PEND_TINGKAT',
+                'BIO_WARGA_NEGARA', 'BIO_INST_BENTUK', 'BIO_INST_LOKASI',
+                'f2g', 'f2h', 'f5d', 'f11', 'f8', 'f5c', 'bio_bidang_divisi', 'bio_pend_tingkat',
+                'bio_warga_negara', 'bio_inst_bentuk', 'bio_inst_lokasi',
+            ])
+            ->orderBy('kuesioner_opsi.order')
+            ->select([
+                'kuesioner_opsi.id',
+                'kuesioner_pertanyaan.kode_pertanyaan',
+                'kuesioner_opsi.kode_opsi',
+                'kuesioner_opsi.label as option_text',
+                'kuesioner_opsi.order',
+            ])
+            ->get()
             ->groupBy(fn ($item) => strtoupper($item->kode_pertanyaan))
             ->toArray();
     }
 
     /**
-     * Mengambil seluruh konfigurasi pertanyaan profil alumni dari tabel ref_subpertanyaan2021.
+     * Mengambil seluruh konfigurasi pertanyaan profil alumni dari kuesioner terpadu.
      *
      * @return array<string, array<string, mixed>>
      */
     public static function getProfileQuestionConfigs(): array
     {
-        return RefSubpertanyaan2021::whereIn('tampil_di', ['profil', 'profile', 'both'])
-            ->get(['id', 'kode_pertanyaan', 'subpertanyaan', 'keterangan', 'wajib', 'type', 'order'])
+        return KuesionerPertanyaan::whereHas('sections', function ($q) {
+            $q->whereIn('kuesioner_section_pertanyaan.tampil_di', ['profil', 'profile', 'both']);
+        })
+            ->orWhereIn('kuesioner_pertanyaan.kode_pertanyaan', ['F8', 'F11', 'F5D', 'F2G', 'F2H'])
+            ->get(['id', 'kode_pertanyaan', 'teks_pertanyaan as subpertanyaan', 'keterangan', 'tipe as type'])
             ->keyBy(fn ($item) => strtoupper($item->kode_pertanyaan))
             ->toArray();
     }

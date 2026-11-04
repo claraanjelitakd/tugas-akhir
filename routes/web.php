@@ -5,14 +5,12 @@ use App\Http\Controllers\AdminBiroTiga\KelolaAlumni\DetailAlumniController;
 use App\Http\Controllers\AdminFakultas\Dashboard\DashboardController as DashboardFakultasController;
 use App\Http\Controllers\AdminFakultas\KelolaAlumni\DaftarAlumniFakultasController;
 use App\Http\Controllers\AdminFakultas\KelolaAlumni\DetailAlumniFakultasController;
-use App\Http\Controllers\AdminFakultas\ManajemenAkunFakultasController;
 use App\Http\Controllers\AdminFakultas\VerifikasiPerusahaan\VerifikasiPerusahaanFakultasController;
 use App\Http\Controllers\AdminProdi\KelolaAlumni\DaftarAlumniProdiController;
 use App\Http\Controllers\AdminProdi\KelolaPertanyaan\DaftarPertanyaanProdiController;
 use App\Http\Controllers\AdminProdi\KelolaPertanyaan\KelolaOpsiProdiController;
 use App\Http\Controllers\AdminProdi\KelolaPertanyaan\KelolaSectionProdiController;
 use App\Http\Controllers\AdminProdi\KelolaPertanyaan\SimpanPertanyaanProdiController;
-use App\Http\Controllers\AdminProdi\ManajemenAkunProdiController;
 use App\Http\Controllers\AdminProdi\VerifikasiPerusahaan\VerifikasiPerusahaanProdiController;
 use App\Http\Controllers\Alumni\Dashboard\DashboardController;
 use App\Http\Controllers\Alumni\Kuesioner\KuesionerController;
@@ -196,11 +194,6 @@ Route::middleware('auth')->group(function () {
             Route::get('/prodi/perusahaan/search-verified', [VerifikasiPerusahaanProdiController::class, 'searchVerified'])->name('prodi.perusahaan.search-verified');
             Route::get('/prodi/perusahaan/{id}/recommendations', [VerifikasiPerusahaanProdiController::class, 'recommendations'])->name('prodi.perusahaan.recommendations');
 
-            // Manajemen Akun Mahasiswa / Alumni Prodi Sendiri
-            Route::get('/prodi/manajemen-akun', [ManajemenAkunProdiController::class, 'index'])->name('prodi.manajemen-akun.index');
-            Route::put('/prodi/manajemen-akun/{id}', [ManajemenAkunProdiController::class, 'update'])->name('prodi.manajemen-akun.update');
-            Route::post('/prodi/manajemen-akun/{id}/password-reset', [ManajemenAkunProdiController::class, 'sendPasswordResetLink'])->name('prodi.manajemen-akun.password-reset');
-
             // Sinkronisasi Profil LinkedIn Khusus Program Studi
             Route::get('/prodi/linkedin-sync', [LinkedInSyncController::class, 'index'])->name('prodi.linkedin-sync.index');
             Route::post('/prodi/linkedin-sync/batch', [LinkedInSyncController::class, 'syncBatch'])->name('prodi.linkedin-sync.batch');
@@ -252,11 +245,6 @@ Route::middleware('auth')->group(function () {
             Route::delete('/fakultas/perusahaan/{id}', [VerifikasiPerusahaanFakultasController::class, 'destroy'])->name('fakultas.perusahaan.destroy');
             Route::get('/fakultas/perusahaan/search-verified', [VerifikasiPerusahaanFakultasController::class, 'searchVerified'])->name('fakultas.perusahaan.search-verified');
             Route::get('/fakultas/perusahaan/{id}/recommendations', [VerifikasiPerusahaanFakultasController::class, 'recommendations'])->name('fakultas.perusahaan.recommendations');
-
-            // Manajemen Akun Mahasiswa / Alumni Se-Fakultas
-            Route::get('/fakultas/manajemen-akun', [ManajemenAkunFakultasController::class, 'index'])->name('fakultas.manajemen-akun.index');
-            Route::put('/fakultas/manajemen-akun/{id}', [ManajemenAkunFakultasController::class, 'update'])->name('fakultas.manajemen-akun.update');
-            Route::post('/fakultas/manajemen-akun/{id}/password-reset', [ManajemenAkunFakultasController::class, 'sendPasswordResetLink'])->name('fakultas.manajemen-akun.password-reset');
 
             // Sinkronisasi Profil LinkedIn Khusus Lingkup Fakultas
             Route::get('/fakultas/linkedin-sync', [LinkedInSyncController::class, 'index'])->name('fakultas.linkedin-sync.index');

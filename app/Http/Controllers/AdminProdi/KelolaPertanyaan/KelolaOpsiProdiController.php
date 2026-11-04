@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\AdminProdi\KelolaPertanyaan;
 
 use App\Http\Controllers\Controller;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiQuestionOption;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,7 +26,7 @@ class KelolaOpsiProdiController extends Controller
         }
 
         $validated = $request->validate([
-            'question_id' => 'required|exists:prodi_question,id',
+            'question_id' => 'required|exists:kuesioner_pertanyaan,id',
             'option_text' => 'required|string',
             'code' => 'nullable|string|max:50',
             'jump_to' => 'nullable|string|max:50',
@@ -34,24 +34,24 @@ class KelolaOpsiProdiController extends Controller
         ]);
 
         // Verifikasi pertanyaan milik prodi admin ini
-        $question = ProdiQuestion::where('id', $validated['question_id'])
-            ->where('prodi_id', $user->prodi_id)
+        $question = KuesionerPertanyaan::where('id', $validated['question_id'])
+            ->where('pemilik_prodi_id', $user->prodi_id)
             ->firstOrFail();
 
         if (empty($validated['code'])) {
-            $count = $question->options()->count() + 1;
-            $validated['code'] = $question->code.'-'.str_pad($count, 2, '0', STR_PAD_LEFT);
+            $count = $question->opsi()->count() + 1;
+            $validated['code'] = $question->kode_pertanyaan.'-'.str_pad((string) $count, 2, '0', STR_PAD_LEFT);
         }
 
         if (empty($validated['order'])) {
-            $validated['order'] = ($question->options()->max('order') ?? 0) + 1;
+            $validated['order'] = ($question->opsi()->max('order') ?? 0) + 1;
         }
 
-        ProdiQuestionOption::create([
-            'prodi_question_id' => $question->id,
-            'code' => $validated['code'],
-            'option_text' => $validated['option_text'],
-            'jump_to' => $validated['jump_to'] ?? null,
+        KuesionerOpsi::create([
+            'pertanyaan_id' => $question->id,
+            'kode_opsi' => $validated['code'],
+            'label' => $validated['option_text'],
+            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
             'order' => $validated['order'],
         ]);
 
@@ -64,9 +64,9 @@ class KelolaOpsiProdiController extends Controller
     public function update(Request $request, int $id): RedirectResponse
     {
         $user = Auth::user();
-        $option = ProdiQuestionOption::with('question')->findOrFail($id);
+        $option = KuesionerOpsi::with('pertanyaan')->findOrFail($id);
 
-        if ($option->question->prodi_id !== $user->prodi_id) {
+        if ($option->pertanyaan->pemilik_prodi_id !== $user->prodi_id) {
             abort(403, 'Anda tidak memiliki hak akses untuk mengubah opsi ini.');
         }
 
@@ -77,7 +77,12 @@ class KelolaOpsiProdiController extends Controller
             'order' => 'nullable|integer',
         ]);
 
-        $option->update($validated);
+        $option->update([
+            'label' => $validated['option_text'],
+            'kode_opsi' => $validated['code'] ?? $option->kode_opsi,
+            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? $option->lompat_ke_pertanyaan_id,
+            'order' => $validated['order'] ?? $option->order,
+        ]);
 
         return redirect()->back()->with('success', 'Opsi pilihan jawaban berhasil diperbarui.');
     }
@@ -88,9 +93,9 @@ class KelolaOpsiProdiController extends Controller
     public function destroy(int $id): RedirectResponse
     {
         $user = Auth::user();
-        $option = ProdiQuestionOption::with('question')->findOrFail($id);
+        $option = KuesionerOpsi::with('pertanyaan')->findOrFail($id);
 
-        if ($option->question->prodi_id !== $user->prodi_id) {
+        if ($option->pertanyaan->pemilik_prodi_id !== $user->prodi_id) {
             abort(403, 'Anda tidak memiliki hak akses untuk menghapus opsi ini.');
         }
 
@@ -107,21 +112,5 @@ class KelolaOpsiProdiController extends Controller
         $request->merge(['question_id' => $questionId]);
 
         return $this->store($request);
-    }
-
-    /**
-     * Alias method untuk update opsi via route pertanyaan/options/{optionId}.
-     */
-    public function updateOption(Request $request, int $optionId): RedirectResponse
-    {
-        return $this->update($request, $optionId);
-    }
-
-    /**
-     * Alias method untuk hapus opsi via route pertanyaan/options/{optionId}.
-     */
-    public function destroyOption(int $optionId): RedirectResponse
-    {
-        return $this->destroy($optionId);
     }
 }

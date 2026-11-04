@@ -16,6 +16,31 @@ class EvaluasiAtasan extends Model
 {
     use HasFactory;
 
+    /** @var list<array{key: string, title: string, description: string, source: string, order: int}> */
+    public const STEPPER_SECTIONS = [
+        [
+            'key' => 'instansi',
+            'title' => 'Profil Perusahaan & Atasan',
+            'description' => 'Identitas perusahaan, alamat, dan atasan langsung yang menilai alumni.',
+            'source' => 'perusahaan, atasan, evaluasi_atasan',
+            'order' => 1,
+        ],
+        [
+            'key' => 'karakteristik',
+            'title' => 'Karakteristik Perusahaan & Sebaran Alumni',
+            'description' => 'Bentuk, skala, jumlah pegawai, sebaran alumni UKDW, dan standar gaji pertama.',
+            'source' => 'perusahaan, evaluasi_atasan',
+            'order' => 2,
+        ],
+        [
+            'key' => 'penilaian',
+            'title' => 'Penilaian Kesiapan & Kinerja Alumni',
+            'description' => 'Kesiapan kerja dan aspek kompetensi alumni yang dinilai oleh atasan.',
+            'source' => 'respon_evaluasi_atasan',
+            'order' => 3,
+        ],
+    ];
+
     protected $table = 'evaluasi_atasan';
 
     protected $fillable = [
@@ -96,11 +121,11 @@ class EvaluasiAtasan extends Model
                     'nama_provinsi' => $perusahaan->propinsi->nama_provinsi,
                 ] : null,
             ] : null,
-            'respons' => $this->respons->map(static fn (ResponEvaluasiAtasan $response): array => [
+            'respons' => $this->respons->map(static fn ($response): array => [
                 'pertanyaan_id' => $response->pertanyaan_id,
-                'pertanyaan_kode' => $response->pertanyaan?->kode,
-                'nilai' => $response->nilai,
-                'catatan' => $response->catatan,
+                'pertanyaan_kode' => $response->kode_pertanyaan ?? $response->pertanyaan?->kode_pertanyaan,
+                'nilai' => $response->jawaban_teks,
+                'catatan' => is_array($response->jawaban_json) ? ($response->jawaban_json['catatan'] ?? null) : null,
             ])->values()->all(),
         ];
     }

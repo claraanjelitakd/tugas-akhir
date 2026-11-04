@@ -3,17 +3,14 @@
 namespace App\Services\Analytics;
 
 use App\Models\EvaluasiAtasan;
-use App\Models\PertanyaanEvaluasiAtasan;
+use App\Models\KuesionerPertanyaan;
 use App\Models\Prodi;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Menyusun statistik evaluasi pengguna lulusan dari jawaban atasan.
- *
- * Service ini hanya membaca tabel evaluasi dan master pertanyaan. Nilai pilihan,
- * label grafik, dan daftar responden dibentuk dari metadata database agar grafik
- * otomatis mengikuti perubahan instrumen tanpa menambah data contoh di frontend.
+ * Menyusun statistik evaluasi pengguna lulusan dari jawaban atasan
+ * menggunakan master bank soal terpadu (KuesionerPertanyaan target 'atasan').
  */
 class AtasanAnalyticsService
 {
@@ -28,10 +25,33 @@ class AtasanAnalyticsService
         $selectedYear = $this->resolveYear($requestedYear, $availableYears);
         $evaluations = $this->evaluations($selectedYear, $prodiId);
         $submitted = $evaluations->where('is_submitted', true)->values();
-        $questions = PertanyaanEvaluasiAtasan::query()
-            ->where('is_active', true)
-            ->orderBy('order')
-            ->get();
+
+        // Ambil master pertanyaan evaluasi atasan dari bank soal terpadu
+        $questions = KuesionerPertanyaan::query()
+            ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'kuesioner_pertanyaan.id')
+            ->join('kuesioner_section as s', 's.id', '=', 'sp.section_id')
+            ->where('s.target', 'atasan')
+            ->where('kuesioner_pertanyaan.is_active', true)
+            ->select('kuesioner_pertanyaan.*', 'sp.order as pivot_order')
+            ->with('opsi')
+            ->orderBy('sp.order')
+            ->get()
+            ->map(function ($q) {
+                $q->kode = $q->kode_pertanyaan;
+                $q->aspek = $q->teks_pertanyaan;
+                $q->deskripsi = $q->keterangan ?? '';
+                $q->pilihan_jawaban = $q->opsi->pluck('label')->all();
+                $q->is_company_field = in_array($q->kode_pertanyaan, [
+                    'bentuk_perusahaan',
+                    'skala_perusahaan',
+                    'jumlah_pegawai',
+                    'jumlah_alumni_ukdw',
+                    'standar_gaji_pertama',
+                ], true);
+
+                return $q;
+            });
+
         $questionStats = $this->questionStats($questions, $submitted);
         $readiness = $questionStats->firstWhere('kode', 'tingkat_kesiapan_kerja');
         $likertStats = $questionStats->filter(static fn (array $stat): bool => $stat['type'] === 'likert_5');
@@ -73,7 +93,7 @@ class AtasanAnalyticsService
                 'formula' => 'Rata-rata skor aspek = ROUND(Σ skor jawaban / n jawaban valid). Peringkat pilihan memakai frekuensi jawaban pada pertanyaan aktif.',
                 'scale' => 'Nilai pilihan dibaca dari urutan opsi master pertanyaan; opsi pertama bernilai paling tinggi dan opsi terakhir paling rendah.',
                 'denominator' => 'Response rate = evaluasi terkirim / seluruh evaluasi atasan pada filter aktif × 100%.',
-                'source' => 'evaluasi_atasan, respon_evaluasi_atasan, pertanyaan_evaluasi_atasan, biodata, data_akademik, prodi, perusahaan, atasan.',
+                'source' => 'evaluasi_atasan, kuesioner_jawaban, kuesioner_pertanyaan, biodata, data_akademik, prodi, perusahaan, atasan.',
             ],
             'has_data' => $population > 0,
         ];
@@ -139,7 +159,7 @@ class AtasanAnalyticsService
     /**
      * Mengubah jawaban setiap butir menjadi distribusi dan skor yang dapat digambar.
      *
-     * @param  Collection<int, PertanyaanEvaluasiAtasan>  $questions
+     * @param  Collection<int, mixed>  $questions
      * @param  Collection<int, EvaluasiAtasan>  $submitted
      * @return Collection<int, array<string, mixed>>
      */
@@ -147,11 +167,11 @@ class AtasanAnalyticsService
     {
         return $questions
             ->reject->is_company_field
-            ->map(function (PertanyaanEvaluasiAtasan $question) use ($submitted): array {
+            ->map(function ($question) use ($submitted): array {
                 $answers = $submitted
                     ->flatMap(fn (EvaluasiAtasan $evaluation): Collection => $evaluation->respons
                         ->filter(fn ($response): bool => $response->pertanyaan_id === $question->id)
-                        ->map(static fn ($response): string => trim((string) $response->nilai)))
+                        ->map(static fn ($response): string => trim((string) ($response->jawaban_teks ?? ($response->nilai ?? '')))))
                     ->filter()
                     ->values();
                 $options = collect($question->pilihan_jawaban ?? [])->map(static fn (mixed $option): string => trim((string) $option))->filter()->values();
@@ -220,20 +240,20 @@ class AtasanAnalyticsService
      * Menyusun ringkasan skor per program studi untuk grafik perbandingan.
      *
      * @param  Collection<int, EvaluasiAtasan>  $submitted
-     * @param  Collection<int, PertanyaanEvaluasiAtasan>  $questions
+     * @param  Collection<int, mixed>  $questions
      * @return list<array<string, mixed>>
      */
     private function prodiSummary(Collection $submitted, Collection $questions): array
     {
-        $optionsByQuestion = $questions->keyBy('id')->mapWithKeys(static fn (PertanyaanEvaluasiAtasan $question): array => [$question->id => $question->pilihan_jawaban ?? []]);
+        $optionsByQuestion = $questions->keyBy('id')->mapWithKeys(static fn ($question): array => [$question->id => $question->pilihan_jawaban ?? []]);
 
         return $submitted
             ->groupBy(fn (EvaluasiAtasan $evaluation): string => $evaluation->biodata?->prodi?->nama_prodi ?: 'Tanpa prodi')
             ->map(function (Collection $evaluations, string $prodi) use ($optionsByQuestion): array {
                 $scores = $evaluations->flatMap(function (EvaluasiAtasan $evaluation) use ($optionsByQuestion): Collection {
                     return $evaluation->respons
-                        ->filter(fn ($response): bool => $response->pertanyaan?->tipe === 'likert_5')
-                        ->map(fn ($response): ?int => $this->scoreFor((string) $response->nilai, $optionsByQuestion->get($response->pertanyaan_id, [])))
+                        ->filter(fn ($response): bool => ($response->pertanyaan?->tipe ?? '') === 'likert_5')
+                        ->map(fn ($response): ?int => $this->scoreFor((string) ($response->jawaban_teks ?? ($response->nilai ?? '')), $optionsByQuestion->get($response->pertanyaan_id, [])))
                         ->filter()
                         ->values();
                 })->values();
@@ -253,17 +273,17 @@ class AtasanAnalyticsService
      * Menyusun tabel responden yang menjadi sumber grafik.
      *
      * @param  Collection<int, EvaluasiAtasan>  $submitted
-     * @param  Collection<int, PertanyaanEvaluasiAtasan>  $questions
+     * @param  Collection<int, mixed>  $questions
      * @return list<array<string, mixed>>
      */
     private function records(Collection $submitted, Collection $questions): array
     {
-        $optionsByQuestion = $questions->keyBy('id')->mapWithKeys(static fn (PertanyaanEvaluasiAtasan $question): array => [$question->id => $question->pilihan_jawaban ?? []]);
+        $optionsByQuestion = $questions->keyBy('id')->mapWithKeys(static fn ($question): array => [$question->id => $question->pilihan_jawaban ?? []]);
 
         return $submitted->map(function (EvaluasiAtasan $evaluation) use ($optionsByQuestion): array {
             $scores = $evaluation->respons
-                ->filter(fn ($response): bool => $response->pertanyaan?->tipe === 'likert_5')
-                ->map(fn ($response): ?int => $this->scoreFor((string) $response->nilai, $optionsByQuestion->get($response->pertanyaan_id, [])))
+                ->filter(fn ($response): bool => ($response->pertanyaan?->tipe ?? '') === 'likert_5')
+                ->map(fn ($response): ?int => $this->scoreFor((string) ($response->jawaban_teks ?? ($response->nilai ?? '')), $optionsByQuestion->get($response->pertanyaan_id, [])))
                 ->filter()
                 ->values();
 

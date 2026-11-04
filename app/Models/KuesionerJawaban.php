@@ -24,7 +24,9 @@ class KuesionerJawaban extends Model
         'evaluasi_atasan_id',
         'section_id',
         'pertanyaan_id',
+        'kode_pertanyaan',
         'opsi_id',
+        'kode_opsi',
         'jawaban_teks',
         'jawaban_json',
     ];

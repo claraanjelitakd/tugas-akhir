@@ -6,13 +6,8 @@ use App\Models\AlumniAuditRekap;
 use App\Models\AlumniProfileSummary;
 use App\Models\Biodata;
 use App\Models\EvaluasiAtasan;
-use App\Models\Kuesioner;
-use App\Models\PertanyaanEvaluasiAtasan;
-use App\Models\ProdiQuestionSection;
-use App\Models\ProdiResponse;
-use App\Models\Tracer;
-use App\Services\Kuesioner\KelengkapanTracerService;
 use App\Services\Kuesioner\KuesionerSyncService;
+use App\Services\Kuesioner\UnifiedDetailAlumniService;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -89,34 +84,10 @@ class AlumniTracerExcelExporter
         $auditRekap = $alumni->auditRekap ?? AlumniAuditRekap::where('biodata_id', $alumni->id)->first();
         $summary = $auditRekap ?? ($alumni->profileSummary ?? AlumniProfileSummary::where('biodata_id', $alumni->id)->first());
 
-        // Ambil seluruh jawaban kuesioner umum
-        $savedResponses = Tracer::where('biodata_id', $alumni->id)
-            ->get()
-            ->keyBy('question_id');
-
-        $kuesioner = Kuesioner::where('is_active', true)
-            ->with(['sections' => function ($secQuery) {
-                $secQuery->orderBy('order', 'asc')
-                    ->with(['subpertanyaans' => function ($qQuery) {
-                        $qQuery->orderBy('order', 'asc')
-                            ->with('detils');
-                    }]);
-            }])
-            ->first();
-
-        // Kuesioner Prodi
-        $savedProdiResponses = ProdiResponse::where('biodata_id', $alumni->id)
-            ->get()
-            ->keyBy('prodi_question_id');
-
-        $prodiSections = $alumni->prodi_id
-            ? ProdiQuestionSection::where('prodi_id', $alumni->prodi_id)
-                ->with(['questions' => function ($qQuery) {
-                    $qQuery->orderBy('order', 'asc')->with('options');
-                }])
-                ->orderBy('order', 'asc')
-                ->get()
-            : collect([]);
+        // Ambil data section dan jawaban kuesioner terpadu
+        $univSections = UnifiedDetailAlumniService::getUnivSectionsWithAnswers($alumni);
+        $prodiData = UnifiedDetailAlumniService::getProdiSectionsWithAnswers($alumni);
+        $prodiSections = $prodiData['sections'];
 
         // Evaluasi Atasan
         $evaluasiAtasan = EvaluasiAtasan::where('biodata_id', $alumni->id)
@@ -124,10 +95,7 @@ class AlumniTracerExcelExporter
             ->latest('updated_at')
             ->first();
 
-        $pertanyaansAtasan = PertanyaanEvaluasiAtasan::where('is_active', true)
-            ->orderBy('order', 'asc')
-            ->get();
-
+        $pertanyaansAtasan = UnifiedDetailAlumniService::getPertanyaanEvaluasiAtasan();
         $responAtasanMap = $evaluasiAtasan ? $evaluasiAtasan->respons->keyBy('pertanyaan_id') : collect([]);
 
         // Mulai penangkapan output buffer
@@ -387,76 +355,59 @@ class AlumniTracerExcelExporter
 
         // Kuesioner Universitas
         $no = 1;
-        if ($kuesioner) {
-            foreach ($kuesioner->sections as $section) {
-                $sectionTitle = htmlspecialchars($section->title ?: ($section->section ?: 'Bagian Kuesioner'));
-                echo "    <tr><td colspan=\"8\" class=\"section-row-univ\">Seksi {$section->order}: {$sectionTitle} (Kuesioner Universitas)</td></tr>\n";
+        foreach ($univSections as $section) {
+            $sectionTitle = htmlspecialchars($section['title'] ?: 'Bagian Kuesioner');
+            echo "    <tr><td colspan=\"8\" class=\"section-row-univ\">Seksi {$section['order']}: {$sectionTitle} (Kuesioner Universitas)</td></tr>\n";
 
-                foreach ($section->subpertanyaans as $sub) {
-                    $resp = $savedResponses->get($sub->id);
-                    $isMandatory = KelengkapanTracerService::isMandatoryQuestion($sub->kode_pertanyaan);
-                    $isHeader = in_array($sub->type, ['header', 'section_header']);
+            foreach ($section['subpertanyaans'] as $sub) {
+                $isMandatory = (bool) $sub['is_mandatory'];
+                $isHeader = (bool) $sub['is_header'];
+                $hasAnswer = (bool) $sub['is_answered'];
+                $answerText = '-';
+                $statusClass = 'status-x';
+                $statusText = 'x';
 
-                    $answerText = '-';
-                    $statusClass = 'status-x';
-                    $statusText = 'x';
-
-                    if ($isHeader) {
-                        $answerText = '';
-                        $statusClass = 'status-header';
-                        $statusText = '-';
-                    } elseif ($resp) {
-                        $plainAnswer = ! empty($resp->answer_text) && trim((string) $resp->answer_text) !== ''
-                            ? (string) $resp->answer_text
-                            : (! empty($resp->answer) && trim((string) $resp->answer) !== '' ? (string) $resp->answer : null);
-
-                        if ($plainAnswer !== null) {
-                            $answerText = htmlspecialchars($plainAnswer);
-                            $statusClass = 'status-v';
-                            $statusText = 'v';
-                        } elseif (is_array($resp->answer_json) && count($resp->answer_json) > 0) {
-                            $jsonFormatted = [];
-                            foreach ($resp->answer_json as $k => $v) {
-                                $jsonFormatted[] = is_numeric($k) ? (string) $v : "{$k}: {$v}";
-                            }
-                            $answerText = htmlspecialchars(implode(', ', $jsonFormatted));
-                            $statusClass = 'status-v';
-                            $statusText = 'v';
-                        }
-                    }
-
-                    $bgClass = ($no % 2 === 0) ? ' class="bg-alt"' : '';
-                    $subPertanyaanText = htmlspecialchars($sub->subpertanyaan);
-                    $tipeText = htmlspecialchars($sub->type ?: 'text');
-                    $kodePertanyaan = htmlspecialchars($sub->kode_pertanyaan);
-                    $sifatHtml = $isHeader ? '-' : ($isMandatory ? '<span class="badge-wajib">Wajib</span>' : '<span class="badge-opsional">Opsional</span>');
-
-                    echo "    <tr{$bgClass}>\n";
-                    echo "      <td class=\"text-center\" style=\"mso-number-format:'\@';\">{$no}</td>\n";
-                    echo "      <td style=\"mso-number-format:'\@';\">{$sectionTitle}</td>\n";
-                    echo "      <td class=\"text-code\" style=\"mso-number-format:'\@';\">{$kodePertanyaan}</td>\n";
-                    echo "      <td style=\"mso-number-format:'\@';\">{$subPertanyaanText}</td>\n";
-                    echo "      <td class=\"text-center\" style=\"mso-number-format:'\@';\">{$tipeText}</td>\n";
-                    echo "      <td class=\"text-center\" style=\"mso-number-format:'\@';\">{$sifatHtml}</td>\n";
-                    echo "      <td class=\"{$statusClass}\" style=\"mso-number-format:'\@';\">{$statusText}</td>\n";
-                    echo "      <td style=\"font-weight: 500; mso-number-format:'\@';\">{$answerText}</td>\n";
-                    echo "    </tr>\n";
-
-                    $no++;
+                if ($isHeader) {
+                    $answerText = '';
+                    $statusClass = 'status-header';
+                    $statusText = '-';
+                } elseif ($hasAnswer && ! empty($sub['answer'])) {
+                    $answerText = htmlspecialchars((string) $sub['answer']);
+                    $statusClass = 'status-v';
+                    $statusText = 'v';
                 }
+
+                $bgClass = ($no % 2 === 0) ? ' class="bg-alt"' : '';
+                $subPertanyaanText = htmlspecialchars((string) $sub['subpertanyaan']);
+                $tipeText = htmlspecialchars((string) ($sub['type'] ?: 'text'));
+                $kodePertanyaan = htmlspecialchars((string) $sub['kode_pertanyaan']);
+                $sifatHtml = $isHeader ? '-' : ($isMandatory ? '<span class="badge-wajib">Wajib</span>' : '<span class="badge-opsional">Opsional</span>');
+
+                echo "    <tr{$bgClass}>\n";
+                echo "      <td class=\"text-center\" style=\"mso-number-format:'\@';\">{$no}</td>\n";
+                echo "      <td style=\"mso-number-format:'\@';\">{$sectionTitle}</td>\n";
+                echo "      <td class=\"text-code\" style=\"mso-number-format:'\@';\">{$kodePertanyaan}</td>\n";
+                echo "      <td style=\"mso-number-format:'\@';\">{$subPertanyaanText}</td>\n";
+                echo "      <td class=\"text-center\" style=\"mso-number-format:'\@';\">{$tipeText}</td>\n";
+                echo "      <td class=\"text-center\" style=\"mso-number-format:'\@';\">{$sifatHtml}</td>\n";
+                echo "      <td class=\"{$statusClass}\" style=\"mso-number-format:'\@';\">{$statusText}</td>\n";
+                echo "      <td style=\"font-weight: 500; mso-number-format:'\@';\">{$answerText}</td>\n";
+                echo "    </tr>\n";
+
+                $no++;
             }
         }
 
         // Kuesioner Prodi
-        if ($prodiSections->isNotEmpty()) {
+        if (! empty($prodiSections)) {
             foreach ($prodiSections as $pSection) {
-                $pTitle = htmlspecialchars($pSection->title ?: 'Kuesioner Program Studi');
-                echo "    <tr><td colspan=\"8\" class=\"section-row-prodi\">Seksi {$pSection->order}: {$pTitle} (Kuesioner Program Studi: {$prodiNama})</td></tr>\n";
+                $pTitle = htmlspecialchars($pSection['title'] ?: 'Kuesioner Program Studi');
+                echo "    <tr><td colspan=\"8\" class=\"section-row-prodi\">Seksi {$pSection['order']}: {$pTitle} (Kuesioner Program Studi: {$prodiNama})</td></tr>\n";
 
-                foreach ($pSection->questions as $pQ) {
-                    $isHeader = in_array($pQ->type, ['header', 'section_header']);
-                    $resp = $savedProdiResponses->get($pQ->id);
-                    $isMandatory = (bool) $pQ->is_required;
+                foreach ($pSection['questions'] as $pQ) {
+                    $isHeader = (bool) $pQ['is_header'];
+                    $isMandatory = (bool) $pQ['is_mandatory'];
+                    $hasAnswer = (bool) $pQ['is_answered'];
 
                     $answerText = '-';
                     $statusClass = 'status-x';
@@ -466,26 +417,16 @@ class AlumniTracerExcelExporter
                         $answerText = '';
                         $statusClass = 'status-header';
                         $statusText = '-';
-                    } elseif ($resp) {
-                        if (! empty($resp->answer_text) && trim((string) $resp->answer_text) !== '') {
-                            $answerText = htmlspecialchars((string) $resp->answer_text);
-                            $statusClass = 'status-v';
-                            $statusText = 'v';
-                        } elseif (is_array($resp->answer_json) && count($resp->answer_json) > 0) {
-                            $jsonFormatted = [];
-                            foreach ($resp->answer_json as $k => $v) {
-                                $jsonFormatted[] = is_numeric($k) ? (string) $v : "{$k}: {$v}";
-                            }
-                            $answerText = htmlspecialchars(implode(', ', $jsonFormatted));
-                            $statusClass = 'status-v';
-                            $statusText = 'v';
-                        }
+                    } elseif ($hasAnswer && ! empty($pQ['answer_text'])) {
+                        $answerText = htmlspecialchars((string) $pQ['answer_text']);
+                        $statusClass = 'status-v';
+                        $statusText = 'v';
                     }
 
                     $bgClass = ($no % 2 === 0) ? ' class="bg-alt"' : '';
-                    $questionText = htmlspecialchars($pQ->question_text);
-                    $tipeText = htmlspecialchars($pQ->type ?: 'text');
-                    $codeText = htmlspecialchars($pQ->code);
+                    $questionText = htmlspecialchars((string) $pQ['question_text']);
+                    $tipeText = htmlspecialchars((string) ($pQ['type'] ?: 'text'));
+                    $codeText = htmlspecialchars((string) $pQ['code']);
                     $sifatHtml = $isHeader ? '-' : ($isMandatory ? '<span class="badge-wajib">Wajib</span>' : '<span class="badge-opsional">Opsional</span>');
 
                     echo "    <tr{$bgClass}>\n";
@@ -564,11 +505,11 @@ class AlumniTracerExcelExporter
                 $nilaiDisplay = '-';
                 $catatanDisplay = '-';
                 $statusValClass = 'status-x';
+                $kodeAtasan = $qAtasan->kode_pertanyaan;
 
-                // Field karakteristik perusahaan tidak memiliki baris respons tersendiri;
-                // ambil nilai kanonik dari perusahaan/evaluasi agar ekspor tetap lengkap.
-                if ($qAtasan->is_company_field) {
-                    $nilaiDisplay = match ($qAtasan->kode) {
+                // Field karakteristik perusahaan
+                if (in_array($kodeAtasan, ['bentuk_perusahaan', 'skala_perusahaan', 'jumlah_pegawai', 'jumlah_alumni_ukdw', 'standar_gaji_pertama'], true)) {
+                    $nilaiDisplay = match ($kodeAtasan) {
                         'bentuk_perusahaan' => $perusahaan?->bentuk_perusahaan,
                         'skala_perusahaan' => $perusahaan?->skala,
                         'jumlah_pegawai' => $perusahaan?->jumlah_pegawai,
@@ -581,20 +522,20 @@ class AlumniTracerExcelExporter
                     }
                 }
 
-                if ($rAtasan && ! empty($rAtasan->nilai)) {
-                    $nilaiDisplay = htmlspecialchars((string) $rAtasan->nilai);
+                if ($rAtasan && ! empty($rAtasan->jawaban_teks)) {
+                    $nilaiDisplay = htmlspecialchars((string) $rAtasan->jawaban_teks);
                     $statusValClass = 'status-v';
-                    if (! empty($rAtasan->catatan)) {
-                        $catatanDisplay = htmlspecialchars((string) $rAtasan->catatan);
+                    if (! empty($rAtasan->jawaban_json) && is_array($rAtasan->jawaban_json) && ! empty($rAtasan->jawaban_json['catatan'])) {
+                        $catatanDisplay = htmlspecialchars((string) $rAtasan->jawaban_json['catatan']);
                     }
                 }
 
                 $bgClass = ($numAtasan % 2 === 0) ? ' class="bg-alt"' : '';
                 echo "    <tr{$bgClass}>\n";
                 echo "      <td class=\"text-center\" style=\"mso-number-format:'\@';\">{$numAtasan}</td>\n";
-                echo "      <td class=\"text-code\" style=\"mso-number-format:'\@';\">".htmlspecialchars($qAtasan->kode)."</td>\n";
-                echo "      <td style=\"mso-number-format:'\@';\">".htmlspecialchars($qAtasan->aspek)."</td>\n";
-                echo "      <td class=\"text-center\" style=\"mso-number-format:'\@';\">".htmlspecialchars($qAtasan->kategori ?: 'Kinerja')."</td>\n";
+                echo "      <td class=\"text-code\" style=\"mso-number-format:'\@';\">".htmlspecialchars((string) $kodeAtasan)."</td>\n";
+                echo "      <td style=\"mso-number-format:'\@';\">".htmlspecialchars((string) $qAtasan->teks_pertanyaan)."</td>\n";
+                echo "      <td class=\"text-center\" style=\"mso-number-format:'\@';\">".htmlspecialchars((string) ($qAtasan->keterangan ?: 'Kinerja'))."</td>\n";
                 echo "      <td class=\"{$statusValClass}\" style=\"font-size: 11pt; mso-number-format:'\@';\">{$nilaiDisplay}</td>\n";
                 echo "      <td style=\"mso-number-format:'\@';\">{$catatanDisplay}</td>\n";
                 echo "    </tr>\n";

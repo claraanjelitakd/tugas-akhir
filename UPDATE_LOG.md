@@ -1,5 +1,38 @@
 # UPDATE LOG - SERU (Sistem Ekosistem Rekam Jejak Alumni)
 
+## [2026-11-05] Penyelarasan Response Rate 100% Kuesioner Universitas, Penyederhanaan RBAC Akun, & Penataan Folder
+
+- **Penyelarasan Response Rate dan Status Kuesioner Selesai (Single Source of Truth)**:
+  - Memperbaiki database view `v_alumni_tracer_univ_status` (`database/migrations/2026_09_02_000005_create_v_alumni_tracer_univ_status_view.php`) dengan mengecualikan seluruh kode pertanyaan profil dinamis (`AND UPPER(q.kode_pertanyaan) NOT LIKE 'BIO_%'`) dan filter lokasi tampilan profil (`(sp.tampil_di IS NULL OR LOWER(sp.tampil_di) NOT IN ('profil', 'profile'))`).
+  - Menyelaraskan pembagi kuesioner wajib universitas murni menjadi tepat 19 butir kuesioner (F8, F504, F502/F506, F14, F15, dan 14 butir kompetensi F17), sehingga alumni yang baru mengisi data biodata/profil tidak lagi mendapat nilai persentase palsu 44% pada kuesioner.
+  - Memperbarui database view `v_analytics_response_rate` (`database/migrations/2026_10_25_000002_create_v_analytics_response_rate_view.php`) agar kolom `answered` (Sudah Mengisi) terikat langsung pada status penyelesaian kuesioner universitas 100% (`is_complete_univ = 1` dari `v_alumni_tracer_univ_status`).
+  - Menghilangkan selisih data antara halaman Grafik Universitas (`/superadmin/analitik`) dan Direktori Mahasiswa & Alumni (`/superadmin/alumni`), di mana keduanya kini membaca angka kohort, responden selesai, dan alumni belum mengisi yang persis identik (misal kohort 2026: 532 populasi, 256 kuesioner selesai, 276 belum selesai).
+- **Penyederhanaan Hak Akses Manajemen Akun (Eksklusif Super Admin)**:
+  - Menghapus modul Manajemen Akun untuk peran `admin_prodi` dan `admin_fakultas` dari `routes/web.php`, `resources/js/components/AdminSidebar.vue`, dan `resources/js/components/RoleDashboard.vue`.
+  - Menghapus controller dan komponen yang usang (`ManajemenAkunProdiController.php`, `ManajemenAkunFakultasController.php`, folder `Pages/AdminProdi/ManajemenAkun/`, dan folder `Pages/AdminFakultas/ManajemenAkun/`).
+  - Hak pengelolaan akun pengguna, pemulihan kata sandi, dan sinkronisasi akun alumni tersentralisasi penuh di bawah peran `superadmin` (`SuperAdmin\ManajemenAkunController`).
+- **Pembaruan Seeder Simulasi Kuesioner Universitas (`DashboardScenarioSeeder.php`)**:
+  - Mengambil instrumen kuesioner universitas dari seluruh section bernilai `target = 'univ'` yang relevan (`section_id > 1`) dan bukan sekadar section pertama, menjamin kelengkapan data jawaban riil (F8, F504, F502, F14, F15, F17 kompetensi, F21..F27 metode pembelajaran) untuk seluruh alumni berstatus responden.
+  - Menghasilkan variasi data kelulusan yang realistis (alumni selesai 100%, alumni dalam progress pengisian, dan alumni belum mengisi) serta mempertahankan data staging scraping LinkedIn dari berkas cadangan lokal via `LinkedinSyncResultSeeder`.
+- **Penataan Struktur Komponen dan RBAC Clean Architecture**:
+  - Memastikan folder fitur bersama (*cross-role activities*) terpusat pada foldernya (seperti `Shared/LinkedInSync`, `app/Services/Alumni/`, `app/Services/Kuesioner/`, `app/Services/Analytics/`).
+  - Membatasi penempatan file spesifik peran (`SuperAdmin/`, `AdminProdi/`) hanya untuk fitur yang eksklusif bagi peran tersebut.
+  - Seluruh 252 pengujian otomatis PHPUnit lulus 100% tanpa regresi.
+
+## [2026-11-04] Penyatuan Engine Kuesioner Terpadu (Unified Survey Engine), Fleksibilitas Login, & Sinkronisasi ERD
+
+- **Penyatuan Skema Kuesioner Terpadu (Unified Survey Engine)**:
+  - Mengonsolidasikan seluruh survei (Tracer Universitas, Kuesioner Khusus Program Studi, dan Evaluasi Pengguna Lulusan/Atasan) ke dalam 5 tabel terpadu: `kuesioner_section`, `kuesioner_pertanyaan`, `kuesioner_section_pertanyaan`, `kuesioner_opsi`, dan `kuesioner_jawaban`.
+  - Menghapus 11 tabel legacy silo yang redundan (`kelompok_pertanyaan`, `ref_subpertanyaan2021`, `ref_subpertanyaan_detil`, `tracer`, `prodi_question_section`, `prodi_question`, `prodi_question_option`, `prodi_response`, `section_evaluasi_atasan`, `pertanyaan_evaluasi_atasan`, `respon_evaluasi_atasan`).
+  - Menghubungkan lembar transaksi `evaluasi_atasan` secara langsung ke `kuesioner_jawaban` dengan penanda `responden_type = 'atasan'` dan kunci `evaluasi_atasan_id`.
+- **Peningkatan Fleksibilitas Autentikasi Pengguna (`LoginController.php`)**:
+  - Mendukung login menggunakan `username` maupun alamat `email` secara transparan.
+  - Menambahkan dukungan ganda kata sandi awal alumni: format tanggal lahir `ddmmyyyy` dan kata sandi seeder `password123`.
+  - Menambahkan pengujian otomatis komprehensif pada `tests/Feature/LoginAuthenticationTest.php` (6/6 skenario lulus 100%).
+- **Harmonisasi dan Audit Dokumentasi Sistem**:
+  - Memperbarui total `ERD.md`: diagram master, diagram per modul (Mermaid), tabel relasi spesifikasi foreign key, dan kamus data (*data dictionary*) untuk 21 tabel domain bisnis dan 7 tabel infrastruktur Laravel.
+  - Memperbarui `docs/ARCHITECTURE.md`, `USE_CASE.md`, dan `docs/dfd.md` agar seluruh simpanan data dan kontrak transaksi merujuk ke tabel kanonik kuesioner terpadu.
+
 ## [2026-11-03] Plotting Otomatis Studi Lanjut, Bidang Pekerjaan, dan Penyederhanaan Form Karier
 
 - **Plotting Riwayat Studi Lanjut LinkedIn**:

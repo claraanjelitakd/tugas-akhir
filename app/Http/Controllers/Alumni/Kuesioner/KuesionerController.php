@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Alumni\Kuesioner;
 
 use App\Http\Controllers\Controller;
-use App\Models\Kuesioner;
-use App\Models\QuestionMapping;
-use App\Models\Tracer;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Services\Kuesioner\KelengkapanTracerService;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,22 +17,16 @@ use Inertia\Response;
 /**
  * KuesionerController
  *
- * Fungsi: Menampilkan formulir kuesioner tracer study kepada alumni.
- * Tanggung Jawab:
- * 1. Memvalidasi profil biodata alumni yang sedang login.
- * 2. Melakukan sinkronisasi data profil alumni ke tabel respon kuesioner.
- * 3. Mengambil seksi kuesioner aktif mulai dari seksi 3 (Waktu Mulai Mencari Kerja).
- * 4. Mempersiapkan jawaban awal (prefilled answers) dari data tracer yang sudah tersimpan
- *    atau data pemetaan (QuestionMapping) profil alumni.
+ * Menampilkan formulir kuesioner tracer study universitas kepada alumni
+ * menggunakan skema bank soal terpadu (KuesionerSection, KuesionerPertanyaan,
+ * KuesionerOpsi, dan KuesionerJawaban).
  */
 class KuesionerController extends Controller
 {
     /**
      * Menampilkan Halaman Kuesioner Tracer Study Alumni
-     *
-     * @return Response
      */
-    public function tampilkanKuesioner()
+    public function tampilkanKuesioner(): Response
     {
         // 1. Ambil data pengguna dan relasi profil biodata
         $pengguna = Auth::user();
@@ -42,43 +38,64 @@ class KuesionerController extends Controller
 
         $biodata->load(['dataAkademik', 'yudisium', 'perusahaan.propinsi', 'perusahaan.kabupaten', 'atasan', 'user']);
 
-        // 2. Sinkronisasi otomatis data profil (Identitas & Perusahaan/Atasan) ke tabel tracer
+        // 2. Sinkronisasi otomatis data profil (Identitas & Perusahaan/Atasan) ke kuesioner_jawaban
         KuesionerSyncService::syncProfileResponses($biodata);
 
-        // 3. Ambil data kuesioner aktif: Saring seksi kuesioner universitas (Seksi 1 Identitas & Biodata dikelola di Profil Alumni)
-        $kuesioner = Kuesioner::where('is_active', true)
-            ->with(['sections' => function ($query) {
-                $query->where(function ($secQ) {
-                    $secQ->whereNull('kode_kelompok')
-                        ->orWhere('kode_kelompok', '!=', '1');
-                })
-                    ->orderBy('order', 'asc')
-                    ->with(['subpertanyaans' => function ($qQuery) {
-                        $qQuery->where(function ($subQ) {
-                            $subQ->where(function ($w) {
-                                $w->whereNull('tampil_di')
-                                    ->orWhereNotIn('tampil_di', ['profil', 'profile']);
-                            })->where(function ($w) {
-                                $w->whereNull('kelompok')
-                                    ->orWhere('kelompok', '!=', 'BIO');
-                            });
-                        })
-                            ->orderBy('order', 'asc')
-                            ->with('detils');
-                    }]);
+        // 3. Ambil seksi kuesioner universitas aktif beserta butir pertanyaan dan opsi
+        $sections = KuesionerSection::where('target', 'univ')
+            ->where('is_active', true)
+            ->with(['pertanyaan' => function ($query) {
+                $query->where('kuesioner_pertanyaan.is_active', true)
+                    ->with('opsi');
             }])
-            ->first();
+            ->orderBy('order', 'asc')
+            ->get();
 
-        if ($kuesioner) {
-            // Saring hanya seksi yang memiliki pertanyaan aktif untuk kuesioner
-            $filteredSections = $kuesioner->sections->filter(function ($section) {
-                return $section->subpertanyaans->isNotEmpty();
-            })->values();
-            $kuesioner->setRelation('sections', $filteredSections);
+        $profileCodesUpper = array_map('strtoupper', KelengkapanTracerService::PROFILE_MANAGED_CODES);
+
+        // Transformasi ke struktur yang diharapkan Frontend Kuesioner.vue
+        $formattedSections = [];
+        foreach ($sections as $sec) {
+            $subpertanyaans = [];
+
+            foreach ($sec->pertanyaan as $pertanyaan) {
+                $codeUpper = strtoupper(trim((string) $pertanyaan->kode_pertanyaan));
+                $pivotTampilDi = strtolower(trim((string) ($pertanyaan->pivot->tampil_di ?? '')));
+
+                // Saring pertanyaan yang dikelola di modul profil
+                if (in_array($codeUpper, $profileCodesUpper, true) || in_array($pivotTampilDi, ['profil', 'profile'], true)) {
+                    continue;
+                }
+
+                $subpertanyaans[] = [
+                    'id' => $pertanyaan->id,
+                    'kode_pertanyaan' => $pertanyaan->kode_pertanyaan,
+                    'subpertanyaan' => $pertanyaan->teks_pertanyaan,
+                    'type' => $pertanyaan->tipe,
+                    'is_mandatory' => (bool) ($pertanyaan->pivot->wajib ?? true),
+                    'is_header' => in_array($pertanyaan->tipe, ['header', 'section_header'], true),
+                    'order' => $pertanyaan->pivot->order ?? 0,
+                    'detils' => $pertanyaan->opsi->map(fn ($opt) => [
+                        'id' => $opt->id,
+                        'option_text' => $opt->label,
+                        'kode_opsi' => $opt->kode_opsi,
+                    ])->values()->all(),
+                ];
+            }
+
+            if (! empty($subpertanyaans)) {
+                $formattedSections[] = [
+                    'id' => $sec->id,
+                    'order' => $sec->order,
+                    'title' => $sec->judul ?: ('Bagian '.$sec->order),
+                    'section' => $sec->kode_section,
+                    'description' => $sec->deskripsi,
+                    'subpertanyaans' => $subpertanyaans,
+                ];
+            }
         }
 
-        // 4. Jika tidak ada kuesioner yang aktif, kembalikan tampilan dengan pesan error
-        if (! $kuesioner) {
+        if (empty($formattedSections)) {
             return Inertia::render('Alumni/Kuesioner', [
                 'error' => 'Tidak ada kuesioner aktif saat ini.',
                 'questionnaire' => null,
@@ -87,227 +104,221 @@ class KuesionerController extends Controller
             ]);
         }
 
-        // 5. Ambil data respon jawaban yang sudah tersimpan sebelumnya di tabel tracer
-        $jawabanTersimpan = Tracer::where('biodata_id', $biodata->id)
-            ->get()
-            ->keyBy('question_id');
+        $kuesionerPayload = [
+            'id' => $sections->first()?->id ?? 1,
+            'title' => 'Tracer Study Universitas Kristen Duta Wacana',
+            'sections' => $formattedSections,
+        ];
 
-        // 6. Ambil data gabungan profil alumni dari database view untuk prefill otomatis
+        // 4. Ambil respon jawaban alumni yang tersimpan di kuesioner_jawaban
+        $jawabanTersimpan = KuesionerJawaban::where('biodata_id', $biodata->id)
+            ->where('responden_type', 'alumni')
+            ->get()
+            ->keyBy('pertanyaan_id');
+
+        // 5. Data autofill untuk prefill jawaban
         $autofillData = DB::table('v_alumni_kuesioner_autofill')->where('user_id', $pengguna->id)->first();
 
-        // 7. Merakit data jawaban awal ($jawabanAwal) terstruktur per butir pertanyaan
+        // 6. Rakit nilai awal ($jawabanAwal)
         $jawabanAwal = [];
-        if ($kuesioner) {
-            foreach ($kuesioner->sections as $bagian) {
-                foreach ($bagian->subpertanyaans as $pertanyaan) {
-                    if (isset($jawabanTersimpan[$pertanyaan->id])) {
-                        $saved = $jawabanTersimpan[$pertanyaan->id];
+        foreach ($formattedSections as $bagian) {
+            foreach ($bagian['subpertanyaans'] as $pertanyaan) {
+                $pId = $pertanyaan['id'];
+                $pType = $pertanyaan['type'];
+                $pCode = strtoupper($pertanyaan['kode_pertanyaan'] ?? '');
+                $options = collect($pertanyaan['detils'] ?? []);
 
-                        if (in_array($pertanyaan->type, ['checkbox', 'multiple_choice'])) {
-                            $arr = is_array($saved->answer_json) ? $saved->answer_json : [];
-                            $cleanArr = [];
-                            $customText = '';
+                if (isset($jawabanTersimpan[$pId])) {
+                    $saved = $jawabanTersimpan[$pId];
+                    $savedText = $saved->jawaban_teks ?? '';
+                    $savedJson = is_array($saved->jawaban_json) ? $saved->jawaban_json : [];
 
-                            // Cari opsi database yang merupakan opsi lainnya jika ada
-                            $otherOption = $pertanyaan->detils->first(function ($opt) {
-                                $t = strtolower($opt->option_text);
+                    if (in_array($pType, ['checkbox', 'multiple_choice'], true)) {
+                        $cleanArr = [];
+                        $customText = '';
+
+                        $otherOption = $options->first(function ($opt) {
+                            $t = strtolower($opt['option_text']);
+
+                            return str_contains($t, 'lainnya') || str_contains($t, 'tuliskan') || str_contains($t, '...');
+                        });
+
+                        foreach ($savedJson as $item) {
+                            if (is_string($item) && str_starts_with($item, 'Lainnya: ')) {
+                                $customText = trim(substr($item, 9));
+                                $cleanArr[] = $otherOption ? $otherOption['option_text'] : 'Lainnya';
+                            } else {
+                                $cleanArr[] = $item;
+                            }
+                        }
+
+                        $jawabanAwal[$pId] = $cleanArr;
+                        if (! empty($customText)) {
+                            $jawabanAwal[$pId.'_custom'] = $customText;
+                        }
+                    } elseif (in_array($pType, ['single_choice', 'radio', 'dropdown', 'searchable_select'], true)) {
+                        if (str_starts_with($savedText, 'Lainnya: ')) {
+                            $customText = trim(substr($savedText, 9));
+                            $otherOption = $options->first(function ($opt) {
+                                $t = strtolower($opt['option_text']);
 
                                 return str_contains($t, 'lainnya') || str_contains($t, 'tuliskan') || str_contains($t, '...');
                             });
-
-                            foreach ($arr as $item) {
-                                if (is_string($item) && str_starts_with($item, 'Lainnya: ')) {
-                                    $customText = trim(substr($item, 9));
-                                    if ($otherOption) {
-                                        $cleanArr[] = $otherOption->option_text;
-                                    } else {
-                                        $cleanArr[] = 'Lainnya';
-                                    }
-                                } else {
-                                    $cleanArr[] = $item;
-                                }
-                            }
-
-                            $jawabanAwal[$pertanyaan->id] = $cleanArr;
+                            $jawabanAwal[$pId] = $otherOption ? $otherOption['option_text'] : 'Lainnya';
                             if (! empty($customText)) {
-                                $jawabanAwal[$pertanyaan->id.'_custom'] = $customText;
+                                $jawabanAwal[$pId.'_custom'] = $customText;
                             }
-                        } elseif (in_array($pertanyaan->type, ['single_choice', 'radio', 'dropdown', 'searchable_select'])) {
-                            $textVal = $saved->answer_text ?? ($saved->answer ?? '');
-                            if (str_starts_with($textVal, 'Lainnya: ')) {
-                                $customText = trim(substr($textVal, 9));
-                                $otherOption = $pertanyaan->detils->first(function ($opt) {
-                                    $t = strtolower($opt->option_text);
-
-                                    return str_contains($t, 'lainnya') || str_contains($t, 'tuliskan') || str_contains($t, '...');
-                                });
-                                $jawabanAwal[$pertanyaan->id] = $otherOption ? $otherOption->option_text : 'Lainnya';
-                                if (! empty($customText)) {
-                                    $jawabanAwal[$pertanyaan->id.'_custom'] = $customText;
-                                }
-                            } else {
-                                $matchedOpt = $pertanyaan->detils->first(function ($opt) use ($textVal) {
-                                    $t = strtolower(trim((string) $textVal));
-                                    $optText = strtolower(trim((string) $opt->option_text));
-                                    $optCode = strtolower(trim((string) ($opt->kode_opsi ?? '')));
-
-                                    return $t === $optText
-                                        || $t === $optCode
-                                        || ($t === 'pekerja' && str_contains($optText, 'bekerja'))
-                                        || ($t === 'bekerja' && str_contains($optText, 'bekerja'))
-                                        || ($t === 'mencari kerja' && str_contains($optText, 'mencari kerja'))
-                                        || ($t === 'belum memungkinkan bekerja' && str_contains($optText, 'belum memungkinkan'));
-                                });
-
-                                $jawabanAwal[$pertanyaan->id] = $matchedOpt ? $matchedOpt->option_text : $textVal;
-                            }
-                        } elseif (in_array($pertanyaan->type, ['radio_input', 'radio_text'])) {
-                            $jsonVal = is_array($saved->answer_json) ? $saved->answer_json : [];
-                            $textVal = $saved->answer_text ?? '';
-
-                            $inputsObj = [];
-                            foreach ($pertanyaan->detils as $o) {
-                                $inputsObj[$o->id] = '';
-                            }
-
-                            if (! empty($jsonVal)) {
-                                $pilihan = $jsonVal['pilihan'] ?? ($jsonVal['selected'] ?? '');
-                                $input = $jsonVal['input'] ?? ($jsonVal['text'] ?? '');
-                                $rawInputs = is_array($jsonVal['inputs'] ?? null) ? $jsonVal['inputs'] : [];
-
-                                $matchedOpt = $pertanyaan->detils->first(fn ($o) => strcasecmp($o->option_text, $pilihan) === 0);
-                                if ($matchedOpt) {
-                                    $inputsObj[$matchedOpt->id] = (string) ($rawInputs[$matchedOpt->id] ?? $input);
-                                }
-
-                                $jawabanAwal[$pertanyaan->id] = [
-                                    'selected' => $matchedOpt ? $matchedOpt->option_text : $pilihan,
-                                    'input' => $matchedOpt ? $inputsObj[$matchedOpt->id] : $input,
-                                    'inputs' => $inputsObj,
-                                ];
-                            } elseif (! empty($textVal)) {
-                                $matchedOption = null;
-                                $matchedInput = '';
-
-                                foreach ($pertanyaan->detils as $o) {
-                                    if (str_starts_with($textVal, $o->option_text)) {
-                                        $matchedOption = $o->option_text;
-                                        $remainder = trim(substr($textVal, strlen($o->option_text)));
-                                        $matchedInput = ltrim($remainder, ': ');
-                                        $inputsObj[$o->id] = $matchedInput;
-                                        break;
-                                    }
-                                }
-
-                                $jawabanAwal[$pertanyaan->id] = [
-                                    'selected' => $matchedOption ?? $textVal,
-                                    'input' => $matchedInput,
-                                    'inputs' => $inputsObj,
-                                ];
-                            } else {
-                                $jawabanAwal[$pertanyaan->id] = [
-                                    'selected' => '',
-                                    'input' => '',
-                                    'inputs' => $inputsObj,
-                                ];
-                            }
-                        } elseif (in_array($pertanyaan->type, ['matrix', 'matrix_dual', 'multiple_textbox'])) {
-                            if (! empty($saved->answer_json) && is_array($saved->answer_json)) {
-                                $jawabanAwal[$pertanyaan->id] = $saved->answer_json;
-                            } elseif (! empty($saved->answer_text)) {
-                                $decoded = json_decode($saved->answer_text, true);
-                                $jawabanAwal[$pertanyaan->id] = is_array($decoded) ? $decoded : [];
-                            } else {
-                                $jawabanAwal[$pertanyaan->id] = [];
-                            }
-                        } elseif ($pertanyaan->type === 'multiple_number') {
-                            $jsonVal = is_array($saved->answer_json) ? $saved->answer_json : [];
-                            $formatted = [];
-                            foreach ($jsonVal as $k => $v) {
-                                if ($k === 'total') {
-                                    continue;
-                                }
-                                $numVal = is_numeric($v) ? (float) $v : 0;
-                                $formatted[$k] = (int) $numVal;
-                            }
-
-                            // Fallback jika belum ada jawaban di tracer tetapi profil memiliki data gaji
-                            $gajiVal = ! empty($autofillData->F505) ? $autofillData->F505 : ($biodata->gaji ?? null);
-                            if (empty($formatted) && ! empty($gajiVal)) {
-                                $firstOpt = $pertanyaan->detils->first();
-                                $optCode = $firstOpt ? ($firstOpt->kode_opsi ?: ($firstOpt->code ?: $firstOpt->id)) : 'F5051';
-                                $gajiNum = (float) $gajiVal;
-                                $formatted[$optCode] = (int) $gajiNum;
-                            }
-
-                            $jawabanAwal[$pertanyaan->id] = $formatted;
                         } else {
-                            $kode = strtoupper($pertanyaan->code ?? $pertanyaan->kode_pertanyaan ?? '');
-                            $val = $saved->answer_text ?? '';
-                            if ($kode === 'F18B' && ! empty($biodata->perguruan_tinggi)) {
-                                $val = $biodata->perguruan_tinggi;
-                            } elseif ($kode === 'F18C' && ! empty($biodata->pendidikan_prodi)) {
-                                $val = $biodata->pendidikan_prodi;
-                            }
-                            $jawabanAwal[$pertanyaan->id] = $val;
+                            $matchedOpt = $options->first(function ($opt) use ($savedText) {
+                                $t = strtolower(trim((string) $savedText));
+                                $optText = strtolower(trim((string) $opt['option_text']));
+                                $optCode = strtolower(trim((string) ($opt['kode_opsi'] ?? '')));
+
+                                return $t === $optText
+                                    || $t === $optCode
+                                    || ($t === 'pekerja' && str_contains($optText, 'bekerja'))
+                                    || ($t === 'bekerja' && str_contains($optText, 'bekerja'))
+                                    || ($t === 'mencari kerja' && str_contains($optText, 'mencari kerja'))
+                                    || ($t === 'belum memungkinkan bekerja' && str_contains($optText, 'belum memungkinkan'));
+                            });
+
+                            $jawabanAwal[$pId] = $matchedOpt ? $matchedOpt['option_text'] : $savedText;
                         }
-                    } else {
-                        // Belum ada jawaban tersimpan sebelumnya, lakukan penyiapan nilai default
-                        if (in_array($pertanyaan->type, ['checkbox', 'multiple_choice', 'matrix', 'matrix_dual', 'multiple_textbox'])) {
-                            $jawabanAwal[$pertanyaan->id] = [];
-                        } elseif ($pertanyaan->type === 'multiple_number') {
-                            $formatted = [];
-                            $gajiVal = ! empty($autofillData->F505) ? $autofillData->F505 : ($biodata->gaji ?? null);
-                            if (! empty($gajiVal)) {
-                                $firstOpt = $pertanyaan->detils->first();
-                                $optCode = $firstOpt ? ($firstOpt->kode_opsi ?: ($firstOpt->code ?: $firstOpt->id)) : 'F5051';
-                                $gajiNum = (float) $gajiVal;
-                                $formatted[$optCode] = (int) $gajiNum;
+                    } elseif (in_array($pType, ['radio_input', 'radio_text'], true)) {
+                        $inputsObj = [];
+                        foreach ($options as $o) {
+                            $inputsObj[$o['id']] = '';
+                        }
+
+                        if (! empty($savedJson)) {
+                            $pilihan = $savedJson['pilihan'] ?? ($savedJson['selected'] ?? '');
+                            $input = $savedJson['input'] ?? ($savedJson['text'] ?? '');
+                            $rawInputs = is_array($savedJson['inputs'] ?? null) ? $savedJson['inputs'] : [];
+
+                            $matchedOpt = $options->first(fn ($o) => strcasecmp($o['option_text'], $pilihan) === 0);
+                            if ($matchedOpt) {
+                                $inputsObj[$matchedOpt['id']] = (string) ($rawInputs[$matchedOpt['id']] ?? $input);
                             }
-                            $jawabanAwal[$pertanyaan->id] = $formatted;
-                        } elseif (in_array($pertanyaan->type, ['radio_input', 'radio_text'])) {
-                            $inputsObj = [];
-                            foreach ($pertanyaan->detils as $o) {
-                                $inputsObj[$o->id] = '';
+
+                            $jawabanAwal[$pId] = [
+                                'selected' => $matchedOpt ? $matchedOpt['option_text'] : $pilihan,
+                                'input' => $matchedOpt ? $inputsObj[$matchedOpt['id']] : $input,
+                                'inputs' => $inputsObj,
+                            ];
+                        } elseif (! empty($savedText)) {
+                            $matchedOption = null;
+                            $matchedInput = '';
+
+                            foreach ($options as $o) {
+                                if (str_starts_with($savedText, $o['option_text'])) {
+                                    $matchedOption = $o['option_text'];
+                                    $remainder = trim(substr($savedText, strlen($o['option_text'])));
+                                    $matchedInput = ltrim($remainder, ': ');
+                                    $inputsObj[$o['id']] = $matchedInput;
+                                    break;
+                                }
                             }
-                            $jawabanAwal[$pertanyaan->id] = [
+
+                            $jawabanAwal[$pId] = [
+                                'selected' => $matchedOption ?? $savedText,
+                                'input' => $matchedInput,
+                                'inputs' => $inputsObj,
+                            ];
+                        } else {
+                            $jawabanAwal[$pId] = [
                                 'selected' => '',
                                 'input' => '',
                                 'inputs' => $inputsObj,
                             ];
-                        } else {
-                            $kode = strtoupper($pertanyaan->code ?? $pertanyaan->kode_pertanyaan ?? '');
-                            $val = $autofillData->$kode ?? ($autofillData->{strtolower($kode)} ?? '');
-
-                            // Autofill profil untuk Studi Lanjut F18
-                            if (empty($val)) {
-                                if ($kode === 'F18B') {
-                                    $val = $biodata->perguruan_tinggi ?? '';
-                                } elseif ($kode === 'F18C') {
-                                    $val = $biodata->pendidikan_prodi ?? '';
-                                }
-                            }
-
-                            // Normalisasi F8 jika ada data kategori_pekerjaan di biodata
-                            if ($kode === 'F8' && ! empty($val)) {
-                                $matchedOpt = $pertanyaan->detils->first(function ($opt) use ($val) {
-                                    return strcasecmp($opt->option_text, $val) === 0 || str_starts_with(strtolower($opt->option_text), strtolower($val));
-                                });
-                                $val = $matchedOpt ? $matchedOpt->option_text : $val;
-                            }
-
-                            $jawabanAwal[$pertanyaan->id] = $val;
                         }
+                    } elseif (in_array($pType, ['matrix', 'matrix_dual', 'multiple_textbox'], true)) {
+                        if (! empty($savedJson)) {
+                            $jawabanAwal[$pId] = $savedJson;
+                        } elseif (! empty($savedText)) {
+                            $decoded = json_decode($savedText, true);
+                            $jawabanAwal[$pId] = is_array($decoded) ? $decoded : [];
+                        } else {
+                            $jawabanAwal[$pId] = [];
+                        }
+                    } elseif ($pType === 'multiple_number') {
+                        $formatted = [];
+                        foreach ($savedJson as $k => $v) {
+                            if ($k === 'total') {
+                                continue;
+                            }
+                            $numVal = is_numeric($v) ? (float) $v : 0;
+                            $formatted[$k] = (int) $numVal;
+                        }
+
+                        $gajiVal = ! empty($autofillData->F505) ? $autofillData->F505 : ($biodata->gaji ?? null);
+                        if (empty($formatted) && ! empty($gajiVal)) {
+                            $firstOpt = $options->first();
+                            $optCode = $firstOpt ? ($firstOpt['kode_opsi'] ?: $firstOpt['id']) : 'F5051';
+                            $formatted[$optCode] = (int) ((float) $gajiVal);
+                        }
+
+                        $jawabanAwal[$pId] = $formatted;
+                    } else {
+                        $val = $savedText;
+                        if ($pCode === 'F18B' && ! empty($biodata->perguruan_tinggi)) {
+                            $val = $biodata->perguruan_tinggi;
+                        } elseif ($pCode === 'F18C' && ! empty($biodata->pendidikan_prodi)) {
+                            $val = $biodata->pendidikan_prodi;
+                        }
+                        $jawabanAwal[$pId] = $val;
+                    }
+                } else {
+                    // Penyiapan nilai default awal jika belum ada jawaban
+                    if (in_array($pType, ['checkbox', 'multiple_choice', 'matrix', 'matrix_dual', 'multiple_textbox'], true)) {
+                        $jawabanAwal[$pId] = [];
+                    } elseif ($pType === 'multiple_number') {
+                        $formatted = [];
+                        $gajiVal = ! empty($autofillData->F505) ? $autofillData->F505 : ($biodata->gaji ?? null);
+                        if (! empty($gajiVal)) {
+                            $firstOpt = $options->first();
+                            $optCode = $firstOpt ? ($firstOpt['kode_opsi'] ?: $firstOpt['id']) : 'F5051';
+                            $formatted[$optCode] = (int) ((float) $gajiVal);
+                        }
+                        $jawabanAwal[$pId] = $formatted;
+                    } elseif (in_array($pType, ['radio_input', 'radio_text'], true)) {
+                        $inputsObj = [];
+                        foreach ($options as $o) {
+                            $inputsObj[$o['id']] = '';
+                        }
+                        $jawabanAwal[$pId] = [
+                            'selected' => '',
+                            'input' => '',
+                            'inputs' => $inputsObj,
+                        ];
+                    } else {
+                        $val = $autofillData->$pCode ?? ($autofillData->{strtolower($pCode)} ?? '');
+
+                        if (empty($val)) {
+                            if ($pCode === 'F18B') {
+                                $val = $biodata->perguruan_tinggi ?? '';
+                            } elseif ($pCode === 'F18C') {
+                                $val = $biodata->pendidikan_prodi ?? '';
+                            }
+                        }
+
+                        if ($pCode === 'F8' && ! empty($val)) {
+                            $matchedOpt = $options->first(function ($opt) use ($val) {
+                                return strcasecmp($opt['option_text'], $val) === 0 || str_starts_with(strtolower($opt['option_text']), strtolower($val));
+                            });
+                            $val = $matchedOpt ? $matchedOpt['option_text'] : $val;
+                        }
+
+                        $jawabanAwal[$pId] = $val;
                     }
                 }
             }
         }
 
         return Inertia::render('Alumni/Kuesioner', [
-            'kuesioner' => $kuesioner,
-            'questionnaire' => $kuesioner,
+            'kuesioner' => $kuesionerPayload,
+            'questionnaire' => $kuesionerPayload,
             'initialAnswers' => $jawabanAwal,
-            'questionnaireStorageKey' => 'alumni_'.$pengguna->id.'_kuesioner_'.$kuesioner->id,
+            'questionnaireStorageKey' => 'alumni_'.$pengguna->id.'_kuesioner_'.$kuesionerPayload['id'],
             'error' => null,
         ]);
     }

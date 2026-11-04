@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\Tracer;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -14,45 +16,79 @@ class TracerAnswerConsistencyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_text_answer_always_gets_a_json_projection(): void
+    public function test_kuesioner_jawaban_stores_text_and_json_properly(): void
     {
         $biodata = $this->createBiodata('72230001', 'Tracer Test');
 
-        $tracer = Tracer::create([
-            'biodata_id' => $biodata->id,
-            'nim' => $biodata->nim,
-            'kelompok' => 'F1',
-            'kode_pertanyaan' => 'F1A',
-            'subpertanyaan' => 'Pertanyaan teks',
-            'answer' => 'Jawaban lama',
+        $section = KuesionerSection::create([
+            'kode_section' => 'SEC-UNIV-1',
+            'target' => 'univ',
+            'judul' => 'Bagian Satu',
+            'order' => 1,
+            'is_active' => true,
         ]);
 
-        $tracer->refresh();
+        $pertanyaan = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'F1A',
+            'teks_pertanyaan' => 'Pertanyaan teks',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
 
-        $this->assertSame(['value' => 'Jawaban lama'], $tracer->answer_json);
-        $this->assertSame('Jawaban lama', $tracer->answer_text);
+        $jawaban = KuesionerJawaban::create([
+            'responden_type' => 'alumni',
+            'biodata_id' => $biodata->id,
+            'section_id' => $section->id,
+            'pertanyaan_id' => $pertanyaan->id,
+            'kode_pertanyaan' => 'F1A',
+            'jawaban_teks' => 'Jawaban teks alumni',
+            'jawaban_json' => ['value' => 'Jawaban teks alumni'],
+        ]);
+
+        $jawaban->refresh();
+
+        $this->assertSame('Jawaban teks alumni', $jawaban->jawaban_teks);
+        $this->assertSame(['value' => 'Jawaban teks alumni'], $jawaban->jawaban_json);
+        $this->assertSame('Jawaban teks alumni', $jawaban->nilai);
     }
 
-    public function test_json_answer_always_gets_a_readable_text_projection(): void
+    public function test_kuesioner_jawaban_handles_json_with_catatan_accessor(): void
     {
         $biodata = $this->createBiodata('72230002', 'Tracer JSON Test');
 
-        $tracer = Tracer::create([
+        $section = KuesionerSection::create([
+            'kode_section' => 'SEC-ATASAN-1',
+            'target' => 'atasan',
+            'judul' => 'Evaluasi Kinerja',
+            'order' => 1,
+            'is_active' => true,
+        ]);
+
+        $pertanyaan = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'EVA_kompetensi',
+            'teks_pertanyaan' => 'Kompetensi lulusan',
+            'tipe' => 'rating_5',
+            'is_active' => true,
+        ]);
+
+        $jawaban = KuesionerJawaban::create([
+            'responden_type' => 'atasan',
             'biodata_id' => $biodata->id,
-            'nim' => $biodata->nim,
-            'kelompok' => 'F1',
-            'kode_pertanyaan' => 'F1B',
-            'subpertanyaan' => 'Pertanyaan pilihan',
-            'answer_json' => [
-                'selected' => 'Lainnya',
-                'input' => 'Bidang khusus',
+            'section_id' => $section->id,
+            'pertanyaan_id' => $pertanyaan->id,
+            'kode_pertanyaan' => 'EVA_kompetensi',
+            'jawaban_teks' => 'Sangat Tinggi',
+            'jawaban_json' => [
+                'selected' => 'Sangat Tinggi',
+                'catatan' => 'Sangat profesional dan cepat beradaptasi',
             ],
         ]);
 
-        $tracer->refresh();
+        $jawaban->refresh();
 
-        $this->assertSame('Lainnya: Bidang khusus', $tracer->answer_text);
-        $this->assertSame('Lainnya: Bidang khusus', $tracer->answer);
+        $this->assertSame('Sangat Tinggi', $jawaban->jawaban_teks);
+        $this->assertSame('Sangat Tinggi', $jawaban->nilai);
+        $this->assertSame('Sangat profesional dan cepat beradaptasi', $jawaban->catatan);
     }
 
     private function createBiodata(string $nim, string $name): Biodata
@@ -73,7 +109,6 @@ class TracerAnswerConsistencyTest extends TestCase
         return Biodata::create([
             'user_id' => $user->id,
             'nim' => $nim,
-            'nama' => $name,
         ]);
     }
 }

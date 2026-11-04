@@ -6,13 +6,11 @@ use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\Kabupaten;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiResponse;
 use App\Models\Propinsi;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\Tracer;
 use App\Models\User;
 use App\Models\Yudisium;
 use Illuminate\Database\Seeder;
@@ -26,6 +24,13 @@ use Illuminate\Support\Facades\Hash;
 class DashboardScenarioSeeder extends Seeder
 {
     /**
+     * Penampung jawaban kuesioner untuk bulk insert berkecepatan tinggi.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    private array $pendingAnswers = [];
+
+    /**
      * Menyiapkan data demo lintas tahun untuk dashboard tanpa menimpa data lama.
      *
      * Jumlah alumni per prodi merepresentasikan populasi lulusan, sedangkan jumlah
@@ -33,13 +38,23 @@ class DashboardScenarioSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->pendingAnswers = [];
         $prodis = Prodi::query()->get()->keyBy('kode_prodi');
         $propinsi = Propinsi::query()->where('kode_provinsi', '34')->first();
         $kabupaten = Kabupaten::query()->where('kode_kabupaten', '34.04')->first();
-        $universityQuestions = RefSubpertanyaan2021::query()
-            ->where('wajib', true)
-            ->where('type', '!=', 'header')
-            ->orderBy('order')
+        $defaultHashedPassword = Hash::make('password123');
+
+        $universityQuestions = KuesionerPertanyaan::query()
+            ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'kuesioner_pertanyaan.id')
+            ->join('kuesioner_section as s', 's.id', '=', 'sp.section_id')
+            ->where('s.target', 'univ')
+            ->where('sp.wajib', true)
+            ->where('kuesioner_pertanyaan.tipe', '!=', 'header')
+            ->where('kuesioner_pertanyaan.is_active', true)
+            ->with('opsi')
+            ->select('kuesioner_pertanyaan.*', 'sp.section_id')
+            ->orderBy('sp.section_id')
+            ->orderBy('sp.order')
             ->get();
 
         if ($prodis->isEmpty() || ! $propinsi || ! $kabupaten) {
@@ -73,28 +88,45 @@ class DashboardScenarioSeeder extends Seeder
                 }
 
                 $respondentCount = $configuration['respondents'][$prodiCode] ?? 0;
-                $prodiQuestions = ProdiQuestion::query()
+                $prodiSection = KuesionerSection::where('target', 'prodi')
                     ->where('prodi_id', $prodi->id)
-                    ->where('type', '!=', 'header')
-                    ->with('options')
-                    ->orderBy('order')
-                    ->get();
+                    ->first();
+
+                $prodiQuestions = $prodiSection
+                    ? KuesionerPertanyaan::query()
+                        ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'kuesioner_pertanyaan.id')
+                        ->where('sp.section_id', $prodiSection->id)
+                        ->where('kuesioner_pertanyaan.tipe', '!=', 'header')
+                        ->with('opsi')
+                        ->select('kuesioner_pertanyaan.*', 'sp.section_id')
+                        ->orderBy('sp.order')
+                        ->get()
+                    : collect();
 
                 for ($sequence = 1; $sequence <= $targetCount; $sequence++) {
                     $nim = $prodiCode.substr((string) ($year - 4), -2).str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
-                    if ($this->seedAlumni($nim, $sequence, $year, $respondentCount, $prodi, $propinsi, $kabupaten, $universityQuestions, $prodiQuestions)) {
+                    if ($this->seedAlumni($nim, $sequence, $year, $respondentCount, $prodi, $propinsi, $kabupaten, $universityQuestions, $prodiQuestions, $defaultHashedPassword)) {
                         $createdCount++;
                     }
                 }
             }
         }
 
+        if (! empty($this->pendingAnswers)) {
+            collect($this->pendingAnswers)
+                ->chunk(500)
+                ->each(function (Collection $rows): void {
+                    DB::table('kuesioner_jawaban')->insert($rows->all());
+                });
+            $this->pendingAnswers = [];
+        }
+
         $this->command?->info("Dashboard scenario selesai. {$createdCount} alumni baru dibuat tanpa mengubah data lama.");
     }
 
     /**
-     * @param  Collection<int, RefSubpertanyaan2021>  $universityQuestions
-     * @param  Collection<int, ProdiQuestion>  $prodiQuestions
+     * @param  Collection<int, KuesionerPertanyaan>  $universityQuestions
+     * @param  Collection<int, KuesionerPertanyaan>  $prodiQuestions
      */
     private function seedAlumni(
         string $nim,
@@ -106,12 +138,13 @@ class DashboardScenarioSeeder extends Seeder
         Kabupaten $kabupaten,
         $universityQuestions,
         $prodiQuestions,
+        string $defaultHashedPassword
     ): bool {
         if (DataAkademik::query()->where('nim', $nim)->exists()) {
             return false;
         }
 
-        return DB::transaction(function () use ($nim, $sequence, $graduationYear, $respondentCount, $prodi, $propinsi, $kabupaten, $universityQuestions, $prodiQuestions): bool {
+        return DB::transaction(function () use ($nim, $sequence, $graduationYear, $respondentCount, $prodi, $propinsi, $kabupaten, $universityQuestions, $prodiQuestions, $defaultHashedPassword): bool {
             $isRespondent = $sequence <= $respondentCount;
             $isProfileComplete = $isRespondent || $sequence % 11 !== 0;
             $firstNames = ['Aurelia', 'Bagas', 'Catherine', 'Dimas', 'Elisa', 'Felix', 'Gisella', 'Hendra', 'Intan', 'Jovan', 'Kezia', 'Lukas'];
@@ -136,7 +169,7 @@ class DashboardScenarioSeeder extends Seeder
                 'username' => $nim,
                 'name' => $name,
                 'email' => $email,
-                'password' => Hash::make('1508'.str_pad((string) $sequence, 2, '0', STR_PAD_LEFT)),
+                'password' => $defaultHashedPassword,
                 'role' => 'alumni',
                 'prodi_id' => $prodi->id,
                 'must_change_password' => true,
@@ -207,7 +240,7 @@ class DashboardScenarioSeeder extends Seeder
     }
 
     /**
-     * @param  Collection<int, RefSubpertanyaan2021>  $questions
+     * @param  Collection<int, KuesionerPertanyaan>  $questions
      */
     private function seedUniversityResponses(Biodata $biodata, int $graduationYear, int $salary, $questions): void
     {
@@ -222,68 +255,104 @@ class DashboardScenarioSeeder extends Seeder
                 'F504' => 'Ya',
                 'F502' => '3',
                 'F505' => (string) $salary,
+                'F14' => 'Sangat Erat',
+                'F15' => 'Tingkat yang Sama',
+                'F3' => 'Sebelum lulus ... bulan: 3',
+                'F4' => 'Mencari lewat internet/iklan online/milis',
+                'F6' => '4',
+                'F7' => '3',
+                'F7A' => '2',
                 default => $this->defaultQuestionAnswer($question),
             };
 
-            Tracer::firstOrCreate(
-                ['biodata_id' => $biodata->id, 'question_id' => $question->id],
-                [
-                    'nim' => $biodata->nim,
-                    'kelompok' => $question->kelompok,
-                    'kode_pertanyaan' => $question->kode_pertanyaan,
-                    'subpertanyaan' => $question->subpertanyaan,
-                    'answer' => $answer,
-                    'tahun_lulus' => (string) $graduationYear,
-                ],
-            );
+            $opsi = $question->opsi?->first(fn ($o) => mb_strtolower(trim($o->label)) === mb_strtolower(trim((string) $answer)));
+
+            $this->pendingAnswers[] = [
+                'responden_type' => 'alumni',
+                'biodata_id' => $biodata->id,
+                'evaluasi_atasan_id' => null,
+                'section_id' => $question->section_id,
+                'pertanyaan_id' => $question->id,
+                'kode_pertanyaan' => $question->kode_pertanyaan,
+                'opsi_id' => $opsi?->id,
+                'kode_opsi' => $opsi?->kode_opsi,
+                'jawaban_teks' => $answer,
+                'jawaban_json' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
         }
     }
 
     /**
      * Menyimpan jawaban prodi demo dengan distribusi opsi yang tersebar.
      *
-     * @param  Collection<int, ProdiQuestion>  $questions
+     * @param  Collection<int, KuesionerPertanyaan>  $questions
      */
     private function seedProdiResponses(Biodata $biodata, $questions): void
     {
-        foreach ($questions as $question) {
-            $options = $question->options->values();
-            $answerJson = null;
-            $answer = $options->first()?->option_text ?? 'Data simulasi '.$question->code;
+        if ($questions->isEmpty()) {
+            return;
+        }
 
-            if (in_array($question->type, ['text', 'textarea'], true)) {
-                $answer = 'Respon simulasi alumni untuk '.$question->question_text;
+        $prodiSection = KuesionerSection::where('target', 'prodi')
+            ->where('prodi_id', $biodata->prodi_id)
+            ->first();
+        $sectionId = $prodiSection?->id ?: 1;
+
+        foreach ($questions as $question) {
+            $options = $question->opsi?->values() ?? collect();
+            $answerJson = null;
+            $kodeOpsiResult = null;
+            $answer = $options->first()?->label ?? 'Data simulasi '.$question->kode_pertanyaan;
+
+            if (in_array($question->tipe, ['text', 'textarea'], true)) {
+                $answer = 'Respon simulasi alumni untuk '.$question->teks_pertanyaan;
             } elseif ($options->isNotEmpty()) {
                 $primaryOption = $options->get(($biodata->id + $question->id) % $options->count());
-                $answer = $primaryOption?->option_text ?? $answer;
+                $answer = $primaryOption?->label ?? $answer;
+                $kodeOpsiResult = $primaryOption?->kode_opsi;
 
-                if ($question->type === 'multiple_choice') {
+                if ($question->tipe === 'multiple_choice' || $question->tipe === 'checkbox') {
                     $selectedOptions = collect([$primaryOption]);
                     if ($options->count() > 1 && ($biodata->id + $question->id) % 3 === 0) {
                         $selectedOptions->push($options->get(($biodata->id + $question->id + 1) % $options->count()));
                     }
                     $selectedOptions = $selectedOptions->filter()->unique('id')->values();
-                    $answer = $selectedOptions->pluck('option_text')->implode(', ');
-                    $answerJson = $selectedOptions->pluck('option_text')->values()->all();
+                    $answer = $selectedOptions->pluck('label')->implode(', ');
+                    $answerJson = json_encode($selectedOptions->pluck('label')->values()->all(), JSON_UNESCAPED_UNICODE);
+                    $kodeOpsiResult = json_encode($selectedOptions->pluck('kode_opsi')->values()->all(), JSON_UNESCAPED_UNICODE);
                 }
             }
 
-            ProdiResponse::updateOrCreate(
-                ['biodata_id' => $biodata->id, 'prodi_question_id' => $question->id],
-                ['answer_text' => $answer, 'answer_json' => $answerJson],
-            );
+            $opsi = $options->first(fn ($o) => $o->label === $answer);
+
+            $this->pendingAnswers[] = [
+                'responden_type' => 'alumni',
+                'biodata_id' => $biodata->id,
+                'evaluasi_atasan_id' => null,
+                'section_id' => $sectionId,
+                'pertanyaan_id' => $question->id,
+                'kode_pertanyaan' => $question->kode_pertanyaan,
+                'opsi_id' => $opsi?->id,
+                'kode_opsi' => $kodeOpsiResult ?: $opsi?->kode_opsi,
+                'jawaban_teks' => $answer,
+                'jawaban_json' => $answerJson,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
         }
     }
 
-    private function defaultQuestionAnswer(RefSubpertanyaan2021 $question): string
+    private function defaultQuestionAnswer(KuesionerPertanyaan $question): string
     {
-        $option = $question->detils()->first();
+        $option = $question->opsi?->first();
 
         if ($option) {
-            return (string) $option->option_text;
+            return (string) $option->label;
         }
 
-        if (in_array($question->type, ['number', 'rating', 'scale'], true)) {
+        if (in_array($question->tipe, ['number', 'rating', 'scale'], true)) {
             return '4';
         }
 

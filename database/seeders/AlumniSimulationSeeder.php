@@ -6,13 +6,12 @@ use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\Kabupaten;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiResponse;
 use App\Models\Propinsi;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\Tracer;
 use App\Models\User;
 use App\Models\Yudisium;
 use Carbon\Carbon;
@@ -253,16 +252,27 @@ class AlumniSimulationSeeder extends Seeder
             '82' => 'Representasi Identitas Sosio-Kultural Masyarakat Urban dalam Film Indonesia Kontemporer',
         ];
 
-        // 6. Ambil master butir kuesioner universitas (ref_subpertanyaan2021)
-        $univQuestions = RefSubpertanyaan2021::all()->keyBy('kode_pertanyaan');
+        // 6. Ambil master butir kuesioner universitas dan prodi dari Unified Survey Engine
+        $univSection = KuesionerSection::where('target', 'univ')->first();
+        $univQuestions = KuesionerPertanyaan::query()
+            ->with('opsi')
+            ->get()
+            ->keyBy(fn ($q) => strtoupper((string) $q->kode_pertanyaan));
+        $defaultHashedPassword = Hash::make('15082004');
 
         // Iterasi ke seluruh 12 Program Studi
         foreach ($prodis as $kodeProdi => $prodi) {
             $kodeProdiStr = (string) $kodeProdi;
             // Butir pertanyaan spesifik prodi (jika ada)
-            $prodiQuestions = ProdiQuestion::where('prodi_id', $prodi->id)
-                ->where('type', '!=', 'header')
-                ->get();
+            $prodiSection = KuesionerSection::where('target', 'prodi')
+                ->where('prodi_id', $prodi->id)
+                ->first();
+            $prodiQuestions = $prodiSection
+                ? KuesionerPertanyaan::whereHas('sections', fn ($sq) => $sq->where('kuesioner_section.id', $prodiSection->id))
+                    ->where('tipe', '!=', 'header')
+                    ->with('opsi')
+                    ->get()
+                : collect();
 
             // Ambil daftar nama khusus program studi ini
             $prodiNamaList = $bankNamaPerProdi[$kodeProdiStr] ?? $bankNamaPerProdi['71'];
@@ -297,7 +307,7 @@ class AlumniSimulationSeeder extends Seeder
                     [
                         'name' => $nama,
                         'email' => $personalEmail,
-                        'password' => Hash::make($defaultPassword),
+                        'password' => $defaultHashedPassword,
                         'role' => 'alumni',
                         'prodi_id' => $prodi->id,
                         'must_change_password' => true,
@@ -611,7 +621,7 @@ class AlumniSimulationSeeder extends Seeder
         );
 
         // Jangan reset kuesioner Joshua Andrean jika sudah memiliki jawaban
-        if ($nim === '72220001' && Tracer::where('biodata_id', $biodata->id)->count() > 0) {
+        if ($nim === '72220001' && KuesionerJawaban::where('biodata_id', $biodata->id)->count() > 0) {
             return;
         }
 
@@ -627,8 +637,11 @@ class AlumniSimulationSeeder extends Seeder
      */
     protected function seedTracerAnswersLengkap(Biodata $biodata, int $kategoriIdx, int $tahunLulus, $univQuestions): void
     {
-        // Bersihkan jawaban tracer sebelumnya untuk alumni ini
-        Tracer::where('biodata_id', $biodata->id)->delete();
+        $univSection = KuesionerSection::where('target', 'univ')->first();
+        $univSectionId = $univSection?->id ?: 1;
+
+        // Bersihkan jawaban kuesioner sebelumnya untuk alumni ini
+        KuesionerJawaban::where('biodata_id', $biodata->id)->delete();
 
         $answers = [];
 
@@ -683,21 +696,22 @@ class AlumniSimulationSeeder extends Seeder
             $answers['F18d'] = '2025-09-01';
         }
 
-        // Simpan seluruh record ke tabel tracer
+        // Simpan seluruh record ke tabel kuesioner_jawaban terpadu
         foreach ($answers as $kode => $ans) {
-            $q = $univQuestions->get($kode);
+            $q = $univQuestions->get(strtoupper($kode));
             if ($q) {
-                Tracer::create([
+                $opsi = $q->opsi?->first(fn ($o) => mb_strtolower(trim($o->label)) === mb_strtolower(trim((string) $ans)));
+                KuesionerJawaban::create([
+                    'responden_type' => 'alumni',
                     'biodata_id' => $biodata->id,
-                    'question_id' => $q->id,
-                    'nim' => $biodata->nim,
-                    'kelompok' => $q->kelompok,
+                    'evaluasi_atasan_id' => null,
+                    'section_id' => $univSectionId,
+                    'pertanyaan_id' => $q->id,
                     'kode_pertanyaan' => $q->kode_pertanyaan,
-                    'subpertanyaan' => $q->subpertanyaan,
-                    'answer' => $ans,
-                    'answer_json' => null,
-                    'keterangan' => null,
-                    'tahun_lulus' => (string) $tahunLulus,
+                    'opsi_id' => $opsi?->id,
+                    'kode_opsi' => $opsi?->kode_opsi,
+                    'jawaban_teks' => (string) $ans,
+                    'jawaban_json' => null,
                 ]);
             }
         }
@@ -712,22 +726,36 @@ class AlumniSimulationSeeder extends Seeder
             return;
         }
 
-        ProdiResponse::where('biodata_id', $biodata->id)->delete();
+        $prodiSection = KuesionerSection::where('target', 'prodi')
+            ->where('prodi_id', $biodata->prodi_id)
+            ->first();
+        $sectionId = $prodiSection?->id ?: 1;
 
         foreach ($prodiQuestions as $pq) {
             $ans = '4'; // Default skala likert 4 = Setuju
-            if ($pq->type === 'text' || $pq->type === 'textarea') {
+            if ($pq->tipe === 'text' || $pq->tipe === 'textarea') {
                 $ans = 'Program studi memberikan bekal keahlian yang relevan dan aplikatif di dunia profesional.';
-            } elseif ($pq->type === 'radio' || $pq->type === 'dropdown') {
+            } elseif ($pq->tipe === 'radio' || $pq->tipe === 'dropdown') {
                 $ans = 'Sangat Setuju';
             }
 
-            ProdiResponse::create([
-                'biodata_id' => $biodata->id,
-                'prodi_question_id' => $pq->id,
-                'answer_text' => $ans,
-                'answer_json' => null,
-            ]);
+            $opsi = $pq->opsi?->first(fn ($o) => mb_strtolower(trim($o->label)) === mb_strtolower(trim((string) $ans)));
+
+            KuesionerJawaban::updateOrCreate(
+                [
+                    'responden_type' => 'alumni',
+                    'biodata_id' => $biodata->id,
+                    'pertanyaan_id' => $pq->id,
+                ],
+                [
+                    'section_id' => $sectionId,
+                    'kode_pertanyaan' => $pq->kode_pertanyaan,
+                    'opsi_id' => $opsi?->id,
+                    'kode_opsi' => $opsi?->kode_opsi,
+                    'jawaban_teks' => $ans,
+                    'jawaban_json' => null,
+                ]
+            );
         }
     }
 
@@ -783,8 +811,10 @@ class AlumniSimulationSeeder extends Seeder
             ]
         );
 
-        Tracer::where('biodata_id', $biodata->id)->delete();
-        ProdiResponse::where('biodata_id', $biodata->id)->delete();
+        $univSection = KuesionerSection::where('target', 'univ')->first();
+        $univSectionId = $univSection?->id ?: 1;
+
+        KuesionerJawaban::where('biodata_id', $biodata->id)->delete();
 
         // Hanya jawab sebagian kuesioner wajib (misal 8 dari 20 butir = 40% - 50%)
         $partialAnswers = [
@@ -799,19 +829,20 @@ class AlumniSimulationSeeder extends Seeder
         ];
 
         foreach ($partialAnswers as $kode => $ans) {
-            $q = $univQuestions->get($kode);
+            $q = $univQuestions->get(strtoupper($kode));
             if ($q) {
-                Tracer::create([
+                $opsi = $q->opsi?->first(fn ($o) => mb_strtolower(trim($o->label)) === mb_strtolower(trim((string) $ans)));
+                KuesionerJawaban::create([
+                    'responden_type' => 'alumni',
                     'biodata_id' => $biodata->id,
-                    'question_id' => $q->id,
-                    'nim' => $biodata->nim,
-                    'kelompok' => $q->kelompok,
+                    'evaluasi_atasan_id' => null,
+                    'section_id' => $univSectionId,
+                    'pertanyaan_id' => $q->id,
                     'kode_pertanyaan' => $q->kode_pertanyaan,
-                    'subpertanyaan' => $q->subpertanyaan,
-                    'answer' => $ans,
-                    'answer_json' => null,
-                    'keterangan' => null,
-                    'tahun_lulus' => (string) $cfg['tahun'],
+                    'opsi_id' => $opsi?->id,
+                    'kode_opsi' => $opsi?->kode_opsi,
+                    'jawaban_teks' => (string) $ans,
+                    'jawaban_json' => null,
                 ]);
             }
         }
@@ -864,7 +895,6 @@ class AlumniSimulationSeeder extends Seeder
         );
 
         // Pastikan tidak ada jawaban kuesioner tersimpan (0% Progress)
-        Tracer::where('biodata_id', $biodata->id)->delete();
-        ProdiResponse::where('biodata_id', $biodata->id)->delete();
+        KuesionerJawaban::where('biodata_id', $biodata->id)->delete();
     }
 }

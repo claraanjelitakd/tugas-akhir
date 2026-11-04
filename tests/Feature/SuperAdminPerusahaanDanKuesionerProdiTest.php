@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\KuesionerSection;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
-use App\Models\ProdiQuestionSection;
 use App\Models\RefFakultas;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -171,9 +171,9 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
             ]);
 
         $responseStore->assertRedirect();
-        $this->assertDatabaseHas('prodi_question_section', [
+        $this->assertDatabaseHas('kuesioner_section', [
             'prodi_id' => $this->prodi->id,
-            'title' => 'Evaluasi Kurikulum Prodi SI',
+            'judul' => 'Evaluasi Kurikulum Prodi SI',
         ]);
     }
 
@@ -182,10 +182,13 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
      */
     public function test_superadmin_dapat_mengelola_pertanyaan_kuesioner_prodi(): void
     {
-        $section = ProdiQuestionSection::create([
+        $section = KuesionerSection::create([
             'prodi_id' => $this->prodi->id,
-            'title' => 'Bagian Spesifik SI',
+            'target' => 'prodi',
+            'kode_section' => 'SEC-SI-1',
+            'judul' => 'Bagian Spesifik SI',
             'order' => 1,
+            'is_active' => true,
         ]);
 
         $responseStore = $this->actingAs($this->superadmin)
@@ -200,10 +203,10 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
             ]);
 
         $responseStore->assertRedirect();
-        $this->assertDatabaseHas('prodi_question', [
-            'prodi_id' => $this->prodi->id,
-            'code' => 'PSI_01',
-            'question_text' => 'Seberapa relevan mata kuliah basis data di dunia kerja?',
+        $this->assertDatabaseHas('kuesioner_pertanyaan', [
+            'pemilik_prodi_id' => $this->prodi->id,
+            'kode_pertanyaan' => 'PSI_01',
+            'teks_pertanyaan' => 'Seberapa relevan mata kuliah basis data di dunia kerja?',
         ]);
     }
 }

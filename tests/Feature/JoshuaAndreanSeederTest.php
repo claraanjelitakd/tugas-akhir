@@ -4,8 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\ProdiResponse;
-use App\Models\Tracer;
+use App\Models\KuesionerJawaban;
 use App\Models\User;
 use App\Models\Yudisium;
 use Database\Seeders\DatabaseSeeder;
@@ -55,8 +54,7 @@ class JoshuaAndreanSeederTest extends TestCase
         $this->assertNull($biodata->getAttribute('npwp'));
 
         // Pastikan kuesioner belum diisi
-        $this->assertEquals(0, Tracer::where('biodata_id', $biodata->id)->count());
-        $this->assertEquals(0, ProdiResponse::where('biodata_id', $biodata->id)->count());
+        $this->assertEquals(0, KuesionerJawaban::where('biodata_id', $biodata->id)->count());
 
         // Alumni baru wajib diarahkan untuk mengganti password awal.
         $response = $this->actingAs($user)->get(route('alumni.profile'));

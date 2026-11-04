@@ -30,7 +30,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Program Studi',
         fallbackEmail: 'prodi@ukdw.ac.id',
         alumniLabel: 'Data Alumni Prodi',
-        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: true },
+        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false },
     },
     admin_fakultas: {
         dashboard: '/fakultas/dashboard',
@@ -38,7 +38,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Fakultas',
         fallbackEmail: 'fakultas@ukdw.ac.id',
         alumniLabel: 'Data Alumni Fakultas',
-        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: true },
+        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false },
     },
     admin_biro3: {
         dashboard: '/biro3/dashboard',

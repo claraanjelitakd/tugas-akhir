@@ -4,12 +4,7 @@ namespace App\Http\Controllers\Alumni\Kuesioner;
 
 use App\Http\Controllers\Controller;
 use App\Models\KuesionerJawaban;
-use App\Models\KuesionerOpsi;
-use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiQuestionSection;
-use App\Models\ProdiResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,17 +15,13 @@ use Inertia\Response as InertiaResponse;
 /**
  * Controller untuk Kuesioner Khusus Program Studi bagi Alumni.
  *
- * Bertanggung jawab memuat daftar bagian (section), butir pertanyaan, dan riwayat jawaban
- * kuesioner program studi alumni, serta menyimpan jawaban standar maupun jawaban kustom
- * (opsi Lainnya / Other) ke tabel `prodi_responses`.
+ * Mengelola pemuatan bagian instrumen prodi, butir soal bank soal prodi,
+ * dan penyimpanan respon alumni langsung ke tabel terpadu `kuesioner_jawaban`.
  */
 class KuesionerProdiController extends Controller
 {
     /**
      * Menampilkan halaman kuesioner khusus program studi alumni beserta jawaban awal.
-     *
-     * Memetakan jawaban tersimpan dari `prodi_responses` (termasuk input teks kustom
-     * pada tipe pilihan tunggal dan pilihan ganda) ke dalam struktur `initialAnswers`.
      */
     public function tampilkanKuesionerProdi(): InertiaResponse
     {
@@ -50,25 +41,61 @@ class KuesionerProdiController extends Controller
         $biodata->load(['dataAkademik', 'yudisium', 'user', 'prodi']);
         $prodi = $biodata->prodi;
 
-        // Ambil sections kuesioner prodi beserta seluruh butir pertanyaan dan opsi
-        $sections = ProdiQuestionSection::where('prodi_id', $biodata->prodi_id)
-            ->with(['questions.options'])
+        // Ambil section kuesioner khusus prodi aktif
+        $rawSections = KuesionerSection::where('target', 'prodi')
+            ->where('prodi_id', $biodata->prodi_id)
+            ->where('is_active', true)
+            ->with(['pertanyaan' => function ($query) {
+                $query->where('kuesioner_pertanyaan.is_active', true)
+                    ->with('opsi');
+            }])
             ->orderBy('order', 'asc')
             ->get();
 
-        // Ambil seluruh butir pertanyaan khusus prodi alumni ini
-        $questions = ProdiQuestion::where('prodi_id', $biodata->prodi_id)
-            ->with(['section', 'options'])
-            ->orderBy('order', 'asc')
-            ->get();
+        $sectionsFormatted = [];
+        $questionsList = [];
 
-        // Ambil riwayat respon kuesioner prodi alumni jika sudah pernah mengisi
-        $existingResponses = ProdiResponse::where('biodata_id', $biodata->id)
-            ->whereIn('prodi_question_id', $questions->pluck('id'))
+        foreach ($rawSections as $sec) {
+            $secQuestions = [];
+
+            foreach ($sec->pertanyaan as $p) {
+                $qItem = [
+                    'id' => $p->id,
+                    'section_id' => $sec->id,
+                    'code' => $p->kode_pertanyaan,
+                    'question_text' => $p->teks_pertanyaan,
+                    'type' => $p->tipe,
+                    'is_required' => (bool) ($p->pivot->wajib ?? true),
+                    'order' => (int) ($p->pivot->order ?? 0),
+                    'options' => $p->opsi->map(fn ($opt) => [
+                        'id' => $opt->id,
+                        'option_text' => $opt->label,
+                        'kode_opsi' => $opt->kode_opsi,
+                    ])->values()->all(),
+                ];
+
+                $secQuestions[] = $qItem;
+                $questionsList[] = $qItem;
+            }
+
+            $sectionsFormatted[] = [
+                'id' => $sec->id,
+                'title' => $sec->judul,
+                'description' => $sec->deskripsi,
+                'order' => $sec->order,
+                'questions' => $secQuestions,
+            ];
+        }
+
+        // Ambil riwayat respon kuesioner prodi alumni dari kuesioner_jawaban
+        $questionIds = array_column($questionsList, 'id');
+        $existingResponses = KuesionerJawaban::where('biodata_id', $biodata->id)
+            ->where('responden_type', 'alumni')
+            ->whereIn('pertanyaan_id', $questionIds)
             ->get()
-            ->keyBy('prodi_question_id');
+            ->keyBy('pertanyaan_id');
 
-        // Ambil data terpadu alumni dari Database View
+        // Ambil data autofill alumni
         $autofill = DB::table('v_alumni_kuesioner_autofill')
             ->where('biodata_id', $biodata->id)
             ->first();
@@ -78,11 +105,11 @@ class KuesionerProdiController extends Controller
         $tahunLulusAkademik = $autofill->BIO_TGL_LULUS ?? $biodata->tahun_lulus ?? '';
 
         $initialAnswers = [];
-        foreach ($questions as $q) {
-            $resp = $existingResponses->get($q->id);
-            $qText = strtolower(trim((string) $q->question_text));
+        foreach ($questionsList as $q) {
+            $qId = $q['id'];
+            $resp = $existingResponses->get($qId);
+            $qText = strtolower(trim((string) $q['question_text']));
 
-            // Cek apakah butir pertanyaan merupakan data identitas/akademik otomatis jika secara khusus ada
             $autoVal = null;
             if ($qText === 'nama' || $qText === 'nama lengkap') {
                 $autoVal = $namaAkademik;
@@ -93,55 +120,62 @@ class KuesionerProdiController extends Controller
             }
 
             if ($resp) {
-                if ($q->type === 'multiple_choice' || $q->type === 'checkbox') {
-                    if (is_array($resp->answer_json) && array_key_exists('selected', $resp->answer_json)) {
-                        $initialAnswers[$q->id] = (array) ($resp->answer_json['selected'] ?? []);
-                        $initialAnswers[$q->id.'_custom'] = (string) ($resp->answer_json['custom'] ?? '');
+                $ansText = $resp->jawaban_teks ?? '';
+                $ansJson = is_array($resp->jawaban_json) ? $resp->jawaban_json : [];
+
+                if ($q['type'] === 'multiple_choice' || $q['type'] === 'checkbox') {
+                    if (isset($ansJson['selected'])) {
+                        $initialAnswers[$qId] = (array) $ansJson['selected'];
+                        $initialAnswers[$qId.'_custom'] = (string) ($ansJson['custom'] ?? '');
                     } else {
-                        $initialAnswers[$q->id] = $resp->answer_json ?? (array) $resp->answer_text;
+                        $initialAnswers[$qId] = $ansJson ?: (array) $ansText;
                     }
-                } elseif ($q->type === 'radio_input' || $q->type === 'radio_text') {
-                    $initialAnswers[$q->id] = [
-                        'selected' => $resp->answer_text ?? '',
-                        'input' => $resp->answer_json['input'] ?? '',
-                        'inputs' => $resp->answer_json['inputs'] ?? [],
+                } elseif ($q['type'] === 'radio_input' || $q['type'] === 'radio_text') {
+                    $initialAnswers[$qId] = [
+                        'selected' => $ansText,
+                        'input' => $ansJson['input'] ?? '',
+                        'inputs' => $ansJson['inputs'] ?? [],
                     ];
                 } else {
-                    $val = $resp->answer_text ?? '';
-                    if (is_array($resp->answer_json) && isset($resp->answer_json['custom'])) {
-                        $val = (string) ($resp->answer_json['selected'] ?? $val);
-                        $initialAnswers[$q->id.'_custom'] = (string) $resp->answer_json['custom'];
+                    $val = $ansText;
+                    if (isset($ansJson['custom'])) {
+                        $val = (string) ($ansJson['selected'] ?? $val);
+                        $initialAnswers[$qId.'_custom'] = (string) $ansJson['custom'];
                     }
-                    // Jika data tersimpan kosong tetapi ada data akademik otomatis, gunakan data akademik
-                    $initialAnswers[$q->id] = (! empty($val) || $autoVal === null) ? $val : (string) $autoVal;
+                    $initialAnswers[$qId] = (! empty($val) || $autoVal === null) ? $val : (string) $autoVal;
                 }
             } else {
-                // Jika belum ada respon tersimpan di DB
                 if ($autoVal !== null && $autoVal !== '') {
-                    $initialAnswers[$q->id] = (string) $autoVal;
+                    $initialAnswers[$qId] = (string) $autoVal;
 
-                    // Simpan otomatis ke tabel prodi_responses agar langsung tersinkronisasi
-                    ProdiResponse::updateOrCreate(
+                    // Sinkronisasi otomatis nilai identitas jika ada
+                    KuesionerJawaban::updateOrCreate(
                         [
+                            'responden_type' => 'alumni',
                             'biodata_id' => $biodata->id,
-                            'prodi_question_id' => $q->id,
+                            'pertanyaan_id' => $qId,
                         ],
                         [
-                            'answer_text' => (string) $autoVal,
-                            'answer_json' => null,
+                            'section_id' => $q['section_id'],
+                            'evaluasi_atasan_id' => null,
+                            'kode_pertanyaan' => $q['code'],
+                            'opsi_id' => null,
+                            'kode_opsi' => null,
+                            'jawaban_teks' => (string) $autoVal,
+                            'jawaban_json' => null,
                         ]
                     );
                 } else {
-                    if ($q->type === 'multiple_choice' || $q->type === 'checkbox') {
-                        $initialAnswers[$q->id] = [];
-                    } elseif ($q->type === 'radio_input' || $q->type === 'radio_text') {
-                        $initialAnswers[$q->id] = [
+                    if ($q['type'] === 'multiple_choice' || $q['type'] === 'checkbox') {
+                        $initialAnswers[$qId] = [];
+                    } elseif ($q['type'] === 'radio_input' || $q['type'] === 'radio_text') {
+                        $initialAnswers[$qId] = [
                             'selected' => '',
                             'input' => '',
                             'inputs' => [],
                         ];
                     } else {
-                        $initialAnswers[$q->id] = '';
+                        $initialAnswers[$qId] = '';
                     }
                 }
             }
@@ -151,17 +185,14 @@ class KuesionerProdiController extends Controller
             'biodata' => $biodata,
             'alumni' => $biodata,
             'prodi' => $prodi,
-            'sections' => $sections,
-            'questions' => $questions,
+            'sections' => $sectionsFormatted,
+            'questions' => $questionsList,
             'initialAnswers' => $initialAnswers,
         ]);
     }
 
     /**
-     * Menyimpan jawaban kuesioner prodi alumni (baik simpan progres parsial maupun kirim akhir).
-     *
-     * Menangani format jawaban teks, array pilihan ganda, radio dengan input tambahan,
-     * serta penggabungan keterangan kustom (`_custom`) untuk opsi Lainnya / Other.
+     * Menyimpan jawaban kuesioner prodi alumni langsung ke tabel terpadu kuesioner_jawaban.
      */
     public function simpanJawaban(Request $request): RedirectResponse
     {
@@ -177,16 +208,23 @@ class KuesionerProdiController extends Controller
             ->first();
 
         $jawabanMasuk = $request->input('answers', []);
-        $questions = ProdiQuestion::where('prodi_id', $biodata->prodi_id)->get()->keyBy('id');
 
-        foreach ($questions as $qId => $q) {
+        $prodiSection = KuesionerSection::where('target', 'prodi')
+            ->where('prodi_id', $biodata->prodi_id)
+            ->where('is_active', true)
+            ->with(['pertanyaan.opsi'])
+            ->first();
+
+        $pertanyaans = $prodiSection ? $prodiSection->pertanyaan->keyBy('id') : collect([]);
+
+        foreach ($pertanyaans as $qId => $q) {
             $jawaban = $jawabanMasuk[$qId] ?? null;
             $customText = isset($jawabanMasuk[$qId.'_custom']) ? trim((string) $jawabanMasuk[$qId.'_custom']) : '';
             $answerValue = null;
             $answerJson = null;
 
             if (is_array($jawaban)) {
-                if ($q->type === 'multiple_choice' || $q->type === 'checkbox') {
+                if ($q->tipe === 'multiple_choice' || $q->tipe === 'checkbox') {
                     $cleaned = array_values(array_filter($jawaban));
                     if (! empty($cleaned)) {
                         $answerJson = $customText !== ''
@@ -202,7 +240,7 @@ class KuesionerProdiController extends Controller
                         }, $cleaned);
                         $answerValue = implode(', ', $displayItems);
                     }
-                } elseif ($q->type === 'radio_input' || $q->type === 'radio_text') {
+                } elseif ($q->tipe === 'radio_input' || $q->tipe === 'radio_text') {
                     $selected = is_array($jawaban) ? trim((string) ($jawaban['selected'] ?? '')) : trim((string) $jawaban);
                     $inputVal = is_array($jawaban) ? trim((string) ($jawaban['input'] ?? '')) : '';
                     if ($selected !== '') {
@@ -211,13 +249,13 @@ class KuesionerProdiController extends Controller
                     }
                 } elseif (! empty($jawaban)) {
                     $answerJson = $jawaban;
-                    $answerValue = json_encode($jawaban);
+                    $answerValue = json_encode($jawaban, JSON_UNESCAPED_UNICODE);
                 }
             } elseif ($jawaban !== null && trim((string) $jawaban) !== '') {
                 $answerValue = trim((string) $jawaban);
-                if ($q->type === 'radio_input' || $q->type === 'radio_text') {
+                if ($q->tipe === 'radio_input' || $q->tipe === 'radio_text') {
                     $answerJson = ['selected' => $answerValue, 'input' => ''];
-                } elseif (($q->type === 'single_choice' || $q->type === 'radio') && $customText !== '') {
+                } elseif (($q->tipe === 'single_choice' || $q->tipe === 'radio') && $customText !== '') {
                     $lower = strtolower($answerValue);
                     if ($lower === 'other' || str_contains($lower, 'lainnya') || str_contains($lower, 'tuliskan') || str_contains($lower, '...')) {
                         $answerJson = ['selected' => $answerValue, 'custom' => $customText];
@@ -226,9 +264,9 @@ class KuesionerProdiController extends Controller
                 }
             }
 
-            // Cek autofill HANYA jika pertanyaan tersebut memang butir identitas khusus
-            $qText = strtolower(trim((string) $q->question_text));
-            $isIdentityQuestion = in_array($qText, ['nama', 'nama lengkap', 'nim', 'nomor induk mahasiswa', 'tahun kelulusan', 'tahun lulus']);
+            // Autofill identitas jika butir identitas kosong
+            $qText = strtolower(trim((string) $q->teks_pertanyaan));
+            $isIdentityQuestion = in_array($qText, ['nama', 'nama lengkap', 'nim', 'nomor induk mahasiswa', 'tahun kelulusan', 'tahun lulus'], true);
 
             if (($answerValue === null || $answerValue === '') && $isIdentityQuestion) {
                 if ($qText === 'nama' || $qText === 'nama lengkap') {
@@ -241,58 +279,42 @@ class KuesionerProdiController extends Controller
             }
 
             if ($answerValue !== null && $answerValue !== '') {
-                ProdiResponse::updateOrCreate(
+                $opsi = $q->opsi->first(fn ($o) => strcasecmp($o->label, $answerValue) === 0 || $o->kode_opsi === $answerValue);
+                $kodeOpsiResult = $opsi?->kode_opsi;
+
+                if (empty($kodeOpsiResult) && ! empty($answerJson) && is_array($answerJson)) {
+                    $matchingCodes = $q->opsi
+                        ->filter(fn ($o) => in_array($o->label, (array) $answerJson, true) || in_array($o->kode_opsi, (array) $answerJson, true))
+                        ->pluck('kode_opsi')
+                        ->filter()
+                        ->values()
+                        ->all();
+                    if (! empty($matchingCodes)) {
+                        $kodeOpsiResult = json_encode($matchingCodes, JSON_UNESCAPED_UNICODE);
+                    }
+                }
+
+                KuesionerJawaban::updateOrCreate(
                     [
+                        'responden_type' => 'alumni',
                         'biodata_id' => $biodata->id,
-                        'prodi_question_id' => $q->id,
+                        'pertanyaan_id' => $q->id,
                     ],
                     [
-                        'answer_text' => $answerValue,
-                        'answer_json' => $answerJson,
+                        'section_id' => $prodiSection->id,
+                        'evaluasi_atasan_id' => null,
+                        'kode_pertanyaan' => $q->kode_pertanyaan,
+                        'opsi_id' => $opsi?->id,
+                        'kode_opsi' => $kodeOpsiResult,
+                        'jawaban_teks' => $answerValue,
+                        'jawaban_json' => $answerJson,
                     ]
                 );
-
-                // Sinkronisasi ke kuesioner_jawaban terpadu
-                $unifiedPertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', $q->code)->first();
-                if ($unifiedPertanyaan) {
-                    $sec = KuesionerSection::where('target', 'prodi')
-                        ->where('prodi_id', $biodata->prodi_id)
-                        ->first();
-
-                    $opsi = null;
-                    if ($answerValue) {
-                        $opsi = KuesionerOpsi::where('pertanyaan_id', $unifiedPertanyaan->id)
-                            ->where('label', $answerValue)
-                            ->first();
-                    }
-
-                    KuesionerJawaban::updateOrCreate(
-                        [
-                            'responden_type' => 'alumni',
-                            'biodata_id' => $biodata->id,
-                            'pertanyaan_id' => $unifiedPertanyaan->id,
-                        ],
-                        [
-                            'section_id' => $sec?->id ?: 1,
-                            'opsi_id' => $opsi?->id,
-                            'jawaban_teks' => $answerValue,
-                            'jawaban_json' => $answerJson,
-                        ]
-                    );
-                }
             } else {
-                // Jika jawaban kosong atau tidak diisi, hapus record dari database agar persentase di dashboard berkurang secara akurat
-                ProdiResponse::where('biodata_id', $biodata->id)
-                    ->where('prodi_question_id', $q->id)
+                KuesionerJawaban::where('responden_type', 'alumni')
+                    ->where('biodata_id', $biodata->id)
+                    ->where('pertanyaan_id', $q->id)
                     ->delete();
-
-                $unifiedPertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', $q->code)->first();
-                if ($unifiedPertanyaan) {
-                    KuesionerJawaban::where('responden_type', 'alumni')
-                        ->where('biodata_id', $biodata->id)
-                        ->where('pertanyaan_id', $unifiedPertanyaan->id)
-                        ->delete();
-                }
             }
         }
 
