@@ -60,15 +60,10 @@ class DatabaseSeeder extends Seeder
             YudisiumSeeder::class,
         ]);
 
-        // 4. Seed Questionnaire Data (Kuesioner 2021)
+        // 4. Seed Questionnaire Data (Kuesioner Induk & Unified Survey Engine)
         $this->call([
             KuesionerSeeder::class,
-            KelompokPertanyaanSeeder::class,
-            RefSubpertanyaan2021Seeder::class,
-            RefSubpertanyaanDetilSeeder::class,
-            QuestionMappingSeeder::class,
-            ProdiQuestionnaireSeeder::class,
-            PertanyaanEvaluasiAtasanSeeder::class,
+            UnifiedKuesionerSeeder::class,
         ]);
 
         // 5. Seed Data Khusus Pengujian Alumni (Joshua Andrean)

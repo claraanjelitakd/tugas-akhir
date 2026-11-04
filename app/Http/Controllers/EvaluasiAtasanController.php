@@ -9,9 +9,9 @@ use App\Models\KuesionerJawaban;
 use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\PertanyaanEvaluasiAtasan;
 use App\Models\Perusahaan;
-use App\Models\ResponEvaluasiAtasan;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -128,9 +128,15 @@ class EvaluasiAtasanController extends Controller
             : $jenisPerusahaan;
 
         // Ambil daftar butir pertanyaan instrumen evaluasi atasan yang aktif dari master table
-        $pertanyaanList = PertanyaanEvaluasiAtasan::where('is_active', true)
+        $atasanSectionIds = KuesionerSection::where('target', 'atasan')->pluck('id')->all();
+        $pertanyaanList = KuesionerSectionPertanyaan::with(['pertanyaan.opsi'])
+            ->whereIn('section_id', $atasanSectionIds)
+            ->whereHas('pertanyaan', fn ($q) => $q->where('is_active', true))
             ->orderBy('order', 'asc')
-            ->get();
+            ->get()
+            ->map(fn ($sp) => $sp->pertanyaan)
+            ->filter()
+            ->values();
 
         // Map jawaban yang sudah ada jika formulir sudah pernah diisi
         $existingResponses = [];
@@ -144,11 +150,33 @@ class EvaluasiAtasanController extends Controller
             }
         }
 
+        $sections = KuesionerSection::where('target', 'atasan')
+            ->orderBy('order')
+            ->get()
+            ->map(function ($sec) {
+                $key = match ((int) $sec->order) {
+                    1 => 'instansi',
+                    2 => 'karakteristik',
+                    3 => 'penilaian',
+                    default => strtolower(str_replace(['SEC_EVA_', 'SEC_ATASAN_', 'SEC_'], '', $sec->kode_section)),
+                };
+
+                return [
+                    'key' => $key,
+                    'title' => $sec->judul,
+                    'description' => $sec->deskripsi ?? '',
+                    'source' => $key === 'instansi'
+                        ? 'perusahaan, atasan, evaluasi_atasan'
+                        : ($key === 'karakteristik' ? 'perusahaan, evaluasi_atasan' : 'respon_evaluasi_atasan'),
+                    'order' => (int) $sec->order,
+                ];
+            })->all();
+
         return Inertia::render('Public/EvaluasiAtasanForm', [
             'token' => $token,
             'evaluasi' => $evaluasi,
             'pertanyaanList' => $pertanyaanList,
-            'sections' => PertanyaanEvaluasiAtasan::stepperSections(),
+            'sections' => ! empty($sections) ? $sections : PertanyaanEvaluasiAtasan::STEPPER_SECTIONS,
             'existingResponses' => $existingResponses,
             'existingCatatan' => $existingCatatan,
             'alumniInfo' => [
@@ -207,7 +235,13 @@ class EvaluasiAtasanController extends Controller
             ->with(['perusahaan', 'biodata.perusahaan', 'atasan'])
             ->firstOrFail();
 
-        $activeQuestions = PertanyaanEvaluasiAtasan::where('is_active', true)->get();
+        $atasanSectionIds = KuesionerSection::where('target', 'atasan')->pluck('id')->all();
+        $activeQuestions = KuesionerPertanyaan::where('is_active', true)
+            ->where(function ($q) use ($atasanSectionIds) {
+                $q->where('kode_pertanyaan', 'LIKE', 'EVA_%')
+                    ->orWhereHas('sections', fn ($sq) => $sq->whereIn('kuesioner_section.id', $atasanSectionIds));
+            })
+            ->get();
         $activeCompanyQuestions = $activeQuestions->filter->is_company_field;
 
         $companyFieldRules = [];
@@ -362,18 +396,11 @@ class EvaluasiAtasanController extends Controller
 
             $atasanSection = KuesionerSection::where('target', 'atasan')->first();
             foreach ($validated['jawaban'] as $code => $value) {
-                $pertanyaan = $activeQuestions->get($code);
-                ResponEvaluasiAtasan::create([
-                    'evaluasi_atasan_id' => $lockedEvaluation->id,
-                    'pertanyaan_id' => $pertanyaan->id,
-                    'nilai' => $value,
-                    'catatan' => $validated['catatan_lainnya'] ?? null,
-                ]);
+                $pertanyaan = $activeQuestions->get($code)
+                    ?? KuesionerPertanyaan::where('kode_pertanyaan', 'EVA_'.$code)->orWhere('kode_pertanyaan', $code)->first();
 
-                // Sinkronisasi ke kuesioner_jawaban terpadu
-                $unifiedPertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', 'EVA_'.$code)->first();
-                if ($unifiedPertanyaan) {
-                    $opsi = KuesionerOpsi::where('pertanyaan_id', $unifiedPertanyaan->id)
+                if ($pertanyaan) {
+                    $opsi = KuesionerOpsi::where('pertanyaan_id', $pertanyaan->id)
                         ->where('label', $value)
                         ->first();
 
@@ -381,12 +408,13 @@ class EvaluasiAtasanController extends Controller
                         [
                             'responden_type' => 'atasan',
                             'evaluasi_atasan_id' => $lockedEvaluation->id,
-                            'pertanyaan_id' => $unifiedPertanyaan->id,
+                            'pertanyaan_id' => $pertanyaan->id,
                         ],
                         [
                             'section_id' => $atasanSection?->id ?: 1,
                             'opsi_id' => $opsi?->id,
                             'jawaban_teks' => $value,
+                            'jawaban_json' => ! empty($validated['catatan_lainnya']) ? ['catatan' => $validated['catatan_lainnya']] : null,
                         ]
                     );
                 }

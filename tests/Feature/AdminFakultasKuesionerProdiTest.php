@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\KuesionerSection;
 use App\Models\Prodi;
-use App\Models\ProdiQuestionSection;
 use App\Models\RefFakultas;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -68,9 +68,9 @@ class AdminFakultasKuesionerProdiTest extends TestCase
             ])
             ->assertRedirect();
 
-        $this->assertDatabaseHas('prodi_question_section', [
+        $this->assertDatabaseHas('kuesioner_section', [
             'prodi_id' => $prodiA->id,
-            'title' => 'Section Fakultas A',
+            'judul' => 'Section Fakultas A',
         ]);
 
         $this->actingAs($admin)
@@ -81,9 +81,9 @@ class AdminFakultasKuesionerProdiTest extends TestCase
             ])
             ->assertForbidden();
 
-        $this->assertDatabaseMissing('prodi_question_section', [
+        $this->assertDatabaseMissing('kuesioner_section', [
             'prodi_id' => $prodiB->id,
-            'title' => 'Section Di Luar Fakultas',
+            'judul' => 'Section Di Luar Fakultas',
         ]);
     }
 
@@ -112,10 +112,13 @@ class AdminFakultasKuesionerProdiTest extends TestCase
             'prodi_id' => $prodi->id,
             'must_change_password' => false,
         ]);
-        $sectionLain = ProdiQuestionSection::create([
+        $sectionLain = KuesionerSection::create([
+            'kode_section' => 'SEC_TEST_A2',
+            'target' => 'prodi',
             'prodi_id' => $prodiLain->id,
-            'title' => 'Section Prodi Lain',
+            'judul' => 'Section Prodi Lain',
             'order' => 1,
+            'is_active' => true,
         ]);
 
         $response = $this->actingAs($admin)
@@ -132,7 +135,7 @@ class AdminFakultasKuesionerProdiTest extends TestCase
             ->delete(route('prodi.kuesioner.sections.destroy', $sectionLain->id))
             ->assertForbidden();
 
-        $this->assertDatabaseHas('prodi_question_section', [
+        $this->assertDatabaseHas('kuesioner_section', [
             'id' => $sectionLain->id,
         ]);
     }

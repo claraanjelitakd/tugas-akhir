@@ -51,6 +51,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    bankQuestions: {
+        type: Array,
+        default: () => [],
+    },
     initialTab: {
         type: String,
         default: 'sections',
@@ -402,6 +406,122 @@ const kuesionerFormData = ref({
 });
 const kuesionerFormErrors = ref({});
 const isSubmittingKuesioner = ref(false);
+
+// ========================================================
+// 5. BANK PERTANYAAN (MODAL SELECTION & ATTACH UNIV)
+// ========================================================
+const isBankModalOpen = ref(false);
+const bankSearchQuery = ref('');
+const bankOriginFilter = ref('all');
+const targetSectionIdForBank = ref(props.sections[0]?.id || '');
+const selectedBankQuestionIds = ref([]);
+const isSubmittingBank = ref(false);
+
+const availableOrigins = computed(() => {
+    const list = new Set();
+    props.bankQuestions.forEach(q => {
+        if (q.asal) list.add(q.asal);
+    });
+    return Array.from(list);
+});
+
+const filteredBankQuestions = computed(() => {
+    return props.bankQuestions.filter(q => {
+        if (bankOriginFilter.value !== 'all' && q.asal !== bankOriginFilter.value) {
+            return false;
+        }
+        if (bankSearchQuery.value.trim()) {
+            const query = bankSearchQuery.value.toLowerCase();
+            const matchCode = q.kode?.toLowerCase().includes(query);
+            const matchText = q.teks?.toLowerCase().includes(query);
+            const matchOrigin = q.asal?.toLowerCase().includes(query);
+            return matchCode || matchText || matchOrigin;
+        }
+        return true;
+    });
+});
+
+const openBankModal = () => {
+    if (!props.sections.length) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Section Diperlukan',
+            text: 'Silakan buat minimal satu bagian (section) kuesioner terlebih dahulu sebelum mengambil pertanyaan dari Bank Soal.',
+            confirmButtonColor: '#0D542B',
+        });
+        return;
+    }
+    targetSectionIdForBank.value = selectedTracerSectionFilter.value !== 'all' ? selectedTracerSectionFilter.value : props.sections[0]?.id;
+    selectedBankQuestionIds.value = [];
+    bankSearchQuery.value = '';
+    bankOriginFilter.value = 'all';
+    isBankModalOpen.value = true;
+};
+
+const closeBankModal = () => {
+    isBankModalOpen.value = false;
+    selectedBankQuestionIds.value = [];
+};
+
+const toggleBankSelection = (id) => {
+    const idx = selectedBankQuestionIds.value.indexOf(id);
+    if (idx > -1) {
+        selectedBankQuestionIds.value.splice(idx, 1);
+    } else {
+        selectedBankQuestionIds.value.push(id);
+    }
+};
+
+const submitBankSelection = () => {
+    if (!selectedBankQuestionIds.value.length) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Pilih Pertanyaan',
+            text: 'Silakan centang minimal satu butir pertanyaan yang ingin dimasukkan.',
+            confirmButtonColor: '#0D542B',
+        });
+        return;
+    }
+    if (!targetSectionIdForBank.value) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Pilih Bagian Kuesioner',
+            text: 'Silakan pilih bagian (section) tujuan penempatan pertanyaan.',
+            confirmButtonColor: '#0D542B',
+        });
+        return;
+    }
+
+    isSubmittingBank.value = true;
+    router.post('/superadmin/pertanyaan/bank/attach', {
+        section_id: targetSectionIdForBank.value,
+        pertanyaan_ids: selectedBankQuestionIds.value,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            isBankModalOpen.value = false;
+            selectedBankQuestionIds.value = [];
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil',
+                text: 'Pertanyaan dari Bank Soal berhasil disematkan ke kuesioner universitas.',
+                timer: 1600,
+                showConfirmButton: false,
+            });
+        },
+        onError: (errs) => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal',
+                text: Object.values(errs)[0] || 'Terjadi kesalahan saat menambahkan pertanyaan.',
+                confirmButtonColor: '#0D542B',
+            });
+        },
+        onFinish: () => {
+            isSubmittingBank.value = false;
+        },
+    });
+};
 
 // ========================================================
 // FUNGSI KONTROL: MODAL BAGIAN (SECTION)
@@ -1356,14 +1476,22 @@ const handleDeleteKuesioner = (k) => {
                                 <input type="text" v-model="tracerSearchQuery" placeholder="Cari kode atau pertanyaan..." class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs w-48 bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]" />
                             </div>
                         </div>
-
-                        <button
-                            type="button"
-                            @click="openQuestionModal(null, 'kuesioner')"
-                            class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-bold rounded-lg shadow-2xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-                        >
-                            <span>+ Tambah Pertanyaan Kuesioner</span>
-                        </button>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button
+                                type="button"
+                                @click="openBankModal"
+                                class="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg border border-slate-300 shadow-2xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                            >
+                                <span>Pilih dari Bank Pertanyaan</span>
+                            </button>
+                            <button
+                                type="button"
+                                @click="openQuestionModal(null, 'kuesioner')"
+                                class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-bold rounded-lg shadow-2xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                            >
+                                <span>+ Tambah Pertanyaan Baru</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Tabel Pertanyaan Kuesioner Tracer (2 Tone) -->
@@ -1576,13 +1704,12 @@ const handleDeleteKuesioner = (k) => {
                                     <th class="px-4 py-3">Butir Data & Pertanyaan Profil</th>
                                     <th class="px-3 py-3">Tipe & Bagian (Section)</th>
                                     <th class="px-4 py-3">Opsi Jawaban (Jika Ada)</th>
-                                    <th class="px-3 py-3 text-center w-32">Status Profil</th>
                                     <th class="px-3 py-3 text-right">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
                                 <tr v-if="filteredProfileQuestions.length === 0">
-                                    <td colspan="7" class="p-8 text-center text-gray-400 italic">
+                                    <td colspan="6" class="p-8 text-center text-gray-400 italic">
                                         Belum ada butir pertanyaan profil alumni ditemukan yang sesuai filter.
                                     </td>
                                 </tr>
@@ -1627,6 +1754,13 @@ const handleDeleteKuesioner = (k) => {
                                             <span :class="q.wajib ? 'font-bold text-gray-900' : 'text-gray-400'">{{ q.wajib ? 'Wajib' : 'Opsional' }}</span>
                                             <span class="text-gray-300">&bull;</span>
                                             <span class="text-gray-500">{{ getTargetBadge(q.tampil_di).label }}</span>
+                                            <span class="text-gray-300">&bull;</span>
+                                            <span
+                                                :class="isShownInProfile(q) ? 'bg-emerald-50 text-[#0D542B] border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'"
+                                                class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border"
+                                            >
+                                                {{ isShownInProfile(q) ? 'Ditampilkan' : 'Disembunyikan' }}
+                                            </span>
                                             <span
                                                 v-if="isCompoundField(q.kode_pertanyaan)"
                                                 class="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-medium border border-slate-200"
@@ -1688,25 +1822,23 @@ const handleDeleteKuesioner = (k) => {
                                             Input isian langsung profil tanpa opsi.
                                         </div>
                                     </td>
-                                    <td class="px-3 py-3.5 text-center">
-                                        <span
-                                            :class="isShownInProfile(q) ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold' : 'bg-gray-100 text-gray-500 border-gray-300'"
-                                            class="inline-flex items-center px-2 py-0.5 rounded text-[11px] border"
-                                        >
-                                            {{ isShownInProfile(q) ? 'Ditampilkan' : 'Disembunyikan' }}
-                                        </span>
-                                        <button
-                                            type="button"
-                                            @click="handleToggleVisibility(q, 'profil')"
-                                            :class="isShownInProfile(q) ? 'text-gray-500 hover:text-rose-600' : 'text-[#0D542B] hover:text-[#08381c] font-bold'"
-                                            class="text-[11px] underline block mx-auto mt-1 cursor-pointer transition-colors"
-                                            :title="isShownInProfile(q) ? 'Sembunyikan dari formulir profil alumni' : 'Tampilkan di formulir profil alumni'"
-                                        >
-                                            {{ isShownInProfile(q) ? 'Sembunyikan' : 'Tampilkan' }}
-                                        </button>
-                                    </td>
                                     <td class="px-3 py-3.5 text-right">
                                         <div class="flex items-center justify-end gap-1">
+                                            <button
+                                                type="button"
+                                                @click="handleToggleVisibility(q, 'profil')"
+                                                :class="isShownInProfile(q) ? 'text-[#0D542B] hover:text-[#08381c] hover:bg-emerald-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'"
+                                                class="p-1.5 rounded-lg transition-colors cursor-pointer"
+                                                :title="isShownInProfile(q) ? 'Pertanyaan aktif di profil (klik untuk menyembunyikan)' : 'Pertanyaan disembunyikan (klik untuk menampilkan di profil)'"
+                                            >
+                                                <svg v-if="isShownInProfile(q)" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                                                </svg>
+                                            </button>
                                             <button
                                                 type="button"
                                                 @click="openQuestionModal(q, 'profil')"
@@ -2376,6 +2508,152 @@ const handleDeleteKuesioner = (k) => {
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- ======================================================== -->
+        <!-- MODAL 5: PILIH PERTANYAAN DARI BANK SOAL (UNIVERSITAS)   -->
+        <!-- ======================================================== -->
+        <Teleport to="body">
+            <div
+                v-if="isBankModalOpen"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            >
+                <div class="relative w-full max-w-3xl rounded-xl bg-white shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <!-- Header Modal -->
+                    <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4 bg-slate-50">
+                        <div>
+                            <h3 class="text-base font-extrabold text-slate-900">Pilih dari Bank Pertanyaan</h3>
+                            <p class="text-xs text-slate-500 mt-0.5">Sematkan butir pertanyaan yang sudah tersedia dari repositori Bank Soal ke kuesioner universitas tanpa perlu mengetik ulang.</p>
+                        </div>
+                        <button
+                            type="button"
+                            @click="closeBankModal"
+                            class="text-gray-400 hover:text-gray-700 p-1 rounded-lg cursor-pointer"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Konten Modal: Filter & List -->
+                    <div class="p-6 space-y-4 overflow-y-auto flex-1">
+                        <!-- Penentuan Bagian Tujuan -->
+                        <div class="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <label class="text-xs font-bold text-emerald-950">
+                                Tempatkan pada Bagian (Section) Universitas:
+                            </label>
+                            <select
+                                v-model="targetSectionIdForBank"
+                                class="px-3 py-1.5 border border-emerald-300 rounded-lg text-xs font-semibold bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            >
+                                <option v-for="s in sections" :key="s.id" :value="s.id">Bagian {{ s.order }}: {{ s.title }}</option>
+                            </select>
+                        </div>
+
+                        <!-- Bar Filter & Pencarian Bank Soal -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="sm:col-span-2">
+                                <input
+                                    v-model="bankSearchQuery"
+                                    type="text"
+                                    placeholder="Cari kode pertanyaan atau teks..."
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                />
+                            </div>
+                            <div>
+                                <select
+                                    v-model="bankOriginFilter"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                >
+                                    <option value="all">Semua Asal Pertanyaan</option>
+                                    <option v-for="origin in availableOrigins" :key="origin" :value="origin">{{ origin }}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Daftar Kartu Pertanyaan -->
+                        <div class="space-y-2 border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-[360px] overflow-y-auto p-2">
+                            <div v-if="filteredBankQuestions.length === 0" class="p-8 text-center text-xs text-gray-500">
+                                Tidak ada butir pertanyaan yang sesuai dengan kriteria pencarian.
+                            </div>
+
+                            <div
+                                v-for="item in filteredBankQuestions"
+                                :key="item.id"
+                                class="p-3 rounded-lg transition-colors flex items-start gap-3"
+                                :class="[
+                                    item.is_already_added ? 'bg-slate-50 opacity-60' : (selectedBankQuestionIds.includes(item.id) ? 'bg-emerald-50/50 border border-emerald-200' : 'hover:bg-gray-50')
+                                ]"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :id="`bank-q-${item.id}`"
+                                    :checked="selectedBankQuestionIds.includes(item.id)"
+                                    :disabled="item.is_already_added"
+                                    @change="toggleBankSelection(item.id)"
+                                    class="mt-1 h-4 w-4 rounded border-gray-300 text-[#0D542B] focus:ring-[#0D542B] cursor-pointer"
+                                />
+                                <label :for="`bank-q-${item.id}`" class="flex-1 cursor-pointer min-w-0">
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        <span class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-slate-700">
+                                            {{ item.kode }}
+                                        </span>
+                                        <span class="rounded bg-emerald-100/80 px-1.5 py-0.5 text-[10px] font-semibold text-[#0D542B]">
+                                            Asal: {{ item.asal }}
+                                        </span>
+                                        <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
+                                            {{ typeLabels[item.tipe] || item.tipe }}
+                                        </span>
+                                        <span v-if="item.is_already_added" class="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">
+                                            Sudah Ada di Instrumen Universitas
+                                        </span>
+                                    </div>
+                                    <p class="mt-1 text-xs font-semibold text-slate-800 leading-snug">
+                                        {{ item.teks }}
+                                    </p>
+                                    <div v-if="item.options && item.options.length > 0" class="mt-1.5 flex flex-wrap gap-1">
+                                        <span
+                                            v-for="(opt, optIdx) in item.options.slice(0, 4)"
+                                            :key="optIdx"
+                                            class="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] text-gray-600"
+                                        >
+                                            {{ opt.label }}
+                                        </span>
+                                        <span v-if="item.options.length > 4" class="text-[10px] text-gray-400 self-center">
+                                            +{{ item.options.length - 4 }} opsi lainnya
+                                        </span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer Modal -->
+                    <div class="flex items-center justify-between border-t border-gray-200 bg-slate-50 px-6 py-3">
+                        <span class="text-xs text-slate-600 font-semibold">
+                            Dipilih: <strong class="text-[#0D542B]">{{ selectedBankQuestionIds.length }}</strong> pertanyaan
+                        </span>
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="button"
+                                @click="closeBankModal"
+                                class="px-4 py-2 border border-gray-300 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                            >
+                                Tutup
+                            </button>
+                            <button
+                                type="button"
+                                :disabled="isSubmittingBank || selectedBankQuestionIds.length === 0"
+                                @click="submitBankSelection"
+                                class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-40 cursor-pointer"
+                            >
+                                <span>Terapkan Pertanyaan ke Kuesioner</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </Teleport>

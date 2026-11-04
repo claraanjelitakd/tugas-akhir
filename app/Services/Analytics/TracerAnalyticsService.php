@@ -550,14 +550,15 @@ class TracerAnalyticsService
             return $population;
         }
 
-        $respondents = DB::table('tracer')
-            ->join('ref_subpertanyaan2021 as questions', 'questions.id', '=', 'tracer.question_id')
-            ->whereIn('tracer.biodata_id', $population->pluck('biodata_id')->all())
+        $respondents = DB::table('kuesioner_jawaban')
+            ->join('kuesioner_pertanyaan as questions', 'questions.id', '=', 'kuesioner_jawaban.pertanyaan_id')
+            ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'questions.id')
+            ->whereIn('kuesioner_jawaban.biodata_id', $population->pluck('biodata_id')->all())
             ->where(function ($query): void {
                 $query->where(function ($mandatoryQuery): void {
                     $mandatoryQuery
-                        ->where('questions.wajib', 1)
-                        ->where('questions.type', '!=', 'header')
+                        ->where('sp.wajib', 1)
+                        ->where('questions.tipe', '!=', 'header')
                         ->whereNotIn(DB::raw('UPPER(questions.kode_pertanyaan)'), [
                             'F1', 'F2A', 'F2B', 'F2C', 'F2D',
                             'BIO_TEMPAT_LAHIR', 'BIO_TANGGAL_LAHIR', 'BIO_JK',
@@ -570,16 +571,16 @@ class TracerAnalyticsService
             })
             ->where(function ($answerQuery): void {
                 $answerQuery
-                    ->whereNotNull('tracer.answer')
-                    ->whereRaw("TRIM(tracer.answer) != ''")
+                    ->whereNotNull('kuesioner_jawaban.jawaban_teks')
+                    ->whereRaw("TRIM(kuesioner_jawaban.jawaban_teks) != ''")
                     ->orWhere(function ($jsonQuery): void {
                         $jsonQuery
-                            ->whereNotNull('tracer.answer_json')
-                            ->whereNotIn('tracer.answer_json', ['', '[]', '{}']);
+                            ->whereNotNull('kuesioner_jawaban.jawaban_json')
+                            ->whereNotIn('kuesioner_jawaban.jawaban_json', ['', '[]', '{}']);
                     });
             })
-            ->selectRaw('tracer.biodata_id, MAX(tracer.updated_at) as last_response_at')
-            ->groupBy('tracer.biodata_id')
+            ->selectRaw('kuesioner_jawaban.biodata_id, MAX(kuesioner_jawaban.updated_at) as last_response_at')
+            ->groupBy('kuesioner_jawaban.biodata_id')
             ->get()
             ->keyBy('biodata_id');
 
@@ -718,10 +719,11 @@ class TracerAnalyticsService
 
         $grouped = $records->groupBy('answer');
         $officialOptions = $questionCode
-            ? DB::table('ref_subpertanyaan_detil')
-                ->where('kode_pertanyaan', $questionCode)
-                ->orderBy('order')
-                ->pluck('option_text')
+            ? DB::table('kuesioner_opsi as o')
+                ->join('kuesioner_pertanyaan as p', 'p.id', '=', 'o.pertanyaan_id')
+                ->where('p.kode_pertanyaan', $questionCode)
+                ->orderBy('o.order')
+                ->pluck('o.label')
                 ->filter()
                 ->unique()
                 ->values()
@@ -1048,11 +1050,12 @@ class TracerAnalyticsService
             ];
         })->filter(fn (array $item): bool => $item['count'] > 0)->sortByDesc('count')->values()->all();
 
-        // Seluruh opsi resmi F12 dibaca dari metadata agar grafik mengikuti instrumen aktif.
-        $allFundings = DB::table('ref_subpertanyaan_detil')
-            ->where('kode_pertanyaan', 'F12')
-            ->orderBy('order')
-            ->pluck('option_text')
+        // Seluruh opsi resmi F12 dibaca dari metadata kuesioner terpadu agar grafik mengikuti instrumen aktif.
+        $allFundings = DB::table('kuesioner_opsi as o')
+            ->join('kuesioner_pertanyaan as p', 'p.id', '=', 'o.pertanyaan_id')
+            ->where('p.kode_pertanyaan', 'F12')
+            ->orderBy('o.order')
+            ->pluck('o.label')
             ->filter()
             ->unique()
             ->values()
@@ -1222,11 +1225,12 @@ class TracerAnalyticsService
             return [];
         }
 
-        $responses = DB::table('tracer')
-            ->whereIn('biodata_id', $biodataIds)
-            ->whereIn('kode_pertanyaan', $questionCodes ?: self::ANALYTICS_QUESTION_CODES)
-            ->orderByDesc('id')
-            ->get(['biodata_id', 'kode_pertanyaan', 'answer', 'answer_json']);
+        $responses = DB::table('kuesioner_jawaban as j')
+            ->join('kuesioner_pertanyaan as p', 'p.id', '=', 'j.pertanyaan_id')
+            ->whereIn('j.biodata_id', $biodataIds)
+            ->whereIn('p.kode_pertanyaan', $questionCodes ?: self::ANALYTICS_QUESTION_CODES)
+            ->orderByDesc('j.id')
+            ->get(['j.biodata_id', 'p.kode_pertanyaan', 'j.jawaban_teks as answer', 'j.jawaban_json as answer_json']);
 
         $indexed = [];
         foreach ($responses as $response) {

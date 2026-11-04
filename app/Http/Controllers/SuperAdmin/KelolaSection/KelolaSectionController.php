@@ -3,24 +3,15 @@
 namespace App\Http\Controllers\SuperAdmin\KelolaSection;
 
 use App\Http\Controllers\Controller;
-use App\Models\KelompokPertanyaan;
-use App\Models\Kuesioner;
+use App\Models\KuesionerSection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 /**
  * Class KelolaSectionController
  *
- * Fungsi:
- * Controller untuk mengelola seluruh siklus hidup Bagian Kuesioner (KelompokPertanyaan)
- * pada instrumen Tracer Study bagi pengguna berhak akses SuperAdmin.
- *
- * Cakupan Operasi:
- * 1. Menampilkan daftar section kuesioner berserta jumlah soal dan kuesioner induk (index)
- * 2. Menambah section baru dengan otomatisasi penomoran urutan (store)
- * 3. Memperbarui informasi judul/kuesioner section (update)
- * 4. Menghapus section beserta seluruh pertanyaan dan opsi di dalamnya (destroy)
- * 5. Mengatur ulang urutan naik/turun posisi section (reorder)
+ * Mengelola siklus hidup Bagian Kuesioner (KuesionerSection target 'univ')
+ * pada instrumen Tracer Study universitas bagi SuperAdmin.
  */
 class KelolaSectionController extends Controller
 {
@@ -38,35 +29,34 @@ class KelolaSectionController extends Controller
      * Menyimpan data section kuesioner baru ke dalam database.
      *
      * @param  Request  $request  Objek HTTP request berisi data form section
-     * @return RedirectResponse Redirect kembali ke halaman sebelumnya dengan flash message
      */
     public function store(Request $request): RedirectResponse
     {
-        // Validasi input form section baru
         $validated = $request->validate([
-            'kuesioner_id' => 'nullable|exists:kuesioner,id',
-            'questionnaire_id' => 'nullable|exists:kuesioner,id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'order' => 'nullable|integer|min:1',
         ]);
 
-        $kuesionerId = $validated['kuesioner_id'] ?? $validated['questionnaire_id'] ?? null;
-        if (! $kuesionerId) {
-            return redirect()->back()->withErrors(['kuesioner_id' => 'Kuesioner induk wajib dipilih.']);
-        }
-
-        $validated['kuesioner_id'] = $kuesionerId;
-        $validated['questionnaire_id'] = $kuesionerId;
-
-        // Jika nomor urutan dikosongkan oleh pengguna, tentukan nomor urut berikutnya secara otomatis
         if (empty($validated['order'])) {
-            $maxOrder = KelompokPertanyaan::where('kuesioner_id', $kuesionerId)->max('order') ?? 0;
+            $maxOrder = KuesionerSection::where('target', 'univ')->max('order') ?? 0;
             $validated['order'] = $maxOrder + 1;
         }
 
-        // Buat record section baru di database
-        KelompokPertanyaan::create($validated);
+        $code = 'SEC_UNIV_'.str_pad((string) $validated['order'], 2, '0', STR_PAD_LEFT);
+        while (KuesionerSection::where('kode_section', $code)->exists()) {
+            $code .= '_'.rand(10, 99);
+        }
+
+        KuesionerSection::create([
+            'kode_section' => $code,
+            'target' => 'univ',
+            'prodi_id' => null,
+            'judul' => $validated['title'],
+            'deskripsi' => $validated['description'] ?? null,
+            'order' => $validated['order'],
+            'is_active' => true,
+        ]);
 
         return redirect()->back()->with('success', 'Bagian kuesioner baru berhasil ditambahkan.');
     }
@@ -75,90 +65,72 @@ class KelolaSectionController extends Controller
      * Memperbarui data judul atau urutan section kuesioner yang sudah ada.
      *
      * @param  Request  $request  Objek HTTP request berisi data pembaruan
-     * @param  int  $id  ID primary key dari KelompokPertanyaan yang diperbarui
-     * @return RedirectResponse Redirect kembali dengan feedback notifikasi
+     * @param  int  $id  ID primary key dari KuesionerSection yang diperbarui
      */
     public function update(Request $request, int $id): RedirectResponse
     {
-        // Cari record section berdasarkan ID
-        $section = KelompokPertanyaan::findOrFail($id);
+        $section = KuesionerSection::where('target', 'univ')->findOrFail($id);
 
-        // Validasi masukan data perubahan
         $validated = $request->validate([
-            'kuesioner_id' => 'nullable|exists:kuesioner,id',
-            'questionnaire_id' => 'nullable|exists:kuesioner,id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'order' => 'nullable|integer|min:1',
         ]);
 
-        $kuesionerId = $validated['kuesioner_id'] ?? $validated['questionnaire_id'] ?? $section->kuesioner_id;
-        $validated['kuesioner_id'] = $kuesionerId;
-        $validated['questionnaire_id'] = $kuesionerId;
+        $updateData = [
+            'judul' => $validated['title'],
+            'deskripsi' => $validated['description'] ?? null,
+        ];
 
-        // Jika order tidak diisi, jangan timpa nilai urutan yang sudah ada
-        if (empty($validated['order'])) {
-            unset($validated['order']);
+        if (! empty($validated['order'])) {
+            $updateData['order'] = $validated['order'];
         }
 
-        // Terapkan perubahan data section
-        $section->update($validated);
+        $section->update($updateData);
 
         return redirect()->back()->with('success', 'Data bagian kuesioner berhasil diperbarui.');
     }
 
     /**
-     * Menghapus section kuesioner beserta pertanyaan-pertanyaan yang bernaung di bawahnya.
+     * Menghapus section kuesioner beserta relasi pivot pemetaannya.
      *
-     * @param  int  $id  ID primary key KelompokPertanyaan yang akan dihapus
-     * @return RedirectResponse Redirect kembali dengan pesan konfirmasi penghapusan
+     * @param  int  $id  ID primary key KuesionerSection yang akan dihapus
      */
     public function destroy(int $id): RedirectResponse
     {
-        // Temukan data section yang dimaksud
-        $section = KelompokPertanyaan::findOrFail($id);
+        $section = KuesionerSection::where('target', 'univ')->findOrFail($id);
 
-        // Bersihkan opsi jawaban dari setiap pertanyaan dalam section ini untuk integritas relasi
-        foreach ($section->subpertanyaans as $subpertanyaan) {
-            $subpertanyaan->detils()->delete();
-        }
+        // Lepaskan pivot pemetaan pertanyaan terlebih dahulu
+        $section->pertanyaan()->detach();
 
-        // Hapus seluruh pertanyaan dalam section
-        $section->subpertanyaans()->delete();
-
-        // Hapus section itu sendiri
+        // Hapus section
         $section->delete();
 
-        return redirect()->back()->with('success', 'Bagian kuesioner beserta seluruh pertanyaannya berhasil dihapus.');
+        return redirect()->back()->with('success', 'Bagian kuesioner berhasil dihapus.');
     }
 
     /**
-     * Memindahkan atau mengatur ulang urutan posisi section (naik/turun atau massal).
+     * Memindahkan atau mengatur ulang urutan posisi section.
      *
      * @param  Request  $request  Objek HTTP request berisi instruksi pengurutan
-     * @return RedirectResponse Redirect kembali ke halaman dengan susunan urutan terbaru
      */
     public function reorder(Request $request): RedirectResponse
     {
-        // Skenario 1: Pemindahan posisi satu tingkat naik ('up') atau turun ('down')
         if ($request->has(['id', 'direction'])) {
             $validated = $request->validate([
-                'id' => 'required|exists:kelompok_pertanyaan,id',
+                'id' => 'required|exists:kuesioner_section,id',
                 'direction' => 'required|in:up,down',
             ]);
 
-            // Ambil section target yang sedang dipindahkan
-            $currentSection = KelompokPertanyaan::findOrFail($validated['id']);
+            $currentSection = KuesionerSection::where('target', 'univ')->findOrFail($validated['id']);
             $operator = $validated['direction'] === 'up' ? '<' : '>';
             $sortOrder = $validated['direction'] === 'up' ? 'desc' : 'asc';
 
-            // Temukan section tetangga langsung dalam kuesioner yang sama
-            $adjacentSection = KelompokPertanyaan::where('kuesioner_id', $currentSection->kuesioner_id)
+            $adjacentSection = KuesionerSection::where('target', 'univ')
                 ->where('order', $operator, $currentSection->order)
                 ->orderBy('order', $sortOrder)
                 ->first();
 
-            // Lakukan penukaran nomor urut (swap order) jika ditemukan tetangga
             if ($adjacentSection) {
                 $tempOrder = $currentSection->order;
                 $currentSection->update(['order' => $adjacentSection->order]);
@@ -168,16 +140,17 @@ class KelolaSectionController extends Controller
             return redirect()->back()->with('success', 'Urutan bagian kuesioner berhasil dipindahkan.');
         }
 
-        // Skenario 2: Pembaruan massal array urutan (misal: drag and drop)
         if ($request->has('orders')) {
             $validated = $request->validate([
                 'orders' => 'required|array',
-                'orders.*.id' => 'required|exists:kelompok_pertanyaan,id',
+                'orders.*.id' => 'required|exists:kuesioner_section,id',
                 'orders.*.order' => 'required|integer',
             ]);
 
             foreach ($validated['orders'] as $item) {
-                KelompokPertanyaan::where('id', $item['id'])->update(['order' => $item['order']]);
+                KuesionerSection::where('target', 'univ')
+                    ->where('id', $item['id'])
+                    ->update(['order' => $item['order']]);
             }
 
             return redirect()->back()->with('success', 'Seluruh susunan urutan bagian kuesioner berhasil diperbarui.');

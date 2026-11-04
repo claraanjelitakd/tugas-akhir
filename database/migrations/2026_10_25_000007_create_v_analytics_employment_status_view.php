@@ -21,9 +21,9 @@ SELECT
     f8.answer AS f8_answer
 FROM v_analytics_population AS population
 LEFT JOIN (
-    SELECT tracer.biodata_id, tracer.answer
-    FROM tracer
-    WHERE tracer.kode_pertanyaan = 'F8'
+    SELECT answers.biodata_id, answers.answer
+    FROM v_analytics_tracer_answers AS answers
+    WHERE answers.kode_pertanyaan = 'F8'
 ) AS f8 ON f8.biodata_id = population.biodata_id
 SQL);
     }

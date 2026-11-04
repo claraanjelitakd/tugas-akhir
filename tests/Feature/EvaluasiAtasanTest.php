@@ -6,7 +6,9 @@ use App\Mail\UndanganEvaluasiAtasanMail;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\EvaluasiAtasan;
-use App\Models\PertanyaanEvaluasiAtasan;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\User;
@@ -55,7 +57,7 @@ class EvaluasiAtasanTest extends TestCase
                 ->where('questions', fn ($questions) => collect($questions)->contains(fn ($question) => $question['kode'] === 'bentuk_perusahaan'))
             );
 
-        $question = PertanyaanEvaluasiAtasan::where('kode', 'integritas')->firstOrFail();
+        $question = KuesionerPertanyaan::where('kode_pertanyaan', 'EVA_integritas')->firstOrFail();
 
         $this->actingAs($admin)
             ->put("/superadmin/evaluasi-atasan/pertanyaan/{$question->id}", [
@@ -66,9 +68,9 @@ class EvaluasiAtasanTest extends TestCase
             ])
             ->assertSessionHasNoErrors();
 
-        $this->assertDatabaseHas('pertanyaan_evaluasi_atasan', [
+        $this->assertDatabaseHas('kuesioner_pertanyaan', [
             'id' => $question->id,
-            'kategori' => 'Karakteristik Perusahaan',
+            'teks_pertanyaan' => $question->aspek,
         ]);
     }
 
@@ -156,11 +158,20 @@ class EvaluasiAtasanTest extends TestCase
             'token' => Str::random(40),
         ]);
 
-        PertanyaanEvaluasiAtasan::create([
-            'kode' => 'integritas',
-            'aspek' => 'Integritas',
-            'order' => 1,
-        ]);
+        $sec = KuesionerSection::firstOrCreate(
+            ['kode_section' => 'SEC_EVA_PENILAIAN'],
+            ['target' => 'atasan', 'judul' => 'Penilaian Kinerja', 'order' => 3, 'is_active' => true]
+        );
+
+        $qIntegritas = KuesionerPertanyaan::firstOrCreate(
+            ['kode_pertanyaan' => 'EVA_integritas'],
+            ['teks_pertanyaan' => 'Integritas', 'tipe' => 'likert_5', 'is_active' => true]
+        );
+
+        KuesionerSectionPertanyaan::firstOrCreate(
+            ['section_id' => $sec->id, 'pertanyaan_id' => $qIntegritas->id],
+            ['order' => 1, 'wajib' => true]
+        );
 
         $postData = [
             'nama_perusahaan' => 'PT Makmur Sentosa',
@@ -220,9 +231,9 @@ class EvaluasiAtasanTest extends TestCase
             'pendidikan_prodi' => 'Magister Ilmu Komputer',
         ]);
 
-        $this->assertDatabaseHas('respon_evaluasi_atasan', [
+        $this->assertDatabaseHas('kuesioner_jawaban', [
             'evaluasi_atasan_id' => $evaluasi->id,
-            'nilai' => 'Sangat Tinggi',
+            'jawaban_teks' => 'Sangat Tinggi',
         ]);
 
         $this->assertDatabaseHas('atasan', [

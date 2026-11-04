@@ -27,13 +27,16 @@ SELECT
     population.prodi_id,
     population.nama_prodi,
     population.tahun_lulus,
-    tracer.kode_pertanyaan,
-    tracer.kelompok,
-    tracer.subpertanyaan,
-    tracer.answer,
-    tracer.answer_json
+    p.kode_pertanyaan,
+    s.kode_section AS kelompok,
+    p.kode_pertanyaan AS subpertanyaan,
+    j.jawaban_teks AS answer,
+    j.jawaban_json AS answer_json
 FROM v_analytics_population AS population
-INNER JOIN tracer ON tracer.biodata_id = population.biodata_id
+INNER JOIN kuesioner_jawaban j ON j.biodata_id = population.biodata_id
+INNER JOIN kuesioner_pertanyaan p ON p.id = j.pertanyaan_id
+INNER JOIN kuesioner_section s ON s.id = j.section_id
+WHERE s.target = 'univ';
 SQL);
     }
 

@@ -2,12 +2,10 @@
 
 namespace App\Services\Dashboard;
 
-use App\Models\KelompokPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiQuestionSection;
-use App\Models\RefSubpertanyaan2021;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -45,11 +43,11 @@ class RoleDashboardDataService
             ->count();
 
         $totalQuestions = $scope === 'prodi'
-            ? ProdiQuestion::where('prodi_id', $scopeId)->count()
-            : RefSubpertanyaan2021::count();
+            ? KuesionerSectionPertanyaan::whereHas('section', fn ($q) => $q->where('target', 'prodi')->where('prodi_id', $scopeId))->distinct('pertanyaan_id')->count('pertanyaan_id')
+            : KuesionerSectionPertanyaan::whereHas('section', fn ($q) => $q->where('target', 'univ'))->distinct('pertanyaan_id')->count('pertanyaan_id');
         $totalSections = $scope === 'prodi'
-            ? ProdiQuestionSection::where('prodi_id', $scopeId)->count()
-            : KelompokPertanyaan::count();
+            ? KuesionerSection::where('target', 'prodi')->where('prodi_id', $scopeId)->count()
+            : KuesionerSection::where('target', 'univ')->count();
 
         $pendingCompaniesQuery = Perusahaan::where('status_verifikasi', 'Menunggu Verifikasi');
         if ($scope === 'prodi') {
@@ -207,14 +205,15 @@ class RoleDashboardDataService
             return [];
         }
 
-        return ProdiQuestionSection::where('prodi_id', $scopeId)
-            ->withCount('questions')
+        return KuesionerSection::where('target', 'prodi')
+            ->where('prodi_id', $scopeId)
+            ->withCount('sectionPertanyaan')
             ->orderBy('order')
             ->get()
-            ->map(fn (ProdiQuestionSection $section): array => [
+            ->map(fn (KuesionerSection $section): array => [
                 'id' => $section->id,
-                'title' => $section->title,
-                'questions_count' => $section->questions_count,
+                'title' => $section->judul,
+                'questions_count' => $section->section_pertanyaan_count,
             ]);
     }
 

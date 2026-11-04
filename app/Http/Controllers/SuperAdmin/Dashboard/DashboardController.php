@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\SuperAdmin\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\KelompokPertanyaan;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
-use App\Models\RefSubpertanyaan2021;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -53,8 +53,8 @@ class DashboardController extends Controller
         }
 
         // 1. Menghitung ringkasan statistik kuesioner dan partisipasi via v_alumni_audit_rekap
-        $totalPertanyaan = RefSubpertanyaan2021::count();
-        $totalSections = KelompokPertanyaan::count();
+        $totalPertanyaan = KuesionerPertanyaan::where('is_active', true)->count();
+        $totalSections = KuesionerSection::where('is_active', true)->count();
         $dashboardAggregate = DB::table('v_alumni_audit_rekap')
             ->where('tahun_lulus', $selectedYear)
             ->selectRaw('COUNT(*) AS total_alumni')

@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\PertanyaanEvaluasiAtasan;
-use App\Models\SectionEvaluasiAtasan;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\User;
-use Database\Seeders\PertanyaanEvaluasiAtasanSeeder;
+use Database\Seeders\UnifiedKuesionerSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -30,7 +30,7 @@ class SuperAdminEvaluasiAtasanManagementTest extends TestCase
             'role' => 'superadmin',
         ]);
 
-        $this->seed(PertanyaanEvaluasiAtasanSeeder::class);
+        $this->seed(UnifiedKuesionerSeeder::class);
     }
 
     /**
@@ -45,12 +45,13 @@ class SuperAdminEvaluasiAtasanManagementTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('section_evaluasi_atasan', [
-            'title' => 'Kemampuan Khusus Bidang',
+        $this->assertDatabaseHas('kuesioner_section', [
+            'target' => 'atasan',
+            'judul' => 'Kemampuan Khusus Bidang',
             'order' => 4,
         ]);
 
-        $section = SectionEvaluasiAtasan::where('title', 'Kemampuan Khusus Bidang')->firstOrFail();
+        $section = KuesionerSection::where('target', 'atasan')->where('judul', 'Kemampuan Khusus Bidang')->firstOrFail();
 
         $updateResponse = $this->actingAs($this->admin)->put("/superadmin/evaluasi-atasan/sections/{$section->id}", [
             'title' => 'Kemampuan Spesifik Industri',
@@ -59,9 +60,9 @@ class SuperAdminEvaluasiAtasanManagementTest extends TestCase
         ]);
 
         $updateResponse->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('section_evaluasi_atasan', [
+        $this->assertDatabaseHas('kuesioner_section', [
             'id' => $section->id,
-            'title' => 'Kemampuan Spesifik Industri',
+            'judul' => 'Kemampuan Spesifik Industri',
         ]);
     }
 
@@ -70,8 +71,8 @@ class SuperAdminEvaluasiAtasanManagementTest extends TestCase
      */
     public function test_superadmin_can_reorder_sections(): void
     {
-        $sec1 = SectionEvaluasiAtasan::where('key', 'instansi')->firstOrFail();
-        $sec2 = SectionEvaluasiAtasan::where('key', 'karakteristik')->firstOrFail();
+        $sec1 = KuesionerSection::where('target', 'atasan')->where('order', 1)->firstOrFail();
+        $sec2 = KuesionerSection::where('target', 'atasan')->where('order', 2)->firstOrFail();
 
         $this->assertEquals(1, $sec1->order);
         $this->assertEquals(2, $sec2->order);
@@ -91,7 +92,7 @@ class SuperAdminEvaluasiAtasanManagementTest extends TestCase
      */
     public function test_superadmin_can_store_and_reorder_question(): void
     {
-        $section = SectionEvaluasiAtasan::where('key', 'penilaian')->firstOrFail();
+        $section = KuesionerSection::where('target', 'atasan')->where('order', 3)->firstOrFail();
 
         $response = $this->actingAs($this->admin)->post('/superadmin/evaluasi-atasan/pertanyaan', [
             'section_id' => $section->id,
@@ -103,14 +104,12 @@ class SuperAdminEvaluasiAtasanManagementTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('pertanyaan_evaluasi_atasan', [
-            'kode' => 'p99_kecepatan_belajar',
-            'aspek' => 'Kecepatan Mempelajari Hal Baru',
-            'section_id' => $section->id,
+        $this->assertDatabaseHas('kuesioner_pertanyaan', [
+            'kode_pertanyaan' => 'EVA_P99_KECEPATAN_BELAJAR',
+            'teks_pertanyaan' => 'Kecepatan Mempelajari Hal Baru',
         ]);
 
-        $newQ = PertanyaanEvaluasiAtasan::where('kode', 'p99_kecepatan_belajar')->firstOrFail();
-        $integritas = PertanyaanEvaluasiAtasan::where('kode', 'integritas')->firstOrFail();
+        $newQ = KuesionerPertanyaan::where('kode_pertanyaan', 'EVA_P99_KECEPATAN_BELAJAR')->firstOrFail();
 
         $reorderResponse = $this->actingAs($this->admin)->post('/superadmin/evaluasi-atasan/pertanyaan/reorder', [
             'id' => $newQ->id,

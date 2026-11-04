@@ -10,6 +10,7 @@ use App\Models\ProdiResponse;
 use App\Services\Kuesioner\KelengkapanTracerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 /**
@@ -66,27 +67,36 @@ class DashboardController extends Controller
 
             // Evaluasi Kuesioner Program Studi
             if ($biodata->prodi_id) {
-                $prodiQIds = ProdiQuestion::where('prodi_id', $biodata->prodi_id)
-                    ->where('type', '!=', 'header')
-                    ->pluck('id');
-                $prodiQuestionsCount = $prodiQIds->count();
-                if ($prodiQuestionsCount > 0) {
-                    $prodiAnsweredCount = ProdiResponse::where('biodata_id', $biodata->id)
-                        ->whereIn('prodi_question_id', $prodiQIds)
-                        ->where(function ($q) {
-                            $q->where(function ($sub) {
-                                $sub->whereNotNull('answer_text')
-                                    ->where(DB::raw('TRIM(answer_text)'), '!=', '');
-                            })->orWhere(function ($sub) {
-                                $sub->whereNotNull('answer_json')
-                                    ->where('answer_json', '!=', '')
-                                    ->where('answer_json', '!=', '[]')
-                                    ->where('answer_json', '!=', '{}');
-                            });
-                        })
-                        ->distinct('prodi_question_id')
-                        ->count('prodi_question_id');
-                    $prodiCompleted = ($prodiAnsweredCount >= $prodiQuestionsCount);
+                if (Schema::hasTable('prodi_question') && Schema::hasTable('prodi_response')) {
+                    $prodiQIds = ProdiQuestion::where('prodi_id', $biodata->prodi_id)
+                        ->where('type', '!=', 'header')
+                        ->pluck('id');
+                    $prodiQuestionsCount = $prodiQIds->count();
+                    if ($prodiQuestionsCount > 0) {
+                        $prodiAnsweredCount = ProdiResponse::where('biodata_id', $biodata->id)
+                            ->whereIn('prodi_question_id', $prodiQIds)
+                            ->where(function ($q) {
+                                $q->where(function ($sub) {
+                                    $sub->whereNotNull('answer_text')
+                                        ->where(DB::raw('TRIM(answer_text)'), '!=', '');
+                                })->orWhere(function ($sub) {
+                                    $sub->whereNotNull('answer_json')
+                                        ->where('answer_json', '!=', '')
+                                        ->where('answer_json', '!=', '[]')
+                                        ->where('answer_json', '!=', '{}');
+                                });
+                            })
+                            ->distinct('prodi_question_id')
+                            ->count('prodi_question_id');
+                        $prodiCompleted = ($prodiAnsweredCount >= $prodiQuestionsCount);
+                    }
+                } else {
+                    $prodiStatus = DB::table('v_alumni_tracer_prodi_status')
+                        ->where('biodata_id', $biodata->id)
+                        ->first();
+                    $prodiQuestionsCount = (int) ($prodiStatus?->total_prodi_questions ?? 0);
+                    $prodiAnsweredCount = (int) ($prodiStatus?->answered_prodi_questions ?? 0);
+                    $prodiCompleted = ($prodiQuestionsCount > 0 && $prodiAnsweredCount >= $prodiQuestionsCount);
                 }
             }
         }

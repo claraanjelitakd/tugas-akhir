@@ -4,9 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Prodi;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiQuestionSection;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -38,20 +39,27 @@ class AdminProdiDashboardTest extends TestCase
             'must_change_password' => false,
         ]);
 
-        $section = ProdiQuestionSection::create([
+        $section = KuesionerSection::create([
+            'kode_section' => 'SEC_TEST_SI',
+            'target' => 'prodi',
             'prodi_id' => $prodi->id,
-            'title' => 'Seksi Evaluasi Kurikulum',
+            'judul' => 'Seksi Evaluasi Kurikulum',
             'order' => 1,
+            'is_active' => true,
         ]);
 
-        ProdiQuestion::create([
-            'prodi_id' => $prodi->id,
-            'prodi_question_section_id' => $section->id,
-            'code' => 'SI_01',
-            'question_text' => 'Bagaimana relevansi kurikulum SI?',
-            'type' => 'radio',
+        $question = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'SI_01',
+            'teks_pertanyaan' => 'Bagaimana relevansi kurikulum SI?',
+            'tipe' => 'radio',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $section->id,
+            'pertanyaan_id' => $question->id,
             'order' => 1,
-            'is_required' => true,
+            'wajib' => true,
         ]);
 
         $alumniUser = User::create([

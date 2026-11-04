@@ -48,6 +48,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    allSections: {
+        type: Array,
+        default: () => [],
+    },
+    bankQuestions: {
+        type: Array,
+        default: () => [],
+    },
     availableJumpTargets: {
         type: Array,
         default: () => [],
@@ -184,6 +192,123 @@ const filteredQuestions = computed(() => {
         return true;
     });
 });
+
+// ========================================================
+// BANK PERTANYAAN (MODAL SELECTION & ATTACH)
+// ========================================================
+const isBankModalOpen = ref(false);
+const bankSearchQuery = ref('');
+const bankOriginFilter = ref('all');
+const targetSectionIdForBank = ref(props.sections[0]?.id || '');
+const selectedBankQuestionIds = ref([]);
+const isSubmittingBank = ref(false);
+
+const availableOrigins = computed(() => {
+    const list = new Set();
+    props.bankQuestions.forEach(q => {
+        if (q.asal) list.add(q.asal);
+    });
+    return Array.from(list);
+});
+
+const filteredBankQuestions = computed(() => {
+    return props.bankQuestions.filter(q => {
+        if (bankOriginFilter.value !== 'all' && q.asal !== bankOriginFilter.value) {
+            return false;
+        }
+        if (bankSearchQuery.value.trim()) {
+            const query = bankSearchQuery.value.toLowerCase();
+            const matchCode = q.kode?.toLowerCase().includes(query);
+            const matchText = q.teks?.toLowerCase().includes(query);
+            const matchOrigin = q.asal?.toLowerCase().includes(query);
+            return matchCode || matchText || matchOrigin;
+        }
+        return true;
+    });
+});
+
+const openBankModal = () => {
+    if (!props.sections.length) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Section Diperlukan',
+            text: 'Silakan buat minimal satu bagian (section) kuesioner terlebih dahulu sebelum mengambil pertanyaan dari Bank Soal.',
+            confirmButtonColor: '#0D542B',
+        });
+        return;
+    }
+    targetSectionIdForBank.value = selectedSectionFilter.value !== 'all' ? selectedSectionFilter.value : props.sections[0]?.id;
+    selectedBankQuestionIds.value = [];
+    bankSearchQuery.value = '';
+    bankOriginFilter.value = 'all';
+    isBankModalOpen.value = true;
+};
+
+const closeBankModal = () => {
+    isBankModalOpen.value = false;
+    selectedBankQuestionIds.value = [];
+};
+
+const toggleBankSelection = (id) => {
+    const idx = selectedBankQuestionIds.value.indexOf(id);
+    if (idx > -1) {
+        selectedBankQuestionIds.value.splice(idx, 1);
+    } else {
+        selectedBankQuestionIds.value.push(id);
+    }
+};
+
+const submitBankSelection = () => {
+    if (!selectedBankQuestionIds.value.length) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Pilih Pertanyaan',
+            text: 'Silakan centang minimal satu butir pertanyaan yang ingin dimasukkan.',
+            confirmButtonColor: '#0D542B',
+        });
+        return;
+    }
+    if (!targetSectionIdForBank.value) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Pilih Bagian Kuesioner',
+            text: 'Silakan pilih bagian (section) tujuan penempatan pertanyaan.',
+            confirmButtonColor: '#0D542B',
+        });
+        return;
+    }
+
+    isSubmittingBank.value = true;
+    router.post(`${props.basePath}/bank/attach`, {
+        prodi_id: props.selectedProdi?.id,
+        section_id: targetSectionIdForBank.value,
+        pertanyaan_ids: selectedBankQuestionIds.value,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            isBankModalOpen.value = false;
+            selectedBankQuestionIds.value = [];
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil',
+                text: 'Pertanyaan dari Bank Soal berhasil disematkan ke kuesioner prodi.',
+                timer: 1600,
+                showConfirmButton: false,
+            });
+        },
+        onError: (errs) => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal',
+                text: Object.values(errs)[0] || 'Terjadi kesalahan saat menambahkan pertanyaan.',
+                confirmButtonColor: '#0D542B',
+            });
+        },
+        onFinish: () => {
+            isSubmittingBank.value = false;
+        },
+    });
+};
 
 // ========================================================
 // MODAL HANDLERS: SECTION (TAMBAH / EDIT / REORDER / HAPUS)
@@ -352,6 +477,8 @@ const handleDeleteSection = (section) => {
 // ========================================================
 // MODAL HANDLERS: QUESTION (TAMBAH / EDIT / REORDER / HAPUS)
 // ========================================================
+// QUESTION PRODI MANAGEMENT (UNIFIED & INTERACTIVE)
+// ========================================================
 // Mengontrol visibilitas dialog modal pertanyaan prodi
 const isQuestionModalOpen = ref(false);
 
@@ -364,6 +491,9 @@ const editingQuestionId = ref(null);
 // Status loading request pengiriman form pertanyaan
 const isSubmittingQuestion = ref(false);
 
+// Status loading saat tombol toggle aktif/nonaktif ditekan
+const togglingQuestionId = ref(null);
+
 // Objek data formulir pertanyaan prodi
 const questionForm = ref({
     prodi_id: null,
@@ -371,12 +501,65 @@ const questionForm = ref({
     question_text: '',
     type: 'single_choice',
     prodi_question_section_id: '',
+    target_section_ids: [],
     order: 1,
     is_required: true,
+    is_reusable: true,
+    options: [],
 });
 
 // Menyimpan pesan galat validasi form pertanyaan
 const questionFormErrors = ref({});
+
+/**
+ * Peringatan pencegahan duplikasi butir pertanyaan (Anti-Double Detection).
+ * Jika kode pertanyaan sudah terdaftar di Bank Soal, beri tahu admin bahwa pertanyaan
+ * akan ditautkan alih-alih membuat baris ganda.
+ */
+const duplicateMasterWarning = computed(() => {
+    if (!questionForm.value.code) return null;
+    const inputCode = questionForm.value.code.trim().toUpperCase();
+    if (!inputCode) return null;
+    const found = props.bankQuestions.find(bq => bq.kode?.toUpperCase() === inputCode);
+    if (found && (!isEditingQuestion.value || found.id !== editingQuestionId.value)) {
+        return found;
+    }
+    return null;
+});
+
+/**
+ * Menambah baris opsi baru pada form pertanyaan
+ */
+const addOptionToForm = () => {
+    questionForm.value.options.push({
+        label: '',
+        score: null,
+    });
+};
+
+/**
+ * Menghapus baris opsi dari form pertanyaan
+ */
+const removeOptionFromForm = (idx) => {
+    questionForm.value.options.splice(idx, 1);
+};
+
+/**
+ * Toggle status aktif/non-aktif butir pertanyaan secara interaktif
+ */
+const handleToggleActive = (question) => {
+    togglingQuestionId.value = question.id;
+    router.post(`${props.basePath}/pertanyaan/${question.id}/toggle-active`, {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+            // Pembaruan reaktif lokal seketika
+            question.is_active = !question.is_active;
+        },
+        onFinish: () => {
+            togglingQuestionId.value = null;
+        },
+    });
+};
 
 /**
  * Membuka modal tambah atau sunting pertanyaan prodi
@@ -393,9 +576,15 @@ const openQuestionModal = (questionToEdit = null) => {
             code: questionToEdit.code || '',
             question_text: questionToEdit.question_text || '',
             type: questionToEdit.type || 'single_choice',
-            prodi_question_section_id: questionToEdit.prodi_question_section_id || '',
+            prodi_question_section_id: questionToEdit.prodi_question_section_id || (props.sections[0]?.id || ''),
+            target_section_ids: [],
             order: questionToEdit.order || 1,
             is_required: questionToEdit.is_required !== undefined ? Boolean(questionToEdit.is_required) : true,
+            is_reusable: questionToEdit.is_reusable !== undefined ? Boolean(questionToEdit.is_reusable) : true,
+            options: (questionToEdit.options || []).map(opt => ({
+                label: opt.option_text || '',
+                score: opt.score || null,
+            })),
         };
     } else {
         const defaultSecId = props.sections.length > 0 ? props.sections[0].id : '';
@@ -405,8 +594,14 @@ const openQuestionModal = (questionToEdit = null) => {
             question_text: '',
             type: 'single_choice',
             prodi_question_section_id: defaultSecId,
+            target_section_ids: [],
             order: props.questions.length + 1,
             is_required: true,
+            is_reusable: true,
+            options: [
+                { label: 'Pilihan 1', score: null },
+                { label: 'Pilihan 2', score: null },
+            ],
         };
     }
 
@@ -434,6 +629,9 @@ const submitQuestionForm = () => {
     if (!questionForm.value.question_text.trim()) {
         errors.question_text = 'Teks pertanyaan wajib diisi.';
     }
+    if (!questionForm.value.prodi_question_section_id) {
+        errors.prodi_question_section_id = 'Pilih bagian kuesioner utama.';
+    }
 
     if (Object.keys(errors).length > 0) {
         questionFormErrors.value = errors;
@@ -444,14 +642,15 @@ const submitQuestionForm = () => {
 
     const payload = {
         prodi_id: props.selectedProdi.id,
-        code: questionForm.value.code.trim(),
+        code: questionForm.value.code.trim().toUpperCase(),
         question_text: questionForm.value.question_text.trim(),
         type: questionForm.value.type,
-        prodi_question_section_id: questionForm.value.prodi_question_section_id
-            ? parseInt(questionForm.value.prodi_question_section_id, 10)
-            : null,
+        prodi_question_section_id: parseInt(questionForm.value.prodi_question_section_id, 10),
+        target_section_ids: questionForm.value.target_section_ids || [],
         order: questionForm.value.order ? parseInt(questionForm.value.order, 10) : null,
         is_required: questionForm.value.is_required,
+        is_reusable: questionForm.value.is_reusable,
+        options: questionForm.value.options.filter(o => o.label && o.label.trim() !== ''),
     };
 
     if (isEditingQuestion.value) {
@@ -922,13 +1121,26 @@ const handleDeleteOption = (opt) => {
                             </div>
                         </div>
 
-                        <button
-                            type="button"
-                            @click="openQuestionModal(null)"
-                            class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-bold rounded-lg shadow-2xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-                        >
-                            <span>+ Tambah Pertanyaan Prodi</span>
-                        </button>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button
+                                type="button"
+                                @click="openBankModal"
+                                class="px-3.5 py-2 border border-[#0D542B] text-[#0D542B] hover:bg-emerald-50 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                                title="Pilih pertanyaan yang sudah ada dari Bank Soal universitas atau prodi lain"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                </svg>
+                                <span>Pilih dari Bank Pertanyaan</span>
+                            </button>
+                            <button
+                                type="button"
+                                @click="openQuestionModal(null)"
+                                class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-bold rounded-lg shadow-2xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                                <span>+ Buat Pertanyaan Baru</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Tabel Pertanyaan (2 Tone) -->
@@ -941,12 +1153,13 @@ const handleDeleteOption = (opt) => {
                                     <th class="px-4 py-3">Butir Pertanyaan Kuesioner</th>
                                     <th class="px-3 py-3">Tipe & Bagian</th>
                                     <th class="px-4 py-3">Opsi Jawaban & Percabangan</th>
+                                    <th class="px-3 py-3 text-center w-28">Status</th>
                                     <th class="px-3 py-3 text-right">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
                                 <tr v-if="filteredQuestions.length === 0">
-                                    <td colspan="6" class="p-8 text-center text-gray-400 italic">
+                                    <td colspan="7" class="p-8 text-center text-gray-400 italic">
                                         Belum ada butir pertanyaan kuesioner untuk {{ selectedProdi.nama_prodi }}.
                                     </td>
                                 </tr>
@@ -987,9 +1200,15 @@ const handleDeleteOption = (opt) => {
                                         <div class="font-bold text-gray-900 text-xs leading-snug">
                                             {{ q.question_text }}
                                         </div>
-                                        <div class="mt-1 text-xs">
+                                        <div class="mt-1.5 flex items-center gap-2 flex-wrap text-xs">
                                             <span :class="q.is_required ? 'font-bold text-gray-900' : 'text-gray-400'">
                                                 {{ q.is_required ? 'Wajib' : 'Opsional' }}
+                                            </span>
+                                            <span v-if="q.asal" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                                Asal: {{ q.asal }}
+                                            </span>
+                                            <span v-if="q.is_reusable" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                Bank Bersama
                                             </span>
                                         </div>
                                     </td>
@@ -1008,6 +1227,9 @@ const handleDeleteOption = (opt) => {
                                                     <div class="min-w-0">
                                                         <span class="font-mono font-bold text-gray-500 me-1">[{{ opt.code }}]</span>
                                                         <span class="text-gray-800 font-medium">{{ opt.option_text }}</span>
+                                                        <span v-if="opt.score !== null && opt.score !== undefined" class="ms-1 text-emerald-700 font-semibold text-[10px]">
+                                                            (Skor: {{ opt.score }})
+                                                        </span>
                                                         <span v-if="opt.jump_to" class="ms-1.5 text-gray-500 font-medium text-[10px]">
                                                             &rarr; Lanjut ke: {{ opt.jump_to }}
                                                         </span>
@@ -1030,6 +1252,18 @@ const handleDeleteOption = (opt) => {
                                         <div v-else class="text-gray-400 italic text-[10px]">
                                             Tipe isian teks/bebas (tanpa pilihan opsi).
                                         </div>
+                                    </td>
+                                    <td class="px-3 py-3.5 text-center">
+                                        <button
+                                            type="button"
+                                            @click="handleToggleActive(q)"
+                                            :disabled="togglingQuestionId === q.id"
+                                            class="inline-flex items-center justify-center px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50"
+                                            :class="q.is_active ? 'bg-emerald-50 text-[#0D542B] border border-emerald-200 hover:bg-emerald-100' : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'"
+                                            :title="q.is_active ? 'Pertanyaan aktif (klik untuk menonaktifkan)' : 'Pertanyaan nonaktif (klik untuk mengaktifkan)'"
+                                        >
+                                            {{ q.is_active ? 'Aktif' : 'Nonaktif' }}
+                                        </button>
                                     </td>
                                     <td class="px-3 py-3.5 text-right">
                                         <div class="flex items-center justify-end gap-1">
@@ -1201,6 +1435,17 @@ const handleDeleteOption = (opt) => {
                 </div>
 
                 <form @submit.prevent="submitQuestionForm" class="p-5 space-y-4">
+                    <!-- Banner Anti-Double Detection -->
+                    <div v-if="duplicateMasterWarning" class="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-[#0D542B]">
+                        <div class="font-bold flex items-center gap-1.5">
+                            <span>Pertanyaan Terdaftar di Bank Soal</span>
+                        </div>
+                        <p class="mt-1 text-emerald-800 leading-snug">
+                            Kode <strong>[{{ duplicateMasterWarning.kode }}]</strong> telah tercatat di Bank Soal: "<em>{{ duplicateMasterWarning.teks }}</em>" (Milik: {{ duplicateMasterWarning.asal }}).
+                            Menyimpan form ini akan langsung menautkan butir pertanyaan master ini tanpa membuat data ganda di sistem.
+                        </p>
+                    </div>
+
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block font-semibold text-gray-700 text-xs mb-1">
@@ -1218,7 +1463,7 @@ const handleDeleteOption = (opt) => {
                         </div>
                         <div>
                             <label class="block font-semibold text-gray-700 text-xs mb-1">
-                                Bagian / Section <span class="text-red-500">*</span>
+                                Bagian / Section Utama <span class="text-red-500">*</span>
                             </label>
                             <select
                                 v-model="questionForm.prodi_question_section_id"
@@ -1235,6 +1480,9 @@ const handleDeleteOption = (opt) => {
                                     {{ s.title }}
                                 </option>
                             </select>
+                            <p v-if="questionFormErrors.prodi_question_section_id" class="text-red-600 text-xs mt-1">
+                                {{ questionFormErrors.prodi_question_section_id }}
+                            </p>
                         </div>
                     </div>
 
@@ -1270,11 +1518,10 @@ const handleDeleteOption = (opt) => {
                                     {{ label }}
                                 </option>
                             </select>
-                            <p class="text-[10px] text-emerald-700 font-semibold mt-1">Opsi default otomatis dibuat & dapat disesuaikan.</p>
                         </div>
                         <div>
                             <label class="block font-semibold text-gray-700 text-xs mb-1">
-                                Nomor Urut
+                                Nomor Urut Posisi
                             </label>
                             <input
                                 v-model.number="questionForm.order"
@@ -1285,16 +1532,96 @@ const handleDeleteOption = (opt) => {
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-2 pt-1">
-                        <input
-                            id="vue-q-req"
-                            v-model="questionForm.is_required"
-                            type="checkbox"
-                            class="rounded text-[#0D542B] focus:ring-[#0D542B]"
-                        />
-                        <label for="vue-q-req" class="font-semibold text-xs text-gray-700 cursor-pointer">
-                            Wajib diisi oleh alumni responden
+                    <!-- Penempatan Lintas Bagian (Multi-Placement) -->
+                    <div v-if="props.allSections && props.allSections.length > 1" class="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                        <label class="block font-semibold text-gray-800 text-xs mb-1">
+                            Penempatan Bagian Tambahan (Multi-Placement)
                         </label>
+                        <p class="text-[11px] text-gray-500 mb-2">
+                            Centang jika pertanyaan ini juga ingin dimunculkan pada bagian lain di prodi atau universitas tanpa duplikasi data.
+                        </p>
+                        <div class="max-h-28 overflow-y-auto space-y-1.5 pr-1">
+                            <label
+                                v-for="sec in props.allSections.filter(s => s.id !== questionForm.prodi_question_section_id)"
+                                :key="sec.id"
+                                class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer hover:bg-gray-100 p-1 rounded"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :value="sec.id"
+                                    v-model="questionForm.target_section_ids"
+                                    class="rounded text-[#0D542B] focus:ring-[#0D542B]"
+                                />
+                                <span class="font-medium truncate">{{ sec.label }}</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Builder Opsi Dinamis untuk Tambah Baru -->
+                    <div v-if="canHaveOptions(questionForm.type) && !isEditingQuestion" class="space-y-2 pt-2 border-t border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <label class="block font-semibold text-gray-700 text-xs">Pilihan Opsi Jawaban</label>
+                            <button
+                                type="button"
+                                @click="addOptionToForm"
+                                class="text-xs text-[#0D542B] font-bold hover:underline cursor-pointer"
+                            >
+                                + Tambah Opsi
+                            </button>
+                        </div>
+                        <div class="space-y-2 max-h-40 overflow-y-auto pr-1">
+                            <div v-for="(opt, oIdx) in questionForm.options" :key="oIdx" class="flex items-center gap-2">
+                                <input
+                                    v-model="opt.label"
+                                    type="text"
+                                    :placeholder="`Pilihan ${oIdx + 1}`"
+                                    class="flex-1 px-2.5 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-[#0D542B]"
+                                />
+                                <input
+                                    v-model.number="opt.score"
+                                    type="number"
+                                    placeholder="Skor"
+                                    class="w-16 px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-[#0D542B]"
+                                    title="Nilai Skor (Opsional)"
+                                />
+                                <button
+                                    type="button"
+                                    @click="removeOptionFromForm(oIdx)"
+                                    class="p-1 text-gray-400 hover:text-rose-600 cursor-pointer"
+                                    title="Hapus Opsi"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 pt-2 border-t border-gray-100">
+                        <div class="flex items-center gap-2">
+                            <input
+                                id="vue-q-req"
+                                v-model="questionForm.is_required"
+                                type="checkbox"
+                                class="rounded text-[#0D542B] focus:ring-[#0D542B]"
+                            />
+                            <label for="vue-q-req" class="font-semibold text-xs text-gray-700 cursor-pointer">
+                                Wajib diisi oleh alumni responden
+                            </label>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <input
+                                id="vue-q-reuse"
+                                v-model="questionForm.is_reusable"
+                                type="checkbox"
+                                class="rounded text-[#0D542B] focus:ring-[#0D542B]"
+                            />
+                            <label for="vue-q-reuse" class="font-semibold text-xs text-gray-700 cursor-pointer">
+                                Tersedia di Bank Pertanyaan (Dapat digunakan oleh Program Studi lain & Universitas)
+                            </label>
+                        </div>
                     </div>
 
                     <div class="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
@@ -1428,6 +1755,150 @@ const handleDeleteOption = (opt) => {
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </Teleport>
+
+    <!-- MODAL BANK PERTANYAAN (REUSABLE QUESTIONS) -->
+    <Teleport to="body">
+        <div
+            v-if="isBankModalOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+        >
+            <div class="relative w-full max-w-3xl rounded-xl bg-white shadow-xl max-h-[90vh] flex flex-col overflow-hidden">
+                <!-- Header Modal -->
+                <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4 bg-slate-50">
+                    <div>
+                        <h3 class="text-base font-extrabold text-slate-900">Pilih dari Bank Pertanyaan</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Gunakan butir pertanyaan yang sudah tersedia dari universitas atau prodi lain tanpa perlu mengetik ulang.</p>
+                    </div>
+                    <button
+                        type="button"
+                        @click="closeBankModal"
+                        class="text-gray-400 hover:text-gray-700 p-1 rounded-lg"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Konten Modal: Filter & List -->
+                <div class="p-6 space-y-4 overflow-y-auto flex-1">
+                    <!-- Penentuan Bagian Tujuan -->
+                    <div class="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <label class="text-xs font-bold text-emerald-950">
+                            Tempatkan pada Bagian (Section) Tujuan:
+                        </label>
+                        <select
+                            v-model="targetSectionIdForBank"
+                            class="px-3 py-1.5 border border-emerald-300 rounded-lg text-xs font-semibold bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                        >
+                            <option v-for="s in sections" :key="s.id" :value="s.id">{{ s.title }}</option>
+                        </select>
+                    </div>
+
+                    <!-- Bar Filter & Pencarian Bank Soal -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="sm:col-span-2">
+                            <input
+                                v-model="bankSearchQuery"
+                                type="text"
+                                placeholder="Cari kode pertanyaan atau teks..."
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            />
+                        </div>
+                        <div>
+                            <select
+                                v-model="bankOriginFilter"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            >
+                                <option value="all">Semua Asal Pertanyaan</option>
+                                <option v-for="origin in availableOrigins" :key="origin" :value="origin">{{ origin }}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Daftar Kartu Pertanyaan -->
+                    <div class="space-y-2 border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-[360px] overflow-y-auto p-2">
+                        <div v-if="filteredBankQuestions.length === 0" class="p-8 text-center text-xs text-gray-500">
+                            Tidak ada butir pertanyaan yang sesuai dengan kriteria pencarian.
+                        </div>
+
+                        <div
+                            v-for="item in filteredBankQuestions"
+                            :key="item.id"
+                            class="p-3 rounded-lg transition-colors flex items-start gap-3"
+                            :class="[
+                                item.is_already_added ? 'bg-slate-50 opacity-60' : (selectedBankQuestionIds.includes(item.id) ? 'bg-emerald-50/50 border border-emerald-200' : 'hover:bg-gray-50')
+                            ]"
+                        >
+                            <input
+                                type="checkbox"
+                                :id="`bank-q-${item.id}`"
+                                :checked="selectedBankQuestionIds.includes(item.id)"
+                                :disabled="item.is_already_added"
+                                @change="toggleBankSelection(item.id)"
+                                class="mt-1 h-4 w-4 rounded border-gray-300 text-[#0D542B] focus:ring-[#0D542B]"
+                            />
+                            <label :for="`bank-q-${item.id}`" class="flex-1 cursor-pointer min-w-0">
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <span class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-slate-700">
+                                        {{ item.kode }}
+                                    </span>
+                                    <span class="rounded bg-emerald-100/80 px-1.5 py-0.5 text-[10px] font-semibold text-[#0D542B]">
+                                        Asal: {{ item.asal }}
+                                    </span>
+                                    <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
+                                        {{ typeLabels[item.tipe] || item.tipe }}
+                                    </span>
+                                    <span v-if="item.is_already_added" class="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">
+                                        Sudah Ada di Prodi Ini
+                                    </span>
+                                </div>
+                                <p class="mt-1 text-xs font-semibold text-slate-800 leading-snug">
+                                    {{ item.teks }}
+                                </p>
+                                <div v-if="item.options && item.options.length > 0" class="mt-1.5 flex flex-wrap gap-1">
+                                    <span
+                                        v-for="(opt, optIdx) in item.options.slice(0, 4)"
+                                        :key="optIdx"
+                                        class="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] text-gray-600"
+                                    >
+                                        {{ opt.label }}
+                                    </span>
+                                    <span v-if="item.options.length > 4" class="text-[10px] text-gray-400 self-center">
+                                        +{{ item.options.length - 4 }} opsi lainnya
+                                    </span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Modal -->
+                <div class="flex items-center justify-between border-t border-gray-200 bg-slate-50 px-6 py-3">
+                    <span class="text-xs text-slate-600 font-semibold">
+                        Dipilih: <strong class="text-[#0D542B]">{{ selectedBankQuestionIds.length }}</strong> pertanyaan
+                    </span>
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            @click="closeBankModal"
+                            class="px-4 py-2 border border-gray-300 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                            Tutup
+                        </button>
+                        <button
+                            type="button"
+                            :disabled="isSubmittingBank || selectedBankQuestionIds.length === 0"
+                            @click="submitBankSelection"
+                            class="px-4 py-2 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-40 cursor-pointer"
+                        >
+                            <span>Terapkan Pertanyaan ke Kuesioner</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </Teleport>

@@ -29,14 +29,14 @@ SELECT
     END AS wait_source
 FROM v_analytics_population AS population
 LEFT JOIN (
-    SELECT tracer.biodata_id, tracer.answer
-    FROM tracer
-    WHERE tracer.kode_pertanyaan = 'F502'
+    SELECT answers.biodata_id, answers.answer
+    FROM v_analytics_tracer_answers AS answers
+    WHERE answers.kode_pertanyaan = 'F502'
 ) AS f502 ON f502.biodata_id = population.biodata_id
 LEFT JOIN (
-    SELECT tracer.biodata_id, tracer.answer
-    FROM tracer
-    WHERE tracer.kode_pertanyaan = 'F506'
+    SELECT answers.biodata_id, answers.answer
+    FROM v_analytics_tracer_answers AS answers
+    WHERE answers.kode_pertanyaan = 'F506'
 ) AS f506 ON f506.biodata_id = population.biodata_id
 SQL);
     }

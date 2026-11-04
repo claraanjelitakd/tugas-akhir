@@ -29,7 +29,7 @@ class BerandaController extends Controller
             $totalPerusahaan = Perusahaan::count();
         }
         $totalProdi = Prodi::count();
-        $totalResponden = DB::table('tracer')->distinct('biodata_id')->count('biodata_id');
+        $totalResponden = DB::table('kuesioner_jawaban')->whereNotNull('biodata_id')->distinct('biodata_id')->count('biodata_id');
 
         // Hitung persentase alumni yang sudah berkarier (bekerja / wirausaha / lanjut studi)
         $totalKategori = Biodata::whereNotNull('kategori_pekerjaan')->where('kategori_pekerjaan', '!=', '')->count();

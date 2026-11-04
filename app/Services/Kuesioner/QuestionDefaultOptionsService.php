@@ -2,6 +2,7 @@
 
 namespace App\Services\Kuesioner;
 
+use App\Models\KuesionerPertanyaan;
 use App\Models\ProdiQuestion;
 use App\Models\RefSubpertanyaan2021;
 
@@ -145,6 +146,34 @@ class QuestionDefaultOptionsService
                 'kode_pertanyaan' => $question->kode_pertanyaan,
                 'kode_opsi' => $code,
                 'option_text' => $text,
+                'order' => $order++,
+            ]);
+        }
+    }
+
+    /**
+     * Generate opsi default untuk KuesionerPertanyaan (skema terpadu) jika belum memiliki opsi.
+     */
+    public static function generateForUnifiedQuestion(KuesionerPertanyaan $question): void
+    {
+        if ($question->opsi()->exists()) {
+            return;
+        }
+
+        $defaultTexts = self::getDefaultOptionTexts($question->tipe);
+        if (empty($defaultTexts)) {
+            return;
+        }
+
+        $order = 1;
+        foreach ($defaultTexts as $idx => $text) {
+            $score = null;
+            if ($question->tipe === 'rating_5') {
+                $score = $idx + 1;
+            }
+            $question->opsi()->create([
+                'label' => $text,
+                'nilai_skor' => $score,
                 'order' => $order++,
             ]);
         }

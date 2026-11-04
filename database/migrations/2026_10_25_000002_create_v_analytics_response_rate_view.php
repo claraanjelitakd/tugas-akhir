@@ -24,15 +24,18 @@ SELECT
 FROM v_analytics_population AS population
 LEFT JOIN (
     SELECT
-        tracer.biodata_id,
-        MAX(tracer.updated_at) AS last_response_at
-    FROM tracer
-    INNER JOIN ref_subpertanyaan2021 AS questions ON questions.id = tracer.question_id
-    WHERE (
+        j.biodata_id,
+        MAX(j.updated_at) AS last_response_at
+    FROM kuesioner_jawaban j
+    INNER JOIN kuesioner_pertanyaan p ON p.id = j.pertanyaan_id
+    INNER JOIN kuesioner_section s ON s.id = j.section_id
+    INNER JOIN kuesioner_section_pertanyaan sp ON sp.pertanyaan_id = p.id
+    WHERE s.target = 'univ'
+      AND (
         (
-            questions.wajib = 1
-            AND questions.type != 'header'
-            AND UPPER(questions.kode_pertanyaan) NOT IN (
+            sp.wajib = 1
+            AND p.tipe != 'header'
+            AND UPPER(p.kode_pertanyaan) NOT IN (
                 'F1', 'F2A', 'F2B', 'F2C', 'F2D',
                 'BIO_TEMPAT_LAHIR', 'BIO_TANGGAL_LAHIR', 'BIO_JK',
                 'BIO_TGL_LULUS', 'BIO_JUDUL_TA',
@@ -41,13 +44,13 @@ LEFT JOIN (
                 'F11', 'F505', 'F502', 'F506'
             )
         )
-        OR UPPER(questions.kode_pertanyaan) IN ('F502', 'F506')
-    )
-        AND (
-            (tracer.answer IS NOT NULL AND TRIM(tracer.answer) != '')
-            OR (tracer.answer_json IS NOT NULL AND tracer.answer_json NOT IN ('', '[]', '{}'))
-        )
-    GROUP BY tracer.biodata_id
+        OR UPPER(p.kode_pertanyaan) IN ('F502', 'F506')
+      )
+      AND (
+        (j.jawaban_teks IS NOT NULL AND TRIM(j.jawaban_teks) != '')
+        OR (j.jawaban_json IS NOT NULL AND j.jawaban_json NOT IN ('', '[]', '{}'))
+      )
+    GROUP BY j.biodata_id
 ) AS respondents ON respondents.biodata_id = population.biodata_id
 SQL);
     }

@@ -66,6 +66,22 @@ class KuesionerJawaban extends Model
     }
 
     /**
+     * Nilai jawaban teks untuk kompatibilitas evaluasi atasan.
+     */
+    public function getNilaiAttribute(): ?string
+    {
+        return $this->jawaban_teks;
+    }
+
+    /**
+     * Catatan tambahan kualitatif responden jika ada.
+     */
+    public function getCatatanAttribute(): ?string
+    {
+        return is_array($this->jawaban_json) ? ($this->jawaban_json['catatan'] ?? null) : null;
+    }
+
+    /**
      * Opsi jawaban master yang dipilih (jika bertipe pilihan).
      */
     public function opsi(): BelongsTo

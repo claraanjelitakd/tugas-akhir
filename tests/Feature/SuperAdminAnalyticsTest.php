@@ -5,6 +5,10 @@ namespace Tests\Feature;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\Kuesioner;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\Propinsi;
@@ -12,7 +16,6 @@ use App\Models\Ump;
 use App\Models\User;
 use App\Services\Analytics\TracerAnalyticsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -22,6 +25,43 @@ use Tests\TestCase;
 class SuperAdminAnalyticsTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function insertUnifiedQuestion(string $code, string $text, string $type = 'radio', bool $wajib = true): int
+    {
+        $section = KuesionerSection::firstOrCreate(
+            ['kode_section' => 'SEC_UNIV_MAIN'],
+            ['target' => 'univ', 'judul' => 'Kuesioner Universitas', 'order' => 1, 'is_active' => true]
+        );
+
+        $pertanyaan = KuesionerPertanyaan::firstOrCreate(
+            ['kode_pertanyaan' => $code],
+            ['teks_pertanyaan' => $text, 'tipe' => $type, 'is_active' => true]
+        );
+
+        KuesionerSectionPertanyaan::firstOrCreate(
+            ['section_id' => $section->id, 'pertanyaan_id' => $pertanyaan->id],
+            ['wajib' => $wajib, 'order' => 1]
+        );
+
+        return $pertanyaan->id;
+    }
+
+    private function insertUnifiedAnswer(int $biodataId, string $code, string $text, ?string $answer, ?array $answerJson = null, ?int $year = null): void
+    {
+        $qId = $this->insertUnifiedQuestion($code, $text);
+        $section = KuesionerSection::where('target', 'univ')->first();
+
+        KuesionerJawaban::updateOrCreate(
+            ['biodata_id' => $biodataId, 'pertanyaan_id' => $qId],
+            [
+                'section_id' => $section->id,
+                'jawaban' => $answer,
+                'jawaban_teks' => $answer,
+                'jawaban_json' => $answerJson ? json_encode($answerJson) : null,
+                'tahun_lulus' => (string) ($year ?? now()->year),
+            ]
+        );
+    }
 
     /**
      * Tamu harus diarahkan ke login dan tidak boleh membuka analitik.
@@ -148,38 +188,8 @@ class SuperAdminAnalyticsTest extends TestCase
             'nomor_telepon' => '081234567812',
             'email_pribadi' => 'excluded@example.test',
         ]);
-        $questionId = DB::table('ref_subpertanyaan2021')->insertGetId([
-            'kelompok' => 'F3',
-            'kode_pertanyaan' => 'F3',
-            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
-            'type' => 'radio',
-            'wajib' => true,
-            'order' => 1,
-        ]);
-        DB::table('tracer')->insert([
-            'biodata_id' => $includedBiodata->id,
-            'question_id' => $questionId,
-            'nim' => $includedBiodata->nim,
-            'kelompok' => 'F3',
-            'kode_pertanyaan' => 'F3',
-            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
-            'answer' => 'Sebelum lulus',
-            'tahun_lulus' => $year,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        DB::table('tracer')->insert([
-            'biodata_id' => $excludedBiodata->id,
-            'question_id' => $questionId,
-            'nim' => $excludedBiodata->nim,
-            'kelompok' => 'F3',
-            'kode_pertanyaan' => 'F3',
-            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
-            'answer' => 'Setelah lulus',
-            'tahun_lulus' => $year,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $this->insertUnifiedAnswer($includedBiodata->id, 'F3', 'Kapan mulai mencari pekerjaan?', 'Sebelum lulus', null, $year);
+        $this->insertUnifiedAnswer($excludedBiodata->id, 'F3', 'Kapan mulai mencari pekerjaan?', 'Setelah lulus', null, $year);
 
         $analytics = app(TracerAnalyticsService::class)
             ->buildUniversityChart('response_rate', (string) $year, null, $includedProdi->id);
@@ -356,24 +366,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'nomor_telepon' => '081234567899',
             'email_pribadi' => 'analytics-response-rate@example.test',
         ]);
-        $questionId = DB::table('ref_subpertanyaan2021')->insertGetId([
-            'kelompok' => 'F3',
-            'kode_pertanyaan' => 'F3',
-            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
-            'type' => 'radio',
-            'wajib' => true,
-            'order' => 1,
-        ]);
-        DB::table('tracer')->insert([
-            'biodata_id' => $biodata->id,
-            'question_id' => $questionId,
-            'nim' => $biodata->nim,
-            'kelompok' => 'F3',
-            'kode_pertanyaan' => 'F3',
-            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
-            'answer' => 'Sebelum lulus',
-            'tahun_lulus' => now()->year,
-        ]);
+        $this->insertUnifiedAnswer($biodata->id, 'F3', 'Kapan mulai mencari pekerjaan?', 'Sebelum lulus');
 
         $chart = app(TracerAnalyticsService::class)
             ->buildUniversityChart('response_rate', (string) now()->year);
@@ -416,24 +409,8 @@ class SuperAdminAnalyticsTest extends TestCase
             'nomor_telepon' => '081234567891',
             'email_pribadi' => 'analytics-tracer-answer@example.test',
         ]);
-        DB::table('tracer')->insert([
-            'biodata_id' => $biodata->id,
-            'nim' => '72200002',
-            'kelompok' => 'F3',
-            'kode_pertanyaan' => 'F3',
-            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
-            'answer' => 'Sebelum lulus',
-            'tahun_lulus' => now()->year,
-        ]);
-        DB::table('tracer')->insert([
-            'biodata_id' => $biodata->id,
-            'nim' => '72200002',
-            'kelompok' => 'F18',
-            'kode_pertanyaan' => 'F18b',
-            'subpertanyaan' => 'Perguruan tinggi studi lanjut',
-            'answer' => 'Universitas Gadjah Mada',
-            'tahun_lulus' => now()->year,
-        ]);
+        $this->insertUnifiedAnswer($biodata->id, 'F3', 'Kapan mulai mencari pekerjaan?', 'Sebelum lulus');
+        $this->insertUnifiedAnswer($biodata->id, 'F18b', 'Perguruan tinggi studi lanjut', 'Universitas Gadjah Mada', ['degree' => 'S2']);
 
         $chart = app(TracerAnalyticsService::class)
             ->buildUniversityChart('job_search_start', (string) now()->year);
@@ -490,15 +467,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'F14' => 'Erat',
             'F15' => 'Tingkat yang sama',
         ] as $code => $answer) {
-            DB::table('tracer')->insert([
-                'biodata_id' => $biodata->id,
-                'nim' => $biodata->nim,
-                'kelompok' => $code,
-                'kode_pertanyaan' => $code,
-                'subpertanyaan' => 'Pertanyaan '.$code,
-                'answer' => $answer,
-                'tahun_lulus' => now()->year,
-            ]);
+            $this->insertUnifiedAnswer($biodata->id, $code, 'Pertanyaan '.$code, $answer);
         }
 
         $secondUser = User::create([
@@ -524,15 +493,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'nomor_telepon' => '081234567893',
             'email_pribadi' => 'analytics-alignment-distinct@example.test',
         ]);
-        DB::table('tracer')->insert([
-            'biodata_id' => $secondBiodata->id,
-            'nim' => $secondBiodata->nim,
-            'kelompok' => 'F14',
-            'kode_pertanyaan' => 'F14',
-            'subpertanyaan' => 'Hubungan bidang studi',
-            'answer' => 'Kurang erat',
-            'tahun_lulus' => now()->year,
-        ]);
+        $this->insertUnifiedAnswer($secondBiodata->id, 'F14', 'Hubungan bidang studi', 'Kurang erat');
 
         $service = app(TracerAnalyticsService::class);
         $waitTime = $service->buildUniversityChart('wait_time', (string) now()->year);
@@ -652,27 +613,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'email_pribadi' => 'alumni-f2-tester@example.test',
         ]);
 
-        $questionId = DB::table('ref_subpertanyaan2021')->insertGetId([
-            'kelompok' => 'F2',
-            'kode_pertanyaan' => 'F21',
-            'subpertanyaan' => 'Perkuliahan',
-            'type' => 'radio',
-            'wajib' => true,
-            'order' => 1,
-        ]);
-
-        DB::table('tracer')->insert([
-            'biodata_id' => $biodata->id,
-            'question_id' => $questionId,
-            'nim' => $biodata->nim,
-            'kelompok' => 'F2',
-            'kode_pertanyaan' => 'F21',
-            'subpertanyaan' => 'Perkuliahan',
-            'answer' => 'Besar',
-            'tahun_lulus' => 2024,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $this->insertUnifiedAnswer($biodata->id, 'F21', 'Perkuliahan', 'Besar', null, 2024);
 
         $result = app(TracerAnalyticsService::class)->buildUniversityChart('learning_methods', '2024');
 

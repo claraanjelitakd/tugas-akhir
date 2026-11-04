@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\SuperAdmin\KelolaPertanyaan;
 
 use App\Http\Controllers\Controller;
-use App\Models\KelompokPertanyaan;
 use App\Models\Kuesioner;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Prodi;
-use App\Models\RefSubpertanyaan2021;
 use App\Services\Kuesioner\KelengkapanTracerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,76 +29,180 @@ class DaftarPertanyaanController extends Controller
 {
     /**
      * Menampilkan halaman utama Kelola Kuesioner Universitas terpadu.
-     *
-     * @return Response
      */
-    public function index(Request $request)
+    public function index(Request $request): Response
     {
         $user = Auth::user();
 
-        // 1. Ambil seluruh pertanyaan beserta relasi section dan opsi
-        $subpertanyaans = RefSubpertanyaan2021::with(['kelompokPertanyaan.kuesioner', 'detils'])
+        // 1. Ambil seluruh section kuesioner universitas berurutan
+        $univSections = KuesionerSection::where('target', 'univ')
             ->orderBy('order', 'asc')
             ->get();
 
-        // 2. Ambil seluruh section kuesioner berurutan beserta relasi dan jumlah pertanyaan
-        $sections = KelompokPertanyaan::with('kuesioner')
-            ->withCount('subpertanyaans')
+        $sections = $univSections->map(function ($sec) {
+            return [
+                'id' => $sec->id,
+                'kuesioner_id' => 1,
+                'kode_kelompok' => str_replace('SEC_UNIV_', '', $sec->kode_section),
+                'title' => $sec->judul,
+                'description' => $sec->deskripsi,
+                'order' => (int) $sec->order,
+                'subpertanyaans_count' => KuesionerSectionPertanyaan::where('section_id', $sec->id)->count(),
+                'kuesioner' => [
+                    'id' => 1,
+                    'title' => 'Tracer Study UKDW',
+                    'year' => now()->year,
+                ],
+            ];
+        });
+
+        // 2. Ambil seluruh pertanyaan universitas beserta relasi section dan opsi
+        $sectionPertanyaans = KuesionerSectionPertanyaan::whereIn('section_id', $univSections->pluck('id'))
             ->orderBy('order', 'asc')
             ->get();
+
+        $pertanyaanIds = $sectionPertanyaans->pluck('pertanyaan_id')->unique();
+        $pertanyaans = KuesionerPertanyaan::whereIn('id', $pertanyaanIds)
+            ->with(['opsi' => fn ($q) => $q->orderBy('order', 'asc')])
+            ->get()
+            ->keyBy('id');
+
+        $univSectionsById = $univSections->keyBy('id');
+
+        $subpertanyaans = $sectionPertanyaans->map(function ($sp) use ($pertanyaans, $univSectionsById) {
+            $p = $pertanyaans->get($sp->pertanyaan_id);
+            if (! $p) {
+                return null;
+            }
+            $sec = $univSectionsById->get($sp->section_id);
+
+            return [
+                'id' => $p->id,
+                'pertanyaan_id' => $p->id,
+                'kelompok_pertanyaan_id' => $sp->section_id,
+                'kode_pertanyaan' => $p->kode_pertanyaan,
+                'subpertanyaan' => $p->teks_pertanyaan,
+                'type' => $p->tipe,
+                'wajib' => (bool) $sp->wajib,
+                'order' => (int) $sp->order,
+                'tampil_di' => $sp->tampil_di ?? 'kuesioner',
+                'keterangan' => $p->keterangan,
+                'is_active' => (bool) $p->is_active,
+                'kelompok_pertanyaan' => $sec ? [
+                    'id' => $sec->id,
+                    'title' => $sec->judul,
+                    'kode_kelompok' => str_replace('SEC_UNIV_', '', $sec->kode_section),
+                    'order' => (int) $sec->order,
+                    'kuesioner' => [
+                        'id' => 1,
+                        'title' => 'Tracer Study UKDW',
+                        'year' => now()->year,
+                    ],
+                ] : null,
+                'detils' => $p->opsi->map(fn ($o) => [
+                    'id' => $o->id,
+                    'kode_pertanyaan' => $p->kode_pertanyaan,
+                    'kode_opsi' => $p->kode_pertanyaan.'-'.str_pad((string) $o->order, 2, '0', STR_PAD_LEFT),
+                    'option_text' => $o->label,
+                    'score' => $o->nilai_skor,
+                    'jump_to' => $o->lompat_ke_pertanyaan_id,
+                    'order' => (int) $o->order,
+                ])->values(),
+            ];
+        })->filter()->values();
 
         // 3. Ambil daftar kuesioner induk
-        $kuesioners = Kuesioner::withCount('kelompokPertanyaan')
-            ->orderBy('year', 'desc')
+        $kuesioners = Kuesioner::orderBy('year', 'desc')
             ->orderBy('id', 'desc')
-            ->get(['id', 'title', 'description', 'year', 'is_active']);
+            ->get(['id', 'title', 'description', 'year', 'is_active'])
+            ->map(function ($k) use ($sections) {
+                $kArr = $k->toArray();
+                $kArr['kelompok_pertanyaan_count'] = $sections->count();
+
+                return $kArr;
+            });
 
         // 4. Ambil daftar program studi aktif
         $prodis = Prodi::orderBy('kode_prodi', 'asc')->get(['id', 'kode_prodi', 'nama_prodi']);
 
         // 5. Map kode pertanyaan ke teks pertanyaan untuk label percabangan jump_to
-        $targetQuestionMap = RefSubpertanyaan2021::pluck('subpertanyaan', 'kode_pertanyaan')->toArray();
+        $targetQuestionMap = $pertanyaans->pluck('teks_pertanyaan', 'kode_pertanyaan')->toArray();
 
         // 6. Susun daftar pilihan target lompatan untuk dropdown dan pemilih bertingkat (grouped by section)
-        $availableJumpTargets = RefSubpertanyaan2021::with('kelompokPertanyaan')
-            ->orderBy('order', 'asc')
-            ->get()
-            ->map(function ($q) {
-                // Tentukan judul section untuk pengelompokan di dropdown bertingkat
-                $sectionTitle = $q->kelompokPertanyaan
-                    ? 'Kelompok '.$q->kelompokPertanyaan->order.': '.$q->kelompokPertanyaan->title
-                    : 'Pertanyaan Lainnya / Tanpa Section';
+        $availableJumpTargets = $subpertanyaans->map(function ($q) {
+            $sectionTitle = ! empty($q['kelompok_pertanyaan'])
+                ? 'Kelompok '.$q['kelompok_pertanyaan']['order'].': '.$q['kelompok_pertanyaan']['title']
+                : 'Pertanyaan Lainnya / Tanpa Section';
 
-                return [
-                    'id' => $q->id,
-                    'kode_pertanyaan' => $q->kode_pertanyaan,
-                    'label' => $q->kode_pertanyaan.' — '.Str::limit($q->subpertanyaan, 65),
-                    'text' => $q->subpertanyaan,
-                    'kelompok_pertanyaan_id' => $q->kelompok_pertanyaan_id,
-                    'section_title' => $sectionTitle,
-                    'section_order' => $q->kelompokPertanyaan?->order ?? 999,
-                ];
-            });
+            return [
+                'id' => $q['id'],
+                'kode_pertanyaan' => $q['kode_pertanyaan'],
+                'label' => $q['kode_pertanyaan'].' — '.Str::limit($q['subpertanyaan'], 65),
+                'text' => $q['subpertanyaan'],
+                'kelompok_pertanyaan_id' => $q['kelompok_pertanyaan_id'],
+                'section_title' => $sectionTitle,
+                'section_order' => $q['kelompok_pertanyaan']['order'] ?? 999,
+            ];
+        });
 
         // 7. Ambil kuesioner aktif
         $activeKuesioner = $kuesioners->firstWhere('is_active', true) ?? $kuesioners->first();
 
+        // 8. Bank Pertanyaan terpadu (lintas prodi, universitas, & evaluasi atasan yang aktif)
+        $existingUnivQuestionIds = $subpertanyaans->pluck('id')->all();
+        $bankQuestions = KuesionerPertanyaan::query()
+            ->where('is_active', true)
+            ->with([
+                'pemilikProdi:id,nama_prodi,kode_prodi',
+                'sections:id,target,prodi_id,judul',
+                'opsi' => fn ($q) => $q->orderBy('order'),
+            ])
+            ->orderBy('id', 'desc')
+            ->get()
+            ->map(function (KuesionerPertanyaan $p) use ($existingUnivQuestionIds) {
+                $isAtasan = str_starts_with($p->kode_pertanyaan, 'EVA_')
+                    || $p->sections->contains(fn ($s) => $s->target === 'atasan');
+
+                if ($isAtasan) {
+                    $asal = 'Evaluasi Atasan';
+                } elseif ($p->pemilikProdi) {
+                    $asal = $p->pemilikProdi->nama_prodi;
+                } else {
+                    $asal = 'Universitas (Pusat)';
+                }
+
+                return [
+                    'id' => $p->id,
+                    'kode' => $p->kode_pertanyaan,
+                    'teks' => $p->teks_pertanyaan,
+                    'tipe' => $p->tipe,
+                    'asal' => $asal,
+                    'is_already_added' => in_array($p->id, $existingUnivQuestionIds, true),
+                    'options' => $p->opsi->map(fn ($o) => [
+                        'label' => $o->label,
+                        'score' => $o->nilai_skor,
+                    ])->values()->all(),
+                ];
+            })
+            ->values()
+            ->all();
+
         $totalTracerQuestions = $subpertanyaans->filter(function ($q) {
-            return $q->tampil_di !== 'profil' && $q->tampil_di !== 'profile';
+            return $q['tampil_di'] !== 'profil' && $q['tampil_di'] !== 'profile';
         })->count();
 
         $profileCodes = array_map('strtoupper', KelengkapanTracerService::PROFILE_MANAGED_CODES);
 
         $totalProfileQuestions = $subpertanyaans->filter(function ($q) use ($profileCodes) {
-            $codeUpper = strtoupper($q->kode_pertanyaan ?? '');
+            $codeUpper = strtoupper($q['kode_pertanyaan'] ?? '');
 
             return in_array($codeUpper, $profileCodes, true)
-                || $q->tampil_di === 'profil'
-                || $q->tampil_di === 'profile'
-                || $q->tampil_di === 'both';
+                || $q['tampil_di'] === 'profil'
+                || $q['tampil_di'] === 'profile'
+                || $q['tampil_di'] === 'both';
         })->count();
 
-        // 8. Render komponen Vue SuperAdmin/Pertanyaan/Index
+        // 9. Render komponen Vue SuperAdmin/Pertanyaan/Index
         return Inertia::render('SuperAdmin/Pertanyaan/Index', [
             'user' => $user,
             'subpertanyaans' => $subpertanyaans,
@@ -108,6 +213,7 @@ class DaftarPertanyaanController extends Controller
             'availableJumpTargets' => $availableJumpTargets,
             'targetQuestionMap' => $targetQuestionMap,
             'profileManagedCodes' => $profileCodes,
+            'bankQuestions' => $bankQuestions,
             'initialTab' => $request->query('tab', 'sections'),
             'stats' => [
                 'total_kuesioners' => $kuesioners->count(),
@@ -115,6 +221,7 @@ class DaftarPertanyaanController extends Controller
                 'total_tracer_questions' => $totalTracerQuestions,
                 'total_profile_questions' => $totalProfileQuestions,
                 'total_questions' => $subpertanyaans->count(),
+                'total_bank_questions' => count($bankQuestions),
             ],
         ]);
     }

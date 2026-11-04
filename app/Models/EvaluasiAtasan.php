@@ -130,10 +130,10 @@ class EvaluasiAtasan extends Model
     }
 
     /**
-     * Relasi ke jawaban butir dinamis
+     * Relasi ke jawaban butir dinamis terpadu
      */
     public function respons(): HasMany
     {
-        return $this->hasMany(ResponEvaluasiAtasan::class, 'evaluasi_atasan_id');
+        return $this->hasMany(KuesionerJawaban::class, 'evaluasi_atasan_id');
     }
 }

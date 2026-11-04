@@ -14,6 +14,7 @@ use App\Models\RefSubpertanyaanDetil;
 use App\Models\Tracer;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * KuesionerSyncService
@@ -31,6 +32,10 @@ class KuesionerSyncService
      */
     public static function getDynamicProfileQuestions(): Collection
     {
+        if (! Schema::hasTable('ref_subpertanyaan2021')) {
+            return collect();
+        }
+
         $profileCodes = array_merge(
             array_map('strtoupper', KelengkapanTracerService::PROFILE_MANAGED_CODES),
             ['BIO_BIDANG_DIVISI']
@@ -217,7 +222,7 @@ class KuesionerSyncService
             ->where('biodata_id', $biodata->id)
             ->first();
 
-        if (! $autofill) {
+        if (! $autofill || ! Schema::hasTable('ref_subpertanyaan2021') || ! Schema::hasTable('tracer')) {
             return;
         }
 

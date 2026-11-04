@@ -8,6 +8,7 @@ use App\Models\RefSubpertanyaan2021;
 use App\Models\Tracer;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * KelengkapanTracerService
@@ -47,6 +48,23 @@ class KelengkapanTracerService
     {
         $profileCodesUpper = array_map('strtoupper', self::PROFILE_MANAGED_CODES);
 
+        if (! Schema::hasTable('ref_subpertanyaan2021')) {
+            return DB::table('kuesioner_section_pertanyaan as sp')
+                ->join('kuesioner_section as s', 's.id', '=', 'sp.section_id')
+                ->join('kuesioner_pertanyaan as q', 'q.id', '=', 'sp.pertanyaan_id')
+                ->where('s.target', 'univ')
+                ->where('sp.wajib', true)
+                ->where('q.tipe', '!=', 'header')
+                ->where('q.is_active', true)
+                ->where(function ($query) {
+                    $query->whereNull('sp.tampil_di')
+                        ->orWhereNotIn('sp.tampil_di', ['profil', 'profile']);
+                })
+                ->whereNotIn(DB::raw('UPPER(q.kode_pertanyaan)'), $profileCodesUpper)
+                ->pluck('q.kode_pertanyaan')
+                ->all();
+        }
+
         return RefSubpertanyaan2021::where('wajib', true)
             ->where('type', '!=', 'header')
             ->where(function ($query) {
@@ -65,6 +83,18 @@ class KelengkapanTracerService
      */
     public static function isMandatoryQuestion(string $code): bool
     {
+        if (! Schema::hasTable('ref_subpertanyaan2021')) {
+            return DB::table('kuesioner_section_pertanyaan as sp')
+                ->join('kuesioner_section as s', 's.id', '=', 'sp.section_id')
+                ->join('kuesioner_pertanyaan as q', 'q.id', '=', 'sp.pertanyaan_id')
+                ->where('s.target', 'univ')
+                ->where('sp.wajib', true)
+                ->where('q.tipe', '!=', 'header')
+                ->where('q.is_active', true)
+                ->where('q.kode_pertanyaan', $code)
+                ->exists();
+        }
+
         $question = RefSubpertanyaan2021::where('kode_pertanyaan', $code)->first();
 
         return (bool) ($question?->wajib && $question?->type !== 'header');
@@ -121,16 +151,21 @@ class KelengkapanTracerService
             'Kode Pos Perusahaan (Zipcode)' => $summary?->kode_pos ?? $biodata->zipcode,
         ];
 
-        $dynamicProfileQuestions = KuesionerSyncService::getDynamicProfileQuestions()
-            ->filter(fn (RefSubpertanyaan2021 $question): bool => (bool) $question->wajib);
-        $dynamicProfileResponses = Tracer::where('biodata_id', $biodata->id)
-            ->whereIn('question_id', $dynamicProfileQuestions->modelKeys())
-            ->get()
-            ->keyBy('question_id');
+        if (Schema::hasTable('ref_subpertanyaan2021') && Schema::hasTable('tracer')) {
+            $dynamicProfileQuestions = KuesionerSyncService::getDynamicProfileQuestions()
+                ->filter(fn ($question): bool => (bool) $question->wajib);
 
-        foreach ($dynamicProfileQuestions as $question) {
-            $response = $dynamicProfileResponses->get($question->id);
-            $fields['Pertanyaan Profil: '.$question->subpertanyaan] = $response?->answer;
+            if ($dynamicProfileQuestions->isNotEmpty()) {
+                $dynamicProfileResponses = Tracer::where('biodata_id', $biodata->id)
+                    ->whereIn('question_id', $dynamicProfileQuestions->pluck('id')->all())
+                    ->get()
+                    ->keyBy('question_id');
+
+                foreach ($dynamicProfileQuestions as $question) {
+                    $response = $dynamicProfileResponses->get($question->id);
+                    $fields['Pertanyaan Profil: '.$question->subpertanyaan] = $response?->answer;
+                }
+            }
         }
 
         $isTeologi = ($biodata->prodi?->kode_prodi === '31' || substr((string) $biodata->nim, 0, 2) === '31');
@@ -327,6 +362,34 @@ class KelengkapanTracerService
      */
     public static function evaluasiKuesionerWajib(Biodata $biodata): array
     {
+        if (! Schema::hasTable('ref_subpertanyaan2021') || ! Schema::hasTable('tracer')) {
+            $statusRow = DB::table('v_alumni_tracer_univ_status')
+                ->where('biodata_id', $biodata->id)
+                ->first();
+
+            $totalMandatory = (int) ($statusRow?->total_mandatory_univ ?? 0);
+            $answeredCount = (int) ($statusRow?->answered_mandatory_univ ?? 0);
+            $totalAnswered = (int) ($statusRow?->total_answered_univ ?? 0);
+            $percentage = $totalMandatory > 0 ? (int) round(($answeredCount / $totalMandatory) * 100) : 100;
+            $isComplete = ($totalMandatory > 0 && $answeredCount >= $totalMandatory);
+
+            return [
+                'is_complete' => $isComplete,
+                'is_mandatory_complete' => $isComplete,
+                'is_fully_complete' => $isComplete,
+                'percentage' => $percentage,
+                'mandatory_percentage' => $percentage,
+                'overall_percentage' => $percentage,
+                'answered_count' => $answeredCount,
+                'total_mandatory' => $totalMandatory,
+                'total_applicable' => $totalMandatory,
+                'total_answered' => $totalAnswered,
+                'unanswered_optional_count' => 0,
+                'missing_questions' => [],
+                'missing_optional_questions' => [],
+            ];
+        }
+
         // Pastikan respon profil tersinkron ke tabel tracer
         KuesionerSyncService::syncProfileResponses($biodata);
 

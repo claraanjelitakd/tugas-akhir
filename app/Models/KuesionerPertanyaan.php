@@ -73,4 +73,35 @@ class KuesionerPertanyaan extends Model
     {
         return $this->hasMany(KuesionerJawaban::class, 'pertanyaan_id');
     }
+
+    /**
+     * Alias aspek teks pertanyaan untuk kompatibilitas instrumen atasan.
+     */
+    public function getAspekAttribute(): ?string
+    {
+        return $this->teks_pertanyaan;
+    }
+
+    /**
+     * Alias kode pertanyaan (tanpa prefix EVA_) untuk kompatibilitas form evaluasi.
+     */
+    public function getKodeAttribute(): ?string
+    {
+        return str_starts_with($this->kode_pertanyaan, 'EVA_')
+            ? substr($this->kode_pertanyaan, 4)
+            : $this->kode_pertanyaan;
+    }
+
+    /**
+     * Cek apakah pertanyaan merupakan atribut profil perusahaan.
+     */
+    public function getIsCompanyFieldAttribute(): bool
+    {
+        $codes = [
+            'EVA_skala_perusahaan', 'EVA_jumlah_pegawai', 'EVA_jumlah_alumni_ukdw', 'EVA_standar_gaji_pertama',
+            'skala_perusahaan', 'jumlah_pegawai', 'jumlah_alumni_ukdw', 'standar_gaji_pertama',
+        ];
+
+        return in_array($this->kode_pertanyaan, $codes, true) || in_array($this->kode, $codes, true);
+    }
 }
