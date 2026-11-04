@@ -1,7 +1,7 @@
 <script setup>
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
-import Sidebar from '@/Pages/SuperAdmin/Components/Sidebar.vue';
+import AdminSidebar from '@/components/AdminSidebar.vue';
 
 const props = defineProps({
     user: Object,
@@ -206,7 +206,7 @@ const filteredAlumni = computed(() => {
 
     <div class="min-h-screen bg-[#f8fafc] text-gray-800 flex font-sans">
         
-        <Sidebar :user="user" />
+        <AdminSidebar role="superadmin" :user="user" active-menu="dashboard" />
 
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             
