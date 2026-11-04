@@ -4,6 +4,10 @@ namespace App\Http\Controllers\Alumni\Kuesioner;
 
 use App\Http\Controllers\Controller;
 use App\Models\Atasan;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\Perusahaan;
 use App\Models\QuestionMapping;
 use App\Models\RefSubpertanyaan2021;
@@ -303,6 +307,14 @@ class SimpanJawabanController extends Controller
                     })
                     ->delete();
 
+                $unifiedPertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', $subpertanyaan->kode_pertanyaan)->first();
+                if ($unifiedPertanyaan) {
+                    KuesionerJawaban::where('responden_type', 'alumni')
+                        ->where('biodata_id', $biodata->id)
+                        ->where('pertanyaan_id', $unifiedPertanyaan->id)
+                        ->delete();
+                }
+
                 continue;
             }
 
@@ -328,6 +340,32 @@ class SimpanJawabanController extends Controller
                     'tahun_lulus' => $biodata->tahun_lulus ?? $biodata->dataAkademik?->tahun_lulus,
                 ]
             );
+
+            // Simpan juga ke skema tabel terpadu kuesioner_jawaban
+            $unifiedPertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', $subpertanyaan->kode_pertanyaan)->first();
+            if ($unifiedPertanyaan) {
+                $univSection = KuesionerSection::where('target', 'univ')->first();
+                $opsi = null;
+                if (! empty($answerText)) {
+                    $opsi = KuesionerOpsi::where('pertanyaan_id', $unifiedPertanyaan->id)
+                        ->where('label', $answerText)
+                        ->first();
+                }
+
+                KuesionerJawaban::updateOrCreate(
+                    [
+                        'responden_type' => 'alumni',
+                        'biodata_id' => $biodata->id,
+                        'pertanyaan_id' => $unifiedPertanyaan->id,
+                    ],
+                    [
+                        'section_id' => $univSection?->id ?: 1,
+                        'opsi_id' => $opsi?->id,
+                        'jawaban_teks' => $answerText,
+                        'jawaban_json' => $answerJson,
+                    ]
+                );
+            }
 
             // Jika pertanyaan adalah F8, sinkronisasikan nilai kategori_pekerjaan di tabel biodata
             if ($subpertanyaan->kode_pertanyaan === 'F8' && ! empty($answerText)) {

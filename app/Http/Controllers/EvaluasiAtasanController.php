@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use App\Mail\KonfirmasiEvaluasiAtasanTerkirimMail;
 use App\Models\Atasan;
 use App\Models\EvaluasiAtasan;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\PertanyaanEvaluasiAtasan;
 use App\Models\Perusahaan;
 use App\Models\ResponEvaluasiAtasan;
@@ -356,13 +360,36 @@ class EvaluasiAtasanController extends Controller
 
             $lockedEvaluation->perusahaan_id = $perusahaan->id;
 
+            $atasanSection = KuesionerSection::where('target', 'atasan')->first();
             foreach ($validated['jawaban'] as $code => $value) {
+                $pertanyaan = $activeQuestions->get($code);
                 ResponEvaluasiAtasan::create([
                     'evaluasi_atasan_id' => $lockedEvaluation->id,
-                    'pertanyaan_id' => $activeQuestions->get($code)->id,
+                    'pertanyaan_id' => $pertanyaan->id,
                     'nilai' => $value,
                     'catatan' => $validated['catatan_lainnya'] ?? null,
                 ]);
+
+                // Sinkronisasi ke kuesioner_jawaban terpadu
+                $unifiedPertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', 'EVA_'.$code)->first();
+                if ($unifiedPertanyaan) {
+                    $opsi = KuesionerOpsi::where('pertanyaan_id', $unifiedPertanyaan->id)
+                        ->where('label', $value)
+                        ->first();
+
+                    KuesionerJawaban::updateOrCreate(
+                        [
+                            'responden_type' => 'atasan',
+                            'evaluasi_atasan_id' => $lockedEvaluation->id,
+                            'pertanyaan_id' => $unifiedPertanyaan->id,
+                        ],
+                        [
+                            'section_id' => $atasanSection?->id ?: 1,
+                            'opsi_id' => $opsi?->id,
+                            'jawaban_teks' => $value,
+                        ]
+                    );
+                }
             }
 
             $atasanData = array_filter([

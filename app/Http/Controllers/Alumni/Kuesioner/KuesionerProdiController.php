@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Alumni\Kuesioner;
 
 use App\Http\Controllers\Controller;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\ProdiQuestion;
 use App\Models\ProdiQuestionSection;
 use App\Models\ProdiResponse;
@@ -247,11 +251,48 @@ class KuesionerProdiController extends Controller
                         'answer_json' => $answerJson,
                     ]
                 );
+
+                // Sinkronisasi ke kuesioner_jawaban terpadu
+                $unifiedPertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', $q->code)->first();
+                if ($unifiedPertanyaan) {
+                    $sec = KuesionerSection::where('target', 'prodi')
+                        ->where('prodi_id', $biodata->prodi_id)
+                        ->first();
+
+                    $opsi = null;
+                    if ($answerValue) {
+                        $opsi = KuesionerOpsi::where('pertanyaan_id', $unifiedPertanyaan->id)
+                            ->where('label', $answerValue)
+                            ->first();
+                    }
+
+                    KuesionerJawaban::updateOrCreate(
+                        [
+                            'responden_type' => 'alumni',
+                            'biodata_id' => $biodata->id,
+                            'pertanyaan_id' => $unifiedPertanyaan->id,
+                        ],
+                        [
+                            'section_id' => $sec?->id ?: 1,
+                            'opsi_id' => $opsi?->id,
+                            'jawaban_teks' => $answerValue,
+                            'jawaban_json' => $answerJson,
+                        ]
+                    );
+                }
             } else {
                 // Jika jawaban kosong atau tidak diisi, hapus record dari database agar persentase di dashboard berkurang secara akurat
                 ProdiResponse::where('biodata_id', $biodata->id)
                     ->where('prodi_question_id', $q->id)
                     ->delete();
+
+                $unifiedPertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', $q->code)->first();
+                if ($unifiedPertanyaan) {
+                    KuesionerJawaban::where('responden_type', 'alumni')
+                        ->where('biodata_id', $biodata->id)
+                        ->where('pertanyaan_id', $unifiedPertanyaan->id)
+                        ->delete();
+                }
             }
         }
 

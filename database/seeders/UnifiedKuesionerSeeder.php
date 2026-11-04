@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\KelompokPertanyaan;
-use App\Models\KuesionerJawaban;
 use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
@@ -12,13 +11,12 @@ use App\Models\PertanyaanEvaluasiAtasan;
 use App\Models\ProdiQuestion;
 use App\Models\ProdiQuestionOption;
 use App\Models\ProdiQuestionSection;
-use App\Models\ProdiResponse;
 use App\Models\RefSubpertanyaan2021;
 use App\Models\RefSubpertanyaanDetil;
-use App\Models\ResponEvaluasiAtasan;
 use App\Models\SectionEvaluasiAtasan;
 use App\Models\Tracer;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -72,13 +70,13 @@ class UnifiedKuesionerSeeder extends Seeder
         $kelompoks = KelompokPertanyaan::all();
         foreach ($kelompoks as $kelompok) {
             $section = KuesionerSection::updateOrCreate(
-                ['kode_section' => 'SEC_UNIV_'.$kelompok->kode_kelompok],
+                ['kode_section' => 'SEC_UNIV_'.($kelompok->kode_kelompok ?: $kelompok->id)],
                 [
                     'target' => 'univ',
                     'prodi_id' => null,
-                    'judul' => $kelompok->nama_kelompok,
-                    'deskripsi' => $kelompok->deskripsi,
-                    'order' => (int) $kelompok->kode_kelompok,
+                    'judul' => $kelompok->title ?: ('Bagian '.$kelompok->kode_kelompok),
+                    'deskripsi' => null,
+                    'order' => (int) ($kelompok->order ?: 1),
                     'is_active' => true,
                 ]
             );
@@ -114,7 +112,7 @@ class UnifiedKuesionerSeeder extends Seeder
 
                 // Opsi pilihan jawaban dari ref_subpertanyaan_detil
                 $detils = RefSubpertanyaanDetil::where('pertanyaan_id', $sub->id)
-                    ->orWhere('kode_sub_pertanyaan', $sub->kode_pertanyaan)
+                    ->orWhere('kode_pertanyaan', $sub->kode_pertanyaan)
                     ->orderBy('id')
                     ->get();
 
@@ -125,9 +123,9 @@ class UnifiedKuesionerSeeder extends Seeder
                             'kode_opsi' => $detil->kode_opsi ?: ($sub->kode_pertanyaan.'_'.($idx + 1)),
                         ],
                         [
-                            'label' => $detil->opsi,
-                            'nilai_skor' => is_numeric($detil->nilai) ? (int) $detil->nilai : null,
-                            'order' => $idx + 1,
+                            'label' => $detil->option_text,
+                            'nilai_skor' => is_numeric($detil->kode_opsi) ? (int) $detil->kode_opsi : null,
+                            'order' => (int) ($detil->order ?: ($idx + 1)),
                         ]
                     );
                 }
@@ -214,8 +212,8 @@ class UnifiedKuesionerSeeder extends Seeder
             $sections = collect([
                 (object) [
                     'id' => 1,
-                    'judul' => 'Evaluasi Pengguna Lulusan',
-                    'deskripsi' => 'Penilaian kinerja dan kesiapan alumni di lingkungan kerja.',
+                    'title' => 'Evaluasi Pengguna Lulusan',
+                    'description' => 'Penilaian kinerja dan kesiapan alumni di lingkungan kerja.',
                     'order' => 1,
                 ],
             ]);
@@ -227,8 +225,8 @@ class UnifiedKuesionerSeeder extends Seeder
                 [
                     'target' => 'atasan',
                     'prodi_id' => null,
-                    'judul' => $sec->judul,
-                    'deskripsi' => $sec->deskripsi ?? null,
+                    'judul' => $sec->title ?? 'Evaluasi Pengguna Lulusan',
+                    'deskripsi' => $sec->description ?? null,
                     'order' => (int) ($sec->order ?: 1),
                     'is_active' => true,
                 ]
@@ -283,6 +281,7 @@ class UnifiedKuesionerSeeder extends Seeder
 
     /**
      * Memindahkan riwayat respon alumni dan atasan ke tabel kuesioner_jawaban terpadu.
+     * Menggunakan direct batch SQL agar ribuan data terproses dalam hitungan detik.
      */
     private function migrateResponses(): void
     {
@@ -290,115 +289,100 @@ class UnifiedKuesionerSeeder extends Seeder
         if (SchemaHasTable('tracer')) {
             $univSection = KuesionerSection::where('target', 'univ')->first();
             if ($univSection) {
-                $tracers = Tracer::query()->whereNotNull('biodata_id')->get();
-                foreach ($tracers as $tracer) {
-                    $pertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', $tracer->kode_pertanyaan)->first();
-                    if (! $pertanyaan) {
-                        continue;
-                    }
-
-                    $opsi = null;
-                    if ($tracer->answer) {
-                        $opsi = KuesionerOpsi::where('pertanyaan_id', $pertanyaan->id)
-                            ->where('label', $tracer->answer)
-                            ->first();
-                    }
-
-                    KuesionerJawaban::updateOrCreate(
-                        [
-                            'responden_type' => 'alumni',
-                            'biodata_id' => $tracer->biodata_id,
-                            'pertanyaan_id' => $pertanyaan->id,
-                        ],
-                        [
-                            'section_id' => $univSection->id,
-                            'opsi_id' => $opsi?->id,
-                            'jawaban_teks' => $tracer->answer,
-                            'jawaban_json' => is_array($tracer->answer_json) ? $tracer->answer_json : null,
-                            'created_at' => $tracer->created_at ?: now(),
-                        ]
-                    );
+                if (DB::connection()->getDriverName() === 'sqlite') {
+                    DB::statement("
+                        INSERT OR IGNORE INTO kuesioner_jawaban (
+                            responden_type, biodata_id, section_id, pertanyaan_id, opsi_id, jawaban_teks, jawaban_json, created_at, updated_at
+                        )
+                        SELECT
+                            'alumni', t.biodata_id, ?, p.id, o.id, t.answer, t.answer_json, COALESCE(t.created_at, CURRENT_TIMESTAMP), COALESCE(t.updated_at, CURRENT_TIMESTAMP)
+                        FROM tracer t
+                        JOIN kuesioner_pertanyaan p ON t.kode_pertanyaan = p.kode_pertanyaan
+                        LEFT JOIN kuesioner_opsi o ON p.id = o.pertanyaan_id AND o.label = t.answer
+                        WHERE t.biodata_id IS NOT NULL
+                    ", [$univSection->id]);
+                } else {
+                    DB::statement("
+                        INSERT INTO kuesioner_jawaban (
+                            responden_type, biodata_id, section_id, pertanyaan_id, opsi_id, jawaban_teks, jawaban_json, created_at, updated_at
+                        )
+                        SELECT
+                            'alumni', t.biodata_id, ?, p.id, o.id, t.answer, t.answer_json, COALESCE(t.created_at, NOW()), COALESCE(t.updated_at, NOW())
+                        FROM tracer t
+                        JOIN kuesioner_pertanyaan p ON t.kode_pertanyaan = p.kode_pertanyaan
+                        LEFT JOIN kuesioner_opsi o ON p.id = o.pertanyaan_id AND o.label = t.answer
+                        WHERE t.biodata_id IS NOT NULL
+                    ", [$univSection->id]);
                 }
             }
         }
 
         // 2. Jawaban Kuesioner Prodi
-        if (SchemaHasTable('prodi_response')) {
-            $prodiResponses = ProdiResponse::with('question')->whereNotNull('biodata_id')->get();
-            foreach ($prodiResponses as $resp) {
-                if (! $resp->question) {
-                    continue;
-                }
+        if (SchemaHasTable('prodi_response') && SchemaHasTable('prodi_question')) {
+            $prodiSection = KuesionerSection::where('target', 'prodi')->first();
+            $defaultSecId = $prodiSection?->id ?: 1;
 
-                $pertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', $resp->question->code)->first();
-                if (! $pertanyaan) {
-                    continue;
-                }
-
-                $sec = KuesionerSection::where('target', 'prodi')
-                    ->where('prodi_id', $resp->question->prodi_id)
-                    ->first();
-
-                if (! $sec) {
-                    continue;
-                }
-
-                $opsi = null;
-                if ($resp->answer_text) {
-                    $opsi = KuesionerOpsi::where('pertanyaan_id', $pertanyaan->id)
-                        ->where('label', $resp->answer_text)
-                        ->first();
-                }
-
-                KuesionerJawaban::updateOrCreate(
-                    [
-                        'responden_type' => 'alumni',
-                        'biodata_id' => $resp->biodata_id,
-                        'pertanyaan_id' => $pertanyaan->id,
-                    ],
-                    [
-                        'section_id' => $sec->id,
-                        'opsi_id' => $opsi?->id,
-                        'jawaban_teks' => $resp->answer_text,
-                        'jawaban_json' => is_array($resp->answer_json) ? $resp->answer_json : null,
-                        'created_at' => $resp->created_at ?: now(),
-                    ]
-                );
+            if (DB::connection()->getDriverName() === 'sqlite') {
+                DB::statement("
+                    INSERT OR IGNORE INTO kuesioner_jawaban (
+                        responden_type, biodata_id, section_id, pertanyaan_id, opsi_id, jawaban_teks, jawaban_json, created_at, updated_at
+                    )
+                    SELECT
+                        'alumni', pr.biodata_id, COALESCE(sec.id, ?), p.id, o.id, pr.answer_text, pr.answer_json, COALESCE(pr.created_at, CURRENT_TIMESTAMP), COALESCE(pr.updated_at, CURRENT_TIMESTAMP)
+                    FROM prodi_response pr
+                    JOIN prodi_question pq ON pr.prodi_question_id = pq.id
+                    JOIN kuesioner_pertanyaan p ON pq.code = p.kode_pertanyaan
+                    LEFT JOIN kuesioner_section sec ON sec.target = 'prodi' AND sec.prodi_id = pq.prodi_id
+                    LEFT JOIN kuesioner_opsi o ON p.id = o.pertanyaan_id AND o.label = pr.answer_text
+                    WHERE pr.biodata_id IS NOT NULL
+                ", [$defaultSecId]);
+            } else {
+                DB::statement("
+                    INSERT INTO kuesioner_jawaban (
+                        responden_type, biodata_id, section_id, pertanyaan_id, opsi_id, jawaban_teks, jawaban_json, created_at, updated_at
+                    )
+                    SELECT
+                        'alumni', pr.biodata_id, COALESCE(sec.id, ?), p.id, o.id, pr.answer_text, pr.answer_json, COALESCE(pr.created_at, NOW()), COALESCE(pr.updated_at, NOW())
+                    FROM prodi_response pr
+                    JOIN prodi_question pq ON pr.prodi_question_id = pq.id
+                    JOIN kuesioner_pertanyaan p ON pq.code = p.kode_pertanyaan
+                    LEFT JOIN kuesioner_section sec ON sec.target = 'prodi' AND sec.prodi_id = pq.prodi_id
+                    LEFT JOIN kuesioner_opsi o ON p.id = o.pertanyaan_id AND o.label = pr.answer_text
+                    WHERE pr.biodata_id IS NOT NULL
+                ", [$defaultSecId]);
             }
         }
 
         // 3. Jawaban Evaluasi Atasan
-        if (SchemaHasTable('respon_evaluasi_atasan')) {
+        if (SchemaHasTable('respon_evaluasi_atasan') && SchemaHasTable('pertanyaan_evaluasi_atasan')) {
             $atasanSection = KuesionerSection::where('target', 'atasan')->first();
             if ($atasanSection) {
-                $evalResponses = ResponEvaluasiAtasan::with('pertanyaan')->get();
-                foreach ($evalResponses as $resp) {
-                    if (! $resp->pertanyaan) {
-                        continue;
-                    }
-
-                    $pertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', 'EVA_'.$resp->pertanyaan->kode)->first();
-                    if (! $pertanyaan) {
-                        continue;
-                    }
-
-                    $opsi = KuesionerOpsi::where('pertanyaan_id', $pertanyaan->id)
-                        ->where('label', $resp->nilai)
-                        ->first();
-
-                    KuesionerJawaban::updateOrCreate(
-                        [
-                            'responden_type' => 'atasan',
-                            'evaluasi_atasan_id' => $resp->evaluasi_atasan_id,
-                            'pertanyaan_id' => $pertanyaan->id,
-                        ],
-                        [
-                            'section_id' => $atasanSection->id,
-                            'opsi_id' => $opsi?->id,
-                            'jawaban_teks' => $resp->nilai,
-                            'created_at' => $resp->created_at ?: now(),
-                        ]
-                    );
+                if (DB::connection()->getDriverName() === 'sqlite') {
+                    DB::statement("
+                        INSERT OR IGNORE INTO kuesioner_jawaban (
+                            responden_type, evaluasi_atasan_id, section_id, pertanyaan_id, opsi_id, jawaban_teks, created_at, updated_at
+                        )
+                        SELECT
+                            'atasan', rea.evaluasi_atasan_id, ?, p.id, o.id, rea.nilai, COALESCE(rea.created_at, CURRENT_TIMESTAMP), COALESCE(rea.updated_at, CURRENT_TIMESTAMP)
+                        FROM respon_evaluasi_atasan rea
+                        JOIN pertanyaan_evaluasi_atasan pea ON rea.pertanyaan_id = pea.id
+                        JOIN kuesioner_pertanyaan p ON ('EVA_' || pea.kode) = p.kode_pertanyaan
+                        LEFT JOIN kuesioner_opsi o ON p.id = o.pertanyaan_id AND o.label = rea.nilai
+                        WHERE rea.evaluasi_atasan_id IS NOT NULL
+                    ", [$atasanSection->id]);
+                } else {
+                    DB::statement("
+                        INSERT INTO kuesioner_jawaban (
+                            responden_type, evaluasi_atasan_id, section_id, pertanyaan_id, opsi_id, jawaban_teks, created_at, updated_at
+                        )
+                        SELECT
+                            'atasan', rea.evaluasi_atasan_id, ?, p.id, o.id, rea.nilai, COALESCE(rea.created_at, NOW()), COALESCE(rea.updated_at, NOW())
+                        FROM respon_evaluasi_atasan rea
+                        JOIN pertanyaan_evaluasi_atasan pea ON rea.pertanyaan_id = pea.id
+                        JOIN kuesioner_pertanyaan p ON CONCAT('EVA_', pea.kode) = p.kode_pertanyaan
+                        LEFT JOIN kuesioner_opsi o ON p.id = o.pertanyaan_id AND o.label = rea.nilai
+                        WHERE rea.evaluasi_atasan_id IS NOT NULL
+                    ", [$atasanSection->id]);
                 }
             }
         }

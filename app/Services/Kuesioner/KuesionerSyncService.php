@@ -3,6 +3,10 @@
 namespace App\Services\Kuesioner;
 
 use App\Models\Biodata;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\ProdiQuestion;
 use App\Models\ProdiResponse;
 use App\Models\RefSubpertanyaan2021;
@@ -303,6 +307,32 @@ class KuesionerSyncService
                         'tahun_lulus' => $tahunLulus,
                     ]
                 );
+
+                // Sinkronisasi ke kuesioner_jawaban terpadu
+                $unifiedPertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', $question->kode_pertanyaan)->first();
+                if ($unifiedPertanyaan) {
+                    $univSection = KuesionerSection::where('target', 'univ')->first();
+                    $opsi = null;
+                    if (! empty($answerString)) {
+                        $opsi = KuesionerOpsi::where('pertanyaan_id', $unifiedPertanyaan->id)
+                            ->where('label', $answerString)
+                            ->first();
+                    }
+
+                    KuesionerJawaban::updateOrCreate(
+                        [
+                            'responden_type' => 'alumni',
+                            'biodata_id' => $biodata->id,
+                            'pertanyaan_id' => $unifiedPertanyaan->id,
+                        ],
+                        [
+                            'section_id' => $univSection?->id ?: 1,
+                            'opsi_id' => $opsi?->id,
+                            'jawaban_teks' => $answerString,
+                            'jawaban_json' => $answerJson,
+                        ]
+                    );
+                }
             }
         }
 
@@ -349,6 +379,26 @@ class KuesionerSyncService
                         'answer_json' => null,
                     ]
                 );
+
+                // Sinkronisasi ke kuesioner_jawaban terpadu
+                $unifiedPertanyaan = KuesionerPertanyaan::where('kode_pertanyaan', $pQ->code)->first();
+                if ($unifiedPertanyaan) {
+                    $sec = KuesionerSection::where('target', 'prodi')
+                        ->where('prodi_id', $biodata->prodi_id)
+                        ->first();
+
+                    KuesionerJawaban::updateOrCreate(
+                        [
+                            'responden_type' => 'alumni',
+                            'biodata_id' => $biodata->id,
+                            'pertanyaan_id' => $unifiedPertanyaan->id,
+                        ],
+                        [
+                            'section_id' => $sec?->id ?: 1,
+                            'jawaban_teks' => (string) $val,
+                        ]
+                    );
+                }
             }
         }
     }
