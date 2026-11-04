@@ -105,5 +105,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             LinkedinSyncResultSeeder::class,
         ]);
+
+        // 12. Konsolidasi seluruh instrumen survei ke Unified Survey Engine
+        $this->call([
+            UnifiedKuesionerSeeder::class,
+        ]);
     }
 }
