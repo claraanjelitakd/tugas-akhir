@@ -78,7 +78,8 @@ const createSections = (role) => {
                     ...(capabilities.supervisorEvaluation ? [createMenuItem('analytics-atasan', `/${prefix}/analitik-atasan`, 'Grafik Evaluasi Atasan', 'chart', [`/${prefix}/analitik-atasan`])] : []),
                 ] : []),
                 createMenuItem('alumni', `/${prefix}/alumni`, definition.alumniLabel, 'users'),
-                ...(capabilities.linkedin ? [createMenuItem('linkedin-sync', `/${prefix}/linkedin-sync`, 'Sinkronisasi LinkedIn', 'linkedin', [`/${prefix}/linkedin-sync`])] : []),
+                // Menu Sinkronisasi LinkedIn dinonaktifkan dari navigasi sidebar atas arahan pengguna (akses sinkronisasi dilakukan via tombol Aksi tabel alumni dan tab detail alumni)
+                // ...(capabilities.linkedin ? [createMenuItem('linkedin-sync', `/${prefix}/linkedin-sync`, 'Sinkronisasi LinkedIn', 'linkedin', [`/${prefix}/linkedin-sync`])] : []),
             ],
         },
         {
