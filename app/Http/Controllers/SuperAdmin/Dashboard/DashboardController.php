@@ -58,7 +58,7 @@ class DashboardController extends Controller
         $dashboardAggregate = DB::table('v_alumni_audit_rekap')
             ->where('tahun_lulus', $selectedYear)
             ->selectRaw('COUNT(*) AS total_alumni')
-            ->selectRaw('SUM(CASE WHEN answered_mandatory_univ > 0 THEN 1 ELSE 0 END) AS total_responden')
+            ->selectRaw('SUM(CASE WHEN is_complete_univ = 1 THEN 1 ELSE 0 END) AS total_responden')
             ->selectRaw('SUM(CASE WHEN is_profile_complete = 1 THEN 1 ELSE 0 END) AS profile_complete_count')
             ->selectRaw('SUM(CASE WHEN is_complete_univ = 1 THEN 1 ELSE 0 END) AS university_complete_count')
             ->selectRaw('SUM(CASE WHEN is_profile_complete = 1 AND is_complete_univ = 1 THEN 1 ELSE 0 END) AS overall_complete_count')
@@ -98,7 +98,7 @@ class DashboardController extends Controller
             ->select(
                 'prodi_id',
                 DB::raw('COUNT(*) as total_alumni'),
-                DB::raw('SUM(CASE WHEN answered_mandatory_univ > 0 THEN 1 ELSE 0 END) as total_responden')
+                DB::raw('SUM(CASE WHEN is_complete_univ = 1 THEN 1 ELSE 0 END) as total_responden')
             )
             ->whereNotNull('prodi_id')
             ->groupBy('prodi_id')

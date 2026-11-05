@@ -134,6 +134,26 @@ Route::middleware('auth')->group(function () {
             Route::get('/biro3/alumni/{id}', [DetailAlumniController::class, 'tampilkanDetailAlumni'])->name('biro3.alumni.show');
             Route::get('/biro3/alumni/{id}/export-excel', [DetailAlumniController::class, 'exportExcel'])->name('biro3.alumni.export-excel');
             Route::post('/biro3/alumni/{id}/profile', [DetailAlumniController::class, 'updateProfile'])->name('biro3.alumni.profile.update');
+
+            // Analitik Tracer Study Biro 3
+            Route::get('/biro3/analitik', [TracerAnalyticsController::class, 'index'])->name('biro3.analytics.index');
+            Route::get('/biro3/analitik/data', [TracerAnalyticsController::class, 'data'])->name('biro3.analytics.data');
+            Route::get('/biro3/analitik/export-response-rate', [TracerAnalyticsController::class, 'exportResponseRate'])->name('biro3.analytics.export_response_rate');
+            Route::get('/biro3/analitik-prodi', [ProdiAnalyticsController::class, 'index'])->name('biro3.analytics-prodi.index');
+            Route::get('/biro3/analitik-prodi/data', [ProdiAnalyticsController::class, 'data'])->name('biro3.analytics-prodi.data');
+            Route::get('/biro3/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('biro3.analytics-atasan.index');
+            Route::get('/biro3/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('biro3.analytics-atasan.data');
+
+            // Sinkronisasi Profil LinkedIn Biro 3
+            Route::get('/biro3/linkedin-sync', [LinkedInSyncController::class, 'index'])->name('biro3.linkedin-sync.index');
+            Route::post('/biro3/linkedin-sync/batch', [LinkedInSyncController::class, 'syncBatch'])->name('biro3.linkedin-sync.batch');
+            Route::patch('/biro3/linkedin-sync/{id}/url', [LinkedInSyncController::class, 'updateUrl'])->name('biro3.linkedin-sync.url.update');
+            Route::post('/biro3/linkedin-sync/{id}', [LinkedInSyncController::class, 'syncSingle'])->name('biro3.linkedin-sync.single');
+            Route::get('/biro3/linkedin-sync/results/{id}', [LinkedInSyncController::class, 'showResult'])->name('biro3.linkedin-sync.result.show');
+            Route::post('/biro3/linkedin-sync/results/{id}/approve', [LinkedInSyncController::class, 'approveResult'])->name('biro3.linkedin-sync.result.approve');
+            Route::post('/biro3/linkedin-sync/results/{id}/plot-again', [LinkedInSyncController::class, 'plotAgain'])->name('biro3.linkedin-sync.result.plot-again');
+            Route::post('/biro3/linkedin-sync/results/{id}/reject', [LinkedInSyncController::class, 'rejectResult'])->name('biro3.linkedin-sync.result.reject');
+            Route::get('/biro3/linkedin-sync/alumni/{id}/history', [LinkedInSyncController::class, 'history'])->name('biro3.linkedin-sync.alumni.history');
         });
 
         // -----------------------------------------------------------------
@@ -204,6 +224,15 @@ Route::middleware('auth')->group(function () {
             Route::post('/prodi/linkedin-sync/results/{id}/plot-again', [LinkedInSyncController::class, 'plotAgain'])->name('prodi.linkedin-sync.result.plot-again');
             Route::post('/prodi/linkedin-sync/results/{id}/reject', [LinkedInSyncController::class, 'rejectResult'])->name('prodi.linkedin-sync.result.reject');
             Route::get('/prodi/linkedin-sync/alumni/{id}/history', [LinkedInSyncController::class, 'history'])->name('prodi.linkedin-sync.alumni.history');
+
+            // Analitik Tracer Study Khusus Program Studi
+            Route::get('/prodi/analitik', [TracerAnalyticsController::class, 'index'])->name('prodi.analytics.index');
+            Route::get('/prodi/analitik/data', [TracerAnalyticsController::class, 'data'])->name('prodi.analytics.data');
+            Route::get('/prodi/analitik/export-response-rate', [TracerAnalyticsController::class, 'exportResponseRate'])->name('prodi.analytics.export_response_rate');
+            Route::get('/prodi/analitik-prodi', [ProdiAnalyticsController::class, 'index'])->name('prodi.analytics-prodi.index');
+            Route::get('/prodi/analitik-prodi/data', [ProdiAnalyticsController::class, 'data'])->name('prodi.analytics-prodi.data');
+            Route::get('/prodi/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('prodi.analytics-atasan.index');
+            Route::get('/prodi/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('prodi.analytics-atasan.data');
         });
 
         // -----------------------------------------------------------------
@@ -256,6 +285,15 @@ Route::middleware('auth')->group(function () {
             Route::post('/fakultas/linkedin-sync/results/{id}/plot-again', [LinkedInSyncController::class, 'plotAgain'])->name('fakultas.linkedin-sync.result.plot-again');
             Route::post('/fakultas/linkedin-sync/results/{id}/reject', [LinkedInSyncController::class, 'rejectResult'])->name('fakultas.linkedin-sync.result.reject');
             Route::get('/fakultas/linkedin-sync/alumni/{id}/history', [LinkedInSyncController::class, 'history'])->name('fakultas.linkedin-sync.alumni.history');
+
+            // Analitik Tracer Study Lingkup Fakultas
+            Route::get('/fakultas/analitik', [TracerAnalyticsController::class, 'index'])->name('fakultas.analytics.index');
+            Route::get('/fakultas/analitik/data', [TracerAnalyticsController::class, 'data'])->name('fakultas.analytics.data');
+            Route::get('/fakultas/analitik/export-response-rate', [TracerAnalyticsController::class, 'exportResponseRate'])->name('fakultas.analytics.export_response_rate');
+            Route::get('/fakultas/analitik-prodi', [ProdiAnalyticsController::class, 'index'])->name('fakultas.analytics-prodi.index');
+            Route::get('/fakultas/analitik-prodi/data', [ProdiAnalyticsController::class, 'data'])->name('fakultas.analytics-prodi.data');
+            Route::get('/fakultas/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('fakultas.analytics-atasan.index');
+            Route::get('/fakultas/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('fakultas.analytics-atasan.data');
         });
 
         // -----------------------------------------------------------------

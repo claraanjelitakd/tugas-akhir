@@ -33,7 +33,7 @@ class RoleDashboardDataService
         $prodiIds = $prodis->pluck('id')->all();
 
         $totalAlumni = $auditRows->count();
-        $totalRespondents = $auditRows->where('answered_mandatory_univ', '>', 0)->count();
+        $totalRespondents = $auditRows->where('is_complete_univ', 1)->count();
         $responseRate = $this->percentage($totalRespondents, $totalAlumni);
         $profileComplete = $auditRows->where('is_profile_complete', 1)->count();
         $universityComplete = $auditRows->where('is_complete_univ', 1)->count();
@@ -152,7 +152,7 @@ class RoleDashboardDataService
         return $prodis->map(function (Prodi $prodi) use ($auditRows): array {
             $rows = $auditRows->where('prodi_id', $prodi->id);
             $total = $rows->count();
-            $respondents = $rows->where('answered_mandatory_univ', '>', 0)->count();
+            $respondents = $rows->where('is_complete_univ', 1)->count();
             $rate = $this->percentage($respondents, $total);
 
             return [

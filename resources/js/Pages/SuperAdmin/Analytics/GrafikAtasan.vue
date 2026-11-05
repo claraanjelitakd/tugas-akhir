@@ -387,6 +387,17 @@ watch(totalPages, () => {
     if (currentPage.value > totalPages.value) currentPage.value = totalPages.value;
 });
 
+// Prefix dasar rute analitik yang menyesuaikan role pengguna aktif
+const analyticsBaseUrl = computed(() => {
+    if (typeof window !== 'undefined') {
+        const path = window.location.pathname;
+        if (path.startsWith('/prodi/')) return '/prodi';
+        if (path.startsWith('/fakultas/')) return '/fakultas';
+        if (path.startsWith('/biro3/')) return '/biro3';
+    }
+    return '/superadmin';
+});
+
 // Memuat payload baru ketika filter tahun atau prodi berubah.
 const scheduleLoad = () => {
     clearTimeout(filterTimer);
@@ -396,7 +407,7 @@ const scheduleLoad = () => {
         const params = new URLSearchParams({ tahun: selectedYear.value, prodi_id: selectedProdiId.value });
 
         try {
-            const response = await fetch(`/superadmin/analitik-atasan/data?${params.toString()}`, {
+            const response = await fetch(`${analyticsBaseUrl.value}/analitik-atasan/data?${params.toString()}`, {
                 headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             });
             if (!response.ok) {
@@ -446,7 +457,7 @@ onBeforeUnmount(() => {
             <header class="border-b border-emerald-900/40 bg-[#0D542B] px-5 py-7 text-white sm:px-8">
                 <div class="mx-auto max-w-[1480px]">
                     <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-emerald-100">
-                        <Link href="/superadmin/dashboard" class="font-semibold hover:text-white">Dashboard</Link>
+                        <Link :href="`${analyticsBaseUrl}/dashboard`" class="font-semibold hover:text-white">Dashboard</Link>
                         <span class="text-emerald-300/70">/</span>
                         <span class="rounded bg-white/10 px-2 py-0.5 font-bold text-white">Grafik Evaluasi Atasan</span>
                     </div>

@@ -30,7 +30,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Program Studi',
         fallbackEmail: 'prodi@ukdw.ac.id',
         alumniLabel: 'Data Alumni Prodi',
-        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false },
+        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false, analytics: true, supervisorEvaluation: true },
     },
     admin_fakultas: {
         dashboard: '/fakultas/dashboard',
@@ -38,7 +38,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Fakultas',
         fallbackEmail: 'fakultas@ukdw.ac.id',
         alumniLabel: 'Data Alumni Fakultas',
-        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false },
+        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false, analytics: true, supervisorEvaluation: true },
     },
     admin_biro3: {
         dashboard: '/biro3/dashboard',
@@ -46,7 +46,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Biro 3 UKDW',
         fallbackEmail: 'biro3@ukdw.ac.id',
         alumniLabel: 'Data Alumni Universitas',
-        capabilities: {},
+        capabilities: { linkedin: true, company: false, accounts: false, analytics: true, supervisorEvaluation: true },
     },
 };
 
@@ -73,13 +73,12 @@ const createSections = (role) => {
             items: [
                 createMenuItem('dashboard', definition.dashboard, 'Dashboard Utama', 'home'),
                 ...(capabilities.analytics ? [
-                    createMenuItem('analytics', '/superadmin/analitik', 'Grafik Universitas', 'chart', ['/superadmin/analitik']),
-                    createMenuItem('analytics-prodi', '/superadmin/analitik-prodi', 'Grafik Prodi', 'chart', ['/superadmin/analitik-prodi']),
-                    ...(capabilities.supervisorEvaluation ? [createMenuItem('analytics-atasan', '/superadmin/analitik-atasan', 'Grafik Evaluasi Atasan', 'chart', ['/superadmin/analitik-atasan'])] : []),
+                    createMenuItem('analytics', `/${prefix}/analitik`, 'Grafik Universitas', 'chart', [`/${prefix}/analitik`]),
+                    createMenuItem('analytics-prodi', `/${prefix}/analitik-prodi`, 'Grafik Prodi', 'chart', [`/${prefix}/analitik-prodi`]),
+                    ...(capabilities.supervisorEvaluation ? [createMenuItem('analytics-atasan', `/${prefix}/analitik-atasan`, 'Grafik Evaluasi Atasan', 'chart', [`/${prefix}/analitik-atasan`])] : []),
                 ] : []),
                 createMenuItem('alumni', `/${prefix}/alumni`, definition.alumniLabel, 'users'),
-                // Menu Sinkronisasi LinkedIn dinonaktifkan sementara dari navigasi sidebar atas arahan pengguna:
-                // ...(capabilities.linkedin ? [createMenuItem('linkedin-sync', `/${prefix}/linkedin-sync`, 'Sinkronisasi LinkedIn', 'linkedin')] : []),
+                ...(capabilities.linkedin ? [createMenuItem('linkedin-sync', `/${prefix}/linkedin-sync`, 'Sinkronisasi LinkedIn', 'linkedin', [`/${prefix}/linkedin-sync`])] : []),
             ],
         },
         {

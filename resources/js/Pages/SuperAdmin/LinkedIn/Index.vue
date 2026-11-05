@@ -1,3 +1,4 @@
+<!-- HALAMAN MASIH DISEMBUNYIKAN -->
 <!--
   Halaman Direktori & Sinkronisasi LinkedIn Alumni
   File: resources/js/Pages/SuperAdmin/LinkedIn/Index.vue
@@ -24,6 +25,7 @@ import Swal from 'sweetalert2';
 import SidebarSuperAdmin from '../Components/Sidebar.vue';
 import SidebarFakultas from '../../AdminFakultas/Components/Sidebar.vue';
 import SidebarProdi from '../../AdminProdi/Components/Sidebar.vue';
+import SidebarBiroTiga from '../../AdminBiroTiga/Components/Sidebar.vue';
 
 const props = defineProps({
     alumnis: {
@@ -714,8 +716,9 @@ const dashboardRoute = computed(() => {
     <div class="min-h-screen bg-[#f8fafc] text-gray-800 font-sans flex">
         <!-- Sidebar Adaptif Sesuai Role Pengguna -->
         <SidebarSuperAdmin v-if="role === 'superadmin' || !role" activeMenu="linkedin-sync" />
-        <SidebarFakultas v-else-if="role === 'admin_fakultas'" />
-        <SidebarProdi v-else-if="role === 'admin_prodi'" />
+        <SidebarFakultas v-else-if="role === 'admin_fakultas'" activeMenu="linkedin-sync" />
+        <SidebarProdi v-else-if="role === 'admin_prodi'" activeMenu="linkedin-sync" />
+        <SidebarBiroTiga v-else-if="role === 'admin_biro3'" activeMenu="linkedin-sync" />
 
         <!-- Area Konten Utama -->
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">

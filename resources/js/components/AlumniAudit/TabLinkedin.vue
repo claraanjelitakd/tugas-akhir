@@ -414,7 +414,7 @@ const filteredTraceMapping = computed(() => {
 
                 <!-- Tombol Buka LinkedIn Sync Menu -->
                 <Link 
-                    v-if="!readonly && isSuperAdmin"
+                    v-if="!readonly"
                     :href="syncBasePath + '?alumni_id=' + alumni.id + '&search=' + encodeURIComponent(alumni.nim || alumni.nama || '')"
                     class="px-3.5 py-2 bg-[#0D542B] hover:bg-[#0A4322] text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-2xs"
                     title="Buka direktori lengkap LinkedIn Sync"

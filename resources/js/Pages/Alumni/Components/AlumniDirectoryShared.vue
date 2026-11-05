@@ -787,22 +787,22 @@ const formatTanggal = (dateStr) => {
                                         <div class="flex items-center gap-1.5 flex-wrap">
                                             <span 
                                                 class="px-2 py-0.5 text-[10px] font-bold rounded-md"
-                                                :class="item.univ_percentage >= 100 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-700'"
+                                                :class="(item.univ_percentage ?? item.progress?.questionnaire?.percentage ?? 0) >= 100 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-700'"
                                             >
-                                                Univ: {{ item.univ_percentage || 0 }}%
+                                                Univ: {{ item.univ_percentage ?? item.progress?.questionnaire?.percentage ?? 0 }}%
                                             </span>
                                             <span 
-                                                v-if="item.total_prodi_questions > 0"
+                                                v-if="(item.total_prodi_questions ?? item.progress?.prodi?.total_questions ?? 0) > 0"
                                                 class="px-2 py-0.5 text-[10px] font-bold rounded-md"
-                                                :class="item.prodi_percentage >= 100 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-700'"
+                                                :class="(item.prodi_percentage ?? item.progress?.prodi?.percentage ?? 0) >= 100 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-700'"
                                             >
-                                                Prodi: {{ item.prodi_percentage || 0 }}%
+                                                Prodi: {{ item.prodi_percentage ?? item.progress?.prodi?.percentage ?? 0 }}%
                                             </span>
                                         </div>
                                         <div class="text-[10px] text-slate-600 mt-1 flex items-center gap-1">
-                                            <span>Profil: <b :class="item.is_profile_complete ? 'text-emerald-700' : 'text-slate-600'">{{ item.is_profile_complete ? 'Lengkap' : 'Belum' }}</b></span>
+                                            <span>Profil: <b :class="(item.is_profile_complete ?? item.progress?.profile?.is_complete) ? 'text-emerald-700' : 'text-slate-600'">{{ (item.is_profile_complete ?? item.progress?.profile?.is_complete) ? 'Lengkap' : 'Belum' }}</b></span>
                                             <span>&bull;</span>
-                                            <span>Atasan: <b :class="item.evaluasi_atasan_status === 'submitted' ? 'text-emerald-700' : 'text-slate-600'">{{ item.evaluasi_atasan_status === 'submitted' ? 'Diisi' : 'Belum Ada' }}</b></span>
+                                            <span>Atasan: <b :class="(item.evaluasi_atasan_status || item.evaluasi_atasan?.status) === 'submitted' ? 'text-emerald-700' : 'text-slate-600'">{{ (item.evaluasi_atasan_status || item.evaluasi_atasan?.status) === 'submitted' ? 'Diisi' : 'Belum Ada' }}</b></span>
                                         </div>
                                     </td>
 
@@ -810,14 +810,14 @@ const formatTanggal = (dateStr) => {
                                     <td class="py-3.5 px-4">
                                         <div class="flex items-center gap-2">
                                             <span 
-                                                v-if="item.linkedin_sync_status === 'approved'"
+                                                v-if="(item.linkedin_sync_status || item.linkedin_sync?.status) === 'approved'"
                                                 class="px-2.5 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-[10px] rounded-full inline-flex items-center gap-1"
                                             >
                                                 <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                                                 <span>Tersinkron</span>
                                             </span>
                                             <span 
-                                                v-else-if="item.linkedin_sync_status === 'scraped'"
+                                                v-else-if="(item.linkedin_sync_status || item.linkedin_sync?.status) === 'scraped' || (item.linkedin_sync_status || item.linkedin_sync?.status) === 'pending'"
                                                 class="px-2.5 py-0.5 bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[10px] rounded-full"
                                             >
                                                 Menunggu Review

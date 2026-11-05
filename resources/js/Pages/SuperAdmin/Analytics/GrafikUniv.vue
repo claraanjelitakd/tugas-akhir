@@ -605,12 +605,23 @@ const selectionBreakdown = computed(() => Object.entries(selectedRecords.value.r
     return groups;
 }, {})).map(([label, count]) => ({ label, count })).sort((left, right) => right.count - left.count));
 
+// Prefix dasar rute analitik yang menyesuaikan role pengguna aktif
+const analyticsBaseUrl = computed(() => {
+    if (typeof window !== 'undefined') {
+        const path = window.location.pathname;
+        if (path.startsWith('/prodi/')) return '/prodi';
+        if (path.startsWith('/fakultas/')) return '/fakultas';
+        if (path.startsWith('/biro3/')) return '/biro3';
+    }
+    return '/superadmin';
+});
+
 // Membangun URL endpoint JSON dengan parameter filter aktif untuk pengambilan data indikator secara asinkron.
 const analyticsDataUrl = (chartKey = selectedChartKey.value) => {
     const query = new URLSearchParams({ grafik: chartKey, tahun: selectedYear.value });
     if (selectedUmpYear.value) query.set('tahun_ump', selectedUmpYear.value);
     if (selectedProdiId.value) query.set('prodi_id', selectedProdiId.value);
-    return `/superadmin/analitik/data?${query.toString()}`;
+    return `${analyticsBaseUrl.value}/analitik/data?${query.toString()}`;
 };
 
 // Memperbarui URL di address bar browser tanpa reload agar kondisi filter dapat disalin atau dibagikan.
@@ -712,7 +723,7 @@ const downloadFilteredExcel = () => {
         status: statusFilter.value === 'sudah' ? 'sudah' : (statusFilter.value === 'belum' ? 'belum' : 'all'),
     });
     if (selectedProdiId.value) params.set('prodi_id', selectedProdiId.value);
-    window.location.href = `/superadmin/analitik/export-response-rate?${params.toString()}`;
+    window.location.href = `${analyticsBaseUrl.value}/analitik/export-response-rate?${params.toString()}`;
 };
 
 // Mengunduh file Excel lengkap 3-sheet (Ringkasan, Sudah Mengisi, Belum Mengisi)
@@ -722,7 +733,7 @@ const downloadFullWorkbook = () => {
         status: 'all',
     });
     if (selectedProdiId.value) params.set('prodi_id', selectedProdiId.value);
-    window.location.href = `/superadmin/analitik/export-response-rate?${params.toString()}`;
+    window.location.href = `${analyticsBaseUrl.value}/analitik/export-response-rate?${params.toString()}`;
 };
 
 // Mengalihkan tampilan ke tab Data Responden dengan tetap mempertahankan filter yang sedang aktif.
@@ -777,7 +788,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
             <header class="border-b border-emerald-900/40 bg-[#0D542B] px-5 py-7 text-white sm:px-8">
                 <div class="mx-auto max-w-[1480px]">
                     <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-emerald-100">
-                        <Link href="/superadmin/dashboard" class="font-semibold hover:text-white">Dashboard</Link>
+                        <Link :href="`${analyticsBaseUrl}/dashboard`" class="font-semibold hover:text-white">Dashboard</Link>
                         <span class="text-emerald-300/70">/</span>
                         <span class="rounded bg-white/10 px-2 py-0.5 font-bold text-white">Grafik Universitas</span>
                     </div>

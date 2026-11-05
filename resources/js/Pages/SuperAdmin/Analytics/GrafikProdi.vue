@@ -149,6 +149,17 @@ const kpiCards = computed(() => {
     ];
 });
 
+// Prefix dasar rute analitik yang menyesuaikan role pengguna aktif
+const analyticsBaseUrl = computed(() => {
+    if (typeof window !== 'undefined') {
+        const path = window.location.pathname;
+        if (path.startsWith('/prodi/')) return '/prodi';
+        if (path.startsWith('/fakultas/')) return '/fakultas';
+        if (path.startsWith('/biro3/')) return '/biro3';
+    }
+    return '/superadmin';
+});
+
 // Menjadwalkan pemuatan JSON agar perubahan filter tidak mengirim request bertubi-tubi.
 const scheduleLoad = () => {
     clearTimeout(filterTimer);
@@ -164,7 +175,7 @@ const scheduleLoad = () => {
         });
 
         try {
-            const response = await fetch(`/superadmin/analitik-prodi/data?${params.toString()}`, {
+            const response = await fetch(`${analyticsBaseUrl.value}/analitik-prodi/data?${params.toString()}`, {
                 headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             });
             if (!response.ok) {
@@ -277,7 +288,7 @@ watch(() => props.analytics, (newAnalytics) => {
             <header class="border-b border-emerald-900/40 bg-[#0D542B] px-5 py-7 text-white sm:px-8">
                 <div class="mx-auto max-w-[1480px]">
                     <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-emerald-100">
-                        <Link href="/superadmin/dashboard" class="font-semibold hover:text-white">Dashboard</Link>
+                        <Link :href="`${analyticsBaseUrl}/dashboard`" class="font-semibold hover:text-white">Dashboard</Link>
                         <span class="text-emerald-300/70">/</span>
                         <span class="rounded bg-white/10 px-2 py-0.5 font-bold text-white">Grafik Prodi</span>
                     </div>

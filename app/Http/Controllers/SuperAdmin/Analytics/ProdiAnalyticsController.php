@@ -22,12 +22,17 @@ class ProdiAnalyticsController extends Controller
      */
     public function index(Request $request, ProdiAnalyticsService $analyticsService): Response
     {
+        $user = $request->user();
         $prodiId = $request->integer('prodi_id') ?: null;
+        if ($user && $user->role === 'admin_prodi' && $user->prodi_id) {
+            $prodiId = (int) $user->prodi_id;
+        }
+
         $sectionId = $request->input('section_id') ?: null;
         $year = $request->string('tahun')->toString() ?: null;
 
         return Inertia::render('SuperAdmin/Analytics/GrafikProdi', [
-            'user' => $request->user(),
+            'user' => $user,
             'analytics' => $analyticsService->buildProdiChart($prodiId, $sectionId, $year),
         ]);
     }
@@ -38,7 +43,12 @@ class ProdiAnalyticsController extends Controller
      */
     public function data(Request $request, ProdiAnalyticsService $analyticsService): JsonResponse
     {
+        $user = $request->user();
         $prodiId = $request->integer('prodi_id') ?: null;
+        if ($user && $user->role === 'admin_prodi' && $user->prodi_id) {
+            $prodiId = (int) $user->prodi_id;
+        }
+
         $sectionId = $request->input('section_id') ?: null;
         $year = $request->string('tahun')->toString() ?: null;
 

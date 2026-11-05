@@ -319,6 +319,15 @@ class AlumniDirectoryQueryService
                 'posisi_jabatan' => $item->posisi_jabatan ?? '-',
                 'status_pengisian' => $item->status_tracer_label ?? ($isComplete ? 'Selesai' : 'Belum Selesai'),
                 'is_complete' => $isComplete,
+                'univ_percentage' => (int) ($item->univ_percentage ?? 0),
+                'is_complete_univ' => (bool) ($item->is_complete_univ ?? false),
+                'prodi_percentage' => $item->prodi_percentage !== null ? (int) $item->prodi_percentage : null,
+                'is_complete_prodi' => $item->is_complete_prodi !== null ? (bool) $item->is_complete_prodi : null,
+                'total_prodi_questions' => (int) ($item->total_prodi_questions ?? 0),
+                'answered_prodi_questions' => (int) ($item->answered_prodi_questions ?? 0),
+                'is_profile_complete' => (bool) ($item->is_profile_complete ?? false),
+                'evaluasi_atasan_status' => $evaluasiStatus,
+                'linkedin_sync_status' => $currentLinkedinStatus,
                 'progress' => [
                     'profile' => [
                         'is_complete' => (bool) $item->is_profile_complete,
