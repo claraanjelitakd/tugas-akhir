@@ -389,6 +389,136 @@ const handleSendSingleEmail = (alumni) => {
     });
 };
 
+// Validasi URL profil LinkedIn
+const isValidLinkedInProfileUrl = (value) => {
+    try {
+        const url = new URL(value);
+        return ['http:', 'https:'].includes(url.protocol)
+            && /(^|\.)linkedin\.com$/i.test(url.hostname)
+            && url.pathname.toLowerCase().startsWith('/in/');
+    } catch {
+        return false;
+    }
+};
+
+// Simpan URL profil LinkedIn alumni
+const saveLinkedInUrl = async (alumni, linkedinUrl) => {
+    const response = await fetch(`/${props.prefix}/linkedin-sync/${alumni.id}/url`, {
+        method: 'PATCH',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+        body: JSON.stringify({ linkedin_url: linkedinUrl }),
+    });
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+        throw new Error(data.message || data.errors?.linkedin_url?.[0] || 'URL LinkedIn gagal diperbarui.');
+    }
+
+    alumni.linkedin_url = data.linkedin_url || linkedinUrl;
+};
+
+// Eksekusi penarikan data scraping profil LinkedIn
+const executeLinkedInSync = async (alumni) => {
+    Swal.fire({
+        title: 'Menyinkronkan LinkedIn...',
+        html: '<p class="text-xs text-slate-600">Sistem sedang menghubungi provider LinkedIn untuk memperbarui data karir alumni. Mohon tunggu...</p>',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        },
+    });
+
+    try {
+        const response = await fetch(`/${props.prefix}/linkedin-sync/${alumni.id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+        });
+
+        const data = await response.json();
+        Swal.close();
+
+        if (response.ok && data.success) {
+            if (data.sync_result_id) {
+                router.get(`/${props.prefix}/alumni/${alumni.id}`, {
+                    tab: 'linkedin',
+                    review_sync_id: data.sync_result_id,
+                }, {
+                    preserveScroll: true,
+                });
+            } else {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Sinkronisasi Berhasil',
+                    text: 'Data profil LinkedIn berhasil ditarik dan diperbarui.',
+                    confirmButtonColor: '#0D542B',
+                });
+                router.reload({ preserveScroll: true });
+            }
+        } else {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Perhatian Sinkronisasi',
+                text: data.message || 'Sinkronisasi selesai dengan catatan.',
+                confirmButtonColor: '#0D542B',
+            });
+        }
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Sinkronisasi Gagal',
+            text: error.message || 'Terjadi kesalahan saat menyinkronkan profil LinkedIn.',
+            confirmButtonColor: '#0D542B',
+        });
+    }
+};
+
+// Handler saat tombol aksi LinkedIn diklik
+const handleSyncLinkedIn = async (alumni) => {
+    const result = await Swal.fire({
+        title: alumni.linkedin_url ? 'Perbarui URL LinkedIn' : 'Masukkan URL LinkedIn',
+        html: `<p class="text-xs text-slate-600">URL ini akan digunakan sebagai sumber sinkronisasi profil <b>${alumni.nama}</b> (${alumni.nim}).</p>`,
+        icon: 'info',
+        input: 'url',
+        inputValue: alumni.linkedin_url || '',
+        inputPlaceholder: 'https://www.linkedin.com/in/username',
+        showCancelButton: true,
+        confirmButtonText: 'Simpan & Sinkronkan',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#94a3b8',
+        inputValidator: (value) => {
+            if (!isValidLinkedInProfileUrl(value?.trim())) {
+                return 'Masukkan URL profil LinkedIn yang valid dengan format https://www.linkedin.com/in/...';
+            }
+        },
+    });
+
+    if (!result.isConfirmed || !result.value) {
+        return;
+    }
+
+    try {
+        await saveLinkedInUrl(alumni, result.value.trim());
+        await executeLinkedInSync(alumni);
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'URL LinkedIn Gagal Disimpan',
+            text: error.message || 'URL LinkedIn tidak dapat diperbarui.',
+            confirmButtonColor: '#0D542B',
+        });
+    }
+};
+
 // LinkedIn History Modal
 const showLinkedInHistoryModal = ref(false);
 const activeLinkedInAlumni = ref(null);
@@ -866,6 +996,29 @@ const formatTanggal = (dateStr) => {
                                             >
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                                             </button>
+
+                                            <!-- LinkedIn Sync Button -->
+                                            <button
+                                                @click="handleSyncLinkedIn(item)"
+                                                type="button"
+                                                class="p-1.5 text-slate-600 hover:text-[#0077B5] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                                :title="(item.linkedin_sync_status || item.linkedin_sync?.has_sync) ? 'Sinkronkan Ulang Profil LinkedIn' : 'Sinkronkan Profil LinkedIn'"
+                                            >
+                                                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                                    <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                                                </svg>
+                                            </button>
+
+                                            <!-- LinkedIn History Button -->
+                                            <button
+                                                v-if="item.linkedin_sync_status || item.linkedin_sync?.has_sync"
+                                                @click="openLinkedInHistoryModal(item)"
+                                                type="button"
+                                                class="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                                title="Lihat Riwayat Scraping LinkedIn"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -957,6 +1110,80 @@ const formatTanggal = (dateStr) => {
                 <div class="flex justify-end gap-2 pt-2">
                     <button @click="showWaModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold">Batal</button>
                     <button @click="executeSendWa" class="px-4 py-2 bg-[#0D542B] hover:bg-[#093c1f] text-white rounded-xl text-xs font-bold">Buka WhatsApp</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL RIWAYAT LINKEDIN -->
+        <div v-if="showLinkedInHistoryModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 flex items-center justify-center p-4 backdrop-blur-xs">
+            <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] flex flex-col">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-xl bg-blue-100 text-[#0077B5] flex items-center justify-center font-bold">
+                            in
+                        </span>
+                        <div>
+                            <h3 class="text-sm font-extrabold text-slate-900">Riwayat Sinkronisasi LinkedIn</h3>
+                            <p class="text-[11px] text-slate-500">{{ activeLinkedInAlumni?.nama }} ({{ activeLinkedInAlumni?.nim }})</p>
+                        </div>
+                    </div>
+                    <button @click="showLinkedInHistoryModal = false" class="text-slate-400 hover:text-slate-600 p-1 text-lg leading-none cursor-pointer">
+                        &times;
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto pr-1">
+                    <div v-if="isLoadingHistory" class="py-12 text-center text-slate-500 text-xs">
+                        <div class="inline-block w-6 h-6 border-2 border-slate-300 border-t-[#0077B5] rounded-full animate-spin mb-2"></div>
+                        <p>Memuat riwayat sinkronisasi...</p>
+                    </div>
+
+                    <div v-else-if="linkedInHistoryList.length === 0" class="py-12 text-center text-slate-400 text-xs">
+                        <p class="font-bold text-slate-600">Belum Ada Riwayat Sinkronisasi</p>
+                        <p class="mt-1">Alumni ini belum pernah disinkronkan melalui provider LinkedIn.</p>
+                    </div>
+
+                    <div v-else class="space-y-3">
+                        <div
+                            v-for="item in linkedInHistoryList"
+                            :key="item.id"
+                            class="p-4 rounded-xl border bg-slate-50/70 border-slate-200 flex flex-col gap-2"
+                        >
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-mono text-slate-500 font-semibold">{{ item.scraped_at || '-' }}</span>
+                                <span
+                                    class="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full"
+                                    :class="{
+                                        'bg-emerald-100 text-emerald-800': item.status === 'approved',
+                                        'bg-amber-100 text-amber-800': item.status === 'pending',
+                                        'bg-rose-100 text-rose-800': item.status === 'rejected',
+                                    }"
+                                >
+                                    {{ item.status }}
+                                </span>
+                            </div>
+
+                            <div v-if="item.preview" class="text-xs bg-white p-3 rounded-lg border border-slate-200/80 space-y-1">
+                                <div class="font-bold text-slate-800">{{ item.preview.posisi || 'Posisi / Jabatan tidak terdeteksi' }}</div>
+                                <div class="text-slate-600 font-medium">{{ item.preview.perusahaan || 'Perusahaan tidak terdeteksi' }}</div>
+                                <div v-if="item.preview.lokasi" class="text-[11px] text-slate-400">Lokasi: {{ item.preview.lokasi }}</div>
+                            </div>
+
+                            <div v-if="item.reviewed_at" class="text-[10px] text-slate-500 flex items-center justify-between pt-1 border-t border-slate-200/60">
+                                <span>Ditinjau oleh: <b>{{ item.reviewer_name }}</b></span>
+                                <span>Waktu tinjau: {{ item.reviewed_at }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end">
+                    <button
+                        @click="showLinkedInHistoryModal = false"
+                        class="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                    >
+                        Tutup
+                    </button>
                 </div>
             </div>
         </div>
