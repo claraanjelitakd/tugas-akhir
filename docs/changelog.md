@@ -2,6 +2,32 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 05 November 2026
+
+- **Status Tampil Pertanyaan Per Placement**:
+  - Menambahkan `kuesioner_section_pertanyaan.is_active` agar Admin Prodi dapat menampilkan atau menyembunyikan pertanyaan hanya pada section/prodinya sendiri.
+  - Master pertanyaan dan jawaban historis tetap dipertahankan saat placement lokal dinonaktifkan atau dilepas.
+- **Penamaan ID Penempatan Kuesioner**:
+  - Menetapkan istilah `placement_id` untuk nilai kolom `id` pada `kuesioner_section_pertanyaan`.
+  - PUT/edit menggunakan ID master pertanyaan, sedangkan toggle, delete penggunaan, dan reorder menggunakan `placement_id` agar pemakaian pertanyaan di section lain tidak ikut berubah.
+
+## 06 November 2026
+
+- **Detail Alumni Baca-Saja dari Analitik Fakultas**:
+  - Menambahkan route `/fakultas/analitik/alumni/{id}` untuk membuka detail alumni lintas fakultas dari tabel atau grafik analitik.
+  - Detail tersebut bersifat baca-saja; direktori dan endpoint mutasi profil tetap dibatasi pada fakultas admin yang sedang login.
+- **Kontrak Direktori Profil Karier Alumni**:
+  - Memperbaiki nama field program studi pada payload direktori agar `nama_prodi` dan `nama_fakultas` konsisten dengan Vue.
+  - Menambahkan `biodata.divisi` sebagai field terpisah dari `bidang_pekerjaan`.
+  - Direktori menampilkan perusahaan master/head office, domisili alumni, bidang pekerjaan, divisi, dan skills sebagai frasa/chip.
+  - Aksi LinkedIn pada direktori alumni tetap menjalankan sinkronisasi; tautan profil langsung digunakan pada tabel detail analitik.
+  - Menambahkan `linkedin_url` ke proyeksi `v_analytics_population` dan payload analitik Prodi/Atasan agar ikon profil hanya muncul pada konteks grafik yang sesuai.
+  - Menggabungkan bidang, unit/divisi, dan posisi pada satu kolom direktori; menambahkan filter wilayah, head office, skills, bidang, dan unit.
+  - Menampilkan ringkasan studi lanjut/wiraswasta pada kolom aktivitas serta membuat riwayat LinkedIn terlihat langsung dari kolom sinkronisasi.
+  - Mengubah filter wilayah menjadi dropdown searchable berbasis ID master provinsi/kabupaten dan mengembalikan tombol email per alumni dengan flash notification.
+  - Meneruskan metadata filter ke seluruh wrapper halaman direktori; filter wilayah kini bertingkat provinsi → kabupaten/kota.
+  - Menampilkan status kuesioner Prodi secara konsisten. Prodi tanpa pertanyaan aktif ditampilkan sebagai `-`, bukan disembunyikan atau dianggap selesai.
+
 ## 04 November 2026
 
 - **Penyatuan Skema Kuesioner Terpadu (Unified Survey Engine)**:

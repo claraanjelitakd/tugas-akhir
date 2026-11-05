@@ -40,6 +40,7 @@ class SimpanProfilController extends Controller
             'kelurahan' => ['nullable', 'string', 'max:50'],
             'kecamatan' => ['nullable', 'string', 'max:50'],
             'kode_pos' => ['nullable', 'digits:5'],
+            'divisi' => ['nullable', 'string', 'max:150'],
         ]);
 
         if ($request->hasFile('foto')) {
@@ -140,11 +141,11 @@ class SimpanProfilController extends Controller
         $kategoriPekerjaan = ! empty($dataTervalidasi['kategori_pekerjaan']) ? $dataTervalidasi['kategori_pekerjaan'] : null;
         $posisiJabatan = ! empty($dataTervalidasi['posisi_jabatan']) ? $dataTervalidasi['posisi_jabatan'] : null;
         $posisiWiraswasta = ! empty($dataTervalidasi['posisi_wiraswasta']) ? $dataTervalidasi['posisi_wiraswasta'] : null;
-        if ($posisiWiraswasta === 'Lainnya' && ! empty($dataTervalidasi['posisi_wiraswasta_lainnya'])) {
+        if ($posisiWiraswasta && str_contains(strtolower($posisiWiraswasta), 'lainnya') && ! empty($dataTervalidasi['posisi_wiraswasta_lainnya'])) {
             $posisiWiraswasta = $dataTervalidasi['posisi_wiraswasta_lainnya'];
         }
         $bidangPekerjaan = ! empty($dataTervalidasi['bidang_pekerjaan']) ? trim((string) $dataTervalidasi['bidang_pekerjaan']) : null;
-        if ($bidangPekerjaan && strtolower($bidangPekerjaan) === 'lainnya') {
+        if ($bidangPekerjaan && str_contains(strtolower($bidangPekerjaan), 'lainnya')) {
             $bidangPekerjaan = ! empty($dataTervalidasi['bidang_pekerjaan_lainnya'])
                 ? trim((string) $dataTervalidasi['bidang_pekerjaan_lainnya'])
                 : null;
@@ -249,6 +250,7 @@ class SimpanProfilController extends Controller
             'kategori_pekerjaan' => $kategoriPekerjaan,
             'posisi_jabatan' => $posisiJabatan,
             'bidang_pekerjaan' => $bidangPekerjaan,
+            'divisi' => ! empty($dataTervalidasi['divisi']) ? trim((string) $dataTervalidasi['divisi']) : null,
             'posisi_wiraswasta' => $posisiWiraswasta,
             'pendidikan_tingkat' => ! empty($dataTervalidasi['pendidikan_tingkat']) ? $dataTervalidasi['pendidikan_tingkat'] : null,
             'perguruan_tinggi' => ! empty($dataTervalidasi['perguruan_tinggi']) ? $dataTervalidasi['perguruan_tinggi'] : null,

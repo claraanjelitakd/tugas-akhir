@@ -398,6 +398,27 @@ const analyticsBaseUrl = computed(() => {
     return '/superadmin';
 });
 
+// Mengarahkan detail alumni Fakultas ke endpoint baca-saja lintas fakultas.
+const detailUrl = (record) => {
+    const detailBaseUrl = analyticsBaseUrl.value === '/fakultas'
+        ? '/fakultas/analitik'
+        : analyticsBaseUrl.value;
+
+    return `${detailBaseUrl}/alumni/${record.biodata_id}`;
+};
+
+// Menampilkan tautan profil LinkedIn hanya untuk URL profil yang valid.
+const isValidLinkedInProfileUrl = (value) => {
+    if (!value) return false;
+
+    try {
+        const url = new URL(value);
+        return ['http:', 'https:'].includes(url.protocol) && /(^|\.)linkedin\.com$/i.test(url.hostname);
+    } catch {
+        return false;
+    }
+};
+
 // Memuat payload baru ketika filter tahun atau prodi berubah.
 const scheduleLoad = () => {
     clearTimeout(filterTimer);
@@ -820,11 +841,23 @@ onBeforeUnmount(() => {
                                         <td class="px-3 py-2.5 text-center">
                                             <Link
                                                 v-if="record.biodata_id"
-                                                :href="`${analyticsBaseUrl.value}/alumni/${record.biodata_id}`"
+                                                :href="detailUrl(record)"
                                                 class="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-200"
                                             >
                                                 Detail
                                             </Link>
+                                            <a
+                                                v-if="isValidLinkedInProfileUrl(record.linkedin_url)"
+                                                :href="record.linkedin_url"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="ml-1 inline-flex rounded bg-slate-100 p-1.5 text-slate-600 hover:bg-slate-200 hover:text-[#0A66C2]"
+                                                title="Buka profil LinkedIn"
+                                            >
+                                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                    <path d="M20.45 20.45h-3.56v-5.58c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.68H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.32 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM3.54 9h3.56v11.45H3.54V9z" />
+                                                </svg>
+                                            </a>
                                             <span v-else class="text-slate-400">-</span>
                                         </td>
                                     </tr>

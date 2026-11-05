@@ -518,7 +518,13 @@ const routePrefix = computed(() => {
 });
 
 // Mendapatkan URL detail alumni dan kuesioner.
-const detailUrl = (record) => `/${routePrefix.value}/alumni/${record.biodata_id || record.user_id}`;
+const detailUrl = (record) => {
+    const detailPrefix = routePrefix.value === 'fakultas'
+        ? 'fakultas/analitik'
+        : routePrefix.value;
+
+    return `/${detailPrefix}/alumni/${record.biodata_id || record.user_id}`;
+};
 
 // Unduh file Excel dari endpoint server-side resmi sesuai filter aktif.
 const downloadExcel = (statusTarget = null) => {

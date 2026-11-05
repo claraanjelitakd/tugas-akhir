@@ -202,17 +202,18 @@ const scrollToBottom = () => {
         <!-- Formulir Profil yang Mendukung Save Enter Secara Silent -->
         <form @submit.prevent="submitForm" @keydown="handleKeyDown" class="space-y-4">
             <!-- 1. Identitas & Alamat Resmi -->
-            <div v-show="activeProfileTab === 'pribadi'">
+            <!-- Fieldset mengunci seluruh input profil ketika detail dibuka lintas fakultas. -->
+            <fieldset v-show="activeProfileTab === 'pribadi'" :disabled="readonly">
                 <FormPribadi 
                     :form="form" 
                     :provinces="provinces" 
                     :kabupatens="kabupatens" 
                     :negaras="negaras" 
                 />
-            </div>
+            </fieldset>
 
             <!-- 2. Riwayat Karier & Pekerjaan -->
-            <div v-show="activeProfileTab === 'karier'">
+            <fieldset v-show="activeProfileTab === 'karier'" :disabled="readonly">
                 <FormKarier 
                     :form="form" 
                     :provinces="provinces" 
@@ -223,12 +224,12 @@ const scrollToBottom = () => {
                     :refOptions="refOptions" 
                     :evaluasiAtasan="evaluasiAtasan" 
                 />
-            </div>
+            </fieldset>
 
             <!-- 3. Data Akademik & Yudisium -->
-            <div v-show="activeProfileTab === 'akademik'">
+            <fieldset v-show="activeProfileTab === 'akademik'" :disabled="readonly">
                 <FormAkademik :form="form" />
-            </div>
+            </fieldset>
 
             <!-- Navigasi Bawah Formulir Profil Ala /alumni -->
             <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs flex items-center justify-between gap-3">

@@ -47,6 +47,7 @@ class KuesionerProdiController extends Controller
             ->where('is_active', true)
             ->with(['pertanyaan' => function ($query) {
                 $query->where('kuesioner_pertanyaan.is_active', true)
+                    ->wherePivot('is_active', true)
                     ->with('opsi');
             }])
             ->orderBy('order', 'asc')
@@ -212,7 +213,11 @@ class KuesionerProdiController extends Controller
         $prodiSection = KuesionerSection::where('target', 'prodi')
             ->where('prodi_id', $biodata->prodi_id)
             ->where('is_active', true)
-            ->with(['pertanyaan.opsi'])
+            ->with(['pertanyaan' => function ($query) {
+                $query->where('kuesioner_pertanyaan.is_active', true)
+                    ->wherePivot('is_active', true)
+                    ->with('opsi');
+            }])
             ->first();
 
         $pertanyaans = $prodiSection ? $prodiSection->pertanyaan->keyBy('id') : collect([]);

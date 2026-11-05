@@ -54,7 +54,7 @@ class KuesionerPertanyaan extends Model
             'pertanyaan_id',
             'section_id'
         )
-            ->withPivot(['id', 'order', 'wajib', 'tampil_di'])
+            ->withPivot(['id', 'order', 'wajib', 'is_active', 'tampil_di'])
             ->withTimestamps();
     }
 

@@ -180,6 +180,7 @@ class DashboardScenarioSeeder extends Seeder
             $dataAkademik = DataAkademik::create([
                 'nim' => $nim,
                 'nama' => $name,
+                'email_pribadi' => $email,
                 'angkatan_masuk' => $entryYear,
                 'status_mahasiswa' => 'Lulus',
                 'tahun_akademik_lulus' => 'Genap '.($graduationYear - 1).'/'.$graduationYear,

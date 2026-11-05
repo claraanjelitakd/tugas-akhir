@@ -868,6 +868,29 @@ const handleToggleVisibility = (question, target = 'profil') => {
     });
 };
 
+/**
+ * Mengubah status aktif master pertanyaan tanpa mengubah visibilitas section.
+ */
+const handleToggleQuestionActive = (question) => {
+    const actionText = question.is_active ? 'menonaktifkan' : 'mengaktifkan';
+
+    Swal.fire({
+        icon: 'warning',
+        title: 'Ubah status pertanyaan?',
+        text: `Anda akan ${actionText} pertanyaan [${question.kode_pertanyaan}]. Jawaban historis tetap dipertahankan.`,
+        showCancelButton: true,
+        confirmButtonColor: '#0D542B',
+        confirmButtonText: question.is_active ? 'Nonaktifkan' : 'Aktifkan',
+        cancelButtonText: 'Batal',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.patch(`/superadmin/pertanyaan/${question.id}/toggle-active`, {}, {
+                preserveScroll: true,
+            });
+        }
+    });
+};
+
 // ========================================================
 // FUNGSI KONTROL: MODAL OPSI JAWABAN (OPTION)
 // ========================================================
@@ -1504,12 +1527,13 @@ const handleDeleteKuesioner = (k) => {
                                     <th class="px-4 py-3">Butir Pertanyaan Kuesioner</th>
                                     <th class="px-3 py-3">Tipe & Bagian (Section)</th>
                                     <th class="px-4 py-3">Opsi Jawaban & Percabangan</th>
+                                    <th class="px-3 py-3 text-center w-24">Status</th>
                                     <th class="px-3 py-3 text-right">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
                                 <tr v-if="filteredTracerQuestions.length === 0">
-                                    <td colspan="6" class="p-8 text-center text-gray-400 italic">
+                                    <td colspan="7" class="p-8 text-center text-gray-400 italic">
                                         Belum ada butir pertanyaan kuesioner tracer ditemukan yang sesuai filter.
                                     </td>
                                 </tr>
@@ -1612,6 +1636,17 @@ const handleDeleteKuesioner = (k) => {
                                             Input langsung tanpa pilihan opsi.
                                         </div>
                                     </td>
+                                    <td class="px-3 py-3.5 text-center">
+                                        <button
+                                            type="button"
+                                            class="inline-flex min-w-[64px] items-center justify-center rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
+                                            :class="q.is_active ? 'border-emerald-200 bg-emerald-50 text-[#0D542B] hover:bg-emerald-100' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'"
+                                            :title="q.is_active ? 'Klik untuk menonaktifkan pertanyaan' : 'Klik untuk mengaktifkan pertanyaan'"
+                                            @click="handleToggleQuestionActive(q)"
+                                        >
+                                            {{ q.is_active ? 'Aktif' : 'Nonaktif' }}
+                                        </button>
+                                    </td>
                                     <td class="px-3 py-3.5 text-right">
                                         <div class="flex items-center justify-end gap-1">
                                             <button
@@ -1704,12 +1739,13 @@ const handleDeleteKuesioner = (k) => {
                                     <th class="px-4 py-3">Butir Data & Pertanyaan Profil</th>
                                     <th class="px-3 py-3">Tipe & Bagian (Section)</th>
                                     <th class="px-4 py-3">Opsi Jawaban (Jika Ada)</th>
+                                    <th class="px-3 py-3 text-center w-24">Status</th>
                                     <th class="px-3 py-3 text-right">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
                                 <tr v-if="filteredProfileQuestions.length === 0">
-                                    <td colspan="6" class="p-8 text-center text-gray-400 italic">
+                                    <td colspan="7" class="p-8 text-center text-gray-400 italic">
                                         Belum ada butir pertanyaan profil alumni ditemukan yang sesuai filter.
                                     </td>
                                 </tr>
@@ -1821,6 +1857,17 @@ const handleDeleteKuesioner = (k) => {
                                         <div v-else class="text-gray-400 italic text-[11px]">
                                             Input isian langsung profil tanpa opsi.
                                         </div>
+                                    </td>
+                                    <td class="px-3 py-3.5 text-center">
+                                        <button
+                                            type="button"
+                                            class="inline-flex min-w-[64px] items-center justify-center rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
+                                            :class="q.is_active ? 'border-emerald-200 bg-emerald-50 text-[#0D542B] hover:bg-emerald-100' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'"
+                                            :title="q.is_active ? 'Klik untuk menonaktifkan pertanyaan' : 'Klik untuk mengaktifkan pertanyaan'"
+                                            @click="handleToggleQuestionActive(q)"
+                                        >
+                                            {{ q.is_active ? 'Aktif' : 'Nonaktif' }}
+                                        </button>
                                     </td>
                                     <td class="px-3 py-3.5 text-right">
                                         <div class="flex items-center justify-end gap-1">
@@ -2103,15 +2150,15 @@ const handleDeleteKuesioner = (k) => {
                 @click.self="closeQuestionModal"
                 @keydown.esc="closeQuestionModal"
             >
-                <div class="bg-white rounded-xl shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
-                    <div class="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between shrink-0">
+                <div class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                    <div class="flex shrink-0 items-start justify-between border-b border-gray-200 bg-white px-6 py-4">
                         <h3 class="text-sm font-bold text-gray-900">
                             {{ questionModalTitle }}
                         </h3>
                         <button
                             type="button"
                             @click="closeQuestionModal"
-                            class="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                            class="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                         >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -2119,8 +2166,8 @@ const handleDeleteKuesioner = (k) => {
                         </button>
                     </div>
 
-                    <form @submit.prevent="submitQuestionForm" class="p-6 space-y-3.5 text-xs overflow-y-auto">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <form @submit.prevent="submitQuestionForm" class="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 text-xs">
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
                                 <label class="block font-bold text-gray-700 mb-1">
                                     Kode Pertanyaan <span class="text-rose-600">*</span>
@@ -2139,7 +2186,7 @@ const handleDeleteKuesioner = (k) => {
 
                             <div>
                                 <label class="block font-bold text-gray-700 mb-1">
-                                    Lokasi Tampil <span class="text-rose-600">*</span>
+                                    Lokasi Tampil
                                 </label>
                                 <select
                                     v-model="questionFormData.tampil_di"
@@ -2154,7 +2201,7 @@ const handleDeleteKuesioner = (k) => {
                         </div>
 
                         <div>
-                            <label class="block font-bold text-gray-700 mb-1">
+                            <label class="mb-1 block font-bold text-gray-700">
                                 Bagian / Section <span class="text-rose-600">*</span>
                             </label>
                             <select
@@ -2174,7 +2221,7 @@ const handleDeleteKuesioner = (k) => {
 
                         <div>
                             <label class="block font-bold text-gray-700 mb-1">
-                                Butir Pertanyaan <span class="text-rose-600">*</span>
+                                Teks Pertanyaan <span class="text-rose-600">*</span>
                             </label>
                             <textarea
                                 v-model="questionFormData.subpertanyaan"
@@ -2188,7 +2235,7 @@ const handleDeleteKuesioner = (k) => {
                             </p>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
                                 <label class="block font-bold text-gray-700 mb-1">
                                     Tipe Pertanyaan <span class="text-rose-600">*</span>
@@ -2202,7 +2249,7 @@ const handleDeleteKuesioner = (k) => {
                                         {{ lbl }}
                                     </option>
                                 </select>
-                                <p class="text-[10px] text-gray-500 mt-1">
+                                <p class="mt-1 text-[10px] text-gray-500">
                                     Opsi pilihan dapat ditambahkan setelah pertanyaan disimpan.
                                 </p>
                             </div>
@@ -2220,17 +2267,17 @@ const handleDeleteKuesioner = (k) => {
 
                         <div>
                             <label class="block font-bold text-gray-700 mb-1">
-                                Keterangan / Batasan Nilai (Opsional)
+                                Keterangan / Petunjuk Pengisian (Opsional)
                             </label>
-                            <input
-                                type="text"
+                            <textarea
                                 v-model="questionFormData.keterangan"
-                                placeholder="Contoh: Minimal Rp 1.000, kelipatan ribuan, format tanggal"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
-                            />
+                                rows="2"
+                                placeholder="Ketikkan petunjuk pengisian bagi responden..."
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            ></textarea>
                         </div>
 
-                        <div class="flex items-center gap-2 pt-1">
+                        <div class="flex items-center gap-2 border-t border-gray-100 pt-3">
                             <input
                                 id="modal-q-req"
                                 type="checkbox"
@@ -2238,11 +2285,11 @@ const handleDeleteKuesioner = (k) => {
                                 class="rounded text-[#0D542B] focus:ring-[#0D542B] cursor-pointer"
                             />
                             <label for="modal-q-req" class="font-bold text-gray-700 select-none cursor-pointer">
-                                Wajib diisi oleh alumni responden
+                                Wajib diisi oleh responden
                             </label>
                         </div>
 
-                        <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                        <div class="flex items-center justify-end gap-2 border-t border-gray-200 pt-4">
                             <button
                                 type="button"
                                 @click="closeQuestionModal"

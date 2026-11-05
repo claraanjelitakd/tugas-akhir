@@ -35,6 +35,8 @@ class Biodata extends Model
     {
         static::creating(function (Biodata $biodata) {
             if ($biodata->nim) {
+                $dataAkad = DataAkademik::where('nim', $biodata->nim)->first();
+
                 // 1. Hubungkan ke data yudisium jika belum terisi
                 if (empty($biodata->yudisium_id)) {
                     $biodata->yudisium_id = Yudisium::where('nim', $biodata->nim)->value('id');
@@ -48,14 +50,18 @@ class Biodata extends Model
                     }
                 }
 
-                // 3. Pastikan Akun Pengguna (User) tersedia jika belum terisi
+                // 3. Salin email awal dari sumber akademik tanpa membuat sinkronisasi dua arah
+                if (empty($biodata->email_pribadi) && ! empty($dataAkad?->email_pribadi)) {
+                    $biodata->email_pribadi = $dataAkad->email_pribadi;
+                }
+
+                // 4. Pastikan Akun Pengguna (User) tersedia jika belum terisi
                 if (empty($biodata->user_id)) {
-                    $dataAkad = DataAkademik::where('nim', $biodata->nim)->first();
                     $user = User::firstOrCreate(
                         ['username' => $biodata->nim],
                         [
                             'name' => $dataAkad?->nama ?? 'Alumni UKDW',
-                            'email' => $dataAkad?->email_pribadi ?? ($biodata->nim.'@alumni.ukdw.ac.id'),
+                            'email' => $biodata->email_pribadi ?? ($biodata->nim.'@alumni.ukdw.ac.id'),
                             'password' => Hash::make(
                                 $dataAkad?->tanggal_lahir ? Carbon::parse($dataAkad->tanggal_lahir)->format('dmY') : Str::password(32)
                             ),
@@ -139,6 +145,7 @@ class Biodata extends Model
         'atasan_id',
         'posisi_jabatan',
         'bidang_pekerjaan',
+        'divisi',
         'kategori_pekerjaan',
         'posisi_wiraswasta',
         'pendidikan_tingkat',

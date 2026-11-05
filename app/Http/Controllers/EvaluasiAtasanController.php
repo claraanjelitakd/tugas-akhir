@@ -130,6 +130,7 @@ class EvaluasiAtasanController extends Controller
         $atasanSectionIds = KuesionerSection::where('target', 'atasan')->pluck('id')->all();
         $pertanyaanList = KuesionerSectionPertanyaan::with(['pertanyaan.opsi'])
             ->whereIn('section_id', $atasanSectionIds)
+            ->where('is_active', true)
             ->whereHas('pertanyaan', fn ($q) => $q->where('is_active', true))
             ->orderBy('order', 'asc')
             ->get()
@@ -236,9 +237,9 @@ class EvaluasiAtasanController extends Controller
 
         $atasanSectionIds = KuesionerSection::where('target', 'atasan')->pluck('id')->all();
         $activeQuestions = KuesionerPertanyaan::where('is_active', true)
-            ->where(function ($q) use ($atasanSectionIds) {
-                $q->where('kode_pertanyaan', 'LIKE', 'EVA_%')
-                    ->orWhereHas('sections', fn ($sq) => $sq->whereIn('kuesioner_section.id', $atasanSectionIds));
+            ->whereHas('sections', function ($query) use ($atasanSectionIds) {
+                $query->whereIn('kuesioner_section.id', $atasanSectionIds)
+                    ->where('kuesioner_section_pertanyaan.is_active', true);
             })
             ->get();
         $activeCompanyQuestions = $activeQuestions->filter->is_company_field;

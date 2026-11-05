@@ -13,10 +13,24 @@ Dokumen ini menjelaskan struktur antarmuka dan batas akses untuk Superadmin, Adm
 
 - `biodata.alamat_saat_ini` adalah satu-satunya field alamat domisili alumni. Alias runtime `alamat` tidak lagi digunakan; alamat perusahaan tetap berada di tabel `perusahaan`.
 - `biodata.skills` dan `biodata.experience` adalah field kanonik. Alias lama `expert` dan `minat` dihapus dari model, frontend, sinkronisasi LinkedIn, exporter, dan seeder.
+- `biodata.bidang_pekerjaan` dan `biodata.divisi` adalah dua atribut karier yang berbeda. Bidang menyatakan rumpun pekerjaan, sedangkan divisi menyatakan unit kerja aktual; keduanya diproyeksikan pada direktori dan analitik.
 - NIK, No KK, dan NPWP tidak lagi menjadi bagian dari data aplikasi. Kolom tersebut tidak dibuat pada migration schema aktif.
 - Tabel `data_orang_tua` dan foreign key `biodata.orang_tua_id` tidak ada pada schema aktif karena data orang tua tidak digunakan dalam profil maupun ekspor Excel.
 - Data pembimbing/penguji dihapus dari `yudisium`; judul tugas akhir, tanggal lulus, status lulus, dan publikasi yang masih digunakan tetap dipertahankan.
 - Data sekolah asal dan tempat lahir tidak termasuk schema aktif. Domisili alumni dan lokasi perusahaan memakai `kode_provinsi` serta `kode_kabupaten` sebagai foreign key berbasis primary key natural; negara perusahaan memakai `kode_negara` sebagai FK ke `ref_negara.kode_negara`.
+- Nama perusahaan pada direktori mengambil master `perusahaan` sebagai entitas head office. Cabang atau lokasi tempat tinggal alumni tidak ditulis ke master perusahaan; lokasi alumni ditampilkan dari domisili aktif pada `biodata`.
+- Filter direktori memakai opsi yang dikirim backend dalam `filterOptions`. Wilayah
+  dipisahkan menjadi provinsi dan kabupaten/kota; pilihan kabupaten/kota di UI
+  dibatasi oleh provinsi yang dipilih dan query backend tetap menerapkan keduanya.
+  Nilai filter wilayah memakai ID master kode_provinsi dan kode_kabupaten;
+  opsi provinsi/kabupaten berasal dari tabel master, sedangkan opsi karier hanya
+  menyaring nilai yang tersedia pada scope alumni aktif.
+- Kolom status kelengkapan direktori selalu memproyeksikan status kuesioner Univ
+  dan Prodi, profil, serta atasan. Kuesioner Prodi tanpa pertanyaan aktif dikirim
+  sebagai nilai tidak berlaku (`NULL`) dan ditampilkan sebagai `Prodi: -`.
+- Direktori mempertahankan aksi kirim email per alumni. Flash notification dari
+  endpoint ditampilkan kembali setelah pengiriman berhasil atau ditolak.
+- Direktori operasional tetap memakai ikon LinkedIn untuk sinkronisasi dan review; grafik analitik hanya memakai tautan profil langsung saat pengguna membuka detail alumni.
 
 ### Kontrak migration schema
 
@@ -161,7 +175,9 @@ Controller Fakultas dan Prodi membatasi daftar maupun aksi melalui query lingkup
 Aplikasi menggunakan arsitektur kuesioner terpadu (*Unified Survey Engine*) yang mengonsolidasikan seluruh jenis instrumen survei ke dalam satu set tabel kanonik:
 - `kuesioner_section`: Mengelompokkan bagian/stepper kuesioner (`target`: `'univ'`, `'prodi'`, atau `'atasan'`).
 - `kuesioner_pertanyaan`: Bank butir pertanyaan terpusat untuk kuesioner universitas, kuesioner prodi, dan kuesioner atasan.
-- `kuesioner_section_pertanyaan`: Mengatur penempatan butir pertanyaan pada bagian, urutan tampilan, dan status kewajiban (`wajib = 1` atau `0`).
+- `kuesioner_section_pertanyaan`: Mengatur penempatan butir pertanyaan pada bagian, urutan tampilan, status tampil lokal (`is_active`), dan status kewajiban (`wajib = 1` atau `0`). Setiap baris adalah satu penggunaan pertanyaan. Kolom `id` baris ini disebut `placement_id` pada payload/antarmuka aplikasi; `pertanyaan_id` tetap menunjuk master pertanyaan. Status lokal memungkinkan Prodi pengguna menonaktifkan pertanyaan pinjaman tanpa memengaruhi placement Prodi lain.
+
+Untuk operasi pengelolaan kuesioner Prodi, PUT/edit dan pengelolaan opsi memakai ID master (`pertanyaan_id`). Toggle aktif, hapus penggunaan, dan reorder memakai ID penempatan (`placement_id`), yaitu nilai kolom `id` pada `kuesioner_section_pertanyaan`. Dengan demikian, satu pertanyaan master dapat dipakai di banyak section tanpa operasi lokal saling mengubah.
 - `kuesioner_opsi`: Master opsi pilihan jawaban beserta skor bobot numerik dan kode lompatan (*jump_to*).
 - `kuesioner_jawaban`: Transaksi jawaban terpadu untuk Alumni maupun Atasan penilai (`responden_type`: `'alumni'` atau `'atasan'`).
 
@@ -193,9 +209,9 @@ Link profil alumni pada halaman bersama tidak menggunakan prefix superadmin seca
 
 ### Kebijakan Data Sensitif pada Profil Alumni
 
-Halaman self-service `/alumni/profile` hanya menerima props yang diperlukan untuk pengisian tracer. NIK, NPWP, KK, data orang tua, dan data pembimbing/penguji tidak lagi menjadi bagian dari schema aktif. NISN, BPJS, email mahasiswa, dan publikasi tetap berada pada sumber akademik yang diperlukan untuk audit/admin, tetapi tidak dikirim ke form self-service. Judul tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai referensi akademik non-sensitif.
+Halaman self-service `/alumni/profile` hanya menerima props yang diperlukan untuk pengisian tracer. NIK, NPWP, KK, data orang tua, dan data pembimbing/penguji tidak lagi menjadi bagian dari schema aktif. `data_akademik.email_pribadi` menjadi snapshot email dari sumber akademik dan hanya dipakai sebagai nilai awal saat `biodata` dibuat; kontak aktif alumni tetap berada pada `biodata.email_pribadi` dan tidak ditulis balik ke data akademik. Email sumber akademik tidak dikirim ke form self-service sebagai field terpisah. Judul tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai referensi akademik non-sensitif.
 
-Kontak dan domisili aktif hanya ditulis ke `biodata`.
+Kontak dan domisili aktif hanya ditulis ke `biodata`. Perubahan `biodata.email_pribadi` tidak mengubah snapshot `data_akademik.email_pribadi`.
 
 Payload audit evaluasi atasan juga dipetakan melalui `EvaluasiAtasan::toAdminAuditArray()`. Payload tersebut hanya membawa status, identitas atasan, instansi, dan jawaban per butir; token akses survei tidak dikirim ke halaman detail alumni. Jawaban evaluasi atasan disimpan langsung ke `kuesioner_jawaban` dengan `responden_type = 'atasan'` dan `evaluasi_atasan_id = evaluasi_atasan.id`.
 
@@ -236,7 +252,7 @@ Saat menambah fungsi administrasi yang sama lintas role, gunakan pola berikut:
 Alur login, reset password, dan wajib ganti password menggunakan komponen visual bersama `resources/js/components/Otentikasi/AuthBackdrop.vue`. Detail endpoint, batas frontend/backend, aturan komentar komponen, dan organisasi aset tersedia di [arsitektur-autentikasi.md](arsitektur-autentikasi.md).
 ### Dashboard Pengelola Berbasis Scope
 
-Dashboard Admin Prodi, Admin Fakultas, dan Biro 3 menggunakan kontrak data yang sama melalui `RoleDashboardDataService` dan komponen Vue `RoleDashboard`. Controller role hanya menentukan scope data dan metadata navigasi, sedangkan service membaca `v_alumni_audit_rekap` untuk menghitung populasi, response rate, kelengkapan profil, kelengkapan kuesioner universitas, ringkasan per prodi, serta pratinjau alumni.
+Dashboard Admin Prodi, Admin Fakultas, dan Biro 3 menggunakan kontrak data yang sama melalui `RoleDashboardDataService` dan komponen Vue `RoleDashboard`. Controller role hanya menentukan scope data dan metadata navigasi, sedangkan service membaca `v_alumni_audit_rekap` untuk menghitung populasi, response rate, kelengkapan profil, kelengkapan kuesioner universitas, ringkasan per prodi, serta pratinjau alumni. Direktori juga menerapkan filter server-side untuk wilayah domisili, head office, skills, bidang, dan unit/divisi.
 
 Komponen dashboard menerapkan layout responsif yang sama untuk ketiga role. Tautan pintasan tetap dibatasi berdasarkan route yang tersedia pada role tersebut, sehingga Biro 3 tidak menerima tautan modul yang hanya dimiliki Admin Prodi atau Admin Fakultas. Filter tahun diteruskan sebagai query `tahun` ke dashboard role dan seluruh metrik pada halaman dihitung ulang memakai tahun yang sama.
 
@@ -245,6 +261,8 @@ Komponen dashboard menerapkan layout responsif yang sama untuk ketiga role. Taut
 Halaman analitik Superadmin tersedia pada `/superadmin/analitik` dan dirender oleh `SuperAdmin/Analytics/GrafikUniv.vue`. Dropdown memilih satu indikator universitas dalam satu waktu. Render awal tetap memakai respons Inertia, sedangkan pergantian indikator/filter mengambil JSON dari `/superadmin/analitik/data` melalui `useHttp`. Controller meneruskan kunci grafik ke `TracerAnalyticsService::buildUniversityChart()`, sehingga backend hanya membaca database view dan dataset yang diperlukan oleh grafik aktif tanpa melakukan reload halaman penuh.
 
 Halaman dibagi menjadi tiga tab: Analisis menyusun temuan otomatis dari statistik aktual, Grafik menampilkan visual utama dan pendukung yang saling melakukan cross-filter, sedangkan Data menyediakan pencarian, sorting, dan pagination detail. Klik batang, titik, irisan, treemap, heatmap, Sankey, atau provinsi membuka drawer drill-down tanpa menghilangkan konteks filter. Kuesioner prodi tidak dipakai pada halaman ini; filter program studi hanya membatasi populasi lulusan universitas.
+
+Pada konteks Admin Fakultas, tautan detail dari tabel/grafik memakai route `GET /fakultas/analitik/alumni/{id}`. Route ini mengizinkan pembacaan detail alumni lintas fakultas untuk kebutuhan analitik, tetapi mengirim prop `readonly = true`. Detail dari direktori biasa tetap memakai `GET /fakultas/alumni/{id}` dan hanya menerima alumni dalam fakultas admin. Endpoint mutasi profil dan ekspor tetap memeriksa scope fakultas sehingga mode baca-saja tidak menjadi jalur perubahan data.
 
 Dataset indikator aktif dibaca melalui view terpisah: `v_analytics_population`,
 `v_analytics_response_rate`, `v_analytics_profile_completion`,
@@ -264,7 +282,9 @@ memilahnya di PHP. View bukan cache materialisasi, sehingga indeks pada tabel
 sumber tetap menjadi bagian penting dari performa.
 
 `v_analytics_population` hanya membaca identitas, akademik, program studi,
-perusahaan, dan provinsi kerja dari tabel kanonik. Status responden kuesioner selesai
+perusahaan, URL profil LinkedIn, dan provinsi kerja dari tabel kanonik. URL tersebut
+hanya menjadi tautan baca pada tabel analitik; direktori operasional tetap memakai
+aksi sinkronisasi/review. Status responden kuesioner selesai
 dihitung khusus oleh `v_analytics_response_rate` berbasis penyelesaian 100% butir kuesioner
 universitas (`v_alumni_tracer_univ_status`), menjamin sinkronisasi mutlak dengan direktori
 alumni. Denominator kohort dihitung langsung dari `biodata` dan `data_akademik` tanpa memanggil rekap audit prodi.

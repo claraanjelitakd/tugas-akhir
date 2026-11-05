@@ -12,9 +12,10 @@ use Illuminate\Database\Eloquent\Model;
  * Merupakan Single Source of Truth untuk:
  * - Identitas master (nama, tanggal lahir, jenis kelamin, warga negara)
  * - Riwayat akademik (angkatan, IPK, total SKS, status kelulusan, tahun & periode kelulusan)
+ * - Snapshot email pribadi dari sumber akademik saat impor data.
  *
- * Kontak dan domisili aktif alumni berada di Biodata agar tidak ada dua sumber
- * perubahan untuk tempat lahir, alamat, telepon, email pribadi, dan wilayah tempat tinggal.
+ * Email pada model ini hanya menjadi nilai awal saat Biodata dibuat. Kontak aktif alumni
+ * berada di Biodata dan perubahan pada Biodata tidak pernah ditulis balik ke model ini.
  * Kolom no_bpjs, golongan_darah, agama, dan nisn dihapus sesuai kepatuhan privasi UU PDP No. 27/2022.
  */
 class DataAkademik extends Model
@@ -26,6 +27,7 @@ class DataAkademik extends Model
     protected $fillable = [
         'nim',
         'nama',
+        'email_pribadi',
         'angkatan_masuk',
         'tanggal_lahir',
         'jenis_kelamin',

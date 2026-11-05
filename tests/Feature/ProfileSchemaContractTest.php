@@ -37,10 +37,15 @@ class ProfileSchemaContractTest extends TestCase
     /** Memastikan domisili memakai kode wilayah sebagai PK/FK canonical. */
     public function test_biodata_uses_canonical_wilayah_keys(): void
     {
-        foreach (['nomor_telepon', 'email_pribadi', 'alamat_saat_ini', 'kelurahan', 'kecamatan', 'kode_kabupaten', 'kode_provinsi', 'kode_pos'] as $column) {
+        $activeBiodataColumns = ['nomor_telepon', 'alamat_saat_ini', 'kelurahan', 'kecamatan', 'kode_kabupaten', 'kode_provinsi', 'kode_pos'];
+
+        foreach ($activeBiodataColumns as $column) {
             $this->assertTrue(Schema::hasColumn('biodata', $column));
             $this->assertFalse(Schema::hasColumn('data_akademik', $column));
         }
+
+        $this->assertTrue(Schema::hasColumn('data_akademik', 'email_pribadi'));
+        $this->assertTrue(Schema::hasColumn('biodata', 'email_pribadi'));
 
         $this->assertTrue(Schema::hasColumn('propinsi', 'kode_provinsi'));
         $this->assertTrue(Schema::hasColumn('kabupaten', 'kode_kabupaten'));
@@ -48,5 +53,12 @@ class ProfileSchemaContractTest extends TestCase
         $this->assertFalse(Schema::hasColumn('kabupaten', 'id'));
         $this->assertTrue(Schema::hasColumn('perusahaan', 'kode_negara'));
         $this->assertFalse(Schema::hasColumn('perusahaan', 'negara'));
+    }
+
+    /** Memastikan bidang pekerjaan dan divisi tersimpan sebagai atribut biodata yang berbeda. */
+    public function test_biodata_has_separate_job_field_and_division_columns(): void
+    {
+        $this->assertTrue(Schema::hasColumn('biodata', 'bidang_pekerjaan'));
+        $this->assertTrue(Schema::hasColumn('biodata', 'divisi'));
     }
 }

@@ -15,6 +15,7 @@ defineProps({
     filters: Object,
     stats: Object,
     pagination: Object,
+    filterOptions: Object,
 });
 </script>
 

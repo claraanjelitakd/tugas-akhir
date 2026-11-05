@@ -72,7 +72,7 @@ class AdminAlumniProfileService
             'email' => $summary?->email ?? ($alumni->email_pribadi ?? ''),
 
             // 2. Data Akademik
-            'prodi_id' => $summary?->prodi_id ?? ($alumni->prodi_id ?? ($dataAkademik?->prodi_id ?? '')),
+            'prodi_id' => $summary?->prodi_id ?? ($alumni->prodi_id ?? ''),
             'kode_prodi' => $summary?->kode_prodi ?? ($alumni->prodi?->kode_prodi ?? ''),
             'program_studi' => $summary?->nama_prodi ?? ($alumni->prodi?->nama_prodi ?? ''),
             'fakultas' => $summary?->nama_fakultas ?? ($alumni->prodi?->fakultas?->nama_fakultas ?? ''),
@@ -100,6 +100,7 @@ class AdminAlumniProfileService
             'kategori_pekerjaan' => $summary?->kategori_pekerjaan ?? ($alumni->kategori_pekerjaan ?? ''),
             'posisi_jabatan' => $summary?->posisi_jabatan ?? ($alumni->posisi_jabatan ?? ''),
             'bidang_pekerjaan' => $summary?->bidang_pekerjaan ?? ($alumni->bidang_pekerjaan ?? ''),
+            'divisi' => $summary?->divisi ?? ($alumni->divisi ?? ''),
             'posisi_wiraswasta' => $summary?->posisi_wiraswasta ?? ($alumni->posisi_wiraswasta ?? ''),
             'pendidikan_tingkat' => $summary?->pendidikan_tingkat ?? ($alumni->pendidikan_tingkat ?? ''),
             'perguruan_tinggi' => $summary?->perguruan_tinggi ?? ($alumni->perguruan_tinggi ?? ''),
@@ -186,7 +187,8 @@ class AdminAlumniProfileService
     public static function getProfileQuestionConfigs(): array
     {
         return KuesionerPertanyaan::whereHas('sections', function ($q) {
-            $q->whereIn('kuesioner_section_pertanyaan.tampil_di', ['profil', 'profile', 'both']);
+            $q->whereIn('kuesioner_section_pertanyaan.tampil_di', ['profil', 'profile', 'both'])
+                ->where('kuesioner_section_pertanyaan.is_active', true);
         })
             ->orWhereIn('kuesioner_pertanyaan.kode_pertanyaan', ['F8', 'F11', 'F5D', 'F2G', 'F2H'])
             ->get(['id', 'kode_pertanyaan', 'teks_pertanyaan as subpertanyaan', 'keterangan', 'tipe as type'])
@@ -262,11 +264,11 @@ class AdminAlumniProfileService
         $kategoriPekerjaan = ! empty($data['kategori_pekerjaan']) ? $data['kategori_pekerjaan'] : null;
         $posisiJabatan = ! empty($data['posisi_jabatan']) ? $data['posisi_jabatan'] : null;
         $posisiWiraswasta = ! empty($data['posisi_wiraswasta']) ? $data['posisi_wiraswasta'] : null;
-        if ($posisiWiraswasta === 'Lainnya' && ! empty($data['posisi_wiraswasta_lainnya'])) {
+        if ($posisiWiraswasta && str_contains(strtolower($posisiWiraswasta), 'lainnya') && ! empty($data['posisi_wiraswasta_lainnya'])) {
             $posisiWiraswasta = $data['posisi_wiraswasta_lainnya'];
         }
         $bidangPekerjaan = ! empty($data['bidang_pekerjaan']) ? trim((string) $data['bidang_pekerjaan']) : null;
-        if ($bidangPekerjaan && strtolower($bidangPekerjaan) === 'lainnya') {
+        if ($bidangPekerjaan && str_contains(strtolower($bidangPekerjaan), 'lainnya')) {
             $bidangPekerjaan = ! empty($data['bidang_pekerjaan_lainnya'])
                 ? trim((string) $data['bidang_pekerjaan_lainnya'])
                 : null;
@@ -345,6 +347,7 @@ class AdminAlumniProfileService
             'kategori_pekerjaan' => $kategoriPekerjaan,
             'posisi_jabatan' => $posisiJabatan,
             'bidang_pekerjaan' => $bidangPekerjaan,
+            'divisi' => ! empty($data['divisi']) ? trim((string) $data['divisi']) : null,
             'posisi_wiraswasta' => $posisiWiraswasta,
             'pendidikan_tingkat' => ! empty($data['pendidikan_tingkat']) ? $data['pendidikan_tingkat'] : null,
             'perguruan_tinggi' => ! empty($data['perguruan_tinggi']) ? $data['perguruan_tinggi'] : null,

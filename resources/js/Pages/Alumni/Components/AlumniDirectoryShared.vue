@@ -82,6 +82,19 @@ const props = defineProps({
         type: Boolean,
         default: true,
     },
+    filterOptions: {
+        type: Object,
+        default: () => ({
+            wilayah: {
+                provinsi: [],
+                kabupaten: [],
+            },
+            head_office: [],
+            skills: [],
+            bidang: [],
+            unit: [],
+        }),
+    },
 });
 
 // State Filter
@@ -93,6 +106,16 @@ const target = ref(props.filters.target || 'all');
 const status = ref(props.filters.status || 'all');
 const prodiId = ref(props.filters.prodi_id || 'all');
 const linkedinStatus = ref(props.filters.linkedin_status || 'all');
+const provinsi = ref(props.filters.kode_provinsi || 'all');
+const kabupaten = ref(props.filters.kode_kabupaten || 'all');
+const provinsiSearch = ref('');
+const kabupatenSearch = ref('');
+const showProvinsiDropdown = ref(false);
+const showKabupatenDropdown = ref(false);
+const headOffice = ref(props.filters.head_office || 'all');
+const skills = ref(props.filters.skills || 'all');
+const bidang = ref(props.filters.bidang || 'all');
+const unit = ref(props.filters.unit || 'all');
 
 // Sinkronkan state filter jika server mengembalikan props filters baru
 watch(() => props.filters, (newFilters) => {
@@ -115,6 +138,24 @@ watch(() => props.filters, (newFilters) => {
         if (newFilters.linkedin_status !== undefined) {
             linkedinStatus.value = newFilters.linkedin_status || 'all';
         }
+        if (newFilters.kode_provinsi !== undefined) {
+            provinsi.value = newFilters.kode_provinsi || 'all';
+        }
+        if (newFilters.kode_kabupaten !== undefined) {
+            kabupaten.value = newFilters.kode_kabupaten || 'all';
+        }
+        if (newFilters.head_office !== undefined) {
+            headOffice.value = newFilters.head_office || 'all';
+        }
+        if (newFilters.skills !== undefined) {
+            skills.value = newFilters.skills || 'all';
+        }
+        if (newFilters.bidang !== undefined) {
+            bidang.value = newFilters.bidang || 'all';
+        }
+        if (newFilters.unit !== undefined) {
+            unit.value = newFilters.unit || 'all';
+        }
     }
 }, { deep: true });
 
@@ -125,6 +166,70 @@ const currentPage = ref(props.pagination?.current_page || 1);
 const totalPages = computed(() => {
     return props.pagination?.last_page || 1;
 });
+
+// Batasi pilihan provinsi berdasarkan kata pencarian.
+const filteredProvinsiOptions = computed(() => {
+    const options = props.filterOptions?.wilayah?.provinsi || [];
+    const keyword = provinsiSearch.value.trim().toLowerCase();
+
+    if (!keyword) {
+        return options;
+    }
+
+    return options.filter((option) => String(option.label || '').toLowerCase().includes(keyword));
+});
+
+// Batasi pilihan kabupaten/kota berdasarkan provinsi dan kata pencarian.
+const filteredKabupatenOptions = computed(() => {
+    const options = props.filterOptions?.wilayah?.kabupaten || [];
+    const keyword = kabupatenSearch.value.trim().toLowerCase();
+    const scopedOptions = provinsi.value === 'all'
+        ? options
+        : options.filter((option) => option.provinsi === provinsi.value);
+
+    if (!keyword) {
+        return scopedOptions;
+    }
+
+    return scopedOptions.filter((option) => String(option.label || '').toLowerCase().includes(keyword));
+});
+
+// Menampilkan label provinsi yang sedang aktif pada input pencarian.
+const selectedProvinsiLabel = computed(() => {
+    if (provinsi.value === 'all') {
+        return '';
+    }
+
+    return props.filterOptions?.wilayah?.provinsi?.find((option) => option.value === provinsi.value)?.label || '';
+});
+
+// Menampilkan label kabupaten/kota yang sedang aktif pada input pencarian.
+const selectedKabupatenLabel = computed(() => {
+    if (kabupaten.value === 'all') {
+        return '';
+    }
+
+    return props.filterOptions?.wilayah?.kabupaten?.find((option) => option.value === kabupaten.value)?.label || '';
+});
+
+// Memilih provinsi, mereset kabupaten/kota, dan menerapkan filter berbasis ID.
+const selectProvinsi = (option) => {
+    provinsi.value = option.value;
+    provinsiSearch.value = '';
+    showProvinsiDropdown.value = false;
+    kabupaten.value = 'all';
+    kabupatenSearch.value = '';
+    showKabupatenDropdown.value = false;
+    applyFilters(1);
+};
+
+// Memilih kabupaten/kota dari provinsi yang sudah dipilih.
+const selectKabupaten = (option) => {
+    kabupaten.value = option.value;
+    kabupatenSearch.value = '';
+    showKabupatenDropdown.value = false;
+    applyFilters(1);
+};
 
 const paginationItems = computed(() => {
     const total = totalPages.value;
@@ -201,6 +306,12 @@ const applyFilters = (page = 1) => {
         status: status.value !== 'all' ? status.value : undefined,
         prodi_id: prodiId.value !== 'all' ? prodiId.value : undefined,
         linkedin_status: linkedinStatus.value !== 'all' ? linkedinStatus.value : undefined,
+        kode_provinsi: provinsi.value !== 'all' ? provinsi.value : undefined,
+        kode_kabupaten: kabupaten.value !== 'all' ? kabupaten.value : undefined,
+        head_office: headOffice.value !== 'all' ? headOffice.value : undefined,
+        skills: skills.value !== 'all' ? skills.value : undefined,
+        bidang: bidang.value !== 'all' ? bidang.value : undefined,
+        unit: unit.value !== 'all' ? unit.value : undefined,
         page,
         per_page: perPage.value,
     }, {
@@ -247,6 +358,16 @@ const resetFilters = () => {
     status.value = 'all';
     prodiId.value = 'all';
     linkedinStatus.value = 'all';
+    provinsi.value = 'all';
+    kabupaten.value = 'all';
+    provinsiSearch.value = '';
+    kabupatenSearch.value = '';
+    showProvinsiDropdown.value = false;
+    showKabupatenDropdown.value = false;
+    headOffice.value = 'all';
+    skills.value = 'all';
+    bidang.value = 'all';
+    unit.value = 'all';
     currentPage.value = 1;
     applyFilters(1);
 };
@@ -334,62 +455,97 @@ const executeSendWa = () => {
     showWaModal.value = false;
 };
 
-// Kirim Email Pengingat Satuan
-const handleSendSingleEmail = (alumni) => {
-    if (!alumni.email) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Email Tidak Terdaftar',
-            text: `Alumni ${alumni.nama} (${alumni.nim}) belum memiliki alamat email yang tersimpan di sistem.`,
-            confirmButtonColor: '#0D542B',
-        });
-        return;
-    }
-
+// Mengirim pengingat kuesioner ke satu alumni melalui endpoint sesuai role aktif.
+const handleSendEmail = (alumni) => {
     Swal.fire({
-        title: 'Kirim Email Pengingat?',
-        html: `<p class="text-xs text-slate-600">Kirim email resmi pengingat pengisian tracer study beserta panduan login ke <b>${alumni.nama}</b> (<span class="font-mono text-emerald-800">${alumni.email}</span>)?</p>`,
+        title: 'Kirim email pengingat?',
+        text: 'Email pengingat akan dikirim ke ' + alumni.nama + '.',
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#0D542B',
-        cancelButtonColor: '#94a3b8',
-        confirmButtonText: 'Ya, Kirim Email',
+        confirmButtonText: 'Kirim Email',
         cancelButtonText: 'Batal',
-    }).then((res) => {
-        if (res.isConfirmed) {
-            Swal.fire({
-                title: 'Mengirim Email...',
-                text: 'Mohon tunggu sebentar, sistem sedang memproses pengiriman.',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                },
-            });
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#64748b',
+    }).then((result) => {
+        if (!result.isConfirmed) {
+            return;
+        }
 
-            router.post(`/${props.prefix}/alumni/${alumni.id}/send-email`, {}, {
-                preserveScroll: true,
-                onSuccess: () => {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Email Terkirim',
-                        text: `Email pengingat berhasil dikirimkan ke ${alumni.nama} (${alumni.email}).`,
-                        confirmButtonColor: '#0D542B',
-                    });
-                },
-                onError: () => {
+        const endpoint = '/' + props.prefix + '/alumni/' + alumni.id + '/send-email';
+        router.post(endpoint, {}, {
+            preserveScroll: true,
+            onSuccess: (response) => {
+                const flash = response.props.flash || {};
+
+                if (flash.error) {
                     Swal.fire({
                         icon: 'error',
-                        title: 'Gagal Mengirim Email',
-                        text: 'Terjadi kendala pada server saat memproses pengiriman email.',
+                        title: 'Email Tidak Terkirim',
+                        text: flash.error,
                         confirmButtonColor: '#0D542B',
                     });
-                },
-            });
-        }
+
+                    return;
+                }
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Email Berhasil Dikirim',
+                    text: flash.success || ('Email pengingat berhasil dikirim ke ' + alumni.nama + '.'),
+                    confirmButtonColor: '#0D542B',
+                });
+            },
+            onError: () => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Mengirim Email',
+                    text: 'Email pengingat tidak dapat dikirim saat ini.',
+                    confirmButtonColor: '#0D542B',
+                });
+            },
+        });
     });
 };
 
-// Validasi URL profil LinkedIn
+// Preview foto alumni yang dipilih dari tabel direktori.
+const showPhotoPreview = ref(false);
+const activePhotoAlumni = ref(null);
+
+const openPhotoPreview = (alumni) => {
+    if (!alumni?.foto) {
+        return;
+    }
+
+    activePhotoAlumni.value = alumni;
+    showPhotoPreview.value = true;
+};
+
+// Menyusun ringkasan karier sesuai aktivitas alumni saat ini.
+const careerSummary = (alumni) => {
+    const category = String(alumni?.kategori_pekerjaan || '').toLowerCase();
+    const studyDetails = [alumni?.pendidikan_tingkat, alumni?.perguruan_tinggi, alumni?.pendidikan_prodi]
+        .filter(Boolean)
+        .join(' - ');
+
+    if (category.includes('melanjutkan') || studyDetails) {
+        return [
+            'Studi lanjut',
+            studyDetails || 'Detail studi belum diisi',
+        ];
+    }
+
+    if (category.includes('wiraswasta') || category.includes('wirausaha')) {
+        return ['Wiraswasta', alumni.posisi_wiraswasta || alumni.experience || 'Detail usaha belum diisi'];
+    }
+
+    if (category.includes('tidak') || category.includes('mencari')) {
+        return ['Aktivitas', alumni.kategori_pekerjaan || 'Belum bekerja'];
+    }
+
+    return ['Experience', alumni.experience || 'Belum ada pengalaman yang diisi'];
+};
+
+// Validasi URL profil LinkedIn sebelum menyimpan URL untuk proses sinkronisasi.
 const isValidLinkedInProfileUrl = (value) => {
     try {
         const url = new URL(value);
@@ -401,91 +557,11 @@ const isValidLinkedInProfileUrl = (value) => {
     }
 };
 
-// Simpan URL profil LinkedIn alumni
-const saveLinkedInUrl = async (alumni, linkedinUrl) => {
-    const response = await fetch(`/${props.prefix}/linkedin-sync/${alumni.id}/url`, {
-        method: 'PATCH',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        },
-        body: JSON.stringify({ linkedin_url: linkedinUrl }),
-    });
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-        throw new Error(data.message || data.errors?.linkedin_url?.[0] || 'URL LinkedIn gagal diperbarui.');
-    }
-
-    alumni.linkedin_url = data.linkedin_url || linkedinUrl;
-};
-
-// Eksekusi penarikan data scraping profil LinkedIn
-const executeLinkedInSync = async (alumni) => {
-    Swal.fire({
-        title: 'Menyinkronkan LinkedIn...',
-        html: '<p class="text-xs text-slate-600">Sistem sedang menghubungi provider LinkedIn untuk memperbarui data karir alumni. Mohon tunggu...</p>',
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        },
-    });
-
-    try {
-        const response = await fetch(`/${props.prefix}/linkedin-sync/${alumni.id}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            },
-        });
-
-        const data = await response.json();
-        Swal.close();
-
-        if (response.ok && data.success) {
-            if (data.sync_result_id) {
-                router.get(`/${props.prefix}/alumni/${alumni.id}`, {
-                    tab: 'linkedin',
-                    review_sync_id: data.sync_result_id,
-                }, {
-                    preserveScroll: true,
-                });
-            } else {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Sinkronisasi Berhasil',
-                    text: 'Data profil LinkedIn berhasil ditarik dan diperbarui.',
-                    confirmButtonColor: '#0D542B',
-                });
-                router.reload({ preserveScroll: true });
-            }
-        } else {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Perhatian Sinkronisasi',
-                text: data.message || 'Sinkronisasi selesai dengan catatan.',
-                confirmButtonColor: '#0D542B',
-            });
-        }
-    } catch (error) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Sinkronisasi Gagal',
-            text: error.message || 'Terjadi kesalahan saat menyinkronkan profil LinkedIn.',
-            confirmButtonColor: '#0D542B',
-        });
-    }
-};
-
-// Handler saat tombol aksi LinkedIn diklik
+// Menyimpan URL LinkedIn lalu memulai sinkronisasi dari direktori alumni.
 const handleSyncLinkedIn = async (alumni) => {
     const result = await Swal.fire({
         title: alumni.linkedin_url ? 'Perbarui URL LinkedIn' : 'Masukkan URL LinkedIn',
-        html: `<p class="text-xs text-slate-600">URL ini akan digunakan sebagai sumber sinkronisasi profil <b>${alumni.nama}</b> (${alumni.nim}).</p>`,
+        html: `<p class="text-xs text-slate-600">URL ini akan digunakan untuk sinkronisasi profil <b>${alumni.nama}</b> (${alumni.nim}).</p>`,
         icon: 'info',
         input: 'url',
         inputValue: alumni.linkedin_url || '',
@@ -507,13 +583,46 @@ const handleSyncLinkedIn = async (alumni) => {
     }
 
     try {
-        await saveLinkedInUrl(alumni, result.value.trim());
-        await executeLinkedInSync(alumni);
+        const url = result.value.trim();
+        const headers = {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        };
+        const saveResponse = await fetch(`/${props.prefix}/linkedin-sync/${alumni.id}/url`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ linkedin_url: url }),
+        });
+        const saveData = await saveResponse.json();
+
+        if (!saveResponse.ok || !saveData.success) {
+            throw new Error(saveData.message || 'URL LinkedIn gagal diperbarui.');
+        }
+
+        const syncResponse = await fetch(`/${props.prefix}/linkedin-sync/${alumni.id}`, {
+            method: 'POST',
+            headers,
+        });
+        const syncData = await syncResponse.json();
+
+        if (!syncResponse.ok || !syncData.success) {
+            throw new Error(syncData.message || 'Sinkronisasi LinkedIn gagal dijalankan.');
+        }
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Sinkronisasi Dimulai',
+            text: 'Profil LinkedIn masuk ke proses review.',
+            confirmButtonColor: '#0D542B',
+        });
+        router.reload({ preserveScroll: true });
     } catch (error) {
         Swal.fire({
             icon: 'error',
-            title: 'URL LinkedIn Gagal Disimpan',
-            text: error.message || 'URL LinkedIn tidak dapat diperbarui.',
+            title: 'Sinkronisasi Gagal',
+            text: error.message || 'Terjadi kesalahan saat menyinkronkan profil LinkedIn.',
             confirmButtonColor: '#0D542B',
         });
     }
@@ -820,6 +929,152 @@ const formatTanggal = (dateStr) => {
                                 </option>
                             </select>
                         </div>
+
+                        <!-- Filter provinsi searchable sebagai tingkat pertama wilayah berbasis kode master. -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">Provinsi</label>
+                            <div class="relative">
+                                <input
+                                    v-model="provinsiSearch"
+                                    type="search"
+                                    :placeholder="selectedProvinsiLabel || 'Cari provinsi...'"
+                                    @focus="showProvinsiDropdown = true"
+                                    @blur="setTimeout(() => { showProvinsiDropdown = false; }, 150)"
+                                    class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 pr-8 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B]"
+                                />
+                                <button
+                                    type="button"
+                                    class="absolute inset-y-0 right-0 px-2 text-slate-500"
+                                    aria-label="Buka pilihan provinsi"
+                                    @click="showProvinsiDropdown = !showProvinsiDropdown"
+                                >
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
+                                </button>
+                                <div v-if="showProvinsiDropdown" class="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                                    <button
+                                        type="button"
+                                        class="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                        @mousedown.prevent="selectProvinsi({ value: 'all', label: 'Semua Provinsi' })"
+                                    >
+                                        Semua Provinsi
+                                    </button>
+                                    <button
+                                        v-for="option in filteredProvinsiOptions"
+                                        :key="option.value"
+                                        type="button"
+                                        class="block w-full rounded-lg px-3 py-2 text-left text-xs text-slate-700 hover:bg-emerald-50"
+                                        @mousedown.prevent="selectProvinsi(option)"
+                                    >
+                                        {{ option.label }}
+                                    </button>
+                                    <p v-if="filteredProvinsiOptions.length === 0" class="px-3 py-2 text-xs text-slate-500">Provinsi tidak ditemukan.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Filter kabupaten/kota searchable dan bergantung pada provinsi terpilih. -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">Kabupaten / Kota</label>
+                            <div class="relative">
+                                <input
+                                    v-model="kabupatenSearch"
+                                    type="search"
+                                    :placeholder="provinsi === 'all' ? 'Pilih provinsi dahulu' : (selectedKabupatenLabel || 'Cari kabupaten/kota...')"
+                                    :disabled="provinsi === 'all'"
+                                    @focus="showKabupatenDropdown = true"
+                                    @blur="setTimeout(() => { showKabupatenDropdown = false; }, 150)"
+                                    class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 pr-8 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] disabled:cursor-not-allowed disabled:bg-slate-100"
+                                />
+                                <button
+                                    type="button"
+                                    :disabled="provinsi === 'all'"
+                                    class="absolute inset-y-0 right-0 px-2 text-slate-500 disabled:cursor-not-allowed"
+                                    aria-label="Buka pilihan kabupaten atau kota"
+                                    @click="showKabupatenDropdown = !showKabupatenDropdown"
+                                >
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
+                                </button>
+                                <div v-if="showKabupatenDropdown && provinsi !== 'all'" class="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                                    <button
+                                        type="button"
+                                        class="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                        @mousedown.prevent="selectKabupaten({ value: 'all', label: 'Semua Kabupaten / Kota' })"
+                                    >
+                                        Semua Kabupaten / Kota
+                                    </button>
+                                    <button
+                                        v-for="option in filteredKabupatenOptions"
+                                        :key="option.provinsi + '-' + option.value"
+                                        type="button"
+                                        class="block w-full rounded-lg px-3 py-2 text-left text-xs text-slate-700 hover:bg-emerald-50"
+                                        @mousedown.prevent="selectKabupaten(option)"
+                                    >
+                                        {{ option.label }}
+                                    </button>
+                                    <p v-if="filteredKabupatenOptions.length === 0" class="px-3 py-2 text-xs text-slate-500">Kabupaten/kota tidak ditemukan.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Filter perusahaan berdasarkan nama head office master. -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">Head Office</label>
+                            <select
+                                v-model="headOffice"
+                                @change="applyFilters(1)"
+                                class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all cursor-pointer"
+                            >
+                                <option value="all">Semua Head Office</option>
+                                <option v-for="option in filterOptions.head_office" :key="option" :value="option">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Filter frasa skills yang berasal dari profil alumni atau LinkedIn. -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">Skills</label>
+                            <select
+                                v-model="skills"
+                                @change="applyFilters(1)"
+                                class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all cursor-pointer"
+                            >
+                                <option value="all">Semua Skills</option>
+                                <option v-for="option in filterOptions.skills" :key="option" :value="option">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Filter rumpun bidang pekerjaan. -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">Bidang</label>
+                            <select
+                                v-model="bidang"
+                                @change="applyFilters(1)"
+                                class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all cursor-pointer"
+                            >
+                                <option value="all">Semua Bidang</option>
+                                <option v-for="option in filterOptions.bidang" :key="option" :value="option">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Filter unit atau divisi tempat alumni bekerja. -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">Unit / Divisi</label>
+                            <select
+                                v-model="unit"
+                                @change="applyFilters(1)"
+                                class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all cursor-pointer"
+                            >
+                                <option value="all">Semua Unit / Divisi</option>
+                                <option v-for="option in filterOptions.unit" :key="option" :value="option">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
@@ -846,17 +1101,25 @@ const formatTanggal = (dateStr) => {
                     </div>
 
                     <!-- Tabel Data -->
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs border-collapse">
+                    <div class="overflow-x-auto border-t border-slate-200">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold text-slate-500">
+                            <span>Geser ke samping untuk melihat kolom lengkap.</span>
+                            <span class="hidden shrink-0 text-slate-400 sm:inline">Aksi tetap terlihat di sisi kanan.</span>
+                        </div>
+                        <table class="directory-table min-w-[1900px] w-full text-left text-xs border-collapse">
                             <thead>
                                 <tr class="bg-slate-50 border-b border-slate-200/80 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                                     <th class="py-3 px-4 w-12 text-center">No</th>
                                     <th class="py-3 px-4 min-w-[200px]">Mahasiswa / Alumni</th>
                                     <th class="py-3 px-4 min-w-[150px]">Program Studi</th>
+                                    <th class="py-3 px-4 min-w-[230px]">Perusahaan &amp; Lokasi</th>
+                                    <th class="py-3 px-4 min-w-[220px]">Pekerjaan &amp; Posisi</th>
+                                    <th class="py-3 px-4 min-w-[220px]">Skills</th>
+                                    <th class="py-3 px-4 min-w-[210px]">Experience / Aktivitas</th>
                                     <th class="py-3 px-4 min-w-[130px]">Target Kelulusan</th>
-                                    <th class="py-3 px-4 min-w-[160px]">Status Kelengkapan</th>
-                                    <th class="py-3 px-4 min-w-[140px]">Sinkronisasi LinkedIn</th>
-                                    <th class="py-3 px-4 w-28 text-center">Aksi</th>
+                                    <th class="py-3 px-4 min-w-[220px]">Status Kelengkapan</th>
+                                    <th class="py-3 px-4 min-w-[150px]">Sinkronisasi LinkedIn</th>
+                                    <th class="sticky right-0 z-20 w-44 min-w-[176px] bg-slate-50 py-3 px-4 text-center">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
@@ -873,9 +1136,16 @@ const formatTanggal = (dateStr) => {
                                     <!-- Mahasiswa / Alumni -->
                                     <td class="py-3.5 px-4">
                                         <div class="flex items-center gap-3">
-                                            <div class="w-8 h-8 rounded-full bg-emerald-50 text-[#0D542B] font-bold text-xs flex items-center justify-center shrink-0 border border-emerald-200/60 shadow-2xs">
-                                                {{ getInitials(item.nama) }}
-                                            </div>
+                                            <button
+                                                type="button"
+                                                class="w-10 h-10 overflow-hidden rounded-full bg-emerald-50 text-[#0D542B] font-bold text-xs flex items-center justify-center shrink-0 border border-emerald-200/60 shadow-2xs"
+                                                :class="item.foto ? 'cursor-zoom-in' : 'cursor-default'"
+                                                :title="item.foto ? 'Lihat foto profil' : 'Belum ada foto profil'"
+                                                @click="openPhotoPreview(item)"
+                                            >
+                                                <img v-if="item.foto" :src="item.foto" :alt="`Foto ${item.nama || 'alumni'}`" class="h-full w-full object-contain" />
+                                                <span v-else>{{ getInitials(item.nama) }}</span>
+                                            </button>
                                             <div class="min-w-0">
                                                 <Link 
                                                     :href="`/${prefix}/alumni/${item.id}`"
@@ -883,10 +1153,8 @@ const formatTanggal = (dateStr) => {
                                                 >
                                                     {{ item.nama || 'Mahasiswa' }}
                                                 </Link>
-                                                <div class="text-[11px] text-slate-600 font-mono tracking-tight flex items-center gap-1.5 mt-0.5">
+                                                <div class="text-[11px] text-slate-600 font-mono tracking-tight mt-0.5">
                                                     <span>{{ item.nim }}</span>
-                                                    <span v-if="item.email" class="text-slate-600">&bull;</span>
-                                                    <span v-if="item.email" class="text-slate-600 font-sans truncate max-w-[140px]">{{ item.email }}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -895,10 +1163,67 @@ const formatTanggal = (dateStr) => {
                                     <!-- Program Studi -->
                                     <td class="py-3.5 px-4">
                                         <div class="font-semibold text-slate-800 text-xs truncate max-w-[160px]">
-                                            {{ item.nama_prodi || '-' }}
+                                            {{ item.nama_prodi || item.prodi || '-' }}
                                         </div>
                                         <div class="text-[11px] text-slate-600 truncate max-w-[160px]">
-                                            {{ item.nama_fakultas || '-' }}
+                                            {{ item.nama_fakultas || item.fakultas || '-' }}
+                                        </div>
+                                    </td>
+
+                                    <!-- Perusahaan menampilkan head office master dan domisili alumni secara terpisah. -->
+                                    <td class="py-3.5 px-4">
+                                        <div class="space-y-1 text-xs">
+                                            <div class="truncate max-w-[230px]" :title="item.nama_perusahaan || item.perusahaan || ''">
+                                                <span class="font-semibold text-slate-500">Head office:</span>
+                                                <span class="font-semibold text-slate-800"> {{ item.nama_perusahaan || item.perusahaan || '-' }}</span>
+                                            </div>
+                                            <div class="truncate max-w-[230px]" :title="item.domisili || ''">
+                                                <span class="font-semibold text-slate-500">Lokasi saat ini:</span>
+                                                <span class="text-slate-700"> {{ item.domisili || '-' }}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <!-- Bidang, unit, dan posisi jabatan diringkas dalam satu konteks visual. -->
+                                    <td class="py-3.5 px-4">
+                                        <div class="space-y-1 text-xs">
+                                            <div class="truncate max-w-[220px]" :title="item.bidang_pekerjaan || ''">
+                                                <span class="font-semibold text-slate-500">Bidang:</span>
+                                                <span class="text-slate-700"> {{ item.bidang_pekerjaan || '-' }}</span>
+                                            </div>
+                                            <div class="truncate max-w-[220px]" :title="item.divisi || ''">
+                                                <span class="font-semibold text-slate-500">Unit:</span>
+                                                <span class="text-slate-700"> {{ item.divisi || '-' }}</span>
+                                            </div>
+                                            <div class="truncate max-w-[220px]" :title="item.posisi_jabatan || item.posisi_wiraswasta || ''">
+                                                <span class="font-semibold text-slate-500">Posisi:</span>
+                                                <span class="text-slate-700"> {{ item.posisi_jabatan || item.posisi_wiraswasta || '-' }}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <!-- Skills ditampilkan sebagai frasa utuh, bukan dipotong per kata. -->
+                                    <td class="py-3.5 px-4">
+                                        <div v-if="item.skills_list?.length" class="flex max-w-[260px] flex-wrap gap-1">
+                                            <span
+                                                v-for="skill in item.skills_list.slice(0, 6)"
+                                                :key="skill"
+                                                class="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-700"
+                                            >
+                                                {{ skill }}
+                                            </span>
+                                            <span v-if="item.skills_list.length > 6" class="px-1.5 py-0.5 text-[10px] text-slate-500">
+                                                +{{ item.skills_list.length - 6 }} lainnya
+                                            </span>
+                                        </div>
+                                        <span v-else class="text-xs text-slate-500">-</span>
+                                    </td>
+
+                                    <!-- Experience menyesuaikan status bekerja, studi lanjut, atau wiraswasta. -->
+                                    <td class="py-3.5 px-4">
+                                        <div class="max-w-[210px] text-xs" :title="careerSummary(item)[1]">
+                                            <div class="font-semibold text-slate-500">{{ careerSummary(item)[0] }}:</div>
+                                            <div class="mt-0.5 line-clamp-2 text-slate-700">{{ careerSummary(item)[1] }}</div>
                                         </div>
                                     </td>
 
@@ -914,22 +1239,22 @@ const formatTanggal = (dateStr) => {
 
                                     <!-- Status Kelengkapan -->
                                     <td class="py-3.5 px-4">
-                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                        <div class="flex items-center gap-1.5 whitespace-nowrap">
                                             <span 
                                                 class="px-2 py-0.5 text-[10px] font-bold rounded-md"
                                                 :class="(item.univ_percentage ?? item.progress?.questionnaire?.percentage ?? 0) >= 100 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-700'"
                                             >
                                                 Univ: {{ item.univ_percentage ?? item.progress?.questionnaire?.percentage ?? 0 }}%
                                             </span>
-                                            <span 
-                                                v-if="(item.total_prodi_questions ?? item.progress?.prodi?.total_questions ?? 0) > 0"
+                                            <span
                                                 class="px-2 py-0.5 text-[10px] font-bold rounded-md"
-                                                :class="(item.prodi_percentage ?? item.progress?.prodi?.percentage ?? 0) >= 100 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-700'"
+                                                :class="(item.total_prodi_questions ?? item.progress?.prodi?.total_questions ?? 0) > 0 && (item.prodi_percentage ?? item.progress?.prodi?.percentage ?? 0) >= 100 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-700'"
+                                                :title="(item.total_prodi_questions ?? item.progress?.prodi?.total_questions ?? 0) > 0 ? 'Status pengisian kuesioner Prodi' : 'Belum ada kuesioner Prodi yang ditetapkan'"
                                             >
-                                                Prodi: {{ item.prodi_percentage ?? item.progress?.prodi?.percentage ?? 0 }}%
+                                                Prodi: {{ (item.total_prodi_questions ?? item.progress?.prodi?.total_questions ?? 0) > 0 ? `${item.prodi_percentage ?? item.progress?.prodi?.percentage ?? 0}%` : '-' }}
                                             </span>
                                         </div>
-                                        <div class="text-[10px] text-slate-600 mt-1 flex items-center gap-1">
+                                        <div class="mt-1 flex items-center gap-2 whitespace-nowrap text-[10px] text-slate-600">
                                             <span>Profil: <b :class="(item.is_profile_complete ?? item.progress?.profile?.is_complete) ? 'text-emerald-700' : 'text-slate-600'">{{ (item.is_profile_complete ?? item.progress?.profile?.is_complete) ? 'Lengkap' : 'Belum' }}</b></span>
                                             <span>&bull;</span>
                                             <span>Atasan: <b :class="(item.evaluasi_atasan_status || item.evaluasi_atasan?.status) === 'submitted' ? 'text-emerald-700' : 'text-slate-600'">{{ (item.evaluasi_atasan_status || item.evaluasi_atasan?.status) === 'submitted' ? 'Diisi' : 'Belum Ada' }}</b></span>
@@ -963,10 +1288,18 @@ const formatTanggal = (dateStr) => {
                                             <span v-if="item.linkedin_username || item.linkedin_url" class="font-mono">{{ item.linkedin_username || 'Ada link' }}</span>
                                             <span v-else>Belum ada riwayat</span>
                                         </div>
+                                        <button
+                                            v-if="item.linkedin_sync?.has_sync || item.linkedin_sync_status"
+                                            type="button"
+                                            class="mt-1 text-[10px] font-bold text-[#0D542B] underline decoration-dotted underline-offset-2 hover:text-emerald-800"
+                                            @click="openLinkedInHistoryModal(item)"
+                                        >
+                                            Lihat riwayat ({{ item.linkedin_sync?.sync_count || 0 }})
+                                        </button>
                                     </td>
 
                                     <!-- Aksi -->
-                                    <td class="py-3.5 px-4 text-center">
+                                    <td class="sticky right-0 z-10 w-44 min-w-[176px] bg-white py-3.5 px-4 text-center shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] group-hover:bg-slate-50">
                                         <div class="flex items-center justify-center gap-1.5">
                                             <!-- Detail Button -->
                                             <Link 
@@ -987,45 +1320,36 @@ const formatTanggal = (dateStr) => {
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                                             </button>
 
-                                            <!-- Email Reminder Button -->
-                                            <button 
-                                                @click="handleSendSingleEmail(item)"
+
+                                            <!-- Email Button -->
+                                            <button
                                                 type="button"
-                                                class="p-1.5 text-slate-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
-                                                title="Kirim Email Pengingat Kuesioner"
+                                                @click="handleSendEmail(item)"
+                                                class="p-1.5 text-slate-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                                                title="Kirim email pengingat kuesioner"
                                             >
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6.75A2.25 2.25 0 015.25 4.5h13.5A2.25 2.25 0 0121 6.75v10.5a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 17.25V6.75zm1.5.25 6.557 5.245a1.5 1.5 0 001.886 0L19.5 7"/></svg>
                                             </button>
 
-                                            <!-- LinkedIn Sync Button -->
+                                            <!-- LinkedIn tetap menjadi aksi sinkronisasi pada direktori alumni. -->
                                             <button
-                                                @click="handleSyncLinkedIn(item)"
                                                 type="button"
+                                                @click.prevent="handleSyncLinkedIn(item)"
                                                 class="p-1.5 text-slate-600 hover:text-[#0077B5] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                                                :title="(item.linkedin_sync_status || item.linkedin_sync?.has_sync) ? 'Sinkronkan Ulang Profil LinkedIn' : 'Sinkronkan Profil LinkedIn'"
+                                                title="Sinkronkan profil LinkedIn"
                                             >
-                                                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
                                                     <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
                                                 </svg>
                                             </button>
 
-                                            <!-- LinkedIn History Button -->
-                                            <button
-                                                v-if="item.linkedin_sync_status || item.linkedin_sync?.has_sync"
-                                                @click="openLinkedInHistoryModal(item)"
-                                                type="button"
-                                                class="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                                                title="Lihat Riwayat Scraping LinkedIn"
-                                            >
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                            </button>
                                         </div>
                                     </td>
                                 </tr>
 
                                 <!-- Empty State -->
                                 <tr v-if="paginatedAlumnis.length === 0">
-                                    <td colspan="7" class="py-12 text-center text-slate-600">
+                                    <td colspan="9" class="py-12 text-center text-slate-600">
                                         <p class="font-bold text-sm text-slate-700">Tidak ada data mahasiswa atau alumni</p>
                                         <p class="text-xs text-slate-600 mt-1">Coba sesuaikan kata kunci pencarian atau parameter filter tahun kelulusan.</p>
                                     </td>
@@ -1114,6 +1438,26 @@ const formatTanggal = (dateStr) => {
             </div>
         </div>
 
+        <!-- MODAL PREVIEW FOTO ALUMNI -->
+        <div v-if="showPhotoPreview" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" @click.self="showPhotoPreview = false">
+            <div class="relative w-full max-w-md rounded-2xl bg-white p-4 shadow-2xl">
+                <button
+                    type="button"
+                    class="absolute right-3 top-3 z-10 rounded-full bg-white/90 px-2.5 py-1 text-lg leading-none text-slate-600 shadow-sm hover:text-slate-900"
+                    title="Tutup preview foto"
+                    @click="showPhotoPreview = false"
+                >
+                    &times;
+                </button>
+                <img
+                    :src="activePhotoAlumni?.foto"
+                    :alt="`Foto ${activePhotoAlumni?.nama || 'alumni'}`"
+                    class="max-h-[70vh] w-full rounded-xl object-contain"
+                />
+                <p class="mt-3 text-center text-sm font-bold text-slate-900">{{ activePhotoAlumni?.nama }}</p>
+            </div>
+        </div>
+
         <!-- MODAL RIWAYAT LINKEDIN -->
         <div v-if="showLinkedInHistoryModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 flex items-center justify-center p-4 backdrop-blur-xs">
             <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] flex flex-col">
@@ -1190,4 +1534,16 @@ const formatTanggal = (dateStr) => {
 
     </div>
 </template>
+
+<style scoped>
+.directory-table th,
+.directory-table td {
+    border-right: 1px solid rgb(226 232 240);
+}
+
+.directory-table th:last-child,
+.directory-table td:last-child {
+    border-right: 0;
+}
+</style>
 

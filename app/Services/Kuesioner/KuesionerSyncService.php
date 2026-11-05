@@ -33,6 +33,7 @@ class KuesionerSyncService
         return KuesionerPertanyaan::query()
             ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'kuesioner_pertanyaan.id')
             ->whereIn('sp.tampil_di', ['profil', 'profile', 'both'])
+            ->where('sp.is_active', true)
             ->whereNotIn(DB::raw('UPPER(kuesioner_pertanyaan.kode_pertanyaan)'), $profileCodes)
             ->where('kuesioner_pertanyaan.tipe', '!=', 'header')
             ->where('kuesioner_pertanyaan.is_active', true)
@@ -337,6 +338,11 @@ class KuesionerSyncService
 
         $prodiQuestions = KuesionerPertanyaan::where('pemilik_prodi_id', $biodata->prodi_id)
             ->where('is_active', true)
+            ->whereHas('sections', function ($query) use ($biodata) {
+                $query->where('kuesioner_section.target', 'prodi')
+                    ->where('kuesioner_section.prodi_id', $biodata->prodi_id)
+                    ->where('kuesioner_section_pertanyaan.is_active', true);
+            })
             ->get();
 
         if ($prodiQuestions->isEmpty()) {

@@ -1588,6 +1588,7 @@ class TracerAnalyticsService
                 'status' => (int) $row->answered > 0 ? 'Sudah Mengisi' : 'Belum Mengisi',
                 'answered' => (int) $row->answered > 0,
                 'nomor_telepon' => $row->nomor_telepon ?? null,
+                'linkedin_url' => $row->linkedin_url ?? null,
                 'email' => $row->email ?? null,
                 'last_response_at' => $row->last_response_at ? date('d-m-Y H:i', strtotime($row->last_response_at)) : null,
             ])->values()->all(),

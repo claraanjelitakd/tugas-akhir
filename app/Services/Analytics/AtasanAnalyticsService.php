@@ -31,6 +31,7 @@ class AtasanAnalyticsService
             ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'kuesioner_pertanyaan.id')
             ->join('kuesioner_section as s', 's.id', '=', 'sp.section_id')
             ->where('s.target', 'atasan')
+            ->where('sp.is_active', true)
             ->where('kuesioner_pertanyaan.is_active', true)
             ->select('kuesioner_pertanyaan.*', 'sp.order as pivot_order')
             ->with('opsi')
@@ -293,6 +294,7 @@ class AtasanAnalyticsService
                 'nama' => $evaluation->biodata?->nama ?: $evaluation->biodata?->dataAkademik?->nama,
                 'nim' => $evaluation->biodata?->nim,
                 'nama_prodi' => $evaluation->biodata?->prodi?->nama_prodi,
+                'linkedin_url' => $evaluation->biodata?->linkedin_url,
                 'nama_perusahaan' => $evaluation->perusahaan?->nama_perusahaan,
                 'nama_atasan' => $evaluation->atasan?->nama,
                 'submitted_at' => $evaluation->submitted_at?->toIso8601String(),

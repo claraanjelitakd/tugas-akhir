@@ -40,6 +40,12 @@ class AlumniDirectoryQueryService
         $statusTerpilih = $request->input('status');
         $targetTerpilih = $request->input('target');
         $linkedinStatusTerpilih = $request->input('linkedin_status', 'all');
+        $kodeProvinsiTerpilih = $request->input('kode_provinsi');
+        $kodeKabupatenTerpilih = $request->input('kode_kabupaten');
+        $headOfficeTerpilih = $request->input('head_office');
+        $skillsTerpilih = $request->input('skills');
+        $bidangTerpilih = $request->input('bidang');
+        $unitTerpilih = $request->input('unit');
 
         // Scope prodi / fakultas
         $scopedProdiId = $options['prodi_id'] ?? null;
@@ -62,6 +68,48 @@ class AlumniDirectoryQueryService
         $this->applyScope($profileOptionsQuery, $scopedProdiId, $scopedFakultasId, $scopedProdiIds);
 
         $profileOptions = $profileOptionsQuery->get();
+
+        $directoryFilterRowsQuery = DB::table('v_alumni_profile_summary')
+            ->select([
+                'kode_provinsi',
+                'kode_kabupaten',
+                'nama_provinsi',
+                'nama_kabupaten',
+                'nama_perusahaan',
+                'bidang_pekerjaan',
+                'divisi',
+                'skills',
+            ]);
+        $this->applyScope($directoryFilterRowsQuery, $scopedProdiId, $scopedFakultasId, $scopedProdiIds);
+        $directoryFilterRows = $directoryFilterRowsQuery->get();
+        $optionValues = static fn (string $field): array => $directoryFilterRows
+            ->pluck($field)
+            ->filter(fn (mixed $value): bool => filled($value))
+            ->map(fn (mixed $value): string => trim((string) $value))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+        $wilayahProvinsiOptions = DB::table('propinsi')
+            ->select(['kode_provinsi', 'nama_provinsi'])
+            ->orderBy('nama_provinsi')
+            ->get()
+            ->map(fn (object $row): array => [
+                'value' => (string) $row->kode_provinsi,
+                'label' => (string) $row->nama_provinsi,
+            ])
+            ->all();
+        $wilayahKabupatenOptions = DB::table('kabupaten')
+            ->select(['kode_kabupaten', 'kode_provinsi', 'nama_kabupaten'])
+            ->orderBy('nama_kabupaten')
+            ->get()
+            ->map(fn (object $row): array => [
+                'value' => (string) $row->kode_kabupaten,
+                'label' => (string) $row->nama_kabupaten,
+                'provinsi' => (string) $row->kode_provinsi,
+            ])
+            ->all();
 
         $daftarTahun = $profileOptions->pluck('tahun_lulus')
             ->filter()
@@ -128,6 +176,30 @@ class AlumniDirectoryQueryService
         // Filter Semester Kelulusan (Gasal / Genap)
         if ($semesterTerpilih && $semesterTerpilih !== 'all') {
             $query->where('tahun_akademik_lulus', 'like', "%{$semesterTerpilih}%");
+        }
+
+        if ($kodeProvinsiTerpilih && $kodeProvinsiTerpilih !== 'all') {
+            $query->where('kode_provinsi', $kodeProvinsiTerpilih);
+        }
+
+        if ($kodeKabupatenTerpilih && $kodeKabupatenTerpilih !== 'all') {
+            $query->where('kode_kabupaten', $kodeKabupatenTerpilih);
+        }
+
+        if ($headOfficeTerpilih && $headOfficeTerpilih !== 'all') {
+            $query->where('nama_perusahaan', $headOfficeTerpilih);
+        }
+
+        if ($skillsTerpilih && $skillsTerpilih !== 'all') {
+            $query->where('skills', 'like', '%'.$skillsTerpilih.'%');
+        }
+
+        if ($bidangTerpilih && $bidangTerpilih !== 'all') {
+            $query->where('bidang_pekerjaan', $bidangTerpilih);
+        }
+
+        if ($unitTerpilih && $unitTerpilih !== 'all') {
+            $query->where('divisi', $unitTerpilih);
         }
 
         // Filter Status Kelengkapan Kuesioner (Selesai vs Belum Selesai)
@@ -301,14 +373,17 @@ class AlumniDirectoryQueryService
                 'biodata_id' => $item->biodata_id,
                 'nim' => $item->nim,
                 'nama' => $item->nama ?? 'Mahasiswa UKDW',
+                'foto' => $item->foto ?? null,
                 'email' => $item->email_pribadi ?: ($item->email ?: null),
                 'nomor_telepon' => $item->nomor_telepon ?: null,
                 'linkedin_url' => $item->linkedin_url ?? null,
                 'linkedin_username' => $item->linkedin_username ?? null,
                 'prodi' => $item->nama_prodi ?? '-',
+                'nama_prodi' => $item->nama_prodi ?? '-',
                 'prodi_kode' => $item->kode_prodi ?? '',
                 'prodi_id' => $item->prodi_id,
                 'fakultas' => $item->nama_fakultas ?? '-',
+                'nama_fakultas' => $item->nama_fakultas ?? '-',
                 'fakultas_id' => $item->fakultas_id,
                 'tahun_akademik_lulus' => $rawSemesterLulus,
                 'semester' => $semesterLabel,
@@ -316,7 +391,21 @@ class AlumniDirectoryQueryService
                 'ipk' => $item->ipk ?? '-',
                 'status_yudisium' => $item->status_yudisium ?? ($item->status_mahasiswa ?? 'Lulus'),
                 'perusahaan' => $item->nama_perusahaan ?? '-',
+                'nama_perusahaan' => $item->nama_perusahaan ?? '-',
+                'domisili' => $this->formatDomicile($item),
+                'nama_kabupaten' => $item->nama_kabupaten ?? null,
+                'nama_provinsi' => $item->nama_provinsi ?? null,
+                'bidang_pekerjaan' => $item->bidang_pekerjaan ?? '-',
+                'divisi' => $item->divisi ?? '-',
                 'posisi_jabatan' => $item->posisi_jabatan ?? '-',
+                'skills' => $item->skills ?? '',
+                'skills_list' => $this->normalizeSkills($item->skills),
+                'experience' => $item->experience ?? '',
+                'kategori_pekerjaan' => $item->kategori_pekerjaan ?? null,
+                'posisi_wiraswasta' => $item->posisi_wiraswasta ?? null,
+                'pendidikan_tingkat' => $item->pendidikan_tingkat ?? null,
+                'perguruan_tinggi' => $item->perguruan_tinggi ?? null,
+                'pendidikan_prodi' => $item->pendidikan_prodi ?? null,
                 'status_pengisian' => $item->status_tracer_label ?? ($isComplete ? 'Selesai' : 'Belum Selesai'),
                 'is_complete' => $isComplete,
                 'univ_percentage' => (int) ($item->univ_percentage ?? 0),
@@ -421,6 +510,27 @@ class AlumniDirectoryQueryService
                 'status' => $statusTerpilih,
                 'prodi_id' => $prodiIdTerpilih,
                 'linkedin_status' => $linkedinStatusTerpilih,
+                'kode_provinsi' => $kodeProvinsiTerpilih ?? 'all',
+                'kode_kabupaten' => $kodeKabupatenTerpilih ?? 'all',
+                'head_office' => $headOfficeTerpilih ?? 'all',
+                'skills' => $skillsTerpilih ?? 'all',
+                'bidang' => $bidangTerpilih ?? 'all',
+                'unit' => $unitTerpilih ?? 'all',
+            ],
+            'filterOptions' => [
+                'wilayah' => [
+                    'provinsi' => $wilayahProvinsiOptions,
+                    'kabupaten' => $wilayahKabupatenOptions,
+                ],
+                'head_office' => $optionValues('nama_perusahaan'),
+                'skills' => $directoryFilterRows
+                    ->flatMap(fn (object $row): array => $this->normalizeSkills($row->skills))
+                    ->unique()
+                    ->sort()
+                    ->values()
+                    ->all(),
+                'bidang' => $optionValues('bidang_pekerjaan'),
+                'unit' => $optionValues('divisi'),
             ],
             'stats' => [
                 'total_alumni' => $totalSemua,
@@ -448,6 +558,44 @@ class AlumniDirectoryQueryService
         return Carbon::parse($timestamp, 'UTC')
             ->setTimezone(config('app.timezone'))
             ->format('d/m/Y H:i');
+    }
+
+    /**
+     * Membentuk label lokasi domisili alumni dari master wilayah aktif.
+     *
+     * @param  object  $item  Baris view profil alumni.
+     * @return string Label kabupaten/provinsi atau alamat jika master wilayah belum tersedia.
+     */
+    protected function formatDomicile(object $item): string
+    {
+        $parts = collect([$item->nama_kabupaten ?? null, $item->nama_provinsi ?? null])
+            ->filter(fn (mixed $value): bool => filled($value))
+            ->unique()
+            ->values();
+
+        return $parts->isNotEmpty()
+            ? $parts->implode(', ')
+            : ($item->alamat ?? '-');
+    }
+
+    /**
+     * Menormalisasi skills menjadi token frasa agar UI tidak memotong skill majemuk per kata.
+     *
+     * @param  string|null  $skills  String skills dari profil atau hasil LinkedIn.
+     * @return array<int, string> Daftar skills unik dan siap ditampilkan sebagai chip.
+     */
+    protected function normalizeSkills(?string $skills): array
+    {
+        if (blank($skills)) {
+            return [];
+        }
+
+        return collect(preg_split('/[,;|\n\r•]+/u', $skills) ?: [])
+            ->map(fn (string $skill): string => trim($skill))
+            ->filter()
+            ->unique(fn (string $skill): string => mb_strtolower($skill))
+            ->values()
+            ->all();
     }
 
     /**

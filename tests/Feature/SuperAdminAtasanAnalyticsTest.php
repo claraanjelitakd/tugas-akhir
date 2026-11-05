@@ -113,6 +113,7 @@ class SuperAdminAtasanAnalyticsTest extends TestCase
             ->assertJsonPath('summary.average_score', 4)
             ->assertJsonPath('question_stats.0.kode', 'tingkat_kesiapan_kerja')
             ->assertJsonPath('records.0.nama_prodi', 'Sistem Informasi')
+            ->assertJsonPath('records.0.linkedin_url', 'https://www.linkedin.com/in/alumni-evaluasi')
             ->assertJsonPath('prodi_summary.0.average', 4);
     }
 
@@ -153,6 +154,7 @@ class SuperAdminAtasanAnalyticsTest extends TestCase
             'nim' => $nim,
             'prodi_id' => $prodi->id,
             'email_pribadi' => 'alumni@example.test',
+            'linkedin_url' => 'https://www.linkedin.com/in/alumni-evaluasi',
         ]);
     }
 }

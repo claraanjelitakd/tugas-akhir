@@ -85,7 +85,7 @@ flowchart LR
 | UC11 | Monitoring dashboard dan analisis ringkas | Admin Prodi, Fakultas, Biro III, Superadmin | dashboard masing-masing role |
 | UC12 | Direktori dan audit detail alumni | Admin Prodi, Fakultas, Biro III, Superadmin | `/prodi/alumni`, `/fakultas/alumni`, `/biro3/alumni`, `/superadmin/alumni` |
 | UC13 | Mengelola kuesioner universitas | Superadmin | `/superadmin/sections`, `/superadmin/kuesioner`, `/superadmin/pertanyaan` |
-| UC14 | Mengelola kuesioner prodi | Admin Prodi dan Superadmin | `/prodi/sections`, `/prodi/pertanyaan`, `/superadmin/prodi-kuesioner` |
+| UC14 | Mengelola kuesioner prodi | Admin Prodi dan Superadmin | `/prodi/sections`, `/prodi/kuesioner`, `/superadmin/prodi-kuesioner` |
 | UC15 | Mengelola instrumen evaluasi atasan | Superadmin | `/superadmin/evaluasi-atasan` |
 | UC16 | Memverifikasi perusahaan | Admin Prodi, Fakultas, Superadmin | `*/perusahaan` |
 | UC17 | Manajemen akun pengguna dan reset sandi | Superadmin | `/superadmin/manajemen-akun` |

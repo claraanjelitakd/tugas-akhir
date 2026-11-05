@@ -312,6 +312,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'prodi_id' => $prodi->id,
             'nomor_telepon' => '081234567890',
             'email_pribadi' => 'pribadi.lainnya@example.test',
+            'linkedin_url' => 'https://www.linkedin.com/in/alumni-lainnya',
         ]);
         KuesionerJawaban::create([
             'responden_type' => 'alumni',
@@ -330,5 +331,6 @@ class SuperAdminProdiAnalyticsTest extends TestCase
         $this->assertSame('Menjadi mentor proyek', $analytics['chart']['records'][0]['jawaban_lainnya']);
         $this->assertSame('081234567890', $analytics['chart']['records'][0]['nomor_telepon']);
         $this->assertSame('pribadi.lainnya@example.test', $analytics['chart']['records'][0]['email']);
+        $this->assertSame('https://www.linkedin.com/in/alumni-lainnya', $analytics['chart']['records'][0]['linkedin_url']);
     }
 }

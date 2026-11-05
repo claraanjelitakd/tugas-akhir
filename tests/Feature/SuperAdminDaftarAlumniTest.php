@@ -6,12 +6,14 @@ use App\Mail\PengingatKuesionerAlumniMail;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\EvaluasiAtasan;
+use App\Models\Kabupaten;
 use App\Models\Kuesioner;
 use App\Models\KuesionerJawaban;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Prodi;
+use App\Models\Propinsi;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -52,6 +54,16 @@ class SuperAdminDaftarAlumniTest extends TestCase
             'nama_prodi' => 'Sistem Informasi',
         ]);
 
+        Propinsi::create([
+            'kode_provinsi' => '34',
+            'nama_provinsi' => 'DI Yogyakarta',
+        ]);
+        Kabupaten::create([
+            'kode_kabupaten' => '3404',
+            'kode_provinsi' => '34',
+            'nama_kabupaten' => 'Sleman',
+        ]);
+
         $this->alumniUser = User::create([
             'username' => '72200001',
             'name' => 'Budi Santoso',
@@ -75,6 +87,8 @@ class SuperAdminDaftarAlumniTest extends TestCase
             'nim' => '72200001',
             'nama' => 'Budi Santoso',
             'prodi_id' => $this->prodi->id,
+            'kode_provinsi' => '34',
+            'kode_kabupaten' => '3404',
             'posisi_jabatan' => 'Software Engineer',
         ]);
 
@@ -140,6 +154,62 @@ class SuperAdminDaftarAlumniTest extends TestCase
             ->has('prodis')
             ->has('filters')
             ->has('stats')
+        );
+    }
+
+    /** Memastikan direktori mengirim nama prodi, domisili, karier, divisi, dan skills terstruktur. */
+    public function test_alumni_directory_exposes_canonical_career_fields(): void
+    {
+        $this->alumni->update([
+            'foto' => '/uploads/profile/budi.jpg',
+            'alamat_saat_ini' => 'Jalan Kaliurang',
+            'bidang_pekerjaan' => 'Teknologi Informasi',
+            'divisi' => 'Product Development',
+            'skills' => 'Project Management, Python; Project Management | SQL',
+            'experience' => 'Software Engineer di PT Teknologi Unggul',
+            'linkedin_url' => 'https://www.linkedin.com/in/budi-santoso',
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->get(route('superadmin.alumni.index', ['tahun' => '2024']));
+
+        $response->assertInertia(fn (Assert $page) => $page
+            ->where('alumnis.0.nama_prodi', 'Sistem Informasi')
+            ->where('alumnis.0.prodi', 'Sistem Informasi')
+            ->where('alumnis.0.foto', '/uploads/profile/budi.jpg')
+            ->where('alumnis.0.bidang_pekerjaan', 'Teknologi Informasi')
+            ->where('alumnis.0.divisi', 'Product Development')
+            ->where('alumnis.0.domisili', 'Sleman, DI Yogyakarta')
+            ->where('alumnis.0.experience', 'Software Engineer di PT Teknologi Unggul')
+            ->where('alumnis.0.linkedin_url', 'https://www.linkedin.com/in/budi-santoso')
+            ->where('alumnis.0.skills_list', ['Project Management', 'Python', 'SQL'])
+            ->has('filterOptions.wilayah.provinsi')
+            ->has('filterOptions.wilayah.kabupaten')
+            ->has('filterOptions.head_office')
+            ->has('filterOptions.skills')
+            ->has('filterOptions.bidang')
+            ->has('filterOptions.unit')
+            ->where('filters.kode_provinsi', 'all')
+            ->where('filters.kode_kabupaten', 'all')
+        );
+
+        $filteredResponse = $this->actingAs($this->superadmin)
+            ->get(route('superadmin.alumni.index', [
+                'tahun' => '2024',
+                'bidang' => 'Teknologi Informasi',
+                'unit' => 'Product Development',
+                'skills' => 'Python',
+                'kode_provinsi' => '34',
+                'kode_kabupaten' => '3404',
+            ]));
+
+        $filteredResponse->assertInertia(fn (Assert $page) => $page
+            ->has('alumnis', 1)
+            ->where('filters.bidang', 'Teknologi Informasi')
+            ->where('filters.unit', 'Product Development')
+            ->where('filters.skills', 'Python')
+            ->where('filters.kode_provinsi', '34')
+            ->where('filters.kode_kabupaten', '3404')
         );
     }
 

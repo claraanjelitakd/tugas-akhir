@@ -19,7 +19,7 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "data_akademik" ("id" integer primary key autoincrement not null, "nim" varchar not null, "nama" varchar, "angkatan_masuk" integer, "tanggal_lahir" date, "jenis_kelamin" varchar check ("jenis_kelamin" in ('Laki-laki', 'Perempuan')), "warga_negara" varchar not null default 'WNI', "status_mahasiswa" varchar check ("status_mahasiswa" in ('Lulus', 'Aktif', 'Cuti', 'Drop Out', 'Lainnya', 'AR', 'AK', 'AS', 'L')) not null default 'Lulus', "tahun_akademik_lulus" varchar, "tahun_lulus" integer, "tanggal_lulus" date, "ip_kumulatif" numeric, "total_sks" integer, "total_angka_kualitas" numeric, "created_at" datetime, "updated_at" datetime);
+CREATE TABLE "data_akademik" ("id" integer primary key autoincrement not null, "nim" varchar not null, "nama" varchar, "email_pribadi" varchar, "angkatan_masuk" integer, "tanggal_lahir" date, "jenis_kelamin" varchar check ("jenis_kelamin" in ('Laki-laki', 'Perempuan')), "warga_negara" varchar not null default 'WNI', "status_mahasiswa" varchar check ("status_mahasiswa" in ('Lulus', 'Aktif', 'Cuti', 'Drop Out', 'Lainnya', 'AR', 'AK', 'AS', 'L')) not null default 'Lulus', "tahun_akademik_lulus" varchar, "tahun_lulus" integer, "tanggal_lulus" date, "ip_kumulatif" numeric, "total_sks" integer, "total_angka_kualitas" numeric, "created_at" datetime, "updated_at" datetime);
 SQL
             );
 
@@ -39,6 +39,7 @@ CREATE TABLE `data_akademik` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID unik rekam data akademik',
   `nim` char(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nomor Induk Mahasiswa (8 karakter unik)',
   `nama` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Nama lengkap mahasiswa',
+  `email_pribadi` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Email pribadi dari sumber akademik saat impor awal',
   `angkatan_masuk` year DEFAULT NULL COMMENT 'Tahun angkatan masuk perkuliahan (YYYY)',
   `tanggal_lahir` date DEFAULT NULL COMMENT 'Tanggal lahir',
   `jenis_kelamin` enum('Laki-laki','Perempuan') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Jenis kelamin',

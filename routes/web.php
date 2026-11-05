@@ -7,7 +7,6 @@ use App\Http\Controllers\AdminFakultas\KelolaAlumni\DaftarAlumniFakultasControll
 use App\Http\Controllers\AdminFakultas\KelolaAlumni\DetailAlumniFakultasController;
 use App\Http\Controllers\AdminFakultas\VerifikasiPerusahaan\VerifikasiPerusahaanFakultasController;
 use App\Http\Controllers\AdminProdi\KelolaAlumni\DaftarAlumniProdiController;
-use App\Http\Controllers\AdminProdi\KelolaPertanyaan\DaftarPertanyaanProdiController;
 use App\Http\Controllers\AdminProdi\KelolaPertanyaan\KelolaOpsiProdiController;
 use App\Http\Controllers\AdminProdi\KelolaPertanyaan\KelolaSectionProdiController;
 use App\Http\Controllers\AdminProdi\KelolaPertanyaan\SimpanPertanyaanProdiController;
@@ -167,10 +166,11 @@ Route::middleware('auth')->group(function () {
             Route::delete('/prodi/kuesioner/sections/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroySection'])->name('prodi.kuesioner.sections.destroy');
             Route::post('/prodi/kuesioner/sections/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderSection'])->name('prodi.kuesioner.sections.reorder');
             Route::post('/prodi/kuesioner/pertanyaan', [KelolaKuesionerProdiSuperAdminController::class, 'storeQuestion'])->name('prodi.kuesioner.pertanyaan.store');
-            Route::put('/prodi/kuesioner/pertanyaan/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateQuestion'])->name('prodi.kuesioner.pertanyaan.update');
-            Route::delete('/prodi/kuesioner/pertanyaan/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyQuestion'])->name('prodi.kuesioner.pertanyaan.destroy');
+            Route::put('/prodi/kuesioner/pertanyaan/{questionId}', [KelolaKuesionerProdiSuperAdminController::class, 'updateQuestion'])->name('prodi.kuesioner.pertanyaan.update');
+            Route::delete('/prodi/kuesioner/pertanyaan/{placementId}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyQuestion'])->name('prodi.kuesioner.pertanyaan.destroy');
             Route::post('/prodi/kuesioner/pertanyaan/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderQuestion'])->name('prodi.kuesioner.pertanyaan.reorder');
-            Route::post('/prodi/kuesioner/pertanyaan/{id}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'toggleActive'])->name('prodi.kuesioner.pertanyaan.toggle-active');
+            Route::post('/prodi/kuesioner/pertanyaan/{questionId}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'toggleActive'])->name('prodi.kuesioner.pertanyaan.toggle-active');
+            Route::post('/prodi/kuesioner/penempatan/{placementId}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'togglePlacementActive'])->name('prodi.kuesioner.penempatan.toggle-active');
             Route::post('/prodi/kuesioner/opsi', [KelolaKuesionerProdiSuperAdminController::class, 'storeOption'])->name('prodi.kuesioner.opsi.store');
             Route::put('/prodi/kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateOption'])->name('prodi.kuesioner.opsi.update');
             Route::delete('/prodi/kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyOption'])->name('prodi.kuesioner.opsi.destroy');
@@ -193,8 +193,8 @@ Route::middleware('auth')->group(function () {
             Route::put('/prodi/sections/{id}', [KelolaSectionProdiController::class, 'update'])->name('prodi.sections.update');
             Route::delete('/prodi/sections/{id}', [KelolaSectionProdiController::class, 'destroy'])->name('prodi.sections.destroy');
 
-            // Kelola Pertanyaan & Opsi Kuesioner Khusus Prodi
-            Route::get('/prodi/pertanyaan', [DaftarPertanyaanProdiController::class, 'index'])->name('prodi.pertanyaan.index');
+            // Kompatibilitas URL lama: halaman kanonik sekarang menggunakan unified question management.
+            Route::redirect('/prodi/pertanyaan', '/prodi/kuesioner')->name('prodi.pertanyaan.index');
             Route::post('/prodi/pertanyaan', [SimpanPertanyaanProdiController::class, 'store'])->name('prodi.pertanyaan.store');
             Route::post('/prodi/pertanyaan/reorder', [SimpanPertanyaanProdiController::class, 'reorder'])->name('prodi.pertanyaan.reorder');
             Route::put('/prodi/pertanyaan/{id}', [SimpanPertanyaanProdiController::class, 'update'])->name('prodi.pertanyaan.update');
@@ -246,10 +246,11 @@ Route::middleware('auth')->group(function () {
             Route::delete('/fakultas/prodi-kuesioner/sections/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroySection'])->name('fakultas.prodi-kuesioner.sections.destroy');
             Route::post('/fakultas/prodi-kuesioner/sections/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderSection'])->name('fakultas.prodi-kuesioner.sections.reorder');
             Route::post('/fakultas/prodi-kuesioner/pertanyaan', [KelolaKuesionerProdiSuperAdminController::class, 'storeQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.store');
-            Route::put('/fakultas/prodi-kuesioner/pertanyaan/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.update');
-            Route::delete('/fakultas/prodi-kuesioner/pertanyaan/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.destroy');
+            Route::put('/fakultas/prodi-kuesioner/pertanyaan/{questionId}', [KelolaKuesionerProdiSuperAdminController::class, 'updateQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.update');
+            Route::delete('/fakultas/prodi-kuesioner/pertanyaan/{placementId}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.destroy');
             Route::post('/fakultas/prodi-kuesioner/pertanyaan/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.reorder');
-            Route::post('/fakultas/prodi-kuesioner/pertanyaan/{id}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'toggleActive'])->name('fakultas.prodi-kuesioner.pertanyaan.toggle-active');
+            Route::post('/fakultas/prodi-kuesioner/pertanyaan/{questionId}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'toggleActive'])->name('fakultas.prodi-kuesioner.pertanyaan.toggle-active');
+            Route::post('/fakultas/prodi-kuesioner/penempatan/{placementId}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'togglePlacementActive'])->name('fakultas.prodi-kuesioner.penempatan.toggle-active');
             Route::post('/fakultas/prodi-kuesioner/opsi', [KelolaKuesionerProdiSuperAdminController::class, 'storeOption'])->name('fakultas.prodi-kuesioner.opsi.store');
             Route::put('/fakultas/prodi-kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateOption'])->name('fakultas.prodi-kuesioner.opsi.update');
             Route::delete('/fakultas/prodi-kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyOption'])->name('fakultas.prodi-kuesioner.opsi.destroy');
@@ -261,6 +262,7 @@ Route::middleware('auth')->group(function () {
             // Direktori & Detail Alumni dalam Lingkup Fakultas (Filter Prodi dalam Fakultas)
             Route::get('/fakultas/alumni', [DaftarAlumniFakultasController::class, 'index'])->name('fakultas.alumni.index');
             Route::post('/fakultas/alumni/{id}/send-email', [DaftarAlumniFakultasController::class, 'sendReminderEmail'])->name('fakultas.alumni.send-email');
+            Route::get('/fakultas/analitik/alumni/{id}', [DetailAlumniFakultasController::class, 'show'])->name('fakultas.analytics.alumni.show');
             Route::get('/fakultas/alumni/{id}', [DetailAlumniFakultasController::class, 'show'])->name('fakultas.alumni.show');
             Route::get('/fakultas/alumni/{id}/export-excel', [DetailAlumniFakultasController::class, 'exportExcel'])->name('fakultas.alumni.export-excel');
             Route::post('/fakultas/alumni/{id}/profile', [DetailAlumniFakultasController::class, 'updateProfile'])->name('fakultas.alumni.profile.update');
@@ -326,6 +328,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/superadmin/pertanyaan', [SimpanPertanyaanController::class, 'store'])->name('superadmin.pertanyaan.store');
             Route::post('/superadmin/pertanyaan/bank/attach', [SimpanPertanyaanController::class, 'attachFromBank'])->name('superadmin.pertanyaan.bank.attach');
             Route::post('/superadmin/pertanyaan/reorder', [SimpanPertanyaanController::class, 'reorder'])->name('superadmin.pertanyaan.reorder');
+            Route::patch('/superadmin/pertanyaan/{id}/toggle-active', [SimpanPertanyaanController::class, 'toggleActive'])->name('superadmin.pertanyaan.toggle-active');
             Route::patch('/superadmin/pertanyaan/{id}/toggle-visibility', [SimpanPertanyaanController::class, 'toggleVisibility'])->name('superadmin.pertanyaan.toggle-visibility');
             Route::put('/superadmin/pertanyaan/{id}', [SimpanPertanyaanController::class, 'update'])->name('superadmin.pertanyaan.update');
             Route::delete('/superadmin/pertanyaan/{id}', [SimpanPertanyaanController::class, 'destroy'])->name('superadmin.pertanyaan.destroy');
@@ -389,10 +392,11 @@ Route::middleware('auth')->group(function () {
             Route::post('/superadmin/prodi-kuesioner/sections/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderSection'])->name('superadmin.prodi-kuesioner.sections.reorder');
 
             Route::post('/superadmin/prodi-kuesioner/pertanyaan', [KelolaKuesionerProdiSuperAdminController::class, 'storeQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.store');
-            Route::put('/superadmin/prodi-kuesioner/pertanyaan/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.update');
-            Route::delete('/superadmin/prodi-kuesioner/pertanyaan/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.destroy');
+            Route::put('/superadmin/prodi-kuesioner/pertanyaan/{questionId}', [KelolaKuesionerProdiSuperAdminController::class, 'updateQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.update');
+            Route::delete('/superadmin/prodi-kuesioner/pertanyaan/{placementId}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.destroy');
             Route::post('/superadmin/prodi-kuesioner/pertanyaan/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.reorder');
-            Route::post('/superadmin/prodi-kuesioner/pertanyaan/{id}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'toggleActive'])->name('superadmin.prodi-kuesioner.pertanyaan.toggle-active');
+            Route::post('/superadmin/prodi-kuesioner/pertanyaan/{questionId}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'toggleActive'])->name('superadmin.prodi-kuesioner.pertanyaan.toggle-active');
+            Route::post('/superadmin/prodi-kuesioner/penempatan/{placementId}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'togglePlacementActive'])->name('superadmin.prodi-kuesioner.penempatan.toggle-active');
 
             Route::post('/superadmin/prodi-kuesioner/opsi', [KelolaKuesionerProdiSuperAdminController::class, 'storeOption'])->name('superadmin.prodi-kuesioner.opsi.store');
             Route::put('/superadmin/prodi-kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateOption'])->name('superadmin.prodi-kuesioner.opsi.update');

@@ -96,10 +96,15 @@ const jenisPerusahaanOptions = computed(() => {
 const bentukPerusahaanOptions = computed(() => {
     const configured = props.refOptions?.BIO_INST_BENTUK || [];
     if (configured.length > 0) {
-        return configured.map(opt => ({
+        const options = configured.map(opt => ({
             value: opt.option_text,
             label: opt.option_text,
         }));
+        if (!options.some(opt => isOtherOptionValue(opt.value))) {
+            options.push({ value: 'Lainnya', label: 'Lainnya' });
+        }
+
+        return options;
     }
     return [
         { value: 'BUMN', label: 'BUMN' },
@@ -172,7 +177,7 @@ const skalaOptions = computed(() => {
     return opts;
 });
 
-// Pilihan bidang pekerjaan / divisi (BIO_BIDANG_DIVISI) disimpan langsung ke biodata.
+// Pilihan bidang pekerjaan (BIO_BIDANG_DIVISI) disimpan langsung ke biodata.
 const DEFAULT_BIDANG_PEKERJAAN_OPTIONS = [
     { value: 'Akademik / Pendidikan', label: '1 - Akademik / Pendidikan' },
     { value: 'Administrasi / Tata Usaha', label: '2 - Administrasi / Tata Usaha' },
@@ -271,7 +276,7 @@ const posisiJabatanKustom = ref(
 );
 
 const syncPosisiJabatan = () => {
-    if (posisiJabatanSelection.value === 'Lainnya') {
+    if (isOtherOptionValue(posisiJabatanSelection.value)) {
         props.form.posisi_jabatan = posisiJabatanKustom.value;
     } else {
         props.form.posisi_jabatan = posisiJabatanSelection.value;
@@ -1280,7 +1285,7 @@ onUnmounted(() => {
 
                 <div class="md:col-span-2 space-y-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                        {{ getQuestionLabel('BIO_BIDANG_DIVISI', 'Bidang Pekerjaan / Divisi') }} <span v-if="isQuestionRequired('BIO_BIDANG_DIVISI', false)" class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_BIDANG_DIVISI', 'Bidang Pekerjaan') }} <span v-if="isQuestionRequired('BIO_BIDANG_DIVISI', false)" class="text-rose-500 font-bold">*</span>
                     </label>
                     <select
                         v-model="bidangPekerjaanSelection"
@@ -1301,7 +1306,26 @@ onUnmounted(() => {
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                     />
                     <p class="text-[11px] text-gray-400">
-                        {{ getQuestionHint('BIO_BIDANG_DIVISI', 'Pilihan dikelola dari master Superadmin. Jika belum tersedia, pilih Lainnya dan tuliskan sendiri.') }}
+                        {{ getQuestionHint('BIO_BIDANG_DIVISI', 'Pilih rumpun bidang pekerjaan. Jika belum tersedia, pilih Lainnya dan tuliskan sendiri.') }}
+                    </p>
+                </div>
+
+                <!-- Input divisi terpisah dari rumpun bidang pekerjaan untuk kebutuhan direktori dan analitik. -->
+                <div class="md:col-span-2 space-y-2">
+                    <label for="divisi" class="block text-xs sm:text-sm font-bold text-gray-700">
+                        Divisi / Unit Kerja
+                    </label>
+                    <input
+                        id="divisi"
+                        v-model="form.divisi"
+                        type="text"
+                        autocomplete="organization"
+                        maxlength="150"
+                        placeholder="Contoh: Divisi Keuangan, Human Capital, Product Development"
+                        class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
+                    />
+                    <p class="text-[11px] text-gray-400">
+                        Isi unit atau divisi tempat bekerja saat ini. Lokasi cabang tetap dicatat pada domisili alumni.
                     </p>
                 </div>
 
@@ -1322,7 +1346,7 @@ onUnmounted(() => {
                             </option>
                         </select>
                         <input
-                            v-if="posisiJabatanSelection === 'Lainnya'"
+                            v-if="isOtherOptionValue(posisiJabatanSelection)"
                             type="text"
                             v-model="posisiJabatanKustom"
                             @input="syncPosisiJabatan"
@@ -1361,7 +1385,7 @@ onUnmounted(() => {
                     </div>
 
                     <!-- Input Tambahan jika memilih Lainnya -->
-                    <div v-if="form.posisi_wiraswasta === 'Lainnya'">
+                    <div v-if="isOtherOptionValue(form.posisi_wiraswasta)">
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">Sebutkan Jabatan Wiraswasta Lainnya</label>
                         <input
                             type="text"

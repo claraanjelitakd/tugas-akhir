@@ -474,6 +474,7 @@ Menyimpan rekaman resmi master akademik mahasiswa lulusan UKDW (*Single Source o
 | :--- | :--- | :---: | :---: | :--- |
 | `nim` | `char(8)` | `PK` | `NOT NULL` | Nomor Induk Mahasiswa 8 karakter (contoh: `'72220001'`). |
 | `nama` | `varchar(150)` | - | `NOT NULL` | Nama resmi mahasiswa sesuai ijazah akademik. |
+| `email_pribadi` | `varchar(100)` | - | `NULL` | Snapshot email pribadi dari sumber akademik saat impor awal; perubahan kontak aktif disimpan di `biodata.email_pribadi`. |
 | `angkatan_masuk` | `year` | - | `NULL` | Tahun angkatan pertama kali masuk perkuliahan. |
 | `status_mahasiswa` | `varchar(20)` | - | `NULL` | Status akademik terakhir (misal: `'Lulus'`). |
 | `tahun_akademik_lulus` | `varchar(20)` | - | `NULL` | Periode semester dan tahun akademik kelulusan (misal: `'Genap 2025/2026'`). |
@@ -569,7 +570,9 @@ Menyimpan profil karier, kontak domisili aktif, serta tautan relasi alumni ke pe
 | `kategori_pekerjaan` | `varchar(50)` | - | `NULL` | Kategori: `Bekerja (full time/part time)`, `Wiraswasta`, `Melanjutkan Pendidikan`. |
 | `posisi_jabatan` | `varchar(100)` | - | `NULL` | Posisi jabatan kerja alumni saat ini. |
 | `posisi_wiraswasta` | `varchar(100)` | - | `NULL` | Peran wirausaha (misal: Founder, Co-Founder, Pemilik). |
-| `jenis_pekerjaan` | `varchar(100)` | - | `NULL` | Jenis pekerjaan atau divisi fungsional alumni. |
+| `bidang_pekerjaan` | `varchar(150)` | - | `NULL` | Rumpun/bidang pekerjaan alumni. |
+| `divisi` | `varchar(150)` | - | `NULL` | Divisi atau unit kerja alumni. |
+| `jenis_pekerjaan` | `varchar(100)` | - | `NULL` | Jenis atau klasifikasi pekerjaan alumni. |
 | `gaji` | `decimal(15,2)` | - | `NULL` | Besaran penghasilan/take home pay per bulan dalam mata uang Rupiah (`Rp`). |
 | `pendidikan_tingkat` | `varchar(20)` | - | `NULL` | Jenjang studi lanjut jika melanjutkan pendidikan (`S2`, `S3`, `Spesialis`). |
 | `perguruan_tinggi` | `varchar(150)` | - | `NULL` | Nama kampus/universitas tempat studi lanjut. |
@@ -651,13 +654,16 @@ Bank butir pertanyaan survei terpusat untuk seluruh jenis kuesioner di lingkunga
 #### 18. Tabel `kuesioner_section_pertanyaan`
 Menghubungkan penempatan butir pertanyaan dari bank soal ke dalam bagian kuesioner tertentu lengkap dengan urutan dan kewajibannya.
 
+> **Istilah penempatan:** setiap baris pada tabel ini adalah satu penggunaan pertanyaan pada satu section. Dalam kode aplikasi, ID baris ini disebut `placement_id`; nama kolom database tetap `id`. Jadi `pertanyaan_id = 128` menunjuk master pertanyaan, sedangkan `placement_id = 167` menunjuk penggunaan pertanyaan 128 pada section tertentu. Jika pertanyaan 128 dipakai di section lain, penggunaannya memiliki `placement_id` berbeda.
+
 | Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
 | :--- | :--- | :---: | :---: | :--- |
-| `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik penempatan butir pertanyaan pada bagian. |
+| `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik penempatan butir pertanyaan pada bagian. Di API disebut `placement_id`; ini bukan ID master pertanyaan. |
 | `section_id` | `bigint unsigned` | `FK`, `UK(1)` | `NOT NULL` | Referensi ke `kuesioner_section.id` (`ON DELETE CASCADE`). |
 | `pertanyaan_id` | `bigint unsigned` | `FK`, `UK(2)` | `NOT NULL` | Referensi ke `kuesioner_pertanyaan.id` (`ON DELETE CASCADE`). |
 | `order` | `smallint` | - | `NOT NULL`, Default `'1'` | Nomor urut penampilan butir pertanyaan di dalam bagiannya. |
 | `wajib` | `tinyint(1)` | - | `NOT NULL`, Default `'1'` | Kewajiban pengisian (`1` = Wajib, `0` = Opsional). |
+| `is_active` | `tinyint(1)` | - | `NOT NULL`, Default `'1'` | Status tampil pertanyaan pada placement ini (`1` = Ditampilkan, `0` = Disembunyikan). Berbeda per section/prodi. |
 | `tampil_di` | `varchar(100)` | - | `NULL` | Logika percabangan atau lokasi kemunculan (misal: `kuesioner`, `profil`, `both`). |
 | `created_at` | `timestamp` | - | `NULL` | Waktu pembuatan rekaman relasi. |
 | `updated_at` | `timestamp` | - | `NULL` | Waktu pembaruan terakhir. |
@@ -740,8 +746,8 @@ Selain 21 tabel domain bisnis di atas, basis data menyertakan 7 tabel standar in
 
 | Domain Data | Tabel Sumber Aktif | Aturan Kanonik & Catatan |
 | :--- | :--- | :--- |
-| Identitas akademik, tanggal lahir, NIM, kelulusan | `data_akademik` | Data master dari universitas, menjadi referensi resmi kelulusan. |
-| Kontak pribadi dan domisili saat ini | `biodata` | Satu-satunya sumber kontak & domisili aktif alumni. |
+| Identitas akademik, tanggal lahir, NIM, kelulusan | `data_akademik` | Data master dari universitas, menjadi referensi resmi kelulusan; `email_pribadi` hanya snapshot sumber awal. |
+| Kontak pribadi dan domisili saat ini | `biodata` | Sumber kontak & domisili aktif alumni; perubahan tidak menulis balik ke data akademik. |
 | Karier, bidang pekerjaan, gaji, *skills*, *experience* | `biodata` | Kolom karier dan penghasilan alumni terpadu. |
 | Profil perusahaan & instansi kerja | `perusahaan` | Tersinkronisasi antara formulir karier alumni dan direktori mitra perusahaan. |
 | Tugas akhir, publikasi, status yudisium | `yudisium` | Menyimpan metadata skripsi, jurnal, dan status kelulusan yudisium. |

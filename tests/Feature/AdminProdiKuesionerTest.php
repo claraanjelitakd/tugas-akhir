@@ -101,7 +101,10 @@ class AdminProdiKuesionerTest extends TestCase
         $response->assertStatus(200);
 
         $responsePertanyaan = $this->actingAs($this->adminSI)->get('/prodi/pertanyaan');
-        $responsePertanyaan->assertStatus(200);
+        $responsePertanyaan->assertRedirect('/prodi/kuesioner');
+
+        $responseKuesioner = $this->actingAs($this->adminSI)->get('/prodi/kuesioner');
+        $responseKuesioner->assertStatus(200);
 
         $responseAlumni = $this->actingAs($this->adminSI)->get('/prodi/alumni');
         $responseAlumni->assertStatus(200);

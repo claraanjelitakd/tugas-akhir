@@ -142,6 +142,19 @@ class SimpanPertanyaanController extends Controller
     }
 
     /**
+     * Mengubah status aktif master pertanyaan tanpa menghapus penempatan atau jawaban historis.
+     */
+    public function toggleActive(int $id): RedirectResponse
+    {
+        $pertanyaan = KuesionerPertanyaan::findOrFail($id);
+        $pertanyaan->update(['is_active' => ! $pertanyaan->is_active]);
+
+        $status = $pertanyaan->is_active ? 'diaktifkan' : 'dinonaktifkan';
+
+        return redirect()->back()->with('success', "Pertanyaan [{$pertanyaan->kode_pertanyaan}] berhasil {$status}.");
+    }
+
+    /**
      * Mengatur ulang urutan butir pertanyaan.
      */
     public function reorder(Request $request): RedirectResponse

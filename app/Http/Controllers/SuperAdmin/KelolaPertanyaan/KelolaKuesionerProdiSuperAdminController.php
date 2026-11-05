@@ -24,11 +24,10 @@ use Inertia\Response;
  * Mengelola instrumen pertanyaan tingkat Program Studi menggunakan skema terpadu:
  * - kuesioner_section
  * - kuesioner_pertanyaan
- * - kuesioner_section_pertanyaan (pivot penempatan & multi-placement)
+ * - kuesioner_section_pertanyaan (rekaman penempatan & multi-placement)
  * - kuesioner_opsi
  *
- * Dilengkapi dengan sinkronisasi dual-update ke tabel legacy (prodi_question & prodi_question_section)
- * untuk menjamin kompatibilitas runtime penuh selama masa transisi.
+ * Seluruh operasi berjalan pada skema kuesioner terpadu tanpa menulis ke tabel legacy.
  */
 class KelolaKuesionerProdiSuperAdminController extends Controller
 {
@@ -52,6 +51,51 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             403,
             'Anda tidak memiliki akses ke program studi ini.'
         );
+    }
+
+    /**
+     * Memastikan pertanyaan hanya dapat diubah oleh prodi yang tercatat sebagai pemilik master.
+     */
+    private function ensureQuestionOwner(User $user, KuesionerPertanyaan $question, int $prodiId): void
+    {
+        $this->ensureProdiAccess($user, $prodiId);
+
+        if ($user->role === 'superadmin') {
+            return;
+        }
+
+        abort_unless(
+            (int) $question->pemilik_prodi_id === $prodiId,
+            403,
+            'Pertanyaan ini berasal dari sumber lain dan hanya dapat digunakan, bukan diubah.'
+        );
+    }
+
+    /**
+     * Memastikan section tujuan berada pada prodi yang sedang dikelola akun.
+     */
+    private function findAccessibleProdiSection(User $user, int $prodiId, int $sectionId): KuesionerSection
+    {
+        $this->ensureProdiAccess($user, $prodiId);
+
+        return KuesionerSection::whereKey($sectionId)
+            ->where('target', 'prodi')
+            ->where('prodi_id', $prodiId)
+            ->firstOrFail();
+    }
+
+    /**
+     * Memastikan operasi opsi hanya berjalan pada master milik prodi pemiliknya.
+     */
+    private function ensureOwnedQuestionForOption(User $user, KuesionerPertanyaan $question): void
+    {
+        if ($user->role === 'superadmin') {
+            return;
+        }
+
+        abort_unless($question->pemilik_prodi_id !== null, 403, 'Opsi pertanyaan umum dikelola dari sumber kanoniknya.');
+
+        $this->ensureQuestionOwner($user, $question, (int) $question->pemilik_prodi_id);
     }
 
     private function basePath(User $user): string
@@ -125,7 +169,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
         $sectionIds = $rawSections->pluck('id')->all();
 
         // Ambil butir pertanyaan yang terhubung ke section-section prodi ini via kuesioner_section_pertanyaan
-        $pivotItems = KuesionerSectionPertanyaan::whereIn('section_id', $sectionIds)
+        $placementItems = KuesionerSectionPertanyaan::whereIn('section_id', $sectionIds)
             ->with([
                 'pertanyaan.opsi' => fn ($q) => $q->orderBy('order'),
                 'pertanyaan.pemilikProdi:id,nama_prodi,kode_prodi',
@@ -134,23 +178,27 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             ->orderBy('order', 'asc')
             ->get();
 
-        $questions = $pivotItems->map(function (KuesionerSectionPertanyaan $pivot) {
-            $master = $pivot->pertanyaan;
+        $questions = $placementItems->map(function (KuesionerSectionPertanyaan $placement) use ($selectedProdiId, $user) {
+            $master = $placement->pertanyaan;
 
             return [
                 'id' => $master->id,
-                'pivot_id' => $pivot->id,
+                'placement_id' => $placement->id,
                 'code' => $master->kode_pertanyaan,
                 'question_text' => $master->teks_pertanyaan,
                 'type' => $master->tipe,
-                'order' => $pivot->order,
-                'is_required' => (bool) $pivot->wajib,
+                'order' => $placement->order,
+                'is_required' => (bool) $placement->wajib,
                 'is_active' => (bool) $master->is_active,
+                'is_placement_active' => (bool) $placement->is_active,
                 'is_reusable' => (bool) $master->is_reusable,
-                'prodi_question_section_id' => $pivot->section_id,
+                'pemilik_prodi_id' => $master->pemilik_prodi_id,
+                'can_edit' => $user->role === 'superadmin'
+                    || (int) $master->pemilik_prodi_id === $selectedProdiId,
+                'prodi_question_section_id' => $placement->section_id,
                 'section' => [
-                    'id' => $pivot->section_id,
-                    'title' => $pivot->section?->judul,
+                    'id' => $placement->section_id,
+                    'title' => $placement->section?->judul,
                 ],
                 'asal' => str_starts_with($master->kode_pertanyaan, 'EVA_')
                     ? 'Evaluasi Atasan'
@@ -331,7 +379,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
         $section = KuesionerSection::with('sectionPertanyaan')->findOrFail($id);
         $this->ensureProdiAccess($user, (int) $section->prodi_id);
 
-        // Hapus pivot penempatan di section ini
+        // Hapus relasi penempatan di section ini
         $section->sectionPertanyaan()->delete();
         $section->delete();
 
@@ -382,15 +430,49 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
     /**
      * Toggle status aktif/non-aktif butir pertanyaan master secara instan.
      */
-    public function toggleActive(Request $request, int $id): RedirectResponse
+    public function toggleActive(Request $request, int $questionId): RedirectResponse
     {
-        $question = KuesionerPertanyaan::findOrFail($id);
+        $validated = $request->validate([
+            'prodi_id' => 'nullable|exists:prodi,id',
+        ]);
+
+        $user = Auth::user();
+        $question = KuesionerPertanyaan::findOrFail($questionId);
+        $prodiId = (int) ($validated['prodi_id'] ?? $question->pemilik_prodi_id ?? 0);
+        $this->ensureQuestionOwner($user, $question, $prodiId);
+
         $question->is_active = ! $question->is_active;
         $question->save();
 
         $statusText = $question->is_active ? 'diaktifkan' : 'dinonaktifkan';
 
         return redirect()->back()->with('success', "Pertanyaan [{$question->kode_pertanyaan}] berhasil {$statusText}.");
+    }
+
+    /**
+     * Mengubah status tampil pertanyaan hanya pada placement section yang sedang dikelola.
+     */
+    public function togglePlacementActive(Request $request, int $placementId): RedirectResponse
+    {
+        $validated = $request->validate([
+            'prodi_id' => 'required|exists:prodi,id',
+        ]);
+
+        $user = Auth::user();
+        $placement = KuesionerSectionPertanyaan::with(['section', 'pertanyaan'])->findOrFail($placementId);
+        $prodiId = (int) $validated['prodi_id'];
+
+        $this->ensureProdiAccess($user, $prodiId);
+        abort_unless(
+            (int) $placement->section?->prodi_id === $prodiId,
+            403,
+            'Placement pertanyaan tidak berada dalam lingkup program studi ini.'
+        );
+
+        $placement->update(['is_active' => ! $placement->is_active]);
+        $statusText = $placement->is_active ? 'diaktifkan' : 'dinonaktifkan';
+
+        return redirect()->back()->with('success', "Pertanyaan [{$placement->pertanyaan?->kode_pertanyaan}] berhasil {$statusText} pada section ini.");
     }
 
     /**
@@ -426,7 +508,9 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
 
         // Resolusi Bagian (Section) Terpadu
         $rawSectionId = $validated['prodi_question_section_id'] ?? null;
-        $unifiedSection = $rawSectionId ? KuesionerSection::find($rawSectionId) : null;
+        $unifiedSection = $rawSectionId
+            ? $this->findAccessibleProdiSection($user, $prodiId, (int) $rawSectionId)
+            : null;
 
         if (! $unifiedSection) {
             $unifiedSection = KuesionerSection::where('target', 'prodi')
@@ -449,6 +533,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
 
         // Cek apakah pertanyaan dengan kode ini sudah ada di Bank Soal (Pencegahan Pertanyaan Double)
         $master = KuesionerPertanyaan::where('kode_pertanyaan', $code)->first();
+        $canManageMaster = false;
 
         if (! $master) {
             $master = KuesionerPertanyaan::create([
@@ -459,13 +544,17 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
                 'is_reusable' => $request->boolean('is_reusable', true),
                 'is_active' => true,
             ]);
-        } else {
-            // Update teks dan tipe jika ada perubahan
+            $canManageMaster = true;
+        } elseif ((int) $master->pemilik_prodi_id === $prodiId) {
+            // Pemilik boleh memperbarui master miliknya saat memakai kembali kode yang sama.
             $master->update([
                 'teks_pertanyaan' => trim($validated['question_text']),
                 'tipe' => $validated['type'],
                 'is_reusable' => $request->boolean('is_reusable', true),
             ]);
+            $canManageMaster = true;
+        } elseif (! $master->is_reusable || ! $master->is_active) {
+            abort(403, 'Pertanyaan dari sumber lain tidak tersedia untuk digunakan kembali.');
         }
 
         $order = $validated['order'];
@@ -474,7 +563,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             $order = $maxOrder + 1;
         }
 
-        // Pasang pivot di section utama
+        // Pasang relasi penempatan di section utama
         KuesionerSectionPertanyaan::updateOrCreate(
             [
                 'section_id' => $sectionId,
@@ -483,47 +572,54 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             [
                 'order' => $order,
                 'wajib' => $request->boolean('is_required', true),
+                'is_active' => true,
             ]
         );
 
-        // Pasang pivot di section lain jika dipilih (Multi-placement)
+        // Pasang relasi penempatan di section lain jika dipilih (multi-placement)
         if (! empty($validated['target_section_ids'])) {
             foreach ($validated['target_section_ids'] as $extraSecId) {
                 if ((int) $extraSecId !== $sectionId) {
+                    $extraSection = $user->role === 'superadmin'
+                        ? KuesionerSection::whereKey((int) $extraSecId)->where('target', 'prodi')->firstOrFail()
+                        : $this->findAccessibleProdiSection($user, $prodiId, (int) $extraSecId);
                     $extraOrder = (KuesionerSectionPertanyaan::where('section_id', $extraSecId)->max('order') ?? 0) + 1;
                     KuesionerSectionPertanyaan::firstOrCreate(
                         [
-                            'section_id' => $extraSecId,
+                            'section_id' => $extraSection->id,
                             'pertanyaan_id' => $master->id,
                         ],
                         [
                             'order' => $extraOrder,
                             'wajib' => $request->boolean('is_required', true),
+                            'is_active' => true,
                         ]
                     );
                 }
             }
         }
 
-        // Kelola opsi jawaban
-        if ($request->has('options') && is_array($request->options) && count($request->options) > 0) {
-            $orderCounter = 1;
-            foreach ($request->options as $opt) {
-                $labelText = is_array($opt) ? ($opt['option_text'] ?? $opt['label'] ?? '') : (string) $opt;
-                $score = is_array($opt) ? ($opt['score'] ?? null) : null;
-                $trimmed = trim((string) $labelText);
+        // Opsi hanya boleh dikelola saat master baru dibuat atau milik prodi tujuan.
+        if ($canManageMaster) {
+            if ($request->has('options') && is_array($request->options) && count($request->options) > 0) {
+                $orderCounter = 1;
+                foreach ($request->options as $opt) {
+                    $labelText = is_array($opt) ? ($opt['option_text'] ?? $opt['label'] ?? '') : (string) $opt;
+                    $score = is_array($opt) ? ($opt['score'] ?? null) : null;
+                    $trimmed = trim((string) $labelText);
 
-                if ($trimmed !== '') {
-                    KuesionerOpsi::create([
-                        'pertanyaan_id' => $master->id,
-                        'label' => $trimmed,
-                        'nilai_skor' => $score ? (int) $score : null,
-                        'order' => $orderCounter++,
-                    ]);
+                    if ($trimmed !== '') {
+                        KuesionerOpsi::create([
+                            'pertanyaan_id' => $master->id,
+                            'label' => $trimmed,
+                            'nilai_skor' => $score ? (int) $score : null,
+                            'order' => $orderCounter++,
+                        ]);
+                    }
                 }
+            } else {
+                QuestionDefaultOptionsService::generateForUnifiedQuestion($master);
             }
-        } else {
-            QuestionDefaultOptionsService::generateForUnifiedQuestion($master);
         }
 
         return redirect()->back()->with('success', 'Pertanyaan kuesioner prodi berhasil ditambahkan ke Bank Soal dan disematkan ke bagian tujuan.');
@@ -532,12 +628,13 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
     /**
      * Memperbarui pertanyaan kuesioner prodi.
      */
-    public function updateQuestion(Request $request, int $id): RedirectResponse
+    public function updateQuestion(Request $request, int $questionId): RedirectResponse
     {
         $user = Auth::user();
-        $master = KuesionerPertanyaan::findOrFail($id);
+        $master = KuesionerPertanyaan::findOrFail($questionId);
 
         $validated = $request->validate([
+            'prodi_id' => 'required|exists:prodi,id',
             'code' => 'required|string|max:50',
             'question_text' => 'required|string',
             'type' => 'required|string|in:text,textarea,number,single_choice,radio,radio_input,radio_text,multiple_choice,checkbox,dropdown,searchable_select,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,date,time,file,header',
@@ -557,7 +654,10 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
         }
 
         $code = Str::upper(trim($validated['code']));
+        $prodiId = (int) $validated['prodi_id'];
         $sectionId = (int) $validated['prodi_question_section_id'];
+        $this->ensureQuestionOwner($user, $master, $prodiId);
+        $this->findAccessibleProdiSection($user, $prodiId, $sectionId);
 
         $master->update([
             'kode_pertanyaan' => $code,
@@ -566,14 +666,14 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             'is_reusable' => $request->boolean('is_reusable', true),
         ]);
 
-        // Perbarui pivot di section bersangkutan
-        $pivot = KuesionerSectionPertanyaan::where('pertanyaan_id', $master->id)
+        // Perbarui relasi penempatan di section bersangkutan
+        $placement = KuesionerSectionPertanyaan::where('pertanyaan_id', $master->id)
             ->where('section_id', $sectionId)
             ->first();
 
-        if ($pivot) {
-            $pivot->update([
-                'order' => $validated['order'] ?? $pivot->order,
+        if ($placement) {
+            $placement->update([
+                'order' => $validated['order'] ?? $placement->order,
                 'wajib' => $request->boolean('is_required', true),
             ]);
         } else {
@@ -582,6 +682,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
                 'pertanyaan_id' => $master->id,
                 'order' => $validated['order'] ?? 1,
                 'wajib' => $request->boolean('is_required', true),
+                'is_active' => true,
             ]);
         }
 
@@ -591,11 +692,13 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
             $targetIds[] = $sectionId;
             $targetIds = array_unique($targetIds);
 
-            // Tambahkan pivot yang belum ada
+            // Tambahkan relasi penempatan yang belum ada
             foreach ($targetIds as $tid) {
+                $this->findAccessibleProdiSection($user, $prodiId, $tid);
+
                 KuesionerSectionPertanyaan::firstOrCreate(
                     ['section_id' => $tid, 'pertanyaan_id' => $master->id],
-                    ['order' => 99, 'wajib' => $request->boolean('is_required', true)]
+                    ['order' => 99, 'wajib' => $request->boolean('is_required', true), 'is_active' => true]
                 );
             }
         }
@@ -604,17 +707,32 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
     }
 
     /**
-     * Menghapus butir pertanyaan dari bagian prodi.
+     * Menghapus satu placement pertanyaan dari section prodi.
      */
-    public function destroyQuestion(int $id): RedirectResponse
+    public function destroyQuestion(Request $request, int $placementId): RedirectResponse
     {
-        $master = KuesionerPertanyaan::with('sections')->findOrFail($id);
+        $validated = $request->validate([
+            'prodi_id' => 'required|exists:prodi,id',
+        ]);
 
-        // Lepas pivot dari section
-        KuesionerSectionPertanyaan::where('pertanyaan_id', $master->id)->delete();
+        $user = Auth::user();
+        $prodiId = (int) $validated['prodi_id'];
+        $this->ensureProdiAccess($user, $prodiId);
+        $placement = KuesionerSectionPertanyaan::with('pertanyaan')->findOrFail($placementId);
+        abort_unless(
+            (int) $placement->section()->value('prodi_id') === $prodiId,
+            403,
+            'Placement pertanyaan tidak berada dalam lingkup program studi ini.'
+        );
+        $master = $placement->pertanyaan;
 
-        // Jika pertanyaan tidak lagi terpasang di manapun dan belum memiliki respon jawaban, hapus master
-        if ($master->jawaban()->count() === 0) {
+        // Lepas hanya placement pada section yang dipilih, bukan seluruh penggunaan lintas section/prodi.
+        $placement->delete();
+
+        // Master milik sendiri baru boleh dibersihkan jika sudah tidak dipakai dan belum memiliki jawaban.
+        if ((int) $master->pemilik_prodi_id === $prodiId
+            && ! KuesionerSectionPertanyaan::where('pertanyaan_id', $master->id)->exists()
+            && $master->jawaban()->count() === 0) {
             $master->opsi()->delete();
             $master->delete();
         }
@@ -627,28 +745,36 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
      */
     public function reorderQuestion(Request $request): RedirectResponse
     {
-        if ($request->has(['id', 'direction'])) {
+        if ($request->has(['placement_id', 'direction'])) {
             $validated = $request->validate([
-                'id' => 'required|exists:kuesioner_pertanyaan,id',
+                'prodi_id' => 'required|exists:prodi,id',
+                'placement_id' => 'required|exists:kuesioner_section_pertanyaan,id',
                 'direction' => 'required|in:up,down',
             ]);
 
-            $master = KuesionerPertanyaan::findOrFail($validated['id']);
-            $currentPivot = KuesionerSectionPertanyaan::where('pertanyaan_id', $master->id)->first();
+            $user = Auth::user();
+            $prodiId = (int) $validated['prodi_id'];
+            $this->ensureProdiAccess($user, $prodiId);
+            $currentPlacement = KuesionerSectionPertanyaan::with('section')->findOrFail($validated['placement_id']);
+            abort_unless(
+                (int) $currentPlacement->section?->prodi_id === $prodiId,
+                403,
+                'Placement pertanyaan tidak berada dalam lingkup program studi ini.'
+            );
 
-            if ($currentPivot) {
+            if ($currentPlacement) {
                 $operator = $validated['direction'] === 'up' ? '<' : '>';
                 $sortOrder = $validated['direction'] === 'up' ? 'desc' : 'asc';
 
-                $adjacentPivot = KuesionerSectionPertanyaan::where('section_id', $currentPivot->section_id)
-                    ->where('order', $operator, $currentPivot->order)
+                $adjacentPlacement = KuesionerSectionPertanyaan::where('section_id', $currentPlacement->section_id)
+                    ->where('order', $operator, $currentPlacement->order)
                     ->orderBy('order', $sortOrder)
                     ->first();
 
-                if ($adjacentPivot) {
-                    $tempOrder = $currentPivot->order;
-                    $currentPivot->update(['order' => $adjacentPivot->order]);
-                    $adjacentPivot->update(['order' => $tempOrder]);
+                if ($adjacentPlacement) {
+                    $tempOrder = $currentPlacement->order;
+                    $currentPlacement->update(['order' => $adjacentPlacement->order]);
+                    $adjacentPlacement->update(['order' => $tempOrder]);
                 }
             }
 
@@ -677,6 +803,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
         ]);
 
         $master = KuesionerPertanyaan::findOrFail($validated['prodi_question_id']);
+        $this->ensureOwnedQuestionForOption(Auth::user(), $master);
 
         if (empty($validated['order'])) {
             $maxOrder = KuesionerOpsi::where('pertanyaan_id', $master->id)->max('order') ?? 0;
@@ -700,6 +827,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
     public function updateOption(Request $request, int $id): RedirectResponse
     {
         $option = KuesionerOpsi::with('pertanyaan')->findOrFail($id);
+        $this->ensureOwnedQuestionForOption(Auth::user(), $option->pertanyaan);
 
         $validated = $request->validate([
             'option_text' => 'required|string',
@@ -724,6 +852,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
     public function destroyOption(int $id): RedirectResponse
     {
         $option = KuesionerOpsi::with('pertanyaan')->findOrFail($id);
+        $this->ensureOwnedQuestionForOption(Auth::user(), $option->pertanyaan);
         $option->delete();
 
         return redirect()->back()->with('success', 'Opsi jawaban kuesioner berhasil dihapus.');
@@ -746,9 +875,12 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
 
         $prodiId = (int) $validated['prodi_id'];
         $sectionId = (int) $validated['section_id'];
+        $this->findAccessibleProdiSection($user, $prodiId, $sectionId);
 
         $selectedQuestions = KuesionerPertanyaan::with('opsi')
             ->whereIn('id', $validated['pertanyaan_ids'])
+            ->where('is_active', true)
+            ->where('is_reusable', true)
             ->get();
 
         $maxOrder = (int) (KuesionerSectionPertanyaan::where('section_id', $sectionId)->max('order') ?: 0);
@@ -757,7 +889,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
         foreach ($selectedQuestions as $bankQuestion) {
             $maxOrder++;
 
-            // Buat relasi pivot di kuesioner_section_pertanyaan
+            // Buat relasi penempatan di kuesioner_section_pertanyaan
             $created = KuesionerSectionPertanyaan::firstOrCreate(
                 [
                     'section_id' => $sectionId,
@@ -766,6 +898,7 @@ class KelolaKuesionerProdiSuperAdminController extends Controller
                 [
                     'order' => $maxOrder,
                     'wajib' => true,
+                    'is_active' => true,
                 ]
             );
 

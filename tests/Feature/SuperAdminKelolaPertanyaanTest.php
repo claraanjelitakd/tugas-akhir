@@ -149,6 +149,40 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
     }
 
     /**
+     * Test status aktif master dapat diubah tanpa menghapus relasi section.
+     */
+    public function test_superadmin_can_toggle_question_active_without_removing_placement(): void
+    {
+        $question = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'F_ACTIVE_TEST',
+            'teks_pertanyaan' => 'Pertanyaan status aktif',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $question->id,
+            'wajib' => true,
+            'tampil_di' => 'kuesioner',
+            'order' => 1,
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->patch(route('superadmin.pertanyaan.toggle-active', $question->id));
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('kuesioner_pertanyaan', [
+            'id' => $question->id,
+            'is_active' => false,
+        ]);
+        $this->assertDatabaseHas('kuesioner_section_pertanyaan', [
+            'pertanyaan_id' => $question->id,
+            'section_id' => $this->section->id,
+        ]);
+    }
+
+    /**
      * Test superadmin dapat mengubah urutan pertanyaan naik dan turun.
      */
     public function test_superadmin_can_reorder_questions(): void

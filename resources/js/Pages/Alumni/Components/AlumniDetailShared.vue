@@ -34,6 +34,11 @@ const props = defineProps({
         type: String,
         default: 'superadmin',
     },
+    // Menandai detail yang dibuka dari analitik lintas fakultas tanpa hak perubahan.
+    readonly: {
+        type: Boolean,
+        default: false,
+    },
     prodi: {
         type: Object,
         default: null,
@@ -219,6 +224,11 @@ const isSuperAdminRole = computed(() => {
                         <span class="text-white font-bold">Detail Mahasiswa</span>
                     </div>
 
+                    <!-- Penanda konteks baca-saja untuk detail lintas fakultas. -->
+                    <div v-if="readonly" class="mb-4 rounded-lg border border-white/30 bg-white/10 px-3 py-2 text-xs font-semibold text-white">
+                        Mode baca saja — alumni berada di luar lingkup fakultas Anda.
+                    </div>
+
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-5">
                         <div class="flex items-center gap-4">
                             <!-- Avatar Foto Profil Alumni -->
@@ -263,7 +273,8 @@ const isSuperAdminRole = computed(() => {
                         </div>
 
                         <div class="flex items-center gap-3 shrink-0 flex-wrap">
-                            <a 
+                            <a
+                                v-if="!readonly"
                                 :href="`/${prefix}/alumni/${alumni.id}/export-excel`"
                                 class="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FDC700] hover:bg-[#e5b400] text-black text-xs font-extrabold rounded-xl transition-all shadow-sm cursor-pointer"
                                 title="Download seluruh butir pertanyaan & jawaban mahasiswa ini ke file Excel (CSV)"
@@ -296,6 +307,7 @@ const isSuperAdminRole = computed(() => {
                     :ref-options="refOptions"
                     :evaluasi-atasan="evaluasiAtasan"
                     :update-route="`/${prefix}/alumni/${alumni.id}/profile`"
+                    :readonly="readonly"
                 />
 
                 <!-- ============================================================= -->
@@ -337,6 +349,7 @@ const isSuperAdminRole = computed(() => {
                     :linkedin-trace-mapping="linkedinTraceMapping"
                     :linkedin-history="linkedinHistory"
                     :is-super-admin="isSuperAdminRole"
+                    :readonly="readonly"
                 />
 
             </main>

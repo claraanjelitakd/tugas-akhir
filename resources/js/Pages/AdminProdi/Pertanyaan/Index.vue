@@ -937,21 +937,21 @@ const handleMoveQuestion = (q, direction) => {
             class="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
         >
             <div
-                class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-150"
+                class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl"
             >
-                <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
+                <div class="flex shrink-0 items-start justify-between border-b border-gray-200 bg-white px-6 py-4">
                     <div>
-                        <h3 class="font-bold text-gray-900 text-sm">
+                        <h3 class="text-sm font-bold text-gray-900">
                             {{ isEditingQuestion ? 'Sunting Butir Pertanyaan' : 'Tambah Pertanyaan Baru' }}
                         </h3>
-                        <p class="text-xs text-gray-500 mt-0.5">
+                        <p class="mt-0.5 text-[11px] text-gray-500">
                             Konfigurasi instrumen butir pertanyaan khusus Program Studi.
                         </p>
                     </div>
                     <button
                         type="button"
                         @click="closeQuestionModal"
-                        class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                        class="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                     >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -959,9 +959,9 @@ const handleMoveQuestion = (q, direction) => {
                     </button>
                 </div>
 
-                <form @submit.prevent="submitQuestionForm" class="p-5 space-y-4">
+                <form @submit.prevent="submitQuestionForm" class="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 text-xs">
                     <div>
-                        <label class="block font-semibold text-gray-700 text-xs mb-1">
+                        <label class="mb-1 block font-bold text-gray-700">
                             Bagian Kuesioner (Section) <span class="text-red-500">*</span>
                         </label>
                         <select
@@ -985,9 +985,9 @@ const handleMoveQuestion = (q, direction) => {
                         </p>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
-                            <label class="block font-semibold text-gray-700 text-xs mb-1">
+                            <label class="mb-1 block font-bold text-gray-700">
                                 Kode Pertanyaan <span class="text-red-500">*</span>
                             </label>
                             <input
@@ -1001,7 +1001,7 @@ const handleMoveQuestion = (q, direction) => {
                             </p>
                         </div>
                         <div>
-                            <label class="block font-semibold text-gray-700 text-xs mb-1">
+                            <label class="mb-1 block font-bold text-gray-700">
                                 Sifat Pengisian <span class="text-red-500">*</span>
                             </label>
                             <select
@@ -1014,10 +1014,10 @@ const handleMoveQuestion = (q, direction) => {
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
-                            <label class="block font-semibold text-gray-700 text-xs mb-1">
-                                Tipe Input Pertanyaan <span class="text-red-500">*</span>
+                            <label class="mb-1 block font-bold text-gray-700">
+                                Tipe Pertanyaan <span class="text-red-500">*</span>
                             </label>
                             <select
                                 v-model="questionForm.type"
@@ -1034,8 +1034,8 @@ const handleMoveQuestion = (q, direction) => {
                             <p class="text-[10px] text-emerald-700 font-semibold mt-1">Opsi pilihan default akan otomatis terbuat & dapat disesuaikan.</p>
                         </div>
                         <div>
-                            <label class="block font-semibold text-gray-700 text-xs mb-1">
-                                Nomor Urut Tampil
+                            <label class="mb-1 block font-bold text-gray-700">
+                                Nomor Urut
                             </label>
                             <input
                                 v-model.number="questionForm.order"
@@ -1047,8 +1047,8 @@ const handleMoveQuestion = (q, direction) => {
                     </div>
 
                     <div>
-                        <label class="block font-semibold text-gray-700 text-xs mb-1">
-                            Bunyi Kalimat Pertanyaan <span class="text-red-500">*</span>
+                        <label class="mb-1 block font-bold text-gray-700">
+                            Teks Pertanyaan <span class="text-red-500">*</span>
                         </label>
                         <textarea
                             v-model="questionForm.question_text"
@@ -1061,7 +1061,7 @@ const handleMoveQuestion = (q, direction) => {
                         </p>
                     </div>
 
-                    <div class="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                    <div class="flex items-center justify-end gap-2 border-t border-gray-200 pt-4">
                         <button
                             type="button"
                             @click="closeQuestionModal"

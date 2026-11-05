@@ -88,6 +88,7 @@ class ProfilController extends Controller
             'kategori_pekerjaan' => $biodata?->kategori_pekerjaan ?? '',
             'posisi_jabatan' => $biodata?->posisi_jabatan ?? '',
             'bidang_pekerjaan' => $biodata?->bidang_pekerjaan ?? '',
+            'divisi' => $biodata?->divisi ?? '',
             'posisi_wiraswasta' => $biodata?->posisi_wiraswasta ?? '',
             'pendidikan_tingkat' => $biodata?->pendidikan_tingkat ?? '',
             'perguruan_tinggi' => $biodata?->perguruan_tinggi ?? '',

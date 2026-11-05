@@ -172,6 +172,11 @@ const OPTION_SUPPORTED_TYPES = [
 
 const canHaveOptions = (type) => OPTION_SUPPORTED_TYPES.includes(type);
 
+/**
+ * Menentukan apakah akun boleh mengubah master pertanyaan yang sedang dipakai.
+ */
+const canEditQuestion = (question) => Boolean(question?.can_edit);
+
 const filteredQuestions = computed(() => {
     return props.questions.filter((q) => {
         if (selectedSectionFilter.value !== 'all') {
@@ -545,15 +550,17 @@ const removeOptionFromForm = (idx) => {
 };
 
 /**
- * Toggle status aktif/non-aktif butir pertanyaan secara interaktif
+ * Toggle status tampil pertanyaan pada placement section secara interaktif.
  */
 const handleToggleActive = (question) => {
     togglingQuestionId.value = question.id;
-    router.post(`${props.basePath}/pertanyaan/${question.id}/toggle-active`, {}, {
+    router.post(`${props.basePath}/penempatan/${question.placement_id}/toggle-active`, {
+        prodi_id: props.selectedProdi?.id,
+    }, {
         preserveScroll: true,
         onSuccess: () => {
             // Pembaruan reaktif lokal seketika
-            question.is_active = !question.is_active;
+            question.is_placement_active = !question.is_placement_active;
         },
         onFinish: () => {
             togglingQuestionId.value = null;
@@ -566,6 +573,8 @@ const handleToggleActive = (question) => {
  * @param {Object|null} questionToEdit Data pertanyaan jika mode edit, null jika tambah baru
  */
 const openQuestionModal = (questionToEdit = null) => {
+    if (questionToEdit && !canEditQuestion(questionToEdit)) return;
+
     isEditingQuestion.value = !!questionToEdit;
     editingQuestionId.value = questionToEdit ? questionToEdit.id : null;
     questionFormErrors.value = {};
@@ -696,9 +705,10 @@ const submitQuestionForm = () => {
     }
 };
 
-const handleReorderQuestion = (questionId, direction) => {
+const handleReorderQuestion = (placementId, direction) => {
     router.post(`${props.basePath}/pertanyaan/reorder`, {
-        id: questionId,
+        prodi_id: props.selectedProdi?.id,
+        placement_id: placementId,
         direction,
     }, {
         preserveScroll: true,
@@ -717,7 +727,10 @@ const handleDeleteQuestion = (question) => {
         cancelButtonText: 'Batal',
     }).then((res) => {
         if (res.isConfirmed) {
-            router.delete(`${props.basePath}/pertanyaan/${question.id}`, {
+            router.delete(`${props.basePath}/pertanyaan/${question.placement_id}`, {
+                data: {
+                    prodi_id: props.selectedProdi?.id,
+                },
                 preserveScroll: true,
                 onSuccess: () => Swal.fire('Terhapus', 'Pertanyaan kuesioner prodi berhasil dihapus.', 'success'),
             });
@@ -761,6 +774,8 @@ const optionFormErrors = ref({});
  * @param {Object|null} optionToEdit Objek opsi jika edit, null jika tambah baru
  */
 const openOptionModal = (question, optionToEdit = null) => {
+    if (!canEditQuestion(question)) return;
+
     currentQuestionForOption.value = question;
     isEditingOption.value = !!optionToEdit;
     editingOptionId.value = optionToEdit ? optionToEdit.id : null;
@@ -1170,7 +1185,7 @@ const handleDeleteOption = (opt) => {
                                             <div class="flex flex-col gap-0.5 ml-1">
                                                 <button
                                                     type="button"
-                                                    @click="handleReorderQuestion(q.id, 'up')"
+                                                    @click="handleReorderQuestion(q.placement_id, 'up')"
                                                     :disabled="idx === 0"
                                                     class="p-0.5 text-gray-400 hover:text-emerald-700 disabled:opacity-30 cursor-pointer"
                                                     title="Naikkan Urutan"
@@ -1181,7 +1196,7 @@ const handleDeleteOption = (opt) => {
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    @click="handleReorderQuestion(q.id, 'down')"
+                                                    @click="handleReorderQuestion(q.placement_id, 'down')"
                                                     :disabled="idx === filteredQuestions.length - 1"
                                                     class="p-0.5 text-gray-400 hover:text-emerald-700 disabled:opacity-30 cursor-pointer"
                                                     title="Turunkan Urutan"
@@ -1235,16 +1250,34 @@ const handleDeleteOption = (opt) => {
                                                         </span>
                                                     </div>
                                                     <div class="flex items-center gap-2 shrink-0">
-                                                        <button type="button" @click="openOptionModal(q, opt)" class="text-gray-500 hover:text-gray-900 font-medium cursor-pointer">Edit</button>
+                                                        <button
+                                                            type="button"
+                                                            :disabled="!canEditQuestion(q)"
+                                                            @click="openOptionModal(q, opt)"
+                                                            class="font-medium text-gray-500 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            :title="canEditQuestion(q) ? 'Edit opsi' : 'Opsi dikelola oleh pemilik pertanyaan'"
+                                                        >
+                                                            Edit
+                                                        </button>
                                                         <span class="text-gray-300">|</span>
-                                                        <button type="button" @click="handleDeleteOption(opt)" class="text-gray-400 hover:text-rose-600 font-medium cursor-pointer">Hapus</button>
+                                                        <button
+                                                            type="button"
+                                                            :disabled="!canEditQuestion(q)"
+                                                            @click="handleDeleteOption(opt)"
+                                                            class="font-medium text-gray-400 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            :title="canEditQuestion(q) ? 'Hapus opsi' : 'Opsi dikelola oleh pemilik pertanyaan'"
+                                                        >
+                                                            Hapus
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
                                             <button
                                                 type="button"
+                                                :disabled="!canEditQuestion(q)"
                                                 @click="openOptionModal(q, null)"
-                                                class="px-2.5 py-1 text-[11px] font-semibold text-gray-700 bg-white hover:bg-gray-50 rounded border border-gray-300 flex items-center gap-1 cursor-pointer transition-colors mt-1"
+                                                class="mt-1 flex items-center gap-1 rounded border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                                :title="canEditQuestion(q) ? 'Tambah opsi jawaban' : 'Opsi dikelola oleh pemilik pertanyaan'"
                                             >
                                                 <span>+ Tambah Opsi Jawaban</span>
                                             </button>
@@ -1259,19 +1292,20 @@ const handleDeleteOption = (opt) => {
                                             @click="handleToggleActive(q)"
                                             :disabled="togglingQuestionId === q.id"
                                             class="inline-flex items-center justify-center px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50"
-                                            :class="q.is_active ? 'bg-emerald-50 text-[#0D542B] border border-emerald-200 hover:bg-emerald-100' : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'"
-                                            :title="q.is_active ? 'Pertanyaan aktif (klik untuk menonaktifkan)' : 'Pertanyaan nonaktif (klik untuk mengaktifkan)'"
+                                            :class="q.is_placement_active ? 'bg-emerald-50 text-[#0D542B] border border-emerald-200 hover:bg-emerald-100' : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'"
+                                            :title="q.is_placement_active ? 'Pertanyaan tampil pada section ini (klik untuk menonaktifkan)' : 'Pertanyaan tidak tampil pada section ini (klik untuk mengaktifkan)'"
                                         >
-                                            {{ q.is_active ? 'Aktif' : 'Nonaktif' }}
+                                            {{ q.is_placement_active ? 'Aktif' : 'Nonaktif' }}
                                         </button>
                                     </td>
                                     <td class="px-3 py-3.5 text-right">
                                         <div class="flex items-center justify-end gap-1">
                                             <button
                                                 type="button"
+                                                :disabled="!canEditQuestion(q)"
                                                 @click="openQuestionModal(q)"
-                                                class="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-                                                title="Edit Pertanyaan"
+                                                class="cursor-pointer rounded-lg p-1.5 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                                                :title="canEditQuestion(q) ? 'Edit Pertanyaan' : 'Pertanyaan dikelola oleh pemilik'"
                                             >
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1412,21 +1446,21 @@ const handleDeleteOption = (opt) => {
             class="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
         >
             <div
-                class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-150"
+                class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl"
             >
-                <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
+                <div class="flex shrink-0 items-start justify-between border-b border-gray-200 bg-white px-6 py-4">
                     <div>
-                        <h3 class="font-bold text-gray-900 text-sm">
+                        <h3 class="text-sm font-bold text-gray-900">
                             {{ isEditingQuestion ? 'Sunting Pertanyaan Kuesioner Prodi' : 'Tambah Pertanyaan Kuesioner Prodi Baru' }}
                         </h3>
-                        <p class="text-xs text-gray-500 mt-0.5">
+                        <p class="mt-0.5 text-[11px] text-gray-500">
                             Konfigurasi instrumen butir pertanyaan khusus Program Studi {{ selectedProdi?.nama_prodi }}.
                         </p>
                     </div>
                     <button
                         type="button"
                         @click="closeQuestionModal"
-                        class="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                        class="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                     >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -1434,7 +1468,7 @@ const handleDeleteOption = (opt) => {
                     </button>
                 </div>
 
-                <form @submit.prevent="submitQuestionForm" class="p-5 space-y-4">
+                <form @submit.prevent="submitQuestionForm" class="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 text-xs">
                     <!-- Banner Anti-Double Detection -->
                     <div v-if="duplicateMasterWarning" class="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-[#0D542B]">
                         <div class="font-bold flex items-center gap-1.5">
@@ -1448,7 +1482,7 @@ const handleDeleteOption = (opt) => {
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block font-semibold text-gray-700 text-xs mb-1">
+                            <label class="mb-1 block font-bold text-gray-700">
                                 Kode Pertanyaan <span class="text-red-500">*</span>
                             </label>
                             <input
@@ -1462,7 +1496,7 @@ const handleDeleteOption = (opt) => {
                             </p>
                         </div>
                         <div>
-                            <label class="block font-semibold text-gray-700 text-xs mb-1">
+                            <label class="mb-1 block font-bold text-gray-700">
                                 Bagian / Section Utama <span class="text-red-500">*</span>
                             </label>
                             <select
@@ -1503,7 +1537,7 @@ const handleDeleteOption = (opt) => {
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block font-semibold text-gray-700 text-xs mb-1">
+                            <label class="mb-1 block font-bold text-gray-700">
                                 Tipe Pertanyaan <span class="text-red-500">*</span>
                             </label>
                             <select
@@ -1520,8 +1554,8 @@ const handleDeleteOption = (opt) => {
                             </select>
                         </div>
                         <div>
-                            <label class="block font-semibold text-gray-700 text-xs mb-1">
-                                Nomor Urut Posisi
+                            <label class="mb-1 block font-bold text-gray-700">
+                                Nomor Urut
                             </label>
                             <input
                                 v-model.number="questionForm.order"
@@ -1534,7 +1568,7 @@ const handleDeleteOption = (opt) => {
 
                     <!-- Penempatan Lintas Bagian (Multi-Placement) -->
                     <div v-if="props.allSections && props.allSections.length > 1" class="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                        <label class="block font-semibold text-gray-800 text-xs mb-1">
+                        <label class="mb-1 block font-bold text-gray-800">
                             Penempatan Bagian Tambahan (Multi-Placement)
                         </label>
                         <p class="text-[11px] text-gray-500 mb-2">
@@ -1560,7 +1594,7 @@ const handleDeleteOption = (opt) => {
                     <!-- Builder Opsi Dinamis untuk Tambah Baru -->
                     <div v-if="canHaveOptions(questionForm.type) && !isEditingQuestion" class="space-y-2 pt-2 border-t border-gray-100">
                         <div class="flex items-center justify-between">
-                            <label class="block font-semibold text-gray-700 text-xs">Pilihan Opsi Jawaban</label>
+                            <label class="font-bold text-gray-700">Pilihan Opsi Jawaban</label>
                             <button
                                 type="button"
                                 @click="addOptionToForm"
@@ -1598,7 +1632,7 @@ const handleDeleteOption = (opt) => {
                         </div>
                     </div>
 
-                    <div class="space-y-2 pt-2 border-t border-gray-100">
+                    <div class="space-y-2 border-t border-gray-100 pt-3">
                         <div class="flex items-center gap-2">
                             <input
                                 id="vue-q-req"
@@ -1606,8 +1640,8 @@ const handleDeleteOption = (opt) => {
                                 type="checkbox"
                                 class="rounded text-[#0D542B] focus:ring-[#0D542B]"
                             />
-                            <label for="vue-q-req" class="font-semibold text-xs text-gray-700 cursor-pointer">
-                                Wajib diisi oleh alumni responden
+                            <label for="vue-q-req" class="cursor-pointer font-bold text-gray-700">
+                                Wajib diisi oleh responden
                             </label>
                         </div>
 
@@ -1618,13 +1652,13 @@ const handleDeleteOption = (opt) => {
                                 type="checkbox"
                                 class="rounded text-[#0D542B] focus:ring-[#0D542B]"
                             />
-                            <label for="vue-q-reuse" class="font-semibold text-xs text-gray-700 cursor-pointer">
-                                Tersedia di Bank Pertanyaan (Dapat digunakan oleh Program Studi lain & Universitas)
+                            <label for="vue-q-reuse" class="cursor-pointer font-bold text-gray-700">
+                                Tersedia di Bank Pertanyaan untuk digunakan instrumen lain
                             </label>
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                    <div class="flex items-center justify-end gap-2 border-t border-gray-200 pt-4">
                         <button
                             type="button"
                             @click="closeQuestionModal"

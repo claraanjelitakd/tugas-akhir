@@ -124,6 +124,47 @@ class UnifiedKuesionerManagementTest extends TestCase
     }
 
     /**
+     * Memastikan Superadmin tetap dapat mengubah pertanyaan lintas prodi yang sedang dikelola.
+     */
+    public function test_superadmin_can_edit_borrowed_question(): void
+    {
+        $question = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'BORROWED_01',
+            'teks_pertanyaan' => 'Pertanyaan awal dari Prodi B',
+            'tipe' => 'text',
+            'pemilik_prodi_id' => $this->prodiB->id,
+            'is_reusable' => true,
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->sectionProdiA->id,
+            'pertanyaan_id' => $question->id,
+            'order' => 1,
+            'wajib' => true,
+        ]);
+
+        $this->actingAs($this->superadmin)
+            ->put(route('superadmin.prodi-kuesioner.pertanyaan.update', $question->id), [
+                'prodi_id' => $this->prodiA->id,
+                'code' => 'BORROWED_01_EDITED',
+                'question_text' => 'Pertanyaan diperbarui oleh Superadmin',
+                'type' => 'text',
+                'is_required' => true,
+                'is_reusable' => true,
+                'prodi_question_section_id' => $this->sectionProdiA->id,
+                'order' => 1,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('kuesioner_pertanyaan', [
+            'id' => $question->id,
+            'kode_pertanyaan' => 'BORROWED_01_EDITED',
+            'teks_pertanyaan' => 'Pertanyaan diperbarui oleh Superadmin',
+        ]);
+    }
+
+    /**
      * Test Tambah Pertanyaan dengan Multi-Placement & Dynamic Options (Anti-Double).
      */
     public function test_tambah_pertanyaan_multi_placement_dan_opsi(): void
@@ -153,7 +194,7 @@ class UnifiedKuesionerManagementTest extends TestCase
         $this->assertNotNull($master);
         $this->assertEquals('Tingkat penguasaan teknologi Cloud Computing:', $master->teks_pertanyaan);
 
-        // Verifikasi penempatan pivot di kedua section (Prodi A dan Prodi B)
+        // Verifikasi penempatan pertanyaan di kedua section (Prodi A dan Prodi B)
         $this->assertDatabaseHas('kuesioner_section_pertanyaan', [
             'section_id' => $this->sectionProdiA->id,
             'pertanyaan_id' => $master->id,
@@ -206,7 +247,7 @@ class UnifiedKuesionerManagementTest extends TestCase
 
         $response->assertRedirect();
 
-        // Pastikan pivot terbentuk tanpa membuat master pertanyaan baru (No Double)
+        // Pastikan penempatan terbentuk tanpa membuat master pertanyaan baru (No Double)
         $this->assertDatabaseHas('kuesioner_section_pertanyaan', [
             'section_id' => $this->sectionProdiA->id,
             'pertanyaan_id' => $bankQuestion->id,

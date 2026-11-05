@@ -26,6 +26,7 @@ SELECT
     academic.tahun_lulus,
     biodata.gaji,
     biodata.nomor_telepon,
+    biodata.linkedin_url,
     COALESCE(biodata.email_pribadi, users.email) AS email,
     CASE
         WHEN COALESCE(academic.nama, users.name) IS NOT NULL

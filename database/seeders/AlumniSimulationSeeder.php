@@ -321,6 +321,7 @@ class AlumniSimulationSeeder extends Seeder
                     ['nim' => $nim],
                     [
                         'nama' => $nama,
+                        'email_pribadi' => $personalEmail,
                         'angkatan_masuk' => (int) $angkatan,
                         'status_mahasiswa' => 'Lulus',
                         'tahun_akademik_lulus' => $cfg['semester'],

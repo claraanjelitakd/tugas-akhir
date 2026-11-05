@@ -180,6 +180,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'prodi_id' => $includedProdi->id,
             'nomor_telepon' => '081234567811',
             'email_pribadi' => 'included@example.test',
+            'linkedin_url' => 'https://www.linkedin.com/in/alumni-terpilih',
         ]);
         $excludedBiodata = Biodata::create([
             'user_id' => $excludedUser->id,
@@ -198,6 +199,7 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertSame(1, $analytics['chart']['summary']['respondents']);
         $this->assertSame('72200011', $analytics['chart']['records'][0]['nim']);
         $this->assertTrue($analytics['chart']['records'][0]['answered']);
+        $this->assertSame('https://www.linkedin.com/in/alumni-terpilih', $analytics['chart']['records'][0]['linkedin_url']);
     }
 
     /**

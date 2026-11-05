@@ -69,6 +69,7 @@ class DataAkademikSeeder extends Seeder
                 ['nim' => $nim],
                 [
                     'nama' => $nama,
+                    'email_pribadi' => $personalEmail,
                     // Data Paten Universitas
                     'angkatan_masuk' => $angkatan,
                     'status_mahasiswa' => 'Lulus',

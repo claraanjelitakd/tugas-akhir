@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Membuat tabel pivot 'kuesioner_section_pertanyaan' yang mengatur penempatan butir pertanyaan
+ * Membuat tabel relasi 'kuesioner_section_pertanyaan' yang mengatur penempatan butir pertanyaan
  * ke dalam bagian (section) instrumen kuesioner bersangkutan.
  */
 return new class extends Migration
@@ -23,6 +23,7 @@ CREATE TABLE "kuesioner_section_pertanyaan" (
     "pertanyaan_id" integer not null,
     "order" integer not null default '1',
     "wajib" tinyint(1) not null default '1',
+    "is_active" tinyint(1) not null default '1',
     "tampil_di" varchar,
     "created_at" datetime,
     "updated_at" datetime,
@@ -41,6 +42,7 @@ CREATE TABLE `kuesioner_section_pertanyaan` (
   `pertanyaan_id` bigint unsigned NOT NULL COMMENT 'ID butir pertanyaan dari bank soal',
   `order` smallint NOT NULL DEFAULT '1' COMMENT 'Nomor urut penampilan pertanyaan di dalam section',
   `wajib` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Kewajiban pengisian (1 = wajib, 0 = opsional)',
+ `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Status tampil pertanyaan pada section ini',
   `tampil_di` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Logika percabangan / kondisi penampil',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,

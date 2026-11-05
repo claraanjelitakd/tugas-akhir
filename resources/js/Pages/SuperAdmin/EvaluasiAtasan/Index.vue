@@ -649,8 +649,8 @@ const closeDetailModal = () => {
                                     v-model="selectedRequiredFilter"
                                     class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B] focus:outline-none bg-white text-gray-900"
                                 >
-                                    <option value="all">Semua Sifat</option>
-                                    <option value="wajib">Aktif / Wajib</option>
+                                    <option value="all">Semua Status</option>
+                                    <option value="wajib">Aktif</option>
                                     <option value="opsional">Nonaktif</option>
                                 </select>
                             </div>
@@ -689,12 +689,13 @@ const closeDetailModal = () => {
                                     <th class="px-4 py-3">Butir Pertanyaan Kuesioner</th>
                                     <th class="px-3 py-3 w-48">Tipe & Bagian (Section)</th>
                                     <th class="px-4 py-3">Opsi Jawaban & Percabangan</th>
+                                    <th class="px-3 py-3 text-center w-24">Status</th>
                                     <th class="px-3 py-3 text-right w-20">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
                                 <tr v-if="filteredQuestions.length === 0">
-                                    <td colspan="6" class="p-8 text-center text-gray-400 italic">
+                                    <td colspan="7" class="p-8 text-center text-gray-400 italic">
                                         Belum ada butir pertanyaan evaluasi atasan yang sesuai filter.
                                     </td>
                                 </tr>
@@ -741,10 +742,6 @@ const closeDetailModal = () => {
                                             {{ q.aspek }}
                                         </p>
                                         <div class="flex items-center gap-2 mt-1.5 flex-wrap text-xs">
-                                            <span :class="q.is_active ? 'font-bold text-gray-900' : 'text-gray-400'">
-                                                {{ q.is_active ? 'Wajib' : 'Nonaktif' }}
-                                            </span>
-                                            <span class="text-gray-300">&bull;</span>
                                             <span class="text-gray-500">Kuesioner Evaluasi Atasan</span>
                                         </div>
                                         <p v-if="q.deskripsi" class="text-[11px] text-gray-500 italic mt-1">
@@ -782,6 +779,19 @@ const closeDetailModal = () => {
                                         <span v-else class="text-gray-400 text-[11px] italic">
                                             Tidak menggunakan pilihan opsi (isian teks bebas).
                                         </span>
+                                    </td>
+
+                                    <!-- Status master pertanyaan, tetap mempertahankan jawaban historis saat diubah. -->
+                                    <td class="px-3 py-3.5 text-center">
+                                        <button
+                                            type="button"
+                                            class="inline-flex min-w-[64px] items-center justify-center rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
+                                            :class="q.is_active ? 'border-emerald-200 bg-emerald-50 text-[#0D542B] hover:bg-emerald-100' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'"
+                                            :title="q.is_active ? 'Klik untuk menonaktifkan pertanyaan' : 'Klik untuk mengaktifkan pertanyaan'"
+                                            @click="toggleActive(q)"
+                                        >
+                                            {{ q.is_active ? 'Aktif' : 'Nonaktif' }}
+                                        </button>
                                     </td>
 
                                     <!-- Aksi -->
@@ -961,40 +971,40 @@ const closeDetailModal = () => {
         <!-- MODAL 2: TAMBAH / SUNTING PERTANYAAN (QUESTION)          -->
         <!-- ======================================================== -->
         <div v-if="isQuestionModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div class="bg-white rounded-xl shadow-xl max-w-xl w-full border border-gray-300 overflow-hidden max-h-[90vh] flex flex-col">
-                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between shrink-0">
+            <div class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                <div class="flex shrink-0 items-start justify-between border-b border-gray-200 bg-white px-6 py-4">
                     <div>
-                        <h3 class="font-bold text-base text-gray-900">
+                        <h3 class="text-sm font-bold text-gray-900">
                             {{ isEditingQuestion ? 'Sunting Pertanyaan Kuesioner' : 'Tambah Pertanyaan Kuesioner Baru' }}
                         </h3>
-                        <p class="text-[11px] text-gray-500 mt-0.5">Konfigurasi instrumen butir pertanyaan evaluasi kepuasan pengguna lulusan.</p>
+                        <p class="mt-0.5 text-[11px] text-gray-500">Konfigurasi butir pertanyaan dan aturan pengisian responden.</p>
                     </div>
-                    <button type="button" @click="closeQuestionModal" class="text-gray-400 hover:text-gray-600 cursor-pointer">
+                    <button type="button" @click="closeQuestionModal" class="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
 
-                <div class="p-6 space-y-4 text-xs overflow-y-auto flex-1">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 text-xs">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
-                            <label class="block font-bold text-gray-800 mb-1">Kode Pertanyaan *</label>
+                            <label class="mb-1 block font-bold text-gray-700">Kode Pertanyaan <span class="text-rose-600">*</span></label>
                             <input
                                 type="text"
                                 v-model="questionForm.kode"
                                 :disabled="isEditingQuestion"
                                 placeholder="Misal: P43"
-                                class="w-full px-3.5 py-2.5 border rounded-lg font-mono uppercase focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                class="w-full rounded-lg border px-3 py-2 font-mono text-xs font-bold uppercase focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                                 :class="isEditingQuestion ? 'bg-gray-100 text-gray-500' : 'border-gray-300'"
                             />
                         </div>
                         <div>
-                            <label class="block font-bold text-gray-800 mb-1">Bagian / Section *</label>
+                            <label class="mb-1 block font-bold text-gray-700">Bagian / Section <span class="text-rose-600">*</span></label>
                             <select
                                 v-model="questionForm.section_id"
                                 :disabled="questionForm.is_company_field"
-                                class="w-full px-3.5 py-2.5 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D542B] bg-white"
+                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                                 :class="questionFormErrors.section_id ? 'border-red-500' : 'border-gray-300'"
                             >
                                 <option v-for="sec in sections" :key="sec.id" :value="sec.id">
@@ -1006,25 +1016,25 @@ const closeDetailModal = () => {
                     </div>
 
                     <div>
-                        <label class="block font-bold text-gray-800 mb-1">Pertanyaan / Teks Kuesioner *</label>
-                        <input
-                            type="text"
+                        <label class="mb-1 block font-bold text-gray-700">Teks Pertanyaan <span class="text-rose-600">*</span></label>
+                        <textarea
                             v-model="questionForm.aspek"
+                            rows="3"
                             placeholder="Ketik kalimat pertanyaan..."
-                            class="w-full px-3.5 py-2.5 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            class="w-full rounded-lg border px-3 py-2 text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                             :class="questionFormErrors.aspek ? 'border-red-500' : 'border-gray-300'"
-                        />
+                        ></textarea>
                         <p v-if="questionFormErrors.aspek" class="text-[11px] text-red-600 mt-1">{{ questionFormErrors.aspek }}</p>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
-                            <label class="block font-bold text-gray-800 mb-1">Tipe Pertanyaan *</label>
+                            <label class="mb-1 block font-bold text-gray-700">Tipe Pertanyaan <span class="text-rose-600">*</span></label>
                             <select
                                 v-model="questionForm.tipe"
                                 @change="handleTypeChange"
                                 :disabled="questionForm.is_company_field"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D542B] bg-white"
+                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                             >
                                 <option value="likert_5">Skala Likert (1-5)</option>
                                 <option value="pilihan_ganda">Pilihan Ganda (Radio)</option>
@@ -1035,19 +1045,19 @@ const closeDetailModal = () => {
                             <p class="text-[11px] text-gray-400 mt-1">Opsi default otomatis dibuat & dapat disesuaikan.</p>
                         </div>
                         <div>
-                            <label class="block font-bold text-gray-800 mb-1">Nomor Urut</label>
+                            <label class="mb-1 block font-bold text-gray-700">Nomor Urut</label>
                             <input
                                 type="number"
                                 min="1"
                                 v-model.number="questionForm.order"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                             />
                         </div>
                     </div>
 
                     <!-- Kelola Opsi Jawaban bila Pilihan Ganda / Checkbox / Likert -->
                     <div v-if="canHaveOptions(questionForm.tipe)" class="border border-gray-200 bg-gray-50 p-3.5 rounded-lg space-y-2">
-                        <label class="block font-bold text-gray-700">Daftar Opsi Jawaban</label>
+                        <label class="block font-bold text-gray-700">Pilihan Opsi Jawaban</label>
                         <div class="flex flex-wrap gap-1.5">
                             <span
                                 v-for="(opt, oIdx) in questionForm.pilihan_jawaban"
@@ -1084,28 +1094,28 @@ const closeDetailModal = () => {
                     </div>
 
                     <div>
-                        <label class="block font-bold text-gray-800 mb-1">Deskripsi / Petunjuk Pengisian (Opsional)</label>
+                        <label class="mb-1 block font-bold text-gray-700">Keterangan / Petunjuk Pengisian (Opsional)</label>
                         <textarea
                             v-model="questionForm.deskripsi"
                             rows="2"
                             placeholder="Ketikkan petunjuk pengisian bagi responden..."
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                         ></textarea>
                     </div>
                 </div>
 
-                <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-2.5 text-xs shrink-0">
+                <div class="flex shrink-0 items-center justify-end gap-2 border-t border-gray-200 bg-white px-6 py-4 text-xs">
                     <button
                         type="button"
                         @click="closeQuestionModal"
-                        class="px-5 py-2.5 border border-gray-200 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold cursor-pointer"
+                        class="rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-100"
                     >
                         Batal
                     </button>
                     <button
                         type="button"
                         @click="submitQuestionForm"
-                        class="px-5 py-2.5 bg-[#0D542B] hover:bg-[#08381c] text-white rounded-lg font-bold cursor-pointer"
+                        class="rounded-lg bg-[#0D542B] px-4 py-2 font-semibold text-white hover:bg-[#08381c]"
                     >
                         {{ isEditingQuestion ? 'Simpan Perubahan' : 'Tambah Pertanyaan' }}
                     </button>

@@ -713,8 +713,26 @@ const formatEmailUrl = (record) => {
     return `mailto:${record.email}?subject=${subject}&body=${body}`;
 };
 
+// Menampilkan tautan profil LinkedIn hanya untuk URL profil yang valid.
+const isValidLinkedInProfileUrl = (value) => {
+    if (!value) return false;
+
+    try {
+        const url = new URL(value);
+        return ['http:', 'https:'].includes(url.protocol) && /(^|\.)linkedin\.com$/i.test(url.hostname);
+    } catch {
+        return false;
+    }
+};
+
 // Mendapatkan URL detail alumni dan kuesioner
-const detailUrl = (record) => `${analyticsBaseUrl.value}/alumni/${record.biodata_id || record.user_id}`;
+const detailUrl = (record) => {
+    const detailBaseUrl = analyticsBaseUrl.value === '/fakultas'
+        ? '/fakultas/analitik'
+        : analyticsBaseUrl.value;
+
+    return `${detailBaseUrl}/alumni/${record.biodata_id || record.user_id}`;
+};
 
 // Mengunduh file Excel dengan status dan program studi tersaring
 const downloadFilteredExcel = () => {
@@ -1095,6 +1113,20 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                                     </svg>
                                                 </Link>
+
+                                                <!-- Profil LinkedIn hanya tersedia dari konteks analitik. -->
+                                                <a
+                                                    v-if="isValidLinkedInProfileUrl(row.record.linkedin_url)"
+                                                    :href="row.record.linkedin_url"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    class="p-1.5 text-slate-600 hover:text-[#0A66C2] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                                    title="Buka profil LinkedIn"
+                                                >
+                                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                        <path d="M20.45 20.45h-3.56v-5.58c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.68H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.32 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM3.54 9h3.56v11.45H3.54V9z" />
+                                                    </svg>
+                                                </a>
 
                                                 <!-- WhatsApp -->
                                                 <a

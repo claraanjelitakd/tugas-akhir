@@ -30,28 +30,31 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  *
  * Fungsi:
  * Menampilkan detail profil dan audit kelengkapan kuesioner mahasiswa/alumni
- * dalam lingkup fakultas yang bersangkutan, serta menyediakan pengeditan profil & ekspor Excel.
+ * dalam lingkup fakultas yang bersangkutan, serta menyediakan mode baca-saja
+ * lintas fakultas yang dibuka dari analitik.
  */
 class DetailAlumniFakultasController extends Controller
 {
     /**
-     * Tampilkan Detail Profil, Kuesioner Univ & Kuesioner Prodi Alumni Fakultas
+     * Tampilkan detail alumni dalam lingkup fakultas atau mode baca-saja analitik.
+     *
+     * Route analitik sengaja memakai endpoint GET terpisah agar akses lintas fakultas
+     * tidak membuka jalur update profil. Endpoint perubahan profil tetap memakai
+     * query scope fakultas dan akan menolak alumni di luar fakultas admin.
      */
-    public function show(int $id): Response
+    public function show(Request $request, int $id): Response
     {
         $user = Auth::user()->load('fakultas');
         $fakultasId = $user->fakultas_id;
+        $isReadOnly = $request->routeIs('fakultas.analytics.alumni.show');
 
-        if (! $fakultasId) {
-            $fakultas = RefFakultas::first();
-            $fakultasId = $fakultas?->id;
-        } else {
-            $fakultas = $user->fakultas ?: RefFakultas::find($fakultasId);
-        }
+        abort_unless($fakultasId, 403, 'Akun Admin Fakultas belum memiliki lingkup fakultas.');
+
+        $fakultas = $user->fakultas ?: RefFakultas::findOrFail($fakultasId);
 
         $prodiIdsFakultas = Prodi::where('fakultas_id', $fakultasId)->pluck('id')->all();
 
-        $alumni = Biodata::with([
+        $alumniQuery = Biodata::with([
             'dataAkademik.yudisium',
             'yudisium',
             'perusahaan.propinsi',
@@ -60,9 +63,13 @@ class DetailAlumniFakultasController extends Controller
             'user',
             'prodi',
             'latestLinkedinSyncResult.reviewer',
-        ])
-            ->whereIn('prodi_id', $prodiIdsFakultas)
-            ->findOrFail($id);
+        ]);
+
+        if (! $isReadOnly) {
+            $alumniQuery->whereIn('prodi_id', $prodiIdsFakultas);
+        }
+
+        $alumni = $alumniQuery->findOrFail($id);
 
         KuesionerSyncService::syncProfileResponses($alumni);
 
@@ -123,6 +130,7 @@ class DetailAlumniFakultasController extends Controller
             'linkedinSyncResult' => $latestSync,
             'linkedinTraceMapping' => $linkedinTraceMapping,
             'linkedinHistory' => $linkedinHistory,
+            'readonly' => $isReadOnly,
         ]);
     }
 

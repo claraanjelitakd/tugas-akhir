@@ -61,9 +61,19 @@ class DaftarAlumniFakultasController extends Controller
     /**
      * Kirim Email Pengingat Kuesioner ke Satu Alumni Tertentu (Flash Notifikasi)
      */
-    public function sendReminderEmail(Request $request, $id): RedirectResponse
+    public function sendReminderEmail(Request $request, int|string $id): RedirectResponse
     {
-        $alumni = Biodata::with(['user', 'dataAkademik'])->findOrFail($id);
+        $fakultasId = Auth::user()->fakultas_id;
+
+        if (! $fakultasId) {
+            abort(403, 'Akun Anda belum dikaitkan dengan Fakultas.');
+        }
+
+        $alumni = Biodata::whereHas('prodi', function ($query) use ($fakultasId) {
+            $query->where('fakultas_id', $fakultasId);
+        })
+            ->with(['user', 'dataAkademik'])
+            ->findOrFail($id);
         $targetEmail = $alumni->email_pribadi ?: $alumni->user?->email;
 
         if (! $targetEmail || ! filter_var($targetEmail, FILTER_VALIDATE_EMAIL)) {

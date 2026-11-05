@@ -15,7 +15,7 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 | v_alumni_kuesioner_autofill | AlumniKuesionerAutofill | Nilai autofill dari biodata, data_akademik, perusahaan, dan yudisium. |
 | v_question_mappings | QuestionMapping | Metadata pemetaan kode pertanyaan ke tabel dan kolom kanonik. |
 | v_alumni_linkedin_plot | AlumniLinkedinPlot | Status staging, approval, kecocokan nama, dan plot LinkedIn. |
-| v_analytics_population | TracerAnalyticsService | Populasi ringan satu baris per alumni dari biodata, akademik, prodi, perusahaan, dan provinsi kerja tanpa agregasi kuesioner prodi. |
+| v_analytics_population | TracerAnalyticsService | Populasi ringan satu baris per alumni dari biodata, akademik, prodi, perusahaan, URL profil LinkedIn, dan provinsi kerja tanpa agregasi kuesioner prodi. |
 | v_analytics_response_rate | TracerAnalyticsService | Status minimal satu jawaban wajib kuesioner universitas per alumni; agregasi ini sengaja dipisahkan dari populasi. |
 | v_analytics_profile_completion | TracerAnalyticsService | Status kelengkapan profil per alumni. |
 | v_analytics_wait_time | TracerAnalyticsService | Nilai waktu tunggu yang sudah dinormalisasi dari F502/F504/F506. |
@@ -39,8 +39,25 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 - Kontak aktif: biodata.nomor_telepon dan biodata.email_pribadi.
 - Domisili aktif: biodata.alamat_saat_ini, kelurahan, kecamatan,
   kode_kabupaten, kode_provinsi, dan kode_pos.
-- Identitas akademik: data_akademik.nama, tanggal lahir, NIM, NISN, BPJS,
-  email mahasiswa, IPK, dan data kelulusan.
+- Direktori karier: biodata.prodi_id, perusahaan_id, bidang_pekerjaan, divisi,
+  skills, linkedin_url, serta kode wilayah domisili. Nama perusahaan diambil dari
+  master `perusahaan`; lokasi yang ditampilkan sebagai lokasi alumni memakai
+  domisili biodata, bukan alamat kantor/head office perusahaan.
+- Direktori menyediakan filter server-side untuk provinsi lalu kabupaten/kota
+  domisili secara bertingkat, head office, skills, bidang, dan unit/divisi. Nilai
+  pilihan `Lainnya` disimpan sebagai teks custom pada field kanonik agar nilai
+  custom tersebut langsung muncul pada direktori.
+- Opsi skills, bidang, unit/divisi, dan head office hanya dibentuk dari nilai
+  yang benar-benar tersedia pada alumni dalam scope aktif. Aksi email pengingat
+  per alumni tetap memakai flash success/error dari response Inertia.
+- Status direktori selalu menampilkan `Univ`, `Prodi`, `Profil`, dan `Atasan`.
+  Jika prodi alumni belum memiliki placement kuesioner aktif, status `Prodi`
+  ditampilkan sebagai `-` dan tidak dianggap sebagai 100%.
+- Tautan LinkedIn pada direktori operasional tetap menjadi aksi sinkronisasi/review.
+  Tautan profil langsung hanya diproyeksikan melalui `v_analytics_population` dan
+  dipakai pada tabel detail analitik Universitas, Prodi, dan Atasan.
+- Identitas akademik: data_akademik.nama, tanggal lahir, NIM, email_pribadi
+  sumber akademik, IPK, dan data kelulusan.
 - Tugas akhir dan publikasi: yudisium.
 - Jawaban universitas: tracer.answer dan tracer.answer_json, dengan
   question_id sebagai foreign key dan snapshot kode untuk audit.
@@ -49,6 +66,10 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 
 View tidak menyimpan data bisnis baru. View hanya memproyeksikan data tabel
 agar rumus dashboard dan autofill memiliki satu sumber logika.
+
+`skills` tetap disimpan sebagai teks kanonik pada `biodata`. Layanan direktori
+menyediakan `skills_list` dengan pemisah koma, titik koma, pipa, atau baris baru;
+frasa seperti `Project Management` dipertahankan utuh saat ditampilkan.
 
 ## Kelengkapan
 
@@ -60,8 +81,9 @@ profil dianggap kurang lengkap.
 
 ## Kontrak schema
 
-Baseline aktif hanya membuat tabel dan view yang digunakan aplikasi. Kontak dan
-domisili berada di `biodata`; data akademik tidak memiliki duplikasi kontak;
+Baseline aktif hanya membuat tabel dan view yang digunakan aplikasi. Kontak aktif dan
+domisili berada di `biodata`; `data_akademik.email_pribadi` hanya menyimpan snapshot
+sumber akademik awal dan tidak menerima perubahan dari `biodata`;
 data orang tua, NIK, NPWP, No. KK, dan field pembimbing/penguji tidak dibuat.
 Untuk instalasi baru, `php artisan migrate` menjalankan migration tabel dan view,
 sedangkan `php artisan db:seed` mengisi data awal.

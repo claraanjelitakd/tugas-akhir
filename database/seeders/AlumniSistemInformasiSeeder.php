@@ -421,6 +421,7 @@ class AlumniSistemInformasiSeeder extends Seeder
                 ['nim' => $nim],
                 [
                     'nama' => $nama,
+                    'email_pribadi' => $data['email'],
                     'angkatan_masuk' => $data['angkatan'],
                     'status_mahasiswa' => 'Lulus',
                     'tahun_akademik_lulus' => $data['tahun_akademik_lulus'],

@@ -159,6 +159,7 @@ class Lulusan2026Seeder extends Seeder
                 ['nim' => $nim],
                 [
                     'nama' => $item['nama'],
+                    'email_pribadi' => $personalEmail,
                     'angkatan_masuk' => 2022,
                     'status_mahasiswa' => 'Lulus',
                     'tahun_akademik_lulus' => 'Genap 2025/2026',
@@ -223,7 +224,6 @@ class Lulusan2026Seeder extends Seeder
                     'kode_provinsi' => null,
                     'kode_pos' => null,
                     'nomor_telepon' => null,
-                    'email_pribadi' => null,
                     // LinkedIn username (opsional terisi untuk keperluan pengujian sinkronisasi LinkedIn)
                     'linkedin_username' => $item['linkedin_username'],
                     'linkedin_url' => $item['linkedin_username'] ? 'https://linkedin.com/in/'.$item['linkedin_username'] : null,

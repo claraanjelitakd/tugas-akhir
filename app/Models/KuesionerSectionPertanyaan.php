@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Model pivot untuk penempatan butir pertanyaan ke dalam section instrumen.
+ * Model relasi penempatan butir pertanyaan ke dalam section instrumen.
  *
  * Mengatur urutan penampilan butir, status kewajiban (wajib/opsional),
- * dan aturan logika tampilan percabangan.
+ * dan aturan logika tampilan percabangan. Nilai primary key model ini disebut
+ * placement_id pada payload pengelolaan kuesioner.
  */
 class KuesionerSectionPertanyaan extends Model
 {
@@ -23,12 +24,14 @@ class KuesionerSectionPertanyaan extends Model
         'pertanyaan_id',
         'order',
         'wajib',
+        'is_active',
         'tampil_di',
     ];
 
     protected $casts = [
         'order' => 'integer',
         'wajib' => 'boolean',
+        'is_active' => 'boolean',
     ];
 
     /**

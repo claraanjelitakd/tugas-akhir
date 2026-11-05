@@ -46,6 +46,7 @@ class KuesionerController extends Controller
             ->where('is_active', true)
             ->with(['pertanyaan' => function ($query) {
                 $query->where('kuesioner_pertanyaan.is_active', true)
+                    ->wherePivot('is_active', true)
                     ->with('opsi');
             }])
             ->orderBy('order', 'asc')

@@ -69,6 +69,7 @@ class AlumniProfileEnhancementTest extends TestCase
         $dataAkademik = DataAkademik::create([
             'nim' => '71200001',
             'nama' => 'Clara Anjelita',
+            'email_pribadi' => 'clara.akademik@ukdw.ac.id',
             'tanggal_lahir' => '2001-08-15',
             'jenis_kelamin' => 'Perempuan',
             'warga_negara' => 'WNI',
@@ -237,6 +238,42 @@ class AlumniProfileEnhancementTest extends TestCase
         $this->assertSame('email.biodata.baru@example.com', $this->biodata->fresh()->email_pribadi);
         $this->assertSame($academicEmail, DataAkademik::where('nim', $this->biodata->nim)->value('email_pribadi'));
         $this->assertNull($this->biodata->fresh()->getAttribute('orang_tua_id'));
+    }
+
+    /**
+     * Memastikan biodata mengambil email akademik hanya saat pembuatan awal.
+     */
+    public function test_new_biodata_copies_academic_email_without_two_way_sync(): void
+    {
+        $nim = '71200002';
+        $academicEmail = 'academic.source@example.com';
+
+        User::create([
+            'name' => 'Alumni Email Source',
+            'email' => 'source.user@example.com',
+            'username' => $nim,
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'prodi_id' => $this->prodi->id,
+            'must_change_password' => false,
+        ]);
+
+        DataAkademik::create([
+            'nim' => $nim,
+            'nama' => 'Alumni Email Source',
+            'email_pribadi' => $academicEmail,
+        ]);
+
+        $biodata = Biodata::create([
+            'nim' => $nim,
+            'prodi_id' => $this->prodi->id,
+            'email_pribadi' => null,
+        ]);
+
+        $biodata->update(['email_pribadi' => 'updated.biodata@example.com']);
+
+        $this->assertSame($academicEmail, DataAkademik::where('nim', $nim)->value('email_pribadi'));
+        $this->assertSame('updated.biodata@example.com', $biodata->fresh()->email_pribadi);
     }
 
     /**
@@ -471,7 +508,7 @@ class AlumniProfileEnhancementTest extends TestCase
         );
 
         $response = $this->actingAs($this->alumniUser)->post(route('alumni.profile.simpan'), [
-            'bidang_pekerjaan' => 'Lainnya',
+            'bidang_pekerjaan' => '15 - Lainnya',
             'bidang_pekerjaan_lainnya' => 'Konsultan Independen',
         ]);
 
