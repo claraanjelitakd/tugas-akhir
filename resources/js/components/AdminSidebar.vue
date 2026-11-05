@@ -30,7 +30,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Program Studi',
         fallbackEmail: 'prodi@ukdw.ac.id',
         alumniLabel: 'Data Alumni Prodi',
-        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false, analytics: true, supervisorEvaluation: true },
+        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false, analytics: true, supervisorEvaluation: false },
     },
     admin_fakultas: {
         dashboard: '/fakultas/dashboard',
@@ -38,7 +38,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Fakultas',
         fallbackEmail: 'fakultas@ukdw.ac.id',
         alumniLabel: 'Data Alumni Fakultas',
-        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false, analytics: true, supervisorEvaluation: true },
+        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false, analytics: true, supervisorEvaluation: false },
     },
     admin_biro3: {
         dashboard: '/biro3/dashboard',
@@ -46,7 +46,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Biro 3 UKDW',
         fallbackEmail: 'biro3@ukdw.ac.id',
         alumniLabel: 'Data Alumni Universitas',
-        capabilities: { linkedin: true, company: false, accounts: false, analytics: true, supervisorEvaluation: true },
+        capabilities: { linkedin: true, company: false, accounts: false, analytics: true, supervisorEvaluation: false },
     },
 };
 
@@ -75,7 +75,7 @@ const createSections = (role) => {
                 ...(capabilities.analytics ? [
                     createMenuItem('analytics', `/${prefix}/analitik`, 'Grafik Universitas', 'chart', [`/${prefix}/analitik`]),
                     createMenuItem('analytics-prodi', `/${prefix}/analitik-prodi`, 'Grafik Prodi', 'chart', [`/${prefix}/analitik-prodi`]),
-                    ...(capabilities.supervisorEvaluation ? [createMenuItem('analytics-atasan', `/${prefix}/analitik-atasan`, 'Grafik Evaluasi Atasan', 'chart', [`/${prefix}/analitik-atasan`])] : []),
+                    createMenuItem('analytics-atasan', `/${prefix}/analitik-atasan`, 'Grafik Evaluasi Atasan', 'chart', [`/${prefix}/analitik-atasan`]),
                 ] : []),
                 createMenuItem('alumni', `/${prefix}/alumni`, definition.alumniLabel, 'users'),
                 // Menu Sinkronisasi LinkedIn dinonaktifkan dari navigasi sidebar atas arahan pengguna (akses sinkronisasi dilakukan via tombol Aksi tabel alumni dan tab detail alumni)

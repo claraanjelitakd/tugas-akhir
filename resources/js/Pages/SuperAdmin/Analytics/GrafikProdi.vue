@@ -116,7 +116,7 @@ const formatEmailUrl = (record) => {
 };
 
 // Mengarahkan aksi detail ke halaman alumni yang sama dengan Grafik Universitas.
-const detailUrl = (record) => `/superadmin/alumni/${record.biodata_id}`;
+const detailUrl = (record) => `${analyticsBaseUrl.value}/alumni/${record.biodata_id}`;
 
 // Menampilkan kartu ringkasan dengan ukuran dan hierarki yang sama seperti universitas.
 const kpiCards = computed(() => {
@@ -153,9 +153,9 @@ const kpiCards = computed(() => {
 const analyticsBaseUrl = computed(() => {
     if (typeof window !== 'undefined') {
         const path = window.location.pathname;
-        if (path.startsWith('/prodi/')) return '/prodi';
-        if (path.startsWith('/fakultas/')) return '/fakultas';
-        if (path.startsWith('/biro3/')) return '/biro3';
+        if (path.startsWith('/prodi')) return '/prodi';
+        if (path.startsWith('/fakultas')) return '/fakultas';
+        if (path.startsWith('/biro3')) return '/biro3';
     }
     return '/superadmin';
 });
@@ -288,7 +288,7 @@ watch(() => props.analytics, (newAnalytics) => {
             <header class="border-b border-emerald-900/40 bg-[#0D542B] px-5 py-7 text-white sm:px-8">
                 <div class="mx-auto max-w-[1480px]">
                     <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-emerald-100">
-                        <Link :href="`${analyticsBaseUrl}/dashboard`" class="font-semibold hover:text-white">Dashboard</Link>
+                        <Link :href="`${analyticsBaseUrl.value}/dashboard`" class="font-semibold hover:text-white">Dashboard</Link>
                         <span class="text-emerald-300/70">/</span>
                         <span class="rounded bg-white/10 px-2 py-0.5 font-bold text-white">Grafik Prodi</span>
                     </div>

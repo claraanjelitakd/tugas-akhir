@@ -506,8 +506,19 @@ const formatEmailUrl = (record) => {
     return `mailto:${record.email}?subject=${subject}&body=${body}`;
 };
 
+// Prefix rute berbasis konteks peran pengguna aktif di browser
+const routePrefix = computed(() => {
+    if (typeof window !== 'undefined') {
+        const path = window.location.pathname;
+        if (path.startsWith('/prodi')) return 'prodi';
+        if (path.startsWith('/fakultas')) return 'fakultas';
+        if (path.startsWith('/biro3')) return 'biro3';
+    }
+    return 'superadmin';
+});
+
 // Mendapatkan URL detail alumni dan kuesioner.
-const detailUrl = (record) => `/superadmin/alumni/${record.biodata_id || record.user_id}`;
+const detailUrl = (record) => `/${routePrefix.value}/alumni/${record.biodata_id || record.user_id}`;
 
 // Unduh file Excel dari endpoint server-side resmi sesuai filter aktif.
 const downloadExcel = (statusTarget = null) => {
@@ -516,7 +527,7 @@ const downloadExcel = (statusTarget = null) => {
     // Gunakan tahun aktif dari filter; jika kosong, endpoint menafsirkan ALL.
     const yearParam = activeYear.value || 'ALL';
 
-    const url = `/superadmin/analitik/export-response-rate?tahun=${encodeURIComponent(yearParam)}&prodi_id=${encodeURIComponent(prodiIdParam)}&status=${encodeURIComponent(statusParam)}`;
+    const url = `/${routePrefix.value}/analitik/export-response-rate?tahun=${encodeURIComponent(yearParam)}&prodi_id=${encodeURIComponent(prodiIdParam)}&status=${encodeURIComponent(statusParam)}`;
     window.location.href = url;
 };
 </script>

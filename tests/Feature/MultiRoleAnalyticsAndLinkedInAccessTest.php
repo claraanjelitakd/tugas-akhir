@@ -60,20 +60,30 @@ class MultiRoleAnalyticsAndLinkedInAccessTest extends TestCase
 
         // 1. Verifikasi Admin Prodi
         $this->actingAs($adminProdi)->get('/prodi/analitik')->assertStatus(200);
+        $this->actingAs($adminProdi)->get('/prodi/analitik/data')->assertStatus(200);
+        $this->actingAs($adminProdi)->get('/prodi/analitik/export-response-rate')->assertStatus(200);
         $this->actingAs($adminProdi)->get('/prodi/analitik-prodi')->assertStatus(200);
+        $this->actingAs($adminProdi)->get('/prodi/analitik-prodi/data')->assertStatus(200);
         $this->actingAs($adminProdi)->get('/prodi/analitik-atasan')->assertStatus(200);
+        $this->actingAs($adminProdi)->get('/prodi/analitik-atasan/data')->assertStatus(200);
         $this->actingAs($adminProdi)->get('/prodi/linkedin-sync')->assertStatus(200);
 
         // 2. Verifikasi Admin Fakultas
         $this->actingAs($adminFakultas)->get('/fakultas/analitik')->assertStatus(200);
+        $this->actingAs($adminFakultas)->get('/fakultas/analitik/data')->assertStatus(200);
         $this->actingAs($adminFakultas)->get('/fakultas/analitik-prodi')->assertStatus(200);
+        $this->actingAs($adminFakultas)->get('/fakultas/analitik-prodi/data')->assertStatus(200);
         $this->actingAs($adminFakultas)->get('/fakultas/analitik-atasan')->assertStatus(200);
+        $this->actingAs($adminFakultas)->get('/fakultas/analitik-atasan/data')->assertStatus(200);
         $this->actingAs($adminFakultas)->get('/fakultas/linkedin-sync')->assertStatus(200);
 
         // 3. Verifikasi Biro 3
         $this->actingAs($adminBiro3)->get('/biro3/analitik')->assertStatus(200);
+        $this->actingAs($adminBiro3)->get('/biro3/analitik/data')->assertStatus(200);
         $this->actingAs($adminBiro3)->get('/biro3/analitik-prodi')->assertStatus(200);
+        $this->actingAs($adminBiro3)->get('/biro3/analitik-prodi/data')->assertStatus(200);
         $this->actingAs($adminBiro3)->get('/biro3/analitik-atasan')->assertStatus(200);
+        $this->actingAs($adminBiro3)->get('/biro3/analitik-atasan/data')->assertStatus(200);
         $this->actingAs($adminBiro3)->get('/biro3/linkedin-sync')->assertStatus(200);
     }
 }
