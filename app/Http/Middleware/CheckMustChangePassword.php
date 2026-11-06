@@ -2,11 +2,15 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Membatasi akses pengguna alumni yang masih wajib mengganti kata sandi.
+ */
 class CheckMustChangePassword
 {
     /**
@@ -17,8 +21,11 @@ class CheckMustChangePassword
      */
     public function handle(Request $request, Closure $next): Response
     {
+        /** @var User|null $user */
+        $user = Auth::user();
+
         // Jika user sedang login DAN status must_change_password bernilai true
-        if (Auth::check() && Auth::user()->role === 'alumni' && Auth::user()->must_change_password) {
+        if ($user instanceof User && $user->role === 'alumni' && $user->must_change_password) {
 
             // Abaikan pencegatan jika route saat ini sudah di form '/change-password'
             // atau jika user sedang mencoba melakukan proses '/logout'

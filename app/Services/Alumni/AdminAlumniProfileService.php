@@ -149,7 +149,7 @@ class AdminAlumniProfileService
     /**
      * Ambil opsi referensi kuesioner resmi dari database.
      *
-     * Mengambil daftar pilihan dari `ref_subpertanyaan_detil` untuk kode:
+     * Mengambil daftar pilihan dari `kuesioner_opsi` untuk kode:
      * - F2G  : Posisi jabatan struktural (Pekerja)
      * - F2H  : Jenis pekerjaan / bidang usaha
      * - F5D  : Skala instansi/perusahaan
@@ -221,19 +221,31 @@ class AdminAlumniProfileService
 
         // Tangani data perusahaan tracer.
         $perusahaanId = $biodata->perusahaan_id;
-        $namaPerusahaan = ! empty($data['nama_perusahaan']) ? trim($data['nama_perusahaan']) : null;
+        $namaPerusahaan = self::nullableInput($data, 'nama_perusahaan', null);
         if ($namaPerusahaan) {
-            $jenisLokasi = ! empty($data['company_jenis_lokasi']) ? $data['company_jenis_lokasi'] : (! empty($data['perusahaan_jenis_lokasi']) ? $data['perusahaan_jenis_lokasi'] : 'Dalam Negeri');
-            $kodeNegara = ($jenisLokasi === 'Luar Negeri') ? (! empty($data['company_kode_negara']) ? $data['company_kode_negara'] : (! empty($data['perusahaan_kode_negara']) ? $data['perusahaan_kode_negara'] : '')) : 'ID';
-            $kodeProvinsi = ($jenisLokasi === 'Luar Negeri') ? null : (! empty($data['company_kode_provinsi']) ? $data['company_kode_provinsi'] : (! empty($data['perusahaan_kode_provinsi']) ? $data['perusahaan_kode_provinsi'] : null));
-            $kodeKabupaten = ($jenisLokasi === 'Luar Negeri') ? null : (! empty($data['company_kode_kabupaten']) ? $data['company_kode_kabupaten'] : (! empty($data['perusahaan_kode_kabupaten']) ? $data['perusahaan_kode_kabupaten'] : null));
-            $alamat = ! empty($data['company_alamat']) ? $data['company_alamat'] : (! empty($data['perusahaan_alamat']) ? $data['perusahaan_alamat'] : null);
-            $skala = ! empty($data['company_skala']) ? $data['company_skala'] : (! empty($data['perusahaan_skala']) ? $data['perusahaan_skala'] : null);
-            $jenisPerusahaan = ! empty($data['company_jenis_perusahaan']) ? $data['company_jenis_perusahaan'] : (! empty($data['perusahaan_jenis_perusahaan']) ? $data['perusahaan_jenis_perusahaan'] : null);
-            $jenisPerusahaanLainnya = ! empty($data['company_jenis_perusahaan_lainnya']) ? $data['company_jenis_perusahaan_lainnya'] : (! empty($data['perusahaan_jenis_perusahaan_lainnya']) ? $data['perusahaan_jenis_perusahaan_lainnya'] : null);
-            $kodePosKantor = ! empty($data['company_kode_pos']) ? $data['company_kode_pos'] : (! empty($data['perusahaan_kode_pos']) ? $data['perusahaan_kode_pos'] : (! empty($data['zipcode']) ? $data['zipcode'] : null));
-            $homepage = ! empty($data['company_homepage']) ? trim((string) $data['company_homepage']) : (! empty($data['perusahaan_homepage']) ? trim((string) $data['perusahaan_homepage']) : null);
-            $noTelpFax = ! empty($data['company_no_telp_fax']) ? trim((string) $data['company_no_telp_fax']) : (! empty($data['perusahaan_no_telp_fax']) ? trim((string) $data['perusahaan_no_telp_fax']) : null);
+            [$hasJenisLokasi, $jenisLokasiInput] = self::firstProvidedInput($data, ['company_jenis_lokasi', 'perusahaan_jenis_lokasi']);
+            [$hasKodeNegara, $kodeNegaraInput] = self::firstProvidedInput($data, ['company_kode_negara', 'perusahaan_kode_negara']);
+            [$hasKodeProvinsi, $kodeProvinsiInput] = self::firstProvidedInput($data, ['company_kode_provinsi', 'perusahaan_kode_provinsi']);
+            [$hasKodeKabupaten, $kodeKabupatenInput] = self::firstProvidedInput($data, ['company_kode_kabupaten', 'perusahaan_kode_kabupaten']);
+            [$hasAlamat, $alamatInput] = self::firstProvidedInput($data, ['company_alamat', 'perusahaan_alamat']);
+            [$hasSkala, $skalaInput] = self::firstProvidedInput($data, ['company_skala', 'perusahaan_skala']);
+            [$hasJenisPerusahaan, $jenisPerusahaanInput] = self::firstProvidedInput($data, ['company_jenis_perusahaan', 'perusahaan_jenis_perusahaan']);
+            [$hasJenisPerusahaanLainnya, $jenisPerusahaanLainnyaInput] = self::firstProvidedInput($data, ['company_jenis_perusahaan_lainnya', 'perusahaan_jenis_perusahaan_lainnya']);
+            [$hasKodePosKantor, $kodePosKantorInput] = self::firstProvidedInput($data, ['company_kode_pos', 'perusahaan_kode_pos', 'zipcode']);
+            [$hasHomepage, $homepageInput] = self::firstProvidedInput($data, ['company_homepage', 'perusahaan_homepage']);
+            [$hasNoTelpFax, $noTelpFaxInput] = self::firstProvidedInput($data, ['company_no_telp_fax', 'perusahaan_no_telp_fax']);
+
+            $jenisLokasi = $hasJenisLokasi ? ($jenisLokasiInput ?: 'Dalam Negeri') : 'Dalam Negeri';
+            $kodeNegara = $hasKodeNegara ? $kodeNegaraInput : ($jenisLokasi === 'Luar Negeri' ? '' : 'ID');
+            $kodeProvinsi = $hasKodeProvinsi ? $kodeProvinsiInput : null;
+            $kodeKabupaten = $hasKodeKabupaten ? $kodeKabupatenInput : null;
+            $alamat = $hasAlamat ? $alamatInput : null;
+            $skala = $hasSkala ? $skalaInput : null;
+            $jenisPerusahaan = $hasJenisPerusahaan ? $jenisPerusahaanInput : null;
+            $jenisPerusahaanLainnya = $hasJenisPerusahaanLainnya ? $jenisPerusahaanLainnyaInput : null;
+            $kodePosKantor = $hasKodePosKantor ? $kodePosKantorInput : null;
+            $homepage = $hasHomepage ? $homepageInput : null;
+            $noTelpFax = $hasNoTelpFax ? $noTelpFaxInput : null;
 
             $perusahaan = Perusahaan::firstOrCreate(
                 ['nama_perusahaan' => $namaPerusahaan],
@@ -253,60 +265,100 @@ class AdminAlumniProfileService
                 ]
             );
 
-            $perusahaan->update([
-                'jenis_lokasi' => $jenisLokasi,
-                'kode_negara' => $kodeNegara,
-                'kode_provinsi' => $kodeProvinsi,
-                'kode_kabupaten' => $kodeKabupaten,
-                'alamat' => $alamat ?: $perusahaan->alamat,
-                'kode_pos' => $kodePosKantor ?: $perusahaan->kode_pos,
-                'skala' => $skala ?: $perusahaan->skala,
-                'jenis_perusahaan' => $jenisPerusahaan ?: $perusahaan->jenis_perusahaan,
-                'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya ?: $perusahaan->jenis_perusahaan_lainnya,
-                'homepage' => $homepage ?: $perusahaan->homepage,
-                'no_telp_fax' => $noTelpFax ?: $perusahaan->no_telp_fax,
-            ]);
+            if (! $perusahaan->wasRecentlyCreated) {
+                $perusahaanUpdates = [];
+
+                if ($hasJenisLokasi) {
+                    $perusahaanUpdates['jenis_lokasi'] = $jenisLokasi;
+                }
+                if ($hasKodeNegara) {
+                    $perusahaanUpdates['kode_negara'] = $kodeNegaraInput;
+                }
+                if ($hasKodeProvinsi) {
+                    $perusahaanUpdates['kode_provinsi'] = $kodeProvinsiInput;
+                }
+                if ($hasKodeKabupaten) {
+                    $perusahaanUpdates['kode_kabupaten'] = $kodeKabupatenInput;
+                }
+                if ($hasAlamat) {
+                    $perusahaanUpdates['alamat'] = $alamatInput;
+                }
+                if ($hasKodePosKantor) {
+                    $perusahaanUpdates['kode_pos'] = $kodePosKantorInput;
+                }
+                if ($hasSkala) {
+                    $perusahaanUpdates['skala'] = $skalaInput;
+                }
+                if ($hasJenisPerusahaan) {
+                    $perusahaanUpdates['jenis_perusahaan'] = $jenisPerusahaanInput;
+                }
+                if ($hasJenisPerusahaanLainnya) {
+                    $perusahaanUpdates['jenis_perusahaan_lainnya'] = $jenisPerusahaanLainnyaInput;
+                }
+                if ($hasHomepage) {
+                    $perusahaanUpdates['homepage'] = $homepageInput;
+                }
+                if ($hasNoTelpFax) {
+                    $perusahaanUpdates['no_telp_fax'] = $noTelpFaxInput;
+                }
+
+                if ($perusahaanUpdates !== []) {
+                    $perusahaan->update($perusahaanUpdates);
+                }
+            }
 
             $perusahaanId = $perusahaan->id;
         }
 
         // 4. Tangani Data Atasan & Peran
-        $kategoriPekerjaan = ! empty($data['kategori_pekerjaan']) ? $data['kategori_pekerjaan'] : null;
-        $posisiJabatan = ! empty($data['posisi_jabatan']) ? $data['posisi_jabatan'] : null;
-        $posisiWiraswasta = ! empty($data['posisi_wiraswasta']) ? $data['posisi_wiraswasta'] : null;
+        $kategoriPekerjaanProvided = array_key_exists('kategori_pekerjaan', $data);
+        $kategoriPekerjaan = self::nullableInput($data, 'kategori_pekerjaan', $biodata->kategori_pekerjaan);
+        $posisiJabatan = self::nullableInput($data, 'posisi_jabatan', $biodata->posisi_jabatan);
+        $posisiWiraswasta = self::nullableInput($data, 'posisi_wiraswasta', $biodata->posisi_wiraswasta);
         if ($posisiWiraswasta && str_contains(strtolower($posisiWiraswasta), 'lainnya') && ! empty($data['posisi_wiraswasta_lainnya'])) {
             $posisiWiraswasta = $data['posisi_wiraswasta_lainnya'];
         }
-        $bidangPekerjaan = ! empty($data['bidang_pekerjaan']) ? trim((string) $data['bidang_pekerjaan']) : null;
+        $bidangPekerjaan = self::nullableInput($data, 'bidang_pekerjaan', $biodata->bidang_pekerjaan);
         if ($bidangPekerjaan && str_contains(strtolower($bidangPekerjaan), 'lainnya')) {
             $bidangPekerjaan = ! empty($data['bidang_pekerjaan_lainnya'])
                 ? trim((string) $data['bidang_pekerjaan_lainnya'])
                 : null;
         }
 
-        if ($kategoriPekerjaan === 'Pekerja') {
+        if ($kategoriPekerjaanProvided && $kategoriPekerjaan === 'Pekerja') {
             $posisiWiraswasta = null;
-        } elseif ($kategoriPekerjaan === 'Wiraswasta') {
+        } elseif ($kategoriPekerjaanProvided && $kategoriPekerjaan === 'Wiraswasta') {
             $posisiJabatan = null;
-        } elseif ($kategoriPekerjaan === 'Melanjutkan Pendidikan') {
+        } elseif ($kategoriPekerjaanProvided && $kategoriPekerjaan === 'Melanjutkan Pendidikan') {
             $posisiJabatan = null;
             $posisiWiraswasta = null;
         }
 
         $atasanId = $biodata->atasan_id;
-        $namaAtasan = ! empty($data['nama_atasan']) ? $data['nama_atasan'] : null;
-        $emailAtasan = ! empty($data['email_atasan']) ? $data['email_atasan'] : null;
-        $teleponAtasan = ! empty($data['telepon_atasan']) ? $data['telepon_atasan'] : null;
+        $namaAtasanProvided = array_key_exists('nama_atasan', $data);
+        $emailAtasanProvided = array_key_exists('email_atasan', $data);
+        $teleponAtasanProvided = array_key_exists('telepon_atasan', $data);
+        $namaAtasan = self::nullableInput($data, 'nama_atasan', null);
+        $emailAtasan = self::nullableInput($data, 'email_atasan', null);
+        $teleponAtasan = self::nullableInput($data, 'telepon_atasan', null);
 
-        if ($namaAtasan || $emailAtasan || $teleponAtasan) {
+        if ($namaAtasanProvided || $emailAtasanProvided || $teleponAtasanProvided) {
             $atasan = ! empty($biodata->atasan_id) ? Atasan::find($biodata->atasan_id) : null;
             if ($atasan) {
-                $atasan->update([
-                    'perusahaan_id' => $perusahaanId ?: $atasan->perusahaan_id,
-                    'nama' => $namaAtasan ?: $atasan->nama,
-                    'email' => $emailAtasan,
-                    'telepon' => $teleponAtasan,
-                ]);
+                $atasanUpdates = [];
+                if ($perusahaanId && $perusahaanId !== $atasan->perusahaan_id) {
+                    $atasanUpdates['perusahaan_id'] = $perusahaanId;
+                }
+                if ($namaAtasanProvided) {
+                    $atasanUpdates['nama'] = $namaAtasan;
+                }
+                if ($emailAtasanProvided) {
+                    $atasanUpdates['email'] = $emailAtasan;
+                }
+                if ($teleponAtasanProvided) {
+                    $atasanUpdates['telepon'] = $teleponAtasan;
+                }
+                $atasan->update($atasanUpdates);
             } else {
                 $atasan = Atasan::create([
                     'perusahaan_id' => $perusahaanId,
@@ -324,8 +376,9 @@ class AdminAlumniProfileService
         //   - Format desimal bersih (misal "5000000.00") → round ke integer
         //   - Format ribuan dengan separator (misal "5.000.000" atau "5,000,000") →
         //     hapus pola desimal 2 digit di akhir terlebih dahulu, lalu strip semua non-digit
-        $gajiNominal = null;
-        if (isset($data['gaji']) && $data['gaji'] !== '' && $data['gaji'] !== null) {
+        $gajiProvided = array_key_exists('gaji', $data);
+        $gajiNominal = $biodata->gaji;
+        if ($gajiProvided && $data['gaji'] !== '' && $data['gaji'] !== null) {
             $rawGaji = (string) $data['gaji'];
             if (preg_match('/^\d+(\.\d{1,2})?$/', $rawGaji)) {
                 // Angka desimal murni (misal dari DB atau input numerik langsung)
@@ -341,29 +394,40 @@ class AdminAlumniProfileService
         }
 
         // Update biodata dengan kontak, domisili, dan data tracer yang bersifat transaksional.
+        $emailPribadi = array_key_exists('email_pribadi', $data)
+            ? self::nullableInput($data, 'email_pribadi', null)
+            : (array_key_exists('email', $data) ? self::nullableInput($data, 'email', null) : $biodata->email_pribadi);
+        $jenisPekerjaan = array_key_exists('jenis_pekerjaan', $data)
+            ? self::nullableInput($data, 'jenis_pekerjaan', null)
+            : (array_key_exists('company_jenis_perusahaan', $data)
+                ? self::nullableInput($data, 'company_jenis_perusahaan', null)
+                : (array_key_exists('perusahaan_jenis_perusahaan', $data)
+                    ? self::nullableInput($data, 'perusahaan_jenis_perusahaan', null)
+                    : $biodata->jenis_pekerjaan));
+
         $biodataUpdates = [
-            'nomor_telepon' => ! empty($data['nomor_telepon']) ? $data['nomor_telepon'] : null,
-            'email_pribadi' => ! empty($data['email_pribadi']) ? $data['email_pribadi'] : (! empty($data['email']) ? $data['email'] : $biodata->email_pribadi),
-            'alamat_saat_ini' => ! empty($data['alamat_saat_ini']) ? $data['alamat_saat_ini'] : null,
-            'kode_kabupaten' => ! empty($data['kode_kabupaten']) ? $data['kode_kabupaten'] : null,
-            'kode_provinsi' => $data['kode_provinsi'] ?? null,
-            'kode_pos' => ! empty($data['kode_pos']) ? $data['kode_pos'] : null,
-            'instagram_url' => ! empty($data['instagram_url']) ? $data['instagram_url'] : null,
-            'facebook_url' => ! empty($data['facebook_url']) ? $data['facebook_url'] : null,
-            'linkedin_url' => ! empty($data['linkedin_url']) ? $data['linkedin_url'] : null,
-            'linkedin_username' => ! empty($data['linkedin_username']) ? $data['linkedin_username'] : null,
-            'skills' => ! empty($data['skills']) ? $data['skills'] : null,
-            'experience' => ! empty($data['experience']) ? $data['experience'] : null,
+            'nomor_telepon' => self::nullableInput($data, 'nomor_telepon', $biodata->nomor_telepon),
+            'email_pribadi' => $emailPribadi,
+            'alamat_saat_ini' => self::nullableInput($data, 'alamat_saat_ini', $biodata->alamat_saat_ini),
+            'kode_kabupaten' => self::nullableInput($data, 'kode_kabupaten', $biodata->kode_kabupaten),
+            'kode_provinsi' => self::nullableInput($data, 'kode_provinsi', $biodata->kode_provinsi),
+            'kode_pos' => self::nullableInput($data, 'kode_pos', $biodata->kode_pos),
+            'instagram_url' => self::nullableInput($data, 'instagram_url', $biodata->instagram_url),
+            'facebook_url' => self::nullableInput($data, 'facebook_url', $biodata->facebook_url),
+            'linkedin_url' => self::nullableInput($data, 'linkedin_url', $biodata->linkedin_url),
+            'linkedin_username' => self::nullableInput($data, 'linkedin_username', $biodata->linkedin_username),
+            'skills' => self::nullableInput($data, 'skills', $biodata->skills),
+            'experience' => self::nullableInput($data, 'experience', $biodata->experience),
             'kategori_pekerjaan' => $kategoriPekerjaan,
             'posisi_jabatan' => $posisiJabatan,
             'bidang_pekerjaan' => $bidangPekerjaan,
-            'divisi' => ! empty($data['divisi']) ? trim((string) $data['divisi']) : null,
+            'divisi' => self::nullableInput($data, 'divisi', $biodata->divisi),
             'posisi_wiraswasta' => $posisiWiraswasta,
-            'pendidikan_tingkat' => ! empty($data['pendidikan_tingkat']) ? $data['pendidikan_tingkat'] : null,
-            'perguruan_tinggi' => ! empty($data['perguruan_tinggi']) ? $data['perguruan_tinggi'] : null,
-            'pendidikan_prodi' => ! empty($data['pendidikan_prodi']) ? $data['pendidikan_prodi'] : null,
-            'gaji' => $gajiNominal !== null ? $gajiNominal : null,
-            'jenis_pekerjaan' => ! empty($data['jenis_pekerjaan']) ? $data['jenis_pekerjaan'] : (! empty($data['company_jenis_perusahaan']) ? $data['company_jenis_perusahaan'] : (! empty($data['perusahaan_jenis_perusahaan']) ? $data['perusahaan_jenis_perusahaan'] : null)),
+            'pendidikan_tingkat' => self::nullableInput($data, 'pendidikan_tingkat', $biodata->pendidikan_tingkat),
+            'perguruan_tinggi' => self::nullableInput($data, 'perguruan_tinggi', $biodata->perguruan_tinggi),
+            'pendidikan_prodi' => self::nullableInput($data, 'pendidikan_prodi', $biodata->pendidikan_prodi),
+            'gaji' => $gajiNominal,
+            'jenis_pekerjaan' => $jenisPekerjaan,
             'perusahaan_id' => $perusahaanId,
             'atasan_id' => $atasanId,
         ];
@@ -396,6 +460,44 @@ class AdminAlumniProfileService
 
         // 10. Sinkronisasi Otomatis ke Jawaban Kuesioner Tracer
         KuesionerSyncService::syncProfileResponses($biodata);
+    }
+
+    /**
+     * Mengambil input nullable tanpa menghapus nilai lama saat key tidak dikirim.
+     *
+     * @param  array<string, mixed>  $data  Payload pembaruan profil.
+     * @param  string  $key  Nama field yang dibaca.
+     * @param  mixed  $fallback  Nilai lama jika field tidak ada pada payload.
+     * @return mixed Nilai input yang sudah dinormalisasi atau nilai lama.
+     */
+    private static function nullableInput(array $data, string $key, mixed $fallback): mixed
+    {
+        if (! array_key_exists($key, $data)) {
+            return $fallback;
+        }
+
+        $value = $data[$key];
+
+        return is_string($value) ? (trim($value) !== '' ? trim($value) : null) : $value;
+    }
+
+    /**
+     * Mengambil nilai pertama dari beberapa alias field dan membedakan antara
+     * field yang tidak dikirim dengan field yang sengaja dikosongkan.
+     *
+     * @param  array<string, mixed>  $data  Payload pembaruan profil.
+     * @param  array<int, string>  $keys  Alias field yang diterima.
+     * @return array{0: bool, 1: mixed} Status keberadaan field dan nilainya.
+     */
+    private static function firstProvidedInput(array $data, array $keys): array
+    {
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $data)) {
+                return [true, self::nullableInput($data, $key, null)];
+            }
+        }
+
+        return [false, null];
     }
 
     /**

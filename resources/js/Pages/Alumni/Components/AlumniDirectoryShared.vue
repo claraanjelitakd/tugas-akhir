@@ -427,7 +427,19 @@ const formatPhoneForWA = (rawPhone) => {
     return cleaned;
 };
 
+// Menentukan apakah admin boleh menghubungi alumni berdasarkan lingkup prodi.
+const canContactAlumni = (alumni) => {
+    if (props.role === 'superadmin' || props.role === 'admin_fakultas') {
+        return true;
+    }
+
+    return props.role === 'admin_prodi'
+        && String(props.user?.prodi_id || '') === String(alumni?.prodi_id || '');
+};
+
 const openWhatsAppModal = (alumni) => {
+    if (!canContactAlumni(alumni) || !alumni?.nomor_telepon) return;
+
     activeWaAlumni.value = alumni;
     waRecipientPhone.value = alumni.nomor_telepon || '';
     
@@ -457,6 +469,8 @@ const executeSendWa = () => {
 
 // Mengirim pengingat kuesioner ke satu alumni melalui endpoint sesuai role aktif.
 const handleSendEmail = (alumni) => {
+    if (!canContactAlumni(alumni) || !alumni?.email) return;
+
     Swal.fire({
         title: 'Kirim email pengingat?',
         text: 'Email pengingat akan dikirim ke ' + alumni.nama + '.',
@@ -545,8 +559,8 @@ const careerSummary = (alumni) => {
     return ['Experience', alumni.experience || 'Belum ada pengalaman yang diisi'];
 };
 
-// Menampilkan skills staging dengan aman ketika provider mengirim string atau object.
-const formatLinkedInSkills = (skills) => {
+// Menormalisasi skills staging menjadi daftar frasa utuh untuk chip dan input review.
+const normalizeLinkedInSkills = (skills) => {
     if (Array.isArray(skills)) {
         return skills
             .map((skill) => {
@@ -556,11 +570,18 @@ const formatLinkedInSkills = (skills) => {
 
                 return skill?.name || skill?.title || skill?.skill || '';
             })
-            .filter(Boolean)
-            .join(', ') || 'Tidak terdeteksi';
+            .filter(Boolean);
     }
 
-    return skills || 'Tidak terdeteksi';
+    return String(skills || '')
+        .split(/[,;|\n\r•]+/u)
+        .map((skill) => skill.trim())
+        .filter(Boolean);
+};
+
+// Menampilkan skills staging sebagai teks yang aman ketika provider mengirim string atau object.
+const formatLinkedInSkills = (skills) => {
+    return normalizeLinkedInSkills(skills).join(', ') || 'Tidak terdeteksi';
 };
 
 // Validasi URL profil LinkedIn sebelum menyimpan URL untuk proses sinkronisasi.
@@ -651,6 +672,69 @@ const showLinkedInReviewModal = ref(false);
 const activeLinkedInReview = ref(null);
 const isLoadingLinkedInReview = ref(false);
 const isSubmittingLinkedInReview = ref(false);
+const linkedInReviewForm = ref({
+    posisi_jabatan: '',
+    nama_perusahaan: '',
+    bidang_pekerjaan: '',
+    divisi: '',
+    skills: '',
+    experience: '',
+    pendidikan_tingkat: '',
+    perguruan_tinggi: '',
+    pendidikan_prodi: '',
+    sync_foto: true,
+    sync_studi_lanjut: true,
+});
+
+// Menyiapkan field approval dari hasil scraping dan fallback data profil aktif.
+const initializeLinkedInReviewForm = (result) => {
+    const preview = result?.preview || {};
+    const current = result?.current_data || {};
+    const study = preview.further_study || {};
+    const skills = normalizeLinkedInSkills(
+        preview.top_skills?.length
+            ? preview.top_skills
+            : (preview.skills?.length ? preview.skills : (current.skills || preview.suggested_skills || [])),
+    );
+
+    linkedInReviewForm.value = {
+        posisi_jabatan: preview.current_job || current.posisi_jabatan || '',
+        nama_perusahaan: preview.current_company || current.nama_perusahaan || '',
+        bidang_pekerjaan: preview.bidang_pekerjaan || current.bidang_pekerjaan || '',
+        divisi: preview.current_divisi || current.divisi || '',
+        skills: skills.join(', '),
+        experience: current.experience || '',
+        pendidikan_tingkat: study.pendidikan_tingkat || current.pendidikan_tingkat || '',
+        perguruan_tinggi: study.perguruan_tinggi || current.perguruan_tinggi || '',
+        pendidikan_prodi: study.pendidikan_prodi || current.pendidikan_prodi || '',
+        sync_foto: Boolean(preview.profile_picture),
+        sync_studi_lanjut: Boolean(study.pendidikan_tingkat || study.perguruan_tinggi || study.pendidikan_prodi),
+    };
+};
+
+// Mengubah form review menjadi payload opsional untuk approval langsung.
+const getLinkedInReviewApprovalPayload = () => ({
+    posisi_jabatan: linkedInReviewForm.value.posisi_jabatan,
+    nama_perusahaan: linkedInReviewForm.value.nama_perusahaan,
+    bidang_pekerjaan: linkedInReviewForm.value.bidang_pekerjaan,
+    divisi: linkedInReviewForm.value.divisi,
+    skills: linkedInReviewForm.value.skills,
+    experience: linkedInReviewForm.value.experience,
+    sync_foto: linkedInReviewForm.value.sync_foto,
+    sync_studi_lanjut: linkedInReviewForm.value.sync_studi_lanjut,
+    pendidikan_tingkat: linkedInReviewForm.value.pendidikan_tingkat,
+    perguruan_tinggi: linkedInReviewForm.value.perguruan_tinggi,
+    pendidikan_prodi: linkedInReviewForm.value.pendidikan_prodi,
+});
+
+// Menambahkan skill hasil scraping ke input review tanpa membuat duplikasi frasa.
+const appendReviewSkill = (skill) => {
+    const currentSkills = normalizeLinkedInSkills(linkedInReviewForm.value.skills);
+
+    if (skill && !currentSkills.includes(skill)) {
+        linkedInReviewForm.value.skills = [...currentSkills, skill].join(', ');
+    }
+};
 
 // Mengambil preview hasil sinkronisasi tanpa membuka halaman detail alumni.
 const openLinkedInReviewModal = async (alumni) => {
@@ -681,6 +765,7 @@ const openLinkedInReviewModal = async (alumni) => {
         }
 
         activeLinkedInReview.value = data.result;
+        initializeLinkedInReviewForm(data.result);
     } catch (error) {
         showLinkedInReviewModal.value = false;
         Swal.fire({
@@ -731,7 +816,11 @@ const submitLinkedInReviewAction = async (alumni, action) => {
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
             },
-            body: JSON.stringify({}),
+            body: JSON.stringify(
+                isApprove && activeLinkedInReview.value?.id === syncId
+                    ? getLinkedInReviewApprovalPayload()
+                    : {},
+            ),
         });
         const data = await response.json();
 
@@ -1237,10 +1326,10 @@ const formatTanggal = (dateStr) => {
                             <span>Geser ke samping untuk melihat kolom lengkap.</span>
                             <span class="hidden shrink-0 text-slate-400 sm:inline">Aksi tetap terlihat di sisi kanan.</span>
                         </div>
-                        <table class="directory-table min-w-[1900px] w-full text-left text-xs border-collapse">
+                        <table class="directory-table min-w-[1800px] w-full text-left text-xs border-collapse">
                             <thead>
                                 <tr class="bg-slate-50 border-b border-slate-200/80 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                                    <th class="py-3 px-4 w-12 text-center">No</th>
+                                    <th v-if="prefix !== 'prodi'" class="py-3 px-4 w-12 text-center">No</th>
                                     <th class="py-3 px-4 min-w-[200px]">Mahasiswa / Alumni</th>
                                     <th class="py-3 px-4 min-w-[150px]">Program Studi</th>
                                     <th class="py-3 px-4 min-w-[230px]">Perusahaan &amp; Lokasi</th>
@@ -1248,9 +1337,9 @@ const formatTanggal = (dateStr) => {
                                     <th class="py-3 px-4 min-w-[220px]">Skills</th>
                                     <th class="py-3 px-4 min-w-[210px]">Experience / Aktivitas</th>
                                     <th class="py-3 px-4 min-w-[130px]">Target Kelulusan</th>
-                                    <th class="py-3 px-4 min-w-[220px]">Status Kelengkapan</th>
                                     <th class="py-3 px-4 min-w-[150px]">Sinkronisasi LinkedIn</th>
-                                    <th class="sticky right-0 z-20 w-44 min-w-[176px] bg-slate-50 py-3 px-4 text-center">Aksi</th>
+                                    <th class="sticky right-[220px] z-20 w-44 min-w-[176px] border-l border-slate-200 bg-slate-100 py-3 px-4 text-center">Aksi</th>
+                                    <th class="sticky right-0 z-20 min-w-[220px] border-l border-slate-200 bg-slate-100 py-3 px-4">Status Kelengkapan</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
@@ -1259,8 +1348,8 @@ const formatTanggal = (dateStr) => {
                                     :key="item.id || item.nim"
                                     class="hover:bg-slate-50/80 transition-colors group"
                                 >
-                                    <!-- No -->
-                                    <td class="py-3.5 px-4 text-center font-semibold text-slate-600">
+                                    <!-- Nomor baris hanya dipertahankan pada direktori selain Prodi. -->
+                                    <td v-if="prefix !== 'prodi'" class="py-3.5 px-4 text-center font-semibold text-slate-600">
                                         {{ paginationFrom + idx }}
                                     </td>
 
@@ -1333,18 +1422,15 @@ const formatTanggal = (dateStr) => {
                                         </div>
                                     </td>
 
-                                    <!-- Skills ditampilkan sebagai frasa utuh, bukan dipotong per kata. -->
+                                    <!-- Skills ditampilkan sebagai chip yang membungkus tanpa memotong frasa. -->
                                     <td class="py-3.5 px-4">
-                                        <div v-if="item.skills_list?.length" class="flex max-w-[260px] flex-wrap gap-1">
+                                        <div v-if="item.skills_list?.length" class="flex max-w-[290px] flex-wrap gap-1.5">
                                             <span
-                                                v-for="skill in item.skills_list.slice(0, 6)"
+                                                v-for="skill in item.skills_list"
                                                 :key="skill"
-                                                class="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-700"
+                                                class="max-w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-medium leading-4 text-slate-700 break-words"
                                             >
                                                 {{ skill }}
-                                            </span>
-                                            <span v-if="item.skills_list.length > 6" class="px-1.5 py-0.5 text-[10px] text-slate-500">
-                                                +{{ item.skills_list.length - 6 }} lainnya
                                             </span>
                                         </div>
                                         <span v-else class="text-xs text-slate-500">-</span>
@@ -1368,99 +1454,78 @@ const formatTanggal = (dateStr) => {
                                         </div>
                                     </td>
 
-                                    <!-- Status Kelengkapan -->
-                                    <td class="py-3.5 px-4">
-                                        <div class="flex items-center gap-1.5 whitespace-nowrap">
-                                            <span 
-                                                class="px-2 py-0.5 text-[10px] font-bold rounded-md"
-                                                :class="(item.univ_percentage ?? item.progress?.questionnaire?.percentage ?? 0) >= 100 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-700'"
-                                            >
-                                                Univ: {{ item.univ_percentage ?? item.progress?.questionnaire?.percentage ?? 0 }}%
-                                            </span>
-                                            <span
-                                                class="px-2 py-0.5 text-[10px] font-bold rounded-md"
-                                                :class="(item.total_prodi_questions ?? item.progress?.prodi?.total_questions ?? 0) > 0 && (item.prodi_percentage ?? item.progress?.prodi?.percentage ?? 0) >= 100 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-700'"
-                                                :title="(item.total_prodi_questions ?? item.progress?.prodi?.total_questions ?? 0) > 0 ? 'Status pengisian kuesioner Prodi' : 'Belum ada kuesioner Prodi yang ditetapkan'"
-                                            >
-                                                Prodi: {{ (item.total_prodi_questions ?? item.progress?.prodi?.total_questions ?? 0) > 0 ? `${item.prodi_percentage ?? item.progress?.prodi?.percentage ?? 0}%` : '-' }}
-                                            </span>
-                                        </div>
-                                        <div class="mt-1 flex items-center gap-2 whitespace-nowrap text-[10px] text-slate-600">
-                                            <span>Profil: <b :class="(item.is_profile_complete ?? item.progress?.profile?.is_complete) ? 'text-emerald-700' : 'text-slate-600'">{{ (item.is_profile_complete ?? item.progress?.profile?.is_complete) ? 'Lengkap' : 'Belum' }}</b></span>
-                                            <span>&bull;</span>
-                                            <span>Atasan: <b :class="(item.evaluasi_atasan_status || item.evaluasi_atasan?.status) === 'submitted' ? 'text-emerald-700' : 'text-slate-600'">{{ (item.evaluasi_atasan_status || item.evaluasi_atasan?.status) === 'submitted' ? 'Diisi' : 'Belum Ada' }}</b></span>
-                                        </div>
-                                    </td>
-
                                     <!-- Sinkronisasi LinkedIn -->
                                     <td class="py-3.5 px-4">
-                                        <div class="flex items-center gap-2">
+                                        <div class="space-y-1.5">
                                             <span 
                                                 v-if="(item.linkedin_sync_status || item.linkedin_sync?.status) === 'approved'"
-                                                class="px-2.5 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-[10px] rounded-full inline-flex items-center gap-1"
+                                                class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800"
                                             >
                                                 <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                                                 <span>Tersinkron</span>
                                             </span>
                                             <span 
                                                 v-else-if="(item.linkedin_sync_status || item.linkedin_sync?.status) === 'scraped' || (item.linkedin_sync_status || item.linkedin_sync?.status) === 'pending'"
-                                                class="px-2.5 py-0.5 bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[10px] rounded-full"
+                                                class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800"
                                             >
                                                 Menunggu Review
                                             </span>
                                             <span 
                                                 v-else
-                                                class="px-2.5 py-0.5 bg-slate-100 text-slate-600 font-medium text-[10px] rounded-full"
+                                                class="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-medium text-slate-600"
                                             >
                                                 Belum Disinkron
                                             </span>
-                                        </div>
-                                        <div class="text-[10px] text-slate-600 mt-1 truncate max-w-[150px]">
-                                            <span v-if="item.linkedin_username || item.linkedin_url" class="font-mono">{{ item.linkedin_username || 'Ada link' }}</span>
-                                            <span v-else>Belum ada riwayat</span>
-                                        </div>
-                                        <button
-                                            v-if="item.linkedin_sync?.has_sync || item.linkedin_sync_status"
-                                            type="button"
-                                            class="mt-1 text-[10px] font-bold text-[#0D542B] underline decoration-dotted underline-offset-2 hover:text-emerald-800"
-                                            @click="openLinkedInHistoryModal(item)"
-                                        >
-                                            Lihat riwayat ({{ item.linkedin_sync?.sync_count || 0 }})
-                                        </button>
-
-                                        <!-- Aksi review inline agar admin tidak perlu membuka detail alumni. -->
-                                        <div
-                                            v-if="item.linkedin_sync_status === 'pending' && item.linkedin_sync?.sync_id"
-                                            class="mt-2 flex flex-wrap items-center gap-1.5"
-                                        >
+                                            <div class="mt-1 max-w-[170px] break-all text-[10px] leading-4 text-slate-600">
+                                                <span v-if="item.linkedin_username || item.linkedin_url" class="font-mono">{{ item.linkedin_username || item.linkedin_url }}</span>
+                                                <span v-else>Belum ada riwayat</span>
+                                            </div>
+                                            <!-- Preview menjadi akses utama review tanpa menambah tombol besar di kolom tabel. -->
                                             <button
+                                                v-if="prefix !== 'biro3' && item.linkedin_sync_status === 'pending' && item.linkedin_sync?.sync_id"
                                                 type="button"
-                                                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                                                class="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-center text-[10px] font-bold text-slate-700 transition hover:border-[#0D542B] hover:text-[#0D542B]"
+                                                title="Lihat preview dan koreksi hasil LinkedIn"
                                                 @click="openLinkedInReviewModal(item)"
                                             >
                                                 Preview
                                             </button>
-                                            <button
-                                                type="button"
-                                                class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                                :disabled="isSubmittingLinkedInReview"
-                                                @click="submitLinkedInReviewAction(item, 'approve')"
+
+                                            <!-- Approval cepat memakai ikon ringkas agar kolom tetap bersih. -->
+                                            <div
+                                                v-if="prefix !== 'biro3' && item.linkedin_sync_status === 'pending' && item.linkedin_sync?.sync_id"
+                                                class="mt-1.5 grid w-full grid-cols-2 gap-1.5"
                                             >
-                                                Approve
-                                            </button>
-                                            <button
-                                                type="button"
-                                                class="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-800 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                                :disabled="isSubmittingLinkedInReview"
-                                                @click="submitLinkedInReviewAction(item, 'reject')"
-                                            >
-                                                Tolak
-                                            </button>
+                                                <button
+                                                    type="button"
+                                                    class="inline-flex h-8 w-full items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    title="Setujui langsung dengan data hasil sinkronisasi"
+                                                    aria-label="Setujui hasil sinkronisasi LinkedIn"
+                                                    :disabled="isSubmittingLinkedInReview"
+                                                    @click="submitLinkedInReviewAction(item, 'approve')"
+                                                >
+                                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 12 4 4L19 6" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="inline-flex h-8 w-full items-center justify-center rounded-md border border-rose-200 bg-rose-50 text-rose-800 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    title="Tolak hasil sinkronisasi"
+                                                    aria-label="Tolak hasil sinkronisasi LinkedIn"
+                                                    :disabled="isSubmittingLinkedInReview"
+                                                    @click="submitLinkedInReviewAction(item, 'reject')"
+                                                >
+                                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </div>
                                         </div>
                                     </td>
 
                                     <!-- Aksi -->
-                                    <td class="sticky right-0 z-10 w-44 min-w-[176px] bg-white py-3.5 px-4 text-center shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] group-hover:bg-slate-50">
+                                    <td class="sticky right-[220px] z-10 w-44 min-w-[176px] border-l border-slate-200 bg-slate-100 py-3.5 px-4 text-center shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] group-hover:bg-slate-200">
                                         <div class="flex items-center justify-center gap-1.5">
                                             <!-- Detail Button -->
                                             <Link 
@@ -1475,8 +1540,9 @@ const formatTanggal = (dateStr) => {
                                             <button 
                                                 @click="openWhatsAppModal(item)"
                                                 type="button"
-                                                class="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
-                                                title="Hubungi via WhatsApp"
+                                                :disabled="!canContactAlumni(item) || !item.nomor_telepon"
+                                                class="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                                                :title="canContactAlumni(item) && item.nomor_telepon ? 'Hubungi via WhatsApp' : 'WhatsApp dinonaktifkan di luar lingkup prodi atau nomor belum tersedia'"
                                             >
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                                             </button>
@@ -1486,14 +1552,16 @@ const formatTanggal = (dateStr) => {
                                             <button
                                                 type="button"
                                                 @click="handleSendEmail(item)"
-                                                class="p-1.5 text-slate-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
-                                                title="Kirim email pengingat kuesioner"
+                                                :disabled="!canContactAlumni(item) || !item.email"
+                                                class="p-1.5 text-slate-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                                                :title="canContactAlumni(item) && item.email ? 'Kirim email pengingat kuesioner' : 'Email dinonaktifkan di luar lingkup prodi atau alamat belum tersedia'"
                                             >
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6.75A2.25 2.25 0 015.25 4.5h13.5A2.25 2.25 0 0121 6.75v10.5a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 17.25V6.75zm1.5.25 6.557 5.245a1.5 1.5 0 001.886 0L19.5 7"/></svg>
                                             </button>
 
                                             <!-- LinkedIn tetap menjadi aksi sinkronisasi pada direktori alumni. -->
                                             <button
+                                                v-if="prefix !== 'biro3'"
                                                 type="button"
                                                 @click.prevent="handleSyncLinkedIn(item)"
                                                 class="p-1.5 text-slate-600 hover:text-[#0077B5] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
@@ -1506,11 +1574,35 @@ const formatTanggal = (dateStr) => {
 
                                         </div>
                                     </td>
+
+                                    <!-- Status Kelengkapan tetap terlihat di sisi kanan bersama kolom aksi. -->
+                                    <td class="sticky right-0 z-10 min-w-[220px] border-l border-slate-200 bg-slate-100 py-3.5 px-4 group-hover:bg-slate-200">
+                                        <div class="flex items-center gap-1.5 whitespace-nowrap">
+                                            <span
+                                                class="rounded-md px-2 py-0.5 text-[10px] font-bold"
+                                                :class="(item.univ_percentage ?? item.progress?.questionnaire?.percentage ?? 0) >= 100 ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'bg-slate-200 text-slate-700'"
+                                            >
+                                                Univ: {{ item.univ_percentage ?? item.progress?.questionnaire?.percentage ?? 0 }}%
+                                            </span>
+                                            <span
+                                                class="rounded-md px-2 py-0.5 text-[10px] font-bold"
+                                                :class="(item.total_prodi_questions ?? item.progress?.prodi?.total_questions ?? 0) > 0 && (item.prodi_percentage ?? item.progress?.prodi?.percentage ?? 0) >= 100 ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'bg-slate-200 text-slate-700'"
+                                                :title="(item.total_prodi_questions ?? item.progress?.prodi?.total_questions ?? 0) > 0 ? 'Status pengisian kuesioner Prodi' : 'Belum ada kuesioner Prodi yang ditetapkan'"
+                                            >
+                                                Prodi: {{ (item.total_prodi_questions ?? item.progress?.prodi?.total_questions ?? 0) > 0 ? `${item.prodi_percentage ?? item.progress?.prodi?.percentage ?? 0}%` : '-' }}
+                                            </span>
+                                        </div>
+                                        <div class="mt-1 flex items-center gap-2 whitespace-nowrap text-[10px] text-slate-600">
+                                            <span>Profil: <b :class="(item.is_profile_complete ?? item.progress?.profile?.is_complete) ? 'text-emerald-700' : 'text-slate-600'">{{ (item.is_profile_complete ?? item.progress?.profile?.is_complete) ? 'Lengkap' : 'Belum' }}</b></span>
+                                            <span>&bull;</span>
+                                            <span>Atasan: <b :class="(item.evaluasi_atasan_status || item.evaluasi_atasan?.status) === 'submitted' ? 'text-emerald-700' : 'text-slate-600'">{{ (item.evaluasi_atasan_status || item.evaluasi_atasan?.status) === 'submitted' ? 'Diisi' : 'Belum Ada' }}</b></span>
+                                        </div>
+                                    </td>
                                 </tr>
 
                                 <!-- Empty State -->
                                 <tr v-if="paginatedAlumnis.length === 0">
-                                    <td colspan="9" class="py-12 text-center text-slate-600">
+                                    <td :colspan="prefix === 'prodi' ? 10 : 11" class="py-12 text-center text-slate-600">
                                         <p class="font-bold text-sm text-slate-700">Tidak ada data mahasiswa atau alumni</p>
                                         <p class="text-xs text-slate-600 mt-1">Coba sesuaikan kata kunci pencarian atau parameter filter tahun kelulusan.</p>
                                     </td>
@@ -1625,17 +1717,45 @@ const formatTanggal = (dateStr) => {
             class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs"
             @click.self="showLinkedInReviewModal = false"
         >
-            <div class="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
-                <div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-                    <div>
-                        <h3 class="text-sm font-extrabold text-slate-900">Preview Hasil LinkedIn</h3>
-                        <p class="mt-0.5 text-[11px] text-slate-500">
-                            {{ activeLinkedInReview?.alumni_nama }} ({{ activeLinkedInReview?.alumni_nim }})
-                        </p>
+            <div class="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <div class="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50/80 px-5 py-4 sm:px-6">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <div class="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                            <img
+                                v-if="activeLinkedInReview?.preview?.profile_picture || activeLinkedInReview?.current_data?.foto"
+                                :src="activeLinkedInReview.preview?.profile_picture || activeLinkedInReview.current_data?.foto"
+                                :alt="'Foto ' + (activeLinkedInReview?.alumni_nama || 'alumni')"
+                                class="h-full w-full object-cover"
+                            />
+                            <div v-else class="flex h-full w-full items-center justify-center bg-emerald-50 text-sm font-extrabold text-[#0D542B]">
+                                {{ getInitials(activeLinkedInReview?.alumni_nama) }}
+                            </div>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h3 class="text-base font-extrabold text-slate-900">Preview Hasil LinkedIn</h3>
+                                <span class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+                                    {{ activeLinkedInReview?.status || 'pending' }}
+                                </span>
+                            </div>
+                            <p class="mt-0.5 text-xs text-slate-600">
+                                {{ activeLinkedInReview?.alumni_nama }} <span class="text-slate-400">•</span> {{ activeLinkedInReview?.alumni_nim }}
+                            </p>
+                            <a
+                                v-if="activeLinkedInReview?.linkedin_url || activeLinkedInReview?.preview?.profile_url"
+                                :href="activeLinkedInReview.linkedin_url || activeLinkedInReview.preview.profile_url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="mt-1 inline-flex max-w-full items-center gap-1 break-all text-[11px] font-semibold text-[#0077B5] hover:underline"
+                            >
+                                Profil LinkedIn
+                                <span aria-hidden='true'>↗</span>
+                            </a>
+                        </div>
                     </div>
                     <button
                         type="button"
-                        class="p-1 text-lg leading-none text-slate-400 hover:text-slate-700"
+                        class="shrink-0 rounded-lg p-1 text-lg leading-none text-slate-400 hover:bg-white hover:text-slate-700"
                         title="Tutup preview"
                         @click="showLinkedInReviewModal = false"
                     >
@@ -1643,53 +1763,117 @@ const formatTanggal = (dateStr) => {
                     </button>
                 </div>
 
-                <!-- Preview memakai payload staging, bukan langsung data utama alumni. -->
-                <div v-if="isLoadingLinkedInReview" class="py-12 text-center text-xs text-slate-500">
+                <!-- Preview dan field approval memakai staging sebagai usulan, lalu profil aktif sebagai pembanding. -->
+                <div v-if="isLoadingLinkedInReview" class="flex-1 py-12 text-center text-xs text-slate-500">
                     <div class="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[#0D542B]"></div>
                     Memuat preview hasil sinkronisasi...
                 </div>
 
-                <div v-else-if="activeLinkedInReview?.preview" class="grid gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
-                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Posisi / Jabatan</div>
-                        <div class="mt-1 text-sm font-semibold text-slate-800">
-                            {{ activeLinkedInReview.preview.current_job || 'Tidak terdeteksi' }}
+                <div v-else-if="activeLinkedInReview?.preview" class="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+                    <div class="mb-4 grid gap-3 sm:grid-cols-2">
+                        <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                            <label class="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500" for="linkedin-review-company">Perusahaan / head office</label>
+                            <input id="linkedin-review-company" v-model="linkedInReviewForm.nama_perusahaan" type="text" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#0D542B] focus:bg-white focus:ring-2 focus:ring-[#0D542B]/10" />
+                            <p class="mt-1 text-[10px] text-slate-500">Nama ini dipakai untuk pencocokan master perusahaan saat approval.</p>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                            <label class="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500" for="linkedin-review-position">Posisi / jabatan</label>
+                            <input id="linkedin-review-position" v-model="linkedInReviewForm.posisi_jabatan" type="text" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#0D542B] focus:bg-white focus:ring-2 focus:ring-[#0D542B]/10" />
+                            <p class="mt-1 text-[10px] text-slate-500">Usulan LinkedIn: {{ activeLinkedInReview.preview.current_job || 'Tidak terdeteksi' }}</p>
                         </div>
                     </div>
-                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Perusahaan</div>
-                        <div class="mt-1 text-sm font-semibold text-slate-800">
-                            {{ activeLinkedInReview.preview.current_company || 'Tidak terdeteksi' }}
+
+                    <div class="mb-4 grid gap-3 md:grid-cols-2">
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+                            <div class="mb-2 flex items-center justify-between gap-2">
+                                <h4 class="text-xs font-extrabold text-slate-800">Kantor pusat</h4>
+                                <span class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                                    {{ activeLinkedInReview.current_data?.head_office?.status_verifikasi || 'Menunggu verifikasi' }}
+                                </span>
+                            </div>
+                            <dl class="space-y-1 text-xs text-slate-600">
+                                <div><dt class="inline font-semibold text-slate-500">Nama: </dt><dd class="inline">{{ activeLinkedInReview.current_data?.head_office?.nama || linkedInReviewForm.nama_perusahaan || '-' }}</dd></div>
+                                <div><dt class="inline font-semibold text-slate-500">Lokasi: </dt><dd class="inline">{{ activeLinkedInReview.current_data?.head_office?.lokasi || 'Belum tersedia' }}</dd></div>
+                                <div><dt class="inline font-semibold text-slate-500">Alamat: </dt><dd class="inline">{{ activeLinkedInReview.current_data?.head_office?.alamat || 'Belum tersedia' }}</dd></div>
+                                <div><dt class="inline font-semibold text-slate-500">Kode pos: </dt><dd class="inline">{{ activeLinkedInReview.current_data?.head_office?.kode_pos || '-' }}</dd></div>
+                                <div v-if="activeLinkedInReview.current_data?.head_office?.homepage"><dt class="inline font-semibold text-slate-500">Homepage: </dt><dd class="inline break-all">{{ activeLinkedInReview.current_data.head_office.homepage }}</dd></div>
+                            </dl>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+                            <h4 class="mb-2 text-xs font-extrabold text-slate-800">Lokasi penempatan / domisili alumni</h4>
+                            <dl class="space-y-1 text-xs text-slate-600">
+                                <div><dt class="inline font-semibold text-slate-500">Wilayah: </dt><dd class="inline">{{ activeLinkedInReview.current_data?.domisili?.label || 'Belum diisi' }}</dd></div>
+                                <div><dt class="inline font-semibold text-slate-500">Alamat: </dt><dd class="inline">{{ activeLinkedInReview.current_data?.domisili?.alamat || 'Belum diisi' }}</dd></div>
+                                <div><dt class="inline font-semibold text-slate-500">Kode pos: </dt><dd class="inline">{{ activeLinkedInReview.current_data?.domisili?.kode_pos || '-' }}</dd></div>
+                            </dl>
+                            <p class="mt-3 border-t border-slate-200 pt-2 text-[10px] leading-4 text-slate-500">Lokasi LinkedIn hanya menjadi referensi; tidak menggantikan domisili pribadi alumni.</p>
                         </div>
                     </div>
-                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Lokasi</div>
-                        <div class="mt-1 text-sm text-slate-700">
-                            {{ activeLinkedInReview.preview.current_company_location || activeLinkedInReview.preview.lokasi || 'Tidak terdeteksi' }}
+
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <div>
+                            <label class="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500" for="linkedin-review-field">Bidang pekerjaan</label>
+                            <input id="linkedin-review-field" v-model="linkedInReviewForm.bidang_pekerjaan" type="text" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#0D542B] focus:bg-white focus:ring-2 focus:ring-[#0D542B]/10" />
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500" for="linkedin-review-unit">Unit / divisi</label>
+                            <input id="linkedin-review-unit" v-model="linkedInReviewForm.divisi" type="text" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#0D542B] focus:bg-white focus:ring-2 focus:ring-[#0D542B]/10" />
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500" for="linkedin-review-skills">Skills</label>
+                            <textarea id="linkedin-review-skills" v-model="linkedInReviewForm.skills" rows="3" class="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-5 text-slate-800 outline-none transition focus:border-[#0D542B] focus:bg-white focus:ring-2 focus:ring-[#0D542B]/10" placeholder="Pisahkan skills dengan koma"></textarea>
+                            <div v-if="normalizeLinkedInSkills(activeLinkedInReview.preview.top_skills || activeLinkedInReview.preview.skills).length" class="mt-2 flex flex-wrap gap-1.5">
+                                <button
+                                    v-for="skill in normalizeLinkedInSkills(activeLinkedInReview.preview.top_skills || activeLinkedInReview.preview.skills)"
+                                    :key="skill"
+                                    type="button"
+                                    class="max-w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium leading-4 text-slate-600 hover:border-[#0D542B] hover:text-[#0D542B]"
+                                    @click="appendReviewSkill(skill)"
+                                >
+                                    + {{ skill }}
+                                </button>
+                            </div>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500" for="linkedin-review-experience">Experience / aktivitas</label>
+                            <textarea id="linkedin-review-experience" v-model="linkedInReviewForm.experience" rows="3" class="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-5 text-slate-800 outline-none transition focus:border-[#0D542B] focus:bg-white focus:ring-2 focus:ring-[#0D542B]/10" placeholder="Ringkasan pengalaman kerja atau aktivitas alumni"></textarea>
                         </div>
                     </div>
-                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Skills</div>
-                        <div class="mt-1 text-sm text-slate-700">
-                            {{ formatLinkedInSkills(activeLinkedInReview.preview.skills) }}
+
+                    <div class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div class="mb-3 flex items-center justify-between gap-3">
+                            <div>
+                                <h4 class="text-xs font-extrabold text-slate-800">Informasi studi lanjut</h4>
+                                <p class="mt-0.5 text-[10px] text-slate-500">Isi jika profil LinkedIn menunjukkan pendidikan setelah lulus.</p>
+                            </div>
+                            <label class="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-600">
+                                <input v-model="linkedInReviewForm.sync_studi_lanjut" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-[#0D542B] focus:ring-[#0D542B]" />
+                                Terapkan
+                            </label>
+                        </div>
+                        <div class="grid gap-3 md:grid-cols-3">
+                            <input v-model="linkedInReviewForm.pendidikan_tingkat" type="text" placeholder="Jenjang, mis. S2" class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 outline-none focus:border-[#0D542B] focus:bg-white focus:ring-2 focus:ring-[#0D542B]/10" />
+                            <input v-model="linkedInReviewForm.perguruan_tinggi" type="text" placeholder="Perguruan tinggi" class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 outline-none focus:border-[#0D542B] focus:bg-white focus:ring-2 focus:ring-[#0D542B]/10" />
+                            <input v-model="linkedInReviewForm.pendidikan_prodi" type="text" placeholder="Program studi" class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 outline-none focus:border-[#0D542B] focus:bg-white focus:ring-2 focus:ring-[#0D542B]/10" />
                         </div>
                     </div>
-                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
-                        <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Status Mapping Perusahaan</div>
-                        <div class="mt-1 text-sm text-slate-700">
-                            Perusahaan akan dipetakan sesuai hasil pencocokan master saat approval.
-                        </div>
+
+                    <div class="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                        <label class="inline-flex items-center gap-2 font-semibold">
+                            <input v-model="linkedInReviewForm.sync_foto" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-[#0D542B] focus:ring-[#0D542B]" />
+                            Terapkan foto profil LinkedIn
+                        </label>
+                        <span class="text-slate-400">•</span>
+                        <span>Data dapat dikoreksi langsung sebelum disetujui.</span>
                     </div>
                 </div>
 
-                <div class="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                    <span class="text-[11px] font-semibold text-slate-500">
-                        Status: {{ activeLinkedInReview?.status || 'pending' }}
-                    </span>
+                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:px-6">
+                    <span class="text-[11px] text-slate-500">Sumber: hasil sinkronisasi LinkedIn • {{ activeLinkedInReview?.scraped_at || '-' }}</span>
                     <div class="flex items-center gap-2">
                         <button
                             type="button"
-                            class="rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                            class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
                             @click="showLinkedInReviewModal = false"
                         >
                             Tutup
@@ -1697,7 +1881,7 @@ const formatTanggal = (dateStr) => {
                         <template v-if="activeLinkedInReview?.status === 'pending'">
                             <button
                                 type="button"
-                                class="rounded-xl bg-rose-700 px-4 py-2 text-xs font-bold text-white hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-800 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
                                 :disabled="isSubmittingLinkedInReview"
                                 @click="submitLinkedInReviewAction(null, 'reject')"
                             >
@@ -1705,11 +1889,11 @@ const formatTanggal = (dateStr) => {
                             </button>
                             <button
                                 type="button"
-                                class="rounded-xl bg-[#0D542B] px-4 py-2 text-xs font-bold text-white hover:bg-[#0A4322] disabled:cursor-not-allowed disabled:opacity-50"
+                                class="rounded-lg bg-[#0D542B] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0A4322] disabled:cursor-not-allowed disabled:opacity-50"
                                 :disabled="isSubmittingLinkedInReview"
                                 @click="submitLinkedInReviewAction(null, 'approve')"
                             >
-                                Approve &amp; Terapkan
+                                Setujui &amp; terapkan
                             </button>
                         </template>
                     </div>
@@ -1804,5 +1988,6 @@ const formatTanggal = (dateStr) => {
 .directory-table td:last-child {
     border-right: 0;
 }
+
 </style>
 

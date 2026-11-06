@@ -11,6 +11,7 @@ use App\Models\LinkedinSyncResult;
 use App\Models\Perusahaan;
 use App\Models\Propinsi;
 use App\Models\RefNegara;
+use App\Models\User;
 use App\Services\Alumni\AdminAlumniProfileService;
 use App\Services\Alumni\AlumniDirectoryQueryService;
 use App\Services\Alumni\LinkedinTraceHelper;
@@ -39,7 +40,9 @@ class DaftarAlumniProdiController extends Controller
      */
     public function index(Request $request, AlumniDirectoryQueryService $directoryService): Response
     {
-        $user = Auth::user()->load('prodi');
+        /** @var User $user */
+        $user = Auth::user();
+        $user->load('prodi');
         $prodi = $user->prodi;
         $prodiId = $user->prodi_id;
 
@@ -60,9 +63,11 @@ class DaftarAlumniProdiController extends Controller
     /**
      * Tampilkan Halaman Detail Profil, Kuesioner Universitas & Kuesioner Prodi Alumni
      */
-    public function show(int $id): Response
+    public function show(Request $request, int $id): Response
     {
-        $user = Auth::user()->load('prodi');
+        /** @var User $user */
+        $user = Auth::user();
+        $user->load('prodi');
         $prodi = $user->prodi;
         $prodiId = $user->prodi_id;
 
@@ -70,7 +75,9 @@ class DaftarAlumniProdiController extends Controller
             abort(403, 'Akun Anda belum dikaitkan dengan Program Studi.');
         }
 
-        $alumni = Biodata::with([
+        $isReadOnly = $request->routeIs('prodi.analytics.alumni.show');
+
+        $alumniQuery = Biodata::with([
             'dataAkademik.yudisium',
             'yudisium',
             'perusahaan.propinsi',
@@ -79,11 +86,17 @@ class DaftarAlumniProdiController extends Controller
             'user',
             'prodi',
             'latestLinkedinSyncResult.reviewer',
-        ])
-            ->where('prodi_id', $prodiId)
-            ->findOrFail($id);
+        ]);
 
-        KuesionerSyncService::syncProfileResponses($alumni);
+        if (! $isReadOnly) {
+            $alumniQuery->where('prodi_id', $prodiId);
+        }
+
+        $alumni = $alumniQuery->findOrFail($id);
+
+        if (! $isReadOnly) {
+            KuesionerSyncService::syncProfileResponses($alumni);
+        }
 
         $evaluasi = KelengkapanTracerService::evaluasiKelengkapanTotal($alumni);
 
@@ -142,6 +155,7 @@ class DaftarAlumniProdiController extends Controller
             'linkedinSyncResult' => $latestSync,
             'linkedinTraceMapping' => $linkedinTraceMapping,
             'linkedinHistory' => $linkedinHistory,
+            'readonly' => $isReadOnly,
         ]);
     }
 
@@ -177,10 +191,16 @@ class DaftarAlumniProdiController extends Controller
     /**
      * Kirim Email Pengingat Kuesioner ke Satu Alumni Tertentu (Flash Notifikasi)
      */
-    public function sendReminderEmail(Request $request, $id): RedirectResponse
+    public function sendReminderEmail(Request $request, int|string $id): RedirectResponse
     {
         $user = Auth::user();
-        $alumni = Biodata::where('prodi_id', $user->prodi_id)
+        $prodiId = $user->prodi_id;
+
+        if (! $prodiId) {
+            abort(403, 'Akun Anda belum dikaitkan dengan Program Studi.');
+        }
+
+        $alumni = Biodata::where('prodi_id', $prodiId)
             ->with(['user', 'dataAkademik'])
             ->findOrFail($id);
 

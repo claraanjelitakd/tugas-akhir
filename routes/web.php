@@ -7,9 +7,7 @@ use App\Http\Controllers\AdminFakultas\KelolaAlumni\DaftarAlumniFakultasControll
 use App\Http\Controllers\AdminFakultas\KelolaAlumni\DetailAlumniFakultasController;
 use App\Http\Controllers\AdminFakultas\VerifikasiPerusahaan\VerifikasiPerusahaanFakultasController;
 use App\Http\Controllers\AdminProdi\KelolaAlumni\DaftarAlumniProdiController;
-use App\Http\Controllers\AdminProdi\KelolaPertanyaan\KelolaOpsiProdiController;
 use App\Http\Controllers\AdminProdi\KelolaPertanyaan\KelolaSectionProdiController;
-use App\Http\Controllers\AdminProdi\KelolaPertanyaan\SimpanPertanyaanProdiController;
 use App\Http\Controllers\AdminProdi\VerifikasiPerusahaan\VerifikasiPerusahaanProdiController;
 use App\Http\Controllers\Alumni\Dashboard\DashboardController;
 use App\Http\Controllers\Alumni\Kuesioner\KuesionerController;
@@ -21,6 +19,7 @@ use App\Http\Controllers\EvaluasiAtasanController;
 use App\Http\Controllers\Otentikasi\LoginController;
 use App\Http\Controllers\Otentikasi\LupaKataSandiController;
 use App\Http\Controllers\Otentikasi\UbahKataSandiController;
+use App\Http\Controllers\Shared\Kuesioner\KelolaKuesionerProdiController;
 use App\Http\Controllers\Shared\LinkedInSyncController;
 use App\Http\Controllers\SuperAdmin\Analytics\AtasanAnalyticsController;
 use App\Http\Controllers\SuperAdmin\Analytics\ProdiAnalyticsController;
@@ -29,7 +28,6 @@ use App\Http\Controllers\SuperAdmin\KelolaAlumni\DaftarAlumniSuperAdminControlle
 use App\Http\Controllers\SuperAdmin\KelolaAlumni\DetailAlumniSuperAdminController;
 use App\Http\Controllers\SuperAdmin\KelolaEvaluasiAtasanController;
 use App\Http\Controllers\SuperAdmin\KelolaPertanyaan\DaftarPertanyaanController;
-use App\Http\Controllers\SuperAdmin\KelolaPertanyaan\KelolaKuesionerProdiSuperAdminController;
 use App\Http\Controllers\SuperAdmin\KelolaPertanyaan\KelolaOpsiController;
 use App\Http\Controllers\SuperAdmin\KelolaPertanyaan\SimpanPertanyaanController;
 use App\Http\Controllers\SuperAdmin\KelolaSection\KelolaKuesionerController;
@@ -138,21 +136,12 @@ Route::middleware('auth')->group(function () {
             Route::get('/biro3/analitik', [TracerAnalyticsController::class, 'index'])->name('biro3.analytics.index');
             Route::get('/biro3/analitik/data', [TracerAnalyticsController::class, 'data'])->name('biro3.analytics.data');
             Route::get('/biro3/analitik/export-response-rate', [TracerAnalyticsController::class, 'exportResponseRate'])->name('biro3.analytics.export_response_rate');
+            Route::get('/biro3/analitik/alumni/{id}', [DetailAlumniController::class, 'tampilkanDetailAlumni'])->name('biro3.analytics.alumni.show');
             Route::get('/biro3/analitik-prodi', [ProdiAnalyticsController::class, 'index'])->name('biro3.analytics-prodi.index');
             Route::get('/biro3/analitik-prodi/data', [ProdiAnalyticsController::class, 'data'])->name('biro3.analytics-prodi.data');
             Route::get('/biro3/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('biro3.analytics-atasan.index');
             Route::get('/biro3/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('biro3.analytics-atasan.data');
 
-            // Sinkronisasi Profil LinkedIn Biro 3
-            Route::get('/biro3/linkedin-sync', [LinkedInSyncController::class, 'index'])->name('biro3.linkedin-sync.index');
-            Route::post('/biro3/linkedin-sync/batch', [LinkedInSyncController::class, 'syncBatch'])->name('biro3.linkedin-sync.batch');
-            Route::patch('/biro3/linkedin-sync/{id}/url', [LinkedInSyncController::class, 'updateUrl'])->name('biro3.linkedin-sync.url.update');
-            Route::post('/biro3/linkedin-sync/{id}', [LinkedInSyncController::class, 'syncSingle'])->name('biro3.linkedin-sync.single');
-            Route::get('/biro3/linkedin-sync/results/{id}', [LinkedInSyncController::class, 'showResult'])->name('biro3.linkedin-sync.result.show');
-            Route::post('/biro3/linkedin-sync/results/{id}/approve', [LinkedInSyncController::class, 'approveResult'])->name('biro3.linkedin-sync.result.approve');
-            Route::post('/biro3/linkedin-sync/results/{id}/plot-again', [LinkedInSyncController::class, 'plotAgain'])->name('biro3.linkedin-sync.result.plot-again');
-            Route::post('/biro3/linkedin-sync/results/{id}/reject', [LinkedInSyncController::class, 'rejectResult'])->name('biro3.linkedin-sync.result.reject');
-            Route::get('/biro3/linkedin-sync/alumni/{id}/history', [LinkedInSyncController::class, 'history'])->name('biro3.linkedin-sync.alumni.history');
         });
 
         // -----------------------------------------------------------------
@@ -160,21 +149,21 @@ Route::middleware('auth')->group(function () {
         // -----------------------------------------------------------------
         Route::middleware('role:admin_prodi')->group(function () {
             // Pengaturan Kuesioner Prodi dalam lingkup Prodi yang sedang login
-            Route::get('/prodi/kuesioner', [KelolaKuesionerProdiSuperAdminController::class, 'index'])->name('prodi.kuesioner.index');
-            Route::post('/prodi/kuesioner/sections', [KelolaKuesionerProdiSuperAdminController::class, 'storeSection'])->name('prodi.kuesioner.sections.store');
-            Route::put('/prodi/kuesioner/sections/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateSection'])->name('prodi.kuesioner.sections.update');
-            Route::delete('/prodi/kuesioner/sections/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroySection'])->name('prodi.kuesioner.sections.destroy');
-            Route::post('/prodi/kuesioner/sections/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderSection'])->name('prodi.kuesioner.sections.reorder');
-            Route::post('/prodi/kuesioner/pertanyaan', [KelolaKuesionerProdiSuperAdminController::class, 'storeQuestion'])->name('prodi.kuesioner.pertanyaan.store');
-            Route::put('/prodi/kuesioner/pertanyaan/{questionId}', [KelolaKuesionerProdiSuperAdminController::class, 'updateQuestion'])->name('prodi.kuesioner.pertanyaan.update');
-            Route::delete('/prodi/kuesioner/pertanyaan/{placementId}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyQuestion'])->name('prodi.kuesioner.pertanyaan.destroy');
-            Route::post('/prodi/kuesioner/pertanyaan/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderQuestion'])->name('prodi.kuesioner.pertanyaan.reorder');
-            Route::post('/prodi/kuesioner/pertanyaan/{questionId}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'toggleActive'])->name('prodi.kuesioner.pertanyaan.toggle-active');
-            Route::post('/prodi/kuesioner/penempatan/{placementId}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'togglePlacementActive'])->name('prodi.kuesioner.penempatan.toggle-active');
-            Route::post('/prodi/kuesioner/opsi', [KelolaKuesionerProdiSuperAdminController::class, 'storeOption'])->name('prodi.kuesioner.opsi.store');
-            Route::put('/prodi/kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateOption'])->name('prodi.kuesioner.opsi.update');
-            Route::delete('/prodi/kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyOption'])->name('prodi.kuesioner.opsi.destroy');
-            Route::post('/prodi/kuesioner/bank/attach', [KelolaKuesionerProdiSuperAdminController::class, 'attachFromBank'])->name('prodi.kuesioner.bank.attach');
+            Route::get('/prodi/kuesioner', [KelolaKuesionerProdiController::class, 'index'])->name('prodi.kuesioner.index');
+            Route::post('/prodi/kuesioner/sections', [KelolaKuesionerProdiController::class, 'storeSection'])->name('prodi.kuesioner.sections.store');
+            Route::put('/prodi/kuesioner/sections/{id}', [KelolaKuesionerProdiController::class, 'updateSection'])->name('prodi.kuesioner.sections.update');
+            Route::delete('/prodi/kuesioner/sections/{id}', [KelolaKuesionerProdiController::class, 'destroySection'])->name('prodi.kuesioner.sections.destroy');
+            Route::post('/prodi/kuesioner/sections/reorder', [KelolaKuesionerProdiController::class, 'reorderSection'])->name('prodi.kuesioner.sections.reorder');
+            Route::post('/prodi/kuesioner/pertanyaan', [KelolaKuesionerProdiController::class, 'storeQuestion'])->name('prodi.kuesioner.pertanyaan.store');
+            Route::put('/prodi/kuesioner/pertanyaan/{questionId}', [KelolaKuesionerProdiController::class, 'updateQuestion'])->name('prodi.kuesioner.pertanyaan.update');
+            Route::delete('/prodi/kuesioner/pertanyaan/{placementId}', [KelolaKuesionerProdiController::class, 'destroyQuestion'])->name('prodi.kuesioner.pertanyaan.destroy');
+            Route::post('/prodi/kuesioner/pertanyaan/reorder', [KelolaKuesionerProdiController::class, 'reorderQuestion'])->name('prodi.kuesioner.pertanyaan.reorder');
+            Route::post('/prodi/kuesioner/pertanyaan/{questionId}/toggle-active', [KelolaKuesionerProdiController::class, 'toggleActive'])->name('prodi.kuesioner.pertanyaan.toggle-active');
+            Route::post('/prodi/kuesioner/penempatan/{placementId}/toggle-active', [KelolaKuesionerProdiController::class, 'togglePlacementActive'])->name('prodi.kuesioner.penempatan.toggle-active');
+            Route::post('/prodi/kuesioner/opsi', [KelolaKuesionerProdiController::class, 'storeOption'])->name('prodi.kuesioner.opsi.store');
+            Route::put('/prodi/kuesioner/opsi/{id}', [KelolaKuesionerProdiController::class, 'updateOption'])->name('prodi.kuesioner.opsi.update');
+            Route::delete('/prodi/kuesioner/opsi/{id}', [KelolaKuesionerProdiController::class, 'destroyOption'])->name('prodi.kuesioner.opsi.destroy');
+            Route::post('/prodi/kuesioner/bank/attach', [KelolaKuesionerProdiController::class, 'attachFromBank'])->name('prodi.kuesioner.bank.attach');
 
             // Dashboard Utama Program Studi
             Route::get('/prodi/dashboard', [App\Http\Controllers\AdminProdi\Dashboard\DashboardController::class, 'tampilkanDashboard'])->name('prodi.dashboard');
@@ -193,17 +182,6 @@ Route::middleware('auth')->group(function () {
             Route::put('/prodi/sections/{id}', [KelolaSectionProdiController::class, 'update'])->name('prodi.sections.update');
             Route::delete('/prodi/sections/{id}', [KelolaSectionProdiController::class, 'destroy'])->name('prodi.sections.destroy');
 
-            // Kompatibilitas URL lama: halaman kanonik sekarang menggunakan unified question management.
-            Route::redirect('/prodi/pertanyaan', '/prodi/kuesioner')->name('prodi.pertanyaan.index');
-            Route::post('/prodi/pertanyaan', [SimpanPertanyaanProdiController::class, 'store'])->name('prodi.pertanyaan.store');
-            Route::post('/prodi/pertanyaan/reorder', [SimpanPertanyaanProdiController::class, 'reorder'])->name('prodi.pertanyaan.reorder');
-            Route::put('/prodi/pertanyaan/{id}', [SimpanPertanyaanProdiController::class, 'update'])->name('prodi.pertanyaan.update');
-            Route::delete('/prodi/pertanyaan/{id}', [SimpanPertanyaanProdiController::class, 'destroy'])->name('prodi.pertanyaan.destroy');
-
-            // Kelola Pilihan Opsi Pertanyaan Prodi
-            Route::post('/prodi/opsi', [KelolaOpsiProdiController::class, 'store'])->name('prodi.opsi.store');
-            Route::put('/prodi/opsi/{id}', [KelolaOpsiProdiController::class, 'update'])->name('prodi.opsi.update');
-            Route::delete('/prodi/opsi/{id}', [KelolaOpsiProdiController::class, 'destroy'])->name('prodi.opsi.destroy');
             // Verifikasi & Approval Perusahaan Pengajuan Alumni (Khusus Prodi)
             Route::get('/prodi/perusahaan', [VerifikasiPerusahaanProdiController::class, 'index'])->name('prodi.perusahaan.index');
             Route::post('/prodi/perusahaan/{id}/verify', [VerifikasiPerusahaanProdiController::class, 'verify'])->name('prodi.perusahaan.verify');
@@ -229,6 +207,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/prodi/analitik', [TracerAnalyticsController::class, 'index'])->name('prodi.analytics.index');
             Route::get('/prodi/analitik/data', [TracerAnalyticsController::class, 'data'])->name('prodi.analytics.data');
             Route::get('/prodi/analitik/export-response-rate', [TracerAnalyticsController::class, 'exportResponseRate'])->name('prodi.analytics.export_response_rate');
+            Route::get('/prodi/analitik/alumni/{id}', [DaftarAlumniProdiController::class, 'show'])->name('prodi.analytics.alumni.show');
             Route::get('/prodi/analitik-prodi', [ProdiAnalyticsController::class, 'index'])->name('prodi.analytics-prodi.index');
             Route::get('/prodi/analitik-prodi/data', [ProdiAnalyticsController::class, 'data'])->name('prodi.analytics-prodi.data');
             Route::get('/prodi/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('prodi.analytics-atasan.index');
@@ -240,21 +219,21 @@ Route::middleware('auth')->group(function () {
         // -----------------------------------------------------------------
         Route::middleware('role:admin_fakultas')->group(function () {
             // Pengaturan Kuesioner Prodi untuk seluruh Prodi dalam Fakultas
-            Route::get('/fakultas/prodi-kuesioner', [KelolaKuesionerProdiSuperAdminController::class, 'index'])->name('fakultas.prodi-kuesioner.index');
-            Route::post('/fakultas/prodi-kuesioner/sections', [KelolaKuesionerProdiSuperAdminController::class, 'storeSection'])->name('fakultas.prodi-kuesioner.sections.store');
-            Route::put('/fakultas/prodi-kuesioner/sections/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateSection'])->name('fakultas.prodi-kuesioner.sections.update');
-            Route::delete('/fakultas/prodi-kuesioner/sections/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroySection'])->name('fakultas.prodi-kuesioner.sections.destroy');
-            Route::post('/fakultas/prodi-kuesioner/sections/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderSection'])->name('fakultas.prodi-kuesioner.sections.reorder');
-            Route::post('/fakultas/prodi-kuesioner/pertanyaan', [KelolaKuesionerProdiSuperAdminController::class, 'storeQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.store');
-            Route::put('/fakultas/prodi-kuesioner/pertanyaan/{questionId}', [KelolaKuesionerProdiSuperAdminController::class, 'updateQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.update');
-            Route::delete('/fakultas/prodi-kuesioner/pertanyaan/{placementId}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.destroy');
-            Route::post('/fakultas/prodi-kuesioner/pertanyaan/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.reorder');
-            Route::post('/fakultas/prodi-kuesioner/pertanyaan/{questionId}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'toggleActive'])->name('fakultas.prodi-kuesioner.pertanyaan.toggle-active');
-            Route::post('/fakultas/prodi-kuesioner/penempatan/{placementId}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'togglePlacementActive'])->name('fakultas.prodi-kuesioner.penempatan.toggle-active');
-            Route::post('/fakultas/prodi-kuesioner/opsi', [KelolaKuesionerProdiSuperAdminController::class, 'storeOption'])->name('fakultas.prodi-kuesioner.opsi.store');
-            Route::put('/fakultas/prodi-kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateOption'])->name('fakultas.prodi-kuesioner.opsi.update');
-            Route::delete('/fakultas/prodi-kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyOption'])->name('fakultas.prodi-kuesioner.opsi.destroy');
-            Route::post('/fakultas/prodi-kuesioner/bank/attach', [KelolaKuesionerProdiSuperAdminController::class, 'attachFromBank'])->name('fakultas.prodi-kuesioner.bank.attach');
+            Route::get('/fakultas/prodi-kuesioner', [KelolaKuesionerProdiController::class, 'index'])->name('fakultas.prodi-kuesioner.index');
+            Route::post('/fakultas/prodi-kuesioner/sections', [KelolaKuesionerProdiController::class, 'storeSection'])->name('fakultas.prodi-kuesioner.sections.store');
+            Route::put('/fakultas/prodi-kuesioner/sections/{id}', [KelolaKuesionerProdiController::class, 'updateSection'])->name('fakultas.prodi-kuesioner.sections.update');
+            Route::delete('/fakultas/prodi-kuesioner/sections/{id}', [KelolaKuesionerProdiController::class, 'destroySection'])->name('fakultas.prodi-kuesioner.sections.destroy');
+            Route::post('/fakultas/prodi-kuesioner/sections/reorder', [KelolaKuesionerProdiController::class, 'reorderSection'])->name('fakultas.prodi-kuesioner.sections.reorder');
+            Route::post('/fakultas/prodi-kuesioner/pertanyaan', [KelolaKuesionerProdiController::class, 'storeQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.store');
+            Route::put('/fakultas/prodi-kuesioner/pertanyaan/{questionId}', [KelolaKuesionerProdiController::class, 'updateQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.update');
+            Route::delete('/fakultas/prodi-kuesioner/pertanyaan/{placementId}', [KelolaKuesionerProdiController::class, 'destroyQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.destroy');
+            Route::post('/fakultas/prodi-kuesioner/pertanyaan/reorder', [KelolaKuesionerProdiController::class, 'reorderQuestion'])->name('fakultas.prodi-kuesioner.pertanyaan.reorder');
+            Route::post('/fakultas/prodi-kuesioner/pertanyaan/{questionId}/toggle-active', [KelolaKuesionerProdiController::class, 'toggleActive'])->name('fakultas.prodi-kuesioner.pertanyaan.toggle-active');
+            Route::post('/fakultas/prodi-kuesioner/penempatan/{placementId}/toggle-active', [KelolaKuesionerProdiController::class, 'togglePlacementActive'])->name('fakultas.prodi-kuesioner.penempatan.toggle-active');
+            Route::post('/fakultas/prodi-kuesioner/opsi', [KelolaKuesionerProdiController::class, 'storeOption'])->name('fakultas.prodi-kuesioner.opsi.store');
+            Route::put('/fakultas/prodi-kuesioner/opsi/{id}', [KelolaKuesionerProdiController::class, 'updateOption'])->name('fakultas.prodi-kuesioner.opsi.update');
+            Route::delete('/fakultas/prodi-kuesioner/opsi/{id}', [KelolaKuesionerProdiController::class, 'destroyOption'])->name('fakultas.prodi-kuesioner.opsi.destroy');
+            Route::post('/fakultas/prodi-kuesioner/bank/attach', [KelolaKuesionerProdiController::class, 'attachFromBank'])->name('fakultas.prodi-kuesioner.bank.attach');
 
             // Dashboard Utama Fakultas
             Route::get('/fakultas/dashboard', [DashboardFakultasController::class, 'tampilkanDashboard'])->name('fakultas.dashboard');
@@ -385,23 +364,23 @@ Route::middleware('auth')->group(function () {
             Route::post('/superadmin/manajemen-akun/sync-alumni', [ManajemenAkunController::class, 'syncAlumniAccounts'])->name('superadmin.manajemen-akun.sync-alumni');
 
             // Pengaturan Kuesioner Prodi (Superadmin Scope: Pilih Prodi lalu Kelola Section & Pertanyaan)
-            Route::get('/superadmin/prodi-kuesioner', [KelolaKuesionerProdiSuperAdminController::class, 'index'])->name('superadmin.prodi-kuesioner.index');
-            Route::post('/superadmin/prodi-kuesioner/sections', [KelolaKuesionerProdiSuperAdminController::class, 'storeSection'])->name('superadmin.prodi-kuesioner.sections.store');
-            Route::put('/superadmin/prodi-kuesioner/sections/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateSection'])->name('superadmin.prodi-kuesioner.sections.update');
-            Route::delete('/superadmin/prodi-kuesioner/sections/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroySection'])->name('superadmin.prodi-kuesioner.sections.destroy');
-            Route::post('/superadmin/prodi-kuesioner/sections/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderSection'])->name('superadmin.prodi-kuesioner.sections.reorder');
+            Route::get('/superadmin/prodi-kuesioner', [KelolaKuesionerProdiController::class, 'index'])->name('superadmin.prodi-kuesioner.index');
+            Route::post('/superadmin/prodi-kuesioner/sections', [KelolaKuesionerProdiController::class, 'storeSection'])->name('superadmin.prodi-kuesioner.sections.store');
+            Route::put('/superadmin/prodi-kuesioner/sections/{id}', [KelolaKuesionerProdiController::class, 'updateSection'])->name('superadmin.prodi-kuesioner.sections.update');
+            Route::delete('/superadmin/prodi-kuesioner/sections/{id}', [KelolaKuesionerProdiController::class, 'destroySection'])->name('superadmin.prodi-kuesioner.sections.destroy');
+            Route::post('/superadmin/prodi-kuesioner/sections/reorder', [KelolaKuesionerProdiController::class, 'reorderSection'])->name('superadmin.prodi-kuesioner.sections.reorder');
 
-            Route::post('/superadmin/prodi-kuesioner/pertanyaan', [KelolaKuesionerProdiSuperAdminController::class, 'storeQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.store');
-            Route::put('/superadmin/prodi-kuesioner/pertanyaan/{questionId}', [KelolaKuesionerProdiSuperAdminController::class, 'updateQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.update');
-            Route::delete('/superadmin/prodi-kuesioner/pertanyaan/{placementId}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.destroy');
-            Route::post('/superadmin/prodi-kuesioner/pertanyaan/reorder', [KelolaKuesionerProdiSuperAdminController::class, 'reorderQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.reorder');
-            Route::post('/superadmin/prodi-kuesioner/pertanyaan/{questionId}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'toggleActive'])->name('superadmin.prodi-kuesioner.pertanyaan.toggle-active');
-            Route::post('/superadmin/prodi-kuesioner/penempatan/{placementId}/toggle-active', [KelolaKuesionerProdiSuperAdminController::class, 'togglePlacementActive'])->name('superadmin.prodi-kuesioner.penempatan.toggle-active');
+            Route::post('/superadmin/prodi-kuesioner/pertanyaan', [KelolaKuesionerProdiController::class, 'storeQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.store');
+            Route::put('/superadmin/prodi-kuesioner/pertanyaan/{questionId}', [KelolaKuesionerProdiController::class, 'updateQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.update');
+            Route::delete('/superadmin/prodi-kuesioner/pertanyaan/{placementId}', [KelolaKuesionerProdiController::class, 'destroyQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.destroy');
+            Route::post('/superadmin/prodi-kuesioner/pertanyaan/reorder', [KelolaKuesionerProdiController::class, 'reorderQuestion'])->name('superadmin.prodi-kuesioner.pertanyaan.reorder');
+            Route::post('/superadmin/prodi-kuesioner/pertanyaan/{questionId}/toggle-active', [KelolaKuesionerProdiController::class, 'toggleActive'])->name('superadmin.prodi-kuesioner.pertanyaan.toggle-active');
+            Route::post('/superadmin/prodi-kuesioner/penempatan/{placementId}/toggle-active', [KelolaKuesionerProdiController::class, 'togglePlacementActive'])->name('superadmin.prodi-kuesioner.penempatan.toggle-active');
 
-            Route::post('/superadmin/prodi-kuesioner/opsi', [KelolaKuesionerProdiSuperAdminController::class, 'storeOption'])->name('superadmin.prodi-kuesioner.opsi.store');
-            Route::put('/superadmin/prodi-kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'updateOption'])->name('superadmin.prodi-kuesioner.opsi.update');
-            Route::delete('/superadmin/prodi-kuesioner/opsi/{id}', [KelolaKuesionerProdiSuperAdminController::class, 'destroyOption'])->name('superadmin.prodi-kuesioner.opsi.destroy');
-            Route::post('/superadmin/prodi-kuesioner/bank/attach', [KelolaKuesionerProdiSuperAdminController::class, 'attachFromBank'])->name('superadmin.prodi-kuesioner.bank.attach');
+            Route::post('/superadmin/prodi-kuesioner/opsi', [KelolaKuesionerProdiController::class, 'storeOption'])->name('superadmin.prodi-kuesioner.opsi.store');
+            Route::put('/superadmin/prodi-kuesioner/opsi/{id}', [KelolaKuesionerProdiController::class, 'updateOption'])->name('superadmin.prodi-kuesioner.opsi.update');
+            Route::delete('/superadmin/prodi-kuesioner/opsi/{id}', [KelolaKuesionerProdiController::class, 'destroyOption'])->name('superadmin.prodi-kuesioner.opsi.destroy');
+            Route::post('/superadmin/prodi-kuesioner/bank/attach', [KelolaKuesionerProdiController::class, 'attachFromBank'])->name('superadmin.prodi-kuesioner.bank.attach');
 
             // Pengaturan Kuesioner Evaluasi Atasan (SuperAdmin)
             Route::get('/superadmin/evaluasi-atasan', [KelolaEvaluasiAtasanController::class, 'index'])->name('superadmin.evaluasi-atasan.index');

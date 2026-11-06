@@ -91,7 +91,7 @@ const createSections = (role) => {
                     prodiQuestionnaireHref,
                     'Kuesioner Per Prodi',
                     'book',
-                    role === 'admin_prodi' ? ['/prodi/kuesioner', '/prodi/sections', '/prodi/section', '/prodi/pertanyaan'] : [],
+                    role === 'admin_prodi' ? ['/prodi/kuesioner', '/prodi/sections', '/prodi/section'] : [],
                 )] : []),
                 ...(capabilities.supervisorEvaluation ? [createMenuItem('evaluasi-atasan', '/superadmin/evaluasi-atasan', 'Kuesioner Evaluasi Atasan', 'checklist')] : []),
             ],

@@ -152,7 +152,7 @@ class UnifiedKuesionerManagementTest extends TestCase
                 'type' => 'text',
                 'is_required' => true,
                 'is_reusable' => true,
-                'prodi_question_section_id' => $this->sectionProdiA->id,
+                'section_id' => $this->sectionProdiA->id,
                 'order' => 1,
             ])
             ->assertRedirect();
@@ -172,7 +172,7 @@ class UnifiedKuesionerManagementTest extends TestCase
         $response = $this->actingAs($this->superadmin)
             ->post(route('superadmin.prodi-kuesioner.pertanyaan.store'), [
                 'prodi_id' => $this->prodiA->id,
-                'prodi_question_section_id' => $this->sectionProdiA->id,
+                'section_id' => $this->sectionProdiA->id,
                 'target_section_ids' => [$this->sectionProdiB->id], // Multi-placement di Prodi B
                 'code' => 'KOMP_CLOUD',
                 'question_text' => 'Tingkat penguasaan teknologi Cloud Computing:',

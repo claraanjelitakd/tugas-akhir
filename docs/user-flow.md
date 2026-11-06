@@ -122,7 +122,7 @@ flowchart TD
     F1 --> F2[Tambah, Edit, Hapus & Atur Urutan Section: /reorder]
     F --> F3[Kelola Kuesioner Prodi: /prodi/kuesioner]
     F3 --> F4[Tambah, Ambil, Atur Status Tampil, Hapus Penggunaan & Reorder Butir]
-    F --> F5[Kelola Pilihan Opsi Jawaban: /prodi/opsi]
+    F --> F5[Kelola Pilihan Opsi Jawaban melalui /prodi/kuesioner]
     F5 --> F6[Tambah, Edit, Hapus Opsi Jawaban Radio / Checkbox]
 
     C --> G[4. Verifikasi Pengajuan Perusahaan: /prodi/perusahaan]
@@ -157,11 +157,12 @@ flowchart TD
    - Melihat rincian profil biodata dan seluruh riwayat jawaban tracer study alumni (`/prodi/alumni/{id}`).
    - Memperbarui data profil alumni jika terdapat koreksi informasi.
    - Mengunduh rekap data alumni prodi ke format Excel (`/prodi/alumni/{id}/export-excel`).
+   - Mengirim email pengingat per alumni (`POST /prodi/alumni/{id}/send-email`) hanya jika akun Admin Prodi memiliki `prodi_id` dan alumni berada pada Prodi yang sama.
 3. **Instrumen Kuesioner Khusus Prodi**:
    - **Section Kuesioner Prodi (`/prodi/sections`)**: Menambah, mengedit, menghapus, dan mengatur urutan tampilan bagian soal (*reorder*).
    - **Kuesioner Prodi (`/prodi/kuesioner`)**: Menambah pertanyaan, mengambil pertanyaan reusable dari Bank Pertanyaan, mengatur status tampil pada section lokal, menghapus penggunaan lokal, dan mengatur urutan butir. Pertanyaan pinjaman tidak dapat diedit oleh Prodi pengguna, tetapi tetap dapat diedit oleh Superadmin.
    - **Pembedaan ID**: `pertanyaan_id` adalah ID master pada bank soal. `placement_id` adalah nilai kolom `id` pada `kuesioner_section_pertanyaan`, yaitu ID penggunaan pertanyaan pada satu section. Edit master memakai `pertanyaan_id`, sedangkan toggle, hapus penggunaan, dan reorder memakai `placement_id`.
-   - **Opsi Jawaban Prodi (`/prodi/opsi`)**: Mengelola, menyunting teks, menambah, atau menghapus pilihan opsi respon untuk tipe pertanyaan yang mendukung opsi.
+   - **Opsi Jawaban Prodi (`/prodi/kuesioner/opsi`)**: Mengelola, menyunting teks, menambah, atau menghapus pilihan opsi respon untuk tipe pertanyaan yang mendukung opsi melalui controller unified.
 4. **Verifikasi Perusahaan (`/prodi/perusahaan`)**:
    - Memeriksa nama instansi/perusahaan baru yang dimasukkan alumni prodi saat memperbarui profil pekerjaan.
    - Aksi: Setujui perusahaan baru (`verify`), tolak (`reject`), edit lalu verifikasi (`update`), atau ganti/hubungkan ke data perusahaan master yang sudah terverifikasi sebelumnya (`replace`).
@@ -224,6 +225,7 @@ flowchart TD
    - Meninjau data detail profil dan lembar jawaban tracer study alumni (`/fakultas/alumni/{id}`).
    - Melakukan koreksi/perubahan profil alumni bila diperlukan.
    - Mengekspor data profil dan isian kuesioner alumni ke format Excel (`/export-excel`).
+   - Mengirim email pengingat per alumni (`POST /fakultas/alumni/{id}/send-email`) hanya jika akun Admin Fakultas memiliki `fakultas_id` dan alumni berada pada salah satu Prodi dalam Fakultas tersebut.
 3. **Analitik Alumni Lintas Fakultas (`/fakultas/analitik`)**:
    - Memfilter dan membaca ringkasan alumni berdasarkan indikator seperti perusahaan, wilayah, dan bidang keahlian.
    - Membuka detail alumni dari baris/grafik melalui `/fakultas/analitik/alumni/{id}`.

@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\DB;
  * Fungsi:
  * Mengaudit status kelengkapan data seorang alumni secara komprehensif, mencakup:
  * 1. Kelengkapan Profil (Data Pribadi, Data Akademik, Data Perusahaan, Data Atasan, dan Posisi Jabatan).
- * 2. Kelengkapan Kuesioner Wajib (Ditentukan secara dinamis berdasarkan kolom `wajib = 1` di tabel `ref_subpertanyaan2021`).
+ * 2. Kelengkapan Kuesioner Wajib (Ditentukan secara dinamis berdasarkan kolom
+ *    `wajib = 1` pada penempatan `kuesioner_section_pertanyaan`).
  *
  * Pertanyaan dengan `wajib = 0` bersifat OPSIONAL dan tidak membatalkan kelengkapan status alumni.
  */

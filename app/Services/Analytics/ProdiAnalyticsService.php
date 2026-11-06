@@ -216,7 +216,7 @@ class ProdiAnalyticsService
             ->select([
                 'kuesioner_jawaban.id as response_id',
                 'kuesioner_jawaban.biodata_id',
-                'kuesioner_jawaban.pertanyaan_id as prodi_question_id',
+                'kuesioner_jawaban.pertanyaan_id as question_id',
                 'kuesioner_jawaban.jawaban_teks as answer_text',
                 'kuesioner_jawaban.jawaban_json as answer_json',
                 'kuesioner_jawaban.created_at as answered_at',
@@ -283,7 +283,7 @@ class ProdiAnalyticsService
         $records = [];
 
         foreach ($questions as $question) {
-            $questionResponses = $responses->where('prodi_question_id', $question->id)->values();
+            $questionResponses = $responses->where('question_id', $question->id)->values();
 
             // ALUR 3: `type` pertanyaan menentukan cara menghitung datanya.
             // rating_5 menjadi skor Likert, text menjadi kartu jawaban terbuka,
@@ -336,7 +336,7 @@ class ProdiAnalyticsService
             'denominator' => $chartType === 'likert'
                 ? 'n jawaban valid = jumlah alumni yang memberi skor 1–5 pada setiap butir. Skor yang ditampilkan dibulatkan ke bilangan bulat pada skala 1–5.'
                 : 'N jawaban valid = jumlah alumni yang memberi jawaban valid pada pertanyaan aktif. Pada pilihan ganda, satu alumni dapat menambah frekuensi lebih dari satu pilihan.',
-            'source' => 'Tabel: prodi_response, prodi_question, prodi_question_option, prodi_question_section, biodata, data_akademik, users, prodi.',
+            'source' => 'Tabel: kuesioner_jawaban, kuesioner_pertanyaan, kuesioner_opsi, kuesioner_section, biodata, data_akademik, users, prodi.',
             'tables' => [
                 ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, pertanyaan_id, jawaban_teks, jawaban_json, created_at', 'role' => 'Jawaban kuesioner prodi per alumni'],
                 ['table' => 'kuesioner_pertanyaan', 'columns' => 'id, pemilik_prodi_id, kode_pertanyaan, teks_pertanyaan, tipe_pertanyaan, urutan', 'role' => 'Definisi butir dan tipe perhitungan'],

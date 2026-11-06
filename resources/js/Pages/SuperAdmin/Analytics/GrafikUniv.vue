@@ -20,6 +20,18 @@ const props = defineProps({
     },
 });
 
+// Menentukan apakah kanal kontak boleh dipakai berdasarkan lingkup admin aktif.
+const canContactRecord = (record) => {
+    const role = props.user?.role;
+
+    if (role === 'superadmin' || role === 'admin_fakultas') {
+        return true;
+    }
+
+    return role === 'admin_prodi'
+        && String(props.user?.prodi_id || '') === String(record?.prodi_id || '');
+};
+
 // Menyimpan data analytics aktif di memori Vue, otomatis diperbarui saat user mengubah filter tanpa reload halaman.
 const currentAnalytics = ref(props.analytics);
 
@@ -550,7 +562,7 @@ const tableColumns = computed(() => {
     if (chart.value.type === 'salary') return ['Nama', 'NIM', 'Program studi', 'Perusahaan', 'Provinsi', 'Gaji', 'Ambang 1,2 × UMP', 'Status'];
     if (chart.value.type === 'wait_time') return ['Nama', 'NIM', 'Program studi', 'Perusahaan', 'Bulan', 'Perbandingan'];
     if (chart.value.type === 'location') return ['Nama', 'NIM', 'Program studi', 'Perusahaan', 'Provinsi kerja'];
-    if (chart.value.type === 'response_rate') return ['NIM', 'Nama Mahasiswa / Alumni', 'Program Studi', 'Tahun Lulus', 'Status Kuesioner', 'Waktu Respons'];
+    if (chart.value.type === 'response_rate') return ['NIM', 'Nama Mahasiswa / Alumni', 'Program Studi', 'Perusahaan & Lokasi', 'Pekerjaan & Posisi', 'Skills', 'Tahun Lulus', 'Status Kuesioner', 'Waktu Respons'];
     if (chart.value.type === 'application_pipeline') return ['Nama', 'NIM', 'Program studi', 'Tahap', 'Jumlah'];
     if (chart.value.type === 'learning_methods') return ['Nama', 'NIM', 'Program studi', 'Metode', 'Skor'];
     if (chart.value.type === 'competency') return ['Nama', 'NIM', 'Program studi', 'Kompetensi', 'Saat lulus', 'Dibutuhkan', 'Gap'];
@@ -563,7 +575,17 @@ const tableCells = (record) => {
     if (chart.value.type === 'salary') return [record.nama, record.nim, record.nama_prodi, record.nama_perusahaan, record.province_name, formatCurrency(record.salary), formatCurrency(record.threshold), record.meets_ump ? 'Memenuhi' : 'Belum memenuhi'];
     if (chart.value.type === 'wait_time') return [record.nama, record.nim, record.nama_prodi, record.nama_perusahaan, `${formatNumber(record.months)} bulan`, record.comparison];
     if (chart.value.type === 'location') return [record.nama, record.nim, record.nama_prodi, record.nama_perusahaan, record.province_name];
-    if (chart.value.type === 'response_rate') return [record.nim, record.nama, record.nama_prodi, record.tahun_lulus || '', record.answered ? 'Sudah Mengisi' : 'Belum Mengisi', record.last_response_at || '-'];
+    if (chart.value.type === 'response_rate') return [
+        record.nim,
+        record.nama,
+        record.nama_prodi,
+        record.tahun_lulus || '',
+        record.answered ? 'Sudah Mengisi' : 'Belum Mengisi',
+        record.last_response_at || '-',
+        [record.nama_perusahaan || '-', record.head_office_lokasi || '-', record.domisili_saat_ini || '-'].join(' '),
+        [record.bidang_pekerjaan || '-', record.divisi || '-', record.posisi_jabatan || '-'].join(' '),
+        record.skills || '-',
+    ];
     if (chart.value.type === 'application_pipeline') return [record.nama, record.nim, record.nama_prodi, record.kode_pertanyaan, formatNumber(record.value)];
     if (chart.value.type === 'learning_methods') return [record.nama, record.nim, record.nama_prodi, record.method, formatNumber(record.score, 2)];
     if (chart.value.type === 'competency') return [record.nama, record.nim, record.nama_prodi, record.competency, formatNumber(record.graduation_score, 2), formatNumber(record.need_score, 2), formatNumber(record.gap, 2)];
@@ -729,6 +751,8 @@ const isValidLinkedInProfileUrl = (value) => {
 const detailUrl = (record) => {
     const detailBaseUrl = analyticsBaseUrl.value === '/fakultas'
         ? '/fakultas/analitik'
+        : ['/prodi', '/biro3'].includes(analyticsBaseUrl.value)
+            ? `${analyticsBaseUrl.value}/analitik`
         : analyticsBaseUrl.value;
 
     return `${detailBaseUrl}/alumni/${record.biodata_id || record.user_id}`;
@@ -933,6 +957,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                     <section v-if="activePanel === 'charts'">
                         <AnalyticsChartsPanel
                             :chart="chart"
+                            :user="user"
                             :selected-chart="selectedChart"
                             :selected-year="selectedYear"
                             :selected-label="selectedItem?.label || ''"
@@ -1059,6 +1084,9 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                                         <th class="px-3 py-3 text-center cursor-pointer hover:bg-slate-200" @click="sortTable(5)">
                                             Waktu Respons <span v-if="sortColumn === 5">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
                                         </th>
+                                        <th class="min-w-[240px] px-3 py-3">Perusahaan &amp; Lokasi</th>
+                                        <th class="min-w-[220px] px-3 py-3">Pekerjaan &amp; Posisi</th>
+                                        <th class="min-w-[220px] px-3 py-3">Skills</th>
                                         <th class="px-3 py-3 text-center w-28">Aksi</th>
                                     </tr>
                                 </thead>
@@ -1100,6 +1128,23 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                                         <td class="px-3 py-2.5 text-center text-slate-500 whitespace-nowrap font-mono text-[11px]">
                                             {{ row.record.last_response_at || '-' }}
                                         </td>
+                                        <td class="px-3 py-2.5 align-top text-slate-700">
+                                            <div class="space-y-1 leading-relaxed">
+                                                <p><span class="font-semibold text-slate-500">Perusahaan:</span> {{ row.record.nama_perusahaan || '-' }}</p>
+                                                <p><span class="font-semibold text-slate-500">Head office:</span> {{ row.record.head_office_lokasi || '-' }}</p>
+                                                <p><span class="font-semibold text-slate-500">Lokasi saat ini:</span> {{ row.record.domisili_saat_ini || '-' }}</p>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-2.5 align-top text-slate-700">
+                                            <div class="space-y-1 leading-relaxed">
+                                                <p><span class="font-semibold text-slate-500">Bidang:</span> {{ row.record.bidang_pekerjaan || '-' }}</p>
+                                                <p><span class="font-semibold text-slate-500">Unit:</span> {{ row.record.divisi || '-' }}</p>
+                                                <p><span class="font-semibold text-slate-500">Posisi:</span> {{ row.record.posisi_jabatan || '-' }}</p>
+                                            </div>
+                                        </td>
+                                        <td class="max-w-xs whitespace-normal px-3 py-2.5 align-top leading-relaxed text-slate-700">
+                                            {{ row.record.skills || '-' }}
+                                        </td>
                                         <td class="px-3 py-2.5 text-center whitespace-nowrap">
                                             <div class="inline-flex items-center justify-center gap-1">
                                                 <!-- Detail Profil & Kuesioner -->
@@ -1130,7 +1175,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
 
                                                 <!-- WhatsApp -->
                                                 <a
-                                                    v-if="row.record.nomor_telepon"
+                                                    v-if="canContactRecord(row.record) && row.record.nomor_telepon"
                                                     :href="formatWhatsAppUrl(row.record)"
                                                     target="_blank"
                                                     class="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
@@ -1140,10 +1185,22 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                                                         <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
                                                     </svg>
                                                 </a>
+                                                <button
+                                                    v-else
+                                                    type="button"
+                                                    disabled
+                                                    class="cursor-not-allowed rounded p-1.5 text-slate-300"
+                                                    title="Nomor WhatsApp tidak tersedia"
+                                                    aria-label="Nomor WhatsApp tidak tersedia"
+                                                >
+                                                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
+                                                    </svg>
+                                                </button>
 
                                                 <!-- Email -->
                                                 <a
-                                                    v-if="row.record.email"
+                                                    v-if="canContactRecord(row.record) && row.record.email"
                                                     :href="formatEmailUrl(row.record)"
                                                     class="p-1.5 text-slate-600 hover:text-sky-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                                                     title="Kirim Email Pengingat"
@@ -1152,11 +1209,23 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                                     </svg>
                                                 </a>
+                                                <button
+                                                    v-else
+                                                    type="button"
+                                                    disabled
+                                                    class="cursor-not-allowed rounded p-1.5 text-slate-300"
+                                                    title="Email tidak tersedia"
+                                                    aria-label="Email tidak tersedia"
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                    </svg>
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
                                     <tr v-if="!paginatedRows.length">
-                                        <td colspan="8" class="px-3 py-10 text-center text-slate-500">
+                                        <td colspan="11" class="px-3 py-10 text-center text-slate-500">
                                             Tidak ada data alumni yang cocok dengan pencarian dan filter aktif.
                                         </td>
                                     </tr>

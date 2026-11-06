@@ -131,6 +131,8 @@ const isValidLinkedInProfileUrl = (value) => {
 const detailUrl = (record) => {
     const detailBaseUrl = analyticsBaseUrl.value === '/fakultas'
         ? '/fakultas/analitik'
+        : ['/prodi', '/biro3'].includes(analyticsBaseUrl.value)
+            ? `${analyticsBaseUrl.value}/analitik`
         : analyticsBaseUrl.value;
 
     return `${detailBaseUrl}/alumni/${record.biodata_id}`;

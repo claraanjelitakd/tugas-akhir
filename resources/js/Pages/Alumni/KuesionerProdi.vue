@@ -86,7 +86,7 @@ const groupedSections = computed(() => {
         return props.sections.map((sec, sIdx) => {
             const secQuestions = (sec.questions && sec.questions.length > 0)
                 ? sec.questions
-                : props.questions.filter(q => q.prodi_question_section_id === sec.id);
+                : props.questions.filter(q => q.section_id === sec.id);
             
             // Urutkan pertanyaan berdasarkan order
             const sorted = [...secQuestions].sort((a, b) => (a.order || 0) - (b.order || 0));

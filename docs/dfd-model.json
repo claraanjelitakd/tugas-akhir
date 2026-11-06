@@ -1,5 +1,5 @@
 {
-  "revision": "2026-10-21",
+  "revision": "2026-11-07",
   "basis": "Implementasi lokal; integrasi langsung SIAKAD tidak diasumsikan",
   "entities": {
     "E1": "Alumni",
@@ -34,28 +34,28 @@
       "tables": "perusahaan"
     },
     "D4": {
-      "name": "Instrumen Universitas",
-      "tables": "kuesioner, kelompok_pertanyaan, ref_subpertanyaan2021, ref_subpertanyaan_detil"
+      "name": "Instrumen Kuesioner Terpadu",
+      "tables": "kuesioner, kuesioner_section, kuesioner_pertanyaan, kuesioner_opsi, kuesioner_section_pertanyaan"
     },
     "D5": {
-      "name": "Jawaban Universitas",
-      "tables": "tracer"
+      "name": "Jawaban Kuesioner Alumni",
+      "tables": "kuesioner_jawaban"
     },
     "D6": {
-      "name": "Instrumen Program Studi",
-      "tables": "prodi_question_section, prodi_question, prodi_question_option"
+      "name": "Penempatan Pertanyaan Program Studi",
+      "tables": "kuesioner_section, kuesioner_pertanyaan, kuesioner_opsi, kuesioner_section_pertanyaan"
     },
     "D7": {
       "name": "Jawaban Program Studi",
-      "tables": "prodi_response"
+      "tables": "kuesioner_jawaban"
     },
     "D8": {
-      "name": "Instrumen Evaluasi Atasan",
-      "tables": "pertanyaan_evaluasi_atasan"
+      "name": "Instrumen Evaluasi Pengguna Lulusan",
+      "tables": "kuesioner_section, kuesioner_pertanyaan, kuesioner_opsi, kuesioner_section_pertanyaan"
     },
     "D9": {
-      "name": "Undangan dan Jawaban Evaluasi",
-      "tables": "evaluasi_atasan, respon_evaluasi_atasan"
+      "name": "Undangan dan Konteks Evaluasi",
+      "tables": "evaluasi_atasan, atasan, kuesioner_jawaban"
     },
     "D10": {
       "name": "Hasil dan Peninjauan LinkedIn",

@@ -28,7 +28,7 @@ class SimpanPertanyaanController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'kelompok_pertanyaan_id' => 'required|exists:kuesioner_section,id',
+            'section_id' => 'required|exists:kuesioner_section,id',
             'kode_pertanyaan' => 'required|string|max:50|unique:kuesioner_pertanyaan,kode_pertanyaan',
             'subpertanyaan' => 'required|string',
             'type' => 'required|string|in:radio,single_choice,radio_input,radio_text,multiple_choice,checkbox,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,text,textarea,number,date,time,dropdown,searchable_select,file,header',
@@ -38,7 +38,7 @@ class SimpanPertanyaanController extends Controller
             'order' => 'nullable|integer',
         ]);
 
-        $sectionId = (int) $validated['kelompok_pertanyaan_id'];
+        $sectionId = (int) $validated['section_id'];
 
         if (empty($validated['order'])) {
             $validated['order'] = (int) ((KuesionerSectionPertanyaan::where('section_id', $sectionId)->max('order') ?? 0) + 1);
@@ -84,7 +84,7 @@ class SimpanPertanyaanController extends Controller
         $pertanyaan = KuesionerPertanyaan::findOrFail($id);
 
         $validated = $request->validate([
-            'kelompok_pertanyaan_id' => 'required|exists:kuesioner_section,id',
+            'section_id' => 'required|exists:kuesioner_section,id',
             'kode_pertanyaan' => 'required|string|max:50|unique:kuesioner_pertanyaan,kode_pertanyaan,'.$pertanyaan->id,
             'subpertanyaan' => 'required|string',
             'type' => 'required|string|in:radio,single_choice,radio_input,radio_text,multiple_choice,checkbox,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,text,textarea,number,date,time,dropdown,searchable_select,file,header',
@@ -94,7 +94,7 @@ class SimpanPertanyaanController extends Controller
             'order' => 'nullable|integer',
         ]);
 
-        $sectionId = (int) $validated['kelompok_pertanyaan_id'];
+        $sectionId = (int) $validated['section_id'];
 
         $pertanyaan->update([
             'kode_pertanyaan' => trim($validated['kode_pertanyaan']),

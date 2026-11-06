@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Otentikasi;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -21,8 +22,11 @@ class UbahKataSandiController extends Controller
      */
     public function tampilkanUbahKataSandi()
     {
-        if (Auth::user()->role !== 'alumni' || ! Auth::user()->must_change_password) {
-            return LoginController::arahkanBerdasarkanPeran(Auth::user()->role);
+        /** @var User $pengguna */
+        $pengguna = Auth::user();
+
+        if ($pengguna->role !== 'alumni' || ! $pengguna->must_change_password) {
+            return LoginController::arahkanBerdasarkanPeran($pengguna->role);
         }
 
         return Inertia::render('Otentikasi/UbahKataSandi');

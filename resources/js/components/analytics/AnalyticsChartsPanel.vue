@@ -28,6 +28,7 @@ import WorkLocation from './categories/18_WorkLocation.vue';
 
 // Kontrak properti data indikator aktif dari controller
 const props = defineProps({
+    user: { type: Object, default: null },
     chart: { type: Object, default: () => ({}) },
     selectedChart: { type: String, default: 'response_rate' },
     selectedYear: { type: String, default: '' },
@@ -143,6 +144,7 @@ watch(() => props.selectedChart, () => {
             <component
                 :is="activeComponent"
                 :chart="chart"
+                :user="user"
                 :selected-label="selectedLabel"
                 :selected-year="selectedYear"
                 :heatmap-mode="heatmapMode"

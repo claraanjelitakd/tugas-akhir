@@ -8,6 +8,7 @@ use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\Propinsi;
+use App\Models\User;
 use App\Services\Perusahaan\PerusahaanVerificationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -55,7 +56,9 @@ class VerifikasiPerusahaanFakultasController extends Controller
      */
     public function index(Request $request): Response
     {
-        $user = Auth::user()->load('fakultas');
+        /** @var User $user */
+        $user = Auth::user();
+        $user->load('fakultas');
         $fakultasId = $user->fakultas_id;
 
         $fakultas = $user->fakultas;

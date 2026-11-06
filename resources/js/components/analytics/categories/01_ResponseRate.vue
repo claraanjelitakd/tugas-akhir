@@ -2,14 +2,11 @@
 /**
  * Komponen Indikator 01: Response Rate Universitas dan Program Studi.
  *
- * Mengimplementasikan visualisasi analitik terpadu (Unified Visual + Inline Data Drill-Down):
- * 1. Visualisasi 1: 100% Stacked Horizontal Bar Chart (Sudah Mengisi vs Belum Mengisi)
- *    dengan warna harmonis: Hijau Institusi UKDW (#0D542B) & Neutral Slate (#94A3B8).
- * 2. Visualisasi 2: Ranking Response Rate & Capaian terhadap Target Standar Dinamis
- *    dengan penanda garis target slate berwibawa (#334155).
- * 3. Kartu Kilas Indikator Alami: Narasi ringkas dan manusiawi yang terinspirasi dari
+ * Mengimplementasikan satu visualisasi response rate dengan panjang batang proporsional
+ * terhadap persentase capaian, garis target, jumlah responden, dan inline drill-down.
+ * Kartu Kilas Indikator menyajikan narasi ringkas dan manusiawi yang terinspirasi dari
  *    Daily Summary Apple iOS Weather (bebas dari AI slop).
- * 4. Inline Data Table Drill-Down ("Don't Make Me Think"): Saat segmen grafik diklik,
+ * Inline Data Table Drill-Down ("Don't Make Me Think"): Saat batang grafik diklik,
  *    daftar data responden langsung muncul secara mulus di bawah grafik lengkap
  *    dengan filter status, pencarian, aksi kontak (WhatsApp/Email), dan unduh Excel.
  */
@@ -17,8 +14,6 @@ import { computed, ref, watch } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AnalyticsEChart from '../AnalyticsEChart.vue';
 import {
-    analyticsChartTypeReasons,
-    analyticsChartTypes,
     baseOption,
     escapeHtml,
     formatNumber,
@@ -27,25 +22,36 @@ import {
 
 // Kontrak properti data indikator, filter aktif, dan status pemuatan data.
 const props = defineProps({
+    user: { type: Object, default: null },
     chart: { type: Object, default: () => ({}) },
     selectedYear: { type: String, default: '' },
     selectedLabel: { type: String, default: '' },
     loading: { type: Boolean, default: false },
 });
 
+// Menentukan apakah aksi kontak tersedia untuk alumni pada lingkup admin aktif.
+const canContactRecord = (record) => {
+    const role = props.user?.role;
+
+    if (role === 'superadmin' || role === 'admin_fakultas') {
+        return true;
+    }
+
+    return role === 'admin_prodi'
+        && String(props.user?.prodi_id || '') === String(record?.prodi_id || '');
+};
+
 // Event seleksi data diteruskan ke panel induk untuk cross-filtering.
 const emit = defineEmits(['select', 'reset', 'show-data']);
-
-// Tab visualisasi aktif: 'stacked' (100% Stacked Bar) atau 'ranking' (Target Dinamis).
-const activeChartTab = ref('stacked');
-
-// Label dan alasan grafik aktif mengambil sumber dari kamus tipe pusat.
-const activeChartType = computed(() => activeChartTab.value === 'stacked' ? analyticsChartTypes.stacked_horizontal_100 : analyticsChartTypes.bullet);
-const activeChartReason = computed(() => activeChartTab.value === 'stacked' ? analyticsChartTypeReasons.stacked_horizontal_100 : analyticsChartTypeReasons.bullet);
 
 // State seleksi program studi dan status pengisian.
 const selectedProdiName = ref('');
 const selectedStatus = ref('all'); // 'all', 'sudah', atau 'belum'
+
+// Kontrak grafik tunggal response rate, target, dan jumlah responden.
+const activeChartTab = ref('ranking');
+const activeChartType = 'Batang partisipasi alumni';
+const activeChartReason = 'Panjang batang menunjukkan total alumni; warna menunjukkan alumni yang sudah mengisi, sedangkan abu-abu menunjukkan yang belum mengisi.';
 
 // Pengurutan capaian pada grafik.
 const sortAsc = ref(false);
@@ -131,9 +137,6 @@ const naturalSummary = computed(() => {
     const unans = Number(sum.unanswered ?? Math.max(pop - resp, 0));
     const rate = Number(sum.response_rate || 0);
     const unansRate = pop > 0 ? Number(((unans / pop) * 100).toFixed(1)) : 0;
-    const target = Number(sum.target ?? currentTarget.value);
-    const gap = Number(sum.target_gap ?? Number((rate - target).toFixed(1)));
-    const gapSign = gap >= 0 ? '+' : '';
     const year = activeYear.value;
 
     const list = [...displaySeries.value].sort((a, b) => b.response_rate - a.response_rate);
@@ -165,17 +168,16 @@ const naturalSummary = computed(() => {
         };
     }
 
-    // --- ANALISIS MODE 2: RANKING & TARGET ---
+    // Ringkasan mengikuti program studi yang dipilih atau seluruh universitas.
     if (selectedProdiItem.value) {
         const p = selectedProdiItem.value;
-        const pGapSign = p.target_gap >= 0 ? '+' : '';
         const rankIndex = list.findIndex((item) => item.nama_prodi === p.nama_prodi) + 1;
         return {
             title: `Kilas Ranking · ${p.nama_prodi}`,
             statusBadge: `${formatNumber(p.response_rate, 1)}% Response Rate`,
             badgeClass: 'bg-white text-[#0D542B] border border-[#0D542B]/30',
-            lead: `Program studi ${p.nama_prodi} menempati peringkat ${rankIndex} dari ${totalProdi} program studi dengan response rate ${formatNumber(p.response_rate, 1)}% (${pGapSign}${formatNumber(p.target_gap, 1)}% terhadap target standar ${formatNumber(p.target, 1)}%).`,
-            detail: `Sebanyak ${formatNumber(p.respondents, 0)} alumni telah tercatat sebagai responden valid. Selisih terhadap target standar adalah ${pGapSign}${formatNumber(p.target_gap, 1)}%.`,
+            lead: `Program studi ${p.nama_prodi} menempati peringkat ${rankIndex} dari ${totalProdi} program studi dengan response rate ${formatNumber(p.response_rate, 1)}%.`,
+            detail: `Sebanyak ${formatNumber(p.respondents, 0)} dari ${formatNumber(p.population, 0)} alumni tercatat sebagai responden valid.`,
         };
     }
 
@@ -183,10 +185,10 @@ const naturalSummary = computed(() => {
         title: `Kilas Ranking Response Rate · ${year}`,
         statusBadge: `${formatNumber(rate, 1)}% Response Rate`,
         badgeClass: 'bg-white text-[#0D542B] border border-[#0D542B]/30',
-        lead: `Response rate universitas tercatat ${formatNumber(rate, 1)}% dengan selisih ${gapSign}${formatNumber(gap, 1)}% terhadap target standar ${formatNumber(target, 1)}%.`,
+        lead: `Response rate universitas tercatat ${formatNumber(rate, 1)}% atau ${formatNumber(resp, 0)} dari ${formatNumber(pop, 0)} alumni.`,
         detail: highest && lowest && highest.nama_prodi !== lowest.nama_prodi
-            ? `Peringkat pertama dipimpin oleh ${highest.nama_prodi} (${formatNumber(highest.response_rate, 1)}%), sementara ${lowest.nama_prodi} berada pada peringkat terbawah (${formatNumber(lowest.response_rate, 1)}%). Garis target menunjukkan ambang pembanding universitas.`
-            : 'Garis target menunjukkan ambang pembanding universitas.',
+            ? `Capaian tertinggi berada pada ${highest.nama_prodi} (${formatNumber(highest.response_rate, 1)}%; ${formatNumber(highest.respondents, 0)}/${formatNumber(highest.population, 0)} alumni), sementara ${lowest.nama_prodi} berada pada peringkat terbawah (${formatNumber(lowest.response_rate, 1)}%; ${formatNumber(lowest.respondents, 0)}/${formatNumber(lowest.population, 0)} alumni).`
+            : 'Klik batang untuk melihat rincian alumni pada program studi yang dipilih.',
     };
 });
 
@@ -349,6 +351,7 @@ const rankingChartOption = computed(() => {
                     <div style="font-family: inherit; font-size: 12px; line-height: 1.5;">
                         <div style="font-weight: 700; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 6px; color: #0F172A;">${escapeHtml(prodi)}</div>
                         <div style="display: flex; justify-content: space-between; gap: 16px;"><span>Response Rate:</span><strong>${formatNumber(item.response_rate, 1)}%</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #475569;"><span>Responden (N):</span><strong>${formatNumber(item.respondents, 0)} dari ${formatNumber(item.population, 0)}</strong></div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; color: #7A5B00;"><span>Target Standar:</span><strong>${formatNumber(item.target, 1)}%</strong></div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; font-weight: 700; color: ${item.target_gap >= 0 ? '#0D542B' : '#7A5B00'};">
                             <span>Selisih Target:</span><strong>${gapSign}${formatNumber(item.target_gap, 1)}%</strong>
@@ -374,13 +377,13 @@ const rankingChartOption = computed(() => {
                         return params.name === selectedProdiName.value ? 1 : 0.28;
                     },
                 },
-                label: {
+                    label: {
                     show: true,
                     position: 'right',
                     color: '#1E293B',
                     fontWeight: 600,
                     fontSize: 11,
-                    formatter: ({ value }) => `${formatNumber(value, 1)}%`,
+                        formatter: ({ value, data }) => `${formatNumber(value, 1)}% · N ${formatNumber(data?.respondents, 0)}/${formatNumber(data?.population, 0)}`,
                 },
                 markLine: {
                     symbol: 'none',
@@ -398,10 +401,130 @@ const rankingChartOption = computed(() => {
                     name: item.nama_prodi,
                     value: item.response_rate,
                     prodi_id: item.prodi_id,
+                    respondents: item.respondents,
+                    population: item.population,
                     series_status: 'all',
                     itemStyle: {
                         color: item.response_rate >= currentTarget.value ? responseRatePalette[0] : responseRatePalette[1],
                     },
+                })),
+            },
+        ],
+    };
+});
+
+// Warna partisipasi mengikuti ambang visual tanpa menambahkan marker target.
+const participationColor = (rate) => {
+    if (rate < 50) return '#D95C5C';
+    if (rate < 60) return '#D6A928';
+    return '#2F8F65';
+};
+
+// Grafik tunggal: panjang batang adalah total alumni, warna menunjukkan status pengisian.
+const participationBarOption = computed(() => {
+    const list = [...displaySeries.value].sort((a, b) => {
+        return sortAsc.value ? a.response_rate - b.response_rate : b.response_rate - a.response_rate;
+    });
+    const maxPopulation = Math.max(...list.map((item) => item.population), 1);
+
+    return {
+        ...baseOption(),
+        themePalette: ['#2F8F65', '#CBD5E1'],
+        legend: {
+            data: ['Sudah Mengisi', 'Belum Mengisi'],
+            top: 4,
+            textStyle: { color: '#475569', fontWeight: 600, fontSize: 12 },
+        },
+        grid: { left: 18, right: 108, top: 38, bottom: 48, containLabel: true },
+        xAxis: {
+            type: 'value',
+            min: 0,
+            max: Math.ceil(maxPopulation * 1.1),
+            name: 'Jumlah alumni (orang)',
+            nameLocation: 'middle',
+            nameGap: 30,
+            axisLabel: { color: '#64748B', fontSize: 11 },
+            splitLine: { lineStyle: { color: '#E2E8F0' } },
+        },
+        yAxis: {
+            type: 'category',
+            data: list.map((item) => item.nama_prodi),
+            inverse: true,
+            axisLabel: { color: '#1E293B', fontWeight: 500, width: 170, overflow: 'truncate', fontSize: 12 },
+            axisTick: { show: false },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
+        },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: (params) => {
+                const prodi = params[0]?.name;
+                const item = list.find((entry) => entry.nama_prodi === prodi);
+                if (!item) return '';
+
+                return `
+                    <div style="font-family: inherit; font-size: 12px; line-height: 1.5;">
+                        <div style="font-weight: 700; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 6px; color: #0F172A;">${escapeHtml(prodi)}</div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px;"><span>Partisipasi:</span><strong>${formatNumber(item.response_rate, 1)}%</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #2F8F65;"><span>Sudah mengisi:</span><strong>${formatNumber(item.respondents, 0)} alumni</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #64748B;"><span>Belum mengisi:</span><strong>${formatNumber(item.unanswered, 0)} alumni</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #475569;"><span>N:</span><strong>${formatNumber(item.respondents, 0)}/${formatNumber(item.population, 0)}</strong></div>
+                    </div>
+                `;
+            },
+        },
+        series: [
+            {
+                name: 'Sudah Mengisi',
+                type: 'bar',
+                stack: 'population',
+                barMaxWidth: 28,
+                itemStyle: {
+                    borderRadius: [3, 0, 0, 3],
+                    color: (params) => participationColor(list[params.dataIndex]?.response_rate || 0),
+                    opacity: (params) => !selectedProdiName.value || params.name === selectedProdiName.value ? 1 : 0.28,
+                },
+                label: {
+                    show: true,
+                    position: 'inside',
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    fontSize: 11,
+                    formatter: ({ data }) => data?.response_rate > 0 ? `${formatNumber(data.response_rate, 1)}%` : '',
+                },
+                data: list.map((item) => ({
+                    name: item.nama_prodi,
+                    value: item.respondents,
+                    response_rate: item.response_rate,
+                    prodi_id: item.prodi_id,
+                    series_status: 'sudah',
+                })),
+            },
+            {
+                name: 'Belum Mengisi',
+                type: 'bar',
+                stack: 'population',
+                barMaxWidth: 28,
+                itemStyle: {
+                    color: '#CBD5E1',
+                    borderRadius: [0, 3, 3, 0],
+                    opacity: (params) => !selectedProdiName.value || params.name === selectedProdiName.value ? 1 : 0.28,
+                },
+                label: {
+                    show: true,
+                    position: 'right',
+                    color: '#475569',
+                    fontWeight: 600,
+                    fontSize: 11,
+                    formatter: ({ data }) => `${formatNumber(data?.respondents, 0)}/${formatNumber(data?.population, 0)}`,
+                },
+                data: list.map((item) => ({
+                    name: item.nama_prodi,
+                    value: item.unanswered,
+                    respondents: item.respondents,
+                    population: item.population,
+                    prodi_id: item.prodi_id,
+                    series_status: 'belum',
                 })),
             },
         ],
@@ -521,6 +644,8 @@ const routePrefix = computed(() => {
 const detailUrl = (record) => {
     const detailPrefix = routePrefix.value === 'fakultas'
         ? 'fakultas/analitik'
+        : ['prodi', 'biro3'].includes(routePrefix.value)
+            ? `${routePrefix.value}/analitik`
         : routePrefix.value;
 
     return `/${detailPrefix}/alumni/${record.biodata_id || record.user_id}`;
@@ -542,38 +667,18 @@ const downloadExcel = (statusTarget = null) => {
     <div class="space-y-4">
         <!-- Kartu Container Grafik ECharts Interaktif Terpadu -->
         <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-            <!-- Header Kartu & Segmented Switcher Grafik (Tata Letak Kokoh Tanpa Layout Shift) -->
+            <!-- Header grafik tunggal dengan informasi target yang selalu terlihat -->
             <div class="flex flex-col justify-between gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-center">
                 <div class="min-h-[46px]">
                     <div class="flex items-center gap-2">
                         <span class="rounded bg-white px-2 py-0.5 text-xs font-bold text-[#0D542B] border border-[#0D542B]/25">Indikator 01</span>
                         <h3 class="text-base font-extrabold text-slate-900">
-                            {{ activeChartTab === 'stacked' ? 'Distribusi Komposisi Responden' : 'Ranking Response Rate dan Target' }}
+                            Partisipasi Tracer Study per Program Studi
                         </h3>
                     </div>
                     <p class="mt-1 text-xs text-slate-500">
-                        {{ activeChartTab === 'stacked' ? 'Klik segmen batang untuk langsung membuka data responden di bawah grafik.' : `Garis putus-putus abu-abu gelap menandai ambang target ${formatNumber(currentTarget, 1)}%.` }}
+                        Panjang batang menunjukkan total alumni. Warna menunjukkan yang sudah mengisi, abu-abu menunjukkan yang belum mengisi.
                     </p>
-                </div>
-
-                <!-- Switcher 2 Visualisasi Utama -->
-                <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 shrink-0">
-                    <button
-                        type="button"
-                        class="rounded-md px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeChartTab === 'stacked' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                        @click="activeChartTab = 'stacked'"
-                    >
-                        Komposisi 100%
-                    </button>
-                    <button
-                        type="button"
-                        class="rounded-md px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeChartTab === 'ranking' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                        @click="activeChartTab = 'ranking'"
-                    >
-                        Ranking & Target {{ formatNumber(currentTarget, 1) }}%
-                    </button>
                 </div>
             </div>
 
@@ -602,68 +707,21 @@ const downloadExcel = (statusTarget = null) => {
 
             <!-- Area Render Grafik ECharts Responsif -->
             <div class="mt-4">
-                <!-- Visualisasi 1: 100% Stacked Horizontal Bar -->
-                <div v-show="activeChartTab === 'stacked'" class="space-y-4">
+                <!-- Grafik tunggal response rate dengan target dinamis -->
+                <div class="space-y-4">
                     <AnalyticsEChart
-                        :option="stackedBarOption"
+                        :option="participationBarOption"
                         :height="Math.max(400, displaySeries.length * 36 + 70)"
                         :loading="loading"
-                        aria-label="Grafik 100% Stacked Bar Response Rate"
+                        aria-label="Grafik partisipasi tracer study per program studi"
                         @select="handleChartClick"
                     />
                     <p class="px-1 text-xs leading-relaxed text-slate-500">
                         <span class="font-semibold text-slate-700">Caption:</span>
-                        Distribusi proporsi alumni yang sudah dan belum mengisi kuesioner pada setiap program studi.
+                        Partisipasi alumni per program studi. Label di dalam batang menunjukkan persentase, sedangkan label di ujung batang menunjukkan N responden dari total alumni.
                     </p>
 
-                    <!-- Kotak Analisis Khusus Mode 100% Stacked Bar -->
-                    <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
-                            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">
-                                {{ naturalSummary.title }}
-                            </span>
-                            <div class="flex items-center gap-2">
-                                <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="naturalSummary.badgeClass">
-                                    {{ naturalSummary.statusBadge }}
-                                </span>
-                                <button
-                                    v-if="selectedProdiName"
-                                    type="button"
-                                    class="rounded border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-[#0D542B] hover:bg-emerald-50 cursor-pointer transition-colors"
-                                    @click="resetSelection"
-                                >
-                                    Kembali ke Analisis Keseluruhan
-                                </button>
-                            </div>
-                        </div>
-                        <p class="mt-2.5 text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
-                            {{ naturalSummary.lead }}
-                        </p>
-                        <p class="mt-1 text-xs text-slate-600 leading-relaxed">
-                            {{ naturalSummary.detail }}
-                        </p>
-                        <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
-                            <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ activeChartType }}):</span>
-                            {{ activeChartReason }}
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Visualisasi 2: Ranking Response Rate & Target Dinamis -->
-                <div v-show="activeChartTab === 'ranking'" class="space-y-4">
-                    <AnalyticsEChart
-                        :option="rankingChartOption"
-                        :height="Math.max(400, displaySeries.length * 36 + 70)"
-                        :loading="loading"
-                        :aria-label="`Grafik Ranking Response Rate dan Target ${formatNumber(currentTarget, 1)}%`"
-                        @select="handleChartClick"
-                    />
-                    <p class="px-1 text-xs leading-relaxed text-slate-500">
-                        <span class="font-semibold text-slate-700">Caption:</span>
-                        Ranking response rate per program studi dengan garis target universitas sebagai pembanding.
-                    </p>
-
-                    <!-- Kotak Analisis Khusus Mode Ranking & Target -->
+                    <!-- Kotak ringkasan partisipasi -->
                     <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
                         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
                             <span class="text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -788,6 +846,9 @@ const downloadExcel = (statusTarget = null) => {
                             <th class="px-3 py-2.5">NIM</th>
                             <th class="px-3 py-2.5">Nama Alumni</th>
                             <th v-if="!selectedProdiName" class="px-3 py-2.5">Program Studi</th>
+                            <th class="min-w-[240px] px-3 py-2.5">Perusahaan &amp; Lokasi</th>
+                            <th class="min-w-[220px] px-3 py-2.5">Pekerjaan &amp; Posisi</th>
+                            <th class="min-w-[220px] px-3 py-2.5">Skills</th>
                             <th class="px-3 py-2.5 text-center">Status Kuesioner</th>
                             <th class="px-3 py-2.5 text-center">Waktu Respons</th>
                             <th class="px-3 py-2.5 text-center w-28">Aksi</th>
@@ -810,6 +871,23 @@ const downloadExcel = (statusTarget = null) => {
                             </td>
                             <td v-if="!selectedProdiName" class="px-3 py-2 text-slate-600 whitespace-nowrap">
                                 {{ record.nama_prodi }}
+                            </td>
+                            <td class="px-3 py-2 align-top text-slate-700">
+                                <div class="space-y-1 leading-relaxed">
+                                    <p><span class="font-semibold text-slate-500">Perusahaan:</span> {{ record.nama_perusahaan || '-' }}</p>
+                                    <p><span class="font-semibold text-slate-500">Head office:</span> {{ record.head_office_lokasi || '-' }}</p>
+                                    <p><span class="font-semibold text-slate-500">Lokasi saat ini:</span> {{ record.domisili_saat_ini || '-' }}</p>
+                                </div>
+                            </td>
+                            <td class="px-3 py-2 align-top text-slate-700">
+                                <div class="space-y-1 leading-relaxed">
+                                    <p><span class="font-semibold text-slate-500">Bidang:</span> {{ record.bidang_pekerjaan || '-' }}</p>
+                                    <p><span class="font-semibold text-slate-500">Unit:</span> {{ record.divisi || '-' }}</p>
+                                    <p><span class="font-semibold text-slate-500">Posisi:</span> {{ record.posisi_jabatan || '-' }}</p>
+                                </div>
+                            </td>
+                            <td class="max-w-xs whitespace-normal px-3 py-2 align-top leading-relaxed text-slate-700">
+                                {{ record.skills || '-' }}
                             </td>
                             <td class="px-3 py-2 text-center whitespace-nowrap">
                                 <span
@@ -842,9 +920,9 @@ const downloadExcel = (statusTarget = null) => {
                                         </svg>
                                     </Link>
 
-                                    <!-- WhatsApp Pengingat (Jika ada nomor telepon) -->
+                                    <!-- WhatsApp Pengingat -->
                                     <a
-                                        v-if="record.nomor_telepon"
+                                        v-if="canContactRecord(record) && record.nomor_telepon"
                                         :href="formatWhatsAppUrl(record)"
                                         target="_blank"
                                         class="p-1 text-slate-600 hover:text-emerald-700 hover:bg-slate-100 rounded transition-colors"
@@ -854,10 +932,22 @@ const downloadExcel = (statusTarget = null) => {
                                             <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
                                         </svg>
                                     </a>
+                                    <button
+                                        v-else
+                                        type="button"
+                                        disabled
+                                        class="cursor-not-allowed rounded p-1 text-slate-300"
+                                        title="Nomor WhatsApp tidak tersedia"
+                                        aria-label="Nomor WhatsApp tidak tersedia"
+                                    >
+                                        <svg class="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
+                                        </svg>
+                                    </button>
 
-                                    <!-- Email Pengingat (Jika ada email) -->
+                                    <!-- Email Pengingat -->
                                     <a
-                                        v-if="record.email"
+                                        v-if="canContactRecord(record) && record.email"
                                         :href="formatEmailUrl(record)"
                                         class="p-1 text-slate-600 hover:text-sky-700 hover:bg-slate-100 rounded transition-colors"
                                         title="Kirim Email Pengingat"
@@ -866,11 +956,23 @@ const downloadExcel = (statusTarget = null) => {
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                         </svg>
                                     </a>
+                                    <button
+                                        v-else
+                                        type="button"
+                                        disabled
+                                        class="cursor-not-allowed rounded p-1 text-slate-300"
+                                        title="Email tidak tersedia"
+                                        aria-label="Email tidak tersedia"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
                         <tr v-if="!paginatedInlineRecords.length">
-                            <td :colspan="selectedProdiName ? 6 : 7" class="px-3 py-8 text-center text-slate-500">
+                            <td :colspan="selectedProdiName ? 9 : 10" class="px-3 py-8 text-center text-slate-500">
                                 Tidak ada data alumni yang cocok dengan pencarian atau status terpilih.
                             </td>
                         </tr>

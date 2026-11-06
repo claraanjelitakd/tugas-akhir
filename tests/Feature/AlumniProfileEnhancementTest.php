@@ -227,6 +227,58 @@ class AlumniProfileEnhancementTest extends TestCase
         }
     }
 
+    /**
+     * Memastikan pembaruan parsial admin tidak mengosongkan field profil yang tidak dikirim.
+     */
+    public function test_admin_partial_profile_update_preserves_unsubmitted_profile_data(): void
+    {
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Data Lama',
+            'status_verifikasi' => 'Terverifikasi',
+            'alamat' => 'Alamat Head Office Lama',
+            'kode_pos' => '55281',
+            'homepage' => 'https://data-lama.example.test',
+            'no_telp_fax' => '0274-123456',
+        ]);
+        $atasan = Atasan::create([
+            'perusahaan_id' => $company->id,
+            'nama' => 'Atasan Lama',
+            'email' => 'atasan.lama@example.test',
+            'telepon' => '081234567890',
+        ]);
+
+        $this->biodata->update([
+            'nomor_telepon' => '081200000001',
+            'alamat_saat_ini' => 'Domisili Lama',
+            'kode_pos' => '55111',
+            'skills' => 'Laravel, Vue',
+            'experience' => 'Pengalaman kerja lama',
+            'kategori_pekerjaan' => 'Pekerja',
+            'posisi_jabatan' => 'Staf Lama',
+            'gaji' => 7000000,
+            'perusahaan_id' => $company->id,
+            'atasan_id' => $atasan->id,
+        ]);
+
+        AdminAlumniProfileService::updateProfile($this->biodata, [
+            'posisi_jabatan' => 'Lead Engineer',
+        ]);
+
+        $freshBiodata = $this->biodata->fresh();
+        $this->assertSame('Lead Engineer', $freshBiodata->posisi_jabatan);
+        $this->assertSame('081200000001', $freshBiodata->nomor_telepon);
+        $this->assertSame('Domisili Lama', $freshBiodata->alamat_saat_ini);
+        $this->assertSame('Laravel, Vue', $freshBiodata->skills);
+        $this->assertSame('Pengalaman kerja lama', $freshBiodata->experience);
+        $this->assertSame(7000000, $freshBiodata->gaji);
+        $this->assertSame($company->id, $freshBiodata->perusahaan_id);
+        $this->assertSame($atasan->id, $freshBiodata->atasan_id);
+
+        $this->assertSame('Alamat Head Office Lama', $company->fresh()->alamat);
+        $this->assertSame('atasan.lama@example.test', $atasan->fresh()->email);
+        $this->assertSame('081234567890', $atasan->fresh()->telepon);
+    }
+
     public function test_profile_updates_biodata_without_changing_reference_data(): void
     {
         $academicEmail = DataAkademik::where('nim', $this->biodata->nim)->value('email_pribadi');

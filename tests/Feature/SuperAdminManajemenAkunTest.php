@@ -261,6 +261,10 @@ class SuperAdminManajemenAkunTest extends TestCase
         $response = $this->actingAs($admin)->get(route('fakultas.alumni.index'));
 
         $response->assertForbidden();
+
+        $dashboardResponse = $this->actingAs($admin)->get(route('fakultas.dashboard'));
+
+        $dashboardResponse->assertForbidden();
     }
 
     /**

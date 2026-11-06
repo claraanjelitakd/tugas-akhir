@@ -11,8 +11,8 @@ return new class extends Migration
     /**
      * Membuat satu baris jawaban per alumni dan kode pertanyaan.
      *
-     * Tabel tracer sudah menjamin keunikan pasangan biodata dan kode melalui
-     * unique key sehingga tidak diperlukan agregasi MAX(id) pada setiap baca.
+     * Jawaban tracer diambil dari tabel kanonik `kuesioner_jawaban` dan
+     * dihubungkan ke master pertanyaan melalui `pertanyaan_id`.
      */
     public function up(): void
     {

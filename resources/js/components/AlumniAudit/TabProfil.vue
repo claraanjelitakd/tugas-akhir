@@ -203,7 +203,11 @@ const scrollToBottom = () => {
         <form @submit.prevent="submitForm" @keydown="handleKeyDown" class="space-y-4">
             <!-- 1. Identitas & Alamat Resmi -->
             <!-- Fieldset mengunci seluruh input profil ketika detail dibuka lintas fakultas. -->
-            <fieldset v-show="activeProfileTab === 'pribadi'" :disabled="readonly">
+            <fieldset
+                v-show="activeProfileTab === 'pribadi'"
+                :disabled="readonly"
+                :class="readonly ? 'pointer-events-none opacity-65 grayscale' : ''"
+            >
                 <FormPribadi 
                     :form="form" 
                     :provinces="provinces" 
@@ -213,7 +217,11 @@ const scrollToBottom = () => {
             </fieldset>
 
             <!-- 2. Riwayat Karier & Pekerjaan -->
-            <fieldset v-show="activeProfileTab === 'karier'" :disabled="readonly">
+            <fieldset
+                v-show="activeProfileTab === 'karier'"
+                :disabled="readonly"
+                :class="readonly ? 'pointer-events-none opacity-65 grayscale' : ''"
+            >
                 <FormKarier 
                     :form="form" 
                     :provinces="provinces" 
@@ -223,11 +231,16 @@ const scrollToBottom = () => {
                     :alumniData="alumni" 
                     :refOptions="refOptions" 
                     :evaluasiAtasan="evaluasiAtasan" 
+                    :readonly="readonly"
                 />
             </fieldset>
 
             <!-- 3. Data Akademik & Yudisium -->
-            <fieldset v-show="activeProfileTab === 'akademik'" :disabled="readonly">
+            <fieldset
+                v-show="activeProfileTab === 'akademik'"
+                :disabled="readonly"
+                :class="readonly ? 'pointer-events-none opacity-65 grayscale' : ''"
+            >
                 <FormAkademik :form="form" />
             </fieldset>
 

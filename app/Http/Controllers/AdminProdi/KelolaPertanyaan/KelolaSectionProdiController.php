@@ -5,6 +5,7 @@ namespace App\Http\Controllers\AdminProdi\KelolaPertanyaan;
 use App\Http\Controllers\Controller;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,7 +23,9 @@ class KelolaSectionProdiController extends Controller
      */
     public function index(Request $request): Response
     {
-        $user = Auth::user()->load('prodi');
+        /** @var User $user */
+        $user = Auth::user();
+        $user->load('prodi');
         $prodi = $user->prodi;
         $prodiId = $user->prodi_id;
 

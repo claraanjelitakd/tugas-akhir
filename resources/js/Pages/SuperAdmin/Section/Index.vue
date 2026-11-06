@@ -1053,7 +1053,7 @@ const handleDeleteKuesioner = (k) => {
                                 {{ k.description || 'Tidak ada deskripsi tambahan.' }}
                             </p>
                             <div class="flex items-center gap-3 text-[10px] text-gray-500">
-                                <span>Total Bagian: <strong class="text-gray-700">{{ k.kelompok_pertanyaan_count ?? k.sections_count ?? '-' }} Seksi</strong></span>
+                                <span>Total Bagian: <strong class="text-gray-700">{{ k.sections_count ?? '-' }} Seksi</strong></span>
                                 <span>&bull;</span>
                                 <span>Target Response Rate: <strong class="text-emerald-800">{{ k.target_response_rate ? Number(k.target_response_rate).toFixed(1) : '60.0' }}%</strong></span>
                             </div>

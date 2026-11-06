@@ -25,6 +25,7 @@ defineProps({
     linkedinHistory: Array,
     evaluasiAtasan: Object,
     pertanyaanEvaluasiAtasan: Array,
+    readonly: Boolean,
 });
 </script>
 
@@ -34,5 +35,6 @@ defineProps({
         role="admin_biro3"
         role-title="Biro 3 Kemahasiswaan & Alumni"
         prefix="biro3"
+        :readonly="readonly"
     />
 </template>

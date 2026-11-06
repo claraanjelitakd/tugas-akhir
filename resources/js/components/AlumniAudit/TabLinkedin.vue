@@ -460,7 +460,7 @@ const filteredTraceMapping = computed(() => {
                                     <a 
                                         :href="linkedinSyncResult.linkedin_url" 
                                         target="_blank" 
-                                        class="text-[#0077B5] hover:underline font-mono font-medium truncate block max-w-lg"
+                                        class="block max-w-lg break-all font-mono font-medium text-[#0077B5] hover:underline"
                                     >
                                         {{ linkedinSyncResult.linkedin_url }}
                                     </a>
@@ -683,20 +683,20 @@ const filteredTraceMapping = computed(() => {
                                 <!-- 4. Keahlian / Skills -->
                                 <tr class="divide-x divide-slate-100">
                                     <td class="py-3 px-4 font-semibold text-slate-900 bg-slate-50/50">Keahlian / Skills</td>
-                                    <td class="py-3 px-4 text-slate-600 line-clamp-2" :title="alumni.keahlian || alumni.skills || ''">
+                                    <td class="max-w-[280px] whitespace-pre-wrap break-words py-3 px-4 text-slate-600" :title="alumni.keahlian || alumni.skills || ''">
                                         {{ alumni.keahlian || alumni.skills || '- Belum diisi -' }}
                                     </td>
                                     <td class="py-3 px-4 text-slate-700">
-                                        <span v-if="approveForm.skills" class="line-clamp-2" :title="approveForm.skills">{{ approveForm.skills }}</span>
+                                        <span v-if="approveForm.skills" class="whitespace-pre-wrap break-words" :title="approveForm.skills">{{ approveForm.skills }}</span>
                                         <span v-else class="text-slate-400 italic">-</span>
                                     </td>
                                     <td class="py-3 px-4">
-                                        <input
-                                            type="text"
+                                        <textarea
                                             v-model="approveForm.skills"
+                                            rows="2"
                                             placeholder="contoh: PHP, Laravel, SQL"
-                                            class="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
-                                        />
+                                            class="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs leading-5 focus:border-[#0D542B] focus:bg-white focus:ring-1 focus:ring-[#0D542B]"
+                                        ></textarea>
                                     </td>
                                 </tr>
 

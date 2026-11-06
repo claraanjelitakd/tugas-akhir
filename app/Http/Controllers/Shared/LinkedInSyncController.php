@@ -20,6 +20,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -746,10 +747,29 @@ class LinkedInSyncController extends Controller
     public function showResult(Request $request, int $id): JsonResponse
     {
         $scope = $this->getUserScope($request);
-        $result = LinkedinSyncResult::with(['biodata.dataAkademik', 'biodata.perusahaan', 'reviewer'])
+        $result = LinkedinSyncResult::with([
+            'biodata.dataAkademik',
+            'biodata.prodi.fakultas',
+            'biodata.propinsi',
+            'biodata.kabupaten',
+            'biodata.perusahaan.propinsi',
+            'biodata.perusahaan.kabupaten',
+            'reviewer',
+        ])
             ->findOrFail($id);
 
         $this->validateAlumniScope($result->biodata, $scope);
+
+        $biodata = $result->biodata;
+        $perusahaan = $biodata->perusahaan;
+        $domisili = collect([
+            $biodata->kabupaten?->nama_kabupaten,
+            $biodata->propinsi?->nama_provinsi,
+        ])->filter()->implode(', ');
+        $headOfficeLocation = collect([
+            $perusahaan?->kabupaten?->nama_kabupaten,
+            $perusahaan?->propinsi?->nama_provinsi,
+        ])->filter()->implode(', ');
 
         return response()->json([
             'success' => true,
@@ -766,16 +786,34 @@ class LinkedInSyncController extends Controller
                 'preview' => $result->getPreviewData(),
                 'raw' => $result->scraped_data,
                 'current_data' => [
-                    'posisi_jabatan' => $result->biodata->posisi_jabatan,
-                    'nama_perusahaan' => $result->biodata->perusahaan?->nama_perusahaan,
-                    'bidang_pekerjaan' => $result->biodata->bidang_pekerjaan,
-                    'kategori_pekerjaan' => $result->biodata->kategori_pekerjaan,
-                    'divisi' => $result->biodata->divisi,
-                    'pendidikan_tingkat' => $result->biodata->pendidikan_tingkat,
-                    'perguruan_tinggi' => $result->biodata->perguruan_tinggi,
-                    'pendidikan_prodi' => $result->biodata->pendidikan_prodi,
-                    'skills' => $result->biodata->skills,
-                    'experience' => $result->biodata->experience,
+                    'foto' => $biodata->foto,
+                    'linkedin_url' => $biodata->linkedin_url ?: $result->linkedin_url,
+                    'posisi_jabatan' => $biodata->posisi_jabatan,
+                    'nama_perusahaan' => $perusahaan?->nama_perusahaan,
+                    'bidang_pekerjaan' => $biodata->bidang_pekerjaan,
+                    'kategori_pekerjaan' => $biodata->kategori_pekerjaan,
+                    'divisi' => $biodata->divisi,
+                    'pendidikan_tingkat' => $biodata->pendidikan_tingkat,
+                    'perguruan_tinggi' => $biodata->perguruan_tinggi,
+                    'pendidikan_prodi' => $biodata->pendidikan_prodi,
+                    'skills' => $biodata->skills,
+                    'experience' => $biodata->experience,
+                    'prodi' => $biodata->prodi?->nama_prodi,
+                    'fakultas' => $biodata->prodi?->fakultas?->nama_fakultas,
+                    'domisili' => [
+                        'label' => $domisili ?: null,
+                        'alamat' => $biodata->alamat_saat_ini,
+                        'kode_pos' => $biodata->kode_pos,
+                    ],
+                    'head_office' => [
+                        'nama' => $perusahaan?->nama_perusahaan,
+                        'status_verifikasi' => $perusahaan?->status_verifikasi,
+                        'lokasi' => $headOfficeLocation ?: null,
+                        'alamat' => $perusahaan?->alamat,
+                        'kode_pos' => $perusahaan?->kode_pos,
+                        'no_telp_fax' => $perusahaan?->no_telp_fax,
+                        'homepage' => $perusahaan?->homepage,
+                    ],
                 ],
             ],
         ]);

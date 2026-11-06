@@ -79,7 +79,7 @@ class DaftarPertanyaanController extends Controller
             return [
                 'id' => $p->id,
                 'pertanyaan_id' => $p->id,
-                'kelompok_pertanyaan_id' => $sp->section_id,
+                'section_id' => $sp->section_id,
                 'kode_pertanyaan' => $p->kode_pertanyaan,
                 'subpertanyaan' => $p->teks_pertanyaan,
                 'type' => $p->tipe,
@@ -88,7 +88,7 @@ class DaftarPertanyaanController extends Controller
                 'tampil_di' => $sp->tampil_di ?? 'kuesioner',
                 'keterangan' => $p->keterangan,
                 'is_active' => (bool) $p->is_active,
-                'kelompok_pertanyaan' => $sec ? [
+                'section' => $sec ? [
                     'id' => $sec->id,
                     'title' => $sec->judul,
                     'kode_kelompok' => str_replace('SEC_UNIV_', '', $sec->kode_section),
@@ -117,7 +117,7 @@ class DaftarPertanyaanController extends Controller
             ->get(['id', 'title', 'description', 'year', 'is_active'])
             ->map(function ($k) use ($sections) {
                 $kArr = $k->toArray();
-                $kArr['kelompok_pertanyaan_count'] = $sections->count();
+                $kArr['sections_count'] = $sections->count();
 
                 return $kArr;
             });
@@ -130,8 +130,8 @@ class DaftarPertanyaanController extends Controller
 
         // 6. Susun daftar pilihan target lompatan untuk dropdown dan pemilih bertingkat (grouped by section)
         $availableJumpTargets = $subpertanyaans->map(function ($q) {
-            $sectionTitle = ! empty($q['kelompok_pertanyaan'])
-                ? 'Kelompok '.$q['kelompok_pertanyaan']['order'].': '.$q['kelompok_pertanyaan']['title']
+            $sectionTitle = ! empty($q['section'])
+                ? 'Kelompok '.$q['section']['order'].': '.$q['section']['title']
                 : 'Pertanyaan Lainnya / Tanpa Section';
 
             return [
@@ -139,9 +139,9 @@ class DaftarPertanyaanController extends Controller
                 'kode_pertanyaan' => $q['kode_pertanyaan'],
                 'label' => $q['kode_pertanyaan'].' — '.Str::limit($q['subpertanyaan'], 65),
                 'text' => $q['subpertanyaan'],
-                'kelompok_pertanyaan_id' => $q['kelompok_pertanyaan_id'],
+                'section_id' => $q['section_id'],
                 'section_title' => $sectionTitle,
-                'section_order' => $q['kelompok_pertanyaan']['order'] ?? 999,
+                'section_order' => $q['section']['order'] ?? 999,
             ];
         });
 

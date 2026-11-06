@@ -220,9 +220,9 @@ Fungsi kuesioner program studi memakai satu halaman bersama:
 
 | File tampilan | Role |
 | --- | --- |
-| `resources/js/Pages/SuperAdmin/Pertanyaan/ProdiKuesionerIndex.vue` | Superadmin, Admin Fakultas, dan Admin Prodi |
+| `resources/js/Pages/Shared/Kuesioner/ProdiKuesionerIndex.vue` | Superadmin, Admin Fakultas, dan Admin Prodi |
 
-Controller `app/Http/Controllers/SuperAdmin/KelolaPertanyaan/KelolaKuesionerProdiSuperAdminController.php` menerima konteks role dan memberikan daftar program studi sesuai otorisasi. Route Superadmin, Fakultas, dan Prodi tetap terpisah agar middleware dan batas akses tetap jelas.
+Controller bersama `app/Http/Controllers/Shared/Kuesioner/KelolaKuesionerProdiController.php` menerima konteks role dan memberikan daftar program studi sesuai otorisasi. Route Superadmin, Fakultas, dan Prodi tetap terpisah agar middleware dan batas akses tetap jelas.
 
 ## Kontrak Data dan Response
 

@@ -194,7 +194,7 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
         $responseStore = $this->actingAs($this->superadmin)
             ->post(route('superadmin.prodi-kuesioner.pertanyaan.store'), [
                 'prodi_id' => $this->prodi->id,
-                'prodi_question_section_id' => $section->id,
+                'section_id' => $section->id,
                 'code' => 'PSI_01',
                 'question_text' => 'Seberapa relevan mata kuliah basis data di dunia kerja?',
                 'type' => 'single_choice',

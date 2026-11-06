@@ -12,6 +12,7 @@ use App\Models\Prodi;
 use App\Models\Propinsi;
 use App\Models\RefFakultas;
 use App\Models\RefNegara;
+use App\Models\User;
 use App\Services\Alumni\AdminAlumniProfileService;
 use App\Services\Alumni\LinkedinTraceHelper;
 use App\Services\Export\AlumniTracerExcelExporter;
@@ -44,7 +45,9 @@ class DetailAlumniFakultasController extends Controller
      */
     public function show(Request $request, int $id): Response
     {
-        $user = Auth::user()->load('fakultas');
+        /** @var User $user */
+        $user = Auth::user();
+        $user->load('fakultas');
         $fakultasId = $user->fakultas_id;
         $isReadOnly = $request->routeIs('fakultas.analytics.alumni.show');
 

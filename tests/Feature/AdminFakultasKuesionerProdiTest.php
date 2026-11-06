@@ -56,7 +56,7 @@ class AdminFakultasKuesionerProdiTest extends TestCase
             ->get(route('fakultas.prodi-kuesioner.index'));
 
         $response->assertInertia(fn ($page) => $page
-            ->component('SuperAdmin/Pertanyaan/ProdiKuesionerIndex')
+            ->component('Shared/Kuesioner/ProdiKuesionerIndex')
             ->where('role', 'admin_fakultas')
             ->where('basePath', '/fakultas/prodi-kuesioner')
             ->has('prodis', 2)
@@ -132,10 +132,6 @@ class AdminFakultasKuesionerProdiTest extends TestCase
             ->has('prodis', 1)
             ->where('prodis.0.id', $prodi->id)
         );
-
-        $this->actingAs($admin)
-            ->get(route('prodi.pertanyaan.index'))
-            ->assertRedirect(route('prodi.kuesioner.index'));
 
         $this->actingAs($admin)
             ->delete(route('prodi.kuesioner.sections.destroy', $sectionLain->id))
@@ -242,7 +238,7 @@ class AdminFakultasKuesionerProdiTest extends TestCase
                 'type' => 'text',
                 'is_required' => true,
                 'is_reusable' => true,
-                'prodi_question_section_id' => $sectionPengguna->id,
+                'section_id' => $sectionPengguna->id,
                 'order' => 1,
             ])
             ->assertForbidden();

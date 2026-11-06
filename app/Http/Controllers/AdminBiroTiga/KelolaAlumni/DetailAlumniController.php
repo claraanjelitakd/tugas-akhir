@@ -33,11 +33,12 @@ class DetailAlumniController extends Controller
 {
     /**
      * Tampilkan Detail Profil & Kuesioner Alumni
-     *
-     * @param  int|string  $id
      */
-    public function tampilkanDetailAlumni($id): Response
+    public function tampilkanDetailAlumni(Request $request, int|string $id): Response
     {
+        // Biro 3 memiliki akses observasi dan komunikasi, bukan perubahan data profil.
+        $isReadOnly = true;
+
         $alumni = Biodata::with([
             'dataAkademik.yudisium',
             'yudisium',
@@ -49,7 +50,9 @@ class DetailAlumniController extends Controller
         ])->findOrFail($id);
 
         // Pastikan respon profil tersinkron ke tabel responses
-        KuesionerSyncService::syncProfileResponses($alumni);
+        if (! $isReadOnly) {
+            KuesionerSyncService::syncProfileResponses($alumni);
+        }
 
         // Ambil evaluasi kelengkapan terpadu
         $evaluasi = KelengkapanTracerService::evaluasiKelengkapanTotal($alumni);
@@ -88,6 +91,7 @@ class DetailAlumniController extends Controller
         $pertanyaanEvaluasiAtasan = UnifiedDetailAlumniService::getPertanyaanEvaluasiAtasan();
 
         return Inertia::render('AdminBiroTiga/AlumniShow', [
+            'user' => $request->user(),
             'biodata' => $alumni,
             'alumni' => $alumni,
             'evaluasi' => $evaluasi,
@@ -107,6 +111,7 @@ class DetailAlumniController extends Controller
             'linkedinSyncResult' => $latestSync,
             'linkedinTraceMapping' => $linkedinTraceMapping,
             'linkedinHistory' => $linkedinHistory,
+            'readonly' => $isReadOnly,
         ]);
     }
 

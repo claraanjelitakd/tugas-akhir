@@ -1,6 +1,6 @@
 <!--
-  Halaman: Pengaturan Kuesioner Program Studi (Super Admin)
-  File: resources/js/Pages/SuperAdmin/Pertanyaan/ProdiKuesionerIndex.vue
+  Halaman: Pengaturan Kuesioner Program Studi lintas peran
+  File: resources/js/Pages/Shared/Kuesioner/ProdiKuesionerIndex.vue
 
   Desain Standar Enterprise UKDW:
   - Dipilih Program Studi terlebih dahulu via Selector Bar.
@@ -10,9 +10,9 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
-import SuperAdminSidebar from '../Components/Sidebar.vue';
-import AdminFakultasSidebar from '../../AdminFakultas/Components/Sidebar.vue';
-import AdminProdiSidebar from '../../AdminProdi/Components/Sidebar.vue';
+import SuperAdminSidebar from '@/Pages/SuperAdmin/Components/Sidebar.vue';
+import AdminFakultasSidebar from '@/Pages/AdminFakultas/Components/Sidebar.vue';
+import AdminProdiSidebar from '@/Pages/AdminProdi/Components/Sidebar.vue';
 
 const props = defineProps({
     user: Object,
@@ -43,6 +43,10 @@ const props = defineProps({
     sections: {
         type: Array,
         default: () => [],
+    },
+    selectedSectionId: {
+        type: Number,
+        default: null,
     },
     questions: {
         type: Array,
@@ -110,7 +114,8 @@ const filteredSections = computed(() => {
 // ========================================================
 // QUESTION STATE & FILTERS
 // ========================================================
-const selectedSectionFilter = ref('all');
+// Menyimpan filter section dari navigasi halaman Section agar konteks pertanyaan tetap terbawa.
+const selectedSectionFilter = ref(props.selectedSectionId ? String(props.selectedSectionId) : 'all');
 const selectedRequiredFilter = ref('all');
 const questionSearchQuery = ref('');
 
@@ -181,7 +186,7 @@ const filteredQuestions = computed(() => {
     return props.questions.filter((q) => {
         if (selectedSectionFilter.value !== 'all') {
             const secId = parseInt(selectedSectionFilter.value, 10);
-            if (q.prodi_question_section_id !== secId) return false;
+            if (q.section_id !== secId) return false;
         }
         if (selectedRequiredFilter.value !== 'all') {
             const isReq = selectedRequiredFilter.value === 'wajib';
@@ -505,7 +510,7 @@ const questionForm = ref({
     code: '',
     question_text: '',
     type: 'single_choice',
-    prodi_question_section_id: '',
+    section_id: '',
     target_section_ids: [],
     order: 1,
     is_required: true,
@@ -585,7 +590,7 @@ const openQuestionModal = (questionToEdit = null) => {
             code: questionToEdit.code || '',
             question_text: questionToEdit.question_text || '',
             type: questionToEdit.type || 'single_choice',
-            prodi_question_section_id: questionToEdit.prodi_question_section_id || (props.sections[0]?.id || ''),
+            section_id: questionToEdit.section_id || (props.sections[0]?.id || ''),
             target_section_ids: [],
             order: questionToEdit.order || 1,
             is_required: questionToEdit.is_required !== undefined ? Boolean(questionToEdit.is_required) : true,
@@ -602,7 +607,7 @@ const openQuestionModal = (questionToEdit = null) => {
             code: `P${props.questions.length + 1}`,
             question_text: '',
             type: 'single_choice',
-            prodi_question_section_id: defaultSecId,
+            section_id: defaultSecId,
             target_section_ids: [],
             order: props.questions.length + 1,
             is_required: true,
@@ -638,8 +643,8 @@ const submitQuestionForm = () => {
     if (!questionForm.value.question_text.trim()) {
         errors.question_text = 'Teks pertanyaan wajib diisi.';
     }
-    if (!questionForm.value.prodi_question_section_id) {
-        errors.prodi_question_section_id = 'Pilih bagian kuesioner utama.';
+    if (!questionForm.value.section_id) {
+        errors.section_id = 'Pilih bagian kuesioner utama.';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -654,7 +659,7 @@ const submitQuestionForm = () => {
         code: questionForm.value.code.trim().toUpperCase(),
         question_text: questionForm.value.question_text.trim(),
         type: questionForm.value.type,
-        prodi_question_section_id: parseInt(questionForm.value.prodi_question_section_id, 10),
+        section_id: parseInt(questionForm.value.section_id, 10),
         target_section_ids: questionForm.value.target_section_ids || [],
         order: questionForm.value.order ? parseInt(questionForm.value.order, 10) : null,
         is_required: questionForm.value.is_required,
@@ -758,7 +763,7 @@ const isSubmittingOption = ref(false);
 
 // Data formulir opsi jawaban
 const optionForm = ref({
-    prodi_question_id: null,
+    question_id: null,
     code: '',
     option_text: '',
     jump_to: '',
@@ -783,7 +788,7 @@ const openOptionModal = (question, optionToEdit = null) => {
 
     if (optionToEdit) {
         optionForm.value = {
-            prodi_question_id: question.id,
+            question_id: question.id,
             code: optionToEdit.code || '',
             option_text: optionToEdit.option_text || '',
             jump_to: optionToEdit.jump_to || '',
@@ -792,7 +797,7 @@ const openOptionModal = (question, optionToEdit = null) => {
     } else {
         const nextOrder = (question.options?.length || 0) + 1;
         optionForm.value = {
-            prodi_question_id: question.id,
+            question_id: question.id,
             code: `${question.code}-${String(nextOrder).padStart(2, '0')}`,
             option_text: '',
             jump_to: '',
@@ -833,7 +838,7 @@ const submitOptionForm = () => {
     isSubmittingOption.value = true;
 
     const payload = {
-        prodi_question_id: optionForm.value.prodi_question_id,
+        question_id: optionForm.value.question_id,
         code: optionForm.value.code.trim(),
         option_text: optionForm.value.option_text.trim(),
         jump_to: optionForm.value.jump_to || null,
@@ -1500,7 +1505,7 @@ const handleDeleteOption = (opt) => {
                                 Bagian / Section Utama <span class="text-red-500">*</span>
                             </label>
                             <select
-                                v-model="questionForm.prodi_question_section_id"
+                                v-model="questionForm.section_id"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                             >
                                 <option v-if="props.sections.length === 0" value="">
@@ -1514,8 +1519,8 @@ const handleDeleteOption = (opt) => {
                                     {{ s.title }}
                                 </option>
                             </select>
-                            <p v-if="questionFormErrors.prodi_question_section_id" class="text-red-600 text-xs mt-1">
-                                {{ questionFormErrors.prodi_question_section_id }}
+                            <p v-if="questionFormErrors.section_id" class="text-red-600 text-xs mt-1">
+                                {{ questionFormErrors.section_id }}
                             </p>
                         </div>
                     </div>
@@ -1576,7 +1581,7 @@ const handleDeleteOption = (opt) => {
                         </p>
                         <div class="max-h-28 overflow-y-auto space-y-1.5 pr-1">
                             <label
-                                v-for="sec in props.allSections.filter(s => s.id !== questionForm.prodi_question_section_id)"
+                                v-for="sec in props.allSections.filter(s => s.id !== questionForm.section_id)"
                                 :key="sec.id"
                                 class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer hover:bg-gray-100 p-1 rounded"
                             >

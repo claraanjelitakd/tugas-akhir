@@ -594,6 +594,47 @@ class ApifyLinkedInProviderTest extends TestCase
         $this->assertNotNull($result->reviewed_at);
     }
 
+    /**
+     * Memastikan payload preview membawa foto, URL LinkedIn, head office, dan domisili aktif alumni.
+     */
+    public function test_show_result_returns_complete_review_context(): void
+    {
+        $alumni = $this->createAlumni('71190011', 'Alumni Review Context');
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Review Context',
+            'alamat' => 'Jl. Head Office 1',
+            'kode_pos' => '55281',
+            'homepage' => 'https://review-context.example.com',
+            'status_verifikasi' => 'Terverifikasi',
+        ]);
+        $alumni->update([
+            'foto' => '/uploads/profile/review-context.jpg',
+            'perusahaan_id' => $company->id,
+            'alamat_saat_ini' => 'Jl. Domisili 2',
+            'kode_pos' => '55111',
+        ]);
+
+        $result = LinkedinSyncResult::create([
+            'biodata_id' => $alumni->id,
+            'linkedin_url' => $alumni->linkedin_url,
+            'scraped_data' => $this->sampleApifyResponse($alumni->linkedin_url),
+            'status' => 'pending',
+            'scraped_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->getJson("/superadmin/linkedin-sync/results/{$result->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('result.current_data.foto', '/uploads/profile/review-context.jpg')
+            ->assertJsonPath('result.current_data.linkedin_url', $alumni->linkedin_url)
+            ->assertJsonPath('result.current_data.head_office.nama', 'PT Review Context')
+            ->assertJsonPath('result.current_data.head_office.kode_pos', '55281')
+            ->assertJsonPath('result.current_data.head_office.homepage', 'https://review-context.example.com')
+            ->assertJsonPath('result.current_data.domisili.alamat', 'Jl. Domisili 2')
+            ->assertJsonPath('result.current_data.domisili.kode_pos', '55111');
+    }
+
     // -------------------------------------------------------------------------
     // Test 20: Approve Updates Main Data According To Mapping
     // -------------------------------------------------------------------------

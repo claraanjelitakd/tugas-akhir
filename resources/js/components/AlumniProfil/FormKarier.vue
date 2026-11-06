@@ -33,6 +33,11 @@ const props = defineProps({
         default: () => ({}),
     },
     evaluasiAtasan: Object,
+    /** Mode baca-saja untuk detail alumni di luar lingkup admin. */
+    readonly: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 // Helper pembacaan konfigurasi pertanyaan dinamis dari Super Admin
@@ -70,7 +75,7 @@ const negaraContainerRef = ref(null);
 const companyContainerRef = ref(null);
 
 // ============================================================================
-// 2. OPSI DINAMIS DARI DATABASE (ref_subpertanyaan_detil)
+// 2. OPSI DINAMIS DARI DATABASE (kuesioner_opsi)
 // ============================================================================
 
 // Pilihan Jenis Instansi / Perusahaan (F11)
@@ -424,7 +429,7 @@ const isVerifiedCompany = computed(() => {
 
 // Alumni selalu dapat melengkapi/memperbarui detail perusahaan agar tersinkronisasi dua arah dengan form atasan
 const canEditCompanyDetails = computed(() => {
-    return true;
+    return !props.readonly;
 });
 
 // Mengisi data atasan otomatis dengan kontak alumni jika pemilik usaha
@@ -436,6 +441,8 @@ const autoFillAtasanOwner = () => {
 
 // Pemilihan peran eksklusif Pekerja vs Wiraswasta (Single Choice)
 const selectRole = (newRole) => {
+    if (props.readonly) return;
+
     if (props.form.kategori_pekerjaan === newRole) {
         props.form.kategori_pekerjaan = '';
         props.form.posisi_jabatan = null;

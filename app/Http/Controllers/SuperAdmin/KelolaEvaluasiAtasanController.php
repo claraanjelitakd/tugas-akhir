@@ -53,7 +53,7 @@ class KelolaEvaluasiAtasanController extends Controller
                     'order' => (int) $s->order,
                     'source' => $key === 'instansi'
                         ? 'perusahaan, atasan, evaluasi_atasan'
-                        : ($key === 'karakteristik' ? 'perusahaan, evaluasi_atasan' : 'respon_evaluasi_atasan'),
+                        : ($key === 'karakteristik' ? 'perusahaan, evaluasi_atasan' : 'kuesioner_jawaban'),
                     'pertanyaans_count' => (int) $s->pertanyaan_count,
                 ];
             });

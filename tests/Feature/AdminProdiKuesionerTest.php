@@ -100,9 +100,6 @@ class AdminProdiKuesionerTest extends TestCase
         $response = $this->actingAs($this->adminSI)->get('/prodi/dashboard');
         $response->assertStatus(200);
 
-        $responsePertanyaan = $this->actingAs($this->adminSI)->get('/prodi/pertanyaan');
-        $responsePertanyaan->assertRedirect('/prodi/kuesioner');
-
         $responseKuesioner = $this->actingAs($this->adminSI)->get('/prodi/kuesioner');
         $responseKuesioner->assertStatus(200);
 
@@ -128,12 +125,14 @@ class AdminProdiKuesionerTest extends TestCase
 
     public function test_admin_prodi_can_create_question_and_options_for_own_prodi(): void
     {
-        $response = $this->actingAs($this->adminSI)->post('/prodi/pertanyaan', [
-            'prodi_question_section_id' => $this->sectionSI->id,
+        $response = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
+            'prodi_id' => $this->prodiSI->id,
+            'section_id' => $this->sectionSI->id,
             'code' => 'PSI-01',
             'question_text' => 'Bagaimana kepuasan terhadap kurikulum SI?',
             'type' => 'single_choice',
             'is_required' => true,
+            'is_reusable' => true,
             'options' => ['Sangat Puas', 'Cukup Puas', 'Kurang Puas'],
         ]);
 
@@ -174,14 +173,148 @@ class AdminProdiKuesionerTest extends TestCase
             'wajib' => false,
         ]);
 
-        $response = $this->actingAs($this->adminSI)->put("/prodi/pertanyaan/{$tiQuestion->id}", [
+        $response = $this->actingAs($this->adminSI)->put(route('prodi.kuesioner.pertanyaan.update', $tiQuestion->id), [
+            'prodi_id' => $this->prodiSI->id,
             'code' => 'PTI-01',
             'question_text' => 'Mencoba meretas pertanyaan TI',
             'type' => 'text',
             'is_required' => false,
+            'is_reusable' => true,
+            'section_id' => $this->sectionSI->id,
         ]);
 
-        $response->assertStatus(404);
+        $response->assertForbidden();
+    }
+
+    /**
+     * Memastikan endpoint reorder legacy tidak dapat mengubah placement Prodi lain.
+     */
+    public function test_legacy_reorder_cannot_change_other_prodi_question(): void
+    {
+        $tiSection = KuesionerSection::create([
+            'target' => 'prodi',
+            'prodi_id' => $this->prodiTI->id,
+            'kode_section' => 'SEC-PTI-REORDER',
+            'judul' => 'Section Reorder TI',
+            'order' => 1,
+            'is_active' => true,
+        ]);
+
+        $tiQuestion = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $this->prodiTI->id,
+            'kode_pertanyaan' => 'PTI-REORDER-01',
+            'teks_pertanyaan' => 'Pertanyaan reorder TI',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
+
+        $tiPlacement = KuesionerSectionPertanyaan::create([
+            'section_id' => $tiSection->id,
+            'pertanyaan_id' => $tiQuestion->id,
+            'order' => 2,
+            'wajib' => false,
+        ]);
+
+        $response = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.reorder'), [
+            'prodi_id' => $this->prodiSI->id,
+            'placement_id' => $tiPlacement->id,
+            'direction' => 'up',
+        ]);
+
+        $response->assertForbidden();
+        $this->assertSame(2, $tiPlacement->fresh()->order);
+    }
+
+    /**
+     * Memastikan endpoint reorder legacy tetap berjalan untuk pertanyaan Prodi sendiri.
+     */
+    public function test_legacy_reorder_still_works_for_own_prodi_question(): void
+    {
+        $firstQuestion = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $this->prodiSI->id,
+            'kode_pertanyaan' => 'PSI-REORDER-01',
+            'teks_pertanyaan' => 'Pertanyaan pertama',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
+        $secondQuestion = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $this->prodiSI->id,
+            'kode_pertanyaan' => 'PSI-REORDER-02',
+            'teks_pertanyaan' => 'Pertanyaan kedua',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->sectionSI->id,
+            'pertanyaan_id' => $firstQuestion->id,
+            'order' => 1,
+            'wajib' => false,
+        ]);
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->sectionSI->id,
+            'pertanyaan_id' => $secondQuestion->id,
+            'order' => 2,
+            'wajib' => false,
+        ]);
+
+        $secondPlacement = KuesionerSectionPertanyaan::where('pertanyaan_id', $secondQuestion->id)->firstOrFail();
+
+        $response = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.reorder'), [
+            'prodi_id' => $this->prodiSI->id,
+            'placement_id' => $secondPlacement->id,
+            'direction' => 'up',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame(1, KuesionerSectionPertanyaan::where('pertanyaan_id', $secondQuestion->id)->value('order'));
+        $this->assertSame(2, KuesionerSectionPertanyaan::where('pertanyaan_id', $firstQuestion->id)->value('order'));
+    }
+
+    /**
+     * Memastikan delete legacy hanya melepas placement pada Prodi sendiri.
+     */
+    public function test_legacy_delete_does_not_remove_other_prodi_placement(): void
+    {
+        $question = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $this->prodiSI->id,
+            'kode_pertanyaan' => 'PSI-SHARED-01',
+            'teks_pertanyaan' => 'Pertanyaan yang dipakai lintas Prodi',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
+
+        $siPlacement = KuesionerSectionPertanyaan::create([
+            'section_id' => $this->sectionSI->id,
+            'pertanyaan_id' => $question->id,
+            'order' => 1,
+            'wajib' => false,
+        ]);
+
+        $tiSection = KuesionerSection::create([
+            'target' => 'prodi',
+            'prodi_id' => $this->prodiTI->id,
+            'kode_section' => 'SEC-PTI-SHARED',
+            'judul' => 'Section Shared TI',
+            'order' => 1,
+            'is_active' => true,
+        ]);
+
+        $tiPlacement = KuesionerSectionPertanyaan::create([
+            'section_id' => $tiSection->id,
+            'pertanyaan_id' => $question->id,
+            'order' => 1,
+            'wajib' => false,
+        ]);
+
+        $response = $this->actingAs($this->adminSI)->delete(route('prodi.kuesioner.pertanyaan.destroy', $siPlacement->id), [
+            'prodi_id' => $this->prodiSI->id,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseMissing('kuesioner_section_pertanyaan', ['id' => $siPlacement->id]);
+        $this->assertDatabaseHas('kuesioner_section_pertanyaan', ['id' => $tiPlacement->id]);
+        $this->assertDatabaseHas('kuesioner_pertanyaan', ['id' => $question->id]);
     }
 
     public function test_alumni_can_view_and_submit_prodi_questionnaire(): void
@@ -405,12 +538,14 @@ class AdminProdiKuesionerTest extends TestCase
     public function test_creating_question_automatically_generates_default_options(): void
     {
         // 1. Tipe radio_text (Radio + Teks) -> otomatis dibuat 2 pilihan + 1 Lainnya
-        $response1 = $this->actingAs($this->adminSI)->post('/prodi/pertanyaan', [
+        $response1 = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
+            'prodi_id' => $this->prodiSI->id,
             'code' => 'PSI-TEST-RT',
             'question_text' => 'Bentuk kontribusi yang ingin diberikan?',
             'type' => 'radio_text',
-            'prodi_question_section_id' => $this->sectionSI->id,
+            'section_id' => $this->sectionSI->id,
             'is_required' => true,
+            'is_reusable' => true,
         ]);
         $response1->assertRedirect();
 
@@ -422,12 +557,14 @@ class AdminProdiKuesionerTest extends TestCase
         $this->assertEquals('Lainnya (Tuliskan)', $qRadioText->opsi[2]->label);
 
         // 2. Tipe rating_5 (Skala Rating 1-5) -> otomatis dibuat 5 opsi skala penilaian
-        $response2 = $this->actingAs($this->adminSI)->post('/prodi/pertanyaan', [
+        $response2 = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
+            'prodi_id' => $this->prodiSI->id,
             'code' => 'PSI-TEST-R5',
             'question_text' => 'Bagaimana kepuasan Anda terhadap fasilitas laboratorium?',
             'type' => 'rating_5',
-            'prodi_question_section_id' => $this->sectionSI->id,
+            'section_id' => $this->sectionSI->id,
             'is_required' => true,
+            'is_reusable' => true,
         ]);
         $response2->assertRedirect();
 
@@ -438,12 +575,14 @@ class AdminProdiKuesionerTest extends TestCase
         $this->assertEquals('5 - Sangat Tinggi', $qRating->opsi[4]->label);
 
         // 3. Tipe radio_input (Radio + Angka) -> otomatis dibuat opsi angka dan opsi 'tidak'
-        $response3 = $this->actingAs($this->adminSI)->post('/prodi/pertanyaan', [
+        $response3 = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
+            'prodi_id' => $this->prodiSI->id,
             'code' => 'PSI-TEST-RI',
             'question_text' => 'Berapa bulan Anda menyelesaikan tugas akhir?',
             'type' => 'radio_input',
-            'prodi_question_section_id' => $this->sectionSI->id,
+            'section_id' => $this->sectionSI->id,
             'is_required' => true,
+            'is_reusable' => true,
         ]);
         $response3->assertRedirect();
 

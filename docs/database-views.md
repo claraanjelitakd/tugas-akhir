@@ -23,7 +23,7 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 | v_analytics_work_location | TracerAnalyticsService | Provinsi perusahaan tempat alumni bekerja. |
 | v_analytics_employment_status | TracerAnalyticsService | Jawaban F8 yang diproyeksikan per alumni. |
 | v_analytics_alignment | TracerAnalyticsService | Jawaban F14/F15 yang diproyeksikan per alumni. |
-| v_analytics_tracer_answers | TracerAnalyticsService | Jawaban tracer kanonik per alumni dan kode pertanyaan untuk indikator gabungan F3-F27; keunikannya dijamin unique key tabel `tracer`. |
+| v_analytics_tracer_answers | TracerAnalyticsService | Jawaban tracer kanonik per alumni dan kode pertanyaan untuk indikator gabungan F3-F27; pencarian memakai indeks lookup pada `kuesioner_jawaban`. |
 | v_analytics_learning_methods | TracerAnalyticsService | Jawaban F21-F27 untuk radar, distribusi Likert, dan heatmap metode pembelajaran. |
 | v_analytics_job_search_start | TracerAnalyticsService | Jawaban F3 untuk waktu mulai mencari pekerjaan. |
 | v_analytics_job_search_methods | TracerAnalyticsService | Jawaban pilihan jamak F4 untuk cara mencari kerja. |
@@ -59,10 +59,10 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 - Identitas akademik: data_akademik.nama, tanggal lahir, NIM, email_pribadi
   sumber akademik, IPK, dan data kelulusan.
 - Tugas akhir dan publikasi: yudisium.
-- Jawaban universitas: tracer.answer dan tracer.answer_json, dengan
-  question_id sebagai foreign key dan snapshot kode untuk audit.
-- Jawaban prodi: prodi_response.answer_text, answer_json, dan
-  prodi_question_id.
+- Jawaban universitas dan prodi: `kuesioner_jawaban.jawaban_teks`,
+  `jawaban_json`, `pertanyaan_id`, dan `kode_pertanyaan`. Jenis responden
+  dibedakan oleh `responden_type` dan konteks evaluasi atasan oleh
+  `evaluasi_atasan_id`.
 
 View tidak menyimpan data bisnis baru. View hanya memproyeksikan data tabel
 agar rumus dashboard dan autofill memiliki satu sumber logika.

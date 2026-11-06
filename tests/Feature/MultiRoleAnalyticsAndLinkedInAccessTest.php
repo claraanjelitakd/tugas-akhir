@@ -84,6 +84,6 @@ class MultiRoleAnalyticsAndLinkedInAccessTest extends TestCase
         $this->actingAs($adminBiro3)->get('/biro3/analitik-prodi/data')->assertStatus(200);
         $this->actingAs($adminBiro3)->get('/biro3/analitik-atasan')->assertStatus(200);
         $this->actingAs($adminBiro3)->get('/biro3/analitik-atasan/data')->assertStatus(200);
-        $this->actingAs($adminBiro3)->get('/biro3/linkedin-sync')->assertStatus(200);
+        $this->actingAs($adminBiro3)->get('/biro3/linkedin-sync')->assertNotFound();
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\AdminProdi\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Services\Dashboard\RoleDashboardDataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,7 +20,9 @@ class DashboardController extends Controller
      */
     public function tampilkanDashboard(Request $request, RoleDashboardDataService $dashboardData): Response
     {
-        $user = Auth::user()->load('prodi');
+        /** @var User $user */
+        $user = Auth::user();
+        $user->load('prodi');
         $dashboard = $dashboardData->build('prodi', $user->prodi_id, $request->string('tahun')->toString());
         $stats = $dashboard['stats'];
 

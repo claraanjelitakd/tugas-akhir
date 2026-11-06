@@ -26,6 +26,7 @@ defineProps({
     linkedinHistory: Array,
     evaluasiAtasan: Object,
     pertanyaanEvaluasiAtasan: Array,
+    readonly: Boolean,
 });
 </script>
 
@@ -35,5 +36,6 @@ defineProps({
         role="admin_prodi"
         role-title="Admin Program Studi"
         prefix="prodi"
+        :readonly="readonly"
     />
 </template>

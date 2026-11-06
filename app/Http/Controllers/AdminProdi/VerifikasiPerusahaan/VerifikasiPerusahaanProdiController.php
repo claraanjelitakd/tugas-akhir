@@ -7,6 +7,7 @@ use App\Models\Kabupaten;
 use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\Propinsi;
+use App\Models\User;
 use App\Services\Perusahaan\PerusahaanVerificationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -49,7 +50,9 @@ class VerifikasiPerusahaanProdiController extends Controller
      */
     public function index(Request $request): Response
     {
-        $user = Auth::user()->load('prodi');
+        /** @var User $user */
+        $user = Auth::user();
+        $user->load('prodi');
         $prodi = $user->prodi;
         $prodiId = $user->prodi_id;
 

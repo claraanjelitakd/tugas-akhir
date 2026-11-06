@@ -246,7 +246,7 @@ const filteredTracerQuestions = computed(() => {
 
         if (selectedTracerSectionFilter.value !== 'all') {
             const secId = parseInt(selectedTracerSectionFilter.value, 10);
-            if (q.kelompok_pertanyaan_id !== secId) return false;
+            if (q.section_id !== secId) return false;
         }
 
         if (selectedTracerRequiredFilter.value !== 'all') {
@@ -299,7 +299,7 @@ const filteredProfileQuestions = computed(() => {
 
         if (selectedProfileSectionFilter.value !== 'all') {
             const secId = parseInt(selectedProfileSectionFilter.value, 10);
-            if (q.kelompok_pertanyaan_id !== secId) return false;
+            if (q.section_id !== secId) return false;
         }
 
         if (selectedProfileRequiredFilter.value !== 'all') {
@@ -370,7 +370,7 @@ const questionFormData = ref({
     kode_pertanyaan: '',
     subpertanyaan: '',
     type: 'radio',
-    kelompok_pertanyaan_id: '',
+    section_id: '',
     tampil_di: 'kuesioner',
     order: 1,
     keterangan: '',
@@ -703,7 +703,7 @@ const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') =
             kode_pertanyaan: questionToEdit.kode_pertanyaan || '',
             subpertanyaan: questionToEdit.subpertanyaan || '',
             type: questionToEdit.type || 'radio',
-            kelompok_pertanyaan_id: questionToEdit.kelompok_pertanyaan_id || (props.sections[0]?.id || ''),
+            section_id: questionToEdit.section_id || (props.sections[0]?.id || ''),
             tampil_di: target,
             order: questionToEdit.order ?? (props.subpertanyaans.length + 1),
             keterangan: questionToEdit.keterangan || getTypeInstruction(questionToEdit.type || 'radio'),
@@ -722,7 +722,7 @@ const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') =
             kode_pertanyaan: '',
             subpertanyaan: '',
             type: defaultType,
-            kelompok_pertanyaan_id: props.sections[0]?.id || '',
+            section_id: props.sections[0]?.id || '',
             tampil_di: defaultTarget,
             order: props.subpertanyaans.length + 1,
             keterangan: getTypeInstruction(defaultType),
@@ -754,8 +754,8 @@ const submitQuestionForm = () => {
     if (!questionFormData.value.subpertanyaan.trim()) {
         questionFormErrors.value.subpertanyaan = 'Teks pertanyaan wajib diisi.';
     }
-    if (!questionFormData.value.kelompok_pertanyaan_id) {
-        questionFormErrors.value.kelompok_pertanyaan_id = 'Bagian (Section) wajib dipilih.';
+    if (!questionFormData.value.section_id) {
+        questionFormErrors.value.section_id = 'Bagian (Section) wajib dipilih.';
     }
 
     if (Object.keys(questionFormErrors.value).length > 0) {
@@ -1588,7 +1588,7 @@ const handleDeleteKuesioner = (k) => {
                                             {{ typeLabels[q.type] || q.type }}
                                         </span>
                                         <p class="text-[11px] text-gray-500 mt-1">
-                                            {{ q.kelompok_pertanyaan ? `Bagian ${q.kelompok_pertanyaan.order}: ${q.kelompok_pertanyaan.title}` : '-' }}
+                                            {{ q.section ? `Bagian ${q.section.order}: ${q.section.title}` : '-' }}
                                         </p>
                                     </td>
                                     <td class="px-4 py-3.5 max-w-md">
@@ -1813,7 +1813,7 @@ const handleDeleteKuesioner = (k) => {
                                             {{ typeLabels[q.type] || q.type }}
                                         </span>
                                         <p class="text-[11px] text-gray-500 mt-1">
-                                            {{ q.kelompok_pertanyaan ? `Bagian ${q.kelompok_pertanyaan.order}: ${q.kelompok_pertanyaan.title}` : '-' }}
+                                            {{ q.section ? `Bagian ${q.section.order}: ${q.section.title}` : '-' }}
                                         </p>
                                     </td>
                                     <td class="px-4 py-3.5 max-w-md">
@@ -1986,7 +1986,7 @@ const handleDeleteKuesioner = (k) => {
                                         </span>
                                     </td>
                                     <td class="px-4 py-3 text-center text-gray-700 font-medium text-xs">
-                                        {{ k.kelompok_pertanyaan_count ?? 0 }} Seksi
+                                        {{ k.sections_count ?? 0 }} Seksi
                                     </td>
                                     <td class="px-4 py-3 text-right">
                                         <div class="flex items-center justify-end gap-1">
@@ -2205,17 +2205,17 @@ const handleDeleteKuesioner = (k) => {
                                 Bagian / Section <span class="text-rose-600">*</span>
                             </label>
                             <select
-                                v-model="questionFormData.kelompok_pertanyaan_id"
+                                v-model="questionFormData.section_id"
                                 class="w-full px-3 py-2 border rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
-                                :class="questionFormErrors.kelompok_pertanyaan_id ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
+                                :class="questionFormErrors.section_id ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
                             >
                                 <option value="" disabled>Pilih Bagian Kuesioner...</option>
                                 <option v-for="s in sections" :key="s.id" :value="s.id">
                                     Bagian {{ s.order }}: {{ s.title }}
                                 </option>
                             </select>
-                            <p v-if="questionFormErrors.kelompok_pertanyaan_id" class="text-rose-600 text-[11px] mt-1 font-medium">
-                                {{ questionFormErrors.kelompok_pertanyaan_id }}
+                            <p v-if="questionFormErrors.section_id" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ questionFormErrors.section_id }}
                             </p>
                         </div>
 

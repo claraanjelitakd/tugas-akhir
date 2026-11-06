@@ -81,7 +81,7 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
     {
         $response = $this->actingAs($this->superadmin)
             ->post(route('superadmin.pertanyaan.store'), [
-                'kelompok_pertanyaan_id' => $this->section->id,
+                'section_id' => $this->section->id,
                 'kode_pertanyaan' => 'F302_TEST',
                 'subpertanyaan' => 'Berapa banyak perusahaan yang Anda lamar?',
                 'type' => 'number',
@@ -125,7 +125,7 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
 
         $response = $this->actingAs($this->superadmin)
             ->put(route('superadmin.pertanyaan.update', $question->id), [
-                'kelompok_pertanyaan_id' => $this->section->id,
+                'section_id' => $this->section->id,
                 'kode_pertanyaan' => 'F303_TEST',
                 'subpertanyaan' => 'Pertanyaan Diperbarui',
                 'type' => 'text',
@@ -235,7 +235,7 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
     {
         // 1. Tipe radio_text -> 3 opsi
         $this->actingAs($this->superadmin)->post(route('superadmin.pertanyaan.store'), [
-            'kelompok_pertanyaan_id' => $this->section->id,
+            'section_id' => $this->section->id,
             'kode_pertanyaan' => 'F_TEST_RT',
             'subpertanyaan' => 'Pertanyaan Radio Teks Univ',
             'type' => 'radio_text',
@@ -252,7 +252,7 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
 
         // 2. Tipe rating_5 -> 5 opsi
         $this->actingAs($this->superadmin)->post(route('superadmin.pertanyaan.store'), [
-            'kelompok_pertanyaan_id' => $this->section->id,
+            'section_id' => $this->section->id,
             'kode_pertanyaan' => 'F_TEST_R5',
             'subpertanyaan' => 'Pertanyaan Rating Univ',
             'type' => 'rating_5',

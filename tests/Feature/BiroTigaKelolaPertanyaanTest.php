@@ -160,7 +160,7 @@ class BiroTigaKelolaPertanyaanTest extends TestCase
     public function test_storing_rating_question_generates_default_options(): void
     {
         $response = $this->actingAs($this->admin)->post('/superadmin/pertanyaan', [
-            'kelompok_pertanyaan_id' => $this->section->id,
+            'section_id' => $this->section->id,
             'kode_pertanyaan' => 'F99',
             'subpertanyaan' => 'Penilaian Kualitas Fasilitas Belajar',
             'type' => 'rating_5',

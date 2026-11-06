@@ -200,6 +200,13 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertSame('72200011', $analytics['chart']['records'][0]['nim']);
         $this->assertTrue($analytics['chart']['records'][0]['answered']);
         $this->assertSame('https://www.linkedin.com/in/alumni-terpilih', $analytics['chart']['records'][0]['linkedin_url']);
+        $this->assertArrayHasKey('nama_perusahaan', $analytics['chart']['records'][0]);
+        $this->assertArrayHasKey('head_office_lokasi', $analytics['chart']['records'][0]);
+        $this->assertArrayHasKey('domisili_saat_ini', $analytics['chart']['records'][0]);
+        $this->assertArrayHasKey('bidang_pekerjaan', $analytics['chart']['records'][0]);
+        $this->assertArrayHasKey('divisi', $analytics['chart']['records'][0]);
+        $this->assertArrayHasKey('posisi_jabatan', $analytics['chart']['records'][0]);
+        $this->assertArrayHasKey('skills', $analytics['chart']['records'][0]);
     }
 
     /**
@@ -528,6 +535,16 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertArrayHasKey('response_rate', $result['chart']['summary']);
         $this->assertArrayHasKey('unanswered_rate', $result['chart']['summary']);
         $this->assertArrayHasKey('target', $result['chart']['summary']);
+        $this->assertArrayHasKey('series', $result['chart']);
+        $this->assertIsArray($result['chart']['series']);
+
+        if ($result['chart']['series'] !== []) {
+            $firstSeriesItem = $result['chart']['series'][0];
+            $this->assertContains('population', array_keys($firstSeriesItem));
+            $this->assertContains('respondents', array_keys($firstSeriesItem));
+            $this->assertContains('response_rate', array_keys($firstSeriesItem));
+            $this->assertContains('target', array_keys($firstSeriesItem));
+        }
     }
 
     /**

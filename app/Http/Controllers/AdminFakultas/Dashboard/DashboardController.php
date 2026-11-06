@@ -4,6 +4,7 @@ namespace App\Http\Controllers\AdminFakultas\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\RefFakultas;
+use App\Models\User;
 use App\Services\Dashboard\RoleDashboardDataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,9 +21,13 @@ class DashboardController extends Controller
      */
     public function tampilkanDashboard(Request $request, RoleDashboardDataService $dashboardData): Response
     {
-        $user = Auth::user()->load('fakultas');
-        $fakultas = $user->fakultas ?: RefFakultas::find($user->fakultas_id) ?: RefFakultas::first();
-        $dashboard = $dashboardData->build('fakultas', $fakultas?->id, $request->string('tahun')->toString());
+        /** @var User $user */
+        $user = Auth::user();
+        $user->load('fakultas');
+        abort_unless($user->fakultas_id, 403, 'Akun Admin Fakultas belum memiliki lingkup fakultas.');
+
+        $fakultas = $user->fakultas ?: RefFakultas::findOrFail($user->fakultas_id);
+        $dashboard = $dashboardData->build('fakultas', $fakultas->id, $request->string('tahun')->toString());
         $stats = $dashboard['stats'];
 
         return Inertia::render('AdminFakultas/Dashboard', [

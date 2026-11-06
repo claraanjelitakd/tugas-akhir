@@ -1454,7 +1454,9 @@ const dashboardRoute = computed(() => {
                                     <div class="space-y-1.5 text-xs">
                                         <p><span class="text-slate-500">Jabatan:</span> <b class="text-slate-800 block">{{ activeReview.current_data?.posisi_jabatan || '- Belum diisi -' }}</b></p>
                                         <p><span class="text-slate-500">Perusahaan:</span> <b class="text-slate-800 block">{{ activeReview.current_data?.nama_perusahaan || '- Belum diisi -' }}</b></p>
-                                        <p><span class="text-slate-500">Keahlian (Skills):</span> <span class="text-slate-700 block truncate">{{ activeReview.current_data?.skills || '- Belum diisi -' }}</span></p>
+                                        <p><span class="text-slate-500">Head office:</span> <span class="text-slate-700 block break-words">{{ activeReview.current_data?.head_office?.lokasi || 'Belum tersedia' }}</span></p>
+                                        <p><span class="text-slate-500">Domisili alumni:</span> <span class="text-slate-700 block break-words">{{ activeReview.current_data?.domisili?.label || 'Belum diisi' }}</span></p>
+                                        <p><span class="text-slate-500">Keahlian (Skills):</span> <span class="text-slate-700 block whitespace-pre-wrap break-words">{{ activeReview.current_data?.skills || '- Belum diisi -' }}</span></p>
                                     </div>
                                 </div>
 
@@ -1561,12 +1563,12 @@ const dashboardRoute = computed(() => {
                                                 <span>Keahlian / Skills yang Akan Disimpan ke Profil:</span>
                                                 <span class="text-[10px] text-slate-500 font-normal">Sinkron ke kolom Keahlian profil alumni (pisahkan dengan koma)</span>
                                             </label>
-                                            <input
-                                                type="text"
+                                            <textarea
                                                 v-model="approveForm.skills"
+                                                rows="2"
                                                 placeholder="contoh: IT Audit, Business Process Management, SQL, Python..."
-                                                class="w-full px-3 py-2 text-xs bg-white border border-emerald-300 rounded-lg focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
-                                            />
+                                                class="w-full resize-y rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs leading-5 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B]"
+                                            ></textarea>
 
                                             <!-- Pills Keahlian dari Hasil Scraping Asli LinkedIn -->
                                             <div

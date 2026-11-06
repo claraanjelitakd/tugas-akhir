@@ -133,7 +133,7 @@ Panah paket pada konteks merangkum aliran dengan arah yang sama dari entitas yan
 | 2 | Kelola Profil dan Integrasi Karier | `Alumni/Profil/*`, `AdminAlumniProfileService`, `Shared/LinkedInSyncController`, `Yudisium`, `Biodata` |
 | 3 | Kelola Perusahaan dan Data Referensi | `PerusahaanVerificationService`, `VerifikasiPerusahaan*`, `MasterWilayahController`, `SimpanProfilController::tambahPerusahaanBaru` |
 | 4 | Kelola Kuesioner Universitas | `Alumni/Kuesioner/*`, `SuperAdmin/KelolaPertanyaan/*`, `SuperAdmin/KelolaSection/*`, `KuesionerSyncService` |
-| 5 | Kelola Kuesioner Program Studi | `KuesionerProdiController`, `AdminProdi/KelolaPertanyaan/*`, `KelolaKuesionerProdiSuperAdminController` |
+| 5 | Kelola Kuesioner Program Studi | `Shared/Kuesioner/KelolaKuesionerProdiController`, `KuesionerSection` dan `kuesioner_*` |
 | 6 | Kelola Evaluasi Pengguna Lulusan | `EvaluasiAtasanController`, `KelolaEvaluasiAtasanController`, `SimpanProfilController::kirimEmailAtasan` |
 | 7 | Sajikan Informasi dan Laporan | Controller dashboard/direktori tiap role, `AlumniDirectoryQueryService`, `AlumniTracerExcelExporter`, `LogAktivitasController`, `BerandaController` |
 

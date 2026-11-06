@@ -69,7 +69,7 @@ Catatan penting: RoleMiddleware menangani role; scope data kemudian ditegakkan d
 | Akun | Edit akun, reset default, notifikasi | Superadmin; admin Prodi/Fakultas scope | account controllers, User, Biodata, mail | AD-14 |
 | Wilayah/UMP | CRUD provinsi/kabupaten/UMP, copy tahun | Superadmin | Propinsi, Kabupaten, Ump | AD-15 |
 | Perusahaan | Rekomendasi, verifikasi, edit, tolak | Superadmin/Prodi/Fakultas sesuai scope | PerusahaanVerificationService, Perusahaan, LogActivity | AD-16 |
-| Perusahaan | Auto-replace perusahaan pending dengan master | Superadmin/Prodi/Fakultas sesuai scope | transaksi Perusahaan, Biodata, tracer, evaluasi | AD-17 |
+| Perusahaan | Auto-replace perusahaan pending dengan master | Superadmin/Prodi/Fakultas sesuai scope | transaksi Perusahaan, Biodata, kuesioner_jawaban, evaluasi | AD-17 |
 | LinkedIn | Sinkronisasi satu alumni via Apify | Superadmin/Prodi/Fakultas scope | LinkedInSyncController, ApifyLinkedInProvider, linkedin_sync_results | AD-18 |
 | LinkedIn | Provider API resmi/mock dan batch | Superadmin/Prodi/Fakultas scope | LinkedInProfileService, provider mapper | AD-19 |
 | LinkedIn | Review, approve, plot ulang, reject, history | Superadmin/Prodi/Fakultas scope | LinkedInProfileMapper, AlumniLinkedinPlot, LinkedinSyncResult, Biodata | AD-20 |
@@ -183,7 +183,7 @@ flowchart TD
 
 #### Detail proses profil
 
-1. Pertanyaan profil dinamis berasal dari `ref_subpertanyaan2021` dengan `tampil_di = profile/profil`; pilihan berasal dari `ref_subpertanyaan_detil`. Field akademik yang dikunci tetap dibaca dari sumber akademik atau database view.
+1. Pertanyaan profil dinamis berasal dari `kuesioner_pertanyaan` melalui penempatan `kuesioner_section_pertanyaan` dengan `tampil_di = profile/profil`; pilihan berasal dari `kuesioner_opsi`. Field akademik yang dikunci tetap dibaca dari sumber akademik atau database view.
 2. Alumni mengisi identitas, kontak, domisili, status pekerjaan, bidang/divisi, perusahaan, studi lanjut, atasan, dan pertanyaan profil yang berlaku. Untuk dropdown `Lainnya`, frontend mengirim pilihan resmi dan teks custom.
 3. Backend memvalidasi ulang question id, tipe pertanyaan, pilihan, foto, email, nomor telepon, URL, tanggal, tahun, gaji, relasi wilayah/perusahaan, dan data atasan. Nilai dari frontend tidak langsung dipercaya.
 4. Nilai `Lainnya` disimpan secara terstruktur sebagai pilihan resmi plus custom value pada `answer` dan/atau `answer_json`, sehingga input baru tetap dapat dikelompokkan sebagai `Lainnya`.
@@ -191,7 +191,7 @@ flowchart TD
 6. Gaji dibersihkan dari pemisah mata uang menjadi integer. Nilai ini menjadi sumber sinkronisasi pertanyaan tracer yang dikelola profil, termasuk take-home pay jika aturan instrumen memetakannya ke gaji.
 7. Perusahaan dicari berdasarkan identitas yang dinormalisasi. Jika belum ada, backend membuat perusahaan berstatus `Menunggu Verifikasi`; perusahaan terverifikasi tidak ditimpa oleh input alumni tanpa proses penggantian yang sah.
 8. Data atasan di-upsert hanya untuk field yang dikirim. Field yang tidak ada pada request mempertahankan data lama agar penyimpanan tab lain tidak menghilangkan atasan.
-9. Setelah biodata, relasi perusahaan, atasan, foto, email user, dan log tersimpan, `KuesionerSyncService` meng-upsert jawaban profile-managed ke `tracer` berdasarkan `biodata_id` dan `question_id`.
+9. Setelah biodata, relasi perusahaan, atasan, foto, email user, dan log tersimpan, `KuesionerSyncService` meng-upsert jawaban profile-managed ke `kuesioner_jawaban` berdasarkan `biodata_id` dan `pertanyaan_id`.
 
 ~~~mermaid
 flowchart TD
@@ -206,7 +206,7 @@ flowchart TD
   CP --> A[Upsert atasan tanpa mengosongkan field lama]
   K --> A
   A --> T[Simpan biodata, foto, relasi, dan log]
-  T --> Q[Sync profile-managed ke tracer dengan question_id]
+  T --> Q[Sync profile-managed ke kuesioner_jawaban dengan pertanyaan_id]
   Q --> R[Redirect dengan flash sukses]
   E --> X((Selesai error))
   R --> Y((Selesai))
@@ -241,7 +241,7 @@ flowchart TD
 
 #### Detail percabangan kuesioner universitas
 
-1. Halaman hanya memuat kuesioner aktif, section aktif, pertanyaan yang bukan bagian form profil, opsi/detail pertanyaan, jawaban `tracer`, dan data autofill dari database view. Jawaban profile-managed disinkronkan dari biodata.
+1. Halaman hanya memuat kuesioner aktif, section aktif, pertanyaan yang bukan bagian form profil, opsi/detail pertanyaan, jawaban `kuesioner_jawaban`, dan data autofill dari database view. Jawaban profile-managed disinkronkan dari biodata.
 2. Alumni dapat menyimpan progres parsial. Backend tetap memvalidasi tipe jawaban, opsi yang berasal dari pertanyaan tersebut, format angka/tanggal, multi-choice, serta custom `Lainnya`.
 3. IF F8 (status setelah lulus) diterapkan oleh frontend untuk tampilan dan dihitung ulang oleh backend untuk audit:
    - **Melanjutkan Pendidikan (4):** lewati F10, F3, F4, F504, F502, F505, F506, F6, F7, F7A, F14, F15, dan F16. Pertanyaan studi lanjut F18 dan turunannya tetap berlaku.
@@ -250,7 +250,7 @@ flowchart TD
    - **Bekerja/Wiraswasta (status selain tiga kondisi di atas, termasuk 1 dan 3):** lewati F10 serta F18, F12, F18A, F18B, F18C, dan F18D.
 4. IF F504 diterapkan jika pertanyaan masih berlaku: **Ya (1)** melewati F506; **Tidak (2)** melewati F502 dan F505.
 5. Backend juga membaca `jump_to` pada opsi. Jika opsi menunjuk ke pertanyaan berikutnya, semua pertanyaan di antara pertanyaan aktif dan target ditandai skipped.
-6. Jawaban yang lolos validasi di-upsert berdasarkan `biodata_id` dan `question_id`. Jawaban terstruktur disimpan di `answer_json`, sedangkan `answer`/`answer_text` dipakai sebagai representasi baca.
+6. Jawaban yang lolos validasi di-upsert berdasarkan `biodata_id` dan `pertanyaan_id`. Jawaban terstruktur disimpan di `jawaban_json`, sedangkan `jawaban_teks` dipakai sebagai representasi baca.
 7. `KelengkapanTracerService` mengambil pertanyaan wajib dan opsional, mengecualikan profile-managed, lalu tidak menghitung pertanyaan skipped sebagai kekurangan. Pertanyaan wajib yang masih berlaku tetapi kosong tetap dihitung belum lengkap.
 
 ~~~mermaid
@@ -260,7 +260,7 @@ flowchart TD
   P --> U[Alumni mengisi atau menyimpan progres]
   U --> V{Format, opsi, dan custom Lainnya valid?}
   V -- Tidak --> E[Kembalikan validation error]
-  V -- Ya --> S[Upsert tracer dengan question_id dan answer_json]
+  V -- Ya --> S[Upsert kuesioner_jawaban dengan pertanyaan_id dan jawaban_json]
   S --> F8{F8 terisi?}
   F8 -- Ya --> B8[Tentukan set skipped berdasarkan status F8]
   F8 -- Tidak --> B8
@@ -278,7 +278,7 @@ flowchart TD
 
 **Swimlane:** Alumni, Backend, Database.
 **Route:** GET/POST /alumni/kuesioner-prodi.
-**Hasil:** ProdiResponse dibuat atau diperbarui sesuai biodata_id dan prodi_question_id.
+**Hasil:** `kuesioner_jawaban` dibuat atau diperbarui sesuai biodata_id dan pertanyaan_id.
 
 1. Backend memuat section/question/option sesuai prodi alumni.
 2. Alumni mengisi text, textarea, number, date, choice, multi-choice, dropdown, atau input custom.
@@ -291,7 +291,7 @@ flowchart TD
 1. Backend mengambil `prodi_id` dari biodata alumni. Jika belum ada prodi, halaman mengembalikan respons Inertia dengan instrumen kosong dan pesan; pertanyaan prodi lain tidak boleh diakses.
 2. Section, pertanyaan, opsi, dan respons hanya diambil untuk prodi alumni. Identitas yang ditandai otomatis dapat diprefill dari `v_alumni_kuesioner_autofill` atau biodata.
 3. Backend memeriksa question id yang dikirim benar-benar milik prodi alumni, menormalisasi jawaban array/terstruktur, memeriksa opsi dan format, serta menyimpan pilihan custom sebagai `answer_json` bila diperlukan.
-4. Jawaban terisi di-upsert dengan kunci `biodata_id + prodi_question_id`. Jika jawaban kosong dan bukan autofill identitas, respons lama dihapus agar persentase tidak salah.
+4. Jawaban terisi di-upsert dengan kunci logis `biodata_id + pertanyaan_id`. Jika jawaban kosong dan bukan autofill identitas, respons lama dihapus agar persentase tidak salah.
 5. Status kelengkapan prodi dihitung terpisah dari kuesioner universitas. Request sukses memakai redirect/flash Inertia; input invalid tidak disimpan dan tidak menghasilkan plain JSON.
 
 ### AD-06 â€” Undangan dan evaluasi atasan
@@ -498,7 +498,7 @@ flowchart TD
 1. Aktor memilih perusahaan pending dan master rekomendasi.
 2. Backend memeriksa scope, keberadaan, status, dan target berbeda.
 3. Dalam transaksi, biodata.perusahaan_id dipindahkan.
-4. EvaluasiAtasan.perusahaan_id dan jawaban tracer yang menyimpan nama pending diperbarui pada field yang ditentukan.
+4. EvaluasiAtasan.perusahaan_id dan jawaban pada `kuesioner_jawaban` yang menyimpan nama pending diperbarui pada field yang ditentukan.
 5. Pending company dihapus hanya setelah referensi berpindah.
 6. Audit log mencatat sumber, target, aktor, dan perubahan.
 7. Jika salah satu langkah gagal, transaksi rollback dan tidak boleh menampilkan sukses.
@@ -518,7 +518,7 @@ flowchart TD
    - Tolak jika pengajuan tidak dapat digunakan.
 4. Verifikasi langsung mengubah record pending menjadi Terverifikasi dan menulis LogActivity.
 5. Edit lalu verifikasi memvalidasi field koreksi, menyimpan perubahan, mengubah status menjadi Terverifikasi, dan menulis LogActivity.
-6. Ganti ke master memanggil AD-17 Auto-replace. Proses tersebut mengalihkan biodata, evaluasi atasan, dan jawaban tracer dalam satu transaksi.
+6. Ganti ke master memanggil AD-17 Auto-replace. Proses tersebut mengalihkan biodata, evaluasi atasan, dan jawaban `kuesioner_jawaban` dalam satu transaksi.
 7. Tolak mengubah status menjadi Ditolak, menyimpan alasan jika tersedia, dan menulis LogActivity.
 8. Respons sukses hanya dikirim setelah operasi database selesai. Error scope, resource tidak ditemukan, validasi, atau rollback tidak boleh ditampilkan sebagai sukses.
 
@@ -645,15 +645,15 @@ flowchart LR
 | AD-01 | LoginController, LupaKataSandiController, UbahKataSandiController | User, Biodata, ResetPasswordMail, password_reset_tokens |
 | AD-02 | ProfilController, SimpanProfilController, admin profile controllers | AdminAlumniProfileService, Biodata, Atasan, Perusahaan, KuesionerSyncService |
 | AD-03 | shared /alumni/company | Perusahaan, Biodata, PerusahaanController |
-| AD-04 | KuesionerController, SimpanJawabanController | Tracer, Kuesioner, KelompokPertanyaan, KelengkapanTracerService |
-| AD-05 | KuesionerProdiController | ProdiQuestionSection, ProdiQuestion, ProdiQuestionOption, ProdiResponse |
-| AD-06/23 | EvaluasiAtasanController, /alumni/kirim-email-atasan | Atasan, EvaluasiAtasan, PertanyaanEvaluasiAtasan, ResponEvaluasiAtasan, mail |
+| AD-04 | KuesionerController, SimpanJawabanController | KuesionerJawaban, Kuesioner, KuesionerSection, KuesionerPertanyaan, KelengkapanTracerService |
+| AD-05 | KuesionerProdiController | KuesionerSection, KuesionerPertanyaan, KuesionerOpsi, KuesionerSectionPertanyaan, KuesionerJawaban |
+| AD-06/23 | EvaluasiAtasanController, /alumni/kirim-email-atasan | Atasan, EvaluasiAtasan, KuesionerPertanyaan, KuesionerJawaban, mail |
 | AD-07/08 | directory controllers per role | AlumniDirectoryQueryService, AlumniTracerExcelExporter, mail |
 | AD-09/10 | dashboard controllers | audit views, KelengkapanTracerService, role scope |
 | AD-11/12/13 | question management controllers | questionnaire and option models |
 | AD-14 | account management controllers | User, Biodata, LogActivity, mail |
 | AD-15 | master wilayah/UMP controller | Propinsi, Kabupaten, Ump |
-| AD-16/17 | company controllers | PerusahaanVerificationService, Perusahaan, Biodata, Tracer, evaluasi, log |
+| AD-16/17 | company controllers | PerusahaanVerificationService, Perusahaan, Biodata, KuesionerJawaban, evaluasi, log |
 | AD-18/19/20 | Shared/LinkedInSyncController | LinkedIn providers, mapper, LinkedinSyncResult, AlumniLinkedinPlot, Biodata |
 | AD-21 | dashboard/audit callers | KelengkapanTracerService, v_alumni_*, v_alumni_audit_rekap |
 | AD-22 | log controller | LogActivity |
@@ -667,7 +667,7 @@ Traceability lengkap per method dan path file tersedia di docs/uml/activity-diag
 2. Sinkronisasi Apify bukan queue, polling, atau webhook pada source yang diaudit. Diagram memodelkannya sebagai request synchronous.
 3. Tidak ditemukan app/Policies, Job, Event, Listener, atau command bisnis. Jika fitur baru menambah asynchronous flow, diagram harus direvisi.
 4. Otorisasi tersebar antara middleware role dan query scope controller/service. Pengujian resource di luar scope wajib dilakukan untuk mencegah 403/404 yang tidak konsisten.
-5. Response tracer memiliki format answer dan answer_json; relasi question_id tersedia dan sebaiknya menjadi acuan maintenance. Struktur lama/alias perlu diperlakukan hati-hati saat migrasi.
+5. Response tracer memiliki format `jawaban_teks` dan `jawaban_json`; relasi `pertanyaan_id` tersedia dan menjadi acuan maintenance. Struktur lama/alias hanya dipertahankan dalam catatan historis.
 6. Riwayat pengalaman LinkedIn pada implementasi yang diaudit masih dipetakan ke representasi biodata; belum ada bukti tabel pengalaman relasional yang menjadi sumber utama. Diagram tidak mengklaim tabel baru.
 7. Kelengkapan harus membedakan wajib, opsional, dan tidak berlaku karena branching. Kartu gabungan hanya boleh memakai komponen yang memang dihitung oleh backend.
 8. Token evaluasi atasan adalah kredensial akses dan tidak seharusnya ditampilkan pada payload halaman admin yang tidak membutuhkan token.

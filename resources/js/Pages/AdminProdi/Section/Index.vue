@@ -292,7 +292,7 @@ const handleMoveSection = (sec, direction) => {
 
                     <div class="flex items-center gap-2.5">
                         <Link
-                            href="/prodi/pertanyaan"
+                            href="/prodi/kuesioner"
                             class="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
                         >
                             <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -413,7 +413,7 @@ const handleMoveSection = (sec, direction) => {
                                 <!-- Jumlah Soal -->
                                 <td class="py-3 px-3 text-center">
                                     <Link
-                                        :href="`/prodi/pertanyaan?sec_id=${sec.id}`"
+                                        :href="`/prodi/kuesioner?section_id=${sec.id}`"
                                         class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-semibold text-[11px] border border-emerald-200 transition-colors"
                                         title="Buka butir pertanyaan pada bagian ini"
                                     >

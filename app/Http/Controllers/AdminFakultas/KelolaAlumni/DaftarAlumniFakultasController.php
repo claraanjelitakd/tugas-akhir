@@ -7,6 +7,7 @@ use App\Mail\PengingatKuesionerAlumniMail;
 use App\Models\Biodata;
 use App\Models\Prodi;
 use App\Models\RefFakultas;
+use App\Models\User;
 use App\Services\Alumni\AlumniDirectoryQueryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,7 +31,9 @@ class DaftarAlumniFakultasController extends Controller
      */
     public function index(Request $request, AlumniDirectoryQueryService $directoryService): Response
     {
-        $user = Auth::user()->load('fakultas');
+        /** @var User $user */
+        $user = Auth::user();
+        $user->load('fakultas');
         $fakultasId = $user->fakultas_id;
 
         if (! $fakultasId) {
@@ -62,7 +65,9 @@ class DaftarAlumniFakultasController extends Controller
      */
     public function sendReminderEmail(Request $request, int|string $id): RedirectResponse
     {
-        $fakultasId = Auth::user()->fakultas_id;
+        /** @var User $user */
+        $user = Auth::user();
+        $fakultasId = $user->fakultas_id;
 
         if (! $fakultasId) {
             abort(403, 'Akun Anda belum dikaitkan dengan Fakultas.');
