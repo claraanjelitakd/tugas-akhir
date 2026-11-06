@@ -97,6 +97,14 @@ class AlumniTracerExcelExporter
 
         $pertanyaansAtasan = UnifiedDetailAlumniService::getPertanyaanEvaluasiAtasan();
         $responAtasanMap = $evaluasiAtasan ? $evaluasiAtasan->respons->keyBy('pertanyaan_id') : collect([]);
+        $karakteristikAtasan = $evaluasiAtasan
+            ? $evaluasiAtasan->respons->mapWithKeys(static function ($response): array {
+                $kode = (string) ($response->kode_pertanyaan ?? $response->pertanyaan?->kode_pertanyaan ?? '');
+                $kode = str_starts_with($kode, 'EVA_') ? substr($kode, 4) : $kode;
+
+                return [$kode => $response->jawaban_teks];
+            })
+            : collect([]);
 
         // Mulai penangkapan output buffer
         ob_start();
@@ -170,8 +178,9 @@ class AlumniTracerExcelExporter
         $isSubmittedAtasan = (bool) ($evaluasiAtasan?->is_submitted);
         $submittedAtAtasan = $evaluasiAtasan?->submitted_at ? $evaluasiAtasan->submitted_at->format('d F Y, H:i').' WIB' : '-';
         $statusAtasanLabel = $isSubmittedAtasan ? "SUDAH DIISI ({$submittedAtAtasan})" : ($evaluasiAtasan ? 'BELUM DIISI (MENUNGGU RESPON ATASAN)' : 'BELUM ADA DATA ATASAN');
-        $jumlahAlumniUkdw = $evaluasiAtasan?->jumlah_alumni_ukdw ?: '-';
-        $standarGajiPertama = $evaluasiAtasan?->standar_gaji_pertama ?: '-';
+        $jumlahAlumniUkdw = $karakteristikAtasan->get('jumlah_alumni_ukdw') ?: '-';
+        $jumlahPegawaiAtasan = $karakteristikAtasan->get('jumlah_pegawai') ?: '-';
+        $standarGajiPertama = $karakteristikAtasan->get('standar_gaji_pertama') ?: '-';
 
         $waktuUnduh = date('d F Y, H:i').' WIB';
 
@@ -512,9 +521,9 @@ class AlumniTracerExcelExporter
                     $nilaiDisplay = match ($kodeAtasan) {
                         'bentuk_perusahaan' => $perusahaan?->bentuk_perusahaan,
                         'skala_perusahaan' => $perusahaan?->skala,
-                        'jumlah_pegawai' => $perusahaan?->jumlah_pegawai,
-                        'jumlah_alumni_ukdw' => $evaluasiAtasan?->jumlah_alumni_ukdw,
-                        'standar_gaji_pertama' => $evaluasiAtasan?->standar_gaji_pertama,
+                        'jumlah_pegawai' => $jumlahPegawaiAtasan,
+                        'jumlah_alumni_ukdw' => $karakteristikAtasan->get('jumlah_alumni_ukdw'),
+                        'standar_gaji_pertama' => $karakteristikAtasan->get('standar_gaji_pertama'),
                         default => null,
                     } ?: '-';
                     if ($nilaiDisplay !== '-') {

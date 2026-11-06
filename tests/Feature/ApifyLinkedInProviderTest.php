@@ -496,6 +496,8 @@ class ApifyLinkedInProviderTest extends TestCase
         $row = collect($directory['alumnis'])->firstWhere('id', $alumni->id);
 
         $this->assertNotNull($row);
+        $this->assertSame($result->id, $row['linkedin_sync']['sync_id']);
+        $this->assertSame('pending', $row['linkedin_sync']['status']);
         $this->assertSame('Super Administrator Apify', $row['linkedin_sync']['initiator_name']);
         $this->assertSame('30/10/2026 03:59', $row['linkedin_sync']['waktu_terakhir']);
     }
@@ -533,6 +535,34 @@ class ApifyLinkedInProviderTest extends TestCase
         $fresh = $alumni->fresh();
         $this->assertEquals($initialJob, $fresh->posisi_jabatan);
         $this->assertNull($fresh->perusahaan_id);
+    }
+
+    /**
+     * Memastikan perusahaan master yang cocok hanya disiapkan saat sync dan baru dipetakan saat approval.
+     */
+    public function test_sync_prepares_existing_verified_company_without_mutating_profile(): void
+    {
+        Config::set('services.linkedin.provider', 'apify');
+
+        $masterCompany = Perusahaan::create([
+            'nama_perusahaan' => 'PT Bukalapak.com Tbk',
+            'status_verifikasi' => 'Terverifikasi',
+        ]);
+        $alumni = $this->createAlumni('71190009', 'Alumni Auto Mapping');
+
+        Http::fake([
+            'https://api.apify.com/*' => Http::response($this->sampleApifyResponse($alumni->linkedin_url), 200),
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->postJson("/superadmin/linkedin-sync/{$alumni->id}");
+
+        $response->assertOk()->assertJsonPath('sync_result.company_resolution.status', 'matched');
+        $this->assertNull($alumni->fresh()->perusahaan_id);
+        $this->assertDatabaseHas('linkedin_sync_results', [
+            'biodata_id' => $alumni->id,
+            'status' => 'pending',
+        ]);
     }
 
     // -------------------------------------------------------------------------

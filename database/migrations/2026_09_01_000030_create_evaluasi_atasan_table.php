@@ -19,7 +19,7 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "evaluasi_atasan" ("id" integer primary key autoincrement not null, "biodata_id" integer not null, "perusahaan_id" integer, "atasan_id" integer, "token" varchar not null, "is_submitted" tinyint(1) not null default '0', "submitted_at" datetime, "jumlah_alumni_ukdw" varchar, "standar_gaji_pertama" varchar, "created_at" datetime, "updated_at" datetime, foreign key("biodata_id") references "biodata"("id") on delete cascade, foreign key("perusahaan_id") references "perusahaan"("id") on delete set null, foreign key("atasan_id") references "atasan"("id") on delete set null);
+CREATE TABLE "evaluasi_atasan" ("id" integer primary key autoincrement not null, "biodata_id" integer not null, "perusahaan_id" integer, "atasan_id" integer, "token" varchar not null, "is_submitted" tinyint(1) not null default '0', "submitted_at" datetime, "created_at" datetime, "updated_at" datetime, foreign key("biodata_id") references "biodata"("id") on delete cascade, foreign key("perusahaan_id") references "perusahaan"("id") on delete set null, foreign key("atasan_id") references "atasan"("id") on delete set null);
 SQL
             );
 
@@ -40,8 +40,6 @@ CREATE TABLE `evaluasi_atasan` (
   `token` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Token acak unik untuk akses formulir publik tanpa login',
   `is_submitted` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Penanda status apakah evaluasi sudah disubmit oleh atasan',
   `submitted_at` timestamp NULL DEFAULT NULL COMMENT 'Waktu penyerahan / submit respon evaluasi',
-  `jumlah_alumni_ukdw` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Rentang jumlah alumni UKDW yang bekerja di instansi: < 5 Orang, 6 - 10 Orang, dll',
-  `standar_gaji_pertama` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Standar gaji pertama per bulan untuk alumni UKDW di instansi ini',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),

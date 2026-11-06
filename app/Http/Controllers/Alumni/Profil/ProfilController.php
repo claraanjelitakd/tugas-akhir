@@ -143,8 +143,16 @@ class ProfilController extends Controller
         // Konfigurasi dinamis butir pertanyaan profil dari Super Admin (label, keterangan, status wajib, tipe)
         $profileQuestionConfigs = AdminAlumniProfileService::getProfileQuestionConfigs();
 
-        // Get all perusahaan for Autocomplete
-        $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'kode_provinsi', 'kode_kabupaten', 'alamat', 'kode_pos', 'skala', 'bentuk_perusahaan', 'no_telp_fax', 'homepage', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'jenis_lokasi', 'kode_negara', 'status_verifikasi')->get();
+        // Alumni hanya boleh memilih master terverifikasi atau kandidat yang memang
+        // diajukan olehnya; kandidat pending milik pengguna lain tidak ditampilkan.
+        $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'kode_provinsi', 'kode_kabupaten', 'alamat', 'kode_pos', 'skala', 'bentuk_perusahaan', 'no_telp_fax', 'homepage', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'jenis_lokasi', 'kode_negara', 'status_verifikasi')
+            ->where(function ($query) use ($pengguna, $biodata): void {
+                $query->where('status_verifikasi', 'Terverifikasi')
+                    ->orWhere('created_by_user_id', $pengguna->id)
+                    ->orWhere('id', $biodata?->perusahaan_id);
+            })
+            ->orderBy('nama_perusahaan')
+            ->get();
 
         return inertia('Alumni/Profil/Index', [
             // Hanya kirim konteks minimum yang dibutuhkan FormKarier; relasi akademik/keluarga

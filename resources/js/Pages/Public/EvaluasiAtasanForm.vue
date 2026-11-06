@@ -36,6 +36,11 @@ const props = defineProps({
     },
     alumniInfo: Object,
     initialCompany: Object,
+    // Opsi jenis instansi dan bentuk head office diselaraskan dengan master profil alumni.
+    companyOptions: {
+        type: Object,
+        default: () => ({}),
+    },
     isSubmitted: Boolean,
 });
 
@@ -67,22 +72,25 @@ const alumniInitials = computed(() => {
     return rawName.slice(0, 2).toUpperCase();
 });
 
-// Definisi 3 langkah stepper evaluasi atasan
-const activeStep = ref('instansi');
+// Step pertama berisi metadata master yang sudah diringkas di banner, sehingga form dimulai dari karakteristik.
+const activeStep = ref('karakteristik');
 
-// Daftar langkah publik mengikuti section yang dikirim controller, dengan fallback untuk data lama.
-const steps = computed(() => props.sections.length
-    ? props.sections.map((section) => ({
+// Daftar langkah publik menyembunyikan metadata master dan menomori ulang dua langkah yang benar-benar diisi atasan.
+const steps = computed(() => {
+    const sections = props.sections.length
+        ? props.sections.filter((section) => section.key !== 'instansi')
+        : [
+            { key: 'karakteristik', title: 'Karakteristik Perusahaan & Sebaran Alumni', description: 'Jumlah pegawai, sebaran alumni UKDW, dan standar gaji pertama.', order: 1 },
+            { key: 'penilaian', title: 'Penilaian Kesiapan & Kinerja Alumni', description: 'Kesiapan kerja dan kompetensi alumni.', order: 2 },
+        ];
+
+    return sections.map((section, index) => ({
         id: section.key,
         name: section.title,
         subtitle: section.description,
-        step: String(section.order),
-    }))
-    : [
-        { id: 'instansi', name: 'Profil Perusahaan & Atasan', subtitle: 'Identitas perusahaan, alamat, dan atasan langsung.', step: '1' },
-        { id: 'karakteristik', name: 'Karakteristik Perusahaan & Sebaran Alumni', subtitle: 'Skala organisasi dan sebaran alumni UKDW.', step: '2' },
-        { id: 'penilaian', name: 'Penilaian Kesiapan & Kinerja Alumni', subtitle: 'Kesiapan kerja dan kompetensi alumni.', step: '3' },
-    ]);
+        step: String(index + 1),
+    }));
+});
 
 // Pisahkan field perusahaan dari butir penilaian agar satu tabel master dapat mengatur seluruh stepper.
 const companyQuestions = computed(() => props.pertanyaanList.filter((q) => q.is_company_field));
@@ -90,13 +98,14 @@ const evaluationQuestions = computed(() => props.pertanyaanList.filter((q) => !q
 const evaluationQuestionsForStep = (stepId) => evaluationQuestions.value.filter((q) => q.langkah === stepId);
 const likertPertanyaanList = computed(() => evaluationQuestionsForStep('penilaian').filter((q) => q.kode !== 'tingkat_kesiapan_kerja'));
 const kesiapanPertanyaan = computed(() => evaluationQuestionsForStep('penilaian').find((q) => q.kode === 'tingkat_kesiapan_kerja'));
-// Opsi kesiapan kerja dibaca dari pertanyaan aktif agar perubahan master langsung terlihat di formulir.
-const kesiapanOptions = computed(() => kesiapanPertanyaan.value?.pilihan_jawaban || []);
-// Opsi skala kinerja dibaca dari metadata butir Likert pertama pada langkah penilaian.
-const skalaNilaiOptions = computed(() => likertPertanyaanList.value[0]?.pilihan_jawaban || []);
+// Opsi kesiapan kerja ditampilkan dari tingkat terendah ke tertinggi tanpa mengubah urutan master untuk scoring.
+const kesiapanOptions = computed(() => [...(kesiapanPertanyaan.value?.pilihan_jawaban || [])].reverse());
+// Opsi skala kinerja ditampilkan dari paling kurang ke paling baik; backend tetap memakai urutan master untuk scoring.
+const skalaNilaiOptions = computed(() => [...(likertPertanyaanList.value[0]?.pilihan_jawaban || [])].reverse());
 
 // Menentukan field perusahaan yang harus dirender pada langkah yang dipilih admin.
-const companyQuestionsForStep = (stepId) => companyQuestions.value.filter((q) => q.langkah === stepId);
+const evaluatorCharacteristicCodes = ['jumlah_pegawai', 'jumlah_alumni_ukdw', 'standar_gaji_pertama'];
+const companyQuestionsForStep = (stepId) => companyQuestions.value.filter((q) => q.langkah === stepId && evaluatorCharacteristicCodes.includes(q.kode));
 
 // Status aktif field perusahaan mengikuti tombol Aktif/Nonaktif pada halaman kelola pertanyaan.
 const isCompanyQuestionActive = (code) => companyQuestions.value.some((question) => question.kode === code);
@@ -109,6 +118,19 @@ const optionsForCompanyQuestion = (question) => question.pilihan_jawaban || [];
 
 // Menentukan opsi pertanyaan umum dari metadata database tanpa daftar pilihan hardcode.
 const optionsForEvaluationQuestion = (question) => question.pilihan_jawaban || [];
+
+// Pilihan F11 dipakai bersama alumni agar klasifikasi instansi tidak berbeda antarform.
+const jenisPerusahaanOptions = computed(() => props.companyOptions?.jenis_perusahaan?.length
+    ? props.companyOptions.jenis_perusahaan
+    : [
+        'Instansi pemerintah',
+        'Organisasi non-profit/Lembaga Swadaya Masyarakat',
+        'Perusahaan swasta',
+        'Wiraswasta/perusahaan sendiri',
+        'BUMN/BUMD',
+        'Institusi/Organisasi Multilateral',
+        'Lainnya',
+    ]);
 
 // Siapkan state default jawaban untuk setiap butir pertanyaan
 const initialJawaban = {};
@@ -125,21 +147,24 @@ const normalizeSkala = (val) => {
 
 // State form utama Inertia
 const form = useForm({
-    // Langkah 1: Informasi Perusahaan & Nama Atasan
+    // Metadata master tetap dikirim untuk kompatibilitas backend, tetapi tidak ditampilkan sebagai langkah input.
     nama_perusahaan: props.initialCompany?.nama || '',
+    jenis_perusahaan: props.initialCompany?.jenis_perusahaan || '',
+    jenis_perusahaan_lainnya: props.initialCompany?.jenis_perusahaan_lainnya || '',
     alamat_lengkap: props.initialCompany?.alamat || '',
+    kode_pos: props.initialCompany?.kode_pos || '',
     no_telp_fax: props.initialCompany?.no_telp_fax || '',
     homepage: props.initialCompany?.homepage || '',
     nama_atasan: props.initialCompany?.nama_atasan || '',
 
-    // Langkah 2: Karakteristik Perusahaan & Sebaran Alumni UKDW
+    // Langkah 1 publik: Karakteristik Perusahaan & Sebaran Alumni UKDW
     bentuk_perusahaan: props.initialCompany?.bentuk || '',
     skala_perusahaan: normalizeSkala(props.initialCompany?.skala || ''),
-    jumlah_pegawai: props.initialCompany?.jumlah_pegawai || '',
-    jumlah_alumni_ukdw: props.evaluasi?.jumlah_alumni_ukdw || '',
-    standar_gaji_pertama: props.evaluasi?.standar_gaji_pertama || '',
+    jumlah_pegawai: props.existingResponses.jumlah_pegawai || '',
+    jumlah_alumni_ukdw: props.existingResponses.jumlah_alumni_ukdw || '',
+    standar_gaji_pertama: props.existingResponses.standar_gaji_pertama || '',
 
-    // Langkah 3: Jawaban Kuesioner Evaluasi & Saran
+    // Langkah 2 publik: Jawaban Kuesioner Evaluasi & Saran
     jawaban: initialJawaban,
     catatan_lainnya: props.existingCatatan || '',
 });
@@ -149,6 +174,17 @@ const cleanText = (val) => {
     const str = String(val ?? '').trim();
     return str !== '' && str !== '-' ? str : '';
 };
+
+// Semua metadata head office hanya dibaca oleh atasan; perubahan dilakukan admin melalui master perusahaan.
+const isHeadOfficeFieldLocked = (fieldName) => [
+    'nama_perusahaan',
+    'jenis_perusahaan',
+    'jenis_perusahaan_lainnya',
+    'alamat_lengkap',
+    'kode_pos',
+    'no_telp_fax',
+    'homepage',
+].includes(fieldName);
 
 // Nama atasan untuk sapaan pembuka
 const greetingSupervisorName = computed(() => {
@@ -172,22 +208,23 @@ const careerSummary = computed(() => {
 const companySummary = computed(() => {
     const info = props.alumniInfo || {};
     const nama = cleanText(form.nama_perusahaan) || cleanText(info.perusahaan);
-    const jenis = cleanText(info.jenis_perusahaan);
+    const jenis = cleanText(form.jenis_perusahaan) || cleanText(info.jenis_perusahaan);
     const bentuk = cleanText(form.bentuk_perusahaan) || cleanText(info.bentuk_perusahaan);
     const skala = cleanText(form.skala_perusahaan) || cleanText(info.skala_perusahaan);
     const alamat = cleanText(form.alamat_lengkap) || cleanText(info.alamat_perusahaan);
-    const lokasi = cleanText(info.lokasi_perusahaan);
-    const kodePos = cleanText(info.kode_pos_perusahaan);
+    const lokasi = cleanText(info.domisili_head_office) || cleanText(info.lokasi_perusahaan);
+    const kodePos = cleanText(form.kode_pos) || cleanText(info.kode_pos_perusahaan);
     const cakupan = cleanText(info.jenis_lokasi);
 
     const metaParts = [jenis, bentuk, skala ? `Skala ${skala}` : '', cakupan].filter(Boolean);
-    const locationParts = [alamat, lokasi !== alamat ? lokasi : '', kodePos].filter(Boolean);
+    const addressLine = [alamat, kodePos].filter(Boolean).join(', ');
 
-    if (!nama && metaParts.length === 0 && locationParts.length === 0) return null;
+    if (!nama && metaParts.length === 0 && !addressLine && !lokasi) return null;
     return {
         nama: nama || 'Instansi Tempat Bekerja',
         metaLine: metaParts.join(' • '),
-        locationLine: locationParts.join(', '),
+        addressLine,
+        domicileLine: lokasi,
     };
 });
 
@@ -204,7 +241,7 @@ const studySummary = computed(() => {
     return { primaryLine, secondaryLine };
 });
 
-// Fungsi toggle / batal pilih (cancel) untuk field Langkah 2
+// Fungsi toggle / batal pilih (cancel) untuk field karakteristik.
 const toggleFieldOption = (fieldName, val) => {
     if (form[fieldName] === val) {
         form[fieldName] = '';
@@ -213,7 +250,7 @@ const toggleFieldOption = (fieldName, val) => {
     }
 };
 
-// Fungsi toggle / batal pilih (cancel) untuk jawaban Langkah 3
+// Fungsi toggle / batal pilih (cancel) untuk jawaban penilaian.
 const toggleJawaban = (kode, nilai) => {
     if (form.jawaban[kode] === nilai) {
         form.jawaban[kode] = '';
@@ -235,6 +272,7 @@ const isStepCompleted = (stepId) => {
         const evaluationFieldsCompleted = evaluationQuestionsForStep(stepId).every((question) => !!form.jawaban[question.kode]);
         return !!(
             form.nama_perusahaan &&
+            form.jenis_perusahaan &&
             form.alamat_lengkap &&
             form.nama_atasan &&
             companyFieldsCompleted &&
@@ -258,6 +296,11 @@ const isStepCompleted = (stepId) => {
 // Navigasi langkah
 const goToStep = (stepId) => {
     activeStep.value = stepId;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+// Mengembalikan fokus ke ringkasan alumni tanpa membuka kembali metadata master.
+const scrollToSummary = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
@@ -291,7 +334,7 @@ const prevStep = () => {
     if (activeStep.value === 'penilaian') {
         goToStep('karakteristik');
     } else if (activeStep.value === 'karakteristik') {
-        goToStep('instansi');
+        scrollToSummary();
     }
 };
 
@@ -329,7 +372,7 @@ const submitForm = () => {
     <div class="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 antialiased selection:bg-emerald-100 selection:text-emerald-900">
 
         <!-- Header Resmi UKDW dengan Avatar Dropdown Alumni di Kanan (Seperti Navbar Alumni) -->
-        <header class="bg-[#0D542B] text-white shadow-xs w-full">
+        <header class="static z-auto bg-[#0D542B] text-white shadow-xs w-full">
             <div class="w-full px-4 sm:px-6 lg:px-10 py-3.5 sm:py-4">
                 <div class="flex items-center justify-between gap-4">
                     <div class="flex items-center gap-3.5 min-w-0">
@@ -423,7 +466,7 @@ const submitForm = () => {
                         <p class="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-4xl">
                             Terima kasih atas kesediaan Anda meluangkan waktu untuk memberikan evaluasi terhadap lulusan kami,
                             <strong class="text-slate-900 font-semibold">{{ alumniInfo.nama }}</strong>
-                            (Program Studi <strong class="text-slate-800 font-semibold">{{ alumniInfo.prodi }}</strong><span v-if="alumniInfo.fakultas && alumniInfo.fakultas !== '-'">, {{ alumniInfo.fakultas }}</span> &bull; NIM <span class="font-mono font-semibold text-slate-800">{{ alumniInfo.nim }}</span>).
+                            (Program Studi <strong class="text-slate-800 font-semibold">{{ alumniInfo.prodi }}</strong><span v-if="alumniInfo.fakultas && alumniInfo.fakultas !== '-'">, Fakultas {{ alumniInfo.fakultas }}</span> &bull; NIM <span class="font-mono font-semibold text-slate-800">{{ alumniInfo.nim }}</span>).
                         </p>
                     </div>
                 </div>
@@ -451,10 +494,10 @@ const submitForm = () => {
                         </p>
                     </div>
 
-                    <!-- 2. Ringkasan Instansi & Lokasi Kerja -->
+                    <!-- 2. Ringkasan Instansi & Domisili Head Office -->
                     <div v-if="companySummary" class="bg-slate-50/70 rounded-lg px-4 py-3 border border-slate-200/80">
                         <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                            Instansi &amp; Lokasi Penempatan
+                            Instansi &amp; Domisili Head Office
                         </span>
                         <p class="text-xs sm:text-sm font-bold text-slate-900 mt-0.5">
                             {{ companySummary.nama }}
@@ -462,8 +505,11 @@ const submitForm = () => {
                         <p v-if="companySummary.metaLine" class="text-[11px] text-slate-600 font-medium mt-0.5">
                             {{ companySummary.metaLine }}
                         </p>
-                        <p v-if="companySummary.locationLine" class="text-[11px] text-slate-500 mt-0.5">
-                            {{ companySummary.locationLine }}
+                        <p v-if="companySummary.addressLine" class="text-[11px] text-slate-500 mt-0.5">
+                            Head office: {{ companySummary.addressLine }}
+                        </p>
+                        <p v-if="companySummary.domicileLine" class="text-[11px] text-slate-500 mt-0.5">
+                            Domisili: {{ companySummary.domicileLine }}
                         </p>
                     </div>
 
@@ -498,7 +544,7 @@ const submitForm = () => {
                 </div>
             </div>
 
-            <!-- FORMULIR INPUT DENGAN 3 STEPPER -->
+            <!-- FORMULIR INPUT DENGAN 2 LANGKAH PUBLIK -->
             <form v-else @submit.prevent="submitForm" class="space-y-6">
 
                 <!-- STEPPER NAVIGASI 3 LANGKAH -->
@@ -564,16 +610,20 @@ const submitForm = () => {
                     </div>
 
                     <!-- ========================================================= -->
-                    <!-- LANGKAH 1: PROFIL PERUSAHAAN & NAMA ATASAN                -->
+                    <!-- METADATA MASTER: RINGKASAN READ-ONLY, TIDAK MENJADI LANGKAH PUBLIK -->
                     <!-- ========================================================= -->
-                    <div v-show="activeStep === 'instansi'" class="p-5 sm:p-7 space-y-5">
+                    <div v-if="activeStep === 'instansi'" class="p-5 sm:p-7 space-y-5">
                         <div class="border-b border-slate-200 pb-3">
                             <h3 class="text-sm sm:text-base font-bold text-slate-900">
                                 Langkah 1: Informasi Perusahaan &amp; Atasan Langsung
                             </h3>
                             <p class="text-xs text-slate-500 mt-0.5">
-                                Data di bawah ini telah diisi oleh alumni. Anda cukup memeriksa atau memperbaruinya jika terdapat perubahan.
+                                Data di bawah ini berasal dari master head office dan hanya dapat diperbarui oleh admin. Atasan cukup memastikan identitas penilai dan mengisi penilaian.
                             </p>
+                        </div>
+
+                        <div class="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3.5 py-3 text-xs text-emerald-900">
+                            Kode pos dan domisili pada bagian ini adalah lokasi kantor pusat. Data tersebut tidak mengubah domisili pribadi alumni.
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
@@ -586,9 +636,30 @@ const submitForm = () => {
                                     type="text"
                                     v-model="form.nama_perusahaan"
                                     required
+                                    :readonly="isHeadOfficeFieldLocked('nama_perusahaan')"
+                                    :class="isHeadOfficeFieldLocked('nama_perusahaan') ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'"
                                     class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
                                     placeholder="Nama resmi instansi tempat alumni bekerja"
                                 />
+                            </div>
+
+                            <!-- Jenis Instansi mengikuti klasifikasi F11 profil alumni. -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                                    Jenis Perusahaan / Instansi (F11) <span class="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    v-model="form.jenis_perusahaan"
+                                    required
+                                    :disabled="isHeadOfficeFieldLocked('jenis_perusahaan')"
+                                    :class="isHeadOfficeFieldLocked('jenis_perusahaan') ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'"
+                                    class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
+                                >
+                                    <option value="">Pilih jenis perusahaan / instansi</option>
+                                    <option v-for="option in jenisPerusahaanOptions" :key="option" :value="option">
+                                        {{ option }}
+                                    </option>
+                                </select>
                             </div>
 
                             <!-- Nama Atasan Langsung -->
@@ -611,6 +682,8 @@ const submitForm = () => {
                                 <input
                                     type="text"
                                     v-model="form.no_telp_fax"
+                                    :readonly="isHeadOfficeFieldLocked('no_telp_fax')"
+                                    :class="isHeadOfficeFieldLocked('no_telp_fax') ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'"
                                     class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
                                     placeholder="Contoh: 0274-563929"
                                 />
@@ -625,8 +698,27 @@ const submitForm = () => {
                                     type="text"
                                     v-model="form.alamat_lengkap"
                                     required
+                                    :readonly="isHeadOfficeFieldLocked('alamat_lengkap')"
+                                    :class="isHeadOfficeFieldLocked('alamat_lengkap') ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'"
                                     class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
                                     placeholder="Jalan, Gedung, Kota/Kabupaten, Kode Pos..."
+                                />
+                            </div>
+
+                            <!-- Kode pos merupakan metadata kantor pusat, bukan domisili pribadi alumni. -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                                    Kode Pos Kantor / Perusahaan <span class="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="form.kode_pos"
+                                    required
+                                    maxlength="15"
+                                    :readonly="isHeadOfficeFieldLocked('kode_pos')"
+                                    :class="isHeadOfficeFieldLocked('kode_pos') ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'"
+                                    class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
+                                    placeholder="Contoh: 12950"
                                 />
                             </div>
 
@@ -636,8 +728,27 @@ const submitForm = () => {
                                 <input
                                     type="text"
                                     v-model="form.homepage"
+                                    :readonly="isHeadOfficeFieldLocked('homepage')"
+                                    :class="isHeadOfficeFieldLocked('homepage') ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'"
                                     class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
                                     placeholder="Contoh: https://perusahaan.com"
+                                />
+                            </div>
+
+                            <!-- Detail tambahan untuk klasifikasi F11. -->
+                            <div v-if="form.jenis_perusahaan === 'Lainnya'" class="sm:col-span-2 lg:col-span-3">
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                                    Sebutkan Jenis Perusahaan / Instansi Lainnya <span class="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="form.jenis_perusahaan_lainnya"
+                                    :required="form.jenis_perusahaan === 'Lainnya'"
+                                    maxlength="150"
+                                    :readonly="isHeadOfficeFieldLocked('jenis_perusahaan_lainnya')"
+                                    :class="isHeadOfficeFieldLocked('jenis_perusahaan_lainnya') ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'"
+                                    class="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] transition-colors bg-white outline-none"
+                                    placeholder="Contoh: Startup teknologi, lembaga riset"
                                 />
                             </div>
                         </div>
@@ -669,69 +780,18 @@ const submitForm = () => {
                     <!-- ========================================================= -->
                     <!-- LANGKAH 2: KARAKTERISTIK INSTANSI & LULUSAN               -->
                     <!-- ========================================================= -->
-                    <div v-show="activeStep === 'karakteristik'" class="p-5 sm:p-7 space-y-6">
+                    <div v-else-if="activeStep === 'karakteristik'" class="p-5 sm:p-7 space-y-6">
                         <div class="border-b border-slate-200 pb-3">
                             <h3 class="text-sm sm:text-base font-bold text-slate-900">
-                                Langkah 2: Karakteristik Perusahaan &amp; Sebaran Alumni UKDW
+                                Langkah 1: Karakteristik Perusahaan &amp; Sebaran Alumni UKDW
                             </h3>
                             <p class="text-xs text-slate-500 mt-0.5">
                                 Gambaran umum skala organisasi dan jumlah alumni UKDW yang berkarier di perusahaan ini (klik ulang atau klik 2x untuk membatalkan pilihan).
                             </p>
                         </div>
 
-                        <!-- 1. Bentuk Perusahaan -->
-                        <div v-if="isCompanyQuestionActive('bentuk_perusahaan')" class="space-y-2">
-                            <label class="block text-xs font-bold text-slate-800">
-                                {{ companyQuestion('bentuk_perusahaan')?.aspek || 'Bentuk Perusahaan / Institusi' }} <span class="text-rose-500">*</span>
-                            </label>
-                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
-                                <div
-                                    v-for="opt in optionsForCompanyQuestion(companyQuestion('bentuk_perusahaan'))"
-                                    :key="opt"
-                                    @click="toggleFieldOption('bentuk_perusahaan', opt)"
-                                    @dblclick.stop="form.bentuk_perusahaan = ''"
-                                    class="flex items-center gap-2.5 p-3 border rounded-lg cursor-pointer text-xs font-semibold transition-colors select-none"
-                                    :class="form.bentuk_perusahaan === opt ? 'border-[#0D542B] bg-emerald-50 text-[#0D542B] ring-1 ring-[#0D542B] font-bold' : 'border-slate-200 text-slate-700 hover:bg-slate-50'"
-                                >
-                                    <input
-                                        type="radio"
-                                        :checked="form.bentuk_perusahaan === opt"
-                                        :value="opt"
-                                        readonly
-                                        class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0 pointer-events-none"
-                                    />
-                                    <span class="truncate">{{ opt }}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 2. Skala Perusahaan -->
-                        <div v-if="isCompanyQuestionActive('skala_perusahaan')" class="space-y-2">
-                            <label class="block text-xs font-bold text-slate-800">
-                                {{ companyQuestion('skala_perusahaan')?.aspek || 'Skala Perusahaan / Organisasi' }} <span class="text-rose-500">*</span>
-                            </label>
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                <div
-                                    v-for="opt in optionsForCompanyQuestion(companyQuestion('skala_perusahaan'))"
-                                    :key="opt"
-                                    @click="toggleFieldOption('skala_perusahaan', opt)"
-                                    @dblclick.stop="form.skala_perusahaan = ''"
-                                    class="flex items-center gap-2.5 p-3 border rounded-lg cursor-pointer text-xs font-semibold transition-colors select-none"
-                                    :class="form.skala_perusahaan === opt ? 'border-[#0D542B] bg-emerald-50 text-[#0D542B] ring-1 ring-[#0D542B] font-bold' : 'border-slate-200 text-slate-700 hover:bg-slate-50'"
-                                >
-                                    <input
-                                        type="radio"
-                                        :checked="form.skala_perusahaan === opt"
-                                        :value="opt"
-                                        readonly
-                                        class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0 pointer-events-none"
-                                    />
-                                    <span>{{ opt }}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 3. Jumlah Pegawai Keseluruhan -->
+                        <!-- Data karakteristik yang diisi langsung oleh atasan disimpan sebagai snapshot evaluasi. -->
+                        <!-- Jumlah Pegawai Keseluruhan -->
                         <div v-if="isCompanyQuestionActive('jumlah_pegawai')" class="space-y-2">
                             <label class="block text-xs font-bold text-slate-800">
                                 {{ companyQuestion('jumlah_pegawai')?.aspek || 'Jumlah Pegawai Keseluruhan di Perusahaan ini' }} <span class="text-rose-500">*</span>
@@ -820,16 +880,8 @@ const submitForm = () => {
                             </div>
                         </div>
 
-                        <!-- Tombol Navigasi Langkah 2 -->
-                        <div class="pt-4 border-t border-slate-200 flex items-center justify-between">
-                            <button
-                                type="button"
-                                @click="prevStep"
-                                class="px-4 py-2.5 border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-semibold rounded-lg transition-colors cursor-pointer inline-flex items-center gap-2"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                                <span>Kembali ke Profil</span>
-                            </button>
+                        <!-- Tombol Navigasi Langkah 1 -->
+                        <div class="pt-4 border-t border-slate-200 flex items-center justify-end">
                             <button
                                 type="button"
                                 @click="nextStep"
@@ -842,13 +894,13 @@ const submitForm = () => {
                     </div>
 
                     <!-- ========================================================= -->
-                    <!-- LANGKAH 3: PENILAIAN KINERJA LULUSAN                      -->
+                    <!-- LANGKAH 2: PENILAIAN KINERJA LULUSAN                      -->
                     <!-- ========================================================= -->
-                    <div v-show="activeStep === 'penilaian'" class="p-5 sm:p-7 space-y-6">
+                    <div v-else-if="activeStep === 'penilaian'" class="p-5 sm:p-7 space-y-6">
                         <div class="border-b border-slate-200 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div>
                                 <h3 class="text-sm sm:text-base font-bold text-slate-900">
-                                    Langkah 3: Penilaian Kesiapan &amp; Kinerja Lulusan
+                                    Langkah 2: Penilaian Kesiapan &amp; Kinerja Lulusan
                                 </h3>
                                 <p class="text-xs text-slate-500 mt-0.5">
                                     Penilaian obyektif terhadap performa kerja alumni atas nama <strong class="text-slate-900">{{ alumniInfo.nama }}</strong> (klik ulang atau klik 2x pada pilihan yang aktif untuk membatalkan jawaban).

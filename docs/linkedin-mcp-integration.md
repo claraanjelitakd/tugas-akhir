@@ -2,7 +2,7 @@
 
 Dokumen ini menjelaskan arsitektur resmi, konfigurasi provider, alur kerja staging, dan penanganan data untuk fitur **Sinkronisasi Profil LinkedIn** pada aplikasi Tracer Study Alumni UKDW (SERU).
 
-> Revisi 22 Oktober 2026: penyatuan sidebar dan pola halaman admin hanya memengaruhi konsistensi navigasi antarmuka. Kontrak provider, konfigurasi environment, staging `linkedin_sync_results`, serta aturan review LinkedIn tidak berubah.
+> Revisi 06 November 2026: normalisasi field provider diperluas, mapping perusahaan memakai pencocokan master/similarity, dan tabel Sinkronisasi LinkedIn menyediakan approval cepat tanpa membuka detail.
 
 ---
 
@@ -108,7 +108,18 @@ Saat melihat data pada tombol **{ } Lihat JSON** di antarmuka web, kunci-kunci o
 
 ---
 
-## 4. Alur Kerja Staging & Review Admin Berwenang (Prinsip Zero Direct Mutation)
+## 4. Alur Kerja Staging, Mapping, dan Review Admin Berwenang
+
+Snapshot LinkedIn tetap berstatus `pending`. Namun, saat snapshot dibuat,
+perusahaan dapat langsung dicari ke master: kecocokan kuat dipetakan jika
+relasi `biodata.perusahaan_id` masih kosong, sedangkan perusahaan baru dibuat
+sebagai `Menunggu Verifikasi`. Field profil lain tetap tidak berubah sampai
+approval. Jadi prinsipnya adalah **zero direct mutation untuk field profil**,
+bukan menunda seluruh resolusi perusahaan.
+
+Evaluasi atasan memakai master head office yang sama. Isian publik atasan hanya
+melengkapi metadata yang masih kosong pada master terverifikasi; kode pos kantor
+tidak dipakai sebagai kode pos domisili alumni.
 
 Ketika tombol **Sinkronisasi LinkedIn** ditekan untuk satu alumni pada provider Apify:
 
@@ -122,7 +133,7 @@ Kirim 1 Request POST ke Apify Actor via Bearer Token
 Terima Raw JSON Dataset dari Apify
                  ↓
 Simpan snapshot ke tabel: linkedin_sync_results (status: pending)
-[Data utama biodata alumni TIDAK BERUBAH SAMA SEKALI]
+[Field profil utama tetap menunggu approval; mapping perusahaan berconfidence tinggi dapat diproses otomatis]
                  ↓
 SuperAdmin membuka Review Hasil Sinkronisasi
                  ↓
@@ -151,6 +162,20 @@ SuperAdmin membuka Review Hasil Sinkronisasi
 | `scraped_at` | Timestamp | Waktu data berhasil di-scrape |
 | `created_at` / `updated_at` | Timestamp | Pencatatan riwayat |
 
+### Mapping perusahaan dan approval cepat
+
+Resolver perusahaan mengikuti urutan berikut:
+
+1. Pencocokan nama eksak setelah spasi dan kapitalisasi dirapikan.
+2. Rekomendasi similarity dari `PerusahaanVerificationService`.
+3. Skor sangat tinggi diperlakukan sebagai kecocokan aman dan disiapkan untuk approval.
+4. Nama yang belum pasti dibuat sebagai master `Menunggu Verifikasi`; relasi biodata tidak dipindahkan jika masih ada konflik perusahaan.
+
+Data posisi, bidang, skills, experience, foto, dan studi lanjut tetap berada di
+staging sampai approval profil. Tombol `Approve & Terapkan` dan `Tolak Hasil`
+tersedia langsung pada baris pending; modal detail hanya diperlukan jika admin
+ingin menyesuaikan nilai hasil scraping.
+
 ### Kebijakan Sync Ulang (Preservasi Histori)
 Jika alumni yang sama disinkronkan kembali di lain waktu:
 - Record staging yang lama **TIDAK DITIMPA / TIDAK DIHAPUS**.
@@ -161,14 +186,14 @@ Jika alumni yang sama disinkronkan kembali di lain waktu:
 
 ## 5. Pemetaan Data (*Data Mapping*) Saat Disetujui (Approve / Plot Ulang)
 
-Pemetaan dijalankan setelah admin berwenang menekan tombol **Setujui (Approve)** atau **Plot Ulang (Replot)**:
+Pemetaan field profil dijalankan setelah admin berwenang menekan tombol **Setujui (Approve)** atau **Plot Ulang (Replot)**. Saat staging dibuat, sistem hanya menyiapkan kecocokan master dan rekomendasi tanpa mengubah profil utama:
 1. **Posisi / Jabatan & Kategori**:
    - Jika karyawan/pekerja: entri posisi aktif terbaru diambil sebagai `posisi_jabatan` pada `biodata`, kategori diset `Pekerja`.
    - Jika wirausaha: posisi disimpan ke `posisi_wiraswasta` pada `biodata`, kategori diset `Wiraswasta`.
 2. **Perusahaan / Institusi**:
-   - Nama perusahaan dari entri pengalaman dicari pada master `perusahaan`.
-   - Jika belum ada, sistem mendaftarkan institusi baru dengan `status_verifikasi = 'Menunggu Verifikasi'` (tidak langsung otomatis terverifikasi).
-   - Foreign key `perusahaan_id` pada `biodata` diperbarui.
+   - Nama perusahaan dari entri pengalaman dicari pada master `perusahaan` dan rekomendasi similarity.
+   - Jika belum ada, sistem mendaftarkan institusi baru dengan `status_verifikasi = 'Menunggu Verifikasi'`.
+   - Foreign key `perusahaan_id` memakai master terverifikasi yang cocok setelah approval; nama yang benar-benar berbeda tetap menjadi kandidat `Menunggu Verifikasi` dan konflik tetap menunggu review.
 3. **Bidang Pekerjaan / Divisi**:
    - Diekstrak dari objek industri HarvestAPI (`industry.name`), contoh: `"IT Services and IT Consulting"`.
    - Disimpan ke kolom `biodata.bidang_pekerjaan` dan dapat disesuaikan langsung oleh admin melalui modal approval.

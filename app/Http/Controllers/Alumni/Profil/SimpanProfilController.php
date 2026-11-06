@@ -113,10 +113,11 @@ class SimpanProfilController extends Controller
                 ]
             );
 
-            // Perbarui data perusahaan agar tersinkronisasi dua arah antara profil alumni dan form evaluasi atasan
+            // Perbarui hanya metadata head office yang benar-benar tersedia dari form.
+            // Nilai kosong tidak boleh menghapus data master terverifikasi saat form parsial dikirim.
             $perusahaan->update([
-                'kode_provinsi' => $kodeProvinsi,
-                'kode_kabupaten' => $kodeKabupaten,
+                'kode_provinsi' => $jenisLokasi === 'Luar Negeri' ? null : ($kodeProvinsi ?: $perusahaan->kode_provinsi),
+                'kode_kabupaten' => $jenisLokasi === 'Luar Negeri' ? null : ($kodeKabupaten ?: $perusahaan->kode_kabupaten),
                 'alamat' => $alamat ?: $perusahaan->alamat,
                 'kode_pos' => $kodePos ?: $perusahaan->kode_pos,
                 'skala' => $skala ?: $perusahaan->skala,
@@ -124,7 +125,7 @@ class SimpanProfilController extends Controller
                 'no_telp_fax' => $noTelpFax ?: $perusahaan->no_telp_fax,
                 'homepage' => $homepage ?: $perusahaan->homepage,
                 'jenis_perusahaan' => $jenisPerusahaan ?: $perusahaan->jenis_perusahaan,
-                'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya,
+                'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya ?: $perusahaan->jenis_perusahaan_lainnya,
                 'jenis_lokasi' => $jenisLokasi,
                 'kode_negara' => $kodeNegara,
             ]);

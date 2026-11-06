@@ -7,7 +7,14 @@ use App\Models\RefFakultas;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 
+/**
+ * Menyediakan akun awal aplikasi beserta kontrak relasi unit kerjanya.
+ *
+ * Admin Fakultas wajib memiliki fakultas_id dan email akun agar scope akses
+ * serta pengiriman tautan reset kata sandi selalu dapat digunakan.
+ */
 class UserSeeder extends Seeder
 {
     /**
@@ -100,6 +107,22 @@ class UserSeeder extends Seeder
                     ]
                 );
             }
+        }
+
+        $invalidAdminFakultas = User::query()
+            ->where('role', 'admin_fakultas')
+            ->get()
+            ->filter(function (User $user): bool {
+                return ! $user->fakultas_id
+                    || ! filter_var($user->getRawOriginal('email'), FILTER_VALIDATE_EMAIL);
+            });
+
+        if ($invalidAdminFakultas->isNotEmpty()) {
+            $usernames = $invalidAdminFakultas->pluck('username')->implode(', ');
+
+            throw new RuntimeException(
+                "Setiap akun Admin Fakultas wajib memiliki fakultas_id dan email valid. Periksa: {$usernames}."
+            );
         }
 
     }

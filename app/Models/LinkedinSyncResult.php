@@ -246,6 +246,7 @@ class LinkedinSyncResult extends Model
      *     current_company: ?string,
      *     current_company_location: ?string,
      *     current_company_url: ?string,
+     *     current_divisi: ?string,
      *     industry: ?string,
      *     bidang_pekerjaan: ?string,
      *     suggested_bidang_pekerjaan: ?string,
@@ -336,8 +337,8 @@ class LinkedinSyncResult extends Model
             if (! is_array($pos)) {
                 continue;
             }
-            $t = strtolower(trim((string) ($pos['position'] ?? $pos['title'] ?? $pos['jobTitle'] ?? $pos['role'] ?? '')));
-            $c = strtolower(trim((string) ($pos['companyName'] ?? $pos['company_name'] ?? $pos['company'] ?? $pos['name'] ?? '')));
+            $t = strtolower((string) ($this->textValue($this->firstValue($pos, ['position', 'title', 'jobTitle', 'role'])) ?? ''));
+            $c = strtolower((string) ($this->textValue($this->firstValue($pos, ['companyName', 'company_name', 'company', 'name'])) ?? ''));
             $dedupKey = "{$t}|{$c}";
             if ($dedupKey !== '|' && isset($seenPositions[$dedupKey])) {
                 continue;
@@ -351,6 +352,7 @@ class LinkedinSyncResult extends Model
         $currentCompany = null;
         $currentCompanyLocation = null;
         $currentCompanyUrl = null;
+        $currentDivision = null;
 
         $activeJob = null;
         $activeCompany = null;
@@ -361,6 +363,7 @@ class LinkedinSyncResult extends Model
         $firstCompany = null;
         $firstLoc = null;
         $firstUrl = null;
+        $firstDivision = null;
 
         if (! empty($deduplicatedExp)) {
             foreach ($deduplicatedExp as $pos) {
@@ -368,19 +371,22 @@ class LinkedinSyncResult extends Model
                     continue;
                 }
 
-                $jobTitle = $pos['position'] ?? $pos['title'] ?? $pos['jobTitle'] ?? $pos['role'] ?? null;
-                $company = $pos['companyName'] ?? $pos['company_name'] ?? $pos['company'] ?? $pos['name'] ?? null;
+                $jobTitle = $this->textValue($this->firstValue($pos, ['position', 'title', 'jobTitle', 'role']));
+                $company = $this->textValue($this->firstValue($pos, ['companyName', 'company_name', 'company', 'name']));
+                $division = $this->textValue($this->firstValue($pos, [
+                    'division', 'department', 'departmentName', 'unit', 'team',
+                ]));
 
                 $loc = null;
                 if (! empty($pos['location'])) {
                     $loc = is_array($pos['location'])
                         ? ($pos['location']['parsed']['text'] ?? $pos['location']['linkedinText'] ?? null)
-                        : $pos['location'];
-                } elseif (! empty($pos['locationName'])) {
-                    $loc = $pos['locationName'];
+                        : $this->textValue($pos['location']);
+                } elseif (! empty($this->firstValue($pos, ['locationName']))) {
+                    $loc = $this->textValue($this->firstValue($pos, ['locationName']));
                 }
 
-                $compUrl = $pos['companyLinkedinUrl'] ?? $pos['li_company_url'] ?? $pos['company_url'] ?? $pos['companyUrl'] ?? null;
+                $compUrl = $this->textValue($this->firstValue($pos, ['companyLinkedinUrl', 'li_company_url', 'company_url', 'companyUrl']));
                 $dateStr = $pos['date'] ?? ($pos['duration'] ?? '');
                 $endDate = $pos['endDate'] ?? null;
                 $endDateText = is_array($endDate) ? ($endDate['text'] ?? null) : $endDate;
@@ -401,6 +407,7 @@ class LinkedinSyncResult extends Model
                 $experienceList[] = [
                     'position' => $jobTitle,
                     'company' => $company,
+                    'division' => $division,
                     'location' => $loc,
                     'date' => ! empty($dateStr) ? $dateStr : null,
                     'time_period' => $pos['duration'] ?? $pos['job_time_period'] ?? null,
@@ -417,6 +424,7 @@ class LinkedinSyncResult extends Model
                     $activeCompany = $company;
                     $activeLoc = $loc;
                     $activeUrl = $compUrl;
+                    $currentDivision = $division;
                 }
 
                 if (! $firstJob && $jobTitle) {
@@ -424,6 +432,7 @@ class LinkedinSyncResult extends Model
                     $firstCompany = $company;
                     $firstLoc = $loc;
                     $firstUrl = $compUrl;
+                    $firstDivision = $division;
                 }
             }
         }
@@ -438,12 +447,29 @@ class LinkedinSyncResult extends Model
         }
 
         // 2. Jika tidak ada yang aktif di experiences, gunakan root metadata Apify
-        if (! $currentCompany && ! empty($item['company_name'])) {
-            $currentCompany = trim($item['company_name']);
-            $currentCompanyUrl = ! empty($item['li_company_url']) ? trim($item['li_company_url']) : null;
+        if (! $currentCompany) {
+            $currentCompany = $this->textValue($this->firstValue($item, [
+                'current_company', 'currentCompany', 'company_name', 'companyName', 'company',
+            ]));
+            $currentCompanyLocation = $this->textValue($this->firstValue($item, [
+                'current_company_location', 'currentCompanyLocation', 'company_location',
+            ]));
+            $currentCompanyUrl = $this->textValue($this->firstValue($item, [
+                'current_company_url', 'currentCompanyUrl', 'li_company_url', 'company_url', 'companyUrl',
+            ]));
+            $currentDivision = $this->textValue($this->firstValue($item, [
+                'current_division', 'currentDivision', 'division', 'department', 'departmentName', 'unit', 'team',
+            ]));
         }
-        if (! $currentJob && ! empty($item['job_title'])) {
-            $currentJob = trim($item['job_title']);
+        if (! $currentDivision) {
+            $currentDivision = $this->textValue($this->firstValue($item, [
+                'current_division', 'currentDivision', 'division', 'department', 'departmentName', 'unit', 'team',
+            ]));
+        }
+        if (! $currentJob) {
+            $currentJob = $this->textValue($this->firstValue($item, [
+                'current_job', 'currentJob', 'job_title', 'jobTitle', 'title', 'position',
+            ]));
         }
 
         // 3. Gunakan jabatan eksplisit dari metadata atau pengalaman kerja.
@@ -459,6 +485,7 @@ class LinkedinSyncResult extends Model
             $currentCompany = $firstCompany;
             $currentCompanyLocation = $firstLoc;
             $currentCompanyUrl = $firstUrl;
+            $currentDivision = $firstDivision;
         }
 
         // 8. Pendidikan (Education / Educations)
@@ -675,6 +702,7 @@ class LinkedinSyncResult extends Model
             'current_company' => $currentCompany,
             'current_company_location' => $currentCompanyLocation,
             'current_company_url' => $currentCompanyUrl,
+            'current_divisi' => $currentDivision,
             'industry' => $industry,
             'bidang_pekerjaan' => $industry,
             'suggested_bidang_pekerjaan' => $industry,
@@ -712,5 +740,40 @@ class LinkedinSyncResult extends Model
         }
 
         return array_is_list($value) ? $value : [$value];
+    }
+
+    /**
+     * Mengambil teks dari field provider yang dapat berupa string atau objek bersarang.
+     */
+    private function textValue(mixed $value): ?string
+    {
+        if (is_array($value)) {
+            $value = $this->firstValue($value, ['name', 'localized', 'text', 'value']);
+        }
+
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $text = trim((string) $value);
+
+        return $text !== '' ? $text : null;
+    }
+
+    /**
+     * Mengambil field pertama yang benar-benar ada tanpa memicu notice pada payload provider lama.
+     *
+     * @param  array<string, mixed>  $data  Payload yang sedang dibaca.
+     * @param  array<int, string>  $keys  Urutan alias field yang diprioritaskan.
+     */
+    private function firstValue(array $data, array $keys): mixed
+    {
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $data)) {
+                return $data[$key];
+            }
+        }
+
+        return null;
     }
 }

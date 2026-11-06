@@ -86,7 +86,7 @@ const karakteristik = computed(() => {
     return {
         bentuk: c.bentuk_perusahaan || props.alumni?.perusahaan?.bentuk_perusahaan || '-',
         skala: c.skala || props.alumni?.perusahaan?.skala || '-',
-        jumlah_pegawai: c.jumlah_pegawai || props.alumni?.perusahaan?.jumlah_pegawai || '-',
+        jumlah_pegawai: props.evaluasiAtasan?.jumlah_pegawai || '-',
         jumlah_alumni_ukdw: props.evaluasiAtasan?.jumlah_alumni_ukdw || '-',
         standar_gaji_pertama: props.evaluasiAtasan?.standar_gaji_pertama || '-',
     };

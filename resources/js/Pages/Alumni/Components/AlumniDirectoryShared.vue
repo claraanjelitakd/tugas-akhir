@@ -545,6 +545,24 @@ const careerSummary = (alumni) => {
     return ['Experience', alumni.experience || 'Belum ada pengalaman yang diisi'];
 };
 
+// Menampilkan skills staging dengan aman ketika provider mengirim string atau object.
+const formatLinkedInSkills = (skills) => {
+    if (Array.isArray(skills)) {
+        return skills
+            .map((skill) => {
+                if (typeof skill === 'string') {
+                    return skill;
+                }
+
+                return skill?.name || skill?.title || skill?.skill || '';
+            })
+            .filter(Boolean)
+            .join(', ') || 'Tidak terdeteksi';
+    }
+
+    return skills || 'Tidak terdeteksi';
+};
+
 // Validasi URL profil LinkedIn sebelum menyimpan URL untuk proses sinkronisasi.
 const isValidLinkedInProfileUrl = (value) => {
     try {
@@ -625,6 +643,119 @@ const handleSyncLinkedIn = async (alumni) => {
             text: error.message || 'Terjadi kesalahan saat menyinkronkan profil LinkedIn.',
             confirmButtonColor: '#0D542B',
         });
+    }
+};
+
+// State modal preview hasil staging LinkedIn dari tabel Data Alumni.
+const showLinkedInReviewModal = ref(false);
+const activeLinkedInReview = ref(null);
+const isLoadingLinkedInReview = ref(false);
+const isSubmittingLinkedInReview = ref(false);
+
+// Mengambil preview hasil sinkronisasi tanpa membuka halaman detail alumni.
+const openLinkedInReviewModal = async (alumni) => {
+    const syncId = alumni?.linkedin_sync?.sync_id;
+
+    if (!syncId) {
+        return;
+    }
+
+    activeLinkedInReview.value = {
+        id: syncId,
+        alumni_nama: alumni.nama,
+        alumni_nim: alumni.nim,
+        status: alumni.linkedin_sync?.status || 'pending',
+        preview: null,
+    };
+    showLinkedInReviewModal.value = true;
+    isLoadingLinkedInReview.value = true;
+
+    try {
+        const response = await fetch(`/${props.prefix}/linkedin-sync/results/${syncId}`, {
+            headers: { Accept: 'application/json' },
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Preview hasil sinkronisasi tidak dapat dimuat.');
+        }
+
+        activeLinkedInReview.value = data.result;
+    } catch (error) {
+        showLinkedInReviewModal.value = false;
+        Swal.fire({
+            icon: 'error',
+            title: 'Preview Tidak Tersedia',
+            text: error.message || 'Preview hasil sinkronisasi tidak dapat dimuat.',
+            confirmButtonColor: '#0D542B',
+        });
+    } finally {
+        isLoadingLinkedInReview.value = false;
+    }
+};
+
+// Memproses approval atau penolakan langsung dari tabel Data Alumni.
+const submitLinkedInReviewAction = async (alumni, action) => {
+    const syncId = alumni?.linkedin_sync?.sync_id || activeLinkedInReview.value?.id;
+
+    if (!syncId || isSubmittingLinkedInReview.value) {
+        return;
+    }
+
+    const isApprove = action === 'approve';
+    const confirmation = await Swal.fire({
+        icon: 'question',
+        title: isApprove ? 'Approve hasil LinkedIn?' : 'Tolak hasil LinkedIn?',
+        text: isApprove
+            ? 'Data hasil sinkronisasi akan diterapkan ke profil alumni.'
+            : 'Hasil sinkronisasi ditolak dan data profil alumni tidak diubah.',
+        showCancelButton: true,
+        confirmButtonText: isApprove ? 'Approve' : 'Tolak',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: isApprove ? '#0D542B' : '#be123c',
+        cancelButtonColor: '#64748b',
+    });
+
+    if (!confirmation.isConfirmed) {
+        return;
+    }
+
+    isSubmittingLinkedInReview.value = true;
+
+    try {
+        const response = await fetch(`/${props.prefix}/linkedin-sync/results/${syncId}/${action}`, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            body: JSON.stringify({}),
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || `Hasil sinkronisasi gagal diproses sebagai ${action}.`);
+        }
+
+        showLinkedInReviewModal.value = false;
+        await Swal.fire({
+            icon: 'success',
+            title: isApprove ? 'Berhasil Di-approve' : 'Hasil Ditolak',
+            text: data.message || (isApprove ? 'Data LinkedIn diterapkan.' : 'Data utama tidak diubah.'),
+            confirmButtonColor: '#0D542B',
+        });
+        router.reload({ preserveScroll: true });
+    } catch (error) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Aksi Gagal',
+            text: error.message || 'Hasil sinkronisasi tidak dapat diproses.',
+            confirmButtonColor: '#0D542B',
+        });
+    } finally {
+        isSubmittingLinkedInReview.value = false;
     }
 };
 
@@ -1296,6 +1427,36 @@ const formatTanggal = (dateStr) => {
                                         >
                                             Lihat riwayat ({{ item.linkedin_sync?.sync_count || 0 }})
                                         </button>
+
+                                        <!-- Aksi review inline agar admin tidak perlu membuka detail alumni. -->
+                                        <div
+                                            v-if="item.linkedin_sync_status === 'pending' && item.linkedin_sync?.sync_id"
+                                            class="mt-2 flex flex-wrap items-center gap-1.5"
+                                        >
+                                            <button
+                                                type="button"
+                                                class="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                                                @click="openLinkedInReviewModal(item)"
+                                            >
+                                                Preview
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                                :disabled="isSubmittingLinkedInReview"
+                                                @click="submitLinkedInReviewAction(item, 'approve')"
+                                            >
+                                                Approve
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-800 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                                :disabled="isSubmittingLinkedInReview"
+                                                @click="submitLinkedInReviewAction(item, 'reject')"
+                                            >
+                                                Tolak
+                                            </button>
+                                        </div>
                                     </td>
 
                                     <!-- Aksi -->
@@ -1455,6 +1616,104 @@ const formatTanggal = (dateStr) => {
                     class="max-h-[70vh] w-full rounded-xl object-contain"
                 />
                 <p class="mt-3 text-center text-sm font-bold text-slate-900">{{ activePhotoAlumni?.nama }}</p>
+            </div>
+        </div>
+
+        <!-- MODAL PREVIEW DAN APPROVAL LINKEDIN DARI DIREKTORI ALUMNI -->
+        <div
+            v-if="showLinkedInReviewModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs"
+            @click.self="showLinkedInReviewModal = false"
+        >
+            <div class="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+                <div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                        <h3 class="text-sm font-extrabold text-slate-900">Preview Hasil LinkedIn</h3>
+                        <p class="mt-0.5 text-[11px] text-slate-500">
+                            {{ activeLinkedInReview?.alumni_nama }} ({{ activeLinkedInReview?.alumni_nim }})
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        class="p-1 text-lg leading-none text-slate-400 hover:text-slate-700"
+                        title="Tutup preview"
+                        @click="showLinkedInReviewModal = false"
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                <!-- Preview memakai payload staging, bukan langsung data utama alumni. -->
+                <div v-if="isLoadingLinkedInReview" class="py-12 text-center text-xs text-slate-500">
+                    <div class="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[#0D542B]"></div>
+                    Memuat preview hasil sinkronisasi...
+                </div>
+
+                <div v-else-if="activeLinkedInReview?.preview" class="grid gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Posisi / Jabatan</div>
+                        <div class="mt-1 text-sm font-semibold text-slate-800">
+                            {{ activeLinkedInReview.preview.current_job || 'Tidak terdeteksi' }}
+                        </div>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Perusahaan</div>
+                        <div class="mt-1 text-sm font-semibold text-slate-800">
+                            {{ activeLinkedInReview.preview.current_company || 'Tidak terdeteksi' }}
+                        </div>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Lokasi</div>
+                        <div class="mt-1 text-sm text-slate-700">
+                            {{ activeLinkedInReview.preview.current_company_location || activeLinkedInReview.preview.lokasi || 'Tidak terdeteksi' }}
+                        </div>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Skills</div>
+                        <div class="mt-1 text-sm text-slate-700">
+                            {{ formatLinkedInSkills(activeLinkedInReview.preview.skills) }}
+                        </div>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+                        <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Status Mapping Perusahaan</div>
+                        <div class="mt-1 text-sm text-slate-700">
+                            Perusahaan akan dipetakan sesuai hasil pencocokan master saat approval.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                    <span class="text-[11px] font-semibold text-slate-500">
+                        Status: {{ activeLinkedInReview?.status || 'pending' }}
+                    </span>
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            class="rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                            @click="showLinkedInReviewModal = false"
+                        >
+                            Tutup
+                        </button>
+                        <template v-if="activeLinkedInReview?.status === 'pending'">
+                            <button
+                                type="button"
+                                class="rounded-xl bg-rose-700 px-4 py-2 text-xs font-bold text-white hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                :disabled="isSubmittingLinkedInReview"
+                                @click="submitLinkedInReviewAction(null, 'reject')"
+                            >
+                                Tolak
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded-xl bg-[#0D542B] px-4 py-2 text-xs font-bold text-white hover:bg-[#0A4322] disabled:cursor-not-allowed disabled:opacity-50"
+                                :disabled="isSubmittingLinkedInReview"
+                                @click="submitLinkedInReviewAction(null, 'approve')"
+                            >
+                                Approve &amp; Terapkan
+                            </button>
+                        </template>
+                    </div>
+                </div>
             </div>
         </div>
 

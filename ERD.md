@@ -717,8 +717,6 @@ Menyimpan sesi lembar transaksi survei kepuasan atasan terhadap alumni UKDW bese
 | `token` | `varchar(64)` | `UK` | `NOT NULL` | Token acak unik (64 karakter) untuk tautan pengisian survei tanpa login akun. |
 | `is_submitted` | `tinyint(1)` | - | `NOT NULL`, Default `'0'` | Status submit kuesioner oleh atasan (`1` = Sudah disubmit, `0` = Belum). |
 | `submitted_at` | `timestamp` | - | `NULL` | Waktu penyerahan / submit evaluasi oleh atasan penilai. |
-| `jumlah_alumni_ukdw` | `varchar(100)` | - | `NULL` | Rentang jumlah lulusan UKDW yang bekerja di instansi (misal: `< 5 Orang`). |
-| `standar_gaji_pertama` | `varchar(100)` | - | `NULL` | Standar nominal gaji pertama per bulan untuk lulusan baru UKDW di instansi ini. |
 | `created_at` | `timestamp` | - | `NULL` | Waktu pembuatan token evaluasi. |
 | `updated_at` | `timestamp` | - | `NULL` | Waktu pembaruan terakhir. |
 

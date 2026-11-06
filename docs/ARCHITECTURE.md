@@ -93,6 +93,41 @@ aman ketika LinkedIn mengembalikan `HTTP 999` atau kuota actor habis. Provider
 mock tidak boleh dianggap sebagai data produksi dan tetap mengharuskan proses
 review sebelum perubahan biodata diterapkan.
 
+Resolver perusahaan LinkedIn menggunakan master `perusahaan` dan
+`PerusahaanVerificationService`. Nama yang cocok kuat disiapkan sebagai
+rekomendasi dan baru memetakan `biodata.perusahaan_id` setelah admin melakukan
+approval; nama baru dibuat sebagai kandidat `Menunggu Verifikasi`; konflik
+dengan perusahaan biodata yang sudah ada tidak ditimpa. Field profil lainnya
+tetap menunggu approval staging.
+Tabel Data Alumni dan halaman Sinkronisasi LinkedIn menyediakan `Preview`,
+`Approve`, dan `Tolak` berbasis hasil staging tanpa navigasi ke halaman detail;
+modal detail tetap dipertahankan untuk penyesuaian manual.
+
+Tabel `perusahaan` adalah master head office. Homepage, telepon/fax, alamat,
+provinsi, kabupaten, dan kode pos disimpan sebagai metadata kantor pusat yang
+boleh kosong. Lokasi kerja LinkedIn tidak ditulis ke kolom head office dan
+tetap berada pada `linkedin_sync_results` sebagai data staging.
+Penyimpanan profil alumni yang parsial tidak menurunkan status verifikasi atau
+mengosongkan metadata head office yang sudah tersimpan.
+Form evaluasi atasan memakai master head office yang sama dan hanya melengkapi
+kolom kosong pada master terverifikasi. Kode pos head office tidak dipetakan
+ke kode pos domisili alumni.
+
+Stepper evaluasi atasan memiliki kontrak penempatan yang tegas: section profil
+(`SEC_ATASAN_1`) hanya memuat identitas perusahaan dan atasan yang dirender oleh
+form; section karakteristik (`SEC_ATASAN_2`) memuat bentuk, skala, jumlah
+pegawai, sebaran alumni, dan standar gaji; section penilaian (`SEC_ATASAN_3`)
+memuat tingkat kesiapan serta seluruh aspek kinerja. Pada form publik, section
+profil diringkas di banner dan hanya dua langkah input yang ditampilkan;
+jumlah pegawai, sebaran alumni, dan standar gaji disimpan sebagai jawaban pada
+`kuesioner_jawaban`.
+Satu pertanyaan tidak boleh
+memiliki placement aktif ganda lintas stepper. `UnifiedKuesionerSeeder` juga
+membersihkan placement lama yang menduplikasi pertanyaan karakteristik atau
+penilaian ke section profil, tanpa menghapus master pertanyaan maupun jawaban.
+Service analitik juga mereduksi placement ganda berdasarkan ID master sebelum
+membentuk statistik agar satu aspek tidak dihitung dua kali.
+
 Untuk membedakan pengujian mock lokal dengan profil live, URL LinkedIn pada
 database lokal menggunakan akhiran `-mock` (misal `jovanyulianto-mock`). Sistem
 secara otomatis mencocokkan handle bersih ke berkas kanonik di `storage/app/mock/apify`.
@@ -213,13 +248,13 @@ Halaman self-service `/alumni/profile` hanya menerima props yang diperlukan untu
 
 Kontak dan domisili aktif hanya ditulis ke `biodata`. Perubahan `biodata.email_pribadi` tidak mengubah snapshot `data_akademik.email_pribadi`.
 
-Payload audit evaluasi atasan juga dipetakan melalui `EvaluasiAtasan::toAdminAuditArray()`. Payload tersebut hanya membawa status, identitas atasan, instansi, dan jawaban per butir; token akses survei tidak dikirim ke halaman detail alumni. Jawaban evaluasi atasan disimpan langsung ke `kuesioner_jawaban` dengan `responden_type = 'atasan'` dan `evaluasi_atasan_id = evaluasi_atasan.id`.
+Payload audit evaluasi atasan juga dipetakan melalui `EvaluasiAtasan::toAdminAuditArray()`. Payload tersebut hanya membawa status, identitas atasan, instansi, dan jawaban per butir; token akses survei tidak dikirim ke halaman detail alumni. Tabel `evaluasi_atasan` hanya menjadi konteks sesi/token dan relasi alumni-perusahaan-atasan. Seluruh jawaban evaluasi, termasuk jumlah pegawai, jumlah alumni UKDW, dan standar gaji pertama, disimpan langsung ke `kuesioner_jawaban` dengan `responden_type = 'atasan'` dan `evaluasi_atasan_id = evaluasi_atasan.id`.
 
-### Sinkronisasi Dua Arah Data Perusahaan (Profil Alumni dan Evaluasi Atasan)
+### Sumber Data Perusahaan dan Snapshot Evaluasi Atasan
 
-Atribut perusahaan pada halaman profil alumni (`FormKarier.vue` dan `SimpanProfilController`) serta halaman evaluasi pengguna lulusan (`EvaluasiAtasanForm.vue` dan `EvaluasiAtasanController`) membaca dan menulis langsung ke record master `perusahaan` yang sama:
-- Field yang tersinkronisasi dua arah: `nama_perusahaan`, `bentuk_perusahaan`, `jenis_perusahaan`, `jenis_perusahaan_lainnya`, `skala`, `jenis_lokasi`, `kode_negara`, `kode_provinsi`, `kode_kabupaten`, `alamat`, `kode_pos`, `no_telp_fax`, dan `homepage`.
-- Karakteristik survei pengguna lulusan yang diisi khusus oleh atasan disimpan sesuai peruntukannya: karakteristik instansi disimpan pada tabel `perusahaan`, sedangkan `jumlah_alumni_ukdw` dan `standar_gaji_pertama` disimpan pada tabel `evaluasi_atasan`. Seluruh skor penilaian kinerja disimpan pada tabel `kuesioner_jawaban`.
+Profil alumni (`FormKarier.vue` dan `SimpanProfilController`) membaca dan mengelola record master `perusahaan`. Form evaluasi atasan membaca metadata master tersebut sebagai data baca-saja:
+- Metadata master: `nama_perusahaan`, `bentuk_perusahaan`, `jenis_perusahaan`, `jenis_perusahaan_lainnya`, `skala`, `jenis_lokasi`, `kode_negara`, `kode_provinsi`, `kode_kabupaten`, `alamat`, `kode_pos`, `no_telp_fax`, dan `homepage`.
+- Data master perusahaan seperti bentuk dan skala hanya dikelola admin pada tabel `perusahaan`; atasan tidak mengeditnya pada formulir publik. Karakteristik yang dilaporkan atasan—`jumlah_pegawai`, `jumlah_alumni_ukdw`, dan `standar_gaji_pertama`—disimpan sebagai butir `kuesioner_jawaban` dengan `responden_type = 'atasan'` dan konteks `evaluasi_atasan_id`; ketiganya bukan kolom pada `evaluasi_atasan`. Seluruh skor penilaian kinerja juga disimpan pada tabel `kuesioner_jawaban`.
 
 ### Keseragaman Komponen Kartu Pertanyaan Kuesioner Universitas dan Prodi
 

@@ -96,6 +96,9 @@ class EvaluasiAtasanTest extends TestCase
             'nama_perusahaan' => 'PT Teknologi Indonesia',
             'alamat' => 'Jl. Jenderal Sudirman No. 10',
             'homepage' => 'https://tekno.co.id',
+            'jenis_perusahaan' => 'Perusahaan swasta',
+            'bentuk_perusahaan' => 'Perusahaan Terbatas',
+            'skala' => 'Nasional',
         ]);
 
         $evaluasi = EvaluasiAtasan::create([
@@ -106,6 +109,8 @@ class EvaluasiAtasanTest extends TestCase
             'alamat_lengkap' => 'Jl. Jenderal Sudirman No. 10',
         ]);
 
+        $this->seed(PertanyaanEvaluasiAtasanSeeder::class);
+
         $response = $this->get("/evaluasi-atasan/{$evaluasi->token}");
 
         $response->assertStatus(200);
@@ -114,6 +119,28 @@ class EvaluasiAtasanTest extends TestCase
             ->where('token', $evaluasi->token)
             ->where('sections.1.key', 'karakteristik')
             ->where('alumniInfo.nama', 'Budi Alumni')
+            ->where('pertanyaanList', function ($questions) {
+                $performanceCodes = [
+                    'EVA_tingkat_kesiapan_kerja',
+                    'EVA_integritas',
+                    'EVA_keahlian_ilmu',
+                    'EVA_komunikasi',
+                    'EVA_kerjasama_tim',
+                    'EVA_pengembangan_diri',
+                    'EVA_kreativitas',
+                    'EVA_bahasa_asing',
+                    'EVA_penggunaan_teknologi',
+                    'EVA_891',
+                    'EVA_kemampuan_manajerial',
+                    'EVA_kemampuan_analisis',
+                    'EVA_menulis_laporan',
+                    'EVA_inovasi_kreativitas',
+                ];
+
+                return collect($questions)
+                    ->whereIn('full_kode', $performanceCodes)
+                    ->every(fn (array $question): bool => $question['langkah'] === 'penilaian');
+            })
         );
     }
 
@@ -173,6 +200,22 @@ class EvaluasiAtasanTest extends TestCase
             ['order' => 1, 'wajib' => true]
         );
 
+        foreach ([
+            'EVA_jumlah_pegawai' => 'Jumlah Pegawai Keseluruhan di Perusahaan ini',
+            'EVA_jumlah_alumni_ukdw' => 'Jumlah Alumni UKDW yang Bekerja di Perusahaan ini',
+            'EVA_standar_gaji_pertama' => 'Standar Gaji Pertama yang Diberikan ke Alumni UKDW',
+        ] as $code => $text) {
+            $question = KuesionerPertanyaan::firstOrCreate(
+                ['kode_pertanyaan' => $code],
+                ['teks_pertanyaan' => $text, 'tipe' => 'pilihan_ganda', 'is_active' => true]
+            );
+
+            KuesionerSectionPertanyaan::firstOrCreate(
+                ['section_id' => $sec->id, 'pertanyaan_id' => $question->id],
+                ['order' => 10, 'wajib' => true, 'is_active' => true]
+            );
+        }
+
         $postData = [
             'nama_perusahaan' => 'PT Makmur Sentosa',
             'alamat_lengkap' => 'Jl. Magelang KM 5, Yogyakarta',
@@ -207,19 +250,32 @@ class EvaluasiAtasanTest extends TestCase
         $this->assertDatabaseHas('evaluasi_atasan', [
             'id' => $evaluasi->id,
             'is_submitted' => true,
-            'jumlah_alumni_ukdw' => '< 5 Orang',
+        ]);
+
+        $this->assertDatabaseHas('kuesioner_jawaban', [
+            'evaluasi_atasan_id' => $evaluasi->id,
+            'kode_pertanyaan' => 'EVA_jumlah_pegawai',
+            'jawaban_teks' => '51 - 100 Orang',
+        ]);
+        $this->assertDatabaseHas('kuesioner_jawaban', [
+            'evaluasi_atasan_id' => $evaluasi->id,
+            'kode_pertanyaan' => 'EVA_jumlah_alumni_ukdw',
+            'jawaban_teks' => '< 5 Orang',
         ]);
 
         $this->assertDatabaseHas('perusahaan', [
             'id' => $perusahaan->id,
             'nama_perusahaan' => 'PT Makmur Sentosa',
             'alamat' => 'Jl. Magelang KM 5, Yogyakarta',
-            'kode_pos' => '55284',
-            'jenis_perusahaan' => 'Perusahaan swasta',
-            'bentuk_perusahaan' => 'Perusahaan Terbatas',
+            'kode_pos' => null,
+            'jenis_perusahaan' => null,
+            'homepage' => null,
+            'no_telp_fax' => null,
+        ]);
+
+        $this->assertDatabaseMissing('perusahaan', [
+            'id' => $perusahaan->id,
             'jumlah_pegawai' => '51 - 100 Orang',
-            'homepage' => 'https://makmursentosa.com',
-            'no_telp_fax' => '0274-123456',
         ]);
 
         $this->assertDatabaseHas('biodata', [
@@ -254,6 +310,84 @@ class EvaluasiAtasanTest extends TestCase
 
         $this->post("/evaluasi-atasan/{$evaluasi->token}", $postData)
             ->assertSessionHasErrors('jawaban');
+    }
+
+    /** Memastikan isian publik atasan melengkapi, bukan menimpa, master head office terverifikasi. */
+    public function test_atasan_does_not_overwrite_verified_head_office_or_alumni_domicile(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '73', 'nama_prodi' => 'Manajemen']);
+        $user = User::create([
+            'username' => '73200001',
+            'name' => 'Alumni Head Office',
+            'email' => 'alumni-head-office@example.com',
+            'password' => bcrypt('password'),
+            'role' => 'alumni',
+        ]);
+        DataAkademik::create(['nim' => '73200001', 'nama' => 'Alumni Head Office']);
+        $biodata = Biodata::create([
+            'nim' => '73200001',
+            'nama' => 'Alumni Head Office',
+            'user_id' => $user->id,
+            'prodi_id' => $prodi->id,
+            'kode_pos' => '55111',
+        ]);
+
+        $perusahaan = Perusahaan::create([
+            'nama_perusahaan' => 'PT Master Terverifikasi',
+            'alamat' => 'Alamat Head Office Lama',
+            'kode_pos' => '12950',
+            'homepage' => 'https://master.example.test',
+            'no_telp_fax' => '021-111111',
+            'bentuk_perusahaan' => 'Perusahaan Terbatas',
+            'skala' => 'Nasional',
+            'status_verifikasi' => 'Terverifikasi',
+        ]);
+        $evaluasi = EvaluasiAtasan::create([
+            'biodata_id' => $biodata->id,
+            'perusahaan_id' => $perusahaan->id,
+            'token' => Str::random(40),
+        ]);
+
+        $section = KuesionerSection::create([
+            'kode_section' => 'SEC_EVA_TEST_HEAD_OFFICE',
+            'target' => 'atasan',
+            'judul' => 'Penilaian Head Office',
+            'order' => 3,
+            'is_active' => true,
+        ]);
+        $question = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'EVA_head_office_test',
+            'teks_pertanyaan' => 'Penilaian head office',
+            'tipe' => 'likert_5',
+            'is_active' => true,
+        ]);
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $section->id,
+            'pertanyaan_id' => $question->id,
+            'order' => 1,
+            'wajib' => true,
+            'is_active' => true,
+        ]);
+
+        $this->post("/evaluasi-atasan/{$evaluasi->token}", [
+            'nama_perusahaan' => 'Nama Berbeda Dari Atasan',
+            'alamat_lengkap' => 'Alamat Baru Dari Atasan',
+            'kode_pos' => '55281',
+            'jenis_perusahaan' => 'Perusahaan swasta',
+            'nama_atasan' => 'Atasan Penguji',
+            'jawaban' => ['head_office_test' => 'Baik'],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('perusahaan', [
+            'id' => $perusahaan->id,
+            'nama_perusahaan' => 'PT Master Terverifikasi',
+            'alamat' => 'Alamat Head Office Lama',
+            'kode_pos' => '12950',
+            'homepage' => 'https://master.example.test',
+            'no_telp_fax' => '021-111111',
+            'status_verifikasi' => 'Terverifikasi',
+        ]);
+        $this->assertSame('55111', $biodata->fresh()->kode_pos);
     }
 
     public function test_superadmin_can_send_email_undangan_atasan(): void

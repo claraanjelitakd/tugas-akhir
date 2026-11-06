@@ -15,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
@@ -134,41 +135,63 @@ class ManajemenAkunController extends Controller
     /**
      * Perbarui Data Pengguna (Edit Email, Nama, Username, Role, Prodi/Fakultas)
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id): RedirectResponse
     {
         $user = User::findOrFail($id);
 
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email,'.$user->id,
-            'username' => 'required|string|max:255|unique:users,username,'.$user->id,
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($user->id),
+            ],
+            'username' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('users', 'username')->ignore($user->id),
+            ],
             'role' => 'required|string|in:superadmin,admin_biro3,admin_fakultas,admin_prodi,alumni',
             'prodi_id' => 'nullable|exists:prodi,id',
-            'fakultas_id' => 'nullable|exists:ref_fakultas,id',
+            'fakultas_id' => [
+                'nullable',
+                'exists:ref_fakultas,id',
+                Rule::requiredIf(fn (): bool => $request->input('role') === 'admin_fakultas'),
+            ],
         ]);
 
         $oldValues = $user->only(['name', 'email', 'username', 'role', 'prodi_id', 'fakultas_id']);
 
+        $role = $validated['role'];
+        $prodiId = in_array($role, ['admin_prodi', 'alumni'], true)
+            ? ($validated['prodi_id'] ?? null)
+            : null;
+        $fakultasId = $role === 'admin_fakultas'
+            ? $validated['fakultas_id']
+            : ($prodiId ? Prodi::find($prodiId)?->fakultas_id : null);
+
         $user->update([
-            'name' => $request->name,
-            'email' => $request->email,
-            'username' => $request->username,
-            'role' => $request->role,
-            'prodi_id' => $request->prodi_id,
-            'fakultas_id' => $request->fakultas_id,
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'username' => $validated['username'],
+            'role' => $role,
+            'prodi_id' => $prodiId,
+            'fakultas_id' => $fakultasId,
         ]);
 
         if ($user->biodata) {
             $user->biodata->update([
-                'nama' => $request->name,
-                'email_pribadi' => $request->email,
+                'nama' => $validated['name'],
+                'email_pribadi' => $validated['email'],
             ]);
         }
 
         // Catat Audit Trail ke tabel log_activities
         LogActivity::record(
             'UPDATE_USER_ACCOUNT',
-            "Super Admin memperbarui data akun {$user->name} (@{$user->username}). Email diatur ke {$request->email}.",
+            "Super Admin memperbarui data akun {$user->name} (@{$user->username}). Email diatur ke {$validated['email']}.",
             $user,
             $oldValues,
             $user->only(['name', 'email', 'username', 'role', 'prodi_id', 'fakultas_id'])

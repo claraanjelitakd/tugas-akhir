@@ -89,6 +89,8 @@ class UnifiedKuesionerSeeder extends Seeder
             }
 
             if (! empty($content['section_pertanyaan'])) {
+                $this->removeDuplicateAtasanPlacements($content['section_pertanyaan']);
+
                 foreach ($content['section_pertanyaan'] as $sp) {
                     DB::table('kuesioner_section_pertanyaan')->updateOrInsert(
                         ['id' => $sp['id']],
@@ -108,5 +110,29 @@ class UnifiedKuesionerSeeder extends Seeder
         } finally {
             Schema::enableForeignKeyConstraints();
         }
+    }
+
+    /**
+     * Menghapus hanya penempatan lama yang membuat field karakteristik dan penilaian
+     * tampil ganda pada section profil atasan. Master pertanyaan dan respons tidak disentuh.
+     *
+     * @param  array<int, array<string, mixed>>  $placements
+     */
+    private function removeDuplicateAtasanPlacements(array $placements): void
+    {
+        $canonicalAtasanQuestionIds = collect($placements)
+            ->whereIn('section_id', [20, 21])
+            ->pluck('pertanyaan_id');
+
+        $duplicateQuestionIds = $canonicalAtasanQuestionIds->unique()->values();
+
+        if ($duplicateQuestionIds->isEmpty()) {
+            return;
+        }
+
+        DB::table('kuesioner_section_pertanyaan')
+            ->where('section_id', 19)
+            ->whereIn('pertanyaan_id', $duplicateQuestionIds->all())
+            ->delete();
     }
 }

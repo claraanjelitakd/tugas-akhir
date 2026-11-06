@@ -98,8 +98,8 @@ class KuesionerPertanyaan extends Model
     public function getIsCompanyFieldAttribute(): bool
     {
         $codes = [
-            'EVA_skala_perusahaan', 'EVA_jumlah_pegawai', 'EVA_jumlah_alumni_ukdw', 'EVA_standar_gaji_pertama',
-            'skala_perusahaan', 'jumlah_pegawai', 'jumlah_alumni_ukdw', 'standar_gaji_pertama',
+            'EVA_bentuk_perusahaan', 'EVA_skala_perusahaan', 'EVA_jumlah_pegawai', 'EVA_jumlah_alumni_ukdw', 'EVA_standar_gaji_pertama',
+            'bentuk_perusahaan', 'skala_perusahaan', 'jumlah_pegawai', 'jumlah_alumni_ukdw', 'standar_gaji_pertama',
         ];
 
         return in_array($this->kode_pertanyaan, $codes, true) || in_array($this->kode, $codes, true);

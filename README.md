@@ -49,6 +49,36 @@ Semua kotak, label dan konektor dalam `.drawio` dapat diedit. Diagram 0 memakai 
 | [Arsitektur admin](docs/ARCHITECTURE.md) | Komponen bersama, halaman lintas-role, route, dan batas data. |
 | [Riwayat perubahan](docs/changelog.md) | Arsip dan log pembaruan teknis lengkap. |
 
+### Mapping perusahaan LinkedIn
+
+Hasil sinkronisasi LinkedIn membaca nama posisi/perusahaan dari beberapa variasi
+payload provider. Nama perusahaan dicari ke master `perusahaan` menggunakan
+pencocokan eksak dan rekomendasi similarity. Kecocokan dengan confidence tinggi
+disiapkan sebagai rekomendasi master dan baru diterapkan setelah admin memilih
+`Approve/Plot`; perusahaan baru tetap dibuat dengan status `Menunggu Verifikasi`
+agar nama yang ditemukan tidak hilang dan tidak dianggap sebagai master
+terverifikasi.
+
+Hasil yang masih ambigu tetap berstatus `Pending Review`. Admin dapat memilih
+`Approve`, `Reject`, atau `Preview` langsung dari kolom Sinkronisasi pada tabel
+Data Alumni maupun halaman Sinkronisasi LinkedIn. Preview dibuka sebagai modal
+di halaman yang sama, sehingga approval cepat tidak memerlukan halaman detail.
+Approval memakai nilai staging dan tetap menulis histori audit.
+
+Data perusahaan pada form profil alumni mewakili master head office: homepage,
+alamat kantor, kode pos, dan telepon/fax bersifat opsional. Lokasi pekerjaan
+yang dikumpulkan LinkedIn disimpan pada staging dan tidak mengubah lokasi head
+office atau domisili alumni.
+
+Pengiriman form profil yang parsial juga bersifat preservatif: field head office
+yang kosong tidak menghapus metadata master yang sudah ada, termasuk status
+`Terverifikasi`.
+
+Form evaluasi atasan menggunakan master head office yang sama. Isian atasan
+melengkapi kolom yang masih kosong; jika master sudah terverifikasi, metadata
+resmi tidak ditimpa. Kode pos kantor tetap berbeda dari kode pos domisili
+alumni.
+
 ## Sumber dan batas model
 
 Acuan DFD adalah Kendall & Kendall (2020), *Systems Analysis and Design*, edisi ke-10 Global Edition, Bab 7, dari PDF yang disediakan pemilik proyek. PDF buku tidak disalin ke repository ini. Diagram merupakan pemodelan aplikasi berdasarkan bacaan tersebut, bukan salinan diagram buku.

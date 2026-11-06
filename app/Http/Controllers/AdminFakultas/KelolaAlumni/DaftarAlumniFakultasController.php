@@ -34,8 +34,7 @@ class DaftarAlumniFakultasController extends Controller
         $fakultasId = $user->fakultas_id;
 
         if (! $fakultasId) {
-            $fakultas = RefFakultas::first();
-            $fakultasId = $fakultas?->id;
+            abort(403, 'Akun Admin Fakultas belum dikaitkan dengan Fakultas.');
         } else {
             $fakultas = $user->fakultas ?: RefFakultas::find($fakultasId);
         }

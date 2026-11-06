@@ -10,6 +10,7 @@ use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
+use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\RefFakultas;
 use App\Models\User;
@@ -274,6 +275,66 @@ class AlumniProfileEnhancementTest extends TestCase
 
         $this->assertSame($academicEmail, DataAkademik::where('nim', $nim)->value('email_pribadi'));
         $this->assertSame('updated.biodata@example.com', $biodata->fresh()->email_pribadi);
+    }
+
+    /** Memastikan profil alumni tidak menurunkan status atau menghapus metadata master head office. */
+    public function test_profile_preserves_verified_head_office_when_form_is_partial(): void
+    {
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Master Head Office',
+            'status_verifikasi' => 'Terverifikasi',
+            'alamat' => 'Jl. Kantor Pusat No. 1',
+            'kode_pos' => '12950',
+            'homepage' => 'https://master.example.test',
+            'no_telp_fax' => '021-123456',
+        ]);
+
+        $response = $this->actingAs($this->alumniUser)->post(route('alumni.profile.simpan'), [
+            'nama_perusahaan' => $company->nama_perusahaan,
+        ]);
+
+        $response->assertRedirect();
+
+        $company->refresh();
+        $this->assertSame('Terverifikasi', $company->status_verifikasi);
+        $this->assertSame('Jl. Kantor Pusat No. 1', $company->alamat);
+        $this->assertSame('12950', $company->kode_pos);
+        $this->assertSame('https://master.example.test', $company->homepage);
+        $this->assertSame('021-123456', $company->no_telp_fax);
+        $this->assertSame($company->id, $this->biodata->fresh()->perusahaan_id);
+    }
+
+    /** Memastikan kandidat perusahaan pending milik alumni lain tidak bocor ke dropdown profil. */
+    public function test_profile_company_options_hide_pending_companies_from_other_users(): void
+    {
+        $otherUser = User::create([
+            'name' => 'Alumni Lain',
+            'email' => 'alumni-lain@example.com',
+            'username' => '71200010',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'prodi_id' => $this->prodi->id,
+            'must_change_password' => false,
+        ]);
+
+        $ownPending = Perusahaan::create([
+            'nama_perusahaan' => 'PT Pending Milik Clara',
+            'status_verifikasi' => 'Menunggu Verifikasi',
+            'created_by_user_id' => $this->alumniUser->id,
+        ]);
+        $otherPending = Perusahaan::create([
+            'nama_perusahaan' => 'PT Pending Milik Alumni Lain',
+            'status_verifikasi' => 'Menunggu Verifikasi',
+            'created_by_user_id' => $otherUser->id,
+        ]);
+
+        $this->actingAs($this->alumniUser)
+            ->get(route('alumni.profile'))
+            ->assertInertia(fn ($page) => $page->where('companies', function ($companies) use ($ownPending, $otherPending): bool {
+                $ids = collect($companies)->pluck('id')->all();
+
+                return in_array($ownPending->id, $ids, true) && ! in_array($otherPending->id, $ids, true);
+            }));
     }
 
     /**

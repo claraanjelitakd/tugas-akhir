@@ -11,6 +11,7 @@ use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Perusahaan;
+use App\Services\Alumni\AdminAlumniProfileService;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,8 +26,9 @@ use Inertia\Response;
  *
  * Mengelola halaman kuesioner evaluasi pengguna lulusan (atasan langsung) UKDW
  * yang diakses secara publik melalui tautan bertoken tanpa autentikasi login.
- * Mendukung sinkronisasi dua arah atribut perusahaan antara profil alumni dan
- * formulir evaluasi atasan pada tabel master `perusahaan`.
+ * Profil alumni dan formulir evaluasi atasan memakai master `perusahaan` yang
+ * sama; metadata master hanya dibaca oleh atasan, sedangkan karakteristik
+ * yang dilaporkan disimpan sebagai jawaban pada instrumen kuesioner atasan.
  */
 class EvaluasiAtasanController extends Controller
 {
@@ -97,7 +99,6 @@ class EvaluasiAtasanController extends Controller
         $telpPerusahaan = $perusahaan?->no_telp_fax ?? '';
         $bentukPerusahaan = $perusahaan?->bentuk_perusahaan ?? '';
         $skalaPerusahaan = $perusahaan?->skala ?? '';
-        $jumlahPegawai = $perusahaan?->jumlah_pegawai ?? '';
         $jenisPerusahaan = $perusahaan?->jenis_perusahaan ?? '';
         $jenisPerusahaanLainnya = $perusahaan?->jenis_perusahaan_lainnya ?? '';
         $jenisLokasi = $perusahaan?->jenis_lokasi ?? 'Dalam Negeri';
@@ -109,8 +110,8 @@ class EvaluasiAtasanController extends Controller
         $lokasiWilayah = $jenisLokasi === 'Luar Negeri'
             ? ($kodeNegaraPerusahaan ?: 'Luar Negeri')
             : ($perusahaan?->kabupaten?->nama_kabupaten
-                ? ($perusahaan?->propinsi?->nama_propinsi ? $perusahaan->kabupaten->nama_kabupaten.', '.$perusahaan->propinsi->nama_propinsi : $perusahaan->kabupaten->nama_kabupaten)
-                : ($perusahaan?->propinsi?->nama_propinsi ?? ''));
+                ? ($perusahaan?->propinsi?->nama_provinsi ? $perusahaan->kabupaten->nama_kabupaten.', '.$perusahaan->propinsi->nama_provinsi : $perusahaan->kabupaten->nama_kabupaten)
+                : ($perusahaan?->propinsi?->nama_provinsi ?? ''));
 
         $lokasiPerusahaan = $lokasiWilayah ?: ($perusahaan?->alamat ?: '');
 
@@ -128,13 +129,39 @@ class EvaluasiAtasanController extends Controller
 
         // Ambil daftar butir pertanyaan instrumen evaluasi atasan yang aktif dari master table
         $atasanSectionIds = KuesionerSection::where('target', 'atasan')->pluck('id')->all();
-        $pertanyaanList = KuesionerSectionPertanyaan::with(['pertanyaan.opsi'])
+        $pertanyaanList = KuesionerSectionPertanyaan::with(['pertanyaan.opsi', 'section'])
             ->whereIn('section_id', $atasanSectionIds)
             ->where('is_active', true)
             ->whereHas('pertanyaan', fn ($q) => $q->where('is_active', true))
             ->orderBy('order', 'asc')
             ->get()
-            ->map(fn ($sp) => $sp->pertanyaan)
+            ->map(function (KuesionerSectionPertanyaan $placement): ?array {
+                $question = $placement->pertanyaan;
+                if (! $question) {
+                    return null;
+                }
+
+                $step = match ((int) $placement->section?->order) {
+                    1 => 'instansi',
+                    2 => 'karakteristik',
+                    3 => 'penilaian',
+                    default => 'penilaian',
+                };
+
+                return [
+                    'id' => $question->id,
+                    'kode' => $question->kode,
+                    'full_kode' => $question->kode_pertanyaan,
+                    'aspek' => $question->aspek,
+                    'deskripsi' => $question->keterangan ?? '',
+                    'tipe' => $question->tipe,
+                    'langkah' => $step,
+                    'order' => (int) $placement->order,
+                    'is_active' => (bool) $question->is_active,
+                    'is_company_field' => (bool) $question->is_company_field,
+                    'pilihan_jawaban' => $question->opsi->pluck('label')->values()->all(),
+                ];
+            })
             ->filter()
             ->values();
 
@@ -167,10 +194,12 @@ class EvaluasiAtasanController extends Controller
                     'description' => $sec->deskripsi ?? '',
                     'source' => $key === 'instansi'
                         ? 'perusahaan, atasan, evaluasi_atasan'
-                        : ($key === 'karakteristik' ? 'perusahaan, evaluasi_atasan' : 'respon_evaluasi_atasan'),
+                        : ($key === 'karakteristik' ? 'perusahaan, kuesioner_jawaban' : 'kuesioner_jawaban'),
                     'order' => (int) $sec->order,
                 ];
             })->all();
+
+        $refOptions = AdminAlumniProfileService::getRefOptions();
 
         return Inertia::render('Public/EvaluasiAtasanForm', [
             'token' => $token,
@@ -197,6 +226,7 @@ class EvaluasiAtasanController extends Controller
                 'skala_perusahaan' => $skalaPerusahaan,
                 'jenis_lokasi' => $jenisLokasi,
                 'lokasi_perusahaan' => $lokasiPerusahaan,
+                'domisili_head_office' => $lokasiWilayah,
                 'kode_pos_perusahaan' => $kodePosPerusahaan,
                 'alamat_perusahaan' => $alamatPerusahaan,
                 'no_telp_fax' => $telpPerusahaan,
@@ -217,10 +247,22 @@ class EvaluasiAtasanController extends Controller
                 'homepage' => $homepagePerusahaan,
                 'bentuk' => $bentukPerusahaan,
                 'skala' => $skalaPerusahaan,
-                'jumlah_pegawai' => $jumlahPegawai,
+                'status_verifikasi' => $perusahaan?->status_verifikasi ?? '',
                 'nama_atasan' => $atasan?->nama ?? '',
                 'email_atasan' => $atasan?->email ?? '',
                 'telepon_atasan' => $atasan?->telepon ?? '',
+            ],
+            'companyOptions' => [
+                'jenis_perusahaan' => collect($refOptions['F11'] ?? [])
+                    ->map(static fn (array $option): string => (string) ($option['option_text'] ?? ''))
+                    ->filter()
+                    ->values()
+                    ->all(),
+                'bentuk_perusahaan' => collect($refOptions['BIO_INST_BENTUK'] ?? [])
+                    ->map(static fn (array $option): string => (string) ($option['option_text'] ?? ''))
+                    ->filter()
+                    ->values()
+                    ->all(),
             ],
             'isSubmitted' => (bool) $evaluasi->is_submitted,
         ]);
@@ -242,7 +284,19 @@ class EvaluasiAtasanController extends Controller
                     ->where('kuesioner_section_pertanyaan.is_active', true);
             })
             ->get();
-        $activeCompanyQuestions = $activeQuestions->filter->is_company_field;
+        $activeQuestionMap = $activeQuestions->flatMap(static function (KuesionerPertanyaan $question): array {
+            return [
+                $question->kode_pertanyaan => $question,
+                $question->kode => $question,
+            ];
+        });
+        $activeCompanyQuestions = $activeQuestions
+            ->filter->is_company_field
+            ->filter(fn (KuesionerPertanyaan $question): bool => in_array($question->kode, [
+                'jumlah_pegawai',
+                'jumlah_alumni_ukdw',
+                'standar_gaji_pertama',
+            ], true));
 
         $companyFieldRules = [];
         foreach ($activeCompanyQuestions as $question) {
@@ -250,15 +304,15 @@ class EvaluasiAtasanController extends Controller
         }
 
         $validated = $request->validate(array_merge([
-            // Bagian I: Informasi Perusahaan (Tersimpan ke tabel Perusahaan & tersinkron ke profil alumni)
+            // Bagian I: Informasi Perusahaan (dibaca dari master Perusahaan)
             'nama_perusahaan' => 'required|string|max:255',
             'alamat_lengkap' => 'required|string',
             'jenis_lokasi' => 'nullable|string|in:Dalam Negeri,Luar Negeri',
             'kode_negara' => 'nullable|string|size:2|exists:ref_negara,kode_negara',
             'kode_provinsi' => 'nullable|exists:propinsi,kode_provinsi',
             'kode_kabupaten' => 'nullable|exists:kabupaten,kode_kabupaten',
-            'kode_pos' => 'nullable|string|max:15',
-            'jenis_perusahaan' => 'nullable|string|max:100',
+            'kode_pos' => 'required|string|max:15',
+            'jenis_perusahaan' => 'required|string|max:100',
             'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
             'no_telp_fax' => 'nullable|string|max:100',
             'homepage' => ['nullable', 'string', 'max:150'],
@@ -274,7 +328,7 @@ class EvaluasiAtasanController extends Controller
             'perguruan_tinggi' => 'nullable|string|max:255',
             'pendidikan_prodi' => 'nullable|string|max:255',
 
-            // Karakteristik Keberadaan Alumni UKDW (Opsional / Backward Compatibility)
+            // Karakteristik yang dijawab atasan (disimpan sebagai jawaban kuesioner)
             'jumlah_alumni_ukdw' => 'nullable|string|max:100',
             'standar_gaji_pertama' => 'nullable|string|max:100',
 
@@ -289,16 +343,16 @@ class EvaluasiAtasanController extends Controller
             'catatan_lainnya' => 'nullable|string|max:2000',
         ], $companyFieldRules));
 
-        $activeQuestions = $activeQuestions->reject->is_company_field->keyBy('kode');
+        $evaluationQuestions = $activeQuestions->reject->is_company_field->keyBy('kode');
         $submittedCodes = collect(array_keys($validated['jawaban']));
-        if ($submittedCodes->diff($activeQuestions->keys())->isNotEmpty()
-            || $activeQuestions->keys()->diff($submittedCodes)->isNotEmpty()) {
+        if ($submittedCodes->diff($evaluationQuestions->keys())->isNotEmpty()
+            || $evaluationQuestions->keys()->diff($submittedCodes)->isNotEmpty()) {
             throw ValidationException::withMessages([
                 'jawaban' => 'Jawaban harus sesuai dengan seluruh pertanyaan evaluasi yang aktif.',
             ]);
         }
 
-        DB::transaction(function () use ($token, $validated, $activeQuestions, $request): void {
+        DB::transaction(function () use ($token, $validated, $activeQuestionMap, $atasanSectionIds, $request): void {
             $lockedEvaluation = EvaluasiAtasan::where('token', $token)->lockForUpdate()->firstOrFail();
             if ($lockedEvaluation->is_submitted) {
                 throw ValidationException::withMessages([
@@ -321,12 +375,10 @@ class EvaluasiAtasanController extends Controller
             }
 
             $perusahaanData = [
-                'nama_perusahaan' => $validated['nama_perusahaan'],
-                'alamat' => $validated['alamat_lengkap'],
-                'no_telp_fax' => $validated['no_telp_fax'] ?? ($perusahaan?->no_telp_fax ?? null),
-                'homepage' => $validated['homepage'] ?? ($perusahaan?->homepage ?? null),
-                'bentuk_perusahaan' => $validated['bentuk_perusahaan'] ?? ($perusahaan?->bentuk_perusahaan ?? null),
-                'jumlah_pegawai' => $validated['jumlah_pegawai'] ?? ($perusahaan?->jumlah_pegawai ?? null),
+                'alamat' => filled($validated['alamat_lengkap'] ?? null) ? trim($validated['alamat_lengkap']) : null,
+                'no_telp_fax' => filled($validated['no_telp_fax'] ?? null) ? trim($validated['no_telp_fax']) : null,
+                'homepage' => filled($validated['homepage'] ?? null) ? trim($validated['homepage']) : null,
+                'bentuk_perusahaan' => filled($validated['bentuk_perusahaan'] ?? null) ? trim($validated['bentuk_perusahaan']) : null,
                 'jenis_lokasi' => $jenisLokasi,
                 'kode_negara' => $kodeNegara,
             ];
@@ -341,8 +393,10 @@ class EvaluasiAtasanController extends Controller
                 $perusahaanData['kode_pos'] = $validated['kode_pos'] ?? null;
             }
             if ($request->has('jenis_perusahaan')) {
-                $perusahaanData['jenis_perusahaan'] = $validated['jenis_perusahaan'] ?? null;
-                $perusahaanData['jenis_perusahaan_lainnya'] = ($validated['jenis_perusahaan'] ?? null) === 'Lainnya'
+                $perusahaanData['jenis_perusahaan'] = filled($validated['jenis_perusahaan'] ?? null)
+                    ? trim($validated['jenis_perusahaan'])
+                    : null;
+                $perusahaanData['jenis_perusahaan_lainnya'] = ($perusahaanData['jenis_perusahaan'] ?? null) === 'Lainnya'
                     ? ($validated['jenis_perusahaan_lainnya'] ?? null)
                     : null;
             }
@@ -353,14 +407,15 @@ class EvaluasiAtasanController extends Controller
             if (! $perusahaan) {
                 $perusahaan = Perusahaan::create([
                     ...$perusahaanData,
+                    'nama_perusahaan' => trim($validated['nama_perusahaan']),
                     'skala' => $validated['skala_perusahaan'] ?? 'Nasional',
                     'status_verifikasi' => 'Menunggu Verifikasi',
                     'created_by_user_id' => $lockedEvaluation->biodata?->user_id,
                     'created_by_prodi_id' => $lockedEvaluation->biodata?->prodi_id,
                 ]);
             } else {
-                // Selalu perbarui data perusahaan dari form atasan agar tersinkronisasi dua arah dengan profil alumni
-                $perusahaan->update($perusahaanData);
+                // Master perusahaan dikelola admin. Respon atasan tidak pernah
+                // menimpa metadata, baik statusnya pending maupun terverifikasi.
             }
 
             if ($lockedEvaluation->biodata) {
@@ -374,13 +429,6 @@ class EvaluasiAtasanController extends Controller
                 if ($request->has('posisi_jabatan')) {
                     $biodataUpdates['posisi_jabatan'] = ! empty($validated['posisi_jabatan']) ? trim($validated['posisi_jabatan']) : null;
                 }
-                if ($request->has('kode_pos') && ! empty($validated['kode_pos'])) {
-                    $biodataUpdates['zipcode'] = trim($validated['kode_pos']);
-                }
-                if ($request->has('jenis_perusahaan') && ! empty($validated['jenis_perusahaan'])) {
-                    $biodataUpdates['jenis_pekerjaan'] = $validated['jenis_perusahaan'];
-                }
-
                 // Sinkronisasi data studi lanjut jika dikirim dari form atasan
                 if ($request->has('is_melanjutkan_studi') || $request->has('pendidikan_tingkat') || $request->has('perguruan_tinggi') || $request->has('pendidikan_prodi')) {
                     $isStudi = $request->boolean('is_melanjutkan_studi', ! empty($validated['pendidikan_tingkat']) || ! empty($validated['perguruan_tinggi']) || ! empty($validated['pendidikan_prodi']));
@@ -394,10 +442,27 @@ class EvaluasiAtasanController extends Controller
 
             $lockedEvaluation->perusahaan_id = $perusahaan->id;
 
-            $atasanSection = KuesionerSection::where('target', 'atasan')->first();
-            foreach ($validated['jawaban'] as $code => $value) {
-                $pertanyaan = $activeQuestions->get($code)
-                    ?? KuesionerPertanyaan::where('kode_pertanyaan', 'EVA_'.$code)->orWhere('kode_pertanyaan', $code)->first();
+            $questionSectionMap = KuesionerSectionPertanyaan::query()
+                ->with('section:id,order')
+                ->whereIn('section_id', $atasanSectionIds)
+                ->where('is_active', true)
+                ->get()
+                ->sortBy(static fn (KuesionerSectionPertanyaan $placement): array => [
+                    $placement->section?->order ?? PHP_INT_MAX,
+                    $placement->order,
+                ])
+                ->groupBy('pertanyaan_id')
+                ->map(static fn ($placements): ?int => $placements->first()?->section_id);
+            $responsesToStore = $validated['jawaban'];
+            foreach (['jumlah_pegawai', 'jumlah_alumni_ukdw', 'standar_gaji_pertama'] as $code) {
+                if ($activeQuestionMap->has($code)) {
+                    $responsesToStore[$code] = $validated[$code] ?? null;
+                }
+            }
+
+            foreach ($responsesToStore as $code => $value) {
+                $pertanyaan = $activeQuestionMap->get($code)
+                    ?? KuesionerPertanyaan::whereIn('kode_pertanyaan', ['EVA_'.$code, $code])->first();
 
                 if ($pertanyaan) {
                     $opsi = KuesionerOpsi::where('pertanyaan_id', $pertanyaan->id)
@@ -411,7 +476,7 @@ class EvaluasiAtasanController extends Controller
                             'pertanyaan_id' => $pertanyaan->id,
                         ],
                         [
-                            'section_id' => $atasanSection?->id ?: 1,
+                            'section_id' => $questionSectionMap->get($pertanyaan->id) ?: ($atasanSectionIds[0] ?? 1),
                             'kode_pertanyaan' => $pertanyaan->kode_pertanyaan,
                             'opsi_id' => $opsi?->id,
                             'kode_opsi' => $opsi?->kode_opsi,
@@ -451,8 +516,6 @@ class EvaluasiAtasanController extends Controller
             }
 
             $lockedEvaluation->update([
-                'jumlah_alumni_ukdw' => $validated['jumlah_alumni_ukdw'] ?? null,
-                'standar_gaji_pertama' => $validated['standar_gaji_pertama'] ?? null,
                 'is_submitted' => true,
                 'submitted_at' => now(),
             ]);

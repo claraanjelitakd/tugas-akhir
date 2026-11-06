@@ -4,10 +4,9 @@ namespace App\Services\LinkedIn\Mappers;
 
 use App\Models\Biodata;
 use App\Models\Perusahaan;
-use App\Models\Propinsi;
-use App\Models\RefNegara;
 use App\Services\LinkedIn\DTOs\LinkedInPosition;
 use App\Services\LinkedIn\DTOs\LinkedInProfile;
+use App\Services\Perusahaan\PerusahaanVerificationService;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -20,11 +19,20 @@ use Illuminate\Support\Facades\Auth;
  * 1. Hanya memperbarui `posisi_jabatan` dan `perusahaan_id`.
  * 2. TIDAK PERNAH mengubah data authoritative alumni (NIM, email_pribadi,
  *    nomor_telepon, alamat rumah, maupun data akademik kelulusan).
- * 3. Status verifikasi perusahaan baru WAJIB 'Menunggu Verifikasi' meskipun data
- *    wilayah / negara terisi lengkap, sesuai regulasi validasi universitas.
+ * 3. Master perusahaan menyimpan head office dan tidak diubah oleh lokasi kerja
+ *    LinkedIn. Kandidat baru tetap berstatus 'Menunggu Verifikasi'.
  */
 class LinkedInProfileMapper
 {
+    /**
+     * Menyiapkan matcher perusahaan yang sudah dipakai oleh modul verifikasi master.
+     *
+     * @param  PerusahaanVerificationService|null  $verificationService  Matcher similarity perusahaan.
+     */
+    public function __construct(
+        private ?PerusahaanVerificationService $verificationService = null,
+    ) {}
+
     /**
      * Memilih posisi pekerjaan aktif / saat ini (Current Position) dari daftar posisi LinkedIn
      * dengan aturan prioritas resmi:
@@ -74,45 +82,97 @@ class LinkedInProfileMapper
      * Mencari atau membuat record Perusahaan berdasarkan nama perusahaan dari LinkedIn.
      *
      * Aturan Verifikasi:
-     * Status verifikasi perusahaan baru selalu disetel ke 'Menunggu Verifikasi'.
+     * Master terverifikasi dipertahankan; kandidat baru selalu berstatus
+     * 'Menunggu Verifikasi'.
      */
     public function findOrCreateCompany(string $companyName, ?string $locationName = null): Perusahaan
     {
+        return $this->resolveCompany($companyName, $locationName)['company'];
+    }
+
+    /**
+     * Mencari perusahaan yang sudah ada, memanfaatkan rekomendasi similarity,
+     * atau membuat kandidat master baru yang menunggu verifikasi.
+     *
+     * Kecocokan similarity hanya dipakai otomatis pada skor sangat tinggi.
+     * Kandidat yang belum pasti tetap dibuat agar nama perusahaan terlihat oleh
+     * admin tanpa mengubah biodata alumni sebelum approval profil.
+     *
+     * @return array{company: Perusahaan, status: string, match_type: string, similarity_score: int|null, created: bool, recommendation: array<string, mixed>|null}
+     */
+    public function resolveCompany(string $companyName, ?string $locationName = null): array
+    {
         $cleanName = trim($companyName);
 
-        // 1. Pencocokan eksak (case-insensitive & trimmed)
-        $existing = Perusahaan::whereRaw('LOWER(TRIM(nama_perusahaan)) = ?', [strtolower($cleanName)])->first();
+        $existing = Perusahaan::query()
+            ->whereRaw('LOWER(TRIM(nama_perusahaan)) = ?', [strtolower($cleanName)])
+            ->first();
 
         if ($existing) {
-            return $existing;
+            return [
+                'company' => $existing,
+                'status' => $existing->status_verifikasi === 'Terverifikasi'
+                    ? 'matched'
+                    : 'pending_verification',
+                'match_type' => 'exact',
+                'similarity_score' => 100,
+                'created' => false,
+                'recommendation' => null,
+            ];
         }
 
-        // 2. Pemetaan lokasi dasar jika terdeteksi dengan jelas (tanpa tebak-tebakan agresif)
+        $candidate = $this->createPendingCompany($cleanName, $locationName);
+        $recommendation = $this->verificationService()->getSimilarRecommendations($candidate, 1)[0] ?? null;
+
+        // Skor 90 mengakomodasi variasi kecil dari provider seperti suffix "Official".
+        // Skor yang lebih rendah tetap membutuhkan keputusan admin karena bisa merupakan anak usaha.
+        if ($recommendation && (int) $recommendation['similarity_score'] >= 90) {
+            $candidate->delete();
+
+            return [
+                'company' => Perusahaan::findOrFail($recommendation['id']),
+                'status' => 'matched',
+                'match_type' => 'similarity',
+                'similarity_score' => (int) $recommendation['similarity_score'],
+                'created' => false,
+                'recommendation' => null,
+            ];
+        }
+
+        return [
+            'company' => $candidate,
+            'status' => 'pending_verification',
+            'match_type' => 'new_candidate',
+            'similarity_score' => $recommendation ? (int) $recommendation['similarity_score'] : null,
+            'created' => true,
+            'recommendation' => $recommendation,
+        ];
+    }
+
+    /**
+     * Menyediakan instance matcher melalui container saat mapper dibuat langsung dalam unit test.
+     */
+    private function verificationService(): PerusahaanVerificationService
+    {
+        return $this->verificationService ??= app(PerusahaanVerificationService::class);
+    }
+
+    /**
+     * Membuat kandidat master perusahaan berstatus menunggu verifikasi.
+     */
+    private function createPendingCompany(string $cleanName, ?string $locationName = null): Perusahaan
+    {
+        // Lokasi LinkedIn adalah lokasi kerja/cabang, bukan head office master.
+        // Lokasi tersebut tetap tersedia di payload staging dan tidak ditulis ke perusahaan.
         $kodeProvinsi = null;
         $kodeNegara = 'ID';
 
-        if ($locationName) {
-            $lowerLoc = strtolower($locationName);
-            if (str_contains($lowerLoc, 'yogyakarta') || str_contains($lowerLoc, 'diy')) {
-                $kodeProvinsi = Propinsi::where('nama_provinsi', 'like', '%Yogyakarta%')->value('kode_provinsi');
-            } elseif (str_contains($lowerLoc, 'jakarta')) {
-                $kodeProvinsi = Propinsi::where('nama_provinsi', 'like', '%Jakarta%')->value('kode_provinsi');
-            }
+        unset($locationName);
 
-            if (! str_contains($lowerLoc, 'indonesia')) {
-                // Jika lokasi luar negeri teridentifikasi
-                $parts = array_map('trim', explode(',', $locationName));
-                $lastPart = end($parts);
-                if (! empty($lastPart) && strlen($lastPart) > 2) {
-                    $kodeNegara = RefNegara::where('nama_negara', 'like', $lastPart)->value('kode_negara') ?: 'ID';
-                }
-            }
-        }
-
-        // 3. Buat institusi perusahaan baru dengan status WAJIB 'Menunggu Verifikasi'
+        // Kandidat baru tidak langsung dianggap sebagai master resmi.
         return Perusahaan::create([
             'nama_perusahaan' => $cleanName,
-            'status_verifikasi' => 'Menunggu Verifikasi', // Kebijakan mutlak: Menunggu Verifikasi
+            'status_verifikasi' => 'Menunggu Verifikasi',
             'kode_provinsi' => $kodeProvinsi,
             'kode_kabupaten' => null, // Jangan menebak kabupaten tanpa data pasti
             'kode_negara' => $kodeNegara,

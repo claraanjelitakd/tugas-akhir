@@ -409,19 +409,23 @@ flowchart TD
     E -->|Token Valid| G[Buka Formulir Evaluasi Full Page]
 
     G --> H[Periksa Data Identitas Alumni Yang Dinilai]
-    G --> I[Bagian I: Lengkapi / Perbarui Profil Instansi & Kontak Atasan]
-    I --> J[Tersimpan Otomatis ke Master Tabel Perusahaan & Atasan]
+    G --> I[Ringkasan Master Head Office & Identitas Penilai]
+    I --> J[Metadata Master Read-only; koreksi melalui admin]
 
-    G --> K[Bagian II: Evaluasi Kesiapan & Kinerja Lulusan]
-    K --> K1[Nilai Tingkat Kesiapan Alumni dalam Bekerja]
-    K --> K2[Nilai Aspek Kinerja Lulusan pada Matriks Likert]
-    K --> K3[Tuliskan Catatan Tambahan / Saran Khusus Opsional]
+    G --> K[Langkah 1: Karakteristik Instansi & Sebaran Alumni]
+    K --> K0[Isi jumlah pegawai, jumlah alumni UKDW, dan standar gaji pertama]
+    K0 --> K4[Simpan sebagai jawaban kuesioner atasan]
+
+    G --> K5[Langkah 2: Evaluasi Kesiapan & Kinerja Lulusan]
+    K5 --> K1[Nilai Tingkat Kesiapan Alumni dalam Bekerja]
+    K5 --> K2[Nilai Aspek Kinerja Lulusan pada Matriks Likert]
+    K5 --> K3[Tuliskan Catatan Tambahan / Saran Khusus Opsional]
 
     K1 & K2 & K3 --> L[Klik Tombol: Kirim Respon Evaluasi Kinerja]
     L --> M[Sistem Validasi Kelengkapan Jawaban]
     M -->|Ada Butir Terlewat| N[SweetAlert2: Peringatan Aspek Belum Lengkap]
-    N --> K
-    M -->|Lengkap| O[Simpan Jawaban ke respon_evaluasi_atasan]
+    N --> K5
+    M -->|Lengkap| O[Simpan Jawaban ke kuesioner_jawaban dengan responden_type atasan]
     O --> P[Update evaluasi_atasan: is_submitted = true, submitted_at = now]
     P --> Q[Tampilkan Status Berhasil & Kartu Ucapan Terima Kasih Resmi]
     Q --> R[Selesai]
@@ -431,13 +435,14 @@ flowchart TD
 1. **Pemicu Undangan**: penyimpanan profil menyiapkan record `evaluasi_atasan` bila data atasan tersedia. Pengiriman email dilakukan melalui aksi terpisah `POST /alumni/kirim-email-atasan` oleh alumni atau admin yang diizinkan (tombol aktif selama nama dan email atasan valid). Token dihasilkan sepanjang 40 karakter; kapasitas kolom database 64 karakter.
 2. **Akses Formulir Tanpa Hambatan**: Atasan membuka tautan langsung dari email (`/evaluasi-atasan/{token}`). Tidak dibutuhkan proses registrasi atau login akun. Header kanan atas menampilkan foto bundar alumni ber-dropdown (nama, NIM, prodi, fakultas), sedangkan banner pengantar menyapa nama atasan secara formal dan menyajikan ringkasan jabatan/divisi, instansi penempatan, serta studi lanjut alumni.
 3. **Penyempurnaan Profil & Karakteristik Instansi (Langkah 1 & Langkah 2)**:
-   - **Langkah 1 (Profil Perusahaan)**: Atasan memverifikasi atau memperbarui nama perusahaan, jenis instansi (F11), cakupan wilayah (Dalam/Luar Negeri), provinsi/kabupaten atau negara, kode pos, alamat lengkap, no. telp/fax, dan website/homepage. Perubahan tersinkronisasi dua arah dengan profil karier alumni pada tabel `perusahaan`.
-   - **Langkah 2 (Karakteristik Perusahaan)**: Atasan memilih bentuk perusahaan, skala perusahaan, jumlah pegawai keseluruhan (`perusahaan.jumlah_pegawai`), jumlah alumni UKDW (`evaluasi_atasan.jumlah_alumni_ukdw`), dan standar gaji pertama (`evaluasi_atasan.standar_gaji_pertama`). Pilihan mendukung pembatalan jawaban (*uncheck*) dengan klik ulang atau klik dua kali.
-4. **Penilaian Kesiapan & Kinerja (Langkah 3)**:
+   - **Ringkasan Profil**: Informasi perusahaan/head office dan identitas alumni ditampilkan pada banner ringkasan, bukan sebagai langkah input terpisah. Metadata master `perusahaan` tidak dapat diedit oleh atasan; koreksi dilakukan melalui admin.
+   - **Langkah 1 (Karakteristik Perusahaan)**: Atasan mengisi jumlah pegawai keseluruhan, jumlah alumni UKDW, dan standar gaji pertama. Ketiganya disimpan sebagai jawaban pada `kuesioner_jawaban` dengan konteks sesi atasan; bentuk dan skala perusahaan tetap berasal dari master `perusahaan` dan dikelola admin. Pilihan mendukung pembatalan jawaban (*uncheck*) dengan klik ulang atau klik dua kali.
+   - **Langkah 2 (Penilaian)**: Atasan mengisi tingkat kesiapan dan seluruh aspek kinerja alumni.
+4. **Penilaian Kesiapan & Kinerja (Langkah 2)**:
    - Menilai tingkat kesiapan alumni dalam bekerja dengan urutan skala dari kiri ke kanan: *Tidak siap*, *Kurang siap*, *Cukup Siap*, hingga *Sangat siap*.
    - Menilai 12 butir aspek kinerja lulusan pada matriks Likert dengan urutan skala dari kiri ke kanan: *Sangat Kurang*, *Kurang*, *Cukup*, *Tinggi*, hingga *Sangat Tinggi* (mendukung pembatalan pilihan dengan klik ulang/klik 2x).
    - Menyampaikan saran/masukan konstruktif untuk universitas.
-5. **Konfirmasi & Audit**: Respon tersimpan ke tabel `respon_evaluasi_atasan` dan status berubah menjadi *"Sudah Selesai Diisi"*.
+5. **Konfirmasi & Audit**: Jawaban tersimpan ke tabel `kuesioner_jawaban` dengan `evaluasi_atasan_id` sebagai konteks sesi, lalu status `evaluasi_atasan.is_submitted` berubah menjadi *"Sudah Selesai Diisi"*.
 
 ---
 
@@ -449,7 +454,7 @@ Pada penyimpanan jawaban tracer, `tracer.question_id` menyimpan ID subpertanyaan
 
 Pada halaman profil alumni, alur self-service hanya mengirim dan menampilkan data yang diperlukan untuk tracer. NIK, NPWP, KK, data orang tua, dan data pembimbing/penguji tidak lagi berada pada schema aktif. NISN, BPJS, email mahasiswa, dan publikasi tetap berada di sumber akademik untuk kebutuhan admin, tetapi tidak dikirim sebagai props halaman alumni. Judul tugas akhir dan tanggal kelulusan tetap dikirim sebagai referensi akademik non-sensitif. Penyimpanan profil parsial tidak mengosongkan field yang tidak dikirim.
 
-Pada detail admin, hasil evaluasi atasan menampilkan nilai dari kolom \`respon_evaluasi_atasan.nilai\` dan status survei berdasarkan \`evaluasi_atasan.is_submitted\`. Token akses tidak ditampilkan pada detail alumni karena merupakan kredensial tautan survei publik.
+Pada detail admin, hasil evaluasi atasan menampilkan nilai dari `kuesioner_jawaban.jawaban_teks` dan status survei berdasarkan `evaluasi_atasan.is_submitted`. Token akses tidak ditampilkan pada detail alumni karena merupakan kredensial tautan survei publik.
 
 ## Alur Analitik Superadmin
 

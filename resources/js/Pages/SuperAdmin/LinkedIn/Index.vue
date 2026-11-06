@@ -159,6 +159,7 @@ const approveForm = ref({
     posisi_wiraswasta: '',
     nama_perusahaan: '',
     bidang_pekerjaan: '',
+    divisi: '',
     skills: '',
     sync_foto: true,
     sync_studi_lanjut: false,
@@ -372,6 +373,20 @@ const syncSingle = async (alumni) => {
                 alumni.status_color = 'amber';
                 alumni.terakhir_sync = data.alumni.terakhir_sync;
                 alumni.latest_sync_result = data.alumni.latest_sync_result;
+                if (data.alumni.latest_sync_result?.company_resolution) {
+                    const resolution = data.alumni.latest_sync_result.company_resolution;
+                    alumni.company_mapping = {
+                        scraped_name: resolution.company_name,
+                        master_name: resolution.recommendation?.company_name || resolution.company_name,
+                        master_status: resolution.company_status,
+                        status: resolution.status,
+                        label: resolution.status === 'matched'
+                            ? 'Master cocok, siap di-approve'
+                            : (resolution.status === 'needs_review'
+                                ? 'Perlu review perusahaan'
+                                : 'Perusahaan baru menunggu verifikasi'),
+                    };
+                }
                 if (data.alumni.keterangan_nama) alumni.keterangan_nama = data.alumni.keterangan_nama;
                 if (data.alumni.status_plot_label) alumni.status_plot_label = data.alumni.status_plot_label;
                 if (data.alumni.nama_linkedin) alumni.nama_linkedin = data.alumni.nama_linkedin;
@@ -467,6 +482,7 @@ const openReviewModal = async (syncResultId, alumni) => {
             approveForm.value.posisi_wiraswasta = '';
             approveForm.value.nama_perusahaan = data.result.preview?.current_company || '';
             approveForm.value.bidang_pekerjaan = data.result.preview?.bidang_pekerjaan || data.result.preview?.suggested_bidang_pekerjaan || data.result.current_data?.bidang_pekerjaan || '';
+            approveForm.value.divisi = data.result.preview?.current_divisi || data.result.current_data?.divisi || '';
             approveForm.value.sync_foto = !!data.result.preview?.profile_picture;
 
             // Inisialisasi Studi Lanjut jika terdeteksi dari riwayat pendidikan LinkedIn
@@ -566,6 +582,7 @@ const handleApprove = async () => {
                 posisi_wiraswasta: approveForm.value.posisi_wiraswasta,
                 nama_perusahaan: approveForm.value.nama_perusahaan,
                 bidang_pekerjaan: approveForm.value.bidang_pekerjaan,
+                divisi: approveForm.value.divisi,
                 skills: approveForm.value.skills,
                 sync_foto: approveForm.value.sync_foto,
                 sync_studi_lanjut: approveForm.value.sync_studi_lanjut,
@@ -659,6 +676,104 @@ const handleReject = async () => {
             });
         } else {
             showToast('error', data.message || 'Gagal menolak hasil.');
+        }
+    } catch (err) {
+        showToast('error', 'Terjadi gangguan sistem saat menolak hasil.');
+    } finally {
+        isActionLoading.value = false;
+    }
+};
+
+// Menyetujui hasil pending dengan nilai hasil scraping tanpa membuka modal detail.
+const quickApprove = async (alumni) => {
+    const resultId = alumni.latest_sync_result?.id;
+    if (!resultId || isActionLoading.value) return;
+
+    const confirmation = await Swal.fire({
+        title: 'Approve hasil LinkedIn?',
+        text: `${alumni.nama}: data posisi, perusahaan, skills, dan riwayat akan diterapkan sesuai hasil scraping.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Approve & Terapkan',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#9CA3AF',
+        reverseButtons: true,
+    });
+
+    if (!confirmation.isConfirmed) return;
+
+    isActionLoading.value = true;
+    try {
+        const response = await fetch(`${props.baseRoute}/results/${resultId}/approve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': getCsrfToken(),
+            },
+            body: JSON.stringify({}),
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            alumni.perusahaan = data.alumni.perusahaan;
+            alumni.posisi = data.alumni.posisi;
+            alumni.status_sync = 'Approved';
+            alumni.status_color = 'emerald';
+            alumni.latest_sync_result = data.alumni.latest_sync_result;
+            recalculateLocalStats();
+            showToast('success', `${alumni.nama}: hasil LinkedIn berhasil diterapkan.`);
+        } else {
+            showToast('error', data.message || 'Approval cepat gagal diproses.');
+        }
+    } catch (err) {
+        showToast('error', 'Terjadi gangguan sistem saat approval cepat.');
+    } finally {
+        isActionLoading.value = false;
+    }
+};
+
+// Menolak hasil pending langsung dari tabel dengan tetap menyimpan histori staging.
+const quickReject = async (alumni) => {
+    const resultId = alumni.latest_sync_result?.id;
+    if (!resultId || isActionLoading.value) return;
+
+    const confirmation = await Swal.fire({
+        title: 'Tolak hasil LinkedIn?',
+        text: `${alumni.nama}: data utama alumni tidak akan diubah.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Tolak Hasil',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#B91C1C',
+        cancelButtonColor: '#9CA3AF',
+        reverseButtons: true,
+    });
+
+    if (!confirmation.isConfirmed) return;
+
+    isActionLoading.value = true;
+    try {
+        const response = await fetch(`${props.baseRoute}/results/${resultId}/reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': getCsrfToken(),
+            },
+            body: JSON.stringify({}),
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            alumni.status_sync = 'Rejected';
+            alumni.status_color = 'rose';
+            alumni.latest_sync_result = data.alumni.latest_sync_result;
+            recalculateLocalStats();
+            showToast('success', `${alumni.nama}: hasil LinkedIn ditolak.`);
+        } else {
+            showToast('error', data.message || 'Penolakan hasil gagal diproses.');
         }
     } catch (err) {
         showToast('error', 'Terjadi gangguan sistem saat menolak hasil.');
@@ -1061,6 +1176,22 @@ const dashboardRoute = computed(() => {
                                                 <span class="text-[11px] text-slate-500 block truncate max-w-[210px]" :title="alumni.perusahaan_linkedin">{{ alumni.perusahaan_linkedin || '-' }}</span>
                                             </div>
 
+                                            <div v-if="alumni.company_mapping" class="pt-1 border-t border-gray-100">
+                                                <span
+                                                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border"
+                                                    :class="{
+                                                        'bg-emerald-50 text-emerald-800 border-emerald-200': alumni.company_mapping.status === 'auto_mapped' || alumni.company_mapping.status === 'matched',
+                                                        'bg-amber-50 text-amber-800 border-amber-200': alumni.company_mapping.status === 'pending_verification',
+                                                        'bg-rose-50 text-rose-800 border-rose-200': alumni.company_mapping.status === 'needs_review',
+                                                    }"
+                                                >
+                                                    {{ alumni.company_mapping.label }}
+                                                </span>
+                                                <span v-if="alumni.company_mapping.master_name" class="text-[10px] text-slate-500 block truncate max-w-[210px] mt-0.5">
+                                                    Master: {{ alumni.company_mapping.master_name }}
+                                                </span>
+                                            </div>
+
                                             <div v-if="alumni.status_plot_label" class="mt-1">
                                                 <span 
                                                     class="inline-block text-[10px] font-medium px-2 py-0.5 rounded border"
@@ -1109,6 +1240,34 @@ const dashboardRoute = computed(() => {
                                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                                                 </svg>
                                             </button>
+
+                                            <!-- Approval cepat untuk hasil pending yang tidak memerlukan penyesuaian manual -->
+                                            <template v-if="alumni.latest_sync_result && alumni.latest_sync_result.status === 'pending'">
+                                                <button
+                                                    type="button"
+                                                    @click="quickApprove(alumni)"
+                                                    :disabled="isActionLoading"
+                                                    class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-[#0D542B] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 active:scale-95 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                    title="Approve cepat dan terapkan hasil scraping"
+                                                    aria-label="Approve cepat hasil sinkronisasi"
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    @click="quickReject(alumni)"
+                                                    :disabled="isActionLoading"
+                                                    class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 active:scale-95 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                    title="Tolak hasil scraping"
+                                                    aria-label="Tolak hasil sinkronisasi"
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </template>
 
                                             <!-- Tombol Review (Jika status Pending Review, Icon Berukuran Pasti 32x32) -->
                                             <button
@@ -1379,6 +1538,19 @@ const dashboardRoute = computed(() => {
                                                 type="text"
                                                 v-model="approveForm.bidang_pekerjaan"
                                                 placeholder="contoh: IT Services and IT Consulting, Software Engineering, Marketing..."
+                                                class="w-full px-3 py-2 text-xs bg-white border border-emerald-300 rounded-lg focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
+                                            />
+                                        </div>
+
+                                        <!-- Unit kerja dipisahkan dari bidang agar kontrak direktori tetap konsisten. -->
+                                        <div class="sm:col-span-2">
+                                            <label class="block text-[11px] font-semibold text-emerald-950 mb-1">
+                                                Divisi / Unit Kerja:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                v-model="approveForm.divisi"
+                                                placeholder="contoh: Human Capital, Product Development, Unit Operasional"
                                                 class="w-full px-3 py-2 text-xs bg-white border border-emerald-300 rounded-lg focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
                                             />
                                         </div>

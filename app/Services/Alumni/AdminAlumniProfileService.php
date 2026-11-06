@@ -120,6 +120,9 @@ class AdminAlumniProfileService
             'perusahaan_kode_negara' => $perusahaan?->kode_negara ?? 'ID',
             'perusahaan_kode_provinsi' => $perusahaan?->kode_provinsi ?? '',
             'perusahaan_kode_kabupaten' => $perusahaan?->kode_kabupaten ?? '',
+            'perusahaan_kode_pos' => $perusahaan?->kode_pos ?? '',
+            'perusahaan_homepage' => $perusahaan?->homepage ?? '',
+            'perusahaan_no_telp_fax' => $perusahaan?->no_telp_fax ?? '',
             'perusahaan_status_verifikasi' => $perusahaan?->status_verifikasi ?? '',
 
             // Alias Company untuk kompatibilitas frontend
@@ -132,7 +135,8 @@ class AdminAlumniProfileService
             'company_kode_provinsi' => $perusahaan?->kode_provinsi ?? '',
             'company_kode_kabupaten' => $perusahaan?->kode_kabupaten ?? '',
             'company_kode_pos' => $perusahaan?->kode_pos ?? '',
-            'perusahaan_kode_pos' => $perusahaan?->kode_pos ?? '',
+            'company_homepage' => $perusahaan?->homepage ?? '',
+            'company_no_telp_fax' => $perusahaan?->no_telp_fax ?? '',
             'company_status_verifikasi' => $perusahaan?->status_verifikasi ?? '',
 
             // Atasan
@@ -228,6 +232,8 @@ class AdminAlumniProfileService
             $jenisPerusahaan = ! empty($data['company_jenis_perusahaan']) ? $data['company_jenis_perusahaan'] : (! empty($data['perusahaan_jenis_perusahaan']) ? $data['perusahaan_jenis_perusahaan'] : null);
             $jenisPerusahaanLainnya = ! empty($data['company_jenis_perusahaan_lainnya']) ? $data['company_jenis_perusahaan_lainnya'] : (! empty($data['perusahaan_jenis_perusahaan_lainnya']) ? $data['perusahaan_jenis_perusahaan_lainnya'] : null);
             $kodePosKantor = ! empty($data['company_kode_pos']) ? $data['company_kode_pos'] : (! empty($data['perusahaan_kode_pos']) ? $data['perusahaan_kode_pos'] : (! empty($data['zipcode']) ? $data['zipcode'] : null));
+            $homepage = ! empty($data['company_homepage']) ? trim((string) $data['company_homepage']) : (! empty($data['perusahaan_homepage']) ? trim((string) $data['perusahaan_homepage']) : null);
+            $noTelpFax = ! empty($data['company_no_telp_fax']) ? trim((string) $data['company_no_telp_fax']) : (! empty($data['perusahaan_no_telp_fax']) ? trim((string) $data['perusahaan_no_telp_fax']) : null);
 
             $perusahaan = Perusahaan::firstOrCreate(
                 ['nama_perusahaan' => $namaPerusahaan],
@@ -241,6 +247,8 @@ class AdminAlumniProfileService
                     'skala' => $skala,
                     'jenis_perusahaan' => $jenisPerusahaan,
                     'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya,
+                    'homepage' => $homepage,
+                    'no_telp_fax' => $noTelpFax,
                     'status_verifikasi' => 'Terverifikasi',
                 ]
             );
@@ -255,6 +263,8 @@ class AdminAlumniProfileService
                 'skala' => $skala ?: $perusahaan->skala,
                 'jenis_perusahaan' => $jenisPerusahaan ?: $perusahaan->jenis_perusahaan,
                 'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya ?: $perusahaan->jenis_perusahaan_lainnya,
+                'homepage' => $homepage ?: $perusahaan->homepage,
+                'no_telp_fax' => $noTelpFax ?: $perusahaan->no_telp_fax,
             ]);
 
             $perusahaanId = $perusahaan->id;

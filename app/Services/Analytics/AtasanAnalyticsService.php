@@ -43,6 +43,11 @@ class AtasanAnalyticsService
                 $q->deskripsi = $q->keterangan ?? '';
                 $q->pilihan_jawaban = $q->opsi->pluck('label')->all();
                 $q->is_company_field = in_array($q->kode_pertanyaan, [
+                    'EVA_bentuk_perusahaan',
+                    'EVA_skala_perusahaan',
+                    'EVA_jumlah_pegawai',
+                    'EVA_jumlah_alumni_ukdw',
+                    'EVA_standar_gaji_pertama',
                     'bentuk_perusahaan',
                     'skala_perusahaan',
                     'jumlah_pegawai',
@@ -51,7 +56,9 @@ class AtasanAnalyticsService
                 ], true);
 
                 return $q;
-            });
+            })
+            ->unique('id')
+            ->values();
 
         $questionStats = $this->questionStats($questions, $submitted);
         $readiness = $questionStats->firstWhere('kode', 'tingkat_kesiapan_kerja');

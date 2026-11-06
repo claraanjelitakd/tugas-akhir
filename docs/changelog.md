@@ -13,6 +13,21 @@
 
 ## 06 November 2026
 
+- **Mapping Perusahaan LinkedIn dan Approval Cepat**:
+  - Memperluas normalisasi parser LinkedIn untuk alias field perusahaan, posisi, lokasi, dan URL dari provider.
+  - Menghubungkan mapper LinkedIn ke algoritma similarity master perusahaan; kecocokan kuat disiapkan sebagai rekomendasi dan baru diterapkan setelah approval, sedangkan nama baru dibuat `Menunggu Verifikasi` tanpa menghapus data staging.
+  - Menampilkan status mapping perusahaan pada tabel sinkronisasi serta menyediakan aksi `Approve` dan `Reject` langsung tanpa membuka detail.
+  - Menambahkan `Preview`, `Approve`, dan `Tolak` inline pada tabel Data Alumni; preview dibuka sebagai modal tanpa navigasi ke halaman show.
+  - Memisahkan metadata master head office dari lokasi kerja LinkedIn, mempertahankan master terverifikasi, dan menyertakan homepage/telepon-fax opsional pada form profil admin.
+  - Menjaga status verifikasi serta metadata head office saat profil alumni dikirim secara parsial; nilai kosong dari form tidak lagi menghapus data master.
+  - Menyelaraskan form evaluasi atasan dengan profil alumni untuk F11, bentuk, skala, jumlah pegawai, alamat, kode pos, telepon/fax, dan homepage; metadata master terverifikasi hanya dilengkapi, bukan ditimpa.
+  - Memperbaiki metadata pertanyaan evaluasi atasan yang sebelumnya dikirim sebagai model mentah sehingga langkah karakteristik tampil kosong di Vue.
+  - Memisahkan kode pos kantor dari domisili alumni dan menyembunyikan perusahaan pending milik pengguna lain pada dropdown profil alumni.
+  - Memastikan setiap langkah evaluasi atasan hanya merender kontennya sendiri; metadata head office tidak ikut tampil di Langkah 3. Field master yang sudah terverifikasi menjadi read-only di sisi atasan.
+  - Merapikan placement instrumen evaluasi atasan agar pertanyaan penilaian hanya berada di Step 3 dan pertanyaan karakteristik hanya berada di Step 2; seeder membersihkan relasi duplikat lama tanpa menghapus master pertanyaan atau jawaban.
+  - Membalik urutan opsi pada tampilan Step 3 menjadi tingkat terendah di kiri dan tingkat tertinggi di kanan tanpa mengubah urutan master yang dipakai analytics untuk scoring.
+  - Menjadikan metadata head office read-only pada formulir publik atasan; Step 2 hanya meminta jumlah pegawai, jumlah alumni UKDW, dan standar gaji pertama yang disimpan sebagai jawaban `kuesioner_jawaban` bertipe responden atasan.
+
 - **Detail Alumni Baca-Saja dari Analitik Fakultas**:
   - Menambahkan route `/fakultas/analitik/alumni/{id}` untuk membuka detail alumni lintas fakultas dari tabel atau grafik analitik.
   - Detail tersebut bersifat baca-saja; direktori dan endpoint mutasi profil tetap dibatasi pada fakultas admin yang sedang login.

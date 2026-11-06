@@ -86,6 +86,7 @@ const approveForm = useForm({
     posisi_wiraswasta: '',
     nama_perusahaan: '',
     bidang_pekerjaan: '',
+    divisi: '',
     skills: '',
     sync_foto: true,
     sync_studi_lanjut: false,
@@ -105,6 +106,7 @@ const initApproveForm = () => {
         approveForm.posisi_wiraswasta = prev.current_job || props.alumni.posisi_jabatan || '';
         approveForm.nama_perusahaan = prev.current_company || props.alumni.perusahaan?.nama_perusahaan || '';
         approveForm.bidang_pekerjaan = prev.bidang_pekerjaan || prev.suggested_bidang_pekerjaan || props.alumni.bidang_pekerjaan || '';
+        approveForm.divisi = prev.current_divisi || props.alumni.divisi || '';
         const topSkillsStr = Array.isArray(prev.top_skills) && prev.top_skills.length
             ? prev.top_skills.join(', ')
             : (Array.isArray(prev.skills) && prev.skills.length ? prev.skills.join(', ') : (prev.skills || ''));
@@ -131,6 +133,7 @@ const initApproveForm = () => {
         approveForm.posisi_jabatan = props.alumni.posisi_jabatan || '';
         approveForm.nama_perusahaan = props.alumni.perusahaan?.nama_perusahaan || '';
         approveForm.bidang_pekerjaan = props.alumni.bidang_pekerjaan || '';
+        approveForm.divisi = props.alumni.divisi || '';
         approveForm.skills = props.alumni.keahlian || props.alumni.skills || '';
         approveForm.sync_studi_lanjut = false;
         approveForm.pendidikan_tingkat = props.alumni.pendidikan_tingkat || '';
@@ -655,6 +658,23 @@ const filteredTraceMapping = computed(() => {
                                             type="text"
                                             v-model="approveForm.bidang_pekerjaan"
                                             placeholder="contoh: IT Services and IT Consulting"
+                                            class="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
+                                        />
+                                    </td>
+                                </tr>
+
+                                <!-- 3c. Unit kerja dipisahkan agar tidak tercampur dengan bidang industri. -->
+                                <tr class="divide-x divide-slate-100">
+                                    <td class="py-3 px-4 font-semibold text-slate-900 bg-slate-50/50">Divisi / Unit Kerja</td>
+                                    <td class="py-3 px-4 font-medium">{{ alumni.divisi || '- Belum diisi -' }}</td>
+                                    <td class="py-3 px-4 text-slate-700">
+                                        {{ linkedinSyncResult.preview?.current_divisi || '-' }}
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <input
+                                            type="text"
+                                            v-model="approveForm.divisi"
+                                            placeholder="contoh: Human Capital, Unit Operasional"
                                             class="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
                                         />
                                     </td>

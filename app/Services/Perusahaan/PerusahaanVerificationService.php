@@ -26,7 +26,7 @@ class PerusahaanVerificationService
         // Bentuk badan usaha & legalitas
         'pt', 'p.t', 'cv', 'c.v', 'tbk', 'persero', 'corp', 'corporation', 'inc', 'ltd',
         'llc', 'gmbh', 'co', 'company', 'group', 'holding', 'perum', 'yayasan',
-        'ud', 'u.d', 'fa', 'firma', 'koperasi', 'pte',
+        'ud', 'u.d', 'fa', 'firma', 'koperasi', 'pte', 'official',
 
         // Keterangan kantor, cabang, unit operasional, dan wilayah
         'kantor', 'pusat', 'cabang', 'branch', 'subcabang', 'kcu', 'kc', 'kcp',

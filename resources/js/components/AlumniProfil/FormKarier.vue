@@ -1832,7 +1832,7 @@ onUnmounted(() => {
                 <div class="relative pt-1" ref="companyContainerRef">
                     <div class="flex items-center justify-between mb-1.5">
                         <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                            Nama {{ form.kategori_pekerjaan === 'Wiraswasta' ? 'Usaha / Perusahaan' : 'Perusahaan / Instansi' }} <span class="text-rose-500 font-bold">*</span>
+                            Nama {{ form.kategori_pekerjaan === 'Wiraswasta' ? 'Usaha / Perusahaan' : 'Perusahaan / Instansi' }} (Master Head Office) <span class="text-rose-500 font-bold">*</span>
                         </label>
                     </div>
 
@@ -1936,9 +1936,13 @@ onUnmounted(() => {
                 </div>
 
                 <!-- ============================================================= -->
-                <!-- 3. DETAIL PERUSAHAAN (Hanya Muncul Jika Perusahaan Sudah Dipilih) -->
+                <!-- 3. DETAIL MASTER HEAD OFFICE (Hanya Muncul Jika Perusahaan Sudah Dipilih) -->
                 <!-- ============================================================= -->
                 <div v-if="form.nama_perusahaan?.trim()" class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4 border-t border-gray-100">
+
+                    <div class="md:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3.5 py-3 text-xs text-emerald-900">
+                        Data di bagian ini adalah identitas kantor pusat/master perusahaan. Lokasi kerja dari LinkedIn tidak mengubah alamat kantor pusat; domisili alumni tetap diisi pada bagian alamat pribadi.
+                    </div>
 
                     <!-- Banner Notifikasi Status Verifikasi Perusahaan -->
                     <div v-if="!canEditCompanyDetails" class="md:col-span-2 bg-gray-50 border border-gray-200 rounded-xl p-3.5 flex items-center gap-3 text-xs text-gray-600 font-medium shadow-2xs">

@@ -28,15 +28,15 @@ class EvaluasiAtasan extends Model
         [
             'key' => 'karakteristik',
             'title' => 'Karakteristik Perusahaan & Sebaran Alumni',
-            'description' => 'Bentuk, skala, jumlah pegawai, sebaran alumni UKDW, dan standar gaji pertama.',
-            'source' => 'perusahaan, evaluasi_atasan',
+            'description' => 'Jumlah pegawai, sebaran alumni UKDW, dan standar gaji pertama yang dilaporkan atasan.',
+            'source' => 'perusahaan, kuesioner_jawaban',
             'order' => 2,
         ],
         [
             'key' => 'penilaian',
             'title' => 'Penilaian Kesiapan & Kinerja Alumni',
             'description' => 'Kesiapan kerja dan aspek kompetensi alumni yang dinilai oleh atasan.',
-            'source' => 'respon_evaluasi_atasan',
+            'source' => 'kuesioner_jawaban',
             'order' => 3,
         ],
     ];
@@ -50,8 +50,6 @@ class EvaluasiAtasan extends Model
         'token',
         'is_submitted',
         'submitted_at',
-        'jumlah_alumni_ukdw',
-        'standar_gaji_pertama',
     ];
 
     protected $casts = [
@@ -80,6 +78,13 @@ class EvaluasiAtasan extends Model
         ]);
 
         $perusahaan = $this->perusahaan ?? $this->biodata?->perusahaan;
+        $karakteristikJawaban = $this->respons
+            ->mapWithKeys(static function ($response): array {
+                $kode = (string) ($response->kode_pertanyaan ?? $response->pertanyaan?->kode_pertanyaan ?? '');
+                $kode = str_starts_with($kode, 'EVA_') ? substr($kode, 4) : $kode;
+
+                return [$kode => $response->jawaban_teks];
+            });
 
         return [
             'id' => $this->id,
@@ -88,8 +93,9 @@ class EvaluasiAtasan extends Model
             'submitted_at' => $this->submitted_at?->toIso8601String(),
             'submitted_at_formatted' => $this->submitted_at ? $this->submitted_at->translatedFormat('d F Y, H:i').' WIB' : null,
             'status' => $this->is_submitted ? 'Selesai' : 'Aktif',
-            'jumlah_alumni_ukdw' => $this->jumlah_alumni_ukdw,
-            'standar_gaji_pertama' => $this->standar_gaji_pertama,
+            'jumlah_pegawai' => $karakteristikJawaban->get('jumlah_pegawai'),
+            'jumlah_alumni_ukdw' => $karakteristikJawaban->get('jumlah_alumni_ukdw'),
+            'standar_gaji_pertama' => $karakteristikJawaban->get('standar_gaji_pertama'),
             'catatan' => $this->respons->pluck('catatan')->filter()->first() ?? null,
             'atasan' => $this->atasan ? [
                 'id' => $this->atasan->id,

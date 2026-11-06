@@ -6,6 +6,7 @@ use App\Mail\ResetPasswordMail;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\Prodi;
+use App\Models\RefFakultas;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -24,6 +25,8 @@ class SuperAdminManajemenAkunTest extends TestCase
 
     protected Prodi $prodi;
 
+    protected RefFakultas $fakultas;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -37,9 +40,15 @@ class SuperAdminManajemenAkunTest extends TestCase
             'must_change_password' => false,
         ]);
 
+        $this->fakultas = RefFakultas::create([
+            'kode_fakultas' => '7',
+            'nama_fakultas' => 'Fakultas Teknologi Informasi',
+        ]);
+
         $this->prodi = Prodi::create([
             'kode_prodi' => '72',
             'nama_prodi' => 'Sistem Informasi',
+            'fakultas_id' => $this->fakultas->id,
         ]);
     }
 
@@ -172,6 +181,86 @@ class SuperAdminManajemenAkunTest extends TestCase
         $this->assertDatabaseMissing('password_reset_tokens', [
             'email' => $admin->email,
         ]);
+    }
+
+    /**
+     * Memastikan akun Admin Fakultas tidak dapat disimpan tanpa scope fakultas.
+     */
+    public function test_admin_fakultas_update_requires_fakultas_scope(): void
+    {
+        $admin = User::create([
+            'username' => 'admin_fakultas_scope',
+            'name' => 'Admin Fakultas Scope',
+            'email' => 'admin.fakultas.scope@ukdw.ac.id',
+            'password' => Hash::make('password-lama'),
+            'role' => 'admin_fakultas',
+            'must_change_password' => false,
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->put(route('superadmin.manajemen-akun.update', $admin->id), [
+                'name' => $admin->name,
+                'email' => $admin->email,
+                'username' => $admin->username,
+                'role' => 'admin_fakultas',
+                'fakultas_id' => null,
+            ]);
+
+        $response->assertSessionHasErrors('fakultas_id');
+        $this->assertNull($admin->fresh()->fakultas_id);
+    }
+
+    /**
+     * Memastikan Super Admin dapat memperbaiki scope dan email akun Admin Fakultas.
+     */
+    public function test_superadmin_can_update_admin_fakultas_scope_and_email(): void
+    {
+        $admin = User::create([
+            'username' => 'admin_fakultas_update',
+            'name' => 'Admin Fakultas Lama',
+            'email' => 'admin.fakultas.lama@ukdw.ac.id',
+            'password' => Hash::make('password-lama'),
+            'role' => 'admin_fakultas',
+            'must_change_password' => false,
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->put(route('superadmin.manajemen-akun.update', $admin->id), [
+                'name' => 'Admin Fakultas Baru',
+                'email' => 'admin.fakultas.baru@ukdw.ac.id',
+                'username' => $admin->username,
+                'role' => 'admin_fakultas',
+                'fakultas_id' => $this->fakultas->id,
+            ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('users', [
+            'id' => $admin->id,
+            'name' => 'Admin Fakultas Baru',
+            'email' => 'admin.fakultas.baru@ukdw.ac.id',
+            'role' => 'admin_fakultas',
+            'fakultas_id' => $this->fakultas->id,
+            'prodi_id' => null,
+        ]);
+    }
+
+    /**
+     * Memastikan Admin Fakultas tanpa scope tidak diarahkan ke fakultas lain.
+     */
+    public function test_admin_fakultas_without_scope_receives_forbidden_response(): void
+    {
+        $admin = User::create([
+            'username' => 'admin_fakultas_without_scope',
+            'name' => 'Admin Fakultas Tanpa Scope',
+            'email' => 'admin.fakultas.tanpa.scope@ukdw.ac.id',
+            'password' => Hash::make('password-lama'),
+            'role' => 'admin_fakultas',
+            'must_change_password' => false,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('fakultas.alumni.index'));
+
+        $response->assertForbidden();
     }
 
     /**
