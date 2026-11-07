@@ -46,7 +46,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Biro 3 UKDW',
         fallbackEmail: 'biro3@ukdw.ac.id',
         alumniLabel: 'Data Alumni Universitas',
-        capabilities: { linkedin: true, company: false, accounts: false, analytics: true, supervisorEvaluation: false },
+        capabilities: { linkedin: false, company: false, accounts: false, analytics: true, supervisorEvaluation: false },
     },
 };
 
