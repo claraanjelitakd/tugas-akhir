@@ -122,9 +122,168 @@ const verticalMatchTable = computed(() => ({
 }));
 
 // -----------------------------------------------------------------------------
-// 2. STACKED BAR: Komposisi Lengkap Kualifikasi Pendidikan per Prodi
+// 2. MATRIKS HEATMAP: Sebaran Kualifikasi per Program Studi (Mengadopsi Indikator 02)
 // -----------------------------------------------------------------------------
-const categories = computed(() => [...new Set(series.value.map((s) => s.label))]);
+const categories = computed(() => {
+    const activeCats = series.value.filter((s) => seriesMetric(s) > 0).map((s) => s.label);
+    return activeCats.length > 0 ? activeCats : [...new Set(series.value.map((s) => s.label))];
+});
+
+const heatmapData = computed(() => {
+    const listProdis = prodis.value;
+    const cats = categories.value;
+    const prodiTotals = Object.fromEntries(
+        listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]),
+    );
+
+    const values = [];
+    listProdis.forEach((prodi, yIndex) => {
+        cats.forEach((cat, xIndex) => {
+            const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
+            const total = Math.max(prodiTotals[prodi], 1);
+            const pct = Number(((count / total) * 100).toFixed(1));
+            values.push({
+                value: [xIndex, yIndex, pct],
+                prodi,
+                category: cat,
+                count,
+                total,
+            });
+        });
+    });
+
+    const maxPct = Math.max(...values.map((v) => v.value[2]), 10);
+
+    return { values, maxPct, prodiTotals };
+});
+
+const heatmapOption = computed(() => {
+    const { values, maxPct, prodiTotals } = heatmapData.value;
+    const cats = categories.value;
+    const listProdis = prodis.value;
+    const yLabels = listProdis.map((p) => `${p} (n=${prodiTotals[p]})`);
+
+    return {
+        ...baseOption(records.value.length),
+        grid: { left: 24, right: 120, top: 75, bottom: 24, containLabel: true },
+        xAxis: {
+            type: 'category',
+            position: 'top',
+            data: cats,
+            axisLabel: {
+                rotate: -20,
+                color: '#1E293B',
+                fontSize: 11,
+                fontWeight: 600,
+                interval: 0,
+            },
+            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
+            splitArea: { show: false },
+        },
+        yAxis: {
+            type: 'category',
+            inverse: true,
+            data: yLabels,
+            axisLabel: { color: '#1E293B', fontSize: 11, fontWeight: 500 },
+            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
+            splitArea: { show: false },
+        },
+        visualMap: {
+            type: 'continuous',
+            min: 0,
+            max: Math.min(100, Math.ceil(maxPct / 10) * 10),
+            orient: 'vertical',
+            right: 14,
+            top: 'middle',
+            itemWidth: 16,
+            itemHeight: 220,
+            calculable: true,
+            inRange: {
+                color: ['#F8FAFC', '#DCEBE0', '#B7D7C0', '#78B18B', '#2F7D4A', '#0D542B'],
+            },
+            text: ['Tinggi (%)', '0%'],
+            textGap: 8,
+            textStyle: { color: '#1E293B', fontSize: 11, fontWeight: 600 },
+            formatter: (val) => `${Number(val).toFixed(0)}%`,
+        },
+        tooltip: {
+            ...baseOption().tooltip,
+            trigger: 'item',
+            formatter: ({ data }) => {
+                if (!data) return '';
+                return `
+                    <div class="font-sans text-xs">
+                        <div class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5">${escapeHtml(data.prodi)}</div>
+                        <div class="text-slate-600 mb-0.5"><span class="text-slate-500">Kualifikasi:</span> <strong>${escapeHtml(data.category)}</strong></div>
+                        <div class="text-slate-600 mb-0.5"><span class="text-slate-500">Jumlah Alumni:</span> <strong>${formatNumber(data.count, 0)}</strong> (dari n=${data.total})</div>
+                        <div class="text-slate-600"><span class="text-slate-500">Proporsi di Prodi:</span> <strong class="text-emerald-700 font-mono text-sm">${formatNumber(data.value[2], 1)}%</strong></div>
+                    </div>
+                `;
+            },
+        },
+        series: [{
+            name: 'Proporsi Kualifikasi Pendidikan',
+            type: 'heatmap',
+            data: values,
+            itemStyle: {
+                borderColor: '#FFFFFF',
+                borderWidth: 1.5,
+            },
+            label: {
+                show: true,
+                formatter: ({ data }) => (data && data.value[2] > 0 ? `${formatNumber(data.value[2], 0)}%` : ''),
+                fontSize: 10,
+                fontWeight: 600,
+                color: (param) => (param.data?.value[2] >= 30 ? '#FFFFFF' : '#1E293B'),
+            },
+            emphasis: {
+                itemStyle: {
+                    shadowBlur: 8,
+                    shadowColor: 'rgba(13, 84, 43, 0.25)',
+                    borderColor: '#0D542B',
+                    borderWidth: 2,
+                },
+            },
+        }],
+    };
+});
+
+const heatmapTable = computed(() => {
+    const cats = categories.value;
+    const prodiTotals = heatmapData.value.prodiTotals;
+
+    const columns = [
+        { key: 'prodi', label: 'Program Studi' },
+        { key: 'total', label: 'Responden (n)', align: 'right' },
+        ...cats.map((cat, i) => ({
+            key: `cat_${i}`,
+            label: cat,
+            align: 'right',
+        })),
+    ];
+
+    const rows = prodis.value.map((prodi) => {
+        const row = {
+            prodi,
+            total: formatNumber(prodiTotals[prodi] || 0, 0),
+        };
+        cats.forEach((cat, i) => {
+            const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
+            const total = Math.max(prodiTotals[prodi], 1);
+            const pct = ((count / total) * 100).toFixed(1);
+            row[`cat_${i}`] = `${formatNumber(count, 0)} (${pct}%)`;
+        });
+        return row;
+    });
+
+    return { columns, rows };
+});
+
+// -----------------------------------------------------------------------------
+// 3. STACKED BAR: Komposisi Lengkap Kualifikasi Pendidikan per Prodi
+// -----------------------------------------------------------------------------
 const catPalette = ['#0D542B', '#2F7D4A', '#78B18B', '#B7D7C0'];
 
 const stackedOption = computed(() => {
@@ -160,6 +319,14 @@ const stackedOption = computed(() => {
                 opacity: selected ? 1 : 0.22,
                 borderColor: '#FFFFFF',
                 borderWidth: 1.5,
+            },
+            label: {
+                show: true,
+                position: 'inside',
+                formatter: ({ data }) => (data && data.value >= 10 ? `${data.value}%` : ''),
+                fontSize: 10,
+                color: '#FFFFFF',
+                fontWeight: 'bold',
             },
             data: catData,
         };
@@ -259,6 +426,23 @@ const views = computed(() => [
         tableData: verticalMatchTable.value,
         height: 410,
         analysis: dynamicVerticalAnalysis.value,
+    },
+    {
+        key: 'by_prodi_heatmap',
+        chartType: 'matrix_heatmap',
+        tabLabel: 'Sebaran per Prodi',
+        title: 'Matriks sebaran kualifikasi pendidikan per program studi',
+        description: 'Sebaran persentase kualifikasi pendidikan alumni (F15) di setiap program studi dalam format matriks heatmap.',
+        option: heatmapOption.value,
+        tableData: heatmapTable.value,
+        height: Math.max(380, prodis.value.length * 36 + 120),
+        analysis: {
+            title: 'Kilas Matriks Sebaran per Prodi',
+            statusBadge: 'Matriks Sebaran',
+            badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+            lead: 'Visualisasi intensitas pilihan kualifikasi pekerjaan per program studi untuk memetakan konsentrasi tingkat pendidikan yang disyaratkan.',
+            detail: 'Warna hijau yang lebih pekat mencerminkan konsentrasi alumni yang lebih tinggi pada kategori kualifikasi terkait.',
+        },
     },
     {
         key: 'stacked_kualifikasi',

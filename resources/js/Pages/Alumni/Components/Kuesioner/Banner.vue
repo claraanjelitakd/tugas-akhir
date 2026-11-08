@@ -33,7 +33,13 @@ defineProps({
         type: String,
         default: null,
     },
+    hasChanges: {
+        type: Boolean,
+        default: false,
+    },
 });
+
+defineEmits(['reset']);
 </script>
 
 <template>
@@ -66,6 +72,18 @@ defineProps({
                 </p>
             </div>
 
+            <!-- Tombol Aksi Pembatalan Perubahan Jawaban -->
+            <div v-if="hasChanges" class="shrink-0 flex items-center">
+                <button
+                    type="button"
+                    @click="$emit('reset')"
+                    class="px-3.5 py-2 rounded-xl border border-gray-300 hover:border-rose-300 bg-white hover:bg-rose-50 text-gray-700 hover:text-rose-700 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    title="Batalkan perubahan jawaban di formulir dan kembalikan ke data tersimpan"
+                >
+                    <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    <span>Batalkan Perubahan Jawaban</span>
+                </button>
+            </div>
         </div>
     </div>
 </template>

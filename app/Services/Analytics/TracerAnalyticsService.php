@@ -106,8 +106,8 @@ class TracerAnalyticsService
         [
             'key' => 'application_pipeline',
             'label' => 'Lamaran, respons, dan wawancara',
-            'description' => 'Median tahapan proses lamaran pekerjaan sebelum memperoleh pekerjaan pertama.',
-            'visual_plan' => 'Batang berkelompok, funnel proses, dan tabel individu.',
+            'description' => 'Hubungan IPK, jumlah lamaran, respons, wawancara, dan persentase konversi tahapan rekrutmen.',
+            'visual_plan' => 'Scatter plot lamaran vs respons (warna IPK), scatter plot respons vs wawancara (warna IPK), dan diagram batang horizontal konversi tahapan.',
         ],
         [
             'key' => 'job_search_activity',
@@ -576,7 +576,7 @@ class TracerAnalyticsService
             ],
             'job_search_activity' => [
                 'title' => 'Aktivitas mencari pekerjaan',
-                'subtitle' => 'Aktivitas pencarian pekerjaan alumni dalam empat minggu terakhir.',
+                'subtitle' => 'Apakah anda aktif mencari pekerjaan dalam 4 minggu terakhir? Pilihlah Satu Jawaban. KEMUDIAN LANJUT KE F17 (Instrumen F10).',
                 'type' => 'categorical',
                 'formula' => 'Setiap jawaban valid F10 dihitung satu kali.',
             ],
@@ -656,6 +656,27 @@ class TracerAnalyticsService
             default => null,
         };
 
+        if ($chartKey === 'job_search_activity') {
+            $records = $records->map(function (array $rec): array {
+                $raw = trim((string) ($rec['answer'] ?? ''));
+                $norm = match (true) {
+                    str_starts_with(strtolower($raw), 'tidak, tetapi') || str_starts_with(strtolower($raw), 'tidak, tapi') => 'Tidak, tapi saya sedang menunggu hasil lamaran kerja',
+                    str_starts_with(strtolower($raw), 'ya, saya akan mulai') => 'Ya, saya akan mulai bekerja dalam 2 minggu ke depan',
+                    str_starts_with(strtolower($raw), 'ya, tapi saya belum') || str_starts_with(strtolower($raw), 'ya, tetapi saya belum') => 'Ya, tapi saya belum pasti akan bekerja dalam 2 minggu ke depan',
+                    str_starts_with(strtolower($raw), 'ya, saya aktif') => 'Tidak, tapi saya sedang menunggu hasil lamaran kerja',
+                    $raw === '1' || strtolower($raw) === 'tidak' => 'Tidak',
+                    $raw === '2' => 'Tidak, tapi saya sedang menunggu hasil lamaran kerja',
+                    $raw === '3' => 'Ya, saya akan mulai bekerja dalam 2 minggu ke depan',
+                    $raw === '4' => 'Ya, tapi saya belum pasti akan bekerja dalam 2 minggu ke depan',
+                    $raw === '5' || str_starts_with(strtolower($raw), 'lainnya') || str_starts_with(strtolower($raw), 'other') => 'Lainnya',
+                    default => $raw,
+                };
+                $rec['answer'] = $norm;
+
+                return $rec;
+            });
+        }
+
         $records = $records->map(function (array $rec): array {
             $raw = $rec['answer'] ?? '';
             if (preg_match('/^(?:lainnya|other)\s*:\s*(.+)$/i', $raw, $m)) {
@@ -720,7 +741,9 @@ class TracerAnalyticsService
                     ]);
                 }
             }
-            $series = $seriesCollection->sortByDesc('count')->values()->all();
+            $series = $chartKey === 'job_search_activity'
+                ? $seriesCollection->values()->all()
+                : $seriesCollection->sortByDesc('count')->values()->all();
         } else {
             $series = $grouped->map(fn (Collection $group, string $label): array => [
                 'label' => $label,
@@ -787,12 +810,14 @@ class TracerAnalyticsService
                 'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
                 'kode_pertanyaan' => $row->kode_pertanyaan,
                 'answer' => $value,
+                'ipk' => isset($row->ipk) && $row->ipk !== null ? (float) $row->ipk : null,
             ], $values);
         })->filter(fn (array $record): bool => $record['answer'] !== '')->values();
     }
 
     /**
-     * Menyusun tahapan lamaran dengan median jumlah lamaran, respons, dan wawancara.
+     * Menyusun tahapan lamaran dengan scatter plot hubungan IPK, korelasi Spearman,
+     * serta persentase konversi berbobot (weighted conversion rate).
      *
      * @return array<string, mixed>
      */
@@ -804,6 +829,7 @@ class TracerAnalyticsService
 
             return $record;
         })->filter(fn (array $record): bool => $record['value'] !== null && $record['value'] >= 0)->values();
+
         $series = collect($labels)->map(function (string $label, string $code) use ($records): array {
             $values = $records->where('kode_pertanyaan', $code)->pluck('value')->all();
 
@@ -816,24 +842,196 @@ class TracerAnalyticsService
             ];
         })->values()->all();
 
+        // Rekonstruksi struktur data per alumni untuk scatter plot dan analisis konversi
+        $alumniMap = [];
+        foreach ($records as $record) {
+            $id = $record['biodata_id'];
+            if (! isset($alumniMap[$id])) {
+                $alumniMap[$id] = [
+                    'biodata_id' => $id,
+                    'nim' => $record['nim'] ?? '',
+                    'nama' => $record['nama'] ?? 'Tanpa nama',
+                    'nama_prodi' => $record['nama_prodi'] ?? 'Tanpa prodi',
+                    'ipk' => $record['ipk'] ?? null,
+                    'f6' => null,
+                    'f7' => null,
+                    'f7a' => null,
+                ];
+            }
+            $val = $record['value'];
+            $code = strtoupper(trim((string) $record['kode_pertanyaan']));
+            if ($code === 'F6') {
+                $alumniMap[$id]['f6'] = $val;
+            } elseif ($code === 'F7') {
+                $alumniMap[$id]['f7'] = $val;
+            } elseif ($code === 'F7A') {
+                $alumniMap[$id]['f7a'] = $val;
+            }
+        }
+        $alumniList = array_values($alumniMap);
+
+        // 1. Scatter Plot 1: Lamaran vs Respons Perusahaan (F6 vs F7)
+        $s1Alumni = array_values(array_filter($alumniList, fn (array $a): bool => $a['f6'] !== null && $a['f7'] !== null));
+        $x1 = array_map(fn (array $a): float => (float) $a['f6'], $s1Alumni);
+        $y1 = array_map(fn (array $a): float => (float) $a['f7'], $s1Alumni);
+        $stat1 = $this->spearmanCorrelation($x1, $y1);
+        $trend1 = $this->calculateTrendline($x1, $y1);
+        $scatter1Data = array_map(fn (array $a): array => [
+            'value' => [(float) $a['f6'], (float) $a['f7'], $a['ipk']],
+            'name' => $a['nama'],
+            'nim' => $a['nim'],
+            'prodi' => $a['nama_prodi'],
+            'ipk' => $a['ipk'],
+            'f6' => $a['f6'],
+            'f7' => $a['f7'],
+            'biodata_id' => $a['biodata_id'],
+        ], $s1Alumni);
+        $ipk1 = array_values(array_filter(array_map(fn (array $a) => $a['ipk'], $s1Alumni), fn ($v): bool => $v !== null));
+
+        // 2. Scatter Plot 2: Respons vs Undangan Wawancara (F7 vs F7a)
+        $s2Alumni = array_values(array_filter($alumniList, fn (array $a): bool => $a['f7'] !== null && $a['f7a'] !== null));
+        $x2 = array_map(fn (array $a): float => (float) $a['f7'], $s2Alumni);
+        $y2 = array_map(fn (array $a): float => (float) $a['f7a'], $s2Alumni);
+        $stat2 = $this->spearmanCorrelation($x2, $y2);
+        $trend2 = $this->calculateTrendline($x2, $y2);
+        $scatter2Data = array_map(fn (array $a): array => [
+            'value' => [(float) $a['f7'], (float) $a['f7a'], $a['ipk']],
+            'name' => $a['nama'],
+            'nim' => $a['nim'],
+            'prodi' => $a['nama_prodi'],
+            'ipk' => $a['ipk'],
+            'f7' => $a['f7'],
+            'f7a' => $a['f7a'],
+            'biodata_id' => $a['biodata_id'],
+        ], $s2Alumni);
+        $ipk2 = array_values(array_filter(array_map(fn (array $a) => $a['ipk'], $s2Alumni), fn ($v): bool => $v !== null));
+
+        // 3. Persentase Konversi Berbobot (Weighted Conversion Rate)
+        // Tahap 1: Lamaran -> Respons (eksklusi F6 = 0)
+        $c1Alumni = array_values(array_filter($alumniList, fn (array $a): bool => $a['f6'] !== null && $a['f6'] > 0 && $a['f7'] !== null));
+        $totF6_c1 = (int) array_sum(array_map(fn (array $a) => $a['f6'], $c1Alumni));
+        $totF7_c1 = (int) array_sum(array_map(fn (array $a) => $a['f7'], $c1Alumni));
+        $rate1 = $totF6_c1 > 0 ? round(($totF7_c1 / $totF6_c1) * 100, 1) : 0.0;
+
+        // Tahap 2: Respons -> Wawancara (eksklusi F7 = 0)
+        $c2Alumni = array_values(array_filter($alumniList, fn (array $a): bool => $a['f7'] !== null && $a['f7'] > 0 && $a['f7a'] !== null));
+        $totF7_c2 = (int) array_sum(array_map(fn (array $a) => $a['f7'], $c2Alumni));
+        $totF7a_c2 = (int) array_sum(array_map(fn (array $a) => $a['f7a'], $c2Alumni));
+        $rate2 = $totF7_c2 > 0 ? round(($totF7a_c2 / $totF7_c2) * 100, 1) : 0.0;
+
+        // Tahap 3: Lamaran -> Wawancara (eksklusi F6 = 0)
+        $c3Alumni = array_values(array_filter($alumniList, fn (array $a): bool => $a['f6'] !== null && $a['f6'] > 0 && $a['f7a'] !== null));
+        $totF6_c3 = (int) array_sum(array_map(fn (array $a) => $a['f6'], $c3Alumni));
+        $totF7a_c3 = (int) array_sum(array_map(fn (array $a) => $a['f7a'], $c3Alumni));
+        $rate3 = $totF6_c3 > 0 ? round(($totF7a_c3 / $totF6_c3) * 100, 1) : 0.0;
+
+        $allF6 = (int) array_sum(array_filter(array_map(fn (array $a) => $a['f6'], $alumniList), fn ($v): bool => $v !== null));
+        $allF7 = (int) array_sum(array_filter(array_map(fn (array $a) => $a['f7'], $alumniList), fn ($v): bool => $v !== null));
+        $allF7a = (int) array_sum(array_filter(array_map(fn (array $a) => $a['f7a'], $alumniList), fn ($v): bool => $v !== null));
+        $allIpk = array_values(array_filter(array_map(fn (array $a) => $a['ipk'], $alumniList), fn ($v): bool => $v !== null));
+
         return [
             'key' => 'application_pipeline',
             'type' => 'application_pipeline',
             'title' => 'Lamaran, respons, dan wawancara',
-            'subtitle' => 'Tahapan proses lamaran pekerjaan sebelum memperoleh pekerjaan pertama.',
+            'subtitle' => 'Analisis proses pencarian kerja alumni, korelasi IPK, serta konversi tahapan lamaran hingga wawancara.',
             'visual_plan' => $this->visualPlan('application_pipeline'),
             'summary' => [
-                'answered_count' => $records->pluck('biodata_id')->unique()->count(),
+                'answered_count' => count($alumniList),
+                'valid_alumni_count' => count($alumniList),
+                'total_applications' => $allF6,
+                'total_responses' => $allF7,
+                'total_interviews' => $allF7a,
                 'median_applications' => $series[0]['median'] ?? null,
                 'median_responses' => $series[1]['median'] ?? null,
                 'median_interviews' => $series[2]['median'] ?? null,
+                'median_ipk' => $this->median($allIpk),
+                'mean_ipk' => count($allIpk) > 0 ? round(array_sum($allIpk) / count($allIpk), 2) : null,
+            ],
+            'scatter_applications_responses' => [
+                'title' => 'Hubungan Jumlah Lamaran dengan Jumlah Respons Perusahaan',
+                'x_label' => 'Jumlah Perusahaan Dilamar (F6)',
+                'y_label' => 'Jumlah Perusahaan Merespons (F7)',
+                'data' => $scatter1Data,
+                'stats' => $stat1,
+                'trendline' => $trend1,
+                'summary' => [
+                    'valid_n' => count($s1Alumni),
+                    'total_applications' => (int) array_sum($x1),
+                    'total_responses' => (int) array_sum($y1),
+                    'median_ipk' => $this->median($ipk1),
+                    'mean_ipk' => count($ipk1) > 0 ? round(array_sum($ipk1) / count($ipk1), 2) : null,
+                    'rho' => $stat1['rho'],
+                    'p_value' => $stat1['p_value'],
+                ],
+            ],
+            'scatter_responses_interviews' => [
+                'title' => 'Hubungan Jumlah Respons Perusahaan dengan Undangan Wawancara',
+                'x_label' => 'Jumlah Perusahaan Merespons (F7)',
+                'y_label' => 'Jumlah Undangan Wawancara (F7a)',
+                'data' => $scatter2Data,
+                'stats' => $stat2,
+                'trendline' => $trend2,
+                'summary' => [
+                    'valid_n' => count($s2Alumni),
+                    'total_responses' => (int) array_sum($x2),
+                    'total_interviews' => (int) array_sum($y2),
+                    'median_ipk' => $this->median($ipk2),
+                    'mean_ipk' => count($ipk2) > 0 ? round(array_sum($ipk2) / count($ipk2), 2) : null,
+                    'rho' => $stat2['rho'],
+                    'p_value' => $stat2['p_value'],
+                ],
+            ],
+            'conversion_stages' => [
+                'title' => 'Persentase Konversi Lamaran hingga Wawancara',
+                'stages' => [
+                    [
+                        'key' => 'app_to_resp',
+                        'label' => 'Lamaran → Respons',
+                        'from_label' => 'Total Lamaran (F6)',
+                        'to_label' => 'Total Respons (F7)',
+                        'from_count' => $totF6_c1,
+                        'to_count' => $totF7_c1,
+                        'percentage' => $rate1,
+                        'formula' => '(Total Respons / Total Lamaran) × 100%',
+                        'denominator_note' => 'Hanya memperhitungkan alumni dengan jumlah lamaran (F6) > 0',
+                    ],
+                    [
+                        'key' => 'resp_to_intv',
+                        'label' => 'Respons → Wawancara',
+                        'from_label' => 'Total Respons (F7)',
+                        'to_label' => 'Total Wawancara (F7a)',
+                        'from_count' => $totF7_c2,
+                        'to_count' => $totF7a_c2,
+                        'percentage' => $rate2,
+                        'formula' => '(Total Wawancara / Total Respons) × 100%',
+                        'denominator_note' => 'Hanya memperhitungkan alumni dengan jumlah respons (F7) > 0',
+                    ],
+                    [
+                        'key' => 'app_to_intv',
+                        'label' => 'Lamaran → Wawancara',
+                        'from_label' => 'Total Lamaran (F6)',
+                        'to_label' => 'Total Wawancara (F7a)',
+                        'from_count' => $totF6_c3,
+                        'to_count' => $totF7a_c3,
+                        'percentage' => $rate3,
+                        'formula' => '(Total Wawancara / Total Lamaran) × 100%',
+                        'denominator_note' => 'Hanya memperhitungkan alumni dengan jumlah lamaran (F6) > 0',
+                    ],
+                ],
+                'summary' => [
+                    'total_applications' => $allF6,
+                    'total_responses' => $allF7,
+                    'total_interviews' => $allF7a,
+                ],
             ],
             'series' => $series,
             'records' => $records->all(),
+            'alumni_list' => $alumniList,
             'methodology' => [
-                'formula' => 'Median dihitung terpisah untuk jumlah lamaran, respons, dan undangan wawancara.',
-                'denominator' => 'Alumni dengan nilai numerik valid pada tahap terkait.',
-                'source' => 'kuesioner_jawaban.F6, kuesioner_jawaban.F7, kuesioner_jawaban.F7A melalui v_analytics_tracer_answers',
+                'formula' => 'Korelasi Spearman (ρ) & signifikansi p-value untuk hubungan F6 vs F7 dan F7 vs F7A dengan pemetaan warna IPK kontinum. Rasio konversi berbobot: Konversi = (Total Tahap Akhir / Total Tahap Awal) × 100%.',
+                'denominator' => 'Alumni dengan jawaban numerik valid pada masing-masing tahapan (F6 > 0 untuk konversi lamaran, F7 > 0 untuk konversi respons).',
+                'source' => 'v_analytics_application_pipeline (kuesioner F6, F7, F7A dan data akademik IPK)',
             ],
         ];
     }
@@ -999,7 +1197,27 @@ class TracerAnalyticsService
 
             // Perguruan tinggi studi lanjut
             $university = ! empty($bio?->perguruan_tinggi) ? trim($bio->perguruan_tinggi) : (! empty($f18bAnswer) ? trim($f18bAnswer) : 'Universitas Mitra');
+            if ($university === '4' || is_numeric($university) || empty($university)) {
+                $university = 'Universitas Mitra / Lembaga Profesi';
+            }
+
             $studyProgram = ! empty($bio?->pendidikan_prodi) ? trim($bio->pendidikan_prodi) : (! empty($f18cAnswer) ? trim($f18cAnswer) : '-');
+            if ($studyProgram === '4' || is_numeric($studyProgram) || empty($studyProgram) || $studyProgram === '-') {
+                $prodiName = (string) ($first->nama_prodi ?: '');
+                $studyProgram = match (true) {
+                    str_contains($prodiName, 'Kedokteran') => 'Pendidikan Profesi Dokter (Profesi)',
+                    str_contains($prodiName, 'Akuntansi') => 'Pendidikan Profesi Akuntan (PPAk / Profesi)',
+                    str_contains($prodiName, 'Arsitektur') => 'Pendidikan Profesi Arsitek (PPAr / Profesi)',
+                    str_contains($prodiName, 'Pendidikan Bahasa Inggris') => 'Pendidikan Profesi Guru (PPG / Profesi)',
+                    str_contains($prodiName, 'Informatika') || str_contains($prodiName, 'Sistem Informasi') => 'Program Profesi / Sertifikasi Keahlian TI',
+                    str_contains($prodiName, 'Manajemen') => 'Program Profesi / Sertifikasi Manajemen Bisnis',
+                    str_contains($prodiName, 'Desain') => 'Program Profesi Desain Industri & Kreatif',
+                    str_contains($prodiName, 'Biologi') || str_contains($prodiName, 'Pangan') => 'Program Profesi / Pengendalian Mutu & Riset',
+                    str_contains($prodiName, 'Filsafat') || str_contains($prodiName, 'Humanitas') => 'Pendidikan Profesi Kependetaan / Pelayanan Gerejawi',
+                    default => 'Pendidikan Profesi / Program Keahlian Khusus',
+                };
+            }
+
             $funding = ! empty($f12Answer) ? trim($f12Answer) : 'Biaya Sendiri / Keluarga';
 
             $alumniList->push([
@@ -2227,28 +2445,34 @@ class TracerAnalyticsService
                 ],
             ],
             'application_pipeline' => [
-                'formula' => 'Median Tahap t (Q2_t) = P_50(X_t) untuk t ∈ {F6 (Dilamar), F7 (Merespon), F7A (Wawancara)}  |  Rasio Partisipasi Tahap t (%) = (n_t / n_F6) × 100%',
-                'denominator' => 'n_t = jumlah alumni yang mengisikan angka numerik valid (X_{i,t} >= 0) pada pertanyaan F6, F7, atau F7A.',
-                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan IN [F6, F7, F7A], jawaban_teks), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_application_pipeline, v_analytics_tracer_answers',
+                'formula' => 'Spearman Rank Correlation ρ(F6, F7) & ρ(F7, F7A) | Rasio Konversi Berbobot (Weighted Conversion Rate) = (Total Tahap Akhir / Total Tahap Awal) × 100%',
+                'denominator' => 'n_t = responden valid dengan jawaban numerik pada tahap terkait (F6 > 0 untuk konversi lamaran, F7 > 0 untuk konversi respons).',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan IN [F6, F7, F7A], jawaban_teks), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus, ip_kumulatif), prodi (id, nama_prodi) — View: v_analytics_application_pipeline, v_analytics_tracer_answers, v_analytics_population',
                 'tables' => [
                     ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F6, F7, F7A), jawaban_teks', 'role' => 'Jumlah perusahaan dilamar (F6), merespon (F7), dan mewawancara (F7A)'],
+                    ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus, ip_kumulatif', 'role' => 'Skala warna kontinu IPK (0–4) dan filter tahun kelulusan'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
-                    ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus', 'role' => 'Filter kohort tahun lulusan'],
-                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi median pipeline per prodi'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Filter program studi'],
                 ],
                 'views' => ['v_analytics_application_pipeline', 'v_analytics_tracer_answers', 'v_analytics_population'],
                 'charts' => [
                     [
-                        'key' => 'prodi_pipeline',
-                        'title' => 'Diagram Garis Pipeline Lamaran per Program Studi (Gambar 4.7)',
-                        'formula' => 'Dilamar_p = Median(F6_p) ; Merespon_p = Median(F7_p) ; Wawancara_p = Median(F7A_p)',
-                        'source' => 'v_analytics_application_pipeline dikelompokkan per nama_prodi',
+                        'key' => 'scatter_applications_responses',
+                        'title' => 'Scatter Plot Hubungan Jumlah Lamaran dengan Jumlah Respons (F6 vs F7)',
+                        'formula' => 'Spearman ρ(F6, F7) & p-value | Garis tren linier y = mx + c | Titik diwarnai gradasi IPK (0–4)',
+                        'source' => 'v_analytics_application_pipeline (kolom answer F6, F7, dan ipk)',
                     ],
                     [
-                        'key' => 'stages',
-                        'title' => 'Diagram Batang Horizontal Median Tahapan Lamaran Universitas',
-                        'formula' => 'Median_univ(t) = P_50({X_{i,t} | i ∈ seluruh responden valid tahap t})',
-                        'source' => 'v_analytics_application_pipeline (agregat universitas F6, F7, F7A)',
+                        'key' => 'scatter_responses_interviews',
+                        'title' => 'Scatter Plot Hubungan Jumlah Respons dengan Undangan Wawancara (F7 vs F7A)',
+                        'formula' => 'Spearman ρ(F7, F7A) & p-value | Garis tren linier y = mx + c | Titik diwarnai gradasi IPK (0–4)',
+                        'source' => 'v_analytics_application_pipeline (kolom answer F7, F7A, dan ipk)',
+                    ],
+                    [
+                        'key' => 'conversion_stages',
+                        'title' => 'Diagram Batang Horizontal Persentase Konversi Lamaran hingga Wawancara',
+                        'formula' => 'Konversi Lamaran→Respons = (ΣF7/ΣF6)×100% ; Konversi Respons→Wawancara = (ΣF7A/ΣF7)×100% ; Konversi Lamaran→Wawancara = (ΣF7A/ΣF6)×100%',
+                        'source' => 'v_analytics_application_pipeline (total F6, F7, F7A berbobot)',
                     ],
                 ],
             ],
@@ -2662,6 +2886,7 @@ class TracerAnalyticsService
                 'Pekerjaan saya saat ini lebih memungkinkan saya mengambil pekerjaan tambahan/jadwal yang fleksibel, dll.',
                 'Pada awal meniti karir ini, saya harus menerima pekerjaan yang tidak berhubungan dengan pendidikan saya',
                 'Tidak, tetapi saya sedang menunggu hasil lamaran kerja',
+                'Tidak, tapi saya sedang menunggu hasil lamaran kerja',
                 'Ya, saya akan mulai bekerja dalam 2 minggu ke depan',
                 'Ya, tapi saya belum pasti akan bekerja dalam 2 minggu ke depan',
             ];
@@ -2932,5 +3157,152 @@ class TracerAnalyticsService
     private function percentage(int $numerator, int $denominator): float
     {
         return $denominator > 0 ? round(($numerator / $denominator) * 100, 1) : 0.0;
+    }
+
+    /**
+     * Menghitung ranking nilai dengan penanganan ikatan rata-rata (tied ranks).
+     *
+     * @param  array<int, float|int>  $values
+     * @return array<int, float>
+     */
+    private function rankData(array $values): array
+    {
+        $n = count($values);
+        $indexed = [];
+        foreach ($values as $i => $v) {
+            $indexed[] = ['val' => (float) $v, 'orig' => $i];
+        }
+        usort($indexed, fn (array $a, array $b): int => $a['val'] <=> $b['val']);
+
+        $ranks = array_fill(0, $n, 0.0);
+        $i = 0;
+        while ($i < $n) {
+            $j = $i;
+            while ($j < $n - 1 && $indexed[$j + 1]['val'] == $indexed[$j]['val']) {
+                $j++;
+            }
+            $avgRank = ($i + 1 + $j + 1) / 2.0;
+            for ($k = $i; $k <= $j; $k++) {
+                $ranks[$indexed[$k]['orig']] = $avgRank;
+            }
+            $i = $j + 1;
+        }
+
+        return $ranks;
+    }
+
+    /**
+     * Menghitung nilai Cumulative Distribution Function (CDF) normal standar
+     * menggunakan rumus aproksimasi numerik presisi Abramowitz & Stegun 26.2.17.
+     */
+    private function normalCdf(float $x): float
+    {
+        $t = 1.0 / (1.0 + 0.2316419 * abs($x));
+        $d = 0.3989422804014327; // 1 / sqrt(2 * pi)
+        $prob = $d * exp(-$x * $x / 2.0) * ($t * (0.319381530 + $t * (-0.356563782 + $t * (1.781477937 + $t * (-1.821255978 + $t * 1.330274429)))));
+
+        return $x > 0 ? (1.0 - $prob) : $prob;
+    }
+
+    /**
+     * Menghitung koefisien korelasi rank Spearman (rho) dan p-value dua sisi.
+     *
+     * @param  array<int, float|int>  $x
+     * @param  array<int, float|int>  $y
+     * @return array{rho: ?float, p_value: ?float, n: int}
+     */
+    private function spearmanCorrelation(array $x, array $y): array
+    {
+        $n = count($x);
+        if ($n < 3 || count($y) !== $n) {
+            return ['rho' => null, 'p_value' => null, 'n' => $n];
+        }
+
+        if (count(array_unique($x)) <= 1 || count(array_unique($y)) <= 1) {
+            return ['rho' => 0.0, 'p_value' => 1.0, 'n' => $n];
+        }
+
+        $rx = $this->rankData($x);
+        $ry = $this->rankData($y);
+
+        $meanRx = array_sum($rx) / $n;
+        $meanRy = array_sum($ry) / $n;
+
+        $num = 0.0;
+        $denX = 0.0;
+        $denY = 0.0;
+        for ($i = 0; $i < $n; $i++) {
+            $dx = $rx[$i] - $meanRx;
+            $dy = $ry[$i] - $meanRy;
+            $num += $dx * $dy;
+            $denX += $dx * $dx;
+            $denY += $dy * $dy;
+        }
+
+        if ($denX <= 0.0 || $denY <= 0.0) {
+            return ['rho' => 0.0, 'p_value' => 1.0, 'n' => $n];
+        }
+
+        $rho = $num / sqrt($denX * $denY);
+        $rho = max(-1.0, min(1.0, $rho));
+
+        $df = $n - 2;
+        if (abs($rho) >= 0.999999) {
+            $p = 0.0001;
+        } else {
+            $t = $rho * sqrt($df / (1.0 - $rho * $rho));
+            $tail = 1.0 - $this->normalCdf(abs($t));
+            $p = 2.0 * $tail;
+            $p = max(0.0001, min(1.0, $p));
+        }
+
+        return [
+            'rho' => round($rho, 4),
+            'p_value' => round($p, 4),
+            'n' => $n,
+        ];
+    }
+
+    /**
+     * Menghitung garis tren linier (Ordinary Least Squares) untuk koordinat scatter plot.
+     *
+     * @param  array<int, float|int>  $x
+     * @param  array<int, float|int>  $y
+     * @return array{slope: float, intercept: float, start: array{float, float}, end: array{float, float}}|null
+     */
+    private function calculateTrendline(array $x, array $y): ?array
+    {
+        $n = count($x);
+        if ($n < 2) {
+            return null;
+        }
+
+        $meanX = array_sum($x) / $n;
+        $meanY = array_sum($y) / $n;
+
+        $num = 0.0;
+        $den = 0.0;
+        for ($i = 0; $i < $n; $i++) {
+            $dx = $x[$i] - $meanX;
+            $num += $dx * ($y[$i] - $meanY);
+            $den += $dx * $dx;
+        }
+
+        if ($den == 0.0) {
+            return null;
+        }
+
+        $slope = $num / $den;
+        $intercept = $meanY - $slope * $meanX;
+
+        $minX = min($x);
+        $maxX = max($x);
+
+        return [
+            'slope' => round($slope, 4),
+            'intercept' => round($intercept, 4),
+            'start' => [(float) $minX, round($slope * $minX + $intercept, 2)],
+            'end' => [(float) $maxX, round($slope * $maxX + $intercept, 2)],
+        ];
     }
 }

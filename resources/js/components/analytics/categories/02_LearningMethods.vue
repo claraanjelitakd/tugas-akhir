@@ -420,9 +420,9 @@ const methodsStackedOption = computed(() => {
         5: analyticsScalePalette[4], // Hijau Tua (#1E6B37) - Sangat Besar
     };
 
-    // Identifikasi 2 level skala dengan persentase/jumlah terkecil per indikator metode
-    // agar tidak ditampilkan persentasenya (menghindari penumpukan visual / label terpotong).
-    const smallestTwoByMethod = {};
+    // Identifikasi HANYA 2 level skala dengan persentase/jumlah terbesar per indikator metode
+    // Sesuai permintaan: segmen yang persentasenya kecil tidak ditampilkan labelnya, cukup 2 terbesar saja.
+    const topTwoByMethod = {};
     list.forEach((item) => {
         const itemScores = [1, 2, 3, 4, 5].map((lvl) => {
             const distItem = Array.isArray(item.distribution)
@@ -434,14 +434,18 @@ const methodsStackedOption = computed(() => {
                 pct: Number(distItem?.percentage ?? 0),
             };
         });
-        // Urutkan menaik berdasarkan persentase lalu jumlah responden
+        // Urutkan menurun (descending) berdasarkan persentase lalu jumlah responden
         itemScores.sort((a, b) => {
-            if (a.pct !== b.pct) {
-                return a.pct - b.pct;
+            if (b.pct !== a.pct) {
+                return b.pct - a.pct;
             }
-            return a.count - b.count;
+            return b.count - a.count;
         });
-        smallestTwoByMethod[item.key] = itemScores.slice(0, 2).map((s) => s.lvl);
+        // Simpan hanya 2 level skala terbesar yang memiliki nilai > 0
+        topTwoByMethod[item.key] = itemScores
+            .filter((s) => s.pct > 0)
+            .slice(0, 2)
+            .map((s) => s.lvl);
     });
 
     const seriesData = [1, 2, 3, 4, 5].map((lvl) => {
@@ -456,9 +460,8 @@ const methodsStackedOption = computed(() => {
                 position: 'inside',
                 formatter: (param) => {
                     const val = Number(param.value ?? 0);
-                    const isSmallestTwo = param.data?.isSmallestTwo ?? false;
-                    // Sembunyikan label jika bernilai 0, termasuk 2 skala terkecil di barisnya, atau bernilai di bawah 6%
-                    if (val <= 0 || isSmallestTwo || val < 6) {
+                    // Sesuai aturan: persentase < 10% tidak diberi label agar tidak menumpuk/memenuhi bar
+                    if (val < 10) {
                         return '';
                     }
                     return `${Math.round(val)}%`;
@@ -472,14 +475,14 @@ const methodsStackedOption = computed(() => {
                     ? item.distribution.find((d) => Number(d.score) === lvl)
                     : null;
                 const pct = distItem?.percentage ?? 0;
-                const isSmallestTwo = smallestTwoByMethod[item.key]?.includes(lvl) ?? false;
+                const isTopTwo = topTwoByMethod[item.key]?.includes(lvl) ?? false;
                 return {
                     name: seriesLabel(item),
                     value: Number(pct),
                     count: distItem?.count ?? 0,
                     scoreLevel: lvl,
                     methodKey: item.key,
-                    isSmallestTwo,
+                    isTopTwo,
                 };
             }),
         };

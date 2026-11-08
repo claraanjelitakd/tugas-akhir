@@ -4,7 +4,8 @@
  *
  * Menghadirkan visualisasi Word Cloud interaktif untuk memetakan kata kunci,
  * isu utama, dan aspirasi yang paling sering disampaikan alumni secara visual,
- * disertai kartu respon utuh yang terhubung mulus (cross-filtering) saat kata diklik.
+ * dilengkapi filter kategori terpisah antara Harapan dan Saran/Masukan kurikulum,
+ * serta kartu respon utuh yang terhubung mulus (cross-filtering) saat kata diklik.
  */
 import { computed, ref } from 'vue';
 import AnalyticsWordCloud from '@/components/analytics/AnalyticsWordCloud.vue';
@@ -14,26 +15,80 @@ const props = defineProps({
     items: { type: Array, default: () => [] },
 });
 
-// Menggabungkan respons dari dua pertanyaan terbuka pada bagian ini.
-const responses = computed(() => props.items.flatMap((item) => item.records || []));
-
-// Ekstraksi kumpulan teks untuk input Word Cloud
-const allFeedbackTexts = computed(() => {
-    return responses.value.map((r) => r.jawaban_label || r.answer || '').filter((t) => t.trim() !== '');
-});
+// State tab kategori aktif: 'all' (Semua), 'harapan' (Harapan), 'saran' (Saran & Masukan)
+const activeTab = ref('all');
 
 // State kata kunci yang sedang difilter dari Word Cloud
 const selectedKeyword = ref('');
 
+// Identifikasi pertanyaan Harapan dan Saran
+const harapanItem = computed(() => {
+    return props.items.find((item) => {
+        const title = (item.title || item.question_text || '').toLowerCase();
+        return title.includes('harapan') || title.includes('aspirasi') || title.includes('ke depannya');
+    }) || props.items[0] || null;
+});
+
+const saranItem = computed(() => {
+    return props.items.find((item) => {
+        const title = (item.title || item.question_text || '').toLowerCase();
+        return title.includes('saran') || title.includes('masukan') || title.includes('kualitas');
+    }) || props.items[1] || null;
+});
+
+// Respon berdasarkan tab kategori yang aktif
+const currentResponses = computed(() => {
+    if (activeTab.value === 'harapan') {
+        return harapanItem.value?.records || [];
+    }
+    if (activeTab.value === 'saran') {
+        return saranItem.value?.records || [];
+    }
+    // 'all': gabungkan seluruh pertanyaan terbuka
+    return props.items.flatMap((item) => item.records || []);
+});
+
+// Ekstraksi kumpulan teks untuk input Word Cloud sesuai tab kategori
+const feedbackTexts = computed(() => {
+    return currentResponses.value
+        .map((r) => r.jawaban_label || r.answer || '')
+        .filter((t) => t.trim() !== '');
+});
+
+// Konfigurasi visualisasi Word Cloud dinamis berdasarkan tab aktif
+const cloudConfig = computed(() => {
+    if (activeTab.value === 'harapan') {
+        return {
+            title: 'Awan Kata (Word Cloud) Harapan Alumni ke Depan',
+            subtitle: 'Distribusi visual aspirasi, cita-cita, dan harapan alumni bagi kemajuan program studi.',
+        };
+    }
+    if (activeTab.value === 'saran') {
+        return {
+            title: 'Awan Kata (Word Cloud) Saran & Masukan Peningkatan Mutu',
+            subtitle: 'Distribusi visual saran perbaikan kurikulum, laboratorium, sertifikasi industri, dan fasilitas studi.',
+        };
+    }
+    return {
+        title: 'Awan Kata (Word Cloud) Aspirasi & Saran Alumni',
+        subtitle: 'Distribusi visual kata kunci paling dominan dari seluruh saran dan harapan yang disampaikan alumni program studi.',
+    };
+});
+
 // Filter kartu respon berdasarkan kata kunci aktif
 const filteredResponses = computed(() => {
-    if (!selectedKeyword.value) return responses.value;
+    if (!selectedKeyword.value) return currentResponses.value;
     const q = selectedKeyword.value.toLowerCase();
-    return responses.value.filter((r) => {
+    return currentResponses.value.filter((r) => {
         const text = String(r.jawaban_label || r.answer || '').toLowerCase();
         return text.includes(q);
     });
 });
+
+const switchTab = (tab) => {
+    activeTab.value = tab;
+    selectedKeyword.value = '';
+};
 
 const handleWordSelect = (word) => {
     selectedKeyword.value = word;
@@ -47,13 +102,54 @@ const handleWordReset = () => {
 <template>
     <!-- Jawaban dibaca sebagai data kualitatif dengan visualisasi Word Cloud interaktif -->
     <section class="space-y-5">
+        <!-- Bilah Tab Pemisah Kategori (Semua / Harapan / Saran) -->
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+            <div class="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+                <button
+                    type="button"
+                    @click="switchTab('all')"
+                    class="rounded-lg px-3.5 py-1.5 transition-all cursor-pointer"
+                    :class="activeTab === 'all'
+                        ? 'bg-[#0D542B] text-white shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'"
+                >
+                    Semua Masukan ({{ (harapanItem?.records?.length || 0) + (saranItem?.records?.length || 0) }})
+                </button>
+                <button
+                    type="button"
+                    @click="switchTab('harapan')"
+                    class="rounded-lg px-3.5 py-1.5 transition-all cursor-pointer"
+                    :class="activeTab === 'harapan'
+                        ? 'bg-[#0D542B] text-white shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'"
+                >
+                    Harapan Alumni ({{ harapanItem?.records?.length || 0 }})
+                </button>
+                <button
+                    type="button"
+                    @click="switchTab('saran')"
+                    class="rounded-lg px-3.5 py-1.5 transition-all cursor-pointer"
+                    :class="activeTab === 'saran'
+                        ? 'bg-[#0D542B] text-white shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'"
+                >
+                    Saran &amp; Masukan ({{ saranItem?.records?.length || 0 }})
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-500 font-medium">
+                Pilih kategori untuk melihat fokus kata kunci harapan vs saran secara terpisah.
+            </p>
+        </div>
+
         <!-- Visualisasi Word Cloud Aspirasi & Saran Alumni -->
         <AnalyticsWordCloud
-            v-if="allFeedbackTexts.length > 0"
-            :texts="allFeedbackTexts"
-            title="Awan Kata (Word Cloud) Aspirasi & Saran Alumni"
-            subtitle="Distribusi visual kata kunci paling dominan dari seluruh saran dan harapan yang disampaikan alumni program studi."
+            v-if="feedbackTexts.length > 0"
+            :texts="feedbackTexts"
+            :title="cloudConfig.title"
+            :subtitle="cloudConfig.subtitle"
             :selected-word="selectedKeyword"
+            :max-words="150"
             :height="360"
             @select="handleWordSelect"
             @reset="handleWordReset"
@@ -79,7 +175,7 @@ const handleWordReset = () => {
         <div>
             <div class="mb-3 flex items-center justify-between">
                 <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600">
-                    Daftar Masukan & Harapan Lengkap ({{ filteredResponses.length }} alumni)
+                    Daftar {{ activeTab === 'harapan' ? 'Harapan' : (activeTab === 'saran' ? 'Saran & Masukan' : 'Masukan & Harapan') }} Lengkap ({{ filteredResponses.length }} alumni)
                 </h4>
             </div>
 
@@ -102,7 +198,7 @@ const handleWordReset = () => {
             </div>
             <div v-else class="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
                 <p v-if="selectedKeyword">Tidak ditemukan respon yang memuat kata kunci "{{ selectedKeyword }}".</p>
-                <p v-else>Belum ada jawaban terbuka yang valid.</p>
+                <p v-else>Belum ada jawaban terbuka yang valid pada kategori ini.</p>
                 <button
                     v-if="selectedKeyword"
                     type="button"

@@ -28,7 +28,13 @@ defineProps({
         type: String,
         default: null,
     },
+    hasChanges: {
+        type: Boolean,
+        default: false,
+    },
 });
+
+defineEmits(['reset']);
 </script>
 
 <template>
@@ -61,21 +67,34 @@ defineProps({
                 </p>
             </div>
 
-            <!-- Progress Indikator Persentase Bagian Kanan -->
-            <div v-if="percentage !== null" class="flex flex-col sm:items-end justify-center shrink-0">
-                <div class="flex items-center gap-2 mb-1">
-                    <span class="text-xs font-bold text-gray-400">Progres Pengisian:</span>
-                    <span class="text-base sm:text-lg font-black text-[#0D542B]">{{ percentage }}%</span>
+            <!-- Progress Indikator Persentase Bagian Kanan & Tombol Batal -->
+            <div class="flex flex-col sm:items-end justify-center shrink-0 gap-2">
+                <div v-if="hasChanges">
+                    <button
+                        type="button"
+                        @click="$emit('reset')"
+                        class="px-3.5 py-1.5 rounded-xl border border-gray-300 hover:border-rose-300 bg-white hover:bg-rose-50 text-gray-700 hover:text-rose-700 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                        title="Batalkan perubahan jawaban di formulir dan kembalikan ke data tersimpan"
+                    >
+                        <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span>Batalkan Perubahan Jawaban</span>
+                    </button>
                 </div>
-                <div class="w-32 sm:w-40 bg-gray-100 h-2 rounded-full overflow-hidden">
-                    <div 
-                        class="bg-[#0D542B] h-full rounded-full transition-all duration-300" 
-                        :style="{ width: percentage + '%' }"
-                    ></div>
+                <div v-if="percentage !== null" class="flex flex-col sm:items-end justify-center">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs font-bold text-gray-400">Progres Pengisian:</span>
+                        <span class="text-base sm:text-lg font-black text-[#0D542B]">{{ percentage }}%</span>
+                    </div>
+                    <div class="w-32 sm:w-40 bg-gray-100 h-2 rounded-full overflow-hidden">
+                        <div
+                            class="bg-[#0D542B] h-full rounded-full transition-all duration-300"
+                            :style="{ width: percentage + '%' }"
+                        ></div>
+                    </div>
+                    <span v-if="progressLabel" class="text-[10px] text-gray-400 font-semibold mt-1">
+                        {{ progressLabel }}
+                    </span>
                 </div>
-                <span v-if="progressLabel" class="text-[10px] text-gray-400 font-semibold mt-1">
-                    {{ progressLabel }}
-                </span>
             </div>
         </div>
     </div>

@@ -3,11 +3,20 @@ import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import PigoLoader from './components/ui/pigo-loader.vue';
 
-// Global loading state (aktif saat navigasi rute berlangsung)
+// Global loading state (hanya aktif saat navigasi rute/perpindahan halaman berlangsung)
 const isNavigating = ref(false);
 
-// Listen to Inertia router events untuk transisi loading yang responsif tanpa jeda buatan
-router.on('start', () => {
+// Listen to Inertia router events: abaikan background request / autosave formulir agar PigoLoader tidak menutupi layar alumni
+router.on('start', (event) => {
+    const visit = event?.detail?.visit;
+    if (visit?.showProgress === false) {
+        return;
+    }
+    // Jika preserveState aktif pada request form (POST/PUT/PATCH) atau partial props reload, jangan munculkan Pigo fullscreen
+    if (visit?.preserveState && (['post', 'put', 'patch', 'delete'].includes(visit?.method?.toLowerCase()) || (visit?.only && visit?.only?.length > 0))) {
+        return;
+    }
+
     isNavigating.value = true;
 });
 router.on('finish', () => {

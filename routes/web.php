@@ -81,9 +81,10 @@ Route::middleware('auth')->group(function () {
     // Rute yang mengharuskan password bawaan sudah diganti
     Route::middleware('must_change_password')->group(function () {
 
-        // Rute Tambah Perusahaan Baru via Modal (Dapat diakses oleh Alumni & seluruh Admin pengelola)
+        // Rute Tambah & Usul Perusahaan via Modal (Dapat diakses oleh Alumni & seluruh Admin pengelola)
         Route::middleware('role:alumni,admin_prodi,admin_fakultas,admin_biro3,superadmin')->group(function () {
             Route::post('/alumni/company', [SimpanProfilController::class, 'tambahPerusahaanBaru'])->name('alumni.company.store');
+            Route::post('/alumni/company/request-update', [SimpanProfilController::class, 'usulkanPembaruanPerusahaan'])->name('alumni.company.request-update');
         });
 
         // -----------------------------------------------------------------

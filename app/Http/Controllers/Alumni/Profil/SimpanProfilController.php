@@ -113,22 +113,24 @@ class SimpanProfilController extends Controller
                 ]
             );
 
-            // Perbarui hanya metadata head office yang benar-benar tersedia dari form.
-            // Nilai kosong tidak boleh menghapus data master terverifikasi saat form parsial dikirim.
-            $perusahaan->update([
-                'kode_provinsi' => $jenisLokasi === 'Luar Negeri' ? null : ($kodeProvinsi ?: $perusahaan->kode_provinsi),
-                'kode_kabupaten' => $jenisLokasi === 'Luar Negeri' ? null : ($kodeKabupaten ?: $perusahaan->kode_kabupaten),
-                'alamat' => $alamat ?: $perusahaan->alamat,
-                'kode_pos' => $kodePos ?: $perusahaan->kode_pos,
-                'skala' => $skala ?: $perusahaan->skala,
-                'bentuk_perusahaan' => $bentukPerusahaan ?: $perusahaan->bentuk_perusahaan,
-                'no_telp_fax' => $noTelpFax ?: $perusahaan->no_telp_fax,
-                'homepage' => $homepage ?: $perusahaan->homepage,
-                'jenis_perusahaan' => $jenisPerusahaan ?: $perusahaan->jenis_perusahaan,
-                'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya ?: $perusahaan->jenis_perusahaan_lainnya,
-                'jenis_lokasi' => $jenisLokasi,
-                'kode_negara' => $kodeNegara,
-            ]);
+            // Data master head office yang berstatus Terverifikasi dikunci permanen
+            // dan tidak boleh ditimpa langsung oleh alumni saat menyimpan profil.
+            if ($perusahaan->status_verifikasi !== 'Terverifikasi') {
+                $perusahaan->update([
+                    'kode_provinsi' => $jenisLokasi === 'Luar Negeri' ? null : ($kodeProvinsi ?: $perusahaan->kode_provinsi),
+                    'kode_kabupaten' => $jenisLokasi === 'Luar Negeri' ? null : ($kodeKabupaten ?: $perusahaan->kode_kabupaten),
+                    'alamat' => $alamat ?: $perusahaan->alamat,
+                    'kode_pos' => $kodePos ?: $perusahaan->kode_pos,
+                    'skala' => $skala ?: $perusahaan->skala,
+                    'bentuk_perusahaan' => $bentukPerusahaan ?: $perusahaan->bentuk_perusahaan,
+                    'no_telp_fax' => $noTelpFax ?: $perusahaan->no_telp_fax,
+                    'homepage' => $homepage ?: $perusahaan->homepage,
+                    'jenis_perusahaan' => $jenisPerusahaan ?: $perusahaan->jenis_perusahaan,
+                    'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya ?: $perusahaan->jenis_perusahaan_lainnya,
+                    'jenis_lokasi' => $jenisLokasi,
+                    'kode_negara' => $kodeNegara,
+                ]);
+            }
             $idPerusahaan = $perusahaan->id;
         }
 
@@ -475,6 +477,63 @@ class SimpanProfilController extends Controller
             'message' => 'Perusahaan berhasil ditambahkan ke database! Status: Menunggu Verifikasi.',
             'perusahaan' => $perusahaan,
             'company' => $perusahaan,
+        ]);
+    }
+
+    /**
+     * Mengajukan Usulan Pembaruan Data Kantor Pusat Perusahaan (Request Update Head Office)
+     *
+     * Usulan mencakup seluruh atribut kanonik perusahaan dan dicatat ke tabel log_activities
+     * agar administrator dapat meninjau tanpa langsung merusak data master yang sudah terverifikasi.
+     */
+    public function usulkanPembaruanPerusahaan(Request $request)
+    {
+        $validated = $request->validate([
+            'perusahaan_id' => 'required|exists:perusahaan,id',
+            'nama_perusahaan' => 'nullable|string|max:255',
+            'jenis_lokasi' => 'nullable|in:Dalam Negeri,Luar Negeri',
+            'kode_negara' => 'nullable|string|max:10',
+            'kode_provinsi' => 'nullable|string|max:10',
+            'kode_kabupaten' => 'nullable|string|max:10',
+            'jenis_perusahaan' => 'nullable|string|max:100',
+            'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
+            'bentuk_perusahaan' => 'nullable|string|max:100',
+            'skala' => 'nullable|string|max:100',
+            'alamat' => 'nullable|string|max:500',
+            'kode_pos' => 'nullable|string|max:20',
+            'no_telp_fax' => 'nullable|string|max:100',
+            'homepage' => 'nullable|string|max:150',
+        ]);
+
+        $perusahaan = Perusahaan::findOrFail($validated['perusahaan_id']);
+        $user = Auth::user();
+
+        $detailUsulan = array_filter([
+            'nama_perusahaan' => $validated['nama_perusahaan'] ?? null,
+            'jenis_lokasi' => $validated['jenis_lokasi'] ?? null,
+            'kode_negara' => $validated['kode_negara'] ?? null,
+            'kode_provinsi' => $validated['kode_provinsi'] ?? null,
+            'kode_kabupaten' => $validated['kode_kabupaten'] ?? null,
+            'jenis_perusahaan' => $validated['jenis_perusahaan'] ?? null,
+            'jenis_perusahaan_lainnya' => $validated['jenis_perusahaan_lainnya'] ?? null,
+            'bentuk_perusahaan' => $validated['bentuk_perusahaan'] ?? null,
+            'skala' => $validated['skala'] ?? null,
+            'alamat' => $validated['alamat'] ?? null,
+            'kode_pos' => $validated['kode_pos'] ?? null,
+            'no_telp_fax' => $validated['no_telp_fax'] ?? null,
+            'homepage' => $validated['homepage'] ?? null,
+        ], fn ($val) => ! is_null($val) && $val !== '');
+
+        LogActivity::record(
+            'REQUEST_UPDATE_PERUSAHAAN',
+            "Alumni '{$user->name}' ({$user->username}) mengusulkan pembaruan data kantor pusat '{$perusahaan->nama_perusahaan}': ".json_encode($detailUsulan, JSON_UNESCAPED_UNICODE),
+            $perusahaan
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => "Usulan pembaruan data kantor pusat '{$perusahaan->nama_perusahaan}' berhasil diajukan dan akan ditinjau oleh administrator.",
+            'detail_usulan' => $detailUsulan,
         ]);
     }
 }

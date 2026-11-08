@@ -284,7 +284,7 @@ const timingStackedOption = computed(() => {
             label: {
                 show: true,
                 position: 'inside',
-                formatter: ({ value }) => Number(value) > 0 ? `${formatNumber(value, 1)}%` : '',
+                formatter: ({ value }) => Number(value) >= 10 ? `${formatNumber(value, 1)}%` : '',
                 fontWeight: 'bold',
             },
         })),

@@ -24,6 +24,7 @@ SELECT
     biodata.prodi_id,
     study_program.nama_prodi,
     academic.tahun_lulus,
+    academic.ip_kumulatif AS ipk,
     biodata.gaji,
     biodata.nomor_telepon,
     biodata.linkedin_url,

@@ -13,6 +13,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
+import Swal from 'sweetalert2';
 import Navbar from './Components/Navbar.vue';
 import Stepper from './Components/Kuesioner/Stepper.vue';
 import Banner from './Components/Kuesioner/Banner.vue';
@@ -209,6 +210,59 @@ const getInitialSectionIndex = () => {
 const activeSectionIndex = ref(getInitialSectionIndex());
 const completedSectionIndices = ref(getInitialCompletedSections());
 const form = useForm({ answers: getInitialAnswers() });
+
+// Mendeteksi apakah terdapat perubahan jawaban dari data awal yang tersimpan
+const hasAnswerChanges = computed(() => {
+    const current = form.answers || {};
+    const initial = props.initialAnswers || {};
+
+    const allKeys = new Set([...Object.keys(current), ...Object.keys(initial)]);
+    for (const key of allKeys) {
+        const cVal = current[key];
+        const iVal = initial[key];
+        const cEmpty = isAnswerValEmpty(cVal);
+        const iEmpty = isAnswerValEmpty(iVal);
+
+        if (cEmpty && iEmpty) continue;
+        if (cEmpty !== iEmpty) return true;
+        if (JSON.stringify(cVal) !== JSON.stringify(iVal)) return true;
+    }
+    return false;
+});
+
+// Mengembalikan jawaban kuesioner ke data awal yang tersimpan di server
+const resetAnswersToInitial = () => {
+    Swal.fire({
+        title: 'Batalkan Semua Perubahan Jawaban?',
+        text: 'Seluruh jawaban kuesioner akan dikembalikan persis ke data yang telah tersimpan sebelumnya di server.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Kembalikan',
+        cancelButtonText: 'Lanjut Mengisi',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            form.answers = JSON.parse(JSON.stringify(props.initialAnswers || {}));
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.removeItem(ANSWERS_STORAGE_KEY);
+                } catch (e) {
+                    console.error('Gagal menghapus cache jawaban:', e);
+                }
+            }
+            syncSectionCompletion();
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 2500,
+                icon: 'info',
+                title: 'Jawaban dikembalikan ke data tersimpan',
+            });
+        }
+    });
+};
 
 // Simpan daftar section selesai ke localStorage
 const saveCompletedSections = () => {
@@ -682,10 +736,19 @@ const isSectionAnswered = (section) => {
     if (visibleQuestions.length === 0) return true;
 
     // Seluruh pertanyaan terlihat yang tidak secara eksplisit bertanda opsional wajib terisi
-    const mandatoryQuestions = visibleQuestions.filter(q => !(q.is_optional || q.optional));
-    if (mandatoryQuestions.length === 0) return true;
+    const mandatoryQuestions = visibleQuestions.filter(q => {
+        if (q.is_mandatory === false) return false;
+        if (q.is_optional || q.optional) return false;
+        return true;
+    });
 
-    return mandatoryQuestions.every(q => isQuestionAnswered(q));
+    // Jika seksi memiliki butir wajib: seluruh butir wajib harus lengkap terjawab
+    if (mandatoryQuestions.length > 0) {
+        return mandatoryQuestions.every(q => isQuestionAnswered(q));
+    }
+
+    // Jika seksi hanya berisi butir opsional: minimal 1 butir harus sudah diisi
+    return visibleQuestions.some(q => isQuestionAnswered(q));
 };
 
 /**
@@ -790,6 +853,7 @@ const handleNextOrSubmit = () => {
         form.post('/alumni/kuesioner', {
             preserveScroll: true,
             preserveState: true,
+            showProgress: false,
             onSuccess: () => {
                 syncSectionCompletion();
             }
@@ -885,6 +949,8 @@ watch(() => form.answers, (newAnswers) => {
                     :current-index="activeVisibleSectionIndex"
                     :total-sections="visibleSections.length"
                     :title="currentSection.title"
+                    :has-changes="hasAnswerChanges"
+                    @reset="resetAnswersToInitial"
                 />
 
                 <form @submit.prevent="handleNextOrSubmit" class="space-y-4 sm:space-y-6">

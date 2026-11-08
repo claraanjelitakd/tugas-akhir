@@ -907,24 +907,27 @@ class KelolaKuesionerProdiController extends Controller
         $addedCount = 0;
 
         foreach ($selectedQuestions as $bankQuestion) {
-            $maxOrder++;
+            $placement = KuesionerSectionPertanyaan::where('section_id', $sectionId)
+                ->where('pertanyaan_id', $bankQuestion->id)
+                ->first();
 
-            // Buat relasi penempatan di kuesioner_section_pertanyaan
-            $created = KuesionerSectionPertanyaan::firstOrCreate(
-                [
+            if ($placement) {
+                // Jika relasi penempatan sudah ada sebelumnya (misal sempat dinonaktifkan), aktifkan kembali
+                $placement->update([
+                    'is_active' => true,
+                ]);
+            } else {
+                $maxOrder++;
+                KuesionerSectionPertanyaan::create([
                     'section_id' => $sectionId,
                     'pertanyaan_id' => $bankQuestion->id,
-                ],
-                [
                     'order' => $maxOrder,
                     'wajib' => true,
                     'is_active' => true,
-                ]
-            );
-
-            if ($created->wasRecentlyCreated) {
-                $addedCount++;
+                ]);
             }
+
+            $addedCount++;
         }
 
         return redirect()->back()->with('success', $addedCount.' butir pertanyaan dari Bank Soal berhasil disematkan ke bagian kuesioner.');

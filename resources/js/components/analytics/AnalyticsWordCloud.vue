@@ -28,7 +28,7 @@ const props = defineProps({
     subtitle: { type: String, default: '' },
     emptyText: { type: String, default: 'Belum ada data teks untuk ditampilkan dalam word cloud.' },
     // Batas maksimal kata unik yang ditampilkan
-    maxWords: { type: Number, default: 55 },
+    maxWords: { type: Number, default: 150 },
 });
 
 const emit = defineEmits(['select', 'reset']);
@@ -135,12 +135,13 @@ const processedWords = computed(() => {
     return extractWordsFromTexts(allTexts);
 });
 
-// Filter kata berdasarkan pencarian pengguna
+// Filter kata berdasarkan pencarian pengguna (cari ke seluruh repositori kata sebelum dibatasi maxWords)
 const filteredWords = computed(() => {
     const q = searchQuery.value.trim().toLowerCase();
-    const slice = processedWords.value.slice(0, props.maxWords);
-    if (!q) return slice;
-    return slice.filter((w) => w.text.toLowerCase().includes(q));
+    if (!q) {
+        return processedWords.value.slice(0, props.maxWords);
+    }
+    return processedWords.value.filter((w) => w.text.toLowerCase().includes(q)).slice(0, props.maxWords);
 });
 
 // Hitung tata letak visual Word Cloud (koordinat X, Y, rotasi, ukuran font)
@@ -235,15 +236,15 @@ const layoutWords = computed(() => {
             posY = centerY;
             placed = true;
         } else {
-            const step = 0.42;
-            const spiralGrowth = 4.0;
+            const step = 0.38;
+            const spiralGrowth = 3.6;
             let theta = (index * 1.35) % (Math.PI * 2);
             let radius = 10;
 
-            const marginX = 25;
-            const marginY = 22;
+            const marginX = 20;
+            const marginY = 18;
 
-            for (let stepIdx = 0; stepIdx < 320; stepIdx++) {
+            for (let stepIdx = 0; stepIdx < 450; stepIdx++) {
                 radius = spiralGrowth * theta;
                 // Sedikit elips mendatar agar sesuai proporsi layar (16:9 / 2:1)
                 const currentX = centerX + Math.cos(theta) * radius * 1.35;
@@ -473,6 +474,12 @@ const resetWordFilter = () => {
             </svg>
         </div>
 
+        <!-- Empty State HANYA jika tidak ada data kata yang valid -->
+        <div v-else class="flex flex-col items-center justify-center p-10 text-center rounded-lg bg-slate-50 border border-dashed border-slate-200" :style="{ minHeight: `${height}px` }">
+            <p class="text-sm font-semibold text-slate-700">{{ emptyText }}</p>
+            <p class="mt-1 text-xs text-slate-500">Kata kunci akan otomatis terbentang ketika responden mengisi opsi ini.</p>
+        </div>
+
         <!-- Tooltip Interaktif Hover di Level Kartu (Bebas Potongan dan Mendukung Auto-Flip Atas/Bawah) -->
         <div
             v-if="hoveredWord"
@@ -488,12 +495,6 @@ const resetWordFilter = () => {
                 <span class="text-[10px] text-slate-300 font-normal">({{ hoveredWord.tierLabel }})</span>
             </div>
             <div class="text-[10px] text-slate-400 mt-0.5">Klik kata untuk memfilter rincian responden</div>
-        </div>
-
-        <!-- Empty State jika tidak ada data kata -->
-        <div v-else class="flex flex-col items-center justify-center p-10 text-center rounded-lg bg-slate-50 border border-dashed border-slate-200" :style="{ minHeight: `${height}px` }">
-            <p class="text-sm font-semibold text-slate-700">{{ emptyText }}</p>
-            <p class="mt-1 text-xs text-slate-500">Kata kunci akan otomatis terbentang ketika responden mengisi opsi ini.</p>
         </div>
 
         <!-- Legenda Pembeda Skala Frekuensi & Keterangan Interaksi -->

@@ -56,11 +56,14 @@ const activeChartReason = 'Panjang batang menunjukkan total alumni; warna menunj
 // Pengurutan capaian pada grafik.
 const sortAsc = ref(false);
 
+// Mode tampilan: 'chart' (grafik visual) atau 'table' (data ringkasan tabulasi prodi)
+const activeViewMode = ref('chart');
+
 // State kontrol tabel drill-down inline di bawah grafik.
 const searchQuery = ref('');
 const currentPage = ref(1);
 const rowsPerPage = ref(10);
-const forceShowTable = ref(false);
+const forceShowTable = ref(true);
 
 // Ekstraksi data seri program studi dan catatan alumni dari payload.
 const series = computed(() => props.chart?.series || []);
@@ -263,7 +266,7 @@ const stackedBarOption = computed(() => {
                 label: {
                     show: true,
                     position: 'inside',
-                    formatter: ({ value }) => (value > 0 ? `${formatNumber(value, 1)}%` : ''),
+                    formatter: ({ value }) => (value >= 10 ? `${formatNumber(value, 1)}%` : ''),
                     color: '#FFFFFF',
                     fontWeight: 600,
                     fontSize: 10,
@@ -294,7 +297,7 @@ const stackedBarOption = computed(() => {
                 label: {
                     show: true,
                     position: 'inside',
-                    formatter: ({ value }) => (value > 0 ? `${formatNumber(value, 1)}%` : ''),
+                    formatter: ({ value }) => (value >= 10 ? `${formatNumber(value, 1)}%` : ''),
                     color: '#0F172A',
                     fontWeight: 600,
                     fontSize: 10,
@@ -457,7 +460,7 @@ const participationBarOption = computed(() => {
     const list = [...displaySeries.value].sort((a, b) => {
         return sortAsc.value ? a.response_rate - b.response_rate : b.response_rate - a.response_rate;
     });
-    const maxPopulation = Math.max(...list.map((item) => item.population), 1);
+    const maxPopulation = Math.max(...list.map((item) => Number(item.population) || 0), 10);
 
     return {
         ...baseOption(),
@@ -526,7 +529,7 @@ const participationBarOption = computed(() => {
                     color: '#FFFFFF',
                     fontWeight: 700,
                     fontSize: 11,
-                    formatter: ({ data }) => data?.response_rate > 0 ? `${formatNumber(data.response_rate, 1)}%` : '',
+                    formatter: ({ data }) => data?.response_rate >= 10 ? `${formatNumber(data.response_rate, 1)}%` : '',
                 },
                 data: list.map((item) => ({
                     name: item.nama_prodi,
@@ -601,7 +604,6 @@ const resetSelection = () => {
     selectedStatus.value = 'all';
     searchQuery.value = '';
     currentPage.value = 1;
-    forceShowTable.value = false;
     emit('reset');
 };
 
@@ -652,10 +654,8 @@ const paginatedInlineRecords = computed(() => {
     return filteredInlineRecords.value.slice(start, start + rowsPerPage.value);
 });
 
-// Apakah tabel drill-down inline ditampilkan.
-const isTableVisible = computed(() => {
-    return Boolean(selectedProdiName.value) || forceShowTable.value;
-});
+// Apakah tabel drill-down inline ditampilkan (default selalu tampil agar data responden tidak hilang)
+const isTableVisible = ref(true);
 
 // Memformat nomor telepon alumni untuk tautan WhatsApp resmi.
 const formatWhatsAppUrl = (record) => {
@@ -725,98 +725,179 @@ const downloadExcel = (statusTarget = null) => {
                         Panjang batang menunjukkan total alumni. Warna batang menunjukkan capaian terhadap target partisipasi, dan abu-abu menunjukkan alumni yang belum mengisi.
                     </p>
                 </div>
-            </div>
 
-            <!-- Toolbar Kontrol: Toggle Urutan & Aksi Unduh Cepat -->
-            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <button
-                    type="button"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
-                    @click="sortAsc = !sortAsc"
-                >
-                    <span>Urutan:</span>
-                    <span class="font-bold text-[#0D542B]">{{ sortAsc ? 'Terendah → Tertinggi' : 'Tertinggi → Terendah' }}</span>
-                </button>
-
-                <div class="flex items-center gap-2">
+                <!-- Switcher Mode: Grafik vs Data Ringkasan -->
+                <div class="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shrink-0 self-start sm:self-auto">
                     <button
-                        v-if="selectedProdiName"
                         type="button"
-                        class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
-                        @click="resetSelection"
+                        class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
+                        :class="activeViewMode === 'chart' ? 'bg-[#0D542B] font-bold text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'"
+                        @click="activeViewMode = 'chart'"
                     >
-                        Kembali ke Analisis Keseluruhan
+                        Grafik
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
+                        :class="activeViewMode === 'table' ? 'bg-slate-100 font-bold text-slate-900' : 'text-slate-500 hover:text-slate-900'"
+                        @click="activeViewMode = 'table'"
+                    >
+                        Data Ringkasan
                     </button>
                 </div>
             </div>
 
-            <!-- Legenda Keterangan Warna Capaian Target -->
-            <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs text-slate-700">
-                <span class="font-bold text-slate-800">Status Capaian (Target {{ formatNumber(currentTarget, 0) }}%):</span>
-                <div class="flex items-center gap-1.5">
-                    <span class="inline-block h-3 w-3 rounded-xs bg-[#0D542B]"></span>
-                    <span><strong>Hijau:</strong> &ge; Target (Memenuhi target)</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <span class="inline-block h-3 w-3 rounded-xs bg-[#D97706]"></span>
-                    <span><strong>Kuning:</strong> 75%–&lt;100% Target (Perlu ditingkatkan)</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <span class="inline-block h-3 w-3 rounded-xs bg-[#DC2626]"></span>
-                    <span><strong>Merah:</strong> &lt; 75% Target (Perlu perhatian)</span>
-                </div>
-                <div class="flex items-center gap-1.5 border-l border-slate-300 pl-3">
-                    <span class="inline-block h-3 w-3 rounded-xs bg-[#CBD5E1]"></span>
-                    <span><strong>Abu-abu:</strong> Belum Mengisi</span>
+            <!-- TAMPILAN 1: MODE DATA RINGKASAN TABULASI -->
+            <div v-if="activeViewMode === 'table'" class="mt-4 space-y-4">
+                <div class="overflow-x-auto rounded-lg border border-slate-200">
+                    <table class="min-w-full text-left text-xs divide-y divide-slate-200">
+                        <thead class="bg-slate-50 text-slate-700 font-semibold">
+                            <tr>
+                                <th class="px-3.5 py-2.5 text-center w-12">No</th>
+                                <th class="px-3.5 py-2.5">Program Studi</th>
+                                <th class="px-3.5 py-2.5 text-right">Populasi (N)</th>
+                                <th class="px-3.5 py-2.5 text-right">Sudah Mengisi</th>
+                                <th class="px-3.5 py-2.5 text-right">Belum Mengisi</th>
+                                <th class="px-3.5 py-2.5 text-right">Response Rate</th>
+                                <th class="px-3.5 py-2.5 text-right">Target</th>
+                                <th class="px-3.5 py-2.5 text-right">Gap Target</th>
+                                <th class="px-3.5 py-2.5 text-center">Status Capaian</th>
+                                <th class="px-3.5 py-2.5 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            <tr
+                                v-for="(item, idx) in [...displaySeries].sort((a, b) => sortAsc ? a.response_rate - b.response_rate : b.response_rate - a.response_rate)"
+                                :key="item.prodi_id || idx"
+                                class="hover:bg-slate-50/70 transition-colors"
+                                :class="selectedProdiName === item.nama_prodi ? 'bg-emerald-50/40 font-semibold' : ''"
+                            >
+                                <td class="px-3.5 py-2 text-center text-slate-400 font-mono">{{ idx + 1 }}</td>
+                                <td class="px-3.5 py-2 font-medium text-slate-900 whitespace-nowrap">{{ item.nama_prodi }}</td>
+                                <td class="px-3.5 py-2 text-right font-mono text-slate-700">{{ formatNumber(item.population, 0) }}</td>
+                                <td class="px-3.5 py-2 text-right font-mono font-bold text-[#0D542B]">{{ formatNumber(item.respondents, 0) }}</td>
+                                <td class="px-3.5 py-2 text-right font-mono text-slate-600">{{ formatNumber(item.unanswered, 0) }}</td>
+                                <td class="px-3.5 py-2 text-right font-mono font-bold text-slate-900">{{ formatNumber(item.response_rate, 1) }}%</td>
+                                <td class="px-3.5 py-2 text-right font-mono text-slate-500">{{ formatNumber(item.target, 0) }}%</td>
+                                <td class="px-3.5 py-2 text-right font-mono" :class="item.target_gap >= 0 ? 'text-[#0D542B] font-semibold' : 'text-amber-700 font-semibold'">
+                                    {{ item.target_gap >= 0 ? '+' : '' }}{{ formatNumber(item.target_gap, 1) }}%
+                                </td>
+                                <td class="px-3.5 py-2 text-center whitespace-nowrap">
+                                    <span
+                                        class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border"
+                                        :class="getParticipationStatus(item.response_rate, item.target).badgeClass"
+                                    >
+                                        {{ getParticipationStatus(item.response_rate, item.target).label }}
+                                    </span>
+                                </td>
+                                <td class="px-3.5 py-2 text-center whitespace-nowrap">
+                                    <button
+                                        type="button"
+                                        class="rounded border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-[#0D542B] cursor-pointer transition-colors"
+                                        @click="selectedProdiName = item.nama_prodi; activeViewMode = 'chart'; forceShowTable = true"
+                                    >
+                                        Lihat Responden
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            <!-- Area Render Grafik ECharts Responsif -->
-            <div class="mt-4">
-                <!-- Grafik tunggal response rate dengan target dinamis -->
-                <div class="space-y-4">
-                    <AnalyticsEChart
-                        :option="participationBarOption"
-                        :height="Math.max(400, displaySeries.length * 36 + 70)"
-                        :loading="loading"
-                        aria-label="Grafik partisipasi tracer study per program studi"
-                        @select="handleChartClick"
-                    />
-                    <p class="px-1 text-xs leading-relaxed text-slate-500">
-                        <span class="font-semibold text-slate-700">Caption:</span>
-                        Partisipasi alumni per program studi. Warna batang menunjukkan status capaian target partisipasi (Hijau: &ge; Target, Kuning: 75%–&lt;100% Target, Merah: &lt; 75% Target). Label di dalam batang menunjukkan persentase, sedangkan label di ujung batang menunjukkan N responden dari total alumni.
-                    </p>
+            <!-- TAMPILAN 2: MODE GRAFIK VISUAL -->
+            <div v-else>
+                <!-- Toolbar Kontrol: Toggle Urutan & Aksi Unduh Cepat -->
+                <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                        @click="sortAsc = !sortAsc"
+                    >
+                        <span>Urutan:</span>
+                        <span class="font-bold text-[#0D542B]">{{ sortAsc ? 'Terendah → Tertinggi' : 'Tertinggi → Terendah' }}</span>
+                    </button>
 
-                    <!-- Kotak ringkasan partisipasi -->
-                    <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
-                            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">
-                                {{ naturalSummary.title }}
-                            </span>
-                            <div class="flex items-center gap-2">
-                                <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="naturalSummary.badgeClass">
-                                    {{ naturalSummary.statusBadge }}
+                    <div class="flex items-center gap-2">
+                        <button
+                            v-if="selectedProdiName"
+                            type="button"
+                            class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
+                            @click="resetSelection"
+                        >
+                            Kembali ke Analisis Keseluruhan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Legenda Keterangan Warna Capaian Target -->
+                <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs text-slate-700">
+                    <span class="font-bold text-slate-800">Status Capaian (Target {{ formatNumber(currentTarget, 0) }}%):</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="inline-block h-3 w-3 rounded-xs bg-[#0D542B]"></span>
+                        <span><strong>Hijau:</strong> &ge; Target (Memenuhi target)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="inline-block h-3 w-3 rounded-xs bg-[#D97706]"></span>
+                        <span><strong>Kuning:</strong> 75%–&lt;100% Target (Perlu ditingkatkan)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="inline-block h-3 w-3 rounded-xs bg-[#DC2626]"></span>
+                        <span><strong>Merah:</strong> &lt; 75% Target (Perlu perhatian)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 border-l border-slate-300 pl-3">
+                        <span class="inline-block h-3 w-3 rounded-xs bg-[#CBD5E1]"></span>
+                        <span><strong>Abu-abu:</strong> Belum Mengisi</span>
+                    </div>
+                </div>
+
+                <!-- Area Render Grafik ECharts Responsif -->
+                <div class="mt-4">
+                    <!-- Grafik tunggal response rate dengan target dinamis -->
+                    <div class="space-y-4">
+                        <AnalyticsEChart
+                            :option="participationBarOption"
+                            :height="Math.max(400, displaySeries.length * 36 + 70)"
+                            :loading="loading"
+                            aria-label="Grafik partisipasi tracer study per program studi"
+                            @select="handleChartClick"
+                        />
+                        <p class="px-1 text-xs leading-relaxed text-slate-500">
+                            <span class="font-semibold text-slate-700">Caption:</span>
+                            Partisipasi alumni per program studi. Warna batang menunjukkan status capaian target partisipasi (Hijau: &ge; Target, Kuning: 75%–&lt;100% Target, Merah: &lt; 75% Target). Label di dalam batang menunjukkan persentase, sedangkan label di ujung batang menunjukkan N responden dari total alumni.
+                        </p>
+
+                        <!-- Kotak ringkasan partisipasi -->
+                        <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+                                <span class="text-xs font-bold uppercase tracking-wider text-slate-700">
+                                    {{ naturalSummary.title }}
                                 </span>
-                                <button
-                                    v-if="selectedProdiName"
-                                    type="button"
-                                    class="rounded border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-[#0D542B] hover:bg-emerald-50 cursor-pointer transition-colors"
-                                    @click="resetSelection"
-                                >
-                                    Kembali ke Analisis Keseluruhan
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="naturalSummary.badgeClass">
+                                        {{ naturalSummary.statusBadge }}
+                                    </span>
+                                    <button
+                                        v-if="selectedProdiName"
+                                        type="button"
+                                        class="rounded border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-[#0D542B] hover:bg-emerald-50 cursor-pointer transition-colors"
+                                        @click="resetSelection"
+                                    >
+                                        Kembali ke Analisis Keseluruhan
+                                    </button>
+                                </div>
                             </div>
+                            <p class="mt-2.5 text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
+                                {{ naturalSummary.lead }}
+                            </p>
+                            <p class="mt-1 text-xs text-slate-600 leading-relaxed">
+                                {{ naturalSummary.detail }}
+                            </p>
+                            <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
+                                <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ activeChartType }}):</span>
+                                {{ activeChartReason }}
+                            </p>
                         </div>
-                        <p class="mt-2.5 text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
-                            {{ naturalSummary.lead }}
-                        </p>
-                        <p class="mt-1 text-xs text-slate-600 leading-relaxed">
-                            {{ naturalSummary.detail }}
-                        </p>
-                        <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
-                            <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ activeChartType }}):</span>
-                            {{ activeChartReason }}
-                        </p>
                     </div>
                 </div>
             </div>
@@ -875,13 +956,21 @@ const downloadExcel = (statusTarget = null) => {
                         </button>
                     </div>
 
-                    <!-- Tombol Aksi Tutup Rincian -->
+                    <!-- Tombol Reset Prodi / Sembunyikan -->
+                    <button
+                        v-if="selectedProdiName"
+                        type="button"
+                        class="rounded-lg bg-white border border-slate-200 px-3 py-1.5 text-xs font-bold text-[#0D542B] hover:bg-emerald-50 cursor-pointer transition-colors"
+                        @click="resetSelection"
+                    >
+                        Tampilkan Seluruh Program Studi
+                    </button>
                     <button
                         type="button"
                         class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200 cursor-pointer transition-colors"
-                        @click="resetSelection"
+                        @click="isTableVisible = !isTableVisible"
                     >
-                        Tutup Rincian
+                        {{ isTableVisible ? 'Sembunyikan Tabel' : 'Tampilkan Tabel' }}
                     </button>
                 </div>
             </div>
@@ -1064,6 +1153,17 @@ const downloadExcel = (statusTarget = null) => {
                     </button>
                 </div>
             </div>
+        </div>
+
+        <!-- Panel saat tabel disembunyikan pengguna -->
+        <div v-else class="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center">
+            <button
+                type="button"
+                class="rounded-lg bg-[#0D542B] px-4 py-2 text-xs font-bold text-white hover:bg-[#0A4322] cursor-pointer transition-colors"
+                @click="isTableVisible = true"
+            >
+                Tampilkan Rincian Data Responden ({{ formatNumber(filteredInlineRecords.length, 0) }} Alumni)
+            </button>
         </div>
 
     </div>

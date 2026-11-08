@@ -13,7 +13,7 @@
 <script setup>
 // Halaman profil alumni: form menerima data ter-normalisasi dari controller dan mengirim perubahan melalui Inertia.
 import { Head, router, useForm, usePage, Link } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import Swal from 'sweetalert2';
 
 import FormPribadi from '@/components/AlumniProfil/FormPribadi.vue';
@@ -384,6 +384,51 @@ const submit = (nextTabId = null, redirectTo = null) => {
         }
     });
 };
+
+/**
+ * Membatalkan seluruh perubahan yang belum disimpan dan mengembalikan form ke data tersimpan.
+ */
+const handleCancelChanges = () => {
+    Swal.fire({
+        title: 'Batalkan Semua Perubahan?',
+        text: 'Seluruh isian formulir yang belum disimpan akan dikembalikan ke data awal Anda.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Batalkan',
+        cancelButtonText: 'Lanjut Mengisi',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            form.reset();
+            form.clearErrors();
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 2500,
+                icon: 'info',
+                title: 'Perubahan profil berhasil dibatalkan',
+            });
+        }
+    });
+};
+
+// Peringatan sebelum meninggalkan halaman jika ada perubahan yang belum disimpan
+const handleBeforeUnload = (e) => {
+    if (form.isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+};
+
+onMounted(() => {
+    window.addEventListener('beforeunload', handleBeforeUnload);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+});
 </script>
 
 <template>
@@ -476,7 +521,18 @@ const submit = (nextTabId = null, redirectTo = null) => {
                     </div>
 
                     <!-- Right: Alur Lanjut Antar Langkah (Tanpa Duplikasi Tombol Simpan) -->
-                    <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+                    <div class="flex items-center gap-3 w-full md:w-auto justify-end flex-wrap">
+                        <!-- Tombol Batalkan Perubahan (Muncul jika ada isian yang diubah) -->
+                        <button
+                            v-if="form.isDirty"
+                            type="button"
+                            @click="handleCancelChanges"
+                            :disabled="form.processing"
+                            class="px-4 py-2.5 rounded-xl border border-gray-300 hover:border-rose-300 bg-white hover:bg-rose-50 text-gray-700 hover:text-rose-700 text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-2xs"
+                        >
+                            Batalkan Perubahan
+                        </button>
+
                         <!-- Tombol Lanjut ke Langkah Berikutnya -->
                         <button
                             v-if="nextTab"
@@ -525,18 +581,28 @@ const submit = (nextTabId = null, redirectTo = null) => {
                                 Perubahan Belum Disimpan
                             </p>
                             <p class="text-[11px] text-gray-500 truncate">
-                                Silakan lanjutkan pengisian hingga selesai, lalu simpan perubahan.
+                                Ada isian yang diubah. Simpan perubahan atau batalkan untuk kembali ke data awal.
                             </p>
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        @click="submit()"
-                        :disabled="form.processing"
-                        class="shrink-0 rounded-xl bg-[#0D542B] hover:bg-[#093d1f] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all cursor-pointer disabled:opacity-50"
-                    >
-                        {{ form.processing ? 'Menyimpan...' : 'Simpan Sekarang' }}
-                    </button>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button
+                            type="button"
+                            @click="handleCancelChanges"
+                            :disabled="form.processing"
+                            class="rounded-xl border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 px-3.5 py-2 text-xs font-bold text-gray-700 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                            Batalkan
+                        </button>
+                        <button
+                            type="button"
+                            @click="submit()"
+                            :disabled="form.processing"
+                            class="rounded-xl bg-[#0D542B] hover:bg-[#093d1f] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                        >
+                            {{ form.processing ? 'Menyimpan...' : 'Simpan Sekarang' }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </transition>

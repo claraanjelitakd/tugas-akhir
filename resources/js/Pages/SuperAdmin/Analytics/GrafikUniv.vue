@@ -582,7 +582,7 @@ const tableColumns = computed(() => {
     if (chart.value.type === 'salary') return ['Nama', 'NIM', 'Program studi', 'Perusahaan', 'Provinsi', 'Gaji', 'Ambang 1,2 × UMP', 'Status'];
     if (chart.value.type === 'wait_time') return ['Nama', 'NIM', 'Program studi', 'Perusahaan', 'Bulan', 'Perbandingan'];
     if (chart.value.type === 'location') return ['Nama', 'NIM', 'Program studi', 'Perusahaan', 'Provinsi kerja'];
-    if (chart.value.type === 'response_rate') return ['NIM', 'Nama Mahasiswa / Alumni', 'Program Studi', 'Perusahaan & Lokasi', 'Pekerjaan & Posisi', 'Skills', 'Tahun Lulus', 'Status Kuesioner', 'Waktu Respons'];
+    if (chart.value.type === 'response_rate') return ['NIM', 'Nama Mahasiswa / Alumni', 'Program Studi', 'Tahun Lulus', 'Status Kuesioner', 'Waktu Respons', 'Perusahaan & Lokasi', 'Pekerjaan & Posisi', 'Skills'];
     if (chart.value.type === 'application_pipeline') return ['Nama', 'NIM', 'Program studi', 'Tahap', 'Jumlah'];
     if (chart.value.type === 'learning_methods') {
         return [

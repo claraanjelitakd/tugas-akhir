@@ -652,4 +652,91 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertLessThanOrEqual(5, $f21['score']);
         $this->assertArrayHasKey('distribution', $f21);
     }
+
+    /**
+     * Indikator proses lamaran (application_pipeline) menyediakan 2 scatter plot dengan korelasi Spearman dan diagram konversi 3 tahap.
+     */
+    public function test_application_pipeline_provides_scatter_plots_and_conversion_stages(): void
+    {
+        $prodi = Prodi::create([
+            'kode_prodi' => '72',
+            'nama_prodi' => 'Sistem Informasi',
+        ]);
+
+        $testData = [
+            ['nim' => '72200001', 'name' => 'Alumni A', 'ipk' => 3.75, 'f6' => '10', 'f7' => '5', 'f7a' => '3'],
+            ['nim' => '72200002', 'name' => 'Alumni B', 'ipk' => 3.50, 'f6' => '8', 'f7' => '4', 'f7a' => '2'],
+            ['nim' => '72200003', 'name' => 'Alumni C', 'ipk' => 3.20, 'f6' => '5', 'f7' => '2', 'f7a' => '1'],
+        ];
+
+        foreach ($testData as $idx => $d) {
+            $user = User::create([
+                'username' => 'pipeline-tester-'.$idx,
+                'name' => $d['name'],
+                'email' => 'pipeline-'.$idx.'@example.test',
+                'password' => Hash::make('password123'),
+                'role' => 'alumni',
+                'must_change_password' => false,
+            ]);
+            DataAkademik::create([
+                'nim' => $d['nim'],
+                'nama' => $d['name'],
+                'tanggal_lahir' => '2001-01-01',
+                'tahun_lulus' => 2024,
+                'ip_kumulatif' => $d['ipk'],
+            ]);
+            $biodata = Biodata::create([
+                'user_id' => $user->id,
+                'nim' => $d['nim'],
+                'prodi_id' => $prodi->id,
+                'nomor_telepon' => '08123456789'.$idx,
+                'email_pribadi' => 'pipeline-'.$idx.'@example.test',
+            ]);
+            $this->insertUnifiedAnswer($biodata->id, 'F6', 'Jumlah Perusahaan Dilamar', $d['f6'], null, 2024);
+            $this->insertUnifiedAnswer($biodata->id, 'F7', 'Jumlah Perusahaan Merespons', $d['f7'], null, 2024);
+            $this->insertUnifiedAnswer($biodata->id, 'F7A', 'Jumlah Panggilan Wawancara', $d['f7a'], null, 2024);
+        }
+
+        $service = app(TracerAnalyticsService::class);
+        $result = $service->buildUniversityChart('application_pipeline', '2024');
+
+        $this->assertSame('application_pipeline', $result['selected_chart']);
+        $chart = $result['chart'];
+
+        // 1. Verifikasi Scatter Plot 1: Lamaran vs Respons
+        $this->assertArrayHasKey('scatter_applications_responses', $chart);
+        $s1 = $chart['scatter_applications_responses'];
+        $this->assertSame('Hubungan Jumlah Lamaran dengan Jumlah Respons Perusahaan', $s1['title']);
+        $this->assertArrayHasKey('data', $s1);
+        $this->assertCount(3, $s1['data']);
+        $this->assertArrayHasKey('stats', $s1);
+        $this->assertArrayHasKey('trendline', $s1);
+        $this->assertArrayHasKey('summary', $s1);
+        $this->assertNotNull($s1['stats']['rho']);
+        $this->assertNotNull($s1['stats']['p_value']);
+        $this->assertSame(3, $s1['stats']['n']);
+
+        // 2. Verifikasi Scatter Plot 2: Respons vs Wawancara
+        $this->assertArrayHasKey('scatter_responses_interviews', $chart);
+        $s2 = $chart['scatter_responses_interviews'];
+        $this->assertSame('Hubungan Jumlah Respons Perusahaan dengan Undangan Wawancara', $s2['title']);
+        $this->assertArrayHasKey('data', $s2);
+        $this->assertCount(3, $s2['data']);
+        $this->assertArrayHasKey('stats', $s2);
+        $this->assertArrayHasKey('trendline', $s2);
+        $this->assertNotNull($s2['stats']['rho']);
+        $this->assertNotNull($s2['stats']['p_value']);
+        $this->assertSame(3, $s2['stats']['n']);
+
+        // 3. Verifikasi Konversi 3 Tahap Berbobot
+        $this->assertArrayHasKey('conversion_stages', $chart);
+        $conv = $chart['conversion_stages'];
+        $this->assertCount(3, $conv['stages']);
+        $this->assertSame('Lamaran → Respons', $conv['stages'][0]['label']);
+        $this->assertSame('Respons → Wawancara', $conv['stages'][1]['label']);
+        $this->assertSame('Lamaran → Wawancara', $conv['stages'][2]['label']);
+        $this->assertGreaterThan(0, $conv['stages'][0]['percentage']);
+        $this->assertGreaterThan(0, $conv['stages'][1]['percentage']);
+        $this->assertGreaterThan(0, $conv['stages'][2]['percentage']);
+    }
 }

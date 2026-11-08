@@ -68,12 +68,16 @@ class KuesionerController extends Controller
                     continue;
                 }
 
+                $isMandatory = (bool) ($pertanyaan->pivot->wajib ?? true);
+
                 $subpertanyaans[] = [
                     'id' => $pertanyaan->id,
                     'kode_pertanyaan' => $pertanyaan->kode_pertanyaan,
                     'subpertanyaan' => $pertanyaan->teks_pertanyaan,
                     'type' => $pertanyaan->tipe,
-                    'is_mandatory' => (bool) ($pertanyaan->pivot->wajib ?? true),
+                    'is_mandatory' => $isMandatory,
+                    'is_optional' => ! $isMandatory,
+                    'optional' => ! $isMandatory,
                     'is_header' => in_array($pertanyaan->tipe, ['header', 'section_header'], true),
                     'order' => $pertanyaan->pivot->order ?? 0,
                     'detils' => $pertanyaan->opsi->map(fn ($opt) => [
@@ -144,7 +148,9 @@ class KuesionerController extends Controller
                             return str_contains($t, 'lainnya') || str_contains($t, 'tuliskan') || str_contains($t, '...');
                         });
 
-                        foreach ($savedJson as $item) {
+                        $rawItems = ! empty($savedJson) ? $savedJson : (! empty($savedText) ? array_map('trim', explode(',', $savedText)) : []);
+
+                        foreach ($rawItems as $item) {
                             if (is_string($item) && str_starts_with($item, 'Lainnya: ')) {
                                 $customText = trim(substr($item, 9));
                                 $cleanArr[] = $otherOption ? $otherOption['option_text'] : 'Lainnya';

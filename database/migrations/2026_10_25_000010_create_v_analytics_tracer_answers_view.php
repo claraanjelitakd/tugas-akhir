@@ -27,6 +27,7 @@ SELECT
     population.prodi_id,
     population.nama_prodi,
     population.tahun_lulus,
+    population.ipk,
     p.kode_pertanyaan,
     s.kode_section AS kelompok,
     p.kode_pertanyaan AS subpertanyaan,

@@ -3,7 +3,9 @@
  * Komponen Indikator 08: Keaktifan Mencari Pekerjaan (Instrumen F10).
  *
  * Mengelola visualisasi keaktifan pencarian pekerjaan alumni dalam 4 minggu terakhir:
- * - Horizontal Bar Chart: Menampilkan seluruh kategori status keaktifan secara jelas tanpa terpotong.
+ * - Sesuai kuesioner resmi Tracer Study Dikti (Instrumen F10):
+ *   "Apakah anda aktif mencari pekerjaan dalam 4 minggu terakhir? Pilihlah Satu Jawaban. KEMUDIAN LANJUT KE F17"
+ * - Menampilkan seluruh 5 opsi jawaban berurutan (1 s.d. 5) secara jelas.
  * - Dilengkapi persentase pada batang, tabel rincian data responden, dan narasi analisis komprehensif.
  */
 import { computed } from 'vue';
@@ -37,14 +39,16 @@ const validResponses = computed(() => props.chart?.summary?.answered_count || re
 // HORIZONTAL BAR: Distribusi Keaktifan Mencari Kerja (F10)
 // -----------------------------------------------------------------------------
 const barOption = computed(() => {
-    // Urutkan dari frekuensi terendah ke tertinggi untuk tampilan bar horizontal ke atas
-    const rows = [...series.value].map((item) => {
+    // Susun opsi F10 sesuai urutan resmi kuesioner Dikti (1 - 5)
+    const rows = [...series.value].map((item, idx) => {
         const label = seriesLabel(item);
         const count = seriesMetric(item);
         const selected = !props.selectedLabel || props.selectedLabel === label;
         const isWaitingOrWorking = label.toLowerCase().includes('menunggu') || label.toLowerCase().includes('mulai bekerja') || label.toLowerCase().includes('ya');
+        const optNum = item.kode_opsi || (idx + 1);
         return {
-            name: label,
+            name: `${optNum} - ${label}`,
+            rawLabel: label,
             value: count,
             percentage: item.percentage || 0,
             itemStyle: {
@@ -53,15 +57,15 @@ const barOption = computed(() => {
                 borderRadius: [0, 4, 4, 0],
             },
         };
-    }).reverse();
+    });
 
-    const chartHeight = Math.max(460, rows.length * 52 + 90);
+    const chartHeight = Math.max(380, rows.length * 56 + 80);
 
     return {
         ...baseOption(validResponses.value),
         grid: {
             left: 20,
-            right: 80,
+            right: 90,
             top: 24,
             bottom: 30,
             containLabel: true,
@@ -73,13 +77,15 @@ const barOption = computed(() => {
         },
         yAxis: {
             type: 'category',
+            inverse: true,
             data: rows.map((r) => r.name),
             axisLabel: {
-                width: 320,
+                width: 360,
                 overflow: 'break',
                 fontSize: 11,
                 lineHeight: 15,
-                color: '#334155',
+                color: '#1E293B',
+                fontWeight: 600,
             },
         },
         tooltip: {
@@ -95,7 +101,7 @@ const barOption = computed(() => {
         series: [{
             name: 'Jumlah Alumni',
             type: 'bar',
-            barMaxWidth: 24,
+            barMaxWidth: 26,
             data: rows,
             label: {
                 show: true,
@@ -112,11 +118,13 @@ const barOption = computed(() => {
 
 const barTable = computed(() => ({
     columns: [
-        { key: 'status', label: 'Status Keaktifan (Instrumen F10)' },
+        { key: 'no', label: 'No.', align: 'center' },
+        { key: 'status', label: 'Opsi Jawaban (Instrumen F10)' },
         { key: 'count', label: 'Jumlah Alumni (n)', align: 'right' },
         { key: 'percentage', label: 'Persentase', align: 'right' },
     ],
-    rows: series.value.map((item) => ({
+    rows: series.value.map((item, idx) => ({
+        no: item.kode_opsi || (idx + 1),
         status: seriesLabel(item),
         count: formatNumber(seriesMetric(item), 0),
         percentage: formatPercentage(item.percentage || 0),
@@ -125,26 +133,22 @@ const barTable = computed(() => ({
 
 // Konfigurasi views untuk kontainer terpadu
 const views = computed(() => {
-    const topActivity = series.value[0];
-
     return [
         {
             key: 'activity_bar',
             chartType: 'horizontal_bar',
             tabLabel: 'Keaktifan 4 Minggu Terakhir',
             title: 'Keaktifan mencari pekerjaan dalam 4 minggu terakhir',
-            description: 'Distribusi status keaktifan alumni dalam mencari pekerjaan pada periode 4 minggu terakhir (Instrumen F10).',
+            description: 'Instrumen F10: Apakah anda aktif mencari pekerjaan dalam 4 minggu terakhir? Pilihlah Satu Jawaban. KEMUDIAN LANJUT KE F17.',
             option: barOption.value,
             tableData: barTable.value,
-            height: Math.max(460, series.value.length * 52 + 90),
+            height: Math.max(380, series.value.length * 56 + 80),
             analysis: {
                 title: 'Kilas Keaktifan dan Transisi Karir Alumni',
-                statusBadge: 'Status Keaktifan F10',
+                statusBadge: 'Instrumen F10 Dikti',
                 badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-                lead: topActivity?.label
-                    ? `Data menunjukkan kategori terbanyak adalah "${topActivity.label}" dengan jumlah ${topActivity.count} alumni (${formatPercentage(topActivity.percentage)}).`
-                    : 'Data keaktifan mencari pekerjaan tersaji lengkap.',
-                detail: 'Analisis pada instrumen F10 memperlihatkan dinamika alumni yang sedang berada di fase transisi. Responden yang menyatakan tidak aktif mencari kerja umumnya terbagi antara mereka yang sedang menanti panggilan kerja (waiting pipeline) atau telah menandatangani kesepakatan kerja dan dijadwalkan mulai bekerja dalam waktu dekat. Sementara bagi kelompok yang masih aktif melamar, pendampingan dari Pusat Karir UKDW melalui info loker mitra dan program persiapan interview tetap menjadi prioritas strategis.',
+                lead: 'Instrumen F10 merekam status keaktifan alumni dalam mencari kerja pada 4 minggu terakhir sebelum melangkah ke instrumen evaluasi kompetensi F17.',
+                detail: 'Sebagian besar alumni memilih opsi "Tidak" karena telah berstatus bekerja atau menempuh studi lanjut. Bagi lulusan yang berada pada masa transisi, kategori didominasi oleh mereka yang sedang menunggu pengumuman hasil lamaran kerja serta yang telah memiliki kepastian waktu mulai bekerja dalam 2 minggu ke depan.',
             },
         },
     ];

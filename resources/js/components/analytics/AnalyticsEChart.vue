@@ -78,7 +78,7 @@ const props = defineProps({
 });
 
 // Event membawa titik yang dipilih dan perubahan kontrol internal chart.
-const emit = defineEmits(['select', 'legend-change', 'zoom-change']);
+const emit = defineEmits(['select', 'legend-change', 'zoom-change', 'hover', 'hover-out']);
 
 // Referensi DOM dan instance engine dijaga lokal untuk mencegah memory leak.
 const chartElement = ref(null);
@@ -109,6 +109,8 @@ const renderChart = async () => {
     if (!chartInstance) {
         chartInstance = echarts.init(chartElement.value, null, { renderer: 'canvas' });
         chartInstance.on('click', (params) => emit('select', params));
+        chartInstance.on('mouseover', (params) => emit('hover', params));
+        chartInstance.on('mouseout', (params) => emit('hover-out', params));
         chartInstance.on('legendselectchanged', (params) => emit('legend-change', params));
         chartInstance.on('datazoom', (params) => emit('zoom-change', params));
     }

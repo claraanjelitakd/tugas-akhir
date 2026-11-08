@@ -210,7 +210,8 @@ class KuesionerProdiController extends Controller
 
         $jawabanMasuk = $request->input('answers', []);
 
-        $prodiSection = KuesionerSection::where('target', 'prodi')
+        // Ambil seluruh section kuesioner prodi yang aktif beserta butir pertanyaannya
+        $prodiSections = KuesionerSection::where('target', 'prodi')
             ->where('prodi_id', $biodata->prodi_id)
             ->where('is_active', true)
             ->with(['pertanyaan' => function ($query) {
@@ -218,11 +219,17 @@ class KuesionerProdiController extends Controller
                     ->wherePivot('is_active', true)
                     ->with('opsi');
             }])
-            ->first();
+            ->get();
 
-        $pertanyaans = $prodiSection ? $prodiSection->pertanyaan->keyBy('id') : collect([]);
+        $pertanyaanMap = [];
+        foreach ($prodiSections as $sec) {
+            foreach ($sec->pertanyaan as $p) {
+                $p->current_section_id = $sec->id;
+                $pertanyaanMap[$p->id] = $p;
+            }
+        }
 
-        foreach ($pertanyaans as $qId => $q) {
+        foreach ($pertanyaanMap as $qId => $q) {
             $jawaban = $jawabanMasuk[$qId] ?? null;
             $customText = isset($jawabanMasuk[$qId.'_custom']) ? trim((string) $jawabanMasuk[$qId.'_custom']) : '';
             $answerValue = null;
@@ -306,7 +313,7 @@ class KuesionerProdiController extends Controller
                         'pertanyaan_id' => $q->id,
                     ],
                     [
-                        'section_id' => $prodiSection->id,
+                        'section_id' => $q->current_section_id ?? $q->pivot?->section_id,
                         'evaluasi_atasan_id' => null,
                         'kode_pertanyaan' => $q->kode_pertanyaan,
                         'opsi_id' => $opsi?->id,

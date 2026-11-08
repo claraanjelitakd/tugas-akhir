@@ -298,15 +298,23 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
         </div>
 
         <!-- ================================================================= -->
-        <!-- BAGIAN 2: KONTAK & ALAMAT DOMISILI                                -->
+        <!-- BAGIAN 2: KONTAK & ALAMAT DOMISILI (LOKASI PENUGASAN / CABANG)    -->
         <!-- ================================================================= -->
         <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
-            <div class="flex items-center justify-between mb-6 pb-3 border-b border-gray-100">
+            <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-100 flex-wrap gap-2">
                 <h2 class="text-lg sm:text-xl font-black text-gray-900 flex items-center gap-2">
                     <span class="w-2.5 h-6 bg-[#005B3C] rounded-full inline-block"></span>
-                    Kontak & Alamat Domisili
+                    Kontak & Alamat Domisili (Lokasi Penugasan / Kantor Cabang)
                 </h2>
                 <span class="text-xs text-gray-400 font-medium">Kolom bertanda <span class="text-rose-500 font-bold">*</span> wajib diisi</span>
+            </div>
+
+            <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5 text-xs text-emerald-950 leading-relaxed">
+                <div class="font-bold mb-1 text-emerald-900 flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#0D542B]"></span>
+                    Pedoman Domisili & Wilayah Kantor Cabang
+                </div>
+                Alamat domisili pada bagian ini mencatat lokasi tempat tinggal Anda sekaligus wilayah kantor cabang/lokasi operasional tempat Anda bertugas saat ini. Jika perusahaan tempat Anda bekerja memiliki kantor pusat (Head Office) di kota atau negara lain, data kantor pusat dipilih pada tab Karier (Data Perusahaan / Head Office), sedangkan domisili cabang/tempat penugasan Anda dicatat di sini.
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -342,26 +350,26 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                 <!-- Alamat Domisili -->
                 <div v-if="isQuestionVisible('F2D')" class="md:col-span-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        {{ getQuestionLabel('F2D', 'Alamat Domisili Saat Ini') }} <span v-if="isQuestionRequired('F2D')" class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('F2D', 'Alamat Domisili Tempat Tinggal / Kantor Cabang Saat Ini') }} <span v-if="isQuestionRequired('F2D')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <textarea
                         v-model="form.alamat_saat_ini"
                         rows="3"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="Nama Jalan, RT/RW, Dusun/Kelurahan..."
+                        placeholder="Nama Jalan, RT/RW, Dusun/Kelurahan (Alamat domisili tempat tinggal atau lokasi kantor cabang bertugas)..."
                     ></textarea>
                 </div>
 
                 <!-- Provinsi -->
                 <div v-if="isQuestionVisible('BIO_PROVINSI')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        {{ getQuestionLabel('BIO_PROVINSI', 'Provinsi') }} <span v-if="isQuestionRequired('BIO_PROVINSI')" class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_PROVINSI', 'Provinsi Domisili / Penugasan Cabang') }} <span v-if="isQuestionRequired('BIO_PROVINSI')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <select
                         v-model="form.kode_provinsi"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                     >
-                        <option value="">-- Pilih Provinsi --</option>
+                        <option value="">-- Pilih Provinsi Domisili / Cabang --</option>
                         <option v-for="prov in provinces" :key="prov.kode_provinsi" :value="prov.kode_provinsi">{{ prov.nama_provinsi }}</option>
                     </select>
                 </div>
@@ -369,13 +377,13 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                 <!-- Kabupaten / Kota -->
                 <div v-if="isQuestionVisible('BIO_KABUPATEN')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        {{ getQuestionLabel('BIO_KABUPATEN', 'Kabupaten / Kota') }} <span v-if="isQuestionRequired('BIO_KABUPATEN')" class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_KABUPATEN', 'Kabupaten / Kota Domisili / Penugasan Cabang') }} <span v-if="isQuestionRequired('BIO_KABUPATEN')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <select
                         v-model="form.kode_kabupaten"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                     >
-                        <option value="">-- Pilih Kabupaten/Kota --</option>
+                        <option value="">-- Pilih Kabupaten/Kota Domisili / Cabang --</option>
                         <option v-for="kab in kabupatens" :key="kab.kode_kabupaten" :value="kab.kode_kabupaten" v-show="!form.kode_provinsi || kab.kode_provinsi == form.kode_provinsi">
                             {{ kab.nama_kabupaten }}
                         </option>

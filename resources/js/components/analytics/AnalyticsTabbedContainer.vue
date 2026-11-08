@@ -33,8 +33,8 @@ const props = defineProps({
     defaultTab: { type: String, default: '' },
 });
 
-// Event seleksi elemen dan reset filter
-const emit = defineEmits(['select', 'reset', 'select-province']);
+// Event seleksi elemen, arah kursor (hover), dan reset filter
+const emit = defineEmits(['select', 'reset', 'select-province', 'hover', 'hover-out']);
 
 // State tab visualisasi yang sedang aktif
 const activeTabKey = ref(props.defaultTab || props.views[0]?.key || '');
@@ -71,6 +71,38 @@ const cleanChartLabel = (raw) => String(raw || '')
 
 // State detail titik/elemen grafik yang sedang diklik
 const selectedPoint = ref(null);
+
+// State elemen grafik yang sedang diarahkan oleh kursor mouse (hover dinamis)
+const hoveredPoint = ref(null);
+
+const handleChartHover = (params) => {
+    const rawData = params?.data && typeof params.data === 'object' && !Array.isArray(params.data)
+        ? params.data
+        : {};
+    const prodi = cleanChartLabel(rawData.prodi || '');
+    const category = cleanChartLabel(rawData.category || rawData.target || '');
+    const seriesName = cleanChartLabel(params?.seriesName || '');
+    const rawLabel = rawData.category || rawData.target || rawData.prodi || rawData.name || params?.name || params?.seriesName || '';
+    const label = cleanChartLabel(rawLabel);
+
+    if (!label) return;
+
+    hoveredPoint.value = {
+        label,
+        prodi,
+        category,
+        seriesName,
+        value: params?.value ?? rawData.value ?? null,
+        percentage: rawData.percentage ?? null,
+        data: rawData,
+    };
+    emit('hover', hoveredPoint.value);
+};
+
+const handleChartHoverOut = () => {
+    hoveredPoint.value = null;
+    emit('hover-out');
+};
 
 // State filter kata kunci untuk visualisasi Word Cloud
 const wordCloudKeyword = ref('');
@@ -220,6 +252,23 @@ const recordDisplayAnswer = (rec) => {
     if (rec.jenis_perusahaan_lainnya && rec.jenis_perusahaan_lainnya !== '-') {
         return `${rec.answer || rec.category || 'Lainnya'} (${rec.jenis_perusahaan_lainnya})`;
     }
+    // Jika record studi lanjut (memiliki degree, university, study_program, atau funding_source)
+    if (rec.degree || rec.university || rec.study_program || rec.funding_source) {
+        const parts = [];
+        if (rec.degree) {
+            const degLabel = rec.degree === 'Lainnya' ? 'Lainnya (Profesi/Pelatihan)' : `Jenjang: ${rec.degree}`;
+            parts.push(degLabel);
+        }
+        if (rec.university && rec.university !== '-' && rec.university !== '4') {
+            parts.push(rec.university);
+        }
+        if (rec.funding_source && rec.funding_source !== '-') {
+            parts.push(rec.funding_source);
+        }
+        if (parts.length > 0) {
+            return parts.join(' · ');
+        }
+    }
     if (rec.category || rec.jawaban || rec.answer) return rec.category || rec.jawaban || rec.answer;
     if (rec.competency && rec.gap !== undefined) {
         return `${rec.competency} (Lulus: ${formatNumber(rec.graduation_score, 2)}, Butuh: ${formatNumber(rec.need_score, 2)}, Gap: ${formatNumber(rec.gap, 2)})`;
@@ -229,9 +278,6 @@ const recordDisplayAnswer = (rec) => {
     if (rec.salary !== undefined && rec.salary !== null) {
         const statusUmp = rec.meets_ump ? 'Memenuhi 1,2x UMP' : 'Belum memenuhi UMP';
         return `Rp ${formatNumber(rec.salary, 0)} · ${statusUmp}`;
-    }
-    if (rec.degree || rec.university || rec.funding_source) {
-        return [rec.degree, rec.university, rec.funding_source].filter(Boolean).join(' · ');
     }
     if (rec.province_name) return `${rec.province_name}${rec.nama_perusahaan ? ` (${rec.nama_perusahaan})` : ''}`;
     if (rec.status || rec.metode || rec.method) return rec.status || rec.metode || rec.method;
@@ -428,6 +474,24 @@ const computedAnalysis = computed(() => {
         };
     }
 
+    // Prioritas: Jika elemen sedang diarahkan kursor (hover) atau dipilih dan tersedia kamus analisis dinamis
+    const activeHoverOrSelect = cleanChartLabel(hoveredPoint.value?.label || activeSelectionLabel.value);
+    if (activeHoverOrSelect && currentView.value.analysisMap && currentView.value.analysisMap[activeHoverOrSelect]) {
+        return currentView.value.analysisMap[activeHoverOrSelect];
+    }
+
+    // Analisis dinamis saat kursor mengarah ke segmen komposisi prodi bertumpuk
+    if (hoveredPoint.value?.prodi && hoveredPoint.value?.category && hoveredPoint.value.data?.count !== undefined) {
+        const d = hoveredPoint.value.data;
+        return {
+            title: `Kilas Komposisi · ${hoveredPoint.value.prodi}`,
+            statusBadge: `${d.value}% ${hoveredPoint.value.category}`,
+            badgeClass: 'bg-white text-[#0D542B] border border-[#0D542B]/30',
+            lead: `Sebanyak ${d.value}% alumni ${hoveredPoint.value.prodi} tercatat berstatus ${hoveredPoint.value.category} (${d.count} dari ${d.total} responden di program studi ini).`,
+            detail: `Persentase ${d.value}% ini dihitung secara spesifik terhadap populasi responden lulusan program studi ${hoveredPoint.value.prodi}.`,
+        };
+    }
+
     const custom = currentView.value.analysis;
     if (custom) {
         if (typeof custom === 'object') return custom;
@@ -472,6 +536,15 @@ const drillDownPageSize = 8;
 
 const drillDownHasCompany = computed(() => {
     return drillDownRecords.value.some((r) => r.nama_perusahaan && r.nama_perusahaan !== '-');
+});
+
+const drillDownStudyProgramHeader = computed(() => {
+    const hasStudyProgram = drillDownRecords.value.some((r) => r.study_program && r.study_program !== '-' && r.study_program !== r.nama_prodi);
+    if (!hasStudyProgram) return 'Program Studi';
+    const target = cleanChartLabel(props.selectedLabel || selectedPoint.value?.label || '').toLowerCase();
+    if (target.includes('s2')) return 'Program Studi S2 (Lanjut)';
+    if (target.includes('lainnya')) return 'Program Studi Lanjut / Profesi';
+    return 'Program Studi Lanjut';
 });
 
 const drillDownHasRegionalSplit = computed(() => {
@@ -670,11 +743,16 @@ watch(() => props.selectedLabel, () => {
 
             <!-- Visualisasi ECharts Standar -->
             <figure v-else class="w-full">
+                <!-- Slot Kontrol Tambahan Sebelum Grafik (misal: Selector Dimensi Gap Analitik) -->
+                <slot name="before-chart" :view="currentView"></slot>
+
                 <AnalyticsEChart
                     :option="currentView.option"
                     :height="currentChartHeight"
                     :loading="loading"
                     @select="handleChartClick"
+                    @hover="handleChartHover"
+                    @hover-out="handleChartHoverOut"
                 />
                 <figcaption class="mt-2 px-1 text-xs leading-relaxed text-slate-500">
                     <span class="font-semibold text-slate-700">Caption:</span>
@@ -749,7 +827,7 @@ watch(() => props.selectedLabel, () => {
                             <tr class="border-b border-slate-200 bg-white/60 text-slate-600">
                                 <th class="p-2 font-bold">Nama Alumni</th>
                                 <th class="p-2 font-bold">NIM</th>
-                                <th class="p-2 font-bold">Program Studi</th>
+                                <th class="p-2 font-bold">{{ drillDownStudyProgramHeader }}</th>
                                 <th v-if="drillDownHasCompany" class="p-2 font-bold">Nama Perusahaan / Usaha</th>
                                 <template v-if="drillDownHasRegionalSplit">
                                     <th class="p-2 font-bold">Provinsi</th>
@@ -764,7 +842,15 @@ watch(() => props.selectedLabel, () => {
                             <tr v-for="(rec, idx) in paginatedDrillDownRecords" :key="idx" class="hover:bg-white/80">
                                 <td class="p-2 font-semibold text-slate-900">{{ rec.nama || '-' }}</td>
                                 <td class="p-2 font-mono text-slate-600">{{ rec.nim || '-' }}</td>
-                                <td class="p-2 text-slate-700">{{ rec.nama_prodi || '-' }}</td>
+                                <td class="p-2 text-slate-700">
+                                    <template v-if="rec.study_program && rec.study_program !== '-' && rec.study_program !== rec.nama_prodi">
+                                        <div class="font-semibold text-slate-900">{{ rec.study_program }}</div>
+                                        <div class="text-[11px] text-slate-500">Asal S1 UKDW: {{ rec.nama_prodi || '-' }}</div>
+                                    </template>
+                                    <template v-else>
+                                        {{ rec.nama_prodi || '-' }}
+                                    </template>
+                                </td>
                                 <td v-if="drillDownHasCompany" class="p-2 font-medium text-slate-900">
                                     {{ rec.nama_perusahaan || '-' }}
                                 </td>

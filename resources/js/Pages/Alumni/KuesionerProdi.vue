@@ -77,6 +77,58 @@ const form = useForm({
     answers: getInitialAnswers(),
 });
 
+// Mendeteksi apakah terdapat perubahan jawaban dari data awal yang tersimpan
+const hasAnswerChanges = computed(() => {
+    const current = form.answers || {};
+    const initial = props.initialAnswers || {};
+
+    const allKeys = new Set([...Object.keys(current), ...Object.keys(initial)]);
+    for (const key of allKeys) {
+        const cVal = current[key];
+        const iVal = initial[key];
+        const cEmpty = cVal === undefined || cVal === null || cVal === '' || (Array.isArray(cVal) && cVal.length === 0);
+        const iEmpty = iVal === undefined || iVal === null || iVal === '' || (Array.isArray(iVal) && iVal.length === 0);
+
+        if (cEmpty && iEmpty) continue;
+        if (cEmpty !== iEmpty) return true;
+        if (JSON.stringify(cVal) !== JSON.stringify(iVal)) return true;
+    }
+    return false;
+});
+
+// Mengembalikan jawaban kuesioner prodi ke data awal yang tersimpan di server
+const resetAnswersToInitial = () => {
+    Swal.fire({
+        title: 'Batalkan Semua Perubahan Jawaban?',
+        text: 'Seluruh jawaban kuesioner prodi akan dikembalikan persis ke data yang telah tersimpan sebelumnya di server.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Kembalikan',
+        cancelButtonText: 'Lanjut Mengisi',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            form.answers = JSON.parse(JSON.stringify(props.initialAnswers || {}));
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.removeItem(STORAGE_ANSWERS_KEY);
+                } catch (e) {
+                    console.error('Gagal menghapus cache jawaban prodi:', e);
+                }
+            }
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 2500,
+                icon: 'info',
+                title: 'Jawaban dikembalikan ke data tersimpan',
+            });
+        }
+    });
+};
+
 const activeSectionIndex = ref(getInitialSectionIndex());
 const completedSectionIndices = ref(new Set());
 
@@ -288,6 +340,7 @@ const setSection = (index) => {
     }, {
         preserveScroll: true,
         preserveState: true,
+        showProgress: false,
         only: ['initialAnswers'],
     });
 };
@@ -303,6 +356,7 @@ const prevSection = () => {
         }, {
             preserveScroll: true,
             preserveState: true,
+            showProgress: false,
             only: ['initialAnswers'],
         });
     }
@@ -369,6 +423,7 @@ const handleNextOrSubmit = () => {
         }, {
             preserveScroll: true,
             preserveState: true,
+            showProgress: false,
             only: ['initialAnswers'],
             onSuccess: () => {
                 syncSectionCompletion();
@@ -383,18 +438,6 @@ onMounted(() => {
         activeSectionIndex.value = 0;
     }
     syncSectionCompletion();
-
-    // Jika ada cache lokal, langsung sinkronisasi ke server database agar Dashboard selalu identik
-    if (typeof window !== 'undefined' && localStorage.getItem(STORAGE_ANSWERS_KEY)) {
-        router.post('/alumni/kuesioner-prodi', {
-            answers: form.answers,
-            stay_on_page: true,
-        }, {
-            preserveScroll: true,
-            preserveState: true,
-            only: ['initialAnswers'],
-        });
-    }
 });
 
 watch(activeSectionIndex, (newIdx) => {
@@ -404,7 +447,6 @@ watch(activeSectionIndex, (newIdx) => {
 });
 
 let draftTimer = null;
-let serverSyncTimer = null;
 watch(() => form.answers, (newAnswers) => {
     if (typeof window !== 'undefined') {
         clearTimeout(draftTimer);
@@ -414,19 +456,7 @@ watch(() => form.answers, (newAnswers) => {
             } catch (e) {
                 console.error('Gagal menyimpan cache jawaban prodi:', e);
             }
-        }, 500);
-
-        clearTimeout(serverSyncTimer);
-        serverSyncTimer = setTimeout(() => {
-            router.post('/alumni/kuesioner-prodi', {
-                answers: newAnswers,
-                stay_on_page: true,
-            }, {
-                preserveScroll: true,
-                preserveState: true,
-                only: ['initialAnswers'],
-            });
-        }, 1000);
+        }, 300);
     }
     syncSectionCompletion();
 }, { deep: true });
@@ -484,6 +514,8 @@ watch(() => form.answers, (newAnswers) => {
                     :badge-text="'Kuesioner Program Studi ' + (prodi?.nama_prodi || '')"
                     :percentage="progressStats.percentage"
                     :progress-label="progressStats.answered + ' / ' + progressStats.total + ' Soal'"
+                    :has-changes="hasAnswerChanges"
+                    @reset="resetAnswersToInitial"
                 />
 
                 <!-- Konten Formulir Seksi Aktif -->

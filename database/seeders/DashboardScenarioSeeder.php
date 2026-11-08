@@ -421,7 +421,18 @@ class DashboardScenarioSeeder extends Seeder
             } elseif ($code === 'F7A') {
                 $answer = (string) max(1, (int) floor((3 + ($index % 12)) * 0.25));
             } elseif ($code === 'F10') {
-                $answer = $hasCareer ? 'Tidak' : 'Ya, saya aktif mencari pekerjaan';
+                if ($hasCareer) {
+                    $answer = 'Tidak';
+                } else {
+                    $f10Pool = [
+                        'Tidak, tapi saya sedang menunggu hasil lamaran kerja',
+                        'Tidak, tapi saya sedang menunggu hasil lamaran kerja',
+                        'Ya, saya akan mulai bekerja dalam 2 minggu ke depan',
+                        'Ya, tapi saya belum pasti akan bekerja dalam 2 minggu ke depan',
+                        'Lainnya',
+                    ];
+                    $answer = $f10Pool[$index % count($f10Pool)];
+                }
             } elseif ($code === 'F11') {
                 $answer = $statusKarier === 'Wiraswasta'
                     ? 'Wiraswasta/perusahaan sendiri'

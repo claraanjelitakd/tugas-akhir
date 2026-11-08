@@ -50,6 +50,17 @@ const statusColorMap = {
 
 const getStatusColor = (label) => statusColorMap[label] || '#475569';
 
+// Deskripsi makna persentase untuk setiap kategori status pekerjaan (IKU 1)
+const statusMeaningMap = {
+    'Bekerja': 'Persentase alumni yang telah terserap di dunia kerja sebagai profesional, pegawai, atau karyawan swasta/BUMN/pemerintah.',
+    'Wiraswasta': 'Persentase alumni yang mendirikan usaha mandiri, merintis startup teknologi, atau mengembangkan usaha milik keluarga.',
+    'Melanjutkan pendidikan': 'Persentase alumni yang memutuskan melanjutkan studi formal ke jenjang lebih tinggi (Magister/S2, Doktoral/S3, atau Pendidikan Profesi/Spesialis).',
+    'Sedang mencari kerja': 'Persentase alumni yang saat ini aktif dalam proses pencarian pekerjaan dan mengirimkan lamaran ke berbagai instansi/perusahaan.',
+    'Belum memungkinkan bekerja': 'Persentase alumni yang untuk sementara waktu belum memungkinkan bekerja karena fokus keluarga, kesehatan, atau jeda persiapan karir.',
+};
+
+const getStatusMeaning = (label) => statusMeaningMap[label] || `Proporsi alumni dengan kategori aktivitas ${label}.`;
+
 // -----------------------------------------------------------------------------
 // 1. DONUT CHART: Proporsi Status Pekerjaan Universitas
 // -----------------------------------------------------------------------------
@@ -80,7 +91,23 @@ const donutOption = computed(() => {
         tooltip: {
             ...baseOption().tooltip,
             trigger: 'item',
-            formatter: ({ data }) => `<strong>${escapeHtml(data.name)}</strong><br>Jumlah: <strong>${formatNumber(data.value, 0)} alumni</strong><br>Proporsi: <strong>${formatPercentage(data.percentage)}</strong>`,
+            formatter: ({ data }) => {
+                const meaning = getStatusMeaning(data.name);
+                return `
+                    <div style="font-family: inherit; font-size: 12px; line-height: 1.5; min-width: 220px; max-width: 320px;">
+                        <div style="font-weight: 700; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 6px; color: #0F172A; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                            <span>${escapeHtml(data.name)}</span>
+                            <span style="font-size: 13px; font-weight: 800; color: #0D542B;">${formatPercentage(data.percentage)}</span>
+                        </div>
+                        <div style="color: #334155; margin-bottom: 2px;">
+                            Jumlah: <strong>${formatNumber(data.value, 0)} alumni</strong> (dari total ${formatNumber(validResponses.value, 0)} responden valid)
+                        </div>
+                        <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0; font-size: 11px; color: #475569; line-height: 1.45;">
+                            <strong style="color: #0D542B;">Keterangan Persentase:</strong> ${escapeHtml(meaning)}
+                        </div>
+                    </div>
+                `;
+            },
         },
         series: [{
             name: 'Status Pekerjaan',
@@ -95,7 +122,7 @@ const donutOption = computed(() => {
             },
             label: {
                 show: true,
-                formatter: ({ data }) => `${formatPercentage(data.percentage)}`,
+                formatter: ({ data }) => `${formatPercentage(data.percentage)} ${data.name}`,
                 fontSize: 11,
                 fontWeight: 'bold',
                 color: '#1E293B',
@@ -157,7 +184,7 @@ const stackedOption = computed(() => {
                 show: true,
                 position: 'inside',
                 formatter: (params) => {
-                    return params.value >= 7 ? `${params.value}%` : '';
+                    return params.value >= 10 ? `${params.value}%` : '';
                 },
                 fontSize: 10,
                 color: '#FFFFFF',
@@ -206,7 +233,24 @@ const stackedOption = computed(() => {
             trigger: 'item',
             formatter: ({ data }) => {
                 if (!data) return '';
-                return `<strong>${escapeHtml(data.prodi)}</strong><br>Status: <strong>${escapeHtml(data.category)}</strong><br>Jumlah: <strong>${data.count} alumni</strong> (dari total n=${data.total})<br>Proporsi: <strong>${data.value}%</strong>`;
+                const meaning = getStatusMeaning(data.category);
+                return `
+                    <div style="font-family: inherit; font-size: 12px; line-height: 1.5; min-width: 240px; max-width: 340px;">
+                        <div style="font-weight: 700; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 6px; color: #0F172A; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                            <span>${escapeHtml(data.prodi)}</span>
+                            <span style="font-size: 13px; font-weight: 800; color: #0D542B;">${data.value}%</span>
+                        </div>
+                        <div style="color: #334155; margin-bottom: 2px;">
+                            Status: <strong>${escapeHtml(data.category)}</strong>
+                        </div>
+                        <div style="color: #475569; margin-bottom: 4px;">
+                            Jumlah: <strong>${data.count} alumni</strong> (dari total ${data.total} responden di prodi ini)
+                        </div>
+                        <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0; font-size: 11px; color: #475569; line-height: 1.45;">
+                            <strong style="color: #0D542B;">Keterangan Persentase:</strong> ${data.value}% responden ${escapeHtml(data.prodi)} tercatat berstatus ${escapeHtml(data.category).toLowerCase()}. ${escapeHtml(meaning)}
+                        </div>
+                    </div>
+                `;
             },
         },
         series: seriesList,
@@ -310,6 +354,27 @@ const sankeyOption = computed(() => {
 
 const sankeyTable = computed(() => stackedTable.value);
 
+// Kamus analisis dinamis untuk kartu ringkasan saat kursor mengarah (hover) atau segmen status dipilih
+const donutAnalysisMap = computed(() => {
+    const map = {};
+    series.value.forEach((item) => {
+        const label = seriesLabel(item);
+        const count = seriesMetric(item);
+        const pct = item.percentage || 0;
+        const total = validResponses.value;
+        const meaning = getStatusMeaning(label);
+
+        map[label] = {
+            title: `Kilas Kategori · ${label}`,
+            statusBadge: `${formatPercentage(pct)} (${formatNumber(count, 0)} Alumni)`,
+            badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+            lead: `Sebanyak ${formatPercentage(pct)} atau ${formatNumber(count, 0)} dari ${formatNumber(total, 0)} alumni responden valid berstatus ${label}.`,
+            detail: `${meaning} Klik pada segmen untuk melihat daftar rincian alumni pada kategori ini.`,
+        };
+    });
+    return map;
+});
+
 // Konfigurasi views untuk kontainer terpadu
 const views = computed(() => [
     {
@@ -326,10 +391,11 @@ const views = computed(() => [
             statusBadge: 'Keterserapan Utama',
             badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
             lead: series.value[0]?.label
-                ? `Sebagian besar lulusan UKDW telah terserap di dunia kerja dengan status ${series.value[0].label} sebesar ${formatPercentage(series.value[0].percentage)} (${series.value[0].count} alumni).`
+                ? `Sebagian besar lulusan UKDW telah terserap di dunia kerja dengan status ${series.value[0].label} sebesar ${formatPercentage(series.value[0].percentage)} (${series.value[0].count} alumni). Arahkan kursor ke segmen grafik untuk melihat keterangan detail persentase.`
                 : 'Data status pekerjaan terdata lengkap.',
             detail: 'Kombinasi alumni yang berstatus bekerja, wiraswasta, dan melanjutkan studi pascasarjana menjadi pilar utama pemenuhan Indikator Kinerja Utama (IKU 1) Universitas Kristen Duta Wacana.',
         },
+        analysisMap: donutAnalysisMap.value,
     },
     {
         key: 'stacked',

@@ -1293,6 +1293,14 @@ export const stackedByProdi = (records, selectedLabel) => {
             barMaxWidth: 26,
             emphasis: { focus: 'series' },
             itemStyle: { color: analyticsPalette[index % analyticsPalette.length], opacity: !selectedLabel || selectedLabel === category ? 1 : 0.2 },
+            label: {
+                show: true,
+                position: 'inside',
+                formatter: (params) => params.value >= 10 ? `${params.value}%` : '',
+                fontSize: 10,
+                color: '#FFFFFF',
+                fontWeight: 600,
+            },
             data: prodis.map((prodi) => {
                 const prodiRows = records.filter((record) => (record.nama_prodi || 'Tanpa prodi') === prodi);
                 const count = prodiRows.filter((record) => recordCategory(record) === category).length;

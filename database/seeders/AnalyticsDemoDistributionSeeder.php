@@ -314,7 +314,7 @@ class AnalyticsDemoDistributionSeeder extends Seeder
                 $biodata,
                 $questions,
                 'F10',
-                $isSearching ? 'Tidak, tetapi saya sedang menunggu hasil lamaran kerja' : 'Tidak',
+                $isSearching ? 'Tidak, tapi saya sedang menunggu hasil lamaran kerja' : 'Tidak',
                 $univSectionId
             );
         }

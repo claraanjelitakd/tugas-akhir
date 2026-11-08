@@ -2,14 +2,37 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
-## 05 November 2026
+## 08 November 2026
 
-- **Status Tampil Pertanyaan Per Placement**:
-  - Menambahkan `kuesioner_section_pertanyaan.is_active` agar Admin Prodi dapat menampilkan atau menyembunyikan pertanyaan hanya pada section/prodinya sendiri.
-  - Master pertanyaan dan jawaban historis tetap dipertahankan saat placement lokal dinonaktifkan atau dilepas.
-- **Penamaan ID Penempatan Kuesioner**:
-  - Menetapkan istilah `placement_id` untuk nilai kolom `id` pada `kuesioner_section_pertanyaan`.
-  - PUT/edit menggunakan ID master pertanyaan, sedangkan toggle, delete penggunaan, dan reorder menggunakan `placement_id` agar pemakaian pertanyaan di section lain tidak ikut berubah.
+- **Pengembangan Visualisasi Analitik Indikator 06 (Pipeline Lamaran, Respons, dan Wawancara - F6, F7, F7a, IPK)**:
+  - Mengimplementasikan visualisasi hubungan IPK dan proses pencarian kerja alumni:
+    1. *Scatter Plot Lamaran vs Respons* dengan gradasi warna kontinu IPK (0–4 skala Viridis-like), garis tren, serta informasi statistik Korelasi Spearman ($\rho$), p-value, dan $N$ valid.
+    2. *Scatter Plot Respons vs Undangan Wawancara* dengan skala dan palet warna IPK kontinu yang konsisten.
+    3. *Horizontal Bar Chart Persentase Konversi Tahapan*: Lamaran → Respons, Respons → Wawancara, dan Lamaran → Wawancara menggunakan rasio total (*weighted conversion*).
+    4. *Grafik Garis Median Capaian per Program Studi*: Mempertahankan garis median jumlah lamaran, respons, dan wawancara antarfakultas/prodi.
+  - Menghilangkan data dummy dan menangani sebaran ribuan observasi aktual dengan penanganan titik bertumpuk (*jitter / opacity*).
+
+- **Standardisasi Diagram Batang Bertumpuk 100% Horizontal (Stacked Bar 100%)**:
+  - Menerapkan batasan ambang persentase `< 10%` otomatis tidak menampilkan label teks di dalam batang pada seluruh grafik stacked horizontal di analitik (Indikator 01, 02, 03, 07, 09, 11, 12, 13, 14) agar tampilan bersih, bebas tumpukan angka, dan tidak memenuhi area visual.
+  - Grafik Donut Indikator 07 kini memuat persentase dan nama kategori status pekerjaan secara langsung (misal: `71,9% Bekerja`, `10% Melanjutkan pendidikan`).
+
+- **Penyelarasan Instrumen Kuesioner Resmi F10 (Aktivitas Pencarian Kerja)**:
+  - Menyelaraskan teks instrumen F10 kuesioner resmi Tracer Study UKDW / Dikti: *"Apakah anda aktif mencari pekerjaan dalam 4 minggu terakhir? Pilihlah Satu Jawaban. KEMUDIAN LANJUT KE F17"*.
+  - Merapikan 5 opsi resmi F10 dan memperbaiki pemecahan string pada opsi 2 (*"Tidak, tapi saya sedang menunggu hasil lamaran kerja"*) agar tanda koma tidak memecah opsi menjadi baris ganda.
+
+- **Penerapan Matriks Heatmap Sebaran per Program Studi (Indikator 09, 12, 13, 14)**:
+  - Mengadopsi visualisasi matriks heatmap dari Indikator 02 ke Indikator 09 (*Bentuk Tempat Kerja*), Indikator 13 (*Kualifikasi Pendidikan / Vertical Match*), Indikator 14 (*Keselarasan Pendidikan Universitas*), dan Indikator 12 (*Keselarasan Bidang Studi / Horizontal Match*).
+  - Sumbu X menyajikan kategori/pilihan jawaban kuesioner, sumbu Y menyajikan seluruh program studi di UKDW beserta jumlah responden `(n=...)`, sel memuat persentase proporsi dengan palet hijau monokromatik UKDW (`#F8FAFC` s/d `#0D542B`), serta tabulasi data ringkasan matriks prodi.
+
+- **Penyelarasan Desain & Skala Warna Indikator 12 (Horizontal Match - F14)**:
+  - Menyesuaikan diagram batang bertumpuk 100% horizontal Indikator 12 dengan palet 5 skala warna Likert Indikator 02 (1 Merah s/d 5 Hijau Tua UKDW) dan Vertical Scale Bar terdedikasi di sisi kanan grafik.
+
+- **Penyempurnaan Indikator 10 (Distribusi Jenjang Studi Lanjut - F12, F18)**:
+  - Memperbaiki atribut program studi pada data tabel detail alumni kategori S2 agar memproyeksikan **Program Studi S2 (Lanjut)** (seperti *Magister Sistem Informasi*, *Magister Informatika*), bukan program studi S1 asal.
+  - Menghilangkan placeholder dummy `4` dan melengkapi kategori *Lainnya* dengan rincian program profesi/spesialis yang kontekstual (*Pendidikan Profesi Dokter*, *PPAk*, *PPAr*, *PPG*, dsb.) baik pada tabel drill-down universitas maupun tabel rincian data terpilih responden.
+
+- **Sinkronisasi Word Cloud Saran Mutu & Validasi Kuesioner (F9)**:
+  - Memperbaiki penanganan pencarian kata kunci dan visualisasi kata pada awan kata (Word Cloud) saran perbaikan kurikulum dan mutu pembelajaran.
 
 ## 06 November 2026
 

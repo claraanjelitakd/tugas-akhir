@@ -3,9 +3,9 @@
  * Komponen Indikator 09: Jenis Tempat Bekerja (Instrumen F11).
  *
  * Mengelola visualisasi sektor/badan usaha tempat alumni bekerja:
- * 1. Donut / Bar Chart: Proporsi Jenis Instansi Universitas dengan palet konsisten UKDW
- * 2. Stacked Bar: Komposisi Sektor per Program Studi dilengkapi label persentase di dalam batang
- * 3. Tabel Tabulasi Lengkap: Rincian responden dan badan usaha
+ * 1. Horizontal Bar: Proporsi Jenis Instansi Tingkat Universitas
+ * 2. Matriks Heatmap: Sebaran Jenis Tempat Kerja per Program Studi (mengadopsi matriks perbandingan prodi Indikator 02)
+ * 3. Stacked Bar: Komposisi Sektor per Program Studi (100% horizontal dengan batas ambang >= 10%)
  * Dilengkapi narasi analisis mendalam berstandar laporan resmi Tracer Study UKDW.
  */
 import { computed } from 'vue';
@@ -44,7 +44,7 @@ const workplaceColorMap = {
     'Organisasi non-profit/LSM': '#64748B',                  // Slate netral
     'Wiraswasta/perusahaan sendiri': '#78B18B',
     'Institusi/Organisasi Multilateral': '#475569',          // Slate medium
-    'Lainnya': '#DCEBE0',
+    'Lainnya': '#94A3B8',
 };
 
 const getWorkplaceColor = (label) => workplaceColorMap[label] || '#475569';
@@ -110,7 +110,7 @@ const barOption = computed(() => {
             formatter: (params) => {
                 const item = data[params[0]?.dataIndex];
                 if (!item) return '';
-                return `<strong>${escapeHtml(item.name)}</strong><br>Jumlah: <strong>${formatNumber(item.value, 0)} alumni</strong>`;
+                return `<strong>${escapeHtml(item.name)}</strong><br>Jumlah: <strong>${formatNumber(item.value, 0)} alumni</strong> (${formatPercentage(item.percentage)})`;
             },
         },
         series: [{
@@ -122,7 +122,7 @@ const barOption = computed(() => {
                 show: true,
                 position: 'right',
                 distance: 8,
-                formatter: ({ data }) => `${formatNumber(data.value, 0)} alumni`,
+                formatter: ({ data }) => `${formatNumber(data.value, 0)} (${formatPercentage(data.percentage)})`,
                 fontSize: 11,
                 fontWeight: 700,
                 color: '#0F172A',
@@ -164,7 +164,7 @@ const barTable = computed(() => ({
 }));
 
 // -----------------------------------------------------------------------------
-// 2. STACKED BAR: Komposisi Sektor per Program Studi (Lengkap dengan Label %)
+// 2. MATRIKS HEATMAP: Sebaran Sektor per Program Studi (Mengadopsi Indikator 02)
 // -----------------------------------------------------------------------------
 const prodis = computed(() => [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]);
 const categories = computed(() => {
@@ -173,6 +173,161 @@ const categories = computed(() => {
     return activeCats.length > 0 ? activeCats : [...new Set(series.value.map((s) => s.label))];
 });
 
+const heatmapData = computed(() => {
+    const listProdis = prodis.value;
+    const cats = categories.value;
+    const prodiTotals = Object.fromEntries(
+        listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]),
+    );
+
+    const values = [];
+    listProdis.forEach((prodi, yIndex) => {
+        cats.forEach((cat, xIndex) => {
+            const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
+            const total = Math.max(prodiTotals[prodi], 1);
+            const pct = Number(((count / total) * 100).toFixed(1));
+            values.push({
+                value: [xIndex, yIndex, pct],
+                prodi,
+                category: cat,
+                count,
+                total,
+            });
+        });
+    });
+
+    const maxPct = Math.max(...values.map((v) => v.value[2]), 10);
+
+    return { values, maxPct, prodiTotals };
+});
+
+const heatmapOption = computed(() => {
+    const { values, maxPct, prodiTotals } = heatmapData.value;
+    const cats = categories.value;
+    const listProdis = prodis.value;
+    const yLabels = listProdis.map((p) => `${p} (n=${prodiTotals[p]})`);
+
+    return {
+        ...baseOption(records.value.length),
+        grid: { left: 24, right: 120, top: 75, bottom: 24, containLabel: true },
+        xAxis: {
+            type: 'category',
+            position: 'top',
+            data: cats,
+            axisLabel: {
+                rotate: -20,
+                color: '#1E293B',
+                fontSize: 11,
+                fontWeight: 600,
+                interval: 0,
+            },
+            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
+            splitArea: { show: false },
+        },
+        yAxis: {
+            type: 'category',
+            inverse: true,
+            data: yLabels,
+            axisLabel: { color: '#1E293B', fontSize: 11, fontWeight: 500 },
+            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
+            splitArea: { show: false },
+        },
+        visualMap: {
+            type: 'continuous',
+            min: 0,
+            max: Math.min(100, Math.ceil(maxPct / 10) * 10),
+            orient: 'vertical',
+            right: 14,
+            top: 'middle',
+            itemWidth: 16,
+            itemHeight: 220,
+            calculable: true,
+            inRange: {
+                color: ['#F8FAFC', '#DCEBE0', '#B7D7C0', '#78B18B', '#2F7D4A', '#0D542B'],
+            },
+            text: ['Tinggi (%)', '0%'],
+            textGap: 8,
+            textStyle: { color: '#1E293B', fontSize: 11, fontWeight: 600 },
+            formatter: (val) => `${Number(val).toFixed(0)}%`,
+        },
+        tooltip: {
+            ...baseOption().tooltip,
+            trigger: 'item',
+            formatter: ({ data }) => {
+                if (!data) return '';
+                return `
+                    <div class="font-sans text-xs">
+                        <div class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5">${escapeHtml(data.prodi)}</div>
+                        <div class="text-slate-600 mb-0.5"><span class="text-slate-500">Instansi:</span> <strong>${escapeHtml(data.category)}</strong></div>
+                        <div class="text-slate-600 mb-0.5"><span class="text-slate-500">Jumlah Alumni:</span> <strong>${formatNumber(data.count, 0)}</strong> (dari n=${data.total})</div>
+                        <div class="text-slate-600"><span class="text-slate-500">Proporsi di Prodi:</span> <strong class="text-emerald-700 font-mono text-sm">${formatNumber(data.value[2], 1)}%</strong></div>
+                    </div>
+                `;
+            },
+        },
+        series: [{
+            name: 'Proporsi Tempat Bekerja',
+            type: 'heatmap',
+            data: values,
+            itemStyle: {
+                borderColor: '#FFFFFF',
+                borderWidth: 1.5,
+            },
+            label: {
+                show: true,
+                formatter: ({ data }) => data.value[2] > 0 ? `${formatNumber(data.value[2], 0)}%` : '',
+                fontSize: 10,
+                fontWeight: 600,
+                color: (param) => param.data?.value[2] >= 30 ? '#FFFFFF' : '#1E293B',
+            },
+            emphasis: {
+                itemStyle: {
+                    shadowBlur: 8,
+                    shadowColor: 'rgba(13, 84, 43, 0.25)',
+                    borderColor: '#0D542B',
+                    borderWidth: 2,
+                },
+            },
+        }],
+    };
+});
+
+const heatmapTable = computed(() => {
+    const cats = categories.value;
+    const prodiTotals = heatmapData.value.prodiTotals;
+
+    const columns = [
+        { key: 'prodi', label: 'Program Studi' },
+        { key: 'total', label: 'Responden (n)', align: 'right' },
+        ...cats.map((cat, i) => ({
+            key: `cat_${i}`,
+            label: cat,
+            align: 'right',
+        })),
+    ];
+
+    const rows = prodis.value.map((prodi) => {
+        const row = {
+            prodi,
+            total: formatNumber(prodiTotals[prodi] || 0, 0),
+        };
+        cats.forEach((cat, i) => {
+            const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
+            const total = Math.max(prodiTotals[prodi], 1);
+            const pct = ((count / total) * 100).toFixed(1);
+            row[`cat_${i}`] = `${formatNumber(count, 0)} (${pct}%)`;
+        });
+        return row;
+    });
+
+    return { columns, rows };
+});
+
+// -----------------------------------------------------------------------------
+// 3. STACKED BAR: Komposisi Sektor per Program Studi (Lengkap dengan Label %)
+// -----------------------------------------------------------------------------
 const stackedOption = computed(() => {
     const listProdis = prodis.value;
     const cats = categories.value;
@@ -204,7 +359,7 @@ const stackedOption = computed(() => {
             label: {
                 show: true,
                 position: 'inside',
-                formatter: (params) => params.value >= 7 ? `${params.value}%` : '',
+                formatter: (params) => params.value >= 10 ? `${params.value}%` : '',
                 fontSize: 10,
                 color: '#FFFFFF',
                 fontWeight: 'bold',
@@ -301,11 +456,28 @@ const views = computed(() => {
             },
         },
         {
-            key: 'by_prodi',
+            key: 'by_prodi_heatmap',
+            chartType: 'heatmap',
+            tabLabel: 'Sebaran per Prodi',
+            title: 'Sebaran jenis tempat bekerja per program studi',
+            description: 'Matriks intensitas dan proporsi penyerapan alumni pada masing-masing sektor instansi di setiap program studi UKDW (mengadopsi matriks perbandingan prodi Indikator 02).',
+            option: heatmapOption.value,
+            tableData: heatmapTable.value,
+            height: Math.max(460, prodis.value.length * 36 + 120),
+            analysis: {
+                title: 'Kilas Sebaran Sektor Kerja Antarjurusan',
+                statusBadge: `${prodis.value.length} Program Studi`,
+                badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+                lead: `Matriks sebaran memperlihatkan konsentrasi penyerapan alumni pada 5 sektor utama di ${prodis.value.length} program studi.`,
+                detail: 'Sektor perusahaan swasta mendominasi serapan di hampir seluruh prodi teknologi dan bisnis, sementara lulusan kedokteran dan pendidikan terserap kuat pada instansi pemerintah dan yayasan sosial/pendidikan.',
+            },
+        },
+        {
+            key: 'by_prodi_stacked',
             chartType: 'stacked_horizontal_100',
-            tabLabel: 'Komposisi per Prodi',
+            tabLabel: 'Komposisi Bertumpuk',
             title: 'Komposisi jenis tempat bekerja per program studi',
-            description: 'Perbandingan proporsi sektor tempat bekerja alumni pada masing-masing program studi di lingkungan UKDW.',
+            description: 'Perbandingan proporsi sektor tempat bekerja alumni pada masing-masing program studi dalam diagram batang bertumpuk 100% horizontal.',
             option: stackedOption.value,
             tableData: stackedTable.value,
             height: Math.max(400, prodis.value.length * 36 + 120),
@@ -314,7 +486,7 @@ const views = computed(() => {
                 statusBadge: 'Sebaran Program Studi',
                 badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
                 lead: `Komposisi sektor kerja bervariasi secara khas sesuai profil kompetensi lulusan di ${prodis.value.length} program studi.`,
-                detail: 'Lulusan program studi rumpun teknologi informasi (Informatika dan Sistem Informasi) serta ekonomi bisnis (Manajemen dan Akuntansi) menunjukkan konsentrasi serapan tinggi pada sektor perusahaan swasta dan BUMN. Sementara itu, lulusan Kedokteran dan Pendidikan Bahasa Inggris terserap kuat pada instansi pemerintah dan yayasan/organisasi nirlaba, sedangkan prodi Desain Produk dan Arsitektur menunjukkan kontribusi wirausaha mandiri/studio yang menonjol.',
+                detail: 'Lulusan program studi rumpun teknologi informasi serta ekonomi bisnis menunjukkan konsentrasi serapan tinggi pada sektor swasta dan BUMN, sedangkan Kedokteran dan Pendidikan Bahasa Inggris terserap kuat pada instansi pemerintah dan organisasi nirlaba.',
             },
         },
     ];
