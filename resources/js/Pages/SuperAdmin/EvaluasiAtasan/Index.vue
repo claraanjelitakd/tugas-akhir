@@ -383,7 +383,7 @@ const closeDetailModal = () => {
 <template>
     <Head title="Pengaturan Kuesioner Evaluasi Atasan - Super Admin" />
 
-    <div class="min-h-screen bg-slate-50 flex font-sans">
+    <div class="min-h-screen bg-slate-50 flex font-sans min-w-[1280px]">
         <!-- Sidebar Terpadu Super Admin -->
         <Sidebar :user="user" />
 
@@ -391,7 +391,7 @@ const closeDetailModal = () => {
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             <!-- Header Solid UKDW Green Konsisten -->
             <div class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
-                <div class="w-full max-w-[1440px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div class="flex items-center gap-2 text-xs text-white/70 font-medium mb-1.5">
                             <Link href="/superadmin/dashboard" class="hover:text-white transition-colors">Dashboard</Link>
@@ -409,7 +409,7 @@ const closeDetailModal = () => {
             </div>
 
             <!-- Kontainer Konten Utama -->
-            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+            <main class="admin-page-main w-full -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
                 <!-- Banner Status Instrumen Kuesioner Induk Aktif (Identik Gambar 1) -->
                 <div class="bg-white rounded-2xl border border-gray-300 p-5 shadow-2xs">
                     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">

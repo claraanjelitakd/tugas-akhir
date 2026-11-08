@@ -430,4 +430,72 @@ class SuperAdminDaftarAlumniTest extends TestCase
 
         Mail::assertSent(PengingatKuesionerAlumniMail::class);
     }
+
+    /**
+     * Test opsi filter skills dan perusahaan menyesuaikan tahun kelulusan aktif
+     * serta otomatis mereset parameter yang tidak relevan dengan tahun tersebut.
+     */
+    public function test_filter_options_cascade_by_selected_year_and_resets_invalid_skills(): void
+    {
+        // 1. Tambah data alumni kedua dengan tahun kelulusan berbeda (2022)
+        $user2022 = User::create([
+            'username' => '72180099',
+            'name' => 'Alumni Angkatan 2018',
+            'email' => 'alumni2018@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+
+        DataAkademik::create([
+            'nim' => '72180099',
+            'nama' => 'Alumni Angkatan 2018',
+            'angkatan_masuk' => '2018',
+            'tahun_akademik_lulus' => 'Genap 2021/2022',
+            'tahun_lulus' => 2022,
+            'ip_kumulatif' => '3.50',
+        ]);
+
+        Biodata::create([
+            'user_id' => $user2022->id,
+            'nim' => '72180099',
+            'nama' => 'Alumni Angkatan 2018',
+            'prodi_id' => $this->prodi->id,
+            'kode_provinsi' => '34',
+            'kode_kabupaten' => '3404',
+            'skills' => 'Big Data Infrastructure, Hadoop',
+        ]);
+
+        // Perbarui alumni Budi Santoso (lulus 2024) dengan skill khusus
+        $this->alumni->update([
+            'skills' => 'Vue.js, Tailwind CSS',
+        ]);
+
+        // 2. Akses direktori dengan Tahun 2024
+        $response2024 = $this->actingAs($this->superadmin)
+            ->get(route('superadmin.alumni.index', ['tahun' => '2024']));
+
+        $response2024->assertStatus(200);
+        $response2024->assertInertia(fn (Assert $page) => $page
+            ->component('SuperAdmin/Alumni/Index')
+            ->where('filters.tahun', '2024')
+            ->where('filterOptions.skills', fn ($skills) => collect($skills)->contains('Vue.js') && ! collect($skills)->contains('Big Data Infrastructure'))
+        );
+
+        // 3. Akses direktori tahun 2024 namun menyertakan filter skill tahun 2022 yang tidak relevan
+        $responseStale = $this->actingAs($this->superadmin)
+            ->get(route('superadmin.alumni.index', [
+                'tahun' => '2024',
+                'skills' => 'Big Data Infrastructure',
+            ]));
+
+        $responseStale->assertStatus(200);
+        $responseStale->assertInertia(fn (Assert $page) => $page
+            ->component('SuperAdmin/Alumni/Index')
+            ->where('filters.tahun', '2024')
+            // Otomatis di-reset ke 'all' agar tabel tidak menghasilkan 0 data
+            ->where('filters.skills', 'all')
+            ->has('alumnis', 1)
+        );
+    }
 }

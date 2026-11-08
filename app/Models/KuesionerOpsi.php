@@ -20,6 +20,7 @@ class KuesionerOpsi extends Model
         'pertanyaan_id',
         'kode_opsi',
         'label',
+        'label_singkat',
         'nilai_skor',
         'order',
     ];

@@ -35,19 +35,17 @@ const props = defineProps({
 // Event seleksi data diteruskan ke panel induk untuk cross-filtering.
 const emit = defineEmits(['select', 'reset']);
 
-// Mode tab visualisasi aktif: 'radar', 'line', 'stacked', atau 'heatmap' (perbandingan prodi).
+// Mode tab visualisasi aktif: 'radar', 'stacked', atau 'heatmap' (perbandingan prodi).
 const activeChartTab = ref('radar');
 
 // Label dan alasan grafik aktif mengambil sumber dari kamus tipe pusat.
 const activeChartType = computed(() => ({
     radar: analyticsChartTypes.radar,
-    line: analyticsChartTypes.median_line,
     stacked: analyticsChartTypes.stacked_horizontal_100,
     heatmap: analyticsChartTypes.heatmap,
 }[activeChartTab.value] || analyticsChartTypes.table));
 const activeChartReason = computed(() => ({
     radar: analyticsChartTypeReasons.radar,
-    line: analyticsChartTypeReasons.median_line,
     stacked: analyticsChartTypeReasons.stacked_horizontal_100,
     heatmap: analyticsChartTypeReasons.heatmap,
 }[activeChartTab.value] || analyticsChartTypeReasons.table));
@@ -204,33 +202,7 @@ const radarAnalysis = computed(() => {
     };
 });
 
-// 2. Analisis Line Chart (Rata-rata Skor INT Bab 4.3 Laporan Resmi)
-const lineAnalysis = computed(() => {
-    if (drilldownAnalysis.value) return drilldownAnalysis.value;
-    const ctx = analysisContext.value;
-    if (!ctx) {
-        return {
-            title: 'Analisis Rata-rata Skor Penekanan Belajar',
-            statusBadge: 'Memuat...',
-            badgeClass: 'bg-slate-100 text-slate-600 border border-slate-200',
-            lead: 'Menunggu data respon alumni.',
-            detail: '',
-        };
-    }
-
-    const besarCount = ctx.list.filter((s) => Math.round(Number(s.score || s.average || 0)) >= 4).length;
-    const cukupCount = ctx.list.filter((s) => Math.round(Number(s.score || s.average || 0)) === 3).length;
-
-    return {
-        title: 'Analisis Rata-rata Skor Penekanan Belajar',
-        statusBadge: `Kategori ${ctx.overallLabel} (Skor = ${ctx.overallInt})`,
-        badgeClass: ctx.overallInt >= 4 ? 'bg-emerald-50 text-[#0D542B] border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200',
-        lead: `Mengadopsi Gambar 4.3 Laporan Resmi Tracer Study UKDW, seluruh metode pembelajaran berada pada Kategori Besar (skor 4) dan Cukup Besar (skor 3) dengan capaian bulat universitas berada pada Skor ${ctx.overallInt} (${ctx.overallLabel}).`,
-        detail: `Sebanyak ${besarCount} metode berhasil meraih Kategori Besar atau Sangat Besar (termasuk ${ctx.topMethod.label} dengan skor ${ctx.topScoreInt}), sementara ${cukupCount} metode lainnya berada di Kategori Cukup Besar. Tidak ada satupun metode yang tergolong dalam Kategori Kurang (skor 2) maupun Tidak Sama Sekali (skor 1).`,
-    };
-});
-
-// 3. Analisis Stacked Bar Chart (Distribusi Skala Responden)
+// 2. Analisis Stacked Bar Chart (Distribusi Skala Responden)
 const stackedAnalysis = computed(() => {
     if (drilldownAnalysis.value) return drilldownAnalysis.value;
     const ctx = analysisContext.value;
@@ -432,147 +404,82 @@ const methodsRadarOption = computed(() => {
 });
 
 // -----------------------------------------------------------------------------
-// 2. LINE CHART RESMI: Penekanan Metode Belajar Rata-rata Skor INT (Gambar 4.3)
-// -----------------------------------------------------------------------------
-const methodsLineOption = computed(() => {
-    const labels = series.value.map(seriesLabel);
-    const scores = series.value.map((item) => {
-        const val = Number(item.score ?? 0);
-        const isSelected = !selectedMethodKey.value || item.key === selectedMethodKey.value;
-        return {
-            name: seriesLabel(item),
-            value: val,
-            average: item.average ?? val,
-            scoreLabel: item.score_label || scaleDescriptions[val] || '',
-            count: item.count || validResponses.value,
-            key: item.key,
-            itemStyle: {
-                color: isSelected ? '#0D542B' : '#94A3B8',
-            },
-        };
-    });
-
-    return {
-        ...baseOption(validResponses.value),
-        grid: { left: 16, right: 32, top: 32, bottom: 72, containLabel: true },
-        xAxis: {
-            type: 'category',
-            data: labels,
-            axisLabel: {
-                rotate: labels.length > 5 ? 22 : 0,
-                color: '#334155',
-                fontSize: 12,
-                fontWeight: 500,
-                width: 120,
-                overflow: 'truncate',
-            },
-            axisLine: { lineStyle: { color: '#CBD5E1' } },
-            axisTick: { alignWithLabel: true },
-        },
-        yAxis: {
-            type: 'value',
-            min: 1,
-            max: 5,
-            interval: 1,
-            splitNumber: 4,
-            name: 'Rata-rata Skor (Skala 1 - 5)',
-            nameTextStyle: { color: '#475569', fontSize: 11, padding: [0, 0, 8, 0] },
-            axisLabel: {
-                color: '#475569',
-                fontSize: 12,
-                fontWeight: 600,
-                formatter: (val) => Math.round(val),
-            },
-            splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
-        },
-        tooltip: {
-            ...lightTooltipConfig,
-            trigger: 'item',
-            formatter: (params) => {
-                const d = params.data || {};
-                const rounded = Math.round(Number(d.value || 0));
-                return `
-                    <div style="min-width: 180px;">
-                        <div style="font-weight: 700; color: #0F172A; font-size: 13px; border-bottom: 1px solid #F1F5F9; padding-bottom: 4px; margin-bottom: 6px;">
-                            ${escapeHtml(d.name || params.name)}
-                        </div>
-                        <div style="font-size: 12px; color: #475569; margin-bottom: 3px;">
-                            Rata-rata Skor (INT): <strong style="color: #0D542B; font-size: 13px;">${rounded}</strong> (${escapeHtml(d.scoreLabel || scaleDescriptions[rounded] || '')})
-                        </div>
-                        <div style="font-size: 11px; color: #64748B; margin-bottom: 2px;">
-                            Rerata Presisi: <strong style="color: #334155;">${formatNumber(d.average, 2)}</strong>
-                        </div>
-                        <div style="font-size: 11px; color: #64748B;">
-                            Total Responden: <strong style="color: #334155;">${formatNumber(d.count, 0)}</strong>
-                        </div>
-                    </div>
-                `;
-            },
-        },
-        series: [{
-            name: 'Rata-rata skor',
-            type: 'line',
-            data: scores,
-            lineStyle: { width: 3, color: '#0D542B' },
-            symbol: 'circle',
-            symbolSize: 9,
-            emphasis: {
-                scale: 1.5,
-                itemStyle: { color: '#0D542B', borderWidth: 2, borderColor: '#FFFFFF' },
-            },
-            label: {
-                show: true,
-                position: 'top',
-                color: '#0D542B',
-                fontWeight: 700,
-                fontSize: 13,
-                formatter: ({ value }) => Math.round(value),
-            },
-        }],
-    };
-});
-
-// -----------------------------------------------------------------------------
-// 3. STACKED BAR: Distribusi Pilihan Skala Responden (100% Horizontal Stacked)
+// 2. STACKED BAR: Distribusi Pilihan Skala Responden (100% Horizontal Stacked)
+// Sesuai desain standar visual: 5 warna skala bertumpuk 100% horizontal
+// dengan Vertical Scale Bar di sisi kanan lengkap dengan angka dan label predikat.
 // -----------------------------------------------------------------------------
 const methodsStackedOption = computed(() => {
     const list = [...series.value];
     const categories = list.map(seriesLabel);
 
     const scaleColors = {
-        1: analyticsScalePalette[0],
-        2: analyticsScalePalette[1],
-        3: analyticsScalePalette[2],
-        4: analyticsScalePalette[3],
-        5: analyticsScalePalette[4],
+        1: analyticsScalePalette[0], // Merah (#B91C1C) - Tidak Sama Sekali
+        2: analyticsScalePalette[1], // Oranye (#EA580C) - Kurang
+        3: analyticsScalePalette[2], // Kuning Emas (#FACC15) - Cukup Besar
+        4: analyticsScalePalette[3], // Hijau Muda (#5EBA7D) - Besar
+        5: analyticsScalePalette[4], // Hijau Tua (#1E6B37) - Sangat Besar
     };
+
+    // Identifikasi 2 level skala dengan persentase/jumlah terkecil per indikator metode
+    // agar tidak ditampilkan persentasenya (menghindari penumpukan visual / label terpotong).
+    const smallestTwoByMethod = {};
+    list.forEach((item) => {
+        const itemScores = [1, 2, 3, 4, 5].map((lvl) => {
+            const distItem = Array.isArray(item.distribution)
+                ? item.distribution.find((d) => Number(d.score) === lvl)
+                : null;
+            return {
+                lvl,
+                count: distItem?.count ?? 0,
+                pct: Number(distItem?.percentage ?? 0),
+            };
+        });
+        // Urutkan menaik berdasarkan persentase lalu jumlah responden
+        itemScores.sort((a, b) => {
+            if (a.pct !== b.pct) {
+                return a.pct - b.pct;
+            }
+            return a.count - b.count;
+        });
+        smallestTwoByMethod[item.key] = itemScores.slice(0, 2).map((s) => s.lvl);
+    });
 
     const seriesData = [1, 2, 3, 4, 5].map((lvl) => {
         return {
             name: `${lvl} = ${scaleDescriptions[lvl]}`,
             type: 'bar',
             stack: 'total',
-            barMaxWidth: 24,
+            barMaxWidth: 26,
             itemStyle: { color: scaleColors[lvl] },
             label: {
                 show: true,
                 position: 'inside',
-                formatter: ({ value }) => (value > 0 ? `${formatNumber(value, 0)}%` : ''),
-                color: lvl === 5 ? '#FFFFFF' : '#0F172A',
-                fontSize: 10,
-                fontWeight: 600,
+                formatter: (param) => {
+                    const val = Number(param.value ?? 0);
+                    const isSmallestTwo = param.data?.isSmallestTwo ?? false;
+                    // Sembunyikan label jika bernilai 0, termasuk 2 skala terkecil di barisnya, atau bernilai di bawah 6%
+                    if (val <= 0 || isSmallestTwo || val < 6) {
+                        return '';
+                    }
+                    return `${Math.round(val)}%`;
+                },
+                color: lvl === 3 ? '#1E293B' : '#FFFFFF',
+                fontSize: 11,
+                fontWeight: 700,
             },
             data: list.map((item) => {
                 const distItem = Array.isArray(item.distribution)
                     ? item.distribution.find((d) => Number(d.score) === lvl)
                     : null;
                 const pct = distItem?.percentage ?? 0;
+                const isSmallestTwo = smallestTwoByMethod[item.key]?.includes(lvl) ?? false;
                 return {
                     name: seriesLabel(item),
                     value: Number(pct),
                     count: distItem?.count ?? 0,
                     scoreLevel: lvl,
                     methodKey: item.key,
+                    isSmallestTwo,
                 };
             }),
         };
@@ -580,17 +487,32 @@ const methodsStackedOption = computed(() => {
 
     return {
         ...baseOption(validResponses.value),
-        legend: {
-            top: 0,
-            itemWidth: 12,
-            itemHeight: 12,
-            textStyle: { color: '#334155', fontSize: 11 },
+        title: {
+            text: 'Distribusi Skala Penilaian Alumni per Indikator',
+            subtext: `Diagram batang bertumpuk 100% horizontal • N valid: ${formatNumber(validResponses.value, 0)}`,
+            left: 20,
+            top: 10,
+            textStyle: {
+                fontSize: 16,
+                fontWeight: 'bold',
+                color: '#0F172A',
+            },
+            subtextStyle: {
+                fontSize: 11,
+                color: '#64748B',
+            },
         },
-        grid: { left: 24, right: 36, top: 40, bottom: 24, containLabel: true },
+        legend: {
+            show: false, // Digantikan oleh vertical scale bar di sebelah kanan
+        },
+        grid: { left: 24, right: 210, top: 72, bottom: 48, containLabel: true },
         xAxis: {
             type: 'value',
             min: 0,
             max: 100,
+            name: 'Proporsi jawaban alumni',
+            nameLocation: 'middle',
+            nameGap: 30,
             axisLabel: { formatter: '{value}%', color: '#64748B', fontSize: 11 },
             splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
         },
@@ -602,12 +524,140 @@ const methodsStackedOption = computed(() => {
                 color: '#1E293B',
                 fontWeight: 500,
                 fontSize: 12,
-                width: 190,
+                width: 170,
                 overflow: 'break',
             },
             axisTick: { show: false },
             axisLine: { lineStyle: { color: '#CBD5E1' } },
         },
+        graphic: [
+            // Vertical Scale Bar Legenda Skala Penilaian di sisi kanan (Urutan: 5 Hijau paling atas s/d 1 Merah paling bawah)
+            {
+                type: 'group',
+                right: 18,
+                top: 'middle',
+                children: [
+                    // Teks vertikal "Skala Penilaian" di paling kiri bar
+                    {
+                        type: 'text',
+                        left: 0,
+                        top: 110,
+                        rotation: -Math.PI / 2,
+                        style: {
+                            text: 'Skala Penilaian',
+                            fill: '#0F172A',
+                            font: 'bold 11px Inter, sans-serif',
+                            textAlign: 'center',
+                        },
+                    },
+
+                    // Segmen 5 (Paling Atas): Hijau Tua - Sangat Besar (Skala 5)
+                    {
+                        type: 'text',
+                        left: 18,
+                        top: 15,
+                        style: { text: '5', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+                    },
+                    {
+                        type: 'rect',
+                        left: 28,
+                        top: 0,
+                        shape: { width: 22, height: 44 },
+                        style: { fill: '#1E6B37', stroke: '#1E293B', lineWidth: 1 },
+                    },
+                    {
+                        type: 'text',
+                        left: 58,
+                        top: 15,
+                        style: { text: 'Sangat Besar', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+                    },
+
+                    // Segmen 4: Hijau Muda - Besar (Skala 4)
+                    {
+                        type: 'text',
+                        left: 18,
+                        top: 59,
+                        style: { text: '4', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+                    },
+                    {
+                        type: 'rect',
+                        left: 28,
+                        top: 44,
+                        shape: { width: 22, height: 44 },
+                        style: { fill: '#5EBA7D', stroke: '#1E293B', lineWidth: 1 },
+                    },
+                    {
+                        type: 'text',
+                        left: 58,
+                        top: 59,
+                        style: { text: 'Besar', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+                    },
+
+                    // Segmen 3: Kuning - Cukup Besar (Skala 3)
+                    {
+                        type: 'text',
+                        left: 18,
+                        top: 103,
+                        style: { text: '3', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+                    },
+                    {
+                        type: 'rect',
+                        left: 28,
+                        top: 88,
+                        shape: { width: 22, height: 44 },
+                        style: { fill: '#FACC15', stroke: '#1E293B', lineWidth: 1 },
+                    },
+                    {
+                        type: 'text',
+                        left: 58,
+                        top: 103,
+                        style: { text: 'Cukup Besar', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+                    },
+
+                    // Segmen 2: Oranye - Kurang (Skala 2)
+                    {
+                        type: 'text',
+                        left: 18,
+                        top: 147,
+                        style: { text: '2', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+                    },
+                    {
+                        type: 'rect',
+                        left: 28,
+                        top: 132,
+                        shape: { width: 22, height: 44 },
+                        style: { fill: '#EA580C', stroke: '#1E293B', lineWidth: 1 },
+                    },
+                    {
+                        type: 'text',
+                        left: 58,
+                        top: 147,
+                        style: { text: 'Kurang', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+                    },
+
+                    // Segmen 1 (Paling Bawah): Merah - Tidak Sama Sekali (Skala 1)
+                    {
+                        type: 'text',
+                        left: 18,
+                        top: 191,
+                        style: { text: '1', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+                    },
+                    {
+                        type: 'rect',
+                        left: 28,
+                        top: 176,
+                        shape: { width: 22, height: 44 },
+                        style: { fill: '#B91C1C', stroke: '#1E293B', lineWidth: 1 },
+                    },
+                    {
+                        type: 'text',
+                        left: 58,
+                        top: 191,
+                        style: { text: 'Tidak Sama Sekali', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+                    },
+                ],
+            },
+        ],
         tooltip: {
             ...lightTooltipConfig,
             trigger: 'item',
@@ -648,12 +698,13 @@ const prodis = computed(() => {
 });
 
 // Pemetaan warna latar dan teks untuk menjamin kontras tinggi & terbaca jelas
+// Sesuai arahan: spektrum hijau institusional dengan highlight merah untuk skor 1 - 2
 const heatmapPalette = {
-    1: { bg: analyticsScalePalette[0], text: '#0F172A', label: 'Tidak Sama Sekali' },
-    2: { bg: analyticsScalePalette[1], text: '#0F172A', label: 'Kurang' },
-    3: { bg: analyticsScalePalette[2], text: '#0F172A', label: 'Cukup Besar' },
-    4: { bg: analyticsScalePalette[3], text: '#0F172A', label: 'Besar' },
-    5: { bg: analyticsScalePalette[4], text: '#FFFFFF', label: 'Sangat Besar' },
+    1: { bg: '#B91C1C', text: '#FFFFFF', label: 'Tidak Sama Sekali' },
+    2: { bg: '#EF4444', text: '#FFFFFF', label: 'Kurang' },
+    3: { bg: '#E2F3E7', text: '#0F172A', label: 'Cukup Besar' },
+    4: { bg: '#2F7D4A', text: '#FFFFFF', label: 'Besar' },
+    5: { bg: '#0D542B', text: '#FFFFFF', label: 'Sangat Besar' },
 };
 
 const heatmapData = computed(() => {
@@ -666,16 +717,20 @@ const heatmapData = computed(() => {
             const group = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && r.kode_pertanyaan === key);
             const scores = group.map((r) => Number(r.score)).filter((s) => !isNaN(s) && s >= 1 && s <= 5);
             const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+            // Dibulatkan bulat ke integer 1 - 5 (INT penuh, tanpa desimal)
             const roundInt = Math.max(1, Math.min(5, Math.round(avg) || 3));
 
             values.push({
                 value: [xIndex, yIndex, roundInt],
                 rawAvg: avg,
+                scoreInt: roundInt,
                 count: scores.length,
                 prodi,
                 methodKey: key,
                 methodLabel: series.value.find((s) => s.key === key)?.label || key,
-                label: { color: roundInt === 5 ? '#FFFFFF' : '#0F172A' },
+                label: {
+                    color: roundInt === 3 ? '#0F172A' : '#FFFFFF',
+                },
             });
         });
     });
@@ -689,49 +744,68 @@ const heatmapOption = computed(() => {
 
     return {
         ...baseOption(records.value.length),
-        grid: { left: 24, right: 32, top: 16, bottom: 68, containLabel: true },
+        grid: { left: 20, right: 150, top: 75, bottom: 20, containLabel: true },
         xAxis: {
             type: 'category',
+            position: 'top',
             data: methodLabels,
             axisLabel: {
-                rotate: 22,
-                color: '#334155',
+                rotate: -35,
+                color: '#1E293B',
                 fontSize: 11,
-                fontWeight: 500,
+                fontWeight: 600,
                 interval: 0,
                 formatter: (val) => {
                     if (val.includes('Partisipasi')) {
-                        return 'Partisipasi dalam\nproyek riset';
+                        return 'Partisipasi Riset';
                     }
                     return val;
                 },
             },
+            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
             splitArea: { show: false },
         },
         yAxis: {
             type: 'category',
+            inverse: true,
             data: prodis.value,
-            axisLabel: { color: '#334155', width: 170, fontSize: 11, fontWeight: 500 },
+            axisLabel: { color: '#1E293B', width: 170, fontSize: 11, fontWeight: 500 },
+            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
             splitArea: { show: false },
         },
         visualMap: {
-            type: 'piecewise',
+            type: 'continuous',
             min: 1,
             max: 5,
-            show: false,
-            splitNumber: 5,
-            pieces: [
-                { value: 1, label: '1: Tidak Sama Sekali', color: analyticsScalePalette[0] },
-                { value: 2, label: '2: Kurang', color: analyticsScalePalette[1] },
-                { value: 3, label: '3: Cukup Besar', color: analyticsScalePalette[2] },
-                { value: 4, label: '4: Besar', color: analyticsScalePalette[3] },
-                { value: 5, label: '5: Sangat Besar', color: analyticsScalePalette[4] },
-            ],
+            precision: 0,
+            orient: 'vertical',
+            right: 18,
+            top: 'middle',
+            itemWidth: 18,
+            itemHeight: 240,
+            inRange: {
+                color: [
+                    '#B91C1C', // 1: Merah pekat (Highlight)
+                    '#EF4444', // 2: Merah terang (Highlight)
+                    '#E2F3E7', // 3: Hijau pucat netral
+                    '#2F7D4A', // 4: Hijau sedang
+                    '#0D542B', // 5: Hijau tua institusi UKDW
+                ],
+            },
+            text: ['5 (Sangat Besar)', '1 (Tidak Sama Sekali)'],
+            textGap: 10,
+            textStyle: {
+                color: '#1E293B',
+                fontSize: 11,
+                fontWeight: 600,
+            },
         },
         tooltip: {
             ...lightTooltipConfig,
             formatter: ({ data }) => {
-                const score = data?.value?.[2] || 0;
+                const score = data?.value?.[2] || data?.scoreInt || 0;
                 return `
                     <div style="min-width: 180px;">
                         <div style="font-weight: 700; color: #0F172A; font-size: 13px; border-bottom: 1px solid #F1F5F9; padding-bottom: 4px; margin-bottom: 6px;">
@@ -741,10 +815,10 @@ const heatmapOption = computed(() => {
                             Metode: <strong style="color: #0F172A;">${escapeHtml(data.methodLabel)}</strong>
                         </div>
                         <div style="font-size: 12px; color: #475569; margin-bottom: 3px;">
-                            Skor INT: <strong style="color: #0D542B; font-size: 13px;">${score}</strong> (${escapeHtml(scaleDescriptions[score] || '-')})
+                            Skor: <strong style="color: ${score <= 2 ? '#B91C1C' : '#0D542B'}; font-size: 13px;">${score}</strong> (${escapeHtml(scaleDescriptions[score] || '-')})
                         </div>
                         <div style="font-size: 11px; color: #64748B;">
-                            Rerata Presisi: <strong style="color: #334155;">${formatNumber(data.rawAvg, 2)}</strong> (N = ${data.count})
+                            Total Responden: <strong style="color: #334155;">${data.count} alumni</strong>
                         </div>
                     </div>
                 `;
@@ -758,26 +832,23 @@ const heatmapOption = computed(() => {
                 borderColor: '#FFFFFF',
                 borderWidth: 1.5,
             },
+            // Tidak menampilkan tulisan angka dalam kondisi default (hanya warna matriks bersih)
             label: {
-                show: true,
-                fontSize: 11,
-                fontWeight: 700,
-                color: '#0F172A',
-                formatter: ({ value }) => (value[2] > 0 ? value[2] : '-'),
+                show: false,
             },
+            // Saat di-hover: warna sel tidak berubah, hanya angka integer yang muncul
             emphasis: {
-                disabled: false,
+                focus: 'none',
                 itemStyle: {
-                    borderColor: '#0F172A',
-                    borderWidth: 2,
-                    shadowBlur: 4,
-                    shadowColor: 'rgba(0, 0, 0, 0.2)',
+                    borderColor: '#FFFFFF',
+                    borderWidth: 1.5,
+                    shadowBlur: 0,
+                    shadowColor: 'transparent',
                 },
                 label: {
                     show: true,
                     fontSize: 13,
                     fontWeight: 800,
-                    color: '#0F172A',
                     formatter: ({ value }) => (value[2] > 0 ? value[2] : '-'),
                 },
             },
@@ -880,7 +951,6 @@ const summaryTableData = computed(() => {
                     <h3 class="text-base font-extrabold text-slate-900">
                         <template v-if="activeViewMode === 'table'">Tabel Data Penekanan Metode Pembelajaran</template>
                         <template v-else-if="activeChartTab === 'radar'">{{ activeChartType }} Penekanan Metode Pembelajaran</template>
-                        <template v-else-if="activeChartTab === 'line'">{{ activeChartType }} Penekanan Metode Pembelajaran</template>
                         <template v-else-if="activeChartTab === 'stacked'">{{ activeChartType }} Distribusi Skala</template>
                         <template v-else>Perbandingan Metode per Program Studi</template>
                     </h3>
@@ -891,9 +961,6 @@ const summaryTableData = computed(() => {
                     </template>
                     <template v-else-if="activeChartTab === 'radar'">
                         Visualisasi jaring laba-laba 7 dimensi metode belajar.
-                    </template>
-                    <template v-else-if="activeChartTab === 'line'">
-                        Mengadopsi Gambar 4.3 Laporan Tracer Study UKDW (garis horizontal hijau dengan skala 1-5).
                     </template>
                     <template v-else-if="activeChartTab === 'stacked'">
                         Proporsi pilihan jawaban alumni dari Tidak Sama Sekali (1) hingga Sangat Besar (5).
@@ -915,14 +982,6 @@ const summaryTableData = computed(() => {
                         @click="activeChartTab = 'radar'"
                     >
                         Diagram Radar
-                    </button>
-                    <button
-                        type="button"
-                        class="rounded-md px-3 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeChartTab === 'line' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                        @click="activeChartTab = 'line'"
-                    >
-                        Diagram Garis
                     </button>
                     <button
                         type="button"
@@ -1050,71 +1109,11 @@ const summaryTableData = computed(() => {
                 </div>
             </div>
 
-            <!-- 2. Line Chart Utama (Gambar 4.3 PDF) -->
-            <div v-else-if="activeChartTab === 'line'" class="space-y-4">
-                <AnalyticsEChart
-                    :option="methodsLineOption"
-                    :height="430"
-                    :loading="loading"
-                    @select="handleChartClick"
-                />
-                <p class="px-1 text-xs leading-relaxed text-slate-500">
-                    <span class="font-semibold text-slate-700">Caption:</span>
-                    Median skor penekanan setiap metode pembelajaran pada responden valid.
-                </p>
-
-                <!-- Kotak Analisis Khusus Grafik Garis -->
-                <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
-                        <span class="text-xs font-bold uppercase tracking-wider text-slate-700">
-                            {{ lineAnalysis.title }}
-                        </span>
-                        <div class="flex items-center gap-2">
-                            <span class="rounded px-2 py-0.5 text-[11px] font-bold" :class="lineAnalysis.badgeClass">
-                                {{ lineAnalysis.statusBadge }}
-                            </span>
-                            <button
-                                v-if="selectedMethodKey"
-                                type="button"
-                                class="rounded border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-[#0D542B] hover:bg-emerald-50 cursor-pointer transition-colors"
-                                @click="resetMethodSelection"
-                            >
-                                Kembali ke Analisis Keseluruhan
-                            </button>
-                        </div>
-                    </div>
-                    <p class="mt-2.5 text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
-                        {{ lineAnalysis.lead }}
-                    </p>
-                    <p class="mt-1 text-xs text-slate-600 leading-relaxed">
-                        {{ lineAnalysis.detail }}
-                    </p>
-                    <p class="mt-2 border-t border-slate-200/70 pt-2 text-xs text-slate-500 leading-relaxed">
-                        <span class="font-semibold text-[#0D542B]">Alasan pemilihan ({{ activeChartType }}):</span>
-                        {{ activeChartReason }}
-                    </p>
-                </div>
-
-                <div class="flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-xs">
-                    <div class="text-slate-600">
-                        Responden Valid: <strong class="text-slate-900 font-semibold">{{ formatNumber(validResponses, 0) }} alumni</strong>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-1.5 text-slate-700">
-                        <span class="font-bold text-slate-500 mr-1">Skala Penilaian:</span>
-                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">1: Tidak Sama Sekali</span>
-                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">2: Kurang</span>
-                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">3: Cukup Besar</span>
-                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">4: Besar</span>
-                        <span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-800">5: Sangat Besar</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 3. Stacked Bar Chart Distribusi Skala -->
+            <!-- 2. Stacked Bar Chart Distribusi Skala -->
             <div v-else-if="activeChartTab === 'stacked'" class="space-y-4">
                 <AnalyticsEChart
                     :option="methodsStackedOption"
-                    :height="430"
+                    :height="480"
                     :loading="loading"
                     @select="handleChartClick"
                 />
@@ -1165,17 +1164,17 @@ const summaryTableData = computed(() => {
                 </div>
             </div>
 
-            <!-- 4. Heatmap Antar Program Studi -->
+            <!-- 3. Heatmap Antar Program Studi -->
             <div v-else class="space-y-4">
                 <AnalyticsEChart
                     :option="heatmapOption"
-                    :height="500"
+                    :height="520"
                     :loading="loading"
                     @select="handleChartClick"
                 />
                 <p class="px-1 text-xs leading-relaxed text-slate-500">
                     <span class="font-semibold text-slate-700">Caption:</span>
-                    Intensitas skor penekanan metode pembelajaran pada setiap program studi.
+                    Intensitas skor penekanan metode pembelajaran pada setiap program studi dengan gradasi hijau dan highlight merah untuk skor rendah (1–2).
                 </p>
 
                 <!-- Legenda Skala Penilaian Jelas & Kontras -->
@@ -1186,23 +1185,23 @@ const summaryTableData = computed(() => {
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="font-bold text-slate-500 mr-0.5">Skala Penilaian:</span>
                         <div class="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 shadow-2xs">
-                            <span class="inline-block h-3 w-3 rounded-xs" :style="{ backgroundColor: analyticsScalePalette[0] }" />
-                            <span class="text-[11px] font-semibold text-slate-800">1: Tidak Sama Sekali</span>
+                            <span class="inline-block h-3 w-3 rounded-xs" style="background-color: #B91C1C;" />
+                            <span class="text-[11px] font-semibold text-slate-800">1: Tidak Sama Sekali (Highlight)</span>
                         </div>
                         <div class="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 shadow-2xs">
-                            <span class="inline-block h-3 w-3 rounded-xs" :style="{ backgroundColor: analyticsScalePalette[1] }" />
-                            <span class="text-[11px] font-semibold text-slate-800">2: Kurang</span>
+                            <span class="inline-block h-3 w-3 rounded-xs" style="background-color: #EF4444;" />
+                            <span class="text-[11px] font-semibold text-slate-800">2: Kurang (Highlight)</span>
                         </div>
                         <div class="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 shadow-2xs">
-                            <span class="inline-block h-3 w-3 rounded-xs" :style="{ backgroundColor: analyticsScalePalette[2] }" />
+                            <span class="inline-block h-3 w-3 rounded-xs" style="background-color: #E2F3E7;" />
                             <span class="text-[11px] font-semibold text-slate-800">3: Cukup Besar</span>
                         </div>
                         <div class="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 shadow-2xs">
-                            <span class="inline-block h-3 w-3 rounded-xs" :style="{ backgroundColor: analyticsScalePalette[3] }" />
+                            <span class="inline-block h-3 w-3 rounded-xs" style="background-color: #2F7D4A;" />
                             <span class="text-[11px] font-semibold text-slate-800">4: Besar</span>
                         </div>
                         <div class="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 shadow-2xs">
-                            <span class="inline-block h-3 w-3 rounded-xs" :style="{ backgroundColor: analyticsScalePalette[4] }" />
+                            <span class="inline-block h-3 w-3 rounded-xs" style="background-color: #0D542B;" />
                             <span class="text-[11px] font-semibold text-slate-800">5: Sangat Besar</span>
                         </div>
                     </div>

@@ -828,7 +828,7 @@ const dashboardRoute = computed(() => {
 <template>
     <Head :title="`Sinkronisasi LinkedIn - ${roleTitle}`" />
 
-    <div class="min-h-screen bg-[#f8fafc] text-gray-800 font-sans flex">
+    <div class="min-h-screen bg-[#f8fafc] text-gray-800 font-sans flex min-w-[1280px]">
         <!-- Sidebar Adaptif Sesuai Role Pengguna -->
         <SidebarSuperAdmin v-if="role === 'superadmin' || !role" activeMenu="linkedin-sync" />
         <SidebarFakultas v-else-if="role === 'admin_fakultas'" activeMenu="linkedin-sync" />
@@ -840,7 +840,7 @@ const dashboardRoute = computed(() => {
 
             <!-- Header Solid Hijau Resmi UKDW #0D542B (Serasi dengan superadmin/alumni) -->
             <header class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8">
-                <div class="w-full max-w-[1400px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div class="w-full flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <div class="flex items-center gap-2 text-xs text-white/80 font-medium mb-2">
                             <Link :href="dashboardRoute" class="hover:underline">Dashboard</Link>
@@ -881,7 +881,7 @@ const dashboardRoute = computed(() => {
             </header>
 
             <!-- Main Content Container -->
-            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-16">
+            <main class="admin-page-main w-full -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-16">
 
                 <!-- 6 Kartu Statistik Ringkas & Profesional (Formal, Flat, Bersih) -->
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">

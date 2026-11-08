@@ -62,6 +62,19 @@ class AnalyticsDemoDistributionSeeder extends Seeder
      */
     public function run(): void
     {
+        $demoBiodata = Biodata::query()
+            ->with(['dataAkademik', 'prodi'])
+            ->whereHas('user', fn ($query) => $query->where('email', 'like', 'demo.%@alumni.ukdw.ac.id'))
+            ->whereIn('id', DB::table('kuesioner_jawaban')->select('biodata_id')->where('kode_pertanyaan', 'F8'))
+            ->orderBy('id')
+            ->get();
+
+        if ($demoBiodata->isEmpty()) {
+            $this->command?->warn('AnalyticsDemoDistributionSeeder dilewati karena alumni demo belum tersedia.');
+
+            return;
+        }
+
         $locations = $this->locations();
         $companies = collect([
             ['name' => 'PT Demo Analitik Yogyakarta', 'province' => '34', 'city' => '34.71'],
@@ -101,19 +114,6 @@ class AnalyticsDemoDistributionSeeder extends Seeder
 
         // Pastikan opsi F16 memakai satu pilihan "Lainnya" tanpa varian isian lama.
         $this->normalizeMismatchOptionData();
-
-        $demoBiodata = Biodata::query()
-            ->with(['dataAkademik', 'prodi'])
-            ->whereHas('user', fn ($query) => $query->where('email', 'like', 'demo.%@alumni.ukdw.ac.id'))
-            ->whereIn('id', DB::table('kuesioner_jawaban')->select('biodata_id')->where('kode_pertanyaan', 'F8'))
-            ->orderBy('id')
-            ->get();
-
-        if ($demoBiodata->isEmpty()) {
-            $this->command?->warn('AnalyticsDemoDistributionSeeder dilewati karena alumni demo belum tersedia.');
-
-            return;
-        }
 
         // UMP diambil dari database agar syarat perbandingan gaji mengikuti tahun lulusan.
         $umpByProvinceYear = DB::table('ump')

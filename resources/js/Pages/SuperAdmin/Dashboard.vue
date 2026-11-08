@@ -204,14 +204,14 @@ const filteredAlumni = computed(() => {
 <template>
     <Head title="Dashboard Super Admin - Tracer Study UKDW" />
 
-    <div class="min-h-screen bg-[#f8fafc] text-gray-800 flex font-sans">
+    <div class="min-h-screen bg-[#f8fafc] text-gray-800 flex font-sans min-w-[1280px]">
         
         <AdminSidebar role="superadmin" :user="user" active-menu="dashboard" />
 
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             
             <header class="bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8">
-                <div class="w-full max-w-[1440px] mx-auto">
+                <div class="w-full">
                     <nav class="flex items-center gap-2 text-xs text-emerald-100 font-medium mb-2.5">
                         <span>Tracer Study</span>
                         <span class="text-emerald-300/60">/</span>
@@ -246,7 +246,7 @@ const filteredAlumni = computed(() => {
                 </div>
             </header>
 
-            <main class="admin-page-main relative z-10 w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+            <main class="admin-page-main relative z-10 w-full -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
                 <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
                     <button
                         type="button"

@@ -122,8 +122,9 @@ const barTable = computed(() => ({
 // Rincian alumni pada opsi lainnya
 const lainnyaRecords = computed(() => {
     return records.value.filter((r) => {
-        const ans = String(recordCategory(r) || '').toLowerCase();
-        return ans.includes('lain');
+        const cat = String(r.category || recordCategory(r) || '').toLowerCase();
+        const ans = String(r.answer || '').toLowerCase();
+        return cat.includes('lain') || cat.includes('other') || ans.includes('lain') || ans.includes('other');
     });
 });
 
@@ -138,7 +139,7 @@ const lainnyaTable = computed(() => ({
         nim: r.nim || '-',
         nama: r.nama || '-',
         nama_prodi: r.nama_prodi || '-',
-        answer: r.answer || 'Lainnya',
+        answer: r.detail || r.answer || 'Lainnya',
     })),
 }));
 
@@ -167,19 +168,22 @@ const views = computed(() => {
     if (lainnyaRecords.value.length > 0) {
         list.push({
             key: 'lainnya_detail',
-            chartType: 'table',
-            tabLabel: `Isian Lainnya (${lainnyaRecords.value.length})`,
-            title: 'Rincian isian alumni pada opsi alasan lainnya',
-            description: 'Daftar jawaban bebas dan pertimbangan personal alternatif yang disampaikan alumni pada instrumen F16.',
+            chartType: 'word_cloud',
+            tabLabel: `Awan Kata Lainnya (${lainnyaRecords.value.length})`,
+            title: 'Awan Kata (Word Cloud) Alasan Ketidaksesuaian Lainnya',
+            description: 'Visualisasi frekuensi kata kunci dari pertimbangan personal dan alasan alternatif yang disampaikan alumni pada instrumen F16.',
+            wordCloudTitle: 'Awan Kata (Word Cloud) Alasan Mengambil Pekerjaan Lainnya',
+            wordCloudSubtitle: 'Visualisasi kata kunci dari motivasi kerja alumni di luar opsi baku instrumen F16.',
+            wordCloudRecords: lainnyaRecords.value,
             option: barOption.value,
             tableData: lainnyaTable.value,
             height: 380,
             analysis: {
                 title: 'Kilas Isian Bebas F16',
-                statusBadge: 'Respon Mandiri',
+                statusBadge: 'Word Cloud',
                 badgeClass: 'bg-amber-50 text-amber-800 border border-amber-200',
-                lead: `Terdapat ${lainnyaRecords.value.length} alumni yang mencantumkan penjelasan alasan khusus di luar opsi baku.`,
-                detail: 'Membantu universitas memahami motivasi unik karir alumni dalam dinamika pasar tenaga kerja modern.',
+                lead: `Terdapat ${lainnyaRecords.value.length} alumni yang mencantumkan penjelasan alasan khusus di luar opsi baku yang diolah dalam bentuk awan kata.`,
+                detail: 'Membantu universitas memahami motivasi unik karir alumni dalam dinamika pasar tenaga kerja modern seperti peluang bisnis, fleksibilitas kerja, dan pengembangan minat baru.',
             },
         });
     }

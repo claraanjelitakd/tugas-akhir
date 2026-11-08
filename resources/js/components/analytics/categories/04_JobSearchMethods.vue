@@ -41,11 +41,13 @@ const validResponses = computed(() => props.chart?.summary?.answered_count || re
 const barOption = computed(() => {
     // Urutkan dari frekuensi terendah ke tertinggi agar di horizontal bar tampak tertinggi di atas
     const rows = [...series.value].filter((item) => seriesMetric(item) > 0).map((item) => {
-        const label = seriesLabel(item);
+        const label = item.short_label || seriesLabel(item);
+        const fullLabel = item.full_label || label;
         const count = seriesMetric(item);
-        const selected = !props.selectedLabel || props.selectedLabel === label;
+        const selected = !props.selectedLabel || props.selectedLabel === label || props.selectedLabel === fullLabel;
         return {
             name: label,
+            fullLabel,
             value: count,
             percentage: item.percentage || 0,
             itemStyle: {
@@ -78,7 +80,7 @@ const barOption = computed(() => {
             type: 'category',
             data: rows.map((r) => r.name),
             axisLabel: {
-                width: 320,
+                width: 200,
                 overflow: 'break',
                 fontSize: 11,
                 lineHeight: 14,
@@ -92,7 +94,21 @@ const barOption = computed(() => {
             formatter: (params) => {
                 const item = rows[params[0]?.dataIndex];
                 if (!item) return '';
-                return `<strong>${escapeHtml(item.name)}</strong><br>Jumlah: <strong>${formatNumber(item.value, 0)} alumni</strong>`;
+                const hasDifferentFull = item.fullLabel && item.fullLabel !== item.name;
+                return `
+                    <div style="min-width: 190px;">
+                        <div style="font-weight: 700; color: #0F172A; font-size: 13px; ${hasDifferentFull ? 'margin-bottom: 2px;' : 'border-bottom: 1px solid #F1F5F9; padding-bottom: 4px; margin-bottom: 6px;'}">
+                            ${escapeHtml(item.name)}
+                        </div>
+                        ${hasDifferentFull ? `<div style="font-size: 11px; color: #64748B; border-bottom: 1px solid #F1F5F9; padding-bottom: 4px; margin-bottom: 6px; line-height: 1.35;">${escapeHtml(item.fullLabel)}</div>` : ''}
+                        <div style="font-size: 12px; color: #475569; margin-bottom: 2px;">
+                            Jumlah: <strong style="color: #0D542B; font-size: 13px;">${formatNumber(item.value, 0)} alumni</strong>
+                        </div>
+                        <div style="font-size: 11px; color: #64748B;">
+                            Proporsi: <strong style="color: #334155;">${formatPercentage(item.percentage)}%</strong>
+                        </div>
+                    </div>
+                `;
             },
         },
         series: [{
@@ -123,11 +139,15 @@ const barTable = computed(() => ({
         { key: 'count', label: 'Jumlah Alumni', align: 'right' },
         { key: 'percentage', label: 'Persentase Responden', align: 'right' },
     ],
-    rows: series.value.filter((item) => seriesMetric(item) > 0).map((item) => ({
-        name: seriesLabel(item),
-        count: formatNumber(seriesMetric(item), 0),
-        percentage: formatPercentage(item.percentage || 0),
-    })),
+    rows: series.value.filter((item) => seriesMetric(item) > 0).map((item) => {
+        const short = item.short_label || seriesLabel(item);
+        const full = item.full_label || short;
+        return {
+            name: short !== full ? `${short} (${full})` : short,
+            count: formatNumber(seriesMetric(item), 0),
+            percentage: formatPercentage(item.percentage || 0),
+        };
+    }),
 }));
 
 // -----------------------------------------------------------------------------
@@ -135,8 +155,9 @@ const barTable = computed(() => ({
 // -----------------------------------------------------------------------------
 const lainnyaRecords = computed(() => {
     return records.value.filter((r) => {
-        const ans = String(recordCategory(r) || '').toLowerCase();
-        return ans.includes('lain') || ans.includes('other');
+        const cat = String(r.category || recordCategory(r) || '').toLowerCase();
+        const ans = String(r.answer || '').toLowerCase();
+        return cat.includes('lain') || cat.includes('other') || ans.includes('lain') || ans.includes('other');
     });
 });
 
@@ -151,7 +172,7 @@ const lainnyaTable = computed(() => ({
         nim: r.nim || '-',
         nama: r.nama || '-',
         nama_prodi: r.nama_prodi || '-',
-        answer: r.answer || 'Lainnya',
+        answer: r.detail || r.answer || 'Lainnya',
     })),
 }));
 
@@ -183,23 +204,26 @@ const views = computed(() => {
         },
     ];
 
-    // Jika terdapat catatan isian responden pada opsi "Lainnya", hadirkan tab tabel transparan
+    // Jika terdapat catatan isian responden pada opsi "Lainnya", hadirkan tab Word Cloud interaktif
     if (lainnyaRecords.value.length > 0) {
         list.push({
             key: 'lainnya_detail',
-            chartType: 'table',
-            tabLabel: `Isian Lainnya (${lainnyaRecords.value.length})`,
-            title: 'Rincian isian alumni pada opsi saluran lainnya',
-            description: 'Daftar jawaban bebas dan metode alternatif yang disampaikan alumni pada instrumen F4.',
+            chartType: 'word_cloud',
+            tabLabel: `Awan Kata Lainnya (${lainnyaRecords.value.length})`,
+            title: 'Awan Kata (Word Cloud) Isian Saluran Kerja Lainnya',
+            description: 'Visualisasi frekuensi kata kunci dari saluran alternatif dan metode kerja yang disampaikan alumni pada instrumen F4.',
+            wordCloudTitle: 'Awan Kata (Word Cloud) Saluran Pencarian Kerja Lainnya',
+            wordCloudSubtitle: 'Visualisasi kata kunci dari metode alternatif yang dituliskan alumni di luar pilihan baku instrumen F4.',
+            wordCloudRecords: lainnyaRecords.value,
             option: barOption.value,
             tableData: lainnyaTable.value,
             height: 380,
             analysis: {
                 title: 'Kilas Isian Saluran Alternatif',
-                statusBadge: 'Respon Bebas',
+                statusBadge: 'Word Cloud',
                 badgeClass: 'bg-amber-50 text-amber-800 border border-amber-200',
-                lead: `Terdapat ${lainnyaRecords.value.length} alumni yang mencantumkan saluran kerja di luar pilihan baku yang tersedia pada instrumen kuesioner.`,
-                detail: 'Isian ini mencerminkan dinamika saluran kerja modern, seperti proyek portofolio mandiri, platform freelancing internasional, dan rekrutmen tertutup melalui komunitas profesional.',
+                lead: `Terdapat ${lainnyaRecords.value.length} alumni yang mencantumkan saluran kerja di luar pilihan baku yang diolah dalam bentuk awan kata interaktif.`,
+                detail: 'Isian ini mencerminkan dinamika saluran kerja modern, seperti proyek portofolio mandiri, platform freelancing internasional, hackathon, dan rekrutmen tertutup melalui komunitas profesional.',
             },
         });
     }

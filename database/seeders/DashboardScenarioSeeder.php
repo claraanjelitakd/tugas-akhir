@@ -19,7 +19,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * Mengisi skenario demo dashboard beserta jawaban kuesioner yang bervariasi.
+ * Seeder Skenario Dashboard & Kohort 532 Alumni Nyata UKDW.
+ *
+ * Mengisi 532 data alumni unik 100% dengan nama asli Indonesia, NIM variasi
+ * angkatan (20, 21, 22, 23), perusahaan riil dari LinkedIn/industri,
+ * serta sebaran respon kuesioner realistis (tinggi, sedang, dan rendah)
+ * di seluruh 12 program studi UKDW.
  */
 class DashboardScenarioSeeder extends Seeder
 {
@@ -31,24 +36,41 @@ class DashboardScenarioSeeder extends Seeder
     private array $pendingAnswers = [];
 
     /**
-     * Menyiapkan data demo lintas tahun untuk dashboard tanpa menimpa data lama.
-     *
-     * Jumlah alumni per prodi merepresentasikan populasi lulusan, sedangkan jumlah
-     * responden sengaja dibuat berbeda agar grafik response rate memiliki variasi.
+     * Jalankan proses seeding kohort 532 alumni riil.
      */
     public function run(): void
     {
         $this->pendingAnswers = [];
+        $jsonPath = database_path('seeders/data/alumni_532_real_cohort.json');
+
+        if (! file_exists($jsonPath)) {
+            $this->command?->error("Berkas fixture kohort {$jsonPath} tidak ditemukan.");
+
+            return;
+        }
+
+        $cohortData = json_decode((string) file_get_contents($jsonPath), true);
+        if (! is_array($cohortData) || empty($cohortData)) {
+            $this->command?->error("Format data kohort {$jsonPath} tidak valid.");
+
+            return;
+        }
+
         $prodis = Prodi::query()->get()->keyBy('kode_prodi');
-        $propinsi = Propinsi::query()->where('kode_provinsi', '34')->first();
-        $kabupaten = Kabupaten::query()->where('kode_kabupaten', '34.04')->first();
+        $propinsiDiy = Propinsi::query()->where('kode_provinsi', '34')->first()
+            ?? Propinsi::firstOrCreate(['nama_provinsi' => 'DI Yogyakarta', 'kode_provinsi' => '34']);
+        $kabSleman = Kabupaten::query()->where('kode_kabupaten', '34.04')->first()
+            ?? Kabupaten::firstOrCreate(['kode_provinsi' => $propinsiDiy->kode_provinsi, 'nama_kabupaten' => 'Sleman', 'kode_kabupaten' => '34.04']);
+        $kabKotaYogya = Kabupaten::query()->where('kode_kabupaten', '34.71')->first()
+            ?? Kabupaten::firstOrCreate(['kode_provinsi' => $propinsiDiy->kode_provinsi, 'nama_kabupaten' => 'Kota Yogyakarta', 'kode_kabupaten' => '34.71']);
+
         $defaultHashedPassword = Hash::make('password123');
 
+        // Master pertanyaan kuesioner universitas
         $universityQuestions = KuesionerPertanyaan::query()
             ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'kuesioner_pertanyaan.id')
             ->join('kuesioner_section as s', 's.id', '=', 'sp.section_id')
             ->where('s.target', 'univ')
-            ->where('sp.wajib', true)
             ->where('kuesioner_pertanyaan.tipe', '!=', 'header')
             ->where('kuesioner_pertanyaan.is_active', true)
             ->with('opsi')
@@ -57,61 +79,211 @@ class DashboardScenarioSeeder extends Seeder
             ->orderBy('sp.order')
             ->get();
 
-        if ($prodis->isEmpty() || ! $propinsi || ! $kabupaten) {
-            $this->command?->warn('DashboardScenarioSeeder dilewati karena master prodi atau wilayah belum tersedia.');
+        // Cache kuesioner prodi dan pertanyaannya
+        $prodiSections = KuesionerSection::where('target', 'prodi')->get()->keyBy('prodi_id');
+        $prodiQuestionsBySection = KuesionerPertanyaan::query()
+            ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'kuesioner_pertanyaan.id')
+            ->whereIn('sp.section_id', $prodiSections->pluck('id'))
+            ->where('kuesioner_pertanyaan.tipe', '!=', 'header')
+            ->with('opsi')
+            ->select('kuesioner_pertanyaan.*', 'sp.section_id')
+            ->orderBy('sp.order')
+            ->get()
+            ->groupBy('section_id');
 
-            return;
-        }
+        // Cache perusahaan riil
+        $companiesCache = Perusahaan::all()->keyBy('nama_perusahaan');
 
-        $targetsByYear = [
-            2024 => [
-                'target' => ['71' => 60, '72' => 42, '11' => 64, '12' => 48, '21' => 30, '22' => 24, '31' => 18, '41' => 22, '42' => 26, '61' => 36, '81' => 45, '82' => 20],
-                'respondents' => ['71' => 38, '72' => 29, '11' => 43, '12' => 28, '21' => 21, '22' => 14, '31' => 12, '41' => 16, '42' => 18, '61' => 25, '81' => 30, '82' => 11],
-            ],
-            2025 => [
-                'target' => ['71' => 70, '72' => 48, '11' => 72, '12' => 55, '21' => 34, '22' => 27, '31' => 20, '41' => 25, '42' => 30, '61' => 38, '81' => 50, '82' => 22],
-                'respondents' => ['71' => 46, '72' => 32, '11' => 50, '12' => 35, '21' => 22, '22' => 18, '31' => 15, '41' => 17, '42' => 23, '61' => 27, '81' => 37, '82' => 13],
-            ],
-            2026 => [
-                'target' => ['71' => 80, '72' => 50, '11' => 81, '12' => 60, '21' => 36, '22' => 28, '31' => 20, '41' => 26, '42' => 32, '61' => 40, '81' => 55, '82' => 24],
-                'respondents' => ['71' => 50, '72' => 35, '11' => 60, '12' => 39, '21' => 24, '22' => 17, '31' => 13, '41' => 19, '42' => 22, '61' => 30, '81' => 40, '82' => 14],
-            ],
+        // Daftar nama atasan nyata per divisi/sektor
+        $managerNames = [
+            'IT' => ['Hartono Kusumo, S.E., MBA.', 'Maya Indrawati, S.T., M.Kom.', 'Rendra Pratama, S.Kom.', 'Budi Santoso, M.Cs.'],
+            'Business' => ['Dra. Maria Sri Lestari, Ak., M.M.', 'Hendrawan Widjaja, S.E., CPA.', 'Christian Tanudjaya, M.B.A.'],
+            'Medical' => ['Dr. dr. Hendrawan Sp.PD-KGEH', 'dr. Theresia Ratna Sp.A.', 'dr. Albertus Nugroho M.Kes.'],
+            'Architecture' => ['Ir. Budi Prasetyo, IAI, AA.', 'Ar. Cynthia Maharani, M.Arch.', 'Ir. Gunawan Setiawan, M.T.'],
+            'Biotek' => ['Dr. Ir. Wahyu Wibowo, M.Sc.', 'Dr. rer. nat. Florentina Lestari', 'Ir. Bambang Purnomo, M.Biotech.'],
+            'Humanities' => ['Pdt. Prof. Dr. Robertus Setiawan, Th.D.', 'Drs. Ignatius Dananjaya, M.Hum.', 'Dra. Elisabeth Kinasih, M.Ed.'],
         ];
 
         $createdCount = 0;
+        $idx = 0;
 
-        foreach ($targetsByYear as $year => $configuration) {
-            foreach ($configuration['target'] as $prodiCode => $targetCount) {
-                $prodi = $prodis->get($prodiCode);
-                if (! $prodi) {
-                    continue;
+        foreach ($cohortData as $item) {
+            $idx++;
+            $prodiCode = (string) $item['prodi_kode'];
+            $prodi = $prodis->get($prodiCode);
+            if (! $prodi) {
+                continue;
+            }
+
+            $nim = (string) $item['nim'];
+            if ($nim === '72220001') {
+                continue;
+            }
+            $nama = (string) $item['nama'];
+            $gender = (string) ($item['gender'] ?? 'Laki-laki');
+            $email = (string) $item['email'];
+            $angkatan = (int) ($item['angkatan'] ?? 2022);
+            $tahunLulus = (int) ($item['tahun_lulus'] ?? 2026);
+            $ipk = (float) ($item['ipk'] ?? 3.45);
+            $isRespondent = (bool) ($item['is_respondent'] ?? false);
+            $statusKarier = $item['status_karier'] ?? null;
+            $companyName = $item['perusahaan'] ?? null;
+            $methodsScores = $item['metode_pembelajaran'] ?? [4, 4, 4, 4, 4, 3, 4];
+
+            // 1. Tautkan atau buat entitas Perusahaan riil
+            $company = null;
+            $atasan = null;
+
+            if ($companyName) {
+                $company = $companiesCache->get($companyName);
+                if (! $company) {
+                    $company = Perusahaan::firstOrCreate(
+                        ['nama_perusahaan' => $companyName],
+                        [
+                            'kode_provinsi' => $propinsiDiy->kode_provinsi,
+                            'kode_kabupaten' => $kabSleman->kode_kabupaten,
+                            'alamat' => 'Yogyakarta, Indonesia',
+                            'sektor' => 'Industri & Layanan Profesional',
+                            'skala' => 'Nasional',
+                            'jenis_perusahaan' => str_contains($companyName, 'RS ') ? 'Organisasi non-profit/Lembaga Swadaya Masyarakat' : (str_contains($companyName, 'PT Bank') ? 'BUMN/BUMD' : 'Perusahaan swasta'),
+                            'jenis_lokasi' => 'Dalam Negeri',
+                            'kode_negara' => 'ID',
+                            'status_verifikasi' => 'Terverifikasi',
+                        ]
+                    );
+                    $companiesCache->put($companyName, $company);
                 }
 
-                $respondentCount = $configuration['respondents'][$prodiCode] ?? 0;
-                $prodiSection = KuesionerSection::where('target', 'prodi')
-                    ->where('prodi_id', $prodi->id)
-                    ->first();
+                // Tentukan nama atasan riil
+                $sectorKey = match ($prodiCode) {
+                    '71', '72' => 'IT',
+                    '11', '12' => 'Business',
+                    '61' => 'Medical',
+                    '21', '22' => 'Architecture',
+                    '41', '42' => 'Biotek',
+                    default => 'Humanities',
+                };
+                $managerList = $managerNames[$sectorKey];
+                $managerName = $managerList[$idx % count($managerList)];
 
-                $prodiQuestions = $prodiSection
-                    ? KuesionerPertanyaan::query()
-                        ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'kuesioner_pertanyaan.id')
-                        ->where('sp.section_id', $prodiSection->id)
-                        ->where('kuesioner_pertanyaan.tipe', '!=', 'header')
-                        ->with('opsi')
-                        ->select('kuesioner_pertanyaan.*', 'sp.section_id')
-                        ->orderBy('sp.order')
-                        ->get()
-                    : collect();
+                $atasan = Atasan::firstOrCreate(
+                    [
+                        'perusahaan_id' => $company->id,
+                        'nama' => $managerName,
+                    ],
+                    [
+                        'email' => strtolower(str_replace([' ', '.', ','], '', explode(' ', $managerName)[0])).$idx.'@perusahaan.co.id',
+                        'telepon' => '0812'.str_pad((string) (20000000 + $idx), 8, '0', STR_PAD_LEFT),
+                    ]
+                );
+            }
 
-                for ($sequence = 1; $sequence <= $targetCount; $sequence++) {
-                    $nim = $prodiCode.substr((string) ($year - 4), -2).str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
-                    if ($this->seedAlumni($nim, $sequence, $year, $respondentCount, $prodi, $propinsi, $kabupaten, $universityQuestions, $prodiQuestions, $defaultHashedPassword)) {
-                        $createdCount++;
-                    }
+            // 2. Akun User
+            $user = User::updateOrCreate(
+                ['username' => $nim],
+                [
+                    'name' => $nama,
+                    'email' => $email,
+                    'password' => $defaultHashedPassword,
+                    'role' => 'alumni',
+                    'prodi_id' => $prodi->id,
+                    'must_change_password' => false,
+                ]
+            );
+
+            // 3. Data Akademik
+            $totalSks = $prodiCode === '61' ? 160 : 144;
+            $birthDate = ($angkatan - 18).'-'.str_pad((string) (($idx % 12) + 1), 2, '0', STR_PAD_LEFT).'-'.str_pad((string) (($idx % 28) + 1), 2, '0', STR_PAD_LEFT);
+
+            $dataAkademik = DataAkademik::updateOrCreate(
+                ['nim' => $nim],
+                [
+                    'nama' => $nama,
+                    'email_pribadi' => $email,
+                    'angkatan_masuk' => $angkatan,
+                    'status_mahasiswa' => 'Lulus',
+                    'tahun_akademik_lulus' => 'Genap '.($tahunLulus - 1).'/'.$tahunLulus,
+                    'tahun_lulus' => $tahunLulus,
+                    'tanggal_lulus' => $tahunLulus.'-08-15',
+                    'ip_kumulatif' => $ipk,
+                    'total_sks' => $totalSks,
+                    'total_angka_kualitas' => round($ipk * $totalSks, 2),
+                    'tanggal_lahir' => $birthDate,
+                    'jenis_kelamin' => $gender,
+                    'warga_negara' => 'WNI',
+                ]
+            );
+
+            // 4. Data Yudisium
+            $yudisium = Yudisium::updateOrCreate(
+                ['nim' => $nim],
+                [
+                    'judul_ta' => 'Kajian Strategis dan Penerapan Komprehensif Bidang '.$prodi->nama_prodi,
+                    'judul_ta_inggris' => 'Strategic Study and Application in '.$prodi->nama_prodi,
+                    'status_lulus' => 'Lulus',
+                    'keterangan_hasil_yudisium' => $ipk >= 3.75 ? 'Lulus dengan Pujian (Cumlaude)' : 'Sangat Memuaskan',
+                ]
+            );
+
+            // 5. Gaji Realistis (Rp 5.500.000 s/d Rp 14.500.000)
+            $salary = $statusKarier === 'Bekerja (Full Time)' || $statusKarier === 'Wiraswasta'
+                ? 5500000 + (($idx * 350000) % 9000000)
+                : null;
+
+            // 6. Biodata Karier
+            $biodata = Biodata::updateOrCreate(
+                ['nim' => $nim],
+                [
+                    'user_id' => $user->id,
+                    'prodi_id' => $prodi->id,
+                    'yudisium_id' => $yudisium->id,
+                    'email_pribadi' => $email,
+                    'nomor_telepon' => '0812'.str_pad((string) (10000000 + $idx), 8, '0', STR_PAD_LEFT),
+                    'alamat_saat_ini' => 'Jl. Kaliurang Km. '.(($idx % 9) + 1).' No. '.($idx + 5).', Sleman',
+                    'kelurahan' => 'Condongcatur',
+                    'kecamatan' => 'Depok',
+                    'kode_kabupaten' => $kabSleman->kode_kabupaten,
+                    'kode_provinsi' => $propinsiDiy->kode_provinsi,
+                    'kode_pos' => '55281',
+                    'linkedin_url' => $statusKarier ? 'https://www.linkedin.com/in/'.strtolower(str_replace(' ', '-', preg_replace('/[^a-zA-Z ]/', '', $nama))) : null,
+                    'linkedin_username' => $statusKarier ? strtolower(str_replace(' ', '-', preg_replace('/[^a-zA-Z ]/', '', $nama))) : null,
+                    'skills' => $statusKarier ? 'Keahlian Bidang '.$prodi->nama_prodi.', Manajemen Tim, Analisis Data' : null,
+                    'experience' => $statusKarier ? 'Pengalaman profesional pada '.$companyName : null,
+                    'perusahaan_id' => $company?->id,
+                    'atasan_id' => $atasan?->id,
+                    'kategori_pekerjaan' => $statusKarier,
+                    'posisi_jabatan' => $statusKarier ? $this->resolveJobTitle($prodiCode, $statusKarier, $idx) : null,
+                    'bidang_pekerjaan' => $statusKarier ? $this->resolveJobField($prodiCode) : null,
+                    'pendidikan_tingkat' => $statusKarier === 'Melanjutkan Pendidikan' ? 'S2' : null,
+                    'perguruan_tinggi' => $statusKarier === 'Melanjutkan Pendidikan' ? 'Universitas Gadjah Mada' : null,
+                    'pendidikan_prodi' => $statusKarier === 'Melanjutkan Pendidikan' ? 'Magister '.$prodi->nama_prodi : null,
+                    'gaji' => $salary,
+                    'jenis_pekerjaan' => $statusKarier ? 'Profesional' : null,
+                ]
+            );
+
+            // 7. Jika Alumni Responden: Rekam Jawaban Kuesioner Komprehensif
+            if ($isRespondent) {
+                $this->seedUniversityResponses(
+                    $biodata,
+                    $idx,
+                    $statusKarier,
+                    $salary,
+                    $methodsScores,
+                    $universityQuestions
+                );
+
+                $prodiSection = $prodiSections->get($prodi->id);
+                if ($prodiSection) {
+                    $prodiQuestions = $prodiQuestionsBySection->get($prodiSection->id, collect());
+                    $this->seedProdiResponses($biodata, $prodiSection->id, $idx, $prodiQuestions);
                 }
             }
+
+            $createdCount++;
         }
 
+        // 8. Bulk insert seluruh jawaban kuesioner
         if (! empty($this->pendingAnswers)) {
             collect($this->pendingAnswers)
                 ->chunk(500)
@@ -121,212 +293,274 @@ class DashboardScenarioSeeder extends Seeder
             $this->pendingAnswers = [];
         }
 
-        $this->command?->info("Dashboard scenario selesai. {$createdCount} alumni baru dibuat tanpa mengubah data lama.");
+        $this->command?->info("Pembersihan & Seeding kohort 532 alumni riil selesai! {$createdCount} alumni terdata.");
     }
 
     /**
-     * @param  Collection<int, KuesionerPertanyaan>  $universityQuestions
-     * @param  Collection<int, KuesionerPertanyaan>  $prodiQuestions
-     */
-    private function seedAlumni(
-        string $nim,
-        int $sequence,
-        int $graduationYear,
-        int $respondentCount,
-        Prodi $prodi,
-        Propinsi $propinsi,
-        Kabupaten $kabupaten,
-        $universityQuestions,
-        $prodiQuestions,
-        string $defaultHashedPassword
-    ): bool {
-        if (DataAkademik::query()->where('nim', $nim)->exists()) {
-            return false;
-        }
-
-        return DB::transaction(function () use ($nim, $sequence, $graduationYear, $respondentCount, $prodi, $propinsi, $kabupaten, $universityQuestions, $prodiQuestions, $defaultHashedPassword): bool {
-            $isRespondent = $sequence <= $respondentCount;
-            $isProfileComplete = $isRespondent || $sequence % 11 !== 0;
-            $firstNames = ['Aurelia', 'Bagas', 'Catherine', 'Dimas', 'Elisa', 'Felix', 'Gisella', 'Hendra', 'Intan', 'Jovan', 'Kezia', 'Lukas'];
-            $lastNames = ['Pratama', 'Wijaya', 'Kusuma', 'Santoso', 'Nugraha', 'Lestari', 'Haryanto', 'Saputra', 'Wibowo', 'Handayani', 'Setiawan', 'Permata'];
-            $name = $firstNames[($sequence - 1) % count($firstNames)].' '.$lastNames[($sequence + (int) $prodi->kode_prodi) % count($lastNames)].' '.$prodi->kode_prodi.'-'.$sequence;
-            $email = 'demo.'.strtolower($nim).'@alumni.ukdw.ac.id';
-            $entryYear = $graduationYear - 4;
-            $birthDate = ($entryYear - 18).'-'.str_pad((string) (($sequence % 9) + 1), 2, '0', STR_PAD_LEFT).'-'.str_pad((string) (($sequence % 26) + 1), 2, '0', STR_PAD_LEFT);
-            $salary = 5000000 + (($sequence * 375000) % 8500000);
-            $hasCareer = $isRespondent && $sequence % 5 !== 0;
-            $company = $hasCareer ? Perusahaan::query()->first() : null;
-            $atasan = $hasCareer ? Atasan::firstOrCreate(
-                ['email' => 'atasan.demo.'.strtolower($nim).'@example.test'],
-                [
-                    'perusahaan_id' => $company?->id,
-                    'nama' => 'Atasan '.$prodi->nama_prodi.' '.$sequence,
-                    'telepon' => '0812'.str_pad((string) $sequence, 8, '0', STR_PAD_LEFT),
-                ],
-            ) : null;
-
-            $user = User::create([
-                'username' => $nim,
-                'name' => $name,
-                'email' => $email,
-                'password' => $defaultHashedPassword,
-                'role' => 'alumni',
-                'prodi_id' => $prodi->id,
-                'must_change_password' => true,
-            ]);
-
-            $ipk = round(3.20 + (($sequence * 7) % 75) / 100, 2);
-            $totalSks = $prodi->kode_prodi === '61' ? 160 : 144;
-            $dataAkademik = DataAkademik::create([
-                'nim' => $nim,
-                'nama' => $name,
-                'email_pribadi' => $email,
-                'angkatan_masuk' => $entryYear,
-                'status_mahasiswa' => 'Lulus',
-                'tahun_akademik_lulus' => 'Genap '.($graduationYear - 1).'/'.$graduationYear,
-                'tahun_lulus' => $graduationYear,
-                'tanggal_lulus' => $graduationYear.'-08-15',
-                'ip_kumulatif' => $ipk,
-                'total_sks' => $totalSks,
-                'total_angka_kualitas' => round($ipk * $totalSks, 2),
-                'tanggal_lahir' => $birthDate,
-                'jenis_kelamin' => $sequence % 2 === 0 ? 'Perempuan' : 'Laki-laki',
-                'warga_negara' => 'WNI',
-            ]);
-
-            $biodata = Biodata::create([
-                'user_id' => $user->id,
-                'nim' => $nim,
-                'prodi_id' => $prodi->id,
-                'email_pribadi' => $email,
-                'nomor_telepon' => '0812'.str_pad((string) (10000000 + $sequence), 8, '0', STR_PAD_LEFT),
-                'alamat_saat_ini' => 'Jl. Kaliurang Km. '.(($sequence % 9) + 1).' No. '.($sequence + 10).', Sleman',
-                'kelurahan' => 'Condongcatur',
-                'kecamatan' => 'Depok',
-                'kode_kabupaten' => $kabupaten->kode_kabupaten,
-                'kode_provinsi' => $propinsi->kode_provinsi,
-                'kode_pos' => '55281',
-                'linkedin_url' => $sequence % 4 === 0 ? null : 'https://www.linkedin.com/in/demo-'.$nim,
-                'linkedin_username' => $sequence % 4 === 0 ? null : 'demo-'.$nim,
-                'skills' => $isRespondent ? 'Komunikasi, Analisis Data, '.$prodi->nama_prodi : null,
-                'experience' => $isRespondent ? 'Pengalaman kerja pada bidang '.$prodi->nama_prodi : null,
-                'perusahaan_id' => $company?->id,
-                'atasan_id' => $atasan?->id,
-                'kategori_pekerjaan' => $isRespondent ? ($hasCareer ? 'Bekerja (Full Time)' : 'Melanjutkan Pendidikan') : null,
-                'posisi_jabatan' => $hasCareer ? ['Staff', 'Analyst', 'Developer', 'Coordinator'][$sequence % 4] : null,
-                'bidang_pekerjaan' => $hasCareer ? ['Teknologi Informasi', 'Administrasi / Tata Usaha', 'Keuangan / Akuntansi', 'Lainnya'][$sequence % 4] : null,
-                'pendidikan_tingkat' => $isRespondent && ! $hasCareer ? 'S2' : null,
-                'perguruan_tinggi' => $isRespondent && ! $hasCareer ? 'Universitas Gadjah Mada' : null,
-                'pendidikan_prodi' => $isRespondent && ! $hasCareer ? 'Magister '.$prodi->nama_prodi : null,
-                'gaji' => $hasCareer ? $salary : null,
-                'jenis_pekerjaan' => $hasCareer ? 'Profesional' : null,
-            ]);
-
-            $yudisium = Yudisium::create([
-                'nim' => $nim,
-                'judul_ta' => 'Analisis Data Alumni '.$prodi->nama_prodi.' Tahun '.$graduationYear,
-                'judul_ta_inggris' => 'Alumni Data Analysis for '.$prodi->nama_prodi,
-                'status_lulus' => 'Lulus',
-                'keterangan_hasil_yudisium' => $dataAkademik->ip_kumulatif >= 3.75 ? 'Lulus dengan Pujian (Cumlaude)' : 'Sangat Memuaskan',
-            ]);
-            $biodata->update(['yudisium_id' => $yudisium->id]);
-
-            if ($isRespondent) {
-                $this->seedUniversityResponses($biodata, $graduationYear, $salary, $universityQuestions);
-                $this->seedProdiResponses($biodata, $prodiQuestions);
-            }
-
-            return true;
-        });
-    }
-
-    /**
+     * Menyusun seluruh respon kuesioner universitas untuk 22 indikator analitik.
+     *
+     * @param  array<int, int>  $methodsScores
      * @param  Collection<int, KuesionerPertanyaan>  $questions
      */
-    private function seedUniversityResponses(Biodata $biodata, int $graduationYear, int $salary, $questions): void
-    {
+    private function seedUniversityResponses(
+        Biodata $biodata,
+        int $index,
+        ?string $statusKarier,
+        ?int $salary,
+        array $methodsScores,
+        Collection $questions
+    ): void {
+        $scaleDescriptions = [
+            1 => 'Tidak Sama Sekali',
+            2 => 'Kurang',
+            3 => 'Cukup Besar',
+            4 => 'Besar',
+            5 => 'Sangat Besar',
+        ];
+
+        $hasCareer = in_array($statusKarier, ['Bekerja (Full Time)', 'Wiraswasta'], true);
+        $isFurtherStudy = $statusKarier === 'Melanjutkan Pendidikan';
+
+        // Pilihan saluran F4 menggunakan kode resmi & label
+        $f4Channels = [
+            ['kode' => 'F404', 'label' => 'Mencari lewat internet/iklan online/milis'],
+            ['kode' => 'F413', 'label' => 'Melalui penempatan kerja atau magang'],
+            ['kode' => 'F411', 'label' => 'Melalui relasi (misalnya dosen, orang tua, saudara, teman, dll)'],
+            ['kode' => 'F408', 'label' => 'Memeroleh informasi dari pusat/kantor pengembangan karir fakultas/universitas'],
+            ['kode' => 'F405', 'label' => 'Dihubungi oleh perusahaan'],
+            ['kode' => 'F403', 'label' => 'Pergi ke bursa/pameran kerja'],
+            ['kode' => 'F410', 'label' => 'Membangun jejaring (network) sejak masih kuliah'],
+            ['kode' => 'F412', 'label' => 'Membangun bisnis sendiri'],
+            ['kode' => 'F402', 'label' => 'Melamar ke perusahaan tanpa mengetahui lowongan yang ada'],
+            ['kode' => 'F414', 'label' => 'Bekerja di tempat yang sama dengan tempat kerja semasa kuliah'],
+            ['kode' => 'F401', 'label' => 'Melalui iklan di koran/majalah, brosur'],
+            ['kode' => 'F407', 'label' => 'Menghubungi agen tenaga kerja komersial/swasta'],
+            ['kode' => 'F406', 'label' => 'Menghubungi Kemenakertrans'],
+            ['kode' => 'F409', 'label' => 'Menghubungi kantor kemahasiswaan/hubungan alumni'],
+            ['kode' => 'F415', 'label' => 'Lainnya'],
+        ];
+
+        // Masa tunggu kerja F504 & F502/F506
+        $startsBeforeGraduation = $index % 3 !== 0;
+        $waitMonths = $startsBeforeGraduation ? ($index % 5) + 1 : ($index % 8) + 1;
+
+        // Alignment kesesuaian studi F14
+        $alignments = ['Sangat Erat', 'Erat', 'Cukup Erat', 'Kurang Erat', 'Tidak Sama Sekali'];
+        $alignment = $alignments[$index % count($alignments)];
+
         foreach ($questions as $question) {
             $code = strtoupper((string) $question->kode_pertanyaan);
-            if ($code === 'F506') {
-                continue;
+            $answer = null;
+            $kodeOpsi = null;
+            $answerJson = null;
+
+            // Indikator 02: Metode Pembelajaran F21 s/d F27
+            if (preg_match('/^F2([1-7])$/', $code, $matches)) {
+                $methodIdx = ((int) $matches[1]) - 1;
+                $score = $methodsScores[$methodIdx] ?? 4;
+                $answer = $scaleDescriptions[$score] ?? 'Besar';
+                $kodeOpsi = (string) $score;
+            } elseif ($code === 'F8') {
+                $answer = $statusKarier === 'Wiraswasta'
+                    ? 'Wiraswasta'
+                    : ($hasCareer ? 'Bekerja (full time/part time)' : ($isFurtherStudy ? 'Melanjutkan Pendidikan' : 'Tidak Kerja tetapi sedang mencari kerja'));
+            } elseif ($code === 'F504') {
+                $answer = $hasCareer ? ($startsBeforeGraduation ? 'Ya' : 'Tidak') : 'Tidak';
+            } elseif ($code === 'F502') {
+                $answer = $hasCareer && $startsBeforeGraduation ? (string) $waitMonths : null;
+            } elseif ($code === 'F506') {
+                $answer = $hasCareer && ! $startsBeforeGraduation ? (string) $waitMonths : null;
+            } elseif ($code === 'F505') {
+                $answer = $salary ? (string) $salary : null;
+            } elseif ($code === 'F3') {
+                $answer = $hasCareer
+                    ? ($startsBeforeGraduation ? "Sebelum lulus ... bulan: {$waitMonths}" : "Setelah lulus ... bulan: {$waitMonths}")
+                    : 'Saya tidak mencari kerja';
+            } elseif ($code === 'F4') {
+                $otherJobDetails = [
+                    'Lainnya: Rekomendasi dosen pembimbing skripsi dan kemitraan riset kampus',
+                    'Lainnya: Dihubungi headhunter profesional melalui jejaring LinkedIn Talent',
+                    'Lainnya: Portofolio GitHub pribadi dan kontrak freelance luar negeri',
+                    'Lainnya: Program magang bersertifikat MSIB Kemendikbudristek',
+                    'Lainnya: Diterima lewat program Management Trainee (MT) industri perbankan',
+                    'Lainnya: Juara kompetisi hackathon nasional langsung direkrut venture capital',
+                    'Lainnya: Mengikuti program bootcamp intensif software engineering kemitraan industri',
+                    'Lainnya: Diajak rekan senior mendirikan agensi digital mandiri',
+                    'Lainnya: Ditawari posisi purnawaktu langsung dari tempat magang kuliah',
+                    'Lainnya: Komunitas pengembang open-source dan konferensi teknologi',
+                    'Lainnya: Rekomendasi jejaring alumni UKDW di industri manufaktur',
+                    'Lainnya: Lolos seleksi CPNS kementerian pusat bidang teknologi informasi',
+                ];
+
+                // Pilih 1 s/d 2 saluran pencarian kerja
+                $chosenChannel1 = $f4Channels[$index % count($f4Channels)];
+                $chosenChannel2 = $f4Channels[($index + 3) % count($f4Channels)];
+
+                $label1 = $chosenChannel1['label'];
+                if ($chosenChannel1['kode'] === 'F415') {
+                    $label1 = $otherJobDetails[$index % count($otherJobDetails)];
+                }
+                $label2 = $chosenChannel2['label'];
+                if ($chosenChannel2['kode'] === 'F415') {
+                    $label2 = $otherJobDetails[($index + 1) % count($otherJobDetails)];
+                }
+
+                if ($index % 2 === 0 && $chosenChannel1['kode'] !== $chosenChannel2['kode']) {
+                    $answer = $label1.', '.$label2;
+                    $answerJson = json_encode([$label1, $label2], JSON_UNESCAPED_UNICODE);
+                    $kodeOpsi = json_encode([$chosenChannel1['kode'], $chosenChannel2['kode']], JSON_UNESCAPED_UNICODE);
+                } else {
+                    $answer = $label1;
+                    $answerJson = json_encode([$label1], JSON_UNESCAPED_UNICODE);
+                    $kodeOpsi = $chosenChannel1['kode'];
+                }
+            } elseif ($code === 'F6') {
+                $answer = (string) (3 + ($index % 12));
+            } elseif ($code === 'F7') {
+                $answer = (string) max(1, (int) floor((3 + ($index % 12)) * 0.45));
+            } elseif ($code === 'F7A') {
+                $answer = (string) max(1, (int) floor((3 + ($index % 12)) * 0.25));
+            } elseif ($code === 'F10') {
+                $answer = $hasCareer ? 'Tidak' : 'Ya, saya aktif mencari pekerjaan';
+            } elseif ($code === 'F11') {
+                $answer = $statusKarier === 'Wiraswasta'
+                    ? 'Wiraswasta/perusahaan sendiri'
+                    : ['Perusahaan swasta', 'BUMN/BUMD', 'Instansi pemerintah', 'Organisasi non-profit/LSM'][$index % 4];
+            } elseif ($code === 'F14') {
+                $answer = $alignment;
+            } elseif ($code === 'F15') {
+                $answer = $index % 4 === 0 ? 'Tingkat yang Lebih Tinggi' : 'Tingkat yang Sama';
+            } elseif ($code === 'F16' && in_array($alignment, ['Kurang Erat', 'Tidak Sama Sekali'], true)) {
+                $otherMismatch = [
+                    'Lainnya: Tertarik mendalami bisnis teknologi digital dan pengembangan e-commerce',
+                    'Lainnya: Menemukan minat baru di bidang UI/UX design dan manajemen produk teknologi',
+                    'Lainnya: Melanjutkan usaha rintisan keluarga berbasis industri manufaktur kreatif',
+                    'Lainnya: Tawaran kompensasi gaji dan benefit karir jauh di atas rata-rata industri',
+                    'Lainnya: Budaya kerja fleksibel remote working dengan klien internasional',
+                    'Lainnya: Peluang promosi karir manajerial terbuka lebih cepat di perusahaan rintisan',
+                ];
+                $reasonsList = [
+                    'Saya belum mendapatkan pekerjaan yang lebih sesuai',
+                    'Gaji dan benefit di pekerjaan ini lebih menjanjikan',
+                    'Pekerjaan ini lebih prospektif untuk masa depan',
+                    $otherMismatch[$index % count($otherMismatch)],
+                ];
+                $answer = $reasonsList[$index % count($reasonsList)];
+                if (str_starts_with($answer, 'Lainnya:')) {
+                    $kodeOpsi = 'F1613';
+                }
+            } elseif (preg_match('/^F17([AB])([1-7])$/', $code, $cMatches)) {
+                // Gap Kompetensi (F17a1-a7 dan F17b1-b7)
+                $type = $cMatches[1];
+                $cIdx = (int) $cMatches[2];
+                $compScore = $type === 'A'
+                    ? min(5, max(1, 3 + (($index + $cIdx) % 3) - 1))
+                    : min(5, max(1, 4 + (($index * 2 + $cIdx) % 2)));
+                $answer = $scaleDescriptions[$compScore] ?? 'Tinggi';
+                $kodeOpsi = (string) $compScore;
+            } else {
+                $option = $question->opsi?->first();
+                $answer = $option ? (string) $option->label : '4';
+                $kodeOpsi = $option?->kode_opsi;
             }
 
-            $answer = match ($code) {
-                'F8' => 'Bekerja (full time/part time)',
-                'F504' => 'Ya',
-                'F502' => '3',
-                'F505' => (string) $salary,
-                'F14' => 'Sangat Erat',
-                'F15' => 'Tingkat yang Sama',
-                'F3' => 'Sebelum lulus ... bulan: 3',
-                'F4' => 'Mencari lewat internet/iklan online/milis',
-                'F6' => '4',
-                'F7' => '3',
-                'F7A' => '2',
-                default => $this->defaultQuestionAnswer($question),
-            };
+            if ($answer !== null) {
+                $matchedOpsi = $question->opsi?->first(fn ($o) => mb_strtolower(trim((string) $o->label)) === mb_strtolower(trim((string) $answer)));
 
-            $opsi = $question->opsi?->first(fn ($o) => mb_strtolower(trim($o->label)) === mb_strtolower(trim((string) $answer)));
-
-            $this->pendingAnswers[] = [
-                'responden_type' => 'alumni',
-                'biodata_id' => $biodata->id,
-                'evaluasi_atasan_id' => null,
-                'section_id' => $question->section_id,
-                'pertanyaan_id' => $question->id,
-                'kode_pertanyaan' => $question->kode_pertanyaan,
-                'opsi_id' => $opsi?->id,
-                'kode_opsi' => $opsi?->kode_opsi,
-                'jawaban_teks' => $answer,
-                'jawaban_json' => null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
+                $this->pendingAnswers[] = [
+                    'responden_type' => 'alumni',
+                    'biodata_id' => $biodata->id,
+                    'evaluasi_atasan_id' => null,
+                    'section_id' => $question->section_id,
+                    'pertanyaan_id' => $question->id,
+                    'kode_pertanyaan' => $question->kode_pertanyaan,
+                    'opsi_id' => $matchedOpsi?->id,
+                    'kode_opsi' => $kodeOpsi ?: $matchedOpsi?->kode_opsi,
+                    'jawaban_teks' => $answer,
+                    'jawaban_json' => $answerJson,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
         }
     }
 
     /**
-     * Menyimpan jawaban prodi demo dengan distribusi opsi yang tersebar.
+     * Menyusun respon kuesioner tingkat program studi.
      *
      * @param  Collection<int, KuesionerPertanyaan>  $questions
      */
-    private function seedProdiResponses(Biodata $biodata, $questions): void
-    {
-        if ($questions->isEmpty()) {
-            return;
-        }
+    private function seedProdiResponses(
+        Biodata $biodata,
+        int $sectionId,
+        int $index,
+        Collection $questions
+    ): void {
+        $aspirations = [
+            'Semoga Program Studi semakin unggul dan menghasilkan lulusan yang adaptif dengan perkembangan teknologi industri modern.',
+            'Harapan saya prodi dapat memperluas jejaring kemitraan magang internasional dan riset kolaboratif tingkat global.',
+            'Semoga akreditasi unggul dapat terus dipertahankan dan fasilitas laboratorium komputasi awan semakin lengkap.',
+            'Harapan saya komunitas alumni semakin solid dan aktif berbagi peluang karir serta mentorship bagi mahasiswa aktif.',
+            'Semoga kurikulum pembelajaran terus mengintegrasikan sertifikasi kompetensi profesional yang diakui industri global.',
+            'Harapan saya prodi menjadi rujukan utama riset transformasi digital dan pengembangan sistem informasi berkelanjutan di Indonesia.',
+            'Semoga lulusan prodi semakin diperhitungkan dan menduduki posisi strategis di perusahaan teknologi multinasional.',
+            'Harapan saya prodi tetap menjaga nilai integritas, etika kristiani, dan kepedulian sosial yang menjadi ciri khas UKDW.',
+        ];
 
-        $prodiSection = KuesionerSection::where('target', 'prodi')
-            ->where('prodi_id', $biodata->prodi_id)
-            ->first();
-        $sectionId = $prodiSection?->id ?: 1;
+        $feedbacks = [
+            'Kurikulum perlu lebih banyak memasukkan studi kasus industri nyata dan praktik arsitektur cloud computing terkini.',
+            'Perbanyak program magang bersertifikat dan workshop persiapan karir serta simulasi wawancara kerja teknis.',
+            'Tingkatkan spesifikasi perangkat laboratorium komputer untuk mendukung pemodelan machine learning dan data engineering.',
+            'Berikan pembekalan soft skills komunikasi profesional dan kemampuan bahasa Inggris teknis sejak semester awal.',
+            'Dosen sangat inspiratif, mohon fasilitasi sertifikasi internasional resmi (AWS, Google Cloud, Cisco) diintegrasikan ke mata kuliah.',
+            'Tingkatkan kolaborasi proyek lintas prodi untuk melatih kepemimpinan tim dan pemecahan masalah interdisipliner.',
+            'Perkuat bursa karir kampus dan jejaring alumni untuk mempercepat penyerapan kerja lulusan baru di industri modern.',
+            'Perbanyak sesi kuliah dosen tamu dari praktisi industri teknologi dan startup ternama.',
+            'Perbarui modul praktikum dengan framework pemrograman modern yang paling banyak digunakan di industri saat ini.',
+            'Dukungan akses jurnal internasional dan lisensi software enterprise perlu diperluas bagi mahasiswa tingkat akhir.',
+        ];
 
         foreach ($questions as $question) {
             $options = $question->opsi?->values() ?? collect();
-            $answerJson = null;
-            $kodeOpsiResult = null;
-            $answer = $options->first()?->label ?? 'Data simulasi '.$question->kode_pertanyaan;
+            if ($options->isEmpty()) {
+                // Tangani pertanyaan teks terbuka kualitatif (harapan dan saran alumni)
+                if (in_array($question->tipe, ['text', 'textarea'], true)) {
+                    $qCode = strtoupper((string) $question->kode_pertanyaan);
+                    $qText = strtolower((string) $question->teks_pertanyaan);
 
-            if (in_array($question->tipe, ['text', 'textarea'], true)) {
-                $answer = 'Respon simulasi alumni untuk '.$question->teks_pertanyaan;
-            } elseif ($options->isNotEmpty()) {
-                $primaryOption = $options->get(($biodata->id + $question->id) % $options->count());
-                $answer = $primaryOption?->label ?? $answer;
-                $kodeOpsiResult = $primaryOption?->kode_opsi;
-
-                if ($question->tipe === 'multiple_choice' || $question->tipe === 'checkbox') {
-                    $selectedOptions = collect([$primaryOption]);
-                    if ($options->count() > 1 && ($biodata->id + $question->id) % 3 === 0) {
-                        $selectedOptions->push($options->get(($biodata->id + $question->id + 1) % $options->count()));
+                    if (str_contains($qCode, '01') || str_contains($qText, 'harapan')) {
+                        $answer = $aspirations[($biodata->id + $index) % count($aspirations)];
+                    } else {
+                        $answer = $feedbacks[($biodata->id + $index) % count($feedbacks)];
                     }
-                    $selectedOptions = $selectedOptions->filter()->unique('id')->values();
-                    $answer = $selectedOptions->pluck('label')->implode(', ');
-                    $answerJson = json_encode($selectedOptions->pluck('label')->values()->all(), JSON_UNESCAPED_UNICODE);
-                    $kodeOpsiResult = json_encode($selectedOptions->pluck('kode_opsi')->values()->all(), JSON_UNESCAPED_UNICODE);
+
+                    $this->pendingAnswers[] = [
+                        'responden_type' => 'alumni',
+                        'biodata_id' => $biodata->id,
+                        'evaluasi_atasan_id' => null,
+                        'section_id' => $sectionId,
+                        'pertanyaan_id' => $question->id,
+                        'kode_pertanyaan' => $question->kode_pertanyaan,
+                        'opsi_id' => null,
+                        'kode_opsi' => null,
+                        'jawaban_teks' => $answer,
+                        'jawaban_json' => json_encode([$answer], JSON_UNESCAPED_UNICODE),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
                 }
+
+                continue;
             }
 
-            $opsi = $options->first(fn ($o) => $o->label === $answer);
+            $primaryOption = $options->get(($biodata->id + $question->id) % $options->count());
+            $answer = $primaryOption?->label ?? 'Data respon prodi';
+            $kodeOpsi = $primaryOption?->kode_opsi;
+            $answerJson = null;
+
+            if ($question->tipe === 'multiple_choice' || $question->tipe === 'checkbox') {
+                $answerJson = json_encode([$answer], JSON_UNESCAPED_UNICODE);
+            }
 
             $this->pendingAnswers[] = [
                 'responden_type' => 'alumni',
@@ -335,8 +569,8 @@ class DashboardScenarioSeeder extends Seeder
                 'section_id' => $sectionId,
                 'pertanyaan_id' => $question->id,
                 'kode_pertanyaan' => $question->kode_pertanyaan,
-                'opsi_id' => $opsi?->id,
-                'kode_opsi' => $kodeOpsiResult ?: $opsi?->kode_opsi,
+                'opsi_id' => $primaryOption?->id,
+                'kode_opsi' => $kodeOpsi,
                 'jawaban_teks' => $answer,
                 'jawaban_json' => $answerJson,
                 'created_at' => now(),
@@ -345,18 +579,39 @@ class DashboardScenarioSeeder extends Seeder
         }
     }
 
-    private function defaultQuestionAnswer(KuesionerPertanyaan $question): string
+    private function resolveJobTitle(string $prodiCode, string $career, int $idx): string
     {
-        $option = $question->opsi?->first();
-
-        if ($option) {
-            return (string) $option->label;
+        if ($career === 'Wiraswasta') {
+            return ['Founder & Owner', 'Managing Director', 'Co-Founder & Studio Lead'][$idx % 3];
         }
 
-        if (in_array($question->tipe, ['number', 'rating', 'scale'], true)) {
-            return '4';
-        }
+        return match ($prodiCode) {
+            '71' => ['Software Engineer', 'Fullstack Developer', 'DevOps Specialist', 'Data Engineer'][$idx % 4],
+            '72' => ['IT Business Analyst', 'Product Manager', 'Data Analyst', 'ERP Consultant'][$idx % 4],
+            '11' => ['Marketing Specialist', 'Operational Manager', 'Financial Planner', 'HR Business Partner'][$idx % 4],
+            '12' => ['Senior Auditor', 'Tax Specialist', 'Management Accountant', 'Financial Analyst'][$idx % 4],
+            '21' => ['Junior Architect', 'BIM Coordinator', 'Urban Designer', 'Project Architect'][$idx % 4],
+            '22' => ['Product Designer', 'Industrial Designer', 'UX/UI Designer', 'Design Researcher'][$idx % 4],
+            '41' => ['Microbiologist', 'Laboratory Analyst', 'Quality Control Specialist', 'Conservation Officer'][$idx % 4],
+            '42' => ['Food Technologist', 'QA/QC Food Safety Specialist', 'R&D Food Formulator', 'Production Supervisor'][$idx % 4],
+            '61' => ['Dokter Internship', 'Dokter Residen', 'Dokter Umum', 'Medical Officer'][$idx % 4],
+            '31' => ['Pendeta Jemaat', 'Pelayan Pastoral', 'Konselor Rohani', 'Tenaga Pendidik Teologi'][$idx % 4],
+            '81' => ['English Educator', 'Curriculum Developer', 'Instructional Designer', 'Language Specialist'][$idx % 4],
+            default => ['Social Researcher', 'Cultural Specialist', 'Community Organizer', 'Humanities Consultant'][$idx % 4],
+        };
+    }
 
-        return 'Data simulasi alumni';
+    private function resolveJobField(string $prodiCode): string
+    {
+        return match ($prodiCode) {
+            '71', '72' => 'Teknologi Informasi & Rekayasa Perangkat Lunak',
+            '11', '12' => 'Keuangan, Perbankan, Bisnis & Akuntansi',
+            '21', '22' => 'Arsitektur, Desain Produk & Industri Kreatif',
+            '41', '42' => 'Bioteknologi, Pangan, Pertanian & Farmasi',
+            '61' => 'Pelayanan Kesehatan & Medis',
+            '31' => 'Pelayanan Gerejawi, Agama & Pembinaan Mental',
+            '81' => 'Pendidikan, Pelatihan & Pengajaran Bahasa',
+            default => 'Sosial, Kebudayaan, Riset & Pengembangan Masyarakat',
+        };
     }
 }

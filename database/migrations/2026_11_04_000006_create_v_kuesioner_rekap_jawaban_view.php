@@ -30,6 +30,7 @@ SELECT
     p.tipe AS tipe_pertanyaan,
     COALESCE(j.kode_opsi, o.kode_opsi) AS kode_opsi,
     o.label AS label_opsi,
+    o.label_singkat AS label_opsi_singkat,
     o.nilai_skor,
     j.jawaban_teks,
     j.jawaban_json,

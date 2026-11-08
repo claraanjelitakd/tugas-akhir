@@ -8,6 +8,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import AnalyticsEChart from './AnalyticsEChart.vue';
+import AnalyticsWordCloud from './AnalyticsWordCloud.vue';
 import {
     analyticsChartTypeReasons,
     analyticsChartTypes,
@@ -70,6 +71,15 @@ const cleanChartLabel = (raw) => String(raw || '')
 
 // State detail titik/elemen grafik yang sedang diklik
 const selectedPoint = ref(null);
+
+// State filter kata kunci untuk visualisasi Word Cloud
+const wordCloudKeyword = ref('');
+const handleWordCloudSelect = (word) => {
+    wordCloudKeyword.value = word;
+};
+const handleWordCloudReset = () => {
+    wordCloudKeyword.value = '';
+};
 
 // Label seleksi aktif (gabungan prop induk dan state klik lokal)
 const activeSelectionLabel = computed(() => {
@@ -517,7 +527,7 @@ watch(() => props.selectedLabel, () => {
         <div class="flex flex-col justify-between gap-4 border-b border-slate-100 pb-4 lg:flex-row lg:items-start">
             <!-- Kolom Kiri: Judul & Subjudul dengan min-height tetap agar tata letak tidak bergeser -->
             <div class="min-h-[50px] flex-1">
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
                     <span v-if="indicatorBadge" class="rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-[#0D542B]">
                         {{ indicatorBadge }}
                     </span>
@@ -525,6 +535,19 @@ watch(() => props.selectedLabel, () => {
                         <template v-if="activeViewMode === 'table'">Tabel Data Ringkasan: {{ currentView.tabLabel || currentView.title }}</template>
                         <template v-else>{{ currentView.title }}</template>
                     </h3>
+                    <!-- Pill Seleksi Aktif di Header (Bebas dari Layout Shift / Getar) -->
+                    <span v-if="activeSelectionLabel" class="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-xs">
+                        <span class="text-slate-500 font-medium">Terpilih:</span>
+                        <strong class="text-[#0D542B] font-bold">{{ activeSelectionLabel }}</strong>
+                        <button
+                            type="button"
+                            class="ml-1 text-slate-400 hover:text-slate-700 font-bold cursor-pointer"
+                            title="Reset seleksi pilihan"
+                            @click="resetSelection"
+                        >
+                            ×
+                        </button>
+                    </span>
                 </div>
                 <p class="mt-1 text-xs text-slate-500 leading-relaxed max-w-3xl">
                     <template v-if="activeViewMode === 'table'">
@@ -577,21 +600,6 @@ watch(() => props.selectedLabel, () => {
 
         <!-- TAMPILAN 1: MODE GRAFIK -->
         <div v-if="activeViewMode === 'chart'" class="mt-4 space-y-4">
-            <!-- Toolbar Kembali ke Analisis Keseluruhan saat item grafik dipilih -->
-            <div v-if="activeSelectionLabel" class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50/40 px-3.5 py-2 text-xs">
-                <div class="flex items-center gap-2 text-slate-700">
-                    <span class="font-semibold text-slate-500">Analisis Terpilih:</span>
-                    <span class="rounded bg-white border border-emerald-200 px-2 py-0.5 font-bold text-[#0D542B]">{{ activeSelectionLabel }}</span>
-                </div>
-                <button
-                    type="button"
-                    class="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
-                    @click="resetSelection"
-                >
-                    Kembali ke Analisis Keseluruhan
-                </button>
-            </div>
-
             <!-- Slot Custom untuk visualisasi khusus (seperti Peta MapLibre) -->
             <div v-if="currentView.isMap" class="w-full">
                 <slot :name="currentView.key">
@@ -601,6 +609,63 @@ watch(() => props.selectedLabel, () => {
                     <span class="font-semibold text-slate-700">Caption:</span>
                     {{ currentView.caption || currentView.description || currentView.title }}
                 </p>
+            </div>
+
+            <!-- Visualisasi Word Cloud Khusus (untuk isian lainnya, aspirasi, saran) -->
+            <div v-else-if="currentView.isWordCloud || currentView.chartType === 'word_cloud'" class="w-full space-y-4">
+                <AnalyticsWordCloud
+                    :records="currentView.wordCloudRecords || (currentView.tableData?.rows || rows)"
+                    :texts="currentView.wordCloudTexts || []"
+                    :words="currentView.wordCloudWords || []"
+                    :height="currentChartHeight || 380"
+                    :title="currentView.wordCloudTitle || currentView.title"
+                    :subtitle="currentView.wordCloudSubtitle || currentView.description"
+                    :selected-word="wordCloudKeyword"
+                    @select="handleWordCloudSelect"
+                    @reset="handleWordCloudReset"
+                />
+
+                <!-- Tabel Transparansi Rincian di Bawah Word Cloud -->
+                <div v-if="currentView.tableData" class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <div class="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
+                        <span class="text-xs font-bold text-slate-700">Rincian Jawaban Responden</span>
+                        <div class="flex items-center gap-2">
+                            <span v-if="wordCloudKeyword" class="text-xs text-[#0D542B] font-semibold">
+                                Tersaring memuat kata: <strong>"{{ wordCloudKeyword }}"</strong>
+                            </span>
+                            <button
+                                v-if="wordCloudKeyword"
+                                type="button"
+                                class="rounded bg-white border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                                @click="handleWordCloudReset"
+                            >
+                                Hapus Filter
+                            </button>
+                        </div>
+                    </div>
+                    <div class="max-h-72 overflow-y-auto">
+                        <table class="w-full text-left text-xs text-slate-700">
+                            <thead class="sticky top-0 bg-slate-100 text-[11px] font-bold text-slate-600 uppercase border-b border-slate-200">
+                                <tr>
+                                    <th v-for="col in currentView.tableData.columns" :key="col.key" class="px-3.5 py-2" :class="col.align === 'right' ? 'text-right' : 'text-left'">
+                                        {{ col.label }}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr
+                                    v-for="(row, rIdx) in currentView.tableData.rows.filter(r => !wordCloudKeyword || JSON.stringify(r).toLowerCase().includes(wordCloudKeyword.toLowerCase()))"
+                                    :key="rIdx"
+                                    class="hover:bg-emerald-50/30 transition-colors"
+                                >
+                                    <td v-for="col in currentView.tableData.columns" :key="col.key" class="px-3.5 py-2" :class="col.align === 'right' ? 'text-right font-mono' : ''">
+                                        {{ row[col.key] }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <!-- Visualisasi ECharts Standar -->

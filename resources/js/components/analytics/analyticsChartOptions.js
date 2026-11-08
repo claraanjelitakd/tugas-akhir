@@ -15,11 +15,11 @@ export const analyticsColors = {
     greenPale: '#B7D7C0',
     greenMist: '#DCEBE0',
     white: '#FFFFFF',
-    scaleOne: '#F3F8F4',
-    scaleTwo: '#DCEEE1',
-    scaleThree: '#B9D8C3',
-    scaleFour: '#2F7D4A',
-    scaleFive: '#0D542B',
+    scaleOne: '#B91C1C',   // Merah (1: Tidak Sama Sekali / Sangat Rendah)
+    scaleTwo: '#EA580C',   // Oranye (2: Kurang)
+    scaleThree: '#FACC15', // Kuning Emas (3: Cukup Besar / Sedang)
+    scaleFour: '#5EBA7D',  // Hijau Muda (4: Besar / Baik)
+    scaleFive: '#1E6B37',  // Hijau Tua (5: Sangat Besar / Sangat Baik)
     text: '#334155',
     textStrong: '#0F172A',
     grid: 'rgba(13, 84, 43, 0.14)',
@@ -38,13 +38,13 @@ export const analyticsPalette = [
     analyticsColors.greenMist,
 ];
 
-// Urutan warna ordinal skala 1-5 dibuat naik dari netral ke capaian tertinggi.
+// Urutan warna ordinal skala 1-5 sesuai standar distribusi penilaian alumni.
 export const analyticsScalePalette = [
-    analyticsColors.scaleOne,
-    analyticsColors.scaleTwo,
-    analyticsColors.scaleThree,
-    analyticsColors.scaleFour,
-    analyticsColors.scaleFive,
+    '#B91C1C', // 1: Tidak Sama Sekali (Merah)
+    '#EA580C', // 2: Kurang (Oranye)
+    '#FACC15', // 3: Cukup Besar (Kuning)
+    '#5EBA7D', // 4: Besar (Hijau Muda)
+    '#1E6B37', // 5: Sangat Besar (Hijau Tua)
 ];
 
 // Kamus pusat nama tipe grafik agar label tampilan tidak bergantung pada nama key view.
@@ -74,6 +74,7 @@ export const analyticsChartTypes = Object.freeze({
     combo_bar_line: 'Diagram Kombinasi Batang dan Garis',
     map: 'Peta Geografis Interaktif',
     table: 'Tabel Data Detail',
+    word_cloud: 'Awan Kata (Word Cloud)',
 });
 
 // Alasan pemilihan grafik disimpan bersama kamus tipe agar narasi tetap konsisten.
@@ -103,6 +104,7 @@ export const analyticsChartTypeReasons = Object.freeze({
     combo_bar_line: 'Dipilih untuk melihat dua ukuran batang dan satu ukuran gap dalam satu tampilan terpadu.',
     map: 'Dipilih untuk memperlihatkan lokasi geografis penempatan alumni dan mendukung penyaringan berbasis wilayah.',
     table: 'Dipilih sebagai tabel detail karena data individu perlu ditampilkan dalam bentuk baris yang dapat ditelusuri.',
+    word_cloud: 'Dipilih untuk memetakan frekuensi kata kunci dan topik yang paling sering muncul dari isian terbuka responden secara visual dan intuitif.',
 });
 
 // Preset grid bersama menjaga margin dan ruang label tetap seragam antar tipe grafik.
@@ -129,6 +131,7 @@ export const getAnalyticsChartHeight = (chartType = 'standard', itemCount = 0) =
     if (chartType === 'stacked_horizontal_100') return Math.max(380, Math.min(count * 36 + 120, 620));
     if (chartType === 'horizontal_bar') return Math.max(360, Math.min(count * 38 + 100, 640));
     if (chartType === 'stacked_vertical') return 420;
+    if (chartType === 'word_cloud') return 380;
     return 400;
 };
 
@@ -321,7 +324,9 @@ const normalizeChartGrid = (option) => {
 const normalizeChartStyle = (style, color) => {
     if (!style || typeof style !== 'object') return;
 
-    style.color = color;
+    if (typeof style.color !== 'function') {
+        style.color = color;
+    }
     style.borderColor = 'transparent';
     style.borderWidth = 0;
     style.shadowBlur = 0;
@@ -451,7 +456,14 @@ export const normalizeAnalyticsOption = (option) => {
             const seriesColor = scaleValue
                 ? analyticsScalePalette[Number(scaleValue) - 1]
                 : (customPalette || analyticsPalette)[seriesIndex % (customPalette || analyticsPalette).length];
-            normalizeChartStyle(series.itemStyle, seriesColor);
+            if (typeof series.itemStyle?.color !== 'function') {
+                normalizeChartStyle(series.itemStyle, seriesColor);
+            } else {
+                series.itemStyle.borderColor = 'transparent';
+                series.itemStyle.borderWidth = 0;
+                series.itemStyle.shadowBlur = 0;
+                series.itemStyle.shadowColor = 'transparent';
+            }
             if (series.lineStyle) {
                 series.lineStyle.color = seriesColor;
                 series.lineStyle.shadowBlur = 0;
@@ -460,7 +472,9 @@ export const normalizeAnalyticsOption = (option) => {
                 series.areaStyle.color = seriesColor;
                 series.areaStyle.shadowBlur = 0;
             }
-            normalizeChartStyle(series.emphasis?.itemStyle, seriesColor);
+            if (series.type !== 'heatmap') {
+                normalizeChartStyle(series.emphasis?.itemStyle, seriesColor);
+            }
             if (series.emphasis?.lineStyle) series.emphasis.lineStyle.color = seriesColor;
             if (series.type === 'bar' && series.stack) {
                 const percentageAxis = normalized.xAxis?.max === 100
@@ -507,11 +521,14 @@ export const normalizeAnalyticsOption = (option) => {
             if (series.type === 'heatmap') {
                 series.itemStyle = series.itemStyle || {};
                 series.itemStyle.borderColor = analyticsColors.white;
-                series.itemStyle.borderWidth = 1;
+                series.itemStyle.borderWidth = 1.5;
                 series.emphasis = series.emphasis || {};
+                series.emphasis.focus = 'none';
                 series.emphasis.itemStyle = series.emphasis.itemStyle || {};
-                series.emphasis.itemStyle.borderColor = analyticsColors.green;
-                series.emphasis.itemStyle.borderWidth = 1;
+                delete series.emphasis.itemStyle.color;
+                series.emphasis.itemStyle.borderColor = analyticsColors.white;
+                series.emphasis.itemStyle.borderWidth = 1.5;
+                series.emphasis.itemStyle.shadowBlur = 0;
             }
             if (series.markLine) {
                 series.markLine.lineStyle = series.markLine.lineStyle || {};
@@ -530,14 +547,30 @@ export const normalizeAnalyticsOption = (option) => {
             if (Array.isArray(series.data)) {
                 series.data.forEach((datum, datumIndex) => {
                     if (!datum || typeof datum !== 'object') return;
-                    const explicitDatumColor = customPalette && typeof datum.itemStyle?.color === 'string'
+                    if (series.type === 'heatmap') {
+                        if (datum.emphasis?.itemStyle) {
+                            delete datum.emphasis.itemStyle.color;
+                            datum.emphasis.itemStyle.shadowBlur = 0;
+                            datum.emphasis.itemStyle.borderColor = analyticsColors.white;
+                        }
+                        if (datum.itemStyle) {
+                            delete datum.itemStyle.color;
+                        }
+                        return;
+                    }
+                    const explicitDatumColor = typeof datum.itemStyle?.color === 'string'
                         ? datum.itemStyle.color
                         : null;
-                    const datumColor = explicitDatumColor || (['pie', 'funnel', 'treemap', 'sankey'].includes(series.type)
-                        ? (customPalette || analyticsPalette)[datumIndex % (customPalette || analyticsPalette).length]
-                        : seriesColor);
-                    normalizeChartStyle(datum.itemStyle, datumColor);
-                    normalizeChartStyle(datum.emphasis?.itemStyle, datumColor);
+                    if (explicitDatumColor) {
+                        normalizeChartStyle(datum.itemStyle, explicitDatumColor);
+                        normalizeChartStyle(datum.emphasis?.itemStyle, explicitDatumColor);
+                    } else if (typeof series.itemStyle?.color !== 'function') {
+                        const datumColor = (['pie', 'funnel', 'treemap', 'sankey'].includes(series.type)
+                            ? (customPalette || analyticsPalette)[datumIndex % (customPalette || analyticsPalette).length]
+                            : seriesColor);
+                        normalizeChartStyle(datum.itemStyle, datumColor);
+                        normalizeChartStyle(datum.emphasis?.itemStyle, datumColor);
+                    }
                     if (datum.lineStyle) {
                         datum.lineStyle.color = datumColor;
                         datum.lineStyle.shadowBlur = 0;
@@ -589,7 +622,7 @@ export const normalizeAnalyticsOption = (option) => {
                 : analyticsPalette[index % analyticsPalette.length];
         });
     }
-    if (normalized.visualMap?.inRange?.color) {
+    if (normalized.visualMap?.inRange && !normalized.visualMap.inRange.color) {
         normalized.visualMap.inRange.color = analyticsScalePalette;
     }
 

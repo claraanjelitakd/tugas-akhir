@@ -69,48 +69,6 @@ class AlumniDirectoryQueryService
 
         $profileOptions = $profileOptionsQuery->get();
 
-        $directoryFilterRowsQuery = DB::table('v_alumni_profile_summary')
-            ->select([
-                'kode_provinsi',
-                'kode_kabupaten',
-                'nama_provinsi',
-                'nama_kabupaten',
-                'nama_perusahaan',
-                'bidang_pekerjaan',
-                'divisi',
-                'skills',
-            ]);
-        $this->applyScope($directoryFilterRowsQuery, $scopedProdiId, $scopedFakultasId, $scopedProdiIds);
-        $directoryFilterRows = $directoryFilterRowsQuery->get();
-        $optionValues = static fn (string $field): array => $directoryFilterRows
-            ->pluck($field)
-            ->filter(fn (mixed $value): bool => filled($value))
-            ->map(fn (mixed $value): string => trim((string) $value))
-            ->filter()
-            ->unique()
-            ->sort()
-            ->values()
-            ->all();
-        $wilayahProvinsiOptions = DB::table('propinsi')
-            ->select(['kode_provinsi', 'nama_provinsi'])
-            ->orderBy('nama_provinsi')
-            ->get()
-            ->map(fn (object $row): array => [
-                'value' => (string) $row->kode_provinsi,
-                'label' => (string) $row->nama_provinsi,
-            ])
-            ->all();
-        $wilayahKabupatenOptions = DB::table('kabupaten')
-            ->select(['kode_kabupaten', 'kode_provinsi', 'nama_kabupaten'])
-            ->orderBy('nama_kabupaten')
-            ->get()
-            ->map(fn (object $row): array => [
-                'value' => (string) $row->kode_kabupaten,
-                'label' => (string) $row->nama_kabupaten,
-                'provinsi' => (string) $row->kode_provinsi,
-            ])
-            ->all();
-
         $daftarTahun = $profileOptions->pluck('tahun_lulus')
             ->filter()
             ->map(function ($item) {
@@ -133,15 +91,106 @@ class AlumniDirectoryQueryService
             $tahunTerpilih = $tahunTerbaru;
         }
 
-        // 3. Bentuk daftar target dari hasil metadata yang sama tanpa scan view kedua.
-        $daftarTarget = $profileOptions->pluck('tahun_akademik_lulus')
+        $tahunNormalized = preg_match('/(\d{4})/', (string) $tahunTerpilih, $matches) ? $matches[1] : $tahunTerpilih;
+
+        // 3. Bentuk daftar target kelulusan yang relevan dengan tahun terpilih
+        $targetFilteredOptions = $profileOptions;
+        if ($tahunTerpilih && $tahunTerpilih !== 'all') {
+            $targetFilteredOptions = $profileOptions->filter(function ($item) use ($tahunTerpilih, $tahunNormalized) {
+                $itemTahun = (string) ($item->tahun_lulus ?? '');
+
+                return $itemTahun === (string) $tahunTerpilih || $itemTahun === (string) $tahunNormalized;
+            });
+        }
+
+        $daftarTarget = $targetFilteredOptions->pluck('tahun_akademik_lulus')
             ->filter()
             ->unique()
             ->sortDesc()
             ->values()
             ->all();
 
-        // 4. Bangun kueri utama dari database view v_alumni_audit_rekap
+        // 4. Kueri opsi filter (skills, perusahaan, bidang, unit/divisi) disaring sesuai tahun & prodi aktif (Cascading Dependent Filter)
+        $directoryFilterRowsQuery = DB::table('v_alumni_profile_summary')
+            ->select([
+                'kode_provinsi',
+                'kode_kabupaten',
+                'nama_provinsi',
+                'nama_kabupaten',
+                'nama_perusahaan',
+                'bidang_pekerjaan',
+                'divisi',
+                'skills',
+            ]);
+        $this->applyScope($directoryFilterRowsQuery, $scopedProdiId, $scopedFakultasId, $scopedProdiIds);
+
+        if ($tahunTerpilih && $tahunTerpilih !== 'all') {
+            $directoryFilterRowsQuery->where(function ($q) use ($tahunTerpilih, $tahunNormalized) {
+                $q->where('tahun_lulus', $tahunNormalized)
+                    ->orWhere('tahun_lulus', $tahunTerpilih);
+            });
+        }
+
+        if (! $scopedProdiId && $prodiIdTerpilih && $prodiIdTerpilih !== 'all') {
+            $directoryFilterRowsQuery->where('prodi_id', $prodiIdTerpilih);
+        }
+
+        $directoryFilterRows = $directoryFilterRowsQuery->get();
+        $optionValues = static fn (string $field): array => $directoryFilterRows
+            ->pluck($field)
+            ->filter(fn (mixed $value): bool => filled($value))
+            ->map(fn (mixed $value): string => trim((string) $value))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        $availableHeadOffice = $optionValues('nama_perusahaan');
+        $availableSkills = $directoryFilterRows
+            ->flatMap(fn (object $row): array => $this->normalizeSkills($row->skills))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+        $availableBidang = $optionValues('bidang_pekerjaan');
+        $availableUnit = $optionValues('divisi');
+
+        // Otomatis reset parameter filter sekunder jika tidak lagi valid pada kohort tahun/prodi terpilih
+        if ($headOfficeTerpilih && $headOfficeTerpilih !== 'all' && ! in_array($headOfficeTerpilih, $availableHeadOffice, true)) {
+            $headOfficeTerpilih = null;
+        }
+        if ($skillsTerpilih && $skillsTerpilih !== 'all' && ! in_array($skillsTerpilih, $availableSkills, true)) {
+            $skillsTerpilih = null;
+        }
+        if ($bidangTerpilih && $bidangTerpilih !== 'all' && ! in_array($bidangTerpilih, $availableBidang, true)) {
+            $bidangTerpilih = null;
+        }
+        if ($unitTerpilih && $unitTerpilih !== 'all' && ! in_array($unitTerpilih, $availableUnit, true)) {
+            $unitTerpilih = null;
+        }
+
+        $wilayahProvinsiOptions = DB::table('propinsi')
+            ->select(['kode_provinsi', 'nama_provinsi'])
+            ->orderBy('nama_provinsi')
+            ->get()
+            ->map(fn (object $row): array => [
+                'value' => (string) $row->kode_provinsi,
+                'label' => (string) $row->nama_provinsi,
+            ])
+            ->all();
+        $wilayahKabupatenOptions = DB::table('kabupaten')
+            ->select(['kode_kabupaten', 'kode_provinsi', 'nama_kabupaten'])
+            ->orderBy('nama_kabupaten')
+            ->get()
+            ->map(fn (object $row): array => [
+                'value' => (string) $row->kode_kabupaten,
+                'label' => (string) $row->nama_kabupaten,
+                'provinsi' => (string) $row->kode_provinsi,
+            ])
+            ->all();
+
+        // 5. Bangun kueri utama dari database view v_alumni_audit_rekap
         $query = DB::table('v_alumni_audit_rekap');
         $this->applyScope($query, $scopedProdiId, $scopedFakultasId, $scopedProdiIds);
 
@@ -522,15 +571,10 @@ class AlumniDirectoryQueryService
                     'provinsi' => $wilayahProvinsiOptions,
                     'kabupaten' => $wilayahKabupatenOptions,
                 ],
-                'head_office' => $optionValues('nama_perusahaan'),
-                'skills' => $directoryFilterRows
-                    ->flatMap(fn (object $row): array => $this->normalizeSkills($row->skills))
-                    ->unique()
-                    ->sort()
-                    ->values()
-                    ->all(),
-                'bidang' => $optionValues('bidang_pekerjaan'),
-                'unit' => $optionValues('divisi'),
+                'head_office' => $availableHeadOffice,
+                'skills' => $availableSkills,
+                'bidang' => $availableBidang,
+                'unit' => $availableUnit,
             ],
             'stats' => [
                 'total_alumni' => $totalSemua,

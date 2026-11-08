@@ -299,14 +299,14 @@ watch(() => props.analytics, (newAnalytics) => {
 <template>
     <Head :title="`Grafik Prodi - ${currentProdi.nama_prodi || 'Program Studi'}`" />
 
-    <div class="min-h-screen bg-[#F5F7F8] text-slate-900 lg:flex">
+    <div class="min-h-screen bg-[#F5F7F8] text-slate-900 lg:flex min-w-[1280px]">
         <Sidebar :user="user" active-menu="analytics-prodi" />
 
         <!-- Offset kiri 18rem mengikuti sidebar fixed pada Grafik Universitas. -->
         <main class="min-w-0 flex-1 lg:pl-72">
             <!-- Header hijau dan breadcrumb disamakan dengan halaman analitik universitas. -->
             <header class="border-b border-emerald-900/40 bg-[#0D542B] px-5 py-7 text-white sm:px-8">
-                <div class="mx-auto max-w-[1480px]">
+                <div class="w-full">
                     <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-emerald-100">
                         <Link :href="`${analyticsBaseUrl.value}/dashboard`" class="font-semibold hover:text-white">Dashboard</Link>
                         <span class="text-emerald-300/70">/</span>
@@ -322,7 +322,7 @@ watch(() => props.analytics, (newAnalytics) => {
                 </div>
             </header>
 
-            <div class="mx-auto mt-5 max-w-[1480px] space-y-5 px-5 pb-8 sm:px-8">
+            <div class="mt-5 space-y-5 px-5 pb-8 sm:px-8 w-full">
                 <!-- Filter utama mengikuti susunan dan ukuran filter Grafik Universitas. -->
                 <section class="bg-white p-5 shadow-lg shadow-slate-900/5">
                     <div class="grid gap-4 xl:grid-cols-[minmax(18rem,2fr)_minmax(18rem,2fr)_10rem_auto] xl:items-end">

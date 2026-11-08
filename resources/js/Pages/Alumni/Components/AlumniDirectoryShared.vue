@@ -159,6 +159,24 @@ watch(() => props.filters, (newFilters) => {
     }
 }, { deep: true });
 
+// Validasi opsi filter terpilih agar tidak tersangkut pada nilai yang tidak ada di opsi baru
+watch(() => props.filterOptions, (newOptions) => {
+    if (newOptions) {
+        if (skills.value !== 'all' && Array.isArray(newOptions.skills) && !newOptions.skills.includes(skills.value)) {
+            skills.value = 'all';
+        }
+        if (headOffice.value !== 'all' && Array.isArray(newOptions.head_office) && !newOptions.head_office.includes(headOffice.value)) {
+            headOffice.value = 'all';
+        }
+        if (bidang.value !== 'all' && Array.isArray(newOptions.bidang) && !newOptions.bidang.includes(bidang.value)) {
+            bidang.value = 'all';
+        }
+        if (unit.value !== 'all' && Array.isArray(newOptions.unit) && !newOptions.unit.includes(unit.value)) {
+            unit.value = 'all';
+        }
+    }
+}, { deep: true });
+
 // Pagination server-side
 const perPage = ref(props.pagination?.per_page || 10);
 const currentPage = ref(props.pagination?.current_page || 1);
@@ -353,6 +371,66 @@ const handleSearchInput = () => {
 const resetFilters = () => {
     search.value = '';
     tahun.value = props.daftarTahun[0] || '';
+    semester.value = 'all';
+    target.value = 'all';
+    status.value = 'all';
+    prodiId.value = 'all';
+    linkedinStatus.value = 'all';
+    provinsi.value = 'all';
+    kabupaten.value = 'all';
+    provinsiSearch.value = '';
+    kabupatenSearch.value = '';
+    showProvinsiDropdown.value = false;
+    showKabupatenDropdown.value = false;
+    headOffice.value = 'all';
+    skills.value = 'all';
+    bidang.value = 'all';
+    unit.value = 'all';
+    currentPage.value = 1;
+    applyFilters(1);
+};
+
+// Handler saat Tahun Kelulusan diubah: reset filter turunan agar tidak terjadi bentrok dengan data kohort sebelumnya
+const handleTahunChange = () => {
+    target.value = 'all';
+    semester.value = 'all';
+    skills.value = 'all';
+    headOffice.value = 'all';
+    bidang.value = 'all';
+    unit.value = 'all';
+    applyFilters(1);
+};
+
+// Handler saat Program Studi diubah: reset filter turunan pekerjaan spesifik prodi
+const handleProdiChange = () => {
+    skills.value = 'all';
+    headOffice.value = 'all';
+    bidang.value = 'all';
+    unit.value = 'all';
+    applyFilters(1);
+};
+
+// Deteksi apakah ada filter pencarian sekunder aktif di luar tahun kelulusan
+const hasActiveSecondaryFilters = computed(() => {
+    return (
+        search.value !== '' ||
+        semester.value !== 'all' ||
+        target.value !== 'all' ||
+        status.value !== 'all' ||
+        linkedinStatus.value !== 'all' ||
+        provinsi.value !== 'all' ||
+        kabupaten.value !== 'all' ||
+        headOffice.value !== 'all' ||
+        skills.value !== 'all' ||
+        bidang.value !== 'all' ||
+        unit.value !== 'all' ||
+        (props.showProdiFilter && prodiId.value !== 'all')
+    );
+});
+
+// Mereset seluruh filter sekunder kembali ke kondisi bersih pada tahun yang sedang aktif
+const resetSecondaryFilters = () => {
+    search.value = '';
     semester.value = 'all';
     target.value = 'all';
     status.value = 'all';
@@ -893,7 +971,7 @@ const formatTanggal = (dateStr) => {
 <template>
     <Head :title="`Direktori Mahasiswa & Tracer Study - ${roleTitle}`" />
 
-    <div class="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans flex">
+    <div class="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans flex min-w-[1280px]">
         <!-- Sidebar Terpadu dengan Kontrak Peran -->
         <AdminSidebar :user="user" :role="role" :prodi="prodi" :fakultas="fakultas" />
 
@@ -902,7 +980,7 @@ const formatTanggal = (dateStr) => {
             
             <!-- Header Solid Hijau Resmi UKDW #0D542B -->
             <header class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
-                <div class="w-full max-w-[1440px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div class="w-full flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <!-- Breadcrumbs -->
                         <nav class="flex items-center gap-2 text-xs text-emerald-100 font-medium mb-2.5">
@@ -939,7 +1017,7 @@ const formatTanggal = (dateStr) => {
             </header>
 
             <!-- Main Content Area -->
-            <main class="admin-page-main flex-1 w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 -mt-10 pb-16 space-y-6">
+            <main class="admin-page-main flex-1 w-full px-4 sm:px-6 lg:px-8 -mt-10 pb-16 space-y-6">
 
                 <!-- KARTU STATISTIK RINGKASAN AUDIT ALUMNI -->
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
@@ -1068,7 +1146,7 @@ const formatTanggal = (dateStr) => {
                             </label>
                             <select 
                                 v-model="tahun" 
-                                @change="applyFilters(1)"
+                                @change="handleTahunChange"
                                 class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all cursor-pointer"
                             >
                                 <option v-for="t in daftarTahun" :key="t" :value="t">
@@ -1140,7 +1218,7 @@ const formatTanggal = (dateStr) => {
                             <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">Program Studi</label>
                             <select 
                                 v-model="prodiId" 
-                                @change="applyFilters(1)"
+                                @change="handleProdiChange"
                                 class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all cursor-pointer"
                             >
                                 <option value="all">Semua Program Studi</option>
@@ -1329,7 +1407,6 @@ const formatTanggal = (dateStr) => {
                         <table class="directory-table min-w-[1800px] w-full text-left text-xs border-collapse">
                             <thead>
                                 <tr class="bg-slate-50 border-b border-slate-200/80 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                                    <th v-if="prefix !== 'prodi'" class="py-3 px-4 w-12 text-center">No</th>
                                     <th class="py-3 px-4 min-w-[200px]">Mahasiswa / Alumni</th>
                                     <th class="py-3 px-4 min-w-[150px]">Program Studi</th>
                                     <th class="py-3 px-4 min-w-[230px]">Perusahaan &amp; Lokasi</th>
@@ -1348,11 +1425,6 @@ const formatTanggal = (dateStr) => {
                                     :key="item.id || item.nim"
                                     class="hover:bg-slate-50/80 transition-colors group"
                                 >
-                                    <!-- Nomor baris hanya dipertahankan pada direktori selain Prodi. -->
-                                    <td v-if="prefix !== 'prodi'" class="py-3.5 px-4 text-center font-semibold text-slate-600">
-                                        {{ paginationFrom + idx }}
-                                    </td>
-
                                     <!-- Mahasiswa / Alumni -->
                                     <td class="py-3.5 px-4">
                                         <div class="flex items-center gap-3">
@@ -1605,6 +1677,15 @@ const formatTanggal = (dateStr) => {
                                     <td :colspan="prefix === 'prodi' ? 10 : 11" class="py-12 text-center text-slate-600">
                                         <p class="font-bold text-sm text-slate-700">Tidak ada data mahasiswa atau alumni</p>
                                         <p class="text-xs text-slate-600 mt-1">Coba sesuaikan kata kunci pencarian atau parameter filter tahun kelulusan.</p>
+                                        <div v-if="hasActiveSecondaryFilters" class="mt-3">
+                                            <button
+                                                type="button"
+                                                @click="resetSecondaryFilters"
+                                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer shadow-2xs"
+                                            >
+                                                Reset Parameter Filter
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             </tbody>

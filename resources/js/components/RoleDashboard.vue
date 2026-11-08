@@ -167,13 +167,13 @@ const scopeLabel = computed(() => roleConfig.value.contextValue);
     <Head :title="`${roleConfig.title} - Tracer Study UKDW`" />
 
     <!-- Root layout dashboard bersama dengan sidebar, header, dan konten responsif. -->
-    <div class="min-h-screen bg-[#f8fafc] font-sans text-slate-800">
+    <div class="min-h-screen bg-[#f8fafc] font-sans text-slate-800 flex min-w-[1280px]">
         <AdminSidebar :role="role" :user="user" :prodi="prodi" :fakultas="fakultas" active-menu="dashboard" />
 
-        <div class="flex min-h-screen min-w-0 flex-col lg:pl-72">
+        <div class="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-72">
             <!-- Header hijau bersama untuk seluruh role pengelola. -->
             <header class="bg-[#0D542B] px-4 pb-16 pt-8 text-white sm:px-6 lg:px-8">
-                <div class="mx-auto w-full max-w-[1440px]">
+                <div class="w-full">
                     <div class="mb-2.5 flex items-center gap-2 text-xs font-medium text-emerald-100">
                         <span>Tracer Study</span><span class="text-emerald-300">/</span><span class="rounded-md bg-white/10 px-2 py-0.5 font-bold">{{ roleConfig.label }}</span>
                     </div>
@@ -196,7 +196,7 @@ const scopeLabel = computed(() => roleConfig.value.contextValue);
                 </div>
             </header>
 
-            <main class="relative z-10 mx-auto -mt-10 flex w-full max-w-[1440px] min-w-0 flex-1 flex-col gap-6 px-4 pb-12 sm:px-6 lg:px-8">
+            <main class="relative z-10 -mt-10 flex w-full min-w-0 flex-1 flex-col gap-6 px-4 pb-12 sm:px-6 lg:px-8">
                 <!-- Kartu ringkasan utama dapat diklik untuk membuka panel detail. -->
                 <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     <button type="button" @click="focusPanel('response')" class="min-w-0 rounded-xl bg-white p-5 text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0D542B]">

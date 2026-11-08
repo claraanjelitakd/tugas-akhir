@@ -656,37 +656,65 @@ class TracerAnalyticsService
             default => null,
         };
 
-        $grouped = $records->groupBy('answer');
-        $officialOptions = $questionCode
-            ? DB::table('kuesioner_opsi as o')
+        $records = $records->map(function (array $rec): array {
+            $raw = $rec['answer'] ?? '';
+            if (preg_match('/^(?:lainnya|other)\s*:\s*(.+)$/i', $raw, $m)) {
+                $rec['category'] = 'Lainnya';
+                $rec['detail'] = trim($m[1]);
+            } else {
+                $rec['category'] = $raw;
+                $rec['detail'] = null;
+            }
+
+            return $rec;
+        });
+
+        $grouped = $records->groupBy('category');
+        $officialOptions = [];
+        $shortLabelMap = [];
+
+        if ($questionCode) {
+            $optionsRows = DB::table('kuesioner_opsi as o')
                 ->join('kuesioner_pertanyaan as p', 'p.id', '=', 'o.pertanyaan_id')
                 ->where('p.kode_pertanyaan', $questionCode)
                 ->orderBy('o.order')
-                ->pluck('o.label')
-                ->filter()
-                ->unique()
-                ->values()
-                ->all()
-            : [];
+                ->get(['o.label', 'o.label_singkat', 'o.kode_opsi']);
+
+            foreach ($optionsRows as $row) {
+                if ($row->label) {
+                    $officialOptions[$row->label] = $row;
+                    if ($row->label_singkat) {
+                        $shortLabelMap[$row->label] = $row->label_singkat;
+                    }
+                }
+            }
+        }
 
         $seriesCollection = collect();
         if (! empty($officialOptions)) {
-            // Masukkan seluruh opsi resmi kuesioner
-            foreach ($officialOptions as $optText) {
+            // Masukkan seluruh opsi resmi kuesioner dengan dukungan label singkat
+            foreach ($officialOptions as $optText => $optRow) {
                 $group = $grouped->get($optText);
                 $cnt = $group ? $group->count() : 0;
+                $short = $optRow->label_singkat ?: $optText;
                 $seriesCollection->push([
-                    'label' => $optText,
+                    'label' => $short,
+                    'short_label' => $short,
+                    'full_label' => $optText,
+                    'kode_opsi' => $optRow->kode_opsi,
                     'count' => $cnt,
                     'percentage' => $this->percentage($cnt, max($records->count(), 1)),
                 ]);
             }
             // Tambahkan jawaban alumni di luar opsi resmi jika ada (misal teks bebas lainnya)
             foreach ($grouped as $label => $group) {
-                if (! in_array($label, $officialOptions, true)) {
+                if (! isset($officialOptions[$label])) {
                     $cnt = $group->count();
                     $seriesCollection->push([
                         'label' => $label,
+                        'short_label' => $label,
+                        'full_label' => $label,
+                        'kode_opsi' => null,
                         'count' => $cnt,
                         'percentage' => $this->percentage($cnt, max($records->count(), 1)),
                     ]);
@@ -696,9 +724,20 @@ class TracerAnalyticsService
         } else {
             $series = $grouped->map(fn (Collection $group, string $label): array => [
                 'label' => $label,
+                'short_label' => $label,
+                'full_label' => $label,
                 'count' => $group->count(),
                 'percentage' => $this->percentage($group->count(), max($records->count(), 1)),
             ])->sortByDesc('count')->values()->all();
+        }
+
+        if (! empty($shortLabelMap)) {
+            $records = $records->map(function (array $rec) use ($shortLabelMap): array {
+                $ans = $rec['answer'] ?? null;
+                $rec['short_label'] = $shortLabelMap[$ans] ?? $ans;
+
+                return $rec;
+            });
         }
 
         if ($chartKey === 'mismatch_reasons') {
@@ -2601,16 +2640,61 @@ class TracerAnalyticsService
         };
 
         if (is_array($json)) {
-            foreach (['selected', 'pilihan', 'values', 'options', 'value'] as $key) {
-                if (array_key_exists($key, $json)) {
-                    $collect($json[$key]);
+            if (array_is_list($json)) {
+                $collect($json);
+            } else {
+                foreach (['selected', 'pilihan', 'values', 'options', 'value'] as $key) {
+                    if (array_key_exists($key, $json)) {
+                        $collect($json[$key]);
+                    }
                 }
             }
         }
 
         if ($values === [] && is_scalar($answer)) {
             $answerText = trim((string) $answer);
-            $values = preg_split('/\s*[,;|]\s*/', $answerText) ?: [$answerText];
+
+            // Opsi pertanyaan resmi kuesioner yang mengandung tanda koma di dalam kalimatnya.
+            // Frase ini harus diekstraksi secara utuh agar tidak terpecah menjadi potongan aneh seperti 'dll)'.
+            $knownPhrasesWithCommas = [
+                'Melalui relasi (misalnya dosen, orang tua, saudara, teman, dll)',
+                'Melalui iklan di koran/majalah, brosur',
+                'Pekerjaan saya saat ini lebih memungkinkan saya mengambil pekerjaan tambahan/jadwal yang fleksibel, dll.',
+                'Pada awal meniti karir ini, saya harus menerima pekerjaan yang tidak berhubungan dengan pendidikan saya',
+                'Tidak, tetapi saya sedang menunggu hasil lamaran kerja',
+                'Ya, saya akan mulai bekerja dalam 2 minggu ke depan',
+                'Ya, tapi saya belum pasti akan bekerja dalam 2 minggu ke depan',
+            ];
+
+            $matched = false;
+            foreach ($knownPhrasesWithCommas as $phrase) {
+                if ($answerText === $phrase) {
+                    $values = [$phrase];
+                    $matched = true;
+                    break;
+                }
+            }
+
+            if (! $matched) {
+                $remainingText = $answerText;
+                $extracted = [];
+                foreach ($knownPhrasesWithCommas as $phrase) {
+                    if (str_contains($remainingText, $phrase)) {
+                        $extracted[] = $phrase;
+                        $remainingText = str_replace($phrase, '', $remainingText);
+                    }
+                }
+
+                $remainingPieces = preg_split('/\s*[,;|]\s*/', $remainingText) ?: [];
+                foreach ($remainingPieces as $piece) {
+                    $piece = trim($piece);
+                    if ($piece !== '') {
+                        $extracted[] = $piece;
+                    }
+                }
+
+                $values = ! empty($extracted) ? $extracted : (preg_split('/\s*[,;|]\s*/', $answerText) ?: [$answerText]);
+            }
         }
 
         return array_values(array_unique(array_filter($values, fn (string $value): bool => $value !== '')));

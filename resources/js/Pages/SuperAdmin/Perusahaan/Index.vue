@@ -926,7 +926,7 @@ const handleVerificationAction = (company, event) => {
 <template>
     <Head :title="pageTitle" />
 
-    <div class="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans flex">
+    <div class="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans flex min-w-[1280px]">
         <!-- Sidebar Resmi Super Admin -->
         <AdminFakultasSidebar v-if="isFaculty" :user="user" :fakultas="fakultas" />
         <AdminProdiSidebar v-else-if="isProdi" :user="user" :prodi="prodi" />
@@ -936,7 +936,7 @@ const handleVerificationAction = (company, event) => {
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             <!-- Header Solid Hijau Resmi UKDW #0D542B (Sesuai Gambar 3) -->
             <header class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
-                <div class="w-full max-w-[1440px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div class="w-full flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <!-- Breadcrumbs -->
                         <nav class="flex items-center gap-2 text-xs text-emerald-100 font-medium mb-2.5">
@@ -977,7 +977,7 @@ const handleVerificationAction = (company, event) => {
             </header>
 
             <!-- Main Content Container dengan Negative Top Margin (-mt-10) Menumpuk Header Hijau -->
-            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+            <main class="admin-page-main w-full -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
                 <!-- 4 Kartu Statistik Interaktif & Filter Cepat (Bisa Diklik!) -->
                 <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
                     <!-- 1. Total Institusi (Filter: Semua Status) -->

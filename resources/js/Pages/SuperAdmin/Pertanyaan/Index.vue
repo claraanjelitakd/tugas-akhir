@@ -1187,13 +1187,13 @@ const handleDeleteKuesioner = (k) => {
 <template>
     <Head title="Pengaturan Kuesioner Universitas - Super Admin UKDW" />
 
-    <div class="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans flex">
+    <div class="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans flex min-w-[1280px]">
         <Sidebar :user="user" />
 
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             <!-- Header Solid Hijau Resmi UKDW #0D542B -->
             <header class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
-                <div class="w-full max-w-[1440px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div class="w-full flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <!-- Breadcrumbs -->
                         <nav class="flex items-center gap-2 text-xs text-emerald-100 font-medium mb-2.5">
@@ -1217,7 +1217,7 @@ const handleDeleteKuesioner = (k) => {
                 </div>
             </header>
 
-            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+            <main class="admin-page-main w-full -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
                 <!-- Bar Informasi Kuesioner Induk & Ringkasan Data (2 Tone) -->
                 <div class="bg-white rounded-xl p-5 border border-gray-300 shadow-2xs">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">

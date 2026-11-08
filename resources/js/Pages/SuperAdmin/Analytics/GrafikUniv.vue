@@ -557,6 +557,26 @@ const automaticInsights = computed(() => {
     return insights;
 });
 
+// Daftar kolom metode pembelajaran untuk tabel pivot indikator 02 (Metode Pembelajaran)
+const learningMethodColumns = computed(() => {
+    if (chart.value.type !== 'learning_methods') return [];
+    if (Array.isArray(chart.value.series) && chart.value.series.length) {
+        return chart.value.series.map((s) => ({
+            key: s.key,
+            label: s.label || s.key,
+        }));
+    }
+    return [
+        { key: 'F21', label: 'Perkuliahan' },
+        { key: 'F22', label: 'Demonstrasi' },
+        { key: 'F23', label: 'Partisipasi dalam proyek riset' },
+        { key: 'F24', label: 'Magang' },
+        { key: 'F25', label: 'Praktikum' },
+        { key: 'F26', label: 'Kerja Lapangan' },
+        { key: 'F27', label: 'Diskusi' },
+    ];
+});
+
 // Menentukan daftar nama kolom header tabel data responden secara dinamis berdasarkan tipe indikator aktif.
 const tableColumns = computed(() => {
     if (chart.value.type === 'salary') return ['Nama', 'NIM', 'Program studi', 'Perusahaan', 'Provinsi', 'Gaji', 'Ambang 1,2 × UMP', 'Status'];
@@ -564,7 +584,15 @@ const tableColumns = computed(() => {
     if (chart.value.type === 'location') return ['Nama', 'NIM', 'Program studi', 'Perusahaan', 'Provinsi kerja'];
     if (chart.value.type === 'response_rate') return ['NIM', 'Nama Mahasiswa / Alumni', 'Program Studi', 'Perusahaan & Lokasi', 'Pekerjaan & Posisi', 'Skills', 'Tahun Lulus', 'Status Kuesioner', 'Waktu Respons'];
     if (chart.value.type === 'application_pipeline') return ['Nama', 'NIM', 'Program studi', 'Tahap', 'Jumlah'];
-    if (chart.value.type === 'learning_methods') return ['Nama', 'NIM', 'Program studi', 'Metode', 'Skor'];
+    if (chart.value.type === 'learning_methods') {
+        return [
+            'Nama',
+            'NIM',
+            'Program studi',
+            ...learningMethodColumns.value.map((m) => m.label),
+            'Rata-rata Akhir',
+        ];
+    }
     if (chart.value.type === 'competency') return ['Nama', 'NIM', 'Program studi', 'Kompetensi', 'Saat lulus', 'Dibutuhkan', 'Gap'];
     if (selectedChart.value === 'workplace_type') return ['Nama', 'NIM', 'Program studi', 'Instansi', 'Nama Perusahaan', 'Jenis Instansi Lainnya'];
     return ['Nama', 'NIM', 'Program studi', 'Jawaban'];
@@ -596,17 +624,62 @@ const tableCells = (record) => {
 // Menghasilkan daftar seluruh baris tabel responden setelah melalui pencarian kata kunci dan pengurutan (sorting).
 const tableRows = computed(() => {
     const query = tableSearch.value.trim().toLowerCase();
-    const rows = selectedRecords.value
-        .map((record) => ({ record, cells: tableCells(record) }))
-        .filter((row) => {
-            if (!query) return true;
-            const inCells = row.cells.some((cell) => String(cell ?? '').toLowerCase().includes(query));
-            const inContact = String(row.record.email ?? '').toLowerCase().includes(query)
-                || String(row.record.nomor_telepon ?? '').toLowerCase().includes(query);
-            return inCells || inContact;
+    let rows;
+
+    if (chart.value.type === 'learning_methods') {
+        const methods = learningMethodColumns.value;
+        const alumniMap = new Map();
+
+        // Mengelompokkan per individu alumni: setiap alumni 1 baris, metode sebagai kolom
+        selectedRecords.value.forEach((record) => {
+            const id = record.biodata_id || record.nim || record.nama;
+            if (!alumniMap.has(id)) {
+                alumniMap.set(id, {
+                    record,
+                    scores: {},
+                    total: 0,
+                    count: 0,
+                });
+            }
+            const entry = alumniMap.get(id);
+            const scoreNum = Number(record.score);
+            if (!isNaN(scoreNum) && scoreNum > 0) {
+                const k = record.kode_pertanyaan || record.method;
+                entry.scores[k] = scoreNum;
+                if (record.method) entry.scores[record.method] = scoreNum;
+                entry.total += scoreNum;
+                entry.count += 1;
+            }
         });
 
-    return rows.sort((left, right) => {
+        rows = Array.from(alumniMap.values()).map(({ record, scores, total, count }) => {
+            const avg = count > 0 ? (total / count).toFixed(2) : '-';
+            const methodScores = methods.map((m) => {
+                const val = scores[m.key] ?? scores[m.label];
+                return val !== undefined ? String(val) : '-';
+            });
+            const cells = [
+                record.nama || '-',
+                record.nim || '-',
+                record.nama_prodi || '-',
+                ...methodScores,
+                avg,
+            ];
+            return { record, cells };
+        });
+    } else {
+        rows = selectedRecords.value.map((record) => ({ record, cells: tableCells(record) }));
+    }
+
+    const filtered = rows.filter((row) => {
+        if (!query) return true;
+        const inCells = row.cells.some((cell) => String(cell ?? '').toLowerCase().includes(query));
+        const inContact = String(row.record.email ?? '').toLowerCase().includes(query)
+            || String(row.record.nomor_telepon ?? '').toLowerCase().includes(query);
+        return inCells || inContact;
+    });
+
+    return filtered.sort((left, right) => {
         const leftValue = left.cells[sortColumn.value] ?? '';
         const rightValue = right.cells[sortColumn.value] ?? '';
         const comparison = String(leftValue).localeCompare(String(rightValue), 'id', { numeric: true });
@@ -822,13 +895,13 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
 <template>
     <Head title="Grafik Universitas - Tracer Study" />
 
-    <div class="min-h-screen bg-[#F5F7F8] text-slate-900 lg:flex">
+    <div class="min-h-screen bg-[#F5F7F8] text-slate-900 lg:flex min-w-[1280px]">
         <Sidebar :user="user" active-menu="analytics" />
 
         <main class="min-w-0 flex-1 lg:pl-72">
             <!-- Header ringkas menjaga fokus pada konteks universitas dan filter utama. -->
             <header class="border-b border-emerald-900/40 bg-[#0D542B] px-5 py-7 text-white sm:px-8">
-                <div class="mx-auto max-w-[1480px]">
+                <div class="w-full">
                     <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-emerald-100">
                         <Link :href="`${analyticsBaseUrl.value}/dashboard`" class="font-semibold hover:text-white">Dashboard</Link>
                         <span class="text-emerald-300/70">/</span>
@@ -844,7 +917,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                 </div>
             </header>
 
-            <div class="mx-auto mt-5 max-w-[1480px] space-y-5 px-5 pb-8 sm:px-8">
+            <div class="mt-5 space-y-5 px-5 pb-8 sm:px-8 w-full">
                 <!-- Global filter bar memperbarui data tanpa reload halaman penuh. -->
                 <section class="bg-white p-5 shadow-lg shadow-slate-900/5">
                     <div class="grid gap-4 xl:grid-cols-[minmax(18rem,2fr)_10rem_minmax(13rem,1fr)_auto] xl:items-end">
@@ -1236,7 +1309,14 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                             <table v-else class="min-w-full text-left text-xs divide-y divide-slate-200">
                                 <thead>
                                     <tr class="bg-slate-100 text-slate-700 font-semibold">
-                                        <th v-for="(column, index) in tableColumns" :key="column" class="whitespace-nowrap px-3 py-3">
+                                        <th
+                                            v-for="(column, index) in tableColumns"
+                                            :key="column"
+                                            class="whitespace-nowrap px-3 py-3"
+                                            :class="{
+                                                'text-center': chart.type === 'learning_methods' && index >= 3,
+                                            }"
+                                        >
                                             <button type="button" class="font-bold text-slate-700 hover:text-slate-900" @click="sortTable(index)">
                                                 {{ column }} <span v-if="sortColumn === index">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
                                             </button>
@@ -1245,7 +1325,16 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 bg-white">
                                     <tr v-for="(row, index) in paginatedRows" :key="row.record.biodata_id ? `${row.record.biodata_id}-${index}` : index" class="hover:bg-slate-50 transition-colors">
-                                        <td v-for="(cell, cellIndex) in row.cells" :key="cellIndex" class="whitespace-nowrap px-3 py-2.5 text-slate-600">
+                                        <td
+                                            v-for="(cell, cellIndex) in row.cells"
+                                            :key="cellIndex"
+                                            class="whitespace-nowrap px-3 py-2.5 text-slate-600"
+                                            :class="{
+                                                'font-semibold text-slate-900': cellIndex === 0,
+                                                'text-center font-mono': chart.type === 'learning_methods' && cellIndex >= 3,
+                                                'font-bold text-[#0D542B] bg-emerald-50/50': chart.type === 'learning_methods' && cellIndex === row.cells.length - 1,
+                                            }"
+                                        >
                                             {{ cell }}
                                         </td>
                                     </tr>

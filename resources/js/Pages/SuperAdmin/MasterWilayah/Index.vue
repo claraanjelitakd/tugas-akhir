@@ -701,18 +701,17 @@ const confirmDeleteNegara = (item) => {
 </script>
 
 <template>
-    <div class="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
+    <div class="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 min-w-[1280px]">
         <Head title="Master Wilayah & UMP - Super Admin" />
 
         <!-- SIDEBAR TERPADU SUPERADMIN -->
         <Sidebar :user="user" />
 
         <!-- KONTEN UTAMA HALAMAN -->
-        <!-- KONTEN UTAMA HALAMAN -->
         <div class="flex-1 lg:pl-72 flex flex-col min-w-0 min-h-screen">
             <!-- Header Solid UKDW Green Konsisten -->
             <div class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
-                <div class="w-full max-w-[1440px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="w-full flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <div class="flex items-center gap-2 text-xs text-white/70 font-medium mb-1.5">
                             <Link href="/superadmin/dashboard" class="hover:text-white transition-colors">Dashboard</Link>
@@ -794,7 +793,7 @@ const confirmDeleteNegara = (item) => {
             </div>
 
             <!-- ISI KONTEN UTAMA -->
-            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+            <main class="admin-page-main w-full -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
                 <!-- KARTU STATISTIK RINGKASAN: Formal, Flat, 2-Tone -->
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
                     <!-- Kartu 1: Total Provinsi -->

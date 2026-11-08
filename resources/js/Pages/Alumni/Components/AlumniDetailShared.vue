@@ -206,7 +206,7 @@ const isSuperAdminRole = computed(() => {
 <template>
     <Head :title="`Detail Mahasiswa - ${alumni.data_akademik?.nama || alumni.nim} - ${roleTitle}`" />
 
-    <div class="min-h-screen bg-[#f8fafc] text-gray-800 font-sans flex overscroll-none">
+    <div class="min-h-screen bg-[#f8fafc] text-gray-800 font-sans flex overscroll-none min-w-[1280px]">
         <!-- Sidebar Terpadu dengan Kontrak Peran -->
         <AdminSidebar :user="user" :role="role" :prodi="prodi" :fakultas="fakultas" />
 
@@ -215,7 +215,7 @@ const isSuperAdminRole = computed(() => {
             
             <!-- Header Solid Hijau Resmi UKDW #0D542B -->
             <header class="admin-page-header bg-[#0D542B] text-white py-6 px-4 sm:px-6 lg:px-8 border-b border-[#0A4322]">
-                <div class="max-w-[1400px] mx-auto">
+                <div class="w-full">
                     <div class="flex items-center gap-2 text-xs text-white/80 font-medium mb-3">
                         <Link :href="`/${prefix}/dashboard`" class="hover:underline">Dashboard</Link>
                         <span>/</span>
@@ -288,7 +288,7 @@ const isSuperAdminRole = computed(() => {
             </header>
 
             <!-- Main Content Area -->
-            <main class="admin-page-main max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16">
+            <main class="admin-page-main w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16">
 
                 <!-- Navigasi Stepper Tahapan Audit Alumni Terpadu -->
                 <AlumniStepper :tabs="stepperTabs" v-model="activeMainTab" />

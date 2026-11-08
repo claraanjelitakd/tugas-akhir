@@ -368,22 +368,21 @@ const rankingChartOption = computed(() => {
                 itemStyle: {
                     borderRadius: [0, 4, 4, 0],
                     color: (params) => {
-                        const val = params.value;
-                        if (val >= currentTarget.value) return '#0D542B'; // Memenuhi target (Brand Dark Green UKDW)
-                        return responseRatePalette[1];
+                        const row = list[params.dataIndex];
+                        return participationColor(row?.response_rate || 0, row?.target);
                     },
                     opacity: (params) => {
                         if (!selectedProdiName.value) return 1;
                         return params.name === selectedProdiName.value ? 1 : 0.28;
                     },
                 },
-                    label: {
+                label: {
                     show: true,
                     position: 'right',
                     color: '#1E293B',
                     fontWeight: 600,
                     fontSize: 11,
-                        formatter: ({ value, data }) => `${formatNumber(value, 1)}% · N ${formatNumber(data?.respondents, 0)}/${formatNumber(data?.population, 0)}`,
+                    formatter: ({ value, data }) => `${formatNumber(value, 1)}% · N ${formatNumber(data?.respondents, 0)}/${formatNumber(data?.population, 0)}`,
                 },
                 markLine: {
                     symbol: 'none',
@@ -405,7 +404,7 @@ const rankingChartOption = computed(() => {
                     population: item.population,
                     series_status: 'all',
                     itemStyle: {
-                        color: item.response_rate >= currentTarget.value ? responseRatePalette[0] : responseRatePalette[1],
+                        color: participationColor(item.response_rate, item.target),
                     },
                 })),
             },
@@ -413,11 +412,44 @@ const rankingChartOption = computed(() => {
     };
 });
 
-// Warna partisipasi mengikuti ambang visual tanpa menambahkan marker target.
-const participationColor = (rate) => {
-    if (rate < 50) return '#D95C5C';
-    if (rate < 60) return '#D6A928';
-    return '#2F8F65';
+// Status dan warna partisipasi berdasarkan capaian terhadap target:
+// Hijau : rate >= target -> Partisipasi sudah memenuhi target
+// Kuning: rate >= 0.75 * target && rate < target -> Perlu ditingkatkan
+// Merah : rate < 0.75 * target -> Perlu perhatian dan tindak lanjut
+const getParticipationStatus = (rate, targetVal = currentTarget.value) => {
+    const target = Number(targetVal || 60);
+    const threshold75 = target * 0.75;
+    const numRate = Number(rate || 0);
+
+    if (numRate >= target) {
+        return {
+            key: 'met',
+            label: 'Memenuhi Target',
+            meaning: 'Partisipasi sudah memenuhi target',
+            color: '#0D542B', // Hijau Institusi UKDW
+            badgeClass: 'bg-emerald-50 text-[#0D542B] border-emerald-300',
+        };
+    }
+    if (numRate >= threshold75) {
+        return {
+            key: 'warning',
+            label: 'Perlu Ditingkatkan',
+            meaning: '75%– kurang dari 100% target',
+            color: '#D97706', // Kuning/Amber
+            badgeClass: 'bg-amber-50 text-amber-700 border-amber-300',
+        };
+    }
+    return {
+        key: 'danger',
+        label: 'Perlu Perhatian',
+        meaning: 'Kurang dari 75% target',
+        color: '#DC2626', // Merah
+        badgeClass: 'bg-red-50 text-red-700 border-red-300',
+    };
+};
+
+const participationColor = (rate, targetVal = currentTarget.value) => {
+    return getParticipationStatus(rate, targetVal).color;
 };
 
 // Grafik tunggal: panjang batang adalah total alumni, warna menunjukkan status pengisian.
@@ -429,13 +461,7 @@ const participationBarOption = computed(() => {
 
     return {
         ...baseOption(),
-        themePalette: ['#2F8F65', '#CBD5E1'],
-        legend: {
-            data: ['Sudah Mengisi', 'Belum Mengisi'],
-            top: 4,
-            textStyle: { color: '#475569', fontWeight: 600, fontSize: 12 },
-        },
-        grid: { left: 18, right: 108, top: 38, bottom: 48, containLabel: true },
+        grid: { left: 18, right: 108, top: 20, bottom: 48, containLabel: true },
         xAxis: {
             type: 'value',
             min: 0,
@@ -462,13 +488,20 @@ const participationBarOption = computed(() => {
                 const item = list.find((entry) => entry.nama_prodi === prodi);
                 if (!item) return '';
 
+                const status = getParticipationStatus(item.response_rate, item.target);
+                const targetVal = Number(item.target || currentTarget.value);
+                const threshold75 = (targetVal * 0.75).toFixed(1);
+
                 return `
                     <div style="font-family: inherit; font-size: 12px; line-height: 1.5;">
                         <div style="font-weight: 700; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 6px; color: #0F172A;">${escapeHtml(prodi)}</div>
                         <div style="display: flex; justify-content: space-between; gap: 16px;"><span>Partisipasi:</span><strong>${formatNumber(item.response_rate, 1)}%</strong></div>
-                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #2F8F65;"><span>Sudah mengisi:</span><strong>${formatNumber(item.respondents, 0)} alumni</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; margin: 2px 0;"><span>Status Capaian:</span><strong style="color: ${status.color};">${escapeHtml(status.label)}</strong></div>
+                        <div style="font-size: 11px; color: #64748B; margin-bottom: 4px;">(${escapeHtml(status.meaning)})</div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: ${status.color};"><span>Sudah mengisi:</span><strong>${formatNumber(item.respondents, 0)} alumni</strong></div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; color: #64748B;"><span>Belum mengisi:</span><strong>${formatNumber(item.unanswered, 0)} alumni</strong></div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; color: #475569;"><span>N:</span><strong>${formatNumber(item.respondents, 0)}/${formatNumber(item.population, 0)}</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #64748B; font-size: 11px; margin-top: 4px; border-top: 1px dashed #E2E8F0; padding-top: 4px;"><span>Target:</span><span>${formatNumber(targetVal, 0)}% (Ambang 75%: ${threshold75}%)</span></div>
                     </div>
                 `;
             },
@@ -481,7 +514,10 @@ const participationBarOption = computed(() => {
                 barMaxWidth: 28,
                 itemStyle: {
                     borderRadius: [3, 0, 0, 3],
-                    color: (params) => participationColor(list[params.dataIndex]?.response_rate || 0),
+                    color: (params) => {
+                        const row = list[params.dataIndex];
+                        return participationColor(row?.response_rate || 0, row?.target);
+                    },
                     opacity: (params) => !selectedProdiName.value || params.name === selectedProdiName.value ? 1 : 0.28,
                 },
                 label: {
@@ -496,8 +532,13 @@ const participationBarOption = computed(() => {
                     name: item.nama_prodi,
                     value: item.respondents,
                     response_rate: item.response_rate,
+                    target: item.target,
                     prodi_id: item.prodi_id,
                     series_status: 'sudah',
+                    itemStyle: {
+                        color: participationColor(item.response_rate, item.target),
+                        borderRadius: [3, 0, 0, 3],
+                    },
                 })),
             },
             {
@@ -525,6 +566,10 @@ const participationBarOption = computed(() => {
                     population: item.population,
                     prodi_id: item.prodi_id,
                     series_status: 'belum',
+                    itemStyle: {
+                        color: '#CBD5E1',
+                        borderRadius: [0, 3, 3, 0],
+                    },
                 })),
             },
         ],
@@ -677,7 +722,7 @@ const downloadExcel = (statusTarget = null) => {
                         </h3>
                     </div>
                     <p class="mt-1 text-xs text-slate-500">
-                        Panjang batang menunjukkan total alumni. Warna menunjukkan yang sudah mengisi, abu-abu menunjukkan yang belum mengisi.
+                        Panjang batang menunjukkan total alumni. Warna batang menunjukkan capaian terhadap target partisipasi, dan abu-abu menunjukkan alumni yang belum mengisi.
                     </p>
                 </div>
             </div>
@@ -705,6 +750,27 @@ const downloadExcel = (statusTarget = null) => {
                 </div>
             </div>
 
+            <!-- Legenda Keterangan Warna Capaian Target -->
+            <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs text-slate-700">
+                <span class="font-bold text-slate-800">Status Capaian (Target {{ formatNumber(currentTarget, 0) }}%):</span>
+                <div class="flex items-center gap-1.5">
+                    <span class="inline-block h-3 w-3 rounded-xs bg-[#0D542B]"></span>
+                    <span><strong>Hijau:</strong> &ge; Target (Memenuhi target)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="inline-block h-3 w-3 rounded-xs bg-[#D97706]"></span>
+                    <span><strong>Kuning:</strong> 75%–&lt;100% Target (Perlu ditingkatkan)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="inline-block h-3 w-3 rounded-xs bg-[#DC2626]"></span>
+                    <span><strong>Merah:</strong> &lt; 75% Target (Perlu perhatian)</span>
+                </div>
+                <div class="flex items-center gap-1.5 border-l border-slate-300 pl-3">
+                    <span class="inline-block h-3 w-3 rounded-xs bg-[#CBD5E1]"></span>
+                    <span><strong>Abu-abu:</strong> Belum Mengisi</span>
+                </div>
+            </div>
+
             <!-- Area Render Grafik ECharts Responsif -->
             <div class="mt-4">
                 <!-- Grafik tunggal response rate dengan target dinamis -->
@@ -718,7 +784,7 @@ const downloadExcel = (statusTarget = null) => {
                     />
                     <p class="px-1 text-xs leading-relaxed text-slate-500">
                         <span class="font-semibold text-slate-700">Caption:</span>
-                        Partisipasi alumni per program studi. Label di dalam batang menunjukkan persentase, sedangkan label di ujung batang menunjukkan N responden dari total alumni.
+                        Partisipasi alumni per program studi. Warna batang menunjukkan status capaian target partisipasi (Hijau: &ge; Target, Kuning: 75%–&lt;100% Target, Merah: &lt; 75% Target). Label di dalam batang menunjukkan persentase, sedangkan label di ujung batang menunjukkan N responden dari total alumni.
                     </p>
 
                     <!-- Kotak ringkasan partisipasi -->
@@ -842,7 +908,6 @@ const downloadExcel = (statusTarget = null) => {
                 <table class="min-w-full text-left text-xs divide-y divide-slate-200">
                     <thead>
                         <tr class="bg-slate-50 text-slate-700 font-semibold">
-                            <th class="px-3 py-2.5 text-center w-12">No</th>
                             <th class="px-3 py-2.5">NIM</th>
                             <th class="px-3 py-2.5">Nama Alumni</th>
                             <th v-if="!selectedProdiName" class="px-3 py-2.5">Program Studi</th>
@@ -860,9 +925,6 @@ const downloadExcel = (statusTarget = null) => {
                             :key="record.biodata_id || record.nim || index"
                             class="hover:bg-slate-50/70 transition-colors"
                         >
-                            <td class="px-3 py-2 text-center text-slate-400 font-mono">
-                                {{ (currentPage - 1) * rowsPerPage + index + 1 }}
-                            </td>
                             <td class="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">
                                 {{ record.nim }}
                             </td>
