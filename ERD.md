@@ -20,6 +20,7 @@ Dokumen ini menyajikan spesifikasi struktur basis data aktif **`tracer`** Univer
    - [1.4 ERD Modul 3: Profil Alumni, Perusahaan, Atasan, & LinkedIn Sync](#14-erd-modul-3-profil-alumni-perusahaan-atasan--linkedin-sync)
    - [1.5 ERD Modul 4: Engine Kuesioner Terpadu (Unified Survey Engine)](#15-erd-modul-4-engine-kuesioner-terpadu-unified-survey-engine)
    - [1.6 ERD Modul 5: Evaluasi Pengguna Lulusan (Atasan Langsung)](#16-erd-modul-5-evaluasi-pengguna-lulusan-atasan-langsung)
+   - [1.7 Read-model IKU S1: AEE & Karier](#17-read-model-iku-s1-aee--karier)
 2. [Bagian 2: Spesifikasi Relasi & Kardinalitas Antar Tabel](#bagian-2-spesifikasi-relasi--kardinalitas-antar-tabel)
 3. [Bagian 3: Kamus Data (Data Dictionary) Detail Per Tabel](#bagian-3-kamus-data-data-dictionary-detail-per-tabel)
    - [3.1 Modul 1: Autentikasi, Pengguna, & Audit Log](#31-modul-1-autentikasi-pengguna--audit-log)
@@ -29,6 +30,7 @@ Dokumen ini menyajikan spesifikasi struktur basis data aktif **`tracer`** Univer
    - [3.5 Modul 5: Evaluasi Pengguna Lulusan (Atasan)](#35-modul-5-evaluasi-pengguna-lulusan-atasan)
    - [3.6 Tabel Infrastruktur Framework Laravel](#36-tabel-infrastruktur-framework-laravel)
 4. [Bagian 4: Kepemilikan Data & Proyeksi View Analitik](#bagian-4-kepemilikan-data--proyeksi-view-analitik)
+   - [4.3 Read-model IKU S1](#43-read-model-iku-s1)
 
 ---
 
@@ -43,6 +45,7 @@ erDiagram
     ref_fakultas ||--o{ prodi : "menaungi"
     ref_fakultas ||--o{ users : "cakupan_fakultas"
     prodi ||--o{ users : "mengampu_admin"
+    prodi ||--o{ data_akademik : "program_akademik"
     prodi ||--o{ biodata : "program_studi"
     users ||--o| biodata : "memiliki_profil"
     users ||--o{ log_activities : "mencatat_audit"
@@ -153,6 +156,7 @@ Modul ini mengelola riwayat akademik mahasiswa (`data_akademik`), data yudisium 
 ```mermaid
 erDiagram
     users ||--o| biodata : "akun_login (user_id)"
+    prodi ||--o{ data_akademik : "program_akademik (prodi_id)"
     data_akademik ||--o| biodata : "master_nim (nim)"
     data_akademik ||--o| yudisium : "lulusan_nim (nim)"
     yudisium ||--o| biodata : "data_skripsi (yudisium_id)"
@@ -172,7 +176,9 @@ erDiagram
     users ||--o{ linkedin_sync_results : "diverifikasi_oleh (reviewed_by)"
 
     data_akademik {
-        char nim PK
+        bigint id PK
+        char nim UK
+        bigint prodi_id FK
     }
 
     yudisium {
@@ -304,6 +310,33 @@ erDiagram
 
 ---
 
+### 1.7 Read-model IKU S1: AEE & Karier
+
+IKU S1 tidak menambah tabel transaksi maupun foreign key. Kedua view di bawah
+adalah *read-model* yang membaca tabel kanonik untuk perhitungan di
+`IkuS1AnalyticsService`. Garis menunjukkan ketergantungan baca, bukan relasi
+penyimpanan.
+
+```mermaid
+flowchart LR
+    DA[data_akademik] --> AEE[v_iku_s1_aee]
+    P[prodi] --> AEE
+    DA --> L[v_iku_s1_lulusan]
+    P --> L
+    B[biodata] --> L
+    C[perusahaan] --> L
+    KJ[kuesioner_jawaban] --> L
+    AEE --> S[IkuS1AnalyticsService: AEE]
+    L --> S
+```
+
+| Read-model | Grain | Kontrak perhitungan |
+| :--- | :--- | :--- |
+| `v_iku_s1_aee` | Satu mahasiswa akademik S1 | Memuat seluruh status akademik S1. `Drop Out`, `Pindah`, dan `Cuti` diberi penanda pengecualian; service memisahkan lulus tepat waktu, terlambat, dan belum teridentifikasi. |
+| `v_iku_s1_lulusan` | Satu lulusan S1 | Menyatukan status karier, masa tunggu, pendapatan, provinsi perusahaan, dan tanggal studi lanjut untuk formula bobot IKU. |
+
+---
+
 ## Bagian 2: Spesifikasi Relasi & Kardinalitas Antar Tabel
 
 Tabel berikut merinci seluruh relasi kunci asing (*Foreign Key*) dan referensi logis aktif antar tabel pada basis data `tracer`:
@@ -313,6 +346,7 @@ Tabel berikut merinci seluruh relasi kunci asing (*Foreign Key*) dan referensi l
 | 1 | `ref_fakultas` | `id` | `prodi` | `fakultas_id` | `1 : N` | `SET NULL` | Satu fakultas menaungi banyak program studi. |
 | 2 | `ref_fakultas` | `id` | `users` | `fakultas_id` | `1 : N` | `SET NULL` | Satu fakultas dapat dikelola oleh akun Admin Fakultas. |
 | 3 | `prodi` | `id` | `users` | `prodi_id` | `1 : N` | `SET NULL` | Satu prodi dapat dikelola oleh satu atau lebih akun Admin Prodi. |
+| 3a | `prodi` | `id` | `data_akademik` | `prodi_id` | `1 : N` | `SET NULL` | Program studi akademik mahasiswa, termasuk mahasiswa yang belum lulus dan belum memiliki biodata alumni. |
 | 4 | `users` | `id` | `log_activities` | `user_id` | `1 : N` | `SET NULL` | Satu akun pengguna dapat menghasilkan banyak catatan audit aktivitas. |
 | 5 | `propinsi` | `kode_provinsi` | `kabupaten` | `kode_provinsi` | `1 : N` | `CASCADE` | Satu provinsi memiliki banyak kabupaten/kota. |
 | 6 | `propinsi` | `kode_provinsi` | `ump` | `kode_provinsi` | `1 : N` | `CASCADE` | Satu provinsi memiliki riwayat besaran UMP per tahun. |
@@ -468,14 +502,19 @@ Menyimpan data referensi besaran Upah Minimum Provinsi (UMP) per tahun untuk ana
 ### 3.3 Modul 3: Profil Alumni, Perusahaan, Atasan, & LinkedIn Sync
 
 #### 9. Tabel `data_akademik`
-Menyimpan rekaman resmi master akademik mahasiswa lulusan UKDW (*Single Source of Truth* akademik).
+Menyimpan rekaman resmi master akademik seluruh mahasiswa UKDW, termasuk yang
+belum lulus, pindah, cuti, atau drop out. Tabel ini menjadi populasi awal AEE;
+profil tracer hanya dibuat pada `biodata` ketika mahasiswa menjadi alumni.
 
 | Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
 | :--- | :--- | :---: | :---: | :--- |
-| `nim` | `char(8)` | `PK` | `NOT NULL` | Nomor Induk Mahasiswa 8 karakter (contoh: `'72220001'`). |
-| `nama` | `varchar(150)` | - | `NOT NULL` | Nama resmi mahasiswa sesuai ijazah akademik. |
+| `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik rekam akademik. |
+| `nim` | `char(8)` | `UK` | `NOT NULL` | Nomor Induk Mahasiswa 8 karakter (contoh: `'72220001'`). |
+| `nama` | `varchar(100)` | - | `NULL` | Nama resmi mahasiswa. |
 | `email_pribadi` | `varchar(100)` | - | `NULL` | Snapshot email pribadi dari sumber akademik saat impor awal; perubahan kontak aktif disimpan di `biodata.email_pribadi`. |
+| `prodi_id` | `bigint unsigned` | `FK`, `INDEX` | `NULL` | Referensi ke `prodi.id`; dipakai juga untuk populasi mahasiswa non-alumni pada AEE. |
 | `angkatan_masuk` | `year` | - | `NULL` | Tahun angkatan pertama kali masuk perkuliahan. |
+| `tahun_akademik_masuk` | `varchar(30)` | - | `NULL` | Periode masuk reguler, misalnya `2023/2024 (Semester Ganjil)`. |
 | `status_mahasiswa` | `varchar(20)` | - | `NULL` | Status akademik terakhir (misal: `'Lulus'`). |
 | `tahun_akademik_lulus` | `varchar(20)` | - | `NULL` | Periode semester dan tahun akademik kelulusan (misal: `'Genap 2025/2026'`). |
 | `tahun_lulus` | `year` | `INDEX` | `NULL` | Tahun kelulusan mahasiswa (`YYYY`). |
@@ -780,16 +819,37 @@ flowchart LR
     A --> Q9[v_analytics_competency_gap]
 ```
 
-### 4.3 Audit Schema Runtime
+### 4.3 Read-model IKU S1
+
+```mermaid
+flowchart LR
+    DA[data_akademik] --> AEE[v_iku_s1_aee]
+    P[prodi] --> AEE
+    DA --> L[v_iku_s1_lulusan]
+    P --> L
+    B[biodata] --> L
+    C[perusahaan] --> L
+    KJ[kuesioner_jawaban] --> L
+    AEE --> S[IkuS1AnalyticsService]
+    L --> S
+```
+
+`v_iku_s1_aee` memakai seluruh mahasiswa S1 sebagai populasi dasar, bukan
+hanya alumni yang telah mengisi tracer. `v_iku_s1_lulusan` hanya memakai
+mahasiswa dengan status akademik `Lulus`. Keduanya tidak menyimpan data dan
+tidak menambah relasi fisik ke ERD; fungsi serta grain lengkapnya tercatat pada
+[database-views.md](docs/database-views.md).
+
+### 4.4 Audit Schema Runtime
 
 Audit berkala memastikan struktur dokumen ERD selalu sinkron 100% dengan database MySQL `tracer` aktif:
 
 | Pemeriksaan | Status Runtime | Keterangan |
 | :--- | :--- | :--- |
 | Database Aktif | `tracer` | Terdaftar pada `.env` dan `config/database.php`. |
-| Status Migrasi | 28/28 Ran (100%) | Seluruh 21 tabel domain, 7 tabel sistem, dan view aktif. |
+| Referensi migration | 51 berkas definisi | Terdiri dari tabel, infrastruktur Laravel, dan database view; status runtime diverifikasi melalui `php artisan migrate:status` saat MySQL tersedia. |
 | Model Kuesioner | *Unified Survey Engine* | Menggunakan tabel `kuesioner_section`, `kuesioner_pertanyaan`, `kuesioner_section_pertanyaan`, `kuesioner_opsi`, `kuesioner_jawaban`. |
 | Tabel Legacy Silo | 0 Tabel Tersisa | 11 tabel kuesioner terpisah lama telah dihapus sepenuhnya. |
 | Primary Key Wilayah | Natural Key BPS | `propinsi.kode_provinsi` dan `kabupaten.kode_kabupaten`. |
 | Primary Key Negara | ISO 2-Huruf | `ref_negara.kode_negara` (format ISO-3166-1 alpha-2). |
-| Primary Key Akademik | Natural Key NIM | `data_akademik.nim` (8 karakter). |
+| Primary Key Akademik | Surrogate key + NIM unik | `data_akademik.id` sebagai PK dan `data_akademik.nim` sebagai unique natural key (8 karakter). |

@@ -36,6 +36,38 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 | v_iku_s1_aee | IkuS1AnalyticsService | Seluruh populasi akademik S1, status pengecualian, dan penanda lulus tepat waktu untuk AEE. |
 | v_iku_s1_lulusan | IkuS1AnalyticsService | Lulusan S1 dengan status karier, masa tunggu, gaji, UMP/provinsi, dan tanggal studi lanjut untuk formula bobot IKU. |
 
+## Rincian fungsi per view
+
+| View | Grain data | Fungsi operasional | Aturan penting |
+|---|---|---|---|
+| `v_alumni_profile_summary` | Satu baris per alumni | Menyatukan data untuk halaman detail alumni dan pembaruan profil admin. | Profil aktif tetap dari `biodata`; akademik hanya referensi/snapshot. |
+| `v_alumni_tracer_univ_status` | Satu baris per alumni | Menghitung kemajuan kuesioner Universitas. | Hanya butir wajib yang berlaku menurut skip logic masuk denominator. |
+| `v_alumni_tracer_prodi_status` | Satu baris per alumni dan scope prodi | Menghitung kemajuan kuesioner Program Studi. | Prodi tanpa placement aktif bernilai netral, bukan 100%. |
+| `v_alumni_audit_rekap` | Satu baris per alumni | Menyediakan status ringkas Profil, Univ, Prodi, dan Atasan untuk dashboard/direktori. | Tidak menjadi sumber data baru; hanya rekap read-only. |
+| `v_alumni_kuesioner_autofill` | Satu baris per alumni | Memasok nilai awal untuk field kuesioner yang dapat diisi otomatis. | Tidak menggantikan jawaban yang sudah diisi alumni. |
+| `v_question_mappings` | Satu baris per kode pertanyaan | Memetakan kode instrumen ke sumber/kolom kanonik. | Menjaga service tidak bergantung pada nama section atau tabel legacy. |
+| `v_alumni_linkedin_plot` | Satu baris per alumni | Menampilkan staging sync LinkedIn, hasil kecocokan, dan status review. | Data staging/review tidak langsung menimpa profil alumni tanpa approval. |
+| `v_analytics_population` | Satu baris per alumni | Menjadi populasi dasar semua analitik tracer dan tabel drill-down. | Tidak mengagregasi jawaban kuesioner supaya filter dan scope tetap akurat. |
+| `v_analytics_response_rate` | Satu baris per alumni | Menandai alumni yang memiliki jawaban wajib Universitas. | Dipisah dari populasi agar pembilang response rate dapat diaudit. |
+| `v_analytics_profile_completion` | Satu baris per alumni | Menandai kelengkapan profil alumni untuk dashboard dan analitik. | Menggunakan kontrak field profil aktif, bukan field legacy. |
+| `v_analytics_wait_time` | Satu baris per alumni | Menyediakan masa tunggu kerja yang dinormalisasi. | Membaca F502/F504/F506 dengan fallback terstruktur, bukan teks experience. |
+| `v_analytics_salary_ump` | Satu baris per alumni | Membandingkan gaji dengan UMP serta ambang 1,2 kali UMP. | UMP mengikuti provinsi perusahaan dan tahun UMP terpilih. |
+| `v_analytics_work_location` | Satu baris per alumni | Menyediakan provinsi penempatan untuk sebaran lokasi kerja. | Lokasi kerja dibedakan dari domisili pribadi alumni dan head office. |
+| `v_analytics_employment_status` | Satu baris per alumni | Menyediakan status aktivitas utama F8 untuk komposisi pekerjaan. | Status disajikan apa adanya; tidak ditebak dari jabatan/experience. |
+| `v_analytics_alignment` | Satu baris per alumni dan indikator | Menyediakan F14/F15 untuk keselarasan bidang serta tingkat pendidikan. | Setiap indikator tetap dipisahkan agar label/kategori tidak tercampur. |
+| `v_analytics_tracer_answers` | Satu baris per jawaban alumni-kode pertanyaan | Menjadi sumber umum indikator tracer F3–F27. | Memakai indeks jawaban kanonik dan tidak mengakses tabel respons legacy. |
+| `v_analytics_learning_methods` | Satu baris per jawaban F21–F27 | Menyediakan skor metode pembelajaran untuk radar, distribusi, dan heatmap. | Hanya skor Likert valid yang dihitung. |
+| `v_analytics_job_search_start` | Satu baris per jawaban F3 | Menyediakan waktu alumni mulai mencari kerja. | Dipakai untuk sebaran rentang waktu, bukan masa tunggu. |
+| `v_analytics_job_search_methods` | Satu baris per pilihan F4 | Menyediakan kanal pencarian kerja, termasuk detail `Lainnya`. | Pilihan jamak dipecah tanpa menghilangkan teks custom. |
+| `v_analytics_application_pipeline` | Satu baris per alumni | Menyediakan F6, F7, dan F7A untuk lamaran, respons, dan wawancara. | Nilai diperlakukan sebagai data diskrit untuk analisis pipeline. |
+| `v_analytics_job_search_activity` | Satu baris per jawaban F10 | Menyediakan aktivitas pencarian kerja empat minggu terakhir. | Teks `Lainnya` tersedia untuk word cloud, bukan kategori grafik utama. |
+| `v_analytics_workplace_type` | Satu baris per jawaban F11 | Menyediakan klasifikasi tempat kerja. | `Lainnya` dipisahkan ke word cloud agar tidak mengaburkan kategori resmi. |
+| `v_analytics_further_study` | Satu baris per alumni | Menyediakan data studi lanjut F12 dan F18b–F18d. | Tanggal mulai studi dipakai untuk validasi batas kurang dari 12 bulan IKU. |
+| `v_analytics_mismatch_reasons` | Satu baris per pilihan F16 | Menyediakan alasan pekerjaan tidak sesuai pendidikan. | Pilihan `Lainnya` dipertahankan sebagai teks terbuka/word cloud. |
+| `v_analytics_competency_gap` | Satu baris per pasangan kompetensi | Membandingkan F17a dengan F17b untuk gap kompetensi. | Kedua skor harus valid sebelum selisih dihitung. |
+| `v_iku_s1_aee` | Satu baris per mahasiswa akademik S1 | Menjadi populasi AEE, termasuk mahasiswa yang belum menjadi alumni. | DO, Pindah, dan Cuti dikecualikan; service mengelompokkan tepat waktu, terlambat, dan belum teridentifikasi. |
+| `v_iku_s1_lulusan` | Satu baris per lulusan S1 | Menjadi basis formula IKU karier berbobot. | Role karier, masa tunggu, gaji, UMP, dan studi lanjut dihitung terstruktur oleh service. |
+
 ## Kontrak sumber data
 
 - Kontak aktif: biodata.nomor_telepon dan biodata.email_pribadi.
