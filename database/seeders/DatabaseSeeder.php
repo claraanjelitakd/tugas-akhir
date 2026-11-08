@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Prodi;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 /**
  * Seeder Utama Database
@@ -14,36 +13,35 @@ use Illuminate\Support\Facades\Hash;
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Seed the application's database.
+     * Menjalankan dataset default yang ringkas, koheren, dan cukup untuk
+     * pengujian aplikasi, kuesioner, dashboard, IKU S1, serta LinkedIn.
      */
     public function run(): void
     {
-        $adminPassword = Hash::make('password123'); // Ganti dengan password yang lebih aman di production
-
-        // 1. Seed Tabel Master Prodi
+        // 1. Seed master program studi dan referensi yang dipakai runtime.
         $prodiList = [
-            ['kode' => '71', 'nama' => 'Informatika'],
-            ['kode' => '72', 'nama' => 'Sistem Informasi'],
-            ['kode' => '11', 'nama' => 'Manajemen'],
-            ['kode' => '12', 'nama' => 'Akuntansi'],
-            ['kode' => '21', 'nama' => 'Arsitektur'],
-            ['kode' => '22', 'nama' => 'Desain Produk'],
-            ['kode' => '41', 'nama' => 'Biologi'],
-            ['kode' => '42', 'nama' => 'Teknologi Pangan'],
-            ['kode' => '61', 'nama' => 'Kedokteran'],
-            ['kode' => '31', 'nama' => 'Filsafat Keilahian'],
-            ['kode' => '81', 'nama' => 'Pendidikan Bahasa Inggris'],
-            ['kode' => '82', 'nama' => 'Studi Humanitas'],
+            ['kode' => '71', 'nama' => 'Informatika', 'jenjang' => 'S1'],
+            ['kode' => '72', 'nama' => 'Sistem Informasi', 'jenjang' => 'S1'],
+            ['kode' => '11', 'nama' => 'Manajemen', 'jenjang' => 'S1'],
+            ['kode' => '12', 'nama' => 'Akuntansi', 'jenjang' => 'S1'],
+            ['kode' => '21', 'nama' => 'Arsitektur', 'jenjang' => 'S1'],
+            ['kode' => '22', 'nama' => 'Desain Produk', 'jenjang' => 'S1'],
+            ['kode' => '41', 'nama' => 'Biologi', 'jenjang' => 'S1'],
+            ['kode' => '42', 'nama' => 'Teknologi Pangan', 'jenjang' => 'S1'],
+            ['kode' => '61', 'nama' => 'Kedokteran', 'jenjang' => 'S1'],
+            ['kode' => '31', 'nama' => 'Filsafat Keilahian', 'jenjang' => 'S1'],
+            ['kode' => '81', 'nama' => 'Pendidikan Bahasa Inggris', 'jenjang' => 'S1'],
+            ['kode' => '82', 'nama' => 'Studi Humanitas', 'jenjang' => 'S1'],
         ];
 
         foreach ($prodiList as $p) {
             Prodi::updateOrCreate(
                 ['kode_prodi' => $p['kode']],
-                ['nama_prodi' => $p['nama']]
+                ['nama_prodi' => $p['nama'], 'jenjang' => $p['jenjang']]
             );
         }
 
-        // 2. Seed Master Fakultas, Wilayah, Negara & Hubungkan ke Prodi
+        // 2. Seed master fakultas, wilayah, negara, dan UMP.
         $this->call([
             RefFakultasSeeder::class,
             RefNegaraSeeder::class,
@@ -51,13 +49,10 @@ class DatabaseSeeder extends Seeder
             UmpSeeder::class,
         ]);
 
-        // 3. Seed Master Pengguna, Perusahaan, dan Data Alumni
+        // 3. Seed akun administrasi dasar. Data perusahaan dan alumni dibuat
+        //    oleh fixture simulasi kanonik agar tidak terjadi duplikasi.
         $this->call([
             UserSeeder::class,
-            PerusahaanSeeder::class,
-            DataAkademikSeeder::class,
-            BiodataSeeder::class,
-            YudisiumSeeder::class,
         ]);
 
         // 4. Seed Questionnaire Data (Kuesioner Induk & Unified Survey Engine)
@@ -66,37 +61,24 @@ class DatabaseSeeder extends Seeder
             UnifiedKuesionerSeeder::class,
         ]);
 
-        // 5. Seed Data Khusus Pengujian Alumni (Joshua Andrean)
+        // 5. Seed satu akun pengujian pengisian mandiri.
         $this->call([
             JoshuaAndreanSeeder::class,
         ]);
 
-        // 6. Seed Data Simulasi Komprehensif Lintas 12 Program Studi
+        // 6. Seed simulasi kanonik lintas 12 program studi, termasuk role
+        //    karyawan, founder/co-founder, studi lanjut, dan freelancer.
         $this->call([
             AlumniSimulationSeeder::class,
         ]);
 
-        // 7. Seed Tambahan 10 Alumni Lulusan 2026 (Profil Karier Kosong / Skeleton)
+        // 7. Normalisasi populasi akademik, termasuk mahasiswa aktif, DO,
+        //    pindah, cuti, dan status administratif AR/AK.
         $this->call([
-            Lulusan2026Seeder::class,
+            IkuS1AcademicPopulationSeeder::class,
         ]);
 
-        // 8. Skenario populasi dashboard lintas tahun dan program studi
-        $this->call([
-            DashboardScenarioSeeder::class,
-        ]);
-
-        // 9. Distribusi data demo khusus untuk menguji analitik lintas wilayah dan status karier
-        $this->call([
-            AnalyticsDemoDistributionSeeder::class,
-        ]);
-
-        // 10. Seed 8 Profil Alumni Unggulan Sistem Informasi FTI UKDW
-        $this->call([
-            AlumniSistemInformasiSeeder::class,
-        ]);
-
-        // 11. Preservasi data scraping LinkedIn (Staging Apify & Fixture Pengujian)
+        // 8. Preservasi staging hasil scraping LinkedIn sesuai kontrak backup.
         $this->call([
             LinkedinSyncResultSeeder::class,
         ]);

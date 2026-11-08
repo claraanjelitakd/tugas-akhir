@@ -112,7 +112,7 @@ tracerstudy/
 │   ├── Models/                                     # Definisi Model Eloquent & Relasi Database (Nama Tunggal/Singular)
 │   │   ├── User.php                                # Akun pengguna, role, relasi ke biodata, prodi_id, & fakultas_id
 │   │   ├── Biodata.php                             # Entitas profil biodata alumni (tabel `biodata`, 29 atribut termasuk `foto`), relasi akademik, yudisium_id, dll.
-│   │   ├── DataAkademik.php                        # Pangkalan data akademik (tabel `data_akademik`: NIM, IPK, tahun lulus, asal sekolah)
+│   │   ├── DataAkademik.php                        # Pangkalan identitas, prodi, periode masuk, status mahasiswa, IPK, dan kelulusan
 │   │   ├── Yudisium.php                            # Data kelulusan, skripsi/TA, & publikasi ilmiah (tabel `yudisium`: judul_ta, url_publikasi, jenis_publikasi)
 │   │   ├── Prodi.php                               # Data master program studi UKDW (tabel `prodi`)
 │   │   ├── RefFakultas.php                         # Data master fakultas UKDW (tabel `ref_fakultas`)
@@ -141,7 +141,8 @@ tracerstudy/
 │   │   └── AppServiceProvider.php                  # Konfigurasi layanan global & Driver Resolver LinkedIn via .ENV
 │   └── Services/                                   # Domain Services & Logika Bisnis Terpusat
 │       ├── Analytics/
-│       │   └── TracerAnalyticsService.php          # Kalkulasi metrik agregat 16+2 indikator universitas dari database view
+│       │   ├── TracerAnalyticsService.php          # Orkestrasi metrik analitik universitas dari database view
+│       │   └── IkuS1AnalyticsService.php           # Formula AEE dan bobot capaian karier IKU S1
 │       ├── Dashboard/
 │       │   └── RoleDashboardDataService.php        # Penyedia data rekap audit terpadu untuk dashboard multi-role
 │       ├── Alumni/
@@ -171,27 +172,31 @@ tracerstudy/
 │   ├── provinsi.csv                                # Master 38 provinsi di Indonesia
 │   └── kabupaten_kota.csv                          # Master 514 kabupaten/kota di Indonesia
 ├── database/                                       # Skema & Data Awal Database
+│   ├── data/                                       # Sumber data seed terpisah dari logika seeder
+│   │   └── ump_2026.csv                            # Sumber nominal UMP 2026 (angka tanpa format rupiah)
 │   ├── migrations/                                 # Satu migration untuk setiap tabel dan view aktif
-│   └── seeders/                                    # Data benih (Seeder - 19 kelas berurutan)
-│       ├── DatabaseSeeder.php                      # Seeder master yang memanggil seluruh seeder
-│       ├── RefFakultasSeeder.php                   # Seeder 7 fakultas UKDW
-│       ├── RefNegaraSeeder.php                     # Seeder master 194 negara dunia dari data/daftar_negara_dunia.csv
-│       ├── WilayahSeeder.php                       # Seeder 38 Provinsi & 514 Kabupaten/Kota dari data/*.csv
-│       ├── UmpSeeder.php                           # Seeder data standar UMP 38 provinsi 2026
-│       ├── UserSeeder.php                          # Akun demo (superadmin, biro3, admin prodi, alumni)
-│       ├── PerusahaanSeeder.php                    # Seeder master instansi/perusahaan
-│       ├── DataAkademikSeeder.php                  # Seeder data akademik & asal sekolah
-│       ├── BiodataSeeder.php                       # Seeder 28 field profil biodata & karier
-│       ├── YudisiumSeeder.php                      # Seeder data kelulusan & tugas akhir
-│       ├── KuesionerSeeder.php                     # Seeder kuesioner 2021
-│       ├── KelompokPertanyaanSeeder.php            # Seeder 10 kelompok pertanyaan
-│       ├── RefSubpertanyaan2021Seeder.php          # Seeder 68 butir subpertanyaan 2021
-│       ├── RefSubpertanyaanDetilSeeder.php         # Seeder 185 opsi jawaban & jump logic
-│       ├── QuestionMappingSeeder.php               # Seeder sinkronisasi data profil
-│       ├── ProdiQuestionnaireSeeder.php            # Seeder instrumen Prodi SI & Filsafat
+│   └── seeders/                                    # Data benih terpisah sesuai domain
+│       ├── DatabaseSeeder.php                      # Dataset default ringkas untuk runtime dan demo inti
+│       ├── RefFakultasSeeder.php                   # Seeder fakultas UKDW
+│       ├── RefNegaraSeeder.php                     # Seeder negara dari data/daftar_negara_dunia.csv
+│       ├── WilayahSeeder.php                       # Seeder provinsi & kabupaten/kota dari data/*.csv
+│       ├── UmpSeeder.php                           # Loader CSV UMP dan pemetaan ke master wilayah
+│       ├── UserSeeder.php                          # Akun demo
+│       ├── IkuS1AcademicPopulationSeeder.php       # Normalisasi periode masuk dan populasi mahasiswa non-alumni IKU
+│       ├── KuesionerSeeder.php                     # Seeder kuesioner legacy yang masih dipakai
+│       ├── UnifiedKuesionerSeeder.php              # Seeder instrumen kuesioner terpadu
+│       ├── PertanyaanEvaluasiAtasanSeeder.php      # Wrapper compatibility untuk test evaluasi atasan
 │       ├── JoshuaAndreanSeeder.php                 # Seeder alumni uji coba khusus
-│       ├── AlumniSimulationSeeder.php              # Simulasi alumni lintas 12 prodi
-│       └── Lulusan2026Seeder.php                   # 10 alumni lulusan 2026 (profil karier kosong / skeleton)
+│       ├── AlumniSimulationSeeder.php              # Simulasi alumni lintas prodi
+│       ├── LinkedinSyncResultSeeder.php             # Snapshot staging LinkedIn dan fixture
+│       ├── PerusahaanSeeder.php                    # Fixture master perusahaan opsional
+│       ├── DataAkademikSeeder.php                  # Fixture akademik awal opsional
+│       ├── BiodataSeeder.php                       # Fixture profil dan karier opsional
+│       ├── YudisiumSeeder.php                      # Fixture kelulusan opsional
+│       ├── Lulusan2026Seeder.php                   # Skeleton alumni opsional
+│       ├── DashboardScenarioSeeder.php             # Skenario dashboard lintas tahun/prodi opsional
+│       ├── AnalyticsDemoDistributionSeeder.php     # Distribusi analitik opsional
+│       └── AlumniSistemInformasiSeeder.php         # Profil unggulan Sistem Informasi opsional
 ├── public/                                         # Public Assets Root
 │   ├── uploads/
 │   │   ├── pigo/                                   # Aset resmi varian maskot Pigo
@@ -241,7 +246,8 @@ Ringkasan relasi utama & prinsip anti-duplikasi data:
 - **`ref_fakultas` (1:N) $\rightarrow$ `prodi`**: Master data 7 fakultas UKDW terhubung ke program studi.
 - **`prodi` (1:N) $\rightarrow$ `biodata`**: Program studi alumni UKDW.
 - **`users` (1:1) $\rightarrow$ `biodata`**: Akun pengguna login. Email akun menjadi fallback autentikasi, sedangkan email pribadi aktif disimpan di `biodata`.
-- **`data_akademik` (1:1) $\rightarrow$ `biodata`**: Pangkalan data master identitas dan akademik tunggal terhubung via `nim`. Kontak dan domisili aktif tidak disimpan di tabel ini.
+- **`data_akademik` (1:1) $\rightarrow$ `biodata`**: Pangkalan identitas dan akademik tunggal terhubung via `nim`, dengan `prodi_id`, periode masuk semester ganjil, dan status seluruh mahasiswa. Kontak dan domisili aktif tidak disimpan di tabel ini.
+- **`data_akademik` (N:1) $\rightarrow$ `prodi`**: Relasi akademik ini juga mencakup mahasiswa Aktif, Cuti, Drop Out, Pindah, AR, dan AK yang belum memiliki biodata alumni.
 - **`yudisium` (1:1) $\rightarrow$ `biodata`**: Data kelulusan resmi (`status_lulus`: 'Belum', 'Proses', 'Lulus', 'Tidak Lulus'), judul tugas akhir (`judul_ta`), dan link publikasi karya ilmiah (`url_publikasi`). Saat status berubah menjadi 'Lulus', sistem secara otomatis memperbarui `status_mahasiswa = 'L'`, `tanggal_lulus`, dan `tahun_lulus` pada `data_akademik`.
 - **`log_activities`**: Rekam jejak audit trail transparan untuk setiap perubahan status verifikasi/ACC perusahaan, pergantian master (auto replace), penolakan pengajuan, reset password, dan pembaruan akun.
 - **`biodata` (1:N) $\rightarrow$ `tracer`**: Respon pengisian kuesioner tracer study tingkat universitas.
@@ -484,6 +490,18 @@ Untuk referensi lengkap seluruh butir pertanyaan Tracer Study Dikti (`F1` s/d `F
 
 
 ## Panduan dokumentasi dan diagram
+
+### Kontrak sumber UMP dan seeder
+
+Daftar nominal UMP 2026 dipisahkan dari kode PHP pada
+`database/data/ump_2026.csv`. Nilai pada kolom `besaran` harus berupa angka
+rupiah tanpa simbol atau pemisah ribuan. `UmpSeeder` memetakan nama provinsi
+ke kode `propinsi` yang aktif agar foreign key wilayah existing tetap aman.
+
+Seeder yang tidak lagi menjadi bagian dari runtime atau test tidak disimpan
+sebagai jalur alternatif. `QuestionMappingSeeder` sudah dihapus karena
+sinkronisasi profil dilakukan oleh service pada alur aplikasi; wrapper
+`PertanyaanEvaluasiAtasanSeeder` tetap dipertahankan untuk compatibility test.
 
 | Dokumen | Kegunaan |
 | --- | --- |

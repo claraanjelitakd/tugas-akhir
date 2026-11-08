@@ -245,7 +245,7 @@ const views = computed(() => [
         :rows="records"
         :selected-label="selectedLabel"
         :loading="loading"
-        indicator-badge="Indikator 05"
+        indicator-badge="Indikator 08"
         @select="emit('select', $event)"
         @reset="emit('reset')"
     />

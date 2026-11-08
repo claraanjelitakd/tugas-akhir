@@ -16,6 +16,11 @@ use Illuminate\Support\Facades\DB;
  */
 class TracerAnalyticsService
 {
+    /**
+     * Dependensi formula IKU S1 yang membaca read-model akademik dan tracer.
+     */
+    public function __construct(private IkuS1AnalyticsService $ikuS1Analytics) {}
+
     /** Sentinel filter value that includes every available graduation year. */
     private const ALL_YEARS = 'ALL';
 
@@ -73,11 +78,30 @@ class TracerAnalyticsService
             'key' => 'education_alignment_university',
             'label' => 'Keselarasan tingkat pendidikan universitas',
             'description' => 'Komposisi tingkat pendidikan yang dianggap sesuai untuk pekerjaan dari pertanyaan F15 pada tingkat universitas.',
+            'visible' => false,
         ],
         [
             'key' => 'response_rate',
             'label' => 'Response rate universitas',
             'description' => 'Perbandingan alumni terdata dan alumni yang mengisi kuesioner universitas.',
+        ],
+        [
+            'key' => 'iku_s1_aee',
+            'label' => 'AEE S1: kelulusan tepat waktu',
+            'description' => 'Populasi seluruh mahasiswa S1 dibandingkan dengan lulusan tepat waktu per program studi.',
+            'visual_plan' => 'Stacked bar horizontal AEE per prodi, segmen tepat waktu dibanding sisa denominator, dan tabel status akademik.',
+        ],
+        [
+            'key' => 'iku_s1_outcomes',
+            'label' => 'IKU S1: bekerja, berwirausaha, atau studi lanjut',
+            'description' => 'Persentase berbobot masa tunggu, 1,2× UMP, posisi usaha, dan studi lanjut maksimal satu tahun.',
+            'visual_plan' => 'Batang bobot per kategori karier, ringkasan capaian, dan rincian formula per lulusan.',
+        ],
+        [
+            'key' => 'iku_s1_ump_weighted',
+            'label' => 'IKU S1: perbandingan UMP dan bobot',
+            'description' => 'Rincian gaji dibandingkan 1,2 kali UMP, masa tunggu, role karier, dan bobot setiap responden.',
+            'visual_plan' => 'Batang status UMP per role, tabel formula individu, dan metadata konfirmasi bobot.',
         ],
         [
             'key' => 'profile_completion',
@@ -228,6 +252,11 @@ class TracerAnalyticsService
         $selectedYear = $this->resolveYear($requestedYear, $availableYears);
         $availableUmpYears = $this->availableUmpYears();
         $selectedUmpYear = $this->resolveUmpYear($requestedUmpYear, $selectedYear, $availableUmpYears);
+
+        if ($this->ikuS1Analytics->supports($chartKey)) {
+            return $this->buildIkuChartPayload($chartKey, $selectedYear, $selectedUmpYear, $prodiId, $availableYears, $availableUmpYears);
+        }
+
         $rows = $this->analyticsRows($chartKey, $selectedYear, $selectedUmpYear, $prodiId);
         $responses = $chartKey === 'employment_status'
             ? $this->responsesByAlumni($rows->pluck('biodata_id')->all(), ['F8', 'F18a', 'F18b', 'F18c', 'F18d', 'F11', 'F5B', 'F5C', 'F2E', 'F2G'])
@@ -315,6 +344,78 @@ class TracerAnalyticsService
     }
 
     /**
+     * Membungkus payload IKU S1 ke kontrak halaman grafik universitas.
+     *
+     * @param  string  $chartKey  Kunci indikator IKU.
+     * @param  string  $selectedYear  Tahun filter global halaman.
+     * @param  int|null  $selectedUmpYear  Tahun UMP aktif.
+     * @param  int|null  $prodiId  Filter prodi opsional.
+     * @param  array<int, string>  $availableYears  Tahun filter yang tersedia.
+     * @param  array<int, int>  $availableUmpYears  Tahun UMP yang tersedia.
+     * @return array<string, mixed> Payload Inertia/JSON untuk grafik IKU.
+     */
+    private function buildIkuChartPayload(
+        string $chartKey,
+        string $selectedYear,
+        ?int $selectedUmpYear,
+        ?int $prodiId,
+        array $availableYears,
+        array $availableUmpYears,
+    ): array {
+        $chart = match ($chartKey) {
+            'iku_s1_aee' => $this->ikuS1Analytics->buildAeeChart($selectedYear, $prodiId),
+            'iku_s1_ump_weighted' => $this->ikuS1Analytics->buildUmpWeightedChart($selectedUmpYear, $selectedYear, $prodiId),
+            default => $this->ikuS1Analytics->buildOutcomeChart($selectedUmpYear, $selectedYear, $prodiId),
+        };
+        $populationCount = (int) ($chart['summary']['population'] ?? 0);
+        $validRespondentCount = in_array($chartKey, ['iku_s1_outcomes', 'iku_s1_ump_weighted'], true)
+            ? (int) ($chart['summary']['valid_respondents'] ?? 0)
+            : (int) ($chart['summary']['eligible_count'] ?? 0);
+        $recordCount = count($chart['records'] ?? []);
+        $chart['data_availability'] = [
+            'status' => $recordCount > 0 ? 'available' : 'no_population',
+            'population_count' => $populationCount,
+            'record_count' => $recordCount,
+            'message' => $recordCount > 0
+                ? 'Data akademik S1 dan jawaban tracer valid tersedia untuk perhitungan.'
+                : 'Belum ada data akademik atau jawaban tracer S1 yang dapat dihitung.',
+        ];
+        $chart['metadata'] = [
+            'generated_at' => now()->toIso8601String(),
+            'population_count' => $populationCount,
+            'valid_respondent_count' => $validRespondentCount,
+            'missing_count' => max($populationCount - $validRespondentCount, 0),
+            'data_type' => $chartKey === 'iku_s1_aee'
+                ? 'Populasi akademik dan status kelulusan'
+                : ($chartKey === 'iku_s1_ump_weighted' ? 'Perbandingan UMP dan bobot per role karier' : 'Numerik berbobot berdasarkan kategori karier'),
+            'percentage_basis' => 'Formula dihitung di service backend berdasarkan read-model IKU; Vue hanya menyajikan hasil.',
+        ];
+
+        return [
+            'filters' => [
+                'available_years' => $availableYears,
+                'selected_year' => $selectedYear,
+                'available_ump_years' => $availableUmpYears,
+                'selected_ump_year' => $selectedUmpYear,
+                'selected_prodi_id' => $prodiId,
+                'prodis' => Prodi::query()
+                    ->orderBy('kode_prodi')
+                    ->get(['id', 'kode_prodi', 'nama_prodi'])
+                    ->map(fn (Prodi $prodi): array => [
+                        'id' => $prodi->id,
+                        'kode' => $prodi->kode_prodi,
+                        'nama' => $prodi->nama_prodi,
+                    ])
+                    ->values()
+                    ->all(),
+            ],
+            'chart_options' => $this->universityChartOptions(),
+            'selected_chart' => $chartKey,
+            'chart' => $chart,
+        ];
+    }
+
+    /**
      * Menjelaskan apakah indikator benar-benar kosong, tidak berlaku karena
      * percabangan, atau tersedia untuk dianalisis.
      *
@@ -364,6 +465,9 @@ class TracerAnalyticsService
     {
         return match ($chartKey) {
             'wait_time', 'salary_vs_ump', 'application_pipeline' => 'Numerik kontinu atau diskrit',
+            'iku_s1_aee' => 'Populasi akademik dengan status dan periode kelulusan',
+            'iku_s1_ump_weighted' => 'Perbandingan UMP dan bobot per role karier',
+            'iku_s1_outcomes' => 'Numerik berbobot berdasarkan kategori karier',
             'learning_methods', 'competency_gap' => 'Skala ordinal Likert',
             'job_search_methods', 'mismatch_reasons' => 'Kategorikal pilihan jamak',
             'work_location' => 'Kategorikal geografis',
@@ -373,6 +477,10 @@ class TracerAnalyticsService
 
     /**
      * Mengambil tahun lulusan yang tersedia pada populasi analitik.
+     *
+     * Daftar tahun bersumber dari data, bukan menambahkan tahun kalender
+     * berjalan secara sintetis. Dengan begitu filter tidak membuka kohort
+     * kosong dan tidak menghasilkan opsi tahun duplikat.
      *
      * @return array<int, string>
      */
@@ -384,7 +492,6 @@ class TracerAnalyticsService
             ->filter()
             ->map(fn (mixed $year): string => (string) $year)
             ->unique()
-            ->push((string) now()->year)
             ->sortDesc()
             ->values()
             ->all();
@@ -425,13 +532,15 @@ class TracerAnalyticsService
     }
 
     /**
-     * Menentukan tahun lulusan aktif dengan default tahun berjalan.
+     * Menentukan tahun lulusan aktif dengan default tahun data terbaru.
      *
      * @param  array<int, string>  $availableYears
      */
     private function resolveYear(?string $requestedYear, array $availableYears): string
     {
-        $defaultYear = (string) now()->year;
+        $defaultYear = collect($availableYears)
+            ->reject(fn (string $availableYear): bool => $availableYear === self::ALL_YEARS)
+            ->first() ?? self::ALL_YEARS;
         $year = $requestedYear ?: $defaultYear;
 
         if (in_array($year, $availableYears, true)) {
@@ -467,6 +576,11 @@ class TracerAnalyticsService
     private function resolveChartKey(?string $requestedChart): string
     {
         $requestedChart = trim((string) $requestedChart);
+
+        if ($requestedChart === 'education_alignment_university') {
+            return 'education_alignment';
+        }
+
         $availableKeys = array_column(self::UNIVERSITY_CHARTS, 'key');
 
         return in_array($requestedChart, $availableKeys, true)
@@ -659,7 +773,10 @@ class TracerAnalyticsService
         if ($chartKey === 'job_search_activity') {
             $records = $records->map(function (array $rec): array {
                 $raw = trim((string) ($rec['answer'] ?? ''));
+                $hasOtherDetail = preg_match('/^(?:lainnya|other)\s*:\s*.+$/iu', $raw) === 1;
                 $norm = match (true) {
+                    // Pertahankan teks bebas agar opsi F10 "Lainnya" dapat ditelusuri melalui awan kata.
+                    $hasOtherDetail => $raw,
                     str_starts_with(strtolower($raw), 'tidak, tetapi') || str_starts_with(strtolower($raw), 'tidak, tapi') => 'Tidak, tapi saya sedang menunggu hasil lamaran kerja',
                     str_starts_with(strtolower($raw), 'ya, saya akan mulai') => 'Ya, saya akan mulai bekerja dalam 2 minggu ke depan',
                     str_starts_with(strtolower($raw), 'ya, tapi saya belum') || str_starts_with(strtolower($raw), 'ya, tetapi saya belum') => 'Ya, tapi saya belum pasti akan bekerja dalam 2 minggu ke depan',
@@ -763,10 +880,12 @@ class TracerAnalyticsService
             });
         }
 
-        if ($chartKey === 'mismatch_reasons') {
-            // Opsi Lainnya hanya menjadi pintu ke tabel isian bebas, bukan batang grafik.
+        if (in_array($chartKey, ['mismatch_reasons', 'workplace_type'], true)) {
+            // Opsi bernilai nol tidak menjadi batang kosong. Lainnya hanya menjadi pintu
+            // ke rincian teks bebas/awan kata agar tidak mencampurkan klasifikasi baku.
             $series = collect($series)
                 ->reject(fn (array $item): bool => str_contains(mb_strtolower(trim((string) ($item['label'] ?? ''))), 'lainnya'))
+                ->filter(fn (array $item): bool => (int) ($item['count'] ?? 0) > 0)
                 ->values()
                 ->all();
         }
@@ -1545,8 +1664,9 @@ class TracerAnalyticsService
             ? $this->salaryFromAnalyticsView($rows)
             : $this->salaryVsUmp($rows, $umpRows);
         $records = collect($salary['records']);
-        $meeting = $records->where('meets_ump', true)->count();
-        $comparable = $records->count();
+        $comparableRecords = collect($salary['comparable_records'] ?? $records->filter(fn (array $record): bool => is_bool($record['meets_ump'] ?? null)));
+        $meeting = $comparableRecords->where('meets_ump', true)->count();
+        $comparable = $comparableRecords->count();
 
         return [
             'key' => 'salary_vs_ump',
@@ -1567,8 +1687,8 @@ class TracerAnalyticsService
             'series' => collect($salary['by_prodi'])->values()->all(),
             'regions' => collect($salary['by_province'])->values()->all(),
             'records' => $records->sortByDesc('salary')->values()->all(),
-            'below_threshold' => $records->where('meets_ump', false)->sortBy('salary')->values()->all(),
-            'top_salary' => $records->sortByDesc('salary')->take(10)->values()->all(),
+            'below_threshold' => $comparableRecords->where('meets_ump', false)->sortBy('salary')->values()->all(),
+            'top_salary' => $comparableRecords->sortByDesc('salary')->take(10)->values()->all(),
             'methodology' => [
                 'formula' => 'Memenuhi jika gaji >= 1,2 × UMP provinsi tempat kerja pada tahun UMP terpilih.',
                 'denominator' => 'Alumni dengan gaji, provinsi kerja, dan UMP yang tersedia.',
@@ -1584,13 +1704,14 @@ class TracerAnalyticsService
      */
     private function salaryFromAnalyticsView(Collection $rows): array
     {
-        $comparableRows = $rows->filter(function (object $row): bool {
-            return $this->numericValue($row->gaji) !== null
-                && $this->numericValue($row->gaji) > 0
-                && $this->numericValue($row->ump) !== null
-                && $this->numericValue($row->threshold) !== null;
-        })->map(function (object $row): array {
+        $allRows = $rows->map(function (object $row): array {
             $salary = $this->numericValue($row->gaji);
+            $ump = $this->numericValue($row->ump);
+            $threshold = $this->numericValue($row->threshold);
+            $isComparable = $salary !== null
+                && $salary > 0
+                && $ump !== null
+                && $threshold !== null;
 
             return [
                 'prodi_id' => $row->prodi_id,
@@ -1603,17 +1724,19 @@ class TracerAnalyticsService
                 'province_code' => $row->workplace_kode_provinsi,
                 'province_name' => $row->workplace_nama_provinsi ?: 'Tidak teridentifikasi',
                 'salary' => $salary,
-                'ump' => (float) $row->ump,
-                'threshold' => (float) $row->threshold,
-                'meets_ump' => (int) $row->meets_ump === 1,
+                'ump' => $ump,
+                'threshold' => $threshold,
+                'meets_ump' => $isComparable ? (int) $row->meets_ump === 1 : null,
             ];
         })->values();
+        $comparableRows = $allRows->filter(fn (array $row): bool => is_bool($row['meets_ump']))->values();
 
         return [
             'summary' => $this->salarySummary($comparableRows, $rows->count()),
             'by_prodi' => $this->aggregateSalary($comparableRows, 'prodi_id', 'nama_prodi'),
             'by_province' => $this->aggregateSalary($comparableRows, 'province_code', 'province_name'),
-            'records' => $comparableRows->all(),
+            'records' => $allRows->all(),
+            'comparable_records' => $comparableRows->all(),
         ];
     }
 
@@ -1819,6 +1942,10 @@ class TracerAnalyticsService
         $unanswered = max($population - $respondents, 0);
         $rate = $this->percentage($respondents, $population);
         $unansweredRate = $this->percentage($unanswered, $population);
+        $slovinError = (float) config('iku.s1.slovin_error', 0.023);
+        $minimumRespondents = $population > 0
+            ? (int) ceil($population / (1 + ($population * ($slovinError ** 2))))
+            : 0;
 
         return [
             'key' => 'response_rate',
@@ -1833,6 +1960,8 @@ class TracerAnalyticsService
                 'unanswered_rate' => $unansweredRate,
                 'target' => $target,
                 'target_gap' => round($rate - $target, 1),
+                'minimum_respondents' => $minimumRespondents,
+                'slovin_error' => $slovinError,
             ],
             'series' => $series,
             'records' => $rows->map(function (object $row) use ($profileDetails): array {
@@ -1872,6 +2001,7 @@ class TracerAnalyticsService
             })->values()->all(),
             'methodology' => [
                 'formula' => 'Alumni unik yang memenuhi kriteria responden dibagi seluruh populasi kohort × 100%.',
+                'formula_detail' => 'R = (t / N) x 100%; n_min = ceil(N / (1 + N x e^2)), e = 0.023.',
                 'denominator' => 'Seluruh alumni pada tahun kelulusan dan program studi terpilih.',
                 'source' => 'v_analytics_response_rate (answered dan last_response_at)',
             ],
@@ -2109,16 +2239,12 @@ class TracerAnalyticsService
     private function salaryVsUmp(Collection $rows, Collection $umpRows): array
     {
         $umpByProvince = $umpRows->keyBy('kode_provinsi');
-        $comparableRows = $rows->map(function (object $row) use ($umpByProvince): ?array {
+        $allRows = $rows->map(function (object $row) use ($umpByProvince): array {
             $salary = $this->numericValue($row->gaji);
             $ump = $row->workplace_kode_provinsi ? $umpByProvince->get($row->workplace_kode_provinsi) : null;
-
-            if ($salary === null || $salary <= 0 || ! $ump) {
-                return null;
-            }
-
-            $umpValue = (float) $ump->besaran;
-            $threshold = round($umpValue * self::SALARY_UMP_MULTIPLIER, 2);
+            $umpValue = $ump ? (float) $ump->besaran : null;
+            $threshold = $umpValue !== null ? round($umpValue * self::SALARY_UMP_MULTIPLIER, 2) : null;
+            $isComparable = $salary !== null && $salary > 0 && $threshold !== null;
 
             return [
                 'prodi_id' => $row->prodi_id,
@@ -2133,15 +2259,17 @@ class TracerAnalyticsService
                 'salary' => $salary,
                 'ump' => $umpValue,
                 'threshold' => $threshold,
-                'meets_ump' => $salary >= $threshold,
+                'meets_ump' => $isComparable ? $salary >= $threshold : null,
             ];
-        })->filter()->values();
+        })->values();
+        $comparableRows = $allRows->filter(fn (array $row): bool => is_bool($row['meets_ump']))->values();
 
         return [
             'summary' => $this->salarySummary($comparableRows, $rows->count()),
             'by_prodi' => $this->aggregateSalary($comparableRows, 'prodi_id', 'nama_prodi'),
             'by_province' => $this->aggregateSalary($comparableRows, 'province_code', 'province_name'),
-            'records' => $comparableRows->values()->all(),
+            'records' => $allRows->all(),
+            'comparable_records' => $comparableRows->all(),
         ];
     }
 

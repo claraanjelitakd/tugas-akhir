@@ -19,7 +19,7 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "data_akademik" ("id" integer primary key autoincrement not null, "nim" varchar not null, "nama" varchar, "email_pribadi" varchar, "angkatan_masuk" integer, "tanggal_lahir" date, "jenis_kelamin" varchar check ("jenis_kelamin" in ('Laki-laki', 'Perempuan')), "warga_negara" varchar not null default 'WNI', "status_mahasiswa" varchar check ("status_mahasiswa" in ('Lulus', 'Aktif', 'Cuti', 'Drop Out', 'Lainnya', 'AR', 'AK', 'AS', 'L')) not null default 'Lulus', "tahun_akademik_lulus" varchar, "tahun_lulus" integer, "tanggal_lulus" date, "ip_kumulatif" numeric, "total_sks" integer, "total_angka_kualitas" numeric, "created_at" datetime, "updated_at" datetime);
+CREATE TABLE "data_akademik" ("id" integer primary key autoincrement not null, "nim" varchar not null, "nama" varchar, "email_pribadi" varchar, "prodi_id" integer, "angkatan_masuk" integer, "tahun_akademik_masuk" varchar, "tanggal_lahir" date, "jenis_kelamin" varchar check ("jenis_kelamin" in ('Laki-laki', 'Perempuan')), "warga_negara" varchar not null default 'WNI', "status_mahasiswa" varchar check ("status_mahasiswa" in ('Lulus', 'Aktif', 'Cuti', 'Drop Out', 'Pindah', 'Lainnya', 'AR', 'AK', 'AS', 'L')) not null default 'Lulus', "tahun_akademik_lulus" varchar, "tahun_lulus" integer, "tanggal_lulus" date, "ip_kumulatif" numeric, "total_sks" integer, "total_angka_kualitas" numeric, "created_at" datetime, "updated_at" datetime);
 SQL
             );
 
@@ -29,6 +29,9 @@ CREATE UNIQUE INDEX "data_akademik_nim_unique" on "data_akademik" ("nim");
 SQL,
                 <<<'SQL'
 CREATE INDEX "data_akademik_tahun_lulus_index" on "data_akademik" ("tahun_lulus");
+SQL,
+                <<<'SQL'
+CREATE INDEX "data_akademik_prodi_id_index" on "data_akademik" ("prodi_id");
 SQL,
             ] as $indexSql) {
                 DB::statement($indexSql);
@@ -40,11 +43,13 @@ CREATE TABLE `data_akademik` (
   `nim` char(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nomor Induk Mahasiswa (8 karakter unik)',
   `nama` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Nama lengkap mahasiswa',
   `email_pribadi` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Email pribadi dari sumber akademik saat impor awal',
+  `prodi_id` bigint unsigned DEFAULT NULL COMMENT 'Program studi akademik mahasiswa, termasuk mahasiswa non-alumni',
   `angkatan_masuk` year DEFAULT NULL COMMENT 'Tahun angkatan masuk perkuliahan (YYYY)',
+  `tahun_akademik_masuk` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Periode masuk tetap semester ganjil, contoh: 2023/2024 (Semester Ganjil)',
   `tanggal_lahir` date DEFAULT NULL COMMENT 'Tanggal lahir',
   `jenis_kelamin` enum('Laki-laki','Perempuan') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Jenis kelamin',
   `warga_negara` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'WNI' COMMENT 'Kewarganegaraan (WNI/WNA)',
-  `status_mahasiswa` enum('Lulus','Aktif','Cuti','Drop Out','Lainnya','AR','AK','AS','L') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Lulus' COMMENT 'Status akademik mahasiswa',
+  `status_mahasiswa` enum('Lulus','Aktif','Cuti','Drop Out','Pindah','Lainnya','AR','AK','AS','L') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Lulus' COMMENT 'Status akademik mahasiswa',
   `tahun_akademik_lulus` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Periode lulus akademik, contoh: Gasal 2024/2025',
   `tahun_lulus` year DEFAULT NULL COMMENT 'Tahun kelulusan resmi mahasiswa (YYYY)',
   `tanggal_lulus` date DEFAULT NULL COMMENT 'Tanggal resmi dinyatakan lulus akademik',
@@ -55,6 +60,7 @@ CREATE TABLE `data_akademik` (
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `data_akademik_nim_unique` (`nim`),
+  KEY `data_akademik_prodi_id_index` (`prodi_id`),
   KEY `data_akademik_tahun_lulus_index` (`tahun_lulus`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Sumber resmi identitas akademik dan kelulusan.';
 SQL

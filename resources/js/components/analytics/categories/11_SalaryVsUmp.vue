@@ -190,18 +190,22 @@ const prodiUmpData = computed(() => {
     return prodisList.value.map((prodi) => {
         const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const total = rows.length;
-        const meets = rows.filter((r) => r.meets_ump).length;
-        const below = total - meets;
+        const meets = rows.filter((r) => r.meets_ump === true).length;
+        const below = rows.filter((r) => r.meets_ump === false).length;
+        const notComparable = rows.filter((r) => r.meets_ump === null || r.meets_ump === undefined).length;
         const meetsPct = total > 0 ? Number(((meets / total) * 100).toFixed(1)) : 0;
         const belowPct = total > 0 ? Number(((below / total) * 100).toFixed(1)) : 0;
+        const notComparablePct = total > 0 ? Number(((notComparable / total) * 100).toFixed(1)) : 0;
 
         return {
             prodi,
             total,
             meets,
             below,
+            notComparable,
             meetsPct,
             belowPct,
+            notComparablePct,
         };
     }).filter((i) => i.total > 0).sort((a, b) => b.meetsPct - a.meetsPct);
 });
@@ -212,9 +216,10 @@ const prodiUmpOption = computed(() => {
 
     return {
         ...baseOption(validResponses.value),
-        themePalette: ['#0D542B', '#DCEBE0'],
+        // Urutan baca kiri ke kanan: belum dapat dibandingkan, di bawah ambang, lalu di atas ambang.
+        themePalette: ['#CBD5E1', '#B91C1C', '#1E6B37'],
         legend: {
-            data: ['Memenuhi 1,2× UMP', 'Belum Memenuhi'],
+            data: ['Di atas 1,2× UMP', 'Di bawah 1,2× UMP', 'Belum dapat dibandingkan'],
             bottom: 0,
             icon: 'circle',
             textStyle: { color: '#334155', fontWeight: 600, fontSize: 12 },
@@ -242,22 +247,34 @@ const prodiUmpOption = computed(() => {
         },
         series: [
             {
-                name: 'Memenuhi 1,2× UMP',
+                name: 'Di atas 1,2× UMP',
                 type: 'bar',
                 stack: 'total',
+                stackOrder: 2,
                 barMaxWidth: 26,
-                itemStyle: { color: '#0D542B', borderColor: '#FFFFFF', borderWidth: 1 },
-                data: list.map((i) => ({ value: i.meetsPct, count: i.meets, total: i.total, prodi: i.prodi, name: 'Memenuhi 1,2× UMP' })),
+                itemStyle: { color: '#1E6B37', borderColor: '#FFFFFF', borderWidth: 1 },
+                data: list.map((i) => ({ value: i.meetsPct, count: i.meets, total: i.total, prodi: i.prodi, name: 'Di atas 1,2× UMP' })),
                 label: { show: true, position: 'inside', formatter: ({ data }) => data.value >= 10 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
             },
             {
-                name: 'Belum Memenuhi',
+                name: 'Di bawah 1,2× UMP',
                 type: 'bar',
                 stack: 'total',
+                stackOrder: 1,
                 barMaxWidth: 26,
-                itemStyle: { color: '#DCEBE0', borderColor: '#FFFFFF', borderWidth: 1 },
-                data: list.map((i) => ({ value: i.belowPct, count: i.below, total: i.total, prodi: i.prodi, name: 'Belum Memenuhi' })),
+                itemStyle: { color: '#B91C1C', borderColor: '#FFFFFF', borderWidth: 1 },
+                data: list.map((i) => ({ value: i.belowPct, count: i.below, total: i.total, prodi: i.prodi, name: 'Di bawah 1,2× UMP' })),
                 label: { show: true, position: 'inside', formatter: ({ data }) => data.value >= 10 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
+            },
+            {
+                name: 'Belum dapat dibandingkan',
+                type: 'bar',
+                stack: 'total',
+                stackOrder: 0,
+                barMaxWidth: 26,
+                itemStyle: { color: '#CBD5E1', borderColor: '#FFFFFF', borderWidth: 1 },
+                data: list.map((i) => ({ value: i.notComparablePct, count: i.notComparable, total: i.total, prodi: i.prodi, name: 'Belum dapat dibandingkan' })),
+                label: { show: true, position: 'inside', formatter: ({ data }) => data.value >= 10 ? `${data.value}%` : '', color: '#1E293B', fontWeight: 'bold', fontSize: 10 },
             },
         ],
     };
@@ -267,20 +284,22 @@ const prodiUmpTable = computed(() => ({
     columns: [
         { key: 'prodi', label: 'Program Studi' },
         { key: 'total', label: 'Total Alumni (n)', align: 'right' },
-        { key: 'meets', label: 'Memenuhi 1,2× UMP', align: 'right' },
-        { key: 'below', label: 'Belum Memenuhi', align: 'right' },
+        { key: 'meets', label: 'Di atas 1,2× UMP', align: 'right' },
+        { key: 'below', label: 'Di bawah 1,2× UMP', align: 'right' },
+        { key: 'notComparable', label: 'Belum dapat dibandingkan', align: 'right' },
     ],
     rows: prodiUmpData.value.map((i) => ({
         prodi: i.prodi,
         total: formatNumber(i.total, 0),
         meets: `${i.meets} (${formatPercentage(i.meetsPct)})`,
         below: `${i.below} (${formatPercentage(i.belowPct)})`,
+        notComparable: `${i.notComparable} (${formatPercentage(i.notComparablePct)})`,
     })),
 }));
 
 // Rincian spesifik alumni yang BELUM memenuhi ambang 1,2x UMP
 const alumniBelowUmp = computed(() => {
-    return records.value.filter((r) => !r.meets_ump);
+    return records.value.filter((r) => r.meets_ump === false);
 });
 
 // -----------------------------------------------------------------------------
@@ -296,13 +315,16 @@ const provinceStats = computed(() => {
             total: 0,
             meets: 0,
             below: 0,
+            notComparable: 0,
             salaries: [],
         };
         cur.total += 1;
-        if (r.meets_ump) {
+        if (r.meets_ump === true) {
             cur.meets += 1;
-        } else {
+        } else if (r.meets_ump === false) {
             cur.below += 1;
+        } else {
+            cur.notComparable += 1;
         }
         if (Number(r.salary) > 0) {
             cur.salaries.push(Number(r.salary));
@@ -315,6 +337,7 @@ const provinceStats = computed(() => {
         const median = sorted.length ? getQuantile(sorted, 0.5) : 0;
         const meetsPct = p.total > 0 ? Number(((p.meets / p.total) * 100).toFixed(1)) : 0;
         const belowPct = p.total > 0 ? Number(((p.below / p.total) * 100).toFixed(1)) : 0;
+        const notComparablePct = p.total > 0 ? Number(((p.notComparable / p.total) * 100).toFixed(1)) : 0;
         let statusLabel = 'Perlu Perhatian';
         if (meetsPct >= 80) statusLabel = 'Memenuhi Mayoritas';
         else if (meetsPct >= 50) statusLabel = 'Sebagian Memenuhi';
@@ -324,8 +347,10 @@ const provinceStats = computed(() => {
             total: p.total,
             meets: p.meets,
             below: p.below,
+            notComparable: p.notComparable,
             meetsPct,
             belowPct,
+            notComparablePct,
             medianSalary: median,
             statusLabel,
         };
@@ -338,9 +363,10 @@ const provinceOption = computed(() => {
 
     return {
         ...baseOption(validResponses.value),
-        themePalette: ['#0D542B', '#DCEBE0'],
+        // Urutan baca kiri ke kanan: belum dapat dibandingkan, di bawah ambang, lalu di atas ambang.
+        themePalette: ['#CBD5E1', '#B91C1C', '#1E6B37'],
         legend: {
-            data: ['Memenuhi 1,2× UMP', 'Belum Memenuhi'],
+            data: ['Di atas 1,2× UMP', 'Di bawah 1,2× UMP', 'Belum dapat dibandingkan'],
             bottom: 0,
             icon: 'circle',
             textStyle: { color: '#334155', fontWeight: 600, fontSize: 11 },
@@ -368,22 +394,34 @@ const provinceOption = computed(() => {
         },
         series: [
             {
-                name: 'Memenuhi 1,2× UMP',
+                name: 'Di atas 1,2× UMP',
                 type: 'bar',
                 stack: 'total',
+                stackOrder: 2,
                 barMaxWidth: 24,
-                itemStyle: { color: '#0D542B', borderColor: '#FFFFFF', borderWidth: 1 },
-                data: list.map((i) => ({ value: i.meetsPct, count: i.meets, total: i.total, province: i.province, name: 'Memenuhi 1,2× UMP' })),
+                itemStyle: { color: '#1E6B37', borderColor: '#FFFFFF', borderWidth: 1 },
+                data: list.map((i) => ({ value: i.meetsPct, count: i.meets, total: i.total, province: i.province, name: 'Di atas 1,2× UMP' })),
                 label: { show: true, position: 'inside', formatter: ({ data }) => data.value >= 10 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
             },
             {
-                name: 'Belum Memenuhi',
+                name: 'Di bawah 1,2× UMP',
                 type: 'bar',
                 stack: 'total',
+                stackOrder: 1,
                 barMaxWidth: 24,
-                itemStyle: { color: '#DCEBE0', borderColor: '#FFFFFF', borderWidth: 1 },
-                data: list.map((i) => ({ value: i.belowPct, count: i.below, total: i.total, province: i.province, name: 'Belum Memenuhi' })),
+                itemStyle: { color: '#B91C1C', borderColor: '#FFFFFF', borderWidth: 1 },
+                data: list.map((i) => ({ value: i.belowPct, count: i.below, total: i.total, province: i.province, name: 'Di bawah 1,2× UMP' })),
                 label: { show: true, position: 'inside', formatter: ({ data }) => data.value >= 10 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
+            },
+            {
+                name: 'Belum dapat dibandingkan',
+                type: 'bar',
+                stack: 'total',
+                stackOrder: 0,
+                barMaxWidth: 24,
+                itemStyle: { color: '#CBD5E1', borderColor: '#FFFFFF', borderWidth: 1 },
+                data: list.map((i) => ({ value: i.notComparablePct, count: i.notComparable, total: i.total, province: i.province, name: 'Belum dapat dibandingkan' })),
+                label: { show: true, position: 'inside', formatter: ({ data }) => data.value >= 10 ? `${data.value}%` : '', color: '#1E293B', fontWeight: 'bold', fontSize: 10 },
             },
         ],
     };
@@ -393,8 +431,9 @@ const provinceStatusTable = computed(() => ({
     columns: [
         { key: 'province', label: 'Provinsi Penempatan' },
         { key: 'total', label: 'Alumni (n)', align: 'right' },
-        { key: 'meetsDisplay', label: 'Memenuhi 1,2× UMP', align: 'right' },
-        { key: 'belowDisplay', label: 'Belum Memenuhi', align: 'right' },
+        { key: 'meetsDisplay', label: 'Di atas 1,2× UMP', align: 'right' },
+        { key: 'belowDisplay', label: 'Di bawah 1,2× UMP', align: 'right' },
+        { key: 'notComparableDisplay', label: 'Belum dapat dibandingkan', align: 'right' },
         { key: 'percentageDisplay', label: '% Memenuhi', align: 'right' },
         { key: 'medianDisplay', label: 'Median Gaji', align: 'right' },
         { key: 'status', label: 'Status Kelayakan', align: 'center' },
@@ -404,6 +443,7 @@ const provinceStatusTable = computed(() => ({
         total: formatNumber(p.total, 0),
         meetsDisplay: `${p.meets} alumni`,
         belowDisplay: `${p.below} alumni`,
+        notComparableDisplay: `${p.notComparable} alumni`,
         percentageDisplay: `${p.meetsPct}%`,
         medianDisplay: formatFullCurrency(p.medianSalary),
         status: p.statusLabel,
@@ -533,7 +573,7 @@ const views = computed(() => [
             :rows="records"
             :selected-label="selectedLabel"
             :loading="loading"
-            indicator-badge="Indikator 11"
+            indicator-badge="Indikator 14"
             @select="emit('select', $event)"
             @reset="emit('reset')"
         />

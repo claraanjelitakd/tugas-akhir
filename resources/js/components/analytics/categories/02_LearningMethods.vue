@@ -950,7 +950,7 @@ const summaryTableData = computed(() => {
             <!-- Kolom Kiri: Judul & Subjudul dengan min-height tetap agar tidak mendorong tombol tab -->
             <div class="min-h-[50px] flex-1">
                 <div class="flex items-center gap-2">
-                    <span class="rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-[#0D542B]">Indikator 02</span>
+                    <span class="rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-[#0D542B]">Indikator 05</span>
                     <h3 class="text-base font-extrabold text-slate-900">
                         <template v-if="activeViewMode === 'table'">Tabel Data Penekanan Metode Pembelajaran</template>
                         <template v-else-if="activeChartTab === 'radar'">{{ activeChartType }} Penekanan Metode Pembelajaran</template>

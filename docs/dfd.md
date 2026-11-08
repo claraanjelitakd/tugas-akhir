@@ -70,7 +70,7 @@ Nama proses menyatakan pekerjaan; nama entitas, simpanan, dan panah menyatakan d
 
 | D7 | Hasil dan Peninjauan LinkedIn | `linkedin_sync_results` |
 | D8 | Catatan Aktivitas | `log_activities` |
-| D9 | Referensi Akademik dan Kelulusan | `data_akademik, yudisium` |
+| D9 | Referensi Akademik, Populasi IKU, dan Kelulusan | `data_akademik, yudisium` — termasuk prodi, periode masuk semester ganjil, dan status mahasiswa non-lulus |
 | D10 | Referensi Organisasi dan Wilayah | `prodi, ref_fakultas, propinsi, kabupaten, ref_negara, ump` |
 
 D11 menunjukkan catatan pada operasi yang memang direkam kode; diagram tidak menyatakan semua pembacaan atau semua login pasti dicatat. D13 memuat referensi yang sudah tersedia; superadmin mengelola wilayah dan UMP, bukan berarti seluruh referensi punya CRUD web.

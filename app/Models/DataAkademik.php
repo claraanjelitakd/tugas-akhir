@@ -28,7 +28,9 @@ class DataAkademik extends Model
         'nim',
         'nama',
         'email_pribadi',
+        'prodi_id',
         'angkatan_masuk',
+        'tahun_akademik_masuk',
         'tanggal_lahir',
         'jenis_kelamin',
         'warga_negara',
@@ -48,6 +50,21 @@ class DataAkademik extends Model
         'tahun_lulus' => 'integer',
         'ip_kumulatif' => 'float',
     ];
+
+    /**
+     * Membentuk label periode masuk kanonik untuk mahasiswa reguler.
+     *
+     * @param  int|null  $angkatan  Tahun angkatan masuk.
+     * @return string|null Label tahun akademik semester ganjil atau null jika tahun tidak valid.
+     */
+    public static function formatAcademicEntryPeriod(?int $angkatan): ?string
+    {
+        if ($angkatan === null || $angkatan < 1900) {
+            return null;
+        }
+
+        return $angkatan.'/'.($angkatan + 1).' (Semester Ganjil)';
+    }
 
     /**
      * Relasi ke model Biodata (profil aktif alumni & karier).

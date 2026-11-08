@@ -34,6 +34,17 @@ const props = defineProps({
             profile_and_university: { completed_count: 0, population: 0, percentage: 0, label: 'Profil dan Kuesioner Universitas' },
         }),
     },
+    // Ringkasan perusahaan terpakai pada scope dan tahun lulusan aktif.
+    companySummary: {
+        type: Object,
+        default: () => ({
+            total_companies: 0,
+            mapped_alumni: 0,
+            unmapped_alumni: 0,
+            top_company: null,
+            top_companies: [],
+        }),
+    },
     prodiSummaries: { type: Array, default: () => [] },
     recentAlumni: { type: Array, default: () => [] },
     sectionsList: { type: Array, default: () => [] },
@@ -95,6 +106,9 @@ const selectedCompletionMetric = computed(() => props.completionMetrics?.[active
     population: 0,
     percentage: 0,
 });
+
+// Perusahaan dengan jumlah alumni terhubung paling banyak untuk kartu insight.
+const topCompany = computed(() => props.companySummary?.top_company || null);
 
 // Daftar pilihan panel kelengkapan yang mengabaikan kuesioner prodi.
 const completionMetricOptions = [
@@ -198,21 +212,34 @@ const scopeLabel = computed(() => roleConfig.value.contextValue);
 
             <main class="relative z-10 -mt-10 flex w-full min-w-0 flex-1 flex-col gap-6 px-4 pb-12 sm:px-6 lg:px-8">
                 <!-- Kartu ringkasan utama dapat diklik untuk membuka panel detail. -->
-                <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <button type="button" @click="focusPanel('response')" class="min-w-0 rounded-xl bg-white p-5 text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0D542B]">
+                <!-- Kartu utama menyajikan indikator yang berbeda tanpa mengulang angka yang sama. -->
+                <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <button type="button" @click="focusPanel('response')" class="flex min-h-[176px] min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0D542B]">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-[#0D542B]">Response rate universitas</p>
                         <div class="mt-4 flex items-end gap-2"><p class="text-3xl font-extrabold tracking-tight text-[#0D542B] sm:text-4xl">{{ dashboardStats.response_rate || 0 }}%</p><p class="pb-1 text-xs text-slate-500">{{ dashboardStats.total_responden || 0 }} dari {{ dashboardStats.total_alumni || 0 }} alumni</p></div>
                         <div class="mt-4 h-2 overflow-hidden rounded-full bg-slate-200"><div :class="['h-2 rounded-full transition-all', responseRateClass(dashboardStats.response_rate_status?.code)]" :style="{ width: `${Math.min(dashboardStats.response_rate || 0, 100)}%` }"></div></div>
                     </button>
-                    <button type="button" @click="focusPanel('completion')" class="min-w-0 rounded-xl bg-white p-5 text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0D542B]">
+                    <button type="button" @click="focusPanel('completion')" class="flex min-h-[176px] min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0D542B]">
                         <div class="flex items-start justify-between gap-3"><p class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Kelengkapan gabungan</p><span class="shrink-0 rounded bg-[#FDC700] px-1.5 py-0.5 text-[9px] font-bold text-[#0D542B]">Profil + Univ.</span></div>
                         <div class="mt-4 flex items-end gap-2"><p class="text-3xl font-extrabold tracking-tight text-[#0D542B] sm:text-4xl">{{ completionMetrics.profile_and_university?.percentage || 0 }}%</p><p class="pb-1 text-xs text-slate-500">{{ completionMetrics.profile_and_university?.completed_count || 0 }} alumni lengkap</p></div>
                         <div class="mt-4 h-2 overflow-hidden rounded-full bg-slate-200"><div :class="['h-2 rounded-full transition-all', completionBarClass(completionMetrics.profile_and_university?.percentage || 0)]" :style="{ width: `${Math.min(completionMetrics.profile_and_university?.percentage || 0, 100)}%` }"></div></div>
                     </button>
-                    <button type="button" @click="focusPanel('population')" class="min-w-0 rounded-xl bg-white p-5 text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0D542B] sm:col-span-2 xl:col-span-1">
+                    <button type="button" @click="focusPanel('population')" class="flex min-h-[176px] min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0D542B] sm:col-span-2 xl:col-span-1">
                         <div class="flex items-start justify-between gap-3"><p class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Populasi lulusan</p><span class="shrink-0 rounded bg-[#0D542B] px-1.5 py-0.5 text-[9px] font-bold text-white">{{ role === 'admin_prodi' ? 'Prodi' : role === 'admin_fakultas' ? 'Fakultas' : 'Universitas' }}</span></div>
                         <div class="mt-4 flex items-end gap-2"><p class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">{{ dashboardStats.total_alumni || 0 }}</p><p class="pb-1 text-xs text-slate-500">alumni terdata</p></div>
                         <p class="mt-4 text-xs text-slate-500">Tahun lulusan {{ selectedYear }} pada {{ dashboardStats.total_prodi || 0 }} program studi.</p>
+                    </button>
+                    <button type="button" @click="focusPanel('alumni')" class="flex min-h-[176px] min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0D542B] sm:col-span-2 xl:col-span-1">
+                        <div class="flex items-start justify-between gap-3"><p class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Perusahaan utama</p><span class="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">{{ companySummary.total_companies || 0 }} terpetakan</span></div>
+                        <template v-if="topCompany">
+                            <p class="mt-4 truncate text-lg font-extrabold tracking-tight text-slate-900" :title="topCompany.name">{{ topCompany.name }}</p>
+                            <p class="mt-1 text-xs font-semibold text-[#0D542B]">{{ topCompany.alumni_count }} alumni terhubung</p>
+                            <p class="mt-3 text-xs text-slate-500">Perusahaan dengan jumlah alumni terbanyak pada filter tahun ini.</p>
+                        </template>
+                        <template v-else>
+                            <p class="mt-4 text-lg font-extrabold tracking-tight text-slate-900">Belum ada data</p>
+                            <p class="mt-3 text-xs text-slate-500">Belum ada alumni yang terhubung ke master perusahaan.</p>
+                        </template>
                     </button>
                 </section>
 

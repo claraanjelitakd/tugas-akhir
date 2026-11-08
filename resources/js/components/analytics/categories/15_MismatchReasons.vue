@@ -3,7 +3,7 @@
  * Komponen Indikator 15: Alasan Mengambil Pekerjaan Tidak Sesuai Pendidikan (F16).
  *
  * Mengadopsi Gambar 4.16 Laporan Tracer Study UKDW:
- * 1. Horizontal Bar: Seluruh opsi resmi instrumen kuesioner F16 tanpa terpotong
+ * 1. Horizontal Bar: Opsi instrumen kuesioner F16 yang benar-benar memiliki data
  * 2. Tabel Lengkap Tabulasi Alasan & Isian Lainnya
  */
 import { computed } from 'vue';
@@ -35,7 +35,7 @@ const records = computed(() => props.chart?.records || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || records.value.length);
 
 // -----------------------------------------------------------------------------
-// 1. HORIZONTAL BAR: Seluruh 14 Opsi Resmi F16 (Gambar 4.16 PDF Laporan Resmi)
+// 1. HORIZONTAL BAR: Opsi F16 yang memiliki respons (Gambar 4.16 PDF Laporan Resmi)
 // -----------------------------------------------------------------------------
 const barOption = computed(() => {
     // Balik urutan agar opsi dengan frekuensi terbesar berada di paling atas sumbu Y
@@ -119,12 +119,15 @@ const barTable = computed(() => ({
     })),
 }));
 
-// Rincian alumni pada opsi lainnya
+// Rincian alumni yang mengisi teks tambahan pada opsi Lainnya.
 const lainnyaRecords = computed(() => {
-    return records.value.filter((r) => {
-        const cat = String(r.category || recordCategory(r) || '').toLowerCase();
-        const ans = String(r.answer || '').toLowerCase();
-        return cat.includes('lain') || cat.includes('other') || ans.includes('lain') || ans.includes('other');
+    return records.value.filter((record) => {
+        const detail = String(record.detail || '').trim();
+        const answer = String(record.answer || '').trim();
+        const detailIsReal = detail !== '' && !['lainnya', 'other'].includes(detail.toLowerCase());
+        const answerHasDetail = /^(?:lainnya|other)\s*:\s*.+$/i.test(answer);
+
+        return detailIsReal || answerHasDetail;
     });
 });
 
@@ -198,7 +201,7 @@ const views = computed(() => {
         :rows="records"
         :selected-label="selectedLabel"
         :loading="loading"
-        indicator-badge="Indikator 15"
+        indicator-badge="Indikator 17"
         @select="emit('select', $event)"
         @reset="emit('reset')"
     />

@@ -14,6 +14,7 @@
 import { computed, ref } from 'vue';
 import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
 import {
+    analyticsScalePalette,
     baseOption,
     escapeHtml,
     formatNumber,
@@ -39,16 +40,143 @@ const series = computed(() => props.chart?.series || []);
 const records = computed(() => props.chart?.records || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || records.value.length);
 
-// Palet warna institusional yang harmonis, formal, dan tidak silau di mata
+// Palet ordinal bersama Indikator 02: status paling positif memakai hijau tua dan status paling rendah memakai merah.
 const statusColorMap = {
-    'Bekerja': '#0D542B',                         // Hijau primer UKDW
-    'Wiraswasta': '#78B18B',
-    'Melanjutkan pendidikan': '#2F7D4A',
-    'Sedang mencari kerja': '#B7D7C0',
-    'Belum memungkinkan bekerja': '#DCEBE0',
+    'Bekerja': analyticsScalePalette[4],
+    'Wiraswasta': analyticsScalePalette[3],
+    'Melanjutkan pendidikan': analyticsScalePalette[2],
+    'Sedang mencari kerja': analyticsScalePalette[1],
+    'Belum memungkinkan bekerja': analyticsScalePalette[0],
 };
 
 const getStatusColor = (label) => statusColorMap[label] || '#475569';
+
+// Urutan eksplisit menjaga posisi stack dari status paling rendah menuju paling terserap.
+const statusStackOrderMap = {
+    'Belum memungkinkan bekerja': 1,
+    'Sedang mencari kerja': 2,
+    'Melanjutkan pendidikan': 3,
+    'Wiraswasta': 4,
+    'Bekerja': 5,
+};
+
+const getStatusStackOrder = (label) => statusStackOrderMap[label] || 99;
+
+// Legenda skala vertikal menyamakan pola baca Komposisi Prodi dengan Indikator 02.
+const employmentStatusScaleLegend = [{
+    type: 'group',
+    right: 18,
+    top: 'middle',
+    children: [
+        {
+            type: 'text',
+            left: 0,
+            top: 112,
+            rotation: -Math.PI / 2,
+            style: {
+                text: 'Status pekerjaan',
+                fill: '#0F172A',
+                font: 'bold 11px Inter, sans-serif',
+                textAlign: 'center',
+            },
+        },
+        {
+            type: 'text',
+            left: 18,
+            top: 15,
+            style: { text: '5', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+        },
+        {
+            type: 'rect',
+            left: 28,
+            top: 0,
+            shape: { width: 22, height: 44 },
+            style: { fill: analyticsScalePalette[4], stroke: '#1E293B', lineWidth: 1 },
+        },
+        {
+            type: 'text',
+            left: 58,
+            top: 15,
+            style: { text: 'Bekerja', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+        },
+        {
+            type: 'text',
+            left: 18,
+            top: 59,
+            style: { text: '4', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+        },
+        {
+            type: 'rect',
+            left: 28,
+            top: 44,
+            shape: { width: 22, height: 44 },
+            style: { fill: analyticsScalePalette[3], stroke: '#1E293B', lineWidth: 1 },
+        },
+        {
+            type: 'text',
+            left: 58,
+            top: 59,
+            style: { text: 'Wiraswasta', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+        },
+        {
+            type: 'text',
+            left: 18,
+            top: 103,
+            style: { text: '3', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+        },
+        {
+            type: 'rect',
+            left: 28,
+            top: 88,
+            shape: { width: 22, height: 44 },
+            style: { fill: analyticsScalePalette[2], stroke: '#1E293B', lineWidth: 1 },
+        },
+        {
+            type: 'text',
+            left: 58,
+            top: 103,
+            style: { text: 'Lanjut studi', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+        },
+        {
+            type: 'text',
+            left: 18,
+            top: 147,
+            style: { text: '2', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+        },
+        {
+            type: 'rect',
+            left: 28,
+            top: 132,
+            shape: { width: 22, height: 44 },
+            style: { fill: analyticsScalePalette[1], stroke: '#1E293B', lineWidth: 1 },
+        },
+        {
+            type: 'text',
+            left: 58,
+            top: 147,
+            style: { text: 'Mencari kerja', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+        },
+        {
+            type: 'text',
+            left: 18,
+            top: 191,
+            style: { text: '1', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+        },
+        {
+            type: 'rect',
+            left: 28,
+            top: 176,
+            shape: { width: 22, height: 44 },
+            style: { fill: analyticsScalePalette[0], stroke: '#1E293B', lineWidth: 1 },
+        },
+        {
+            type: 'text',
+            left: 58,
+            top: 191,
+            style: { text: 'Belum memungkinkan', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+        },
+    ],
+}];
 
 // Deskripsi makna persentase untuk setiap kategori status pekerjaan (IKU 1)
 const statusMeaningMap = {
@@ -149,7 +277,19 @@ const donutTable = computed(() => ({
 // 2. STACKED BAR: Komposisi Status per Program Studi (Dilengkapi n & %)
 // -----------------------------------------------------------------------------
 const prodis = computed(() => [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]);
-const statusCategories = computed(() => [...new Set(series.value.map((s) => s.label))]);
+// Urutan stack dibaca dari risiko tertinggi (merah) ke serapan tertinggi (hijau).
+const statusCategories = computed(() => {
+    const statusOrder = [
+        'Belum memungkinkan bekerja',
+        'Sedang mencari kerja',
+        'Melanjutkan pendidikan',
+        'Wiraswasta',
+        'Bekerja',
+    ];
+    const available = new Set(series.value.map((item) => item.label));
+
+    return statusOrder.filter((label) => available.has(label));
+});
 
 const stackedOption = computed(() => {
     const listProdis = prodis.value;
@@ -179,15 +319,16 @@ const stackedOption = computed(() => {
             name: cat,
             type: 'bar',
             stack: 'total',
+            stackOrder: getStatusStackOrder(cat),
             barMaxWidth: 28,
             label: {
                 show: true,
                 position: 'inside',
                 formatter: (params) => {
-                    return params.value >= 10 ? `${params.value}%` : '';
+                    return params.value >= 2 ? `${formatNumber(params.value, 1)}%` : '';
                 },
                 fontSize: 10,
-                color: '#FFFFFF',
+                color: cat === 'Melanjutkan pendidikan' ? '#1E293B' : '#FFFFFF',
                 fontWeight: 600,
             },
             itemStyle: {
@@ -204,17 +345,18 @@ const stackedOption = computed(() => {
 
     return {
         ...baseOption(records.value.length),
+        // Palet mengikuti urutan seri aktual agar kategori tetap berwarna sama saat filter menghilangkan kategori lain.
+        themePalette: cats.map((category) => getStatusColor(category)),
         legend: {
-            data: cats,
-            bottom: 0,
-            icon: 'circle',
-            textStyle: { color: '#334155', fontSize: 11, fontWeight: 600 },
+            show: false,
         },
-        grid: { left: 24, right: 36, top: 24, bottom: 60, containLabel: true },
+        grid: { left: 24, right: 244, top: 24, bottom: 32, containLabel: true },
         xAxis: {
             type: 'value',
+            min: 0,
             max: 100,
-            axisLabel: { formatter: '{value}%' },
+            axisLabel: { formatter: '{value}%', color: '#64748B', fontSize: 11 },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
             splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
         },
         yAxis: {
@@ -225,8 +367,10 @@ const stackedOption = computed(() => {
                 color: '#334155',
                 fontSize: 11,
                 width: 200,
-                overflow: 'break',
+                overflow: 'truncate',
             },
+            axisTick: { show: false },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
         },
         tooltip: {
             ...baseOption().tooltip,
@@ -253,6 +397,7 @@ const stackedOption = computed(() => {
                 `;
             },
         },
+        graphic: employmentStatusScaleLegend,
         series: seriesList,
     };
 });
@@ -459,7 +604,7 @@ const drillDownType = computed(() => {
             :rows="records"
             :selected-label="selectedLabel"
             :loading="loading"
-            indicator-badge="Indikator 07"
+            indicator-badge="Indikator 10"
             @select="emit('select', $event)"
             @reset="emit('reset')"
         />

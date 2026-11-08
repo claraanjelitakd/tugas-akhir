@@ -144,6 +144,12 @@ class SimpanJawabanController extends Controller
             $answerText = null;
             $answerJson = null;
 
+            /**
+             * Jawaban memakai dua wadah kanonik: jawaban_teks untuk nilai scalar
+             * atau representasi baca, dan jawaban_json untuk data terstruktur.
+             * Tipe master menentukan normalisasi sebelum kedua wadah tersebut
+             * diisi; tipe angka tetap perlu divalidasi/cast saat dianalisis.
+             */
             switch ($pertanyaan->tipe) {
                 case 'multiple_choice':
                 case 'checkbox':

@@ -14,7 +14,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * Seeder Data Alumni Joshua Andrean (Lulusan 2026 - Sistem Informasi)
+ * Seeder Data Alumni Joshua Andrean (Lulusan 2025 - Sistem Informasi)
  *
  * Menyiapkan akun dan master data akademik untuk pengujian pengisian mandiri.
  */
@@ -27,9 +27,9 @@ class JoshuaAndreanSeeder extends Seeder
     {
         $nim = '72220001';
         $nama = 'Joshua Andrean';
-        $angkatan = 2022;
-        $tahunLulus = 2026;
-        $tahunAkademikLulus = 'Genap 2025/2026';
+        $angkatan = 2021;
+        $tahunLulus = 2025;
+        $tahunAkademikLulus = 'Genap 2024/2025';
         $personalEmail = 'joshua.andrean@gmail.com';
 
         // 1. Ambil Data Referensi Prodi Sistem Informasi & Wilayah
@@ -65,7 +65,7 @@ class JoshuaAndreanSeeder extends Seeder
                 'status_mahasiswa' => 'Lulus',
                 'tahun_akademik_lulus' => $tahunAkademikLulus,
                 'tahun_lulus' => $tahunLulus,
-                'tanggal_lulus' => '2026-07-25',
+                'tanggal_lulus' => '2025-07-25',
                 'ip_kumulatif' => $ipk,
                 'total_sks' => $totalSks,
                 'total_angka_kualitas' => $angkaKualitas,

@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -36,7 +35,9 @@ class DataAkademikSeeder extends Seeder
             'Vanessa Stephanie Tanudjaja',
         ];
 
-        $periodeLulusList = ['Gasal 2023/2024', 'Genap 2023/2024', 'Gasal 2024/2025', 'Genap 2024/2025'];
+        $angkatanMasuk = 2021;
+        $tahunLulus = 2025;
+        $periodeLulus = 'Genap 2024/2025';
         $ipkList = [3.85, 3.72, 3.90, 3.65, 3.80, 3.75, 3.95, 3.68, 3.88, 3.78];
 
         $sekolahList = [
@@ -48,8 +49,6 @@ class DataAkademikSeeder extends Seeder
 
         foreach ($alumniUsers as $index => $user) {
             $nim = $user->username;
-            $parsedInfo = Biodata::parseNim($nim);
-            $angkatan = $parsedInfo ? (int) $parsedInfo['angkatan'] : 2020;
             $nama = $namaDummy[$index % count($namaDummy)];
             $sekolah = $sekolahList[$index % count($sekolahList)];
 
@@ -71,10 +70,10 @@ class DataAkademikSeeder extends Seeder
                     'nama' => $nama,
                     'email_pribadi' => $personalEmail,
                     // Data Paten Universitas
-                    'angkatan_masuk' => $angkatan,
+                    'angkatan_masuk' => $angkatanMasuk,
                     'status_mahasiswa' => 'Lulus',
-                    'tahun_akademik_lulus' => $periodeLulusList[$index % count($periodeLulusList)],
-                    'tahun_lulus' => $angkatan + 4,
+                    'tahun_akademik_lulus' => $periodeLulus,
+                    'tahun_lulus' => $tahunLulus,
                     'ip_kumulatif' => $ipk,
                     'total_sks' => $totalSks,
                     'total_angka_kualitas' => $angkaKualitas,

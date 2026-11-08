@@ -33,6 +33,8 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 | v_analytics_further_study | TracerAnalyticsService | Jawaban F12, F18b, F18c, dan F18d untuk sumber biaya, perguruan tinggi, program studi, serta tanggal mulai studi lanjut. |
 | v_analytics_mismatch_reasons | TracerAnalyticsService | Jawaban pilihan jamak F16 untuk alasan ketidaksesuaian pekerjaan. |
 | v_analytics_competency_gap | TracerAnalyticsService | Pasangan F17a/F17b untuk perbandingan kompetensi saat lulus dan kebutuhan kerja. |
+| v_iku_s1_aee | IkuS1AnalyticsService | Seluruh populasi akademik S1, status pengecualian, dan penanda lulus tepat waktu untuk AEE. |
+| v_iku_s1_lulusan | IkuS1AnalyticsService | Lulusan S1 dengan status karier, masa tunggu, gaji, UMP/provinsi, dan tanggal studi lanjut untuk formula bobot IKU. |
 
 ## Kontrak sumber data
 
@@ -58,11 +60,24 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
   dipakai pada tabel detail analitik Universitas, Prodi, dan Atasan.
 - Identitas akademik: data_akademik.nama, tanggal lahir, NIM, email_pribadi
   sumber akademik, IPK, dan data kelulusan.
+- Populasi akademik IKU: `data_akademik.prodi_id`, `angkatan_masuk`,
+  `tahun_akademik_masuk`, dan `status_mahasiswa`. Seluruh mahasiswa masuk
+  populasi awal; Drop Out, Pindah, dan Cuti dikeluarkan dari denominator AEE.
+- Seluruh `prodi` aktif pada baseline ini berjenjang `S1`. Periode masuk reguler
+  disimpan dengan format `YYYY/YYYY+1 (Semester Ganjil)`.
+- UMP: `ump.besaran` diisi oleh `database/data/ump_2026.csv` melalui
+  `UmpSeeder`; nominal pada sumber seed harus berupa angka rupiah tanpa format
+  tampilan. Relasi tetap memakai `ump.kode_provinsi` ke master `propinsi`.
 - Tugas akhir dan publikasi: yudisium.
 - Jawaban universitas dan prodi: `kuesioner_jawaban.jawaban_teks`,
   `jawaban_json`, `pertanyaan_id`, dan `kode_pertanyaan`. Jenis responden
   dibedakan oleh `responden_type` dan konteks evaluasi atasan oleh
   `evaluasi_atasan_id`.
+- Cara membaca jawaban ditentukan oleh `kuesioner_pertanyaan.tipe`, bukan oleh
+  nama section. Pilihan dihitung per opsi, Likert dihitung dari skor valid,
+  jawaban ganda dibaca dari `jawaban_json`, teks ditampilkan sebagai data
+  terbuka, dan angka harus di-cast setelah normalisasi. Detail kontrak ada di
+  [kuesioner-data-contract.md](kuesioner-data-contract.md).
 
 View tidak menyimpan data bisnis baru. View hanya memproyeksikan data tabel
 agar rumus dashboard dan autofill memiliki satu sumber logika.
@@ -89,3 +104,16 @@ Untuk instalasi baru, `php artisan migrate` menjalankan migration tabel dan view
 sedangkan `php artisan db:seed` mengisi data awal.
 
 Database lama bernama tracer bukan koneksi aktif aplikasi dan tidak disentuh.
+
+### IKU S1
+
+`v_iku_s1_aee` menghitung AEE per prodi dengan masa standar S1 delapan semester:
+mahasiswa angkatan `YYYY` dianggap tepat waktu jika lulus pada `Genap
+YYYY+3/YYYY+4`. `v_iku_s1_lulusan` menjadi sumber klasifikasi capaian karier.
+Bobot dihitung oleh `IkuS1AnalyticsService`, bukan oleh Vue; frontend hanya
+menampilkan pembilang, penyebut, bobot, dan metodologi.
+
+Klasifikasi batang AEE (`tepat waktu`, `terlambat`, dan `belum teridentifikasi`)
+merupakan agregat pada `IkuS1AnalyticsService` dari kolom view yang sudah ada:
+`status_mahasiswa`, `is_excluded`, dan `is_lulus_tepat_waktu`. Tidak ada tabel,
+kolom, foreign key, atau relasi ERD tambahan untuk klasifikasi tersebut.

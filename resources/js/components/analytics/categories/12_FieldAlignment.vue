@@ -359,7 +359,7 @@ const heatmapData = computed(() => {
         listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]),
     );
 
-    const values = [];
+    const rawValues = [];
     listProdis.forEach((prodi, yIndex) => {
         cats.forEach((cat, xIndex) => {
             const lvl = xIndex + 1;
@@ -369,7 +369,7 @@ const heatmapData = computed(() => {
             }).length;
             const total = Math.max(prodiTotals[prodi], 1);
             const pct = Number(((count / total) * 100).toFixed(1));
-            values.push({
+            rawValues.push({
                 value: [xIndex, yIndex, pct],
                 prodi,
                 category: cat,
@@ -379,26 +379,44 @@ const heatmapData = computed(() => {
         });
     });
 
-    const maxPct = Math.max(...values.map((v) => v.value[2]), 10);
+    // Persentase asli tetap dipakai untuk tooltip dan tabel. Skor 1-5 hanya
+    // dipakai untuk palet diskret merah-ke-hijau yang sama dengan Indikator 02.
+    const positivePercentages = rawValues
+        .map((item) => item.value[2])
+        .filter((percentage) => percentage > 0);
+    const minPct = Math.min(...positivePercentages, 0);
+    const maxPct = Math.max(...positivePercentages, 0);
+    const values = rawValues.map((item) => {
+        const percentage = item.value[2];
+        const intensity = percentage <= 0
+            ? 1
+            : (maxPct === minPct ? 3 : Math.round(1 + ((percentage - minPct) / (maxPct - minPct)) * 4));
+
+        return {
+            ...item,
+            rawPercentage: percentage,
+            value: [item.value[0], item.value[1], intensity],
+        };
+    });
 
     return { values, maxPct, prodiTotals };
 });
 
 const heatmapOption = computed(() => {
-    const { values, maxPct, prodiTotals } = heatmapData.value;
+    const { values, prodiTotals } = heatmapData.value;
     const cats = heatmapCategories.value;
     const listProdis = prodis.value;
     const yLabels = listProdis.map((p) => `${p} (n=${prodiTotals[p]})`);
 
     return {
         ...baseOption(records.value.length),
-        grid: { left: 24, right: 120, top: 75, bottom: 24, containLabel: true },
+        grid: { left: 20, right: 150, top: 75, bottom: 20, containLabel: true },
         xAxis: {
             type: 'category',
             position: 'top',
             data: cats,
             axisLabel: {
-                rotate: -20,
+                rotate: -35,
                 color: '#1E293B',
                 fontSize: 11,
                 fontWeight: 600,
@@ -412,28 +430,27 @@ const heatmapOption = computed(() => {
             type: 'category',
             inverse: true,
             data: yLabels,
-            axisLabel: { color: '#1E293B', fontSize: 11, fontWeight: 500 },
+            axisLabel: { color: '#1E293B', width: 170, fontSize: 11, fontWeight: 500 },
             axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
             axisLine: { lineStyle: { color: '#CBD5E1' } },
             splitArea: { show: false },
         },
         visualMap: {
             type: 'continuous',
-            min: 0,
-            max: Math.min(100, Math.ceil(maxPct / 10) * 10),
+            min: 1,
+            max: 5,
+            precision: 0,
             orient: 'vertical',
-            right: 14,
+            right: 18,
             top: 'middle',
-            itemWidth: 16,
-            itemHeight: 220,
-            calculable: true,
+            itemWidth: 18,
+            itemHeight: 240,
             inRange: {
-                color: ['#F8FAFC', '#DCEBE0', '#B7D7C0', '#78B18B', '#2F7D4A', '#0D542B'],
+                color: ['#B91C1C', '#EF4444', '#E2F3E7', '#2F7D4A', '#0D542B'],
             },
-            text: ['Tinggi (%)', '0%'],
-            textGap: 8,
+            text: ['5 (Proporsi tertinggi)', '1 (Proporsi terendah)'],
+            textGap: 10,
             textStyle: { color: '#1E293B', fontSize: 11, fontWeight: 600 },
-            formatter: (val) => `${Number(val).toFixed(0)}%`,
         },
         tooltip: {
             ...baseOption().tooltip,
@@ -445,7 +462,7 @@ const heatmapOption = computed(() => {
                         <div class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5">${escapeHtml(data.prodi)}</div>
                         <div class="text-slate-600 mb-0.5"><span class="text-slate-500">Tingkat Keselarasan:</span> <strong>${escapeHtml(data.category)}</strong></div>
                         <div class="text-slate-600 mb-0.5"><span class="text-slate-500">Jumlah Alumni:</span> <strong>${formatNumber(data.count, 0)}</strong> (dari n=${data.total})</div>
-                        <div class="text-slate-600"><span class="text-slate-500">Proporsi di Prodi:</span> <strong class="text-emerald-700 font-mono text-sm">${formatNumber(data.value[2], 1)}%</strong></div>
+                        <div class="text-slate-600"><span class="text-slate-500">Proporsi di Prodi:</span> <strong class="text-emerald-700 font-mono text-sm">${formatNumber(data.rawPercentage, 1)}%</strong></div>
                     </div>
                 `;
             },
@@ -459,18 +476,21 @@ const heatmapOption = computed(() => {
                 borderWidth: 1.5,
             },
             label: {
-                show: true,
-                formatter: ({ data }) => (data && data.value[2] > 0 ? `${formatNumber(data.value[2], 0)}%` : ''),
-                fontSize: 10,
-                fontWeight: 600,
-                color: (param) => (param.data?.value[2] >= 30 ? '#FFFFFF' : '#1E293B'),
+                show: false,
             },
             emphasis: {
+                focus: 'none',
                 itemStyle: {
-                    shadowBlur: 8,
-                    shadowColor: 'rgba(13, 84, 43, 0.25)',
-                    borderColor: '#0D542B',
-                    borderWidth: 2,
+                    borderColor: '#FFFFFF',
+                    borderWidth: 1.5,
+                    shadowBlur: 0,
+                    shadowColor: 'transparent',
+                },
+                label: {
+                    show: true,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    formatter: ({ data }) => (data?.rawPercentage > 0 ? `${formatNumber(data.rawPercentage, 0)}%` : '-'),
                 },
             },
         }],
@@ -764,7 +784,7 @@ const views = computed(() => [
         :rows="records"
         :selected-label="selectedLabel"
         :loading="loading"
-        indicator-badge="Indikator 12"
+        indicator-badge="Indikator 15"
         @select="emit('select', $event)"
         @reset="emit('reset')"
     />

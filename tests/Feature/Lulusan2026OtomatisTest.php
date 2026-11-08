@@ -29,10 +29,10 @@ class Lulusan2026OtomatisTest extends TestCase
     }
 
     /**
-     * Membuktikan bahwa 10 alumni lulusan 2026 yang baru otomatis menarik data akademik,
+     * Membuktikan bahwa 10 alumni lulusan 2025 yang baru otomatis menarik data akademik,
      * dan kolom profil di biodata kosong/null.
      */
-    public function test_alumni_2026_otomatis_menarik_data_akademik_dan_profil_kosong(): void
+    public function test_alumni_2025_otomatis_menarik_data_akademik_dan_profil_kosong(): void
     {
         $nims = [
             '71220011', '71220012', '71220013', '71220014', '71220015',
@@ -52,7 +52,7 @@ class Lulusan2026OtomatisTest extends TestCase
             $dataAkademik = DataAkademik::where('nim', $nim)->first();
             $this->assertNotNull($dataAkademik);
             $this->assertEquals($dataAkademik->nama, $biodata->nama, "Nama di Biodata harus persis sama dengan DataAkademik ({$dataAkademik->nama})");
-            $this->assertEquals('2026', $biodata->tahun_lulus, 'Tahun lulus harus otomatis 2026.');
+            $this->assertEquals('2025', $biodata->tahun_lulus, 'Tahun lulus harus otomatis 2025.');
 
             // 3. Bukti: Profil karier & perusahaan murni kosong (NULL)
             $this->assertNull($biodata->posisi_jabatan, 'Posisi jabatan harus null / kosong.');
@@ -63,7 +63,7 @@ class Lulusan2026OtomatisTest extends TestCase
             $viewRow = DB::table('v_alumni_profile_summary')->where('nim', $nim)->first();
             $this->assertNotNull($viewRow, "View v_alumni_profile_summary harus menampilkan alumni {$nim}.");
             $this->assertEquals($dataAkademik->nama, $viewRow->nama);
-            $this->assertEquals(2026, $viewRow->tahun_lulus);
+            $this->assertEquals(2025, $viewRow->tahun_lulus);
             $this->assertNull($viewRow->posisi_jabatan);
             $this->assertNull($viewRow->perusahaan_id);
 
@@ -90,11 +90,11 @@ class Lulusan2026OtomatisTest extends TestCase
         $dataAkademik = DataAkademik::create([
             'nim' => $testNim,
             'nama' => 'Bintang Pratama Putra',
-            'angkatan_masuk' => '2022',
+            'angkatan_masuk' => '2021',
             'status_mahasiswa' => 'L',
-            'tahun_akademik_lulus' => 'Genap 2025/2026',
-            'tahun_lulus' => 2026,
-            'tanggal_lulus' => '2026-09-01',
+            'tahun_akademik_lulus' => 'Genap 2024/2025',
+            'tahun_lulus' => 2025,
+            'tanggal_lulus' => '2025-09-01',
             'ip_kumulatif' => 3.95,
             'total_sks' => 144,
             'tanggal_lahir' => '2002-12-25',
@@ -124,7 +124,7 @@ class Lulusan2026OtomatisTest extends TestCase
 
         // 5. Verifikasi: Seluruh data otomatis ketarik via Accessor & SQL View
         $this->assertEquals('Bintang Pratama Putra', $biodataOtomatis->nama);
-        $this->assertEquals('2026', $biodataOtomatis->tahun_lulus);
+        $this->assertEquals('2025', $biodataOtomatis->tahun_lulus);
         $this->assertStringContainsString('2002-12-25', (string) $biodataOtomatis->tanggal_lahir);
         $this->assertNull($biodataOtomatis->posisi_jabatan);
         $this->assertNull($biodataOtomatis->perusahaan_id);
@@ -132,7 +132,7 @@ class Lulusan2026OtomatisTest extends TestCase
         $viewRow = DB::table('v_alumni_profile_summary')->where('nim', $testNim)->first();
         $this->assertNotNull($viewRow);
         $this->assertEquals('Bintang Pratama Putra', $viewRow->nama);
-        $this->assertEquals(2026, $viewRow->tahun_lulus);
+        $this->assertEquals(2025, $viewRow->tahun_lulus);
         $this->assertFalse(property_exists($viewRow, 'nama_orang_tua'));
     }
 }

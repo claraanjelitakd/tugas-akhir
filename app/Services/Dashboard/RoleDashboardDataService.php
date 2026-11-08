@@ -80,6 +80,7 @@ class RoleDashboardDataService
                 'university_questionnaire' => $this->completionMetric('Kuesioner Universitas', $universityComplete, $totalAlumni),
                 'profile_and_university' => $this->completionMetric('Profil dan Kuesioner Universitas', $overallComplete, $totalAlumni),
             ],
+            'companySummary' => $this->buildCompanySummary($auditRows),
             'prodiSummaries' => $this->buildProdiSummaries($prodis, $auditRows),
             'recentAlumni' => $this->buildRecentAlumni($auditRows),
             'sectionsList' => $this->buildSections($scope, $scopeId),
@@ -165,6 +166,47 @@ class RoleDashboardDataService
                 'response_rate_status' => $this->responseRateStatus($rate),
             ];
         });
+    }
+
+    /**
+     * Membentuk ringkasan perusahaan tempat alumni dalam scope bekerja.
+     *
+     * Perhitungan hanya memakai perusahaan yang sudah terhubung pada biodata,
+     * sehingga kartu dashboard tidak mencampur master perusahaan yang belum
+     * dipakai oleh alumni dalam tahun filter aktif.
+     *
+     * @param  Collection<int, object>  $auditRows
+     * @return array{total_companies: int, mapped_alumni: int, unmapped_alumni: int, top_company: array<string, mixed>|null, top_companies: array<int, array<string, mixed>>}
+     */
+    private function buildCompanySummary(Collection $auditRows): array
+    {
+        $companies = $auditRows
+            ->filter(fn (object $row): bool => ! empty($row->perusahaan_id) && ! empty($row->nama_perusahaan))
+            ->groupBy('perusahaan_id')
+            ->map(function (Collection $rows, mixed $companyId): array {
+                $first = $rows->first();
+
+                return [
+                    'id' => (int) $companyId,
+                    'name' => (string) $first->nama_perusahaan,
+                    'alumni_count' => $rows->count(),
+                ];
+            })
+            ->sort(function (array $first, array $second): int {
+                return $second['alumni_count'] <=> $first['alumni_count']
+                    ?: strcmp(mb_strtolower($first['name']), mb_strtolower($second['name']));
+            })
+            ->values();
+
+        $topCompanies = $companies->take(5)->values()->all();
+
+        return [
+            'total_companies' => $companies->count(),
+            'mapped_alumni' => $companies->sum('alumni_count'),
+            'unmapped_alumni' => $auditRows->whereNull('perusahaan_id')->count(),
+            'top_company' => $topCompanies[0] ?? null,
+            'top_companies' => $topCompanies,
+        ];
     }
 
     /**

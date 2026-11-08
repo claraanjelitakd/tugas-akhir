@@ -26,8 +26,8 @@ export const analyticsColors = {
     axis: 'rgba(13, 84, 43, 0.36)',
 };
 
-// Palet khusus Indikator 01 mempertahankan kontras hijau-kuning untuk komposisi respons.
-export const responseRatePalette = ['#0D542B', '#D6A928'];
+// Palet khusus komposisi biner: hijau untuk terpenuhi dan slate untuk sisa/belum.
+export const responseRatePalette = ['#0D542B', '#94A3B8'];
 
 // Urutan warna seri konsisten untuk grafik dengan dua atau lebih seri.
 export const analyticsPalette = [
@@ -50,6 +50,7 @@ export const analyticsScalePalette = [
 // Kamus pusat nama tipe grafik agar label tampilan tidak bergantung pada nama key view.
 export const analyticsChartTypes = Object.freeze({
     horizontal_bar: 'Diagram Batang Horizontal',
+    stacked_horizontal: 'Diagram Batang Bertumpuk Horizontal',
     stacked_horizontal_100: 'Diagram Batang Bertumpuk 100% Horizontal',
     stacked_vertical: 'Diagram Kolom Bertumpuk',
     grouped_bar: 'Diagram Batang Berkelompok',
@@ -80,6 +81,7 @@ export const analyticsChartTypes = Object.freeze({
 // Alasan pemilihan grafik disimpan bersama kamus tipe agar narasi tetap konsisten.
 export const analyticsChartTypeReasons = Object.freeze({
     horizontal_bar: 'Dipilih untuk membandingkan jumlah atau persentase kategori secara langsung dari satu baseline horizontal.',
+    stacked_horizontal: 'Dipilih untuk membandingkan dua status jumlah pada setiap role tanpa menghilangkan total responden.',
     stacked_horizontal_100: 'Dipilih untuk membandingkan komposisi kategori dalam total 100% pada setiap program studi.',
     stacked_vertical: 'Dipilih untuk membandingkan beberapa fase dalam batang vertikal dengan pembagian kategori yang konsisten.',
     grouped_bar: 'Dipilih untuk membandingkan dua atau lebih jumlah pada kategori yang sama secara berdampingan.',
@@ -378,9 +380,18 @@ const normalizeStackOrder = (series) => {
             .map((item, index) => item?.stack === stackName ? index : -1)
             .filter((index) => index >= 0);
         const ordered = indexes.map((index) => series[index]).sort((left, right) => {
-            const leftKey = stackOrderKey(left.name);
-            const rightKey = stackOrderKey(right.name);
-            return leftKey[0] - rightKey[0] || leftKey[1] - rightKey[1] || leftKey[2].localeCompare(rightKey[2], 'id');
+            // Grafik tertentu membutuhkan urutan stack eksplisit agar segmen sisa
+            // denominator tetap berada di ujung kanan setelah normalisasi warna.
+            const leftKey = Number.isFinite(Number(left.stackOrder))
+                ? [0, Number(left.stackOrder), 0, String(left.name || '')]
+                : [1, ...stackOrderKey(left.name)];
+            const rightKey = Number.isFinite(Number(right.stackOrder))
+                ? [0, Number(right.stackOrder), 0, String(right.name || '')]
+                : [1, ...stackOrderKey(right.name)];
+            return leftKey[0] - rightKey[0]
+                || leftKey[1] - rightKey[1]
+                || leftKey[2] - rightKey[2]
+                || String(leftKey[3] || '').localeCompare(String(rightKey[3] || ''), 'id');
         });
         indexes.forEach((index, position) => {
             series[index] = ordered[position];
@@ -1292,7 +1303,12 @@ export const stackedByProdi = (records, selectedLabel) => {
             stack: 'total',
             barMaxWidth: 26,
             emphasis: { focus: 'series' },
-            itemStyle: { color: analyticsPalette[index % analyticsPalette.length], opacity: !selectedLabel || selectedLabel === category ? 1 : 0.2 },
+            itemStyle: {
+                color: String(category).toLowerCase().includes('belum') || String(category).toLowerCase().includes('tidak')
+                    ? '#94A3B8'
+                    : '#0D542B',
+                opacity: !selectedLabel || selectedLabel === category ? 1 : 0.2,
+            },
             label: {
                 show: true,
                 position: 'inside',
@@ -1757,19 +1773,23 @@ export const pipelineScatter = (records) => {
  * Scatter plot gaji terhadap ambang UMP.
  */
 export const salaryScatter = (records) => {
-    const meetsRows = records.filter((record) => record.meets_ump);
-    const belowRows = records.filter((record) => !record.meets_ump);
+    const meetsRows = records.filter((record) => record.meets_ump === true);
+    const belowRows = records.filter((record) => record.meets_ump === false);
+    const notComparableRows = records.filter((record) => record.meets_ump === null || record.meets_ump === undefined);
 
     const option = {
         ...baseOption(records.length),
-        legend: { data: ['Memenuhi', 'Belum memenuhi'], bottom: 0 },
+        // Urutan seri mengikuti legenda: di atas ambang, di bawah ambang, lalu belum dapat dibandingkan.
+        themePalette: ['#1E6B37', '#B91C1C', '#CBD5E1'],
+        legend: { data: ['Di atas 1,2× UMP', 'Di bawah 1,2× UMP', 'Belum dapat dibandingkan'], bottom: 0 },
         grid: { left: 16, right: 24, top: 18, bottom: 52, containLabel: true },
         xAxis: { type: 'value', name: 'Ambang 1,2 × UMP', nameLocation: 'middle', nameGap: 28, axisLabel: { formatter: formatCompactCurrency }, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
         yAxis: { type: 'value', name: 'Gaji alumni', axisLabel: { formatter: formatCompactCurrency }, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-        tooltip: { ...baseOption().tooltip, formatter: ({ data }) => `<strong>${escapeHtml(data.name)}</strong><br>${escapeHtml(data.prodi)}<br>${escapeHtml(data.company)}<br>Gaji: <strong>${formatCompactCurrency(data.value[1])}</strong><br>Ambang: ${formatCompactCurrency(data.value[0])}<br>Status: ${data.meets ? 'Memenuhi' : 'Belum memenuhi'}` },
+        tooltip: { ...baseOption().tooltip, formatter: ({ data }) => `<strong>${escapeHtml(data.name)}</strong><br>${escapeHtml(data.prodi)}<br>${escapeHtml(data.company)}<br>Gaji: <strong>${formatCompactCurrency(data.value[1])}</strong><br>Ambang: ${formatCompactCurrency(data.value[0])}<br>Status: ${data.status}` },
         series: [
-            { name: 'Memenuhi', type: 'scatter', symbolSize: 10, data: meetsRows.map((record) => ({ name: record.nama, prodi: record.nama_prodi, company: record.nama_perusahaan, meets: true, value: [Number(record.threshold), Number(record.salary)] })), itemStyle: { color: '#0D542B', opacity: 0.75 } },
-            { name: 'Belum memenuhi', type: 'scatter', symbolSize: 10, data: belowRows.map((record) => ({ name: record.nama, prodi: record.nama_prodi, company: record.nama_perusahaan, meets: false, value: [Number(record.threshold), Number(record.salary)] })), itemStyle: { color: '#DC2626', opacity: 0.75 } },
+            { name: 'Di atas 1,2× UMP', type: 'scatter', symbolSize: 10, data: meetsRows.map((record) => ({ name: record.nama, prodi: record.nama_prodi, company: record.nama_perusahaan, status: 'Di atas 1,2× UMP', value: [Number(record.threshold), Number(record.salary)] })), itemStyle: { color: '#1E6B37', opacity: 0.75 } },
+            { name: 'Di bawah 1,2× UMP', type: 'scatter', symbolSize: 10, data: belowRows.map((record) => ({ name: record.nama, prodi: record.nama_prodi, company: record.nama_perusahaan, status: 'Di bawah 1,2× UMP', value: [Number(record.threshold), Number(record.salary)] })), itemStyle: { color: '#B91C1C', opacity: 0.75 } },
+            { name: 'Belum dapat dibandingkan', type: 'scatter', symbolSize: 10, data: notComparableRows.filter((record) => Number.isFinite(Number(record.salary)) && Number.isFinite(Number(record.threshold))).map((record) => ({ name: record.nama, prodi: record.nama_prodi, company: record.nama_perusahaan, status: 'Belum dapat dibandingkan', value: [Number(record.threshold), Number(record.salary)] })), itemStyle: { color: '#CBD5E1', opacity: 0.75 } },
         ],
     };
 
@@ -2094,7 +2114,6 @@ export const buildAnalyticsChartDefinitions = ({ chart, selectedChart, selectedL
                 return { key: 'rate', title: 'Distribusi keselarasan pendidikan', description: 'Perbandingan proporsi keselarasan pendidikan alumni.', option, tableData, rows: records, height: 380 };
             })(),
         ],
-        education_alignment_university: [genericDonut(), genericStacked(), genericHeatmap()],
         mismatch_reasons: [genericBar(), genericTreemap(), genericHeatmap()],
         competency_gap: [
             (() => {

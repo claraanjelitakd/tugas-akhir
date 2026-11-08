@@ -20,11 +20,13 @@ import FurtherStudy from './categories/10_FurtherStudy.vue';
 import SalaryVsUmp from './categories/11_SalaryVsUmp.vue';
 import FieldAlignment from './categories/12_FieldAlignment.vue';
 import EducationAlignment from './categories/13_EducationAlignment.vue';
-import EducationAlignmentUniv from './categories/14_EducationAlignmentUniv.vue';
 import MismatchReasons from './categories/15_MismatchReasons.vue';
 import CompetencyGap from './categories/16_CompetencyGap.vue';
 import ProfileCompletion from './categories/17_ProfileCompletion.vue';
 import WorkLocation from './categories/18_WorkLocation.vue';
+import IkuS1Aee from './categories/19_IkuS1Aee.vue';
+import IkuS1Outcomes from './categories/20_IkuS1Outcomes.vue';
+import IkuS1UmpWeighted from './categories/21_IkuS1UmpWeighted.vue';
 
 // Kontrak properti data indikator aktif dari controller
 const props = defineProps({
@@ -73,11 +75,13 @@ const categoryComponents = {
     salary_vs_ump: SalaryVsUmp,
     field_alignment: FieldAlignment,
     education_alignment: EducationAlignment,
-    education_alignment_university: EducationAlignmentUniv,
     mismatch_reasons: MismatchReasons,
     competency_gap: CompetencyGap,
     profile_completion: ProfileCompletion,
     work_location: WorkLocation,
+    iku_s1_aee: IkuS1Aee,
+    iku_s1_outcomes: IkuS1Outcomes,
+    iku_s1_ump_weighted: IkuS1UmpWeighted,
 };
 
 // Komponen aktif berdasarkan indikator yang dipilih di filter

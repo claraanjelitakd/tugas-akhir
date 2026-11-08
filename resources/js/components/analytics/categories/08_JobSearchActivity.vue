@@ -5,8 +5,8 @@
  * Mengelola visualisasi keaktifan pencarian pekerjaan alumni dalam 4 minggu terakhir:
  * - Sesuai kuesioner resmi Tracer Study Dikti (Instrumen F10):
  *   "Apakah anda aktif mencari pekerjaan dalam 4 minggu terakhir? Pilihlah Satu Jawaban. KEMUDIAN LANJUT KE F17"
- * - Menampilkan seluruh 5 opsi jawaban berurutan (1 s.d. 5) secara jelas.
- * - Dilengkapi persentase pada batang, tabel rincian data responden, dan narasi analisis komprehensif.
+ * - Hanya menampilkan opsi jawaban yang memiliki respons.
+ * - Menyediakan awan kata untuk penjelasan bebas pada opsi Lainnya.
  */
 import { computed } from 'vue';
 import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
@@ -35,16 +35,18 @@ const series = computed(() => props.chart?.series || []);
 const records = computed(() => props.chart?.records || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || records.value.length);
 
+// Opsi kosong tidak ditampilkan pada grafik atau tabel agar pembacaan hanya berfokus pada data aktual.
+const filledSeries = computed(() => series.value.filter((item) => seriesMetric(item) > 0));
+
 // -----------------------------------------------------------------------------
 // HORIZONTAL BAR: Distribusi Keaktifan Mencari Kerja (F10)
 // -----------------------------------------------------------------------------
 const barOption = computed(() => {
-    // Susun opsi F10 sesuai urutan resmi kuesioner Dikti (1 - 5)
-    const rows = [...series.value].map((item, idx) => {
+    // Susun opsi F10 yang benar-benar terisi sesuai urutan resmi kuesioner Dikti.
+    const rows = filledSeries.value.map((item, idx) => {
         const label = seriesLabel(item);
         const count = seriesMetric(item);
         const selected = !props.selectedLabel || props.selectedLabel === label;
-        const isWaitingOrWorking = label.toLowerCase().includes('menunggu') || label.toLowerCase().includes('mulai bekerja') || label.toLowerCase().includes('ya');
         const optNum = item.kode_opsi || (idx + 1);
         return {
             name: `${optNum} - ${label}`,
@@ -52,7 +54,7 @@ const barOption = computed(() => {
             value: count,
             percentage: item.percentage || 0,
             itemStyle: {
-                color: isWaitingOrWorking ? '#0D542B' : '#64748B',
+                color: '#0D542B',
                 opacity: selected ? 1 : 0.22,
                 borderRadius: [0, 4, 4, 0],
             },
@@ -106,7 +108,7 @@ const barOption = computed(() => {
             label: {
                 show: true,
                 position: 'right',
-                formatter: ({ data }) => data.value > 0 ? `${formatNumber(data.value, 0)} (${formatPercentage(data.percentage)})` : '0',
+                formatter: ({ data }) => `${formatNumber(data.value, 0)} (${formatPercentage(data.percentage)})`,
                 fontSize: 11,
                 fontWeight: 600,
                 color: '#334155',
@@ -123,7 +125,7 @@ const barTable = computed(() => ({
         { key: 'count', label: 'Jumlah Alumni (n)', align: 'right' },
         { key: 'percentage', label: 'Persentase', align: 'right' },
     ],
-    rows: series.value.map((item, idx) => ({
+    rows: filledSeries.value.map((item, idx) => ({
         no: item.kode_opsi || (idx + 1),
         status: seriesLabel(item),
         count: formatNumber(seriesMetric(item), 0),
@@ -131,9 +133,32 @@ const barTable = computed(() => ({
     })),
 }));
 
+// Isian bebas opsi Lainnya ditampilkan terpisah agar pola kata dapat dibaca tanpa mencampurnya dengan pilihan baku F10.
+const lainnyaRecords = computed(() => records.value.filter((record) => {
+    const category = String(record.category || '').trim().toLowerCase();
+    const detail = String(record.detail || '').trim();
+
+    return (category === 'lainnya' || category === 'other') && detail !== '';
+}));
+
+const lainnyaTable = computed(() => ({
+    columns: [
+        { key: 'nim', label: 'NIM' },
+        { key: 'nama', label: 'Nama Alumni' },
+        { key: 'nama_prodi', label: 'Program Studi' },
+        { key: 'answer', label: 'Isian Aktivitas Lainnya' },
+    ],
+    rows: lainnyaRecords.value.map((record) => ({
+        nim: record.nim || '-',
+        nama: record.nama || '-',
+        nama_prodi: record.nama_prodi || '-',
+        answer: record.detail,
+    })),
+}));
+
 // Konfigurasi views untuk kontainer terpadu
 const views = computed(() => {
-    return [
+    const list = [
         {
             key: 'activity_bar',
             chartType: 'horizontal_bar',
@@ -142,7 +167,7 @@ const views = computed(() => {
             description: 'Instrumen F10: Apakah anda aktif mencari pekerjaan dalam 4 minggu terakhir? Pilihlah Satu Jawaban. KEMUDIAN LANJUT KE F17.',
             option: barOption.value,
             tableData: barTable.value,
-            height: Math.max(380, series.value.length * 56 + 80),
+            height: Math.max(380, filledSeries.value.length * 56 + 80),
             analysis: {
                 title: 'Kilas Keaktifan dan Transisi Karir Alumni',
                 statusBadge: 'Instrumen F10 Dikti',
@@ -152,6 +177,31 @@ const views = computed(() => {
             },
         },
     ];
+
+    if (lainnyaRecords.value.length > 0) {
+        list.push({
+            key: 'lainnya_detail',
+            chartType: 'word_cloud',
+            tabLabel: `Awan Kata Lainnya (${lainnyaRecords.value.length})`,
+            title: 'Awan Kata Isian Aktivitas Pencarian Kerja Lainnya',
+            description: 'Kata kunci dari penjelasan bebas alumni yang memilih opsi Lainnya pada instrumen F10.',
+            wordCloudTitle: 'Awan Kata Aktivitas Pencarian Kerja Lainnya',
+            wordCloudSubtitle: 'Visualisasi kata kunci hanya dari isian teks bebas yang benar-benar ditulis alumni.',
+            wordCloudRecords: lainnyaRecords.value,
+            option: barOption.value,
+            tableData: lainnyaTable.value,
+            height: 380,
+            analysis: {
+                title: 'Kilas Isian Bebas F10',
+                statusBadge: 'Awan Kata',
+                badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+                lead: `${lainnyaRecords.value.length} alumni memberikan penjelasan aktivitas pencarian kerja di luar opsi baku F10.`,
+                detail: 'Awan kata membantu melihat tema yang muncul tanpa mengubah pilihan jawaban resmi pada distribusi utama.',
+            },
+        });
+    }
+
+    return list;
 });
 </script>
 
@@ -161,7 +211,7 @@ const views = computed(() => {
         :rows="records"
         :selected-label="selectedLabel"
         :loading="loading"
-        indicator-badge="Indikator 08"
+        indicator-badge="Indikator 11"
         @select="emit('select', $event)"
         @reset="emit('reset')"
     />

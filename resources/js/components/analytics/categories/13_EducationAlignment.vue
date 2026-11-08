@@ -9,6 +9,7 @@
 import { computed } from 'vue';
 import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
 import {
+    analyticsScalePalette,
     baseOption,
     escapeHtml,
     formatNumber,
@@ -201,9 +202,9 @@ const heatmapOption = computed(() => {
             itemHeight: 220,
             calculable: true,
             inRange: {
-                color: ['#F8FAFC', '#DCEBE0', '#B7D7C0', '#78B18B', '#2F7D4A', '#0D542B'],
+                color: analyticsScalePalette,
             },
-            text: ['Tinggi (%)', '0%'],
+            text: ['Tinggi (%)', 'Rendah (%)'],
             textGap: 8,
             textStyle: { color: '#1E293B', fontSize: 11, fontWeight: 600 },
             formatter: (val) => `${Number(val).toFixed(0)}%`,
@@ -284,7 +285,26 @@ const heatmapTable = computed(() => {
 // -----------------------------------------------------------------------------
 // 3. STACKED BAR: Komposisi Lengkap Kualifikasi Pendidikan per Prodi
 // -----------------------------------------------------------------------------
-const catPalette = ['#0D542B', '#2F7D4A', '#78B18B', '#B7D7C0'];
+// Warna dipetakan berdasarkan makna kategori: merah untuk kualifikasi di bawah kebutuhan pendidikan,
+// hijau untuk kualifikasi yang setara atau lebih tinggi.
+const getEducationAlignmentColor = (label) => {
+    const normalized = String(label || '').toLowerCase().trim();
+    if (normalized.includes('lebih tinggi')) return '#0D542B';
+    if (normalized.includes('sama')) return '#2F7D4A';
+    if (normalized.includes('lebih rendah')) return '#EF4444';
+    if (normalized.includes('tidak perlu')) return '#B91C1C';
+    return '#64748B';
+};
+
+// Menjaga urutan stack dari kondisi paling rendah hingga paling tinggi secara konsisten.
+const getEducationAlignmentOrder = (label) => {
+    const normalized = String(label || '').toLowerCase().trim();
+    if (normalized.includes('tidak perlu')) return 0;
+    if (normalized.includes('lebih rendah')) return 1;
+    if (normalized.includes('sama')) return 2;
+    if (normalized.includes('lebih tinggi')) return 3;
+    return 4;
+};
 
 const stackedOption = computed(() => {
     const listProdis = prodis.value;
@@ -293,7 +313,7 @@ const stackedOption = computed(() => {
         listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]),
     );
 
-    const seriesList = cats.map((cat, index) => {
+    const seriesList = cats.map((cat) => {
         const catData = listProdis.map((prodi) => {
             const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
             const total = Math.max(prodiTotals[prodi], 1);
@@ -313,9 +333,11 @@ const stackedOption = computed(() => {
             name: cat,
             type: 'bar',
             stack: 'total',
+            stackOrder: getEducationAlignmentOrder(cat),
             barMaxWidth: 26,
             itemStyle: {
-                color: catPalette[index % catPalette.length],
+                // Fungsi menjaga warna semantik saat normalizer global mengurutkan seri stack.
+                color: () => getEducationAlignmentColor(cat),
                 opacity: selected ? 1 : 0.22,
                 borderColor: '#FFFFFF',
                 borderWidth: 1.5,
@@ -334,15 +356,38 @@ const stackedOption = computed(() => {
 
     const labels = listProdis.map((p) => `${p} (n=${prodiTotals[p]})`);
 
+    // Legenda vertikal mengikuti pola Indikator 02 dengan dua keluarga warna saja.
+    const qualificationScale = [
+        { label: 'Setingkat lebih tinggi', color: '#0D542B' },
+        { label: 'Tingkat yang sama', color: '#2F7D4A' },
+        { label: 'Setingkat lebih rendah', color: '#EF4444' },
+        { label: 'Tidak perlu pendidikan tinggi', color: '#B91C1C' },
+    ];
+    const qualificationScaleGraphic = qualificationScale.flatMap((item, index) => {
+        const top = index * 42;
+        return [
+            {
+                type: 'rect',
+                left: 30,
+                top,
+                shape: { width: 22, height: 42 },
+                style: { fill: item.color, stroke: '#1E293B', lineWidth: 1 },
+            },
+            {
+                type: 'text',
+                left: 60,
+                top: top + 13,
+                style: { text: item.label, fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+            },
+        ];
+    });
+
     return {
         ...baseOption(records.value.length),
         legend: {
-            data: cats,
-            bottom: 0,
-            icon: 'circle',
-            textStyle: { color: '#334155', fontSize: 11, fontWeight: 600 },
+            show: false,
         },
-        grid: { left: 24, right: 36, top: 20, bottom: 56, containLabel: true },
+        grid: { left: 24, right: 250, top: 20, bottom: 36, containLabel: true },
         xAxis: {
             type: 'value',
             max: 100,
@@ -355,6 +400,21 @@ const stackedOption = computed(() => {
             data: labels,
             axisLabel: { color: '#334155', fontSize: 11, width: 190, overflow: 'break' },
         },
+        graphic: [{
+            type: 'group',
+            right: 18,
+            top: 'middle',
+            children: [
+                {
+                    type: 'text',
+                    left: 0,
+                    top: 84,
+                    rotation: -Math.PI / 2,
+                    style: { text: 'Kualifikasi', fill: '#0F172A', font: 'bold 11px Inter, sans-serif', textAlign: 'center' },
+                },
+                ...qualificationScaleGraphic,
+            ],
+        }],
         tooltip: {
             ...baseOption().tooltip,
             trigger: 'item',
@@ -428,23 +488,6 @@ const views = computed(() => [
         analysis: dynamicVerticalAnalysis.value,
     },
     {
-        key: 'by_prodi_heatmap',
-        chartType: 'matrix_heatmap',
-        tabLabel: 'Sebaran per Prodi',
-        title: 'Matriks sebaran kualifikasi pendidikan per program studi',
-        description: 'Sebaran persentase kualifikasi pendidikan alumni (F15) di setiap program studi dalam format matriks heatmap.',
-        option: heatmapOption.value,
-        tableData: heatmapTable.value,
-        height: Math.max(380, prodis.value.length * 36 + 120),
-        analysis: {
-            title: 'Kilas Matriks Sebaran per Prodi',
-            statusBadge: 'Matriks Sebaran',
-            badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-            lead: 'Visualisasi intensitas pilihan kualifikasi pekerjaan per program studi untuk memetakan konsentrasi tingkat pendidikan yang disyaratkan.',
-            detail: 'Warna hijau yang lebih pekat mencerminkan konsentrasi alumni yang lebih tinggi pada kategori kualifikasi terkait.',
-        },
-    },
-    {
         key: 'stacked_kualifikasi',
         chartType: 'stacked_horizontal_100',
         tabLabel: 'Komposisi Kualifikasi',
@@ -470,7 +513,7 @@ const views = computed(() => [
         :rows="records"
         :selected-label="selectedLabel"
         :loading="loading"
-        indicator-badge="Indikator 13"
+        indicator-badge="Indikator 16"
         @select="emit('select', $event)"
         @reset="emit('reset')"
     />

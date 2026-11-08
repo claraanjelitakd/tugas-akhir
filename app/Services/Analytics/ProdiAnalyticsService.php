@@ -285,9 +285,15 @@ class ProdiAnalyticsService
         foreach ($questions as $question) {
             $questionResponses = $responses->where('question_id', $question->id)->values();
 
-            // ALUR 3: `type` pertanyaan menentukan cara menghitung datanya.
-            // rating_5 menjadi skor Likert, text menjadi kartu jawaban terbuka,
-            // sedangkan tipe lain menjadi distribusi pilihan batang horizontal.
+            /**
+             * Dispatch visualisasi memakai tipe master pertanyaan.
+             *
+             * `rating_5` dihitung sebagai skor Likert dan `text`/`textarea`
+             * dipertahankan sebagai jawaban terbuka. Tipe lain saat ini masuk
+             * formatter pilihan; pertanyaan `number` dinamis belum memiliki
+             * formatter numerik umum dan tidak boleh dianggap otomatis sebagai
+             * rata-rata sebelum aturan agregasinya ditentukan.
+             */
             $item = match ($question->type) {
                 'rating_5' => $this->formatLikertQuestion($question, $questionResponses),
                 'text', 'textarea' => $this->formatTextQuestion($question, $questionResponses),

@@ -11,9 +11,9 @@ use App\Models\User;
 use App\Models\Yudisium;
 use Carbon\Carbon;
 /**
- * Lulusan2026Seeder
+ * Fixture Lulusan S1 Tahun 2025
  *
- * Menambahkan data 10 alumni lulusan tahun 2026 dengan profil karier kosong (skeleton),
+ * Menambahkan data 10 alumni lulusan tahun 2025 dengan profil karier kosong (skeleton),
  * membuktikan prinsip Zero Duplication & Single Source of Truth:
  * - Seluruh identitas pribadi, tanggal lahir, dan riwayat akademik otomatis ditarik dari `data_akademik`.
  * - Data akademik tetap menjadi sumber data identitas dan kelulusan.
@@ -160,11 +160,11 @@ class Lulusan2026Seeder extends Seeder
                 [
                     'nama' => $item['nama'],
                     'email_pribadi' => $personalEmail,
-                    'angkatan_masuk' => 2022,
+                    'angkatan_masuk' => 2021,
                     'status_mahasiswa' => 'Lulus',
-                    'tahun_akademik_lulus' => 'Genap 2025/2026',
-                    'tahun_lulus' => 2026,
-                    'tanggal_lulus' => '2026-08-15',
+                    'tahun_akademik_lulus' => 'Genap 2024/2025',
+                    'tahun_lulus' => 2025,
+                    'tanggal_lulus' => '2025-08-15',
                     'ip_kumulatif' => $item['ipk'],
                     'total_sks' => 144,
                     'total_angka_kualitas' => round($item['ipk'] * 144, 2),
@@ -235,6 +235,6 @@ class Lulusan2026Seeder extends Seeder
             );
         }
 
-        $this->command?->info('Berhasil menambahkan 10 alumni lulusan 2026 dengan profil karier kosong!');
+        $this->command?->info('Berhasil menambahkan 10 alumni lulusan 2025 dengan profil karier kosong!');
     }
 }

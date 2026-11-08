@@ -112,9 +112,12 @@ const dataAvailability = computed(() => chart.value.data_availability || {
 // Menentukan apakah indikator aktif memiliki data valid yang siap ditampilkan ke layar.
 const hasChartData = computed(() => dataAvailability.value.status === 'available');
 
-// Daftar 16 kunci indikator wajib laporan Tracer Study universitas yang disusun berurutan.
+// Daftar indikator laporan universitas, termasuk indikator IKU S1 dan rincian UMP.
 const mandatoryChartKeys = [
     'response_rate',
+    'iku_s1_aee',
+    'iku_s1_outcomes',
+    'iku_s1_ump_weighted',
     'learning_methods',
     'job_search_start',
     'job_search_methods',
@@ -127,12 +130,11 @@ const mandatoryChartKeys = [
     'salary_vs_ump',
     'field_alignment',
     'education_alignment',
-    'education_alignment_university',
     'mismatch_reasons',
     'competency_gap',
 ];
 
-// Opsi dropdown 16 indikator laporan resmi dengan nomor urut 1 sampai 16.
+// Opsi dropdown indikator laporan dengan nomor urut yang stabil.
 const mandatoryOptions = computed(() => mandatoryChartKeys
     .map((key, index) => {
         const option = chartOptions.value.find((item) => item.key === key);
@@ -316,8 +318,45 @@ const kpiCards = computed(() => {
                 action: 'chart',
                 label: 'Response rate',
                 value: formatPercentage(summary.response_rate),
-                note: `Target: ${formatNumber(targetVal, 1)}% (Gap: ${gapSign}${formatNumber(gapVal, 1)}%)`,
+                note: `Target: ${formatNumber(targetVal, 1)}% (Gap: ${gapSign}${formatNumber(gapVal, 1)}%) • Minimum Slovin: ${formatNumber(summary.minimum_respondents, 0)} responden`,
                 hint: 'Klik untuk fokus ke grafik capaian',
+            },
+        ];
+    }
+
+    if (chart.value.type === 'iku_s1_ump_weighted') {
+        return [
+            {
+                key: 'ump_valid',
+                action: 'data',
+                label: 'Responden valid',
+                value: formatNumber(summary.valid_respondents, 0),
+                note: 'Masuk denominator IKU berbobot',
+                hint: 'Klik untuk melihat rincian responden',
+            },
+            {
+                key: 'ump_above',
+                action: 'chart',
+                label: 'Di atas 1,2 kali UMP',
+                value: formatNumber(summary.above_threshold_count, 0),
+                note: `${formatPercentage(summary.above_threshold_percentage)} dari data gaji yang dapat dibandingkan`,
+                hint: 'Lihat perbandingan UMP pada grafik',
+            },
+            {
+                key: 'ump_score',
+                action: 'chart',
+                label: 'Skor bobot IKU',
+                value: formatNumber(summary.weighted_score, 2),
+                note: `Capaian ${formatPercentage(summary.percentage)}`,
+                hint: 'Lihat rincian bobot per role',
+            },
+            {
+                key: 'ump_year',
+                action: 'chart',
+                label: 'Tahun UMP',
+                value: summary.ump_year || '-',
+                note: 'Ambang dihitung dari provinsi perusahaan',
+                hint: 'Ubah tahun UMP pada filter halaman',
             },
         ];
     }
@@ -536,6 +575,18 @@ const automaticInsights = computed(() => {
         return insights;
     }
 
+    if (chart.value.type === 'iku_s1_aee') {
+        insights.push(`AEE realisasi S1 tercatat ${formatPercentage(summary.aee_realization)} atau ${formatNumber(summary.on_time_count, 0)} dari ${formatNumber(summary.eligible_count, 0)} mahasiswa yang dihitung.`);
+        insights.push(`Capaian normalisasi AEE PT adalah ${formatPercentage(summary.aee_pt)} dari ideal S1 ${formatPercentage(summary.aee_ideal)}.`);
+        return insights;
+    }
+
+    if (chart.value.type === 'iku_s1_outcomes') {
+        insights.push(`Capaian berbobot lulusan S1 adalah ${formatPercentage(summary.percentage)} dari ${formatNumber(summary.valid_respondents, 0)} responden valid.`);
+        insights.push('Bobot dihitung dari masa tunggu, 1,2× UMP, posisi founder/freelancer, dan studi lanjut kurang dari satu tahun.');
+        return insights;
+    }
+
     if (chart.value.type === 'wait_time') {
         const faster = records.value.filter((record) => record.comparison === 'Lebih cepat').length;
         const slower = records.value.filter((record) => record.comparison === 'Lebih lama').length;
@@ -548,6 +599,12 @@ const automaticInsights = computed(() => {
         insights.push(`Response rate universitas pada filter aktif adalah ${formatPercentage(summary.response_rate)} dari ${formatNumber(summary.population, 0)} alumni dalam kohort.`);
         const lowest = [...(chart.value.series || [])].sort((left, right) => Number(left.response_rate || 0) - Number(right.response_rate || 0))[0];
         if (lowest) insights.push(`${lowest.nama_prodi || lowest.label} memiliki response rate terendah, yaitu ${formatPercentage(lowest.response_rate)}.`);
+        return insights;
+    }
+
+    if (chart.value.type === 'iku_s1_ump_weighted') {
+        insights.push(`${formatNumber(summary.above_threshold_count, 0)} dari ${formatNumber(summary.comparable_count, 0)} responden berada di atas ambang 1,2 kali UMP.`);
+        insights.push(`Total skor bobot ${formatNumber(summary.weighted_score, 2)} dari ${formatNumber(summary.valid_respondents, 0)} responden valid; status aturan: ${summary.weight_confirmation_status || 'belum ditetapkan'}.`);
         return insights;
     }
 
@@ -583,6 +640,9 @@ const tableColumns = computed(() => {
     if (chart.value.type === 'wait_time') return ['Nama', 'NIM', 'Program studi', 'Perusahaan', 'Bulan', 'Perbandingan'];
     if (chart.value.type === 'location') return ['Nama', 'NIM', 'Program studi', 'Perusahaan', 'Provinsi kerja'];
     if (chart.value.type === 'response_rate') return ['NIM', 'Nama Mahasiswa / Alumni', 'Program Studi', 'Tahun Lulus', 'Status Kuesioner', 'Waktu Respons', 'Perusahaan & Lokasi', 'Pekerjaan & Posisi', 'Skills'];
+    if (chart.value.type === 'iku_s1_aee') return ['NIM', 'Nama', 'Program studi', 'Angkatan', 'Periode Masuk', 'Status', 'Dikecualikan', 'Lulus Tepat Waktu'];
+    if (chart.value.type === 'iku_s1_outcomes') return ['NIM', 'Nama', 'Program studi', 'Kategori Karier', 'Sebelum Lulus', 'Masa Tunggu', 'Gaji', 'UMP', 'Bobot', 'Memenuhi'];
+    if (chart.value.type === 'iku_s1_ump_weighted') return ['NIM', 'Nama', 'Program studi', 'Role Karier', 'Sebelum Lulus', 'Masa Tunggu', 'Gaji', 'Ambang 1,2× UMP', 'Bobot', 'Memenuhi'];
     if (chart.value.type === 'application_pipeline') return ['Nama', 'NIM', 'Program studi', 'Tahap', 'Jumlah'];
     if (chart.value.type === 'learning_methods') {
         return [
@@ -613,6 +673,40 @@ const tableCells = (record) => {
         [record.nama_perusahaan || '-', record.head_office_lokasi || '-', record.domisili_saat_ini || '-'].join(' '),
         [record.bidang_pekerjaan || '-', record.divisi || '-', record.posisi_jabatan || '-'].join(' '),
         record.skills || '-',
+    ];
+    if (chart.value.type === 'iku_s1_aee') return [
+        record.nim,
+        record.nama,
+        record.nama_prodi,
+        record.angkatan_masuk || '-',
+        record.tahun_akademik_masuk || '-',
+        record.status_mahasiswa || '-',
+        record.is_excluded ? 'Ya' : 'Tidak',
+        record.is_lulus_tepat_waktu ? 'Ya' : 'Tidak',
+    ];
+    if (chart.value.type === 'iku_s1_outcomes') return [
+        record.nim,
+        record.nama,
+        record.nama_prodi,
+        record.career_category || '-',
+        record.before_graduation ? 'Ya' : 'Tidak',
+        record.months === null || record.months === undefined ? '-' : `${formatNumber(record.months)} bulan`,
+        formatCurrency(record.salary),
+        formatCurrency(record.ump),
+        formatNumber(record.weight, 2),
+        record.qualifies ? 'Ya' : 'Tidak',
+    ];
+    if (chart.value.type === 'iku_s1_ump_weighted') return [
+        record.nim,
+        record.nama,
+        record.nama_prodi,
+        record.career_role || record.career_category || '-',
+        record.before_graduation ? 'Ya' : 'Tidak',
+        record.months === null || record.months === undefined ? '-' : `${formatNumber(record.months)} bulan`,
+        formatCurrency(record.salary),
+        formatCurrency(record.threshold),
+        formatNumber(record.weight, 2),
+        record.qualifies ? 'Ya' : 'Tidak',
     ];
     if (chart.value.type === 'application_pipeline') return [record.nama, record.nim, record.nama_prodi, record.kode_pertanyaan, formatNumber(record.value)];
     if (chart.value.type === 'learning_methods') return [record.nama, record.nim, record.nama_prodi, record.method, formatNumber(record.score, 2)];
@@ -1392,6 +1486,9 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                                 <dd class="mt-2 rounded-md border border-emerald-200/60 bg-white p-3 font-mono text-xs sm:text-sm font-semibold leading-relaxed text-slate-900">
                                     {{ chart.methodology?.formula || '-' }}
                                 </dd>
+                                <p v-if="chart.methodology?.formula_detail" class="mt-2 text-xs leading-relaxed text-slate-600">
+                                    Rincian formula: <span class="font-mono text-slate-800">{{ chart.methodology.formula_detail }}</span>
+                                </p>
                                 <div class="mt-3 grid gap-3 sm:grid-cols-2 text-xs">
                                     <div>
                                         <span class="font-bold text-slate-700">Denominator (Pembagi):</span>

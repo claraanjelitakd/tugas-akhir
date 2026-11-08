@@ -7,6 +7,7 @@ use App\Models\DataAkademik;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
+use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -85,11 +86,17 @@ class AdminProdiDashboardTest extends TestCase
             'tahun_lulus' => now()->year,
         ]);
 
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Dashboard Utama',
+            'status_verifikasi' => 'Terverifikasi',
+        ]);
+
         Biodata::create([
             'user_id' => $alumniUser->id,
             'nim' => '72200001',
             'nama' => 'Alumni SI 1',
             'prodi_id' => $prodi->id,
+            'perusahaan_id' => $company->id,
         ]);
 
         $response = $this->actingAs($admin)->get('/prodi/dashboard');
@@ -100,6 +107,9 @@ class AdminProdiDashboardTest extends TestCase
             ->has('stats')
             ->has('sectionsList')
             ->has('recentAlumnis')
+            ->where('companySummary.top_company.name', 'PT Dashboard Utama')
+            ->where('companySummary.top_company.alumni_count', 1)
+            ->where('companySummary.total_companies', 1)
             ->where('stats.totalAlumni', 1)
             ->where('stats.totalSections', 1)
             ->where('stats.totalPertanyaan', 1)

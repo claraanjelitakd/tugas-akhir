@@ -2,7 +2,37 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 09 November 2026
+
+- **Audit visualisasi Grafik Universitas**:
+  - Menambahkan tabel detail individu generik pada mode `Data`; kolom dan nilainya berasal dari `chart.records` backend, bukan hardcode frontend.
+  - Menyeragamkan aturan stacked bar: skala ordinal memakai gradasi merah-oranye-kuning-hijau, status biner memakai hijau UKDW dan slate, dan keselarasan pendidikan memakai pemetaan warna berdasarkan label kategori.
+  - Mengubah response rate serta perbandingan UMP agar status yang belum terpenuhi memakai slate netral dan memperjelas pembacaan jumlah serta persentase.
+  - Menyelaraskan grafik AEE kelulusan tepat waktu dengan response rate menggunakan stacked bar horizontal berbasis denominator AEE, lengkap dengan jumlah tepat waktu, sisa denominator, dan data yang dikecualikan.
+  - Memecah indikator UMP dan bobot menjadi tiga view: komposisi status UMP, distribusi masa tunggu, dan total bobot per role; seluruh records termasuk bobot nol dan data belum lengkap tetap ditampilkan.
+  - Memperbaiki indikator capaian karier IKU S1 agar kategori `Melanjutkan Pendidikan` dan kategori berbobot nol tetap masuk seri grafik; tabel individu kini dapat mencari, mengurutkan, dan berpaginasi berdasarkan records backend.
+  - Memperjelas batang AEE berdasarkan status akademik: abu-abu untuk status kelulusan belum teridentifikasi, merah untuk lulusan belum tepat waktu, dan hijau untuk lulusan tepat waktu; urutannya dibaca dari kiri ke kanan.
+
+- **IKU S1 berbasis UMP dan role karier**: menambahkan grafik khusus perbandingan pendapatan dengan 1,2 kali UMP, rincian masa tunggu, role Founder/Co-Founder dan Freelancer, bobot configurable pada `config/iku.php`, formula capaian berbobot, serta status konfirmasi Biro 3 untuk matriks yang masih ambigu.
+- **Kecukupan responden**: menambahkan formula response rate `R = (t / N) x 100%` dan Slovin `n_min = ceil(N / (1 + N x e^2))` dengan `e = 0,023` ke payload response rate.
+- **Seeder demo diringkas**: `DatabaseSeeder` hanya menjalankan master runtime, kuesioner terpadu, fixture alumni kanonik, populasi akademik IKU, dan snapshot LinkedIn. Fixture dashboard, distribusi analitik, profil unggulan, serta skeleton alumni tetap tersedia untuk dijalankan langsung saat diperlukan.
+
+- **Normalisasi kohort demo IKU S1**: seluruh fixture lulusan aktif diarahkan ke angkatan 2021 dan tahun lulus 2025 dengan periode akademik `Genap 2024/2025`. Filter tahun kini hanya mengambil tahun yang benar-benar tersedia, tidak menambahkan tahun berjalan secara sintetis, dan menghapus kemungkinan opsi duplikat.
+
+- **Referensi IKU S1 dan populasi akademik**:
+  - Menambahkan `prodi.jenjang` dan `data_akademik.prodi_id` agar seluruh mahasiswa, termasuk yang belum menjadi alumni, dapat dihitung per program studi.
+  - Menambahkan `data_akademik.tahun_akademik_masuk` dengan format `YYYY/YYYY+1 (Semester Ganjil)` serta status `Pindah`.
+  - Menambahkan `IkuS1AcademicPopulationSeeder` untuk menormalkan seluruh seed akademik dan menyediakan contoh status Aktif, Cuti, Drop Out, Pindah, AR, dan AK.
+  - Menambahkan `v_iku_s1_aee`, `v_iku_s1_lulusan`, `IkuS1AnalyticsService`, dan dua komponen grafik read-only di Grafik Universitas.
+  - Memperbaiki fixture masa tunggu F3 agar konsisten dengan F502 dan mendokumentasikan sumber data, denominator, dan bobot formula IKU.
+
 ## 08 November 2026
+
+- **Pemisahan sumber data UMP dan audit seeder**:
+  - Memindahkan daftar UMP 2026 dari array hardcode ke `database/data/ump_2026.csv` agar nominal mudah diaudit dan diperbarui tanpa mengubah logika seeder.
+  - Memvalidasi kode, tahun, dan nominal sebagai angka; memperbarui data secara transaksional dan menghapus baris stale hanya pada tahun yang ada di sumber.
+  - Memetakan kode Papua berdasarkan nama ke kode master wilayah aplikasi agar foreign key dan relasi kabupaten/kota existing tidak rusak.
+  - Menghapus `QuestionMappingSeeder` yang tidak lagi terdaftar maupun dipakai test; sinkronisasi profil sekarang dilakukan saat alur profil/kuesioner berjalan.
 
 - **Pengembangan Visualisasi Analitik Indikator 06 (Pipeline Lamaran, Respons, dan Wawancara - F6, F7, F7a, IPK)**:
   - Mengimplementasikan visualisasi hubungan IPK dan proses pencarian kerja alumni:
@@ -20,8 +50,8 @@
   - Menyelaraskan teks instrumen F10 kuesioner resmi Tracer Study UKDW / Dikti: *"Apakah anda aktif mencari pekerjaan dalam 4 minggu terakhir? Pilihlah Satu Jawaban. KEMUDIAN LANJUT KE F17"*.
   - Merapikan 5 opsi resmi F10 dan memperbaiki pemecahan string pada opsi 2 (*"Tidak, tapi saya sedang menunggu hasil lamaran kerja"*) agar tanda koma tidak memecah opsi menjadi baris ganda.
 
-- **Penerapan Matriks Heatmap Sebaran per Program Studi (Indikator 09, 12, 13, 14)**:
-  - Mengadopsi visualisasi matriks heatmap dari Indikator 02 ke Indikator 09 (*Bentuk Tempat Kerja*), Indikator 13 (*Kualifikasi Pendidikan / Vertical Match*), Indikator 14 (*Keselarasan Pendidikan Universitas*), dan Indikator 12 (*Keselarasan Bidang Studi / Horizontal Match*).
+- **Penerapan Matriks Heatmap Sebaran per Program Studi (Indikator 09, 12, 13)**:
+  - Mengadopsi visualisasi matriks heatmap dari Indikator 02 ke Indikator 09 (*Bentuk Tempat Kerja*), Indikator 13 (*Kualifikasi Pendidikan / Vertical Match*), dan Indikator 12 (*Keselarasan Bidang Studi / Horizontal Match*). Tampilan Indikator 14 (*Keselarasan Pendidikan Universitas*) tidak lagi menjadi indikator aktif.
   - Sumbu X menyajikan kategori/pilihan jawaban kuesioner, sumbu Y menyajikan seluruh program studi di UKDW beserta jumlah responden `(n=...)`, sel memuat persentase proporsi dengan palet hijau monokromatik UKDW (`#F8FAFC` s/d `#0D542B`), serta tabulasi data ringkasan matriks prodi.
 
 - **Penyelarasan Desain & Skala Warna Indikator 12 (Horizontal Match - F14)**:

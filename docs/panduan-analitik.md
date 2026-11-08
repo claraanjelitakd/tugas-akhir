@@ -188,6 +188,25 @@ Service Prodi mengirim satu bagian aktif. Jika bagian tersebut mempunyai tiga pe
 
 Di `01_InterestAndContribution.vue`, setiap item menjadi satu tab. Saat tab diklik, `activeItem` berubah. Fungsi `buildChoiceOption(activeItem)` lalu menggunakan `categories` sebagai label sumbu Y dan `values` sebagai panjang batang.
 
+### Kontrak tipe pertanyaan dan formatter
+
+Tipe input berasal dari `kuesioner_pertanyaan.tipe`. Backend tidak menebak tipe
+dari teks pertanyaan dan frontend tidak menghitung ulang data mentah. Formatter
+memilih jalur berikut:
+
+| Tipe | Formatter/visualisasi | Perhitungan |
+| --- | --- | --- |
+| `single_choice`, `dropdown`, `searchable_select` | Distribusi pilihan | Frekuensi dan persentase per opsi valid |
+| `multiple_choice`, `checkbox` | Distribusi pilihan jamak | Setiap opsi pada `jawaban_json` dihitung; satu alumni dapat muncul pada beberapa opsi |
+| `rating_5`, `likert_5` | Skor Likert | Skor valid 1–5, rata-rata, median, dan distribusi |
+| `text`, `textarea` | Data terbuka | Jumlah jawaban valid dan rincian teks; tidak dipaksa menjadi angka |
+| `number` | Perlu formatter numerik | Nilai harus dinormalisasi dan memakai aturan agregasi eksplisit |
+
+`kuesioner_jawaban.jawaban_teks` adalah wadah teks/angka yang dipakai bersama,
+sedangkan `jawaban_json` menyimpan pilihan ganda dan struktur seperti matriks.
+Lihat [Kontrak Data Kuesioner](kuesioner-data-contract.md) untuk aturan
+penyimpanan, denominator, unit angka, serta batas formatter dinamis.
+
 ## 3. Struktur file frontend
 
 ```text
@@ -231,6 +250,78 @@ Gap Target = Response Rate (%) - Target Response Rate (%)
 ```
 
 Responden valid adalah alumni yang memenuhi kriteria jawaban wajib kuesioner Universitas. Populasi berasal dari alumni pada tahun lulus dan prodi yang dipilih.
+
+Responden minimum untuk membaca kecukupan sampel menggunakan Slovin dan selalu
+dibulatkan ke atas:
+
+```text
+n_min = ceil(N / (1 + N x e^2)), e = 0,023
+```
+
+Nilai `n_min` dikirim pada `chart.summary.minimum_respondents`.
+
+### 01b. IKU S1: Kelulusan tepat waktu (AEE)
+
+Grafik menggunakan pola stacked bar horizontal seperti Response Rate. Panjang
+batang memakai jumlah denominator AEE per program studi, dengan segmen capaian
+tepat waktu, lulusan yang belum tepat waktu, serta status kelulusan yang belum
+teridentifikasi. Urutan baca batang adalah abu-abu di kiri untuk status belum
+teridentifikasi, merah di tengah untuk lulusan belum tepat waktu, dan hijau di
+kanan untuk lulusan tepat waktu. Label dan tooltip menampilkan persentase serta
+jumlah `n/N`.
+
+```text
+AEE realisasi = mahasiswa lulus tepat waktu / mahasiswa yang masuk denominator × 100%
+Denominator = populasi akademik - mahasiswa yang dikecualikan oleh ketentuan IKU
+```
+
+Mahasiswa Drop Out, pindah, dan cuti yang memenuhi aturan pengecualian tetap
+terlihat pada informasi populasi/dikecualikan, tetapi tidak masuk segmen AEE.
+Mahasiswa berstatus `Lulus` tetapi melewati masa studi standar masuk segmen
+merah; mahasiswa yang masih berada dalam denominator tetapi belum berstatus
+`Lulus` masuk segmen abu-abu.
+
+### 01a. IKU S1: Perbandingan UMP dan bobot karier
+
+Indikator ini membandingkan pendapatan dengan `1,2 x UMP` provinsi perusahaan,
+lalu menerapkan bobot berdasarkan role karier, masa tunggu, dan status sebelum
+atau sesudah lulus. Formula capaian:
+
+```text
+IKU = (Sigma (n_i x k_i) / t) x 100%
+```
+
+Kategori valid adalah Karyawan, Founder / Co-Founder, Freelancer, dan
+Melanjutkan Pendidikan. Studi lanjut dalam waktu kurang dari 12 bulan berbobot
+0,6. Pekerjaan atau usaha sebelum lulus berbobot 1,0 bila pendapatan di atas
+1,2 UMP dan 0,6 bila di bawahnya.
+
+Bobot setelah lulus disimpan configurable pada `config/iku.php`:
+
+| Role | <6 bulan dan >1,2 UMP | >=6 dan <12 bulan, >1,2 UMP | <6 bulan dan <1,2 UMP | >=6 dan <12 bulan, <1,2 UMP |
+| --- | ---: | ---: | ---: | ---: |
+| Karyawan | 1,0 | 0,8 | 0,6 | 0,6 |
+| Founder / Co-Founder | 1,2 | 1,0 | 0,8 | 0,6 |
+| Freelancer | 0,5 | 0,4 | 0,3 | 0,2 |
+
+Status `needs_biro3_confirmation` sengaja ditampilkan pada payload karena
+salinan keputusan memiliki ambiguitas label kolom. Bobot tidak boleh dianggap
+final sebelum dikonfirmasi Biro 3.
+
+Grafik Universitas untuk indikator ini memiliki tiga view yang membaca
+`chart.records` yang sama:
+
+1. komposisi status pendapatan terhadap 1,2× UMP per role;
+2. distribusi masa tunggu sebelum lulus, kurang dari 6 bulan, 6 sampai kurang
+   dari 12 bulan, 12 bulan atau lebih, dan studi lanjut;
+3. total bobot per role untuk menjelaskan komponen `Σ(nᵢ × kᵢ)`.
+
+Records dengan bobot nol, gaji/ambang yang belum tersedia, atau masa tunggu
+yang tidak memenuhi syarat tetap muncul pada tabel rincian individu. Records
+tersebut tidak diam-diam dimasukkan ke denominator responden valid formula IKU.
+
+Role Freelancer dibaca dari `biodata.posisi_wiraswasta` dengan nilai seperti
+`Freelancer / Konsultan Mandiri`, bukan ditebak dari `experience`.
 
 ### 02. Penekanan Metode Pembelajaran
 
@@ -442,9 +533,32 @@ Jika ingin mengubah warna, label sumbu, atau tooltip semua grafik pilihan, ubah 
 
 - `summary`: angka ringkasan untuk KPI dan narasi, misalnya jumlah responden dan rata-rata.
 - `visualizations`: data yang dipakai menggambar grafik, misalnya kategori, nilai batang, dan statistik per pertanyaan.
-- `records`: baris alumni yang dipakai untuk drill-down setelah grafik diklik.
+- `records`: baris alumni yang dipakai untuk drill-down setelah grafik diklik dan tabel detail individu pada mode `Data`.
 - `pivot`: tabulasi alternatif untuk melihat frekuensi, persentase, rata-rata, dan median.
 - `methodology`: rumus, penyebut, sumber tabel, view, dan alasan pemilihan grafik.
+
+### Tabel lengkap pada mode Data
+
+Mode `Data` selalu memiliki dua lapisan:
+
+1. tabel ringkasan yang disediakan oleh formatter indikator;
+2. tabel `Rincian Data Individu` yang dibentuk dari `chart.records` nyata untuk view aktif.
+
+Kolom detail ditemukan dari field yang benar-benar dikirim backend, sehingga tidak ada
+angka, nama alumni, atau baris contoh yang ditanam di Vue. Field teknis dan kontak
+pribadi seperti ID internal serta email disembunyikan dari tabel analitik read-only.
+Pencarian dan paginasi bekerja pada records yang sama dengan drill-down grafik.
+
+### Aturan warna stacked bar Universitas
+
+Warna tidak disamaratakan secara buta karena arti kategori berbeda:
+
+- skala ordinal/Likert memakai urutan merah, oranye, kuning, hijau muda, hijau tua;
+- status biner seperti sudah/belum mengisi atau memenuhi/belum memenuhi memakai hijau UKDW dan slate;
+- kategori arah keselarasan memakai warna tetap berdasarkan label kategori, bukan posisi
+  series dari database.
+
+Dengan aturan ini, perubahan urutan opsi atau hasil query tidak mengubah arti warna.
 
 ## 8. Cara membaca masalah grafik
 
@@ -462,6 +576,6 @@ Jika ingin mengubah warna, label sumbu, atau tooltip semua grafik pilihan, ubah 
 | `routes/web.php` | Mendefinisikan route halaman dan endpoint JSON. |
 | `TracerAnalyticsController.php` | Menerima filter Grafik Universitas dan memanggil service. |
 | `ProdiAnalyticsController.php` | Menerima filter Grafik Prodi dan memanggil service. |
-| `TracerAnalyticsService.php` | Menghitung 18 indikator Universitas dan metodologinya. |
+| `TracerAnalyticsService.php` | Menghitung indikator Universitas dan metodologinya, termasuk IKU S1. |
 | `ProdiAnalyticsService.php` | Membaca section/pertanyaan Prodi dan menghitung visualisasi dinamis. |
 | `AnalyticsEChart.vue` | Membungkus instance ECharts di frontend. |

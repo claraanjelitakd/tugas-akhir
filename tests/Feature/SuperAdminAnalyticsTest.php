@@ -6,6 +6,7 @@ use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\Kuesioner;
 use App\Models\KuesionerJawaban;
+use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
@@ -288,7 +289,6 @@ class SuperAdminAnalyticsTest extends TestCase
             'employment_status',
             'field_alignment',
             'education_alignment',
-            'education_alignment_university',
             'response_rate',
             'profile_completion',
             'learning_methods',
@@ -324,15 +324,140 @@ class SuperAdminAnalyticsTest extends TestCase
     }
 
     /**
-     * Navigasi analitik mempertahankan seluruh 16 indikator evaluasi wajib.
+     * Grafik F16 hanya menampilkan alasan yang dipilih dan tidak membuat tab
+     * awan kata dari pilihan Lainnya tanpa teks tambahan.
      */
-    public function test_university_analytics_exposes_all_sixteen_required_indicators(): void
+    public function test_mismatch_reasons_hides_zero_options(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '72', 'nama_prodi' => 'Sistem Informasi']);
+        $user = User::create([
+            'username' => 'analytics-mismatch-zero',
+            'name' => 'Alumni Mismatch',
+            'email' => 'analytics-mismatch-zero@example.test',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+        DataAkademik::create([
+            'nim' => '72220099',
+            'nama' => 'Alumni Mismatch',
+            'prodi_id' => $prodi->id,
+            'tahun_lulus' => now()->year,
+            'status_mahasiswa' => 'Lulus',
+        ]);
+        $biodata = Biodata::create([
+            'user_id' => $user->id,
+            'nim' => '72220099',
+            'prodi_id' => $prodi->id,
+            'email_pribadi' => $user->email,
+        ]);
+        $questionId = $this->insertUnifiedQuestion('F16', 'Alasan pekerjaan tidak sesuai', 'multiple_choice');
+        KuesionerOpsi::create(['pertanyaan_id' => $questionId, 'kode_opsi' => 'F1601', 'label' => 'Alasan dipilih', 'order' => 1]);
+        KuesionerOpsi::create(['pertanyaan_id' => $questionId, 'kode_opsi' => 'F1613', 'label' => 'Lainnya', 'order' => 2]);
+        $this->insertUnifiedAnswer($biodata->id, 'F16', 'Alasan pekerjaan tidak sesuai', 'Alasan dipilih', ['selected' => ['Alasan dipilih']], now()->year);
+
+        $chart = app(TracerAnalyticsService::class)->buildUniversityChart('mismatch_reasons', (string) now()->year)['chart'];
+
+        $this->assertSame(['Alasan dipilih'], array_column($chart['series'], 'label'));
+        $this->assertSame(1, $chart['series'][0]['count']);
+    }
+
+    /**
+     * Isian bebas F10 harus tetap tersedia sebagai detail Lainnya untuk awan kata,
+     * tanpa mengubahnya menjadi label umum saat analitik dibangun.
+     */
+    public function test_job_search_activity_preserves_other_free_text_for_word_cloud(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '73', 'nama_prodi' => 'Manajemen']);
+        $user = User::create([
+            'username' => 'analytics-f10-other',
+            'name' => 'Alumni F10 Lainnya',
+            'email' => 'analytics-f10-other@example.test',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+        DataAkademik::create([
+            'nim' => '73220099',
+            'nama' => 'Alumni F10 Lainnya',
+            'prodi_id' => $prodi->id,
+            'tahun_lulus' => now()->year,
+            'status_mahasiswa' => 'Lulus',
+        ]);
+        $biodata = Biodata::create([
+            'user_id' => $user->id,
+            'nim' => '73220099',
+            'prodi_id' => $prodi->id,
+            'email_pribadi' => $user->email,
+        ]);
+        $questionId = $this->insertUnifiedQuestion('F10', 'Keaktifan mencari kerja', 'radio');
+        KuesionerOpsi::create(['pertanyaan_id' => $questionId, 'kode_opsi' => 'F1001', 'label' => 'Tidak', 'order' => 1]);
+        KuesionerOpsi::create(['pertanyaan_id' => $questionId, 'kode_opsi' => 'F1005', 'label' => 'Lainnya', 'order' => 5]);
+        $this->insertUnifiedAnswer($biodata->id, 'F10', 'Keaktifan mencari kerja', 'Lainnya: Menunggu rekrutmen ASN', null, now()->year);
+
+        $chart = app(TracerAnalyticsService::class)->buildUniversityChart('job_search_activity', (string) now()->year)['chart'];
+
+        $this->assertSame('Lainnya', $chart['records'][0]['category']);
+        $this->assertSame('Menunggu rekrutmen ASN', $chart['records'][0]['detail']);
+        $this->assertSame(1, collect($chart['series'])->firstWhere('label', 'Lainnya')['count']);
+    }
+
+    /**
+     * Kategori Lainnya F11 harus dikeluarkan dari seri pembanding agar hanya
+     * ditampilkan sebagai isian bebas pada awan kata di antarmuka.
+     */
+    public function test_workplace_type_excludes_other_category_from_comparison_series(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '75', 'nama_prodi' => 'Akuntansi']);
+        $user = User::create([
+            'username' => 'analytics-f11-other',
+            'name' => 'Alumni F11 Lainnya',
+            'email' => 'analytics-f11-other@example.test',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'Konsultan Mandiri Nusantara',
+            'jenis_perusahaan' => 'Lainnya',
+            'jenis_perusahaan_lainnya' => 'Konsultan independen',
+        ]);
+        DataAkademik::create([
+            'nim' => '75220099',
+            'nama' => 'Alumni F11 Lainnya',
+            'prodi_id' => $prodi->id,
+            'tahun_lulus' => now()->year,
+            'status_mahasiswa' => 'Lulus',
+        ]);
+        $biodata = Biodata::create([
+            'user_id' => $user->id,
+            'nim' => '75220099',
+            'prodi_id' => $prodi->id,
+            'perusahaan_id' => $company->id,
+            'email_pribadi' => $user->email,
+        ]);
+        $questionId = $this->insertUnifiedQuestion('F11', 'Jenis tempat kerja', 'radio');
+        KuesionerOpsi::create(['pertanyaan_id' => $questionId, 'kode_opsi' => 'F1101', 'label' => 'Perusahaan swasta', 'order' => 1]);
+        KuesionerOpsi::create(['pertanyaan_id' => $questionId, 'kode_opsi' => 'F1105', 'label' => 'Lainnya', 'order' => 5]);
+        $this->insertUnifiedAnswer($biodata->id, 'F11', 'Jenis tempat kerja', 'Lainnya', null, now()->year);
+
+        $chart = app(TracerAnalyticsService::class)->buildUniversityChart('workplace_type', (string) now()->year)['chart'];
+
+        $this->assertNotContains('Lainnya', array_column($chart['series'], 'label'));
+        $this->assertSame('Lainnya', $chart['records'][0]['category']);
+        $this->assertSame('Konsultan independen', $chart['records'][0]['jenis_perusahaan_lainnya']);
+    }
+
+    /**
+     * Navigasi analitik mempertahankan seluruh indikator evaluasi yang aktif.
+     */
+    public function test_university_analytics_exposes_all_active_required_indicators(): void
     {
         $required = [
             'response_rate', 'learning_methods', 'job_search_start', 'job_search_methods',
             'wait_time', 'application_pipeline', 'employment_status', 'job_search_activity',
             'workplace_type', 'further_study', 'salary_vs_ump', 'field_alignment',
-            'education_alignment', 'education_alignment_university', 'mismatch_reasons',
+            'education_alignment', 'mismatch_reasons',
             'competency_gap',
         ];
 
@@ -341,6 +466,7 @@ class SuperAdminAnalyticsTest extends TestCase
 
         $this->assertSame('response_rate', $result['selected_chart']);
         $this->assertSame([], array_values(array_diff($required, $available)));
+        $this->assertNotContains('education_alignment_university', $available);
         $this->assertArrayHasKey('metadata', $result['chart']);
         $this->assertArrayHasKey('missing_count', $result['chart']['metadata']);
     }
@@ -535,6 +661,8 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertArrayHasKey('response_rate', $result['chart']['summary']);
         $this->assertArrayHasKey('unanswered_rate', $result['chart']['summary']);
         $this->assertArrayHasKey('target', $result['chart']['summary']);
+        $this->assertArrayHasKey('minimum_respondents', $result['chart']['summary']);
+        $this->assertArrayHasKey('slovin_error', $result['chart']['summary']);
         $this->assertArrayHasKey('series', $result['chart']);
         $this->assertIsArray($result['chart']['series']);
 
@@ -587,16 +715,17 @@ class SuperAdminAnalyticsTest extends TestCase
     }
 
     /**
-     * Filter semua tahun tersedia, sedangkan tanpa parameter tetap memakai tahun berjalan.
+     * Filter semua tahun tersedia, sedangkan tanpa parameter memakai tahun
+     * terbaru yang benar-benar ada atau ALL jika belum ada data.
      */
-    public function test_all_year_filter_is_available_and_current_year_remains_default(): void
+    public function test_all_year_filter_is_available_and_data_year_is_default(): void
     {
         $service = app(TracerAnalyticsService::class);
 
         $defaultResult = $service->buildUniversityChart('response_rate');
         $allYearsResult = $service->buildUniversityChart('response_rate', 'ALL');
 
-        $this->assertSame((string) now()->year, $defaultResult['filters']['selected_year']);
+        $this->assertSame('ALL', $defaultResult['filters']['selected_year']);
         $this->assertSame('ALL', $allYearsResult['filters']['selected_year']);
         $this->assertSame('ALL', $allYearsResult['filters']['available_years'][0]);
     }

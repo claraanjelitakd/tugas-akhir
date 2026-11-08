@@ -27,6 +27,7 @@ class DashboardController extends Controller
             'selectedYear' => $dashboard['selectedYear'],
             'dashboardStats' => $stats,
             'completionMetrics' => $dashboard['completionMetrics'],
+            'companySummary' => $dashboard['companySummary'],
             'prodiSummaries' => $dashboard['prodiSummaries'],
             'recentAlumni' => $dashboard['recentAlumni'],
             'sectionsList' => $dashboard['sectionsList'],

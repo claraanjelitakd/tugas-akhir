@@ -24,11 +24,12 @@ use Illuminate\Support\Facades\Hash;
  * Tujuan:
  * Menyiapkan data simulasi riil kuesioner Tracer Study untuk seluruh 12 Program Studi di UKDW.
  * Setiap Program Studi memiliki minimal 10 alumni dengan distribusi data:
- * - 4 Orang: Lengkap 100% (Status: Selesai) dengan 4 Kategori Karier Berbeda:
+ * - 5 Orang: Lengkap 100% (Status: Selesai) dengan 5 Kategori Karier Berbeda:
  *     1. Bekerja di Perusahaan Swasta / BUMN (Dapat kerja sebelum lulus / F504 = Ya)
- *     2. Wiraswasta / Pendiri Usaha Mandiri (Founder & Owner)
+ *     2. Founder / Co-Founder (Dapat kerja sebelum lulus / F504 = Ya)
  *     3. Melanjutkan Pendidikan S2 (Studi Lanjut Pascasarjana & Beasiswa LPDP)
  *     4. Bekerja di Startup / Industri Kreatif / Multinasional (Dapat kerja setelah lulus / F504 = Tidak)
+ *     5. Freelancer / Konsultan Mandiri (Dapat kerja setelah lulus / F504 = Tidak)
  * - 3 Orang: Sedang Mengisi (Status: Belum Selesai, progress pengisian 40% - 75%)
  * - 3 Orang: Belum Mengisi (Status: Belum Selesai, hanya data induk akademik & yudisium)
  *
@@ -61,19 +62,19 @@ class AlumniSimulationSeeder extends Seeder
 
         $perusahaans = Perusahaan::all();
 
-        // 3. Matriks Target Kelulusan Sinkron (Representasi Lengkap 2021 s/d 2026)
+        // 3. Matriks Target Kelulusan Sinkron untuk satu kohort S1 tahun 2025
         // Format: [angkatan_masuk, tahun_akademik_lulus, tahun_lulus]
         $targetKelulusanList = [
-            ['angkatan' => '2017', 'semester' => 'Gasal 2020/2021', 'tahun' => 2021], // Index 0: Selesai (Kategori 1: Swasta/BUMN)
-            ['angkatan' => '2017', 'semester' => 'Genap 2020/2021', 'tahun' => 2021], // Index 1: Selesai (Kategori 2: Wiraswasta)
-            ['angkatan' => '2018', 'semester' => 'Gasal 2021/2022', 'tahun' => 2022], // Index 2: Selesai (Kategori 3: Studi Lanjut S2)
-            ['angkatan' => '2018', 'semester' => 'Genap 2021/2022', 'tahun' => 2022], // Index 3: Selesai (Kategori 4: Startup/Industri Kreatif)
-            ['angkatan' => '2019', 'semester' => 'Gasal 2022/2023', 'tahun' => 2023], // Index 4: Sedang Mengisi (Progress ~60%)
-            ['angkatan' => '2019', 'semester' => 'Genap 2022/2023', 'tahun' => 2023], // Index 5: Sedang Mengisi (Progress ~50%)
-            ['angkatan' => '2020', 'semester' => 'Gasal 2023/2024', 'tahun' => 2024], // Index 6: Sedang Mengisi (Progress ~40%)
-            ['angkatan' => '2020', 'semester' => 'Genap 2023/2024', 'tahun' => 2024], // Index 7: Belum Mengisi (0%)
-            ['angkatan' => '2021', 'semester' => 'Gasal 2024/2025', 'tahun' => 2025], // Index 8: Belum Mengisi (0%)
-            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 9: Belum Mengisi (0%)
+            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 0: Selesai (Kategori 1: Swasta/BUMN)
+            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 1: Selesai (Kategori 2: Wiraswasta)
+            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 2: Selesai (Kategori 3: Studi Lanjut S2)
+            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 3: Selesai (Kategori 4: Startup/Industri Kreatif)
+            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 4: Selesai (Kategori 5: Freelancer)
+            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 5: Sedang Mengisi (Progress ~60%)
+            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 6: Sedang Mengisi (Progress ~50%)
+            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 7: Sedang Mengisi (Progress ~40%)
+            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 8: Belum Mengisi (0%)
+            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 9: Belum Mengisi (0%)
         ];
 
         // 4. Bank 120 Nama Mahasiswa Riil Unik Tanpa Duplikasi Lintas Seluruh 12 Prodi UKDW
@@ -355,9 +356,9 @@ class AlumniSimulationSeeder extends Seeder
                 $cleanUsername = strtolower(str_replace(' ', '', explode(' ', $nama)[0])).$nim;
 
                 // =========================================================================
-                // SKENARIO 1: LENGKAP 100% (Status: Selesai) - 4 Kategori Karier Berbeda
+                // SKENARIO 1: LENGKAP 100% (Status: Selesai) - 5 Kategori Karier Berbeda
                 // =========================================================================
-                if ($i < 4) {
+                if ($i < 5) {
                     $this->seedAlumniLengkap(
                         $i,
                         $user,
@@ -380,7 +381,7 @@ class AlumniSimulationSeeder extends Seeder
                 // =========================================================================
                 // SKENARIO 2: SEDANG MENGISI (Status: Belum Selesai, Progress 40% - 75%)
                 // =========================================================================
-                elseif ($i >= 4 && $i <= 6) {
+                elseif ($i >= 5 && $i <= 7) {
                     $this->seedAlumniSedangMengisi(
                         $i,
                         $user,
@@ -417,11 +418,12 @@ class AlumniSimulationSeeder extends Seeder
 
     /**
      * Seeder untuk Alumni Lengkap 100% (Status Selesai)
-     * Mengimplementasikan 4 Kategori Berbeda:
+     * Mengimplementasikan 5 Kategori Berbeda:
      * - Kategori 1 (Index 0): Bekerja Swasta / BUMN (Bekerja sebelum lulus / F504 Ya)
-     * - Kategori 2 (Index 1): Wiraswasta / Pendiri Usaha Sendiri
+     * - Kategori 2 (Index 1): Founder / Co-Founder
      * - Kategori 3 (Index 2): Melanjutkan Pendidikan S2 (Studi Lanjut)
      * - Kategori 4 (Index 3): Bekerja Startup / Multinasional (Mencari setelah lulus / F504 Tidak)
+     * - Kategori 5 (Index 4): Freelancer / Konsultan Mandiri (Mencari setelah lulus / F504 Tidak)
      */
     protected function seedAlumniLengkap(
         int $kategoriIdx,
@@ -554,7 +556,7 @@ class AlumniSimulationSeeder extends Seeder
                 ]
             );
             $atasanId = $atasan->id;
-        } else {
+        } elseif ($kategoriIdx === 3) {
             // Kategori 4: Bekerja di Startup / Tech Multinasional (F504 = Tidak)
             $kategoriPekerjaan = 'Bekerja (Full Time)';
             $posisiJabatan = ($prodi->kode_prodi === '71' || $prodi->kode_prodi === '72') ? 'Product Data Analyst' : 'Business Development Specialist';
@@ -585,6 +587,28 @@ class AlumniSimulationSeeder extends Seeder
                 ]
             );
             $atasanId = $atasan->id;
+        } else {
+            // Kategori 5: Freelancer / Konsultan Mandiri (F504 = Tidak)
+            $kategoriPekerjaan = 'Wiraswasta';
+            $posisiWiraswasta = 'Freelancer / Konsultan Mandiri';
+            $posisiJabatan = 'Freelancer / Konsultan Mandiri';
+            $gaji = 7000000;
+
+            $perusahaan = Perusahaan::firstOrCreate(
+                ['nama_perusahaan' => 'Studio Mandiri '.$prodi->nama_prodi],
+                [
+                    'kode_provinsi' => $propinsiDiy?->kode_provinsi,
+                    'kode_kabupaten' => $kabSleman?->kode_kabupaten,
+                    'alamat' => 'Jl. Gejayan No. '.($kategoriIdx + 10).', Caturtunggal',
+                    'sektor' => 'Jasa Profesional dan Kreatif',
+                    'skala' => 'Lokal',
+                    'jenis_perusahaan' => 'Wiraswasta',
+                    'jenis_lokasi' => 'Dalam Negeri',
+                    'kode_negara' => 'ID',
+                    'status_verifikasi' => 'Terverifikasi',
+                ]
+            );
+            $perusahaanId = $perusahaan->id;
         }
 
         // Simpan Record Biodata Lengkap (100% Profil)
@@ -649,7 +673,7 @@ class AlumniSimulationSeeder extends Seeder
         // 1. Status Pekerjaan F8 (Standar Dikti)
         if ($kategoriIdx === 0) {
             $answers['F8'] = 'Bekerja (full time/part time)';
-        } elseif ($kategoriIdx === 1) {
+        } elseif ($kategoriIdx === 1 || $kategoriIdx === 4) {
             $answers['F8'] = 'Wiraswasta';
         } elseif ($kategoriIdx === 2) {
             $answers['F8'] = 'Melanjutkan Pendidikan';
@@ -667,7 +691,7 @@ class AlumniSimulationSeeder extends Seeder
             $answers[$c] = '4'; // 4 = Setuju / Tinggi
         }
 
-        // 4. Jalur Non-Pendidikan (Bekerja / Wiraswasta: Kategori 0, 1, 3)
+        // 4. Jalur Non-Pendidikan (Bekerja / Wiraswasta: Kategori 0, 1, 3, 4)
         if ($kategoriIdx !== 2) {
             $answers['F14'] = 'Sangat Erat';
             $answers['F15'] = 'Tingkat yang Sama';
@@ -676,9 +700,9 @@ class AlumniSimulationSeeder extends Seeder
                 // Mendapatkan kerja sebelum lulus
                 $answers['F504'] = 'Ya';
                 $answers['F502'] = '3'; // 3 bulan sebelum lulus
-                $answers['F3'] = 'Sebelum lulus ... bulan: 4';
+                $answers['F3'] = 'Sebelum lulus ... bulan: 3';
             } else {
-                // Mendapatkan kerja setelah lulus (Kategori 3 / Index 3)
+                // Mendapatkan kerja setelah lulus (Startup atau Freelancer)
                 $answers['F504'] = 'Tidak';
                 $answers['F506'] = '2'; // 2 bulan setelah lulus
                 $answers['F3'] = 'Setelah lulus ... bulan: 2';
@@ -782,7 +806,7 @@ class AlumniSimulationSeeder extends Seeder
         $personalEmail = strtolower(str_replace(' ', '', explode(' ', $nama)[0])).$prodi->kode_prodi.($idx + 1).'@gmail.com';
         $nomorTelepon = '0812'.str_pad((string) (11000000 + $idx), 8, '0', STR_PAD_LEFT);
         $alamatSaatIni = 'Jl. Solo Km. '.($idx + 4).' No. '.($idx * 7 + 10).', Caturtunggal';
-        $perusahaan = $perusahaans->first();
+        $perusahaan = $perusahaans->first() ?? Perusahaan::query()->first();
 
         $biodata = Biodata::updateOrCreate(
             ['user_id' => $user->id],

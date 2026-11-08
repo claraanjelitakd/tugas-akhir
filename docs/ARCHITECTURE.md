@@ -36,6 +36,13 @@ Dokumen ini menjelaskan struktur antarmuka dan batas akses untuk Superadmin, Adm
 
 Schema runtime untuk instalasi baru disusun dalam `database/migrations` dengan satu migration untuk setiap tabel atau view aktif. Migration historis yang berisi perubahan bertahap, `add`, `refresh`, dan backfill telah dipadatkan ke definisi pembentuk tabel/view final. `php artisan migrate` menjalankan migration tersebut, sedangkan `php artisan db:seed` mengisi data master dan simulasi.
 
+Data referensi UMP dipisahkan dari kode seeder pada
+`database/data/ump_2026.csv`. `UmpSeeder` memvalidasi nilai nominal sebagai
+angka rupiah, mencocokkan nama provinsi dengan master wilayah, lalu melakukan
+update atomik ke tabel `ump`. Kode sumber CSV tidak dipaksakan menjadi foreign
+key ketika berbeda dari kode master aplikasi; keputusan ini menjaga relasi
+kabupaten/kota dan perusahaan yang sudah ada tetap konsisten.
+
 ### Kontrak metrik Dashboard Superadmin
 
 DashboardController mengambil metrik ringkasan dari satu agregasi v_alumni_audit_rekap, bukan menghitung status per alumni di dalam loop. Kontrak dashboard memisahkan tiga hal:
@@ -230,6 +237,19 @@ Controller bersama `app/Http/Controllers/Shared/Kuesioner/KelolaKuesionerProdiCo
 
 Satu rekaman pada `kuesioner_jawaban` menjadi unit jawaban per responden (`biodata_id` untuk alumni, atau `evaluasi_atasan_id` untuk atasan) dan per butir pertanyaan (`pertanyaan_id`). Kolom `kode_pertanyaan` dipertahankan sebagai snapshot identitas butir untuk kompatibilitas dan kecepatan kueri analitik. Nilai jawaban teks/angka disimpan pada `jawaban_teks`, sedangkan pilihan ganda terstruktur disimpan pada `jawaban_json`.
 
+Field `kuesioner_pertanyaan.tipe` adalah kontrak input dan dispatch analitik:
+`text`/`textarea` menjadi jawaban terbuka, `single_choice` dan turunannya
+menjadi distribusi opsi, `multiple_choice` memakai array pada `jawaban_json`,
+`likert_5`/`rating_5` menjadi skor 1–5, dan `number` menjadi representasi angka
+yang harus dinormalisasi sebelum agregasi. Tipe yang sama berlaku pada semua
+placement pertanyaan; penempatan hanya menentukan section, urutan, kewajiban,
+dan status tampil lokal.
+
+Satu tipe angka belum menentukan satu rumus. Pertanyaan numerik harus memiliki
+aturan analitik yang eksplisit, seperti rata-rata, median, jumlah, distribusi,
+dan unit pengukuran. Detail tabel tipe, denominator, serta batas formatter
+dinamis dicatat di [Kontrak Data Kuesioner](kuesioner-data-contract.md).
+
 F505 (Take Home Pay) memiliki sumber tunggal pada `biodata.gaji`. Setiap sinkronisasi profil menimpa jawaban F505 lama dengan nominal gaji terbaru dan menyimpannya dalam `jawaban_teks`, sehingga nilai lama tidak menjadi sumber inkonsistensi.
 
 ### Response Inertia dan API
@@ -316,6 +336,17 @@ oleh unique key tabel `tracer`, sehingga view tidak melakukan agregasi
 memilahnya di PHP. View bukan cache materialisasi, sehingga indeks pada tabel
 sumber tetap menjadi bagian penting dari performa.
 
+Paket IKU S1 memakai dua read-model tambahan. `v_iku_s1_aee` membaca seluruh
+populasi akademik melalui `data_akademik.prodi_id`, `angkatan_masuk`,
+`tahun_akademik_masuk`, dan `status_mahasiswa`; status Drop Out, Pindah, serta
+Cuti tidak masuk denominator AEE. `v_iku_s1_lulusan` mengambil lulusan S1,
+status F8, masa tunggu F504/F502/F506, tanggal studi lanjut F18d, gaji, serta
+provinsi perusahaan. `IkuS1AnalyticsService` menghitung formula dan bobot dari
+konfigurasi `config/iku.php`,
+sedangkan komponen Vue hanya menyajikan hasil read-only. Payload AEE memisahkan
+lulusan tepat waktu, lulusan terlambat, dan status kelulusan yang belum
+teridentifikasi agar warna batang tidak menyamarkan status akademik.
+
 `v_analytics_population` hanya membaca identitas, akademik, program studi,
 perusahaan, URL profil LinkedIn, dan provinsi kerja dari tabel kanonik. URL tersebut
 hanya menjadi tautan baca pada tabel analitik; direktori operasional tetap memakai
@@ -345,9 +376,9 @@ tampilan, serta tombol ekspor PNG, mengeliminasi tombol toolbar berlebih.
 Tabel data sampingan mendukung pencarian dan interaksi dua arah dengan grafik
 (klik baris tabel menyorot elemen visual, klik grafik menyorot baris tabel).
 
-Visualisasi 18 indikator dipecah ke berkas mandiri pada direktori
+Visualisasi indikator dipecah ke berkas mandiri pada direktori
 `resources/js/components/analytics/categories/` (`01_ResponseRate.vue` s.d.
-`18_WorkLocation.vue`) dan dimuat secara asinkron melalui Index Hub
+`21_IkuS1UmpWeighted.vue`) dan dimuat secara asinkron melalui Index Hub
 `AnalyticsChartsPanel.vue`. Setiap modul dibungkus oleh komponen terpadu
 `AnalyticsTabbedContainer.vue` yang mengintegrasikan navigasi tab visualisasi,
 analisis naratif data-driven ("Kilas Indikator"), drill-down inline tanpa
@@ -368,6 +399,13 @@ Tahapan lamaran per program studi memakai median jumlah perusahaan dilamar, mere
 dan wawancara; visual, tooltip, dan tabel menampilkan hasilnya sebagai bilangan bulat
 tanpa pecahan desimal.
 Halaman analitik lama `SuperAdmin/Analytics/Index.vue` telah dihapus.
+Matriks bobot karier tidak ditanam di Vue. `config/iku.php` menyimpan ambang
+1,2 kali UMP, galat Slovin 2,3%, dan bobot setiap role. Payload grafik UMP
+menyertakan `weight_confirmation_status` karena label matriks pada salinan
+keputusan masih perlu dikonfirmasi Biro 3. `DatabaseSeeder` memakai dataset
+default ringkas; fixture dashboard, distribusi analitik, skeleton alumni, dan
+profil unggulan tetap dapat dijalankan langsung sebagai seeder opsional.
+
 Saat record kosong, `data_availability` membedakan tidak ada populasi, belum ada
 jawaban valid, dan jawaban yang tidak berlaku akibat percabangan.
 
@@ -384,6 +422,8 @@ jawaban valid, dan jawaban yang tidak berlaku akibat percabangan.
 | Keselarasan tingkat pendidikan | `tracer.F15`, `ref_subpertanyaan_detil` | Bar kategori dan line chart keselarasan vertikal per prodi (Gambar 4.14) |
 | Kompetensi & Gap Selisih | `tracer.F17` | Kombinasi batang Likert (0-5) dan garis gap selisih Dual Y-Axis (-3 s/d +3) |
 | Kelengkapan profil | `v_analytics_population.is_profile_complete` | Bar lengkap/belum lengkap dan tabel alumni |
+| AEE S1 | `v_iku_s1_aee` | Bar capaian per prodi dengan pembilang tepat waktu/denominator |
+| Capaian karier S1 | `v_iku_s1_lulusan`, `ump`, `kuesioner_jawaban`, `config/iku.php` | Bar kontribusi bobot karyawan, founder/co-founder, freelancer, dan studi lanjut |
 
 Grafik pendapatan menggunakan aturan `gaji >= 1,2 × UMP`, bukan sekadar `gaji >= UMP`. Record salary menyimpan nama alumni, NIM, program studi, perusahaan, provinsi, gaji, UMP, ambang pembanding, dan status. Grafik waktu tunggu mengklasifikasikan alumni sebagai lebih cepat, sama dengan, atau lebih lama dari median aktual pada filter aktif.
 

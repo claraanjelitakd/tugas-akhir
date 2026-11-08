@@ -21,8 +21,8 @@ use Illuminate\Support\Facades\Hash;
 /**
  * Seeder Skenario Dashboard & Kohort 532 Alumni Nyata UKDW.
  *
- * Mengisi 532 data alumni unik 100% dengan nama asli Indonesia, NIM variasi
- * angkatan (20, 21, 22, 23), perusahaan riil dari LinkedIn/industri,
+ * Mengisi 532 data alumni unik 100% dengan nama asli Indonesia, satu kohort
+ * S1 angkatan 2021 yang lulus pada 2025, perusahaan riil dari LinkedIn/industri,
  * serta sebaran respon kuesioner realistis (tinggi, sedang, dan rendah)
  * di seluruh 12 program studi UKDW.
  */
@@ -122,8 +122,8 @@ class DashboardScenarioSeeder extends Seeder
             $nama = (string) $item['nama'];
             $gender = (string) ($item['gender'] ?? 'Laki-laki');
             $email = (string) $item['email'];
-            $angkatan = (int) ($item['angkatan'] ?? 2022);
-            $tahunLulus = (int) ($item['tahun_lulus'] ?? 2026);
+            $angkatan = 2021;
+            $tahunLulus = 2025;
             $ipk = (float) ($item['ipk'] ?? 3.45);
             $isRespondent = (bool) ($item['is_respondent'] ?? false);
             $statusKarier = $item['status_karier'] ?? null;

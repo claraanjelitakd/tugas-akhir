@@ -205,6 +205,162 @@ watch([activeTabKey, activeViewMode], () => {
 
 // Kolom dan baris tabel data ringkasan aktif
 const activeColumns = computed(() => currentView.value.tableData?.columns || []);
+
+// Label field detail memakai metadata yang stabil; nilai selalu berasal dari rows backend.
+const detailFieldLabels = Object.freeze({
+    nim: 'NIM',
+    nama: 'Nama Alumni',
+    nama_prodi: 'Program Studi',
+    nama_fakultas: 'Fakultas',
+    nama_perusahaan: 'Perusahaan',
+    workplace_nama_provinsi: 'Provinsi',
+    workplace_nama_kabupaten: 'Kabupaten/Kota',
+    province_name: 'Provinsi',
+    kabupaten: 'Kabupaten/Kota',
+    provinsi: 'Provinsi',
+    wilayah: 'Wilayah',
+    degree: 'Jenjang Studi Lanjut',
+    study_program: 'Program Studi Lanjut',
+    university: 'Perguruan Tinggi Lanjut',
+    funding_source: 'Sumber Pembiayaan',
+    status: 'Status',
+    category: 'Kategori',
+    answer: 'Jawaban',
+    jawaban: 'Jawaban',
+    method: 'Metode',
+    metode: 'Metode',
+    months: 'Masa Tunggu (Bulan)',
+    salary: 'Pendapatan/Gaji',
+    ump: 'UMP',
+    meets_ump: 'Status 1,2× UMP',
+    weight: 'Bobot',
+    role: 'Peran/Kategori Karier',
+    career_category: 'Role Karier',
+    status_karier: 'Status Aktivitas',
+    employment_status: 'Status Aktivitas',
+    before_graduation: 'Sebelum Lulus',
+    after_graduation: 'Setelah Lulus',
+    threshold: 'Ambang 1,2× UMP',
+    salary_above_threshold: 'Memenuhi Ambang UMP',
+    qualifies: 'Memenuhi Kriteria IKU',
+});
+
+// Field teknis atau kontak pribadi tidak ditampilkan pada tabel analitik read-only.
+const hiddenDetailFields = new Set([
+    'id',
+    'biodata_id',
+    'user_id',
+    'prodi_id',
+    'fakultas_id',
+    'pertanyaan_id',
+    'section_id',
+    'email',
+    'email_pribadi',
+    'user_email',
+    'created_at',
+    'updated_at',
+]);
+
+// Menemukan seluruh kolom yang benar-benar tersedia pada records indikator aktif.
+const detailColumns = computed(() => {
+    const keys = [...new Set(props.rows.flatMap((row) => Object.keys(row || {})))];
+    const orderedKeys = [
+        ...Object.keys(detailFieldLabels),
+        ...keys,
+    ].filter((key, index, list) => list.indexOf(key) === index);
+
+    return orderedKeys
+        .filter((key) => keys.includes(key) && !hiddenDetailFields.has(key))
+        .map((key) => ({
+            key,
+            label: detailFieldLabels[key] || key.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()),
+        }));
+});
+
+// Menormalkan nilai detail dari payload JSON tanpa mengubah sumber datanya.
+const formatDetailValue = (value) => {
+    if (value === null || value === undefined || value === '') return '-';
+    if (typeof value === 'boolean') return value ? 'Ya' : 'Tidak';
+    if (Array.isArray(value)) return value.join(', ');
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+};
+
+// Kontrol pencarian dan paginasi tabel detail individu.
+const detailSearch = ref('');
+const detailPage = ref(1);
+const detailPageSize = 15;
+const detailSortKey = ref('nim');
+const detailSortDirection = ref('asc');
+
+// Menyaring records nyata berdasarkan seluruh field detail yang aman ditampilkan.
+const filteredDetailRows = computed(() => {
+    const query = detailSearch.value.trim().toLowerCase();
+    if (!query) return props.rows;
+
+    return props.rows.filter((row) => detailColumns.value.some((column) => (
+        formatDetailValue(row[column.key]).toLowerCase().includes(query)
+    )));
+});
+
+// Mengurutkan tabel detail berdasarkan kolom yang dipilih pengguna, default NIM naik.
+const sortedDetailRows = computed(() => {
+    const fallbackKey = detailColumns.value.find((column) => column.key === detailSortKey.value)?.key
+        || detailColumns.value[0]?.key;
+    if (!fallbackKey) return filteredDetailRows.value;
+
+    return [...filteredDetailRows.value].sort((left, right) => {
+        const leftValue = formatDetailValue(left[fallbackKey]);
+        const rightValue = formatDetailValue(right[fallbackKey]);
+        const comparison = leftValue.localeCompare(rightValue, 'id', { numeric: true, sensitivity: 'base' });
+        return detailSortDirection.value === 'asc' ? comparison : -comparison;
+    });
+});
+
+// Mengganti kolom dan arah pengurutan tanpa mengubah records sumber.
+const toggleDetailSort = (key) => {
+    if (detailSortKey.value === key) {
+        detailSortDirection.value = detailSortDirection.value === 'asc' ? 'desc' : 'asc';
+        return;
+    }
+
+    detailSortKey.value = key;
+    detailSortDirection.value = 'asc';
+};
+
+// Paginasi tabel detail agar jumlah baris besar tetap nyaman dibaca.
+const detailTotalPages = computed(() => Math.max(1, Math.ceil(sortedDetailRows.value.length / detailPageSize)));
+const paginatedDetailRows = computed(() => {
+    const start = (detailPage.value - 1) * detailPageSize;
+    return sortedDetailRows.value.slice(start, start + detailPageSize);
+});
+
+// Reset tabel detail ketika data indikator atau pencarian detail berubah.
+watch([() => props.rows, detailSearch], () => {
+    detailPage.value = 1;
+}, { deep: true });
+
+// Kelas tambahan sel tabel ditentukan oleh kontrak kolom, tanpa mengubah nilai data.
+const tableCellClass = (column, row) => {
+    let extraClass = typeof column.className === 'function'
+        ? column.className(row)
+        : (column.className || '');
+
+    if (currentView.value.chartType === 'stacked_horizontal') {
+        if (column.key === 'above_count') extraClass = 'font-bold text-[#0D542B]';
+        if (column.key === 'below_count') extraClass = 'text-slate-500';
+        if (column.key === 'weighted_score' || column.key === 'percentage') extraClass = 'font-bold text-[#0D542B]';
+    }
+
+    return [
+        column.align === 'right' ? 'text-right font-mono' : 'text-left',
+        column.key.toLowerCase().includes('count') || column.key.toLowerCase().includes('total')
+            ? 'font-semibold text-slate-900'
+            : 'text-slate-700',
+        extraClass,
+    ];
+};
+
 const activeRows = computed(() => {
     const rawRows = currentView.value.tableData?.rows || [];
     const query = tableSearch.value.trim().toLowerCase();
@@ -951,10 +1107,7 @@ watch(() => props.selectedLabel, () => {
                                 v-for="col in activeColumns"
                                 :key="col.key"
                                 class="p-2.5"
-                                :class="[
-                                    col.align === 'right' ? 'text-right font-mono' : 'text-left',
-                                    col.key.toLowerCase().includes('count') || col.key.toLowerCase().includes('total') ? 'font-semibold text-slate-900' : 'text-slate-700'
-                                ]"
+                                :class="tableCellClass(col, row)"
                             >
                                 {{ row[col.key] ?? '-' }}
                             </td>
@@ -990,6 +1143,74 @@ watch(() => props.selectedLabel, () => {
                     </button>
                 </div>
             </div>
+
+            <!-- Tabel lengkap records nyata indikator aktif, tanpa menampilkan field teknis/kontak pribadi. -->
+            <section v-if="detailColumns.length" class="mt-6 border-t border-slate-200 pt-4">
+                <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h4 class="text-sm font-extrabold text-slate-900">Rincian Data Individu</h4>
+                        <p class="mt-0.5 text-xs text-slate-500">{{ filteredDetailRows.length }} catatan dari payload data indikator aktif.</p>
+                    </div>
+                    <input
+                        v-model="detailSearch"
+                        type="text"
+                        placeholder="Cari nama, prodi, perusahaan, atau jawaban..."
+                        class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-[#0D542B] focus:bg-white focus:ring-1 focus:ring-[#0D542B] sm:w-80"
+                    />
+                </div>
+
+                <div class="overflow-x-auto rounded-lg border border-slate-200">
+                    <table class="min-w-full text-left text-xs">
+                        <thead>
+                            <tr class="border-b border-slate-200 bg-slate-50 text-slate-700">
+                                <th v-for="column in detailColumns" :key="column.key" class="whitespace-nowrap border-r border-slate-200 px-3 py-2.5 font-bold last:border-r-0">
+                                    <button type="button" class="inline-flex items-center gap-1 cursor-pointer hover:text-[#0D542B]" @click="toggleDetailSort(column.key)">
+                                        <span>{{ column.label }}</span>
+                                        <span v-if="detailSortKey === column.key" class="text-[10px] text-[#0D542B]">
+                                            {{ detailSortDirection === 'asc' ? '▲' : '▼' }}
+                                        </span>
+                                    </button>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            <tr v-for="(row, rowIndex) in paginatedDetailRows" :key="rowIndex" class="hover:bg-slate-50/70">
+                                <td v-for="column in detailColumns" :key="column.key" class="max-w-72 border-r border-slate-100 px-3 py-2.5 align-top text-slate-700 last:border-r-0">
+                                    <span class="whitespace-normal break-words">{{ formatDetailValue(row[column.key]) }}</span>
+                                </td>
+                            </tr>
+                            <tr v-if="paginatedDetailRows.length === 0">
+                                <td :colspan="detailColumns.length" class="p-6 text-center text-slate-400">
+                                    Tidak ada rincian individu yang sesuai dengan pencarian.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Paginasi tabel detail individu -->
+                <div v-if="detailTotalPages > 1" class="flex items-center justify-between pt-3 text-xs text-slate-600">
+                    <span>Halaman {{ detailPage }} dari {{ detailTotalPages }}</span>
+                    <div class="flex gap-1">
+                        <button
+                            type="button"
+                            :disabled="detailPage <= 1"
+                            class="rounded border border-slate-200 bg-white px-2.5 py-1 font-bold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            @click="detailPage--"
+                        >
+                            &larr; Sebelumnya
+                        </button>
+                        <button
+                            type="button"
+                            :disabled="detailPage >= detailTotalPages"
+                            class="rounded border border-slate-200 bg-white px-2.5 py-1 font-bold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            @click="detailPage++"
+                        >
+                            Berikutnya &rarr;
+                        </button>
+                    </div>
+                </div>
+            </section>
         </div>
     </div>
 </template>

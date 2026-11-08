@@ -41,9 +41,11 @@ Semua kotak, label dan konektor dalam `.drawio` dapat diedit. Diagram 0 memakai 
 | [User flow](docs/user-flow.md) | Langkah penggunaan per role dan visualisasi analitik. |
 | [ERD](ERD.md) | Relasi tabel database dan kamus data. |
 | [Kuesioner](KUESIONER.md) | Bagian dan percabangan pertanyaan. |
+| [Kontrak data kuesioner](docs/kuesioner-data-contract.md) | Tipe input, penyimpanan jawaban, validasi, dan cara grafik menghitung. |
 | [Pemetaan pertanyaan](DAFTAR_PERTANYAAN_MAPPING.md) | Kode pertanyaan dan sumber datanya. |
 | [Activity diagram](docs/activitydiagram.md) | Aktivitas, keputusan dan pemetaan implementasi. |
 | [Database views](docs/database-views.md) | Referensi view analitik dan audit. |
+| [Audit wilayah & UMP](docs/audit-konsistensi-wilayah.md) | Kontrak master wilayah, sumber CSV UMP, dan mapping kode provinsi. |
 | [Integrasi LinkedIn](docs/linkedin-mcp-integration.md) | Driver provider dan peninjauan hasil. |
 | [Verifikasi perusahaan](docs/verifikasi-perusahaan-similarity.md) | Algoritma rekomendasi dan konsolidasi. |
 | [Arsitektur admin](docs/ARCHITECTURE.md) | Komponen bersama, halaman lintas-role, route, dan batas data. |
