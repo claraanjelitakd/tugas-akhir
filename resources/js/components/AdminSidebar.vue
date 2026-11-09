@@ -22,7 +22,7 @@ const roleDefinitions = {
         fallbackName: 'Super Administrator',
         fallbackEmail: 'admin@ukdw.ac.id',
         alumniLabel: 'Data Alumni',
-        capabilities: { universityQuestionnaire: true, prodiQuestionnaire: true, supervisorEvaluation: true, wilayah: true, linkedin: true, company: true, accounts: true, logs: true, analytics: true },
+        capabilities: { universityQuestionnaire: true, prodiQuestionnaire: true, supervisorEvaluation: true, wilayah: true, linkedin: true, company: true, accounts: true, logs: true, analytics: true, dataAtasan: true },
     },
     admin_prodi: {
         dashboard: '/prodi/dashboard',
@@ -30,7 +30,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Program Studi',
         fallbackEmail: 'prodi@ukdw.ac.id',
         alumniLabel: 'Data Alumni Prodi',
-        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false, analytics: true, supervisorEvaluation: false },
+        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false, analytics: true, supervisorEvaluation: false, dataAtasan: true },
     },
     admin_fakultas: {
         dashboard: '/fakultas/dashboard',
@@ -38,7 +38,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Fakultas',
         fallbackEmail: 'fakultas@ukdw.ac.id',
         alumniLabel: 'Data Alumni Fakultas',
-        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false, analytics: true, supervisorEvaluation: false },
+        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false, analytics: true, supervisorEvaluation: false, dataAtasan: true },
     },
     admin_biro3: {
         dashboard: '/biro3/dashboard',
@@ -46,7 +46,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Biro 3 UKDW',
         fallbackEmail: 'biro3@ukdw.ac.id',
         alumniLabel: 'Data Alumni Universitas',
-        capabilities: { linkedin: false, company: false, accounts: false, analytics: true, supervisorEvaluation: false },
+        capabilities: { linkedin: false, company: false, accounts: false, analytics: true, supervisorEvaluation: false, dataAtasan: true },
     },
 };
 
@@ -100,6 +100,7 @@ const createSections = (role) => {
             label: 'Master Data & Verifikasi',
             items: [
                 ...(capabilities.wilayah ? [createMenuItem('master-wilayah', '/superadmin/master-wilayah', 'Master Wilayah & UMP', 'globe')] : []),
+                ...(capabilities.dataAtasan ? [createMenuItem('atasan', `/${prefix}/atasan`, 'Data Atasan', 'users', [`/${prefix}/atasan`])] : []),
                 ...(capabilities.company ? [createMenuItem('perusahaan', `/${prefix}/perusahaan`, 'Master Data Perusahaan', 'building')] : []),
                 ...(capabilities.accounts ? [createMenuItem('manajemen-akun', `/${prefix}/manajemen-akun`, 'Manajemen Akun', 'key')] : []),
                 ...(capabilities.logs ? [createMenuItem('logs', '/superadmin/logs', 'Log Aktivitas', 'document')] : []),

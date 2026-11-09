@@ -15,6 +15,7 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 | v_alumni_kuesioner_autofill | AlumniKuesionerAutofill | Nilai autofill dari biodata, data_akademik, perusahaan, dan yudisium. |
 | v_question_mappings | QuestionMapping | Metadata pemetaan kode pertanyaan ke tabel dan kolom kanonik. |
 | v_alumni_linkedin_plot | AlumniLinkedinPlot | Status staging, approval, kecocokan nama, dan plot LinkedIn. |
+| v_kuesioner_rekap_jawaban | Rekap jawaban kuesioner | Rekap denormalisasi jawaban terpadu dengan kode pertanyaan, label opsi, nilai skor, dan identitas responden. |
 | v_analytics_population | TracerAnalyticsService | Populasi ringan satu baris per alumni dari biodata, akademik, prodi, perusahaan, URL profil LinkedIn, dan provinsi kerja tanpa agregasi kuesioner prodi. |
 | v_analytics_response_rate | TracerAnalyticsService | Status minimal satu jawaban wajib kuesioner universitas per alumni; agregasi ini sengaja dipisahkan dari populasi. |
 | v_analytics_profile_completion | TracerAnalyticsService | Status kelengkapan profil per alumni. |
@@ -47,6 +48,7 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 | `v_alumni_kuesioner_autofill` | Satu baris per alumni | Memasok nilai awal untuk field kuesioner yang dapat diisi otomatis. | Tidak menggantikan jawaban yang sudah diisi alumni. |
 | `v_question_mappings` | Satu baris per kode pertanyaan | Memetakan kode instrumen ke sumber/kolom kanonik. | Menjaga service tidak bergantung pada nama section atau tabel legacy. |
 | `v_alumni_linkedin_plot` | Satu baris per alumni | Menampilkan staging sync LinkedIn, hasil kecocokan, dan status review. | Data staging/review tidak langsung menimpa profil alumni tanpa approval. |
+| `v_kuesioner_rekap_jawaban` | Satu baris per jawaban | Menyediakan rekap jawaban terpadu untuk kebutuhan audit dan ekspor. | `nilai_skor` berasal dari `kuesioner_opsi`; view ini bukan sumber bobot IKU S1. |
 | `v_analytics_population` | Satu baris per alumni | Menjadi populasi dasar semua analitik tracer dan tabel drill-down. | Tidak mengagregasi jawaban kuesioner supaya filter dan scope tetap akurat. |
 | `v_analytics_response_rate` | Satu baris per alumni | Menandai alumni yang memiliki jawaban wajib Universitas. | Dipisah dari populasi agar pembilang response rate dapat diaudit. |
 | `v_analytics_profile_completion` | Satu baris per alumni | Menandai kelengkapan profil alumni untuk dashboard dan analitik. | Menggunakan kontrak field profil aktif, bukan field legacy. |

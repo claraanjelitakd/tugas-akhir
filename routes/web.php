@@ -19,6 +19,7 @@ use App\Http\Controllers\EvaluasiAtasanController;
 use App\Http\Controllers\Otentikasi\LoginController;
 use App\Http\Controllers\Otentikasi\LupaKataSandiController;
 use App\Http\Controllers\Otentikasi\UbahKataSandiController;
+use App\Http\Controllers\Shared\DataAtasan\DaftarAtasanController;
 use App\Http\Controllers\Shared\Kuesioner\KelolaKuesionerProdiController;
 use App\Http\Controllers\Shared\LinkedInSyncController;
 use App\Http\Controllers\SuperAdmin\Analytics\AtasanAnalyticsController;
@@ -142,6 +143,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/biro3/analitik-prodi/data', [ProdiAnalyticsController::class, 'data'])->name('biro3.analytics-prodi.data');
             Route::get('/biro3/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('biro3.analytics-atasan.index');
             Route::get('/biro3/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('biro3.analytics-atasan.data');
+            Route::get('/biro3/atasan', [DaftarAtasanController::class, 'index'])->name('biro3.atasan.index');
 
         });
 
@@ -213,6 +215,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/prodi/analitik-prodi/data', [ProdiAnalyticsController::class, 'data'])->name('prodi.analytics-prodi.data');
             Route::get('/prodi/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('prodi.analytics-atasan.index');
             Route::get('/prodi/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('prodi.analytics-atasan.data');
+            Route::get('/prodi/atasan', [DaftarAtasanController::class, 'index'])->name('prodi.atasan.index');
         });
 
         // -----------------------------------------------------------------
@@ -276,6 +279,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/fakultas/analitik-prodi/data', [ProdiAnalyticsController::class, 'data'])->name('fakultas.analytics-prodi.data');
             Route::get('/fakultas/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('fakultas.analytics-atasan.index');
             Route::get('/fakultas/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('fakultas.analytics-atasan.data');
+            Route::get('/fakultas/atasan', [DaftarAtasanController::class, 'index'])->name('fakultas.atasan.index');
         });
 
         // -----------------------------------------------------------------
@@ -302,6 +306,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/superadmin/analitik-prodi/data', [ProdiAnalyticsController::class, 'data'])->name('superadmin.analytics-prodi.data');
             Route::get('/superadmin/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('superadmin.analytics-atasan.index');
             Route::get('/superadmin/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('superadmin.analytics-atasan.data');
+            Route::get('/superadmin/atasan', [DaftarAtasanController::class, 'index'])->name('superadmin.atasan.index');
 
             // Kelola Butir Pertanyaan, Opsi Jawaban, & Alur Branching Kuesioner (Modular Controllers)
             Route::get('/superadmin/pertanyaan', [DaftarPertanyaanController::class, 'index'])->name('superadmin.pertanyaan.index');

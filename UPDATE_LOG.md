@@ -1,5 +1,14 @@
 # UPDATE LOG - SERU (Sistem Ekosistem Rekam Jejak Alumni)
 
+## [2026-11-09] Pemutakhiran ERD, Kamus Data, dan Audit Bobot
+
+- Menyelaraskan `ERD.md` dengan migration aktif yang sudah `Ran`, termasuk kolom terbaru pada `perusahaan`, `biodata`, `linkedin_sync_results`, `ump`, `ref_negara`, `ref_fakultas`, dan `kuesioner_opsi`.
+- Menghapus referensi nama kolom legacy dari kamus data ERD dan menegaskan bahwa `kuesioner_section_pertanyaan` tidak memiliki kolom `is_active`.
+- Menambahkan alur read-model IKU S1 yang memperlihatkan sumber `ump` dan `config/iku.php` sebelum kalkulasi di `IkuS1AnalyticsService`.
+- Mendokumentasikan audit bobot: bobot utama IKU S1 berada di `config/iku.php`; fallback numerik masih ada di service; `kuesioner_opsi.nilai_skor` tersimpan di database untuk skor opsi; dan bonus kemiripan perusahaan masih berupa konstanta algoritma di service.
+- Menambahkan master Data Atasan lintas role dengan pola tampilan seperti Master Data Perusahaan. Read-model menampilkan satu baris per alumni dari relasi `biodata.atasan_id`, perusahaan mengikuti relasi data aktif, `diisi_oleh` ditetapkan sebagai Alumni melalui Profil alumni, dan tidak menambahkan PIC/collector atau field hardcode baru.
+- Memperbaiki query eager loading evaluasi atasan agar tidak menghasilkan kolom `biodata_id` ambigu pada SQLite maupun MySQL; kegagalan ini sebelumnya membuat respons Inertia tidak valid dan halaman terlihat tidak dapat diklik.
+
 ## [2026-11-05] Penyelarasan Response Rate 100% Kuesioner Universitas, Penyederhanaan RBAC Akun, & Penataan Folder
 
 - **Penyelarasan Response Rate dan Status Kuesioner Selesai (Single Source of Truth)**:
