@@ -12,6 +12,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import Sidebar from '../Components/Sidebar.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 
 const props = defineProps({
     user: Object,
@@ -539,28 +540,8 @@ const handleSendPasswordResetLink = (userData) => {
                     </table>
                 </div>
 
-                    <!-- Pagination -->
-                    <div v-if="users.links && users.links.length > 3" class="px-4 py-3 border-t border-gray-200 bg-slate-50 flex items-center justify-between text-xs text-gray-600">
-                        <div>
-                            Menampilkan {{ users.from || 0 }} - {{ users.to || 0 }} dari total {{ users.total || 0 }} pengguna.
-                        </div>
-                        <div class="flex gap-1">
-                            <Link
-                                v-for="(link, lIdx) in users.links"
-                                :key="lIdx"
-                                :href="link.url || '#'"
-                                v-html="link.label"
-                                class="px-2.5 py-1 rounded text-xs font-semibold transition-colors"
-                                :class="[
-                                    link.active
-                                        ? 'bg-[#0D542B] text-white'
-                                        : link.url
-                                            ? 'bg-white text-gray-700 hover:bg-gray-200 border border-gray-300'
-                                            : 'text-gray-400 cursor-not-allowed pointer-events-none'
-                                ]"
-                            />
-                        </div>
-                    </div>
+                    <!-- Pagination akun memakai kontrol bersama agar tidak menampilkan semua nomor halaman mentah. -->
+                    <PaginationControls :pagination="users" summary-label="akun pengguna" />
                 </div>
             </main>
         </div>

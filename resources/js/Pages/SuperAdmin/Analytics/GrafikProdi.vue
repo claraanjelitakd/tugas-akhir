@@ -10,6 +10,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import Sidebar from '../Components/Sidebar.vue';
 import ProdiAnalyticsChartsPanel from '@/components/prodi-analytics/ProdiAnalyticsChartsPanel.vue';
 import ProdiPivotTable from '@/components/prodi-analytics/ProdiPivotTable.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 
 // Props awal dari controller berisi filter, instrumen, ringkasan, grafik, dan records.
 const props = defineProps({
@@ -483,7 +484,14 @@ watch(() => props.analytics, (newAnalytics) => {
                                     </tbody>
                                 </table>
                             </div>
-                            <div class="flex items-center justify-between pt-4 text-xs text-slate-500"><span>Menampilkan {{ paginatedRecords.length }} dari {{ filteredRecords.length }} jawaban</span><div class="flex items-center gap-2"><button type="button" class="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold hover:bg-slate-50 disabled:opacity-40" :disabled="currentPage <= 1" @click="currentPage--">Sebelumnya</button><span>Halaman {{ currentPage }} dari {{ totalPages }}</span><button type="button" class="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold hover:bg-slate-50 disabled:opacity-40" :disabled="currentPage >= totalPages" @click="currentPage++">Berikutnya</button></div></div>
+                            <!-- Pagination data responden mengikuti kontrol bersama. -->
+                            <PaginationControls
+                                :total="filteredRecords.length"
+                                :current-page="currentPage"
+                                :page-size="rowsPerPage"
+                                summary-label="jawaban"
+                                @update:current-page="currentPage = $event"
+                            />
                         </template>
                         <ProdiPivotTable v-else :pivot="pivotRows" />
                     </section>

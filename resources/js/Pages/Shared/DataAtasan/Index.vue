@@ -6,6 +6,7 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AdminSidebar from '@/components/AdminSidebar.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 
 // Kontrak payload direktori relasi alumni-atasan dari controller bersama.
 const props = defineProps({
@@ -264,16 +265,8 @@ const resetFilters = () => {
                     </table>
                 </div>
 
-                <!-- Pagination server-side mengikuti komponen Master Data Perusahaan. -->
-                <div v-if="atasans.links && atasans.links.length > 3" class="flex items-center justify-between pt-2 text-xs">
-                    <span class="text-slate-500">Halaman <strong>{{ atasans.current_page }}</strong> dari <strong>{{ atasans.last_page }}</strong></span>
-                    <div class="flex items-center gap-1">
-                        <template v-for="(link, index) in atasans.links" :key="index">
-                            <Link v-if="link.url" :href="link.url" class="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors" :class="link.active ? 'border-[#0D542B] bg-[#0D542B] text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'" v-html="link.label" />
-                            <span v-else class="rounded-lg border border-slate-100 bg-slate-50 px-3 py-1.5 text-xs text-slate-400" v-html="link.label" />
-                        </template>
-                    </div>
-                </div>
+                <!-- Pagination server-side memakai label dan jumlah nomor halaman yang konsisten. -->
+                <PaginationControls :pagination="atasans" summary-label="relasi atasan" />
             </main>
 
             <footer class="mt-12 border-t border-slate-200 py-6 text-center text-xs text-slate-400">&copy; {{ new Date().getFullYear() }} Universitas Kristen Duta Wacana. Hak Cipta Dilindungi.</footer>

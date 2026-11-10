@@ -9,6 +9,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import Sidebar from '../Components/Sidebar.vue';
 import AnalyticsEChart from '@/components/analytics/AnalyticsEChart.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 
 // Props awal berisi payload evaluasi atasan dari controller.
 const props = defineProps({
@@ -868,36 +869,14 @@ onBeforeUnmount(() => {
                         </div>
 
                         <!-- Bar Paginasi -->
-                        <div class="mt-4 flex flex-col items-center justify-between gap-3 text-xs text-slate-500 sm:flex-row">
-                            <p>
-                                Menampilkan
-                                <span class="font-semibold text-slate-800">{{ filteredRecords.length > 0 ? (currentPage - 1) * rowsPerPage + 1 : 0 }}</span>
-                                sampai
-                                <span class="font-semibold text-slate-800">{{ Math.min(currentPage * rowsPerPage, filteredRecords.length) }}</span>
-                                dari
-                                <span class="font-semibold text-slate-800">{{ formatNumber(filteredRecords.length) }}</span>
-                                respon
-                            </p>
-                            <div class="flex items-center gap-1.5">
-                                <button
-                                    type="button"
-                                    class="rounded border border-slate-300 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                    :disabled="currentPage <= 1"
-                                    @click="currentPage--"
-                                >
-                                    Sebelumnya
-                                </button>
-                                <span class="px-2 font-mono font-bold text-slate-800">{{ currentPage }} / {{ totalPages }}</span>
-                                <button
-                                    type="button"
-                                    class="rounded border border-slate-300 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                    :disabled="currentPage >= totalPages"
-                                    @click="currentPage++"
-                                >
-                                    Berikutnya
-                                </button>
-                            </div>
-                        </div>
+                        <!-- Pagination data responden mengikuti kontrol bersama. -->
+                        <PaginationControls
+                            :total="filteredRecords.length"
+                            :current-page="currentPage"
+                            :page-size="rowsPerPage"
+                            summary-label="respon"
+                            @update:current-page="currentPage = $event"
+                        />
                     </section>
 
                     <!-- Section Metodologi Perhitungan -->

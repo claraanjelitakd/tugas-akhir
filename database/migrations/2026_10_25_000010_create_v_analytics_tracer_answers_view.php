@@ -34,10 +34,21 @@ SELECT
     j.jawaban_teks AS answer,
     j.jawaban_json AS answer_json
 FROM v_analytics_population AS population
-INNER JOIN kuesioner_jawaban j ON j.biodata_id = population.biodata_id
+INNER JOIN (
+    SELECT
+        biodata_id,
+        pertanyaan_id,
+        MAX(id) AS latest_id
+    FROM kuesioner_jawaban
+    WHERE responden_type = 'alumni'
+      AND biodata_id IS NOT NULL
+    GROUP BY biodata_id, pertanyaan_id
+) AS latest ON latest.biodata_id = population.biodata_id
+INNER JOIN kuesioner_jawaban j ON j.id = latest.latest_id
 INNER JOIN kuesioner_pertanyaan p ON p.id = j.pertanyaan_id
 INNER JOIN kuesioner_section s ON s.id = j.section_id
-WHERE s.target = 'univ';
+WHERE s.target = 'univ'
+  AND j.responden_type = 'alumni';
 SQL);
     }
 

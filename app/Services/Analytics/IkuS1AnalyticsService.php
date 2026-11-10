@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Menghitung indikator IKU S1 dari read-model database.
  *
- * View hanya menormalisasi sumber data. Formula AEE dan bobot lulusan tetap
+ * View hanya menormalisasi sumber data lulusan. Formula AEE dan bobot lulusan tetap
  * berada di service agar aturan bisnis dapat diuji tanpa menaruh logika pada
  * Vue atau query agregasi yang sulit diaudit.
  */
@@ -22,6 +22,18 @@ class IkuS1AnalyticsService
         'Karyawan',
         'Founder / Co-Founder',
         'Freelancer',
+        'Melanjutkan Pendidikan',
+    ];
+
+    /**
+     * Kategori yang boleh ditampilkan pada grafik, termasuk usaha yang belum
+     * mempunyai role terstruktur sehingga tidak boleh diberi bobot otomatis.
+     */
+    private const DISPLAY_CAREER_CATEGORIES = [
+        'Karyawan',
+        'Founder / Co-Founder',
+        'Freelancer',
+        'Wirausaha Lainnya',
         'Melanjutkan Pendidikan',
     ];
 
@@ -39,14 +51,14 @@ class IkuS1AnalyticsService
     /**
      * Membuat payload Angka Efisiensi Edukasi perguruan tinggi untuk S1.
      *
-     * Semua mahasiswa pada data akademik masuk populasi. Status Drop Out,
-     * Pindah, dan Cuti dikeluarkan dari denominator sesuai ketentuan IKU.
+     * Hanya mahasiswa dengan status akademik Lulus yang masuk populasi. Status
+     * aktif, AR, AK, Drop Out, Pindah, dan Cuti tidak ikut dalam denominator.
      *
      * @return array<string, mixed> Payload chart, tabel, ringkasan, dan metodologi.
      */
     public function buildAeeChart(?string $selectedYear = null, ?int $prodiId = null): array
     {
-        $query = DB::table('v_iku_s1_aee');
+        $query = DB::table('v_iku_s1_aee')->where('status_mahasiswa', 'Lulus');
         $this->applyFilters($query, $selectedYear, $prodiId);
         $records = $query->orderBy('nama_prodi')->orderBy('nim')->get();
         $series = $records->groupBy('prodi_id')->map(function (Collection $rows): array {
@@ -126,8 +138,8 @@ class IkuS1AnalyticsService
                 'is_lulus_tepat_waktu' => (bool) $row->is_lulus_tepat_waktu,
             ])->values()->all(),
             'methodology' => [
-                'formula' => 'AEE = lulusan tepat waktu / mahasiswa masuk yang tidak dikecualikan × 100%. AEE ideal S1 = 25%. AEE PT = rata-rata capaian AEE setiap program pendidikan.',
-                'denominator' => 'Seluruh mahasiswa pada data akademik; status Drop Out, Pindah, dan Cuti dikecualikan dari denominator.',
+                'formula' => 'AEE = lulusan tepat waktu / seluruh lulusan S1 dengan status akademik Lulus × 100%. AEE ideal S1 = 25%. AEE PT = rata-rata capaian AEE setiap program pendidikan.',
+                'denominator' => 'Lulusan S1 dengan status akademik Lulus; status aktif, AR, AK, Drop Out, Pindah, dan Cuti tidak masuk populasi.',
                 'source' => 'v_iku_s1_aee dan data_akademik.prodi_id',
             ],
         ];
@@ -147,17 +159,23 @@ class IkuS1AnalyticsService
             ->filter(fn (array $row): bool => $row['weight'] > 0);
         $weightedScore = round($valid->sum('weight'), 4);
         $score = $this->percentage($weightedScore, $valid->count());
-        $series = $classified->groupBy('career_category')->map(function (Collection $categoryRows, string $label) use ($valid): array {
-            $validRows = $categoryRows->filter(fn (array $row): bool => $row['weight'] > 0);
+        $series = collect(self::DISPLAY_CAREER_CATEGORIES)
+            ->map(function (string $label) use ($classified, $valid): ?array {
+                $categoryRows = $classified->where('career_category', $label);
+                if ($categoryRows->isEmpty()) {
+                    return null;
+                }
 
-            return [
-                'label' => $label,
-                'count' => $categoryRows->count(),
-                'valid_count' => $validRows->count(),
-                'weighted_score' => round($validRows->sum('weight'), 4),
-                'percentage' => $this->percentage($validRows->sum('weight'), $valid->count()),
-            ];
-        })->values()->all();
+                $validRows = $categoryRows->filter(fn (array $row): bool => $row['weight'] > 0);
+
+                return [
+                    'label' => $label,
+                    'count' => $categoryRows->count(),
+                    'valid_count' => $validRows->count(),
+                    'weighted_score' => round($validRows->sum('weight'), 4),
+                    'percentage' => $this->percentage($validRows->sum('weight'), $valid->count()),
+                ];
+            })->filter()->values()->all();
 
         return [
             'key' => 'iku_s1_outcomes',
@@ -216,8 +234,8 @@ class IkuS1AnalyticsService
         return [
             'key' => 'iku_s1_ump_weighted',
             'type' => 'iku_s1_ump_weighted',
-            'title' => 'Perbandingan 1,2× UMP dan Bobot IKU S1',
-            'subtitle' => 'Rincian gaji, masa tunggu, role karier, dan bobot responden lulusan S1.',
+            'title' => 'Audit Pendapatan, Masa Tunggu, dan Bobot IKU S1',
+            'subtitle' => 'Tiga sudut audit untuk responden yang sama: status gaji terhadap 1,2× UMP, masa tunggu, dan akumulasi bobot IKU.',
             'summary' => [
                 'population' => $classified->count(),
                 'valid_respondents' => $valid->count(),
@@ -269,8 +287,34 @@ class IkuS1AnalyticsService
     private function classifiedOutcomes(?int $umpYear, ?string $selectedYear = null, ?int $prodiId = null): Collection
     {
         $umpRows = $this->umpRows($umpYear);
-        $query = DB::table('v_iku_s1_lulusan');
-        $this->applyFilters($query, $selectedYear, $prodiId);
+        $query = DB::table('v_iku_s1_lulusan as graduate')
+            ->leftJoin('biodata', 'biodata.id', '=', 'graduate.biodata_id')
+            ->leftJoin('perusahaan as workplace', 'workplace.id', '=', 'biodata.perusahaan_id')
+            ->leftJoin('atasan as supervisor', 'supervisor.id', '=', 'biodata.atasan_id')
+            ->leftJoin('propinsi as workplace_province', 'workplace_province.kode_provinsi', '=', 'workplace.kode_provinsi')
+            ->leftJoin('kabupaten as workplace_city', 'workplace_city.kode_kabupaten', '=', 'workplace.kode_kabupaten')
+            ->select([
+                'graduate.*',
+                'biodata.posisi_jabatan',
+                'biodata.bidang_pekerjaan',
+                'biodata.divisi',
+                'biodata.kategori_pekerjaan as profile_career_status',
+                'biodata.skills',
+                'biodata.experience',
+                'biodata.posisi_wiraswasta',
+                'biodata.pendidikan_tingkat',
+                'biodata.perguruan_tinggi',
+                'biodata.pendidikan_prodi',
+                'workplace.nama_perusahaan as profile_company_name',
+                'workplace.alamat as workplace_address',
+                'workplace.kode_pos as workplace_postal_code',
+                'workplace_province.nama_provinsi as workplace_province_name',
+                'workplace_city.nama_kabupaten as workplace_city_name',
+                'supervisor.nama as supervisor_name',
+                'supervisor.email as supervisor_email',
+                'supervisor.telepon as supervisor_phone',
+            ]);
+        $this->applyFilters($query, $selectedYear, $prodiId, 'graduate');
 
         return $query->get()
             ->map(fn (object $row): array => $this->classifyOutcome($row, $umpRows));
@@ -282,15 +326,19 @@ class IkuS1AnalyticsService
      * @param  Builder  $query  Query read-model.
      * @param  string|null  $selectedYear  Tahun kelulusan atau ALL.
      * @param  int|null  $prodiId  Program studi opsional.
+     * @param  string|null  $tableAlias  Alias read-model untuk kolom filter.
      */
-    private function applyFilters(Builder $query, ?string $selectedYear, ?int $prodiId): void
+    private function applyFilters(Builder $query, ?string $selectedYear, ?int $prodiId, ?string $tableAlias = null): void
     {
+        $yearColumn = $tableAlias ? $tableAlias.'.tahun_lulus' : 'tahun_lulus';
+        $prodiColumn = $tableAlias ? $tableAlias.'.prodi_id' : 'prodi_id';
+
         if ($selectedYear !== null && $selectedYear !== 'ALL') {
-            $query->where('tahun_lulus', (int) $selectedYear);
+            $query->where($yearColumn, (int) $selectedYear);
         }
 
         if ($prodiId !== null) {
-            $query->where('prodi_id', $prodiId);
+            $query->where($prodiColumn, $prodiId);
         }
     }
 
@@ -310,7 +358,11 @@ class IkuS1AnalyticsService
         $salaryAboveThreshold = $salary !== null && $threshold !== null
             ? $salary > $threshold
             : null;
-        $beforeGraduation = mb_strtolower(trim((string) $row->bekerja_sebelum_lulus)) === 'ya';
+        $beforeGraduation = match (mb_strtolower(trim((string) $row->bekerja_sebelum_lulus))) {
+            'ya' => true,
+            'tidak' => false,
+            default => null,
+        };
         $months = $this->resolveWaitMonths($row, $beforeGraduation);
         $weight = $this->resolveWeight($category, $beforeGraduation, $months, $salaryAboveThreshold, $row);
 
@@ -332,8 +384,122 @@ class IkuS1AnalyticsService
             'qualifies' => $weight > 0,
             'study_start' => $row->tanggal_mulai_studi,
             'salary_above_threshold' => $salaryAboveThreshold,
-            'career_role' => $category,
+            'career_role' => $this->careerRole($category, $row),
+            'career_status_label' => $this->careerStatusLabel($category, $row),
+            'nama_perusahaan' => $row->profile_company_name,
+            'lokasi_kerja' => $this->workplaceLocation($row),
+            'nama_atasan' => $row->supervisor_name,
+            'email_atasan' => $row->supervisor_email,
+            'telepon_atasan' => $row->supervisor_phone,
+            'skills' => $row->skills,
+            'posisi_jabatan' => $row->posisi_jabatan,
+            'bidang_pekerjaan' => $row->bidang_pekerjaan,
+            'divisi' => $row->divisi,
+            'study_detail' => $this->studyDetail($row),
         ];
+    }
+
+    /**
+     * Menampilkan status karier gabungan ketika alumni bekerja sekaligus memiliki data studi lanjut.
+     *
+     * @param  string  $category  Kategori karier utama yang sudah diklasifikasikan.
+     * @param  object  $row  Fakta lulusan dan profil karier.
+     * @return string Label status karier untuk drill-down grafik.
+     */
+    private function careerStatusLabel(string $category, object $row): string
+    {
+        $hasFurtherStudy = $this->validStudyStart($row->tanggal_mulai_studi) !== null
+            || filled($row->pendidikan_tingkat)
+            || filled($row->perguruan_tinggi)
+            || filled($row->pendidikan_prodi);
+        $hasWorkProfile = filled($row->profile_company_name)
+            || filled($row->posisi_jabatan)
+            || filled($row->bidang_pekerjaan)
+            || filled($row->divisi);
+
+        if ($hasFurtherStudy && $category === 'Melanjutkan Pendidikan' && $hasWorkProfile) {
+            return 'Bekerja + Studi Lanjut';
+        }
+
+        if ($hasFurtherStudy && $category !== 'Melanjutkan Pendidikan') {
+            return $category.' + Studi Lanjut';
+        }
+
+        return $category;
+    }
+
+    /**
+     * Menggabungkan alamat cabang, kabupaten/kota, provinsi, dan kode pos tempat kerja.
+     *
+     * @param  object  $row  Fakta perusahaan dan wilayah kerja.
+     * @return string Lokasi kerja yang siap ditampilkan.
+     */
+    private function workplaceLocation(object $row): string
+    {
+        return collect([
+            $row->workplace_address,
+            $row->workplace_city_name,
+            $row->workplace_province_name,
+            $row->workplace_postal_code,
+        ])->filter(fn (mixed $value): bool => filled($value))->implode(', ');
+    }
+
+    /**
+     * Merangkum jenjang, kampus, program studi, dan tanggal studi lanjut alumni.
+     *
+     * @param  object  $row  Fakta pendidikan lanjut dari profil alumni.
+     * @return string Ringkasan studi lanjut.
+     */
+    private function studyDetail(object $row): string
+    {
+        return collect([
+            $row->pendidikan_tingkat,
+            $row->perguruan_tinggi,
+            $row->pendidikan_prodi,
+            $this->validStudyStart($row->tanggal_mulai_studi),
+        ])->filter(fn (mixed $value): bool => filled($value))->implode(' | ');
+    }
+
+    /**
+     * Mengambil peran wirausaha asli dari field khusus atau jabatan fixture.
+     *
+     * @param  string  $category  Kategori karier kanonik.
+     * @param  object  $row  Fakta profil karier alumni.
+     * @return string Peran yang ditampilkan pada drill-down.
+     */
+    private function careerRole(string $category, object $row): string
+    {
+        if (filled($row->posisi_wiraswasta)) {
+            return (string) $row->posisi_wiraswasta;
+        }
+
+        $status = mb_strtolower((string) ($row->profile_career_status ?: $row->status_karier));
+        if ((str_contains($status, 'wiraswasta') || str_contains($status, 'wirausaha')) && filled($row->posisi_jabatan)) {
+            return (string) $row->posisi_jabatan;
+        }
+
+        return $category;
+    }
+
+    /**
+     * Memastikan jawaban F18d benar-benar tanggal studi lanjut, bukan kode opsi.
+     *
+     * @param  string|null  $value  Nilai jawaban tanggal dari read-model.
+     * @return string|null Tanggal ISO atau null jika jawaban bukan tanggal valid.
+     */
+    private function validStudyStart(?string $value): ?string
+    {
+        $value = trim((string) $value);
+
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('!Y-m-d', $value)->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -344,18 +510,22 @@ class IkuS1AnalyticsService
      */
     private function careerCategory(object $row): string
     {
-        $status = mb_strtolower((string) $row->status_karier);
-        $position = mb_strtolower((string) $row->posisi_wiraswasta);
-
-        if (str_contains($status, 'pendidikan')) {
-            return 'Melanjutkan Pendidikan';
+        $status = mb_strtolower((string) ($row->profile_career_status ?: $row->status_karier));
+        $positionValue = $row->posisi_wiraswasta;
+        if ($positionValue === null && (str_contains($status, 'wiraswasta') || str_contains($status, 'wirausaha'))) {
+            $positionValue = $row->posisi_jabatan;
         }
+        $position = mb_strtolower((string) $positionValue);
+        $hasWorkProfile = filled($row->profile_company_name)
+            || filled($row->posisi_jabatan)
+            || filled($row->bidang_pekerjaan)
+            || filled($row->divisi);
 
         if (str_contains($position, 'freelance') || str_contains($position, 'konsultan mandiri') || str_contains($position, 'pekerja lepas')) {
             return 'Freelancer';
         }
 
-        if (str_contains($position, 'founder') || str_contains($position, 'co-founder') || str_contains($position, 'owner') || str_contains($position, 'pemilik')) {
+        if (str_contains($position, 'founder') || str_contains($position, 'co-founder')) {
             return 'Founder / Co-Founder';
         }
 
@@ -367,6 +537,14 @@ class IkuS1AnalyticsService
             return 'Karyawan';
         }
 
+        if (str_contains($status, 'pendidikan') && $hasWorkProfile) {
+            return 'Karyawan';
+        }
+
+        if (str_contains($status, 'pendidikan')) {
+            return 'Melanjutkan Pendidikan';
+        }
+
         return 'Tidak memenuhi klasifikasi';
     }
 
@@ -374,11 +552,15 @@ class IkuS1AnalyticsService
      * Mengambil masa tunggu dari kolom sebelum atau sesudah lulus.
      *
      * @param  object  $row  Baris view lulusan.
-     * @param  bool  $beforeGraduation  Apakah pekerjaan diperoleh sebelum lulus.
+     * @param  bool|null  $beforeGraduation  Apakah pekerjaan diperoleh sebelum lulus.
      * @return float|null Masa tunggu dalam bulan.
      */
-    private function resolveWaitMonths(object $row, bool $beforeGraduation): ?float
+    private function resolveWaitMonths(object $row, ?bool $beforeGraduation): ?float
     {
+        if ($beforeGraduation === null) {
+            return null;
+        }
+
         $value = $beforeGraduation ? $row->bulan_sebelum_lulus : $row->bulan_setelah_lulus;
 
         return is_numeric($value) ? (float) $value : null;
@@ -388,21 +570,22 @@ class IkuS1AnalyticsService
      * Menerapkan bobot resmi untuk kategori pekerjaan dan studi lanjut.
      *
      * @param  string  $category  Kategori karier kanonik.
-     * @param  bool  $beforeGraduation  Status pekerjaan sebelum lulus.
+     * @param  bool|null  $beforeGraduation  Status pekerjaan sebelum lulus.
      * @param  float|null  $months  Masa tunggu setelah atau sebelum lulus.
      * @param  bool  $salaryAboveThreshold  Gaji di atas 1,2× UMP.
      * @param  object  $row  Baris view lulusan untuk tanggal studi lanjut.
      * @return float Bobot, nol berarti tidak memenuhi kriteria.
      */
-    private function resolveWeight(string $category, bool $beforeGraduation, ?float $months, ?bool $salaryAboveThreshold, object $row): float
+    private function resolveWeight(string $category, ?bool $beforeGraduation, ?float $months, ?bool $salaryAboveThreshold, object $row): float
     {
         if ($category === 'Melanjutkan Pendidikan') {
-            if (! $row->tanggal_mulai_studi || ! $row->tanggal_lulus) {
+            $studyStart = $this->validStudyStart($row->tanggal_mulai_studi);
+            if (! $studyStart || ! $row->tanggal_lulus) {
                 return 0.0;
             }
 
             try {
-                $start = Carbon::parse($row->tanggal_mulai_studi);
+                $start = Carbon::parse($studyStart);
                 $graduated = Carbon::parse($row->tanggal_lulus);
             } catch (\Throwable) {
                 return 0.0;
@@ -413,7 +596,7 @@ class IkuS1AnalyticsService
                 : 0.0;
         }
 
-        if ($months === null || $months < 0) {
+        if ($beforeGraduation === null || $months === null || $months < 0) {
             return 0.0;
         }
 
@@ -452,6 +635,10 @@ class IkuS1AnalyticsService
                         : (float) ($weights['freelancer_after_6_plus_below_ump'] ?? 0.2)));
         }
 
+        if ($category === 'Wirausaha Lainnya') {
+            return 0.0;
+        }
+
         if ($months < 6 && $salaryAboveThreshold) {
             return (float) ($weights['employee_after_under_6_above_ump'] ?? 1.0);
         }
@@ -472,7 +659,7 @@ class IkuS1AnalyticsService
     {
         return [
             'formula' => 'IKU = Σ(nᵢ × kᵢ) / t × 100%. nᵢ adalah jumlah responden kategori i, kᵢ bobot, dan t total responden valid.',
-            'denominator' => 'Lulusan S1 dengan status Karyawan, Founder/Co-Founder, Freelancer, atau Melanjutkan Pendidikan yang memenuhi syarat waktu dan data minimum.',
+            'denominator' => 'Lulusan S1 dengan status Karyawan, Founder/Co-Founder, Freelancer, atau Melanjutkan Pendidikan yang memenuhi syarat waktu dan data minimum. Wirausaha Lainnya ditampilkan untuk audit tetapi tidak diberi bobot tanpa role terstruktur.',
             'source' => 'v_iku_s1_lulusan, kuesioner_jawaban F8/F504/F502/F506/F18d, biodata.gaji, dan ump.',
             'weight_confirmation_status' => (string) config('iku.s1.weight_confirmation_status'),
             'slovin' => 'n_min = ceil(N / (1 + N × 0,023²)).',

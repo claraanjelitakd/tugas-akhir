@@ -13,6 +13,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import Sidebar from '../Components/Sidebar.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 
 const props = defineProps({
     user: Object,
@@ -894,6 +895,9 @@ const closeDetailModal = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Pagination riwayat evaluasi memakai pola yang sama dengan seluruh master data. -->
+                    <PaginationControls :pagination="evaluasis" summary-label="evaluasi atasan" />
                 </div>
             </main>
         </div>

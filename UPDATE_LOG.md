@@ -1,5 +1,48 @@
 # UPDATE LOG - SERU (Sistem Ekosistem Rekam Jejak Alumni)
 
+## [2026-11-11] Penyelarasan Opsi Kontribusi Alumni Sistem Informasi
+
+- Menambahkan opsi master `Kunjungan perusahaan` pada pertanyaan `PSI-1-04` melalui fixture seeding kanonik; opsi `Lainnya` tetap dipertahankan dengan ID lama agar respons historis tidak tertukar.
+- Seeder simulasi kini mengambil jawaban pertanyaan pilihan prodi dari opsi aktif, bukan mengisi angka mentah `4`; data kontribusi Sistem Informasi otomatis dapat memuat `Kunjungan perusahaan`.
+- Master kuesioner dan seeder simulasi sudah dijalankan ulang pada database lokal.
+
+## [2026-11-11] Penyelarasan Seed Evaluasi Atasan
+
+- Seeder evaluasi atasan terpusat kini membuat evaluasi tersubmit untuk setiap alumni yang memiliki perusahaan dan atasan, dengan relasi evaluator, alumni, dan perusahaan yang konsisten; seeder alumni utama dan kohort dashboard sama-sama memanggilnya.
+- Seluruh jawaban evaluasi atasan mengambil label serta ID opsi dari master form aktif; angka mentah `4` tidak lagi dipakai sebagai jawaban pilihan.
+- Butir evaluasi placeholder `EVA_891` diperjelas menjadi `Kepemimpinan dan Pengambilan Keputusan` dan dilengkapi lima opsi penilaian agar form aktif dapat dijawab secara valid.
+- Jawaban numerik lama pada instrumen prodi dinormalisasi ke label serta opsi master aktif tanpa menghapus respons historis.
+
+## [2026-11-11] Koreksi Kategori Status Gabungan IKU S1
+
+- Status `Karyawan + Studi Lanjut` tetap memakai kategori utama `Karyawan`; studi lanjut hanya menjadi label tambahan agar kontribusinya tidak hilang dari seri Karyawan.
+- Baris legacy dengan status sumber `Melanjutkan Pendidikan` tetapi masih memiliki data perusahaan/jabatan/bidang/divisi juga dipromosikan ke kategori `Karyawan`, karena labelnya memang menunjukkan bekerja sekaligus studi lanjut.
+- Seeder skenario kini tidak lagi mengisi perusahaan, atasan, jabatan, bidang, atau jenis pekerjaan untuk studi lanjut murni; data studi lanjut murni tetap memiliki rincian pendidikan tanpa dipaksa menjadi pekerjaan.
+- Drill-down Outcomes menambahkan filter status `Bekerja`, `Bekerja + Studi Lanjut`, dan `Studi Lanjut Murni`; pencarian juga membaca rincian studi lanjut, perusahaan, lokasi, atasan, dan skills.
+- Normalizer ECharts kini mempertahankan warna seri eksplisit; Status UMP tidak lagi tertukar: di atas ambang hijau, di bawah ambang merah, dan belum dapat dibandingkan abu-abu.
+
+## [2026-11-11] Audit dan Penyelarasan Pagination Seluruh Tabel
+
+- Menambahkan `resources/js/components/PaginationControls.vue` sebagai kontrol pagination bersama untuk paginator Laravel dan tabel lokal pada grafik.
+- Label navigasi diseragamkan menjadi Bahasa Indonesia (`Sebelumnya`, `Selanjutnya`), nomor halaman panjang diringkas dengan ellipsis, dan label HTML mentah dari backend tidak lagi dirender langsung.
+- Menerapkan pola yang sama pada Data Atasan, Perusahaan, Log Aktivitas, Manajemen Akun, Master Wilayah, Evaluasi Atasan, LinkedIn, tabel grafik Universitas/Prodi/Atasan, Response Rate, serta tabel ringkasan, detail, dan drill-down analitik.
+
+## [2026-11-11] Kategori Outcomes Freelancer dan Wirausaha Lainnya
+
+- Grafik IKU S1 Outcomes kini menampilkan `Wirausaha Lainnya` ketika status alumni memang Wiraswasta tetapi role terstrukturnya belum dapat dipetakan. Kategori ini tetap berbobot `0` agar aplikasi tidak menebak bobot kebijakan.
+- Seeder dashboard dan distribusi analitik demo kini menyebarkan role `Founder / Owner`, `Owner / Managing Director`, `Freelancer / Konsultan Mandiri`, dan `Pengelola Usaha`, sehingga kategori freelancer tidak hilang dari data uji.
+- `Freelancer` tetap memakai matriks bobot freelancer pada `config/iku.php`; hanya kategori usaha umum yang dikeluarkan dari denominator sampai ada aturan bobot resmi.
+- Field boolean analitik kini membedakan jawaban `Tidak` dari data yang belum tersedia. Nilai F504 kosong tidak lagi dipaksa menjadi `Tidak`; tabel menampilkannya sebagai `-` dan bobot tetap `0`.
+- Klasifikasi role Outcomes kini membaca `biodata.kategori_pekerjaan` dan `biodata.posisi_wiraswasta` sebagai data induk; service tidak menulis hasil kategori ke database view. Hanya role yang eksplisit mengandung `Founder`/`Co-Founder` yang masuk kategori founder; `Owner`, `Direktur Utama`, dan `Pengelola Usaha` tetap menjadi `Wirausaha Lainnya`.
+- Form profil menyembunyikan `Bidang Pekerjaan` dan `Divisi` untuk status tidak bekerja serta membersihkan nilainya saat disimpan.
+- Audit IKU S1 memisahkan makna tiga tab: Status UMP membandingkan gaji dengan `1,2 × UMP`, Masa Tunggu hanya mengelompokkan waktu memperoleh pekerjaan, dan Total Bobot menjumlahkan kontribusi bobot tanpa menghitung UMP kedua kali. Warna grafik diselaraskan: hijau memenuhi/sebelum lulus, merah di bawah atau ≥12 bulan, kuning <6 bulan, oranye 6–<12 bulan, dan abu-abu untuk data yang belum dapat dibandingkan.
+
+## [2026-11-11] Penyelarasan Autofill Profil dan Kuesioner Alumni
+
+- Menetapkan profil alumni/data akademik sebagai sumber kanonik field identitas pada Kuesioner Universitas dan Prodi; jawaban evaluasi yang memang diisi alumni tetap dipertahankan.
+- Memperbaiki autofill Kuesioner Prodi untuk variasi label `Nama Lengkap Mahasiswa`, `Nomor Induk Mahasiswa (NIM)`, dan `Tahun Kelulusan`, termasuk koreksi jawaban identitas lama.
+- Memisahkan cache draft Kuesioner Prodi berdasarkan alumni, prodi, dan versi instrumen; nilai server terbaru tidak lagi tertimpa cache lokal lama atau cache alumni lain.
+
 ## [2026-11-09] Pemutakhiran ERD, Kamus Data, dan Audit Bobot
 
 - Menyelaraskan `ERD.md` dengan migration aktif yang sudah `Ran`, termasuk kolom terbaru pada `perusahaan`, `biodata`, `linkedin_sync_results`, `ump`, `ref_negara`, `ref_fakultas`, dan `kuesioner_opsi`.
@@ -8,6 +51,11 @@
 - Mendokumentasikan audit bobot: bobot utama IKU S1 berada di `config/iku.php`; fallback numerik masih ada di service; `kuesioner_opsi.nilai_skor` tersimpan di database untuk skor opsi; dan bonus kemiripan perusahaan masih berupa konstanta algoritma di service.
 - Menambahkan master Data Atasan lintas role dengan pola tampilan seperti Master Data Perusahaan. Read-model menampilkan satu baris per alumni dari relasi `biodata.atasan_id`, perusahaan mengikuti relasi data aktif, `diisi_oleh` ditetapkan sebagai Alumni melalui Profil alumni, dan tidak menambahkan PIC/collector atau field hardcode baru.
 - Memperbaiki query eager loading evaluasi atasan agar tidak menghasilkan kolom `biodata_id` ambigu pada SQLite maupun MySQL; kegagalan ini sebelumnya membuat respons Inertia tidak valid dan halaman terlihat tidak dapat diklik.
+- Menambahkan drill-down inline pada grafik Outcomes IKU S1. Daftar alumni kini mengambil nama, perusahaan/lokasi cabang, atasan, jabatan, skills, peran wirausaha, dan studi lanjut dari relasi aktif Data Alumni; status kerja + studi lanjut ditampilkan sebagai status gabungan tanpa mengubah formula bobot.
+- Memperbaiki agregasi grafik Outcomes agar hanya kategori karier valid yang tampil. Kategori tidak memenuhi klasifikasi tidak lagi bocor ke series atau membuat persentase kategori tampak melebihi denominator valid.
+- Memperbaiki fixture `DashboardScenarioSeeder`: jawaban studi lanjut F12/F18b/F18c/F18d hanya dibuat untuk status studi lanjut, peran wirausaha diisi terstruktur, dan service mengabaikan kode opsi non-tanggal seperti `4` sebagai tanggal studi.
+- Menjadikan `v_analytics_tracer_answers` sebagai sumber kanonik satu jawaban terbaru per alumni/pertanyaan, menghapus ketergantungan service pada sembilan view filter-tipis, serta mencegah fallback seeder mengisi nilai sintetis `4` untuk pertanyaan yang belum dipetakan.
+- Mengubah formula AEE S1 agar populasi hanya mengambil `data_akademik.status_mahasiswa = 'Lulus'`. Status aktif, AR, AK, cuti, pindah, dan drop out tidak lagi masuk denominator; kategori abu-abu “belum terdeteksi” dihapus dari grafik.
 
 ## [2026-11-05] Penyelarasan Response Rate 100% Kuesioner Universitas, Penyederhanaan RBAC Akun, & Penataan Folder
 

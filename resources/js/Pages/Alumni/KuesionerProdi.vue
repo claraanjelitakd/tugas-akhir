@@ -38,23 +38,74 @@ const props = defineProps({
     message: String,
 });
 
-const STORAGE_ANSWERS_KEY = 'tracerstudy_alumni_kuesioner_prodi_answers';
-const STORAGE_SECTION_KEY = 'tracerstudy_alumni_kuesioner_prodi_sec';
+// Membentuk hash singkat untuk memisahkan cache antar alumni dan versi instrumen.
+const hashStorageValue = (value) => {
+    let hash = 0;
 
-// Inisialisasi formulir jawaban (gabung server + cache lokal jika ada)
+    for (let index = 0; index < value.length; index += 1) {
+        hash = ((hash << 5) - hash) + value.charCodeAt(index);
+        hash |= 0;
+    }
+
+    return Math.abs(hash).toString(36);
+};
+
+// Menghasilkan versi cache dari struktur pertanyaan dan opsi yang aktif.
+const getQuestionnaireVersion = () => {
+    const signature = (props.questions || [])
+        .map((question) => {
+            const options = (question.options || [])
+                .map((option) => `${option.id}:${option.option_text}`)
+                .join(',');
+
+            return `${question.id}:${question.code}:${question.type}:${options}`;
+        })
+        .sort()
+        .join('|');
+
+    return hashStorageValue(signature || 'empty-questionnaire-prodi');
+};
+
+const storageScope = `alumni_${props.alumni?.id || props.alumni?.nim || 'unknown'}_prodi_${props.prodi?.id || 'unknown'}_${getQuestionnaireVersion()}`;
+const STORAGE_ANSWERS_KEY = `tracerstudy_alumni_kuesioner_prodi_answers_${storageScope}`;
+const STORAGE_SECTION_KEY = `tracerstudy_alumni_kuesioner_prodi_sec_${storageScope}`;
+
+// Menentukan apakah nilai server atau draft lokal masih kosong.
+const isAnswerValEmpty = (value) => {
+    if (value === undefined || value === null || value === '') return true;
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === 'object') {
+        const keys = Object.keys(value);
+        return keys.length === 0 || keys.every((key) => isAnswerValEmpty(value[key]));
+    }
+    return false;
+};
+
+// Menggabungkan jawaban server dengan draft lokal; nilai server selalu menang.
 const getInitialAnswers = () => {
-    const base = { ...(props.initialAnswers || {}) };
+    const serverAnswers = JSON.parse(JSON.stringify(props.initialAnswers || {}));
+    let cachedAnswers = {};
     if (typeof window !== 'undefined') {
         try {
             const cached = localStorage.getItem(STORAGE_ANSWERS_KEY);
             if (cached) {
-                const parsed = JSON.parse(cached);
-                Object.assign(base, parsed);
+                cachedAnswers = JSON.parse(cached) || {};
             }
         } catch (e) {
             console.error('Gagal membaca cache jawaban prodi:', e);
         }
     }
+
+    const base = {};
+    const allKeys = new Set([...Object.keys(cachedAnswers), ...Object.keys(serverAnswers)]);
+    allKeys.forEach((key) => {
+        const serverValue = serverAnswers[key];
+        const cachedValue = cachedAnswers[key];
+        base[key] = !isAnswerValEmpty(serverValue)
+            ? serverValue
+            : (!isAnswerValEmpty(cachedValue) ? cachedValue : (serverValue ?? cachedValue));
+    });
+
     return base;
 };
 

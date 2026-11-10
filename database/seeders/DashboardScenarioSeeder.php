@@ -6,6 +6,7 @@ use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\Kabupaten;
+use App\Models\KuesionerJawaban;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\Perusahaan;
@@ -54,6 +55,22 @@ class DashboardScenarioSeeder extends Seeder
             $this->command?->error("Format data kohort {$jsonPath} tidak valid.");
 
             return;
+        }
+
+        $fixtureNims = collect($cohortData)
+            ->pluck('nim')
+            ->map(static fn (mixed $nim): string => (string) $nim)
+            ->reject(static fn (string $nim): bool => $nim === '72220001')
+            ->values();
+        $fixtureBiodataIds = Biodata::query()
+            ->whereIn('nim', $fixtureNims)
+            ->pluck('id');
+
+        if ($fixtureBiodataIds->isNotEmpty()) {
+            KuesionerJawaban::query()
+                ->where('responden_type', 'alumni')
+                ->whereIn('biodata_id', $fixtureBiodataIds)
+                ->delete();
         }
 
         $prodis = Prodi::query()->get()->keyBy('kode_prodi');
@@ -129,12 +146,13 @@ class DashboardScenarioSeeder extends Seeder
             $statusKarier = $item['status_karier'] ?? null;
             $companyName = $item['perusahaan'] ?? null;
             $methodsScores = $item['metode_pembelajaran'] ?? [4, 4, 4, 4, 4, 3, 4];
+            $hasCareer = in_array($statusKarier, ['Bekerja (Full Time)', 'Wiraswasta'], true);
 
             // 1. Tautkan atau buat entitas Perusahaan riil
             $company = null;
             $atasan = null;
 
-            if ($companyName) {
+            if ($hasCareer && $companyName) {
                 $company = $companiesCache->get($companyName);
                 if (! $company) {
                     $company = Perusahaan::firstOrCreate(
@@ -248,17 +266,18 @@ class DashboardScenarioSeeder extends Seeder
                     'linkedin_url' => $statusKarier ? 'https://www.linkedin.com/in/'.strtolower(str_replace(' ', '-', preg_replace('/[^a-zA-Z ]/', '', $nama))) : null,
                     'linkedin_username' => $statusKarier ? strtolower(str_replace(' ', '-', preg_replace('/[^a-zA-Z ]/', '', $nama))) : null,
                     'skills' => $statusKarier ? 'Keahlian Bidang '.$prodi->nama_prodi.', Manajemen Tim, Analisis Data' : null,
-                    'experience' => $statusKarier ? 'Pengalaman profesional pada '.$companyName : null,
-                    'perusahaan_id' => $company?->id,
-                    'atasan_id' => $atasan?->id,
+                    'experience' => $hasCareer ? 'Pengalaman profesional pada '.$companyName : null,
+                    'perusahaan_id' => $hasCareer ? $company?->id : null,
+                    'atasan_id' => $hasCareer ? $atasan?->id : null,
                     'kategori_pekerjaan' => $statusKarier,
-                    'posisi_jabatan' => $statusKarier ? $this->resolveJobTitle($prodiCode, $statusKarier, $idx) : null,
-                    'bidang_pekerjaan' => $statusKarier ? $this->resolveJobField($prodiCode) : null,
+                    'posisi_jabatan' => $hasCareer ? $this->resolveJobTitle($prodiCode, $statusKarier, $idx) : null,
+                    'bidang_pekerjaan' => $hasCareer ? $this->resolveJobField($prodiCode) : null,
+                    'posisi_wiraswasta' => $statusKarier === 'Wiraswasta' ? $this->resolveEntrepreneurRole($idx) : null,
                     'pendidikan_tingkat' => $statusKarier === 'Melanjutkan Pendidikan' ? 'S2' : null,
                     'perguruan_tinggi' => $statusKarier === 'Melanjutkan Pendidikan' ? 'Universitas Gadjah Mada' : null,
                     'pendidikan_prodi' => $statusKarier === 'Melanjutkan Pendidikan' ? 'Magister '.$prodi->nama_prodi : null,
                     'gaji' => $salary,
-                    'jenis_pekerjaan' => $statusKarier ? 'Profesional' : null,
+                    'jenis_pekerjaan' => $hasCareer ? 'Profesional' : null,
                 ]
             );
 
@@ -292,6 +311,8 @@ class DashboardScenarioSeeder extends Seeder
                 });
             $this->pendingAnswers = [];
         }
+
+        $this->call(EvaluasiAtasanSimulationSeeder::class);
 
         $this->command?->info("Pembersihan & Seeding kohort 532 alumni riil selesai! {$createdCount} alumni terdata.");
     }
@@ -372,6 +393,14 @@ class DashboardScenarioSeeder extends Seeder
                 $answer = $hasCareer && ! $startsBeforeGraduation ? (string) $waitMonths : null;
             } elseif ($code === 'F505') {
                 $answer = $salary ? (string) $salary : null;
+            } elseif ($code === 'F12') {
+                $answer = $isFurtherStudy ? 'Beasiswa Pemerintah' : null;
+            } elseif ($code === 'F18B') {
+                $answer = $isFurtherStudy ? (string) ($biodata->perguruan_tinggi ?: 'Universitas Gadjah Mada') : null;
+            } elseif ($code === 'F18C') {
+                $answer = $isFurtherStudy ? (string) ($biodata->pendidikan_prodi ?: 'Program Magister Pascasarjana') : null;
+            } elseif ($code === 'F18D') {
+                $answer = $isFurtherStudy ? '2025-09-01' : null;
             } elseif ($code === 'F3') {
                 $answer = $hasCareer
                     ? ($startsBeforeGraduation ? "Sebelum lulus ... bulan: {$waitMonths}" : "Setelah lulus ... bulan: {$waitMonths}")
@@ -471,7 +500,9 @@ class DashboardScenarioSeeder extends Seeder
                 $kodeOpsi = (string) $compScore;
             } else {
                 $option = $question->opsi?->first();
-                $answer = $option ? (string) $option->label : '4';
+                // Pertanyaan yang belum memiliki aturan fixture dibiarkan kosong;
+                // jangan membuat nilai sintetis yang dapat terbaca sebagai jawaban nyata.
+                $answer = $option ? (string) $option->label : null;
                 $kodeOpsi = $option?->kode_opsi;
             }
 
@@ -593,7 +624,7 @@ class DashboardScenarioSeeder extends Seeder
     private function resolveJobTitle(string $prodiCode, string $career, int $idx): string
     {
         if ($career === 'Wiraswasta') {
-            return ['Founder & Owner', 'Managing Director', 'Co-Founder & Studio Lead'][$idx % 3];
+            return $this->resolveEntrepreneurRole($idx);
         }
 
         return match ($prodiCode) {
@@ -609,6 +640,22 @@ class DashboardScenarioSeeder extends Seeder
             '31' => ['Pendeta Jemaat', 'Pelayan Pastoral', 'Konselor Rohani', 'Tenaga Pendidik Teologi'][$idx % 4],
             '81' => ['English Educator', 'Curriculum Developer', 'Instructional Designer', 'Language Specialist'][$idx % 4],
             default => ['Social Researcher', 'Cultural Specialist', 'Community Organizer', 'Humanities Consultant'][$idx % 4],
+        };
+    }
+
+    /**
+     * Menyediakan peran wirausaha terstruktur untuk fixture status Wiraswasta.
+     *
+     * @param  int  $idx  Indeks deterministik alumni pada fixture.
+     * @return string Peran usaha yang mencakup founder, freelancer, dan usaha umum.
+     */
+    private function resolveEntrepreneurRole(int $idx): string
+    {
+        return match ($idx % 4) {
+            0 => 'Founder / Owner',
+            1 => 'Owner / Managing Director',
+            2 => 'Freelancer / Konsultan Mandiri',
+            default => 'Pengelola Usaha',
         };
     }
 

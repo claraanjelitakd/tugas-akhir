@@ -17,6 +17,7 @@ import Swal from 'sweetalert2';
 import SuperAdminSidebar from '../Components/Sidebar.vue';
 import AdminFakultasSidebar from '../../AdminFakultas/Components/Sidebar.vue';
 import AdminProdiSidebar from '../../AdminProdi/Components/Sidebar.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 
 const props = defineProps({
     user: Object,
@@ -1499,28 +1500,8 @@ const handleVerificationAction = (company, event) => {
                     </table>
                 </div>
 
-                <!-- Navigasi Paginasi Halaman -->
-                <div v-if="companies.links && companies.links.length > 3" class="flex items-center justify-between text-xs pt-2">
-                    <span class="text-slate-500">
-                        Halaman <strong>{{ companies.current_page }}</strong> dari <strong>{{ companies.last_page }}</strong>
-                    </span>
-                    <div class="flex items-center gap-1">
-                        <template v-for="(link, i) in companies.links" :key="i">
-                            <Link
-                                v-if="link.url"
-                                :href="link.url"
-                                class="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors"
-                                :class="link.active ? 'bg-[#0D542B] text-white border-[#0D542B]' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'"
-                                v-html="link.label"
-                            />
-                            <span
-                                v-else
-                                class="px-3 py-1.5 rounded-lg border border-slate-100 text-xs text-slate-400 bg-slate-50"
-                                v-html="link.label"
-                            />
-                        </template>
-                    </div>
-                </div>
+                <!-- Pagination master perusahaan memakai kontrol bersama agar label dan nomor halaman konsisten. -->
+                <PaginationControls :pagination="companies" summary-label="perusahaan" />
             </main>
 
             <!-- Footer Institusional -->

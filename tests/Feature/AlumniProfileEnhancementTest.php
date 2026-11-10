@@ -279,6 +279,30 @@ class AlumniProfileEnhancementTest extends TestCase
         $this->assertSame('081234567890', $atasan->fresh()->telepon);
     }
 
+    /**
+     * Status non-kerja menghapus bidang dan divisi agar data master tidak
+     * menyimpan atribut pekerjaan yang sudah tidak relevan.
+     */
+    public function test_non_working_status_clears_job_field_and_division(): void
+    {
+        $this->biodata->update([
+            'kategori_pekerjaan' => 'Pekerja',
+            'bidang_pekerjaan' => 'Teknologi Informasi',
+            'divisi' => 'Product Development',
+        ]);
+
+        AdminAlumniProfileService::updateProfile($this->biodata, [
+            'kategori_pekerjaan' => 'Tidak Bekerja',
+            'bidang_pekerjaan' => 'Teknologi Informasi',
+            'divisi' => 'Product Development',
+        ]);
+
+        $freshBiodata = $this->biodata->fresh();
+        $this->assertSame('Tidak Bekerja', $freshBiodata->kategori_pekerjaan);
+        $this->assertNull($freshBiodata->bidang_pekerjaan);
+        $this->assertNull($freshBiodata->divisi);
+    }
+
     public function test_profile_updates_biodata_without_changing_reference_data(): void
     {
         $academicEmail = DataAkademik::where('nim', $this->biodata->nim)->value('email_pribadi');

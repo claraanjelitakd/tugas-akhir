@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Alumni\Kuesioner;
 use App\Http\Controllers\Controller;
 use App\Models\KuesionerJawaban;
 use App\Models\KuesionerSection;
+use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -40,6 +41,9 @@ class KuesionerProdiController extends Controller
 
         $biodata->load(['dataAkademik', 'yudisium', 'user', 'prodi']);
         $prodi = $biodata->prodi;
+
+        // Profil/akademik tetap menjadi sumber kanonik field identitas prodi.
+        KuesionerSyncService::syncProdiResponses($biodata);
 
         // Ambil section kuesioner khusus prodi aktif
         $rawSections = KuesionerSection::where('target', 'prodi')
@@ -103,20 +107,22 @@ class KuesionerProdiController extends Controller
 
         $namaAkademik = $autofill->F2A ?? $biodata->nama ?? $biodata->user?->name ?? '';
         $nimAkademik = $autofill->F1 ?? $biodata->nim ?? '';
-        $tahunLulusAkademik = $autofill->BIO_TGL_LULUS ?? $biodata->tahun_lulus ?? '';
+        $tahunLulusAkademik = $biodata->dataAkademik?->tahun_lulus
+            ?? $biodata->tahun_lulus
+            ?? (isset($autofill->BIO_TGL_LULUS) ? substr((string) $autofill->BIO_TGL_LULUS, 0, 4) : '');
 
         $initialAnswers = [];
         foreach ($questionsList as $q) {
             $qId = $q['id'];
             $resp = $existingResponses->get($qId);
-            $qText = strtolower(trim((string) $q['question_text']));
+            $identityField = KuesionerSyncService::resolveAcademicIdentityField((string) $q['question_text']);
 
             $autoVal = null;
-            if ($qText === 'nama' || $qText === 'nama lengkap') {
+            if ($identityField === 'nama') {
                 $autoVal = $namaAkademik;
-            } elseif ($qText === 'nim' || $qText === 'nomor induk mahasiswa') {
+            } elseif ($identityField === 'nim') {
                 $autoVal = $nimAkademik;
-            } elseif ($qText === 'tahun kelulusan' || $qText === 'tahun lulus') {
+            } elseif ($identityField === 'tahun kelulusan') {
                 $autoVal = $tahunLulusAkademik;
             }
 
@@ -143,7 +149,9 @@ class KuesionerProdiController extends Controller
                         $val = (string) ($ansJson['selected'] ?? $val);
                         $initialAnswers[$qId.'_custom'] = (string) $ansJson['custom'];
                     }
-                    $initialAnswers[$qId] = (! empty($val) || $autoVal === null) ? $val : (string) $autoVal;
+                    $initialAnswers[$qId] = $autoVal !== null && $autoVal !== ''
+                        ? (string) $autoVal
+                        : $val;
                 }
             } else {
                 if ($autoVal !== null && $autoVal !== '') {

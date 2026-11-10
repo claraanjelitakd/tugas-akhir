@@ -9,6 +9,7 @@
 import { computed, ref, watch } from 'vue';
 import AnalyticsEChart from './AnalyticsEChart.vue';
 import AnalyticsWordCloud from './AnalyticsWordCloud.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 import {
     analyticsChartTypeReasons,
     analyticsChartTypes,
@@ -19,7 +20,7 @@ import {
 
 // Kontrak properti kontainer terpadu
 const props = defineProps({
-    // Daftar tampilan visualisasi: [{ key, chartType, tabLabel, title, description, reason, option, tableData, height, analysis, isMap }]
+    // Daftar tampilan visualisasi: [{ key, chartType, tabLabel, title, description, reason, option, tableData, height, analysis, isMap, tableOnly }]
     views: { type: Array, required: true },
     // Catatan record responden untuk drill-down inline
     rows: { type: Array, default: () => [] },
@@ -53,6 +54,20 @@ const activeViewMode = ref('chart');
 const currentView = computed(() => {
     return props.views.find((v) => v.key === activeTabKey.value) || props.views[0] || {};
 });
+
+// Menandai view yang hanya menyediakan tabel tanpa visualisasi grafik.
+const currentViewIsTableOnly = computed(() => currentView.value.tableOnly === true);
+
+// Memilih tab dan langsung menyesuaikan mode tampilan sesuai kontrak view.
+const selectView = (view) => {
+    activeTabKey.value = view.key;
+    activeViewMode.value = view.tableOnly ? 'table' : 'chart';
+};
+
+// Menjaga view tabel-only tidak pernah kembali ke mode grafik.
+watch(currentViewIsTableOnly, (isTableOnly) => {
+    if (isTableOnly) activeViewMode.value = 'table';
+}, { immediate: true });
 
 // Label jenis grafik aktif memakai tipe eksplisit dari view dan kamus pusat.
 const currentChartType = computed(() => analyticsChartTypes[currentView.value.chartType] || 'Visualisasi Analitik');
@@ -206,6 +221,10 @@ watch([activeTabKey, activeViewMode], () => {
 // Kolom dan baris tabel data ringkasan aktif
 const activeColumns = computed(() => currentView.value.tableData?.columns || []);
 
+// Ringkasan pivot opsional ditampilkan sebelum tabel detail per alumni.
+const summaryColumns = computed(() => currentView.value.tableData?.summary?.columns || []);
+const summaryRows = computed(() => currentView.value.tableData?.summary?.rows || []);
+
 // Label field detail memakai metadata yang stabil; nilai selalu berasal dari rows backend.
 const detailFieldLabels = Object.freeze({
     nim: 'NIM',
@@ -236,8 +255,17 @@ const detailFieldLabels = Object.freeze({
     weight: 'Bobot',
     role: 'Peran/Kategori Karier',
     career_category: 'Role Karier',
+    career_role: 'Peran Wirausaha',
+    career_status_label: 'Status Karier',
     status_karier: 'Status Aktivitas',
     employment_status: 'Status Aktivitas',
+    lokasi_kerja: 'Lokasi Cabang / Kerja',
+    nama_atasan: 'Atasan',
+    skills: 'Skills',
+    posisi_jabatan: 'Jabatan',
+    bidang_pekerjaan: 'Bidang Pekerjaan',
+    divisi: 'Divisi',
+    study_detail: 'Studi Lanjut',
     before_graduation: 'Sebelum Lulus',
     after_graduation: 'Setelah Lulus',
     threshold: 'Ambang 1,2× UMP',
@@ -491,7 +519,8 @@ const drillDownRecords = computed(() => {
             const rFields = [
                 r.category, r.target, r.jawaban, r.answer, r.status,
                 r.metode, r.method, r.competency, r.degree, r.funding_source,
-                r.university, r.province_name,
+                r.university, r.province_name, r.career_category, r.career_role,
+                r.status_karier, r.career_status_label,
             ].map((v) => String(v || '').toLowerCase());
             return (rProdi.includes(ptProdi) || ptProdi.includes(rProdi))
                 && rFields.some((f) => f && (f.includes(ptCat) || ptCat.includes(f)));
@@ -518,6 +547,10 @@ const drillDownRecords = computed(() => {
             r.university,
             r.study_program,
             r.nama_perusahaan,
+            r.career_category,
+            r.career_role,
+            r.status_karier,
+            r.career_status_label,
             r.nama,
         ].map((val) => String(val || '').toLowerCase()).filter(Boolean);
 
@@ -687,8 +720,13 @@ const computedAnalysis = computed(() => {
 });
 
 const drillDownSearch = ref('');
+// Filter status tambahan untuk membedakan bekerja, bekerja sekaligus studi, dan studi murni.
+const drillDownCareerFilter = ref('all');
 const drillDownPage = ref(1);
 const drillDownPageSize = 8;
+
+// Kolom khusus drill-down ditentukan oleh view ketika kebutuhan datanya lebih kaya dari tabel generik.
+const customDrillDownColumns = computed(() => currentView.value.drillDownColumns || []);
 
 const drillDownHasCompany = computed(() => {
     return drillDownRecords.value.some((r) => r.nama_perusahaan && r.nama_perusahaan !== '-');
@@ -715,15 +753,70 @@ const drillDownHasRegion = computed(() => {
     return drillDownRecords.value.some((r) => (r.wilayah && r.wilayah !== '-') || (r.province_name && r.province_name !== '-') || (r.skala && r.skala !== '-'));
 });
 
+// Menentukan apakah satu record memiliki aktivitas kerja berdasarkan kategori dan profil aktif.
+const recordHasWork = (record) => {
+    const category = String(record.career_category || '').toLowerCase();
+    const status = String(record.career_status_label || '').toLowerCase();
+
+    return category !== 'melanjutkan pendidikan'
+        || status.includes('bekerja')
+        || Boolean(record.nama_perusahaan)
+        || Boolean(record.posisi_jabatan)
+        || Boolean(record.bidang_pekerjaan)
+        || Boolean(record.divisi);
+};
+
+// Menentukan apakah satu record memiliki data studi lanjut yang dapat ditampilkan.
+const recordHasFurtherStudy = (record) => {
+    const status = String(record.career_status_label || '').toLowerCase();
+
+    return status.includes('studi lanjut') || Boolean(record.study_detail);
+};
+
+// Menyediakan opsi filter status beserta jumlah record pada drill-down aktif.
+const drillDownCareerFilterOptions = computed(() => {
+    const records = drillDownRecords.value;
+    const count = (predicate) => records.filter(predicate).length;
+    const working = (record) => recordHasWork(record);
+    const studying = (record) => recordHasFurtherStudy(record);
+
+    return [
+        { value: 'all', label: 'Semua status', count: records.length },
+        { value: 'working', label: 'Bekerja', count: count((record) => working(record) && !studying(record)) },
+        { value: 'working_study', label: 'Bekerja + Studi Lanjut', count: count((record) => working(record) && studying(record)) },
+        { value: 'study_only', label: 'Studi Lanjut Murni', count: count((record) => !working(record) && studying(record)) },
+    ];
+});
+
+// Menerapkan filter status dan pencarian teks pada data drill-down secara berurutan.
 const filteredDrillDownRecords = computed(() => {
     const q = drillDownSearch.value.trim().toLowerCase();
-    if (!q) return drillDownRecords.value;
+    const statusFilter = drillDownCareerFilter.value;
+    const statusFiltered = drillDownRecords.value.filter((record) => {
+        const working = recordHasWork(record);
+        const studying = recordHasFurtherStudy(record);
 
-    return drillDownRecords.value.filter((r) => {
+        return statusFilter === 'working'
+            ? working && !studying
+            : statusFilter === 'working_study'
+                ? working && studying
+                : statusFilter === 'study_only'
+                    ? !working && studying
+                    : true;
+    });
+
+    if (!q) return statusFiltered;
+
+    return statusFiltered.filter((r) => {
         return String(r.nama || '').toLowerCase().includes(q)
             || String(r.nim || '').toLowerCase().includes(q)
             || String(r.nama_prodi || '').toLowerCase().includes(q)
             || String(r.nama_perusahaan || '').toLowerCase().includes(q)
+            || String(r.lokasi_kerja || '').toLowerCase().includes(q)
+            || String(r.nama_atasan || '').toLowerCase().includes(q)
+            || String(r.skills || '').toLowerCase().includes(q)
+            || String(r.career_role || '').toLowerCase().includes(q)
+            || String(r.study_detail || '').toLowerCase().includes(q)
             || String(r.provinsi || '').toLowerCase().includes(q)
             || String(r.kabupaten || '').toLowerCase().includes(q)
             || String(r.nama_negara || '').toLowerCase().includes(q)
@@ -740,6 +833,12 @@ const paginatedDrillDownRecords = computed(() => {
 
 watch(() => props.selectedLabel, () => {
     drillDownSearch.value = '';
+    drillDownCareerFilter.value = 'all';
+    drillDownPage.value = 1;
+});
+
+// Mengembalikan pagination ke halaman pertama ketika filter atau pencarian berubah.
+watch([drillDownSearch, drillDownCareerFilter], () => {
     drillDownPage.value = 1;
 });
 </script>
@@ -753,7 +852,7 @@ watch(() => props.selectedLabel, () => {
         </div>
 
         <!-- Header Kartu & Switcher Tab Visualisasi -->
-        <div class="flex flex-col justify-between gap-4 border-b border-slate-100 pb-4 lg:flex-row lg:items-start">
+        <div class="flex flex-col gap-4 border-b border-slate-100 pb-4">
             <!-- Kolom Kiri: Judul & Subjudul dengan min-height tetap agar tata letak tidak bergeser -->
             <div class="min-h-[50px] flex-1">
                 <div class="flex flex-wrap items-center gap-2">
@@ -790,16 +889,16 @@ watch(() => props.selectedLabel, () => {
             </div>
 
             <!-- Kolom Kanan: Switcher Tab Tetap (Stay di Kanan Atas, Bebas dari Layout Shift) -->
-            <div class="shrink-0 flex flex-wrap items-center justify-end gap-2">
+            <div class="shrink-0 flex flex-wrap items-center justify-start gap-2">
                 <!-- Switcher Antar Visualisasi (Hanya saat mode chart aktif) -->
-                <div v-if="activeViewMode === 'chart' && views.length > 1" class="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+                <div v-if="views.length > 1" class="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
                     <button
                         v-for="view in views"
                         :key="view.key"
                         type="button"
                         class="rounded-md px-3 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
                         :class="activeTabKey === view.key ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                        @click="activeTabKey = view.key"
+                        @click="selectView(view)"
                     >
                         {{ view.tabLabel || view.title }}
                     </button>
@@ -808,6 +907,7 @@ watch(() => props.selectedLabel, () => {
                 <!-- Switcher Mode: Grafik vs Data Ringkasan -->
                 <div class="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
                     <button
+                        v-if="!currentViewIsTableOnly"
                         type="button"
                         class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
                         :class="activeViewMode === 'chart' ? 'bg-[#0D542B] font-bold text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'"
@@ -957,14 +1057,23 @@ watch(() => props.selectedLabel, () => {
                             <span class="text-sm font-extrabold text-slate-900">{{ activeSelectionLabel }}</span>
                         </div>
                         <p class="mt-1 text-xs text-slate-600">
-                            Menampilkan {{ drillDownRecords.length }} alumni yang berkaitan dengan pilihan ini.
+                            Menampilkan {{ filteredDrillDownRecords.length }} dari {{ drillDownRecords.length }} alumni yang berkaitan dengan pilihan ini.
                         </p>
                     </div>
                     <div class="flex items-center gap-2">
+                        <select
+                            v-model="drillDownCareerFilter"
+                            class="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 outline-none focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B]"
+                            aria-label="Filter status karier"
+                        >
+                            <option v-for="option in drillDownCareerFilterOptions" :key="option.value" :value="option.value">
+                                {{ option.label }} ({{ option.count }})
+                            </option>
+                        </select>
                         <input
                             v-model="drillDownSearch"
                             type="text"
-                            placeholder="Cari nama / NIM / prodi..."
+                            placeholder="Cari nama, NIM, studi, perusahaan..."
                             class="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B]"
                         />
                         <button
@@ -978,7 +1087,26 @@ watch(() => props.selectedLabel, () => {
                 </div>
 
                 <div class="mt-3 overflow-x-auto">
-                    <table class="w-full text-left text-xs">
+                    <!-- Tabel detail Outcomes memakai kolom eksplisit agar status kerja, atasan, skills, dan studi lanjut terbaca utuh. -->
+                    <table v-if="customDrillDownColumns.length > 0" class="w-full min-w-max text-left text-xs">
+                        <thead>
+                            <tr class="border-b border-slate-200 bg-white/60 text-slate-600">
+                                <th v-for="column in customDrillDownColumns" :key="column.key" class="p-2 font-bold">
+                                    {{ column.label }}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="(rec, idx) in paginatedDrillDownRecords" :key="`custom-${idx}`" class="hover:bg-white/80">
+                                <td v-for="column in customDrillDownColumns" :key="column.key" class="max-w-xs whitespace-normal p-2 text-slate-700">
+                                    <span :class="column.key === 'nama' ? 'font-semibold text-slate-900' : ''">
+                                        {{ formatDetailValue(rec[column.key]) }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table v-else class="w-full text-left text-xs">
                         <thead>
                             <tr class="border-b border-slate-200 bg-white/60 text-slate-600">
                                 <th class="p-2 font-bold">Nama Alumni</th>
@@ -1042,33 +1170,42 @@ watch(() => props.selectedLabel, () => {
                     </table>
                 </div>
 
-                <!-- Paginasi Drill-down -->
-                <div v-if="drillDownTotalPages > 1" class="mt-3 flex items-center justify-between border-t border-emerald-200/40 pt-2 text-xs text-slate-600">
-                    <span>Halaman {{ drillDownPage }} dari {{ drillDownTotalPages }}</span>
-                    <div class="flex gap-1">
-                        <button
-                            type="button"
-                            :disabled="drillDownPage <= 1"
-                            class="rounded border border-slate-200 bg-white px-2 py-0.5 font-bold disabled:opacity-40 cursor-pointer"
-                            @click="drillDownPage--"
-                        >
-                            &larr; Prev
-                        </button>
-                        <button
-                            type="button"
-                            :disabled="drillDownPage >= drillDownTotalPages"
-                            class="rounded border border-slate-200 bg-white px-2 py-0.5 font-bold disabled:opacity-40 cursor-pointer"
-                            @click="drillDownPage++"
-                        >
-                            Next &rarr;
-                        </button>
-                    </div>
-                </div>
+                <!-- Pagination drill-down mengikuti label dan kontrol bersama. -->
+                <PaginationControls
+                    class="mt-3 border-emerald-200/40 pt-2"
+                    :total="filteredDrillDownRecords.length"
+                    :current-page="drillDownPage"
+                    :page-size="drillDownPageSize"
+                    :show-summary="false"
+                    @update:current-page="drillDownPage = $event"
+                />
             </div>
         </div>
 
         <!-- TAMPILAN 2: MODE DATA RINGKASAN (TABEL) -->
         <div v-else class="mt-4 space-y-3">
+            <div v-if="summaryRows.length > 0" class="overflow-x-auto rounded-lg border border-emerald-200 bg-emerald-50/20">
+                <div class="border-b border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-[#0D542B]">
+                    Pivot per Program Studi
+                </div>
+                <table class="w-full min-w-max text-left text-xs">
+                    <thead>
+                        <tr class="border-b border-emerald-200 bg-white/70 text-slate-700">
+                            <th v-for="column in summaryColumns" :key="column.key" class="p-2.5 font-bold" :class="column.align === 'right' ? 'text-right' : 'text-left'">
+                                {{ column.label }}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-emerald-100 bg-white/60">
+                        <tr v-for="(row, index) in summaryRows" :key="index" class="hover:bg-emerald-50/50">
+                            <td v-for="column in summaryColumns" :key="column.key" class="p-2.5" :class="column.align === 'right' ? 'text-right font-mono' : ''">
+                                {{ row[column.key] ?? '-' }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <input
                     v-model="tableSearch"
@@ -1121,28 +1258,14 @@ watch(() => props.selectedLabel, () => {
                 </table>
             </div>
 
-            <!-- Paginasi Tabel Ringkasan -->
-            <div v-if="totalPages > 1" class="flex items-center justify-between pt-1 text-xs text-slate-600">
-                <span>Halaman {{ currentPage }} dari {{ totalPages }}</span>
-                <div class="flex gap-1">
-                    <button
-                        type="button"
-                        :disabled="currentPage <= 1"
-                        class="rounded border border-slate-200 bg-white px-2.5 py-1 font-bold disabled:opacity-40 cursor-pointer hover:bg-slate-50"
-                        @click="currentPage--"
-                    >
-                        &larr; Sebelumnya
-                    </button>
-                    <button
-                        type="button"
-                        :disabled="currentPage >= totalPages"
-                        class="rounded border border-slate-200 bg-white px-2.5 py-1 font-bold disabled:opacity-40 cursor-pointer hover:bg-slate-50"
-                        @click="currentPage++"
-                    >
-                        Berikutnya &rarr;
-                    </button>
-                </div>
-            </div>
+            <!-- Pagination tabel ringkasan mengikuti label dan kontrol bersama. -->
+            <PaginationControls
+                :total="activeRows.length"
+                :current-page="currentPage"
+                :page-size="rowsPerPage"
+                :show-summary="false"
+                @update:current-page="currentPage = $event"
+            />
 
             <!-- Tabel lengkap records nyata indikator aktif, tanpa menampilkan field teknis/kontak pribadi. -->
             <section v-if="detailColumns.length" class="mt-6 border-t border-slate-200 pt-4">
@@ -1188,28 +1311,14 @@ watch(() => props.selectedLabel, () => {
                     </table>
                 </div>
 
-                <!-- Paginasi tabel detail individu -->
-                <div v-if="detailTotalPages > 1" class="flex items-center justify-between pt-3 text-xs text-slate-600">
-                    <span>Halaman {{ detailPage }} dari {{ detailTotalPages }}</span>
-                    <div class="flex gap-1">
-                        <button
-                            type="button"
-                            :disabled="detailPage <= 1"
-                            class="rounded border border-slate-200 bg-white px-2.5 py-1 font-bold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                            @click="detailPage--"
-                        >
-                            &larr; Sebelumnya
-                        </button>
-                        <button
-                            type="button"
-                            :disabled="detailPage >= detailTotalPages"
-                            class="rounded border border-slate-200 bg-white px-2.5 py-1 font-bold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                            @click="detailPage++"
-                        >
-                            Berikutnya &rarr;
-                        </button>
-                    </div>
-                </div>
+                <!-- Pagination tabel detail individu mengikuti label dan kontrol bersama. -->
+                <PaginationControls
+                    :total="sortedDetailRows.length"
+                    :current-page="detailPage"
+                    :page-size="detailPageSize"
+                    :show-summary="false"
+                    @update:current-page="detailPage = $event"
+                />
             </section>
         </div>
     </div>

@@ -2,11 +2,11 @@
 /**
  * Komponen indikator IKU AEE S1.
  *
- * Data merupakan read-model akademik dan tidak menyediakan aksi perubahan.
- * Grafik memakai jumlah denominator sebagai panjang batang, sedangkan warna
- * segmen tepat waktu menunjukkan status capaian terhadap target visual.
+ * Data merupakan read-model lulusan S1 dan tidak menyediakan aksi perubahan.
+ * Grafik memakai jumlah denominator lulusan sebagai panjang batang, sedangkan
+ * warna segmen tepat waktu menunjukkan status capaian terhadap target visual.
  */
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
 import { baseOption, formatNumber, formatPercentage } from '../analyticsChartOptions';
 
@@ -24,6 +24,9 @@ const emit = defineEmits(['select', 'reset']);
 const series = computed(() => props.chart?.series || []);
 const records = computed(() => props.chart?.records || []);
 const summary = computed(() => props.chart?.summary || {});
+
+// State urutan grafik dan tabel AEE; false berarti capaian tertinggi ditampilkan lebih dahulu.
+const sortAsc = ref(false);
 
 // Target status visual dikirim backend agar tidak menjadi angka hardcode di Vue.
 const statusTarget = computed(() => Number(summary.value.status_target || 60));
@@ -47,8 +50,8 @@ const chartRows = computed(() => [...series.value]
         const denominator = Number(item.eligible || 0);
         const onTime = Number(item.on_time || 0);
         const late = Number(item.late || 0);
-        const unidentified = Number(item.unidentified || 0);
-        const notOnTime = late + unidentified;
+        const unidentified = 0;
+        const notOnTime = late;
         const percentage = denominator > 0 ? Number(((onTime / denominator) * 100).toFixed(1)) : 0;
 
         return {
@@ -62,25 +65,32 @@ const chartRows = computed(() => [...series.value]
             status: getStatus(percentage),
         };
     })
-    .sort((left, right) => right.percentage - left.percentage || right.denominator - left.denominator));
+    .sort((left, right) => {
+        const percentageDifference = sortAsc.value
+            ? left.percentage - right.percentage
+            : right.percentage - left.percentage;
+
+        return percentageDifference || (sortAsc.value
+            ? left.denominator - right.denominator
+            : right.denominator - left.denominator);
+    }));
 
 // Opsi stacked bar horizontal dengan panjang berbasis jumlah mahasiswa.
 const chartOption = computed(() => {
     const rows = chartRows.value;
     const maxDenominator = Math.max(...rows.map((item) => item.denominator), 0);
     const axisMax = Math.max(10, Math.ceil(maxDenominator / 10) * 10);
-    // Segmen disusun dari status yang belum dapat ditentukan menuju capaian tepat waktu.
+    // Segmen hanya membandingkan lulusan tepat waktu dan lulusan belum tepat waktu.
     const segmentDefinitions = [
-        { key: 'unidentified', valueKey: 'unidentified', label: 'Abu-abu: Belum Teridentifikasi', color: '#CBD5E1', stackOrder: 0 },
-        { key: 'late', valueKey: 'late', label: 'Merah: Belum Tepat Waktu', color: '#DC2626', stackOrder: 1 },
-        { key: 'on_time', valueKey: 'onTime', label: 'Hijau: Tepat Waktu', color: '#0D542B', stackOrder: 2 },
+        { key: 'late', valueKey: 'late', label: 'Merah: Belum Tepat Waktu', color: '#DC2626', stackOrder: 0 },
+        { key: 'on_time', valueKey: 'onTime', label: 'Hijau: Tepat Waktu', color: '#0D542B', stackOrder: 1 },
     ];
 
     return {
         ...baseOption(rows.reduce((total, item) => total + item.denominator, 0)),
         // Palet dikunci agar normalizer global mempertahankan makna setiap segmen.
         themePalette: segmentDefinitions.map((item) => item.color),
-        graphic: [{
+        /* graphic: [{
             type: 'text',
             left: 12,
             top: 0,
@@ -95,7 +105,9 @@ const chartOption = computed(() => {
                 borderRadius: 4,
                 padding: [5, 8],
             },
-        }],
+        }], */
+        // Label urutan interaktif berada pada toolbar HTML di atas grafik.
+        graphic: [],
         legend: {
             data: segmentDefinitions.map((item) => item.label),
             top: 2,
@@ -129,7 +141,7 @@ const chartOption = computed(() => {
                 const item = rows[params?.[0]?.dataIndex];
                 if (!item) return '';
 
-                return `${item.nama_prodi}<br/>Capaian tepat waktu: ${formatPercentage(item.percentage)} (${item.onTime}/${item.denominator})<br/>Belum tepat waktu: ${formatNumber(item.late, 0)} mahasiswa<br/>Belum teridentifikasi: ${formatNumber(item.unidentified, 0)} mahasiswa<br/>Status target: ${item.status.label}<br/>Dikecualikan: ${formatNumber(Number(item.population || 0) - item.denominator, 0)} mahasiswa`;
+                return `${item.nama_prodi}<br/>Capaian tepat waktu: ${formatPercentage(item.percentage)} (${item.onTime}/${item.denominator})<br/>Belum tepat waktu: ${formatNumber(item.late, 0)} mahasiswa<br/>Status target: ${item.status.label}`;
             },
         },
         series: [
@@ -178,7 +190,6 @@ const tableData = computed(() => ({
         { key: 'eligible', label: 'Denominator', align: 'right' },
         { key: 'on_time', label: 'Tepat Waktu', align: 'right' },
         { key: 'not_on_time', label: 'Belum Tepat Waktu', align: 'right' },
-        { key: 'unidentified', label: 'Belum Teridentifikasi', align: 'right' },
         { key: 'aee_realization', label: 'AEE Realisasi', align: 'right' },
         { key: 'status', label: 'Status Capaian' },
     ],
@@ -200,7 +211,7 @@ const analysis = computed(() => ({
     statusBadge: `${formatPercentage(summary.value.aee_pt)} capaian PT`,
     badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
     lead: `${formatNumber(summary.value.on_time_count, 0)} dari ${formatNumber(summary.value.eligible_count, 0)} mahasiswa yang masuk denominator lulus tepat waktu.`,
-    detail: `Target status visual ${formatPercentage(statusTarget.value)}. Populasi akademik yang dibaca ${formatNumber(summary.value.population, 0)} mahasiswa; ${formatNumber(summary.value.excluded_count, 0)} mahasiswa dikecualikan dari denominator sesuai ketentuan IKU.`,
+    detail: `AEE hanya membaca lulusan S1 dengan status akademik Lulus. Target status visual ${formatPercentage(statusTarget.value)}. Status aktif, AR, AK, cuti, pindah, dan drop out tidak masuk populasi perhitungan.`,
 }));
 
 // Konfigurasi tampilan grafik dan tabel AEE.
@@ -209,7 +220,7 @@ const views = computed(() => [{
     chartType: 'stacked_horizontal',
     tabLabel: 'Kelulusan Tepat Waktu',
     title: 'Kelulusan Tepat Waktu S1 per Program Studi',
-    description: 'Batang menunjukkan jumlah denominator: merah untuk lulusan belum tepat waktu, abu-abu untuk status kelulusan belum teridentifikasi, dan hijau untuk lulusan tepat waktu.',
+    description: 'Batang menunjukkan jumlah lulusan S1: merah untuk lulusan belum tepat waktu dan hijau untuk lulusan tepat waktu.',
     option: chartOption.value,
     tableData: tableData.value,
     height: Math.max(380, Math.min(series.value.length * 42 + 145, 700)),
@@ -218,13 +229,28 @@ const views = computed(() => [{
 </script>
 
 <template>
-    <AnalyticsTabbedContainer
-        :views="views"
-        :rows="records"
-        :selected-label="selectedLabel"
-        :loading="loading"
-        indicator-badge="IKU S1"
-        @select="emit('select', $event)"
-        @reset="emit('reset')"
-    />
+    <div class="space-y-3">
+        <!-- Tombol urutan berada di luar ECharts agar benar-benar dapat diklik. -->
+        <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs">
+            <button
+                type="button"
+                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+                @click="sortAsc = !sortAsc"
+            >
+                <span>Urutan:</span>
+                <span class="font-bold text-[#0D542B]">{{ sortAsc ? 'Terendah ke Tertinggi' : 'Tertinggi ke Terendah' }}</span>
+            </button>
+            <span class="text-[11px] text-slate-500">AEE hanya menghitung data dengan status akademik Lulus.</span>
+        </div>
+
+        <AnalyticsTabbedContainer
+            :views="views"
+            :rows="records"
+            :selected-label="selectedLabel"
+            :loading="loading"
+            indicator-badge="IKU S1"
+            @select="emit('select', $event)"
+            @reset="emit('reset')"
+        />
+    </div>
 </template>

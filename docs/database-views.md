@@ -15,7 +15,7 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 | v_alumni_kuesioner_autofill | AlumniKuesionerAutofill | Nilai autofill dari biodata, data_akademik, perusahaan, dan yudisium. |
 | v_question_mappings | QuestionMapping | Metadata pemetaan kode pertanyaan ke tabel dan kolom kanonik. |
 | v_alumni_linkedin_plot | AlumniLinkedinPlot | Status staging, approval, kecocokan nama, dan plot LinkedIn. |
-| v_kuesioner_rekap_jawaban | Rekap jawaban kuesioner | Rekap denormalisasi jawaban terpadu dengan kode pertanyaan, label opsi, nilai skor, dan identitas responden. |
+| v_kuesioner_rekap_jawaban | Legacy, belum direferensikan aplikasi | Rekap denormalisasi lama; dipertahankan hanya untuk kompatibilitas migration history dan kandidat penghapusan pada baseline schema berikutnya. |
 | v_analytics_population | TracerAnalyticsService | Populasi ringan satu baris per alumni dari biodata, akademik, prodi, perusahaan, URL profil LinkedIn, dan provinsi kerja tanpa agregasi kuesioner prodi. |
 | v_analytics_response_rate | TracerAnalyticsService | Status minimal satu jawaban wajib kuesioner universitas per alumni; agregasi ini sengaja dipisahkan dari populasi. |
 | v_analytics_profile_completion | TracerAnalyticsService | Status kelengkapan profil per alumni. |
@@ -24,16 +24,16 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 | v_analytics_work_location | TracerAnalyticsService | Provinsi perusahaan tempat alumni bekerja. |
 | v_analytics_employment_status | TracerAnalyticsService | Jawaban F8 yang diproyeksikan per alumni. |
 | v_analytics_alignment | TracerAnalyticsService | Jawaban F14/F15 yang diproyeksikan per alumni. |
-| v_analytics_tracer_answers | TracerAnalyticsService | Jawaban tracer kanonik per alumni dan kode pertanyaan untuk indikator gabungan F3-F27; pencarian memakai indeks lookup pada `kuesioner_jawaban`. |
-| v_analytics_learning_methods | TracerAnalyticsService | Jawaban F21-F27 untuk radar, distribusi Likert, dan heatmap metode pembelajaran. |
-| v_analytics_job_search_start | TracerAnalyticsService | Jawaban F3 untuk waktu mulai mencari pekerjaan. |
-| v_analytics_job_search_methods | TracerAnalyticsService | Jawaban pilihan jamak F4 untuk cara mencari kerja. |
-| v_analytics_application_pipeline | TracerAnalyticsService | Nilai F6, F7, dan F7A untuk pipeline lamaran sampai wawancara. |
-| v_analytics_job_search_activity | TracerAnalyticsService | Jawaban F10 untuk aktivitas pencarian kerja. |
-| v_analytics_workplace_type | TracerAnalyticsService | Jawaban F11 untuk jenis tempat kerja. |
-| v_analytics_further_study | TracerAnalyticsService | Jawaban F12, F18b, F18c, dan F18d untuk sumber biaya, perguruan tinggi, program studi, serta tanggal mulai studi lanjut. |
-| v_analytics_mismatch_reasons | TracerAnalyticsService | Jawaban pilihan jamak F16 untuk alasan ketidaksesuaian pekerjaan. |
-| v_analytics_competency_gap | TracerAnalyticsService | Pasangan F17a/F17b untuk perbandingan kompetensi saat lulus dan kebutuhan kerja. |
+| v_analytics_tracer_answers | TracerAnalyticsService | Jawaban tracer terbaru per alumni dan pertanyaan untuk indikator gabungan F3-F27; riwayat lama tidak digandakan. |
+| v_analytics_learning_methods | Legacy alias | Proyeksi F21-F27; service kini memfilter `v_analytics_tracer_answers` langsung. |
+| v_analytics_job_search_start | Legacy alias | Proyeksi F3; service kini memfilter `v_analytics_tracer_answers` langsung. |
+| v_analytics_job_search_methods | Legacy alias | Proyeksi F4; service kini memfilter `v_analytics_tracer_answers` langsung. |
+| v_analytics_application_pipeline | Legacy alias | Proyeksi F6/F7/F7A; service kini memfilter `v_analytics_tracer_answers` langsung. |
+| v_analytics_job_search_activity | Legacy alias | Proyeksi F10; service kini memfilter `v_analytics_tracer_answers` langsung. |
+| v_analytics_workplace_type | Legacy alias | Proyeksi F11; service kini memfilter `v_analytics_tracer_answers` langsung. |
+| v_analytics_further_study | Legacy alias | Proyeksi F12/F18b/F18c/F18d; service kini memfilter `v_analytics_tracer_answers` langsung. |
+| v_analytics_mismatch_reasons | Legacy alias | Proyeksi F16; service kini memfilter `v_analytics_tracer_answers` langsung. |
+| v_analytics_competency_gap | Legacy alias | Proyeksi F17a/F17b; service kini memfilter `v_analytics_tracer_answers` langsung. |
 | v_iku_s1_aee | IkuS1AnalyticsService | Seluruh populasi akademik S1, status pengecualian, dan penanda lulus tepat waktu untuk AEE. |
 | v_iku_s1_lulusan | IkuS1AnalyticsService | Lulusan S1 dengan status karier, masa tunggu, gaji, UMP/provinsi, dan tanggal studi lanjut untuk formula bobot IKU. |
 
@@ -57,17 +57,17 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 | `v_analytics_work_location` | Satu baris per alumni | Menyediakan provinsi penempatan untuk sebaran lokasi kerja. | Lokasi kerja dibedakan dari domisili pribadi alumni dan head office. |
 | `v_analytics_employment_status` | Satu baris per alumni | Menyediakan status aktivitas utama F8 untuk komposisi pekerjaan. | Status disajikan apa adanya; tidak ditebak dari jabatan/experience. |
 | `v_analytics_alignment` | Satu baris per alumni dan indikator | Menyediakan F14/F15 untuk keselarasan bidang serta tingkat pendidikan. | Setiap indikator tetap dipisahkan agar label/kategori tidak tercampur. |
-| `v_analytics_tracer_answers` | Satu baris per jawaban alumni-kode pertanyaan | Menjadi sumber umum indikator tracer F3–F27. | Memakai indeks jawaban kanonik dan tidak mengakses tabel respons legacy. |
-| `v_analytics_learning_methods` | Satu baris per jawaban F21–F27 | Menyediakan skor metode pembelajaran untuk radar, distribusi, dan heatmap. | Hanya skor Likert valid yang dihitung. |
-| `v_analytics_job_search_start` | Satu baris per jawaban F3 | Menyediakan waktu alumni mulai mencari kerja. | Dipakai untuk sebaran rentang waktu, bukan masa tunggu. |
-| `v_analytics_job_search_methods` | Satu baris per pilihan F4 | Menyediakan kanal pencarian kerja, termasuk detail `Lainnya`. | Pilihan jamak dipecah tanpa menghilangkan teks custom. |
-| `v_analytics_application_pipeline` | Satu baris per alumni | Menyediakan F6, F7, dan F7A untuk lamaran, respons, dan wawancara. | Nilai diperlakukan sebagai data diskrit untuk analisis pipeline. |
-| `v_analytics_job_search_activity` | Satu baris per jawaban F10 | Menyediakan aktivitas pencarian kerja empat minggu terakhir. | Teks `Lainnya` tersedia untuk word cloud, bukan kategori grafik utama. |
-| `v_analytics_workplace_type` | Satu baris per jawaban F11 | Menyediakan klasifikasi tempat kerja. | `Lainnya` dipisahkan ke word cloud agar tidak mengaburkan kategori resmi. |
-| `v_analytics_further_study` | Satu baris per alumni | Menyediakan data studi lanjut F12 dan F18b–F18d. | Tanggal mulai studi dipakai untuk validasi batas kurang dari 12 bulan IKU. |
-| `v_analytics_mismatch_reasons` | Satu baris per pilihan F16 | Menyediakan alasan pekerjaan tidak sesuai pendidikan. | Pilihan `Lainnya` dipertahankan sebagai teks terbuka/word cloud. |
-| `v_analytics_competency_gap` | Satu baris per pasangan kompetensi | Membandingkan F17a dengan F17b untuk gap kompetensi. | Kedua skor harus valid sebelum selisih dihitung. |
-| `v_iku_s1_aee` | Satu baris per mahasiswa akademik S1 | Menjadi populasi AEE, termasuk mahasiswa yang belum menjadi alumni. | DO, Pindah, dan Cuti dikecualikan; service mengelompokkan tepat waktu, terlambat, dan belum teridentifikasi. |
+| `v_analytics_tracer_answers` | Satu baris per jawaban terbaru alumni-pertanyaan | Menjadi sumber umum indikator tracer F3–F27. | Memilih `MAX(kuesioner_jawaban.id)` per `biodata_id` dan `pertanyaan_id`; tidak mengakses tabel respons legacy. |
+| `v_analytics_learning_methods` | Legacy alias | Proyeksi lama F21–F27; service memakai filter kode pada `v_analytics_tracer_answers`. | Alias dipertahankan untuk kompatibilitas database lama. |
+| `v_analytics_job_search_start` | Legacy alias | Proyeksi lama F3; service memakai filter kode pada `v_analytics_tracer_answers`. | Alias dipertahankan untuk kompatibilitas database lama. |
+| `v_analytics_job_search_methods` | Legacy alias | Proyeksi lama F4; service memakai filter kode pada `v_analytics_tracer_answers`. | Alias dipertahankan untuk kompatibilitas database lama. |
+| `v_analytics_application_pipeline` | Legacy alias | Proyeksi lama F6/F7/F7A; service memakai filter kode pada `v_analytics_tracer_answers`. | Alias dipertahankan untuk kompatibilitas database lama. |
+| `v_analytics_job_search_activity` | Legacy alias | Proyeksi lama F10; service memakai filter kode pada `v_analytics_tracer_answers`. | Alias dipertahankan untuk kompatibilitas database lama. |
+| `v_analytics_workplace_type` | Legacy alias | Proyeksi lama F11; service memakai filter kode pada `v_analytics_tracer_answers`. | Alias dipertahankan untuk kompatibilitas database lama. |
+| `v_analytics_further_study` | Legacy alias | Proyeksi lama F12/F18b–F18d; service memakai filter kode pada `v_analytics_tracer_answers`. | Alias dipertahankan untuk kompatibilitas database lama. |
+| `v_analytics_mismatch_reasons` | Legacy alias | Proyeksi lama F16; service memakai filter kode pada `v_analytics_tracer_answers`. | Alias dipertahankan untuk kompatibilitas database lama. |
+| `v_analytics_competency_gap` | Legacy alias | Proyeksi lama F17a/F17b; service memakai filter kode pada `v_analytics_tracer_answers`. | Alias dipertahankan untuk kompatibilitas database lama. |
+| `v_iku_s1_aee` | Satu baris per lulusan akademik S1 | Menjadi populasi AEE hanya untuk data dengan status akademik `Lulus`. | Status aktif, AR, AK, DO, Pindah, dan Cuti tidak masuk; service hanya membandingkan tepat waktu dan terlambat. |
 | `v_iku_s1_lulusan` | Satu baris per lulusan S1 | Menjadi basis formula IKU karier berbobot. | Role karier, masa tunggu, gaji, UMP, dan studi lanjut dihitung terstruktur oleh service. |
 
 ## Kontrak sumber data
@@ -146,6 +146,12 @@ mahasiswa angkatan `YYYY` dianggap tepat waktu jika lulus pada `Genap
 YYYY+3/YYYY+4`. `v_iku_s1_lulusan` menjadi sumber klasifikasi capaian karier.
 Bobot dihitung oleh `IkuS1AnalyticsService`, bukan oleh Vue; frontend hanya
 menampilkan pembilang, penyebut, bobot, dan metodologi.
+
+Untuk klik kategori pada grafik Outcomes, service melakukan read-only enrichment
+ke `biodata`, `perusahaan`, `propinsi`, `kabupaten`, dan `atasan`. Enrichment ini
+menyediakan nama alumni, perusahaan dan lokasi cabang, atasan, skills, jabatan,
+peran wirausaha, serta studi lanjut pada daftar detail tanpa mengubah read-model
+atau membuat sumber data duplikat.
 
 Klasifikasi batang AEE (`tepat waktu`, `terlambat`, dan `belum teridentifikasi`)
 merupakan agregat pada `IkuS1AnalyticsService` dari kolom view yang sudah ada:

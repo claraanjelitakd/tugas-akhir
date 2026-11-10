@@ -3,7 +3,8 @@
  * Komponen indikator capaian karier lulusan S1.
  *
  * Formula bobot telah dihitung backend dari status karier, masa tunggu, UMP,
- * dan tanggal studi lanjut. Komponen hanya menampilkan hasil dan rinciannya.
+ * dan tanggal studi lanjut. Komponen hanya menampilkan hasil dan rincian alumni
+ * yang dipilih langsung dari grafik.
  */
 import { computed } from 'vue';
 import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
@@ -81,7 +82,7 @@ const analysis = computed(() => ({
     statusBadge: formatPercentage(summary.value.percentage),
     badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
     lead: `${formatNumber(summary.value.valid_respondents, 0)} responden lulusan masuk denominator dengan total bobot ${formatNumber(summary.value.weighted_score, 2)}.`,
-    detail: 'Karyawan, founder/co-founder, freelancer, dan studi lanjut dipisahkan berdasarkan nilai terstruktur. Data tanpa status karier tidak ditebak dari teks experience dan tidak masuk denominator.',
+    detail: 'Karyawan, founder/co-founder, freelancer, studi lanjut, dan wirausaha lainnya dipisahkan berdasarkan data terstruktur. Wirausaha lainnya tetap tampil untuk audit, tetapi tidak diberi bobot tanpa role yang jelas.',
 }));
 
 // Konfigurasi tampilan grafik dan tabel capaian lulusan.
@@ -95,6 +96,23 @@ const views = computed(() => [{
     tableData: tableData.value,
     height: Math.max(340, Math.min(series.value.length * 54 + 120, 560)),
     analysis: analysis.value,
+    // Kolom drill-down mengikuti kebutuhan Data Alumni dan tetap bersumber dari payload backend.
+    drillDownColumns: [
+        { key: 'nama', label: 'Nama Alumni' },
+        { key: 'nim', label: 'NIM' },
+        { key: 'nama_prodi', label: 'Program Studi' },
+        { key: 'career_status_label', label: 'Status Karier' },
+        { key: 'nama_perusahaan', label: 'Perusahaan / Usaha' },
+        { key: 'lokasi_kerja', label: 'Lokasi Cabang / Kerja' },
+        { key: 'nama_atasan', label: 'Atasan' },
+        { key: 'posisi_jabatan', label: 'Jabatan' },
+        { key: 'bidang_pekerjaan', label: 'Bidang Pekerjaan' },
+        { key: 'divisi', label: 'Divisi' },
+        { key: 'career_role', label: 'Peran Wirausaha' },
+        { key: 'skills', label: 'Skills' },
+        { key: 'study_detail', label: 'Studi Lanjut' },
+        { key: 'weight', label: 'Bobot' },
+    ],
 }]);
 </script>
 

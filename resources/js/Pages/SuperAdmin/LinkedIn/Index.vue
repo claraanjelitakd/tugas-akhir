@@ -26,6 +26,7 @@ import SidebarSuperAdmin from '../Components/Sidebar.vue';
 import SidebarFakultas from '../../AdminFakultas/Components/Sidebar.vue';
 import SidebarProdi from '../../AdminProdi/Components/Sidebar.vue';
 import SidebarBiroTiga from '../../AdminBiroTiga/Components/Sidebar.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 
 const props = defineProps({
     alumnis: {
@@ -1067,7 +1068,7 @@ const dashboardRoute = computed(() => {
                             </span>
                         </div>
                         <div class="text-xs text-gray-500 font-medium">
-                            Menampilkan halaman {{ currentPage }} dari {{ totalPages }}
+                            {{ filteredAlumni.length }} data alumni
                         </div>
                     </div>
 
@@ -1302,45 +1303,14 @@ const dashboardRoute = computed(() => {
                         </table>
                     </div>
 
-                    <!-- Footer Pagination ala DataTables -->
-                    <div class="px-6 py-4 bg-gray-50/50 border-t border-gray-300 flex items-center justify-between flex-wrap gap-4">
-                        <div class="text-xs text-gray-500">
-                            Menampilkan {{ filteredAlumni.length > 0 ? (currentPage - 1) * perPage + 1 : 0 }} sampai 
-                            {{ Math.min(currentPage * perPage, filteredAlumni.length) }} dari 
-                            {{ filteredAlumni.length }} data alumni
-                        </div>
-
-                        <div class="flex items-center gap-1.5">
-                            <button
-                                type="button"
-                                @click="goToPage(currentPage - 1)"
-                                :disabled="currentPage === 1"
-                                class="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                            >
-                                Sebelumnya
-                            </button>
-
-                            <button
-                                v-for="p in Math.min(totalPages, 5)"
-                                :key="p"
-                                type="button"
-                                @click="goToPage(p)"
-                                class="w-8 h-8 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                                :class="currentPage === p ? 'bg-[#0D542B] text-white shadow-2xs' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'"
-                            >
-                                {{ p }}
-                            </button>
-
-                            <button
-                                type="button"
-                                @click="goToPage(currentPage + 1)"
-                                :disabled="currentPage === totalPages"
-                                class="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                            >
-                                Selanjutnya
-                            </button>
-                        </div>
-                    </div>
+                    <!-- Pagination daftar alumni memakai kontrol bersama. -->
+                    <PaginationControls
+                        :total="filteredAlumni.length"
+                        :current-page="currentPage"
+                        :page-size="perPage"
+                        summary-label="data alumni"
+                        @update:current-page="goToPage"
+                    />
                 </div>
 
             </main>

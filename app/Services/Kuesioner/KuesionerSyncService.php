@@ -336,7 +336,7 @@ class KuesionerSyncService
             return;
         }
 
-        $prodiQuestions = KuesionerPertanyaan::where('pemilik_prodi_id', $biodata->prodi_id)
+        $prodiQuestions = KuesionerPertanyaan::query()
             ->where('is_active', true)
             ->whereHas('sections', function ($query) use ($biodata) {
                 $query->where('kuesioner_section.target', 'prodi')
@@ -369,7 +369,7 @@ class KuesionerSyncService
                 continue;
             }
 
-            $pQ = $prodiQuestions->first(fn ($q) => strtolower(trim((string) $q->teks_pertanyaan)) === $textKey);
+            $pQ = $prodiQuestions->first(fn ($q) => self::resolveAcademicIdentityField((string) $q->teks_pertanyaan) === $textKey);
             if ($pQ) {
                 KuesionerJawaban::updateOrCreate(
                     [
@@ -389,5 +389,29 @@ class KuesionerSyncService
                 );
             }
         }
+    }
+
+    /**
+     * Memetakan variasi label pertanyaan identitas ke field akademik kanonik.
+     *
+     * @return 'nama'|'nim'|'tahun kelulusan'|null
+     */
+    public static function resolveAcademicIdentityField(string $questionText): ?string
+    {
+        $normalized = preg_replace('/\s+/', ' ', mb_strtolower(trim($questionText))) ?? '';
+
+        if ($normalized === 'nama' || str_contains($normalized, 'nama lengkap')) {
+            return 'nama';
+        }
+
+        if ($normalized === 'nim' || str_contains($normalized, 'nomor induk mahasiswa')) {
+            return 'nim';
+        }
+
+        if (str_contains($normalized, 'tahun kelulusan') || str_contains($normalized, 'tahun lulus')) {
+            return 'tahun kelulusan';
+        }
+
+        return null;
     }
 }

@@ -414,6 +414,51 @@ class AlumniSimulationSeeder extends Seeder
                 }
             }
         }
+
+        $this->normalizeLegacyProdiAnswers();
+        $this->call(EvaluasiAtasanSimulationSeeder::class);
+    }
+
+    /**
+     * Menormalkan jawaban prodi lama yang masih tersimpan sebagai angka.
+     *
+     * Data lama dipetakan ke opsi aktif berdasarkan posisi skala agar respons
+     * tetap dipertahankan, tetapi penyimpanan runtime selalu memakai label dan
+     * relasi opsi master yang dibaca oleh form serta analitik.
+     */
+    protected function normalizeLegacyProdiAnswers(): void
+    {
+        $answers = KuesionerJawaban::query()
+            ->where('responden_type', 'alumni')
+            ->whereHas('section', fn ($query) => $query->where('target', 'prodi'))
+            ->with('pertanyaan.opsi')
+            ->get();
+
+        foreach ($answers as $answer) {
+            $options = $answer->pertanyaan?->opsi?->sortBy('order')->values() ?? collect();
+            if ($options->isEmpty()) {
+                continue;
+            }
+
+            $option = $options->first(fn ($item): bool => mb_strtolower(trim((string) $item->label)) === mb_strtolower(trim((string) $answer->jawaban_teks)));
+            if (! $option && is_numeric($answer->jawaban_teks)) {
+                $index = max(0, min($options->count() - 1, (int) $answer->jawaban_teks - 1));
+                $option = $options->get($index);
+            }
+
+            if (! $option) {
+                continue;
+            }
+
+            $answer->update([
+                'opsi_id' => $option->id,
+                'kode_opsi' => $option->kode_opsi,
+                'jawaban_teks' => $option->label,
+                'jawaban_json' => in_array($answer->pertanyaan?->tipe, ['multiple_choice', 'checkbox'], true)
+                    ? [$option->label]
+                    : $answer->jawaban_json,
+            ]);
+        }
     }
 
     /**
@@ -655,6 +700,7 @@ class AlumniSimulationSeeder extends Seeder
 
         // Isi Jawaban Kuesioner Khusus Prodi (Jika Prodi Memiliki Instrumen Soal)
         $this->seedProdiAnswersLengkap($biodata, $prodiQuestions);
+
     }
 
     /**
@@ -757,14 +803,28 @@ class AlumniSimulationSeeder extends Seeder
         $sectionId = $prodiSection?->id ?: 1;
 
         foreach ($prodiQuestions as $pq) {
-            $ans = '4'; // Default skala likert 4 = Setuju
+            $ans = '';
+            $answerJson = null;
+            $opsi = null;
+
             if ($pq->tipe === 'text' || $pq->tipe === 'textarea') {
                 $ans = 'Program studi memberikan bekal keahlian yang relevan dan aplikatif di dunia profesional.';
-            } elseif ($pq->tipe === 'radio' || $pq->tipe === 'dropdown') {
-                $ans = 'Sangat Setuju';
+            } elseif ($pq->opsi?->isNotEmpty()) {
+                $selectedOptions = $pq->opsi->sortBy('order')->values();
+                $opsi = $selectedOptions->get($biodata->id % $selectedOptions->count());
+                $ans = $opsi?->label ?? '';
+                $answerJson = in_array($pq->tipe, ['multiple_choice', 'checkbox'], true)
+                    ? [$ans]
+                    : null;
             }
 
-            $opsi = $pq->opsi?->first(fn ($o) => mb_strtolower(trim($o->label)) === mb_strtolower(trim((string) $ans)));
+            if ($ans === '') {
+                continue;
+            }
+
+            if (! $opsi && $pq->opsi?->isNotEmpty()) {
+                $opsi = $pq->opsi->first(fn ($o) => mb_strtolower(trim($o->label)) === mb_strtolower(trim((string) $ans)));
+            }
 
             KuesionerJawaban::updateOrCreate(
                 [
@@ -778,7 +838,7 @@ class AlumniSimulationSeeder extends Seeder
                     'opsi_id' => $opsi?->id,
                     'kode_opsi' => $opsi?->kode_opsi,
                     'jawaban_teks' => $ans,
-                    'jawaban_json' => null,
+                    'jawaban_json' => $answerJson,
                 ]
             );
         }

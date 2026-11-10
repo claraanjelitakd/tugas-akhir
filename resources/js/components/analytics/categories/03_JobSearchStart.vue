@@ -3,7 +3,7 @@
  * Komponen Indikator 03: Waktu Mulai Mencari Pekerjaan (F3).
  *
  * Mengelola visualisasi waktu mulai mencari kerja secara mandiri:
- * 1. Stacked Column Chart: Komposisi waktu mulai mencari kerja sebelum, setelah, atau tidak mencari kerja.
+ * 1. Stacked Bar Chart: Komposisi jumlah fase sebelum, setelah, atau tidak mencari kerja.
  * Dilengkapi narasi analisis komprehensif berstandar laporan resmi Tracer Study UKDW.
  */
 import { computed } from 'vue';
@@ -124,15 +124,22 @@ const afterPercentage = computed(() => {
     return total > 0 ? ((afterCount.value / total) * 100).toFixed(1) : '0';
 });
 
-// Mengubah label mentah menjadi tiga rentang waktu yang konsisten.
+// Mengelompokkan jawaban F3 menjadi fase dan segmen warna yang dipakai grafik.
 const classifyTimingRange = (rawLabel) => {
     const label = String(rawLabel || '').toLowerCase();
-    if (label.includes('tidak mencari')) return { phase: 'Tidak mencari kerja', range: '' };
+    if (label.includes('tidak mencari')) {
+        return { phase: 'Tidak mencari kerja', range: '', segmentKey: 'not_searching' };
+    }
+
+    if (label.includes('sebelum')) {
+        return { phase: 'Sebelum lulus', range: '', segmentKey: 'before_graduation' };
+    }
+
     const months = Number(label.match(/(\d+)/)?.[1] || 0);
-    if (label.includes('>')) return { phase: label.includes('sebelum') ? 'Sebelum lulus' : 'Setelah lulus', range: '> 6 bulan' };
-    if (months <= 2) return { phase: label.includes('sebelum') ? 'Sebelum lulus' : 'Setelah lulus', range: '< 2 bulan' };
-    if (months <= 6) return { phase: label.includes('sebelum') ? 'Sebelum lulus' : 'Setelah lulus', range: '2–6 bulan' };
-    return { phase: label.includes('sebelum') ? 'Sebelum lulus' : 'Setelah lulus', range: '> 6 bulan' };
+    if (months < 6) return { phase: 'Setelah lulus', range: '< 6 bulan', segmentKey: 'after_under_6' };
+    if (months <= 12) return { phase: 'Setelah lulus', range: '6–12 bulan', segmentKey: 'after_6_to_12' };
+
+    return { phase: 'Setelah lulus', range: '> 12 bulan', segmentKey: 'after_over_12' };
 };
 
 // Agregasi rentang sebelum/setelah lulus serta kategori tidak mencari kerja.
@@ -221,47 +228,56 @@ const timingRangeTable = computed(() => ({
     })),
 }));
 
-// Mengagregasi tepat tiga batang fase dengan rentang stack yang seragam.
+// Segmen warna tetap terbatas pada fase dan rentang yang telah disepakati.
+const timingStackSegments = [
+    { key: 'before_graduation', label: 'Sebelum Lulus', color: '#0D542B', labelColor: '#FFFFFF' },
+    { key: 'after_under_6', label: '<6 bulan', color: '#FACC15', labelColor: '#334155' },
+    { key: 'after_6_to_12', label: '6–12 bulan', color: '#F97316', labelColor: '#FFFFFF' },
+    { key: 'after_over_12', label: '>12 bulan', color: '#B91C1C', labelColor: '#FFFFFF' },
+    { key: 'not_searching', label: 'Tidak mencari kerja', color: '#B91C1C', labelColor: '#FFFFFF' },
+];
+
+// Mengagregasi tepat tiga batang fase dengan panjang bar berbasis jumlah alumni.
 const timingStackGroups = computed(() => {
     const groups = [
-        { phase: 'Sebelum lulus', ranges: { '< 2 bulan': 0, '2-6 bulan': 0, '> 6 bulan': 0, 'Tidak mencari kerja': 0 } },
-        { phase: 'Setelah lulus', ranges: { '< 2 bulan': 0, '2-6 bulan': 0, '> 6 bulan': 0, 'Tidak mencari kerja': 0 } },
-        { phase: 'Tidak mencari kerja', ranges: { '< 2 bulan': 0, '2-6 bulan': 0, '> 6 bulan': 0, 'Tidak mencari kerja': 0 } },
+        { phase: 'Sebelum lulus', counts: Object.fromEntries(timingStackSegments.map((segment) => [segment.key, 0])) },
+        { phase: 'Setelah lulus', counts: Object.fromEntries(timingStackSegments.map((segment) => [segment.key, 0])) },
+        { phase: 'Tidak mencari kerja', counts: Object.fromEntries(timingStackSegments.map((segment) => [segment.key, 0])) },
     ];
 
     series.value.forEach((item) => {
         const classification = classifyTimingRange(seriesLabel(item));
         const group = groups.find((candidate) => candidate.phase === classification.phase) || groups[2];
-        const range = classification.phase === 'Tidak mencari kerja'
-            ? 'Tidak mencari kerja'
-            : (classification.range.includes('2') && classification.range.includes('6') ? '2-6 bulan' : classification.range);
-        group.ranges[range] = (group.ranges[range] || 0) + seriesMetric(item);
+        group.counts[classification.segmentKey] = (group.counts[classification.segmentKey] || 0) + seriesMetric(item);
     });
 
     return groups;
 });
 
-// Diagram batang vertikal hijau dengan tiga batang dan stack rentang waktu.
+// Diagram batang horizontal berbasis jumlah dengan warna fase dan masa tunggu.
 const timingStackedOption = computed(() => {
-    const segments = ['< 2 bulan', '2-6 bulan', '> 6 bulan', 'Tidak mencari kerja'];
     return {
         ...baseOption(validResponses.value),
-        grid: { left: 64, right: 36, top: 28, bottom: 72, containLabel: true },
+        themePalette: timingStackSegments.map((segment) => segment.color),
+        grid: { left: 24, right: 48, top: 28, bottom: 64, containLabel: true },
         xAxis: {
-            type: 'category',
-            data: timingStackGroups.value.map((group) => group.phase),
-            axisLabel: { color: '#334155', fontWeight: '600', interval: 0 },
-        },
-        yAxis: {
             type: 'value',
-            max: 100,
-            name: 'Persentase Alumni',
-            nameLocation: 'middle',
-            nameGap: 46,
-            axisLabel: { formatter: '{value}%' },
+            min: 0,
+            max: Math.max(1, ...timingStackGroups.value.map((group) => Object.values(group.counts).reduce((total, count) => total + count, 0))),
+            name: 'Jumlah alumni',
+            nameTextStyle: { color: '#64748B' },
+            axisLabel: { formatter: (value) => formatNumber(value, 0), color: '#64748B' },
             splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
         },
-        legend: { bottom: 4, textStyle: { color: '#334155' } },
+        yAxis: {
+            type: 'category',
+            inverse: true,
+            data: timingStackGroups.value.map((group) => group.phase),
+            axisLabel: { color: '#334155', fontWeight: 600, fontSize: 12 },
+            axisTick: { show: false },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
+        },
+        legend: { data: timingStackSegments.map((segment) => segment.label), bottom: 0, type: 'scroll', textStyle: { color: '#475569', fontSize: 11 } },
         tooltip: {
             ...baseOption().tooltip,
             trigger: 'axis',
@@ -269,42 +285,61 @@ const timingStackedOption = computed(() => {
             formatter: (params) => {
                 const group = timingStackGroups.value[params[0]?.dataIndex];
                 if (!group) return '';
-                return `<strong>${escapeHtml(group.phase)}</strong><br>${params.filter((param) => Number(param.value) > 0).map((param) => `${escapeHtml(param.seriesName)}: <strong>${formatNumber(param.value, 1)}%</strong> (${formatNumber(group.ranges[param.seriesName], 0)} alumni)`).join('<br>')}`;
+
+                const total = Object.values(group.counts).reduce((sum, count) => sum + count, 0);
+                return `<strong>${escapeHtml(group.phase)}</strong><br>${params.filter((param) => Number(param.value) > 0).map((param) => {
+                    const count = Number(param.value) || 0;
+                    const percentage = total > 0 ? (count / total) * 100 : 0;
+
+                    return `${escapeHtml(param.seriesName)}: <strong>${formatNumber(percentage, 1)}%</strong> (${formatNumber(count, 0)} alumni)`;
+                }).join('<br>')}`;
             },
         },
-        series: segments.map((segment) => ({
-            name: segment,
+        series: timingStackSegments.map((segment) => ({
+            name: segment.label,
             type: 'bar',
             stack: 'total',
-            barMaxWidth: 88,
-            data: timingStackGroups.value.map((group) => ({
-                value: totalTimingCount.value > 0 ? Number(((group.ranges[segment] / totalTimingCount.value) * 100).toFixed(1)) : 0,
-                count: group.ranges[segment],
-            })),
+            stackOrder: timingStackSegments.findIndex((candidate) => candidate.key === segment.key),
+            barMaxWidth: 34,
+            itemStyle: { color: segment.color },
+            data: timingStackGroups.value.map((group) => {
+                const count = group.counts[segment.key] || 0;
+                const total = Object.values(group.counts).reduce((sum, value) => sum + value, 0);
+
+                return { name: group.phase, value: count, count, percentage: total > 0 ? (count / total) * 100 : 0 };
+            }),
             label: {
                 show: true,
                 position: 'inside',
-                formatter: ({ value }) => Number(value) >= 10 ? `${formatNumber(value, 1)}%` : '',
-                fontWeight: 'bold',
+                formatter: ({ data }) => data?.percentage >= 10 ? `${formatNumber(data.percentage, 1)}%` : '',
+                color: segment.labelColor,
+                fontWeight: 600,
+                fontSize: 10,
             },
         })),
     };
 });
 
-// Tabel ringkas mengikuti urutan tiga batang dan stack rentang waktunya.
+// Tabel ringkas mengikuti urutan fase dan segmen pada diagram batang.
 const timingStackedTable = computed(() => ({
     columns: [
-        { key: 'label', label: 'Rentang Waktu Mulai Mencari' },
+        { key: 'phase', label: 'Fase' },
+        { key: 'segment', label: 'Rentang Waktu' },
         { key: 'count', label: 'Jumlah Alumni', align: 'right' },
         { key: 'percentage', label: 'Persentase', align: 'right' },
     ],
-    rows: timingStackGroups.value.flatMap((group) => Object.entries(group.ranges)
-        .filter(([, count]) => count > 0)
-        .map(([range, count]) => ({
-            label: `${group.phase} - ${range}`,
-            count: formatNumber(count, 0),
-            percentage: `${formatNumber(totalTimingCount.value > 0 ? (count / totalTimingCount.value) * 100 : 0, 1)}%`,
-        }))),
+    rows: timingStackGroups.value.flatMap((group) => {
+        const total = Object.values(group.counts).reduce((sum, count) => sum + count, 0);
+
+        return timingStackSegments
+            .filter((segment) => group.counts[segment.key] > 0)
+            .map((segment) => ({
+                phase: group.phase,
+                segment: segment.label,
+                count: formatNumber(group.counts[segment.key], 0),
+                percentage: `${formatNumber(total > 0 ? (group.counts[segment.key] / total) * 100 : 0, 1)}%`,
+            }));
+    }),
 }));
 
 // -----------------------------------------------------------------------------
@@ -469,10 +504,10 @@ const distributionBarTable = computed(() => ({
 const views = computed(() => [
     {
         key: 'timing_stacked',
-        chartType: 'stacked_vertical',
+        chartType: 'stacked_horizontal',
         tabLabel: 'Rentang Waktu Bertumpuk',
         title: 'Sebaran rentang waktu mulai mencari pekerjaan',
-        description: 'Tiga batang hijau menunjukkan fase sebelum lulus, setelah lulus, dan tidak mencari kerja; setiap batang dibagi menurut rentang < 2 bulan, 2-6 bulan, dan > 6 bulan.',
+        description: 'Panjang batang menunjukkan jumlah alumni. Sebelum lulus ditampilkan hijau, tidak mencari kerja merah, sedangkan setelah lulus dibagi menjadi <6 bulan kuning, 6–12 bulan oranye, dan >12 bulan merah. Tidak ada kategori studi lanjut atau abu-abu.',
         option: timingStackedOption.value,
         tableData: timingStackedTable.value,
         height: 420,
@@ -481,8 +516,8 @@ const views = computed(() => [
             statusBadge: 'Perilaku Kesiapan',
             badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
             lead: `Sebanyak ${formatNumber(beforeCount.value, 0)} alumni (${beforePercentage.value}%) mulai mencari kerja sebelum lulus, ${formatNumber(afterCount.value, 0)} alumni (${afterPercentage.value}%) setelah lulus, dan ${formatNumber(notSearchingCount.value, 0)} alumni tidak mencari kerja.`,
-            detail: 'Rentang waktu diseragamkan menjadi < 2 bulan, 2–6 bulan, dan > 6 bulan agar perbedaan momentum pencarian kerja antar fase dapat dibandingkan secara konsisten.',
-            reason: 'Dipilih sebagai Stacked Column Chart agar tiga fase utama tetap ringkas, sementara pembagian rentang waktunya tetap terlihat dalam setiap batang.',
+            detail: 'Sebelum lulus dan tidak mencari kerja tidak dipecah lagi. Hanya fase setelah lulus yang dibagi menjadi <6 bulan, 6–12 bulan, dan >12 bulan agar keterlambatan masuk kerja terlihat jelas.',
+            reason: 'Dipilih sebagai Stacked Bar Chart berbasis jumlah agar panjang batang langsung menunjukkan banyaknya alumni dan warna hanya menjelaskan fase atau rentang masa tunggu.',
         },
     },
 ]);

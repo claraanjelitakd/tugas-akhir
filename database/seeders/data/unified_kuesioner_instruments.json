@@ -1985,14 +1985,14 @@
         {
             "id": 142,
             "kode_pertanyaan": "EVA_891",
-            "teks_pertanyaan": "apa ya apa ya",
+            "teks_pertanyaan": "Kepemimpinan dan Pengambilan Keputusan",
             "tipe": "likert_5",
             "pemilik_prodi_id": null,
             "is_reusable": 1,
-            "keterangan": "aduh",
+            "keterangan": "Kemampuan memimpin, mengambil keputusan, dan mengarahkan pekerjaan secara bertanggung jawab.",
             "is_active": 1,
             "created_at": "2026-11-04 11:27:10",
-            "updated_at": "2026-11-04 11:27:10"
+            "updated_at": "2026-11-11 00:00:00"
         },
         {
             "id": 143,
@@ -5894,12 +5894,22 @@
             "updated_at": "2026-11-04 11:27:06"
         },
         {
-            "id": 236,
+            "id": 10000,
             "pertanyaan_id": 88,
             "kode_opsi": "PSI-1-04_4",
-            "label": "Lainnya",
+            "label": "Kunjungan perusahaan",
             "nilai_skor": null,
             "order": 4,
+            "created_at": "2026-11-11 00:00:00",
+            "updated_at": "2026-11-11 00:00:00"
+        },
+        {
+            "id": 236,
+            "pertanyaan_id": 88,
+            "kode_opsi": "PSI-1-04_5",
+            "label": "Lainnya",
+            "nilai_skor": null,
+            "order": 5,
             "created_at": "2026-11-04 11:27:06",
             "updated_at": "2026-11-04 11:27:06"
         },
@@ -8652,6 +8662,56 @@
             "order": 6,
             "created_at": "2026-11-04 11:27:10",
             "updated_at": "2026-11-04 11:27:10"
+        },
+        {
+            "id": 10001,
+            "pertanyaan_id": 142,
+            "kode_opsi": "EVA_891_1",
+            "label": "Sangat Tinggi",
+            "nilai_skor": 5,
+            "order": 1,
+            "created_at": "2026-11-11 00:00:00",
+            "updated_at": "2026-11-11 00:00:00"
+        },
+        {
+            "id": 10002,
+            "pertanyaan_id": 142,
+            "kode_opsi": "EVA_891_2",
+            "label": "Tinggi",
+            "nilai_skor": 4,
+            "order": 2,
+            "created_at": "2026-11-11 00:00:00",
+            "updated_at": "2026-11-11 00:00:00"
+        },
+        {
+            "id": 10003,
+            "pertanyaan_id": 142,
+            "kode_opsi": "EVA_891_3",
+            "label": "Cukup",
+            "nilai_skor": 3,
+            "order": 3,
+            "created_at": "2026-11-11 00:00:00",
+            "updated_at": "2026-11-11 00:00:00"
+        },
+        {
+            "id": 10004,
+            "pertanyaan_id": 142,
+            "kode_opsi": "EVA_891_4",
+            "label": "Kurang",
+            "nilai_skor": 2,
+            "order": 4,
+            "created_at": "2026-11-11 00:00:00",
+            "updated_at": "2026-11-11 00:00:00"
+        },
+        {
+            "id": 10005,
+            "pertanyaan_id": 142,
+            "kode_opsi": "EVA_891_5",
+            "label": "Sangat Kurang",
+            "nilai_skor": 1,
+            "order": 5,
+            "created_at": "2026-11-11 00:00:00",
+            "updated_at": "2026-11-11 00:00:00"
         }
     ]
 }

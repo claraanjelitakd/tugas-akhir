@@ -448,6 +448,9 @@ const selectRole = (newRole) => {
         props.form.posisi_jabatan = null;
         props.form.posisi_wiraswasta = null;
         props.form.posisi_wiraswasta_lainnya = null;
+        props.form.bidang_pekerjaan = null;
+        props.form.bidang_pekerjaan_lainnya = null;
+        props.form.divisi = null;
         return;
     }
 
@@ -472,6 +475,9 @@ const selectRole = (newRole) => {
         props.form.posisi_jabatan = null;
         props.form.posisi_wiraswasta = null;
         props.form.posisi_wiraswasta_lainnya = null;
+        props.form.bidang_pekerjaan = null;
+        props.form.bidang_pekerjaan_lainnya = null;
+        props.form.divisi = null;
         props.form.gaji = null;
         if (props.form.nama_atasan === props.form.nama || props.form.email_atasan === (props.form.email_pribadi || props.form.email)) {
             props.form.nama_atasan = '';
@@ -480,6 +486,15 @@ const selectRole = (newRole) => {
         }
     }
 };
+
+// Bidang dan divisi hanya merupakan data pekerjaan/usaha; bersihkan pada status non-karier.
+watch(() => props.form.kategori_pekerjaan, (newRole) => {
+    if (!['Pekerja', 'Wiraswasta'].includes(newRole)) {
+        props.form.bidang_pekerjaan = null;
+        props.form.bidang_pekerjaan_lainnya = null;
+        props.form.divisi = null;
+    }
+}, { immediate: true });
 
 // ============================================================================
 // 3. PENGIRIMAN MANUAL EMAIL KUESIONER EVALUASI ATASAN
@@ -1456,7 +1471,7 @@ onUnmounted(() => {
                     </div>
                 </div>
 
-                <div class="md:col-span-2 space-y-2">
+                <div v-if="['Pekerja', 'Wiraswasta'].includes(form.kategori_pekerjaan)" class="md:col-span-2 space-y-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700">
                         {{ getQuestionLabel('BIO_BIDANG_DIVISI', 'Bidang Pekerjaan') }} <span v-if="isQuestionRequired('BIO_BIDANG_DIVISI', false)" class="text-rose-500 font-bold">*</span>
                     </label>
@@ -1484,7 +1499,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Input divisi terpisah dari rumpun bidang pekerjaan untuk kebutuhan direktori dan analitik. -->
-                <div class="md:col-span-2 space-y-2">
+                <div v-if="['Pekerja', 'Wiraswasta'].includes(form.kategori_pekerjaan)" class="md:col-span-2 space-y-2">
                     <label for="divisi" class="block text-xs sm:text-sm font-bold text-gray-700">
                         Divisi / Unit Kerja
                     </label>

@@ -2,12 +2,8 @@
 /**
  * Komponen Indikator 06: Lamaran, Respons, dan Wawancara (F6, F7, F7a).
  *
- * Mengelola lima visualisasi komprehensif alur pencarian kerja alumni:
- * 1. Line Chart: Pipeline Lamaran per Prodi (Median Dilamar, Merespon, Mewawancara - Gambar 4.7 Laporan Resmi UKDW)
- * 2. Scatter Plot: Hubungan Lamaran vs Respons Perusahaan (F6 vs F7, skala warna IPK 0-4 Viridis, 256 titik alumni mekar)
- * 3. Scatter Plot: Hubungan Respons vs Undangan Wawancara (F7 vs F7a, skala warna IPK 0-4 Viridis, 256 titik alumni mekar)
- * 4. Horizontal Bar Chart: Persentase Konversi Tahapan Lamaran hingga Wawancara (Weighted Conversion Rate)
- * 5. Bar Chart: Median Tahapan Lamaran Tingkat Universitas
+ * Mengelola pipeline lamaran per prodi, tabel audit individu, konversi tahapan,
+ * dan median tahapan lamaran tingkat universitas.
  */
 import { computed } from 'vue';
 import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
@@ -171,109 +167,87 @@ const prodiPipelineData = computed(() => {
     }).filter((item) => item.count > 0).sort((a, b) => b.count - a.count);
 });
 
-const pipelineLineOption = computed(() => {
+// Opsi stacked bar 100% horizontal untuk membandingkan proporsi tahapan pipeline per prodi.
+const pipelineStackedBarOption = computed(() => {
     const list = prodiPipelineData.value;
-    const labels = list.map((item) => `${item.prodi}\n(n=${item.count})`);
+    const categories = ['Perusahaan Dilamar', 'Merespon', 'Mewawancara'];
+    const colors = ['#B91C1C', '#FACC15', '#0D542B'];
+    const labelColors = ['#FFFFFF', '#334155', '#FFFFFF'];
+    const rows = list.map((item) => {
+        const total = item.dilamar + item.merespon + item.wawancara;
+
+        return { ...item, total };
+    });
 
     return {
         ...baseOption(records.value.length),
         legend: {
-            data: ['Perusahaan Dilamar', 'Merespon', 'Mewawancara'],
+            data: categories,
             bottom: 0,
-            icon: 'circle',
             textStyle: { color: '#334155', fontWeight: 600, fontSize: 12 },
         },
-        grid: { left: 24, right: 36, top: 32, bottom: 80, containLabel: true },
+        grid: { left: 24, right: 36, top: 28, bottom: 64, containLabel: true },
         xAxis: {
-            type: 'category',
-            data: labels,
-            axisLabel: {
-                color: '#334155',
-                fontSize: 11,
-                interval: 0,
-                rotate: 30,
-                lineHeight: 14,
-            },
-            axisLine: { lineStyle: { color: '#CBD5E1' } },
+            type: 'value',
+            min: 0,
+            max: 100,
+            name: 'Proporsi median tahapan',
+            axisLabel: { formatter: '{value}%', color: '#64748B' },
+            splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
         },
         yAxis: {
-            type: 'value',
-            name: 'Median Jumlah Perusahaan',
-            nameLocation: 'end',
-            axisLabel: { color: '#64748B' },
-            splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
+            type: 'category',
+            inverse: true,
+            data: rows.map((item) => `${item.prodi} (n=${item.count})`),
+            axisLabel: { color: '#334155', width: 220, overflow: 'truncate' },
         },
         tooltip: {
             ...baseOption().tooltip,
             trigger: 'axis',
             formatter: (params) => {
-                const item = list[params[0]?.dataIndex ?? 0] || {};
+                const item = rows[params[0]?.dataIndex ?? 0] || {};
                 return `
                     <div class="font-sans text-xs">
                         <div class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5">${escapeHtml(item.prodi)} (n=${item.count})</div>
-                        <div class="text-slate-600 mb-0.5">Perusahaan dilamar: <strong>${formatNumber(item.dilamar, 1)}</strong></div>
-                        <div class="text-slate-600 mb-0.5">Perusahaan merespon: <strong>${formatNumber(item.merespon, 1)}</strong></div>
-                        <div class="text-slate-600">Panggilan wawancara: <strong>${formatNumber(item.wawancara, 1)}</strong></div>
+                        ${categories.map((category, index) => {
+        const value = [item.dilamar, item.merespon, item.wawancara][index];
+        const percentage = item.total > 0 ? (value / item.total) * 100 : 0;
+
+        return `<div class="text-slate-600 mb-0.5">${category}: <strong>${formatNumber(value, 1)} (${formatNumber(percentage, 1)}%)</strong></div>`;
+    }).join('')}
+                        <div class="text-slate-600">Total median tahapan: <strong>${formatNumber(item.total, 1)}</strong></div>
                     </div>
                 `;
             },
         },
-        series: [
-            {
-                name: 'Perusahaan Dilamar',
-                type: 'line',
-                data: list.map((g) => g.dilamar),
-                itemStyle: { color: '#334155' },
-                lineStyle: { width: 3, color: '#334155' },
-                symbol: 'circle',
-                symbolSize: 8,
-                emphasis: { scale: 1.5 },
-                label: {
-                    show: true,
-                    position: 'top',
-                    formatter: ({ value }) => formatNumber(value, 1),
-                    fontSize: 11,
-                    fontWeight: 'bold',
-                    color: '#334155',
-                },
+        series: categories.map((category, index) => ({
+            name: category,
+            type: 'bar',
+            stack: 'pipeline',
+            stackOrder: index,
+            barMaxWidth: 28,
+            itemStyle: { color: colors[index] },
+            label: {
+                show: true,
+                position: 'inside',
+                formatter: ({ data }) => data?.value >= 10 ? `${formatNumber(data.value, 1)}%` : '',
+                color: labelColors[index],
+                fontWeight: 600,
+                fontSize: 10,
             },
-            {
-                name: 'Merespon',
-                type: 'line',
-                data: list.map((g) => g.merespon),
-                itemStyle: { color: '#0D542B' },
-                lineStyle: { width: 3, color: '#0D542B' },
-                symbol: 'rect',
-                symbolSize: 8,
-                emphasis: { scale: 1.5 },
-                label: {
-                    show: true,
-                    position: 'top',
-                    formatter: ({ value }) => formatNumber(value, 1),
-                    fontSize: 11,
-                    fontWeight: 'bold',
-                    color: '#0D542B',
-                },
-            },
-            {
-                name: 'Mewawancara',
-                type: 'line',
-                data: list.map((g) => g.wawancara),
-                itemStyle: { color: '#059669' },
-                lineStyle: { width: 3, color: '#059669' },
-                symbol: 'triangle',
-                symbolSize: 8,
-                emphasis: { scale: 1.5 },
-                label: {
-                    show: true,
-                    position: 'bottom',
-                    formatter: ({ value }) => formatNumber(value, 1),
-                    fontSize: 11,
-                    fontWeight: 'bold',
-                    color: '#059669',
-                },
-            },
-        ],
+            data: rows.map((item) => {
+                const value = [item.dilamar, item.merespon, item.wawancara][index];
+
+                return {
+                    name: item.prodi,
+                    category,
+                    value: item.total > 0 ? Number(((value / item.total) * 100).toFixed(1)) : 0,
+                    count: value,
+                    total: item.total,
+                    prodi: item.prodi,
+                };
+            }),
+        })),
     };
 });
 
@@ -407,7 +381,7 @@ const scatter1Option = computed(() => {
     };
 });
 
-const scatter1Table = computed(() => {
+const legacyScatter1Table = computed(() => {
     const s1 = scatter1.value;
     const summary = s1.summary || {};
     const stats = s1.stats || {};
@@ -583,7 +557,7 @@ const scatter2Option = computed(() => {
     };
 });
 
-const scatter2Table = computed(() => {
+const legacyScatter2Table = computed(() => {
     const s2 = scatter2.value;
     const summary = s2.summary || {};
     const stats = s2.stats || {};
@@ -646,88 +620,209 @@ const scatter2Table = computed(() => {
     };
 });
 
-// -----------------------------------------------------------------------------
-// 4. HORIZONTAL BAR CHART: Persentase Konversi Tahapan Lamaran
-// -----------------------------------------------------------------------------
-const conversionBarOption = computed(() => {
-    const stages = conversion.value?.stages || [];
-    const labels = stages.map((s) => s.label);
-    const dataValues = stages.map((s) => ({
-        name: s.label,
-        value: s.percentage,
-        from_count: s.from_count,
-        to_count: s.to_count,
-        from_label: s.from_label,
-        to_label: s.to_label,
-        formula: s.formula,
-        denominator_note: s.denominator_note,
-        itemStyle: {
-            color: '#0D542B',
-            borderRadius: [0, 6, 6, 0],
-        },
-    }));
+// Menyusun detail individu dan pivot prodi dari dua tahap pipeline yang dibandingkan.
+const buildPipelineAuditTable = (data, firstKey, secondKey, firstLabel, secondLabel) => {
+    const detail = (data || []).map((item) => {
+        const firstValue = Number(item[firstKey]);
+        const secondValue = Number(item[secondKey]);
+        const percentage = firstValue > 0 ? (secondValue / firstValue) * 100 : null;
+
+        return {
+            nama_alumni: item.name || '-',
+            nim: item.nim || '-',
+            prodi: item.prodi || 'Tanpa prodi',
+            ipk: item.ipk === null || item.ipk === undefined ? '-' : formatNumber(item.ipk, 2),
+            tahap_awal: formatNumber(firstValue, 0),
+            tahap_akhir: formatNumber(secondValue, 0),
+            persentase: percentage === null ? '-' : `${formatNumber(percentage, 1)}%`,
+            _firstValue: firstValue,
+            _secondValue: secondValue,
+            _percentage: percentage,
+            _ipk: item.ipk === null || item.ipk === undefined ? null : Number(item.ipk),
+        };
+    }).sort((left, right) => (right._percentage ?? -1) - (left._percentage ?? -1) || right._ipk - left._ipk);
+
+    const groups = new Map();
+    detail.forEach((row) => {
+        if (!groups.has(row.prodi)) groups.set(row.prodi, []);
+        groups.get(row.prodi).push(row);
+    });
+
+    const pivot = [...groups.entries()].map(([prodi, rows]) => {
+        const validPercentages = rows.filter((row) => row._percentage !== null);
+        const validIpk = rows.filter((row) => row._ipk !== null).map((row) => row._ipk);
+        const top = validPercentages.sort((left, right) => right._percentage - left._percentage || (right._ipk ?? -1) - (left._ipk ?? -1))[0];
+        const average = (key, source = rows) => source.length > 0 ? source.reduce((sum, row) => sum + row[key], 0) / source.length : null;
+
+        return {
+            prodi,
+            alumni_valid: formatNumber(rows.length, 0),
+            rata_ipk: validIpk.length > 0 ? formatNumber(validIpk.reduce((sum, value) => sum + value, 0) / validIpk.length, 2) : '-',
+            rata_awal: formatNumber(average('_firstValue'), 1),
+            rata_akhir: formatNumber(average('_secondValue'), 1),
+            rata_persentase: validPercentages.length > 0 ? `${formatNumber(average('_percentage', validPercentages), 1)}%` : '-',
+            alumni_tertinggi: top ? `${top.nama_alumni} (${formatNumber(top._percentage, 1)}%)` : '-',
+            ipk_tertinggi: top?._ipk === null || top?._ipk === undefined ? '-' : formatNumber(top._ipk, 2),
+            _sortPercentage: top?._percentage ?? -1,
+        };
+    }).sort((left, right) => right._sortPercentage - left._sortPercentage || left.prodi.localeCompare(right.prodi, 'id'));
 
     return {
-        ...baseOption(),
-        grid: { left: 24, right: 110, top: 24, bottom: 36, containLabel: true },
-        xAxis: {
-            type: 'value',
-            name: 'Tingkat Konversi (%)',
-            min: 0,
-            max: (val) => Math.min(100, Math.ceil((val.max + 15) / 10) * 10),
-            axisLabel: {
-                formatter: '{value}%',
-                color: '#64748B',
-            },
-            splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
+        columns: [
+            { key: 'nama_alumni', label: 'Nama Alumni' },
+            { key: 'nim', label: 'NIM' },
+            { key: 'prodi', label: 'Program Studi' },
+            { key: 'ipk', label: 'IPK', align: 'right' },
+            { key: 'tahap_awal', label: firstLabel, align: 'right' },
+            { key: 'tahap_akhir', label: secondLabel, align: 'right' },
+            { key: 'persentase', label: 'Persentase', align: 'right' },
+        ],
+        rows: detail,
+        summary: {
+            columns: [
+                { key: 'prodi', label: 'Program Studi' },
+                { key: 'alumni_valid', label: 'Alumni Valid', align: 'right' },
+                { key: 'rata_ipk', label: 'Rata-rata IPK', align: 'right' },
+                { key: 'rata_awal', label: `Rata-rata ${firstLabel}`, align: 'right' },
+                { key: 'rata_akhir', label: `Rata-rata ${secondLabel}`, align: 'right' },
+                { key: 'rata_persentase', label: 'Rata-rata Persentase', align: 'right' },
+                { key: 'alumni_tertinggi', label: 'Persentase Tertinggi' },
+                { key: 'ipk_tertinggi', label: 'IPK Alumni Tertinggi', align: 'right' },
+            ],
+            rows: pivot,
         },
-        yAxis: {
-            type: 'category',
-            inverse: true,
-            data: labels,
-            axisLabel: {
-                color: '#1E293B',
-                fontWeight: 600,
-                fontSize: 12,
-            },
-            axisTick: { show: false },
-            axisLine: { lineStyle: { color: '#CBD5E1' } },
-        },
+    };
+};
+
+// Tabel audit individu untuk lamaran terhadap respons perusahaan.
+const scatter1Table = computed(() => buildPipelineAuditTable(
+    scatter1.value.data,
+    'f6',
+    'f7',
+    'Lamaran (F6)',
+    'Respons (F7)',
+));
+
+// Tabel audit individu untuk respons perusahaan terhadap undangan wawancara.
+const scatter2Table = computed(() => buildPipelineAuditTable(
+    scatter2.value.data,
+    'f7',
+    'f7a',
+    'Respons (F7)',
+    'Wawancara (F7a)',
+));
+
+// -----------------------------------------------------------------------------
+// 4. STACKED BAR: Distribusi Konversi berdasarkan Kelompok IPK
+// -----------------------------------------------------------------------------
+const conversionIpkBands = [
+    { key: 'ipk_unavailable', label: 'IPK Tidak tersedia', color: '#CBD5E1', labelColor: '#334155' },
+    { key: 'ipk_0_1', label: 'IPK 0–<1', min: 0, max: 1, color: '#B91C1C', labelColor: '#FFFFFF' },
+    { key: 'ipk_1_2', label: 'IPK 1–<2', min: 1, max: 2, color: '#F97316', labelColor: '#FFFFFF' },
+    { key: 'ipk_2_3', label: 'IPK 2–<3', min: 2, max: 3, color: '#FACC15', labelColor: '#334155' },
+    { key: 'ipk_3_4', label: 'IPK 3–4', min: 3, max: 4, color: '#0D542B', labelColor: '#FFFFFF' },
+];
+
+// Mendefinisikan pembilang dan penyebut setiap tahap agar angka tetap audit-able.
+const conversionStageDefinitions = [
+    { key: 'app_to_resp', label: 'Lamaran → Respons', fromKey: 'f6', toKey: 'f7' },
+    { key: 'resp_to_intv', label: 'Respons → Wawancara', fromKey: 'f7', toKey: 'f7a' },
+    { key: 'app_to_intv', label: 'Lamaran → Wawancara', fromKey: 'f6', toKey: 'f7a' },
+];
+
+// Mengelompokkan IPK dengan interval konsisten dan tetap menyimpan nilai kosong.
+const getConversionIpkBand = (value) => {
+    const unavailableBand = conversionIpkBands.find((band) => band.key === 'ipk_unavailable');
+    if (value === null || value === undefined || String(value).trim() === '') return unavailableBand;
+
+    const ipk = Number(value);
+    if (!Number.isFinite(ipk) || ipk < 0 || ipk > 4) return unavailableBand;
+
+    return conversionIpkBands.find((band) => band.min !== undefined && ipk >= band.min && (ipk < band.max || (band.max === 4 && ipk <= 4))) || unavailableBand;
+};
+
+// Mengagregasi jumlah tahap per kelompok IPK; panjang bar memakai jumlah pembilang.
+const conversionIpkStats = computed(() => conversionStageDefinitions.map((stage) => {
+    const stageRecords = alumniList.value.filter((record) => {
+        const from = Number(record[stage.fromKey]);
+        const to = Number(record[stage.toKey]);
+
+        return Number.isFinite(from) && from > 0 && Number.isFinite(to) && to >= 0;
+    });
+    const fromCount = stageRecords.reduce((sum, record) => sum + Number(record[stage.fromKey]), 0);
+    const toCount = stageRecords.reduce((sum, record) => sum + Number(record[stage.toKey]), 0);
+    const counts = Object.fromEntries(conversionIpkBands.map((band) => [band.key, 0]));
+
+    stageRecords.forEach((record) => {
+        const band = getConversionIpkBand(record.ipk);
+        counts[band.key] += Number(record[stage.toKey]);
+    });
+
+    return {
+        ...stage,
+        fromCount,
+        toCount,
+        conversionPercentage: fromCount > 0 ? (toCount / fromCount) * 100 : 0,
+        counts,
+    };
+}));
+
+// Format label segmen berdasarkan proporsi jumlah pembilang pada setiap tahap.
+const formatConversionIpkLabel = ({ data }) => data?.percentage >= 10 ? `${formatNumber(data.percentage, 1)}%` : '';
+
+const conversionBarOption = computed(() => {
+    const rows = conversionIpkStats.value;
+    const maxTotal = Math.max(1, ...rows.map((row) => row.toCount));
+
+    return {
+        ...baseOption(alumniList.value.length),
+        themePalette: conversionIpkBands.map((band) => band.color),
+        legend: { data: conversionIpkBands.map((band) => band.label), bottom: 0, type: 'scroll', textStyle: { color: '#475569', fontSize: 11 } },
+        grid: { left: 24, right: 48, top: 28, bottom: 64, containLabel: true },
+        xAxis: { type: 'value', min: 0, max: maxTotal, name: 'Jumlah perusahaan', nameTextStyle: { color: '#64748B' }, axisLabel: { formatter: (value) => formatNumber(value, 0), color: '#64748B' }, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
+        yAxis: { type: 'category', inverse: true, data: rows.map((row) => row.label), axisLabel: { color: '#334155', fontWeight: 600, fontSize: 12 }, axisTick: { show: false }, axisLine: { lineStyle: { color: '#CBD5E1' } } },
         tooltip: {
-            trigger: 'item',
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
             formatter: (params) => {
-                const pt = params.data || {};
+                const row = rows[params?.[0]?.dataIndex];
+                if (!row) return '';
+
                 return `
                     <div class="font-sans text-xs">
-                        <div class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5">${escapeHtml(pt.name)}</div>
-                        <div class="text-slate-700 mb-1"><span class="font-medium text-slate-500">Konversi:</span> <strong class="text-emerald-700 font-mono text-sm">${formatNumber(pt.value, 1)}%</strong></div>
-                        <div class="text-slate-600 mb-0.5"><span class="font-medium text-slate-500">${escapeHtml(pt.to_label)}:</span> <strong>${formatNumber(pt.to_count, 0)}</strong> (Pembilang)</div>
-                        <div class="text-slate-600 mb-1"><span class="font-medium text-slate-500">${escapeHtml(pt.from_label)}:</span> <strong>${formatNumber(pt.from_count, 0)}</strong> (Penyebut)</div>
-                        <div class="text-[11px] text-slate-500 bg-slate-50 p-1.5 rounded border border-slate-200 mb-1 font-mono">${escapeHtml(pt.formula)}</div>
-                        <div class="text-[10px] text-slate-400 italic">${escapeHtml(pt.denominator_note)}</div>
+                        <div class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5">${escapeHtml(row.label)}</div>
+                        <div class="text-slate-700 mb-1">Konversi: <strong class="text-emerald-700 font-mono">${formatNumber(row.conversionPercentage, 1)}%</strong></div>
+                        ${conversionIpkBands.map((band) => {
+                            const count = row.counts[band.key] || 0;
+                            const percentage = row.toCount > 0 ? (count / row.toCount) * 100 : 0;
+
+                            return `<div class="text-slate-600 mb-0.5">${band.label}: <strong>${formatNumber(count, 0)} (${formatNumber(percentage, 1)}%)</strong></div>`;
+                        }).join('')}
+                        <div class="text-slate-600 mt-1">Total pembilang: <strong>${formatNumber(row.toCount, 0)}</strong></div>
+                        <div class="text-slate-600">Total penyebut: <strong>${formatNumber(row.fromCount, 0)}</strong></div>
                     </div>
                 `;
             },
         },
-        series: [{
-            name: 'Persentase Konversi',
+        series: conversionIpkBands.map((band, index) => ({
+            name: band.label,
             type: 'bar',
+            stack: 'conversion',
+            stackOrder: index,
             barMaxWidth: 34,
-            data: dataValues,
-            label: {
-                show: true,
-                position: 'right',
-                formatter: ({ data }) => `${formatNumber(data.value, 1)}% (${formatNumber(data.to_count, 0)} / ${formatNumber(data.from_count, 0)})`,
-                fontWeight: 'bold',
-                color: '#0D542B',
-                fontSize: 12,
-            },
-        }],
+            itemStyle: { color: band.color },
+            label: { show: true, position: 'inside', formatter: formatConversionIpkLabel, color: band.labelColor, fontWeight: 600, fontSize: 10 },
+            data: rows.map((row) => {
+                const count = row.counts[band.key] || 0;
+
+                return { name: row.label, category: band.label, value: count, count, total: row.toCount, percentage: row.toCount > 0 ? (count / row.toCount) * 100 : 0, prodi: row.label };
+            }),
+        })),
     };
 });
 
 const conversionBarTable = computed(() => {
-    const stages = conversion.value?.stages || [];
+    const rows = conversionIpkStats.value;
 
     return {
         columns: [
@@ -735,14 +830,19 @@ const conversionBarTable = computed(() => {
             { key: 'tahap_awal', label: 'Jumlah Awal (Penyebut)', align: 'right' },
             { key: 'tahap_berikutnya', label: 'Jumlah Lanjutan (Pembilang)', align: 'right' },
             { key: 'persentase', label: 'Persentase Konversi', align: 'right' },
-            { key: 'keterangan_penyebut', label: 'Keterangan & Ketentuan Penyebut' },
+            ...conversionIpkBands.map((band) => ({ key: band.key, label: band.label, align: 'right' })),
         ],
-        rows: stages.map((s) => ({
-            tahapan: s.label,
-            tahap_awal: `${formatNumber(s.from_count, 0)} (${s.from_label})`,
-            tahap_berikutnya: `${formatNumber(s.to_count, 0)} (${s.to_label})`,
-            persentase: `${formatNumber(s.percentage, 1)}%`,
-            keterangan_penyebut: s.denominator_note,
+        rows: rows.map((row) => ({
+            tahapan: row.label,
+            tahap_awal: formatNumber(row.fromCount, 0),
+            tahap_berikutnya: formatNumber(row.toCount, 0),
+            persentase: `${formatNumber(row.conversionPercentage, 1)}%`,
+            ...Object.fromEntries(conversionIpkBands.map((band) => {
+                const count = row.counts[band.key] || 0;
+                const percentage = row.toCount > 0 ? (count / row.toCount) * 100 : 0;
+
+                return [band.key, `${formatNumber(count, 0)} (${formatNumber(percentage, 1)}%)`];
+            })),
         })),
     };
 });
@@ -816,20 +916,14 @@ const views = computed(() => {
     const st1 = conversion.value?.stages?.[1] || {};
     const st2 = conversion.value?.stages?.[2] || {};
 
-    const rho1 = s1.stats?.rho !== null && s1.stats?.rho !== undefined ? formatNumber(s1.stats.rho, 4) : '-';
-    const p1 = s1.stats?.p_value !== null && s1.stats?.p_value !== undefined ? (s1.stats.p_value < 0.001 ? '< 0,001' : formatNumber(s1.stats.p_value, 4)) : '-';
-
-    const rho2 = s2.stats?.rho !== null && s2.stats?.rho !== undefined ? formatNumber(s2.stats.rho, 4) : '-';
-    const p2 = s2.stats?.p_value !== null && s2.stats?.p_value !== undefined ? (s2.stats.p_value < 0.001 ? '< 0,001' : formatNumber(s2.stats.p_value, 4)) : '-';
-
     return [
         {
             key: 'pipeline_line',
-            chartType: 'line',
+            chartType: 'stacked_horizontal_100',
             tabLabel: 'Pipeline per Prodi',
             title: 'Perusahaan dilamar, merespon, dan wawancara per program studi',
-            description: 'Perbandingan median tiga tahapan lamaran per prodi (mengadopsi Gambar 4.7 Laporan Resmi Tracer Study UKDW). Dilengkapi label nilai median pada setiap titik garis.',
-            option: pipelineLineOption.value,
+            description: 'Distribusi 100% median tiga tahapan pipeline per prodi. Merah = dilamar, kuning = merespon, hijau = wawancara.',
+            option: pipelineStackedBarOption.value,
             tableData: pipelineLineTable.value,
             height: 440,
             analysis: {
@@ -842,44 +936,44 @@ const views = computed(() => {
         },
         {
             key: 'scatter_applications_responses',
-            chartType: 'scatter',
+            chartType: 'table',
             tabLabel: 'Lamaran vs Respons',
             title: 'Hubungan Jumlah Lamaran dengan Jumlah Respons Perusahaan',
-            description: 'Scatter plot sebaran titik alumni memperlihatkan relasi jumlah lamaran kerja (F6) dan respons perusahaan (F7). Seluruh titik alumni dimekarkan secara visual dengan skala warna IPK (0–4) dan garis tren linier OLS.',
-            option: scatter1Option.value,
+            description: 'Tabel detail per alumni menampilkan persentase respons terhadap lamaran, IPK, serta pivot per program studi dengan alumni berpersentase tertinggi.',
+            tableOnly: true,
+            option: null,
             tableData: scatter1Table.value,
-            height: 460,
             analysis: {
-                title: 'Kilas Hubungan Lamaran & Respons',
-                statusBadge: `ρ = ${rho1} (p = ${p1})`,
+                title: 'Kilas Lamaran dan Respons',
+                statusBadge: `N = ${formatNumber(s1.summary?.valid_n || 0, 0)}`,
                 badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-                lead: `Analisis korelasi Spearman mencatat koefisien ρ = ${rho1} (signifikansi p = ${p1}, N = ${formatNumber(s1.summary?.valid_n || 0, 0)}), menunjukkan korelasi positif yang sangat kuat antara intensitas pelamaran kerja dengan perolehan respons dari perusahaan.`,
-                detail: `Gradasi warna IPK (palet Viridis) memperlihatkan bahwa lulusan dengan IPK tinggi (kuning-hijau cerah) menunjukkan efektivitas penerimaan respons yang solid pada setiap rentang frekuensi lamaran kerja yang diajukan.`,
+                lead: 'Detail individu diurutkan dari persentase respons tertinggi dan menyertakan IPK untuk perbandingan langsung.',
+                detail: 'Pivot program studi menampilkan rata-rata IPK, rata-rata tahap, persentase rata-rata, dan alumni dengan persentase respons tertinggi.',
             },
         },
         {
             key: 'scatter_responses_interviews',
-            chartType: 'scatter',
+            chartType: 'table',
             tabLabel: 'Respons vs Wawancara',
             title: 'Hubungan Jumlah Respons Perusahaan dengan Undangan Wawancara',
-            description: 'Scatter plot sebaran titik alumni memperlihatkan relasi jumlah perusahaan yang merespons (F7) dengan undangan wawancara (F7a). Seluruh titik alumni dimekarkan secara visual dengan skala warna IPK (0–4) dan garis tren linier OLS.',
-            option: scatter2Option.value,
+            description: 'Tabel detail per alumni menampilkan persentase undangan wawancara terhadap respons, IPK, serta pivot per program studi dengan alumni berpersentase tertinggi.',
+            tableOnly: true,
+            option: null,
             tableData: scatter2Table.value,
-            height: 460,
             analysis: {
-                title: 'Kilas Hubungan Respons & Wawancara',
-                statusBadge: `ρ = ${rho2} (p = ${p2})`,
+                title: 'Kilas Respons dan Wawancara',
+                statusBadge: `N = ${formatNumber(s2.summary?.valid_n || 0, 0)}`,
                 badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-                lead: `Korelasi Spearman ρ = ${rho2} (signifikansi p = ${p2}, N = ${formatNumber(s2.summary?.valid_n || 0, 0)}) membuktikan bahwa perolehan respons perusahaan berbanding lurus dan memiliki probabilitas sangat tinggi untuk berlanjut ke tahap wawancara kerja.`,
-                detail: `Garis tren linier yang menanjak konsisten mengindikasikan bahwa berkas lamaran yang direspons positif oleh pemberi kerja hampir selalu berlanjut menjadi jadwal wawancara bagi alumni.`,
+                lead: 'Detail individu diurutkan dari persentase undangan wawancara tertinggi dan menyertakan IPK untuk perbandingan langsung.',
+                detail: 'Pivot program studi menampilkan rata-rata IPK, rata-rata tahap, persentase rata-rata, dan alumni dengan persentase wawancara tertinggi.',
             },
         },
         {
             key: 'conversion_stages',
-            chartType: 'horizontal_bar',
+            chartType: 'stacked_horizontal',
             tabLabel: 'Konversi Tahapan',
             title: 'Persentase Konversi Lamaran hingga Wawancara',
-            description: 'Tingkat konversi berbobot (weighted conversion) dari lamaran ke respons, respons ke wawancara, dan lamaran ke wawancara dengan penyebut transparan.',
+            description: 'Panjang batang menunjukkan jumlah tahap lanjutan. Warna menunjukkan rentang IPK: abu-abu tidak tersedia, merah 0–<1, oranye 1–<2, kuning 2–<3, dan hijau 3–4. Label segmen menunjukkan persentasenya.',
             option: conversionBarOption.value,
             tableData: conversionBarTable.value,
             height: 360,

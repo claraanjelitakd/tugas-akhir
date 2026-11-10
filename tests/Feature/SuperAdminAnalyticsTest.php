@@ -324,6 +324,55 @@ class SuperAdminAnalyticsTest extends TestCase
     }
 
     /**
+     * View jawaban kanonik hanya mengambil jawaban tracer alumni terbaru.
+     */
+    public function test_tracer_answer_view_uses_latest_answer_per_alumni_and_question(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '72', 'nama_prodi' => 'Sistem Informasi']);
+        $user = User::create([
+            'username' => 'analytics-latest-answer',
+            'name' => 'Alumni Jawaban Terbaru',
+            'email' => 'analytics-latest-answer@example.test',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+        DataAkademik::create([
+            'nim' => '72220199',
+            'nama' => 'Alumni Jawaban Terbaru',
+            'prodi_id' => $prodi->id,
+            'tahun_lulus' => now()->year,
+            'status_mahasiswa' => 'Lulus',
+        ]);
+        $biodata = Biodata::create([
+            'user_id' => $user->id,
+            'nim' => '72220199',
+            'nama' => 'Alumni Jawaban Terbaru',
+            'prodi_id' => $prodi->id,
+            'nomor_telepon' => '081234567899',
+            'email_pribadi' => 'analytics-latest-answer@example.test',
+        ]);
+
+        $this->insertUnifiedAnswer($biodata->id, 'F3', 'Kapan mulai mencari pekerjaan?', 'Sebelum lulus');
+        $question = KuesionerPertanyaan::where('kode_pertanyaan', 'F3')->firstOrFail();
+        $section = KuesionerSection::where('target', 'univ')->firstOrFail();
+        KuesionerJawaban::create([
+            'responden_type' => 'alumni',
+            'biodata_id' => $biodata->id,
+            'section_id' => $section->id,
+            'pertanyaan_id' => $question->id,
+            'kode_pertanyaan' => 'F3',
+            'jawaban_teks' => 'Setelah lulus',
+        ]);
+
+        $chart = app(TracerAnalyticsService::class)
+            ->buildUniversityChart('job_search_start', (string) now()->year);
+
+        $this->assertCount(1, $chart['chart']['records']);
+        $this->assertSame('Setelah lulus', $chart['chart']['records'][0]['answer']);
+    }
+
+    /**
      * Grafik F16 hanya menampilkan alasan yang dipilih dan tidak membuat tab
      * awan kata dari pilihan Lainnya tanpa teks tambahan.
      */

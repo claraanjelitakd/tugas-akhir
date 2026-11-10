@@ -10,6 +10,7 @@ import Sidebar from '../Components/Sidebar.vue';
 
 // Panel visualisasi dimuat langsung agar kegagalan chunk async tidak membuat area grafik kosong.
 import AnalyticsChartsPanel from '@/components/analytics/AnalyticsChartsPanel.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 
 // Data awal yang dikirim dari TracerAnalyticsController@index melalui Inertia (berisi user & payload analytics).
 const props = defineProps({
@@ -689,7 +690,7 @@ const tableCells = (record) => {
         record.nama,
         record.nama_prodi,
         record.career_category || '-',
-        record.before_graduation ? 'Ya' : 'Tidak',
+        record.before_graduation === null || record.before_graduation === undefined ? '-' : record.before_graduation ? 'Ya' : 'Tidak',
         record.months === null || record.months === undefined ? '-' : `${formatNumber(record.months)} bulan`,
         formatCurrency(record.salary),
         formatCurrency(record.ump),
@@ -701,7 +702,7 @@ const tableCells = (record) => {
         record.nama,
         record.nama_prodi,
         record.career_role || record.career_category || '-',
-        record.before_graduation ? 'Ya' : 'Tidak',
+        record.before_graduation === null || record.before_graduation === undefined ? '-' : record.before_graduation ? 'Ya' : 'Tidak',
         record.months === null || record.months === undefined ? '-' : `${formatNumber(record.months)} bulan`,
         formatCurrency(record.salary),
         formatCurrency(record.threshold),
@@ -1441,28 +1442,14 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                             </table>
                         </div>
 
-                        <!-- Paginasi Tabel -->
-                        <div class="mt-4 flex items-center justify-between gap-3 text-xs text-slate-600">
-                            <span>Halaman {{ currentPage }} dari {{ pageCount }} (Total {{ formatNumber(tableRows.length, 0) }} baris)</span>
-                            <div class="flex gap-2">
-                                <button
-                                    type="button"
-                                    class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition-colors"
-                                    :disabled="currentPage <= 1"
-                                    @click="currentPage--"
-                                >
-                                    Sebelumnya
-                                </button>
-                                <button
-                                    type="button"
-                                    class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition-colors"
-                                    :disabled="currentPage >= pageCount"
-                                    @click="currentPage++"
-                                >
-                                    Berikutnya
-                                </button>
-                            </div>
-                        </div>
+                        <!-- Pagination tabel indikator mengikuti kontrol bersama. -->
+                        <PaginationControls
+                            :total="tableRows.length"
+                            :current-page="currentPage"
+                            :page-size="rowsPerPage"
+                            summary-label="baris"
+                            @update:current-page="currentPage = $event"
+                        />
                     </section>
                 </template>
 

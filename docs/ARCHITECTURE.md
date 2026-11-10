@@ -252,6 +252,13 @@ dinamis dicatat di [Kontrak Data Kuesioner](kuesioner-data-contract.md).
 
 F505 (Take Home Pay) memiliki sumber tunggal pada `biodata.gaji`. Setiap sinkronisasi profil menimpa jawaban F505 lama dengan nominal gaji terbaru dan menyimpannya dalam `jawaban_teks`, sehingga nilai lama tidak menjadi sumber inkonsistensi.
 
+Field identitas pada Kuesioner Universitas dan Kuesioner Prodi mengikuti sumber
+kanonik profil/akademik alumni. Saat halaman dibuka atau profil disimpan,
+sinkronisasi memperbarui jawaban identitas lama; jawaban evaluasi lain tetap
+berasal dari `kuesioner_jawaban`. Draft lokal Kuesioner Prodi dipisahkan per
+alumni, prodi, dan versi instrumen, serta hanya dipakai jika nilai server masih
+kosong, sehingga draft lama tidak dapat menimpa pembaruan profil.
+
 ### Response Inertia dan API
 
 Endpoint LinkedIn yang dipanggil dengan fetch dan header Accept: application/json tetap mengembalikan JSON. Jika endpoint approve, plot ulang, atau reject dipanggil sebagai request Inertia dengan header X-Inertia, controller mengembalikan redirect dengan flash/error sehingga Inertia tidak menerima plain JSON.
@@ -319,33 +326,42 @@ Halaman dibagi menjadi tiga tab: Analisis menyusun temuan otomatis dari statisti
 
 Pada konteks Admin Fakultas, tautan detail dari tabel/grafik memakai route `GET /fakultas/analitik/alumni/{id}`. Route ini mengizinkan pembacaan detail alumni lintas fakultas untuk kebutuhan analitik, tetapi mengirim prop `readonly = true`. Detail dari direktori biasa tetap memakai `GET /fakultas/alumni/{id}` dan hanya menerima alumni dalam fakultas admin. Endpoint mutasi profil dan ekspor tetap memeriksa scope fakultas sehingga mode baca-saja tidak menjadi jalur perubahan data.
 
-Dataset indikator aktif dibaca melalui view terpisah: `v_analytics_population`,
+Dataset indikator aktif memakai `v_analytics_population`,
 `v_analytics_response_rate`, `v_analytics_profile_completion`,
 `v_analytics_wait_time`, `v_analytics_salary_ump`,
 `v_analytics_work_location`, `v_analytics_employment_status`, dan
-`v_analytics_alignment`, dan view indikator lanjutan
-`v_analytics_learning_methods`, `v_analytics_job_search_start`,
+`v_analytics_alignment`. Indikator tracer berbasis kode pertanyaan memakai
+alias legacy `v_analytics_learning_methods`, `v_analytics_job_search_start`,
 `v_analytics_job_search_methods`, `v_analytics_application_pipeline`,
 `v_analytics_job_search_activity`, `v_analytics_workplace_type`,
 `v_analytics_further_study`, `v_analytics_mismatch_reasons`, serta
-`v_analytics_competency_gap`. Seluruh view indikator lanjutan memakai
-`v_analytics_tracer_answers` sebagai fondasi jawaban kanonik per alumni dan
-kode pertanyaan. Keunikan pasangan `biodata_id` dan `kode_pertanyaan` dijamin
-oleh unique key tabel `tracer`, sehingga view tidak melakukan agregasi
-`MAX(id)` berulang. Service tidak mengambil seluruh jawaban F2–F18 lalu
+`v_analytics_competency_gap`. Alias tersebut hanya kompatibilitas; service
+memakai `v_analytics_tracer_answers` sebagai fondasi jawaban kanonik per alumni
+dan kode pertanyaan. Karena tabel jawaban mendukung riwayat pengisian ulang,
+view memilih satu record terbaru dari `kuesioner_jawaban` berdasarkan `id` dan
+tidak menggandakan jawaban. Service tidak mengambil seluruh jawaban tracer lalu
 memilahnya di PHP. View bukan cache materialisasi, sehingga indeks pada tabel
 sumber tetap menjadi bagian penting dari performa.
 
-Paket IKU S1 memakai dua read-model tambahan. `v_iku_s1_aee` membaca seluruh
-populasi akademik melalui `data_akademik.prodi_id`, `angkatan_masuk`,
-`tahun_akademik_masuk`, dan `status_mahasiswa`; status Drop Out, Pindah, serta
-Cuti tidak masuk denominator AEE. `v_iku_s1_lulusan` mengambil lulusan S1,
+Sembilan view lanjutan yang hanya memproyeksikan `v_analytics_tracer_answers`
+dengan filter `kode_pertanyaan` kini diperlakukan sebagai alias legacy; service
+memfilter read-model kanonik secara langsung. View tersebut tidak boleh menjadi
+sumber logika kedua. Karena tabel jawaban mendukung riwayat pengisian ulang,
+jawaban terbaru ditentukan dari `kuesioner_jawaban.id`, bukan dari unique key
+yang tidak tersedia pada pasangan `biodata_id` dan `kode_pertanyaan`.
+
+Paket IKU S1 memakai dua read-model tambahan. `v_iku_s1_aee` membaca lulusan
+S1 melalui `data_akademik.prodi_id`, `angkatan_masuk`,
+`tahun_akademik_masuk`, dan `status_mahasiswa = 'Lulus'`; status aktif, AR, AK,
+Drop Out, Pindah, serta Cuti tidak masuk populasi AEE. `v_iku_s1_lulusan` mengambil lulusan S1,
 status F8, masa tunggu F504/F502/F506, tanggal studi lanjut F18d, gaji, serta
-provinsi perusahaan. `IkuS1AnalyticsService` menghitung formula dan bobot dari
-konfigurasi `config/iku.php`,
-sedangkan komponen Vue hanya menyajikan hasil read-only. Payload AEE memisahkan
-lulusan tepat waktu, lulusan terlambat, dan status kelulusan yang belum
-teridentifikasi agar warna batang tidak menyamarkan status akademik.
+provinsi perusahaan. Saat grafik Outcomes diklik, `IkuS1AnalyticsService` juga
+menjodohkan `biodata` ke master `perusahaan`, wilayah cabang, dan `atasan` untuk
+mengirim detail alumni tanpa membuat tabel analitik baru. Service menghitung
+formula dan bobot dari konfigurasi `config/iku.php`,
+sedangkan komponen Vue hanya menyajikan hasil read-only. Payload AEE hanya
+memisahkan lulusan tepat waktu dan lulusan terlambat; status non-lulusan tidak
+lagi ditampilkan sebagai kategori abu-abu.
 
 `v_analytics_population` hanya membaca identitas, akademik, program studi,
 perusahaan, URL profil LinkedIn, dan provinsi kerja dari tabel kanonik. URL tersebut
@@ -423,7 +439,7 @@ jawaban valid, dan jawaban yang tidak berlaku akibat percabangan.
 | Kompetensi & Gap Selisih | `tracer.F17` | Kombinasi batang Likert (0-5) dan garis gap selisih Dual Y-Axis (-3 s/d +3) |
 | Kelengkapan profil | `v_analytics_population.is_profile_complete` | Bar lengkap/belum lengkap dan tabel alumni |
 | AEE S1 | `v_iku_s1_aee` | Bar capaian per prodi dengan pembilang tepat waktu/denominator |
-| Capaian karier S1 | `v_iku_s1_lulusan`, `ump`, `kuesioner_jawaban`, `config/iku.php` | Bar kontribusi bobot karyawan, founder/co-founder, freelancer, dan studi lanjut |
+| Capaian karier S1 | `v_iku_s1_lulusan`, `ump`, `kuesioner_jawaban`, `config/iku.php` | Bar kontribusi bobot karyawan, founder/co-founder, freelancer, studi lanjut, serta audit `Wirausaha Lainnya` tanpa bobot otomatis |
 
 Grafik pendapatan menggunakan aturan `gaji >= 1,2 × UMP`, bukan sekadar `gaji >= UMP`. Record salary menyimpan nama alumni, NIM, program studi, perusahaan, provinsi, gaji, UMP, ambang pembanding, dan status. Grafik waktu tunggu mengklasifikasikan alumni sebagai lebih cepat, sama dengan, atau lebih lama dari median aktual pada filter aktif.
 

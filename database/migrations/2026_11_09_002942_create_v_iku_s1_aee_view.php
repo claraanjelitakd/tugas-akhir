@@ -40,6 +40,7 @@ SELECT
 FROM data_akademik AS academic
 INNER JOIN prodi AS study_program ON study_program.id = academic.prodi_id
 WHERE study_program.jenjang = 'S1'
+  AND academic.status_mahasiswa = 'Lulus'
 SQL
             );
         } else {
@@ -67,6 +68,7 @@ SELECT
 FROM data_akademik AS academic
 INNER JOIN prodi AS study_program ON study_program.id = academic.prodi_id
 WHERE study_program.jenjang = 'S1'
+  AND academic.status_mahasiswa = 'Lulus'
 SQL
             );
         }

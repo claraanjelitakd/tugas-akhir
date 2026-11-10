@@ -13,6 +13,7 @@
 import { computed, ref, watch } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import AnalyticsEChart from '../AnalyticsEChart.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 import {
     baseOption,
     escapeHtml,
@@ -984,7 +985,7 @@ const downloadExcel = (statusTarget = null) => {
                     />
                 </div>
                 <div class="text-xs text-slate-500">
-                    Halaman {{ currentPage }} dari {{ totalPages }} ({{ formatNumber(filteredInlineRecords.length, 0) }} total data)
+                    {{ formatNumber(filteredInlineRecords.length, 0) }} total data
                 </div>
             </div>
 
@@ -1127,28 +1128,14 @@ const downloadExcel = (statusTarget = null) => {
                 </table>
             </div>
 
-            <!-- Kontrol Paginasi Tabel Inline -->
-            <div class="mt-3 flex items-center justify-between text-xs text-slate-600">
-                <span>Halaman {{ currentPage }} dari {{ totalPages }}</span>
-                <div class="flex gap-2">
-                    <button
-                        type="button"
-                        class="rounded border border-slate-300 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
-                        :disabled="currentPage <= 1"
-                        @click="currentPage--"
-                    >
-                        Sebelumnya
-                    </button>
-                    <button
-                        type="button"
-                        class="rounded border border-slate-300 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
-                        :disabled="currentPage >= totalPages"
-                        @click="currentPage++"
-                    >
-                        Berikutnya
-                    </button>
-                </div>
-            </div>
+            <!-- Pagination tabel responden mengikuti kontrol bersama. -->
+            <PaginationControls
+                :total="filteredInlineRecords.length"
+                :current-page="currentPage"
+                :page-size="rowsPerPage"
+                summary-label="data alumni"
+                @update:current-page="currentPage = $event"
+            />
         </div>
 
         <!-- Panel saat tabel disembunyikan pengguna -->

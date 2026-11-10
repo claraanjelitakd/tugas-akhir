@@ -168,6 +168,10 @@ class AnalyticsDemoDistributionSeeder extends Seeder
                         'atasan_id' => null,
                         'kategori_pekerjaan' => $status,
                         'posisi_jabatan' => null,
+                        'bidang_pekerjaan' => null,
+                        'divisi' => null,
+                        'experience' => null,
+                        'posisi_wiraswasta' => null,
                         'gaji' => null,
                     ]);
                 } else {
@@ -193,7 +197,12 @@ class AnalyticsDemoDistributionSeeder extends Seeder
                         'perusahaan_id' => $company->id,
                         'atasan_id' => $atasan->id,
                         'kategori_pekerjaan' => $status,
-                        'posisi_jabatan' => $status === 'Wiraswasta' ? 'Pemilik Usaha' : 'Profesional '.$biodata->nim,
+                        'posisi_jabatan' => $status === 'Wiraswasta'
+                            ? $this->resolveEntrepreneurRole($index)
+                            : 'Profesional '.$biodata->nim,
+                        'posisi_wiraswasta' => $status === 'Wiraswasta'
+                            ? $this->resolveEntrepreneurRole($index)
+                            : null,
                         'gaji' => $salary,
                     ]);
                 }
@@ -243,6 +252,23 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             2 => 'Belum memungkinkan bekerja',
             3 => 'Wiraswasta',
             default => 'Bekerja (full time/part time)',
+        };
+    }
+
+    /**
+     * Menyebarkan role wirausaha demo agar kategori founder, freelancer, dan
+     * usaha umum tetap dapat diaudit oleh grafik tanpa membuat role baru.
+     *
+     * @param  int  $index  Indeks deterministik alumni demo.
+     * @return string Role wirausaha kanonik untuk data demo.
+     */
+    private function resolveEntrepreneurRole(int $index): string
+    {
+        return match ($index % 4) {
+            0 => 'Founder / Owner',
+            1 => 'Owner / Managing Director',
+            2 => 'Freelancer / Konsultan Mandiri',
+            default => 'Pengelola Usaha',
         };
     }
 

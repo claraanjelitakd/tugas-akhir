@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\KuesionerJawaban;
@@ -42,8 +43,8 @@ class IkuS1AnalyticsTest extends TestCase
     }
 
     /**
-     * AEE memakai seluruh populasi akademik, tetapi mengecualikan status DO,
-     * Pindah, dan Cuti dari denominator.
+     * AEE hanya memakai populasi lulusan S1 dan tidak memasukkan mahasiswa
+     * aktif atau status akademik non-lulus ke dalam denominator.
      */
     public function test_aee_uses_complete_academic_population_and_exclusions(): void
     {
@@ -70,9 +71,9 @@ class IkuS1AnalyticsTest extends TestCase
 
         $chart = app(TracerAnalyticsService::class)->buildUniversityChart('iku_s1_aee', 'ALL');
 
-        $this->assertSame(5, $chart['chart']['summary']['population']);
+        $this->assertSame(2, $chart['chart']['summary']['population']);
         $this->assertSame(2, $chart['chart']['summary']['eligible_count']);
-        $this->assertSame(3, $chart['chart']['summary']['excluded_count']);
+        $this->assertSame(0, $chart['chart']['summary']['excluded_count']);
         $this->assertSame(1, $chart['chart']['summary']['on_time_count']);
         $this->assertSame(50.0, $chart['chart']['summary']['aee_realization']);
         $this->assertSame(200.0, $chart['chart']['summary']['aee_pt']);
@@ -80,8 +81,8 @@ class IkuS1AnalyticsTest extends TestCase
     }
 
     /**
-     * Batang AEE memisahkan lulusan terlambat dari mahasiswa aktif yang status
-     * kelulusannya belum dapat ditentukan, sehingga warna grafik tidak menipu.
+     * Batang AEE hanya memisahkan lulusan tepat waktu dari lulusan terlambat;
+     * mahasiswa aktif tidak lagi menjadi kategori abu-abu pada grafik.
      */
     public function test_aee_separates_late_and_unidentified_eligible_students(): void
     {
@@ -105,12 +106,13 @@ class IkuS1AnalyticsTest extends TestCase
 
         $chart = app(TracerAnalyticsService::class)->buildUniversityChart('iku_s1_aee', 'ALL');
         $series = $chart['chart']['series'][0];
-
         $this->assertSame(1, $series['on_time']);
         $this->assertSame(1, $series['late']);
-        $this->assertSame(1, $series['unidentified']);
+        $this->assertSame(0, $series['unidentified']);
+        $this->assertSame(2, $series['population']);
+        $this->assertSame(2, $series['eligible']);
         $this->assertSame(1, $chart['chart']['summary']['late_count']);
-        $this->assertSame(1, $chart['chart']['summary']['unidentified_count']);
+        $this->assertSame(0, $chart['chart']['summary']['unidentified_count']);
     }
 
     /**
@@ -125,11 +127,22 @@ class IkuS1AnalyticsTest extends TestCase
 
         $employee = $this->createGraduate($prodi, '72180001', 'Pekerja / Karyawan', 6000000, 2025);
         $student = $this->createGraduate($prodi, '72180002', 'Melanjutkan Pendidikan', null, 2025);
+        $unclassified = $this->createGraduate($prodi, '72180003', 'Wiraswasta', 6000000, 2025);
         $company = Perusahaan::create([
             'nama_perusahaan' => 'Perusahaan Uji IKU', 'kode_provinsi' => '34', 'kode_negara' => 'ID',
+            'alamat' => 'Jl. Cabang Uji No. 1', 'kode_pos' => '55111',
             'skala' => 'Nasional', 'status_verifikasi' => 'Terverifikasi',
         ]);
-        $employee->update(['perusahaan_id' => $company->id]);
+        $supervisor = Atasan::create([
+            'perusahaan_id' => $company->id, 'nama' => 'Atasan Uji',
+            'email' => 'atasan@example.test', 'telepon' => '081234567890',
+        ]);
+        $employee->update([
+            'perusahaan_id' => $company->id, 'atasan_id' => $supervisor->id,
+            'posisi_jabatan' => 'Product Analyst', 'skills' => 'Analisis Data, SQL',
+            'pendidikan_tingkat' => 'S2', 'perguruan_tinggi' => 'Universitas Uji',
+            'pendidikan_prodi' => 'Magister Manajemen',
+        ]);
         $section = KuesionerSection::create(['kode_section' => 'IKU-S1-TEST', 'target' => 'univ', 'judul' => 'IKU S1']);
 
         $this->answer($employee, $section, 'F504', 'Tidak');
@@ -141,8 +154,137 @@ class IkuS1AnalyticsTest extends TestCase
         $this->assertSame(2, $chart['chart']['summary']['valid_respondents']);
         $this->assertSame(1.6, (float) $chart['chart']['summary']['weighted_score']);
         $this->assertSame(80.0, (float) $chart['chart']['summary']['percentage']);
-        $this->assertCount(2, $chart['chart']['records']);
-        $this->assertSame(['Karyawan', 'Melanjutkan Pendidikan'], array_column($chart['chart']['series'], 'label'));
+        $this->assertCount(3, $chart['chart']['records']);
+        $this->assertSame(['Karyawan', 'Wirausaha Lainnya', 'Melanjutkan Pendidikan'], array_column($chart['chart']['series'], 'label'));
+        $this->assertSame(0.0, (float) collect($chart['chart']['series'])->firstWhere('label', 'Wirausaha Lainnya')['weighted_score']);
+        $unclassifiedRecord = collect($chart['chart']['records'])->firstWhere('nim', $unclassified->nim);
+        $this->assertSame('Wirausaha Lainnya', $unclassifiedRecord['career_category']);
+        $this->assertNull($unclassifiedRecord['before_graduation']);
+
+        $employeeRecord = collect($chart['chart']['records'])->firstWhere('nim', '72180001');
+        $this->assertSame('Perusahaan Uji IKU', $employeeRecord['nama_perusahaan']);
+        $this->assertSame('Jl. Cabang Uji No. 1, DI Yogyakarta, 55111', $employeeRecord['lokasi_kerja']);
+        $this->assertSame('Atasan Uji', $employeeRecord['nama_atasan']);
+        $this->assertSame('Product Analyst', $employeeRecord['posisi_jabatan']);
+        $this->assertSame('Analisis Data, SQL', $employeeRecord['skills']);
+        $this->assertSame('Karyawan + Studi Lanjut', $employeeRecord['career_status_label']);
+        $this->assertStringContainsString('Universitas Uji', $employeeRecord['study_detail']);
+    }
+
+    /**
+     * Kode opsi F18d tidak boleh dianggap tanggal studi lanjut dan peran
+     * wirausaha pada jabatan tetap dipetakan ke kategori founder.
+     */
+    public function test_outcome_chart_rejects_study_option_codes_and_reads_entrepreneur_role(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '72', 'nama_prodi' => 'Sistem Informasi', 'jenjang' => 'S1']);
+        Propinsi::create(['kode_provinsi' => '34', 'nama_provinsi' => 'DI Yogyakarta']);
+        Ump::create(['kode_provinsi' => '34', 'tahun' => 2026, 'besaran' => 2000000]);
+
+        $employee = $this->createGraduate($prodi, '72180004', 'Pekerja / Karyawan', 6000000, 2025);
+        $entrepreneur = $this->createGraduate($prodi, '72180005', 'Wiraswasta', 6000000, 2025);
+        $entrepreneur->update(['posisi_jabatan' => 'Founder & Owner']);
+        $section = KuesionerSection::create(['kode_section' => 'IKU-S1-ROLE', 'target' => 'univ', 'judul' => 'IKU S1 Role']);
+
+        $this->answer($employee, $section, 'F504', 'Tidak');
+        $this->answer($employee, $section, 'F506', '2');
+        $this->answer($employee, $section, 'F18d', '4');
+        $this->answer($entrepreneur, $section, 'F504', 'Tidak');
+        $this->answer($entrepreneur, $section, 'F506', '2');
+
+        $chart = app(TracerAnalyticsService::class)->buildUniversityChart('iku_s1_outcomes', 'ALL', 2026);
+        $employeeRecord = collect($chart['chart']['records'])->firstWhere('nim', $employee->nim);
+        $entrepreneurRecord = collect($chart['chart']['records'])->firstWhere('nim', $entrepreneur->nim);
+
+        $this->assertSame('Karyawan', $employeeRecord['career_status_label']);
+        $this->assertSame('', $employeeRecord['study_detail']);
+        $this->assertSame('Founder / Co-Founder', $entrepreneurRecord['career_category']);
+        $this->assertSame('Founder & Owner', $entrepreneurRecord['career_role']);
+        $this->assertContains('Founder / Co-Founder', array_column($chart['chart']['series'], 'label'));
+    }
+
+    /**
+     * Owner tidak boleh berubah menjadi Founder; kategori mengikuti role master.
+     */
+    public function test_outcome_chart_keeps_owner_as_other_entrepreneur_role(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '72', 'nama_prodi' => 'Sistem Informasi', 'jenjang' => 'S1']);
+        Propinsi::create(['kode_provinsi' => '34', 'nama_provinsi' => 'DI Yogyakarta']);
+        Ump::create(['kode_provinsi' => '34', 'tahun' => 2026, 'besaran' => 2000000]);
+
+        $owner = $this->createGraduate($prodi, '72180006', 'Wiraswasta', 6000000, 2025);
+        $owner->update(['posisi_wiraswasta' => 'Owner']);
+
+        $chart = app(TracerAnalyticsService::class)->buildUniversityChart('iku_s1_outcomes', 'ALL', 2026);
+        $record = collect($chart['chart']['records'])->firstWhere('nim', $owner->nim);
+
+        $this->assertSame('Wirausaha Lainnya', $record['career_category']);
+        $this->assertSame('Owner', $record['career_role']);
+    }
+
+    /**
+     * Status gabungan bekerja dan studi lanjut tetap masuk kategori utama Karyawan.
+     */
+    public function test_outcome_chart_keeps_combined_employee_in_employee_category(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '72', 'nama_prodi' => 'Sistem Informasi', 'jenjang' => 'S1']);
+        Propinsi::create(['kode_provinsi' => '34', 'nama_provinsi' => 'DI Yogyakarta']);
+        Ump::create(['kode_provinsi' => '34', 'tahun' => 2026, 'besaran' => 2000000]);
+
+        $employee = $this->createGraduate($prodi, '72180007', 'Karyawan + Studi Lanjut', 6000000, 2025);
+        $employee->update([
+            'posisi_jabatan' => 'Product Analyst',
+            'pendidikan_tingkat' => 'S2',
+            'perguruan_tinggi' => 'Universitas Uji',
+            'pendidikan_prodi' => 'Magister Manajemen',
+        ]);
+        $section = KuesionerSection::create(['kode_section' => 'IKU-S1-COMBINED', 'target' => 'univ', 'judul' => 'IKU S1 Combined']);
+
+        $this->answer($employee, $section, 'F504', 'Tidak');
+        $this->answer($employee, $section, 'F506', '2');
+
+        $chart = app(TracerAnalyticsService::class)->buildUniversityChart('iku_s1_outcomes', 'ALL', 2026);
+        $record = collect($chart['chart']['records'])->firstWhere('nim', $employee->nim);
+
+        $this->assertSame('Karyawan', $record['career_category']);
+        $this->assertSame('Karyawan + Studi Lanjut', $record['career_status_label']);
+        $this->assertContains('Karyawan', array_column($chart['chart']['series'], 'label'));
+    }
+
+    /**
+     * Status studi lanjut dengan data pekerjaan tetap masuk kategori Karyawan.
+     */
+    public function test_outcome_chart_promotes_study_status_with_work_profile_to_employee(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '72', 'nama_prodi' => 'Sistem Informasi', 'jenjang' => 'S1']);
+        Propinsi::create(['kode_provinsi' => '34', 'nama_provinsi' => 'DI Yogyakarta']);
+        Ump::create(['kode_provinsi' => '34', 'tahun' => 2026, 'besaran' => 2000000]);
+
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'Perusahaan Kerja dan Studi Uji',
+            'kode_provinsi' => '34',
+            'kode_negara' => 'ID',
+            'status_verifikasi' => 'Terverifikasi',
+        ]);
+        $student = $this->createGraduate($prodi, '72180008', 'Melanjutkan Pendidikan', 6000000, 2025);
+        $student->update([
+            'perusahaan_id' => $company->id,
+            'posisi_jabatan' => 'Product Analyst',
+            'bidang_pekerjaan' => 'Teknologi Informasi',
+            'pendidikan_tingkat' => 'S2',
+            'perguruan_tinggi' => 'Universitas Uji',
+            'pendidikan_prodi' => 'Magister Manajemen',
+        ]);
+        $section = KuesionerSection::create(['kode_section' => 'IKU-S1-STUDY-WORK', 'target' => 'univ', 'judul' => 'IKU S1 Study Work']);
+
+        $this->answer($student, $section, 'F504', 'Tidak');
+        $this->answer($student, $section, 'F506', '2');
+
+        $chart = app(TracerAnalyticsService::class)->buildUniversityChart('iku_s1_outcomes', 'ALL', 2026);
+        $record = collect($chart['chart']['records'])->firstWhere('nim', $student->nim);
+
+        $this->assertSame('Karyawan', $record['career_category']);
+        $this->assertSame('Karyawan + Studi Lanjut', $record['career_status_label']);
     }
 
     /**

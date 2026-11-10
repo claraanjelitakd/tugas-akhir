@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
+use App\Models\KuesionerJawaban;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
@@ -75,6 +76,8 @@ class AdminProdiKuesionerTest extends TestCase
             'alamat_saat_ini' => 'Jl. Dr. Wahidin',
             'ip_kumulatif' => 3.80,
             'tahun_akademik_lulus' => 'Genap 2024/2025',
+            'tahun_lulus' => 2025,
+            'tanggal_lulus' => '2025-08-15',
         ]);
 
         $this->alumni = Biodata::create([
@@ -419,7 +422,7 @@ class AdminProdiKuesionerTest extends TestCase
         $qNama = KuesionerPertanyaan::create([
             'pemilik_prodi_id' => $this->prodiSI->id,
             'kode_pertanyaan' => 'PSI-1-01',
-            'teks_pertanyaan' => 'Nama',
+            'teks_pertanyaan' => 'Nama Lengkap Mahasiswa',
             'tipe' => 'text',
             'is_active' => true,
         ]);
@@ -427,7 +430,7 @@ class AdminProdiKuesionerTest extends TestCase
         $qNim = KuesionerPertanyaan::create([
             'pemilik_prodi_id' => $this->prodiSI->id,
             'kode_pertanyaan' => 'PSI-1-02',
-            'teks_pertanyaan' => 'NIM',
+            'teks_pertanyaan' => 'Nomor Induk Mahasiswa (NIM)',
             'tipe' => 'text',
             'is_active' => true,
         ]);
@@ -446,8 +449,34 @@ class AdminProdiKuesionerTest extends TestCase
             'wajib' => true,
         ]);
 
-        // Access alumni detail from Admin Prodi, which triggers KuesionerSyncService
-        $response = $this->actingAs($this->adminSI)->get("/prodi/alumni/{$this->alumni->id}");
+        $qTahun = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $this->prodiSI->id,
+            'kode_pertanyaan' => 'PSI-1-03',
+            'teks_pertanyaan' => 'Tahun Kelulusan',
+            'tipe' => 'text',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->sectionSI->id,
+            'pertanyaan_id' => $qTahun->id,
+            'order' => 3,
+            'wajib' => true,
+        ]);
+
+        foreach ([[$qNama, 'Nama Lama'], [$qNim, 'NIM Lama'], [$qTahun, '2020']] as [$question, $answer]) {
+            KuesionerJawaban::create([
+                'responden_type' => 'alumni',
+                'biodata_id' => $this->alumni->id,
+                'section_id' => $this->sectionSI->id,
+                'pertanyaan_id' => $question->id,
+                'kode_pertanyaan' => $question->kode_pertanyaan,
+                'jawaban_teks' => $answer,
+            ]);
+        }
+
+        // Akses halaman pengisian untuk memastikan sumber profil mengalahkan jawaban lama.
+        $response = $this->actingAs($this->alumniUser)->get('/alumni/kuesioner-prodi');
         $response->assertStatus(200);
 
         $this->assertDatabaseHas('kuesioner_jawaban', [
@@ -461,6 +490,18 @@ class AdminProdiKuesionerTest extends TestCase
             'pertanyaan_id' => $qNim->id,
             'jawaban_teks' => $this->alumni->nim,
         ]);
+
+        $this->assertDatabaseHas('kuesioner_jawaban', [
+            'biodata_id' => $this->alumni->id,
+            'pertanyaan_id' => $qTahun->id,
+            'jawaban_teks' => (string) $this->alumni->dataAkademik->tahun_lulus,
+        ]);
+
+        $response->assertInertia(fn ($page) => $page
+            ->where("initialAnswers.{$qNama->id}", 'Alumni SI')
+            ->where("initialAnswers.{$qNim->id}", '72200001')
+            ->where("initialAnswers.{$qTahun->id}", (string) $this->alumni->dataAkademik->tahun_lulus)
+        );
     }
 
     public function test_emptying_prodi_question_deletes_response_and_updates_dashboard_percentage(): void

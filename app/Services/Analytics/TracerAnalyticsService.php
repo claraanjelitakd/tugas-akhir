@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Menyediakan dataset analitik Tracer Study untuk halaman analitik Superadmin.
  *
- * Service ini membentuk payload satu indikator dari database view terpilah.
+ * Service ini membentuk payload satu indikator dari database read-model kanonik.
  * Ia tidak menyimpan data baru; normalisasi sumber tetap berada di lapisan
  * view, sedangkan statistik dan metadata presentasi dibentuk di service.
  */
@@ -119,7 +119,7 @@ class TracerAnalyticsService
             'key' => 'job_search_start',
             'label' => 'Waktu mulai mencari pekerjaan',
             'description' => 'Distribusi waktu alumni mulai mencari pekerjaan setelah memperhatikan kategori sebelum atau sesudah lulus.',
-            'visual_plan' => 'Batang divergen, distribusi kategori, dan tabel individu.',
+            'visual_plan' => 'Stacked bar berbasis jumlah fase, distribusi rentang waktu, dan tabel ringkasan.',
         ],
         [
             'key' => 'job_search_methods',
@@ -170,20 +170,27 @@ class TracerAnalyticsService
     private const WAIT_TIME_MEDIAN_EPSILON = 0.01;
 
     /**
-     * View terpilah per indikator kuesioner universitas.
+     * Kode pertanyaan yang dibaca dari satu view jawaban tracer kanonik.
      *
-     * @var array<string, string>
+     * View filter-tipis lama tetap dapat ada pada database lama, tetapi service
+     * tidak lagi bergantung padanya agar sumber query indikator lebih mudah diaudit.
+     *
+     * @var array<string, array<int, string>>
      */
-    private const QUESTION_CHART_VIEWS = [
-        'learning_methods' => 'v_analytics_learning_methods',
-        'job_search_start' => 'v_analytics_job_search_start',
-        'job_search_methods' => 'v_analytics_job_search_methods',
-        'application_pipeline' => 'v_analytics_application_pipeline',
-        'job_search_activity' => 'v_analytics_job_search_activity',
-        'workplace_type' => 'v_analytics_workplace_type',
-        'further_study' => 'v_analytics_further_study',
-        'mismatch_reasons' => 'v_analytics_mismatch_reasons',
-        'competency_gap' => 'v_analytics_competency_gap',
+    private const QUESTION_CHART_CODES = [
+        'learning_methods' => ['F21', 'F22', 'F23', 'F24', 'F25', 'F26', 'F27'],
+        'job_search_start' => ['F3'],
+        'job_search_methods' => ['F4'],
+        'application_pipeline' => ['F6', 'F7', 'F7A'],
+        'job_search_activity' => ['F10'],
+        'workplace_type' => ['F11'],
+        'further_study' => ['F12', 'F18b', 'F18c', 'F18d'],
+        'mismatch_reasons' => ['F16'],
+        'competency_gap' => [
+            'F17a1', 'F17b1', 'F17a2', 'F17b2', 'F17a3', 'F17b3',
+            'F17a4', 'F17b4', 'F17a5', 'F17b5', 'F17a6', 'F17b6',
+            'F17a7', 'F17b7',
+        ],
     ];
 
     /**
@@ -372,13 +379,18 @@ class TracerAnalyticsService
             ? (int) ($chart['summary']['valid_respondents'] ?? 0)
             : (int) ($chart['summary']['eligible_count'] ?? 0);
         $recordCount = count($chart['records'] ?? []);
+        $availabilityMessage = $recordCount > 0
+            ? ($chartKey === 'iku_s1_aee'
+                ? 'Data akademik lulusan S1 tersedia untuk perhitungan AEE.'
+                : 'Data akademik S1 dan jawaban tracer valid tersedia untuk perhitungan.')
+            : ($chartKey === 'iku_s1_aee'
+                ? 'Belum ada data akademik lulusan S1 yang dapat dihitung.'
+                : 'Belum ada data akademik atau jawaban tracer S1 yang dapat dihitung.');
         $chart['data_availability'] = [
             'status' => $recordCount > 0 ? 'available' : 'no_population',
             'population_count' => $populationCount,
             'record_count' => $recordCount,
-            'message' => $recordCount > 0
-                ? 'Data akademik S1 dan jawaban tracer valid tersedia untuk perhitungan.'
-                : 'Belum ada data akademik atau jawaban tracer S1 yang dapat dihitung.',
+            'message' => $availabilityMessage,
         ];
         $chart['metadata'] = [
             'generated_at' => now()->toIso8601String(),
@@ -463,7 +475,7 @@ class TracerAnalyticsService
      */
     private function analyticsDataType(string $chartKey): string
     {
-        return match ($chartKey) {
+        $dataType = match ($chartKey) {
             'wait_time', 'salary_vs_ump', 'application_pipeline' => 'Numerik kontinu atau diskrit',
             'iku_s1_aee' => 'Populasi akademik dengan status dan periode kelulusan',
             'iku_s1_ump_weighted' => 'Perbandingan UMP dan bobot per role karier',
@@ -473,6 +485,62 @@ class TracerAnalyticsService
             'work_location' => 'Kategorikal geografis',
             default => 'Kategorikal pilihan tunggal',
         };
+
+        return $dataType;
+    }
+
+    /**
+     * Menyamakan metadata sembilan alias view dengan read-model kanonik.
+     *
+     * Alias masih ada untuk kompatibilitas database lama, tetapi tidak boleh
+     * muncul sebagai sumber utama setelah service memfilter view kanonik.
+     *
+     * @param  array<string, mixed>  $methodology
+     * @return array<string, mixed>
+     */
+    private function normalizeLegacyViewMetadata(array $methodology, string $chartKey): array
+    {
+        if (! isset(self::QUESTION_CHART_CODES[$chartKey])) {
+            return $methodology;
+        }
+
+        $legacyViews = [
+            'v_analytics_learning_methods',
+            'v_analytics_job_search_start',
+            'v_analytics_job_search_methods',
+            'v_analytics_application_pipeline',
+            'v_analytics_job_search_activity',
+            'v_analytics_workplace_type',
+            'v_analytics_further_study',
+            'v_analytics_mismatch_reasons',
+            'v_analytics_competency_gap',
+        ];
+
+        $normalize = function (mixed $value) use (&$normalize, $legacyViews): mixed {
+            if (is_array($value)) {
+                $normalized = [];
+                foreach ($value as $key => $item) {
+                    $normalized[$key] = $normalize($item);
+                }
+
+                if (array_is_list($normalized)) {
+                    return array_values(array_unique($normalized, SORT_REGULAR));
+                }
+
+                return $normalized;
+            }
+
+            if (is_string($value)) {
+                return str_replace($legacyViews, 'v_analytics_tracer_answers', $value);
+            }
+
+            return $value;
+        };
+
+        /** @var array<string, mixed> $normalizedMethodology */
+        $normalizedMethodology = $normalize($methodology);
+
+        return $normalizedMethodology;
     }
 
     /**
@@ -602,8 +670,9 @@ class TracerAnalyticsService
             return $this->responseRateRows($selectedYear, $prodiId);
         }
 
-        if (isset(self::QUESTION_CHART_VIEWS[$chartKey])) {
-            return DB::table(self::QUESTION_CHART_VIEWS[$chartKey])
+        if (isset(self::QUESTION_CHART_CODES[$chartKey])) {
+            return DB::table('v_analytics_tracer_answers')
+                ->whereIn('kode_pertanyaan', self::QUESTION_CHART_CODES[$chartKey])
                 ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
                 ->when($prodiId, fn ($query) => $query->where('prodi_id', $prodiId))
                 ->get();
@@ -2437,7 +2506,7 @@ class TracerAnalyticsService
         $targetFormatted = number_format($targetResponseRate, 1, ',', '.');
         $umpYearLabel = $umpYear !== null ? (string) $umpYear : 'terpilih';
 
-        return match ($chartKey) {
+        $methodology = match ($chartKey) {
             'response_rate' => [
                 'formula' => "Response Rate (%) = (Σ Alumni Responden Valid / Σ Populasi Kohort) × 100%  |  Belum Mengisi (%) = 100% - Response Rate (%)  |  Selisih Target (Gap) = Response Rate (%) - Target ({$targetFormatted}%)",
                 'denominator' => 'N_populasi = seluruh baris alumni pada tabel biodata yang berelasi dengan data_akademik pada tahun lulusan & program studi terpilih.',
@@ -2520,8 +2589,8 @@ class TracerAnalyticsService
                 'charts' => [
                     [
                         'key' => 'timing_stacked',
-                        'title' => 'Diagram Kolom Bertumpuk Rentang Waktu Mulai Mencari Kerja',
-                        'formula' => 'Proporsi Segmen (f, r) (%) = (n_{f,r} / N_valid_F3) × 100%, dengan f ∈ {Sebelum lulus, Setelah lulus, Tidak mencari kerja} dan r ∈ {< 2 bulan, 2–6 bulan, > 6 bulan}',
+                        'title' => 'Diagram Batang Bertumpuk Rentang Waktu Mulai Mencari Kerja',
+                        'formula' => 'Panjang batang fase = Σ n_{f,r}; label segmen (%) = (n_{f,r} / Σ_r n_{f,r}) × 100%. Fase sebelum lulus dan tidak mencari kerja tidak dipecah; fase setelah lulus memakai r ∈ {< 6 bulan, 6–12 bulan, > 12 bulan}.',
                         'source' => 'v_analytics_job_search_start (kuesioner_jawaban.kode_pertanyaan = F3)',
                     ],
                 ],
@@ -2950,6 +3019,8 @@ class TracerAnalyticsService
             ],
             default => [],
         };
+
+        return $this->normalizeLegacyViewMetadata($methodology, $chartKey);
     }
 
     /**

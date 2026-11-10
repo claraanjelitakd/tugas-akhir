@@ -325,6 +325,8 @@ class AdminAlumniProfileService
                 : null;
         }
 
+        $isNonWorkingCategory = $kategoriPekerjaanProvided && in_array($kategoriPekerjaan, ['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'], true);
+
         if ($kategoriPekerjaanProvided && $kategoriPekerjaan === 'Pekerja') {
             $posisiWiraswasta = null;
         } elseif ($kategoriPekerjaanProvided && $kategoriPekerjaan === 'Wiraswasta') {
@@ -332,6 +334,15 @@ class AdminAlumniProfileService
         } elseif ($kategoriPekerjaanProvided && $kategoriPekerjaan === 'Melanjutkan Pendidikan') {
             $posisiJabatan = null;
             $posisiWiraswasta = null;
+        } elseif ($isNonWorkingCategory) {
+            $posisiJabatan = null;
+            $posisiWiraswasta = null;
+            $bidangPekerjaan = null;
+        }
+
+        $divisi = self::nullableInput($data, 'divisi', $biodata->divisi);
+        if ($isNonWorkingCategory) {
+            $divisi = null;
         }
 
         $atasanId = $biodata->atasan_id;
@@ -421,7 +432,7 @@ class AdminAlumniProfileService
             'kategori_pekerjaan' => $kategoriPekerjaan,
             'posisi_jabatan' => $posisiJabatan,
             'bidang_pekerjaan' => $bidangPekerjaan,
-            'divisi' => self::nullableInput($data, 'divisi', $biodata->divisi),
+            'divisi' => $divisi,
             'posisi_wiraswasta' => $posisiWiraswasta,
             'pendidikan_tingkat' => self::nullableInput($data, 'pendidikan_tingkat', $biodata->pendidikan_tingkat),
             'perguruan_tinggi' => self::nullableInput($data, 'perguruan_tinggi', $biodata->perguruan_tinggi),

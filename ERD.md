@@ -328,6 +328,9 @@ flowchart LR
     P --> L
     B[biodata] --> L
     C[perusahaan] --> L
+    B --> S
+    C --> S
+    W[atasan] --> S
     KJ[kuesioner_jawaban] --> L
     UMP[ump] --> S[IkuS1AnalyticsService]
     CFG[config/iku.php] --> S
@@ -337,8 +340,14 @@ flowchart LR
 
 | Read-model | Grain | Kontrak perhitungan |
 | :--- | :--- | :--- |
-| `v_iku_s1_aee` | Satu mahasiswa akademik S1 | Memuat seluruh status akademik S1. `Drop Out`, `Pindah`, dan `Cuti` diberi penanda pengecualian; service memisahkan lulus tepat waktu, terlambat, dan belum teridentifikasi. |
+| `v_iku_s1_aee` | Satu lulusan akademik S1 | Hanya memuat status akademik `Lulus`; service membandingkan lulusan tepat waktu dan terlambat tanpa kategori mahasiswa aktif/belum terdeteksi. |
 | `v_iku_s1_lulusan` | Satu lulusan S1 | Menyatukan status karier, masa tunggu, pendapatan, provinsi perusahaan, dan tanggal studi lanjut untuk formula bobot IKU. |
+
+Untuk drill-down grafik Outcomes, service membaca relasi aktif `biodata.perusahaan_id`
+dan `biodata.atasan_id` setelah mengambil read-model lulusan. Nama perusahaan,
+alamat/kota/provinsi cabang, nama atasan, skills, jabatan, peran wirausaha, dan
+detail studi lanjut ditampilkan dari tabel kanonik; tidak ada duplikasi data atau
+bobot yang disimpan pada tabel baru.
 
 ### 1.8 Audit Formula, Bobot, dan Sumber Konfigurasi
 
@@ -842,9 +851,20 @@ Selain 21 tabel domain bisnis di atas, basis data menyertakan 7 tabel standar in
 | Sesi evaluasi pengguna lulusan (atasan) | `evaluasi_atasan` | Menyimpan token unik akses survei publik dan metadata instansi. |
 | Hasil ekstraksi profil LinkedIn | `linkedin_sync_results` | Berfungsi sebagai tabel *staging* sampai diverifikasi ke tabel `biodata`. |
 
+Field identitas yang muncul ulang pada Kuesioner Universitas atau Prodi tetap
+dibaca dari `biodata`/`data_akademik` sebagai sumber kanonik. Sinkronisasi
+memperbarui jawaban identitas lama berdasarkan `pertanyaan_id`, sedangkan
+jawaban evaluasi tetap disimpan sebagai isian alumni di `kuesioner_jawaban`.
+
 ### 4.2 Proyeksi Database Views (Analitik & Operasional)
 
 View analitik dan operasional dihitung secara dinamis di tingkat basis data MySQL (*database views*) dari tabel `kuesioner_jawaban` dan profil alumni tanpa membuat tabel duplikasi:
+
+`v_analytics_tracer_answers` menjadi read-model jawaban tracer kanonik dengan
+satu baris per alumni dan `pertanyaan_id`; view memilih record `id` terbaru
+untuk mengabaikan riwayat pengisian ulang. Sembilan view F3-F27 yang hanya
+memfilter kode pertanyaan dipertahankan sebagai alias kompatibilitas, sedangkan
+service analitik membaca read-model kanonik secara langsung.
 
 ```mermaid
 flowchart LR
@@ -887,9 +907,10 @@ flowchart LR
     L --> S
 ```
 
-`v_iku_s1_aee` memakai seluruh mahasiswa S1 sebagai populasi dasar, bukan
-hanya alumni yang telah mengisi tracer. `v_iku_s1_lulusan` hanya memakai
-mahasiswa dengan status akademik `Lulus`. Keduanya tidak menyimpan data dan
+`v_iku_s1_aee` memakai mahasiswa S1 dengan status akademik `Lulus` sebagai
+populasi dasar. Status aktif, AR, AK, Cuti, Pindah, dan Drop Out tidak masuk
+perhitungan. `v_iku_s1_lulusan` juga memakai mahasiswa dengan status akademik
+`Lulus` untuk indikator karier. Keduanya tidak menyimpan data dan
 tidak menambah relasi fisik ke ERD; fungsi serta grain lengkapnya tercatat pada
 [database-views.md](docs/database-views.md).
 

@@ -327,7 +327,7 @@ const normalizeChartStyle = (style, color) => {
     if (!style || typeof style !== 'object') return;
 
     if (typeof style.color !== 'function') {
-        style.color = color;
+        style.color = typeof style.color === 'string' ? style.color : color;
     }
     style.borderColor = 'transparent';
     style.borderWidth = 0;
@@ -464,9 +464,10 @@ export const normalizeAnalyticsOption = (option) => {
         normalizeStackOrder(normalized.series);
         normalized.series.forEach((series, seriesIndex) => {
             const scaleValue = /^([1-5])\s*=/.exec(String(series.name || ''))?.[1];
+            const explicitSeriesColor = typeof series.itemStyle?.color === 'string' ? series.itemStyle.color : null;
             const seriesColor = scaleValue
                 ? analyticsScalePalette[Number(scaleValue) - 1]
-                : (customPalette || analyticsPalette)[seriesIndex % (customPalette || analyticsPalette).length];
+                : explicitSeriesColor || (customPalette || analyticsPalette)[seriesIndex % (customPalette || analyticsPalette).length];
             if (typeof series.itemStyle?.color !== 'function') {
                 normalizeChartStyle(series.itemStyle, seriesColor);
             } else {
@@ -492,14 +493,13 @@ export const normalizeAnalyticsOption = (option) => {
                     || normalized.yAxis?.max === 100
                     || (Array.isArray(series.data) && series.data.some((datum) => Number(typeof datum === 'object' ? datum.value : datum) > 1));
                 const originalFormatter = series.label?.formatter;
-                // Pertahankan formatter lokal, tetapi pulihkan label positif yang sengaja dikosongkan karena segmennya kecil.
+                // Pertahankan formatter lokal agar aturan label setiap grafik tetap berfungsi.
                 const stackedLabelFormatter = (params) => {
                     const value = Number(params?.value ?? params?.data?.value ?? 0);
                     const formatted = typeof originalFormatter === 'function' ? originalFormatter(params) : '';
 
-                    if (formatted !== undefined && formatted !== null && String(formatted).trim() !== '') {
-                        return formatted;
-                    }
+                    // Formatter lokal menjadi sumber kebenaran, termasuk ketika sengaja mengembalikan label kosong.
+                    if (typeof originalFormatter === 'function') return formatted ?? '';
 
                     if (value <= 0) return '';
 

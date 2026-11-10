@@ -164,6 +164,12 @@ class SimpanProfilController extends Controller
             $posisiWiraswasta = null;
         }
 
+        $isNonWorkingCategory = in_array($kategoriPekerjaan, ['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'], true);
+        if ($isNonWorkingCategory) {
+            $posisiJabatan = null;
+            $posisiWiraswasta = null;
+        }
+
         $isOwnerOrFounder = ($kategoriPekerjaan === 'Wiraswasta') || ($posisiJabatan && in_array(strtolower((string) $posisiJabatan), [
             'owner',
             'founder',
@@ -252,8 +258,8 @@ class SimpanProfilController extends Controller
             'experience' => ! empty($dataTervalidasi['experience']) ? $dataTervalidasi['experience'] : null,
             'kategori_pekerjaan' => $kategoriPekerjaan,
             'posisi_jabatan' => $posisiJabatan,
-            'bidang_pekerjaan' => $bidangPekerjaan,
-            'divisi' => ! empty($dataTervalidasi['divisi']) ? trim((string) $dataTervalidasi['divisi']) : null,
+            'bidang_pekerjaan' => $isNonWorkingCategory ? null : $bidangPekerjaan,
+            'divisi' => $isNonWorkingCategory ? null : (! empty($dataTervalidasi['divisi']) ? trim((string) $dataTervalidasi['divisi']) : null),
             'posisi_wiraswasta' => $posisiWiraswasta,
             'pendidikan_tingkat' => ! empty($dataTervalidasi['pendidikan_tingkat']) ? $dataTervalidasi['pendidikan_tingkat'] : null,
             'perguruan_tinggi' => ! empty($dataTervalidasi['perguruan_tinggi']) ? $dataTervalidasi['perguruan_tinggi'] : null,

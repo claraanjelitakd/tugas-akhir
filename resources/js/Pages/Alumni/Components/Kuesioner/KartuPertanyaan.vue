@@ -92,6 +92,15 @@ const getTypeInstruction = (type) => {
     }
 };
 
+// Instruksi khusus F3 menjelaskan bahwa angka hanya diperlukan sesudah lulus.
+const getQuestionInstruction = (question) => {
+    const code = (question?.kode_pertanyaan || question?.code || '').toUpperCase();
+
+    if (code === 'F3') return 'Pilih salah satu jawaban; isi jumlah bulan hanya jika sesudah lulus';
+
+    return getTypeInstruction(question?.type);
+};
+
 // Deteksi apakah opsi membutuhkan input teks kustom (Lainnya / Other / Tuliskan / ...)
 const isCustomOption = (opt) => {
     if (!opt) return false;
@@ -99,6 +108,14 @@ const isCustomOption = (opt) => {
     const text = (typeof opt === 'object' ? opt.option_text : opt) || '';
     const lower = String(text).trim().toLowerCase();
     return lower === 'other' || lower.includes('lainnya') || lower.includes('tuliskan') || lower.includes('...') || lower.includes('…');
+};
+
+// Opsi sebelum lulus pada F3 tidak lagi meminta jumlah bulan.
+const isF3BeforeGraduationOption = (question, opt) => {
+    const code = (question?.kode_pertanyaan || question?.code || '').toUpperCase();
+    const text = String(opt?.option_text || opt || '').toLowerCase();
+
+    return code === 'F3' && text.includes('sebelum lulus');
 };
 
 // Mencegah karakter aneh pada input angka
@@ -250,6 +267,10 @@ const handleRadioOptionSelect = (qId, optId, optText = null) => {
         }
     });
 
+    if (isF3BeforeGraduationOption(props.subpertanyaan, optText)) {
+        props.form.answers[qId].inputs[optId] = '';
+    }
+
     props.form.answers[qId].input = props.form.answers[qId].inputs[optId] ?? '';
 };
 
@@ -385,9 +406,9 @@ const stepNumberInput = (qId, delta) => {
             </p>
 
             <!-- Badge Instruksi Default Sesuai Tipe Pertanyaan -->
-            <div v-if="getTypeInstruction(subpertanyaan.type)" class="mt-2.5">
+            <div v-if="getQuestionInstruction(subpertanyaan)" class="mt-2.5">
                 <span class="inline-block px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-[11px] font-semibold text-slate-700">
-                    {{ getTypeInstruction(subpertanyaan.type) }}
+                    {{ getQuestionInstruction(subpertanyaan) }}
                 </span>
             </div>
         </div>
@@ -711,7 +732,7 @@ const stepNumberInput = (qId, delta) => {
                         </div>
 
                         <div class="flex-1 text-left">
-                            <div v-if="getSplitDotsText(opt.option_text).hasDots" class="inline-flex flex-wrap items-center gap-1.5 leading-relaxed">
+                            <div v-if="getSplitDotsText(opt.option_text).hasDots && !isF3BeforeGraduationOption(subpertanyaan, opt)" class="inline-flex flex-wrap items-center gap-1.5 leading-relaxed">
                                 <span v-if="getSplitDotsText(opt.option_text).before">{{ getSplitDotsText(opt.option_text).before }}</span>
                                 <input
                                     :type="subpertanyaan.type === 'radio_input' ? 'number' : 'text'"
@@ -727,7 +748,7 @@ const stepNumberInput = (qId, delta) => {
                                 >
                                 <span v-if="getSplitDotsText(opt.option_text).after">{{ getSplitDotsText(opt.option_text).after }}</span>
                             </div>
-                            <span v-else>{{ opt.option_text }}</span>
+                            <span v-else>{{ isF3BeforeGraduationOption(subpertanyaan, opt) ? getSplitDotsText(opt.option_text).before : opt.option_text }}</span>
 
                             <div
                                 v-if="!getSplitDotsText(opt.option_text).hasDots && form.answers[subpertanyaan.id]?.selected === opt.option_text && isCustomOption(opt)"

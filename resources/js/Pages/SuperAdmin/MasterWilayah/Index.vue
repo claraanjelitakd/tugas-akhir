@@ -9,6 +9,7 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import Sidebar from '../Components/Sidebar.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 
 // Tahun default mengikuti kalender browser ketika backend belum mengirim daftar UMP.
 const currentYear = new Date().getFullYear();
@@ -1136,30 +1137,8 @@ const confirmDeleteNegara = (item) => {
                         </table>
                     </div>
 
-                    <!-- PAGINASI KABUPATEN -->
-                    <div v-if="kabupatens.links && kabupatens.links.length > 3" class="p-3 border border-gray-300 rounded-xl bg-white flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-2xs">
-                        <span class="text-gray-500">
-                            Menampilkan {{ kabupatens.from || 0 }} sampai {{ kabupatens.to || 0 }} dari {{ kabupatens.total || 0 }} data
-                        </span>
-                        <div class="flex items-center gap-1 flex-wrap">
-                            <button
-                                v-for="(link, i) in kabupatens.links"
-                                :key="i"
-                                type="button"
-                                @click="link.url ? router.get(link.url, {}, { preserveState: true }) : null"
-                                :disabled="!link.url || link.active"
-                                class="px-2.5 py-1 text-xs rounded border transition-colors cursor-pointer disabled:cursor-not-allowed"
-                                :class="[
-                                    link.active
-                                        ? 'bg-[#0D542B] text-white border-[#0D542B] font-bold'
-                                        : link.url
-                                            ? 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                                            : 'bg-gray-100 text-gray-400 border-gray-200'
-                                ]"
-                                v-html="link.label"
-                            ></button>
-                        </div>
-                    </div>
+                    <!-- Pagination kabupaten/kota memakai kontrol bersama. -->
+                    <PaginationControls :pagination="kabupatens" summary-label="kabupaten/kota" />
                 </div>
 
                 <!-- ======================================================== -->
@@ -1344,26 +1323,8 @@ const confirmDeleteNegara = (item) => {
                         </tbody>
                     </table>
 
-                    <!-- Paginasi Tabel Negara -->
-                    <div
-                        v-if="negaras.links && negaras.links.length > 3"
-                        class="p-3 border-t border-gray-300 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs bg-gray-50"
-                    >
-                        <div class="text-gray-500">
-                            Menampilkan {{ negaras.from || 0 }} - {{ negaras.to || 0 }} dari {{ negaras.total || 0 }} negara
-                        </div>
-                        <div class="flex items-center gap-1 flex-wrap">
-                            <button
-                                v-for="(lnk, idx) in negaras.links"
-                                :key="idx"
-                                :disabled="!lnk.url"
-                                @click="lnk.url && router.visit(lnk.url, { preserveState: true })"
-                                class="px-2.5 py-1 rounded border text-xs font-medium transition-colors"
-                                :class="lnk.active ? 'bg-[#0D542B] text-white border-[#0D542B]' : (lnk.url ? 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100 cursor-pointer' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed')"
-                                v-html="lnk.label"
-                            />
-                        </div>
-                    </div>
+                    <!-- Pagination master negara memakai kontrol bersama. -->
+                    <PaginationControls :pagination="negaras" summary-label="negara" />
                 </div>
             </main>
         </div>
