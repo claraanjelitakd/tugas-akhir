@@ -2,10 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Models\Atasan;
+use App\Models\Biodata;
+use App\Models\DataAkademik;
 use App\Models\EvaluasiAtasan;
 use App\Models\KuesionerJawaban;
 use App\Models\KuesionerPertanyaan;
+use App\Models\Perusahaan;
 use App\Models\Prodi;
+use App\Models\User;
+use App\Models\Yudisium;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -68,6 +74,48 @@ class AlumniSimulationSeederTest extends TestCase
             $this->assertContains($response->jawaban_teks, $allowedOptions);
             $this->assertNotNull($response->opsi_id);
             $this->assertSame($response->opsi->label, $response->jawaban_teks);
+        }
+    }
+
+    /**
+     * Memastikan fixture default hanya memakai kohort 2026 dan seluruh relasi alumni tersambung.
+     */
+    public function test_default_fixture_keeps_alumni_entities_consistent(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $graduates = DataAkademik::query()->whereNotNull('tahun_lulus')->get();
+
+        $this->assertSame(100, $graduates->count());
+        $this->assertSame([2026], $graduates->pluck('tahun_lulus')->unique()->sort()->values()->all());
+        $this->assertSame(12, $graduates->pluck('prodi_id')->unique()->count());
+        $this->assertSame(0, $graduates->filter(fn (DataAkademik $academic): bool => blank($academic->nama) || $academic->nama === '-')->count());
+        $this->assertSame(10, Atasan::query()->count());
+        $this->assertSame(0, Atasan::query()->whereDoesntHave('biodata')->count());
+        $this->assertSame(
+            0,
+            Perusahaan::query()
+                ->whereDoesntHave('biodata')
+                ->whereDoesntHave('atasan')
+                ->count()
+        );
+
+        foreach ($graduates as $academic) {
+            $user = User::query()->where('username', $academic->nim)->first();
+            $biodata = Biodata::query()->where('nim', $academic->nim)->first();
+            $yudisium = Yudisium::query()->where('nim', $academic->nim)->first();
+
+            $this->assertNotNull($user);
+            $this->assertNotNull($biodata);
+            $this->assertNotNull($yudisium);
+            $this->assertSame($academic->nama, $user->name);
+            $this->assertSame($academic->nama, $biodata->nama);
+            $this->assertSame($academic->nama, $yudisium->dataAkademik?->nama);
+
+            if ($biodata->atasan_id !== null) {
+                $this->assertNotNull($biodata->perusahaan_id);
+                $this->assertSame($biodata->perusahaan_id, $biodata->atasan?->perusahaan_id);
+            }
         }
     }
 }

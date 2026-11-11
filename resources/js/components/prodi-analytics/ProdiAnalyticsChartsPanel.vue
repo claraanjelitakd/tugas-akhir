@@ -9,6 +9,7 @@
  */
 import { computed, defineAsyncComponent } from 'vue';
 import InterestAndContribution from './categories/01_InterestAndContribution.vue';
+import ChoiceQuestionsChart from './ChoiceQuestionsChart.vue';
 
 // Komponen bagian 02 dimuat saat dipilih agar bundle awal tetap kecil.
 const LearningExperience = defineAsyncComponent(() => import('./categories/02_LearningExperience.vue'));
@@ -31,6 +32,7 @@ const HopesAndFeedback = defineAsyncComponent(() => import('./categories/09_Hope
 const props = defineProps({
     items: { type: Array, default: () => [] },
     sectionOrder: { type: Number, default: 0 },
+    chartType: { type: String, default: '' },
 });
 
 // Event pemilihan elemen grafik diteruskan ke halaman untuk drill-down responsden.
@@ -52,7 +54,13 @@ const categoryComponents = {
 
 // Grafik tidak memilih file dari nama grafik. File kategori dipilih dari urutan
 // bagian kuesioner, lalu file tersebut membaca items pertanyaan yang aktif.
-const activeComponent = computed(() => categoryComponents[props.sectionOrder] || InterestAndContribution);
+const activeComponent = computed(() => {
+    if (props.chartType === 'choice') {
+        return ChoiceQuestionsChart;
+    }
+
+    return categoryComponents[props.sectionOrder] || InterestAndContribution;
+});
 
 // Pemancar tunggal menjaga kontrak event semua kategori tetap sama.
 const handleSelect = (selection) => emit('select', selection);

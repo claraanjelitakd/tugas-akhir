@@ -27,22 +27,19 @@ class KelolaOpsiController extends Controller
         $pertanyaan = KuesionerPertanyaan::findOrFail($questionId);
 
         $validated = $request->validate([
+            'code' => 'required|string|max:50',
             'option_text' => 'required|string',
-            'score' => 'nullable|integer',
-            'value' => 'nullable|string',
             'jump_to' => 'nullable|string|max:50',
             'order' => 'nullable|integer',
         ]);
 
         $order = $validated['order'] ?? (($pertanyaan->opsi()->max('order') ?? 0) + 1);
-        $score = is_numeric($validated['score'] ?? null)
-            ? (int) $validated['score']
-            : (is_numeric($validated['value'] ?? null) ? (int) $validated['value'] : null);
 
         $pertanyaan->opsi()->create([
+            'kode_opsi' => trim($validated['code']),
             'label' => trim($validated['option_text']),
-            'nilai_skor' => $score,
-            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?: null,
+            'nilai_skor' => $pertanyaan->tipe === 'rating_5' ? (int) $order : null,
+            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
             'order' => (int) $order,
         ]);
 
@@ -57,22 +54,20 @@ class KelolaOpsiController extends Controller
         $option = KuesionerOpsi::findOrFail($optionId);
 
         $validated = $request->validate([
+            'code' => 'required|string|max:50',
             'option_text' => 'required|string',
-            'score' => 'nullable|integer',
-            'value' => 'nullable|string',
             'jump_to' => 'nullable|string|max:50',
             'order' => 'nullable|integer',
         ]);
 
-        $score = is_numeric($validated['score'] ?? null)
-            ? (int) $validated['score']
-            : (is_numeric($validated['value'] ?? null) ? (int) $validated['value'] : null);
+        $order = $validated['order'] ?? $option->order;
 
         $option->update([
+            'kode_opsi' => trim($validated['code']),
             'label' => trim($validated['option_text']),
-            'nilai_skor' => $score ?? $option->nilai_skor,
-            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?: null,
-            'order' => $validated['order'] ?? $option->order,
+            'nilai_skor' => $option->pertanyaan?->tipe === 'rating_5' ? (int) $order : null,
+            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
+            'order' => $order,
         ]);
 
         return redirect()->back()->with('success', 'Pilihan opsi jawaban berhasil diperbarui.');

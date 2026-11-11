@@ -110,6 +110,7 @@ class IkuS1AnalyticsService
         $unidentified = $eligible - $onTime - $late;
         $aeeRealization = $this->percentage($onTime, $eligible);
         $programAchievements = $series->where('eligible', '>', 0)->pluck('achievement');
+        $topProgram = $series->first();
 
         return [
             'key' => 'iku_s1_aee',
@@ -126,6 +127,10 @@ class IkuS1AnalyticsService
                 'aee_realization' => $aeeRealization,
                 'aee_ideal' => self::AEE_IDEAL_S1,
                 'aee_pt' => $programAchievements->isNotEmpty() ? round($programAchievements->avg(), 2) : 0.0,
+                'program_count' => $series->count(),
+                'top_program_id' => $topProgram['prodi_id'] ?? null,
+                'top_program_label' => $topProgram['nama_prodi'] ?? null,
+                'top_program_aee' => $topProgram['aee_realization'] ?? null,
                 'status_target' => (float) config('iku.s1.aee_status_target', 60.0),
                 'status_legend' => [
                     ['key' => 'green', 'label' => 'Hijau: ≥ target', 'color' => '#0D542B'],
@@ -176,13 +181,21 @@ class IkuS1AnalyticsService
                 }
 
                 $validRows = $categoryRows->filter(fn (array $row): bool => $row['weight'] > 0);
+                $weightedScore = round($validRows->sum('weight'), 4);
+                $percentage = $this->percentage($weightedScore, $valid->count());
+                $status = $this->outcomeContributionStatus($percentage, $validRows->count());
 
                 return [
                     'label' => $label,
                     'count' => $categoryRows->count(),
                     'valid_count' => $validRows->count(),
-                    'weighted_score' => round($validRows->sum('weight'), 4),
-                    'percentage' => $this->percentage($validRows->sum('weight'), $valid->count()),
+                    'weighted_score' => $weightedScore,
+                    'percentage' => $percentage,
+                    'percentage_denominator' => 'valid_respondents',
+                    'percentage_denominator_count' => $valid->count(),
+                    'status_key' => $status['key'],
+                    'status_label' => $status['label'],
+                    'status_color' => $status['color'],
                 ];
             })->filter()->values()->all();
 
@@ -197,6 +210,14 @@ class IkuS1AnalyticsService
                 'weighted_score' => $weightedScore,
                 'percentage' => $score,
                 'ump_year' => $this->resolveUmpYear($umpYear),
+                'percentage_denominator' => 'valid_respondents',
+                'percentage_denominator_count' => $valid->count(),
+                'status_legend' => [
+                    ['key' => 'met', 'label' => 'Hijau: ≥ 50%', 'color' => '#0D542B'],
+                    ['key' => 'warning', 'label' => 'Kuning: 30%–<50%', 'color' => '#D97706'],
+                    ['key' => 'danger', 'label' => 'Merah: <30%', 'color' => '#DC2626'],
+                    ['key' => 'unavailable', 'label' => 'Abu-abu: tidak berbobot', 'color' => '#CBD5E1'],
+                ],
             ],
             'series' => $series,
             'records' => $classified->values()->all(),
@@ -262,7 +283,14 @@ class IkuS1AnalyticsService
                     $counts[$category]++;
                 }
 
-                return ['role' => $role, 'total' => $roleRows->count(), 'counts' => $counts];
+                return [
+                    'role' => $role,
+                    'total' => $roleRows->count(),
+                    'counts' => $counts,
+                    'percentages' => collect($counts)
+                        ->map(fn (int $count): float => $this->percentage($count, $roleRows->count()))
+                        ->all(),
+                ];
             })->values()->all();
         $series = $valid->groupBy('career_category')->map(function (Collection $categoryRows, string $label) use ($valid): array {
             $comparableRows = $categoryRows->filter(fn (array $row): bool => $row['salary'] !== null && $row['threshold'] !== null);
@@ -750,5 +778,29 @@ class IkuS1AnalyticsService
     private function percentage(float|int $numerator, float|int $denominator): float
     {
         return $denominator > 0 ? round(((float) $numerator / (float) $denominator) * 100, 2) : 0.0;
+    }
+
+    /**
+     * Menentukan warna kontribusi kategori dengan ambang yang sama seperti response rate.
+     *
+     * @param  float  $percentage  Kontribusi kategori terhadap responden valid IKU.
+     * @param  int  $validCount  Jumlah baris kategori yang memiliki bobot positif.
+     * @return array{key: string, label: string, color: string}
+     */
+    private function outcomeContributionStatus(float $percentage, int $validCount): array
+    {
+        if ($validCount === 0) {
+            return ['key' => 'unavailable', 'label' => 'Abu-abu: tidak berbobot', 'color' => '#CBD5E1'];
+        }
+
+        if ($percentage >= 50) {
+            return ['key' => 'met', 'label' => 'Hijau: ≥ 50%', 'color' => '#0D542B'];
+        }
+
+        if ($percentage >= 30) {
+            return ['key' => 'warning', 'label' => 'Kuning: 30%–<50%', 'color' => '#D97706'];
+        }
+
+        return ['key' => 'danger', 'label' => 'Merah: <30%', 'color' => '#DC2626'];
     }
 }

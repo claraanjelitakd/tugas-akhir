@@ -182,12 +182,12 @@ tracerstudy/
 │       ├── WilayahSeeder.php                       # Seeder provinsi & kabupaten/kota dari data/*.csv
 │       ├── UmpSeeder.php                           # Loader CSV UMP dan pemetaan ke master wilayah
 │       ├── UserSeeder.php                          # Akun demo
-│       ├── IkuS1AcademicPopulationSeeder.php       # Normalisasi periode masuk dan populasi mahasiswa non-alumni IKU
+│       ├── IkuS1AcademicPopulationSeeder.php       # Seeder populasi non-alumni IKU opsional
 │       ├── KuesionerSeeder.php                     # Seeder kuesioner legacy yang masih dipakai
 │       ├── UnifiedKuesionerSeeder.php              # Seeder instrumen kuesioner terpadu
 │       ├── PertanyaanEvaluasiAtasanSeeder.php      # Wrapper compatibility untuk test evaluasi atasan
 │       ├── JoshuaAndreanSeeder.php                 # Seeder alumni uji coba khusus
-│       ├── AlumniSimulationSeeder.php              # Simulasi alumni lintas prodi
+│       ├── AlumniSimulationSeeder.php              # Fixture kanonik maksimal 99 alumni lintas 12 prodi tahun 2026
 │       ├── LinkedinSyncResultSeeder.php             # Snapshot staging LinkedIn dan fixture
 │       ├── PerusahaanSeeder.php                    # Fixture master perusahaan opsional
 │       ├── DataAkademikSeeder.php                  # Fixture akademik awal opsional

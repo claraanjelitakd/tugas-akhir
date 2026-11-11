@@ -4,6 +4,11 @@ Dokumen ini adalah kontrak view runtime untuk dashboard, audit kelengkapan,
 autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 `database/migrations` agar definisi setiap view mudah ditelusuri.
 
+Status view: **KANONIK/AKTIF READ-MODEL** berarti dipakai service runtime;
+**LEGACY ALIAS** berarti dipertahankan untuk kompatibilitas dan bukan sumber
+utama service baru; **DERIVED/OPERASIONAL** berarti proyeksi baca dari tabel
+kanonik dan tidak menerima penulisan data bisnis.
+
 ## View aktif
 
 | View | Model/service pengguna | Fungsi |
@@ -37,6 +42,21 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 | v_iku_s1_aee | IkuS1AnalyticsService | Seluruh populasi akademik S1, status pengecualian, dan penanda lulus tepat waktu untuk AEE. |
 | v_iku_s1_lulusan | IkuS1AnalyticsService | Lulusan S1 dengan status karier, masa tunggu, gaji, UMP/provinsi, dan tanggal studi lanjut untuk formula bobot IKU. |
 
+### Status setiap view
+
+| Status | View |
+| :--- | :--- |
+| **DERIVED/OPERASIONAL** | `v_alumni_profile_summary`, `v_alumni_tracer_univ_status`, `v_alumni_tracer_prodi_status`, `v_alumni_audit_rekap`, `v_alumni_kuesioner_autofill`, `v_question_mappings`, `v_alumni_linkedin_plot` |
+| **LEGACY ALIAS** | `v_kuesioner_rekap_jawaban`, `v_analytics_learning_methods`, `v_analytics_job_search_start`, `v_analytics_job_search_methods`, `v_analytics_application_pipeline`, `v_analytics_job_search_activity`, `v_analytics_workplace_type`, `v_analytics_further_study`, `v_analytics_mismatch_reasons`, `v_analytics_competency_gap` |
+| **KANONIK/AKTIF READ-MODEL** | `v_analytics_population`, `v_analytics_response_rate`, `v_analytics_profile_completion`, `v_analytics_wait_time`, `v_analytics_salary_ump`, `v_analytics_work_location`, `v_analytics_employment_status`, `v_analytics_alignment`, `v_analytics_tracer_answers`, `v_iku_s1_aee`, `v_iku_s1_lulusan` |
+
+Kode pertanyaan dan kode opsi pada output read-model berstatus
+**DISPLAY/DERIVED**: kode idealnya ditarik dari tabel master melalui relasi ID
+dan tidak menjadi sumber tulis baru pada tabel jawaban. Audit saat ini masih
+menandai `v_kuesioner_rekap_jawaban` dan `v_iku_s1_lulusan` sebagai pengecualian
+yang membaca snapshot kode lama; keduanya harus dipindahkan ke relasi
+`pertanyaan_id`/`opsi_id` saat refaktor runtime dilakukan.
+
 ## Rincian fungsi per view
 
 | View | Grain data | Fungsi operasional | Aturan penting |
@@ -69,6 +89,10 @@ autofill kuesioner, dan pemetaan jawaban. DDL aktif disimpan satu per view di
 | `v_analytics_competency_gap` | Legacy alias | Proyeksi lama F17a/F17b; service memakai filter kode pada `v_analytics_tracer_answers`. | Alias dipertahankan untuk kompatibilitas database lama. |
 | `v_iku_s1_aee` | Satu baris per lulusan akademik S1 | Menjadi populasi AEE hanya untuk data dengan status akademik `Lulus`. | Status aktif, AR, AK, DO, Pindah, dan Cuti tidak masuk; service hanya membandingkan tepat waktu dan terlambat. |
 | `v_iku_s1_lulusan` | Satu baris per lulusan S1 | Menjadi basis formula IKU karier berbobot. | Role karier, masa tunggu, gaji, UMP, dan studi lanjut dihitung terstruktur oleh service. |
+
+### Catatan kinerja query IKU
+
+`v_iku_s1_lulusan` mengambil jawaban tracer terbaru per alumni dan kode pertanyaan melalui subquery terurut berdasarkan `id`. Tabel `kuesioner_jawaban` karena itu memiliki indeks komposit `kuesioner_jawaban_analytics_lookup_idx` pada `(biodata_id, responden_type, kode_pertanyaan, id)` agar request grafik IKU tidak melakukan pemindaian berulang pada seluruh jawaban.
 
 ## Kontrak sumber data
 

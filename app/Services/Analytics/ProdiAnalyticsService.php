@@ -473,6 +473,9 @@ class ProdiAnalyticsService
         $orderedLabels = array_values($optionLabels);
         $counts = array_fill_keys($orderedLabels, 0);
         $records = [];
+        $otherRecords = [];
+        $otherTexts = [];
+        $otherCount = 0;
         $validCount = 0;
 
         foreach ($responses as $response) {
@@ -482,23 +485,41 @@ class ProdiAnalyticsService
             }
             $validCount++;
             foreach ($labels as $label) {
+                if ($label === 'Lainnya') {
+                    $otherCount++;
+
+                    continue;
+                }
+
                 $counts[$label] = ($counts[$label] ?? 0) + 1;
             }
             $record = $this->recordPayload($response, $question, implode(', ', $labels));
             $record['jawaban_lainnya'] = $this->otherAnswerDetail($response);
             $records[] = $record;
+            if (in_array('Lainnya', $labels, true)) {
+                $otherRecords[] = $record;
+                if ($record['jawaban_lainnya'] !== '') {
+                    $otherTexts[] = $record['jawaban_lainnya'];
+                }
+            }
         }
 
-        $categories = collect($counts)->map(static fn (int $count, string $label): array => [
-            'label' => $label,
-            'value' => $count,
-            'count' => $count,
-            'percentage' => $validCount > 0 ? round(($count / $validCount) * 100, 1) : 0,
-        ])->values()->all();
+        $categories = collect($counts)
+            ->map(static fn (int $count, string $label): array => [
+                'label' => $label,
+                'value' => $count,
+                'count' => $count,
+                'percentage' => $validCount > 0 ? round(($count / $validCount) * 100, 1) : 0,
+            ])
+            ->filter(static fn (array $category): bool => $category['count'] > 0)
+            ->values()
+            ->all();
         $top = collect($categories)->sortByDesc('count')->first();
         $stat = $this->questionStat($question, $validCount, null, $categories);
         $stat['top_choice'] = $top['label'] ?? '-';
-        $stat['top_count'] = $top['count'] ?? 0;
+        $stat['top_count'] = (int) ($top['count'] ?? 0);
+        $stat['other_count'] = $otherCount;
+        $stat['other_percentage'] = $validCount > 0 ? round(($otherCount / $validCount) * 100, 1) : 0;
 
         return [
             'key' => $question->code ?: 'question-'.$question->id,
@@ -512,6 +533,11 @@ class ProdiAnalyticsService
             'scores' => [],
             'stat' => $stat,
             'records' => $records,
+            'other_word_cloud' => [
+                'count' => $otherCount,
+                'texts' => array_values($otherTexts),
+                'records' => array_values($otherRecords),
+            ],
         ];
     }
 

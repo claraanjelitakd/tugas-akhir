@@ -14,77 +14,46 @@ use Illuminate\Database\Seeder;
 class DataAkademikSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Menyelaraskan data akademik dengan akun alumni yang sudah ada.
+     *
+     * Seeder ini tidak lagi membuat nama dummy atau mengganti nama akun.
+     * Jika data akademik belum tersedia, identitas diambil dari akun dan
+     * kohort contoh ditetapkan ke lulusan 2026.
      */
     public function run(): void
     {
-        $alumniUsers = User::where('role', 'alumni')
+        $alumniUsers = User::query()
+            ->where('role', 'alumni')
             ->where('username', '!=', '72220001')
             ->get();
 
-        $namaDummy = [
-            'Clara Anjelita Kusumadewi',
-            'Andreas Timothy Wijaya',
-            'Grace Nathania Putri',
-            'Kevin Sanjaya Pratama',
-            'Daniel Christian Haryanto',
-            'Jessica Laurencia Santoso',
-            'Michael Steven Kurniawan',
-            'Rachel Amanda Sihombing',
-            'Samuel Evan Prasetya',
-            'Vanessa Stephanie Tanudjaja',
-        ];
-
-        $angkatanMasuk = 2021;
-        $tahunLulus = 2025;
-        $periodeLulus = 'Genap 2024/2025';
-        $ipkList = [3.85, 3.72, 3.90, 3.65, 3.80, 3.75, 3.95, 3.68, 3.88, 3.78];
-
-        $sekolahList = [
-            ['nama' => 'SMA Kolese De Britto Yogyakarta', 'alamat' => 'Jl. Laksda Adisucipto No. 161', 'kota' => 'Kabupaten Sleman', 'prov' => 'DI Yogyakarta', 'jurusan' => 'IPA'],
-            ['nama' => 'SMA Negeri 1 Yogyakarta', 'alamat' => 'Jl. HOS Cokroaminoto No. 10', 'kota' => 'Kota Yogyakarta', 'prov' => 'DI Yogyakarta', 'jurusan' => 'IPA'],
-            ['nama' => 'SMA Santa Ursula Jakarta', 'alamat' => 'Jl. Pos No. 2', 'kota' => 'Kota Jakarta Pusat', 'prov' => 'DKI Jakarta', 'jurusan' => 'IPS'],
-            ['nama' => 'SMA Negeri 3 Yogyakarta', 'alamat' => 'Jl. Yos Sudarso No. 7', 'kota' => 'Kota Yogyakarta', 'prov' => 'DI Yogyakarta', 'jurusan' => 'IPA'],
-        ];
-
-        foreach ($alumniUsers as $index => $user) {
+        foreach ($alumniUsers as $user) {
             $nim = $user->username;
-            $nama = $namaDummy[$index % count($namaDummy)];
-            $sekolah = $sekolahList[$index % count($sekolahList)];
-
-            $personalEmail = strtolower(str_replace(' ', '', explode(' ', $nama)[0])).($index + 1).'@gmail.com';
-
-            // Update nama user & email pribadi agar sinkron di auth, manajemen akun, dan notifikasi
-            $user->update([
-                'name' => $nama,
-                'email' => $personalEmail,
-            ]);
-
-            $ipk = $ipkList[$index % count($ipkList)];
-            $totalSks = 144;
-            $angkaKualitas = round($ipk * $totalSks, 2);
+            $existing = DataAkademik::query()->where('nim', $nim)->first();
+            $nama = filled($existing?->nama) && $existing->nama !== '-' ? $existing->nama : $user->name;
+            $personalEmail = $existing?->email_pribadi ?: $user->email;
+            $angkatanMasuk = $existing?->angkatan_masuk ?? 2022;
+            $ipk = $existing?->ip_kumulatif ?? 3.75;
+            $totalSks = $existing?->total_sks ?? 144;
 
             DataAkademik::updateOrCreate(
                 ['nim' => $nim],
                 [
                     'nama' => $nama,
                     'email_pribadi' => $personalEmail,
-                    // Data Paten Universitas
+                    'prodi_id' => $user->prodi_id ?? $existing?->prodi_id,
                     'angkatan_masuk' => $angkatanMasuk,
-                    'status_mahasiswa' => 'Lulus',
-                    'tahun_akademik_lulus' => $periodeLulus,
-                    'tahun_lulus' => $tahunLulus,
+                    'tahun_akademik_masuk' => DataAkademik::formatAcademicEntryPeriod($angkatanMasuk),
+                    'status_mahasiswa' => $existing?->status_mahasiswa ?? 'Lulus',
+                    'tahun_akademik_lulus' => $existing?->tahun_akademik_lulus ?? 'Genap 2025/2026',
+                    'tahun_lulus' => $existing?->tahun_lulus ?? 2026,
+                    'tanggal_lulus' => $existing?->tanggal_lulus ?? '2026-08-15',
                     'ip_kumulatif' => $ipk,
                     'total_sks' => $totalSks,
-                    'total_angka_kualitas' => $angkaKualitas,
-
-                    // Identitas Diri
-                    'tanggal_lahir' => '2001-08-15',
-                    'jenis_kelamin' => ($index % 2 == 0) ? 'Perempuan' : 'Laki-laki',
-                    'warga_negara' => 'WNI',
-
-                    // Email institusi tetap menjadi bagian dari sumber data akademik resmi.
-                    // Data Asal Sekolah
+                    'total_angka_kualitas' => $existing?->total_angka_kualitas ?? round($ipk * $totalSks, 2),
+                    'tanggal_lahir' => $existing?->tanggal_lahir,
+                    'jenis_kelamin' => $existing?->jenis_kelamin,
+                    'warga_negara' => $existing?->warga_negara ?? 'WNI',
                 ]
             );
         }

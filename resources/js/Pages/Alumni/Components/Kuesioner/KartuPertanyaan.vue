@@ -5,7 +5,7 @@
           - rating_5 (skala skor 1-5 dengan panduan)
           - searchable_select (dropdown pencarian bidang pekerjaan)
           - single_choice / radio (pilihan tunggal dengan input kustom)
-          - multiple_choice / checkbox (pilihan ganda dengan input kustom)
+          - multiple_choice / checkbox / multiple_choice_text (pilihan ganda dengan input kustom)
           - radio_input / radio_text (opsi radio dengan input kolom)
           - multiple_number (input nominal penghasilan & kalkulasi gaji)
           - number (angka)
@@ -58,11 +58,12 @@ const getTypeInstruction = (type) => {
             return 'Pilih salah satu jawaban';
         case 'checkbox':
         case 'multiple_choice':
+        case 'multiple_choice_text':
             return 'Jawaban bisa lebih dari satu (centang yang sesuai)';
         case 'radio_text':
             return 'Pilih salah satu jawaban (tuliskan keterangan jika memilih Lainnya)';
         case 'radio_input':
-            return 'Pilih salah satu jawaban dan lengkapi angka pada kolom isian';
+            return 'Pilih satu jawaban; isi angka bulan jika diminta.';
         case 'rating_5':
             return 'Pilih satu angka skala 1 s/d 5';
         case 'dropdown':
@@ -108,6 +109,32 @@ const isCustomOption = (opt) => {
     const text = (typeof opt === 'object' ? opt.option_text : opt) || '';
     const lower = String(text).trim().toLowerCase();
     return lower === 'other' || lower.includes('lainnya') || lower.includes('tuliskan') || lower.includes('...') || lower.includes('…');
+};
+
+// Menambahkan opsi Lainnya hanya pada tampilan radio_text, tanpa membuat baris master baru.
+const getRadioOptions = (question) => {
+    const options = question?.detils || question?.options || [];
+    if (question?.type !== 'radio_text' || options.some((option) => isCustomOption(option))) {
+        return options;
+    }
+
+    return [
+        ...options,
+        { id: `virtual-other-${question.id}`, option_text: 'Lainnya', is_other: true },
+    ];
+};
+
+// Menambahkan opsi Lainnya virtual untuk checkbox yang menyediakan isian bebas.
+const getCheckboxOptions = (question) => {
+    const options = question?.detils || question?.options || [];
+    if (question?.type !== 'multiple_choice_text' || options.some((option) => isCustomOption(option))) {
+        return options;
+    }
+
+    return [
+        ...options,
+        { id: `virtual-other-${question.id}`, option_text: 'Lainnya', is_other: true },
+    ];
 };
 
 // Opsi sebelum lulus pada F3 tidak lagi meminta jumlah bulan.
@@ -221,8 +248,7 @@ const getSplitDotsText = (text) => {
 // Helper radio_input
 const getRadioInputVal = (qId, optId) => {
     if (!props.form.answers[qId] || typeof props.form.answers[qId] !== 'object') return '';
-    if (!props.form.answers[qId].inputs) return '';
-    return props.form.answers[qId].inputs[optId] ?? '';
+    return props.form.answers[qId].inputs?.[optId] ?? props.form.answers[qId].input ?? '';
 };
 
 const setRadioInputVal = (qId, optId, val, optText = null) => {
@@ -645,9 +671,9 @@ const stepNumberInput = (qId, delta) => {
         </div>
 
         <!-- TIPE INPUT: Pilihan Ganda / Checkbox -->
-        <div v-else-if="subpertanyaan.type === 'checkbox' || subpertanyaan.type === 'multiple_choice'">
+        <div v-else-if="subpertanyaan.type === 'checkbox' || subpertanyaan.type === 'multiple_choice' || subpertanyaan.type === 'multiple_choice_text'">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-                <label v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" :key="opt.id" class="cursor-pointer group block select-none">
+                <label v-for="opt in getCheckboxOptions(subpertanyaan)" :key="opt.id" class="cursor-pointer group block select-none">
                     <input
                         type="checkbox"
                         :value="opt.option_text"
@@ -707,7 +733,7 @@ const stepNumberInput = (qId, delta) => {
         <!-- TIPE INPUT: Radio Input / Radio Text -->
         <div v-else-if="subpertanyaan.type === 'radio_input' || subpertanyaan.type === 'radio_text'">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-                <label v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" :key="opt.id" class="cursor-pointer group block select-none">
+                <label v-for="opt in getRadioOptions(subpertanyaan)" :key="opt.id" class="cursor-pointer group block select-none">
                     <input
                         type="radio"
                         :name="'question_'+subpertanyaan.id"

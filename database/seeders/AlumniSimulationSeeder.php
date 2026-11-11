@@ -19,21 +19,22 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * Seeder Simulasi Alumni Tracer Study Komprehensif (12 Program Studi UKDW)
+ * Seeder Simulasi Alumni Tracer Study Kanonik Tahun 2026.
  *
  * Tujuan:
- * Menyiapkan data simulasi riil kuesioner Tracer Study untuk seluruh 12 Program Studi di UKDW.
- * Setiap Program Studi memiliki minimal 10 alumni dengan distribusi data:
- * - 5 Orang: Lengkap 100% (Status: Selesai) dengan 5 Kategori Karier Berbeda:
+ * Menyiapkan fixture satu kohort lintas seluruh program studi S1 dengan maksimal
+ * 99 alumni lengkap dan distribusi data:
+ * - 99 Orang: Lengkap 100% dengan lima kategori karier berbeda yang tersebar
+ *   di seluruh program studi aktif:
  *     1. Bekerja di Perusahaan Swasta / BUMN (Dapat kerja sebelum lulus / F504 = Ya)
  *     2. Founder / Co-Founder (Dapat kerja sebelum lulus / F504 = Ya)
  *     3. Melanjutkan Pendidikan S2 (Studi Lanjut Pascasarjana & Beasiswa LPDP)
  *     4. Bekerja di Startup / Industri Kreatif / Multinasional (Dapat kerja setelah lulus / F504 = Tidak)
  *     5. Freelancer / Konsultan Mandiri (Dapat kerja setelah lulus / F504 = Tidak)
- * - 3 Orang: Sedang Mengisi (Status: Belum Selesai, progress pengisian 40% - 75%)
- * - 3 Orang: Belum Mengisi (Status: Belum Selesai, hanya data induk akademik & yudisium)
+ * Joshua Andrean tetap disediakan terpisah sebagai akun uji pengisian mandiri
+ * dengan profil dan jawaban kosong.
  *
- * Seluruh alumni memiliki catatan kelulusan Yudisium dengan proses_yudisium = 'Lulus'
+ * Seluruh fixture alumni memiliki catatan kelulusan Yudisium dengan status_lulus = 'Lulus'
  * serta tahun_akademik_lulus yang sinkron persis dengan tahun_lulus.
  */
 class AlumniSimulationSeeder extends Seeder
@@ -43,8 +44,12 @@ class AlumniSimulationSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Ambil seluruh master Program Studi UKDW
-        $prodis = Prodi::all()->keyBy('kode_prodi');
+        // 1. Ambil seluruh Program Studi S1 agar fixture mewakili data lintas prodi.
+        $prodis = Prodi::query()
+            ->where('jenjang', 'S1')
+            ->orderBy('kode_prodi')
+            ->get()
+            ->keyBy('kode_prodi');
         if ($prodis->isEmpty()) {
             $this->command->error('Master Prodi belum di-seed!');
 
@@ -62,19 +67,19 @@ class AlumniSimulationSeeder extends Seeder
 
         $perusahaans = Perusahaan::all();
 
-        // 3. Matriks Target Kelulusan Sinkron untuk satu kohort S1 tahun 2025
+        // 3. Matriks target kelulusan sinkron untuk satu kohort S1 tahun 2026.
         // Format: [angkatan_masuk, tahun_akademik_lulus, tahun_lulus]
         $targetKelulusanList = [
-            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 0: Selesai (Kategori 1: Swasta/BUMN)
-            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 1: Selesai (Kategori 2: Wiraswasta)
-            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 2: Selesai (Kategori 3: Studi Lanjut S2)
-            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 3: Selesai (Kategori 4: Startup/Industri Kreatif)
-            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 4: Selesai (Kategori 5: Freelancer)
-            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 5: Sedang Mengisi (Progress ~60%)
-            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 6: Sedang Mengisi (Progress ~50%)
-            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 7: Sedang Mengisi (Progress ~40%)
-            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 8: Belum Mengisi (0%)
-            ['angkatan' => '2021', 'semester' => 'Genap 2024/2025', 'tahun' => 2025], // Index 9: Belum Mengisi (0%)
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 0: Selesai (Kategori 1: Swasta/BUMN)
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 1: Selesai (Kategori 2: Wiraswasta)
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 2: Selesai (Kategori 3: Studi Lanjut S2)
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 3: Selesai (Kategori 4: Startup/Industri Kreatif)
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 4: Selesai (Kategori 5: Freelancer)
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 5: Siklus kedua kategori karyawan
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 6: Siklus kedua kategori founder
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 7: Siklus kedua studi lanjut
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 8: Siklus kedua kategori karyawan
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 9: Siklus kedua freelancer
         ];
 
         // 4. Bank 120 Nama Mahasiswa Riil Unik Tanpa Duplikasi Lintas Seluruh 12 Prodi UKDW
@@ -95,7 +100,7 @@ class AlumniSimulationSeeder extends Seeder
             // FTI - Sistem Informasi (72)
             '72' => [
                 0 => ['nama' => 'David Alexander Haryanto', 'jk' => 'Laki-laki', 'agama' => 'Kristen Protestan'],
-                1 => ['nama' => 'Stephanie Amanda Sihombing', 'jk' => 'Perempuan', 'agama' => 'Kristen Protestan'],
+                1 => ['nama' => 'Jovan Yulianto', 'jk' => 'Laki-laki', 'agama' => 'Kristen Protestan'],
                 2 => ['nama' => 'Michael Steven Nugroho', 'jk' => 'Laki-laki', 'agama' => 'Katolik'],
                 3 => ['nama' => 'Nathania Grace Gunawan', 'jk' => 'Perempuan', 'agama' => 'Kristen Protestan'],
                 4 => ['nama' => 'Andreas Timothy Wijaya', 'jk' => 'Laki-laki', 'agama' => 'Kristen Protestan'],
@@ -261,7 +266,16 @@ class AlumniSimulationSeeder extends Seeder
             ->keyBy(fn ($q) => strtoupper((string) $q->kode_pertanyaan));
         $defaultHashedPassword = Hash::make('15082004');
 
-        // Iterasi ke seluruh 12 Program Studi
+        // Tiga prodi utama mendapat 9 alumni, sembilan prodi lainnya 8 alumni.
+        // Totalnya 99; ditambah Joshua Andrean menjadi maksimal 100 lulusan.
+        $alumniCountByProdi = $prodis
+            ->keys()
+            ->mapWithKeys(fn (string $kodeProdi): array => [
+                $kodeProdi => in_array($kodeProdi, ['11', '71', '72'], true) ? 9 : 8,
+            ])
+            ->all();
+
+        // Iterasi seluruh Program Studi dan satu kohort tahun 2026.
         foreach ($prodis as $kodeProdi => $prodi) {
             $kodeProdiStr = (string) $kodeProdi;
             // Butir pertanyaan spesifik prodi (jika ada)
@@ -278,8 +292,9 @@ class AlumniSimulationSeeder extends Seeder
             // Ambil daftar nama khusus program studi ini
             $prodiNamaList = $bankNamaPerProdi[$kodeProdiStr] ?? $bankNamaPerProdi['71'];
 
-            // Iterasi 10 Alumni untuk Program Studi Ini
-            for ($i = 0; $i < 10; $i++) {
+            // Sebarkan alumni secara merata dengan batas total 99 lulusan.
+            $alumniCount = $alumniCountByProdi[$kodeProdiStr] ?? 0;
+            for ($i = 0; $i < $alumniCount; $i++) {
                 $cfg = $targetKelulusanList[$i];
                 $angkatan = $cfg['angkatan'];
                 $duaDigitAngkatan = substr($angkatan, 2, 2);
@@ -323,6 +338,7 @@ class AlumniSimulationSeeder extends Seeder
                     [
                         'nama' => $nama,
                         'email_pribadi' => $personalEmail,
+                        'prodi_id' => $prodi->id,
                         'angkatan_masuk' => (int) $angkatan,
                         'status_mahasiswa' => 'Lulus',
                         'tahun_akademik_lulus' => $cfg['semester'],
@@ -352,66 +368,27 @@ class AlumniSimulationSeeder extends Seeder
                     ]
                 );
 
-                // E. Bangun Profil Biodata & Variasi Status Responden
+                // E. Bangun profil biodata dan jawaban lengkap dengan lima kategori
+                // karier yang berulang merata di semua program studi.
                 $cleanUsername = strtolower(str_replace(' ', '', explode(' ', $nama)[0])).$nim;
-
-                // =========================================================================
-                // SKENARIO 1: LENGKAP 100% (Status: Selesai) - 5 Kategori Karier Berbeda
-                // =========================================================================
-                if ($i < 5) {
-                    $this->seedAlumniLengkap(
-                        $i,
-                        $user,
-                        $nim,
-                        $nama,
-                        $prodi,
-                        $dataAkademik,
-                        $yudisium,
-                        $cfg,
-                        $perusahaans,
-                        $propinsiDiy,
-                        $kabSleman,
-                        $propinsiJkt,
-                        $kabJaksel,
-                        $cleanUsername,
-                        $univQuestions,
-                        $prodiQuestions
-                    );
-                }
-                // =========================================================================
-                // SKENARIO 2: SEDANG MENGISI (Status: Belum Selesai, Progress 40% - 75%)
-                // =========================================================================
-                elseif ($i >= 5 && $i <= 7) {
-                    $this->seedAlumniSedangMengisi(
-                        $i,
-                        $user,
-                        $nim,
-                        $nama,
-                        $prodi,
-                        $dataAkademik,
-                        $yudisium,
-                        $cfg,
-                        $perusahaans,
-                        $propinsiDiy,
-                        $kabSleman,
-                        $cleanUsername,
-                        $univQuestions
-                    );
-                }
-                // =========================================================================
-                // SKENARIO 3: BELUM MENGISI (Status: Belum Selesai, 0% Pengisian Kuesioner)
-                // =========================================================================
-                else {
-                    $this->seedAlumniBelumMengisi(
-                        $user,
-                        $nim,
-                        $nama,
-                        $prodi,
-                        $dataAkademik,
-                        $yudisium,
-                        $cfg
-                    );
-                }
+                $this->seedAlumniLengkap(
+                    $i % 5,
+                    $user,
+                    $nim,
+                    $nama,
+                    $prodi,
+                    $dataAkademik,
+                    $yudisium,
+                    $cfg,
+                    $perusahaans,
+                    $propinsiDiy,
+                    $kabSleman,
+                    $propinsiJkt,
+                    $kabJaksel,
+                    $cleanUsername,
+                    $univQuestions,
+                    $prodiQuestions
+                );
             }
         }
 
@@ -501,6 +478,7 @@ class AlumniSimulationSeeder extends Seeder
         $perguruanTinggi = null;
         $pendidikanProdi = null;
         $gaji = 8500000;
+        $supervisorVariant = ((int) $prodi->kode_prodi) % 2;
 
         if ($kategoriIdx === 0) {
             // Kategori 1: Bekerja Swasta / BUMN
@@ -527,7 +505,7 @@ class AlumniSimulationSeeder extends Seeder
             $perusahaanId = $perusahaan->id;
 
             $atasan = Atasan::firstOrCreate(
-                ['email' => 'atasan.mandiri.'.$nim.'@mandiri.co.id'],
+                ['email' => 'atasan.mandiri.'.$supervisorVariant.'@mandiri.co.id'],
                 [
                     'perusahaan_id' => $perusahaanId,
                     'nama' => 'Hartono Kusumo, S.E., MBA.',
@@ -543,7 +521,7 @@ class AlumniSimulationSeeder extends Seeder
             $gaji = 15000000;
 
             $perusahaan = Perusahaan::firstOrCreate(
-                ['nama_perusahaan' => 'CV '.explode(' ', $nama)[0].' Inovasi Mandiri'],
+                ['nama_perusahaan' => 'CV Alumni Inovasi Mandiri'],
                 [
                     'kode_provinsi' => $propinsiDiy?->kode_provinsi,
                     'kode_kabupaten' => $kabSleman?->kode_kabupaten,
@@ -559,7 +537,7 @@ class AlumniSimulationSeeder extends Seeder
             $perusahaanId = $perusahaan->id;
 
             $atasan = Atasan::firstOrCreate(
-                ['email' => 'partner.'.$nim.'@inovasimandiri.id'],
+                ['email' => 'partner.inovasi.'.$supervisorVariant.'@inovasimandiri.id'],
                 [
                     'perusahaan_id' => $perusahaanId,
                     'nama' => 'Rendra Pratama, S.Kom. (Co-Founder)',
@@ -593,7 +571,7 @@ class AlumniSimulationSeeder extends Seeder
             $perusahaanId = $perusahaan->id;
 
             $atasan = Atasan::firstOrCreate(
-                ['email' => 'kaprodi.s2.'.$nim.'@mail.ugm.ac.id'],
+                ['email' => 'kaprodi.s2.'.$supervisorVariant.'@mail.ugm.ac.id'],
                 [
                     'perusahaan_id' => $perusahaanId,
                     'nama' => 'Prof. Dr. Ir. Wahyu Wibowo, M.Sc. (Dosen Pembimbing S2)',
@@ -624,7 +602,7 @@ class AlumniSimulationSeeder extends Seeder
             $perusahaanId = $perusahaan->id;
 
             $atasan = Atasan::firstOrCreate(
-                ['email' => 'lead.goto.'.$nim.'@gotocompany.com'],
+                ['email' => 'lead.goto.'.$supervisorVariant.'@gotocompany.com'],
                 [
                     'perusahaan_id' => $perusahaanId,
                     'nama' => 'Maya Indrawati, S.T., M.Kom. (Engineering Manager)',
@@ -640,7 +618,7 @@ class AlumniSimulationSeeder extends Seeder
             $gaji = 7000000;
 
             $perusahaan = Perusahaan::firstOrCreate(
-                ['nama_perusahaan' => 'Studio Mandiri '.$prodi->nama_prodi],
+                ['nama_perusahaan' => 'Studio Mandiri Alumni'],
                 [
                     'kode_provinsi' => $propinsiDiy?->kode_provinsi,
                     'kode_kabupaten' => $kabSleman?->kode_kabupaten,
@@ -654,6 +632,16 @@ class AlumniSimulationSeeder extends Seeder
                 ]
             );
             $perusahaanId = $perusahaan->id;
+
+            $atasan = Atasan::firstOrCreate(
+                ['email' => 'mentor.freelance.'.$supervisorVariant.'@studio-mandiri.id'],
+                [
+                    'perusahaan_id' => $perusahaanId,
+                    'nama' => 'Dimas Prasetya, S.Kom. (Mitra Profesional)',
+                    'telepon' => '081223344005',
+                ]
+            );
+            $atasanId = $atasan->id;
         }
 
         // Simpan Record Biodata Lengkap (100% Profil)
@@ -764,7 +752,7 @@ class AlumniSimulationSeeder extends Seeder
             $answers['F12'] = 'Beasiswa Pemerintah';
             $answers['F18b'] = 'Universitas Gadjah Mada';
             $answers['F18c'] = 'Program Magister Pascasarjana';
-            $answers['F18d'] = '2025-09-01';
+            $answers['F18d'] = '2026-09-01';
         }
 
         // Simpan seluruh record ke tabel kuesioner_jawaban terpadu

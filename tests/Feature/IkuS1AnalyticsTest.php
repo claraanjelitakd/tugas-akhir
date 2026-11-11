@@ -77,6 +77,9 @@ class IkuS1AnalyticsTest extends TestCase
         $this->assertSame(1, $chart['chart']['summary']['on_time_count']);
         $this->assertSame(50.0, $chart['chart']['summary']['aee_realization']);
         $this->assertSame(200.0, $chart['chart']['summary']['aee_pt']);
+        $this->assertSame(1, $chart['chart']['summary']['program_count']);
+        $this->assertSame('Informatika', $chart['chart']['summary']['top_program_label']);
+        $this->assertSame(50.0, $chart['chart']['summary']['top_program_aee']);
         $this->assertSame(60.0, $chart['chart']['summary']['status_target']);
     }
 
@@ -156,7 +159,18 @@ class IkuS1AnalyticsTest extends TestCase
         $this->assertSame(80.0, (float) $chart['chart']['summary']['percentage']);
         $this->assertCount(3, $chart['chart']['records']);
         $this->assertSame(['Karyawan', 'Wirausaha Lainnya', 'Melanjutkan Pendidikan'], array_column($chart['chart']['series'], 'label'));
-        $this->assertSame(0.0, (float) collect($chart['chart']['series'])->firstWhere('label', 'Wirausaha Lainnya')['weighted_score']);
+        $employeeSeries = collect($chart['chart']['series'])->firstWhere('label', 'Karyawan');
+        $otherEntrepreneurSeries = collect($chart['chart']['series'])->firstWhere('label', 'Wirausaha Lainnya');
+        $studySeries = collect($chart['chart']['series'])->firstWhere('label', 'Melanjutkan Pendidikan');
+        $this->assertSame(1, $employeeSeries['count']);
+        $this->assertSame(1, $employeeSeries['valid_count']);
+        $this->assertSame(2, $employeeSeries['percentage_denominator_count']);
+        $this->assertSame('met', $employeeSeries['status_key']);
+        $this->assertSame('#0D542B', $employeeSeries['status_color']);
+        $this->assertSame(0.0, (float) $otherEntrepreneurSeries['weighted_score']);
+        $this->assertSame('unavailable', $otherEntrepreneurSeries['status_key']);
+        $this->assertSame('#CBD5E1', $otherEntrepreneurSeries['status_color']);
+        $this->assertSame('warning', $studySeries['status_key']);
         $unclassifiedRecord = collect($chart['chart']['records'])->firstWhere('nim', $unclassified->nim);
         $this->assertSame('Wirausaha Lainnya', $unclassifiedRecord['career_category']);
         $this->assertNull($unclassifiedRecord['before_graduation']);
@@ -319,6 +333,9 @@ class IkuS1AnalyticsTest extends TestCase
         $this->assertSame(0.5, (float) $record['weight']);
         $this->assertSame(1, $chart['chart']['summary']['above_threshold_count']);
         $this->assertSame('needs_biro3_confirmation', $chart['chart']['summary']['weight_confirmation_status']);
+        $waitStat = $chart['chart']['wait_stats'][0];
+        $this->assertSame(1, $waitStat['counts']['<6 bulan']);
+        $this->assertSame(100.0, (float) $waitStat['percentages']['<6 bulan']);
     }
 
     /**

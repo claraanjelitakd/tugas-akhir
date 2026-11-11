@@ -153,6 +153,7 @@ class SimpanJawabanController extends Controller
             switch ($pertanyaan->tipe) {
                 case 'multiple_choice':
                 case 'checkbox':
+                case 'multiple_choice_text':
                     if (is_array($jawaban)) {
                         $processedArray = [];
                         foreach ($jawaban as $item) {

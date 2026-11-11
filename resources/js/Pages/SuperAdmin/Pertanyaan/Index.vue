@@ -116,19 +116,54 @@ const getInitialTab = () => {
 
 const activeTab = ref(getInitialTab());
 
+// Menyimpan konteks tab dan filter pada URL sebelum request CRUD dikirim.
+const syncQuestionnaireContext = () => {
+    if (typeof window === 'undefined') return;
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', activeTab.value);
+
+    const context = {
+        section_search: sectionSearchQuery.value,
+        tracer_section: selectedTracerSectionFilter.value,
+        tracer_required: selectedTracerRequiredFilter.value,
+        tracer_target: selectedTracerTargetFilter.value,
+        tracer_search: tracerSearchQuery.value,
+        profile_section: selectedProfileSectionFilter.value,
+        profile_required: selectedProfileRequiredFilter.value,
+        profile_visibility: selectedProfileVisibilityFilter.value,
+        profile_target: selectedProfileTargetFilter.value,
+        profile_search: profileSearchQuery.value,
+        kuesioner_search: kuesionerSearchQuery.value,
+    };
+
+    Object.entries(context).forEach(([key, value]) => {
+        if (value && value !== 'all') {
+            url.searchParams.set(key, String(value).trim());
+        } else {
+            url.searchParams.delete(key);
+        }
+    });
+
+    window.history.replaceState({}, '', url);
+};
+
+// Membaca nilai konteks dari URL saat halaman hasil redirect CRUD dimuat ulang.
+const getContextQuery = (key, fallback = '') => {
+    if (typeof window === 'undefined') return fallback;
+
+    return new URLSearchParams(window.location.search).get(key) || fallback;
+};
+
 const switchTab = (tabName) => {
     activeTab.value = tabName;
-    if (typeof window !== 'undefined') {
-        const url = new URL(window.location);
-        url.searchParams.set('tab', tabName);
-        window.history.replaceState({}, '', url);
-    }
+    syncQuestionnaireContext();
 };
 
 // ========================================================
 // 1. SECTION STATE & FILTERS
 // ========================================================
-const sectionSearchQuery = ref('');
+const sectionSearchQuery = ref(getContextQuery('section_search'));
 const filteredSections = computed(() => {
     if (!sectionSearchQuery.value.trim()) return props.sections;
     const q = sectionSearchQuery.value.toLowerCase();
@@ -149,6 +184,7 @@ const typeLabels = {
     radio_input: 'Radio + Angka (Bulan)',
     multiple_choice: 'Kotak Centang (Checkbox)',
     checkbox: 'Kotak Centang (Checkbox)',
+    multiple_choice_text: 'Kotak Centang + Isian (Checkbox + Teks)',
     dropdown: 'Pilihan Dropdown (Select)',
     searchable_select: 'Pencarian Dropdown',
     rating_5: 'Skala Rating (1-5)',
@@ -170,6 +206,7 @@ const univSelectableTypes = {
     radio_text: 'Pilihan Ganda + Lainnya (Radio + Teks)',
     radio_input: 'Radio + Angka (Bulan)',
     multiple_choice: 'Kotak Centang (Checkbox)',
+    multiple_choice_text: 'Kotak Centang + Isian (Checkbox + Teks)',
     dropdown: 'Pilihan Dropdown (Select)',
     searchable_select: 'Pencarian Dropdown',
     rating_5: 'Skala Rating (1-5)',
@@ -187,9 +224,10 @@ const typeInstructions = {
     radio: 'Pilih salah satu jawaban.',
     single_choice: 'Pilih salah satu jawaban.',
     radio_text: 'Pilih salah satu jawaban. Jika memilih lainnya, tuliskan jawaban.',
-    radio_input: 'Pilih salah satu jawaban dan isi angka jika diperlukan.',
+    radio_input: 'Pilih satu jawaban; isi angka bulan jika diminta.',
     multiple_choice: 'Jawaban dapat lebih dari satu.',
     checkbox: 'Jawaban dapat lebih dari satu.',
+    multiple_choice_text: 'Jawaban dapat lebih dari satu. Opsi Lainnya menyediakan kolom isian.',
     dropdown: 'Pilih salah satu jawaban.',
     searchable_select: 'Cari dan pilih salah satu jawaban.',
     rating_5: 'Pilih satu nilai pada skala 1 sampai 5.',
@@ -220,6 +258,7 @@ const OPTION_SUPPORTED_TYPES = [
     'radio_text',
     'multiple_choice',
     'checkbox',
+    'multiple_choice_text',
     'dropdown',
     'searchable_select',
     'rating_5',
@@ -234,10 +273,10 @@ const canHaveOptions = (type) => OPTION_SUPPORTED_TYPES.includes(type);
 // ========================================================
 // 3. TAB TRACER QUESTIONS STATE & FILTERS
 // ========================================================
-const selectedTracerSectionFilter = ref('all');
-const selectedTracerRequiredFilter = ref('all');
-const selectedTracerTargetFilter = ref('all');
-const tracerSearchQuery = ref('');
+const selectedTracerSectionFilter = ref(getContextQuery('tracer_section', 'all'));
+const selectedTracerRequiredFilter = ref(getContextQuery('tracer_required', 'all'));
+const selectedTracerTargetFilter = ref(getContextQuery('tracer_target', 'all'));
+const tracerSearchQuery = ref(getContextQuery('tracer_search'));
 
 const filteredTracerQuestions = computed(() => {
     return props.subpertanyaans.filter((q) => {
@@ -274,11 +313,11 @@ const filteredTracerQuestions = computed(() => {
 // ========================================================
 // 4. TAB PROFILE QUESTIONS STATE & FILTERS
 // ========================================================
-const selectedProfileSectionFilter = ref('all');
-const selectedProfileRequiredFilter = ref('all');
-const selectedProfileVisibilityFilter = ref('all');
-const selectedProfileTargetFilter = ref('all');
-const profileSearchQuery = ref('');
+const selectedProfileSectionFilter = ref(getContextQuery('profile_section', 'all'));
+const selectedProfileRequiredFilter = ref(getContextQuery('profile_required', 'all'));
+const selectedProfileVisibilityFilter = ref(getContextQuery('profile_visibility', 'all'));
+const selectedProfileTargetFilter = ref(getContextQuery('profile_target', 'all'));
+const profileSearchQuery = ref(getContextQuery('profile_search'));
 
 const filteredProfileQuestions = computed(() => {
     return props.subpertanyaans.filter((q) => {
@@ -327,7 +366,7 @@ const filteredProfileQuestions = computed(() => {
 // ========================================================
 // 5. KUESIONER INDUK STATE & FILTERS
 // ========================================================
-const kuesionerSearchQuery = ref('');
+const kuesionerSearchQuery = ref(getContextQuery('kuesioner_search'));
 const filteredKuesioners = computed(() => {
     if (!kuesionerSearchQuery.value.trim()) return props.kuesioners;
     const q = kuesionerSearchQuery.value.toLowerCase();
@@ -385,7 +424,7 @@ const isEditingOption = ref(false);
 const editingOptionId = ref(null);
 const activeQuestionForOption = ref(null);
 const optionFormData = ref({
-    kode_opsi: '',
+    code: '',
     option_text: '',
     jump_to: '',
     order: 1,
@@ -907,7 +946,7 @@ const openOptionModal = (question, optionToEdit = null) => {
         isEditingOption.value = true;
         editingOptionId.value = optionToEdit.id;
         optionFormData.value = {
-            kode_opsi: optionToEdit.kode_opsi || '',
+            code: optionToEdit.code || '',
             option_text: optionToEdit.option_text || optionToEdit.opsi || '',
             jump_to: optionToEdit.jump_to || '',
             order: optionToEdit.order ?? 1,
@@ -919,7 +958,7 @@ const openOptionModal = (question, optionToEdit = null) => {
         const nextIndex = (question.detils?.length || 0) + 1;
         const autoCode = `${question.kode_pertanyaan}-${String(nextIndex).padStart(2, '0')}`;
         optionFormData.value = {
-            kode_opsi: autoCode,
+            code: autoCode,
             option_text: '',
             jump_to: '',
             order: nextIndex,
@@ -945,8 +984,8 @@ const closeOptionModal = () => {
 const submitOptionForm = () => {
     optionFormErrors.value = {};
 
-    if (!optionFormData.value.kode_opsi.trim()) {
-        optionFormErrors.value.kode_opsi = 'Kode opsi wajib diisi.';
+    if (!optionFormData.value.code.trim()) {
+        optionFormErrors.value.code = 'Kode opsi wajib diisi.';
     }
     if (!optionFormData.value.option_text.trim()) {
         optionFormErrors.value.option_text = 'Teks opsi jawaban wajib diisi.';
@@ -1362,9 +1401,10 @@ const handleDeleteKuesioner = (k) => {
                 <div v-if="activeTab === 'sections'" class="space-y-4">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div class="w-full sm:w-72">
-                            <input
-                                type="text"
-                                v-model="sectionSearchQuery"
+                                <input
+                                    type="text"
+                                    v-model="sectionSearchQuery"
+                                    @input="syncQuestionnaireContext"
                                 placeholder="Cari judul bagian section..."
                                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B] focus:outline-none bg-white"
                             />
@@ -1473,14 +1513,14 @@ const handleDeleteKuesioner = (k) => {
                         <div class="flex flex-wrap items-center gap-3">
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase">Filter Section</label>
-                                <select v-model="selectedTracerSectionFilter" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
+                                <select v-model="selectedTracerSectionFilter" @change="syncQuestionnaireContext" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
                                     <option value="all">Semua Section</option>
                                     <option v-for="s in sections" :key="s.id" :value="s.id">Bagian {{ s.order }}: {{ s.title }}</option>
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase">Sifat Pengisian</label>
-                                <select v-model="selectedTracerRequiredFilter" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
+                                <select v-model="selectedTracerRequiredFilter" @change="syncQuestionnaireContext" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
                                     <option value="all">Semua Sifat</option>
                                     <option value="wajib">Wajib (Required)</option>
                                     <option value="opsional">Opsional</option>
@@ -1488,7 +1528,7 @@ const handleDeleteKuesioner = (k) => {
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase">Lokasi Tampil</label>
-                                <select v-model="selectedTracerTargetFilter" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
+                                <select v-model="selectedTracerTargetFilter" @change="syncQuestionnaireContext" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
                                     <option value="all">Semua (Kuesioner & Keduanya)</option>
                                     <option value="kuesioner">Hanya Kuesioner Tracer</option>
                                     <option value="both">Kuesioner & Profil</option>
@@ -1496,7 +1536,7 @@ const handleDeleteKuesioner = (k) => {
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase">Pencarian Teks</label>
-                                <input type="text" v-model="tracerSearchQuery" placeholder="Cari kode atau pertanyaan..." class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs w-48 bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]" />
+                                <input type="text" v-model="tracerSearchQuery" @input="syncQuestionnaireContext" placeholder="Cari kode atau pertanyaan..." class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs w-48 bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]" />
                             </div>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
@@ -1599,7 +1639,7 @@ const handleDeleteKuesioner = (k) => {
                                                 class="flex items-center justify-between p-1.5 bg-gray-50 border border-gray-200 rounded text-[11px]"
                                             >
                                                 <div class="flex items-center gap-1.5 min-w-0 pr-2">
-                                                    <span class="font-mono text-gray-500 font-bold shrink-0">[{{ opt.kode_opsi || `${q.kode_pertanyaan}-${opt.order}` }}]</span>
+                                                    <span class="font-mono text-gray-500 font-bold shrink-0">[{{ opt.code || `${q.kode_pertanyaan}-${opt.order}` }}]</span>
                                                     <span class="text-gray-800 font-medium truncate">{{ opt.option_text || opt.opsi }}</span>
                                                     <span v-if="opt.jump_to" class="text-gray-500 text-[10px] font-medium shrink-0">
                                                         &rarr; Lompat ke: [{{ opt.jump_to }}]
@@ -1685,14 +1725,14 @@ const handleDeleteKuesioner = (k) => {
                         <div class="flex flex-wrap items-center gap-3">
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase">Filter Section</label>
-                                <select v-model="selectedProfileSectionFilter" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
+                                <select v-model="selectedProfileSectionFilter" @change="syncQuestionnaireContext" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
                                     <option value="all">Semua Section</option>
                                     <option v-for="s in sections" :key="s.id" :value="s.id">Bagian {{ s.order }}: {{ s.title }}</option>
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase">Status Profil</label>
-                                <select v-model="selectedProfileVisibilityFilter" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
+                                <select v-model="selectedProfileVisibilityFilter" @change="syncQuestionnaireContext" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
                                     <option value="all">Semua Status</option>
                                     <option value="visible">Ditampilkan (Aktif)</option>
                                     <option value="hidden">Disembunyikan</option>
@@ -1700,7 +1740,7 @@ const handleDeleteKuesioner = (k) => {
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase">Sifat Pengisian</label>
-                                <select v-model="selectedProfileRequiredFilter" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
+                                <select v-model="selectedProfileRequiredFilter" @change="syncQuestionnaireContext" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
                                     <option value="all">Semua Sifat</option>
                                     <option value="wajib">Wajib (Required)</option>
                                     <option value="opsional">Opsional</option>
@@ -1708,7 +1748,7 @@ const handleDeleteKuesioner = (k) => {
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase">Lokasi Tampil</label>
-                                <select v-model="selectedProfileTargetFilter" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
+                                <select v-model="selectedProfileTargetFilter" @change="syncQuestionnaireContext" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
                                     <option value="all">Semua (Profil & Keduanya)</option>
                                     <option value="profil">Hanya Profil Alumni</option>
                                     <option value="both">Kuesioner & Profil</option>
@@ -1716,7 +1756,7 @@ const handleDeleteKuesioner = (k) => {
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase">Pencarian Teks</label>
-                                <input type="text" v-model="profileSearchQuery" placeholder="Cari kode atau pertanyaan..." class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs w-48 bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]" />
+                                <input type="text" v-model="profileSearchQuery" @input="syncQuestionnaireContext" placeholder="Cari kode atau pertanyaan..." class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs w-48 bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]" />
                             </div>
                         </div>
 
@@ -1824,7 +1864,7 @@ const handleDeleteKuesioner = (k) => {
                                                 class="flex items-center justify-between p-1.5 bg-gray-50 border border-gray-200 rounded text-[11px]"
                                             >
                                                 <div class="flex items-center gap-1.5 min-w-0 pr-2">
-                                                    <span class="font-mono text-gray-500 font-bold shrink-0">[{{ opt.kode_opsi || `${q.kode_pertanyaan}-${opt.order}` }}]</span>
+                                                    <span class="font-mono text-gray-500 font-bold shrink-0">[{{ opt.code || `${q.kode_pertanyaan}-${opt.order}` }}]</span>
                                                     <span class="text-gray-800 font-medium truncate">{{ opt.option_text || opt.opsi }}</span>
                                                 </div>
                                                 <div class="flex items-center gap-2 shrink-0">
@@ -1923,6 +1963,7 @@ const handleDeleteKuesioner = (k) => {
                             <input
                                 type="text"
                                 v-model="kuesionerSearchQuery"
+                                @input="syncQuestionnaireContext"
                                 placeholder="Cari judul kuesioner atau tahun..."
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] focus:outline-none bg-white"
                             />
@@ -2348,12 +2389,12 @@ const handleDeleteKuesioner = (k) => {
                             </label>
                             <input
                                 type="text"
-                                v-model="optionFormData.kode_opsi"
+                                v-model="optionFormData.code"
                                 class="w-full px-3 py-2 border rounded-lg text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
-                                :class="optionFormErrors.kode_opsi ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
+                                :class="optionFormErrors.code ? 'border-rose-400 bg-rose-50/30' : 'border-gray-300'"
                             />
-                            <p v-if="optionFormErrors.kode_opsi" class="text-rose-600 text-[11px] mt-1 font-medium">
-                                {{ optionFormErrors.kode_opsi }}
+                            <p v-if="optionFormErrors.code" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                {{ optionFormErrors.code }}
                             </p>
                         </div>
 

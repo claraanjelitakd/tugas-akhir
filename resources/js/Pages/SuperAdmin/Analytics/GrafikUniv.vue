@@ -325,6 +325,47 @@ const kpiCards = computed(() => {
         ];
     }
 
+    if (chart.value.type === 'iku_s1_aee') {
+        return [
+            {
+                key: 'aee_valid',
+                action: 'data',
+                label: 'Lulusan valid',
+                value: formatNumber(summary.eligible_count, 0),
+                note: 'Lulusan S1 yang masuk denominator AEE',
+                hint: 'Klik untuk melihat daftar lulusan',
+            },
+            {
+                key: 'aee_top_program',
+                action: 'highlight',
+                target: summary.top_program_label || '',
+                label: 'Prodi capaian tertinggi',
+                value: summary.top_program_label || '-',
+                note: 'Diurutkan berdasarkan realisasi AEE',
+                hint: summary.top_program_label ? `Klik untuk menyorot ${summary.top_program_label}` : 'Belum ada capaian yang dapat dibandingkan',
+            },
+            {
+                key: 'aee_top_percentage',
+                action: 'highlight',
+                target: summary.top_program_label || '',
+                label: 'AEE prodi tertinggi',
+                value: summary.top_program_aee === null || summary.top_program_aee === undefined
+                    ? '-'
+                    : formatPercentage(summary.top_program_aee),
+                note: summary.top_program_label || 'Belum ada prodi yang dapat dibandingkan',
+                hint: summary.top_program_label ? `Klik untuk menyorot ${summary.top_program_label}` : 'Belum ada capaian yang dapat dibandingkan',
+            },
+            {
+                key: 'aee_program_count',
+                action: 'chart',
+                label: 'Jumlah program studi',
+                value: formatNumber(summary.program_count, 0),
+                note: 'Program studi yang memiliki data lulusan valid',
+                hint: 'Klik untuk melihat perbandingan antarprodi',
+            },
+        ];
+    }
+
     if (chart.value.type === 'iku_s1_ump_weighted') {
         return [
             {
@@ -1123,7 +1164,28 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
 
                     <!-- Panel Grafik ECharts Utama Tanpa Suspense -->
                     <section v-if="activePanel === 'charts'">
+                        <!-- Skeleton menggantikan grafik lama selama payload indikator baru diambil. -->
+                        <div
+                            v-if="analyticsRequest.processing"
+                            class="rounded-xl border border-slate-200 bg-white p-6"
+                            aria-live="polite"
+                            aria-busy="true"
+                        >
+                            <div class="flex items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                                <div>
+                                    <p class="text-xs font-bold uppercase tracking-wide text-[#0D542B]">Memuat indikator</p>
+                                    <p class="mt-1 text-sm text-slate-500">Data grafik sedang diperbarui sesuai filter pilihan.</p>
+                                </div>
+                                <span class="h-2.5 w-24 animate-pulse rounded-full bg-slate-200" aria-hidden="true"></span>
+                            </div>
+                            <div class="mt-6 space-y-4" aria-hidden="true">
+                                <div v-for="width in ['w-11/12', 'w-8/12', 'w-10/12', 'w-7/12', 'w-9/12']" :key="width" class="h-8 animate-pulse rounded bg-slate-100" :class="width"></div>
+                            </div>
+                        </div>
+
+                        <!-- Grafik aktif hanya dirender setelah payload baru selesai diterima. -->
                         <AnalyticsChartsPanel
+                            v-else
                             :chart="chart"
                             :user="user"
                             :selected-chart="selectedChart"
@@ -1131,7 +1193,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                             :selected-label="selectedItem?.label || ''"
                             :available-ump-years="currentAnalytics.filters?.available_ump_years || []"
                             :selected-ump-year="selectedUmpYear"
-                            :loading="analyticsRequest.processing"
+                            :loading="false"
                             @select-category="selectSeriesItem"
                             @select-province="selectProvince"
                             @change-ump-year="selectedUmpYear = String($event); scheduleLoad()"

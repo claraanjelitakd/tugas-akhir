@@ -30,18 +30,18 @@ class JoshuaAndreanSeederTest extends TestCase
         $dataAkademik = DataAkademik::where('nim', '72220001')->first();
         $this->assertNotNull($dataAkademik, 'Data akademik harus terisi.');
         $this->assertEquals('Joshua Andrean', $dataAkademik->nama);
-        $this->assertEquals('2021', $dataAkademik->angkatan_masuk);
-        $this->assertEquals(2025, $dataAkademik->tahun_lulus);
+        $this->assertEquals('2022', $dataAkademik->angkatan_masuk);
+        $this->assertEquals(2026, $dataAkademik->tahun_lulus);
 
         $yudisium = Yudisium::where('nim', '72220001')->first();
         $this->assertNotNull($yudisium, 'Data yudisium harus terisi.');
-        $this->assertEquals(2025, $yudisium->tahun_lulus);
+        $this->assertEquals(2026, $yudisium->tahun_lulus);
         $this->assertEquals('Lulus', $yudisium->proses_yudisium);
 
         $biodata = Biodata::where('nim', '72220001')->first();
         $this->assertNotNull($biodata, 'Biodata record harus terhubung.');
         $this->assertEquals($user->id, $biodata->user_id);
-        $this->assertEquals('2025', $biodata->tahun_lulus);
+        $this->assertEquals('2026', $biodata->tahun_lulus);
         $this->assertEquals('Sistem Informasi', $biodata->prodi?->nama_prodi);
 
         // Pastikan field karier / perusahaan / data tambahan masih kosong (untuk diisi mandiri)

@@ -8,6 +8,7 @@ use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
+use App\Services\Kuesioner\QuestionDefaultOptionsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -91,6 +92,13 @@ class KelolaEvaluasiAtasanController extends Controller
                 'is_active' => (bool) $p->is_active,
                 'is_company_field' => in_array($p->kode_pertanyaan, $companyFieldCodes, true) || in_array($cleanCode, $companyFieldCodes, true),
                 'pilihan_jawaban' => $p->opsi->pluck('label')->all(),
+                'options' => $p->opsi->map(static fn (KuesionerOpsi $option): array => [
+                    'id' => $option->id,
+                    'code' => $option->kode_opsi ?: $p->kode_pertanyaan.'-'.str_pad((string) $option->order, 2, '0', STR_PAD_LEFT),
+                    'option_text' => $option->label,
+                    'jump_to' => $option->lompat_ke_pertanyaan_id,
+                    'order' => (int) $option->order,
+                ])->values()->all(),
                 'section' => [
                     'id' => $pivot->section?->id,
                     'title' => $pivot->section?->judul,
@@ -262,7 +270,7 @@ class KelolaEvaluasiAtasanController extends Controller
             'kode' => 'nullable|string|max:50',
             'aspek' => 'required|string|max:255',
             'deskripsi' => 'nullable|string',
-            'tipe' => 'nullable|string|in:likert_5,pilihan_ganda,single_choice,multiple_choice,checkbox,text,textarea',
+            'tipe' => 'nullable|string|in:likert_5,pilihan_ganda,single_choice,radio_input,multiple_choice,checkbox,text,textarea',
             'pilihan_jawaban' => 'nullable|array',
             'order' => 'nullable|integer',
         ]);
@@ -287,7 +295,10 @@ class KelolaEvaluasiAtasanController extends Controller
 
         $pilihanJawaban = $validated['pilihan_jawaban'] ?? null;
         if ($tipe === 'likert_5' && empty($pilihanJawaban)) {
-            $pilihanJawaban = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat Kurang'];
+            $pilihanJawaban = QuestionDefaultOptionsService::getDefaultOptionTexts('rating_5');
+        }
+        if ($tipe === 'radio_input' && empty($pilihanJawaban)) {
+            $pilihanJawaban = QuestionDefaultOptionsService::getDefaultOptionTexts('radio_input');
         }
 
         $pertanyaan = KuesionerPertanyaan::create([
@@ -316,8 +327,9 @@ class KelolaEvaluasiAtasanController extends Controller
             foreach ($pilihanJawaban as $idx => $label) {
                 KuesionerOpsi::create([
                     'pertanyaan_id' => $pertanyaan->id,
+                    'kode_opsi' => $kode.'-'.str_pad((string) ($idx + 1), 2, '0', STR_PAD_LEFT),
                     'label' => (string) $label,
-                    'nilai_skor' => count($pilihanJawaban) - $idx,
+                    'nilai_skor' => $tipe === 'likert_5' ? $idx + 1 : null,
                     'order' => $idx + 1,
                 ]);
             }
@@ -337,7 +349,7 @@ class KelolaEvaluasiAtasanController extends Controller
             'section_id' => 'nullable|integer|exists:kuesioner_section,id',
             'aspek' => 'required|string|max:255',
             'deskripsi' => 'nullable|string',
-            'tipe' => 'nullable|string|in:likert_5,pilihan_ganda,single_choice,multiple_choice,checkbox,text,textarea',
+            'tipe' => 'nullable|string|in:likert_5,pilihan_ganda,single_choice,radio_input,multiple_choice,checkbox,text,textarea',
             'pilihan_jawaban' => 'nullable|array',
             'is_active' => 'nullable|boolean',
             'order' => 'nullable|integer',
@@ -368,19 +380,107 @@ class KelolaEvaluasiAtasanController extends Controller
         }
 
         $pilihanJawaban = $validated['pilihan_jawaban'] ?? null;
+        if ($tipe === 'likert_5' && empty($pilihanJawaban)) {
+            $pilihanJawaban = QuestionDefaultOptionsService::getDefaultOptionTexts('rating_5');
+        }
+        if ($tipe === 'radio_input' && empty($pilihanJawaban)) {
+            $pilihanJawaban = QuestionDefaultOptionsService::getDefaultOptionTexts('radio_input');
+        }
         if (is_array($pilihanJawaban) && ! empty($pilihanJawaban)) {
             $pertanyaan->opsi()->delete();
             foreach ($pilihanJawaban as $idx => $label) {
                 KuesionerOpsi::create([
                     'pertanyaan_id' => $pertanyaan->id,
+                    'kode_opsi' => $pertanyaan->kode_pertanyaan.'-'.str_pad((string) ($idx + 1), 2, '0', STR_PAD_LEFT),
                     'label' => (string) $label,
-                    'nilai_skor' => count($pilihanJawaban) - $idx,
+                    'nilai_skor' => $tipe === 'likert_5' ? $idx + 1 : null,
                     'order' => $idx + 1,
                 ]);
             }
         }
 
         return redirect()->back()->with('success', 'Butir pertanyaan evaluasi atasan berhasil diperbarui.');
+    }
+
+    /**
+     * Menyimpan opsi pilihan jawaban untuk pertanyaan evaluasi atasan.
+     */
+    public function storeOption(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'question_id' => 'required|exists:kuesioner_pertanyaan,id',
+            'code' => 'nullable|string|max:50',
+            'option_text' => 'required|string',
+            'jump_to' => 'nullable|string|max:50',
+            'order' => 'nullable|integer',
+        ]);
+
+        $question = $this->findAtasanQuestion((int) $validated['question_id']);
+        $order = $validated['order'] ?? (($question->opsi()->max('order') ?? 0) + 1);
+
+        $question->opsi()->create([
+            'kode_opsi' => trim((string) ($validated['code'] ?? '')) ?: $question->kode_pertanyaan.'-'.str_pad((string) $order, 2, '0', STR_PAD_LEFT),
+            'label' => trim($validated['option_text']),
+            'nilai_skor' => $question->tipe === 'likert_5' ? (int) $order : null,
+            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
+            'order' => (int) $order,
+        ]);
+
+        return redirect()->back()->with('success', 'Opsi jawaban evaluasi atasan berhasil ditambahkan.');
+    }
+
+    /**
+     * Memperbarui label, kode, urutan, dan percabangan opsi evaluasi atasan.
+     */
+    public function updateOption(Request $request, int $id): RedirectResponse
+    {
+        $option = KuesionerOpsi::with('pertanyaan')->findOrFail($id);
+        $question = $this->findAtasanQuestion((int) $option->pertanyaan_id);
+
+        $validated = $request->validate([
+            'code' => 'nullable|string|max:50',
+            'option_text' => 'required|string',
+            'jump_to' => 'nullable|string|max:50',
+            'order' => 'nullable|integer',
+        ]);
+
+        $order = $validated['order'] ?? $option->order;
+        $option->update([
+            'kode_opsi' => trim((string) ($validated['code'] ?? $option->kode_opsi)) ?: $option->kode_opsi,
+            'label' => trim($validated['option_text']),
+            'nilai_skor' => $question->tipe === 'likert_5' ? (int) $order : null,
+            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
+            'order' => (int) $order,
+        ]);
+
+        return redirect()->back()->with('success', 'Opsi jawaban evaluasi atasan berhasil diperbarui.');
+    }
+
+    /**
+     * Menghapus opsi pilihan jawaban evaluasi atasan.
+     */
+    public function destroyOption(int $id): RedirectResponse
+    {
+        $option = KuesionerOpsi::findOrFail($id);
+        $this->findAtasanQuestion((int) $option->pertanyaan_id);
+        $option->delete();
+
+        return redirect()->back()->with('success', 'Opsi jawaban evaluasi atasan berhasil dihapus.');
+    }
+
+    /**
+     * Memastikan pertanyaan berada pada section instrumen evaluasi atasan.
+     */
+    private function findAtasanQuestion(int $questionId): KuesionerPertanyaan
+    {
+        $question = KuesionerPertanyaan::findOrFail($questionId);
+        $isAtasanQuestion = KuesionerSectionPertanyaan::where('pertanyaan_id', $question->id)
+            ->whereHas('section', static fn ($query) => $query->where('target', 'atasan'))
+            ->exists();
+
+        abort_unless($isAtasanQuestion, 403, 'Pertanyaan bukan bagian dari instrumen evaluasi atasan.');
+
+        return $question;
     }
 
     /**

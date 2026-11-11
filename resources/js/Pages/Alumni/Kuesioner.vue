@@ -129,7 +129,7 @@ const getInitialAnswers = () => {
             (sec.subpertanyaans || sec.questions)?.forEach(q => {
                 const options = q.detils || q.options;
 
-                if (['checkbox', 'multiple_choice'].includes(q.type)) {
+                if (['checkbox', 'multiple_choice', 'multiple_choice_text'].includes(q.type)) {
                     if (!Array.isArray(base[q.id])) {
                         base[q.id] = (base[q.id] && typeof base[q.id] === 'string') ? [base[q.id]] : [];
                     }
@@ -686,6 +686,19 @@ const isQuestionAnswered = (q) => {
                 return customAns !== undefined && customAns !== null && customAns.toString().trim() !== '';
             }
             return true;
+        }
+
+        case 'multiple_choice_text': {
+            if (!Array.isArray(ans) || ans.length === 0) return false;
+            const hasCustom = ans.some(v => {
+                const s = (v || '').toString().toLowerCase();
+                return s.includes('lainnya') || s.includes('tuliskan') || s.includes('...');
+            });
+
+            if (!hasCustom) return true;
+
+            const customAns = form.answers[q.id + '_custom'];
+            return customAns !== undefined && customAns !== null && customAns.toString().trim() !== '';
         }
 
         // Pilihan Radio dengan Kolom Isian Tambahan (radio_input / radio_text)

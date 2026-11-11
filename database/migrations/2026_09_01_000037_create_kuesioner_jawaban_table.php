@@ -45,6 +45,7 @@ SQL
                 'CREATE INDEX "kuesioner_jawaban_atasan_idx" on "kuesioner_jawaban" ("evaluasi_atasan_id", "pertanyaan_id");',
                 'CREATE INDEX "kuesioner_jawaban_section_idx" on "kuesioner_jawaban" ("section_id");',
                 'CREATE INDEX "kuesioner_jawaban_kode_pertanyaan_idx" on "kuesioner_jawaban" ("kode_pertanyaan");',
+                'CREATE INDEX "kuesioner_jawaban_analytics_lookup_idx" on "kuesioner_jawaban" ("biodata_id", "responden_type", "kode_pertanyaan", "id");',
             ] as $sql) {
                 DB::statement($sql);
             }
@@ -72,6 +73,7 @@ CREATE TABLE `kuesioner_jawaban` (
   KEY `kuesioner_jawaban_kode_pertanyaan_idx` (`kode_pertanyaan`),
   KEY `kuesioner_jawaban_opsi_id_foreign` (`opsi_id`),
   KEY `kuesioner_jawaban_lookup_idx` (`responden_type`,`biodata_id`,`pertanyaan_id`),
+  KEY `kuesioner_jawaban_analytics_lookup_idx` (`biodata_id`,`responden_type`,`kode_pertanyaan`,`id`),
   CONSTRAINT `kuesioner_jawaban_biodata_id_foreign` FOREIGN KEY (`biodata_id`) REFERENCES `biodata` (`id`) ON DELETE CASCADE,
   CONSTRAINT `kuesioner_jawaban_evaluasi_atasan_id_foreign` FOREIGN KEY (`evaluasi_atasan_id`) REFERENCES `evaluasi_atasan` (`id`) ON DELETE CASCADE,
   CONSTRAINT `kuesioner_jawaban_section_id_foreign` FOREIGN KEY (`section_id`) REFERENCES `kuesioner_section` (`id`) ON DELETE CASCADE,

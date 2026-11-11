@@ -66,20 +66,14 @@ class DatabaseSeeder extends Seeder
             JoshuaAndreanSeeder::class,
         ]);
 
-        // 6. Seed simulasi kanonik lintas 12 program studi, termasuk role
-        //    karyawan, founder/co-founder, studi lanjut, dan freelancer.
+        // 6. Seed satu kohort kanonik 2026 lintas 12 prodi dengan maksimal
+        //    100 lulusan yang menghubungkan seluruh data induk dan turunannya.
         $this->call([
             AlumniSimulationSeeder::class,
             KuesionerAnswerConsistencySeeder::class,
         ]);
 
-        // 7. Normalisasi populasi akademik, termasuk mahasiswa aktif, DO,
-        //    pindah, cuti, dan status administratif AR/AK.
-        $this->call([
-            IkuS1AcademicPopulationSeeder::class,
-        ]);
-
-        // 8. Preservasi staging hasil scraping LinkedIn sesuai kontrak backup.
+        // 7. Preservasi staging hasil scraping LinkedIn sesuai kontrak backup.
         $this->call([
             LinkedinSyncResultSeeder::class,
         ]);

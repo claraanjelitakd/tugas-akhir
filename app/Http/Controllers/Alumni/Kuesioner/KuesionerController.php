@@ -138,7 +138,7 @@ class KuesionerController extends Controller
                     $savedText = $saved->jawaban_teks ?? '';
                     $savedJson = is_array($saved->jawaban_json) ? $saved->jawaban_json : [];
 
-                    if (in_array($pType, ['checkbox', 'multiple_choice'], true)) {
+                    if (in_array($pType, ['checkbox', 'multiple_choice', 'multiple_choice_text'], true)) {
                         $cleanArr = [];
                         $customText = '';
 

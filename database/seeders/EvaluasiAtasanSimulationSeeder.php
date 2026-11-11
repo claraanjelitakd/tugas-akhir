@@ -57,7 +57,7 @@ class EvaluasiAtasanSimulationSeeder extends Seeder
                 'atasan_id' => $biodata->atasan_id,
                 'token' => hash('sha256', 'seed-evaluasi-atasan-'.$biodata->nim),
                 'is_submitted' => true,
-                'submitted_at' => Carbon::create(2025, 10, 15, 9, 0, 0),
+                'submitted_at' => Carbon::create(2026, 10, 15, 9, 0, 0),
             ]
         );
 

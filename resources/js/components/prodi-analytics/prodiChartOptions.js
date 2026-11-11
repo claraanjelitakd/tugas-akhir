@@ -105,7 +105,13 @@ export const buildChoiceOption = (item) => ({
         nameLocation: 'middle',
         nameGap: 28,
         min: 0,
-        axisLabel: { color: '#475569', fontSize: 11 },
+        minInterval: 1,
+        interval: Math.max(...(item?.values || []).map((value) => Number(value) || 0), 0) <= 10 ? 1 : undefined,
+        axisLabel: {
+            color: '#475569',
+            fontSize: 11,
+            formatter: (value) => Number.isInteger(Number(value)) ? String(value) : '',
+        },
         splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
     },
     yAxis: {
@@ -119,7 +125,7 @@ export const buildChoiceOption = (item) => ({
         name: 'Jumlah alumni',
         type: 'bar',
         barMaxWidth: 30,
-        data: item?.values || [],
+        data: (item?.values || []).map((value) => Number(value) || 0),
         itemStyle: { color: '#0D542B', borderRadius: [0, 4, 4, 0] },
         label: {
             show: true,

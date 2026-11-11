@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Hash;
  * Menyiapkan master data induk, akun user, data akademik, skripsi yudisium,
  * institusi/perusahaan, dan biodata karier nyata untuk 8 profil alumni
  * berprestasi Program Studi Sistem Informasi (FTI UKDW):
- * Seluruh fixture menggunakan satu kohort S1 lulusan 2025 agar grafik IKU
+ * Seluruh fixture menggunakan satu kohort S1 lulusan 2026 agar grafik IKU
  * dapat diuji pada satu periode yang konsisten.
  * 1. Laurentia Lisa Setiawan (Founder PT Glori Indah Farm, S2 James Cook University)
  * 2. Yafet Andromeda (Lead Data Engineer FinAccel / Kredivo)
@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Hash;
  * 5. Gilbert Christyano Day (Fullstack Developer PT Cita Rasa Mendunia / Bakpiaku)
  * 6. Agustinus Arsa Paskha Avaleriantha (IT Specialist Data Engineer BCA)
  * 7. Teddy Wirawan (Engineering Manager ICUBE by SIRCLO)
- * 8. Patrik Kurniawan Saputra (Lulus 2025 - Product Engineer AstraPay / Astra Group)
+ * 8. Patrik Kurniawan Saputra (Lulus 2026 - Product Engineer AstraPay / Astra Group)
  */
 class AlumniSistemInformasiSeeder extends Seeder
 {
@@ -162,9 +162,9 @@ class AlumniSistemInformasiSeeder extends Seeder
                 'email' => 'laurentia.lisa@gmail.com',
                 'telepon' => '081227001515',
                 'angkatan' => 2021,
-                'tahun_lulus' => 2025,
-                'tahun_akademik_lulus' => 'Genap 2024/2025',
-                'tanggal_lulus' => '2025-08-15',
+                'tahun_lulus' => 2026,
+                'tahun_akademik_lulus' => 'Genap 2025/2026',
+                'tanggal_lulus' => '2026-08-15',
                 'tanggal_lahir' => '1987-04-18',
                 'jenis_kelamin' => 'Perempuan',
                 'ipk' => 3.75,
@@ -192,9 +192,9 @@ class AlumniSistemInformasiSeeder extends Seeder
                 'email' => 'yafet.andromeda@gmail.com',
                 'telepon' => '081328005700',
                 'angkatan' => 2021,
-                'tahun_lulus' => 2025,
-                'tahun_akademik_lulus' => 'Genap 2024/2025',
-                'tanggal_lulus' => '2025-08-15',
+                'tahun_lulus' => 2026,
+                'tahun_akademik_lulus' => 'Genap 2025/2026',
+                'tanggal_lulus' => '2026-08-15',
                 'tanggal_lahir' => '1992-06-14',
                 'jenis_kelamin' => 'Laki-laki',
                 'ipk' => 3.82,
@@ -222,9 +222,9 @@ class AlumniSistemInformasiSeeder extends Seeder
                 'email' => 'magdalena.evelyn@gmail.com',
                 'telepon' => '081299180180',
                 'angkatan' => 2021,
-                'tahun_lulus' => 2025,
-                'tahun_akademik_lulus' => 'Genap 2024/2025',
-                'tanggal_lulus' => '2025-08-15',
+                'tahun_lulus' => 2026,
+                'tahun_akademik_lulus' => 'Genap 2025/2026',
+                'tanggal_lulus' => '2026-08-15',
                 'tanggal_lahir' => '2000-09-22',
                 'jenis_kelamin' => 'Perempuan',
                 'ipk' => 3.88,
@@ -252,9 +252,9 @@ class AlumniSistemInformasiSeeder extends Seeder
                 'email' => 'manila.kristin@kreasitech.com',
                 'telepon' => '081804120088',
                 'angkatan' => 2021,
-                'tahun_lulus' => 2025,
-                'tahun_akademik_lulus' => 'Genap 2024/2025',
-                'tanggal_lulus' => '2025-08-15',
+                'tahun_lulus' => 2026,
+                'tahun_akademik_lulus' => 'Genap 2025/2026',
+                'tanggal_lulus' => '2026-08-15',
                 'tanggal_lahir' => '1994-05-10',
                 'jenis_kelamin' => 'Perempuan',
                 'ipk' => 3.70,
@@ -282,9 +282,9 @@ class AlumniSistemInformasiSeeder extends Seeder
                 'email' => 'gilbert.day@gmail.com',
                 'telepon' => '081904200391',
                 'angkatan' => 2021,
-                'tahun_lulus' => 2025,
-                'tahun_akademik_lulus' => 'Genap 2024/2025',
-                'tanggal_lulus' => '2025-08-15',
+                'tahun_lulus' => 2026,
+                'tahun_akademik_lulus' => 'Genap 2025/2026',
+                'tanggal_lulus' => '2026-08-15',
                 'tanggal_lahir' => '2002-01-19',
                 'jenis_kelamin' => 'Laki-laki',
                 'ipk' => 3.86,
@@ -312,9 +312,9 @@ class AlumniSistemInformasiSeeder extends Seeder
                 'email' => 'agustinus.arsa@gmail.com',
                 'telepon' => '081329160043',
                 'angkatan' => 2021,
-                'tahun_lulus' => 2025,
-                'tahun_akademik_lulus' => 'Genap 2024/2025',
-                'tanggal_lulus' => '2025-08-15',
+                'tahun_lulus' => 2026,
+                'tahun_akademik_lulus' => 'Genap 2025/2026',
+                'tanggal_lulus' => '2026-08-15',
                 'tanggal_lahir' => '1998-08-25',
                 'jenis_kelamin' => 'Laki-laki',
                 'ipk' => 3.96,
@@ -341,9 +341,9 @@ class AlumniSistemInformasiSeeder extends Seeder
                 'email' => 'teddy.wirawan@sirclo.com',
                 'telepon' => '081226070204',
                 'angkatan' => 2021,
-                'tahun_lulus' => 2025,
-                'tahun_akademik_lulus' => 'Genap 2024/2025',
-                'tanggal_lulus' => '2025-08-15',
+                'tahun_lulus' => 2026,
+                'tahun_akademik_lulus' => 'Genap 2025/2026',
+                'tanggal_lulus' => '2026-08-15',
                 'tanggal_lahir' => '1989-11-03',
                 'jenis_kelamin' => 'Laki-laki',
                 'ipk' => 3.78,
@@ -371,9 +371,9 @@ class AlumniSistemInformasiSeeder extends Seeder
                 'email' => 'patrik.kurniawan@astrapay.com',
                 'telepon' => '081392210055',
                 'angkatan' => 2021,
-                'tahun_lulus' => 2025,
-                'tahun_akademik_lulus' => 'Genap 2024/2025',
-                'tanggal_lulus' => '2025-08-15',
+                'tahun_lulus' => 2026,
+                'tahun_akademik_lulus' => 'Genap 2025/2026',
+                'tanggal_lulus' => '2026-08-15',
                 'tanggal_lahir' => '2003-02-14',
                 'jenis_kelamin' => 'Laki-laki',
                 'ipk' => 3.91,
@@ -424,6 +424,7 @@ class AlumniSistemInformasiSeeder extends Seeder
                 [
                     'nama' => $nama,
                     'email_pribadi' => $data['email'],
+                    'prodi_id' => $prodi?->id,
                     'angkatan_masuk' => $data['angkatan'],
                     'status_mahasiswa' => 'Lulus',
                     'tahun_akademik_lulus' => $data['tahun_akademik_lulus'],

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\User;
@@ -117,5 +118,86 @@ class SuperAdminEvaluasiAtasanManagementTest extends TestCase
         ]);
 
         $reorderResponse->assertSessionHasNoErrors();
+    }
+
+    /**
+     * Memastikan Radio + Angka (Bulan) memakai opsi singkat, dapat diisi ulang,
+     * dan tidak menyimpan skor seperti pertanyaan Likert.
+     */
+    public function test_superadmin_can_store_month_question_with_default_options_without_scores(): void
+    {
+        $section = KuesionerSection::where('target', 'atasan')->where('order', 3)->firstOrFail();
+
+        $response = $this->actingAs($this->admin)->post('/superadmin/evaluasi-atasan/pertanyaan', [
+            'section_id' => $section->id,
+            'kode' => 'P100_waktu_mulai_kerja',
+            'aspek' => 'Kapan mulai mencari pekerjaan?',
+            'deskripsi' => 'Isi jumlah bulan jika memilih opsi sesudah lulus.',
+            'tipe' => 'radio_input',
+            'order' => 26,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $question = KuesionerPertanyaan::with('opsi')
+            ->where('kode_pertanyaan', 'EVA_P100_WAKTU_MULAI_KERJA')
+            ->firstOrFail();
+
+        $this->assertSame([
+            'Sebelum lulus',
+            'Sesudah lulus ... bulan',
+            'Tidak mencari kerja',
+        ], $question->opsi->pluck('label')->all());
+        $this->assertTrue($question->opsi->every(fn ($option): bool => $option->nilai_skor === null));
+    }
+
+    /**
+     * Memastikan opsi Evaluasi Atasan memiliki CRUD yang sama dengan instrumen lain
+     * tanpa menerima field score/value dari client.
+     */
+    public function test_superadmin_can_manage_supervisor_question_options_without_score_value_contract(): void
+    {
+        $section = KuesionerSection::where('target', 'atasan')->where('order', 3)->firstOrFail();
+
+        $this->actingAs($this->admin)->post('/superadmin/evaluasi-atasan/pertanyaan', [
+            'section_id' => $section->id,
+            'kode' => 'P101_STATUS',
+            'aspek' => 'Status kerja terbaru',
+            'tipe' => 'pilihan_ganda',
+            'order' => 27,
+        ])->assertSessionHasNoErrors();
+
+        $question = KuesionerPertanyaan::where('kode_pertanyaan', 'EVA_P101_STATUS')->firstOrFail();
+
+        $createResponse = $this->actingAs($this->admin)->post('/superadmin/evaluasi-atasan/opsi', [
+            'question_id' => $question->id,
+            'code' => 'EVA_P101_STATUS-03',
+            'option_text' => 'Lainnya',
+            'order' => 3,
+        ]);
+
+        $createResponse->assertSessionHasNoErrors();
+        $option = KuesionerOpsi::where('pertanyaan_id', $question->id)
+            ->where('kode_opsi', 'EVA_P101_STATUS-03')
+            ->firstOrFail();
+        $this->assertNull($option->nilai_skor);
+
+        $updateResponse = $this->actingAs($this->admin)->put("/superadmin/evaluasi-atasan/opsi/{$option->id}", [
+            'code' => 'EVA_P101_STATUS-03',
+            'option_text' => 'Status lainnya',
+            'order' => 3,
+        ]);
+
+        $updateResponse->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('kuesioner_opsi', [
+            'id' => $option->id,
+            'label' => 'Status lainnya',
+            'nilai_skor' => null,
+        ]);
+
+        $deleteResponse = $this->actingAs($this->admin)->delete("/superadmin/evaluasi-atasan/opsi/{$option->id}");
+
+        $deleteResponse->assertSessionHasNoErrors();
+        $this->assertDatabaseMissing('kuesioner_opsi', ['id' => $option->id]);
     }
 }

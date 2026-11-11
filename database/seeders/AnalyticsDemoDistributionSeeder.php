@@ -452,16 +452,13 @@ class AnalyticsDemoDistributionSeeder extends Seeder
                 }
 
                 $selectedLabels = $selectedOptions
-                    ->map(fn ($option): string => $this->isOtherOption((string) $option->label) ? 'Lainnya' : (string) $option->label)
+                    ->map(fn ($option): string => (string) $option->label)
                     ->all();
                 $answerText = implode(', ', $selectedLabels);
                 $answerJson = $isMulti
                     ? ['selected' => $selectedLabels, 'custom' => $customDetail]
                     : ['selected' => $selectedLabels[0] ?? '', 'custom' => $customDetail];
 
-                if ($customDetail !== null && ! $isMulti) {
-                    $answerText .= ' ('.$customDetail.')';
-                }
             }
 
             if ($answerText !== null) {

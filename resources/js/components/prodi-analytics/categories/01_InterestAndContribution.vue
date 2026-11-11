@@ -8,6 +8,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import AnalyticsEChart from '@/components/analytics/AnalyticsEChart.vue';
+import AnalyticsWordCloud from '@/components/analytics/AnalyticsWordCloud.vue';
 import { buildChoiceOption, choiceAnalysis, choiceChartHeight } from '../prodiChartOptions';
 
 // ALUR 6: backend mengirim tiga objek `items`, satu objek untuk setiap
@@ -44,6 +45,9 @@ watch(activeItem, (item) => emit('context-change', item), { immediate: true });
 
 // Analisis aktif selalu dihitung dari kategori pada pertanyaan yang sedang dibuka.
 const activeAnalysis = computed(() => choiceAnalysis(activeItem.value));
+
+// Isian bebas dari opsi Lainnya dipisahkan backend agar tidak menjadi kategori batang.
+const otherWordCloud = computed(() => activeItem.value?.other_word_cloud || {});
 
 // ALUR 9: klik batang mengirim item dan label ke GrafikProdi, lalu halaman
 // menyaring records untuk tabel detail alumni yang membentuk pilihan tersebut.
@@ -97,6 +101,17 @@ const handleSelect = (params) => {
                 <p class="mt-2 text-sm font-semibold leading-6 text-slate-900">{{ activeAnalysis.lead }}</p>
                 <p class="mt-1 text-xs leading-5 text-slate-600">{{ activeAnalysis.detail }}</p>
             </section>
+
+            <!-- Semua jawaban Lainnya dibaca sebagai teks, bukan angka kategori. -->
+            <AnalyticsWordCloud
+                v-if="otherWordCloud.texts?.length"
+                :texts="otherWordCloud.texts"
+                :records="otherWordCloud.records || []"
+                title="Word Cloud Isian Lainnya"
+                subtitle="Kata yang paling sering muncul dari isian bebas alumni."
+                :height="300"
+                :max-words="100"
+            />
         </template>
     </section>
 </template>

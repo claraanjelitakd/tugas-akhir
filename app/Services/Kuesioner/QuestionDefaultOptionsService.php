@@ -24,8 +24,9 @@ class QuestionDefaultOptionsService
         return match ($normalizedType) {
             'single_choice' => 'Pilih salah satu jawaban.',
             'radio_text' => 'Pilih salah satu jawaban. Jika memilih lainnya, tuliskan jawaban.',
-            'radio_input' => 'Pilih salah satu jawaban dan isi angka jika diperlukan.',
+            'radio_input' => 'Pilih satu jawaban; isi angka bulan jika diminta.',
             'multiple_choice' => 'Jawaban dapat lebih dari satu.',
+            'multiple_choice_text' => 'Jawaban dapat lebih dari satu. Opsi Lainnya menyediakan kolom isian.',
             'dropdown' => 'Pilih salah satu jawaban.',
             'searchable_select' => 'Cari dan pilih salah satu jawaban.',
             'rating_5' => 'Pilih satu nilai pada skala 1 sampai 5.',
@@ -64,12 +65,11 @@ class QuestionDefaultOptionsService
             'radio_text' => [
                 'Pilihan 1',
                 'Pilihan 2',
-                'Lainnya (Tuliskan)',
             ],
             'radio_input' => [
-                'Bulan sebelum lulus (Isi angka)',
-                'Bulan sesudah lulus (Isi angka)',
-                'Tidak mencari kerja / Tidak berlaku',
+                'Sebelum lulus',
+                'Sesudah lulus ... bulan',
+                'Tidak mencari kerja',
             ],
             'rating_5' => [
                 '1 - Sangat Rendah',
@@ -79,6 +79,10 @@ class QuestionDefaultOptionsService
                 '5 - Sangat Tinggi',
             ],
             'multiple_choice' => [
+                'Pilihan 1',
+                'Pilihan 2',
+            ],
+            'multiple_choice_text' => [
                 'Pilihan 1',
                 'Pilihan 2',
             ],
@@ -114,13 +118,14 @@ class QuestionDefaultOptionsService
 
         $order = 1;
         foreach ($defaultTexts as $idx => $text) {
-            $score = null;
+            $ratingScore = null;
             if ($question->tipe === 'rating_5') {
-                $score = $idx + 1;
+                $ratingScore = $idx + 1;
             }
             $question->opsi()->create([
+                'kode_opsi' => $question->kode_pertanyaan.'-'.str_pad((string) $order, 2, '0', STR_PAD_LEFT),
                 'label' => $text,
-                'nilai_skor' => $score,
+                'nilai_skor' => $ratingScore,
                 'order' => $order++,
             ]);
         }

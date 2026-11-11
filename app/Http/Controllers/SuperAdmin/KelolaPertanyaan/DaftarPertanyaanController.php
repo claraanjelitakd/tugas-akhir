@@ -102,9 +102,8 @@ class DaftarPertanyaanController extends Controller
                 'detils' => $p->opsi->map(fn ($o) => [
                     'id' => $o->id,
                     'kode_pertanyaan' => $p->kode_pertanyaan,
-                    'kode_opsi' => $p->kode_pertanyaan.'-'.str_pad((string) $o->order, 2, '0', STR_PAD_LEFT),
+                    'code' => $o->kode_opsi ?: $p->kode_pertanyaan.'-'.str_pad((string) $o->order, 2, '0', STR_PAD_LEFT),
                     'option_text' => $o->label,
-                    'score' => $o->nilai_skor,
                     'jump_to' => $o->lompat_ke_pertanyaan_id,
                     'order' => (int) $o->order,
                 ])->values(),
@@ -180,7 +179,6 @@ class DaftarPertanyaanController extends Controller
                     'is_already_added' => in_array($p->id, $existingUnivQuestionIds, true),
                     'options' => $p->opsi->map(fn ($o) => [
                         'label' => $o->label,
-                        'score' => $o->nilai_skor,
                     ])->values()->all(),
                 ];
             })

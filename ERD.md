@@ -9,6 +9,19 @@ Dokumen ini menyajikan spesifikasi struktur basis data aktif **`tracer`** Univer
 
 > **Aturan nama kanonik:** Foreign key wilayah selalu memakai `kode_provinsi` ke `propinsi.kode_provinsi` dan `kode_kabupaten` ke `kabupaten.kode_kabupaten`. Foreign key negara selalu memakai `kode_negara` ISO-3166-1 alpha-2 ke `ref_negara.kode_negara`.
 
+### Status sumber data
+
+Status berikut dipakai konsisten pada ERD, kamus data, dan dokumentasi view:
+
+| Status | Arti |
+| :--- | :--- |
+| **KANONIK/AKTIF** | Sumber data utama yang boleh menjadi sumber tulis dan sumber perhitungan. |
+| **FK/RELASI** | Kunci relasi internal berbasis `id` atau kode natural yang memang menjadi foreign key. |
+| **DERIVED/VIEW** | Nilai baca yang dihitung atau ditarik dari tabel kanonik; tidak menjadi sumber tulis. |
+| **SNAPSHOT/LEGACY** | Salinan kompatibilitas yang masih ada pada schema/runtime, tetapi bukan sumber utama. |
+| **KONFIGURASI** | Aturan aplikasi yang dibaca dari konfigurasi, bukan data transaksi. |
+| **DISPLAY** | Nilai untuk label, ekspor, atau tampilan; tidak digunakan sebagai kunci relasi. |
+
 ---
 
 ## Daftar Isi
@@ -293,6 +306,13 @@ untuk pertanyaan yang sama. Untuk jawaban pilihan, `jawaban_teks` selalu memakai
 `kuesioner_opsi.label`; normalisasi jawaban lama dilakukan oleh
 `KuesionerAnswerConsistencySeeder`.
 
+Status field pada engine kuesioner: `id`, `pertanyaan_id`, dan `opsi_id` adalah
+relasi **KANONIK/AKTIF**; `kode_pertanyaan` dan `kode_opsi` pada tabel jawaban
+adalah **SNAPSHOT/LEGACY** dan tidak boleh menjadi kunci relasi baru. Kode tetap
+ditarik untuk tampilan dan laporan melalui master atau view. Khusus pilihan
+jamak seperti F4, `kode_opsi` masih menyimpan array JSON pada data aktif; migrasi
+ke relasi ID jamak perlu dilakukan sebelum kolom snapshot tersebut dihapus.
+
 ---
 
 ### 1.6 ERD Modul 5: Evaluasi Pengguna Lulusan (Atasan Langsung)
@@ -393,7 +413,7 @@ Audit hardcode per November 2026:
 - Angka bobot IKU utama sudah dipusatkan di `config/iku.php`, bukan di Vue atau SQL.
 - `IkuS1AnalyticsService` masih memiliki angka fallback pada operator `??` untuk menjaga sistem tetap berjalan jika key konfigurasi hilang. Nilai fallback tersebut duplikasi defensif, bukan sumber aturan utama.
 - Batas klasifikasi (`< 6` bulan, `< 12` bulan), AEE ideal `25%`, daftar kategori valid, dan skor kemiripan perusahaan masih merupakan logika/konstanta kode. Perubahan nilai-nilai itu tetap memerlukan perubahan kode atau refactor konfigurasi.
-- `kuesioner_opsi.nilai_skor` adalah bobot/skor yang benar-benar persisted dan dapat diubah melalui pengelolaan opsi kuesioner; ia tidak dipakai sebagai bobot formula IKU S1.
+- `kuesioner_opsi.nilai_skor` tetap persisted untuk metadata Likert/rating, tetapi tidak diterima dari form CRUD dan tidak dipakai sebagai bobot formula IKU S1. Opsi non-rating selalu bernilai `NULL`.
 
 ---
 
@@ -787,7 +807,8 @@ Menyimpan pilihan opsi jawaban untuk butir pertanyaan bertipe pilihan ganda atau
 | `kode_opsi` | `varchar(50)` | - | `NULL` | Kode identifikasi opsi jawaban standar (misal: `F8-01`, `1`, `F4-01`). |
 | `label` | `text` | - | `NOT NULL` | Teks redaksi pilihan jawaban yang terbaca di antarmuka responden. |
 | `label_singkat` | `varchar(255)` | - | `NULL` | Label ringkas untuk grafik dan analitik. |
-| `nilai_skor` | `smallint` | - | `NULL` | Nilai numerik untuk analisis kuantitatif atau skala Likert (contoh: 1-5). |
+| `nilai_skor` | `smallint` | - | `NULL` | Metadata internal skala Likert/rating; dihitung backend dari urutan opsi dan bukan input CRUD umum. |
+| `lompat_ke_pertanyaan_id` | `varchar(50)` | - | `NULL` | Kode pertanyaan target untuk percabangan jawaban (*Jump To*); `NULL` berarti alur normal. |
 | `order` | `smallint` | - | `NOT NULL`, Default `'1'` | Nomor urut posisi opsi jawaban dalam daftar pilihan. |
 | `created_at` | `timestamp` | - | `NULL` | Waktu pembuatan rekaman. |
 | `updated_at` | `timestamp` | - | `NULL` | Waktu pembaruan terakhir. |
@@ -803,13 +824,15 @@ Tabel transaksi terpadu (*Single Source of Truth*) penyimpan seluruh respon jawa
 | `evaluasi_atasan_id`| `bigint unsigned` | `FK`, `INDEX` | `NULL` | Referensi ke `evaluasi_atasan.id` lembar evaluasi atasan (`ON DELETE CASCADE`). |
 | `section_id` | `bigint unsigned` | `FK`, `INDEX` | `NOT NULL` | Referensi ke `kuesioner_section.id` (`ON DELETE CASCADE`). |
 | `pertanyaan_id` | `bigint unsigned` | `FK`, `INDEX` | `NOT NULL` | Referensi ke `kuesioner_pertanyaan.id` (`ON DELETE CASCADE`). |
-| `kode_pertanyaan` | `varchar(50)` | `INDEX` | `NULL` | Snapshot kode butir pertanyaan untuk kemudahan kueri analitik (misal: `F8`, `F17a1`). |
+| `kode_pertanyaan` | `varchar(50)` | `INDEX` | `NULL` | **SNAPSHOT/LEGACY**: salinan kode butir untuk kompatibilitas kueri lama; sumber kanonik adalah `pertanyaan_id` → `kuesioner_pertanyaan.kode_pertanyaan`. |
 | `opsi_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `kuesioner_opsi.id` pilihan jawaban master terpilih (`ON DELETE SET NULL`). |
-| `kode_opsi` | `text` | - | `NULL` | Kode opsi terpilih atau array JSON kode jika jawaban multi-pilihan. |
+| `kode_opsi` | `text` | - | `NULL` | **SNAPSHOT/LEGACY**: kode opsi terpilih atau array JSON kode jika jawaban multi-pilihan; sumber kanonik pilihan tunggal adalah `opsi_id` → `kuesioner_opsi.kode_opsi`. |
 | `jawaban_teks` | `text` | - | `NULL` | Nilai jawaban teks bebas, angka, atau label opsi pilihan tunggal terpilih. |
 | `jawaban_json` | `json` | - | `NULL` | Nilai jawaban terstruktur jika pertanyaan bertipe multi-select atau isian kustom. |
 | `created_at` | `timestamp` | - | `NULL` | Waktu pertama kali jawaban disimpan. |
 | `updated_at` | `timestamp` | - | `NULL` | Waktu pembaruan jawaban terakhir. |
+
+**Indeks analitik:** `kuesioner_jawaban_analytics_lookup_idx` (`biodata_id`, `responden_type`, `kode_pertanyaan`, `id`) mempercepat pembacaan jawaban tracer terbaru oleh `v_iku_s1_lulusan`.
 
 ---
 
@@ -854,14 +877,17 @@ Selain 21 tabel domain bisnis di atas, basis data menyertakan 7 tabel standar in
 
 | Domain Data | Tabel Sumber Aktif | Aturan Kanonik & Catatan |
 | :--- | :--- | :--- |
-| Identitas akademik, tanggal lahir, NIM, kelulusan | `data_akademik` | Data master dari universitas, menjadi referensi resmi kelulusan; `email_pribadi` hanya snapshot sumber awal. |
-| Kontak pribadi dan domisili saat ini | `biodata` | Sumber kontak & domisili aktif alumni; perubahan tidak menulis balik ke data akademik. |
-| Karier, bidang pekerjaan, gaji, *skills*, *experience* | `biodata` | Kolom karier dan penghasilan alumni terpadu. |
-| Profil perusahaan & instansi kerja | `perusahaan` | Tersinkronisasi antara formulir karier alumni dan direktori mitra perusahaan. |
-| Tugas akhir, publikasi, status yudisium | `yudisium` | Menyimpan metadata skripsi, jurnal, dan status kelulusan yudisium. |
-| Seluruh jawaban kuesioner (Univ, Prodi, Atasan) | `kuesioner_jawaban` | *Single Source of Truth* jawaban seluruh instrumen survei di sistem. |
-| Sesi evaluasi pengguna lulusan (atasan) | `evaluasi_atasan` | Menyimpan token unik akses survei publik dan metadata instansi. |
-| Hasil ekstraksi profil LinkedIn | `linkedin_sync_results` | Berfungsi sebagai tabel *staging* sampai diverifikasi ke tabel `biodata`. |
+| Domain Data | Tabel Sumber Aktif | Status | Aturan Kanonik & Catatan |
+| :--- | :--- | :--- | :--- |
+| Identitas akademik, tanggal lahir, NIM, kelulusan | `data_akademik` | **KANONIK/AKTIF** | Data master dari universitas, menjadi referensi resmi kelulusan; `email_pribadi` hanya snapshot sumber awal. |
+| Kontak pribadi dan domisili saat ini | `biodata` | **KANONIK/AKTIF** | Sumber kontak & domisili aktif alumni; perubahan tidak menulis balik ke data akademik. |
+| Karier, bidang pekerjaan, gaji, *skills*, *experience* | `biodata` | **KANONIK/AKTIF** | Kolom karier dan penghasilan alumni terpadu. |
+| Profil perusahaan & instansi kerja | `perusahaan` | **KANONIK/AKTIF** | Tersinkronisasi antara formulir karier alumni dan direktori mitra perusahaan. |
+| Tugas akhir, publikasi, status yudisium | `yudisium` | **KANONIK/AKTIF** | Menyimpan metadata skripsi, jurnal, dan status kelulusan yudisium. |
+| Seluruh jawaban kuesioner (Univ, Prodi, Atasan) | `kuesioner_jawaban` | **KANONIK/AKTIF** | *Single Source of Truth* jawaban seluruh instrumen survei; relasi jawaban memakai ID. |
+| Kode pertanyaan dan opsi untuk jawaban | `kuesioner_pertanyaan`, `kuesioner_opsi` | **KANONIK/AKTIF + DISPLAY** | Kode berasal dari master dan diproyeksikan melalui view; salinan kode pada `kuesioner_jawaban` berstatus **SNAPSHOT/LEGACY**. |
+| Sesi evaluasi pengguna lulusan (atasan) | `evaluasi_atasan` | **KANONIK/AKTIF** | Menyimpan token unik akses survei publik dan metadata instansi. |
+| Hasil ekstraksi profil LinkedIn | `linkedin_sync_results` | **STAGING** | Berfungsi sebagai tabel *staging* sampai diverifikasi ke tabel `biodata`. |
 
 Field identitas yang muncul ulang pada Kuesioner Universitas atau Prodi tetap
 dibaca dari `biodata`/`data_akademik` sebagai sumber kanonik. Sinkronisasi

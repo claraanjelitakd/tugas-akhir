@@ -8,7 +8,7 @@
  */
 import { computed } from 'vue';
 import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
-import { analyticsColors, baseOption, formatNumber, formatPercentage } from '../analyticsChartOptions';
+import { baseOption, formatNumber, formatPercentage } from '../analyticsChartOptions';
 
 // Kontrak payload indikator capaian lulusan dari backend.
 const props = defineProps({
@@ -25,14 +25,18 @@ const series = computed(() => props.chart?.series || []);
 const records = computed(() => props.chart?.records || []);
 const summary = computed(() => props.chart?.summary || {});
 
-// Opsi batang kontribusi berbobot per kategori karier.
+// Opsi batang jumlah alumni dengan warna status kontribusi dari backend.
 const chartOption = computed(() => ({
     ...baseOption(),
-    grid: { left: 24, right: 70, top: 22, bottom: 34, containLabel: true },
+    grid: { left: 24, right: 92, top: 22, bottom: 52, containLabel: true },
     xAxis: {
         type: 'value',
         min: 0,
-        axisLabel: { formatter: '{value}%', color: '#64748B' },
+        minInterval: 1,
+        name: 'Jumlah alumni (orang)',
+        nameLocation: 'middle',
+        nameGap: 30,
+        axisLabel: { formatter: (value) => formatNumber(value, 0), color: '#64748B' },
         splitLine: { lineStyle: { color: '#E2E8F0' } },
     },
     yAxis: {
@@ -47,15 +51,21 @@ const chartOption = computed(() => ({
         axisPointer: { type: 'shadow' },
         formatter: (params) => {
             const item = series.value[params?.[0]?.dataIndex];
-            return item ? `${item.label}<br/>Responden: ${item.count}<br/>Skor bobot: ${item.weighted_score}<br/>Kontribusi: ${formatPercentage(item.percentage)}` : '';
+            return item
+                ? `${item.label}<br/>Jumlah alumni: ${formatNumber(item.count, 0)}<br/>Valid berbobot: ${formatNumber(item.valid_count, 0)}<br/>Σ bobot: ${formatNumber(item.weighted_score, 2)}<br/>Kontribusi: ${formatPercentage(item.percentage)} dari ${formatNumber(item.percentage_denominator_count, 0)} responden valid<br/>Status: ${item.status_label}`
+                : '';
         },
     },
     series: [{
-        name: 'Kontribusi berbobot',
+        name: 'Jumlah alumni',
         type: 'bar',
         barMaxWidth: 32,
-        data: series.value.map((item) => ({ name: item.label, value: item.percentage, category: item.label })),
-        itemStyle: { color: analyticsColors.green, borderRadius: [0, 4, 4, 0] },
+        data: series.value.map((item) => ({
+            name: item.label,
+            value: item.count,
+            category: item.label,
+            itemStyle: { color: item.status_color, borderRadius: [0, 4, 4, 0] },
+        })),
         label: { show: true, position: 'right', color: '#334155', formatter: (params) => formatPercentage(series.value[params.dataIndex]?.percentage) },
     }],
 }));
@@ -64,13 +74,15 @@ const chartOption = computed(() => ({
 const tableData = computed(() => ({
     columns: [
         { key: 'name', label: 'Kategori' },
-        { key: 'count', label: 'Responden', align: 'right' },
+        { key: 'count', label: 'Jumlah alumni', align: 'right' },
+        { key: 'valid_count', label: 'Valid berbobot', align: 'right' },
         { key: 'weighted_score', label: 'Σ Bobot', align: 'right' },
         { key: 'percentage', label: 'Kontribusi', align: 'right' },
     ],
     rows: series.value.map((item) => ({
         name: item.label,
         count: formatNumber(item.count, 0),
+        valid_count: formatNumber(item.valid_count, 0),
         weighted_score: formatNumber(item.weighted_score, 2),
         percentage: formatPercentage(item.percentage),
     })),
@@ -82,7 +94,7 @@ const analysis = computed(() => ({
     statusBadge: formatPercentage(summary.value.percentage),
     badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
     lead: `${formatNumber(summary.value.valid_respondents, 0)} responden lulusan masuk denominator dengan total bobot ${formatNumber(summary.value.weighted_score, 2)}.`,
-    detail: 'Karyawan, founder/co-founder, freelancer, studi lanjut, dan wirausaha lainnya dipisahkan berdasarkan data terstruktur. Wirausaha lainnya tetap tampil untuk audit, tetapi tidak diberi bobot tanpa role yang jelas.',
+    detail: `Panjang bar menunjukkan jumlah alumni dalam kategori. Persentase dan warna menunjukkan kontribusi Σ bobot terhadap seluruh ${formatNumber(summary.value.percentage_denominator_count, 0)} responden valid IKU, bukan persentase di dalam kategori. Warna mengikuti response rate: hijau ≥50%, kuning 30%–<50%, merah <30%, dan abu-abu jika tidak berbobot.`,
 }));
 
 // Konfigurasi tampilan grafik dan tabel capaian lulusan.
@@ -90,8 +102,8 @@ const views = computed(() => [{
     key: 'outcomes',
     chartType: 'horizontal_bar',
     tabLabel: 'Capaian Karier',
-    title: 'Persentase Lulusan S1 Bekerja, Berwirausaha, atau Studi Lanjut',
-    description: 'Nilai merupakan Σ bobot / jumlah responden valid × 100%; ambang gaji memakai UMP tahun acuan.',
+    title: 'Jumlah Alumni S1 Bekerja, Berwirausaha, atau Studi Lanjut',
+    description: 'Panjang bar menunjukkan jumlah alumni per kategori; label dan warna menunjukkan kontribusi Σ bobot terhadap seluruh responden valid IKU. Ambang gaji memakai UMP tahun acuan.',
     option: chartOption.value,
     tableData: tableData.value,
     height: Math.max(340, Math.min(series.value.length * 54 + 120, 560)),

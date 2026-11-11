@@ -150,6 +150,71 @@ class AdminProdiKuesionerTest extends TestCase
         ]);
     }
 
+    /**
+     * Memastikan pilihan multi-placement dapat dikosongkan tanpa menghapus placement utama.
+     */
+    public function test_admin_prodi_can_clear_additional_question_placements(): void
+    {
+        $additionalSection = KuesionerSection::create([
+            'target' => 'prodi',
+            'prodi_id' => $this->prodiSI->id,
+            'kode_section' => 'SEC-PSI-2',
+            'judul' => 'Evaluasi Tambahan',
+            'deskripsi' => 'Bagian tambahan untuk pengujian placement',
+            'order' => 2,
+            'is_active' => true,
+        ]);
+
+        $question = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $this->prodiSI->id,
+            'kode_pertanyaan' => 'PSI-MULTI-01',
+            'teks_pertanyaan' => 'Pertanyaan multi-placement',
+            'tipe' => 'single_choice',
+            'is_active' => true,
+            'is_reusable' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->sectionSI->id,
+            'pertanyaan_id' => $question->id,
+            'order' => 1,
+            'wajib' => true,
+            'is_active' => true,
+        ]);
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $additionalSection->id,
+            'pertanyaan_id' => $question->id,
+            'order' => 1,
+            'wajib' => true,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($this->adminSI)->put(
+            route('prodi.kuesioner.pertanyaan.update', $question->id),
+            [
+                'prodi_id' => $this->prodiSI->id,
+                'code' => 'PSI-MULTI-01',
+                'question_text' => 'Pertanyaan multi-placement diperbarui',
+                'type' => 'single_choice',
+                'section_id' => $this->sectionSI->id,
+                'target_section_ids' => [],
+                'is_required' => true,
+                'is_reusable' => true,
+                'order' => 1,
+            ]
+        );
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('kuesioner_section_pertanyaan', [
+            'section_id' => $this->sectionSI->id,
+            'pertanyaan_id' => $question->id,
+        ]);
+        $this->assertDatabaseMissing('kuesioner_section_pertanyaan', [
+            'section_id' => $additionalSection->id,
+            'pertanyaan_id' => $question->id,
+        ]);
+    }
+
     public function test_admin_prodi_cannot_modify_other_prodi_question(): void
     {
         $tiSection = KuesionerSection::create([
@@ -576,9 +641,40 @@ class AdminProdiKuesionerTest extends TestCase
         );
     }
 
+    /**
+     * Memastikan opsi tanpa nilai skor tetap dapat ditambahkan dari editor prodi.
+     */
+    public function test_admin_prodi_can_add_option_without_value(): void
+    {
+        $question = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $this->prodiSI->id,
+            'kode_pertanyaan' => 'PSI-OPTION-RT',
+            'teks_pertanyaan' => 'Bakat terpendam?',
+            'tipe' => 'radio_text',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.opsi.store'), [
+            'question_id' => $question->id,
+            'code' => 'PSI-OPTION-RT-03',
+            'option_text' => 'Lainnya',
+            'jump_to' => null,
+            'order' => 3,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('kuesioner_opsi', [
+            'pertanyaan_id' => $question->id,
+            'kode_opsi' => 'PSI-OPTION-RT-03',
+            'label' => 'Lainnya',
+            'nilai_skor' => null,
+            'order' => 3,
+        ]);
+    }
+
     public function test_creating_question_automatically_generates_default_options(): void
     {
-        // 1. Tipe radio_text (Radio + Teks) -> otomatis dibuat 2 pilihan + 1 Lainnya
+        // 1. Tipe radio_text (Radio + Teks) -> hanya membuat pilihan master; Lainnya virtual di form alumni
         $response1 = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
             'prodi_id' => $this->prodiSI->id,
             'code' => 'PSI-TEST-RT',
@@ -592,10 +688,10 @@ class AdminProdiKuesionerTest extends TestCase
 
         $qRadioText = KuesionerPertanyaan::where('kode_pertanyaan', 'PSI-TEST-RT')->first();
         $this->assertNotNull($qRadioText);
-        $this->assertCount(3, $qRadioText->opsi);
+        $this->assertCount(2, $qRadioText->opsi);
         $this->assertEquals('Pilihan 1', $qRadioText->opsi[0]->label);
         $this->assertEquals('Pilihan 2', $qRadioText->opsi[1]->label);
-        $this->assertEquals('Lainnya (Tuliskan)', $qRadioText->opsi[2]->label);
+        $this->assertEquals('PSI-TEST-RT-01', $qRadioText->opsi[0]->kode_opsi);
 
         // 2. Tipe rating_5 (Skala Rating 1-5) -> otomatis dibuat 5 opsi skala penilaian
         $response2 = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
@@ -614,6 +710,8 @@ class AdminProdiKuesionerTest extends TestCase
         $this->assertCount(5, $qRating->opsi);
         $this->assertEquals('1 - Sangat Rendah', $qRating->opsi[0]->label);
         $this->assertEquals('5 - Sangat Tinggi', $qRating->opsi[4]->label);
+        $this->assertEquals(1, $qRating->opsi[0]->nilai_skor);
+        $this->assertEquals('PSI-TEST-R5-05', $qRating->opsi[4]->kode_opsi);
 
         // 3. Tipe radio_input (Radio + Angka) -> otomatis dibuat opsi angka dan opsi 'tidak'
         $response3 = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
@@ -630,8 +728,24 @@ class AdminProdiKuesionerTest extends TestCase
         $qRadioInput = KuesionerPertanyaan::where('kode_pertanyaan', 'PSI-TEST-RI')->first();
         $this->assertNotNull($qRadioInput);
         $this->assertCount(3, $qRadioInput->opsi);
-        $this->assertStringContainsString('Bulan', $qRadioInput->opsi[0]->label);
+        $this->assertSame('Sebelum lulus', $qRadioInput->opsi[0]->label);
+        $this->assertStringContainsString('bulan', $qRadioInput->opsi[1]->label);
         $this->assertStringContainsString('Tidak', $qRadioInput->opsi[2]->label);
+
+        // 4. Tipe checkbox_text -> opsi pilihan ganda dengan opsi Lainnya virtual di form alumni
+        $response4 = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
+            'prodi_id' => $this->prodiSI->id,
+            'code' => 'PSI-TEST-CBT',
+            'question_text' => 'Kontribusi apa yang dapat Anda berikan?',
+            'type' => 'multiple_choice_text',
+            'section_id' => $this->sectionSI->id,
+            'is_required' => true,
+            'is_reusable' => true,
+        ]);
+        $response4->assertRedirect()->assertSessionHasNoErrors();
+        $qCheckboxText = KuesionerPertanyaan::where('kode_pertanyaan', 'PSI-TEST-CBT')->first();
+        $this->assertNotNull($qCheckboxText);
+        $this->assertCount(2, $qCheckboxText->opsi);
     }
 
     public function test_alumni_can_submit_radio_text_and_radio_input_in_prodi_questionnaire(): void
@@ -669,7 +783,7 @@ class AdminProdiKuesionerTest extends TestCase
         $response = $this->actingAs($this->alumniUser)->post('/alumni/kuesioner-prodi', [
             'answers' => [
                 $qRadioText->id => [
-                    'selected' => 'Lainnya (Tuliskan)',
+                    'selected' => 'Lainnya',
                     'input' => 'Menjadi pembicara seminar',
                 ],
                 $qRadioInput->id => [
@@ -685,7 +799,7 @@ class AdminProdiKuesionerTest extends TestCase
         $this->assertDatabaseHas('kuesioner_jawaban', [
             'biodata_id' => $this->alumni->id,
             'pertanyaan_id' => $qRadioText->id,
-            'jawaban_teks' => 'Lainnya (Tuliskan): Menjadi pembicara seminar',
+            'jawaban_teks' => 'Lainnya: Menjadi pembicara seminar',
         ]);
 
         $this->assertDatabaseHas('kuesioner_jawaban', [

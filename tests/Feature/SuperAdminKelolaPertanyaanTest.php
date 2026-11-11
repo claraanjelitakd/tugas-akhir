@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Kuesioner;
+use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
@@ -233,7 +234,7 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
      */
     public function test_superadmin_creating_question_automatically_generates_default_options(): void
     {
-        // 1. Tipe radio_text -> 3 opsi
+        // 1. Tipe radio_text -> 2 opsi master; Lainnya virtual di form alumni
         $this->actingAs($this->superadmin)->post(route('superadmin.pertanyaan.store'), [
             'section_id' => $this->section->id,
             'kode_pertanyaan' => 'F_TEST_RT',
@@ -245,10 +246,9 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
 
         $q = KuesionerPertanyaan::where('kode_pertanyaan', 'F_TEST_RT')->first();
         $this->assertNotNull($q);
-        $this->assertCount(3, $q->opsi);
+        $this->assertCount(2, $q->opsi);
         $this->assertEquals('Pilihan 1', $q->opsi[0]->label);
         $this->assertEquals('Pilihan 2', $q->opsi[1]->label);
-        $this->assertEquals('Lainnya (Tuliskan)', $q->opsi[2]->label);
 
         // 2. Tipe rating_5 -> 5 opsi
         $this->actingAs($this->superadmin)->post(route('superadmin.pertanyaan.store'), [
@@ -265,6 +265,79 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
         $this->assertCount(5, $q2->opsi);
         $this->assertEquals('1 - Sangat Rendah', $q2->opsi[0]->label);
         $this->assertEquals('5 - Sangat Tinggi', $q2->opsi[4]->label);
+        $this->assertEquals('F_TEST_R5-01', $q2->opsi[0]->kode_opsi);
+
+        // 3. Tipe radio_input -> opsi bulan singkat tanpa skor.
+        $this->actingAs($this->superadmin)->post(route('superadmin.pertanyaan.store'), [
+            'section_id' => $this->section->id,
+            'kode_pertanyaan' => 'F_TEST_RI',
+            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
+            'type' => 'radio_input',
+            'wajib' => true,
+            'tampil_di' => 'kuesioner',
+        ])->assertRedirect();
+
+        $q3 = KuesionerPertanyaan::with('opsi')->where('kode_pertanyaan', 'F_TEST_RI')->first();
+        $this->assertNotNull($q3);
+        $this->assertSame([
+            'Sebelum lulus',
+            'Sesudah lulus ... bulan',
+            'Tidak mencari kerja',
+        ], $q3->opsi->pluck('label')->all());
+        $this->assertTrue($q3->opsi->every(fn ($option): bool => $option->nilai_skor === null));
+    }
+
+    /**
+     * Memastikan CRUD opsi universitas memakai kontrak code, label, urutan, dan jump_to tanpa score/value.
+     */
+    public function test_superadmin_can_manage_university_question_options_without_score_value_contract(): void
+    {
+        $question = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'F_TEST_OPTION',
+            'teks_pertanyaan' => 'Pilihan status pekerjaan',
+            'tipe' => 'single_choice',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $question->id,
+            'wajib' => true,
+            'tampil_di' => 'kuesioner',
+            'order' => 1,
+        ]);
+
+        $this->actingAs($this->superadmin)
+            ->post(route('superadmin.pertanyaan.options.store', ['questionId' => $question->id]), [
+                'code' => 'F_TEST_OPTION-01',
+                'option_text' => 'Bekerja',
+                'order' => 1,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $option = KuesionerOpsi::where('pertanyaan_id', $question->id)->firstOrFail();
+        $this->assertSame('F_TEST_OPTION-01', $option->kode_opsi);
+        $this->assertNull($option->nilai_skor);
+
+        $this->actingAs($this->superadmin)
+            ->put(route('superadmin.pertanyaan.options.update', ['optionId' => $option->id]), [
+                'code' => 'F_TEST_OPTION-01',
+                'option_text' => 'Bekerja penuh waktu',
+                'order' => 1,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('kuesioner_opsi', [
+            'id' => $option->id,
+            'label' => 'Bekerja penuh waktu',
+            'nilai_skor' => null,
+        ]);
+
+        $this->actingAs($this->superadmin)
+            ->delete(route('superadmin.pertanyaan.options.destroy', ['optionId' => $option->id]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseMissing('kuesioner_opsi', ['id' => $option->id]);
     }
 
     /**

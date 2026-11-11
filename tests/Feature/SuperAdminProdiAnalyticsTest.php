@@ -269,7 +269,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
     }
 
     /**
-     * Opsi Other lama dinormalisasi menjadi Lainnya dan isian bebasnya tetap tersedia pada data responden.
+     * Opsi Other lama dipisahkan dari batang dan masuk ke word cloud isian bebas.
      */
     public function test_other_choice_is_normalized_and_preserves_its_custom_answer(): void
     {
@@ -326,7 +326,14 @@ class SuperAdminProdiAnalyticsTest extends TestCase
 
         $analytics = app(ProdiAnalyticsService::class)->buildProdiChart($prodi->id, $section->id, 'ALL');
 
-        $this->assertSame('Lainnya', $analytics['chart']['visualizations'][0]['stat']['categories'][1]['label']);
+        $visualization = $analytics['chart']['visualizations'][0];
+
+        $this->assertSame([], $visualization['stat']['categories']);
+        $this->assertSame([], $visualization['categories']);
+        $this->assertSame([], $visualization['values']);
+        $this->assertSame(1, $visualization['stat']['other_count']);
+        $this->assertSame(['Menjadi mentor proyek'], $visualization['other_word_cloud']['texts']);
+        $this->assertCount(1, $visualization['other_word_cloud']['records']);
         $this->assertSame('Lainnya', $analytics['chart']['records'][0]['jawaban_label']);
         $this->assertSame('Menjadi mentor proyek', $analytics['chart']['records'][0]['jawaban_lainnya']);
         $this->assertSame('081234567890', $analytics['chart']['records'][0]['nomor_telepon']);

@@ -2,7 +2,30 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 11 November 2026
+
+- **Standardisasi Grafik Prodi**:
+  - Payload pilihan dari `ProdiAnalyticsService` hanya mengirim kategori dengan jumlah lebih dari nol; nilai jumlah tetap bertipe integer sehingga sumbu grafik tidak membuat pecahan seperti `0,5`.
+  - Opsi `Lainnya` tidak lagi menjadi batang kategori. Isian bebasnya dikirim sebagai `other_word_cloud` dan ditampilkan melalui renderer word cloud pada semua bagian pertanyaan pilihan.
+  - Renderer pilihan program studi sekarang memilih visualisasi berdasarkan tipe pertanyaan dari backend, termasuk dukungan bagian campuran tanpa menghitung ulang frekuensi di frontend.
+  - Aksi drill-down alumni pada tabel pilihan mengikuti pola tombol Data Alumni untuk detail, WhatsApp, email, dan LinkedIn.
+- **Radio + teks tanpa opsi master Lainnya**: opsi `Lainnya` ditampilkan secara virtual pada form alumni untuk pertanyaan `radio_text`; jawaban bebas tetap disimpan melalui payload jawaban tanpa menambah baris ke master `kuesioner_opsi`.
+- **Perbaikan tambah opsi kuesioner prodi**: field skor yang tidak dikirim editor kini diperlakukan sebagai `null`, sehingga opsi seperti `Lainnya` dapat disimpan tanpa error `Undefined array key "value"`.
+- **Penyederhanaan builder opsi prodi**: input skor tidak lagi ditampilkan pada setiap pertanyaan; konfigurasi percabangan tetap dilakukan melalui `Jump To` pada editor opsi.
+- **Penyempurnaan tipe pertanyaan dan opsi**: builder mendukung `Checkbox + Isian`, rating otomatis menyediakan opsi 1–5 dengan skor internal di backend, setiap opsi memakai `kode_opsi`, dan multi-placement memakai dropdown multi-pilih.
+- **Radio + Angka (Bulan) lintas instrumen**: Universitas, Evaluasi Atasan, dan Prodi memakai default opsi singkat `Sebelum lulus`, `Sesudah lulus ... bulan`, dan `Tidak mencari kerja` yang dapat diedit; skor hanya disimpan untuk Likert, sedangkan input bulan diisi responden melalui penanda `...`.
+- **Preservasi konteks CRUD kuesioner**: tab aktif, program studi, section, filter, dan pencarian disimpan pada query URL agar redirect Inertia setelah tambah, ubah, hapus, atau reorder tidak kembali ke section pertama.
+- **Multi-Placement searchable dan dapat dikosongkan**: builder Prodi kini memakai dropdown pencarian dengan pilihan yang dapat dihapus satu per satu atau sekaligus; backend menyinkronkan relasi placement dan menghapus hanya penempatan tambahan yang tidak lagi dipilih.
+- **Konsistensi CRUD opsi lintas instrumen**: kontrak request Universitas, Evaluasi Atasan, dan Prodi tidak lagi menerima field kompatibilitas `score`/`value`; `nilai_skor` hanya dihitung backend untuk rating/Likert. Evaluasi Atasan kini memiliki CRUD opsi lengkap, termasuk kode, urutan, label, dan `Jump To`.
+
 ## 09 November 2026
+
+- **Kanonisasi fixture seeding 2026**:
+  - Default `DatabaseSeeder` kini hanya menyiapkan satu kohort contoh 2026, Joshua, master referensi, instrumen kuesioner, dan snapshot LinkedIn.
+  - `AlumniSimulationSeeder` menyiapkan 99 alumni lengkap lintas 12 program studi S1; bersama Joshua, total fixture lulusan maksimal 100 orang. Akun, data akademik, yudisium, biodata, perusahaan, atasan, jawaban kuesioner, dan evaluasi atasan saling terhubung.
+  - Joshua dan fixture alumni memakai `prodi_id` serta periode akademik 2025/2026; data non-lulusan dan simulasi lintas tahun tidak lagi masuk default seed.
+  - Seeder LinkedIn tidak lagi memakai fallback biodata pertama yang dapat menautkan hasil scraping ke alumni yang salah.
+  - Ditambahkan pengujian integritas yang memastikan nama, akun, biodata, yudisium, prodi, relasi atasan-perusahaan, total maksimal 100 lulusan, dan batas maksimal 10 atasan tetap konsisten.
 
 - **Audit visualisasi Grafik Universitas**:
   - Menambahkan tabel detail individu generik pada mode `Data`; kolom dan nilainya berasal dari `chart.records` backend, bukan hardcode frontend.
@@ -15,9 +38,9 @@
 
 - **IKU S1 berbasis UMP dan role karier**: menambahkan grafik khusus perbandingan pendapatan dengan 1,2 kali UMP, rincian masa tunggu, role Founder/Co-Founder dan Freelancer, bobot configurable pada `config/iku.php`, formula capaian berbobot, serta status konfirmasi Biro 3 untuk matriks yang masih ambigu.
 - **Kecukupan responden**: menambahkan formula response rate `R = (t / N) x 100%` dan Slovin `n_min = ceil(N / (1 + N x e^2))` dengan `e = 0,023` ke payload response rate.
-- **Seeder demo diringkas**: `DatabaseSeeder` hanya menjalankan master runtime, kuesioner terpadu, fixture alumni kanonik, populasi akademik IKU, dan snapshot LinkedIn. Fixture dashboard, distribusi analitik, profil unggulan, serta skeleton alumni tetap tersedia untuk dijalankan langsung saat diperlukan.
+- **Seeder demo diringkas**: `DatabaseSeeder` hanya menjalankan master runtime, kuesioner terpadu, fixture alumni kanonik 2026, Joshua, dan snapshot LinkedIn. Fixture dashboard, distribusi analitik, populasi non-alumni, profil unggulan, serta skeleton alumni tetap tersedia untuk dijalankan langsung saat diperlukan.
 
-- **Normalisasi kohort demo IKU S1**: seluruh fixture lulusan aktif diarahkan ke angkatan 2021 dan tahun lulus 2025 dengan periode akademik `Genap 2024/2025`. Filter tahun kini hanya mengambil tahun yang benar-benar tersedia, tidak menambahkan tahun berjalan secara sintetis, dan menghapus kemungkinan opsi duplikat.
+- **Normalisasi kohort demo IKU S1**: fixture default lulusan aktif diarahkan ke angkatan 2022 dan tahun lulus 2026 dengan periode akademik `Genap 2025/2026`. Filter tahun kini hanya mengambil tahun yang benar-benar tersedia, tidak menambahkan tahun berjalan secara sintetis, dan menghapus kemungkinan opsi duplikat.
 
 - **Referensi IKU S1 dan populasi akademik**:
   - Menambahkan `prodi.jenjang` dan `data_akademik.prodi_id` agar seluruh mahasiswa, termasuk yang belum menjadi alumni, dapat dihitung per program studi.

@@ -131,8 +131,10 @@ class LinkedinSyncResultSeeder extends Seeder
             }
         }
 
-        // B. Argo Wibowo (Informatika - NIM 71170001 atau Biodata 1)
-        $argoBiodata = Biodata::where('nim', '71170001')->first() ?? Biodata::find(1);
+        // B. Argo Wibowo (Informatika - NIM 71170001).
+        // Jangan memakai biodata pertama sebagai fallback karena dapat menautkan
+        // hasil scraping ke alumni yang namanya berbeda.
+        $argoBiodata = Biodata::where('nim', '71170001')->first();
 
         if ($argoBiodata) {
             $argoMockFile = storage_path('app/mock/apify/argo-wibowo-99180935.json');

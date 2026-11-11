@@ -144,7 +144,7 @@ class AnalyticsDemoDistributionSeederTest extends TestCase
         $this->assertDatabaseHas('kuesioner_jawaban', [
             'biodata_id' => $sistemInformasiBiodataLain->id,
             'kode_pertanyaan' => 'PSI-1-04',
-            'jawaban_teks' => 'Lainnya, Kuliah Umum / Dosen Praktisi',
+            'jawaban_teks' => 'Lainnya (Tuliskan)',
         ]);
         $this->assertDatabaseHas('kuesioner_jawaban', [
             'biodata_id' => $sistemInformasiBiodataSponsor->id,

@@ -399,6 +399,9 @@ Route::middleware('auth')->group(function () {
             Route::patch('/superadmin/evaluasi-atasan/pertanyaan/{id}/toggle', [KelolaEvaluasiAtasanController::class, 'toggleQuestion'])->name('superadmin.evaluasi-atasan.pertanyaan.toggle');
             Route::delete('/superadmin/evaluasi-atasan/pertanyaan/{id}', [KelolaEvaluasiAtasanController::class, 'destroyQuestion'])->name('superadmin.evaluasi-atasan.pertanyaan.destroy');
             Route::post('/superadmin/evaluasi-atasan/pertanyaan/reorder', [KelolaEvaluasiAtasanController::class, 'reorderQuestions'])->name('superadmin.evaluasi-atasan.pertanyaan.reorder');
+            Route::post('/superadmin/evaluasi-atasan/opsi', [KelolaEvaluasiAtasanController::class, 'storeOption'])->name('superadmin.evaluasi-atasan.opsi.store');
+            Route::put('/superadmin/evaluasi-atasan/opsi/{id}', [KelolaEvaluasiAtasanController::class, 'updateOption'])->name('superadmin.evaluasi-atasan.opsi.update');
+            Route::delete('/superadmin/evaluasi-atasan/opsi/{id}', [KelolaEvaluasiAtasanController::class, 'destroyOption'])->name('superadmin.evaluasi-atasan.opsi.destroy');
 
             // Log Aktivitas / Audit Trail Sistem
             Route::get('/superadmin/logs', [LogAktivitasController::class, 'index'])->name('superadmin.logs.index');

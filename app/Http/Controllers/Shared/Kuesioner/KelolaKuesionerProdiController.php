@@ -197,7 +197,15 @@ class KelolaKuesionerProdiController extends Controller
             ->orderBy('order', 'asc')
             ->get();
 
-        $questions = $placementItems->map(function (KuesionerSectionPertanyaan $placement) use ($selectedProdiId, $user) {
+        $placementSectionIdsByQuestion = $placementItems
+            ->groupBy('pertanyaan_id')
+            ->map(fn ($placements) => $placements
+                ->pluck('section_id')
+                ->map(fn ($sectionId) => (string) $sectionId)
+                ->values()
+                ->all());
+
+        $questions = $placementItems->map(function (KuesionerSectionPertanyaan $placement) use ($selectedProdiId, $user, $placementSectionIdsByQuestion) {
             $master = $placement->pertanyaan;
 
             return [
@@ -219,14 +227,17 @@ class KelolaKuesionerProdiController extends Controller
                     'id' => $placement->section_id,
                     'title' => $placement->section?->judul,
                 ],
+                'target_section_ids' => collect($placementSectionIdsByQuestion->get($master->id, []))
+                    ->reject(fn (string $sectionId): bool => (int) $sectionId === (int) $placement->section_id)
+                    ->values()
+                    ->all(),
                 'asal' => str_starts_with($master->kode_pertanyaan, 'EVA_')
                     ? 'Evaluasi Atasan'
                     : ($master->pemilikProdi ? $master->pemilikProdi->nama_prodi : 'Umum / Universitas'),
                 'options' => $master->opsi->map(fn (KuesionerOpsi $opt) => [
                     'id' => $opt->id,
-                    'code' => $master->kode_pertanyaan.'-'.str_pad((string) $opt->order, 2, '0', STR_PAD_LEFT),
+                    'code' => $opt->kode_opsi ?: $master->kode_pertanyaan.'-'.str_pad((string) $opt->order, 2, '0', STR_PAD_LEFT),
                     'option_text' => $opt->label,
-                    'score' => $opt->nilai_skor,
                     'jump_to' => $opt->lompat_ke_pertanyaan_id,
                     'order' => $opt->order,
                 ])->values()->all(),
@@ -292,7 +303,6 @@ class KelolaKuesionerProdiController extends Controller
                     'is_already_added' => in_array($p->kode_pertanyaan, $existingCodes, true),
                     'options' => $p->opsi->map(fn ($o) => [
                         'label' => $o->label,
-                        'score' => $o->nilai_skor,
                     ])->values()->all(),
                 ];
             })
@@ -504,13 +514,15 @@ class KelolaKuesionerProdiController extends Controller
             'prodi_id' => 'required|exists:prodi,id',
             'code' => 'required|string|max:50',
             'question_text' => 'required|string',
-            'type' => 'required|string|in:text,textarea,number,single_choice,radio,radio_input,radio_text,multiple_choice,checkbox,dropdown,searchable_select,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,date,time,file,header',
+            'type' => 'required|string|in:text,textarea,number,single_choice,radio,radio_input,radio_text,multiple_choice,checkbox,multiple_choice_text,dropdown,searchable_select,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,date,time,file,header',
             'is_required' => 'boolean',
             'is_reusable' => 'boolean',
             'section_id' => 'nullable',
             'target_section_ids' => 'nullable|array',
             'order' => 'nullable|integer',
             'options' => 'nullable|array',
+            'options.*.code' => 'nullable|string|max:50|distinct',
+            'options.*.label' => 'nullable|string',
         ]);
 
         $user = $this->authenticatedUser();
@@ -625,15 +637,17 @@ class KelolaKuesionerProdiController extends Controller
                 $orderCounter = 1;
                 foreach ($request->options as $opt) {
                     $labelText = is_array($opt) ? ($opt['option_text'] ?? $opt['label'] ?? '') : (string) $opt;
-                    $score = is_array($opt) ? ($opt['score'] ?? null) : null;
+                    $optionCode = is_array($opt) ? trim((string) ($opt['code'] ?? $opt['kode_opsi'] ?? '')) : '';
                     $trimmed = trim((string) $labelText);
 
                     if ($trimmed !== '') {
+                        $optionOrder = $orderCounter++;
                         KuesionerOpsi::create([
                             'pertanyaan_id' => $master->id,
+                            'kode_opsi' => $optionCode !== '' ? $optionCode : $master->kode_pertanyaan.'-'.str_pad((string) $optionOrder, 2, '0', STR_PAD_LEFT),
                             'label' => $trimmed,
-                            'nilai_skor' => $score ? (int) $score : null,
-                            'order' => $orderCounter++,
+                            'nilai_skor' => $master->tipe === 'rating_5' ? $optionOrder : null,
+                            'order' => $optionOrder,
                         ]);
                     }
                 }
@@ -657,7 +671,7 @@ class KelolaKuesionerProdiController extends Controller
             'prodi_id' => 'required|exists:prodi,id',
             'code' => 'required|string|max:50',
             'question_text' => 'required|string',
-            'type' => 'required|string|in:text,textarea,number,single_choice,radio,radio_input,radio_text,multiple_choice,checkbox,dropdown,searchable_select,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,date,time,file,header',
+            'type' => 'required|string|in:text,textarea,number,single_choice,radio,radio_input,radio_text,multiple_choice,checkbox,multiple_choice_text,dropdown,searchable_select,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,date,time,file,header',
             'is_required' => 'boolean',
             'is_reusable' => 'boolean',
             'section_id' => 'required|exists:kuesioner_section,id',
@@ -712,10 +726,21 @@ class KelolaKuesionerProdiController extends Controller
             $targetIds[] = $sectionId;
             $targetIds = array_unique($targetIds);
 
-            // Tambahkan relasi penempatan yang belum ada
             foreach ($targetIds as $tid) {
                 $this->findAccessibleProdiSection($user, $prodiId, $tid);
+            }
 
+            $ownedSectionIds = KuesionerSection::where('target', 'prodi')
+                ->where('prodi_id', $prodiId)
+                ->pluck('id');
+
+            KuesionerSectionPertanyaan::where('pertanyaan_id', $master->id)
+                ->whereIn('section_id', $ownedSectionIds)
+                ->whereNotIn('section_id', $targetIds)
+                ->delete();
+
+            // Tambahkan relasi penempatan yang belum ada
+            foreach ($targetIds as $tid) {
                 KuesionerSectionPertanyaan::firstOrCreate(
                     ['section_id' => $tid, 'pertanyaan_id' => $master->id],
                     ['order' => 99, 'wajib' => $request->boolean('is_required', true), 'is_active' => true]
@@ -817,7 +842,6 @@ class KelolaKuesionerProdiController extends Controller
             'question_id' => 'required|exists:kuesioner_pertanyaan,id',
             'code' => 'nullable|string|max:50',
             'option_text' => 'required|string',
-            'value' => 'nullable|string',
             'jump_to' => 'nullable|string',
             'order' => 'nullable|integer',
         ]);
@@ -832,9 +856,10 @@ class KelolaKuesionerProdiController extends Controller
 
         $opt = KuesionerOpsi::create([
             'pertanyaan_id' => $master->id,
+            'kode_opsi' => trim((string) ($validated['code'] ?? '')) ?: $master->kode_pertanyaan.'-'.str_pad((string) $validated['order'], 2, '0', STR_PAD_LEFT),
             'label' => trim($validated['option_text']),
-            'nilai_skor' => is_numeric($validated['value']) ? (int) $validated['value'] : null,
-            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?: null,
+            'nilai_skor' => $master->tipe === 'rating_5' ? (int) $validated['order'] : null,
+            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
             'order' => $validated['order'],
         ]);
 
@@ -850,17 +875,20 @@ class KelolaKuesionerProdiController extends Controller
         $this->ensureOwnedQuestionForOption($this->authenticatedUser(), $option->pertanyaan);
 
         $validated = $request->validate([
+            'code' => 'nullable|string|max:50',
             'option_text' => 'required|string',
-            'value' => 'nullable|string',
             'jump_to' => 'nullable|string',
             'order' => 'nullable|integer',
         ]);
 
+        $order = $validated['order'] ?? $option->order;
+
         $option->update([
+            'kode_opsi' => trim((string) ($validated['code'] ?? $option->kode_opsi)) ?: $option->kode_opsi,
             'label' => trim($validated['option_text']),
-            'nilai_skor' => is_numeric($validated['value']) ? (int) $validated['value'] : null,
-            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?: null,
-            'order' => $validated['order'] ?? $option->order,
+            'nilai_skor' => $option->pertanyaan?->tipe === 'rating_5' ? (int) $order : null,
+            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
+            'order' => $order,
         ]);
 
         return redirect()->back()->with('success', 'Opsi jawaban kuesioner berhasil diperbarui.');

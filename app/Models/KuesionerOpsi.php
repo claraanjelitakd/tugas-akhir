@@ -22,6 +22,7 @@ class KuesionerOpsi extends Model
         'label',
         'label_singkat',
         'nilai_skor',
+        'lompat_ke_pertanyaan_id',
         'order',
     ];
 

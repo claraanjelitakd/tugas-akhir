@@ -41,23 +41,37 @@ const props = defineProps({
     },
 });
 
-// Tab Aktif: 'sections', 'questions', atau 'responses'
-const activeTab = ref('sections');
+// Menentukan tab aktif dari URL agar CRUD tidak mengembalikan halaman ke section awal.
+const getInitialTab = () => {
+    if (typeof window !== 'undefined') {
+        const tab = new URLSearchParams(window.location.search).get('tab');
+        if (['sections', 'questions', 'responses'].includes(tab)) return tab;
+    }
 
+    return 'sections';
+};
+
+// Tab aktif: 'sections', 'questions', atau 'responses'.
+const activeTab = ref(getInitialTab());
+
+// Mengubah tab sekaligus mempertahankan konteks pada URL.
 const switchTab = (tab) => {
     activeTab.value = tab;
+    syncPageContext();
 };
 
 // Label Tipe Input Pertanyaan
 const typeLabels = {
     likert_5: 'Skala Likert (1-5)',
     pilihan_ganda: 'Pilihan Ganda (Radio)',
+    radio_input: 'Radio + Angka (Bulan)',
     multiple_choice: 'Kotak Centang (Checkbox)',
     text: 'Jawaban Singkat (Text)',
     textarea: 'Paragraf (Textarea)',
 };
 
-const canHaveOptions = (type) => ['likert_5', 'pilihan_ganda', 'multiple_choice'].includes(type);
+// Menentukan tipe pertanyaan yang memiliki daftar opsi yang dapat diedit.
+const canHaveOptions = (type) => ['likert_5', 'pilihan_ganda', 'radio_input', 'multiple_choice'].includes(type);
 
 // ========================================================
 // SECTION STATE & HANDLERS
@@ -170,9 +184,48 @@ const handleDeleteSection = (sec) => {
 // ========================================================
 // QUESTION STATE & HANDLERS
 // ========================================================
-const selectedSectionFilter = ref('all');
-const selectedRequiredFilter = ref('all');
-const questionSearchQuery = ref('');
+// Filter section yang dipulihkan dari URL setelah request CRUD.
+const selectedSectionFilter = ref(typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('section_id') || 'all'
+    : 'all');
+
+// Filter status pertanyaan yang dipulihkan dari URL setelah request CRUD.
+const selectedRequiredFilter = ref(typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('required') || 'all'
+    : 'all');
+
+// Pencarian pertanyaan yang dipulihkan dari URL setelah request CRUD.
+const questionSearchQuery = ref(typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('search') || ''
+    : '');
+
+// Menyimpan tab, filter, dan pencarian agar redirect CRUD tetap berada di konteks semula.
+const syncPageContext = () => {
+    if (typeof window === 'undefined') return;
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', activeTab.value);
+
+    if (activeTab.value === 'questions' && selectedSectionFilter.value !== 'all') {
+        url.searchParams.set('section_id', String(selectedSectionFilter.value));
+    } else {
+        url.searchParams.delete('section_id');
+    }
+
+    if (activeTab.value === 'questions' && selectedRequiredFilter.value !== 'all') {
+        url.searchParams.set('required', selectedRequiredFilter.value);
+    } else {
+        url.searchParams.delete('required');
+    }
+
+    if (activeTab.value === 'questions' && questionSearchQuery.value.trim()) {
+        url.searchParams.set('search', questionSearchQuery.value.trim());
+    } else {
+        url.searchParams.delete('search');
+    }
+
+    window.history.replaceState({}, '', url);
+};
 const isQuestionModalOpen = ref(false);
 const isEditingQuestion = ref(false);
 const editingQuestionId = ref(null);
@@ -188,6 +241,33 @@ const questionForm = ref({
     pilihan_jawaban: [],
     order: 1,
 });
+
+// State modal CRUD opsi jawaban agar Evaluasi Atasan memakai kontrak yang sama dengan instrumen lain.
+const isOptionModalOpen = ref(false);
+const isEditingOption = ref(false);
+const editingOptionId = ref(null);
+const activeQuestionForOption = ref(null);
+const isSubmittingOption = ref(false);
+const optionFormErrors = ref({});
+const optionForm = ref({
+    question_id: null,
+    code: '',
+    option_text: '',
+    jump_to: '',
+    order: 1,
+});
+
+// Daftar target percabangan diambil dari pertanyaan Evaluasi Atasan yang dikirim backend.
+const availableJumpTargets = computed(() => props.questions
+    .filter((question) => question.id !== activeQuestionForOption.value?.id)
+    .map((question) => ({
+        code: question.full_kode || question.kode,
+        text: question.aspek,
+    }))
+    .filter((question) => question.code));
+
+// Mengambil opsi terstruktur; fallback menjaga kompatibilitas payload lama saat cache Inertia masih berupa label.
+const getQuestionOptions = (question) => Array.isArray(question.options) ? question.options : [];
 
 const filteredQuestions = computed(() => {
     let result = props.questions;
@@ -251,7 +331,7 @@ const openQuestionModal = (questionToEdit = null) => {
             aspek: '',
             deskripsi: '',
             tipe: 'likert_5',
-            pilihan_jawaban: ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat Kurang'],
+            pilihan_jawaban: ['1 - Sangat Rendah', '2 - Rendah', '3 - Cukup', '4 - Tinggi', '5 - Sangat Tinggi'],
             order: props.questions.length + 1,
             is_company_field: false,
         };
@@ -267,7 +347,9 @@ const closeQuestionModal = () => {
 
 const handleTypeChange = () => {
     if (questionForm.value.tipe === 'likert_5') {
-        questionForm.value.pilihan_jawaban = ['Sangat Tinggi', 'Tinggi', 'Cukup', 'Kurang', 'Sangat Kurang'];
+        questionForm.value.pilihan_jawaban = ['1 - Sangat Rendah', '2 - Rendah', '3 - Cukup', '4 - Tinggi', '5 - Sangat Tinggi'];
+    } else if (questionForm.value.tipe === 'radio_input') {
+        questionForm.value.pilihan_jawaban = ['Sebelum lulus', 'Sesudah lulus ... bulan', 'Tidak mencari kerja'];
     } else if (['pilihan_ganda', 'multiple_choice'].includes(questionForm.value.tipe)) {
         if (!questionForm.value.pilihan_jawaban || questionForm.value.pilihan_jawaban.length === 0) {
             questionForm.value.pilihan_jawaban = ['Opsi 1', 'Opsi 2'];
@@ -319,6 +401,97 @@ const submitQuestionForm = () => {
             },
         });
     }
+};
+
+// Membuka modal tambah atau sunting opsi jawaban.
+const openOptionModal = (question, optionToEdit = null) => {
+    activeQuestionForOption.value = question;
+    isEditingOption.value = Boolean(optionToEdit);
+    editingOptionId.value = optionToEdit?.id || null;
+    optionFormErrors.value = {};
+
+    const nextOrder = getQuestionOptions(question).length + 1;
+    optionForm.value = optionToEdit
+        ? {
+            question_id: question.id,
+            code: optionToEdit.code || '',
+            option_text: optionToEdit.option_text || '',
+            jump_to: optionToEdit.jump_to || '',
+            order: optionToEdit.order || 1,
+        }
+        : {
+            question_id: question.id,
+            code: `${question.full_kode || question.kode}-${String(nextOrder).padStart(2, '0')}`,
+            option_text: '',
+            jump_to: '',
+            order: nextOrder,
+        };
+
+    isOptionModalOpen.value = true;
+};
+
+// Menutup modal opsi dan membersihkan state sementara.
+const closeOptionModal = () => {
+    isOptionModalOpen.value = false;
+    isSubmittingOption.value = false;
+    activeQuestionForOption.value = null;
+    optionFormErrors.value = {};
+};
+
+// Menyimpan opsi melalui endpoint CRUD Evaluasi Atasan.
+const submitOptionForm = () => {
+    optionFormErrors.value = {};
+    if (!optionForm.value.code.trim()) optionFormErrors.value.code = 'Kode opsi wajib diisi.';
+    if (!optionForm.value.option_text.trim()) optionFormErrors.value.option_text = 'Teks opsi wajib diisi.';
+    if (Object.keys(optionFormErrors.value).length > 0) return;
+
+    isSubmittingOption.value = true;
+    const isUpdate = isEditingOption.value;
+    const payload = {
+        question_id: optionForm.value.question_id,
+        code: optionForm.value.code.trim(),
+        option_text: optionForm.value.option_text.trim(),
+        jump_to: optionForm.value.jump_to || null,
+        order: Number(optionForm.value.order) || null,
+    };
+    const url = isUpdate
+        ? `/superadmin/evaluasi-atasan/opsi/${editingOptionId.value}`
+        : '/superadmin/evaluasi-atasan/opsi';
+    const method = isUpdate ? 'put' : 'post';
+
+    router[method](url, payload, {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeOptionModal();
+            Swal.fire('Berhasil', `Opsi jawaban berhasil ${isUpdate ? 'diperbarui' : 'ditambahkan'}.`, 'success');
+        },
+        onError: (errors) => {
+            optionFormErrors.value = errors;
+        },
+        onFinish: () => {
+            isSubmittingOption.value = false;
+        },
+    });
+};
+
+// Menghapus opsi dengan konfirmasi agar data respon historis tidak terhapus tanpa sengaja.
+const handleDeleteOption = (option) => {
+    Swal.fire({
+        title: 'Hapus opsi jawaban?',
+        text: `Opsi "${option.option_text}" akan dihapus dari master pertanyaan.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#DC2626',
+        confirmButtonText: 'Ya, Hapus',
+        cancelButtonText: 'Batal',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.delete(`/superadmin/evaluasi-atasan/opsi/${option.id}`, {
+                preserveScroll: true,
+                onSuccess: () => Swal.fire('Terhapus', 'Opsi jawaban berhasil dihapus.', 'success'),
+            });
+        }
+    });
 };
 
 const handleReorderQuestion = (questionId, direction) => {
@@ -633,6 +806,7 @@ const closeDetailModal = () => {
                                 </label>
                                 <select
                                     v-model="selectedSectionFilter"
+                                    @change="syncPageContext"
                                     class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B] focus:outline-none bg-white text-gray-900"
                                 >
                                     <option value="all">Semua Section</option>
@@ -648,6 +822,7 @@ const closeDetailModal = () => {
                                 </label>
                                 <select
                                     v-model="selectedRequiredFilter"
+                                    @change="syncPageContext"
                                     class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B] focus:outline-none bg-white text-gray-900"
                                 >
                                     <option value="all">Semua Status</option>
@@ -674,6 +849,7 @@ const closeDetailModal = () => {
                             <input
                                 type="text"
                                 v-model="questionSearchQuery"
+                                @input="syncPageContext"
                                 placeholder="Cari kode atau pertanyaan..."
                                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B] focus:outline-none bg-white placeholder-gray-400"
                             />
@@ -767,15 +943,22 @@ const closeDetailModal = () => {
                                     <td class="px-4 py-3.5 max-w-md">
                                         <div v-if="canHaveOptions(q.tipe)" class="space-y-1.5">
                                             <div
-                                                v-for="(opt, optIdx) in (Array.isArray(q.pilihan_jawaban) ? q.pilihan_jawaban : (typeof q.pilihan_jawaban === 'string' ? JSON.parse(q.pilihan_jawaban || '[]') : []))"
-                                                :key="optIdx"
+                                                v-for="opt in getQuestionOptions(q)"
+                                                :key="opt.id"
                                                 class="flex items-center justify-between p-1.5 bg-gray-50 border border-gray-200 rounded text-[11px]"
                                             >
                                                 <div class="flex items-center gap-1.5 min-w-0 pr-2">
-                                                    <span class="font-mono text-gray-500 font-bold shrink-0">[{{ optIdx + 1 }}]</span>
-                                                    <span class="text-gray-800 font-medium truncate">{{ opt }}</span>
+                                                    <span class="font-mono text-gray-500 font-bold shrink-0">[{{ opt.code }}]</span>
+                                                    <span class="text-gray-800 font-medium truncate">{{ opt.option_text }}</span>
+                                                    <span v-if="opt.jump_to" class="text-gray-500 text-[10px] shrink-0">→ {{ opt.jump_to }}</span>
+                                                </div>
+                                                <div class="flex items-center gap-2 shrink-0">
+                                                    <button type="button" @click="openOptionModal(q, opt)" class="text-gray-500 hover:text-gray-900 font-medium cursor-pointer">Edit</button>
+                                                    <span class="text-gray-300">|</span>
+                                                    <button type="button" @click="handleDeleteOption(opt)" class="text-gray-400 hover:text-rose-600 font-medium cursor-pointer">Hapus</button>
                                                 </div>
                                             </div>
+                                            <button type="button" @click="openOptionModal(q)" class="px-2.5 py-1 text-[11px] font-semibold text-gray-700 bg-white hover:bg-gray-50 rounded border border-gray-300 cursor-pointer">+ Tambah Opsi Jawaban</button>
                                         </div>
                                         <span v-else class="text-gray-400 text-[11px] italic">
                                             Tidak menggunakan pilihan opsi (isian teks bebas).
@@ -1042,6 +1225,7 @@ const closeDetailModal = () => {
                             >
                                 <option value="likert_5">Skala Likert (1-5)</option>
                                 <option value="pilihan_ganda">Pilihan Ganda (Radio)</option>
+                                <option value="radio_input">Radio + Angka (Bulan)</option>
                                 <option value="multiple_choice">Kotak Centang (Checkbox)</option>
                                 <option value="text">Jawaban Singkat (Text)</option>
                                 <option value="textarea">Paragraf (Textarea)</option>
@@ -1059,7 +1243,7 @@ const closeDetailModal = () => {
                         </div>
                     </div>
 
-                    <!-- Kelola Opsi Jawaban bila Pilihan Ganda / Checkbox / Likert -->
+                    <!-- Kelola Opsi Jawaban bila Pilihan Ganda / Checkbox / Radio Angka / Likert -->
                     <div v-if="canHaveOptions(questionForm.tipe)" class="border border-gray-200 bg-gray-50 p-3.5 rounded-lg space-y-2">
                         <label class="block font-bold text-gray-700">Pilihan Opsi Jawaban</label>
                         <div class="flex flex-wrap gap-1.5">
@@ -1068,7 +1252,12 @@ const closeDetailModal = () => {
                                 :key="oIdx"
                                 class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-gray-300 rounded-md text-[11px] font-medium text-gray-700 shadow-2xs"
                             >
-                                <span>{{ opt }}</span>
+                                <input
+                                    v-model="questionForm.pilihan_jawaban[oIdx]"
+                                    type="text"
+                                    class="min-w-0 flex-1 border-0 bg-transparent p-0 text-[11px] font-medium text-gray-700 focus:outline-none focus:ring-0"
+                                    aria-label="Label opsi jawaban"
+                                />
                                 <button
                                     v-if="!questionForm.is_company_field && questionForm.tipe !== 'likert_5'"
                                     type="button"
@@ -1079,12 +1268,12 @@ const closeDetailModal = () => {
                                 </button>
                             </span>
                         </div>
-                        <div v-if="['pilihan_ganda', 'multiple_choice'].includes(questionForm.tipe) && !questionForm.is_company_field" class="flex gap-2 pt-1.5">
+                        <div v-if="['pilihan_ganda', 'multiple_choice', 'radio_input'].includes(questionForm.tipe) && !questionForm.is_company_field" class="flex gap-2 pt-1.5">
                             <input
                                 type="text"
                                 v-model="newOptionInput"
                                 @keydown.enter.prevent="addOption"
-                                placeholder="Ketik opsi jawaban baru..."
+                                :placeholder="questionForm.tipe === 'radio_input' ? 'Contoh: Sesudah lulus ... bulan' : 'Ketik opsi jawaban baru...'"
                                 class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                             />
                             <button
@@ -1128,7 +1317,63 @@ const closeDetailModal = () => {
         </div>
 
         <!-- ======================================================== -->
-        <!-- MODAL 3: LIHAT DETAIL RESPON EVALUASI ATASAN             -->
+        <!-- MODAL 3: TAMBAH / SUNTING OPSI JAWABAN                  -->
+        <!-- ======================================================== -->
+        <div v-if="isOptionModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div class="w-full max-w-xl overflow-hidden rounded-xl border border-gray-300 bg-white shadow-xl">
+                <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-gray-900">{{ isEditingOption ? 'Edit Opsi' : 'Tambah Opsi' }} [{{ activeQuestionForOption?.kode }}]</h3>
+                        <p class="mt-0.5 text-[11px] text-gray-500">Atur kode, teks opsi, urutan, dan percabangan jawaban.</p>
+                    </div>
+                    <button type="button" @click="closeOptionModal" class="text-gray-400 hover:text-gray-600 cursor-pointer" aria-label="Tutup modal opsi">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <form class="space-y-4 p-6 text-xs" @submit.prevent="submitOptionForm">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1 block font-bold text-gray-700">Kode Opsi <span class="text-rose-600">*</span></label>
+                            <input v-model="optionForm.code" type="text" class="w-full rounded-lg border px-3 py-2 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]" :class="optionFormErrors.code ? 'border-rose-500' : 'border-gray-300'" />
+                            <p v-if="optionFormErrors.code" class="mt-1 text-[11px] text-rose-600">{{ optionFormErrors.code }}</p>
+                        </div>
+                        <div>
+                            <label class="mb-1 block font-bold text-gray-700">Nomor Urut Opsi</label>
+                            <input v-model.number="optionForm.order" type="number" min="1" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block font-bold text-gray-700">Teks Opsi Jawaban <span class="text-rose-600">*</span></label>
+                        <input v-model="optionForm.option_text" type="text" class="w-full rounded-lg border px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]" :class="optionFormErrors.option_text ? 'border-rose-500' : 'border-gray-300'" />
+                        <p v-if="optionFormErrors.option_text" class="mt-1 text-[11px] text-rose-600">{{ optionFormErrors.option_text }}</p>
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block font-bold text-gray-700">Alur Percabangan (Lompat Ke / Jump To)</label>
+                        <select v-model="optionForm.jump_to" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]">
+                            <option value="">-- Tanpa Percabangan (Lanjut Normal) --</option>
+                            <option v-for="target in availableJumpTargets" :key="target.code" :value="target.code">
+                                Lompat ke: [{{ target.code }}] {{ target.text }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 border-t border-gray-200 pt-3">
+                        <button type="button" @click="closeOptionModal" class="rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-100">Batal</button>
+                        <button type="submit" :disabled="isSubmittingOption" class="rounded-lg bg-[#0D542B] px-4 py-2 font-semibold text-white hover:bg-[#08381c] disabled:opacity-50">
+                            {{ isSubmittingOption ? 'Menyimpan...' : 'Simpan Opsi' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- MODAL 4: LIHAT DETAIL RESPON EVALUASI ATASAN             -->
         <!-- ======================================================== -->
         <div v-if="showDetailModal && selectedEvaluasi" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
             <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full border border-gray-300 overflow-hidden max-h-[85vh] flex flex-col">

@@ -8,7 +8,7 @@
 -->
 <script setup>
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import Swal from 'sweetalert2';
 import SuperAdminSidebar from '@/Pages/SuperAdmin/Components/Sidebar.vue';
 import AdminFakultasSidebar from '@/Pages/AdminFakultas/Components/Sidebar.vue';
@@ -81,14 +81,26 @@ const pageTitle = computed(() => isFaculty.value
         ? 'Pengaturan Kuesioner Prodi - Admin Prodi'
         : 'Pengaturan Kuesioner Prodi - Super Admin UKDW');
 
-// Tab Aktif: 'sections' atau 'questions'
-const activeTab = ref('sections');
+// Menentukan tab aktif dari URL agar konteks tab tidak hilang setelah CRUD.
+const getInitialTab = () => {
+    if (typeof window !== 'undefined') {
+        const tab = new URLSearchParams(window.location.search).get('tab');
+        if (tab === 'questions' || tab === 'sections') return tab;
+    }
+
+    return 'sections';
+};
+
+// Tab aktif: 'sections' atau 'questions'.
+const activeTab = ref(getInitialTab());
 
 // Selected Prodi State
 const selectedProdiId = ref(props.selectedProdi?.id || (props.prodis[0]?.id || ''));
 
 const handleProdiChange = () => {
     if (selectedProdiId.value) {
+        activeTab.value = 'sections';
+        selectedSectionFilter.value = 'all';
         router.get(props.basePath, {
             prodi_id: selectedProdiId.value,
         }, {
@@ -115,9 +127,60 @@ const filteredSections = computed(() => {
 // QUESTION STATE & FILTERS
 // ========================================================
 // Menyimpan filter section dari navigasi halaman Section agar konteks pertanyaan tetap terbawa.
-const selectedSectionFilter = ref(props.selectedSectionId ? String(props.selectedSectionId) : 'all');
-const selectedRequiredFilter = ref('all');
-const questionSearchQuery = ref('');
+const getInitialQueryValue = (key, fallback = '') => {
+    if (typeof window === 'undefined') return fallback;
+
+    return new URLSearchParams(window.location.search).get(key) || fallback;
+};
+
+// Filter section pertanyaan yang dipertahankan di URL.
+const selectedSectionFilter = ref(props.selectedSectionId ? String(props.selectedSectionId) : getInitialQueryValue('section_id', 'all'));
+
+// Filter sifat pengisian yang dipertahankan di URL.
+const selectedRequiredFilter = ref(getInitialQueryValue('required', 'all'));
+
+// Pencarian pertanyaan yang dipertahankan di URL.
+const questionSearchQuery = ref(getInitialQueryValue('search'));
+
+// Menyimpan konteks tab, prodi, filter, dan pencarian sebelum request CRUD.
+const syncPageContext = () => {
+    if (typeof window === 'undefined') return;
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', activeTab.value);
+    url.searchParams.set('prodi_id', String(selectedProdiId.value));
+
+    if (activeTab.value === 'questions' && selectedSectionFilter.value !== 'all') {
+        url.searchParams.set('section_id', String(selectedSectionFilter.value));
+    } else {
+        url.searchParams.delete('section_id');
+    }
+
+    if (activeTab.value === 'questions' && selectedRequiredFilter.value !== 'all') {
+        url.searchParams.set('required', selectedRequiredFilter.value);
+    } else {
+        url.searchParams.delete('required');
+    }
+
+    if (activeTab.value === 'questions' && questionSearchQuery.value.trim()) {
+        url.searchParams.set('search', questionSearchQuery.value.trim());
+    } else {
+        url.searchParams.delete('search');
+    }
+
+    window.history.replaceState({}, '', url);
+};
+
+// Mengubah tab tanpa menghilangkan konteks saat redirect Inertia setelah CRUD.
+const switchTab = (tab) => {
+    activeTab.value = tab;
+    syncPageContext();
+};
+
+// Menyegarkan query konteks ketika filter berubah.
+const handleQuestionContextChange = () => {
+    syncPageContext();
+};
 
 const typeLabels = {
     single_choice: 'Pilihan Ganda (Radio)',
@@ -126,6 +189,7 @@ const typeLabels = {
     radio_input: 'Radio + Angka (Bulan)',
     multiple_choice: 'Kotak Centang (Checkbox)',
     checkbox: 'Kotak Centang (Checkbox)',
+    multiple_choice_text: 'Kotak Centang + Isian (Checkbox + Teks)',
     dropdown: 'Pilihan Dropdown (Select)',
     searchable_select: 'Pencarian Dropdown',
     rating_5: 'Skala Rating (1-5)',
@@ -147,6 +211,7 @@ const prodiSelectableTypes = {
     radio_text: 'Pilihan Ganda + Lainnya (Radio + Teks)',
     radio_input: 'Radio + Angka (Bulan)',
     multiple_choice: 'Kotak Centang (Checkbox)',
+    multiple_choice_text: 'Kotak Centang + Isian (Checkbox + Teks)',
     dropdown: 'Pilihan Dropdown (Select)',
     searchable_select: 'Pencarian Dropdown',
     rating_5: 'Skala Rating (1-5)',
@@ -166,6 +231,7 @@ const OPTION_SUPPORTED_TYPES = [
     'radio_text',
     'multiple_choice',
     'checkbox',
+    'multiple_choice_text',
     'dropdown',
     'searchable_select',
     'rating_5',
@@ -518,6 +584,96 @@ const questionForm = ref({
     options: [],
 });
 
+// Mengontrol dropdown pencarian untuk penempatan tambahan pertanyaan.
+const isPlacementDropdownOpen = ref(false);
+
+// Menyimpan teks pencarian section pada dropdown multi-placement.
+const placementSearchQuery = ref('');
+
+// Menyaring section yang dapat dipilih tanpa menampilkan section utama pertanyaan.
+const filteredPlacementSections = computed(() => {
+    const query = placementSearchQuery.value.trim().toLowerCase();
+    const primarySectionId = String(questionForm.value.section_id || '');
+
+    return props.allSections
+        .filter((section) => String(section.id) !== primarySectionId)
+        .filter((section) => !query || String(section.label || '').toLowerCase().includes(query));
+});
+
+// Mengambil section tambahan yang sedang dipilih untuk ditampilkan sebagai chip.
+const selectedPlacementSections = computed(() => {
+    const selectedIds = new Set((questionForm.value.target_section_ids || []).map((id) => String(id)));
+
+    return props.allSections.filter((section) => selectedIds.has(String(section.id)));
+});
+
+// Menambah atau menghapus satu section dari daftar penempatan tambahan.
+const togglePlacementSection = (sectionId) => {
+    const normalizedId = String(sectionId);
+    const selectedIds = (questionForm.value.target_section_ids || []).map((id) => String(id));
+
+    questionForm.value.target_section_ids = selectedIds.includes(normalizedId)
+        ? selectedIds.filter((id) => id !== normalizedId)
+        : [...selectedIds, normalizedId];
+};
+
+// Menghapus satu section dari pilihan tanpa memengaruhi section utama.
+const removePlacementSection = (sectionId) => {
+    const normalizedId = String(sectionId);
+    questionForm.value.target_section_ids = (questionForm.value.target_section_ids || [])
+        .map((id) => String(id))
+        .filter((id) => id !== normalizedId);
+};
+
+// Mengosongkan seluruh penempatan tambahan.
+const clearPlacementSections = () => {
+    questionForm.value.target_section_ids = [];
+};
+
+// Menutup dropdown saat pengguna mengklik area di luar komponen.
+const closePlacementDropdown = () => {
+    isPlacementDropdownOpen.value = false;
+};
+
+// Menutup dropdown dan membersihkan pencarian ketika modal ditutup atau dibuka ulang.
+const resetPlacementDropdown = () => {
+    isPlacementDropdownOpen.value = false;
+    placementSearchQuery.value = '';
+};
+
+onMounted(() => document.addEventListener('click', closePlacementDropdown));
+onBeforeUnmount(() => document.removeEventListener('click', closePlacementDropdown));
+
+// Membuat kode opsi yang konsisten dengan kode pertanyaan induknya.
+const buildOptionCode = (index) => `${questionForm.value.code || 'OPS'}-${String(index).padStart(2, '0')}`;
+
+// Menyediakan opsi awal; rating selalu memiliki lima nilai yang dapat diedit.
+const getDefaultFormOptions = (type) => {
+    const labels = type === 'rating_5'
+        ? [
+            '1 - Sangat Rendah',
+            '2 - Rendah',
+            '3 - Cukup',
+            '4 - Tinggi',
+            '5 - Sangat Tinggi',
+        ]
+        : type === 'radio_input'
+            ? ['Sebelum lulus', 'Sesudah lulus ... bulan', 'Tidak mencari kerja']
+            : ['Pilihan 1', 'Pilihan 2'];
+
+    return labels.map((label, index) => ({
+        code: buildOptionCode(index + 1),
+        label,
+    }));
+};
+
+// Menampilkan opsi default rating saat tipe rating dipilih pada builder pertanyaan baru.
+watch(() => questionForm.value.type, (type) => {
+    if (!isEditingQuestion.value && canHaveOptions(type)) {
+        questionForm.value.options = getDefaultFormOptions(type);
+    }
+});
+
 // Menyimpan pesan galat validasi form pertanyaan
 const questionFormErrors = ref({});
 
@@ -542,8 +698,8 @@ const duplicateMasterWarning = computed(() => {
  */
 const addOptionToForm = () => {
     questionForm.value.options.push({
+        code: buildOptionCode(questionForm.value.options.length + 1),
         label: '',
-        score: null,
     });
 };
 
@@ -591,13 +747,13 @@ const openQuestionModal = (questionToEdit = null) => {
             question_text: questionToEdit.question_text || '',
             type: questionToEdit.type || 'single_choice',
             section_id: questionToEdit.section_id || (props.sections[0]?.id || ''),
-            target_section_ids: [],
+            target_section_ids: (questionToEdit.target_section_ids || []).map((id) => String(id)),
             order: questionToEdit.order || 1,
             is_required: questionToEdit.is_required !== undefined ? Boolean(questionToEdit.is_required) : true,
             is_reusable: questionToEdit.is_reusable !== undefined ? Boolean(questionToEdit.is_reusable) : true,
             options: (questionToEdit.options || []).map(opt => ({
+                code: opt.code || opt.kode_opsi || '',
                 label: opt.option_text || '',
-                score: opt.score || null,
             })),
         };
     } else {
@@ -612,13 +768,11 @@ const openQuestionModal = (questionToEdit = null) => {
             order: props.questions.length + 1,
             is_required: true,
             is_reusable: true,
-            options: [
-                { label: 'Pilihan 1', score: null },
-                { label: 'Pilihan 2', score: null },
-            ],
+            options: getDefaultFormOptions('single_choice'),
         };
     }
 
+    resetPlacementDropdown();
     isQuestionModalOpen.value = true;
 };
 
@@ -628,6 +782,7 @@ const openQuestionModal = (questionToEdit = null) => {
 const closeQuestionModal = () => {
     isQuestionModalOpen.value = false;
     questionFormErrors.value = {};
+    resetPlacementDropdown();
 };
 
 /**
@@ -664,7 +819,12 @@ const submitQuestionForm = () => {
         order: questionForm.value.order ? parseInt(questionForm.value.order, 10) : null,
         is_required: questionForm.value.is_required,
         is_reusable: questionForm.value.is_reusable,
-        options: questionForm.value.options.filter(o => o.label && o.label.trim() !== ''),
+        options: questionForm.value.options
+            .filter(o => o.label && o.label.trim() !== '')
+            .map((option, index) => ({
+                code: (option.code || buildOptionCode(index + 1)).trim(),
+                label: option.label.trim(),
+            })),
     };
 
     if (isEditingQuestion.value) {
@@ -980,7 +1140,7 @@ const handleDeleteOption = (opt) => {
                 <!-- Navigasi Tab -->
                 <div class="flex border-b border-slate-200 space-x-4">
                     <button
-                        @click="activeTab = 'sections'"
+                        @click="switchTab('sections')"
                         class="pb-3 px-3 text-sm font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
                         :class="[
                             activeTab === 'sections'
@@ -994,7 +1154,7 @@ const handleDeleteOption = (opt) => {
                         <span>Daftar Bagian (Section)</span>
                     </button>
                     <button
-                        @click="activeTab = 'questions'"
+                        @click="switchTab('questions')"
                         class="pb-3 px-3 text-sm font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
                         :class="[
                             activeTab === 'questions'
@@ -1122,14 +1282,14 @@ const handleDeleteOption = (opt) => {
                         <div class="flex flex-wrap items-center gap-3">
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase">Filter Section</label>
-                                <select v-model="selectedSectionFilter" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
+                                <select v-model="selectedSectionFilter" @change="handleQuestionContextChange" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
                                     <option value="all">Semua Section</option>
                                     <option v-for="s in sections" :key="s.id" :value="s.id">{{ s.title }}</option>
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase">Sifat Pengisian</label>
-                                <select v-model="selectedRequiredFilter" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
+                                <select v-model="selectedRequiredFilter" @change="handleQuestionContextChange" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]">
                                     <option value="all">Semua Sifat</option>
                                     <option value="wajib">Wajib (Required)</option>
                                     <option value="opsional">Opsional</option>
@@ -1137,7 +1297,7 @@ const handleDeleteOption = (opt) => {
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-500 uppercase">Pencarian Teks</label>
-                                <input type="text" v-model="questionSearchQuery" placeholder="Cari kode atau pertanyaan..." class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs w-48 bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]" />
+                                <input type="text" v-model="questionSearchQuery" @input="handleQuestionContextChange" placeholder="Cari kode atau pertanyaan..." class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs w-48 bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]" />
                             </div>
                         </div>
 
@@ -1247,9 +1407,6 @@ const handleDeleteOption = (opt) => {
                                                     <div class="min-w-0">
                                                         <span class="font-mono font-bold text-gray-500 me-1">[{{ opt.code }}]</span>
                                                         <span class="text-gray-800 font-medium">{{ opt.option_text }}</span>
-                                                        <span v-if="opt.score !== null && opt.score !== undefined" class="ms-1 text-emerald-700 font-semibold text-[10px]">
-                                                            (Skor: {{ opt.score }})
-                                                        </span>
                                                         <span v-if="opt.jump_to" class="ms-1.5 text-gray-500 font-medium text-[10px]">
                                                             &rarr; Lanjut ke: {{ opt.jump_to }}
                                                         </span>
@@ -1572,34 +1729,102 @@ const handleDeleteOption = (opt) => {
                     </div>
 
                     <!-- Penempatan Lintas Bagian (Multi-Placement) -->
-                    <div v-if="props.allSections && props.allSections.length > 1" class="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div
+                        v-if="props.allSections && props.allSections.length > 1"
+                        class="p-3 bg-gray-50 border border-gray-200 rounded-lg"
+                        @click.stop
+                    >
                         <label class="mb-1 block font-bold text-gray-800">
                             Penempatan Bagian Tambahan (Multi-Placement)
                         </label>
                         <p class="text-[11px] text-gray-500 mb-2">
-                            Centang jika pertanyaan ini juga ingin dimunculkan pada bagian lain di prodi atau universitas tanpa duplikasi data.
+                            Cari dan pilih satu atau beberapa bagian tambahan. Pilihan dapat dikosongkan kembali.
                         </p>
-                        <div class="max-h-28 overflow-y-auto space-y-1.5 pr-1">
-                            <label
-                                v-for="sec in props.allSections.filter(s => s.id !== questionForm.section_id)"
-                                :key="sec.id"
-                                class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer hover:bg-gray-100 p-1 rounded"
+                        <div class="relative">
+                            <button
+                                type="button"
+                                class="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-left text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                @click="isPlacementDropdownOpen = !isPlacementDropdownOpen"
                             >
-                                <input
-                                    type="checkbox"
-                                    :value="sec.id"
-                                    v-model="questionForm.target_section_ids"
-                                    class="rounded text-[#0D542B] focus:ring-[#0D542B]"
-                                />
-                                <span class="font-medium truncate">{{ sec.label }}</span>
-                            </label>
+                                <span>
+                                    {{ selectedPlacementSections.length > 0
+                                        ? `${selectedPlacementSections.length} bagian tambahan dipilih`
+                                        : 'Pilih bagian tambahan...' }}
+                                </span>
+                                <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7" />
+                                </svg>
+                            </button>
+
+                            <div v-if="selectedPlacementSections.length > 0" class="mt-2 flex flex-wrap items-center gap-1.5">
+                                <span
+                                    v-for="section in selectedPlacementSections"
+                                    :key="section.id"
+                                    class="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] text-[#0D542B]"
+                                >
+                                    <span class="max-w-[20rem] truncate">{{ section.label }}</span>
+                                    <button
+                                        type="button"
+                                        class="font-bold text-[#0D542B] hover:text-red-700"
+                                        title="Hapus penempatan"
+                                        @click.stop="removePlacementSection(section.id)"
+                                    >
+                                        Hapus
+                                    </button>
+                                </span>
+                                <button
+                                    type="button"
+                                    class="text-[11px] font-semibold text-red-700 hover:underline"
+                                    @click.stop="clearPlacementSections"
+                                >
+                                    Kosongkan semua
+                                </button>
+                            </div>
+
+                            <div
+                                v-if="isPlacementDropdownOpen"
+                                class="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-gray-300 bg-white shadow-lg"
+                            >
+                                <div class="border-b border-gray-200 p-2">
+                                    <input
+                                        v-model="placementSearchQuery"
+                                        type="search"
+                                        placeholder="Cari bagian..."
+                                        class="w-full rounded-md border border-gray-300 px-2.5 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                        @click.stop
+                                    />
+                                </div>
+                                <div class="max-h-56 overflow-y-auto p-1">
+                                    <label
+                                        v-for="section in filteredPlacementSections"
+                                        :key="section.id"
+                                        class="flex cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            :checked="(questionForm.target_section_ids || []).map((id) => String(id)).includes(String(section.id))"
+                                            class="mt-0.5 rounded border-gray-300 text-[#0D542B] focus:ring-[#0D542B]"
+                                            @change="togglePlacementSection(section.id)"
+                                        />
+                                        <span>{{ section.label }}</span>
+                                    </label>
+                                    <p v-if="filteredPlacementSections.length === 0" class="px-2.5 py-3 text-xs text-gray-500">
+                                        Bagian tidak ditemukan.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Builder Opsi Dinamis untuk Tambah Baru -->
                     <div v-if="canHaveOptions(questionForm.type) && !isEditingQuestion" class="space-y-2 pt-2 border-t border-gray-100">
                         <div class="flex items-center justify-between">
-                            <label class="font-bold text-gray-700">Pilihan Opsi Jawaban</label>
+                            <div>
+                                <label class="font-bold text-gray-700">Pilihan Opsi Jawaban</label>
+                                <p class="mt-0.5 text-[10px] text-gray-500">
+                                    {{ questionForm.type === 'radio_input' ? 'Gunakan ... untuk menandai bagian angka, misalnya ... bulan.' : 'Percabangan Jump To diatur melalui Edit Opsi setelah pertanyaan tersimpan.' }}
+                                </p>
+                            </div>
                             <button
                                 type="button"
                                 @click="addOptionToForm"
@@ -1611,17 +1836,18 @@ const handleDeleteOption = (opt) => {
                         <div class="space-y-2 max-h-40 overflow-y-auto pr-1">
                             <div v-for="(opt, oIdx) in questionForm.options" :key="oIdx" class="flex items-center gap-2">
                                 <input
+                                    v-model="opt.code"
+                                    type="text"
+                                    :placeholder="`${questionForm.code}-${String(oIdx + 1).padStart(2, '0')}`"
+                                    class="w-28 px-2 py-1.5 border border-gray-300 rounded text-xs font-mono focus:ring-1 focus:ring-[#0D542B]"
+                                    aria-label="Kode opsi"
+                                />
+                                <input
                                     v-model="opt.label"
                                     type="text"
                                     :placeholder="`Pilihan ${oIdx + 1}`"
                                     class="flex-1 px-2.5 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-[#0D542B]"
-                                />
-                                <input
-                                    v-model.number="opt.score"
-                                    type="number"
-                                    placeholder="Skor"
-                                    class="w-16 px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-[#0D542B]"
-                                    title="Nilai Skor (Opsional)"
+                                    aria-label="Teks opsi"
                                 />
                                 <button
                                     type="button"
