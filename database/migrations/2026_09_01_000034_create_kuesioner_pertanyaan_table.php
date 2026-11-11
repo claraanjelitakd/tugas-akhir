@@ -20,6 +20,7 @@ return new class extends Migration
 CREATE TABLE "kuesioner_pertanyaan" (
     "id" integer primary key autoincrement not null,
     "kode_pertanyaan" varchar not null,
+    "label_pertanyaan" varchar,
     "teks_pertanyaan" text not null,
     "tipe" varchar not null default 'single_choice',
     "pemilik_prodi_id" integer,
@@ -39,6 +40,7 @@ SQL
 CREATE TABLE `kuesioner_pertanyaan` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID unik butir pertanyaan',
   `kode_pertanyaan` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Kode unik butir pertanyaan (contoh: F5B, PSI-01, ATASAN-01)',
+  `label_pertanyaan` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Label ringkas butir untuk grafik, tab, dan ringkasan analitik',
   `teks_pertanyaan` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Teks redaksi pertanyaan survei',
   `tipe` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'single_choice' COMMENT 'Tipe input: single_choice, multiple_choice, text, number, likert_5',
   `pemilik_prodi_id` bigint unsigned DEFAULT NULL COMMENT 'ID prodi pembuat butir pertanyaan (NULL = milik umum/universitas)',

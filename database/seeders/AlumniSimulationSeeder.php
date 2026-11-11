@@ -373,6 +373,7 @@ class AlumniSimulationSeeder extends Seeder
                 $cleanUsername = strtolower(str_replace(' ', '', explode(' ', $nama)[0])).$nim;
                 $this->seedAlumniLengkap(
                     $i % 5,
+                    $i,
                     $user,
                     $nim,
                     $nama,
@@ -449,6 +450,7 @@ class AlumniSimulationSeeder extends Seeder
      */
     protected function seedAlumniLengkap(
         int $kategoriIdx,
+        int $seedIndex,
         User $user,
         string $nim,
         string $nama,
@@ -684,7 +686,7 @@ class AlumniSimulationSeeder extends Seeder
         }
 
         // Isi Jawaban Kuesioner Universitas Lengkap (100% Wajib Terpenuhi)
-        $this->seedTracerAnswersLengkap($biodata, $kategoriIdx, $cfg['tahun'], $univQuestions);
+        $this->seedTracerAnswersLengkap($biodata, $kategoriIdx, $seedIndex, $univQuestions);
 
         // Isi Jawaban Kuesioner Khusus Prodi (Jika Prodi Memiliki Instrumen Soal)
         $this->seedProdiAnswersLengkap($biodata, $prodiQuestions);
@@ -694,10 +696,15 @@ class AlumniSimulationSeeder extends Seeder
     /**
      * Mengisi Butir Kuesioner Universitas 100% Sesuai Kategori
      */
-    protected function seedTracerAnswersLengkap(Biodata $biodata, int $kategoriIdx, int $tahunLulus, $univQuestions): void
-    {
+    protected function seedTracerAnswersLengkap(
+        Biodata $biodata,
+        int $kategoriIdx,
+        int $seedIndex,
+        $univQuestions
+    ): void {
         $univSection = KuesionerSection::where('target', 'univ')->first();
         $univSectionId = $univSection?->id ?: 1;
+        $variation = $seedIndex + $biodata->id;
 
         // Bersihkan jawaban kuesioner sebelumnya untuk alumni ini
         KuesionerJawaban::where('biodata_id', $biodata->id)->delete();
@@ -715,44 +722,78 @@ class AlumniSimulationSeeder extends Seeder
             $answers['F8'] = 'Bekerja (full time/part time)';
         }
 
-        // 3. Butir Kompetensi Wajib (F17a1 s/d F17b7) - Nilai skala 1 s/d 5
-        $kompetensiCodes = [
-            'F17a1', 'F17b1', 'F17a2', 'F17b2', 'F17a3', 'F17b3',
-            'F17a4', 'F17b4', 'F17a5', 'F17b5', 'F17a6', 'F17b6',
-            'F17a7', 'F17b7',
+        // 3. Butir Kompetensi Wajib (F17a1 s/d F17b7) - Nilai skala 1 s/d 5.
+        //    Nilai F17a dan F17b dibuat berhubungan tetapi tidak selalu sama,
+        //    agar analitik dapat menampilkan kondisi defisit, selaras, dan surplus.
+        $gapProfiles = [
+            [3, 5],
+            [4, 5],
+            [4, 4],
+            [4, 3],
+            [5, 4],
+            [3, 3],
+            [2, 4],
         ];
-        foreach ($kompetensiCodes as $c) {
-            $answers[$c] = '4'; // 4 = Setuju / Tinggi
+        foreach ($gapProfiles as $dimensionIndex => [$graduationScore, $needScore]) {
+            $adjustment = (($variation + $dimensionIndex) % 3) - 1;
+            $graduation = max(1, min(5, $graduationScore + $adjustment));
+            $need = max(1, min(5, $needScore + $adjustment));
+            $answers['F17a'.($dimensionIndex + 1)] = (string) $graduation;
+            $answers['F17b'.($dimensionIndex + 1)] = (string) $need;
+        }
+
+        // 3b. Penilaian metode pembelajaran F21 s.d. F27 dibuat dari opsi
+        // master agar indikator universitas memiliki jawaban valid yang nyata.
+        foreach (['F21', 'F22', 'F23', 'F24', 'F25', 'F26', 'F27'] as $methodIndex => $methodCode) {
+            $methodQuestion = $univQuestions->get($methodCode);
+            $methodOptions = $methodQuestion?->opsi?->sortBy('order')->values();
+
+            if ($methodOptions?->isNotEmpty()) {
+                $answers[$methodCode] = (string) $methodOptions->get(
+                    ($variation + $methodIndex) % $methodOptions->count()
+                )->label;
+            }
         }
 
         // 4. Jalur Non-Pendidikan (Bekerja / Wiraswasta: Kategori 0, 1, 3, 4)
         if ($kategoriIdx !== 2) {
-            $answers['F14'] = 'Sangat Erat';
-            $answers['F15'] = 'Tingkat yang Sama';
+            $answers['F14'] = ['Sangat erat', 'Erat', 'Cukup erat'][$variation % 3];
+            $answers['F15'] = ['Tingkat yang sama', 'Setingkat lebih tinggi', 'Setingkat lebih rendah'][$variation % 3];
 
             if ($kategoriIdx === 0 || $kategoriIdx === 1) {
                 // Mendapatkan kerja sebelum lulus
                 $answers['F504'] = 'Ya';
-                $answers['F502'] = '3'; // 3 bulan sebelum lulus
-                $answers['F3'] = 'Sebelum lulus ... bulan: 3';
+                $beforeMonths = [1, 3, 5][$variation % 3];
+                $answers['F502'] = (string) $beforeMonths;
+                $answers['F3'] = 'Sebelum lulus ... bulan: '.$beforeMonths;
             } else {
                 // Mendapatkan kerja setelah lulus (Startup atau Freelancer)
                 $answers['F504'] = 'Tidak';
-                $answers['F506'] = '2'; // 2 bulan setelah lulus
-                $answers['F3'] = 'Setelah lulus ... bulan: 2';
+                $afterMonths = [2, 7, 14][$variation % 3];
+                $answers['F506'] = (string) $afterMonths;
+                $answers['F3'] = 'Setelah lulus ... bulan: '.$afterMonths;
             }
 
-            $answers['F4'] = 'Mencari lewat internet/iklan online/milis';
-            $answers['F6'] = '4';
-            $answers['F7'] = '3';
-            $answers['F7A'] = '2';
-            $answers['F505'] = '8500000';
+            $f4Question = $univQuestions->get('F4');
+            $f4Options = $f4Question?->opsi?->sortBy('order')->values();
+            $answers['F4'] = $f4Options?->get($variation % max(1, $f4Options->count()))?->label
+                ?? 'Mencari lewat internet/iklan online/milis';
+            $applications = 2 + ($variation % 6);
+            $responses = max(1, $applications - ($variation % 3));
+            $interviews = max(1, $responses - 1);
+            $answers['F6'] = (string) $applications;
+            $answers['F7'] = (string) $responses;
+            $answers['F7A'] = (string) $interviews;
+            $answers['F505'] = (string) ($biodata->gaji ?? 0);
         } else {
             // Jalur Melanjutkan Pendidikan (Kategori 2 / Index 2)
-            $answers['F12'] = 'Beasiswa Pemerintah';
+            $fundingQuestion = $univQuestions->get('F12');
+            $fundingOptions = $fundingQuestion?->opsi?->sortBy('order')->values();
+            $answers['F12'] = $fundingOptions?->get($variation % max(1, $fundingOptions->count()))?->label
+                ?? 'Beasiswa Pemerintah';
             $answers['F18b'] = 'Universitas Gadjah Mada';
             $answers['F18c'] = 'Program Magister Pascasarjana';
-            $answers['F18d'] = '2026-09-01';
+            $answers['F18d'] = $variation % 2 === 0 ? '2026-08-01' : '2026-09-01';
         }
 
         // Simpan seluruh record ke tabel kuesioner_jawaban terpadu
@@ -796,7 +837,13 @@ class AlumniSimulationSeeder extends Seeder
             $opsi = null;
 
             if ($pq->tipe === 'text' || $pq->tipe === 'textarea') {
-                $ans = 'Program studi memberikan bekal keahlian yang relevan dan aplikatif di dunia profesional.';
+                $textAnswers = [
+                    'Program studi memberikan bekal keahlian yang relevan dan aplikatif di dunia profesional.',
+                    'Kegiatan praktikum dan proyek membantu alumni memahami kebutuhan dunia kerja.',
+                    'Kurikulum perlu terus diperbarui agar selaras dengan perkembangan industri dan masyarakat.',
+                    'Kolaborasi dengan alumni dan mitra kerja dapat memperkuat pengalaman belajar mahasiswa.',
+                ];
+                $ans = $textAnswers[($biodata->id + $pq->id) % count($textAnswers)];
             } elseif ($pq->opsi?->isNotEmpty()) {
                 $selectedOptions = $pq->opsi->sortBy('order')->values();
                 $opsi = $selectedOptions->get($biodata->id % $selectedOptions->count());

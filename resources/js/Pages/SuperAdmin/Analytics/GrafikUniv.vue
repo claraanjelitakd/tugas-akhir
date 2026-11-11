@@ -45,8 +45,26 @@ const loadError = ref('');
 // ID timer penunda (debounce) agar tidak mengirim request berulang saat dropdown/filter diklik beruntun.
 let filterTimer = null;
 
-// Tab panel yang sedang aktif di tampilan: 'insights' (Analisis), 'charts' (Grafik), atau 'records' (Data Responden).
-const activePanel = ref('charts');
+// Kunci penyimpanan tab analitik agar pilihan Grafik/Data konsisten lintas indikator.
+const ANALYTICS_PANEL_STORAGE_KEY = 'tracer.analytics.active-panel';
+
+// Membaca tab terakhir dengan fallback aman untuk SSR atau browser tanpa localStorage.
+const storedAnalyticsPanel = () => {
+    if (typeof window === 'undefined') return 'charts';
+
+    const storedPanel = window.localStorage.getItem(ANALYTICS_PANEL_STORAGE_KEY);
+    return ['charts', 'data'].includes(storedPanel) ? storedPanel : 'charts';
+};
+
+// Tab panel yang sedang aktif di tampilan: 'charts' (Grafik) atau 'data' (Data).
+const activePanel = ref(storedAnalyticsPanel());
+
+// Menyimpan tab aktif agar pergantian indikator tidak mengubah konteks pengguna.
+watch(activePanel, (panel) => {
+    if (typeof window !== 'undefined') {
+        window.localStorage.setItem(ANALYTICS_PANEL_STORAGE_KEY, panel);
+    }
+});
 
 // Menyimpan elemen grafik yang diklik user untuk keperluan cross-filtering (misal: memilih kategori tertentu).
 const selectedItem = ref(null);
@@ -903,7 +921,6 @@ const scheduleLoad = (chartKey = selectedChartKey.value, immediate = false) => {
 // Menangani pergantian indikator dari dropdown pilihan grafik dan memicu pengambilan data baru secara langsung.
 const changeChart = (event) => {
     selectedChartKey.value = event.target.value;
-    activePanel.value = 'charts';
     scheduleLoad(selectedChartKey.value, true);
 };
 

@@ -84,6 +84,7 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
             ->post(route('superadmin.pertanyaan.store'), [
                 'section_id' => $this->section->id,
                 'kode_pertanyaan' => 'F302_TEST',
+                'label_pertanyaan' => 'Jumlah lamaran kerja',
                 'subpertanyaan' => 'Berapa banyak perusahaan yang Anda lamar?',
                 'type' => 'number',
                 'wajib' => true,
@@ -94,6 +95,7 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
         $response->assertRedirect();
         $this->assertDatabaseHas('kuesioner_pertanyaan', [
             'kode_pertanyaan' => 'F302_TEST',
+            'label_pertanyaan' => 'Jumlah lamaran kerja',
             'teks_pertanyaan' => 'Berapa banyak perusahaan yang Anda lamar?',
             'keterangan' => 'Isi jawaban dalam angka.',
         ]);
@@ -285,6 +287,39 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
             'Tidak mencari kerja',
         ], $q3->opsi->pluck('label')->all());
         $this->assertTrue($q3->opsi->every(fn ($option): bool => $option->nilai_skor === null));
+    }
+
+    /**
+     * Memastikan opsi pertanyaan universitas dapat dibuat bersama Jump To sejak create.
+     */
+    public function test_superadmin_can_create_question_with_option_jump_to(): void
+    {
+        $this->actingAs($this->superadmin)
+            ->post(route('superadmin.pertanyaan.store'), [
+                'section_id' => $this->section->id,
+                'kode_pertanyaan' => 'F_TEST_CREATE_JUMP',
+                'label_pertanyaan' => 'Status pekerjaan ringkas',
+                'subpertanyaan' => 'Apa status pekerjaan Anda?',
+                'type' => 'radio',
+                'wajib' => true,
+                'tampil_di' => 'kuesioner',
+                'options' => [
+                    ['code' => 'F_TEST_CREATE_JUMP-01', 'label' => 'Bekerja', 'jump_to' => 'F_TEST_TARGET'],
+                    ['code' => 'F_TEST_CREATE_JUMP-02', 'label' => 'Belum bekerja', 'jump_to' => null],
+                ],
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('kuesioner_pertanyaan', [
+            'kode_pertanyaan' => 'F_TEST_CREATE_JUMP',
+            'label_pertanyaan' => 'Status pekerjaan ringkas',
+        ]);
+        $this->assertDatabaseHas('kuesioner_opsi', [
+            'kode_opsi' => 'F_TEST_CREATE_JUMP-01',
+            'label' => 'Bekerja',
+            'lompat_ke_pertanyaan_id' => 'F_TEST_TARGET',
+        ]);
     }
 
     /**

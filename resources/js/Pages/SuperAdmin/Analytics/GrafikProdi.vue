@@ -48,8 +48,26 @@ const selectedSectionId = ref(String(props.analytics?.filters?.selected_section_
 // Tahun lulusan aktif yang dikirim ke endpoint JSON.
 const selectedYear = ref(String(props.analytics?.filters?.selected_year || 'ALL'));
 
+// Kunci penyimpanan tab analitik agar pilihan Grafik/Data konsisten lintas indikator.
+const ANALYTICS_PANEL_STORAGE_KEY = 'tracer.analytics.active-panel';
+
+// Membaca tab terakhir dengan fallback aman untuk SSR atau browser tanpa localStorage.
+const storedAnalyticsPanel = () => {
+    if (typeof window === 'undefined') return 'charts';
+
+    const storedPanel = window.localStorage.getItem(ANALYTICS_PANEL_STORAGE_KEY);
+    return ['charts', 'data'].includes(storedPanel) ? storedPanel : 'charts';
+};
+
 // Panel utama mengikuti Grafik Universitas: Grafik atau Data.
-const activePanel = ref('charts');
+const activePanel = ref(storedAnalyticsPanel());
+
+// Menyimpan tab aktif agar pergantian bagian dan program studi tidak mengubah konteks pengguna.
+watch(activePanel, (panel) => {
+    if (typeof window !== 'undefined') {
+        window.localStorage.setItem(ANALYTICS_PANEL_STORAGE_KEY, panel);
+    }
+});
 // Subtampilan Data menyediakan rincian records dan pivot instrumen.
 const dataView = ref('records');
 // Elemen grafik yang dipilih untuk drill-down responden inline.
@@ -229,7 +247,6 @@ const resetFilters = () => {
     selectedYear.value = defaultYear();
     selectedItem.value = null;
     activeQuestionContext.value = null;
-    activePanel.value = 'charts';
     dataView.value = 'records';
     tableSearch.value = '';
     scheduleLoad();
@@ -238,7 +255,6 @@ const resetFilters = () => {
 // Menangani klik grafik dan menyimpan konteks pertanyaan/kategori yang dipilih.
 const handleChartSelect = (selection) => {
     selectedItem.value = selection;
-    activePanel.value = 'charts';
     currentPage.value = 1;
 };
 
@@ -406,6 +422,10 @@ watch(() => props.analytics, (newAnalytics) => {
 
                         <div class="mt-5 min-w-0">
                             <ProdiAnalyticsChartsPanel :items="visualizations" :section-order="selectedSectionOrder" :chart-type="chart.type" @select="handleChartSelect" @context-change="handleQuestionContext" />
+                            <p class="mt-3 border-t border-slate-100 pt-3 text-xs leading-5 text-slate-500">
+                                <span class="font-semibold text-[#0D542B]">Petunjuk:</span>
+                                Klik batang, titik, atau kategori grafik untuk melihat responden pembentuknya. Rincian lengkap tersedia pada tab Data.
+                            </p>
                         </div>
 
                         <!-- Pilihan sudah memiliki analisis di bawah grafik; tipe lain memakai Kilas global. -->

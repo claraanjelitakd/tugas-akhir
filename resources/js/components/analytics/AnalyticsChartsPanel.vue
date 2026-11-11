@@ -5,28 +5,29 @@
  * Mengarahkan pemilihan indikator ke 16 komponen kategori visualisasi terpisah,
  * menjaga konsistensi state seleksi cross-filter, serta mode heatmap jumlah/persentase.
  */
-import { computed, onErrorCaptured, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onErrorCaptured, ref, watch } from 'vue';
 
-import ResponseRate from './categories/01_ResponseRate.vue';
-import LearningMethods from './categories/02_LearningMethods.vue';
-import JobSearchStart from './categories/03_JobSearchStart.vue';
-import JobSearchMethods from './categories/04_JobSearchMethods.vue';
-import WaitTime from './categories/05_WaitTime.vue';
-import ApplicationPipeline from './categories/06_ApplicationPipeline.vue';
-import EmploymentStatus from './categories/07_EmploymentStatus.vue';
-import JobSearchActivity from './categories/08_JobSearchActivity.vue';
-import WorkplaceType from './categories/09_WorkplaceType.vue';
-import FurtherStudy from './categories/10_FurtherStudy.vue';
-import SalaryVsUmp from './categories/11_SalaryVsUmp.vue';
-import FieldAlignment from './categories/12_FieldAlignment.vue';
-import EducationAlignment from './categories/13_EducationAlignment.vue';
-import MismatchReasons from './categories/15_MismatchReasons.vue';
-import CompetencyGap from './categories/16_CompetencyGap.vue';
-import ProfileCompletion from './categories/17_ProfileCompletion.vue';
-import WorkLocation from './categories/18_WorkLocation.vue';
-import IkuS1Aee from './categories/19_IkuS1Aee.vue';
-import IkuS1Outcomes from './categories/20_IkuS1Outcomes.vue';
-import IkuS1UmpWeighted from './categories/21_IkuS1UmpWeighted.vue';
+// Kategori grafik dimuat saat dipilih agar ECharts tidak membebani navigasi awal.
+const ResponseRate = defineAsyncComponent(() => import('./categories/01_ResponseRate.vue'));
+const LearningMethods = defineAsyncComponent(() => import('./categories/02_LearningMethods.vue'));
+const JobSearchStart = defineAsyncComponent(() => import('./categories/03_JobSearchStart.vue'));
+const JobSearchMethods = defineAsyncComponent(() => import('./categories/04_JobSearchMethods.vue'));
+const WaitTime = defineAsyncComponent(() => import('./categories/05_WaitTime.vue'));
+const ApplicationPipeline = defineAsyncComponent(() => import('./categories/06_ApplicationPipeline.vue'));
+const EmploymentStatus = defineAsyncComponent(() => import('./categories/07_EmploymentStatus.vue'));
+const JobSearchActivity = defineAsyncComponent(() => import('./categories/08_JobSearchActivity.vue'));
+const WorkplaceType = defineAsyncComponent(() => import('./categories/09_WorkplaceType.vue'));
+const FurtherStudy = defineAsyncComponent(() => import('./categories/10_FurtherStudy.vue'));
+const SalaryVsUmp = defineAsyncComponent(() => import('./categories/11_SalaryVsUmp.vue'));
+const FieldAlignment = defineAsyncComponent(() => import('./categories/12_FieldAlignment.vue'));
+const EducationAlignment = defineAsyncComponent(() => import('./categories/13_EducationAlignment.vue'));
+const MismatchReasons = defineAsyncComponent(() => import('./categories/15_MismatchReasons.vue'));
+const CompetencyGap = defineAsyncComponent(() => import('./categories/16_CompetencyGap.vue'));
+const ProfileCompletion = defineAsyncComponent(() => import('./categories/17_ProfileCompletion.vue'));
+const WorkLocation = defineAsyncComponent(() => import('./categories/18_WorkLocation.vue'));
+const IkuS1Aee = defineAsyncComponent(() => import('./categories/19_IkuS1Aee.vue'));
+const IkuS1Outcomes = defineAsyncComponent(() => import('./categories/20_IkuS1Outcomes.vue'));
+const IkuS1UmpWeighted = defineAsyncComponent(() => import('./categories/21_IkuS1UmpWeighted.vue'));
 
 // Kontrak properti data indikator aktif dari controller
 const props = defineProps({
@@ -145,22 +146,31 @@ watch(() => props.selectedChart, () => {
         </div>
 
         <div v-else :class="{ 'opacity-60 pointer-events-none transition-opacity duration-200': loading }">
-            <component
-                :is="activeComponent"
-                :chart="chart"
-                :user="user"
-                :selected-label="selectedLabel"
-                :selected-year="selectedYear"
-                :heatmap-mode="heatmapMode"
-                :available-ump-years="availableUmpYears"
-                :selected-ump-year="selectedUmpYear"
-                :loading="loading"
-                @select="selectPoint"
-                @reset="resetSelection"
-                @select-province="emit('select-province', $event)"
-                @change-ump-year="emit('change-ump-year', $event)"
-                @show-data="emit('show-data', $event)"
-            />
+            <!-- Fallback menjaga area grafik tetap informatif saat chunk kategori diambil. -->
+            <Suspense>
+                <component
+                    :is="activeComponent"
+                    :chart="chart"
+                    :user="user"
+                    :selected-label="selectedLabel"
+                    :selected-year="selectedYear"
+                    :heatmap-mode="heatmapMode"
+                    :available-ump-years="availableUmpYears"
+                    :selected-ump-year="selectedUmpYear"
+                    :loading="loading"
+                    @select="selectPoint"
+                    @reset="resetSelection"
+                    @select-province="emit('select-province', $event)"
+                    @change-ump-year="emit('change-ump-year', $event)"
+                    @show-data="emit('show-data', $event)"
+                />
+                <template #fallback>
+                    <div class="min-h-[420px] rounded-xl border border-slate-200 bg-white p-6" aria-live="polite" aria-busy="true">
+                        <div class="h-5 w-48 animate-pulse rounded bg-slate-200"></div>
+                        <div class="mt-6 h-[340px] animate-pulse rounded-lg bg-slate-100"></div>
+                    </div>
+                </template>
+            </Suspense>
         </div>
     </div>
 </template>

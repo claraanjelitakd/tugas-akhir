@@ -175,6 +175,7 @@ class UnifiedKuesionerManagementTest extends TestCase
                 'section_id' => $this->sectionProdiA->id,
                 'target_section_ids' => [$this->sectionProdiB->id], // Multi-placement di Prodi B
                 'code' => 'KOMP_CLOUD',
+                'label' => 'Penguasaan Cloud Computing',
                 'question_text' => 'Tingkat penguasaan teknologi Cloud Computing:',
                 'type' => 'single_choice',
                 'is_required' => true,
@@ -193,6 +194,7 @@ class UnifiedKuesionerManagementTest extends TestCase
         $master = KuesionerPertanyaan::where('kode_pertanyaan', 'KOMP_CLOUD')->first();
         $this->assertNotNull($master);
         $this->assertEquals('Tingkat penguasaan teknologi Cloud Computing:', $master->teks_pertanyaan);
+        $this->assertEquals('Penguasaan Cloud Computing', $master->label_pertanyaan);
 
         // Verifikasi penempatan pertanyaan di kedua section (Prodi A dan Prodi B)
         $this->assertDatabaseHas('kuesioner_section_pertanyaan', [
@@ -208,12 +210,10 @@ class UnifiedKuesionerManagementTest extends TestCase
         $this->assertDatabaseHas('kuesioner_opsi', [
             'pertanyaan_id' => $master->id,
             'label' => 'Pemula',
-            'nilai_skor' => 1,
         ]);
         $this->assertDatabaseHas('kuesioner_opsi', [
             'pertanyaan_id' => $master->id,
             'label' => 'Mahir',
-            'nilai_skor' => 3,
         ]);
     }
 

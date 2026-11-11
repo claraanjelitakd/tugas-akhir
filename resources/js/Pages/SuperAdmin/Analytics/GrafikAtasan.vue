@@ -30,8 +30,26 @@ let filterTimer = null;
 const selectedYear = ref(String(props.analytics?.filters?.selected_year || 'ALL'));
 const selectedProdiId = ref(String(props.analytics?.filters?.selected_prodi_id || ''));
 
-// Panel navigasi utama: 'charts' (Grafik & Analisis) atau 'records' (Data Responden).
-const activePanel = ref('charts');
+// Kunci penyimpanan tab analitik agar pilihan Grafik/Data konsisten lintas indikator.
+const ANALYTICS_PANEL_STORAGE_KEY = 'tracer.analytics.active-panel';
+
+// Membaca tab terakhir dengan fallback aman untuk SSR atau browser tanpa localStorage.
+const storedAnalyticsPanel = () => {
+    if (typeof window === 'undefined') return 'charts';
+
+    const storedPanel = window.localStorage.getItem(ANALYTICS_PANEL_STORAGE_KEY);
+    return ['charts', 'data'].includes(storedPanel) ? storedPanel : 'charts';
+};
+
+// Panel navigasi utama: 'charts' (Grafik) atau 'data' (Data Responden).
+const activePanel = ref(storedAnalyticsPanel());
+
+// Menyimpan tab aktif agar filter indikator tidak mengembalikan pengguna ke tab lain.
+watch(activePanel, (panel) => {
+    if (typeof window !== 'undefined') {
+        window.localStorage.setItem(ANALYTICS_PANEL_STORAGE_KEY, panel);
+    }
+});
 
 // Kategori grafik indikator aktif: 'kinerja' (Aspek Kinerja), 'kesiapan' (Kesiapan Kerja), 'prodi' (Perbandingan Prodi).
 const selectedCategory = ref('kinerja');
@@ -109,7 +127,7 @@ const formatNumber = (value, digits = 0) => Number(value || 0).toLocaleString('i
 // Opsi ECharts untuk grafik rata-rata aspek kinerja alumni (full width, leluasa, dan terbaca jelas).
 const scoreOption = computed(() => {
     const items = likertItems.value;
-    const names = items.map((item) => item.aspek);
+    const names = items.map((item) => item.label || item.aspek);
     const values = items.map((item) => item.average);
     const maxVal = 5;
 
@@ -121,7 +139,7 @@ const scoreOption = computed(() => {
             formatter: (params) => {
                 const param = params?.[0];
                 if (!param) return '-';
-                const item = items.find((i) => i.aspek === param.name);
+                const item = items.find((i) => (i.label || i.aspek) === param.name);
                 const count = item ? item.valid_count : 0;
                 return `<div class="font-bold text-slate-800">${param.name}</div>`
                     + `<div class="mt-1 text-xs text-slate-600">Rata-rata skor: <span class="font-bold text-[#0D542B]">${param.value ?? '-'} / 5</span></div>`
@@ -554,17 +572,17 @@ onBeforeUnmount(() => {
                             :class="activePanel === 'charts' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'"
                             @click="activePanel = 'charts'"
                         >
-                            Grafik & Analisis
+                            Grafik
                         </button>
                         <button
                             type="button"
                             role="tab"
-                            :aria-selected="activePanel === 'records'"
+                            :aria-selected="activePanel === 'data'"
                             class="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition-all"
-                            :class="activePanel === 'records' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'"
-                            @click="activePanel = 'records'"
+                            :class="activePanel === 'data' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'"
+                            @click="activePanel = 'data'"
                         >
-                            Data Responden ({{ formatNumber(records.length) }})
+                            Data
                         </button>
                     </nav>
 
@@ -665,7 +683,7 @@ onBeforeUnmount(() => {
                                             v-model="selectedAspectCode"
                                             class="block w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-[#0D542B] focus:bg-white focus:ring-1 focus:ring-[#0D542B]"
                                         >
-                                            <option v-for="item in likertItems" :key="item.kode" :value="item.kode">{{ item.aspek }}</option>
+                                            <option v-for="item in likertItems" :key="item.kode" :value="item.kode">{{ item.label || item.aspek }}</option>
                                         </select>
                                     </div>
                                 </div>
@@ -673,7 +691,7 @@ onBeforeUnmount(() => {
                                 <div v-if="activeAspect" class="mt-5">
                                     <div class="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
                                         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
-                                            <span class="text-sm font-bold text-slate-800">{{ activeAspect.aspek }}</span>
+                                            <span class="text-sm font-bold text-slate-800">{{ activeAspect.label || activeAspect.aspek }}</span>
                                             <span class="rounded bg-[#0D542B] px-2.5 py-1 text-xs font-bold text-white">Rata-rata: {{ activeAspect.average ?? '-' }} / 5</span>
                                         </div>
                                         <div class="mt-4 min-h-[260px]">

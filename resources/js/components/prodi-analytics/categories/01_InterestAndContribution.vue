@@ -49,6 +49,21 @@ const activeAnalysis = computed(() => choiceAnalysis(activeItem.value));
 // Isian bebas dari opsi Lainnya dipisahkan backend agar tidak menjadi kategori batang.
 const otherWordCloud = computed(() => activeItem.value?.other_word_cloud || {});
 
+// Menetapkan tampilan terpisah agar Word Cloud tidak memenuhi grafik distribusi utama.
+const activeVisualization = ref('chart');
+
+// Word Cloud tetap ditawarkan jika opsi Lainnya tersedia, meskipun belum ada teks.
+const hasOtherWordCloud = computed(() => (otherWordCloud.value.texts || [])
+    .some((text) => String(text || '').trim() !== ''));
+
+// Menentukan apakah pertanyaan aktif memang memiliki opsi Lainnya dari master.
+const showOtherWordCloudTab = computed(() => activeItem.value?.has_other_option === true || hasOtherWordCloud.value);
+
+// Mengembalikan tampilan ke grafik utama ketika pertanyaan aktif diganti.
+watch(activeItem, () => {
+    activeVisualization.value = 'chart';
+});
+
 // ALUR 9: klik batang mengirim item dan label ke GrafikProdi, lalu halaman
 // menyaring records untuk tabel detail alumni yang membentuk pilihan tersebut.
 const handleSelect = (params) => {
@@ -81,6 +96,26 @@ const handleSelect = (params) => {
         </nav>
 
         <template v-if="activeItem">
+            <!-- Grafik utama dan Word Cloud Lainnya dipisahkan sebagai tab visualisasi. -->
+            <nav v-if="showOtherWordCloudTab" class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1" aria-label="Tampilan grafik pertanyaan">
+                <button
+                    type="button"
+                    class="rounded-md px-3 py-1.5 text-xs font-bold transition-colors"
+                    :class="activeVisualization === 'chart' ? 'bg-[#0D542B] text-white shadow-sm' : 'text-slate-600 hover:bg-white hover:text-slate-900'"
+                    @click="activeVisualization = 'chart'"
+                >
+                    Grafik Distribusi
+                </button>
+                <button
+                    type="button"
+                    class="rounded-md px-3 py-1.5 text-xs font-bold transition-colors"
+                    :class="activeVisualization === 'word_cloud' ? 'bg-[#0D542B] text-white shadow-sm' : 'text-slate-600 hover:bg-white hover:text-slate-900'"
+                    @click="activeVisualization = 'word_cloud'"
+                >
+                    Word Cloud Isian Lainnya
+                </button>
+            </nav>
+
             <!-- Judul lengkap tetap tampil di bawah tab untuk membantu live coding dan audit konteks. -->
             <div>
                 <h3 class="text-base font-bold leading-6 text-slate-900">{{ activeItem.title }}</h3>
@@ -88,15 +123,15 @@ const handleSelect = (params) => {
                 <p class="mt-2 text-xs leading-5 text-slate-600">{{ activeItem.caption }}</p>
             </div>
 
-            <div v-if="activeItem.categories?.length" class="min-w-0 overflow-x-auto">
+            <div v-if="activeVisualization === 'chart' && activeItem.categories?.length" class="min-w-0 overflow-x-auto">
                 <div class="min-w-[720px]">
                     <AnalyticsEChart :option="buildChoiceOption(activeItem)" :height="choiceChartHeight(activeItem)" aria-label="Grafik distribusi bagian formulir peminatan dan kontribusi" @select="handleSelect" />
                 </div>
             </div>
-            <p v-else class="rounded-lg border border-slate-200 bg-slate-50 p-5 text-center text-sm text-slate-500">Belum ada pilihan valid untuk pertanyaan ini.</p>
+            <p v-else-if="activeVisualization === 'chart'" class="rounded-lg border border-slate-200 bg-slate-50 p-5 text-center text-sm text-slate-500">Belum ada pilihan valid untuk pertanyaan ini.</p>
 
             <!-- Analisis berada tepat di bawah grafik aktif dan tidak memakai teks hardcode. -->
-            <section v-if="activeAnalysis" class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+            <section v-if="activeVisualization === 'chart' && activeAnalysis" class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
                 <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Analisis pertanyaan aktif</p>
                 <p class="mt-2 text-sm font-semibold leading-6 text-slate-900">{{ activeAnalysis.lead }}</p>
                 <p class="mt-1 text-xs leading-5 text-slate-600">{{ activeAnalysis.detail }}</p>
@@ -104,7 +139,7 @@ const handleSelect = (params) => {
 
             <!-- Semua jawaban Lainnya dibaca sebagai teks, bukan angka kategori. -->
             <AnalyticsWordCloud
-                v-if="otherWordCloud.texts?.length"
+                v-if="activeVisualization === 'word_cloud' && hasOtherWordCloud"
                 :texts="otherWordCloud.texts"
                 :records="otherWordCloud.records || []"
                 title="Word Cloud Isian Lainnya"
@@ -112,6 +147,12 @@ const handleSelect = (params) => {
                 :height="300"
                 :max-words="100"
             />
+            <p
+                v-else-if="activeVisualization === 'word_cloud' && showOtherWordCloudTab"
+                class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500"
+            >
+                Belum ada isian teks dari opsi Lainnya.
+            </p>
         </template>
     </section>
 </template>

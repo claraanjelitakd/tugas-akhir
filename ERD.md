@@ -772,6 +772,7 @@ Bank butir pertanyaan survei terpusat untuk seluruh jenis kuesioner di lingkunga
 | :--- | :--- | :---: | :---: | :--- |
 | `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik butir pertanyaan pada bank soal. |
 | `kode_pertanyaan` | `varchar(50)` | `UK` | `NOT NULL` | Kode unik butir pertanyaan standar (misal: `F8`, `F504`, `F17a1`, `PSI-01`, `ATASAN-01`). |
+| `label_pertanyaan` | `varchar(255)` | - | `NULL` | Label ringkas yang dapat diedit admin untuk grafik, tab, dan ringkasan analitik; jika kosong, sistem memakai potongan teks pertanyaan sebagai fallback. |
 | `teks_pertanyaan` | `text` | - | `NOT NULL` | Teks redaksi butir pertanyaan yang terbaca responden. |
 | `tipe` | `varchar(50)` | - | `NOT NULL`, Default `'single_choice'` | Tipe komponen input: `single_choice`, `multiple_choice`, `text`, `textarea`, `number`, `rating_5`, `date`. |
 | `pemilik_prodi_id`| `bigint unsigned` | `FK` | `NULL` | Referensi ke `prodi.id` pembuat butir soal (NULL = milik umum universitas). |

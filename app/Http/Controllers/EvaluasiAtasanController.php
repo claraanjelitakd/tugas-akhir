@@ -152,6 +152,7 @@ class EvaluasiAtasanController extends Controller
                     'id' => $question->id,
                     'kode' => $question->kode,
                     'full_kode' => $question->kode_pertanyaan,
+                    'label' => $question->label_pertanyaan,
                     'aspek' => $question->aspek,
                     'deskripsi' => $question->keterangan ?? '',
                     'tipe' => $question->tipe,

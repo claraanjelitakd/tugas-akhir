@@ -98,6 +98,7 @@ class SuperAdminEvaluasiAtasanManagementTest extends TestCase
         $response = $this->actingAs($this->admin)->post('/superadmin/evaluasi-atasan/pertanyaan', [
             'section_id' => $section->id,
             'kode' => 'P99_kecepatan_belajar',
+            'label' => 'Kecepatan belajar',
             'aspek' => 'Kecepatan Mempelajari Hal Baru',
             'deskripsi' => 'Kemampuan adaptasi teknologi dan metode kerja baru',
             'tipe' => 'likert_5',
@@ -107,6 +108,7 @@ class SuperAdminEvaluasiAtasanManagementTest extends TestCase
         $response->assertSessionHasNoErrors();
         $this->assertDatabaseHas('kuesioner_pertanyaan', [
             'kode_pertanyaan' => 'EVA_P99_KECEPATAN_BELAJAR',
+            'label_pertanyaan' => 'Kecepatan belajar',
             'teks_pertanyaan' => 'Kecepatan Mempelajari Hal Baru',
         ]);
 
@@ -149,6 +151,36 @@ class SuperAdminEvaluasiAtasanManagementTest extends TestCase
             'Tidak mencari kerja',
         ], $question->opsi->pluck('label')->all());
         $this->assertTrue($question->opsi->every(fn ($option): bool => $option->nilai_skor === null));
+    }
+
+    /**
+     * Memastikan opsi evaluasi atasan dapat membawa Jump To sejak create pertanyaan.
+     */
+    public function test_superadmin_can_create_supervisor_question_with_option_jump_to(): void
+    {
+        $section = KuesionerSection::where('target', 'atasan')->where('order', 3)->firstOrFail();
+
+        $response = $this->actingAs($this->admin)->post('/superadmin/evaluasi-atasan/pertanyaan', [
+            'section_id' => $section->id,
+            'kode' => 'P100_STATUS_JUMP',
+            'label' => 'Status kerja atasan',
+            'aspek' => 'Bagaimana status kerja alumni?',
+            'tipe' => 'pilihan_ganda',
+            'pilihan_jawaban' => ['Bekerja', 'Belum bekerja'],
+            'option_jump_to' => ['EVA_PENILAIAN_01', null],
+            'order' => 26,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('kuesioner_pertanyaan', [
+            'kode_pertanyaan' => 'EVA_P100_STATUS_JUMP',
+            'label_pertanyaan' => 'Status kerja atasan',
+        ]);
+        $this->assertDatabaseHas('kuesioner_opsi', [
+            'kode_opsi' => 'EVA_P100_STATUS_JUMP-01',
+            'label' => 'Bekerja',
+            'lompat_ke_pertanyaan_id' => 'EVA_PENILAIAN_01',
+        ]);
     }
 
     /**

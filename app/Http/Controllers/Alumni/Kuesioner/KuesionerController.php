@@ -73,6 +73,7 @@ class KuesionerController extends Controller
                 $subpertanyaans[] = [
                     'id' => $pertanyaan->id,
                     'kode_pertanyaan' => $pertanyaan->kode_pertanyaan,
+                    'label_pertanyaan' => $pertanyaan->label_pertanyaan,
                     'subpertanyaan' => $pertanyaan->teks_pertanyaan,
                     'type' => $pertanyaan->tipe,
                     'is_mandatory' => $isMandatory,

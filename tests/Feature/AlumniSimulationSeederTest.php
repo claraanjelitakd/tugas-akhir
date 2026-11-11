@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\Yudisium;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -116,6 +117,89 @@ class AlumniSimulationSeederTest extends TestCase
                 $this->assertNotNull($biodata->perusahaan_id);
                 $this->assertSame($biodata->perusahaan_id, $biodata->atasan?->perusahaan_id);
             }
+        }
+    }
+
+    /**
+     * Memastikan jawaban fixture bervariasi tanpa memutus relasi antar sumber data.
+     */
+    public function test_default_fixture_has_varied_linked_questionnaire_answers(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $this->assertGreaterThanOrEqual(
+            3,
+            KuesionerJawaban::query()
+                ->where('responden_type', 'alumni')
+                ->where('kode_pertanyaan', 'F3')
+                ->distinct('jawaban_teks')
+                ->count('jawaban_teks')
+        );
+        $this->assertGreaterThanOrEqual(
+            3,
+            KuesionerJawaban::query()
+                ->where('responden_type', 'alumni')
+                ->where('kode_pertanyaan', 'F6')
+                ->distinct('jawaban_teks')
+                ->count('jawaban_teks')
+        );
+        $this->assertSame(
+            99,
+            KuesionerJawaban::query()
+                ->where('responden_type', 'alumni')
+                ->whereIn('kode_pertanyaan', ['F21', 'F22', 'F23', 'F24', 'F25', 'F26', 'F27'])
+                ->distinct('biodata_id')
+                ->count('biodata_id')
+        );
+        $this->assertGreaterThanOrEqual(
+            2,
+            KuesionerJawaban::query()
+                ->where('responden_type', 'alumni')
+                ->whereHas('section', fn ($query) => $query->where('target', 'prodi'))
+                ->whereIn('kode_pertanyaan', ['PSI-1-01', 'PSI-1-02', 'PSI-1-03', 'PSI-1-04'])
+                ->distinct('jawaban_teks')
+                ->count('jawaban_teks')
+        );
+        $this->assertGreaterThan(
+            0,
+            DB::table('kuesioner_jawaban as graduation')
+                ->join('kuesioner_jawaban as required', function ($join): void {
+                    $join->on('required.biodata_id', '=', 'graduation.biodata_id')
+                        ->where('required.responden_type', 'alumni')
+                        ->where('required.kode_pertanyaan', 'F17b1');
+                })
+                ->where('graduation.responden_type', 'alumni')
+                ->where('graduation.kode_pertanyaan', 'F17a1')
+                ->whereColumn('graduation.jawaban_teks', '<>', 'required.jawaban_teks')
+                ->count()
+        );
+
+        $this->assertSame(
+            0,
+            KuesionerJawaban::query()
+                ->where(function ($query): void {
+                    $query->whereNull('biodata_id')
+                        ->orWhereDoesntHave('biodata');
+                })
+                ->count()
+        );
+
+        $this->assertSame(
+            0,
+            KuesionerJawaban::query()
+                ->where('responden_type', 'atasan')
+                ->where(function ($query): void {
+                    $query->whereNull('evaluasi_atasan_id')
+                        ->orWhereDoesntHave('evaluasiAtasan');
+                })
+                ->count()
+        );
+
+        foreach (EvaluasiAtasan::query()->with(['biodata', 'perusahaan', 'atasan'])->get() as $evaluation) {
+            $this->assertNotNull($evaluation->biodata);
+            $this->assertSame($evaluation->biodata->perusahaan_id, $evaluation->perusahaan_id);
+            $this->assertSame($evaluation->biodata->atasan_id, $evaluation->atasan_id);
+            $this->assertSame($evaluation->perusahaan_id, $evaluation->atasan?->perusahaan_id);
         }
     }
 }

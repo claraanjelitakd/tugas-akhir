@@ -270,6 +270,21 @@ const OPTION_SUPPORTED_TYPES = [
 
 const canHaveOptions = (type) => OPTION_SUPPORTED_TYPES.includes(type);
 
+// Menyediakan opsi awal untuk builder create; jump_to tetap dapat dipilih per opsi.
+const getDefaultQuestionOptions = (type, code = 'Q') => {
+    const labels = type === 'rating_5'
+        ? ['1 - Sangat Rendah', '2 - Rendah', '3 - Cukup', '4 - Tinggi', '5 - Sangat Tinggi']
+        : type === 'radio_input'
+            ? ['Sebelum lulus', 'Sesudah lulus ... bulan', 'Tidak mencari kerja']
+            : ['Pilihan 1', 'Pilihan 2'];
+
+    return labels.map((label, index) => ({
+        code: (code || 'Q') + '-' + String(index + 1).padStart(2, '0'),
+        label,
+        jump_to: '',
+    }));
+};
+
 // ========================================================
 // 3. TAB TRACER QUESTIONS STATE & FILTERS
 // ========================================================
@@ -407,6 +422,7 @@ const editingQuestionId = ref(null);
 const questionModalTitle = ref('Tambah Pertanyaan');
 const questionFormData = ref({
     kode_pertanyaan: '',
+    label_pertanyaan: '',
     subpertanyaan: '',
     type: 'radio',
     section_id: '',
@@ -414,6 +430,7 @@ const questionFormData = ref({
     order: 1,
     keterangan: '',
     wajib: true,
+    options: [],
 });
 const questionFormErrors = ref({});
 const isSubmittingQuestion = ref(false);
@@ -720,6 +737,30 @@ const handleQuestionTypeChange = () => {
     if (!currentInstruction || isAutomaticInstruction(currentInstruction)) {
         questionFormData.value.keterangan = nextInstruction;
     }
+
+    if (!isEditingQuestion.value && canHaveOptions(questionFormData.value.type)) {
+        questionFormData.value.options = getDefaultQuestionOptions(
+            questionFormData.value.type,
+            questionFormData.value.kode_pertanyaan || 'Q',
+        );
+    } else if (!canHaveOptions(questionFormData.value.type)) {
+        questionFormData.value.options = [];
+    }
+};
+
+// Menambahkan baris opsi pada builder pertanyaan universitas.
+const addQuestionOption = () => {
+    const nextOrder = questionFormData.value.options.length + 1;
+    questionFormData.value.options.push({
+        code: (questionFormData.value.kode_pertanyaan || 'Q') + '-' + String(nextOrder).padStart(2, '0'),
+        label: '',
+        jump_to: '',
+    });
+};
+
+// Menghapus baris opsi dari builder pertanyaan universitas.
+const removeQuestionOption = (index) => {
+    questionFormData.value.options.splice(index, 1);
 };
 
 /**
@@ -740,6 +781,7 @@ const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') =
 
         questionFormData.value = {
             kode_pertanyaan: questionToEdit.kode_pertanyaan || '',
+            label_pertanyaan: questionToEdit.label_pertanyaan || '',
             subpertanyaan: questionToEdit.subpertanyaan || '',
             type: questionToEdit.type || 'radio',
             section_id: questionToEdit.section_id || (props.sections[0]?.id || ''),
@@ -747,6 +789,11 @@ const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') =
             order: questionToEdit.order ?? (props.subpertanyaans.length + 1),
             keterangan: questionToEdit.keterangan || getTypeInstruction(questionToEdit.type || 'radio'),
             wajib: questionToEdit.wajib !== undefined ? Boolean(questionToEdit.wajib) : true,
+            options: (questionToEdit.detils || []).map((option) => ({
+                code: option.code || '',
+                label: option.option_text || '',
+                jump_to: option.jump_to || '',
+            })),
         };
     } else {
         // Mode Tambah Baru
@@ -759,6 +806,7 @@ const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') =
         const defaultType = 'radio';
         questionFormData.value = {
             kode_pertanyaan: '',
+            label_pertanyaan: '',
             subpertanyaan: '',
             type: defaultType,
             section_id: props.sections[0]?.id || '',
@@ -766,6 +814,7 @@ const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') =
             order: props.subpertanyaans.length + 1,
             keterangan: getTypeInstruction(defaultType),
             wajib: true,
+            options: getDefaultQuestionOptions(defaultType),
         };
     }
 
@@ -807,6 +856,14 @@ const submitQuestionForm = () => {
     const payload = {
         ...questionFormData.value,
         kode_pertanyaan: questionFormData.value.kode_pertanyaan.trim().toUpperCase(),
+        options: questionFormData.value.options
+            .filter((option) => option.label && option.label.trim() !== '')
+            .map((option, index) => ({
+                code: (option.code || '').trim(),
+                label: option.label.trim(),
+                jump_to: option.jump_to || null,
+                order: index + 1,
+            })),
     };
 
     if (isEditingQuestion.value) {
@@ -2262,6 +2319,20 @@ const handleDeleteKuesioner = (k) => {
 
                         <div>
                             <label class="block font-bold text-gray-700 mb-1">
+                                Label Ringkas untuk Grafik (Opsional)
+                            </label>
+                            <input
+                                v-model="questionFormData.label_pertanyaan"
+                                type="text"
+                                maxlength="255"
+                                placeholder="Contoh: Pemahaman konsep Sistem Informasi"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            />
+                            <p class="mt-1 text-[10px] text-gray-500">Dipakai sebagai label pendek pada grafik dan ringkasan. Teks pertanyaan lengkap tetap dipertahankan.</p>
+                        </div>
+
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
                                 Teks Pertanyaan <span class="text-rose-600">*</span>
                             </label>
                             <textarea
@@ -2291,7 +2362,7 @@ const handleDeleteKuesioner = (k) => {
                                     </option>
                                 </select>
                                 <p class="mt-1 text-[10px] text-gray-500">
-                                    Opsi pilihan dapat ditambahkan setelah pertanyaan disimpan.
+                                    Opsi dan percabangan dapat diatur sejak pertanyaan dibuat.
                                 </p>
                             </div>
 
@@ -2303,6 +2374,57 @@ const handleDeleteKuesioner = (k) => {
                                     min="1"
                                     class="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                                 />
+                            </div>
+                        </div>
+
+                        <div v-if="canHaveOptions(questionFormData.type) && !isEditingQuestion" class="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                            <div class="flex items-center justify-between gap-3">
+                                <div>
+                                    <label class="block font-bold text-gray-700">Pilihan Opsi Jawaban</label>
+                                    <p class="mt-0.5 text-[10px] text-gray-500">Atur kode, teks opsi, dan Jump To langsung saat membuat pertanyaan.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    @click="addQuestionOption"
+                                    class="text-xs font-bold text-[#0D542B] hover:underline"
+                                >
+                                    + Tambah Opsi
+                                </button>
+                            </div>
+                            <div class="space-y-2">
+                                <div v-for="(option, optionIndex) in questionFormData.options" :key="optionIndex" class="grid grid-cols-1 gap-2 md:grid-cols-[8rem_1fr_1fr_auto]">
+                                    <input
+                                        v-model="option.code"
+                                        type="text"
+                                        class="w-full rounded-lg border border-gray-300 px-2.5 py-2 font-mono text-[11px] uppercase focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                        aria-label="Kode opsi jawaban"
+                                    />
+                                    <input
+                                        v-model="option.label"
+                                        type="text"
+                                        placeholder="Teks opsi jawaban"
+                                        class="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                        aria-label="Teks opsi jawaban"
+                                    />
+                                    <select
+                                        v-model="option.jump_to"
+                                        class="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                        aria-label="Pertanyaan tujuan Jump To"
+                                    >
+                                        <option value="">Tanpa Jump To</option>
+                                        <option v-for="target in availableJumpTargets" :key="target.kode_pertanyaan" :value="target.kode_pertanyaan">
+                                            {{ target.label }}
+                                        </option>
+                                    </select>
+                                    <button
+                                        type="button"
+                                        @click="removeQuestionOption(optionIndex)"
+                                        class="rounded-lg border border-gray-300 px-2 text-gray-400 hover:border-rose-300 hover:text-rose-600"
+                                        aria-label="Hapus opsi jawaban"
+                                    >
+                                        Hapus
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

@@ -235,10 +235,12 @@ const newOptionInput = ref('');
 const questionForm = ref({
     section_id: '',
     kode: '',
+    label: '',
     aspek: '',
     deskripsi: '',
     tipe: 'likert_5',
     pilihan_jawaban: [],
+    option_jump_to: [],
     order: 1,
 });
 
@@ -262,7 +264,7 @@ const availableJumpTargets = computed(() => props.questions
     .filter((question) => question.id !== activeQuestionForOption.value?.id)
     .map((question) => ({
         code: question.full_kode || question.kode,
-        text: question.aspek,
+        text: question.label ? question.label + ' — ' + question.aspek : question.aspek,
     }))
     .filter((question) => question.code));
 
@@ -316,10 +318,12 @@ const openQuestionModal = (questionToEdit = null) => {
         questionForm.value = {
             section_id: questionToEdit.section_id || (props.sections[0]?.id || ''),
             kode: questionToEdit.kode || '',
+            label: questionToEdit.label || '',
             aspek: questionToEdit.aspek || '',
             deskripsi: questionToEdit.deskripsi || '',
             tipe: questionToEdit.tipe || 'likert_5',
             pilihan_jawaban: opts,
+            option_jump_to: (questionToEdit.options || []).map((option) => option.jump_to || ''),
             order: questionToEdit.order || 1,
             is_company_field: Boolean(questionToEdit.is_company_field),
         };
@@ -328,10 +332,12 @@ const openQuestionModal = (questionToEdit = null) => {
         questionForm.value = {
             section_id: defaultSec?.id || (props.sections[0]?.id || ''),
             kode: `P${props.questions.length + 1}`,
+            label: '',
             aspek: '',
             deskripsi: '',
             tipe: 'likert_5',
             pilihan_jawaban: ['1 - Sangat Rendah', '2 - Rendah', '3 - Cukup', '4 - Tinggi', '5 - Sangat Tinggi'],
+            option_jump_to: ['', '', '', '', ''],
             order: props.questions.length + 1,
             is_company_field: false,
         };
@@ -348,14 +354,18 @@ const closeQuestionModal = () => {
 const handleTypeChange = () => {
     if (questionForm.value.tipe === 'likert_5') {
         questionForm.value.pilihan_jawaban = ['1 - Sangat Rendah', '2 - Rendah', '3 - Cukup', '4 - Tinggi', '5 - Sangat Tinggi'];
+        questionForm.value.option_jump_to = ['', '', '', '', ''];
     } else if (questionForm.value.tipe === 'radio_input') {
         questionForm.value.pilihan_jawaban = ['Sebelum lulus', 'Sesudah lulus ... bulan', 'Tidak mencari kerja'];
+        questionForm.value.option_jump_to = ['', '', ''];
     } else if (['pilihan_ganda', 'multiple_choice'].includes(questionForm.value.tipe)) {
         if (!questionForm.value.pilihan_jawaban || questionForm.value.pilihan_jawaban.length === 0) {
             questionForm.value.pilihan_jawaban = ['Opsi 1', 'Opsi 2'];
+            questionForm.value.option_jump_to = ['', ''];
         }
     } else {
         questionForm.value.pilihan_jawaban = [];
+        questionForm.value.option_jump_to = [];
     }
 };
 
@@ -365,12 +375,14 @@ const addOption = () => {
             questionForm.value.pilihan_jawaban = [];
         }
         questionForm.value.pilihan_jawaban.push(newOptionInput.value.trim());
+        questionForm.value.option_jump_to.push('');
         newOptionInput.value = '';
     }
 };
 
 const removeOption = (index) => {
     questionForm.value.pilihan_jawaban.splice(index, 1);
+    questionForm.value.option_jump_to.splice(index, 1);
 };
 
 const submitQuestionForm = () => {
@@ -1214,6 +1226,18 @@ const closeDetailModal = () => {
                         <p v-if="questionFormErrors.aspek" class="text-[11px] text-red-600 mt-1">{{ questionFormErrors.aspek }}</p>
                     </div>
 
+                    <div>
+                        <label class="mb-1 block font-bold text-gray-700">Label Ringkas untuk Grafik (Opsional)</label>
+                        <input
+                            v-model="questionForm.label"
+                            type="text"
+                            maxlength="255"
+                            placeholder="Contoh: Etika kerja alumni"
+                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                        />
+                        <p class="mt-1 text-[10px] text-gray-500">Dipakai pada grafik evaluasi atasan; teks aspek lengkap tetap tersedia pada form dan tabel.</p>
+                    </div>
+
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
                             <label class="mb-1 block font-bold text-gray-700">Tipe Pertanyaan <span class="text-rose-600">*</span></label>
@@ -1243,14 +1267,19 @@ const closeDetailModal = () => {
                         </div>
                     </div>
 
-                    <!-- Kelola Opsi Jawaban bila Pilihan Ganda / Checkbox / Radio Angka / Likert -->
+                    <!-- Kelola opsi dan percabangan saat membuat atau mengedit pertanyaan. -->
                     <div v-if="canHaveOptions(questionForm.tipe)" class="border border-gray-200 bg-gray-50 p-3.5 rounded-lg space-y-2">
-                        <label class="block font-bold text-gray-700">Pilihan Opsi Jawaban</label>
-                        <div class="flex flex-wrap gap-1.5">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <label class="block font-bold text-gray-700">Pilihan Opsi Jawaban</label>
+                                <p class="mt-0.5 text-[10px] text-gray-500">Atur Jump To langsung dari form pertanyaan.</p>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
                             <span
                                 v-for="(opt, oIdx) in questionForm.pilihan_jawaban"
                                 :key="oIdx"
-                                class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-gray-300 rounded-md text-[11px] font-medium text-gray-700 shadow-2xs"
+                                class="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-700 shadow-2xs"
                             >
                                 <input
                                     v-model="questionForm.pilihan_jawaban[oIdx]"
@@ -1258,6 +1287,16 @@ const closeDetailModal = () => {
                                     class="min-w-0 flex-1 border-0 bg-transparent p-0 text-[11px] font-medium text-gray-700 focus:outline-none focus:ring-0"
                                     aria-label="Label opsi jawaban"
                                 />
+                                <select
+                                    v-model="questionForm.option_jump_to[oIdx]"
+                                    class="w-52 rounded border border-gray-200 bg-white px-2 py-1 text-[10px] focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                    aria-label="Pertanyaan tujuan Jump To"
+                                >
+                                    <option value="">Tanpa Jump To</option>
+                                    <option v-for="target in availableJumpTargets" :key="target.code" :value="target.code">
+                                        Jump To: [{{ target.code }}] {{ target.text }}
+                                    </option>
+                                </select>
                                 <button
                                     v-if="!questionForm.is_company_field && questionForm.tipe !== 'likert_5'"
                                     type="button"
@@ -1418,11 +1457,16 @@ const closeDetailModal = () => {
                                     <tr v-for="(resp, rIdx) in selectedEvaluasi.respons" :key="resp.id" class="border-b border-gray-100 hover:bg-gray-50">
                                         <td class="p-2.5 text-center text-gray-500">{{ rIdx + 1 }}</td>
                                         <td class="p-2.5">
-                                            <div class="font-medium text-gray-900">{{ resp.pertanyaan?.aspek || '-' }}</div>
+                                            <div class="font-medium text-gray-900">
+                                                {{ resp.pertanyaan?.teks_pertanyaan || resp.pertanyaan?.label_pertanyaan || resp.pertanyaan?.aspek || '-' }}
+                                            </div>
+                                            <div v-if="resp.pertanyaan?.keterangan" class="mt-0.5 text-[11px] text-gray-500">
+                                                {{ resp.pertanyaan.keterangan }}
+                                            </div>
                                             <div v-if="resp.catatan" class="text-[11px] text-emerald-800 italic mt-0.5">Catatan: {{ resp.catatan }}</div>
                                         </td>
                                         <td class="p-2.5 text-center font-bold text-[#0D542B]">
-                                            {{ resp.nilai }}
+                                            {{ resp.jawaban_teks || resp.nilai || '-' }}
                                             <span v-if="resp.opsi?.nilai_skor !== null && resp.opsi?.nilai_skor !== undefined" class="block text-[10px] font-medium text-slate-500">
                                                 Skor: {{ resp.opsi.nilai_skor }}
                                             </span>

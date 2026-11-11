@@ -748,6 +748,38 @@ class AdminProdiKuesionerTest extends TestCase
         $this->assertCount(2, $qCheckboxText->opsi);
     }
 
+    /**
+     * Memastikan pertanyaan prodi dapat menyimpan Jump To untuk opsi saat create.
+     */
+    public function test_admin_prodi_can_create_question_with_option_jump_to(): void
+    {
+        $response = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
+            'prodi_id' => $this->prodiSI->id,
+            'code' => 'PSI-TEST-CREATE-JUMP',
+            'label' => 'Status kontribusi alumni',
+            'question_text' => 'Apakah Anda bersedia berkontribusi?',
+            'type' => 'radio_text',
+            'section_id' => $this->sectionSI->id,
+            'is_required' => true,
+            'is_reusable' => true,
+            'options' => [
+                ['code' => 'PSI-TEST-CREATE-JUMP-01', 'label' => 'Ya', 'jump_to' => 'PSI-TARGET'],
+                ['code' => 'PSI-TEST-CREATE-JUMP-02', 'label' => 'Tidak', 'jump_to' => null],
+            ],
+        ]);
+
+        $response->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('kuesioner_pertanyaan', [
+            'kode_pertanyaan' => 'PSI-TEST-CREATE-JUMP',
+            'label_pertanyaan' => 'Status kontribusi alumni',
+        ]);
+        $this->assertDatabaseHas('kuesioner_opsi', [
+            'kode_opsi' => 'PSI-TEST-CREATE-JUMP-01',
+            'label' => 'Ya',
+            'lompat_ke_pertanyaan_id' => 'PSI-TARGET',
+        ]);
+    }
+
     public function test_alumni_can_submit_radio_text_and_radio_input_in_prodi_questionnaire(): void
     {
         $qRadioText = KuesionerPertanyaan::create([

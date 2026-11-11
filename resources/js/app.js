@@ -5,6 +5,8 @@ import PigoLoader from './components/ui/pigo-loader.vue';
 
 // Global loading state (hanya aktif saat navigasi rute/perpindahan halaman berlangsung)
 const isNavigating = ref(false);
+let navigationTimer = null;
+let navigationSequence = 0;
 
 // Listen to Inertia router events: abaikan background request / autosave formulir agar PigoLoader tidak menutupi layar alumni
 router.on('start', (event) => {
@@ -17,9 +19,17 @@ router.on('start', (event) => {
         return;
     }
 
-    isNavigating.value = true;
+    window.clearTimeout(navigationTimer);
+    const sequence = ++navigationSequence;
+    navigationTimer = window.setTimeout(() => {
+        if (sequence === navigationSequence) {
+            isNavigating.value = true;
+        }
+    }, 180);
 });
 router.on('finish', () => {
+    window.clearTimeout(navigationTimer);
+    navigationSequence += 1;
     isNavigating.value = false;
 });
 

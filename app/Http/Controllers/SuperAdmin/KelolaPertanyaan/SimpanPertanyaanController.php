@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\SuperAdmin\KelolaPertanyaan;
 
 use App\Http\Controllers\Controller;
+use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSectionPertanyaan;
 use App\Services\Kuesioner\QuestionDefaultOptionsService;
@@ -30,12 +31,17 @@ class SimpanPertanyaanController extends Controller
         $validated = $request->validate([
             'section_id' => 'required|exists:kuesioner_section,id',
             'kode_pertanyaan' => 'required|string|max:50|unique:kuesioner_pertanyaan,kode_pertanyaan',
+            'label_pertanyaan' => 'nullable|string|max:255',
             'subpertanyaan' => 'required|string',
             'type' => 'required|string|in:radio,single_choice,radio_input,radio_text,multiple_choice,checkbox,multiple_choice_text,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,text,textarea,number,date,time,dropdown,searchable_select,file,header',
             'keterangan' => 'nullable|string|max:500',
             'wajib' => 'required|boolean',
             'tampil_di' => 'nullable|string|in:kuesioner,profile,profil,both,hidden,none',
             'order' => 'nullable|integer',
+            'options' => 'nullable|array',
+            'options.*.code' => 'nullable|string|max:50|distinct',
+            'options.*.label' => 'required_with:options.*.code|nullable|string',
+            'options.*.jump_to' => 'nullable|string|max:50',
         ]);
 
         $sectionId = (int) $validated['section_id'];
@@ -54,6 +60,7 @@ class SimpanPertanyaanController extends Controller
 
         $pertanyaan = KuesionerPertanyaan::create([
             'kode_pertanyaan' => trim($validated['kode_pertanyaan']),
+            'label_pertanyaan' => filled($validated['label_pertanyaan'] ?? null) ? trim($validated['label_pertanyaan']) : null,
             'teks_pertanyaan' => trim($validated['subpertanyaan']),
             'tipe' => $validated['type'],
             'keterangan' => $validated['keterangan'],
@@ -70,8 +77,26 @@ class SimpanPertanyaanController extends Controller
             'tampil_di' => $validated['tampil_di'],
         ]);
 
-        // Otomatis buatkan opsi pilihan default jika pertanyaan mendukung opsi
-        QuestionDefaultOptionsService::generateForUnifiedQuestion($pertanyaan);
+        if ($request->has('options') && is_array($validated['options'] ?? null) && count($validated['options']) > 0) {
+            foreach ($validated['options'] as $index => $option) {
+                $label = trim((string) ($option['label'] ?? ''));
+                if ($label === '') {
+                    continue;
+                }
+
+                $optionOrder = $index + 1;
+                KuesionerOpsi::create([
+                    'pertanyaan_id' => $pertanyaan->id,
+                    'kode_opsi' => trim((string) ($option['code'] ?? '')) ?: $pertanyaan->kode_pertanyaan.'-'.str_pad((string) $optionOrder, 2, '0', STR_PAD_LEFT),
+                    'label' => $label,
+                    'nilai_skor' => $pertanyaan->tipe === 'rating_5' ? $optionOrder : null,
+                    'lompat_ke_pertanyaan_id' => filled($option['jump_to'] ?? null) ? trim((string) $option['jump_to']) : null,
+                    'order' => $optionOrder,
+                ]);
+            }
+        } else {
+            QuestionDefaultOptionsService::generateForUnifiedQuestion($pertanyaan);
+        }
 
         return redirect()->back()->with('success', 'Pertanyaan baru beserta pilihan opsi jawaban default berhasil ditambahkan.');
     }
@@ -86,6 +111,7 @@ class SimpanPertanyaanController extends Controller
         $validated = $request->validate([
             'section_id' => 'required|exists:kuesioner_section,id',
             'kode_pertanyaan' => 'required|string|max:50|unique:kuesioner_pertanyaan,kode_pertanyaan,'.$pertanyaan->id,
+            'label_pertanyaan' => 'nullable|string|max:255',
             'subpertanyaan' => 'required|string',
             'type' => 'required|string|in:radio,single_choice,radio_input,radio_text,multiple_choice,checkbox,multiple_choice_text,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,text,textarea,number,date,time,dropdown,searchable_select,file,header',
             'keterangan' => 'nullable|string|max:500',
@@ -98,6 +124,7 @@ class SimpanPertanyaanController extends Controller
 
         $pertanyaan->update([
             'kode_pertanyaan' => trim($validated['kode_pertanyaan']),
+            'label_pertanyaan' => filled($validated['label_pertanyaan'] ?? null) ? trim($validated['label_pertanyaan']) : null,
             'teks_pertanyaan' => trim($validated['subpertanyaan']),
             'tipe' => $validated['type'],
             'keterangan' => $validated['keterangan'] ?? $pertanyaan->keterangan,

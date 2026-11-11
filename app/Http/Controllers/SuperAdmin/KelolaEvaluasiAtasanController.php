@@ -85,6 +85,7 @@ class KelolaEvaluasiAtasanController extends Controller
                 'section_id' => $pivot->section_id,
                 'kode' => $cleanCode,
                 'full_kode' => $p->kode_pertanyaan,
+                'label' => $p->label_pertanyaan,
                 'aspek' => $p->teks_pertanyaan,
                 'deskripsi' => $p->keterangan,
                 'tipe' => $p->tipe,
@@ -270,10 +271,13 @@ class KelolaEvaluasiAtasanController extends Controller
         $validated = $request->validate([
             'section_id' => 'nullable|integer|exists:kuesioner_section,id',
             'kode' => 'nullable|string|max:50',
+            'label' => 'nullable|string|max:255',
             'aspek' => 'required|string|max:255',
             'deskripsi' => 'nullable|string',
             'tipe' => 'nullable|string|in:likert_5,pilihan_ganda,single_choice,radio_input,multiple_choice,checkbox,text,textarea',
             'pilihan_jawaban' => 'nullable|array',
+            'option_jump_to' => 'nullable|array',
+            'option_jump_to.*' => 'nullable|string|max:50',
             'order' => 'nullable|integer',
         ]);
 
@@ -305,6 +309,7 @@ class KelolaEvaluasiAtasanController extends Controller
 
         $pertanyaan = KuesionerPertanyaan::create([
             'kode_pertanyaan' => $kode,
+            'label_pertanyaan' => filled($validated['label'] ?? null) ? trim($validated['label']) : null,
             'teks_pertanyaan' => $validated['aspek'],
             'keterangan' => $validated['deskripsi'] ?? null,
             'tipe' => $tipe,
@@ -332,6 +337,9 @@ class KelolaEvaluasiAtasanController extends Controller
                     'kode_opsi' => $kode.'-'.str_pad((string) ($idx + 1), 2, '0', STR_PAD_LEFT),
                     'label' => (string) $label,
                     'nilai_skor' => $tipe === 'likert_5' ? $idx + 1 : null,
+                    'lompat_ke_pertanyaan_id' => filled($validated['option_jump_to'][$idx] ?? null)
+                        ? trim((string) $validated['option_jump_to'][$idx])
+                        : null,
                     'order' => $idx + 1,
                 ]);
             }
@@ -349,10 +357,13 @@ class KelolaEvaluasiAtasanController extends Controller
 
         $validated = $request->validate([
             'section_id' => 'nullable|integer|exists:kuesioner_section,id',
+            'label' => 'nullable|string|max:255',
             'aspek' => 'required|string|max:255',
             'deskripsi' => 'nullable|string',
             'tipe' => 'nullable|string|in:likert_5,pilihan_ganda,single_choice,radio_input,multiple_choice,checkbox,text,textarea',
             'pilihan_jawaban' => 'nullable|array',
+            'option_jump_to' => 'nullable|array',
+            'option_jump_to.*' => 'nullable|string|max:50',
             'is_active' => 'nullable|boolean',
             'order' => 'nullable|integer',
         ]);
@@ -364,6 +375,7 @@ class KelolaEvaluasiAtasanController extends Controller
         };
 
         $pertanyaan->update([
+            'label_pertanyaan' => filled($validated['label'] ?? null) ? trim($validated['label']) : null,
             'teks_pertanyaan' => $validated['aspek'],
             'keterangan' => $validated['deskripsi'] ?? null,
             'tipe' => $tipe,
@@ -396,6 +408,9 @@ class KelolaEvaluasiAtasanController extends Controller
                     'kode_opsi' => $pertanyaan->kode_pertanyaan.'-'.str_pad((string) ($idx + 1), 2, '0', STR_PAD_LEFT),
                     'label' => (string) $label,
                     'nilai_skor' => $tipe === 'likert_5' ? $idx + 1 : null,
+                    'lompat_ke_pertanyaan_id' => filled($validated['option_jump_to'][$idx] ?? null)
+                        ? trim((string) $validated['option_jump_to'][$idx])
+                        : null,
                     'order' => $idx + 1,
                 ]);
             }

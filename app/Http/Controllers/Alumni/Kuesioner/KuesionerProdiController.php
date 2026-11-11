@@ -68,6 +68,7 @@ class KuesionerProdiController extends Controller
                     'id' => $p->id,
                     'section_id' => $sec->id,
                     'code' => $p->kode_pertanyaan,
+                    'question_label' => $p->label_pertanyaan,
                     'question_text' => $p->teks_pertanyaan,
                     'type' => $p->tipe,
                     'is_required' => (bool) ($p->pivot->wajib ?? true),

@@ -574,6 +574,7 @@ const togglingQuestionId = ref(null);
 const questionForm = ref({
     prodi_id: null,
     code: '',
+    label: '',
     question_text: '',
     type: 'single_choice',
     section_id: '',
@@ -744,6 +745,7 @@ const openQuestionModal = (questionToEdit = null) => {
         questionForm.value = {
             prodi_id: props.selectedProdi?.id || null,
             code: questionToEdit.code || '',
+            label: questionToEdit.label || '',
             question_text: questionToEdit.question_text || '',
             type: questionToEdit.type || 'single_choice',
             section_id: questionToEdit.section_id || (props.sections[0]?.id || ''),
@@ -754,6 +756,7 @@ const openQuestionModal = (questionToEdit = null) => {
             options: (questionToEdit.options || []).map(opt => ({
                 code: opt.code || opt.kode_opsi || '',
                 label: opt.option_text || '',
+                jump_to: opt.jump_to || '',
             })),
         };
     } else {
@@ -761,6 +764,7 @@ const openQuestionModal = (questionToEdit = null) => {
         questionForm.value = {
             prodi_id: props.selectedProdi?.id || null,
             code: `P${props.questions.length + 1}`,
+            label: '',
             question_text: '',
             type: 'single_choice',
             section_id: defaultSecId,
@@ -812,6 +816,7 @@ const submitQuestionForm = () => {
     const payload = {
         prodi_id: props.selectedProdi.id,
         code: questionForm.value.code.trim().toUpperCase(),
+        label: questionForm.value.label.trim(),
         question_text: questionForm.value.question_text.trim(),
         type: questionForm.value.type,
         section_id: parseInt(questionForm.value.section_id, 10),
@@ -824,6 +829,7 @@ const submitQuestionForm = () => {
             .map((option, index) => ({
                 code: (option.code || buildOptionCode(index + 1)).trim(),
                 label: option.label.trim(),
+                jump_to: option.jump_to || null,
             })),
     };
 
@@ -1540,6 +1546,20 @@ const handleDeleteOption = (opt) => {
                     </div>
 
                     <div>
+                        <label class="mb-1 block font-semibold text-gray-700 text-xs">
+                            Label Ringkas untuk Grafik (Opsional)
+                        </label>
+                        <input
+                            v-model="questionForm.label"
+                            type="text"
+                            maxlength="255"
+                            placeholder="Contoh: Pemahaman konsep Sistem Informasi"
+                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                        />
+                        <p class="mt-1 text-[10px] text-gray-500">Dipakai pada grafik; teks pertanyaan lengkap tetap disimpan untuk responden dan tabel.</p>
+                    </div>
+
+                    <div>
                         <label class="block font-semibold text-gray-700 text-xs mb-1">
                             Judul Bagian (Section Title) <span class="text-red-500">*</span>
                         </label>
@@ -1822,7 +1842,7 @@ const handleDeleteOption = (opt) => {
                             <div>
                                 <label class="font-bold text-gray-700">Pilihan Opsi Jawaban</label>
                                 <p class="mt-0.5 text-[10px] text-gray-500">
-                                    {{ questionForm.type === 'radio_input' ? 'Gunakan ... untuk menandai bagian angka, misalnya ... bulan.' : 'Percabangan Jump To diatur melalui Edit Opsi setelah pertanyaan tersimpan.' }}
+                                    {{ questionForm.type === 'radio_input' ? 'Gunakan ... untuk menandai bagian angka, misalnya ... bulan.' : 'Kode, teks opsi, dan percabangan Jump To dapat diatur sejak create.' }}
                                 </p>
                             </div>
                             <button
@@ -1849,6 +1869,20 @@ const handleDeleteOption = (opt) => {
                                     class="flex-1 px-2.5 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-[#0D542B]"
                                     aria-label="Teks opsi"
                                 />
+                                <select
+                                    v-model="opt.jump_to"
+                                    class="w-52 px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:ring-1 focus:ring-[#0D542B]"
+                                    aria-label="Pertanyaan tujuan Jump To"
+                                >
+                                    <option value="">Tanpa Jump To</option>
+                                    <option
+                                        v-for="target in props.availableJumpTargets"
+                                        :key="target.code"
+                                        :value="target.code"
+                                    >
+                                        Jump To: [{{ target.code }}] {{ target.label || target.text }}
+                                    </option>
+                                </select>
                                 <button
                                     type="button"
                                     @click="removeOptionFromForm(oIdx)"

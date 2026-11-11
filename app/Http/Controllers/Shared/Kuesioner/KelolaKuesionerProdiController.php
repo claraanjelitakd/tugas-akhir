@@ -212,6 +212,7 @@ class KelolaKuesionerProdiController extends Controller
                 'id' => $master->id,
                 'placement_id' => $placement->id,
                 'code' => $master->kode_pertanyaan,
+                'label' => $master->label_pertanyaan,
                 'question_text' => $master->teks_pertanyaan,
                 'type' => $master->tipe,
                 'order' => $placement->order,
@@ -297,6 +298,7 @@ class KelolaKuesionerProdiController extends Controller
                 return [
                     'id' => $p->id,
                     'kode' => $p->kode_pertanyaan,
+                    'label' => $p->label_pertanyaan,
                     'teks' => $p->teks_pertanyaan,
                     'tipe' => $p->tipe,
                     'asal' => $asal,
@@ -313,6 +315,7 @@ class KelolaKuesionerProdiController extends Controller
         $availableJumpTargets = $questions
             ->map(fn (array $question): array => [
                 'code' => $question['code'],
+                'label' => $question['label'] ?: Str::limit($question['question_text'], 65),
                 'text' => $question['question_text'],
                 'section' => $question['section']['title'] ?? null,
             ])
@@ -522,6 +525,7 @@ class KelolaKuesionerProdiController extends Controller
         $validated = $request->validate([
             'prodi_id' => 'required|exists:prodi,id',
             'code' => 'required|string|max:50',
+            'label' => 'nullable|string|max:255',
             'question_text' => 'required|string',
             'type' => 'required|string|in:text,textarea,number,single_choice,radio,radio_input,radio_text,multiple_choice,checkbox,multiple_choice_text,dropdown,searchable_select,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,date,time,file,header',
             'is_required' => 'boolean',
@@ -532,6 +536,7 @@ class KelolaKuesionerProdiController extends Controller
             'options' => 'nullable|array',
             'options.*.code' => 'nullable|string|max:50|distinct',
             'options.*.label' => 'nullable|string',
+            'options.*.jump_to' => 'nullable|string|max:50',
         ]);
 
         $user = $this->authenticatedUser();
@@ -579,6 +584,7 @@ class KelolaKuesionerProdiController extends Controller
         if (! $master) {
             $master = KuesionerPertanyaan::create([
                 'kode_pertanyaan' => $code,
+                'label_pertanyaan' => filled($validated['label'] ?? null) ? trim($validated['label']) : null,
                 'teks_pertanyaan' => trim($validated['question_text']),
                 'tipe' => $validated['type'],
                 'pemilik_prodi_id' => $prodiId,
@@ -590,6 +596,7 @@ class KelolaKuesionerProdiController extends Controller
             // Pemilik boleh memperbarui master miliknya saat memakai kembali kode yang sama.
             $master->update([
                 'teks_pertanyaan' => trim($validated['question_text']),
+                'label_pertanyaan' => filled($validated['label'] ?? null) ? trim($validated['label']) : null,
                 'tipe' => $validated['type'],
                 'is_reusable' => $request->boolean('is_reusable', true),
             ]);
@@ -656,6 +663,7 @@ class KelolaKuesionerProdiController extends Controller
                             'kode_opsi' => $optionCode !== '' ? $optionCode : $master->kode_pertanyaan.'-'.str_pad((string) $optionOrder, 2, '0', STR_PAD_LEFT),
                             'label' => $trimmed,
                             'nilai_skor' => $master->tipe === 'rating_5' ? $optionOrder : null,
+                            'lompat_ke_pertanyaan_id' => is_array($opt) && filled($opt['jump_to'] ?? null) ? trim((string) $opt['jump_to']) : null,
                             'order' => $optionOrder,
                         ]);
                     }
@@ -679,6 +687,7 @@ class KelolaKuesionerProdiController extends Controller
         $validated = $request->validate([
             'prodi_id' => 'required|exists:prodi,id',
             'code' => 'required|string|max:50',
+            'label' => 'nullable|string|max:255',
             'question_text' => 'required|string',
             'type' => 'required|string|in:text,textarea,number,single_choice,radio,radio_input,radio_text,multiple_choice,checkbox,multiple_choice_text,dropdown,searchable_select,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,date,time,file,header',
             'is_required' => 'boolean',
@@ -704,6 +713,7 @@ class KelolaKuesionerProdiController extends Controller
 
         $master->update([
             'kode_pertanyaan' => $code,
+            'label_pertanyaan' => filled($validated['label'] ?? null) ? trim($validated['label']) : null,
             'teks_pertanyaan' => trim($validated['question_text']),
             'tipe' => $validated['type'],
             'is_reusable' => $request->boolean('is_reusable', true),

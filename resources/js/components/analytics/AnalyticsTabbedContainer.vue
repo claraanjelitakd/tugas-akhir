@@ -47,8 +47,26 @@ watch(() => props.views, (newViews) => {
     }
 }, { immediate: true });
 
-// Mode tampilan: 'chart' (grafik visual) atau 'table' (data ringkasan)
-const activeViewMode = ref('chart');
+// Kunci penyimpanan mode visualisasi agar Grafik/Data Ringkasan tetap konsisten lintas indikator.
+const ANALYTICS_VIEW_MODE_STORAGE_KEY = 'tracer.analytics.view-mode';
+
+// Membaca mode terakhir dengan fallback aman untuk SSR atau browser tanpa localStorage.
+const storedAnalyticsViewMode = () => {
+    if (typeof window === 'undefined') return 'chart';
+
+    const storedMode = window.localStorage.getItem(ANALYTICS_VIEW_MODE_STORAGE_KEY);
+    return ['chart', 'table'].includes(storedMode) ? storedMode : 'chart';
+};
+
+// Mode tampilan: 'chart' (grafik visual) atau 'table' (data ringkasan).
+const activeViewMode = ref(storedAnalyticsViewMode());
+
+// Menyimpan mode aktif agar pergantian grafik tidak mengembalikan pengguna ke mode lain.
+watch(activeViewMode, (mode) => {
+    if (typeof window !== 'undefined') {
+        window.localStorage.setItem(ANALYTICS_VIEW_MODE_STORAGE_KEY, mode);
+    }
+});
 
 // Objek view yang sedang aktif saat ini
 const currentView = computed(() => {
@@ -61,7 +79,9 @@ const currentViewIsTableOnly = computed(() => currentView.value.tableOnly === tr
 // Memilih tab dan langsung menyesuaikan mode tampilan sesuai kontrak view.
 const selectView = (view) => {
     activeTabKey.value = view.key;
-    activeViewMode.value = view.tableOnly ? 'table' : 'chart';
+    if (view.tableOnly) {
+        activeViewMode.value = 'table';
+    }
 };
 
 // Menjaga view tabel-only tidak pernah kembali ke mode grafik.
@@ -1013,6 +1033,7 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                 <figcaption class="mt-2 px-1 text-xs leading-relaxed text-slate-500">
                     <span class="font-semibold text-slate-700">Caption:</span>
                     {{ currentView.caption || currentView.description || currentView.title }}
+                    <span class="mt-1 block text-slate-400">Petunjuk: Klik elemen grafik untuk melihat rincian responden pada tabel di bawah. Data lengkap tersedia pada tab Data Ringkasan.</span>
                 </figcaption>
             </figure>
 

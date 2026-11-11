@@ -1847,14 +1847,19 @@ class TracerAnalyticsService
                 ]);
             }
         }
-        $series = $records->groupBy('competency')->map(fn (Collection $group, string $label): array => [
-            'label' => $label,
-            'count' => $group->count(),
-            'graduation_score' => $this->averageInteger($group->pluck('graduation_score')->all()),
-            'need_score' => $this->averageInteger($group->pluck('need_score')->all()),
-            'gap' => $this->averageInteger($group->pluck('gap')->all()),
-            'is_deficit' => $this->averageInteger($group->pluck('gap')->all()) < 0,
-        ])->values()->all();
+        $series = $records->groupBy('competency')->map(function (Collection $group, string $label): array {
+            $gap = $this->averageInteger($group->pluck('gap')->all());
+
+            return [
+                'label' => $label,
+                'count' => $group->count(),
+                'graduation_score' => $this->averageInteger($group->pluck('graduation_score')->all()),
+                'need_score' => $this->averageInteger($group->pluck('need_score')->all()),
+                'gap' => $gap,
+                'is_deficit' => $gap < 0,
+                'is_neutral' => $gap === 0,
+            ];
+        })->values()->all();
 
         $sortedByGap = collect($series)->sortByDesc('gap')->values();
         $largestGapItem = $sortedByGap->first();

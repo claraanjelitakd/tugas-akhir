@@ -6,6 +6,7 @@ use App\Models\KuesionerSection;
 use App\Models\Prodi;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Menyediakan data analitik kuesioner yang dimiliki setiap program studi.
@@ -122,6 +123,7 @@ class ProdiAnalyticsService
             ->get()
             ->map(function ($q) {
                 $q->question_text = $q->teks_pertanyaan;
+                $q->question_label = $q->label_pertanyaan ?: Str::limit($q->teks_pertanyaan, 72);
                 $q->code = $q->kode_pertanyaan;
                 $q->type = $q->tipe;
                 $q->is_required = (bool) ($q->pivot->wajib ?? true);
@@ -345,7 +347,7 @@ class ProdiAnalyticsService
             'source' => 'Tabel: kuesioner_jawaban, kuesioner_pertanyaan, kuesioner_opsi, kuesioner_section, biodata, data_akademik, users, prodi.',
             'tables' => [
                 ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, pertanyaan_id, jawaban_teks, jawaban_json, created_at', 'role' => 'Jawaban kuesioner prodi per alumni'],
-                ['table' => 'kuesioner_pertanyaan', 'columns' => 'id, pemilik_prodi_id, kode_pertanyaan, teks_pertanyaan, tipe_pertanyaan, urutan', 'role' => 'Definisi butir dan tipe perhitungan'],
+                ['table' => 'kuesioner_pertanyaan', 'columns' => 'id, pemilik_prodi_id, kode_pertanyaan, label_pertanyaan, teks_pertanyaan, tipe', 'role' => 'Definisi butir, label grafik, dan tipe perhitungan'],
                 ['table' => 'kuesioner_opsi', 'columns' => 'pertanyaan_id, label_opsi, urutan', 'role' => 'Opsi pembentuk distribusi pilihan'],
                 ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, nomor_telepon, email_pribadi', 'role' => 'Relasi responden, prodi, dan kontak alumni'],
                 ['table' => 'data_akademik', 'columns' => 'nim, nama, tahun_lulus', 'role' => 'Identitas akademik dan filter kohort'],
@@ -388,6 +390,7 @@ class ProdiAnalyticsService
                 'id' => (int) $question->id,
                 'code' => $question->code,
                 'question_text' => $question->question_text,
+                'question_label' => $question->question_label,
                 'type' => $question->type,
                 'is_required' => (bool) $question->is_required,
                 'options' => $question->options->map(static fn ($option): array => [
@@ -448,10 +451,12 @@ class ProdiAnalyticsService
             'key' => $question->code ?: 'question-'.$question->id,
             'question_id' => (int) $question->id,
             'type' => 'likert',
-            'title' => $question->question_text,
+            'title' => $question->question_label,
+            'question_text' => $question->question_text,
+            'question_label' => $question->question_label,
             'subtitle' => 'Rata-rata dan median skor dari jawaban valid pada skala 1 sampai 5.',
             'caption' => 'Diagram batang horizontal dipakai agar teks pernyataan panjang tetap terbaca dan perbandingan skor antarbutir mudah dilakukan.',
-            'categories' => [$question->question_text],
+            'categories' => [$question->question_label],
             'values' => [$average],
             'scores' => $scores,
             'stat' => $stat,
@@ -471,6 +476,7 @@ class ProdiAnalyticsService
             ->mapWithKeys(fn ($option): array => [$option->id => $this->canonicalChoiceLabel((string) $option->option_text)])
             ->all();
         $orderedLabels = array_values($optionLabels);
+        $hasOtherOption = in_array('Lainnya', $orderedLabels, true);
         $counts = array_fill_keys($orderedLabels, 0);
         $records = [];
         $otherRecords = [];
@@ -525,7 +531,9 @@ class ProdiAnalyticsService
             'key' => $question->code ?: 'question-'.$question->id,
             'question_id' => (int) $question->id,
             'type' => 'choice',
-            'title' => $question->question_text,
+            'title' => $question->question_label,
+            'question_text' => $question->question_text,
+            'question_label' => $question->question_label,
             'subtitle' => $question->type === 'multiple_choice' ? 'Satu alumni dapat tercatat pada lebih dari satu pilihan.' : 'Distribusi pilihan alumni yang mengisi pertanyaan ini.',
             'caption' => 'Diagram batang horizontal dipakai untuk membandingkan jumlah jawaban tanpa memotong label pilihan.',
             'categories' => array_column($categories, 'label'),
@@ -533,6 +541,7 @@ class ProdiAnalyticsService
             'scores' => [],
             'stat' => $stat,
             'records' => $records,
+            'has_other_option' => $hasOtherOption,
             'other_word_cloud' => [
                 'count' => $otherCount,
                 'texts' => array_values($otherTexts),
@@ -561,7 +570,9 @@ class ProdiAnalyticsService
             'key' => $question->code ?: 'question-'.$question->id,
             'question_id' => (int) $question->id,
             'type' => 'text',
-            'title' => $question->question_text,
+            'title' => $question->question_label,
+            'question_text' => $question->question_text,
+            'question_label' => $question->question_label,
             'subtitle' => 'Jawaban terbuka ditampilkan di tab Data agar konteks masukan alumni tetap utuh.',
             'caption' => 'Jawaban terbuka tidak dipaksakan menjadi angka; daftar respons menjadi bentuk visualisasi yang paling tepat.',
             'categories' => [],
@@ -584,6 +595,7 @@ class ProdiAnalyticsService
             'question_id' => (int) $question->id,
             'code' => $question->code ?: 'Q'.$question->id,
             'question_text' => $question->question_text,
+            'question_label' => $question->question_label,
             'type' => $question->type,
             'valid_count' => $validCount,
             'average' => $average,

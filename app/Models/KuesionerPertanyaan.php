@@ -22,6 +22,7 @@ class KuesionerPertanyaan extends Model
 
     protected $fillable = [
         'kode_pertanyaan',
+        'label_pertanyaan',
         'teks_pertanyaan',
         'tipe',
         'pemilik_prodi_id',

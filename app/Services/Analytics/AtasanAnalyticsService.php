@@ -7,6 +7,7 @@ use App\Models\KuesionerPertanyaan;
 use App\Models\Prodi;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Menyusun statistik evaluasi pengguna lulusan dari jawaban atasan
@@ -39,6 +40,7 @@ class AtasanAnalyticsService
             ->get()
             ->map(function ($q) {
                 $q->kode = $q->kode_pertanyaan;
+                $q->label_ringkas = $q->label_pertanyaan ?: Str::limit($q->teks_pertanyaan, 72);
                 $q->aspek = $q->teks_pertanyaan;
                 $q->deskripsi = $q->keterangan ?? '';
                 $q->pilihan_jawaban = $q->opsi->pluck('label')->all();
@@ -200,6 +202,7 @@ class AtasanAnalyticsService
                 return [
                     'id' => $question->id,
                     'kode' => $question->kode,
+                    'label' => $question->label_ringkas,
                     'aspek' => $question->aspek,
                     'deskripsi' => $question->deskripsi,
                     'type' => $question->tipe,

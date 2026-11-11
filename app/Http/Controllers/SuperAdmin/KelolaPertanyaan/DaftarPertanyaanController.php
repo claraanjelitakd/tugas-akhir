@@ -81,6 +81,7 @@ class DaftarPertanyaanController extends Controller
                 'pertanyaan_id' => $p->id,
                 'section_id' => $sp->section_id,
                 'kode_pertanyaan' => $p->kode_pertanyaan,
+                'label_pertanyaan' => $p->label_pertanyaan,
                 'subpertanyaan' => $p->teks_pertanyaan,
                 'type' => $p->tipe,
                 'wajib' => (bool) $sp->wajib,
@@ -136,7 +137,7 @@ class DaftarPertanyaanController extends Controller
             return [
                 'id' => $q['id'],
                 'kode_pertanyaan' => $q['kode_pertanyaan'],
-                'label' => $q['kode_pertanyaan'].' — '.Str::limit($q['subpertanyaan'], 65),
+                'label' => $q['kode_pertanyaan'].' — '.($q['label_pertanyaan'] ?: Str::limit($q['subpertanyaan'], 65)),
                 'text' => $q['subpertanyaan'],
                 'section_id' => $q['section_id'],
                 'section_title' => $sectionTitle,
@@ -173,6 +174,7 @@ class DaftarPertanyaanController extends Controller
                 return [
                     'id' => $p->id,
                     'kode' => $p->kode_pertanyaan,
+                    'label' => $p->label_pertanyaan,
                     'teks' => $p->teks_pertanyaan,
                     'tipe' => $p->tipe,
                     'asal' => $asal,

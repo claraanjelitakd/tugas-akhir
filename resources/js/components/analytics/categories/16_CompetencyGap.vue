@@ -88,8 +88,12 @@ const gapDiagramOption = computed(() => {
     const needScore = item.need;
     const gap = item.gap;
     const isDeficit = item.isDeficit;
+    // Satu label gabungan mencegah teks Potential dan Performance bertumpuk saat nilainya sama.
+    const isNeutral = gap === 0;
     const gapSign = gap > 0 ? `+${gap}` : `${gap}`;
-    const statusText = gap >= 0 ? 'Surplus (Bekal Terpenuhi)' : 'Defisit (Kebutuhan Penguatan)';
+    const statusText = isNeutral
+        ? 'Selaras (Tidak ada gap)'
+        : (gap > 0 ? 'Surplus (Bekal Terpenuhi)' : 'Defisit (Kebutuhan Penguatan)');
 
     // Baseline di titik awal (Skala Likert minimal 1.0)
     const baselineY = 1.0;
@@ -271,6 +275,9 @@ const gapDiagramOption = computed(() => {
                     show: true,
                     formatter: (param) => {
                         if (param.dataIndex === 1) {
+                            if (isNeutral) {
+                                return `Potential & Performance\nSkor ${needScore}`;
+                            }
                             return `Potential (Where We Want To Be)\nTuntutan Kerja: Skor ${needScore}`;
                         }
                         return '';
@@ -304,7 +311,7 @@ const gapDiagramOption = computed(() => {
                 label: {
                     show: true,
                     formatter: (param) => {
-                        if (param.dataIndex === 1) {
+                        if (param.dataIndex === 1 && !isNeutral) {
                             return `Performance (Where We Are)\nBekal Saat Lulus: Skor ${gradScore}`;
                         }
                         return '';
@@ -325,18 +332,24 @@ const gapDiagramOption = computed(() => {
 const aspectAnalysis = computed(() => {
     const item = activeAspect.value;
     const isDeficit = item.isDeficit;
+    // Gap nol memiliki makna selaras, bukan surplus.
+    const isNeutral = item.gap === 0;
     const gapSign = item.gap > 0 ? `+${item.gap}` : `${item.gap}`;
 
     const lead = `Pada dimensi "${item.label}", alumni menilai rata-rata bekal kompetensi saat lulus berada pada skor ${item.grad} (Performance / Where We Are), sementara tuntutan kebutuhan nyata di dunia kerja berada pada skor ${item.need} (Potential / Where We Want To Be).`;
 
-    const detail = isDeficit
+    const detail = isNeutral
+        ? `Bekal kompetensi "${item.label}" dan tuntutan dunia kerja berada pada skor yang sama. Tidak terdapat gap yang perlu ditutup pada dimensi ini.`
+        : (isDeficit
         ? `Terdapat defisit gap sebesar ${gapSign} poin. Hal ini mengindikasikan bahwa dunia industri menuntut penguasaan "${item.label}" yang lebih tinggi dibandingkan bekal awal kelulusan, sehingga program studi direkomendasikan memperkuat integrasi materi dan praktik pada dimensi ini ke dalam kurikulum pembelajaran.`
-        : `Tercatat surplus gap sebesar ${gapSign} poin. Bekal kompetensi "${item.label}" yang ditanamkan selama perkuliahan di UKDW telah melampaui atau selaras dengan ekspektasi tuntutan operasional di lingkungan kerja alumni.`;
+        : `Tercatat surplus gap sebesar ${gapSign} poin. Bekal kompetensi "${item.label}" yang ditanamkan selama perkuliahan di UKDW telah melampaui ekspektasi tuntutan operasional di lingkungan kerja alumni.`);
 
     return {
         title: `Kilas Gap Analisis · ${item.label}`,
-        statusBadge: isDeficit ? 'Defisit Kompetensi' : 'Surplus Kompetensi',
-        badgeClass: isDeficit ? 'bg-amber-50 text-amber-900 border border-amber-300' : 'bg-emerald-50 text-[#0D542B] border border-emerald-300',
+        statusBadge: isNeutral ? 'Gap Selaras' : (isDeficit ? 'Defisit Kompetensi' : 'Surplus Kompetensi'),
+        badgeClass: isNeutral
+            ? 'bg-slate-50 text-slate-700 border border-slate-300'
+            : (isDeficit ? 'bg-amber-50 text-amber-900 border border-amber-300' : 'bg-emerald-50 text-[#0D542B] border border-emerald-300'),
         lead,
         detail,
     };
@@ -363,7 +376,9 @@ const aspectTable = computed(() => ({
         {
             metric: 'THE GAP (Selisih Evaluasi)',
             score: activeAspect.value.gap > 0 ? `+${activeAspect.value.gap}` : `${activeAspect.value.gap}`,
-            description: activeAspect.value.isDeficit ? 'Defisit (Kebutuhan penguatan kurikulum)' : 'Surplus (Bekal melampaui kebutuhan)',
+            description: activeAspect.value.gap === 0
+                ? 'Selaras (Bekal dan kebutuhan berada pada skor yang sama)'
+                : (activeAspect.value.isDeficit ? 'Defisit (Kebutuhan penguatan kurikulum)' : 'Surplus (Bekal melampaui kebutuhan)'),
         },
     ],
 }));
