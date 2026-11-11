@@ -309,8 +309,17 @@ class KelolaKuesionerProdiController extends Controller
             ->values()
             ->all();
 
-        // Target lompatan yang tersedia
-        $availableJumpTargets = $questions->pluck('code')->filter()->values()->all();
+        // Target lompatan ditampilkan bersama kode dan teks agar admin dapat mengenali pertanyaan tujuan.
+        $availableJumpTargets = $questions
+            ->map(fn (array $question): array => [
+                'code' => $question['code'],
+                'text' => $question['question_text'],
+                'section' => $question['section']['title'] ?? null,
+            ])
+            ->filter(fn (array $target): bool => ! empty($target['code']))
+            ->unique('code')
+            ->values()
+            ->all();
 
         return Inertia::render('Shared/Kuesioner/ProdiKuesionerIndex', [
             'user' => $user,

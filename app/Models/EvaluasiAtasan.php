@@ -75,6 +75,7 @@ class EvaluasiAtasan extends Model
             'biodata.perusahaan.kabupaten',
             'biodata.perusahaan.propinsi',
             'respons.pertanyaan',
+            'respons.opsi',
         ]);
 
         $perusahaan = $this->perusahaan ?? $this->biodata?->perusahaan;
@@ -131,6 +132,7 @@ class EvaluasiAtasan extends Model
                 'pertanyaan_id' => $response->pertanyaan_id,
                 'pertanyaan_kode' => $response->kode_pertanyaan ?? $response->pertanyaan?->kode_pertanyaan,
                 'nilai' => $response->jawaban_teks,
+                'score' => $response->opsi?->nilai_skor,
                 'catatan' => is_array($response->jawaban_json) ? ($response->jawaban_json['catatan'] ?? null) : null,
             ])->values()->all(),
         ];

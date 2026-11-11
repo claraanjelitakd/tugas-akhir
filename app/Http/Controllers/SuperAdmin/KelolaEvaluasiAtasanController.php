@@ -109,11 +109,13 @@ class KelolaEvaluasiAtasanController extends Controller
 
         // 3. Ambil riwayat evaluasi atasan yang masuk
         $evaluasis = EvaluasiAtasan::with([
+            'biodata.user',
             'biodata.dataAkademik',
             'biodata.prodi',
             'perusahaan',
             'atasan',
             'respons.pertanyaan',
+            'respons.opsi',
         ])
             ->latest('updated_at')
             ->paginate(15)

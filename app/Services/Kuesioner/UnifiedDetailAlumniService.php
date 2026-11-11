@@ -83,6 +83,7 @@ class UnifiedDetailAlumniService
                         'id' => $o->id,
                         'option_text' => $o->label,
                         'kode_opsi' => $o->kode_opsi,
+                        'jump_to' => $o->lompat_ke_pertanyaan_id,
                     ]),
                 ];
             }
@@ -190,6 +191,7 @@ class UnifiedDetailAlumniService
                     'options' => $pQuestion->opsi->map(fn ($opt) => [
                         'id' => $opt->id,
                         'text' => $opt->label,
+                        'jump_to' => $opt->lompat_ke_pertanyaan_id,
                     ]),
                 ];
             }

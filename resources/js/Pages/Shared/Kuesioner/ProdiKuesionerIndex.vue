@@ -1994,11 +1994,11 @@ const handleDeleteOption = (opt) => {
                         >
                             <option value="">-- Tanpa Percabangan (Lanjut Normal) --</option>
                             <option
-                                v-for="code in props.availableJumpTargets"
-                                :key="code"
-                                :value="code"
+                                v-for="target in props.availableJumpTargets"
+                                :key="target.code"
+                                :value="target.code"
                             >
-                                Lompat ke Pertanyaan: [{{ code }}]
+                                Lompat ke Pertanyaan: [{{ target.code }}] {{ target.text }}
                             </option>
                         </select>
                     </div>

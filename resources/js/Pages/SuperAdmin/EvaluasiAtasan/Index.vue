@@ -1037,7 +1037,7 @@ const closeDetailModal = () => {
                                 <tr v-for="(ev, idx) in evaluasis.data" :key="ev.id" class="hover:bg-gray-50/80 transition-colors">
                                     <td class="border border-gray-300 px-3 py-2 text-center font-medium text-gray-600">{{ idx + 1 }}</td>
                                     <td class="border border-gray-300 px-3 py-2 font-bold text-gray-900">
-                                        {{ ev.biodata?.user?.name || ev.biodata?.nama_lengkap || ev.biodata?.data_akademik?.nama_mahasiswa || '-' }}
+                                        {{ ev.biodata?.user?.name || ev.biodata?.data_akademik?.nama || ev.biodata?.nim || '-' }}
                                         <div class="text-[11px] text-gray-500 font-mono font-normal">NIM: {{ ev.biodata?.nim || '-' }}</div>
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-gray-700">
@@ -1045,7 +1045,7 @@ const closeDetailModal = () => {
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-gray-700">
                                         <div class="font-bold text-gray-900">{{ ev.perusahaan?.nama_perusahaan || '-' }}</div>
-                                        <div class="text-[11px] text-gray-500">Penilai: {{ ev.atasan?.nama_atasan || '-' }}</div>
+                                        <div class="text-[11px] text-gray-500">Penilai: {{ ev.atasan?.nama || '-' }}</div>
                                     </td>
                                     <td class="border border-gray-300 px-3 py-2 text-center">
                                         <span
@@ -1381,7 +1381,7 @@ const closeDetailModal = () => {
                     <div>
                         <h3 class="font-bold text-sm text-gray-900">Rincian Jawaban Evaluasi Pengguna Lulusan</h3>
                         <p class="text-[11px] text-gray-500 mt-0.5">
-                            Alumni: {{ selectedEvaluasi.biodata?.user?.name || selectedEvaluasi.biodata?.nama_lengkap || '-' }} ({{ selectedEvaluasi.biodata?.nim || '-' }})
+                            Alumni: {{ selectedEvaluasi.biodata?.user?.name || selectedEvaluasi.biodata?.data_akademik?.nama || selectedEvaluasi.biodata?.nim || '-' }} ({{ selectedEvaluasi.biodata?.nim || '-' }})
                         </p>
                     </div>
                     <button type="button" @click="closeDetailModal" class="text-gray-400 hover:text-gray-600 cursor-pointer">
@@ -1399,7 +1399,7 @@ const closeDetailModal = () => {
                         </div>
                         <div>
                             <span class="text-gray-500 block">Penilai / Atasan</span>
-                            <strong class="text-gray-900">{{ selectedEvaluasi.atasan?.nama_atasan || '-' }} ({{ selectedEvaluasi.atasan?.telepon_atasan || '-' }})</strong>
+                            <strong class="text-gray-900">{{ selectedEvaluasi.atasan?.nama || '-' }} ({{ selectedEvaluasi.atasan?.telepon || '-' }})</strong>
                         </div>
                     </div>
 
@@ -1423,6 +1423,9 @@ const closeDetailModal = () => {
                                         </td>
                                         <td class="p-2.5 text-center font-bold text-[#0D542B]">
                                             {{ resp.nilai }}
+                                            <span v-if="resp.opsi?.nilai_skor !== null && resp.opsi?.nilai_skor !== undefined" class="block text-[10px] font-medium text-slate-500">
+                                                Skor: {{ resp.opsi.nilai_skor }}
+                                            </span>
                                         </td>
                                     </tr>
                                     <tr v-if="!selectedEvaluasi.respons || selectedEvaluasi.respons.length === 0">

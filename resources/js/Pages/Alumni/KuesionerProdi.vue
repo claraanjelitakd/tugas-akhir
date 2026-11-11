@@ -55,7 +55,7 @@ const getQuestionnaireVersion = () => {
     const signature = (props.questions || [])
         .map((question) => {
             const options = (question.options || [])
-                .map((option) => `${option.id}:${option.option_text}`)
+                .map((option) => `${option.id}:${option.option_text}:${option.jump_to || ''}`)
                 .join(',');
 
             return `${question.id}:${question.code}:${question.type}:${options}`;
@@ -214,14 +214,65 @@ const groupedSections = computed(() => {
 });
 
 const currentSection = computed(() => {
-    if (!groupedSections.value || groupedSections.value.length === 0) return null;
-    return groupedSections.value[activeSectionIndex.value] || groupedSections.value[0];
+    if (!visibleSections.value || visibleSections.value.length === 0) return null;
+    return visibleSections.value[activeSectionIndex.value] || visibleSections.value[0];
 });
+
+// Menyusun semua pertanyaan prodi dalam urutan section untuk evaluasi jump_to.
+const orderedQuestionsList = computed(() => groupedSections.value.flatMap((section) => section.questions || []));
+
+// Menentukan pertanyaan prodi yang dilewati berdasarkan opsi pilihan dan target jump_to.
+const hiddenQuestionIds = computed(() => {
+    const hidden = new Set();
+    const questions = orderedQuestionsList.value;
+    const codeToIndex = {};
+
+    questions.forEach((question, index) => {
+        const code = String(question.code || question.kode_pertanyaan || '').trim().toUpperCase();
+        if (code) codeToIndex[code] = index;
+    });
+
+    questions.forEach((question, index) => {
+        const answer = form.answers[question.id];
+        if (answer === undefined || answer === null || answer === '') return;
+
+        const selectedValue = typeof answer === 'object' && !Array.isArray(answer)
+            ? answer.selected
+            : answer;
+        if (selectedValue === undefined || selectedValue === null || selectedValue === '') return;
+
+        const selectedText = String(selectedValue).trim().toLowerCase();
+        const selectedOption = (question.options || []).find((option) => {
+            const optionText = String(option.option_text || option.text || '').trim().toLowerCase();
+            const optionCode = String(option.kode_opsi || option.code || '').trim().toLowerCase();
+
+            return optionText === selectedText || optionCode === selectedText;
+        });
+
+        const targetCode = String(selectedOption?.jump_to || '').trim().toUpperCase();
+        const targetIndex = codeToIndex[targetCode];
+        if (targetIndex === undefined || targetIndex <= index) return;
+
+        for (let skippedIndex = index + 1; skippedIndex < targetIndex; skippedIndex += 1) {
+            hidden.add(questions[skippedIndex].id);
+        }
+    });
+
+    return hidden;
+});
+
+// Memeriksa apakah pertanyaan masih terlihat setelah aturan jump_to diterapkan.
+const isQuestionVisible = (questionId) => !hiddenQuestionIds.value.has(questionId);
+
+// Menghapus section yang seluruh pertanyaannya dilewati agar navigasi tidak berhenti di halaman kosong.
+const visibleSections = computed(() => groupedSections.value.filter((section) => (
+    section.questions || []
+).some((question) => isQuestionVisible(question.id))));
 
 // Mengelompokkan butir pertanyaan di seksi aktif:
 // Butir-butir bertipe rating_5 yang berurutan akan digabung menjadi 1 blok matriks tabel (seperti F2)
 const currentSectionBlocks = computed(() => {
-    const list = currentSection.value?.questions || [];
+    const list = (currentSection.value?.questions || []).filter((question) => isQuestionVisible(question.id));
     const blocks = [];
     let currentRatingGroup = null;
 
@@ -324,7 +375,7 @@ const isQuestionAnswered = (q) => {
 // Validasi kelengkapan satu seksi
 const isSectionAnswered = (section) => {
     if (!section || !section.questions || section.questions.length === 0) return false;
-    const validQuestions = section.questions.filter(q => q.type !== 'header');
+    const validQuestions = section.questions.filter(q => q.type !== 'header' && isQuestionVisible(q.id));
     if (validQuestions.length === 0) return false;
     const requiredQuestions = validQuestions.filter(q => q.is_required);
     const targetQuestions = requiredQuestions.length > 0 ? requiredQuestions : validQuestions;
@@ -333,7 +384,7 @@ const isSectionAnswered = (section) => {
 
 // Status kelengkapan seksi untuk stepper (hanya ceklist jika seluruh soal wajib di seksi tersebut benar-benar terjawab)
 const isSectionCompleted = (index) => {
-    const sec = groupedSections.value[index];
+    const sec = visibleSections.value[index];
     if (!sec) return false;
     return isSectionAnswered(sec);
 };
@@ -351,7 +402,7 @@ const isLineCompleted = (index) => {
 // Sinkronisasi status kelengkapan
 const syncSectionCompletion = () => {
     const newCompleted = new Set();
-    groupedSections.value.forEach((sec, idx) => {
+    visibleSections.value.forEach((sec, idx) => {
         if (isSectionAnswered(sec)) {
             newCompleted.add(idx);
         }
@@ -361,7 +412,7 @@ const syncSectionCompletion = () => {
 
 // Hitung total progress
 const progressStats = computed(() => {
-    const validQuestions = (props.questions || []).filter(q => q.type !== 'header');
+    const validQuestions = orderedQuestionsList.value.filter(q => q.type !== 'header' && isQuestionVisible(q.id));
     const total = validQuestions.length;
     if (total === 0) return { answered: 0, total: 0, percentage: 0 };
 
@@ -414,13 +465,13 @@ const prevSection = () => {
 };
 
 const isLastSection = computed(() => {
-    return activeSectionIndex.value >= groupedSections.value.length - 1;
+    return activeSectionIndex.value >= visibleSections.value.length - 1;
 });
 
 const handleNextOrSubmit = () => {
     if (isLastSection.value) {
         // Validasi seluruh pertanyaan wajib
-        const requiredQuestions = props.questions.filter(q => q.is_required);
+        const requiredQuestions = orderedQuestionsList.value.filter(q => q.is_required && isQuestionVisible(q.id));
         const missing = requiredQuestions.filter(q => !isQuestionAnswered(q));
 
         if (missing.length > 0) {
@@ -485,7 +536,7 @@ const handleNextOrSubmit = () => {
 
 // Lifecycle & Watchers
 onMounted(() => {
-    if (activeSectionIndex.value >= groupedSections.value.length) {
+    if (activeSectionIndex.value >= visibleSections.value.length) {
         activeSectionIndex.value = 0;
     }
     syncSectionCompletion();
@@ -496,6 +547,13 @@ watch(activeSectionIndex, (newIdx) => {
         localStorage.setItem(STORAGE_SECTION_KEY, newIdx.toString());
     }
 });
+
+// Menyesuaikan section aktif ketika jawaban baru menyembunyikan section melalui jump_to.
+watch(visibleSections, (sections) => {
+    if (activeSectionIndex.value >= sections.length) {
+        activeSectionIndex.value = Math.max(0, sections.length - 1);
+    }
+}, { immediate: true });
 
 let draftTimer = null;
 watch(() => form.answers, (newAnswers) => {
@@ -524,8 +582,8 @@ watch(() => form.answers, (newAnswers) => {
 
             <!-- 2. Stepper Tahapan (Bulatan Angka 1 s/d N & Judul Bagian) -->
             <Stepper 
-                v-if="groupedSections && groupedSections.length > 0"
-                :sections="groupedSections"
+                v-if="visibleSections && visibleSections.length > 0"
+                :sections="visibleSections"
                 :active-index="activeSectionIndex"
                 :completed-indices="completedSectionIndices"
                 :is-section-completed="isSectionCompleted"
@@ -559,7 +617,7 @@ watch(() => form.answers, (newAnswers) => {
                 <!-- 3. Banner Judul Bagian -->
                 <Banner 
                     :current-index="activeSectionIndex"
-                    :total-sections="groupedSections.length"
+                    :total-sections="visibleSections.length"
                     :title="currentSection.title"
                     :description="currentSection.description"
                     :badge-text="'Kuesioner Program Studi ' + (prodi?.nama_prodi || '')"
@@ -592,7 +650,7 @@ watch(() => form.answers, (newAnswers) => {
                     <!-- Tombol Navigasi Desktop & Mobile (< Kembali & > Lanjut/Selesai) -->
                     <Navigasi 
                         :active-section-index="activeSectionIndex"
-                        :total-sections="groupedSections.length"
+                        :total-sections="visibleSections.length"
                         :is-last-visible-section="isLastSection"
                         :is-processing="form.processing"
                         @prev="prevSection"

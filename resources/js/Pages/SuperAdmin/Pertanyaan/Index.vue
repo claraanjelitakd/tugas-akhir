@@ -2428,7 +2428,7 @@ const handleDeleteKuesioner = (k) => {
                                     :key="t.kode_pertanyaan"
                                     :value="t.kode_pertanyaan"
                                 >
-                                    Lompat ke: [{{ t.kode_pertanyaan }}] {{ t.text?.substring(0, 45) }}...
+                                    Lompat ke: [{{ t.kode_pertanyaan }}] {{ t.text }}
                                 </option>
                             </select>
                             <p class="text-[10px] text-gray-400 mt-1">

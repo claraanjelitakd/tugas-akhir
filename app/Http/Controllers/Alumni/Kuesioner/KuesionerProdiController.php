@@ -76,6 +76,7 @@ class KuesionerProdiController extends Controller
                         'id' => $opt->id,
                         'option_text' => $opt->label,
                         'kode_opsi' => $opt->kode_opsi,
+                        'jump_to' => $opt->lompat_ke_pertanyaan_id,
                     ])->values()->all(),
                 ];
 
