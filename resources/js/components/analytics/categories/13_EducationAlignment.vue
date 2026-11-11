@@ -41,6 +41,15 @@ const prodis = computed(() => [...new Set(records.value.map((r) => r.nama_prodi 
 // 1. BAR CHART: Vertical Match per Program Studi (Gambar 4.14 Laporan Resmi)
 // -----------------------------------------------------------------------------
 const prodiVerticalMatchData = computed(() => {
+    if (props.chart?.prodi_series) {
+        return props.chart.prodi_series.map((item) => ({
+            prodi: item.prodi,
+            matches: Number(item.match_count || 0),
+            total: Number(item.total || 0),
+            percentage: Number(item.match_percentage || 0),
+        }));
+    }
+
     return prodis.value.map((prodi) => {
         const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const total = rows.length;

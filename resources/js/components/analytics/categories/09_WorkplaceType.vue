@@ -34,6 +34,8 @@ const emit = defineEmits(['select', 'reset']);
 
 // Ekstraksi data seri dan catatan responden.
 const series = computed(() => props.chart?.series || []);
+// Agregat per program studi sudah dihitung backend dan dipakai untuk heatmap serta stacked bar.
+const prodiSeries = computed(() => props.chart?.prodi_series || []);
 const records = computed(() => props.chart?.records || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || records.value.length);
 
@@ -230,7 +232,9 @@ const lainnyaWordCloudRecords = computed(() => lainnyaRecords.value.map((record)
 // -----------------------------------------------------------------------------
 // 2. MATRIKS HEATMAP: Sebaran Sektor per Program Studi (Mengadopsi Indikator 02)
 // -----------------------------------------------------------------------------
-const prodis = computed(() => [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))].sort());
+const prodis = computed(() => prodiSeries.value.length > 0
+    ? prodiSeries.value.map((item) => item.prodi)
+    : [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))].sort());
 
 // Palet diskret sama dengan matriks Perbandingan Prodi Indikator 02: rendah merah, tinggi hijau tua.
 const workplaceHeatmapPalette = ['#B91C1C', '#EF4444', '#E2F3E7', '#2F7D4A', '#0D542B'];
@@ -243,6 +247,39 @@ const categories = computed(() => {
 const heatmapData = computed(() => {
     const listProdis = prodis.value;
     const cats = categories.value;
+    if (prodiSeries.value.length > 0) {
+        const prodiTotals = Object.fromEntries(prodiSeries.value.map((item) => [item.prodi, item.total]));
+        const rawValues = listProdis.flatMap((prodi, yIndex) => {
+            const backendProdi = prodiSeries.value.find((item) => item.prodi === prodi);
+
+            return cats.map((cat, xIndex) => {
+                const backendItem = backendProdi?.items?.find((item) => item.label === cat);
+                const count = backendItem?.count || 0;
+
+                return {
+                    xIndex,
+                    yIndex,
+                    percentage: backendItem?.percentage || 0,
+                    prodi,
+                    category: cat,
+                    count,
+                    total: backendProdi?.total || 0,
+                };
+            });
+        });
+        const maxPct = Math.max(...rawValues.map((value) => value.percentage), 1);
+        const values = rawValues.map((value) => ({
+            ...value,
+            value: [
+                value.xIndex,
+                value.yIndex,
+                Math.max(1, Math.min(5, Math.round((value.percentage / maxPct) * 4) + 1)),
+            ],
+        }));
+
+        return { values, maxPct, prodiTotals };
+    }
+
     const prodiTotals = Object.fromEntries(
         listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]),
     );
@@ -394,9 +431,10 @@ const heatmapTable = computed(() => {
             total: formatNumber(prodiTotals[prodi] || 0, 0),
         };
         cats.forEach((cat, i) => {
-            const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
+            const backendItem = prodiSeries.value.find((item) => item.prodi === prodi)?.items?.find((item) => item.label === cat);
+            const count = backendItem?.count ?? records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
             const total = Math.max(prodiTotals[prodi], 1);
-            const pct = ((count / total) * 100).toFixed(1);
+            const pct = backendItem?.percentage ?? ((count / total) * 100).toFixed(1);
             row[`cat_${i}`] = `${formatNumber(count, 0)} (${pct}%)`;
         });
         return row;
@@ -411,16 +449,17 @@ const heatmapTable = computed(() => {
 const stackedOption = computed(() => {
     const listProdis = prodis.value;
     const cats = categories.value;
-    const prodiTotals = Object.fromEntries(
-        listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]),
-    );
+    const prodiTotals = Object.fromEntries(prodiSeries.value.length > 0
+        ? prodiSeries.value.map((item) => [item.prodi, item.total])
+        : listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]));
 
     const seriesList = cats.map((cat) => {
         const paletteIndex = cats.indexOf(cat) % analyticsScalePalette.length;
         const catData = listProdis.map((prodi) => {
-            const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
+            const backendItem = prodiSeries.value.find((item) => item.prodi === prodi)?.items?.find((item) => item.label === cat);
+            const count = backendItem?.count ?? records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
             const total = Math.max(prodiTotals[prodi], 1);
-            const pct = Number(((count / total) * 100).toFixed(1));
+            const pct = backendItem?.percentage ?? Number(((count / total) * 100).toFixed(1));
             return {
                 value: pct,
                 count,
@@ -497,7 +536,15 @@ const stackedTable = computed(() => ({
         { key: 'total', label: 'Total Alumni (n)', align: 'right' },
         { key: 'summary', label: 'Rincian Sektor Terbanyak', align: 'left' },
     ],
-    rows: prodis.value.map((prodi) => {
+    rows: prodiSeries.value.length > 0
+        ? prodiSeries.value.map((item) => {
+            return {
+                prodi: item.prodi,
+                total: formatNumber(item.total, 0),
+                summary: item.items.map((status) => `${status.label}: ${status.count} (${formatPercentage(status.percentage)})`).join('; '),
+            };
+        })
+        : prodis.value.map((prodi) => {
         const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const summary = categories.value
             .map((cat) => ({ cat, count: rows.filter((r) => recordCategory(r) === cat).length }))

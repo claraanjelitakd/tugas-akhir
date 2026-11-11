@@ -52,6 +52,18 @@ const getQuantile = (sorted, percentile) => {
 const prodisList = computed(() => [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]);
 
 const prodiSalaryStats = computed(() => {
+    if (props.chart?.series) {
+        return props.chart.series.map((item) => ({
+            prodi: item.label,
+            count: Number(item.count || 0),
+            min: Number(item.min_salary || 0),
+            q1: Number(item.q1_salary || 0),
+            median: Number(item.median_salary || 0),
+            q3: Number(item.q3_salary || 0),
+            max: Number(item.max_salary || 0),
+        }));
+    }
+
     return prodisList.value.map((prodi) => {
         const prodiRows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const salaries = prodiRows.map((r) => Number(r.salary)).filter((s) => Number.isFinite(s) && s > 0).sort((a, b) => a - b);
@@ -187,6 +199,19 @@ const prodiSalaryTable = computed(() => ({
 // 2. GAJI VS AMBANG 1,2× UMP PER PROGRAM STUDI & RINCIAN ALUMNI
 // -----------------------------------------------------------------------------
 const prodiUmpData = computed(() => {
+    if (props.chart?.ump_by_prodi) {
+        return props.chart.ump_by_prodi.map((item) => ({
+            prodi: item.label,
+            total: Number(item.total || 0),
+            meets: Number(item.meets || 0),
+            below: Number(item.below || 0),
+            notComparable: Number(item.not_comparable || 0),
+            meetsPct: Number(item.meets_percentage || 0),
+            belowPct: Number(item.below_percentage || 0),
+            notComparablePct: Number(item.not_comparable_percentage || 0),
+        }));
+    }
+
     return prodisList.value.map((prodi) => {
         const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const total = rows.length;
@@ -307,6 +332,21 @@ const alumniBelowUmp = computed(() => {
 // (Menggantikan peta spasial sesuai instruksi pengguna: list provinsi dan status pemenuhan)
 // -----------------------------------------------------------------------------
 const provinceStats = computed(() => {
+    if (props.chart?.ump_by_province) {
+        return props.chart.ump_by_province.map((item) => ({
+            province: item.label,
+            total: Number(item.total || 0),
+            meets: Number(item.meets || 0),
+            below: Number(item.below || 0),
+            notComparable: Number(item.not_comparable || 0),
+            meetsPct: Number(item.meets_percentage || 0),
+            belowPct: Number(item.below_percentage || 0),
+            notComparablePct: Number(item.not_comparable_percentage || 0),
+            medianSalary: Number(item.median_salary || 0),
+            statusLabel: item.status_label || 'Perlu Perhatian',
+        }));
+    }
+
     const provinceMap = new Map();
     records.value.forEach((r) => {
         const prov = r.workplace_nama_provinsi || r.province_name || 'Tidak Teridentifikasi';

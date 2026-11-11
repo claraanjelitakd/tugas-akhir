@@ -70,6 +70,7 @@ class DatabaseSeeder extends Seeder
         //    karyawan, founder/co-founder, studi lanjut, dan freelancer.
         $this->call([
             AlumniSimulationSeeder::class,
+            KuesionerAnswerConsistencySeeder::class,
         ]);
 
         // 7. Normalisasi populasi akademik, termasuk mahasiswa aktif, DO,

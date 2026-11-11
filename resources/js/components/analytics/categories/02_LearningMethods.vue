@@ -108,6 +108,18 @@ const selectedMethodItem = computed(() => {
 
 // Ringkasan agregat per program studi untuk analisis naratif pola antar program studi.
 const prodiSummaries = computed(() => {
+    if (props.chart?.prodi_series) {
+        return props.chart.prodi_series.flatMap((item) => item.methods)
+            .filter((method) => Number(method.count || 0) > 0)
+            .map((method) => ({
+                prodi: method.prodi || '-',
+                count: Number(method.count || 0),
+                average: Number(method.average || 0),
+                scoreInt: Number(method.score_int || 0),
+                scoreLabel: method.score_label || '-',
+            }));
+    }
+
     return prodis.value.map((prodi) => {
         const group = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const scores = group.map((r) => Number(r.score)).filter((s) => !isNaN(s) && s >= 1 && s <= 5);
@@ -696,6 +708,10 @@ const methodsStackedOption = computed(() => {
 // sempurna dan tidak pernah hilang saat kursor di-hover ke atas sel.
 // -----------------------------------------------------------------------------
 const prodis = computed(() => {
+    if (props.chart?.prodi_series) {
+        return props.chart.prodi_series.map((item) => item.prodi);
+    }
+
     const list = [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))];
     return list.sort();
 });
@@ -711,6 +727,29 @@ const heatmapPalette = {
 };
 
 const heatmapData = computed(() => {
+    if (props.chart?.prodi_series) {
+        const listProdis = props.chart.prodi_series;
+        const methodKeys = series.value.map((s) => s.key);
+        const values = [];
+        listProdis.forEach((prodiItem, yIndex) => {
+            methodKeys.forEach((key, xIndex) => {
+                const method = prodiItem.methods.find((item) => item.key === key) || {};
+                const scoreInt = Number(method.score_int || 0);
+                values.push({
+                    value: [xIndex, yIndex, scoreInt],
+                    rawAvg: Number(method.average || 0),
+                    scoreInt,
+                    count: Number(method.count || 0),
+                    prodi: prodiItem.prodi,
+                    methodKey: key,
+                    methodLabel: method.label || key,
+                    label: { color: scoreInt === 3 ? '#0F172A' : '#FFFFFF' },
+                });
+            });
+        });
+        return { values };
+    }
+
     const listProdis = prodis.value;
     const methodKeys = series.value.map((s) => s.key);
     const values = [];

@@ -77,6 +77,7 @@ class IkuS1AnalyticsService
             $achievement = $eligible > 0
                 ? round(($realization / self::AEE_IDEAL_S1) * 100, 2)
                 : 0.0;
+            $status = $this->aeeStatus($realization);
 
             return [
                 'prodi_id' => (int) $first->prodi_id,
@@ -92,6 +93,9 @@ class IkuS1AnalyticsService
                 'aee_realization' => $realization,
                 'aee_ideal' => self::AEE_IDEAL_S1,
                 'achievement' => $achievement,
+                'status_key' => $status['key'],
+                'status_label' => $status['label'],
+                'status_color' => $status['color'],
                 'count_label' => $onTime.'/'.$eligible,
             ];
         })->sortByDesc('achievement')->values();
@@ -123,6 +127,11 @@ class IkuS1AnalyticsService
                 'aee_ideal' => self::AEE_IDEAL_S1,
                 'aee_pt' => $programAchievements->isNotEmpty() ? round($programAchievements->avg(), 2) : 0.0,
                 'status_target' => (float) config('iku.s1.aee_status_target', 60.0),
+                'status_legend' => [
+                    ['key' => 'green', 'label' => 'Hijau: ≥ target', 'color' => '#0D542B'],
+                    ['key' => 'yellow', 'label' => 'Kuning: 75%–<100% target', 'color' => '#D97706'],
+                    ['key' => 'red', 'label' => 'Merah: <75% target', 'color' => '#DC2626'],
+                ],
             ],
             'series' => $series->all(),
             'records' => $records->map(fn (object $row): array => [
@@ -216,6 +225,45 @@ class IkuS1AnalyticsService
             ->filter(fn (array $row): bool => $row['weight'] > 0);
         $comparable = $valid->filter(fn (array $row): bool => $row['salary'] !== null && $row['threshold'] !== null);
         $above = $comparable->filter(fn (array $row): bool => $row['salary_above_threshold'])->count();
+        $roleStats = $classified->groupBy(fn (array $row): string => $row['career_category'] ?: 'Tidak memenuhi klasifikasi')
+            ->map(function (Collection $categoryRows, string $label): array {
+                $comparableRows = $categoryRows->filter(fn (array $row): bool => $row['salary'] !== null && $row['threshold'] !== null);
+                $aboveRows = $comparableRows->filter(fn (array $row): bool => $row['salary_above_threshold'] === true);
+                $weightedScore = round($categoryRows->sum('weight'), 4);
+                $weightedCount = $categoryRows->filter(fn (array $row): bool => $row['weight'] > 0)->count();
+                $count = $categoryRows->count();
+
+                return [
+                    'label' => $label,
+                    'count' => $count,
+                    'above_count' => $aboveRows->count(),
+                    'below_count' => $comparableRows->count() - $aboveRows->count(),
+                    'unavailable_count' => $count - $comparableRows->count(),
+                    'above_percentage' => $this->percentage($aboveRows->count(), $count),
+                    'below_percentage' => $this->percentage($comparableRows->count() - $aboveRows->count(), $count),
+                    'unavailable_percentage' => $this->percentage($count - $comparableRows->count(), $count),
+                    'weighted_score' => $weightedScore,
+                    'weighted_count' => $weightedCount,
+                    'average_weight' => $weightedCount > 0 ? round($weightedScore / $weightedCount, 4) : 0.0,
+                ];
+            });
+        $waitCategories = ['Sebelum Lulus', '<6 bulan', '6–<12 bulan', '≥12 bulan', 'Melanjutkan Pendidikan', 'Masa Tunggu Tidak Tersedia'];
+        $waitStats = $classified->groupBy(fn (array $row): string => $row['career_category'] ?: 'Tidak memenuhi klasifikasi')
+            ->map(function (Collection $roleRows, string $role) use ($waitCategories): array {
+                $counts = array_fill_keys($waitCategories, 0);
+                foreach ($roleRows as $row) {
+                    $category = $row['career_category'] === 'Melanjutkan Pendidikan'
+                        ? 'Melanjutkan Pendidikan'
+                        : ($row['before_graduation'] === true
+                            ? 'Sebelum Lulus'
+                            : ($row['months'] === null
+                                ? 'Masa Tunggu Tidak Tersedia'
+                                : ($row['months'] < 6 ? '<6 bulan' : ($row['months'] < 12 ? '6–<12 bulan' : '≥12 bulan'))));
+                    $counts[$category]++;
+                }
+
+                return ['role' => $role, 'total' => $roleRows->count(), 'counts' => $counts];
+            })->values()->all();
         $series = $valid->groupBy('career_category')->map(function (Collection $categoryRows, string $label) use ($valid): array {
             $comparableRows = $categoryRows->filter(fn (array $row): bool => $row['salary'] !== null && $row['threshold'] !== null);
             $aboveRows = $comparableRows->filter(fn (array $row): bool => $row['salary_above_threshold']);
@@ -249,6 +297,8 @@ class IkuS1AnalyticsService
                 'weight_confirmation_status' => config('iku.s1.weight_confirmation_status'),
             ],
             'series' => $series,
+            'role_stats' => $roleStats->sortBy(fn (array $item): int => array_search($item['label'], array_merge(self::DISPLAY_CAREER_CATEGORIES, ['Tidak memenuhi klasifikasi']), true) === false ? 99 : array_search($item['label'], array_merge(self::DISPLAY_CAREER_CATEGORIES, ['Tidak memenuhi klasifikasi']), true))->values()->all(),
+            'wait_stats' => $waitStats,
             'records' => $classified->values()->all(),
             'methodology' => $this->outcomeMethodology(),
         ];
@@ -384,6 +434,9 @@ class IkuS1AnalyticsService
             'qualifies' => $weight > 0,
             'study_start' => $row->tanggal_mulai_studi,
             'salary_above_threshold' => $salaryAboveThreshold,
+            'salary_comparison' => $salaryAboveThreshold === true
+                ? 'above'
+                : ($salaryAboveThreshold === false ? 'below' : 'unavailable'),
             'career_role' => $this->careerRole($category, $row),
             'career_status_label' => $this->careerStatusLabel($category, $row),
             'nama_perusahaan' => $row->profile_company_name,
@@ -397,6 +450,27 @@ class IkuS1AnalyticsService
             'divisi' => $row->divisi,
             'study_detail' => $this->studyDetail($row),
         ];
+    }
+
+    /**
+     * Menentukan status visual AEE dari realisasi dan target yang dikonfigurasi.
+     *
+     * @param  float  $realization  Persentase realisasi AEE.
+     * @return array{key: string, label: string, color: string}
+     */
+    private function aeeStatus(float $realization): array
+    {
+        $target = (float) config('iku.s1.aee_status_target', 60.0);
+
+        if ($realization >= $target) {
+            return ['key' => 'green', 'label' => 'Hijau: ≥ target', 'color' => '#0D542B'];
+        }
+
+        if ($realization >= $target * 0.75) {
+            return ['key' => 'yellow', 'label' => 'Kuning: 75%–<100% target', 'color' => '#D97706'];
+        }
+
+        return ['key' => 'red', 'label' => 'Merah: <75% target', 'color' => '#DC2626'];
     }
 
     /**

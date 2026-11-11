@@ -4,6 +4,7 @@ namespace App\Services\Analytics;
 
 use App\Models\Kuesioner;
 use App\Models\Prodi;
+use App\Services\Kuesioner\F3AnswerParser;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -11,15 +12,18 @@ use Illuminate\Support\Facades\DB;
  * Menyediakan dataset analitik Tracer Study untuk halaman analitik Superadmin.
  *
  * Service ini membentuk payload satu indikator dari database read-model kanonik.
- * Ia tidak menyimpan data baru; normalisasi sumber tetap berada di lapisan
- * view, sedangkan statistik dan metadata presentasi dibentuk di service.
+ * Ia tidak menyimpan data baru; proyeksi umum berasal dari view, sedangkan
+ * normalisasi format jawaban khusus dilakukan oleh parser backend terkait.
  */
 class TracerAnalyticsService
 {
     /**
      * Dependensi formula IKU S1 yang membaca read-model akademik dan tracer.
      */
-    public function __construct(private IkuS1AnalyticsService $ikuS1Analytics) {}
+    public function __construct(
+        private IkuS1AnalyticsService $ikuS1Analytics,
+        private F3AnswerParser $f3AnswerParser,
+    ) {}
 
     /** Sentinel filter value that includes every available graduation year. */
     private const ALL_YEARS = 'ALL';
@@ -728,6 +732,10 @@ class TracerAnalyticsService
      */
     private function questionChart(Collection $rows, string $chartKey): array
     {
+        if ($chartKey === 'job_search_start') {
+            return $this->jobSearchStartChart($rows);
+        }
+
         if ($chartKey === 'competency_gap') {
             return $this->competencyGapChart($rows);
         }
@@ -958,6 +966,19 @@ class TracerAnalyticsService
                 ->values()
                 ->all();
         }
+        $prodiSeries = $records->groupBy('nama_prodi')->map(function (Collection $prodiRows, string $prodi): array {
+            $total = $prodiRows->count();
+
+            return [
+                'prodi' => $prodi,
+                'total' => $total,
+                'items' => $prodiRows->groupBy('category')->map(fn (Collection $group, string $label): array => [
+                    'label' => $label,
+                    'count' => $group->count(),
+                    'percentage' => $this->percentage($group->count(), $total),
+                ])->values()->all(),
+            ];
+        })->values()->all();
 
         return [
             'key' => $chartKey,
@@ -972,11 +993,142 @@ class TracerAnalyticsService
                 'leading_percentage' => $series[0]['percentage'] ?? 0,
             ],
             'series' => $series,
+            'prodi_series' => $prodiSeries,
             'records' => $records->values()->all(),
             'methodology' => [
                 'formula' => $metadata['formula'],
                 'denominator' => 'Alumni dengan jawaban valid pada indikator aktif.',
                 'source' => 'v_analytics_tracer_answers (tracer terbaru per alumni dan kode pertanyaan)',
+            ],
+        ];
+    }
+
+    /**
+     * Menyusun indikator F3 dari fase dan angka masa tunggu yang dinormalisasi backend.
+     *
+     * @return array<string, mixed>
+     */
+    private function jobSearchStartChart(Collection $rows): array
+    {
+        $records = $this->questionRecords($rows)
+            ->map(function (array $record): array {
+                return [
+                    ...$record,
+                    ...$this->f3AnswerParser->parse($record['answer']),
+                ];
+            })
+            ->filter(fn (array $record): bool => $record['phase_key'] !== 'unknown')
+            ->values();
+
+        $segmentOrder = [
+            'before_graduation',
+            'after_under_6',
+            'after_6_to_12',
+            'after_over_12',
+            'after_unavailable',
+            'not_searching',
+        ];
+        $grouped = $records->groupBy('segment_key');
+        $series = collect($segmentOrder)
+            ->map(function (string $segmentKey) use ($grouped, $records): ?array {
+                $group = $grouped->get($segmentKey);
+                if (! $group || $group->isEmpty()) {
+                    return null;
+                }
+
+                $first = $group->first();
+                $count = $group->count();
+
+                return [
+                    'label' => $first['label'],
+                    'short_label' => $first['label'],
+                    'full_label' => $first['label'],
+                    'phase_key' => $first['phase_key'],
+                    'phase' => $first['phase'],
+                    'range_key' => $first['range_key'],
+                    'range' => $first['range'],
+                    'segment_key' => $segmentKey,
+                    'count' => $count,
+                    'percentage' => $this->percentage($count, max($records->count(), 1)),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+        $beforeCount = collect($series)->where('segment_key', 'before_graduation')->sum('count');
+        $afterCount = collect($series)->whereIn('segment_key', ['after_under_6', 'after_6_to_12', 'after_over_12', 'after_unavailable'])->sum('count');
+        $notSearchingCount = collect($series)->where('segment_key', 'not_searching')->sum('count');
+        $totalCount = $records->count();
+        $timingRangeRows = collect($series)->map(fn (array $item): array => [
+            'phase' => $item['phase'],
+            'range' => $item['range'],
+            'segment_key' => $item['segment_key'],
+            'label' => $item['range'] ? $item['phase']."\n".$item['range'] : $item['phase'],
+            'count' => $item['count'],
+            'percentage' => $this->percentage($item['count'], $totalCount),
+        ])->values()->all();
+        $timingStackGroups = collect([
+            ['phase' => 'Sebelum lulus', 'segment_keys' => ['before_graduation']],
+            ['phase' => 'Setelah lulus', 'segment_keys' => ['after_under_6', 'after_6_to_12', 'after_over_12', 'after_unavailable']],
+            ['phase' => 'Tidak mencari kerja', 'segment_keys' => ['not_searching']],
+        ])->map(function (array $group) use ($series, $segmentOrder): array {
+            $counts = array_fill_keys($segmentOrder, 0);
+            foreach ($group['segment_keys'] as $segmentKey) {
+                $counts[$segmentKey] = (int) collect($series)->where('segment_key', $segmentKey)->sum('count');
+            }
+
+            return [
+                'phase' => $group['phase'],
+                'counts' => $counts,
+                'total' => array_sum($counts),
+                'percentages' => collect($counts)->mapWithKeys(fn (int $count, string $key): array => [$key => $this->percentage($count, array_sum($counts))])->all(),
+            ];
+        })->all();
+        $divergingRows = collect($series)->map(fn (array $item): array => [
+            'name' => $item['label'],
+            'natural_label' => $item['full_label'] ?? $item['label'],
+            'short_label' => $item['short_label'] ?? $item['label'],
+            'display_label' => ($item['short_label'] ?? $item['label']).' ('.($item['phase_key'] === 'before_graduation' ? 'Sebelum' : 'Setelah').')',
+            'value' => $item['phase_key'] === 'before_graduation' ? -$item['count'] : $item['count'],
+            'absolute_value' => $item['count'],
+            'percentage' => $this->percentage($item['count'], $totalCount),
+            'phase_key' => $item['phase_key'],
+        ])->values()->all();
+        $sortedCategories = collect($series)->map(fn (array $item): array => [
+            'name' => $item['label'],
+            'natural_label' => $item['full_label'] ?? $item['label'],
+            'value' => $item['count'],
+            'percentage' => $this->percentage($item['count'], $totalCount),
+            'phase_key' => $item['phase_key'],
+        ])->sortByDesc('value')->values()->all();
+
+        return [
+            'key' => 'job_search_start',
+            'type' => 'categorical',
+            'title' => 'Waktu mulai mencari pekerjaan',
+            'subtitle' => 'Distribusi fase pencarian kerja dan angka masa tunggu hasil normalisasi jawaban F3.',
+            'visual_plan' => $this->visualPlan('job_search_start'),
+            'summary' => [
+                'answered_count' => $records->pluck('biodata_id')->unique()->count(),
+                'response_count' => $records->count(),
+                'leading_category' => $series[0]['label'] ?? null,
+                'leading_percentage' => $series[0]['percentage'] ?? 0,
+                'before_count' => $beforeCount,
+                'after_count' => $afterCount,
+                'not_searching_count' => $notSearchingCount,
+                'before_percentage' => $this->percentage($beforeCount, $totalCount),
+                'after_percentage' => $this->percentage($afterCount, $totalCount),
+            ],
+            'series' => $series,
+            'timing_range_rows' => $timingRangeRows,
+            'timing_stack_groups' => $timingStackGroups,
+            'diverging_rows' => $divergingRows,
+            'sorted_categories' => $sortedCategories,
+            'records' => $records->all(),
+            'methodology' => [
+                'formula' => 'Jawaban F3 dinormalisasi menjadi fase, angka bulan, dan rentang masa tunggu di backend sebelum dihitung.',
+                'denominator' => 'Alumni dengan jawaban F3 yang dapat diidentifikasi.',
+                'source' => 'kuesioner_jawaban melalui v_analytics_tracer_answers dan F3AnswerParser',
             ],
         ];
     }
@@ -1057,6 +1209,16 @@ class TracerAnalyticsService
             }
         }
         $alumniList = array_values($alumniMap);
+        $alumniCollection = collect($alumniList);
+        $prodiPipeline = $alumniCollection->groupBy('nama_prodi')->map(function (Collection $prodiRows, string $prodi): array {
+            return [
+                'prodi' => $prodi,
+                'count' => $prodiRows->count(),
+                'dilamar' => $this->median($prodiRows->pluck('f6')->filter(fn (mixed $value): bool => $value !== null)->all()),
+                'merespon' => $this->median($prodiRows->pluck('f7')->filter(fn (mixed $value): bool => $value !== null)->all()),
+                'wawancara' => $this->median($prodiRows->pluck('f7a')->filter(fn (mixed $value): bool => $value !== null)->all()),
+            ];
+        })->sortByDesc('count')->values()->all();
 
         // 1. Scatter Plot 1: Lamaran vs Respons Perusahaan (F6 vs F7)
         $s1Alumni = array_values(array_filter($alumniList, fn (array $a): bool => $a['f6'] !== null && $a['f7'] !== null));
@@ -1117,6 +1279,11 @@ class TracerAnalyticsService
         $allF7 = (int) array_sum(array_filter(array_map(fn (array $a) => $a['f7'], $alumniList), fn ($v): bool => $v !== null));
         $allF7a = (int) array_sum(array_filter(array_map(fn (array $a) => $a['f7a'], $alumniList), fn ($v): bool => $v !== null));
         $allIpk = array_values(array_filter(array_map(fn (array $a) => $a['ipk'], $alumniList), fn ($v): bool => $v !== null));
+        $relationTables = [
+            'applications_responses' => $this->pipelineRelationTable($alumniCollection, 'f6', 'f7', 'Lamaran (F6)', 'Respons (F7)'),
+            'responses_interviews' => $this->pipelineRelationTable($alumniCollection, 'f7', 'f7a', 'Respons (F7)', 'Wawancara (F7a)'),
+        ];
+        $conversionIpkStats = $this->conversionIpkStats($alumniCollection);
 
         return [
             'key' => 'application_pipeline',
@@ -1216,6 +1383,9 @@ class TracerAnalyticsService
             'series' => $series,
             'records' => $records->all(),
             'alumni_list' => $alumniList,
+            'prodi_pipeline' => $prodiPipeline,
+            'relation_tables' => $relationTables,
+            'conversion_ipk_stats' => $conversionIpkStats,
             'methodology' => [
                 'formula' => 'Korelasi Spearman (ρ) & signifikansi p-value untuk hubungan F6 vs F7 dan F7 vs F7A dengan pemetaan warna IPK kontinum. Rasio konversi berbobot: Konversi = (Total Tahap Akhir / Total Tahap Awal) × 100%.',
                 'denominator' => 'Alumni dengan jawaban numerik valid pada masing-masing tahapan (F6 > 0 untuk konversi lamaran, F7 > 0 untuk konversi respons).',
@@ -1229,6 +1399,129 @@ class TracerAnalyticsService
      *
      * @return array<string, mixed>
      */
+    /**
+     * Menyusun tabel hubungan dua tahap pipeline per alumni dan pivot prodi.
+     *
+     * @param  Collection<int, array<string, mixed>>  $alumniRows  Data numerik per alumni.
+     * @param  string  $firstKey  Kolom tahap awal.
+     * @param  string  $secondKey  Kolom tahap lanjutan.
+     * @param  string  $firstLabel  Label tahap awal.
+     * @param  string  $secondLabel  Label tahap lanjutan.
+     * @return array<string, mixed> Baris individu dan agregasi prodi yang siap dirender.
+     */
+    private function pipelineRelationTable(Collection $alumniRows, string $firstKey, string $secondKey, string $firstLabel, string $secondLabel): array
+    {
+        $detail = $alumniRows
+            ->filter(fn (array $row): bool => $row[$firstKey] !== null && $row[$secondKey] !== null)
+            ->map(function (array $row) use ($firstKey, $secondKey): array {
+                $firstValue = (float) $row[$firstKey];
+                $secondValue = (float) $row[$secondKey];
+
+                return [
+                    'nama_alumni' => $row['nama'],
+                    'nim' => $row['nim'],
+                    'prodi' => $row['nama_prodi'],
+                    'ipk' => $row['ipk'],
+                    'tahap_awal' => $firstValue,
+                    'tahap_akhir' => $secondValue,
+                    'persentase' => $firstValue > 0 ? round(($secondValue / $firstValue) * 100, 1) : null,
+                ];
+            })->sortByDesc(fn (array $row): float => $row['persentase'] ?? -1)->values();
+        $pivot = $detail->groupBy('prodi')->map(function (Collection $rows, string $prodi): array {
+            $validPercentages = $rows->pluck('persentase')->filter(fn (mixed $value): bool => $value !== null)->all();
+            $ipkValues = $rows->pluck('ipk')->filter(fn (mixed $value): bool => $value !== null)->all();
+            $top = $rows->firstWhere('persentase', $rows->max('persentase'));
+
+            return [
+                'prodi' => $prodi,
+                'alumni_valid' => $rows->count(),
+                'rata_ipk' => $this->average($ipkValues),
+                'rata_awal' => $this->average($rows->pluck('tahap_awal')->all()),
+                'rata_akhir' => $this->average($rows->pluck('tahap_akhir')->all()),
+                'rata_persentase' => $this->average($validPercentages),
+                'alumni_tertinggi' => $top['nama_alumni'] ?? null,
+                'persentase_tertinggi' => $top['persentase'] ?? null,
+                'ipk_tertinggi' => $top['ipk'] ?? null,
+            ];
+        })->sortByDesc('persentase_tertinggi')->values()->all();
+
+        return [
+            'columns' => [
+                ['key' => 'nama_alumni', 'label' => 'Nama Alumni'],
+                ['key' => 'nim', 'label' => 'NIM'],
+                ['key' => 'prodi', 'label' => 'Program Studi'],
+                ['key' => 'ipk', 'label' => 'IPK', 'align' => 'right'],
+                ['key' => 'tahap_awal', 'label' => $firstLabel, 'align' => 'right'],
+                ['key' => 'tahap_akhir', 'label' => $secondLabel, 'align' => 'right'],
+                ['key' => 'persentase', 'label' => 'Persentase', 'align' => 'right'],
+            ],
+            'rows' => $detail->all(),
+            'summary' => [
+                'columns' => [
+                    ['key' => 'prodi', 'label' => 'Program Studi'],
+                    ['key' => 'alumni_valid', 'label' => 'Alumni Valid', 'align' => 'right'],
+                    ['key' => 'rata_ipk', 'label' => 'Rata-rata IPK', 'align' => 'right'],
+                    ['key' => 'rata_awal', 'label' => 'Rata-rata Tahap Awal', 'align' => 'right'],
+                    ['key' => 'rata_akhir', 'label' => 'Rata-rata Tahap Lanjutan', 'align' => 'right'],
+                    ['key' => 'rata_persentase', 'label' => 'Rata-rata Persentase', 'align' => 'right'],
+                    ['key' => 'alumni_tertinggi', 'label' => 'Alumni Persentase Tertinggi'],
+                    ['key' => 'persentase_tertinggi', 'label' => 'Persentase Tertinggi', 'align' => 'right'],
+                    ['key' => 'ipk_tertinggi', 'label' => 'IPK Alumni Tertinggi', 'align' => 'right'],
+                ],
+                'rows' => $pivot,
+            ],
+        ];
+    }
+
+    /**
+     * Mengelompokkan total tahap lanjutan berdasarkan rentang IPK.
+     *
+     * @param  Collection<int, array<string, mixed>>  $alumniRows  Data numerik per alumni.
+     * @return array<int, array<string, mixed>> Statistik tiga tahap konversi per rentang IPK.
+     */
+    private function conversionIpkStats(Collection $alumniRows): array
+    {
+        $bands = [
+            ['key' => 'ipk_unavailable', 'label' => 'IPK Tidak tersedia'],
+            ['key' => 'ipk_0_1', 'label' => 'IPK 0–<1', 'min' => 0.0, 'max' => 1.0],
+            ['key' => 'ipk_1_2', 'label' => 'IPK 1–<2', 'min' => 1.0, 'max' => 2.0],
+            ['key' => 'ipk_2_3', 'label' => 'IPK 2–<3', 'min' => 2.0, 'max' => 3.0],
+            ['key' => 'ipk_3_4', 'label' => 'IPK 3–4', 'min' => 3.0, 'max' => 4.0],
+        ];
+        $stages = [
+            ['key' => 'app_to_resp', 'label' => 'Lamaran → Respons', 'from_key' => 'f6', 'to_key' => 'f7'],
+            ['key' => 'resp_to_intv', 'label' => 'Respons → Wawancara', 'from_key' => 'f7', 'to_key' => 'f7a'],
+            ['key' => 'app_to_intv', 'label' => 'Lamaran → Wawancara', 'from_key' => 'f6', 'to_key' => 'f7a'],
+        ];
+
+        return collect($stages)->map(function (array $stage) use ($alumniRows, $bands): array {
+            $eligible = $alumniRows->filter(fn (array $row): bool => $row[$stage['from_key']] !== null && $row[$stage['from_key']] > 0 && $row[$stage['to_key']] !== null);
+            $fromCount = (int) $eligible->sum($stage['from_key']);
+            $toCount = (int) $eligible->sum($stage['to_key']);
+            $counts = array_fill_keys(array_column($bands, 'key'), 0);
+            foreach ($eligible as $row) {
+                $ipk = $row['ipk'];
+                $band = $bands[0];
+                foreach (array_slice($bands, 1) as $candidate) {
+                    if ($ipk !== null && $ipk >= $candidate['min'] && ($ipk < $candidate['max'] || ($candidate['max'] === 4.0 && $ipk <= 4.0))) {
+                        $band = $candidate;
+                        break;
+                    }
+                }
+                $counts[$band['key']] += (int) $row[$stage['to_key']];
+            }
+
+            return [
+                ...$stage,
+                'from_count' => $fromCount,
+                'to_count' => $toCount,
+                'conversion_percentage' => $fromCount > 0 ? round(($toCount / $fromCount) * 100, 1) : 0.0,
+                'counts' => $counts,
+                'segment_percentages' => collect($counts)->map(fn (int $count): float => $this->percentage($count, $toCount))->all(),
+            ];
+        })->all();
+    }
+
     private function learningMethodsChart(Collection $rows): array
     {
         $labels = [
@@ -1298,6 +1591,24 @@ class TracerAnalyticsService
         $sortedByEmphasis = collect($series)->filter(fn ($item) => $item['count'] > 0)->sortByDesc('average')->values();
         $leading = $sortedByEmphasis->first();
         $least = $sortedByEmphasis->last();
+        $prodiSeries = $records->groupBy('nama_prodi')->map(function (Collection $prodiRows, string $prodi) use ($labels, $scaleDescriptions): array {
+            $methods = collect($labels)->map(function (string $label, string $code) use ($prodi, $prodiRows, $scaleDescriptions): array {
+                $scores = $prodiRows->where('kode_pertanyaan', $code)->pluck('score')->filter()->all();
+                $average = $this->average($scores) ?? 0.0;
+
+                return [
+                    'prodi' => $prodi,
+                    'key' => $code,
+                    'label' => $label,
+                    'count' => count($scores),
+                    'average' => round($average, 2),
+                    'score_int' => (int) round($average),
+                    'score_label' => $scaleDescriptions[$average > 0 ? (int) round($average) : 0] ?? '-',
+                ];
+            })->values()->all();
+
+            return ['prodi' => $prodi, 'methods' => $methods];
+        })->values()->all();
 
         return [
             'key' => 'learning_methods',
@@ -1325,6 +1636,7 @@ class TracerAnalyticsService
                 'least_score_label' => $least['score_label'] ?? null,
             ],
             'series' => $series,
+            'prodi_series' => $prodiSeries,
             'records' => $records->all(),
             'methodology' => [
                 'formula' => 'Nilai rerata respon alumni dihitung per metode pembelajaran pada skala Likert 1 (Tidak Sama Sekali) sampai 5 (Sangat Besar) dengan pembulatan bilangan bulat (INT).',
@@ -1531,7 +1843,7 @@ class TracerAnalyticsService
                     'graduation_score' => $scores['a']['score'],
                     'need_score' => $scores['b']['score'],
                     // Skor Likert dan selisih visual selalu dikirim sebagai bilangan bulat.
-                    'gap' => (int) round($scores['b']['score'] - $scores['a']['score']),
+                    'gap' => (int) round($scores['a']['score'] - $scores['b']['score']),
                 ]);
             }
         }
@@ -1541,6 +1853,7 @@ class TracerAnalyticsService
             'graduation_score' => $this->averageInteger($group->pluck('graduation_score')->all()),
             'need_score' => $this->averageInteger($group->pluck('need_score')->all()),
             'gap' => $this->averageInteger($group->pluck('gap')->all()),
+            'is_deficit' => $this->averageInteger($group->pluck('gap')->all()) < 0,
         ])->values()->all();
 
         $sortedByGap = collect($series)->sortByDesc('gap')->values();
@@ -1654,6 +1967,23 @@ class TracerAnalyticsService
 
             return $record;
         });
+        $prodiStats = $records->groupBy('nama_prodi')->map(function (Collection $prodiRecords, string $prodi): array {
+            $prodiValues = $prodiRecords->pluck('months')->all();
+            $q1 = $this->percentile($prodiValues, 25);
+            $q2 = $this->percentile($prodiValues, 50);
+            $q3 = $this->percentile($prodiValues, 75);
+
+            return [
+                'prodi' => $prodi,
+                'count' => count($prodiValues),
+                'q1' => $q1,
+                'median' => $q2,
+                'q3' => $q3,
+                'iqr' => $q1 === null || $q3 === null ? null : round($q3 - $q1, 1),
+                'min' => min($prodiValues),
+                'max' => max($prodiValues),
+            ];
+        })->sortBy(fn (array $item): array => [$item['median'] ?? 0, -$item['count']])->values()->all();
 
         $categories = ['Lebih cepat', 'Sama dengan median', 'Lebih lama'];
         $series = array_map(function (string $category) use ($records): array {
@@ -1678,6 +2008,7 @@ class TracerAnalyticsService
                 'p75_months' => $this->percentile($values, 75),
             ],
             'series' => $series,
+            'prodi_stats' => $prodiStats,
             'records' => $records->sortBy('months')->values()->all(),
             'methodology' => [
                 'formula' => 'Median dihitung dari F502 atau F506 yang berlaku setelah percabangan F504.',
@@ -1755,6 +2086,8 @@ class TracerAnalyticsService
             ],
             'series' => collect($salary['by_prodi'])->values()->all(),
             'regions' => collect($salary['by_province'])->values()->all(),
+            'ump_by_prodi' => collect($salary['by_prodi_ump'] ?? [])->values()->all(),
+            'ump_by_province' => collect($salary['by_province_ump'] ?? [])->values()->all(),
             'records' => $records->sortByDesc('salary')->values()->all(),
             'below_threshold' => $comparableRecords->where('meets_ump', false)->sortBy('salary')->values()->all(),
             'top_salary' => $comparableRecords->sortByDesc('salary')->take(10)->values()->all(),
@@ -1804,6 +2137,8 @@ class TracerAnalyticsService
             'summary' => $this->salarySummary($comparableRows, $rows->count()),
             'by_prodi' => $this->aggregateSalary($comparableRows, 'prodi_id', 'nama_prodi'),
             'by_province' => $this->aggregateSalary($comparableRows, 'province_code', 'province_name'),
+            'by_prodi_ump' => $this->aggregateUmpStatus($allRows, 'prodi_id', 'nama_prodi'),
+            'by_province_ump' => $this->aggregateUmpStatus($allRows, 'province_code', 'province_name'),
             'records' => $allRows->all(),
             'comparable_records' => $comparableRows->all(),
         ];
@@ -1907,6 +2242,16 @@ class TracerAnalyticsService
                 'study_jenjang' => $studyJenjang,
             ];
         })->filter()->values();
+        $prodiSeries = $records->groupBy('nama_prodi')->map(function (Collection $prodiRows, string $prodi): array {
+            $total = $prodiRows->count();
+            $items = $prodiRows->groupBy('status')->map(fn (Collection $group, string $label): array => [
+                'label' => $label,
+                'count' => $group->count(),
+                'percentage' => $this->percentage($group->count(), $total),
+            ])->values()->all();
+
+            return ['prodi' => $prodi, 'total' => $total, 'items' => $items];
+        })->values()->all();
 
         return [
             'key' => 'employment_status',
@@ -1919,6 +2264,7 @@ class TracerAnalyticsService
                 'iku1_positive_percentage' => $status['iku1_positive_percentage'],
             ],
             'series' => $status['items'],
+            'prodi_series' => $prodiSeries,
             'records' => $records->all(),
             'methodology' => [
                 'formula' => 'IKU 1 awal menghitung alumni bekerja, wiraswasta, atau melanjutkan pendidikan.',
@@ -1959,6 +2305,24 @@ class TracerAnalyticsService
             'count' => $group->count(),
             'percentage' => $this->percentage($group->count(), $records->count()),
         ])->sortByDesc('count')->values()->all();
+        $prodiSeries = $records->groupBy('nama_prodi')->map(function (Collection $prodiRows, string $prodi) use ($code): array {
+            $total = $prodiRows->count();
+            $items = $prodiRows->groupBy('answer')->map(fn (Collection $group, string $label): array => [
+                'label' => $label,
+                'count' => $group->count(),
+                'percentage' => $this->percentage($group->count(), $total),
+            ])->values()->all();
+            $matchLabels = $code === 'F14' ? ['Sangat erat', 'Erat'] : ['Tingkat yang sama'];
+            $matchCount = $prodiRows->whereIn('answer', $matchLabels)->count();
+
+            return [
+                'prodi' => $prodi,
+                'total' => $total,
+                'items' => $items,
+                'match_count' => $matchCount,
+                'match_percentage' => $this->percentage($matchCount, $total),
+            ];
+        })->sortByDesc('match_percentage')->values()->all();
 
         return [
             'key' => $chartKey ?? ($code === 'F14' ? 'field_alignment' : 'education_alignment'),
@@ -1971,6 +2335,7 @@ class TracerAnalyticsService
                 'leading_percentage' => $series[0]['percentage'] ?? 0,
             ],
             'series' => $series,
+            'prodi_series' => $prodiSeries,
             'records' => $records->all(),
             'methodology' => [
                 'formula' => 'Setiap jawaban valid dihitung satu kali berdasarkan kategori pilihan.',
@@ -2214,6 +2579,11 @@ class TracerAnalyticsService
             $rate = $this->percentage($respondents, $population);
             $unansweredRate = $this->percentage($unanswered, $population);
             $gap = round($rate - $target, 1);
+            $status = $rate >= 50
+                ? ['key' => 'met', 'label' => 'Capaian Baik', 'meaning' => '50% atau lebih', 'color' => '#0D542B']
+                : ($rate >= 30
+                    ? ['key' => 'warning', 'label' => 'Perlu Ditingkatkan', 'meaning' => '30% hingga kurang dari 50%', 'color' => '#D97706']
+                    : ['key' => 'danger', 'label' => 'Perlu Perhatian', 'meaning' => 'Kurang dari 30%', 'color' => '#DC2626']);
 
             return [
                 'prodi_id' => (int) $prodiRows->first()->prodi_id,
@@ -2225,6 +2595,10 @@ class TracerAnalyticsService
                 'unanswered_rate' => $unansweredRate,
                 'target' => $target,
                 'target_gap' => $gap,
+                'status_key' => $status['key'],
+                'status_label' => $status['label'],
+                'status_meaning' => $status['meaning'],
+                'status_color' => $status['color'],
             ];
         })->sortByDesc('response_rate')->values()->all();
     }
@@ -2337,6 +2711,8 @@ class TracerAnalyticsService
             'summary' => $this->salarySummary($comparableRows, $rows->count()),
             'by_prodi' => $this->aggregateSalary($comparableRows, 'prodi_id', 'nama_prodi'),
             'by_province' => $this->aggregateSalary($comparableRows, 'province_code', 'province_name'),
+            'by_prodi_ump' => $this->aggregateUmpStatus($allRows, 'prodi_id', 'nama_prodi'),
+            'by_province_ump' => $this->aggregateUmpStatus($allRows, 'province_code', 'province_name'),
             'records' => $allRows->all(),
             'comparable_records' => $comparableRows->all(),
         ];
@@ -2382,9 +2758,54 @@ class TracerAnalyticsService
                 'below_count' => $comparable - $meeting,
                 'meeting_percentage' => $this->percentage($meeting, $comparable),
                 'median_salary' => $this->median($group->pluck('salary')->all()),
+                'min_salary' => min($group->pluck('salary')->all()),
+                'q1_salary' => $this->percentile($group->pluck('salary')->all(), 25),
+                'q3_salary' => $this->percentile($group->pluck('salary')->all(), 75),
+                'max_salary' => max($group->pluck('salary')->all()),
                 'ump' => $this->median($group->pluck('ump')->all()),
             ];
         })->sortByDesc('count')->values()->all();
+    }
+
+    /**
+     * Mengagregasi status pembanding UMP termasuk alumni yang belum dapat dibandingkan.
+     *
+     * @return array<int, array<string, mixed>> Statistik status UMP per kelompok.
+     */
+    private function aggregateUmpStatus(Collection $rows, string $groupKey, string $labelKey): array
+    {
+        return $rows->groupBy($groupKey)->map(function (Collection $group) use ($groupKey, $labelKey): array {
+            $total = $group->count();
+            $meets = $group->where('meets_ump', true)->count();
+            $below = $group->where('meets_ump', false)->count();
+            $unavailable = $total - $meets - $below;
+            $salaries = $group->pluck('salary')->filter(fn (mixed $salary): bool => $salary !== null && $salary > 0)->all();
+            $first = $group->first();
+
+            return [
+                'key' => (string) data_get($first, $groupKey, ''),
+                'label' => data_get($first, $labelKey, 'Tanpa label'),
+                'total' => $total,
+                'meets' => $meets,
+                'below' => $below,
+                'not_comparable' => $unavailable,
+                'meets_percentage' => $this->percentage($meets, $total),
+                'below_percentage' => $this->percentage($below, $total),
+                'not_comparable_percentage' => $this->percentage($unavailable, $total),
+                'median_salary' => $this->median($salaries),
+                'status_label' => $this->umpStatusLabel($meets, $total),
+            ];
+        })->sortByDesc('total')->values()->all();
+    }
+
+    /**
+     * Menghasilkan label ringkas status pemenuhan UMP.
+     */
+    private function umpStatusLabel(int $meetingCount, int $total): string
+    {
+        $percentage = $this->percentage($meetingCount, $total);
+
+        return $percentage >= 80 ? 'Memenuhi Mayoritas' : ($percentage >= 50 ? 'Sebagian Memenuhi' : 'Perlu Perhatian');
     }
 
     /**

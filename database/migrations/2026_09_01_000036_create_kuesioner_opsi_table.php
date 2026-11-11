@@ -33,6 +33,7 @@ SQL
             );
 
             DB::statement('CREATE INDEX "kuesioner_opsi_pertanyaan_id_index" on "kuesioner_opsi" ("pertanyaan_id");');
+            DB::statement('CREATE UNIQUE INDEX "kuesioner_opsi_question_code_unique" on "kuesioner_opsi" ("pertanyaan_id", "kode_opsi");');
         } else {
             DB::unprepared(<<<'SQL'
 CREATE TABLE `kuesioner_opsi` (
@@ -47,6 +48,7 @@ CREATE TABLE `kuesioner_opsi` (
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `kuesioner_opsi_pertanyaan_id_foreign` (`pertanyaan_id`),
+  UNIQUE KEY `kuesioner_opsi_question_code_unique` (`pertanyaan_id`, `kode_opsi`),
   CONSTRAINT `kuesioner_opsi_pertanyaan_id_foreign` FOREIGN KEY (`pertanyaan_id`) REFERENCES `kuesioner_pertanyaan` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 SQL

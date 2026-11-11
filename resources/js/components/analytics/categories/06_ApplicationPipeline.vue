@@ -126,6 +126,10 @@ function applyClusterJitter(points, xKey = 'f6', yKey = 'f7') {
 // 1. LINE CHART: Tahapan Lamaran per Program Studi (Gambar 4.7 Laporan Resmi)
 // -----------------------------------------------------------------------------
 const prodiPipelineData = computed(() => {
+    if (props.chart?.prodi_pipeline) {
+        return props.chart.prodi_pipeline;
+    }
+
     const list = alumniList.value;
     if (list && list.length > 0) {
         const prodiMap = {};
@@ -695,7 +699,7 @@ const buildPipelineAuditTable = (data, firstKey, secondKey, firstLabel, secondLa
 };
 
 // Tabel audit individu untuk lamaran terhadap respons perusahaan.
-const scatter1Table = computed(() => buildPipelineAuditTable(
+const scatter1Table = computed(() => props.chart?.relation_tables?.applications_responses || buildPipelineAuditTable(
     scatter1.value.data,
     'f6',
     'f7',
@@ -704,7 +708,7 @@ const scatter1Table = computed(() => buildPipelineAuditTable(
 ));
 
 // Tabel audit individu untuk respons perusahaan terhadap undangan wawancara.
-const scatter2Table = computed(() => buildPipelineAuditTable(
+const scatter2Table = computed(() => props.chart?.relation_tables?.responses_interviews || buildPipelineAuditTable(
     scatter2.value.data,
     'f7',
     'f7a',
@@ -743,6 +747,18 @@ const getConversionIpkBand = (value) => {
 
 // Mengagregasi jumlah tahap per kelompok IPK; panjang bar memakai jumlah pembilang.
 const conversionIpkStats = computed(() => conversionStageDefinitions.map((stage) => {
+    const backendStage = props.chart?.conversion_ipk_stats?.find((item) => item.key === stage.key);
+    if (backendStage) {
+        return {
+            ...stage,
+            fromCount: backendStage.from_count,
+            toCount: backendStage.to_count,
+            conversionPercentage: backendStage.conversion_percentage,
+            counts: backendStage.counts,
+            segmentPercentages: backendStage.segment_percentages,
+        };
+    }
+
     const stageRecords = alumniList.value.filter((record) => {
         const from = Number(record[stage.fromKey]);
         const to = Number(record[stage.toKey]);

@@ -269,6 +269,9 @@ erDiagram
     kuesioner_opsi {
         bigint id PK
         bigint pertanyaan_id FK
+        varchar kode_opsi
+        text label
+        varchar "UNIQUE(pertanyaan_id, kode_opsi)"
     }
 
     kuesioner_jawaban {
@@ -278,8 +281,17 @@ erDiagram
         bigint section_id FK
         bigint pertanyaan_id FK
         bigint opsi_id FK
+        text kode_opsi
+        text jawaban_teks
     }
 ```
+
+Aturan konsistensi opsi: `opsi_id` adalah ID global master, sedangkan
+`kode_opsi` hanya unik dalam lingkup `pertanyaan_id`. Karena itu kode seperti
+`3` boleh muncul pada F8 dan pertanyaan lain, tetapi tidak boleh muncul dua kali
+untuk pertanyaan yang sama. Untuk jawaban pilihan, `jawaban_teks` selalu memakai
+`kuesioner_opsi.label`; normalisasi jawaban lama dilakukan oleh
+`KuesionerAnswerConsistencySeeder`.
 
 ---
 

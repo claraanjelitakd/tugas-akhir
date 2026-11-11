@@ -220,7 +220,7 @@ Aplikasi menggunakan arsitektur kuesioner terpadu (*Unified Survey Engine*) yang
 - `kuesioner_section_pertanyaan`: Mengatur penempatan butir pertanyaan pada bagian, urutan tampilan, status tampil lokal (`is_active`), dan status kewajiban (`wajib = 1` atau `0`). Setiap baris adalah satu penggunaan pertanyaan. Kolom `id` baris ini disebut `placement_id` pada payload/antarmuka aplikasi; `pertanyaan_id` tetap menunjuk master pertanyaan. Status lokal memungkinkan Prodi pengguna menonaktifkan pertanyaan pinjaman tanpa memengaruhi placement Prodi lain.
 
 Untuk operasi pengelolaan kuesioner Prodi, PUT/edit dan pengelolaan opsi memakai ID master (`pertanyaan_id`). Toggle aktif, hapus penggunaan, dan reorder memakai ID penempatan (`placement_id`), yaitu nilai kolom `id` pada `kuesioner_section_pertanyaan`. Dengan demikian, satu pertanyaan master dapat dipakai di banyak section tanpa operasi lokal saling mengubah.
-- `kuesioner_opsi`: Master opsi pilihan jawaban beserta skor bobot numerik dan kode lompatan (*jump_to*).
+- `kuesioner_opsi`: Master opsi pilihan jawaban beserta skor bobot numerik dan kode lompatan (*jump_to*). `kode_opsi` bersifat unik per `pertanyaan_id`, bukan unik global; `jawaban_teks` pada jawaban pilihan dinormalisasi dari `label` master.
 - `kuesioner_jawaban`: Transaksi jawaban terpadu untuk Alumni maupun Atasan penilai (`responden_type`: `'alumni'` atau `'atasan'`).
 
 Fungsi kuesioner program studi memakai satu halaman bersama:

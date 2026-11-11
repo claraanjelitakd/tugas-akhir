@@ -33,117 +33,45 @@ const series = computed(() => props.chart?.series || []);
 const records = computed(() => props.chart?.records || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || records.value.length);
 
-/**
- * Helper konversi label mentah F3 menjadi skala natural tanpa tanda +/-
- * Contoh: < 2 bulan, 3-5 bulan, <= 6 bulan, > 6 bulan
- */
-const formatNaturalScale = (label) => {
-    if (!label) return '-';
-    const match = String(label).match(/(\d+)/);
-    const num = match ? parseInt(match[1], 10) : null;
-    const lower = String(label).toLowerCase();
-    const isBefore = lower.includes('sebelum');
-    const isAfter = lower.includes('setelah') || lower.includes('sesudah');
-
-    if (lower.includes('saat') || lower.includes('tepat') || num === 0) {
-        return 'Saat kelulusan (0 bln)';
-    }
-
-    if (num !== null) {
-        let scaleText = `${num} bulan`;
-        if (num <= 2) {
-            scaleText = '< 2 bulan';
-        } else if (num === 6) {
-            scaleText = '<= 6 bulan';
-        } else if (num > 6) {
-            scaleText = '> 6 bulan';
-        }
-
-        if (isBefore) {
-            return `${scaleText} sebelum lulus`;
-        }
-        if (isAfter) {
-            return `${scaleText} setelah lulus`;
-        }
-        return scaleText;
-    }
-
-    return label;
-};
-
-/**
- * Format label ringkas untuk sumbu yAxis chart
- */
-const formatShortAxisLabel = (label) => {
-    if (!label) return '-';
-    const match = String(label).match(/(\d+)/);
-    const num = match ? parseInt(match[1], 10) : null;
-    const lower = String(label).toLowerCase();
-
-    if (lower.includes('saat') || num === 0) return 'Saat lulus';
-    if (num !== null) {
-        if (num <= 2) return '< 2 bln';
-        if (num === 6) return '<= 6 bln';
-        if (num > 6) return '> 6 bln';
-        return `${num} bln`;
-    }
-    return label;
-};
-
 // Hitung total sebelum dan setelah kelulusan
 const beforeCount = computed(() => {
-    return series.value
-        .filter((item) => seriesLabel(item).toLowerCase().includes('sebelum'))
-        .reduce((acc, curr) => acc + seriesMetric(curr), 0);
+    return Number(props.chart?.summary?.before_count || 0);
 });
 
 const afterCount = computed(() => {
-    return series.value
-        .filter((item) => {
-            const label = seriesLabel(item).toLowerCase();
-            return !label.includes('sebelum') && !label.includes('tidak mencari');
-        })
-        .reduce((acc, curr) => acc + seriesMetric(curr), 0);
+    return Number(props.chart?.summary?.after_count || 0);
 });
 
 // Total jawaban F3 menjadi denominator tunggal untuk seluruh rentang waktu.
-const totalTimingCount = computed(() => series.value.reduce((total, item) => total + seriesMetric(item), 0));
+const totalTimingCount = computed(() => Number(props.chart?.summary?.response_count || 0));
 
 // Jumlah alumni yang memilih tidak mencari pekerjaan dipisahkan dari rentang waktu.
 const notSearchingCount = computed(() => series.value
-    .filter((item) => seriesLabel(item).toLowerCase().includes('tidak mencari'))
-    .reduce((acc, curr) => acc + seriesMetric(curr), 0));
+    .length > 0 ? Number(props.chart?.summary?.not_searching_count || 0) : 0);
 
 const beforePercentage = computed(() => {
-    const total = totalTimingCount.value;
-    return total > 0 ? ((beforeCount.value / total) * 100).toFixed(1) : '0';
+    return Number(props.chart?.summary?.before_percentage || 0).toFixed(1);
 });
 
 const afterPercentage = computed(() => {
-    const total = totalTimingCount.value;
-    return total > 0 ? ((afterCount.value / total) * 100).toFixed(1) : '0';
+    return Number(props.chart?.summary?.after_percentage || 0).toFixed(1);
 });
 
-// Mengelompokkan jawaban F3 menjadi fase dan segmen warna yang dipakai grafik.
-const classifyTimingRange = (rawLabel) => {
-    const label = String(rawLabel || '').toLowerCase();
-    if (label.includes('tidak mencari')) {
-        return { phase: 'Tidak mencari kerja', range: '', segmentKey: 'not_searching' };
-    }
-
-    if (label.includes('sebelum')) {
-        return { phase: 'Sebelum lulus', range: '', segmentKey: 'before_graduation' };
-    }
-
-    const months = Number(label.match(/(\d+)/)?.[1] || 0);
-    if (months < 6) return { phase: 'Setelah lulus', range: '< 6 bulan', segmentKey: 'after_under_6' };
-    if (months <= 12) return { phase: 'Setelah lulus', range: '6–12 bulan', segmentKey: 'after_6_to_12' };
-
-    return { phase: 'Setelah lulus', range: '> 12 bulan', segmentKey: 'after_over_12' };
+// Menggunakan fase dan rentang yang sudah dinormalisasi backend.
+const classifyTimingRange = (item) => {
+    return {
+        phase: item?.phase || seriesLabel(item),
+        range: item?.range || '',
+        segmentKey: item?.segment_key || item?.phase_key || 'unknown',
+    };
 };
 
 // Agregasi rentang sebelum/setelah lulus serta kategori tidak mencari kerja.
 const timingRangeRows = computed(() => {
+    if (props.chart?.timing_range_rows) {
+        return props.chart.timing_range_rows;
+    }
+
     const order = [
         ['Sebelum lulus', '< 2 bulan'],
         ['Sebelum lulus', '2–6 bulan'],
@@ -156,7 +84,7 @@ const timingRangeRows = computed(() => {
     const grouped = new Map(order.map(([phase, range]) => [`${phase}|${range}`, { phase, range, count: 0 }]));
 
     series.value.forEach((item) => {
-        const classification = classifyTimingRange(seriesLabel(item));
+        const classification = classifyTimingRange(item);
         const key = `${classification.phase}|${classification.range}`;
         if (!grouped.has(key)) grouped.set(key, { ...classification, count: 0 });
         grouped.get(key).count += seriesMetric(item);
@@ -234,11 +162,16 @@ const timingStackSegments = [
     { key: 'after_under_6', label: '<6 bulan', color: '#FACC15', labelColor: '#334155' },
     { key: 'after_6_to_12', label: '6–12 bulan', color: '#F97316', labelColor: '#FFFFFF' },
     { key: 'after_over_12', label: '>12 bulan', color: '#B91C1C', labelColor: '#FFFFFF' },
+    { key: 'after_unavailable', label: 'Masa tunggu tidak tersedia', color: '#CBD5E1', labelColor: '#334155' },
     { key: 'not_searching', label: 'Tidak mencari kerja', color: '#B91C1C', labelColor: '#FFFFFF' },
 ];
 
 // Mengagregasi tepat tiga batang fase dengan panjang bar berbasis jumlah alumni.
 const timingStackGroups = computed(() => {
+    if (props.chart?.timing_stack_groups) {
+        return props.chart.timing_stack_groups;
+    }
+
     const groups = [
         { phase: 'Sebelum lulus', counts: Object.fromEntries(timingStackSegments.map((segment) => [segment.key, 0])) },
         { phase: 'Setelah lulus', counts: Object.fromEntries(timingStackSegments.map((segment) => [segment.key, 0])) },
@@ -246,7 +179,7 @@ const timingStackGroups = computed(() => {
     ];
 
     series.value.forEach((item) => {
-        const classification = classifyTimingRange(seriesLabel(item));
+        const classification = classifyTimingRange(item);
         const group = groups.find((candidate) => candidate.phase === classification.phase) || groups[2];
         group.counts[classification.segmentKey] = (group.counts[classification.segmentKey] || 0) + seriesMetric(item);
     });
@@ -346,11 +279,15 @@ const timingStackedTable = computed(() => ({
 // 1. DIVERGING BAR: Posisi Waktu terhadap Kelulusan (Skala Natural Tanpa Tanda +/-)
 // -----------------------------------------------------------------------------
 const divergingData = computed(() => {
+    if (props.chart?.diverging_rows) {
+        return props.chart.diverging_rows;
+    }
+
     return series.value.map((item) => {
         const rawLabel = seriesLabel(item);
-        const naturalLabel = formatNaturalScale(rawLabel);
-        const shortLabel = formatShortAxisLabel(rawLabel);
-        const isBefore = rawLabel.toLowerCase().includes('sebelum');
+        const naturalLabel = item.full_label || item.label || rawLabel;
+        const shortLabel = item.short_label || naturalLabel;
+        const isBefore = item.phase_key === 'before_graduation';
         const count = seriesMetric(item);
         const val = count * (isBefore ? -1 : 1);
         const selected = !props.selectedLabel || props.selectedLabel === rawLabel;
@@ -429,10 +366,14 @@ const divergingTable = computed(() => ({
 // 2. BAR CHART: Distribusi Kategori Waktu Mulai (Skala Natural Terurut)
 // -----------------------------------------------------------------------------
 const sortedCategories = computed(() => {
+    if (props.chart?.sorted_categories) {
+        return props.chart.sorted_categories;
+    }
+
     return [...series.value]
         .map((item) => {
             const rawLabel = seriesLabel(item);
-            const naturalLabel = formatNaturalScale(rawLabel);
+            const naturalLabel = item.full_label || item.label || rawLabel;
             const val = seriesMetric(item);
             const selected = !props.selectedLabel || props.selectedLabel === rawLabel;
             return {
@@ -441,7 +382,7 @@ const sortedCategories = computed(() => {
                 value: val,
                 percentage: validResponses.value > 0 ? ((val / validResponses.value) * 100).toFixed(1) : 0,
                 itemStyle: {
-                    color: rawLabel.toLowerCase().includes('sebelum') ? '#64748B' : '#0D542B',
+                    color: item.phase_key === 'before_graduation' ? '#64748B' : '#0D542B',
                     opacity: selected ? 1 : 0.22,
                     borderRadius: [0, 4, 4, 0],
                 },

@@ -78,29 +78,8 @@ const currentTarget = computed(() => {
     return Number(props.chart?.summary?.target ?? 60.0);
 });
 
-// Seri yang dinormalisasi dengan data populasi, responden, dan belum mengisi.
-const displaySeries = computed(() => {
-    return series.value.map((item) => {
-        const pop = Number(item.population || 0);
-        const resp = Number(item.respondents || 0);
-        const unans = Number(item.unanswered ?? Math.max(pop - resp, 0));
-        const rate = pop > 0 ? Number(((resp / pop) * 100).toFixed(1)) : 0;
-        const unansRate = pop > 0 ? Number(((unans / pop) * 100).toFixed(1)) : 0;
-        const target = Number(item.target ?? currentTarget.value);
-        const gap = Number(item.target_gap ?? Number((rate - target).toFixed(1)));
-        return {
-            prodi_id: item.prodi_id,
-            nama_prodi: item.nama_prodi || 'Tanpa prodi',
-            population: pop,
-            respondents: resp,
-            unanswered: unans,
-            response_rate: rate,
-            unanswered_rate: unansRate,
-            target,
-            target_gap: gap,
-        };
-    });
-});
+// Seri response rate sudah diagregasi backend; Vue hanya menggunakannya untuk tampilan.
+const displaySeries = computed(() => series.value);
 
 // Data program studi yang sedang dipilih secara aktif pada grafik.
 const selectedProdiItem = computed(() => {
@@ -373,7 +352,7 @@ const rankingChartOption = computed(() => {
                     borderRadius: [0, 4, 4, 0],
                     color: (params) => {
                         const row = list[params.dataIndex];
-                        return participationColor(row?.response_rate || 0);
+                        return participationColor(row);
                     },
                     opacity: (params) => {
                         if (!selectedProdiName.value) return 1;
@@ -408,7 +387,7 @@ const rankingChartOption = computed(() => {
                     population: item.population,
                     series_status: 'all',
                     itemStyle: {
-                    color: participationColor(item.response_rate),
+                    color: participationColor(item),
                     },
                 })),
             },
@@ -421,6 +400,18 @@ const rankingChartOption = computed(() => {
 // Kuning: rate >= 30% && rate < 50% -> Perlu ditingkatkan
 // Merah : rate < 30% -> Perlu perhatian dan tindak lanjut
 const getParticipationStatus = (rate) => {
+    if (rate && typeof rate === 'object' && rate.status_label) {
+        return {
+            key: rate.status_key,
+            label: rate.status_label,
+            meaning: rate.status_meaning,
+            color: rate.status_color,
+            badgeClass: rate.status_key === 'met'
+                ? 'bg-emerald-50 text-[#0D542B] border-emerald-300'
+                : (rate.status_key === 'warning' ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-red-50 text-red-700 border-red-300'),
+        };
+    }
+
     const numRate = Number(rate || 0);
 
     if (numRate >= 50) {
@@ -490,7 +481,7 @@ const participationBarOption = computed(() => {
                 const item = list.find((entry) => entry.nama_prodi === prodi);
                 if (!item) return '';
 
-                const status = getParticipationStatus(item.response_rate);
+                const status = getParticipationStatus(item);
                 const targetVal = Number(item.target || currentTarget.value);
                 return `
                     <div style="font-family: inherit; font-size: 12px; line-height: 1.5;">
@@ -516,7 +507,7 @@ const participationBarOption = computed(() => {
                     borderRadius: [3, 0, 0, 3],
                     color: (params) => {
                         const row = list[params.dataIndex];
-                        return participationColor(row?.response_rate || 0);
+                        return participationColor(row);
                     },
                     opacity: (params) => !selectedProdiName.value || params.name === selectedProdiName.value ? 1 : 0.28,
                 },
@@ -536,7 +527,7 @@ const participationBarOption = computed(() => {
                     prodi_id: item.prodi_id,
                     series_status: 'sudah',
                     itemStyle: {
-                        color: participationColor(item.response_rate),
+                    color: participationColor(item),
                         borderRadius: [3, 0, 0, 3],
                     },
                 })),
@@ -782,9 +773,9 @@ const downloadExcel = (statusTarget = null) => {
                                 <td class="px-3.5 py-2 text-center whitespace-nowrap">
                                     <span
                                         class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border"
-                                        :class="getParticipationStatus(item.response_rate).badgeClass"
+                                        :class="getParticipationStatus(item).badgeClass"
                                     >
-                                        {{ getParticipationStatus(item.response_rate).label }}
+                                        {{ getParticipationStatus(item).label }}
                                     </span>
                                 </td>
                                 <td class="px-3.5 py-2 text-center whitespace-nowrap">

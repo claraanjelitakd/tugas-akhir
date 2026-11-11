@@ -70,6 +70,10 @@ const formatStackPercentageLabel = ({ data }) => {
 
 // Menentukan kelompok perbandingan UMP yang dapat diaudit dari satu record.
 const comparisonCategory = (record) => {
+    if (record.salary_comparison === 'above') return 'Di atas 1,2Ã— UMP';
+    if (record.salary_comparison === 'below') return 'Di bawah 1,2Ã— UMP';
+    if (record.salary_comparison === 'unavailable') return 'Belum dapat dibandingkan';
+
     if (record.salary_above_threshold === true || Number(record.salary_above_threshold) === 1) {
         return 'Di atas 1,2× UMP';
     }
@@ -83,6 +87,19 @@ const comparisonCategory = (record) => {
 
 // Mengelompokkan seluruh alumni menurut role, status UMP, dan bobot aktual.
 const roleStats = computed(() => {
+    if (props.chart?.role_stats) {
+        return props.chart.role_stats.map((item) => ({
+            ...item,
+            role: item.label,
+            weightedScore: Number(item.weighted_score || 0),
+            weightedCount: Number(item.weighted_count || 0),
+            averageWeight: Number(item.average_weight || 0),
+            above: Number(item.above_count || 0),
+            below: Number(item.below_count || 0),
+            unavailable: Number(item.unavailable_count || 0),
+        }));
+    }
+
     const grouped = new Map();
 
     records.value.forEach((record) => {
@@ -118,10 +135,15 @@ const roleStats = computed(() => {
 
 // Menormalkan baris role menjadi proporsi 100% untuk grafik komposisi UMP.
 const roleChartRows = computed(() => roleStats.value.map((item) => ({
+    ...(item.above_percentage !== undefined ? {
+        abovePercentage: Number(item.above_percentage || 0),
+        belowPercentage: Number(item.below_percentage || 0),
+        unavailablePercentage: Number(item.unavailable_percentage || 0),
+    } : {}),
     ...item,
-    abovePercentage: item.count > 0 ? Number(((item.above / item.count) * 100).toFixed(1)) : 0,
-    belowPercentage: item.count > 0 ? Number(((item.below / item.count) * 100).toFixed(1)) : 0,
-    unavailablePercentage: item.count > 0 ? Number(((item.unavailable / item.count) * 100).toFixed(1)) : 0,
+    abovePercentage: item.above_percentage !== undefined ? Number(item.above_percentage || 0) : item.count > 0 ? Number(((item.above / item.count) * 100).toFixed(1)) : 0,
+    belowPercentage: item.below_percentage !== undefined ? Number(item.below_percentage || 0) : item.count > 0 ? Number(((item.below / item.count) * 100).toFixed(1)) : 0,
+    unavailablePercentage: item.unavailable_percentage !== undefined ? Number(item.unavailable_percentage || 0) : item.count > 0 ? Number(((item.unavailable / item.count) * 100).toFixed(1)) : 0,
 })));
 
 // Opsi grafik komposisi status UMP per role, termasuk data yang belum lengkap.
@@ -184,6 +206,10 @@ const waitCategory = (record) => {
 
 // Distribusi masa tunggu per role dari records nyata, termasuk 12 bulan atau lebih.
 const waitStats = computed(() => {
+    if (props.chart?.wait_stats) {
+        return props.chart.wait_stats;
+    }
+
     const categories = ['Sebelum Lulus', '<6 bulan', '6–<12 bulan', '≥12 bulan', 'Melanjutkan Pendidikan', 'Masa Tunggu Tidak Tersedia'];
     return roleStats.value.map((role) => {
         const roleRows = records.value.filter((record) => (record.career_category || 'Tidak memenuhi klasifikasi') === role.role);

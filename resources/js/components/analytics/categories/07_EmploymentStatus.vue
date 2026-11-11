@@ -277,6 +277,8 @@ const donutTable = computed(() => ({
 // 2. STACKED BAR: Komposisi Status per Program Studi (Dilengkapi n & %)
 // -----------------------------------------------------------------------------
 const prodis = computed(() => [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]);
+// Distribusi status per prodi sudah diagregasi backend; data ini hanya dipetakan ke format chart.
+const prodiStatusSeries = computed(() => props.chart?.prodi_series || []);
 // Urutan stack dibaca dari risiko tertinggi (merah) ke serapan tertinggi (hijau).
 const statusCategories = computed(() => {
     const statusOrder = [
@@ -295,15 +297,18 @@ const stackedOption = computed(() => {
     const listProdis = prodis.value;
     const cats = statusCategories.value;
 
-    const prodiTotals = Object.fromEntries(
-        listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]),
-    );
+    const prodiTotals = Object.fromEntries(listProdis.map((p) => [
+        p,
+        prodiStatusSeries.value.find((item) => item.prodi === p)?.total
+            ?? records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length,
+    ]));
 
     const seriesList = cats.map((cat) => {
         const catData = listProdis.map((prodi) => {
-            const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
+            const backendItem = prodiStatusSeries.value.find((item) => item.prodi === prodi)?.items?.find((item) => item.label === cat);
+            const count = backendItem?.count ?? records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
             const total = Math.max(prodiTotals[prodi], 1);
-            const pct = Number(((count / total) * 100).toFixed(1));
+            const pct = backendItem?.percentage ?? Number(((count / total) * 100).toFixed(1));
             return {
                 value: pct,
                 count,
@@ -411,7 +416,21 @@ const stackedTable = computed(() => ({
         { key: 'studi', label: 'Lanjut Studi', align: 'right' },
         { key: 'lainnya', label: 'Lainnya / Mencari', align: 'right' },
     ],
-    rows: prodis.value.map((prodi) => {
+    rows: prodiStatusSeries.value.length > 0
+        ? prodiStatusSeries.value.map((item) => {
+            const getCount = (label) => item.items.find((status) => status.label === label)?.count || 0;
+            const getPercentage = (label) => item.items.find((status) => status.label === label)?.percentage || 0;
+
+            return {
+                prodi: item.prodi,
+                total: formatNumber(item.total, 0),
+                bekerja: `${getCount('Bekerja')} (${formatPercentage(getPercentage('Bekerja'))})`,
+                wiraswasta: `${getCount('Wiraswasta')} (${formatPercentage(getPercentage('Wiraswasta'))})`,
+                studi: `${getCount('Melanjutkan pendidikan')} (${formatPercentage(getPercentage('Melanjutkan pendidikan'))})`,
+                lainnya: `${item.total - getCount('Bekerja') - getCount('Wiraswasta') - getCount('Melanjutkan pendidikan')} (${formatPercentage(100 - getPercentage('Bekerja') - getPercentage('Wiraswasta') - getPercentage('Melanjutkan pendidikan'))})`,
+            };
+        })
+        : prodis.value.map((prodi) => {
         const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const total = rows.length;
         const countBek = rows.filter((r) => recordCategory(r) === 'Bekerja').length;
@@ -427,7 +446,7 @@ const stackedTable = computed(() => ({
             studi: `${countStu} (${formatPercentage(total ? (countStu / total) * 100 : 0)})`,
             lainnya: `${countOth} (${formatPercentage(total ? (countOth / total) * 100 : 0)})`,
         };
-    }),
+        }),
 }));
 
 // -----------------------------------------------------------------------------

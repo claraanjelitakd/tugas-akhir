@@ -42,21 +42,17 @@ const selectedAspectIndex = ref(0);
 
 // Daftar aspek kompetensi dari data backend
 const aspects = computed(() => {
-    return series.value.map((item, index) => {
-        const grad = Number(item.graduation_score || 0);
-        const need = Number(item.need_score || 0);
-        const gap = grad - need;
-        return {
-            index,
-            key: item.key || `aspect_${index}`,
-            label: seriesLabel(item),
-            grad,
-            need,
-            gap,
-            count: Number(item.count || 0),
-            isDeficit: need > grad,
-        };
-    });
+    return series.value.map((item, index) => ({
+        ...item,
+        index,
+        key: item.key || `aspect_${index}`,
+        label: seriesLabel(item),
+        grad: Number(item.graduation_score || 0),
+        need: Number(item.need_score || 0),
+        gap: Number(item.gap || 0),
+        count: Number(item.count || 0),
+        isDeficit: Boolean(item.is_deficit),
+    }));
 });
 
 // Objek aspek kompetensi aktif
@@ -379,11 +375,7 @@ const unifiedOption = computed(() => {
     const labels = series.value.map(seriesLabel);
     const gradScores = series.value.map((item) => Number(item.graduation_score || 0));
     const needScores = series.value.map((item) => Number(item.need_score || 0));
-    const gapScores = series.value.map((item) => {
-        const grad = Number(item.graduation_score || 0);
-        const need = Number(item.need_score || 0);
-        return Math.round(grad - need);
-    });
+    const gapScores = series.value.map((item) => Number(item.gap || 0));
 
     return {
         ...baseOption(validResponses.value),
@@ -451,7 +443,7 @@ const unifiedOption = computed(() => {
                 const titleText = escapeHtml(params[0]?.name || '');
                 const grad = Number(params.find((p) => p.seriesName.includes('Saat Lulus'))?.value || 0);
                 const need = Number(params.find((p) => p.seriesName.includes('Diperlukan'))?.value || 0);
-                const gap = Math.round(grad - need);
+                const gap = Number(params.find((p) => p.seriesName.includes('Gap Selisih'))?.value || 0);
                 const gapSign = gap > 0 ? `+${gap}` : `${gap}`;
                 const gapStatus = gap >= 0
                     ? '<span style="color:#0D542B;font-weight:700">Surplus (Bekal Terpenuhi)</span>'
@@ -539,15 +531,13 @@ const unifiedTable = computed(() => ({
         { key: 'status', label: 'Status Evaluasi', align: 'center' },
     ],
     rows: series.value.map((item) => {
-        const grad = Number(item.graduation_score || 0);
-        const need = Number(item.need_score || 0);
-        const gap = Math.round(grad - need);
+        const gap = Number(item.gap || 0);
         return {
             name: seriesLabel(item),
-            graduation: formatNumber(grad, 0),
-            need: formatNumber(need, 0),
+            graduation: formatNumber(item.graduation_score, 0),
+            need: formatNumber(item.need_score, 0),
             gap: gap > 0 ? `+${formatNumber(gap, 0)}` : formatNumber(gap, 0),
-            status: gap >= 0 ? 'Surplus (Terpenuhi)' : 'Defisit (Evaluasi)',
+            status: item.is_deficit ? 'Defisit (Evaluasi)' : 'Surplus (Terpenuhi)',
         };
     }),
 }));

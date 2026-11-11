@@ -120,7 +120,7 @@ class ResponseRateExcelExporter
  xmlns:html="http://www.w3.org/TR/REC-html40">
  <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
   <Author>Tracer Study UKDW</Author>
-  <Created><?= now()->toIso8601String() ?></Created>
+  <Created><?= now()->utc()->format('Y-m-d\\TH:i:s\\Z') ?></Created>
  </DocumentProperties>
  <Styles>
   <Style ss:ID="Default" ss:Name="Normal">
@@ -233,7 +233,7 @@ class ResponseRateExcelExporter
 <?php if ($status === 'all') { ?>
  <!-- WORKSHEET 1: RINGKASAN CAPAIAN -->
  <Worksheet ss:Name="Ringkasan">
-  <Table ss:DefaultRowHeight="20">
+  <Table ss:DefaultRowHeight="20" x:FullColumns="1" x:FullRows="1">
    <Column ss:Width="35"/>
    <Column ss:Width="200"/>
    <Column ss:Width="100"/>
@@ -319,7 +319,7 @@ class ResponseRateExcelExporter
 <?php if ($status === 'all' || $status === 'sudah') { ?>
  <!-- WORKSHEET: SUDAH MENGISI -->
  <Worksheet ss:Name="Sudah Mengisi">
-  <Table ss:DefaultRowHeight="20">
+  <Table ss:DefaultRowHeight="20" x:FullColumns="1" x:FullRows="1">
    <Column ss:Width="35"/>
    <Column ss:Width="85"/>
    <Column ss:Width="200"/>
@@ -371,7 +371,7 @@ class ResponseRateExcelExporter
 <?php if ($status === 'all' || $status === 'belum') { ?>
  <!-- WORKSHEET: BELUM MENGISI -->
  <Worksheet ss:Name="Belum Mengisi">
-  <Table ss:DefaultRowHeight="20">
+  <Table ss:DefaultRowHeight="20" x:FullColumns="1" x:FullRows="1">
    <Column ss:Width="35"/>
    <Column ss:Width="85"/>
    <Column ss:Width="200"/>

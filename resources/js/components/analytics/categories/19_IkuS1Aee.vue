@@ -47,22 +47,17 @@ const getStatus = (percentage) => {
 // Menyiapkan baris visual dengan denominator, persentase, dan status warna.
 const chartRows = computed(() => [...series.value]
     .map((item) => {
-        const denominator = Number(item.eligible || 0);
-        const onTime = Number(item.on_time || 0);
-        const late = Number(item.late || 0);
-        const unidentified = 0;
-        const notOnTime = late;
-        const percentage = denominator > 0 ? Number(((onTime / denominator) * 100).toFixed(1)) : 0;
-
         return {
             ...item,
-            denominator,
-            onTime,
-            late,
-            unidentified,
-            notOnTime,
-            percentage,
-            status: getStatus(percentage),
+            denominator: Number(item.eligible || 0),
+            onTime: Number(item.on_time || 0),
+            late: Number(item.late || 0),
+            percentage: Number(item.aee_realization || 0),
+            status: {
+                key: item.status_key,
+                label: item.status_label,
+                color: item.status_color,
+            },
         };
     })
     .sort((left, right) => {

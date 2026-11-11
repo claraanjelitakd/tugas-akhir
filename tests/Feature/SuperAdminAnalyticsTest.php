@@ -16,7 +16,9 @@ use App\Models\Propinsi;
 use App\Models\Ump;
 use App\Models\User;
 use App\Services\Analytics\TracerAnalyticsService;
+use App\Services\Export\ResponseRateExcelExporter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -267,6 +269,7 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertCount(1, $analytics['salary_vs_ump']['by_prodi']);
         $this->assertSame(1, $analytics['salary_vs_ump']['by_prodi'][0]['meeting_count']);
         $this->assertSame($biodata->prodi_id, (int) $analytics['salary_vs_ump']['by_prodi'][0]['key']);
+        $this->assertSame(1, $analytics['salary_vs_ump']['by_prodi_ump'][0]['meets']);
 
         $chart = app(TracerAnalyticsService::class)
             ->buildUniversityChart('salary_vs_ump', (string) now()->year);
@@ -370,6 +373,56 @@ class SuperAdminAnalyticsTest extends TestCase
 
         $this->assertCount(1, $chart['chart']['records']);
         $this->assertSame('Setelah lulus', $chart['chart']['records'][0]['answer']);
+    }
+
+    /**
+     * Grafik F3 menerima angka bulan hasil normalisasi backend, bukan hasil
+     * pembacaan ulang teks jawaban di komponen frontend.
+     */
+    public function test_job_search_start_chart_exposes_normalized_months_from_text_answer(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '72', 'nama_prodi' => 'Sistem Informasi']);
+        $user = User::create([
+            'username' => 'analytics-f3-normalized',
+            'name' => 'Alumni F3 Normalized',
+            'email' => 'analytics-f3-normalized@example.test',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+        DataAkademik::create([
+            'nim' => '72220200',
+            'nama' => 'Alumni F3 Normalized',
+            'prodi_id' => $prodi->id,
+            'tahun_lulus' => now()->year,
+            'status_mahasiswa' => 'Lulus',
+        ]);
+        $biodata = Biodata::create([
+            'user_id' => $user->id,
+            'nim' => '72220200',
+            'nama' => 'Alumni F3 Normalized',
+            'prodi_id' => $prodi->id,
+            'nomor_telepon' => '081234567890',
+            'email_pribadi' => 'analytics-f3-normalized@example.test',
+        ]);
+
+        $this->insertUnifiedAnswer(
+            $biodata->id,
+            'F3',
+            'Kapan mulai mencari pekerjaan?',
+            'Setelah lulus ... bulan: 3',
+        );
+
+        $chart = app(TracerAnalyticsService::class)
+            ->buildUniversityChart('job_search_start', (string) now()->year);
+        $record = $chart['chart']['records'][0];
+
+        $this->assertSame(3.0, $record['months']);
+        $this->assertSame('after_under_6', $record['segment_key']);
+        $this->assertSame('< 6 bulan', $record['range']);
+        $this->assertArrayHasKey('timing_range_rows', $chart['chart']);
+        $this->assertArrayHasKey('timing_stack_groups', $chart['chart']);
+        $this->assertSame(100.0, (float) $chart['chart']['summary']['after_percentage']);
     }
 
     /**
@@ -745,6 +798,21 @@ class SuperAdminAnalyticsTest extends TestCase
     }
 
     /**
+     * SpreadsheetML response rate harus dapat diparse sebagai XML oleh Excel.
+     */
+    public function test_response_rate_excel_contains_valid_spreadsheetml(): void
+    {
+        $records = DB::table('v_analytics_response_rate')->get();
+        $xml = ResponseRateExcelExporter::generateSpreadsheetXml('ALL', null, 'all', $records);
+        $document = new \DOMDocument;
+
+        $this->assertTrue($document->loadXML($xml));
+        $this->assertStringContainsString('<Style ss:ID="Default" ss:Name="Normal">', $xml);
+        $this->assertStringContainsString('<Created>', $xml);
+        $this->assertStringContainsString('x:FullColumns="1" x:FullRows="1"', $xml);
+    }
+
+    /**
      * Target response rate membaca konfigurasi kuesioner dinamis dari database.
      */
     public function test_response_rate_uses_configured_target_from_kuesioner(): void
@@ -893,6 +961,10 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertNotNull($s1['stats']['rho']);
         $this->assertNotNull($s1['stats']['p_value']);
         $this->assertSame(3, $s1['stats']['n']);
+        $this->assertArrayHasKey('relation_tables', $chart);
+        $this->assertCount(3, $chart['relation_tables']['applications_responses']['rows']);
+        $this->assertCount(1, $chart['relation_tables']['applications_responses']['summary']['rows']);
+        $this->assertArrayHasKey('conversion_ipk_stats', $chart);
 
         // 2. Verifikasi Scatter Plot 2: Respons vs Wawancara
         $this->assertArrayHasKey('scatter_responses_interviews', $chart);
