@@ -453,8 +453,8 @@ onBeforeUnmount(() => {
         <main id="profile-form-container" class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
             <form @submit.prevent="submit(null, currentTabIndex === tabs.length - 1 ? '/alumni/kuesioner' : null)" autocomplete="off" class="bg-white rounded-2xl shadow-xs border border-gray-200 relative transition-all duration-300">
 
-                <!-- Sticky Stepper Navigation (Bersih, Formal & Konsisten) -->
-                <div class="sticky top-[72px] lg:top-20 z-40">
+                <!-- Sticky Stepper Navigation; offset mengikuti navbar satu atau dua baris. -->
+                <div class="sticky top-[130px] lg:top-[82px] z-40">
                     <Stepper
                         :tabs="tabs"
                         :active-tab="activeTab"

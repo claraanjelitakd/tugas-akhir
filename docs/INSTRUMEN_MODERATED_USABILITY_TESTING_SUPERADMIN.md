@@ -920,7 +920,37 @@ Anda telah selesai bekerja dan ingin keluar dari sistem dengan aman.
 
 ---
 
-## 10. Task Prioritas
+## 10. Matriks Skenario Pengujian Superadmin
+
+Gunakan tabel berikut sebagai lembar kerja utama moderator. Kolom **Keberhasilan (0-4)**, **Waktu**, **Kesalahan dan bantuan**, serta **Catatan dan rekomendasi** diisi saat sesi berlangsung. Rincian langkah setiap task tersedia pada bagian SA-01 sampai SA-21 di atas.
+
+| ID | Nama Task | Halaman Awal | Task | Deskripsi | Kriteria keberhasilan | Pengamatan | Keberhasilan (0-4) | Waktu (target/aktual) | Kesalahan dan bantuan | Catatan dan rekomendasi |
+|---|---|---|---|---|---|---|---:|---|---|---|
+| SA-01 | Login dan memahami navigasi | `/login` | Login, lalu temukan halaman alumni, perusahaan, kuesioner, evaluasi atasan, analitik, manajemen akun, dan log aktivitas. | Superadmin baru masuk ke sistem dan mengenali struktur fitur utama. | Berhasil login tanpa bantuan dan menemukan minimal lima area utama. | Perhatikan pemahaman istilah menu, struktur navigasi, dan salah klik. | .... | Target: 5 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-02 | Memahami Dashboard Superadmin | `/superadmin/dashboard` | Baca ringkasan, cari indikator penting, data yang perlu ditindaklanjuti, dan buka detail bila tersedia. | Superadmin menentukan pekerjaan prioritas berdasarkan informasi Dashboard. | Dapat membedakan total, progres, respon, dan data yang membutuhkan tindak lanjut. | Perhatikan apakah angka, label, dan tautan drill-down dipahami. | .... | Target: 5 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-03 | Mencari dan memeriksa detail alumni | `/superadmin/alumni` | Cari alumni dengan nama atau NIM, gunakan filter, buka detail, lalu periksa profil, akademik, karier, atasan, kuesioner, evaluasi, dan LinkedIn. | Pimpinan meminta audit lengkap terhadap satu data alumni. | Alumni yang benar ditemukan dan minimal tiga jenis informasi dapat ditelusuri. | Perhatikan kepadatan informasi, label tab, dan pemahaman relasi data. | .... | Target: 7 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-04 | Mengubah data profil alumni | Detail alumni dari `/superadmin/alumni` | Ubah satu field profil yang diizinkan, simpan, muat ulang, dan pastikan perubahan tersimpan. | Superadmin menerima koreksi data dari alumni. | Perubahan tersimpan, data akademik readonly tidak diubah, dan pesan hasil dipahami. | Perhatikan apakah peserta membedakan field yang dapat dan tidak dapat diubah. | .... | Target: 5 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-04A | Sinkronisasi dan approval LinkedIn | `/superadmin/alumni` lalu detail dan tab Hasil LinkedIn | Buka hasil pending, sinkronkan ulang, periksa pemetaan, ubah usulan bila perlu, lalu setujui. | Data LinkedIn perlu ditinjau sebelum diterapkan ke profil alumni. | Peserta memahami staging, membandingkan data, memeriksa audit mapping, dan berhasil approval. | Perhatikan pemahaman status Pending, Approved, data mentah, dan dampak approval. | .... | Target: 10 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-04B | Menolak hasil LinkedIn | Detail alumni lalu tab Hasil LinkedIn | Buka hasil pending yang tidak sesuai, tolak, lalu pastikan profil utama tidak berubah. | Hasil LinkedIn tidak boleh diterapkan karena tidak sesuai. | Penolakan berhasil, status menjadi Rejected, dan data profil utama tetap aman. | Perhatikan apakah konfirmasi penolakan dan dampaknya dipahami. | .... | Target: 5 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-05 | Memverifikasi perusahaan | `/superadmin/perusahaan` | Cari pengajuan menunggu verifikasi, periksa data, lalu verifikasi atau tolak data uji. | Pengajuan perusahaan baru perlu diputuskan statusnya. | Pengajuan benar ditemukan dan status berubah sesuai keputusan. | Perhatikan pemahaman verifikasi, penolakan, edit, dan rekomendasi kemiripan. | .... | Target: 6 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-06 | Mengelola section kuesioner Universitas | `/superadmin/sections` | Tambah, ubah, urutkan, dan hapus section data uji. | Universitas menambah bagian baru tentang pengalaman magang. | Section uji dapat dibuat, diedit, diurutkan, dan dihapus tanpa merusak data aktif. | Perhatikan keterlihatan aksi dan pemahaman syarat penghapusan. | .... | Target: 7 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-07 | Membuat dan mengedit pertanyaan Universitas | `/superadmin/pertanyaan` | Buat pertanyaan `UT-SA-001`, atur tipe dan status wajib, simpan, cari kembali, edit, lalu ubah status aktif. | Universitas menambahkan pertanyaan baru pada instrumen. | Kode, label, teks, tipe, dan status tersimpan serta dapat ditemukan kembali. | Perhatikan apakah peserta memahami perbedaan kode, label, dan teks pertanyaan. | .... | Target: 8 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-08 | Mengelola opsi dan Jump To | `/superadmin/pertanyaan` | Tambah beberapa opsi, atur tujuan pertanyaan lanjutan, ubah tujuan, lalu kosongkan salah satu tujuan. | Alur pertanyaan berikutnya perlu bergantung pada jawaban peserta. | Opsi dan tujuan tersimpan; peserta memahami fungsi dan validasi Jump To. | Perhatikan apakah istilah tujuan lompatan dan relasi pertanyaan dipahami. | .... | Target: 8 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-09 | Menggunakan bank pertanyaan dan placement | `/superadmin/pertanyaan` atau `/superadmin/prodi-kuesioner` | Cari pertanyaan yang sudah ada, tempatkan pada section tujuan, lalu hapus placement uji. | Superadmin ingin menggunakan pertanyaan tanpa membuat master duplikat. | Peserta membedakan master pertanyaan dan placement serta tidak membuat duplikasi. | Perhatikan pemahaman asal pertanyaan dan dampak menghapus placement. | .... | Target: 7 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-10 | Mengelola kuesioner Program Studi | `/superadmin/prodi-kuesioner` | Pilih prodi, kelola section, tambah pertanyaan dan opsi, atur urutan, lalu nonaktifkan dan aktifkan kembali. | Program studi meminta penyesuaian instrumen khusus. | Perubahan hanya berlaku pada prodi yang dipilih dan status dapat dikendalikan. | Perhatikan apakah peserta membedakan kuesioner Universitas dan Prodi. | .... | Target: 8 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-11 | Mengelola instrumen Evaluasi Atasan | `/superadmin/evaluasi-atasan` | Kelola bagian, buat pertanyaan evaluasi, periksa opsi Likert, ubah status, dan buka riwayat respons. | Universitas menambah aspek penilaian pengguna lulusan atau atasan. | Peserta dapat membuat pertanyaan dan meninjau respons tanpa mengubah histori. | Perhatikan pemahaman section, pertanyaan, opsi skala, dan riwayat. | .... | Target: 8 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-12 | Membaca analitik Universitas | `/superadmin/analitik` | Pilih tahun dan prodi, baca indikator, bandingkan nilai tertinggi dan terendah, lalu buka drill-down. | Pimpinan meminta ringkasan hasil Tracer Study tahun 2026. | Filter, jumlah, persentase, grafik, dan data detail dapat dijelaskan. | Perhatikan apakah konteks filter tetap dipahami saat membuka detail. | .... | Target: 8 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-13 | Membaca analitik Program Studi | `/superadmin/analitik-prodi` | Pilih prodi, section, dan pertanyaan, lalu baca distribusi serta tabel pembentuk grafik. | Universitas membandingkan hasil kuesioner khusus antarprodi. | Peserta berpindah konteks dengan benar dan menemukan nilai tertinggi serta terendah. | Perhatikan kehilangan konteks, label grafik, dan pemahaman drill-down. | .... | Target: 7 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-14 | Membaca analitik Evaluasi Atasan | `/superadmin/analitik-atasan` | Filter tahun dan prodi, baca jumlah evaluasi, distribusi, rata-rata kompetensi, dan detail alumni. | Universitas ingin mengetahui penilaian pengguna lulusan terhadap alumni. | Peserta dapat menghubungkan metrik dengan respons dan alumni sumbernya. | Perhatikan pemahaman rata-rata, distribusi, dan status respons. | .... | Target: 7 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-15 | Mengelola akun dan reset kata sandi | `/superadmin/manajemen-akun` | Cari akun alumni, ubah data non-sensitif, simpan, lakukan reset kata sandi, dan jelaskan langkah berikutnya. | Alumni tidak dapat masuk dan membutuhkan bantuan administrator. | Akun yang benar ditemukan, reset berhasil, dan kewajiban mengganti kata sandi dipahami. | Perhatikan pembedaan edit akun, reset, dan status perubahan. | .... | Target: 7 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-16 | Mengelola master wilayah, negara, dan UMP | `/superadmin/master-wilayah` | Cari dan ubah data uji provinsi, kabupaten, negara, dan UMP; uji duplikasi UMP. | Master referensi perlu diperbarui untuk form dan analitik. | Relasi provinsi-kabupaten dipahami dan duplikasi ditolak dengan pesan jelas. | Perhatikan risiko salah edit dan pemahaman data yang masih direferensikan. | .... | Target: 10 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-17 | Meninjau sinkronisasi LinkedIn | `/superadmin/linkedin-sync` | Cari alumni, filter status, buka detail, lanjutkan audit, setujui atau tolak hasil, lalu cek status kembali. | Halaman direktori digunakan untuk monitoring banyak hasil sinkronisasi. | Peserta membedakan monitoring massal dari approval detail dan melihat status terbaru. | Perhatikan apakah peserta tahu kapan harus berpindah ke Data Alumni. | .... | Target: 8 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-18 | Meninjau data atasan | `/superadmin/atasan` | Cari atasan berdasarkan nama atau perusahaan, periksa alumni terkait, dan lihat status evaluasi. | Superadmin ingin memastikan relasi pengguna lulusan dapat ditelusuri. | Data atasan, perusahaan, alumni, dan evaluasi dapat dibedakan. | Perhatikan apakah satu baris dipahami sebagai satu relasi alumni-atasan. | .... | Target: 5 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-19 | Membaca log aktivitas | `/superadmin/logs` | Filter log, cari model atau pengguna, lalu baca nilai sebelum, sesudah, waktu, dan pelaku perubahan. | Perubahan data perusahaan perlu diaudit. | Peserta menemukan aktivitas yang benar dan dapat menjelaskan detail perubahan. | Perhatikan pemahaman filter, old value, new value, waktu, dan pengguna. | .... | Target: 6 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-20 | Mengekspor data | `/superadmin/alumni` | Pilih filter, ekspor data massal, buka file, periksa header, dan cocokkan beberapa baris dengan aplikasi. | Pimpinan meminta data alumni untuk analisis lanjutan. | File berhasil diunduh, dibuka, dan isinya sesuai dengan filter. | Perhatikan apakah fungsi ekspor mudah ditemukan dan hasilnya dipercaya. | .... | Target: 6 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+| SA-21 | Logout dan menguji sesi | Halaman Superadmin apa pun | Logout, gunakan tombol Back, buka URL internal, dan jelaskan hasil yang diharapkan. | Superadmin selesai bekerja dan ingin memastikan sesi aman. | Logout berhasil dan halaman internal tidak dapat digunakan tanpa login. | Perhatikan pemahaman peserta terhadap keamanan sesi dan redirect. | .... | Target: 4 menit<br>Aktual: .... | Level bantuan: ....<br>Kesalahan: .... | .... |
+
+## 11. Task Prioritas
 
 Apabila waktu pengujian terbatas, gunakan task berikut sebagai task kritis:
 
@@ -944,7 +974,7 @@ Apabila waktu pengujian terbatas, gunakan task berikut sebagai task kritis:
 
 ---
 
-## 11. Kriteria Penilaian Task
+## 12. Kriteria Penilaian Task
 
 | Nilai | Keterangan |
 |---:|---|
@@ -958,7 +988,7 @@ Task dianggap berhasil apabila tujuan utama tercapai. Task tidak dianggap lancar
 
 ---
 
-## 12. Lembar Observasi Moderator
+## 13. Lembar Observasi Moderator
 
 | Kode task | Berhasil | Waktu | Salah klik | Bantuan level | Nilai | Catatan perilaku |
 |---|---|---:|---:|---:|---:|---|
@@ -981,7 +1011,7 @@ Task dianggap berhasil apabila tujuan utama tercapai. Task tidak dianggap lancar
 
 ---
 
-## 13. Pertanyaan Setelah Setiap Task
+## 14. Pertanyaan Setelah Setiap Task
 
 Ajukan pertanyaan berikut setelah task selesai:
 
@@ -1006,7 +1036,7 @@ Skala:
 
 ---
 
-## 14. Pertanyaan Wawancara Akhir
+## 15. Pertanyaan Wawancara Akhir
 
 1. Bagian sistem apa yang paling mudah digunakan?
 2. Bagian sistem apa yang paling sulit digunakan?
@@ -1022,7 +1052,7 @@ Skala:
 
 ---
 
-## 15. Analisis Hasil
+## 16. Analisis Hasil
 
 ### 15.1 Persentase keberhasilan task
 
@@ -1064,7 +1094,7 @@ Pengujian Superadmin dianggap memenuhi target apabila:
 
 ---
 
-## 16. Klasifikasi Temuan Masalah
+## 17. Klasifikasi Temuan Masalah
 
 | Tingkat | Definisi | Contoh |
 |---|---|---|
@@ -1082,7 +1112,7 @@ Pengujian Superadmin dianggap memenuhi target apabila:
 
 ---
 
-## 17. Ringkasan Hasil Pengujian
+## 18. Ringkasan Hasil Pengujian
 
 | Indikator | Hasil |
 |---|---:|
@@ -1120,7 +1150,7 @@ Pengujian Superadmin dianggap memenuhi target apabila:
 
 ---
 
-## 18. Naskah Penutupan Moderator
+## 19. Naskah Penutupan Moderator
 
 > Terima kasih atas waktu dan masukan yang diberikan. Semua kesulitan yang muncul selama pengujian akan digunakan untuk memperbaiki Portal Tracer Study UKDW. Tidak ada penilaian terhadap kemampuan Anda sebagai peserta. Catatan yang kami gunakan berfokus pada pengalaman penggunaan sistem.
 

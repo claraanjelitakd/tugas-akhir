@@ -139,8 +139,8 @@ const handleLogout = () => {
                 </Link>
 
                 <!-- Tengah: Menu Navigasi Desktop -->
-                <!-- Desktop nav baru tampil pada lebar ekstra agar layout tablet tidak terpotong. -->
-                <div class="hidden items-center justify-center gap-1 xl:flex">
+                <!-- Desktop nav mulai tampil pada lebar lg agar layar laptop tidak turun ke baris kedua. -->
+                <div class="hidden items-center justify-center gap-1 lg:flex">
                     <Link
                         v-for="item in navigationItems"
                         :key="item.href"
@@ -242,8 +242,8 @@ const handleLogout = () => {
         </div>
 
         <!-- Menu Navigasi Mobile -->
-        <!-- Navigasi horizontal tetap tersedia pada tablet dan layar kecil tanpa memaksa lebar halaman. -->
-        <div class="flex min-w-0 max-w-full gap-1 overflow-x-auto border-t border-slate-100 px-3 py-2 text-xs xl:hidden">
+        <!-- Navigasi horizontal tetap tersedia pada tablet kecil dan layar ponsel tanpa memaksa lebar halaman. -->
+        <div class="flex min-w-0 max-w-full gap-1 overflow-x-auto border-t border-slate-100 px-3 py-2 text-xs lg:hidden">
             <Link
                 v-for="item in navigationItems"
                 :key="`mobile-${item.href}`"
