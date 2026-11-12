@@ -5,22 +5,25 @@ start
 :Buka URL token;
 |Backend|
 :Cari dan validasi token;
-if (Token valid dan belum ditolak?) then (ya)
-  :Muat instrumen aktif;
+  if (Token valid dan belum disubmit?) then (ya)
+    :Muat instrumen evaluasi aktif dan konteks alumni;
   |Atasan|
   :Isi identitas, skor, dan catatan;
   |Backend|
   :Validasi throttle dan input;
   if (Input valid?) then (ya)
     |Database|
-    :Upsert atasan dan ResponEvaluasiAtasan;
+    :Kunci EvaluasiAtasan;
+    :Perbarui perusahaan, biodata, dan snapshot atasan;
+    :Simpan jawaban seluruh pertanyaan aktif;
+    :Set is_submitted dan submitted_at;
     |Backend|
     :Tampilkan sukses;
   else (tidak)
     :Tampilkan validation error;
   endif
 else (tidak)
-  :Tampilkan token error;
+  :Tampilkan token tidak ditemukan atau evaluasi selesai;
 endif
 stop
 @enduml

@@ -1,0 +1,14 @@
+@startuml
+title AD-25 Logout dan Pengakhiran Sesi
+|Pengguna Terautentikasi|
+start
+:Pilih Keluar;
+|Backend|
+:Jalankan Auth::logout();
+|Database|
+:Invalidasi session aktif;
+|Backend|
+:Regenerasi token CSRF;
+:Redirect ke beranda publik;
+stop
+@enduml

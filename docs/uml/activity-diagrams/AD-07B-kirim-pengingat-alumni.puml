@@ -1,0 +1,17 @@
+@startuml
+title AD-07B Mengirim Pengingat kepada Alumni
+|Admin Berwenang|
+start
+:Pilih alumni dan klik kirim pengingat;
+|Backend|
+:Validasi role, scope, dan email target;
+if (Target valid?) then (ya)
+  |Mail Service|
+  :Kirim email pengingat;
+  |Backend|
+  :Kembalikan flash sukses atau kegagalan pengiriman;
+else (tidak)
+  :Kembalikan pesan akses atau data target tidak valid;
+endif
+stop
+@enduml

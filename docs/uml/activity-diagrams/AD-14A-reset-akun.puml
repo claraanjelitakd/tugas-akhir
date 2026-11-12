@@ -1,0 +1,19 @@
+@startuml
+title AD-14A Mengirim Tautan Reset Akun oleh Superadmin
+|Superadmin|
+start
+:Pilih akun dan klik kirim tautan reset;
+|Backend|
+:Validasi akun target dan email pemulihan;
+if (Akun dapat dipulihkan?) then (ya)
+  |Database|
+  :Simpan token reset ter-hash;
+  |Mail Service|
+  :Kirim tautan reset kata sandi;
+  |Backend|
+  :Tulis log aktivitas dan flash sukses;
+else (tidak)
+  :Kembalikan pesan validasi;
+endif
+stop
+@enduml

@@ -1,0 +1,18 @@
+@startuml
+title AD-07A Ekspor Data Alumni
+|Admin Berwenang|
+start
+:Pilih alumni atau daftar alumni yang akan diekspor;
+|Backend|
+:Validasi role, scope, dan filter ekspor;
+if (Data dalam scope tersedia?) then (ya)
+  |Database|
+  :Ambil relasi alumni yang diperlukan;
+  |Backend|
+  :Bentuk berkas Excel atau ZIP;
+  :Kirim berkas unduhan;
+else (tidak)
+  :Kembalikan berkas kosong ber-header atau pesan validasi;
+endif
+stop
+@enduml

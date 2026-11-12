@@ -1,21 +1,19 @@
 @startuml
-title AD-15 Master Wilayah dan UMP
+title AD-15 Mengelola Master Wilayah dan Negara
 |Superadmin|
 start
-:Buka master wilayah dan UMP;
-:Pilih CRUD provinsi, kabupaten, UMP, atau copy tahun;
+:Buka master wilayah;
+:Pilih provinsi, kabupaten/kota, atau negara;
+:Pilih tambah, ubah, atau hapus data;
 |Backend|
-:Validasi kode, nama, parent, dan tahun;
-if (Valid?) then (ya)
+:Validasi kode unik, nama, dan parent provinsi;
+if (Data valid?) then (ya)
   |Database|
-  :Simpan master dan relasi;
-  if (Perubahan atau hapus provinsi?) then (ya)
-    :Perbarui atau hapus UMP terkait sesuai aturan;
-  endif
+  :Simpan perubahan master wilayah atau negara;
   |Backend|
-  :Render ringkasan dan tabel;
+  :Redirect dengan flash sukses;
 else (tidak)
-  :Kembalikan error;
+  :Kembalikan error validasi atau referensi aktif;
 endif
 stop
 @enduml

@@ -17,56 +17,23 @@ Dokumen ini adalah spesifikasi normatif interaksi pengguna dengan aplikasi Trace
 
 ## 2. Aturan format spesifikasi
 
-Setiap tabel di bawah mengikuti format Dr. Surya: identitas use case, aktor, deskripsi, prasyarat, pasca-syarat, alur dasar, alur alternatif, dan alur eksepsi. Nama tabel dan kolom database yang disebut adalah sumber implementasi aktual.
+Setiap tabel di bawah mengikuti format studi kasus UML oleh Dr. Suriya Sundaramoorthy: identitas use case, aktor, deskripsi, prasyarat, pasca-syarat, alur dasar, alur alternatif, dan alur eksepsi. Nama tabel dan kolom database yang disebut adalah sumber implementasi aktual.
 
 Nomor use case mempertahankan master aplikasi: **UC01** adalah beranda publik, sedangkan **UC02** adalah login. Dengan begitu setiap rujukan controller, route, dan diagram tetap stabil.
 
-## 3. Diagram konteks use case
+## 3. Use Case Diagram (UCD) revisi
 
-```mermaid
-flowchart LR
-    Guest[Publik / Tamu] --> UC01((UC01 Beranda))
-    Guest --> UC02((UC02 Login))
-    Alumni[Alumni] --> UC02
-    Alumni --> UC05((UC05 Profil dan Karier))
-    Alumni --> UC07((UC07 Kuesioner Universitas))
-    Alumni --> UC08((UC08 Kuesioner Prodi))
-    Alumni --> UC09((UC09 Undangan Evaluasi Atasan))
-    Alumni --> UC25((UC25 Logout dan Sesi))
-    Atasan[Pengguna Lulusan / Atasan] --> UC10((UC10 Evaluasi Token))
-    Prodi[Admin Prodi] --> UC11((UC11 Monitoring))
-    Fak[Admin Fakultas] --> UC11
-    Biro[Admin Biro III] --> UC11
-    Super[Superadmin] --> UC11
-    Prodi --> UC12((UC12 Direktori Alumni))
-    Fak --> UC12
-    Biro --> UC12
-    Super --> UC12
-    Super --> UC13((UC13 Instrumen Universitas))
-    Prodi --> UC14((UC14 Instrumen Prodi))
-    Super --> UC14
-    Super --> UC15((UC15 Evaluasi Atasan))
-    Prodi --> UC16((UC16 Verifikasi Perusahaan))
-    Fak --> UC16
-    Super --> UC16
-    Super --> UC17((UC17 Manajemen Akun))
-    Prodi --> UC18((UC18 Sinkronisasi LinkedIn))
-    Fak --> UC18
-    Super --> UC18
-    Super --> UC19((UC19 Master Wilayah dan UMP))
-    Super --> UC20((UC20 Log Aktivitas))
-    Super --> UC21((UC21 Analitik Universitas))
-    Super --> UC22((UC22 Analitik Prodi))
-    Biro --> UC23((UC23 Ekspor Excel))
-    Prodi --> UC23
-    Fak --> UC23
-    Super --> UC23
-    Super --> UC24((UC24 Data Alumni))
-    Super --> UC25((UC25 Logout dan Sesi))
-    Prodi --> UC25
-    Fak --> UC25
-    Biro --> UC25
-```
+![Use Case Diagram Tracer Study UKDW](docs/images/use_case_diagram.svg)
+
+Source UCD tersedia pada `docs/uml/use-case-diagram.puml`; SVG di atas adalah gambar yang dipakai pada dokumen. Diagram ini memperbaiki gambar referensi yang sebelumnya masih mencampurkan peran dan proses.
+
+1. **Alumni** mengelola profil, mengisi dua kuesioner, mengusulkan perusahaan, dan mengirim undangan evaluasi. Alumni **bukan** pengisi evaluasi pengguna lulusan.
+2. **Pengguna Lulusan/Atasan** hanya mengisi evaluasi melalui tautan token publik; tidak mempunyai akun aplikasi dan tidak dapat mengakses data alumni lain.
+3. Data atasan merupakan snapshot milik satu alumni. Karena itu UCD tidak menampilkan use case "master data pengguna lulusan" sebagai data bersama.
+4. **Admin Prodi**, **Admin Fakultas**, **Admin Biro III**, dan **Superadmin** dibedakan menurut cakupan hak akses. Biro III tidak memiliki sinkronisasi LinkedIn ataupun verifikasi perusahaan.
+5. Provider LinkedIn/Apify merupakan aktor sistem eksternal untuk UC18, bukan pengguna manusia.
+
+Relasi `<<extend>>` hanya dipakai untuk perilaku opsional: UC03 dari UC02 ketika pengguna lupa kata sandi dan UC06 dari UC05 ketika perusahaan belum tersedia. Urutan bisnis undangan (UC09) lalu evaluasi publik (UC10) dijelaskan sebagai prasyarat antar-use-case, bukan dipaksakan sebagai `<<include>>`.
 
 ## 4. Daftar ringkasan use case
 
@@ -80,21 +47,21 @@ flowchart LR
 | UC06 | Mengusulkan perusahaan baru | Alumni dan admin | `/alumni/company`, tabel `perusahaan` |
 | UC07 | Mengisi kuesioner universitas | Alumni | `/alumni/kuesioner`, tabel `tracer` |
 | UC08 | Mengisi kuesioner prodi | Alumni | `/alumni/kuesioner-prodi`, tabel `prodi_response` |
-| UC09 | Mengirim undangan evaluasi atasan | Alumni | `/alumni/kirim-email-atasan`, tabel `evaluasi_atasan` |
+| UC09 | Mengirim undangan evaluasi atasan | Alumni, admin sesuai scope | `/alumni/kirim-email-atasan`, tabel `evaluasi_atasan` |
 | UC10 | Mengisi evaluasi pengguna lulusan | Pengguna lulusan atau atasan | `/evaluasi-atasan/{token}` |
 | UC11 | Monitoring dashboard dan analisis ringkas | Admin Prodi, Fakultas, Biro III, Superadmin | dashboard masing-masing role |
 | UC12 | Direktori dan audit detail alumni | Admin Prodi, Fakultas, Biro III, Superadmin | `/prodi/alumni`, `/fakultas/alumni`, `/biro3/alumni`, `/superadmin/alumni` |
 | UC13 | Mengelola kuesioner universitas | Superadmin | `/superadmin/sections`, `/superadmin/kuesioner`, `/superadmin/pertanyaan` |
-| UC14 | Mengelola kuesioner prodi | Admin Prodi dan Superadmin | `/prodi/sections`, `/prodi/kuesioner`, `/superadmin/prodi-kuesioner` |
+| UC14 | Mengelola kuesioner prodi | Admin Prodi, Admin Fakultas, dan Superadmin | `*/prodi-kuesioner`, `/prodi/kuesioner` |
 | UC15 | Mengelola instrumen evaluasi atasan | Superadmin | `/superadmin/evaluasi-atasan` |
 | UC16 | Memverifikasi perusahaan | Admin Prodi, Fakultas, Superadmin | `*/perusahaan` |
 | UC17 | Manajemen akun pengguna dan reset sandi | Superadmin | `/superadmin/manajemen-akun` |
 | UC18 | Sinkronisasi profil LinkedIn | Admin Prodi, Fakultas, Superadmin | `*/linkedin-sync` |
 | UC19 | Mengelola master wilayah, negara, dan UMP | Superadmin | `/superadmin/master-wilayah` |
 | UC20 | Memantau log aktivitas | Superadmin | `/superadmin/logs`, tabel `log_activities` |
-| UC21 | Analitik universitas | Superadmin | `/superadmin/analitik`, view `v_analytics_*` |
-| UC22 | Analitik prodi | Superadmin | `/superadmin/analitik-prodi`, tabel `kuesioner_jawaban` |
-| UC26 | Analitik evaluasi pengguna lulusan | Superadmin | `/superadmin/analitik-atasan`, tabel `evaluasi_atasan` dan `kuesioner_jawaban` |
+| UC21 | Analitik universitas | Admin Prodi, Fakultas, Biro III, Superadmin | `*/analitik`, view `v_analytics_*` |
+| UC22 | Analitik prodi | Admin Prodi, Fakultas, Biro III, Superadmin | `*/analitik-prodi`, tabel `kuesioner_jawaban` |
+| UC26 | Analitik evaluasi pengguna lulusan | Admin Prodi, Fakultas, Biro III, Superadmin | `*/analitik-atasan`, tabel `evaluasi_atasan` dan `kuesioner_jawaban` |
 | UC23 | Ekspor data ke Excel | Admin Prodi, Fakultas, Biro III, Superadmin | `*/alumni/*/export-excel`, `*/alumni/export-zip` |
 | UC24 | Mengelola data alumni | Superadmin dan admin sesuai scope | daftar/detail alumni dan update profil admin |
 | UC25 | Logout dan pengelolaan sesi | Seluruh pengguna login | `POST /logout`, `sessions` |
@@ -201,11 +168,11 @@ flowchart LR
 
 | Elemen | Spesifikasi |
 | :--- | :--- |
-| Aktor | Alumni. |
+| Aktor | Alumni; admin prodi, fakultas, Biro III, atau superadmin dapat mengirim ulang untuk alumni dalam scope yang diizinkan. |
 | Deskripsi | Membuat atau memperbarui token evaluasi dan mengirim email kepada atasan melalui aksi terpisah dari penyimpanan profil. |
 | Prasyarat | `biodata`, perusahaan, dan email atasan tersedia. |
-| Pasca-syarat | Baris `evaluasi_atasan` memiliki token unik 64 karakter dan email undangan tercatat sebagai proses pengiriman. |
-| Alur dasar | 1. Alumni menekan **Kirim email atasan**.<br>2. Sistem mencari pasangan `biodata_id`, `perusahaan_id`, dan `atasan_id`.<br>3. Sistem membuat token unik bila belum ada.<br>4. Sistem mengirim URL `/evaluasi-atasan/{token}`. |
+| Pasca-syarat | Baris `evaluasi_atasan` memiliki token unik 40 karakter dan email undangan tercatat sebagai proses pengiriman. |
+| Alur dasar | 1. Alumni atau admin berwenang menekan **Kirim email atasan**.<br>2. Sistem memeriksa scope bila pengirim adalah admin dan mencari pasangan `biodata_id`, `perusahaan_id`, dan `atasan_id`.<br>3. Sistem membuat token unik bila belum ada.<br>4. Sistem mengirim URL `/evaluasi-atasan/{token}`. |
 | Alur alternatif | A1. Token lama dipakai kembali untuk evaluasi yang belum berubah.<br>A2. Alumni memperbarui email lalu mengirim ulang. |
 | Alur eksepsi | E1. Email atasan kosong atau format salah.<br>E2. Provider email gagal; token tetap dapat dipakai untuk pengiriman ulang setelah masalah diperbaiki. |
 
@@ -261,7 +228,7 @@ flowchart LR
 
 | Elemen | Spesifikasi |
 | :--- | :--- |
-| Aktor | Admin Prodi dan Superadmin. |
+| Aktor | Admin Prodi, Admin Fakultas, dan Superadmin sesuai scope. |
 | Deskripsi | Membuat section, pertanyaan, opsi, tipe input, status wajib, dan urutan untuk setiap `prodi_id`. |
 | Prasyarat | Prodi target dapat diakses oleh role; section induk tersedia sebelum pertanyaan dibuat. |
 | Pasca-syarat | Struktur tersimpan pada `kuesioner_section`, `kuesioner_pertanyaan`, `kuesioner_section_pertanyaan`, dan `kuesioner_opsi`. |
@@ -345,11 +312,11 @@ flowchart LR
 
 | Elemen | Spesifikasi |
 | :--- | :--- |
-| Aktor | Superadmin. |
+| Aktor | Admin Prodi, Admin Fakultas, Admin Biro III, dan Superadmin sesuai scope. |
 | Deskripsi | Menampilkan indikator universitas dari view SQL `v_analytics_*`, filter tahun/prodi, grafik, data pivot, drill-down, dan metodologi. |
 | Prasyarat | View analitik tersedia dan filter aktif valid. |
 | Pasca-syarat | Tidak ada tabel transaksi baru; hasil dihitung dari `tracer`, `biodata`, `data_akademik`, `perusahaan`, `propinsi`, dan `ump`. |
-| Alur dasar | 1. Superadmin memilih indikator.<br>2. Controller memilih view dan query indikator tersebut.<br>3. Sistem mengirim data ke komponen grafik dan tabel.<br>4. Tab **Grafik** atau **Data** menampilkan hasil.<br>5. Hover atau klik membuka detail sesuai indikator. |
+| Alur dasar | 1. Admin berwenang memilih indikator.<br>2. Controller menerapkan scope role lalu memilih view dan query indikator tersebut.<br>3. Sistem mengirim data ke komponen grafik dan tabel.<br>4. Tab **Grafik** atau **Data** menampilkan hasil.<br>5. Hover atau klik membuka detail sesuai indikator. |
 | Alur alternatif | A1. Filter tahun dan prodi mengubah query tanpa hardcode nilai grafik.<br>A2. Data kosong menampilkan keadaan kosong dan metodologi tetap terlihat. |
 | Alur eksepsi | E1. View gagal dibaca; sistem menampilkan error ringkas dan mencatat detail server.<br>E2. Parameter filter tidak valid diabaikan atau dikembalikan ke default. |
 
@@ -357,11 +324,11 @@ flowchart LR
 
 | Elemen | Spesifikasi |
 | :--- | :--- |
-| Aktor | Superadmin. |
+| Aktor | Admin Prodi, Admin Fakultas, Admin Biro III, dan Superadmin sesuai scope. |
 | Deskripsi | Membandingkan jawaban kuesioner prodi per program studi dan section dalam struktur tab/stepper yang tidak bertumpuk. |
 | Prasyarat | `kuesioner_section`, `kuesioner_pertanyaan`, dan `kuesioner_jawaban` tersedia. |
 | Pasca-syarat | Hasil agregasi tampil sebagai grafik dan analisis per pertanyaan; data sumber tidak diubah. |
-| Alur dasar | 1. Superadmin memilih prodi, default `Sistem Informasi` bila tersedia.<br>2. Sistem memuat section dan pertanyaan aktif.<br>3. Sistem memilih grafik sesuai tipe pertanyaan, bukan berdasarkan nomor hardcode.<br>4. Sistem menghitung nilai integer untuk distribusi satuan dan rata-rata untuk Likert bila dikonfigurasi.<br>5. Analisis aktif tampil di bawah grafik yang dipilih. |
+| Alur dasar | 1. Admin berwenang memilih prodi dalam cakupan aksesnya, default `Sistem Informasi` bila tersedia.<br>2. Sistem memuat section dan pertanyaan aktif.<br>3. Sistem memilih grafik sesuai tipe pertanyaan, bukan berdasarkan nomor hardcode.<br>4. Sistem menghitung nilai integer untuk distribusi satuan dan rata-rata untuk Likert bila dikonfigurasi.<br>5. Analisis aktif tampil di bawah grafik yang dipilih. |
 | Alur alternatif | A1. Pertanyaan `multiple_choice` dapat menampilkan persentase di hover, sedangkan label batang memakai jumlah.<br>A2. Jawaban `Lainnya` tidak dimasukkan sebagai label grafik bila berupa isian bebas; detailnya tampil di tabel interaktif.<br>A3. Section baru dari pengaturan kuesioner langsung ikut dianalisis. |
 | Alur eksepsi | E1. Pertanyaan tidak memiliki respon: tampilkan empty state.<br>E2. Pertanyaan tidak memiliki tipe yang dikenal: tampilkan data tabel dan catatan konfigurasi, bukan grafik palsu. |
 
@@ -409,27 +376,30 @@ flowchart LR
 | UC02 | X | X | - | X | X | X | X |
 | UC03 | X | X | - | X | X | X | X |
 | UC04 | - | X | - | - | - | - | - |
-| UC05–UC09 | - | X | - | - | - | - | - |
+| UC05–UC08 | - | X | - | - | - | - | - |
+| UC09 | - | X | - | X | X | X | X |
 | UC10 | - | - | X | - | - | - | - |
 | UC11–UC12 | - | - | - | X | X | X | X |
 | UC13 | - | - | - | - | - | - | X |
-| UC14 | - | - | - | X | - | - | X |
+| UC14 | - | - | - | X | X | - | X |
 | UC15 | - | - | - | - | - | - | X |
 | UC16–UC18 | - | - | - | X | X | - | X |
-| UC19–UC22 | - | - | - | - | - | - | X |
+| UC19–UC20 | - | - | - | - | - | - | X |
+| UC21–UC22 | - | - | - | X | X | X | X |
 | UC23 | - | - | - | X | X | X | X |
 | UC24 | - | - | - | X | X | X | X |
 | UC25 | - | X | - | X | X | X | X |
+| UC26 | - | - | - | X | X | X | X |
 
 ### UC26 - Analitik Evaluasi Pengguna Lulusan
 
 | Elemen | Spesifikasi |
 | :--- | :--- |
-| Aktor | Superadmin. |
+| Aktor | Admin Prodi, Admin Fakultas, Admin Biro III, dan Superadmin sesuai scope. |
 | Deskripsi | Menampilkan rata-rata aspek kinerja Likert, distribusi kesiapan kerja, dan perbandingan skor antarprogram studi dari evaluasi atasan. |
-| Prasyarat | Superadmin login; master pertanyaan aktif dan tabel evaluasi dapat dibaca. |
+| Prasyarat | Admin berwenang login; master pertanyaan aktif dan tabel evaluasi dapat dibaca. |
 | Pasca-syarat | Payload grafik, tabel respon, dan metodologi tampil tanpa mengubah data transaksi. |
-| Alur dasar | 1. Superadmin membuka `/superadmin/analitik-atasan`.<br>2. Sistem memuat evaluasi terkirim beserta tahun lulusan, prodi, perusahaan, atasan, dan respons.<br>3. Superadmin memilih filter tahun atau prodi.<br>4. Service menghitung response rate, distribusi kesiapan, rata-rata Likert, dan ringkasan per prodi.<br>5. Vue menampilkan tiga grafik dan tabel penelusuran. |
+| Alur dasar | 1. Admin berwenang membuka halaman analitik evaluasi pada prefix role-nya.<br>2. Sistem menerapkan scope lalu memuat evaluasi terkirim beserta tahun lulusan, prodi, perusahaan, atasan, dan respons.<br>3. Admin memilih filter tahun atau prodi yang tersedia dalam scope.<br>4. Service menghitung response rate, distribusi kesiapan, rata-rata Likert, dan ringkasan per prodi.<br>5. Vue menampilkan tiga grafik dan tabel penelusuran. |
 | Alur alternatif | A1. Filter memanggil endpoint `/superadmin/analitik-atasan/data` tanpa reload penuh.<br>A2. Label dan opsi mengikuti master `pertanyaan_evaluasi_atasan`.<br>A3. Data kosong menampilkan empty state tanpa baris sintetis. |
 | Alur eksepsi | E1. Filter tidak valid dikembalikan ke `ALL`.<br>E2. Respons non-Likert tidak masuk rata-rata kinerja.<br>E3. Kegagalan endpoint menampilkan pesan pemuatan ringkas. |
 

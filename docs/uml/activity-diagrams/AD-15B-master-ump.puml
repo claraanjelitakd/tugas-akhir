@@ -1,0 +1,26 @@
+@startuml
+title AD-15B Mengelola Master UMP
+|Superadmin|
+start
+:Buka tab UMP;
+:Pilih tambah/ubah nominal atau salin tahun;
+|Backend|
+:Validasi kode provinsi, tahun berlaku, dan nominal;
+if (Memilih salin tahun?) then (ya)
+  |Database|
+  :Ambil data UMP tahun sumber;
+  if (Data sumber tersedia?) then (ya)
+    :Salin UMP ke tahun tujuan tanpa menggandakan kombinasi provinsi-tahun;
+  else (tidak)
+    |Backend|
+    :Kembalikan pesan data sumber tidak tersedia;
+    stop
+  endif
+else (simpan nominal)
+  |Database|
+  :Simpan atau perbarui satu UMP per provinsi dan tahun;
+endif
+|Backend|
+:Redirect dengan flash sukses;
+stop
+@enduml

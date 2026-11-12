@@ -52,14 +52,14 @@ Catatan penting: RoleMiddleware menangani role; scope data kemudian ditegakkan d
 
 | Modul | Fitur yang diaudit | Pemicu dan aktor | Backend dan data utama | Diagram |
 |---|---|---|---|---|
-| Autentikasi | Login, fallback password tanggal lahir, logout | Tamu/Alumni/Admin | LoginController, User, Biodata, LogActivity | AD-01 |
-| Autentikasi | Lupa/reset password | Pengguna tamu | LupaKataSandiController, ResetPasswordMail, password_reset_tokens | AD-01 |
-| Autentikasi | Ganti password wajib | Alumni | UbahKataSandiController, CheckMustChangePassword, users | AD-01 |
+| Autentikasi | Login dan pengalihan dashboard | Pengguna terdaftar | LoginController, User, Biodata | AD-01 |
+| Autentikasi | Lupa/reset password | Pengguna tamu | LupaKataSandiController, ResetPasswordMail, password_reset_tokens | AD-01A |
+| Autentikasi | Ganti password wajib | Alumni | UbahKataSandiController, CheckMustChangePassword, users | AD-01B |
 | Profil | Isi/perbarui biodata | Alumni; admin scope | SimpanProfilController, AdminAlumniProfileService, Biodata, Atasan, Perusahaan | AD-02 |
 | Perusahaan | Ajukan perusahaan baru | Alumni | PerusahaanController, Perusahaan, Biodata | AD-03 |
 | Tracer universitas | Ambil instrumen, simpan jawaban parsial/akhir, branching | Alumni | KuesionerController, SimpanJawabanController, Tracer, KuesionerSyncService | AD-04 |
 | Tracer prodi | Isi dan simpan jawaban prodi | Alumni | KuesionerProdiController, ProdiResponse | AD-05 |
-| Evaluasi atasan | Kirim undangan, isi evaluasi berbasis token | Alumni/Atasan | EvaluasiAtasanController, Atasan, EvaluasiAtasan, ResponEvaluasiAtasan | AD-06 |
+| Evaluasi atasan | Kirim undangan evaluasi | Alumni/admin scope | SimpanProfilController, Atasan, EvaluasiAtasan, mail | AD-06 |
 | Direktori | Cari/filter/detail/update profile/ekspor/pengingat | Admin Prodi/Fakultas/Superadmin; Biro 3 baca | AlumniDirectoryQueryService, exporter, mail | AD-07 |
 | Monitoring Biro 3 | Direktori, ekspor ZIP, blast, detail baca | Biro 3 | DashboardBiro3Controller, DaftarAlumniBiro3Controller | AD-08 |
 | Dashboard | Ringkasan berdasarkan tahun dan scope | Semua role administrator sesuai route | Controller dashboard, audit views, KelengkapanTracerService | AD-09, AD-10 |
@@ -67,7 +67,8 @@ Catatan penting: RoleMiddleware menangani role; scope data kemudian ditegakkan d
 | Instrumen prodi | CRUD section/question/option, reorder | Superadmin/Prodi/Fakultas sesuai scope | ProdiQuestion*, ProdiResponse | AD-12 |
 | Instrumen atasan | CRUD, aktif/nonaktif, reorder | Superadmin | PertanyaanEvaluasiAtasan, ResponEvaluasiAtasan | AD-13 |
 | Akun | Edit akun, reset default, notifikasi | Superadmin; admin Prodi/Fakultas scope | account controllers, User, Biodata, mail | AD-14 |
-| Wilayah/UMP | CRUD provinsi/kabupaten/UMP, copy tahun | Superadmin | Propinsi, Kabupaten, Ump | AD-15 |
+| Wilayah | CRUD provinsi/kabupaten/negara | Superadmin | Propinsi, Kabupaten, RefNegara | AD-15 |
+| UMP | Simpan nominal UMP dan salin tahun | Superadmin | Ump | AD-15B |
 | Perusahaan | Rekomendasi, verifikasi, edit, tolak | Superadmin/Prodi/Fakultas sesuai scope | PerusahaanVerificationService, Perusahaan, LogActivity | AD-16 |
 | Perusahaan | Auto-replace perusahaan pending dengan master | Superadmin/Prodi/Fakultas sesuai scope | transaksi Perusahaan, Biodata, kuesioner_jawaban, evaluasi | AD-17 |
 | LinkedIn | Sinkronisasi satu alumni via Apify | Superadmin/Prodi/Fakultas scope | LinkedInSyncController, ApifyLinkedInProvider, linkedin_sync_results | AD-18 |
@@ -76,6 +77,7 @@ Catatan penting: RoleMiddleware menangani role; scope data kemudian ditegakkan d
 | Audit | Status kelengkapan profile/tracer dan audit rekap | Backend/dashboard | KelengkapanTracerService, v_*_status, v_alumni_audit_rekap | AD-21 |
 | Log | Filter dan lihat audit log | Superadmin | LogAktivitasSuperAdminController, LogActivity | AD-22 |
 | Evaluasi publik | Validasi token, isi, simpan respons | Atasan eksternal | EvaluasiAtasanController, throttle, database | AD-23 |
+| Autentikasi | Logout dan invalidasi sesi | Pengguna terautentikasi | LoginController, session | AD-25 |
 | Respons HTTP | Redirect Inertia, JSON fetch, 403/404 | Semua request terautentikasi | middleware dan controller response negotiation | AD-24 |
 
 ## 4. Peta route dan kontrol akses
@@ -105,65 +107,16 @@ Request halaman memakai Inertia::render. Mutation normalnya mengembalikan redire
 
 ## 5. Diagram aktivitas
 
-### AD-01 â€” Autentikasi, pemulihan, dan perubahan password
+### AD-01, AD-01A, AD-01B, dan AD-25 — Proses autentikasi yang dipisahkan
 
-**Swimlane:** Pengguna/Tamu, Backend, Database, Mail service.
-**Pemicu:** membuka login, lupa password, atau diwajibkan mengganti password.
-**Hasil:** session aktif, alumni diarahkan ke perubahan password wajib, token reset dikirim, password berhasil dipulihkan, logout, atau akses ditolak.
+Autentikasi tidak lagi digambar sebagai satu diagram bercabang besar. Pemecahan ini membuat initial node dan activity final setiap tujuan proses jelas, sebagaimana notasi activity diagram pada rujukan Sundaramoorthy (2022).
 
-Alur lengkap:
+1. **AD-01 Login dan pengalihan dashboard:** pengguna mengirim kredensial, backend memvalidasi, membuat ulang sesi, lalu mengarahkan ke dashboard role atau `/change-password` bagi alumni yang wajib mengganti kata sandi.
+2. **AD-01A Lupa dan reset kata sandi:** pengguna meminta tautan, menerima email, membuka tautan, lalu memasukkan kata sandi baru. Token yang valid dipakai sekali dan dihapus setelah reset berhasil.
+3. **AD-01B Perubahan kata sandi wajib:** hanya alumni bersesi dengan `must_change_password = true` yang dapat menyelesaikan proses ini sebelum memakai dashboard.
+4. **AD-25 Logout:** pengguna mengakhiri sesi. Backend logout, menginvalidasi sesi, meregenerasi CSRF, lalu mengarah ke beranda publik.
 
-1. Tamu membuka halaman login. Backend merender form login melalui Inertia.
-2. Pengguna mengirim username dan password. Backend memvalidasi kedua field sebagai input wajib.
-3. Backend mencoba kredensial normal melalui username dan password yang tersimpan.
-4. Jika berhasil, session diregenerasi untuk mencegah session fixation.
-5. Jika pengguna adalah alumni dan `must_change_password = true`, backend mengarahkan ke `/change-password`. Jika tidak, backend mengarahkan ke dashboard sesuai role.
-6. Jika login normal gagal, backend hanya mencoba fallback untuk akun alumni yang masih wajib mengganti password atau masih memakai hash password legacy.
-7. Fallback mengambil tanggal lahir dari biodata atau `data_akademik`, menormalisasi input menjadi angka, lalu mencocokkannya dengan format `ddmmyyyy`.
-8. Jika fallback cocok, password di-hash ulang, `must_change_password` tetap/diubah menjadi `true`, alumni diloginkan, session diregenerasi, lalu diarahkan ke `/change-password`.
-9. Jika semua cara gagal, backend mengembalikan error login dan hanya mempertahankan input username.
-10. Pada alur lupa password, tamu mengirim NIM/username atau email. Backend mencari kecocokan pada `users.username`, `users.email`, atau `biodata.email_pribadi`.
-11. Backend selalu mengembalikan pesan generik agar keberadaan akun tidak terbuka. Jika akun dan email valid, backend membuat token acak, menyimpan hash token pada `password_reset_tokens` bersama waktu pembuatan, lalu mengirim email reset.
-12. Pengguna membuka link reset. Backend menampilkan form reset dengan token mentah dan email sebagai konteks form; token belum dianggap valid sebelum POST diverifikasi.
-13. Saat form reset dikirim, backend memvalidasi token, email, password minimal 12 karakter, dan konfirmasi password.
-14. Backend mencari record token, menolak token yang tidak ada atau lebih dari 60 menit, lalu memeriksa hash token.
-15. Jika valid, backend mencari user berdasarkan email akun atau email pribadi biodata, menyimpan password baru, menghapus `must_change_password`, dan menghapus token reset.
-16. Pengguna diarahkan ke login dan harus masuk menggunakan password baru.
-17. Pada setiap route terautentikasi, middleware memeriksa alumni yang masih memiliki `must_change_password = true`. Semua route selain `/change-password` dan logout diarahkan kembali ke form perubahan password.
-18. Form perubahan password hanya dapat digunakan alumni yang memang memiliki flag tersebut. Password baru divalidasi minimal 12 karakter dan konfirmasi, kemudian disimpan, flag diubah menjadi `false`, dan pengguna diarahkan ke dashboard sesuai role.
-19. Logout menjalankan `Auth::logout`, menginvalidasi session, dan meregenerasi CSRF token.
-
-~~~mermaid
-flowchart TD
-  A((Mulai)) --> L[Pilih Login atau Lupa Password]
-  L --> Q{Alur login?}
-  Q -- Ya --> U[Kirim username dan password]
-  U --> B[Validasi dan Auth attempt]
-  B --> D{Berhasil?}
-  D -- Ya --> R{Alumni wajib ganti password?}
-  D -- Tidak --> F{Fallback alumni dan tanggal lahir cocok?}
-  F -- Ya --> M[Hash ulang password dan set must_change_password]
-  F -- Tidak --> E[Tampilkan error login]
-  M --> R
-  R -- Ya --> C[Form ganti password wajib]
-  R -- Tidak --> S[Redirect dashboard sesuai role]
-  C --> V[Validasi minimal 12 karakter dan konfirmasi]
-  V --> P[Simpan password baru dan hapus flag]
-  P --> S
-  Q -- Tidak --> FP[Kirim username/NIM atau email]
-  FP --> FE[Cari user, tetapi tampilkan status generik]
-  FE --> FT[Buat hash token reset 60 menit dan kirim email]
-  FT --> RF[Buka link reset]
-  RF --> RV[Validasi token, expiry, email, password]
-  RV --> RD{Token valid?}
-  RD -- Ya --> RP[Simpan password, hapus flag dan token]
-  RD -- Tidak --> RE[Error reset]
-  RP --> LG[Login dengan password baru]
-  E --> Z((Selesai error))
-  RE --> Z
-  S --> Z2((Selesai))
-  LG --> Z2
-~~~
+Setiap alur tersebut memiliki file PlantUML sendiri di `docs/uml/activity-diagrams/`; diagram reset dan penggantian kata sandi tidak lagi disisipkan ke diagram login.
 
 ### AD-02 â€” Pengisian dan pembaruan profil alumni
 
@@ -294,29 +247,21 @@ flowchart TD
 4. Jawaban terisi di-upsert dengan kunci logis `biodata_id + pertanyaan_id`. Jika jawaban kosong dan bukan autofill identitas, respons lama dihapus agar persentase tidak salah.
 5. Status kelengkapan prodi dihitung terpisah dari kuesioner universitas. Request sukses memakai redirect/flash Inertia; input invalid tidak disimpan dan tidak menghasilkan plain JSON.
 
-### AD-06 â€” Undangan dan evaluasi atasan
+### AD-06 — Mengirim undangan evaluasi atasan
 
-**Swimlane:** Alumni/Admin scope, Backend, Database, Mail service, Atasan/Pengguna Lulusan.
-**Route:** POST /alumni/kirim-email-atasan, GET/POST public /evaluasi-atasan/{token}.
-**Hasil:** data atasan tersimpan saat profil disimpan; evaluasi dan token baru dibuat ketika alumni meminta pengiriman undangan, lalu respons pengguna lulusan tersimpan satu kali.
+**Swimlane:** Alumni/admin berwenang, Backend, Database, Mail service.
+**Route:** `POST /alumni/kirim-email-atasan`.
+**Hasil:** satu token evaluasi yang belum dipakai dipertahankan atau dibuat, lalu URL evaluasi dikirim ke email atasan.
 
-1. Alumni mengisi data atasan: nama, email, telepon, jabatan, dan perusahaan.
-2. Saat profil disimpan, backend hanya menyimpan atau memperbarui data Atasan pada biodata. Penyimpanan profil tidak membuat EvaluasiAtasan dan tidak membuat token.
-3. Penyimpanan profil tidak otomatis mengirim email. Email hanya dikirim melalui tombol Kirim Email ke Atasan.
-4. Saat tombol kirim dipilih, backend menentukan biodata target. Alumni mengirim untuk dirinya sendiri; admin dapat mengirim untuk alumni dalam scope yang diizinkan.
-5. Backend memvalidasi email dan menyinkronkan email ke Atasan.
-6. Jika EvaluasiAtasan belum ada, backend membuatnya berdasarkan biodata_id dan membuat token acak 40 karakter. Jika sudah ada, token yang ada dipertahankan agar tombol kirim ulang tidak membuat evaluasi ganda.
-7. Mail service mengirim UndanganEvaluasiAtasanMail berisi URL /evaluasi-atasan/{token}. Pengiriman dipanggil synchronous melalui Mail::send.
-8. Atasan membuka URL token tanpa login. GET dibatasi throttle 30 request per menit.
-9. Backend mencari token dan menolak jika tidak ditemukan atau evaluasi sudah is_submitted. Tidak ada expiry token; token menjadi tidak berlaku setelah submitted.
-10. Jika valid, backend memuat data alumni, perusahaan, atasan, pertanyaan evaluasi yang aktif, dan jawaban existing, lalu merender form publik.
-11. Atasan mengirim informasi perusahaan, data atasan, metadata jumlah alumni/gaji pertama, seluruh jawaban aktif, dan catatan. POST dibatasi throttle 10 request per menit.
-12. Backend memvalidasi bahwa kode jawaban sama persis dengan seluruh pertanyaan aktif. Jawaban yang kurang atau memiliki kode pertanyaan asing ditolak.
-13. Dalam transaksi, backend mengunci EvaluasiAtasan, menolak pengiriman kedua, membuat ResponEvaluasiAtasan dengan pertanyaan_id, nilai, dan catatan, memperbarui atau membuat Atasan, lalu menautkan atasan ke biodata jika perlu.
-14. Backend memperbarui metadata evaluasi, mengubah is_submitted menjadi true, dan mengisi submitted_at.
-15. Admin membaca hasil melalui payload audit tanpa token akses. Token tidak seharusnya ditampilkan pada halaman admin yang hanya membutuhkan status dan respons.
+1. Alumni mengirim undangan untuk dirinya sendiri; admin memilih alumni dan backend lebih dahulu menegakkan scope role.
+2. Backend memvalidasi biodata, perusahaan, dan email atasan. Snapshot atasan hanya diperbarui pada biodata alumni yang dipilih.
+3. Dalam transaksi, sistem menolak bila evaluasi sebelumnya sudah `is_submitted`. Jika belum ada evaluasi, sistem membuat `EvaluasiAtasan` dengan token acak 40 karakter; jika ada dan belum dipakai, token yang sama dipertahankan.
+4. Mail service mengirim `UndanganEvaluasiAtasanMail` dengan URL `/evaluasi-atasan/{token}`.
+5. Kegagalan validasi, scope, atau pengiriman email berhenti pada proses undangan dan tidak dianggap sebagai evaluasi terkirim.
 
-Catatan desain: pembuatan EvaluasiAtasan dan token ditempatkan pada aksi Kirim Email, bukan pada aksi Simpan Profil. Jika evaluasi sudah submitted, endpoint pengiriman menolak pengiriman ulang karena token sudah hangus. Field informasi perusahaan divalidasi dan disimpan ke record perusahaan pending; record perusahaan yang sudah Terverifikasi tidak ditimpa oleh input publik.
+Pengisian formulir oleh pengguna lulusan tidak berada dalam AD-06. Proses tersebut didokumentasikan terpisah pada **AD-23** agar aktor, initial node, decision, dan final node-nya tidak tercampur.
+
+> Revisi struktur diagram: diagram direktori, ekspor, dan pengingat kini dipisah menjadi AD-07, AD-07A, dan AD-07B. Gunakan source PlantUML terbaru sebagai artefak normatif; uraian AD-07 lama di bawah hanya merupakan catatan audit historis.
 
 ### AD-07 â€” Direktori alumni, detail, reminder, dan ekspor
 
@@ -430,17 +375,11 @@ flowchart TD
 5. Reset default hanya boleh untuk alumni dalam scope; password/flag diperbarui dan notifikasi dikirim bila diminta.
 6. User di luar scope tidak boleh diubah walaupun ID diketahui.
 
-### AD-15 â€” Master wilayah dan UMP
+### AD-15 dan AD-15B — Master wilayah/negara dan UMP yang dipisahkan
 
-**Swimlane:** Superadmin, Backend, Database.
-**Route:** /superadmin/wilayah-ump dan CRUD turunannya.
-**Hasil:** provinsi, kabupaten/kota, dan UMP per tahun tersimpan konsisten.
+**AD-15** mencakup tambah, ubah, dan hapus provinsi, kabupaten/kota, atau negara. Backend memvalidasi kode unik dan relasi parent sebelum data master disimpan.
 
-1. Superadmin melihat ringkasan jumlah provinsi, kabupaten/kota, ketetapan UMP, dan rata-rata.
-2. CRUD provinsi dan kabupaten divalidasi terhadap kode/nama dan relasi parent.
-3. Perubahan kode provinsi memperbarui relasi UMP sesuai migration/controller.
-4. Penghapusan provinsi menghapus UMP terkait sesuai aturan implementasi.
-5. UMP disimpan per provinsi dan tahun; copy-year menyalin data sesuai guard agar tidak menimpa data tanpa aturan.
+**AD-15B** khusus mengelola UMP: superadmin memasukkan nominal per provinsi dan tahun atau menyalin nilai dari tahun sumber. Kombinasi provinsi-tahun tetap unik; data sumber yang tidak ada atau target ganda dihentikan dengan pesan validasi.
 
 ### AD-16 â€” Rekomendasi dan verifikasi perusahaan
 
@@ -642,17 +581,17 @@ flowchart LR
 
 | Diagram | Route/controller utama | Service/model/view utama |
 |---|---|---|
-| AD-01 | LoginController, LupaKataSandiController, UbahKataSandiController | User, Biodata, ResetPasswordMail, password_reset_tokens |
+| AD-01/01A/01B/25 | LoginController, LupaKataSandiController, UbahKataSandiController | User, Biodata, ResetPasswordMail, password_reset_tokens, sessions |
 | AD-02 | ProfilController, SimpanProfilController, admin profile controllers | AdminAlumniProfileService, Biodata, Atasan, Perusahaan, KuesionerSyncService |
 | AD-03 | shared /alumni/company | Perusahaan, Biodata, PerusahaanController |
 | AD-04 | KuesionerController, SimpanJawabanController | KuesionerJawaban, Kuesioner, KuesionerSection, KuesionerPertanyaan, KelengkapanTracerService |
 | AD-05 | KuesionerProdiController | KuesionerSection, KuesionerPertanyaan, KuesionerOpsi, KuesionerSectionPertanyaan, KuesionerJawaban |
 | AD-06/23 | EvaluasiAtasanController, /alumni/kirim-email-atasan | Atasan, EvaluasiAtasan, KuesionerPertanyaan, KuesionerJawaban, mail |
-| AD-07/08 | directory controllers per role | AlumniDirectoryQueryService, AlumniTracerExcelExporter, mail |
+| AD-07/07A/07B/08 | directory controllers per role | AlumniDirectoryQueryService, AlumniTracerExcelExporter, mail |
 | AD-09/10 | dashboard controllers | audit views, KelengkapanTracerService, role scope |
 | AD-11/12/13 | question management controllers | questionnaire and option models |
-| AD-14 | account management controllers | User, Biodata, LogActivity, mail |
-| AD-15 | master wilayah/UMP controller | Propinsi, Kabupaten, Ump |
+| AD-14/14A | account management controllers | User, Biodata, LogActivity, mail |
+| AD-15/15B | master wilayah/UMP controller | Propinsi, Kabupaten, RefNegara, Ump |
 | AD-16/17 | company controllers | PerusahaanVerificationService, Perusahaan, Biodata, KuesionerJawaban, evaluasi, log |
 | AD-18/19/20 | Shared/LinkedInSyncController | LinkedIn providers, mapper, LinkedinSyncResult, AlumniLinkedinPlot, Biodata |
 | AD-21 | dashboard/audit callers | KelengkapanTracerService, v_alumni_*, v_alumni_audit_rekap |
