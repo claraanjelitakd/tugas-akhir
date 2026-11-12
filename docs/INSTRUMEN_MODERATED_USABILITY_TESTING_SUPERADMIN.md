@@ -30,7 +30,7 @@ Pengujian ini bertujuan untuk mengetahui apakah Superadmin dapat:
 3. Menemukan dan memeriksa data alumni.
 4. Memverifikasi data perusahaan.
 5. Mengelola section dan pertanyaan kuesioner Universitas.
-6. Mengelola pertanyaan kuesioner Program Studi.
+6. Mengenali struktur Kuesioner Program Studi secara singkat.
 7. Mengelola instrumen Evaluasi Pengguna Lulusan atau Atasan.
 8. Membaca dan menelusuri grafik analitik.
 9. Mengelola akun pengguna dan proses reset kata sandi.
@@ -38,6 +38,8 @@ Pengujian ini bertujuan untuk mengetahui apakah Superadmin dapat:
 11. Meninjau hasil sinkronisasi profil LinkedIn.
 12. Membaca log aktivitas untuk menelusuri perubahan data.
 13. Mengekspor data yang dibutuhkan untuk pelaporan.
+14. Mengirim email pengingat kepada alumni dan memahami notifikasi hasil pengiriman.
+15. Membaca satu grafik analitik dan menelusuri data pembentuknya.
 
 ---
 
@@ -49,14 +51,14 @@ Pengujian ini bertujuan untuk mengetahui apakah Superadmin dapat:
 |---|---|---|
 | Autentikasi | `/login` | Login, pesan kesalahan, dan pengalihan role |
 | Dashboard | `/superadmin/dashboard` | Pemahaman KPI, ringkasan, dan navigasi |
-| Data alumni | `/superadmin/alumni` | Pencarian, filter, detail, profil, tab Hasil LinkedIn, approval, histori, dan ekspor |
+| Data alumni | `/superadmin/alumni` | Pencarian, filter, detail, profil, tab Hasil LinkedIn, approval, histori, komunikasi pengingat, dan ekspor |
 | Perusahaan | `/superadmin/perusahaan` | Pencarian, pemeriksaan, verifikasi, dan penolakan |
 | Section Universitas | `/superadmin/sections` | Tambah, ubah, urutkan, dan hapus data uji |
 | Pertanyaan Universitas | `/superadmin/pertanyaan` | Membuat pertanyaan, opsi, dan pengaturan aktif |
-| Kuesioner Prodi | `/superadmin/prodi-kuesioner` | Placement, section, pertanyaan, dan opsi |
+| Kuesioner Prodi | `/superadmin/prodi-kuesioner` | Peninjauan singkat struktur, section, dan pertanyaan; bukan pengelolaan mendalam |
 | Evaluasi Atasan | `/superadmin/evaluasi-atasan` | Section, pertanyaan, opsi Likert, dan riwayat respons |
 | Analitik Universitas | `/superadmin/analitik` | Filter, grafik, tabel, dan drill-down |
-| Analitik Prodi | `/superadmin/analitik-prodi` | Analisis jawaban berdasarkan prodi dan pertanyaan |
+| Analitik Prodi | `/superadmin/analitik-prodi` | Sekilas konteks analitik prodi apabila waktu memungkinkan |
 | Analitik Atasan | `/superadmin/analitik-atasan` | Respons dan hasil evaluasi pengguna lulusan |
 | Manajemen akun | `/superadmin/manajemen-akun` | Pencarian akun, ubah data, dan reset kata sandi |
 | Master wilayah | `/superadmin/master-wilayah` | Provinsi, kabupaten, negara, dan UMP |
@@ -595,25 +597,22 @@ Universitas ingin menggunakan pertanyaan yang sudah ada pada section lain tanpa 
 
 **Skenario untuk peserta:**
 
-Program studi meminta Superadmin menyesuaikan kuesioner khusus agar dapat digunakan dalam pengumpulan data alumni.
+Setelah mengelola Kuesioner Universitas, Anda ingin mengetahui apakah struktur Kuesioner Prodi mudah ditemukan dan dibedakan. Pemeriksaan ini hanya dilakukan secara singkat.
 
 **Task:**
 
 1. Pilih program studi yang memiliki data uji.
-2. Buat atau buka section kuesioner Prodi.
-3. Tambahkan pertanyaan baru.
-4. Atur tipe dan status wajib.
-5. Tambahkan opsi jawaban apabila diperlukan.
-6. Simpan pertanyaan.
-7. Ubah urutan pertanyaan.
-8. Nonaktifkan pertanyaan uji.
-9. Aktifkan kembali pertanyaan uji.
+2. Buka section Kuesioner Prodi.
+3. Periksa daftar pertanyaan dan status aktifnya.
+4. Identifikasi perbedaan konteks Kuesioner Prodi dan Kuesioner Universitas.
+5. Kembali ke halaman utama tanpa membuat perubahan data.
 
 **Kriteria keberhasilan:**
 
-- Peserta dapat memilih konteks program studi yang tepat.
-- Peserta memahami bahwa kuesioner Prodi berbeda dari kuesioner Universitas.
-- Perubahan hanya berlaku pada program studi yang dipilih.
+- Peserta dapat memilih program studi yang tepat.
+- Peserta memahami bahwa Kuesioner Prodi berbeda dari Kuesioner Universitas.
+- Peserta dapat menemukan section dan pertanyaan tanpa bantuan langsung.
+- Tidak ada perubahan data yang dilakukan pada task sekilas ini.
 
 ---
 
@@ -920,6 +919,73 @@ Anda telah selesai bekerja dan ingin keluar dari sistem dengan aman.
 
 ---
 
+## SA-22 — Mengirim Email Pengingat Alumni
+
+**Halaman awal moderator:** `/superadmin/alumni`
+
+**Skenario untuk peserta:**
+
+Seorang alumni belum menyelesaikan pengisian Tracer Study. Anda perlu mengirimkan email pengingat dan memastikan sistem memberikan informasi hasil pengiriman.
+
+**Task:**
+
+1. Cari alumni uji yang memiliki alamat email valid.
+2. Temukan aksi **Kirim email pengingat** pada baris alumni.
+3. Klik aksi tersebut.
+4. Periksa dialog konfirmasi penerima email.
+5. Konfirmasi pengiriman.
+6. Periksa notifikasi berhasil atau gagal.
+7. Catat apakah pesan menyebutkan nama alumni dan status pengiriman dengan jelas.
+
+**Kriteria keberhasilan:**
+
+- Peserta menemukan aksi komunikasi tanpa bantuan langsung.
+- Peserta memahami bahwa email dikirim kepada alumni yang dipilih.
+- Peserta membaca dan memahami dialog konfirmasi.
+- Sistem menampilkan notifikasi hasil pengiriman yang jelas.
+
+**Hal yang diamati:**
+
+- Apakah ikon atau label aksi email mudah dikenali?
+- Apakah peserta dapat membedakan aksi email dari WhatsApp dan detail alumni?
+- Apakah notifikasi berhasil atau gagal cukup informatif?
+
+---
+
+## SA-23 — Membaca Grafik Response Rate
+
+**Halaman awal moderator:** `/superadmin/analitik`
+
+**Skenario untuk peserta:**
+
+Pimpinan meminta Anda mengetahui tingkat respons Tracer Study tahun 2026 dan melihat alumni yang membentuk angka tersebut.
+
+**Task:**
+
+1. Buka halaman analitik Universitas.
+2. Pilih indikator **Response Rate** apabila belum aktif.
+3. Pilih tahun lulusan 2026.
+4. Baca jumlah populasi, jumlah respon, dan persentase respons.
+5. Identifikasi program studi atau kategori dengan respons tertinggi dan terendah.
+6. Klik salah satu elemen grafik untuk membuka data pembentuk atau drill-down.
+7. Jelaskan hubungan antara angka ringkasan, grafik, dan daftar alumni.
+8. Kembali ke tampilan analisis keseluruhan.
+
+**Kriteria keberhasilan:**
+
+- Peserta menemukan indikator Response Rate.
+- Peserta dapat menggunakan filter tahun.
+- Peserta dapat menjelaskan arti jumlah dan persentase.
+- Peserta dapat membuka serta menutup drill-down tanpa kehilangan konteks analisis.
+
+**Hal yang diamati:**
+
+- Apakah nama indikator dan filter mudah dipahami?
+- Apakah peserta dapat membedakan populasi, respon, dan persentase?
+- Apakah interaksi pada grafik dianggap sebagai tautan ke data detail?
+
+---
+
 ## 10. Tabel 1. Task Scenario
 
 Format ringkas berikut digunakan untuk menyajikan skenario pengujian dalam laporan. Rincian langkah dan lembar observasi moderator tersedia pada bagian task dan observasi setelah tabel ini.
@@ -937,7 +1003,7 @@ Format ringkas berikut digunakan untuk menyajikan skenario pengujian dalam lapor
 | 9 | Pertanyaan Kuesioner Universitas | Universitas ingin menambahkan pertanyaan baru pada instrumen Tracer Study. | Buka `/superadmin/pertanyaan` > buat pertanyaan `UT-SA-001` > isi tipe dan status wajib > simpan > cari kembali > edit dan ubah status aktif. | Kode, teks, tipe, status, dan perubahan pertanyaan tersimpan dengan benar. |
 | 10 | Opsi dan Jump To | Pertanyaan lanjutan perlu ditampilkan sesuai pilihan jawaban alumni. | Buka pertanyaan pilihan > tambah opsi > atur tujuan Jump To > ubah tujuan > kosongkan salah satu tujuan > simpan. | Peserta memahami fungsi Jump To dan sistem menyimpan tujuan yang valid. |
 | 11 | Bank Pertanyaan dan Placement | Superadmin ingin memakai pertanyaan yang sudah tersedia tanpa membuat master duplikat. | Cari pertanyaan berdasarkan kode atau teks > pilih pertanyaan > tempatkan pada section tujuan > hapus placement uji. | Peserta membedakan master pertanyaan dan placement serta tidak membuat duplikasi. |
-| 12 | Kuesioner Program Studi | Program studi meminta penyesuaian pertanyaan khusus untuk alumninya. | Buka `/superadmin/prodi-kuesioner` > pilih prodi > kelola section > tambah pertanyaan dan opsi > atur urutan > ubah status aktif. | Perubahan hanya berlaku pada prodi yang dipilih dan status pertanyaan dapat dikendalikan. |
+| 12 | Kuesioner Program Studi | Setelah mengelola Kuesioner Universitas, Superadmin ingin mengenali struktur Kuesioner Prodi secara singkat. | Buka `/superadmin/prodi-kuesioner` > pilih prodi > lihat section dan pertanyaan > bedakan dengan Kuesioner Universitas > kembali tanpa mengubah data. | Peserta menemukan struktur Kuesioner Prodi tanpa bantuan dan memahami perbedaannya dengan Kuesioner Universitas. |
 | 13 | Evaluasi Atasan | Universitas ingin menambahkan aspek penilaian baru untuk pengguna lulusan atau atasan. | Buka `/superadmin/evaluasi-atasan` > kelola section dan pertanyaan > periksa opsi Likert > simpan pertanyaan uji > buka riwayat respons. | Peserta dapat mengelola pertanyaan dan melihat riwayat tanpa mengubah respons lama. |
 | 14 | Analitik Universitas | Pimpinan meminta ringkasan hasil Tracer Study berdasarkan tahun dan program studi. | Buka `/superadmin/analitik` > pilih tahun dan prodi > baca indikator > identifikasi nilai tertinggi dan terendah > buka drill-down. | Peserta memahami filter, jumlah, persentase, grafik, dan data detail. |
 | 15 | Analitik Program Studi | Universitas ingin membandingkan jawaban kuesioner khusus antarprogram studi. | Buka `/superadmin/analitik-prodi` > pilih prodi, section, dan pertanyaan > baca distribusi > buka tabel pembentuk grafik. | Peserta berpindah konteks dengan benar dan menemukan hasil tertinggi serta terendah. |
@@ -949,6 +1015,28 @@ Format ringkas berikut digunakan untuk menyajikan skenario pengujian dalam lapor
 | 21 | Log Aktivitas | Terjadi perubahan data perusahaan dan perlu diketahui siapa, kapan, serta apa yang berubah. | Buka `/superadmin/logs` > gunakan filter > cari aktivitas > buka detail > baca nilai sebelum, sesudah, waktu, dan pengguna. | Peserta menemukan log yang benar dan dapat menjelaskan detail perubahan. |
 | 22 | Ekspor Data | Pimpinan meminta data alumni untuk dianalisis di luar sistem. | Buka `/superadmin/alumni` > gunakan filter > ekspor data > buka file > periksa nama file, header, dan kesesuaian data. | File berhasil diunduh, dibuka, dan isinya sesuai dengan filter. |
 | 23 | Logout dan Sesi | Setelah selesai bekerja, Superadmin ingin keluar dan memastikan halaman internal tidak dapat dibuka kembali tanpa login. | Dari halaman Superadmin > lakukan logout > gunakan tombol Back > coba buka URL internal secara langsung. | Logout berhasil dan halaman internal mengarahkan pengguna ke login atau halaman publik. |
+| 24 | Kirim Email Pengingat | Seorang alumni belum menyelesaikan Tracer Study dan perlu menerima pengingat. | Buka `/superadmin/alumni` > cari alumni dengan email valid > pilih aksi kirim email > konfirmasi > baca flash atau notifikasi hasil pengiriman. | Peserta memilih alumni yang benar, memahami konfirmasi, dan dapat menjelaskan status berhasil atau gagal. |
+| 25 | Grafik Response Rate | Pimpinan ingin mengetahui tingkat respons Tracer Study tahun 2026 beserta data pembentuknya. | Buka `/superadmin/analitik` > pilih Response Rate dan tahun 2026 > baca grafik > klik salah satu kategori > periksa drill-down > kembali ke ringkasan. | Peserta memahami filter, jumlah, persentase, kategori tertinggi atau terendah, serta hubungan grafik dengan data detail. |
+
+### Urutan Pelaksanaan yang Disarankan
+
+Task disusun dalam beberapa alur agar terasa seperti pekerjaan Superadmin sehari-hari, tetapi tidak seluruh task dibuat saling bergantung. Jika peserta gagal pada satu task, moderator dapat membuka halaman awal task berikutnya dan mencatat kegagalan hanya pada task yang sedang diuji.
+
+| Alur | Urutan task | Keterangan |
+|---|---|---|
+| Alur utama operasional | SA-01 → SA-02 → SA-03 → SA-04 → SA-04A atau SA-04B → SA-22 → SA-23 → SA-19 → SA-21 | Login, memahami Dashboard, audit alumni, mengubah data, menguji LinkedIn, mengirim pengingat, membaca grafik, memeriksa log, lalu logout. |
+| Alur Kuesioner Universitas | SA-06 → SA-07 → SA-08 → SA-09 | Diuji sebagai satu rangkaian khusus karena section, pertanyaan, opsi, Jump To, dan placement saling berkaitan. Gunakan data uji agar dapat dibersihkan setelah sesi. |
+| Alur Kuesioner Prodi | SA-10 | Hanya peninjauan singkat untuk memastikan peserta memahami perbedaan konteks, tanpa membuat atau mengubah data. |
+| Alur Evaluasi Atasan | SA-11 → SA-18 → SA-14 | Mencoba konfigurasi instrumen, menelusuri data atasan per alumni, lalu melihat hasil analitik evaluasi apabila waktu memungkinkan. |
+| Alur administrasi pendukung | SA-05 → SA-15 → SA-16 → SA-17 → SA-20 | Dijalankan sebagai task mandiri karena dapat mengubah master, akun, hasil sinkronisasi, atau berkas unduhan. |
+
+### Catatan Dependensi Task
+
+- SA-04A dan SA-04B menggunakan hasil LinkedIn berstatus `pending` yang sudah disiapkan moderator. Keduanya merupakan cabang, sehingga tidak wajib dijalankan bersamaan.
+- SA-19 sebaiknya dilakukan setelah ada perubahan data dari SA-04 atau keputusan LinkedIn agar log yang dicari memiliki konteks.
+- SA-22 menggunakan alumni uji dengan email valid. WhatsApp dapat dicatat sebagai alternatif komunikasi, tetapi tidak menjadi task utama karena berpindah ke aplikasi eksternal.
+- SA-23 menggunakan data analitik yang sudah tersedia dan tidak bergantung pada keberhasilan SA-22.
+- SA-06 sampai SA-09 merupakan alur khusus Kuesioner Universitas dan tidak perlu dicampur dengan alur Kuesioner Prodi.
 
 ## 11. Task Prioritas
 
@@ -964,13 +1052,16 @@ Apabila waktu pengujian terbatas, gunakan task berikut sebagai task kritis:
 | Kritis | SA-06 | Menguji pengelolaan section kuesioner |
 | Kritis | SA-07 | Menguji pengelolaan pertanyaan |
 | Kritis | SA-12 | Menguji pemahaman analitik utama |
+| Kritis | SA-23 | Menguji pembacaan grafik Response Rate dan drill-down |
 | Kritis | SA-15 | Menguji pengelolaan akun dan reset sandi |
 | Pendukung | SA-09 | Menguji bank pertanyaan dan placement |
+| Pendukung | SA-10 | Meninjau struktur Kuesioner Prodi secara singkat |
 | Pendukung | SA-11 | Menguji instrumen Evaluasi Atasan |
 | Pendukung | SA-16 | Menguji master wilayah dan UMP |
 | Pendukung | SA-17 | Menguji review LinkedIn |
 | Pendukung | SA-19 | Menguji audit trail |
 | Pendukung | SA-20 | Menguji ekspor data |
+| Pendukung | SA-22 | Menguji pengiriman email pengingat dan notifikasi hasil |
 
 ---
 
