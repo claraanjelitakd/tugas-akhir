@@ -1,5 +1,12 @@
 # UPDATE LOG - SERU (Sistem Ekosistem Rekam Jejak Alumni)
 
+## [2026-11-12] Penyelarasan Relasi Alumni dan Atasan pada Dashboard
+
+- Dashboard Superadmin tidak lagi menampilkan tombol `Kelola perusahaan` sebagai aksi utama pada header.
+- Daftar atasan pada Dashboard kini membaca relasi `biodata.atasan_id` dan menampilkan satu baris per alumni, sehingga nama atasan yang sama tidak ditampilkan sebagai satu entitas dengan jumlah “anak” gabungan.
+- Penyimpanan profil membuat snapshot atasan baru ketika record lama ternyata masih dipakai lebih dari satu alumni, sehingga perubahan satu alumni tidak mengubah data alumni lain.
+- Seeder simulasi Dashboard dan AlumniSimulationSeeder menggunakan identitas atasan berbasis NIM alumni agar data uji mengikuti kontrak satu atasan per alumni.
+
 ## [2026-11-11] Penyelarasan Opsi Kontribusi Alumni Sistem Informasi
 
 - Menambahkan opsi master `Kunjungan perusahaan` pada pertanyaan `PSI-1-04` melalui fixture seeding kanonik; opsi `Lainnya` tetap dipertahankan dengan ID lama agar respons historis tidak tertukar.

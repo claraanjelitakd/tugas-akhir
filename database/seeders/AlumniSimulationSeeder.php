@@ -480,8 +480,6 @@ class AlumniSimulationSeeder extends Seeder
         $perguruanTinggi = null;
         $pendidikanProdi = null;
         $gaji = 8500000;
-        $supervisorVariant = ((int) $prodi->kode_prodi) % 2;
-
         if ($kategoriIdx === 0) {
             // Kategori 1: Bekerja Swasta / BUMN
             $kategoriPekerjaan = 'Bekerja (Full Time)';
@@ -506,8 +504,8 @@ class AlumniSimulationSeeder extends Seeder
             );
             $perusahaanId = $perusahaan->id;
 
-            $atasan = Atasan::firstOrCreate(
-                ['email' => 'atasan.mandiri.'.$supervisorVariant.'@mandiri.co.id'],
+            $atasan = Atasan::updateOrCreate(
+                ['email' => 'atasan.mandiri.'.$nim.'@mandiri.co.id'],
                 [
                     'perusahaan_id' => $perusahaanId,
                     'nama' => 'Hartono Kusumo, S.E., MBA.',
@@ -538,8 +536,8 @@ class AlumniSimulationSeeder extends Seeder
             );
             $perusahaanId = $perusahaan->id;
 
-            $atasan = Atasan::firstOrCreate(
-                ['email' => 'partner.inovasi.'.$supervisorVariant.'@inovasimandiri.id'],
+            $atasan = Atasan::updateOrCreate(
+                ['email' => 'partner.inovasi.'.$nim.'@inovasimandiri.id'],
                 [
                     'perusahaan_id' => $perusahaanId,
                     'nama' => 'Rendra Pratama, S.Kom. (Co-Founder)',
@@ -572,8 +570,8 @@ class AlumniSimulationSeeder extends Seeder
             );
             $perusahaanId = $perusahaan->id;
 
-            $atasan = Atasan::firstOrCreate(
-                ['email' => 'kaprodi.s2.'.$supervisorVariant.'@mail.ugm.ac.id'],
+            $atasan = Atasan::updateOrCreate(
+                ['email' => 'kaprodi.s2.'.$nim.'@mail.ugm.ac.id'],
                 [
                     'perusahaan_id' => $perusahaanId,
                     'nama' => 'Prof. Dr. Ir. Wahyu Wibowo, M.Sc. (Dosen Pembimbing S2)',
@@ -603,8 +601,8 @@ class AlumniSimulationSeeder extends Seeder
             );
             $perusahaanId = $perusahaan->id;
 
-            $atasan = Atasan::firstOrCreate(
-                ['email' => 'lead.goto.'.$supervisorVariant.'@gotocompany.com'],
+            $atasan = Atasan::updateOrCreate(
+                ['email' => 'lead.goto.'.$nim.'@gotocompany.com'],
                 [
                     'perusahaan_id' => $perusahaanId,
                     'nama' => 'Maya Indrawati, S.T., M.Kom. (Engineering Manager)',
@@ -635,8 +633,8 @@ class AlumniSimulationSeeder extends Seeder
             );
             $perusahaanId = $perusahaan->id;
 
-            $atasan = Atasan::firstOrCreate(
-                ['email' => 'mentor.freelance.'.$supervisorVariant.'@studio-mandiri.id'],
+            $atasan = Atasan::updateOrCreate(
+                ['email' => 'mentor.freelance.'.$nim.'@studio-mandiri.id'],
                 [
                     'perusahaan_id' => $perusahaanId,
                     'nama' => 'Dimas Prasetya, S.Kom. (Mitra Profesional)',

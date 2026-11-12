@@ -79,7 +79,7 @@ erDiagram
     ref_negara ||--o{ perusahaan : "negara_instansi"
     perusahaan ||--o{ biodata : "tempat_bekerja"
     perusahaan ||--o{ atasan : "instansi_atasan"
-    atasan ||--o{ biodata : "atasan_langsung"
+    atasan ||--o| biodata : "snapshot_atasan_per_alumni"
     biodata ||--o{ linkedin_sync_results : "staging_profil"
     prodi ||--o{ kuesioner_section : "pemilik_section_prodi"
     prodi ||--o{ kuesioner_pertanyaan : "pemilik_pertanyaan_prodi"
@@ -187,7 +187,7 @@ erDiagram
     perusahaan ||--o{ biodata : "tempat_kerja (perusahaan_id)"
     perusahaan ||--o{ atasan : "instansi (perusahaan_id)"
     users ||--o{ atasan : "akun_atasan (user_id)"
-    atasan ||--o{ biodata : "atasan_langsung (atasan_id)"
+    atasan ||--o| biodata : "snapshot_atasan_per_alumni (atasan_id)"
     biodata ||--o{ linkedin_sync_results : "riwayat_sync (biodata_id)"
     users ||--o{ linkedin_sync_results : "diverifikasi_oleh (reviewed_by)"
 

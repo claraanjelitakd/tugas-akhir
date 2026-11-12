@@ -354,7 +354,15 @@ class AdminAlumniProfileService
         $teleponAtasan = self::nullableInput($data, 'telepon_atasan', null);
 
         if ($namaAtasanProvided || $emailAtasanProvided || $teleponAtasanProvided) {
-            $atasan = ! empty($biodata->atasan_id) ? Atasan::find($biodata->atasan_id) : null;
+            $atasan = ! empty($biodata->atasan_id)
+                ? Atasan::query()->withCount('biodata')->find($biodata->atasan_id)
+                : null;
+
+            // Data atasan berasal dari isian bebas setiap alumni, sehingga record yang sudah terhubung ke lebih dari satu alumni tidak boleh diperbarui bersama.
+            if ($atasan && (int) $atasan->biodata_count !== 1) {
+                $atasan = null;
+            }
+
             if ($atasan) {
                 $atasanUpdates = [];
                 if ($perusahaanId && $perusahaanId !== $atasan->perusahaan_id) {

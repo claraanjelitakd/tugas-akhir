@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\KuesionerJawaban;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
+use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -63,12 +65,27 @@ class SuperAdminDashboardTest extends TestCase
             'tahun_akademik_lulus' => 'Genap 2024/2025',
         ]);
 
-        Biodata::create([
+        $biodata = Biodata::create([
             'user_id' => $alumniUser->id,
             'nim' => '72200001',
             'nama' => 'Alumni SI 1',
             'prodi_id' => $prodi->id,
         ]);
+
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Dashboard Operasional',
+            'status_verifikasi' => 'Menunggu Verifikasi',
+            'created_by_user_id' => $alumniUser->id,
+            'created_by_prodi_id' => $prodi->id,
+        ]);
+
+        $atasan = Atasan::create([
+            'perusahaan_id' => $company->id,
+            'nama' => 'Atasan Dashboard',
+            'email' => 'atasan.dashboard@example.com',
+        ]);
+
+        $biodata->update(['atasan_id' => $atasan->id]);
 
         $response = $this->actingAs($superadmin)->get('/superadmin/dashboard');
 
@@ -87,6 +104,78 @@ class SuperAdminDashboardTest extends TestCase
             ->where('completionMetrics.population', 1)
             ->where('completionMetrics.profile.percentage', 0)
             ->where('completionMetrics.university_questionnaire.percentage', 0)
+            ->where('dashboardSummary.pending_perusahaan', 1)
+            ->where('dashboardSummary.total_perusahaan', 1)
+            ->where('dashboardSummary.total_atasan', 1)
+            ->where('companyRequests.0.applicant', 'Alumni SI 1')
+            ->where('companyRequests.0.name', 'PT Dashboard Operasional')
+            ->where('supervisorDirectory.0.name', 'Atasan Dashboard')
+            ->where('supervisorDirectory.0.alumni_name', 'Alumni SI 1')
+        );
+    }
+
+    /**
+     * Memastikan Dashboard menampilkan satu baris relasi untuk setiap alumni,
+     * bukan menggabungkan jumlah alumni di bawah satu nama atasan.
+     */
+    public function test_dashboard_lists_one_supervisor_relation_per_alumni(): void
+    {
+        $prodi = Prodi::create([
+            'kode_prodi' => '72',
+            'nama_prodi' => 'Sistem Informasi',
+        ]);
+
+        $superadmin = User::create([
+            'username' => 'superadmin-supervisor-relations',
+            'name' => 'Super Administrator',
+            'password' => Hash::make('password123'),
+            'role' => 'superadmin',
+            'must_change_password' => false,
+        ]);
+
+        $sharedAtasan = Atasan::create([
+            'nama' => 'Atasan yang Sama',
+            'email' => 'atasan-sama@example.test',
+        ]);
+
+        foreach ([
+            ['nim' => '72200021', 'nama' => 'Alumni Relasi Satu'],
+            ['nim' => '72200022', 'nama' => 'Alumni Relasi Dua'],
+        ] as $alumniData) {
+            $user = User::create([
+                'username' => $alumniData['nim'],
+                'name' => $alumniData['nama'],
+                'password' => Hash::make('password123'),
+                'role' => 'alumni',
+                'prodi_id' => $prodi->id,
+                'must_change_password' => false,
+            ]);
+
+            DataAkademik::create([
+                'nim' => $alumniData['nim'],
+                'nama' => $alumniData['nama'],
+                'tahun_lulus' => now()->year,
+            ]);
+
+            Biodata::create([
+                'user_id' => $user->id,
+                'nim' => $alumniData['nim'],
+                'prodi_id' => $prodi->id,
+                'atasan_id' => $sharedAtasan->id,
+            ]);
+        }
+
+        $response = $this->actingAs($superadmin)->get('/superadmin/dashboard');
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('dashboardSummary.total_atasan', 2)
+            ->where('supervisorDirectory', function ($supervisors): bool {
+                $records = collect($supervisors);
+
+                return $records->count() === 2
+                    && $records->every(fn (array $record): bool => ! array_key_exists('alumni_count', $record))
+                    && $records->pluck('alumni_name')->sort()->values()->all() === ['Alumni Relasi Dua', 'Alumni Relasi Satu'];
+            })
         );
     }
 

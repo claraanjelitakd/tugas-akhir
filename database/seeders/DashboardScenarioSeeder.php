@@ -184,13 +184,11 @@ class DashboardScenarioSeeder extends Seeder
                 $managerList = $managerNames[$sectorKey];
                 $managerName = $managerList[$idx % count($managerList)];
 
-                $atasan = Atasan::firstOrCreate(
+                $atasan = Atasan::updateOrCreate(
+                    ['email' => strtolower(str_replace([' ', '.', ','], '', explode(' ', $managerName)[0])).'.'.$nim.'@perusahaan.co.id'],
                     [
                         'perusahaan_id' => $company->id,
                         'nama' => $managerName,
-                    ],
-                    [
-                        'email' => strtolower(str_replace([' ', '.', ','], '', explode(' ', $managerName)[0])).$idx.'@perusahaan.co.id',
                         'telepon' => '0812'.str_pad((string) (20000000 + $idx), 8, '0', STR_PAD_LEFT),
                     ]
                 );

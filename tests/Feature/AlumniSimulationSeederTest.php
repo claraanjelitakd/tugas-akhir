@@ -91,8 +91,17 @@ class AlumniSimulationSeederTest extends TestCase
         $this->assertSame([2026], $graduates->pluck('tahun_lulus')->unique()->sort()->values()->all());
         $this->assertSame(12, $graduates->pluck('prodi_id')->unique()->count());
         $this->assertSame(0, $graduates->filter(fn (DataAkademik $academic): bool => blank($academic->nama) || $academic->nama === '-')->count());
-        $this->assertSame(10, Atasan::query()->count());
+        $biodataWithSupervisors = Biodata::query()->whereNotNull('atasan_id')->count();
+
+        $this->assertSame(
+            $biodataWithSupervisors,
+            Atasan::query()->whereHas('biodata')->count()
+        );
         $this->assertSame(0, Atasan::query()->whereDoesntHave('biodata')->count());
+        $this->assertLessThanOrEqual(
+            1,
+            (int) (Atasan::query()->withCount('biodata')->get()->max('biodata_count') ?? 0)
+        );
         $this->assertSame(
             0,
             Perusahaan::query()

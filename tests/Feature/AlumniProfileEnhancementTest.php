@@ -280,6 +280,56 @@ class AlumniProfileEnhancementTest extends TestCase
     }
 
     /**
+     * Memastikan perubahan isian atasan tidak mengubah record atasan milik alumni lain.
+     */
+    public function test_profile_update_does_not_share_atasan_record_between_alumni(): void
+    {
+        $sharedAtasan = Atasan::create([
+            'nama' => 'Atasan Bersama Lama',
+            'email' => 'atasan-bersama@example.test',
+        ]);
+
+        $this->biodata->update(['atasan_id' => $sharedAtasan->id]);
+
+        $otherUser = User::create([
+            'name' => 'Alumni Lain',
+            'email' => 'alumni-lain@ukdw.ac.id',
+            'username' => '71200002',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'prodi_id' => $this->prodi->id,
+            'must_change_password' => false,
+        ]);
+
+        DataAkademik::create([
+            'nim' => '71200002',
+            'nama' => 'Alumni Lain',
+            'tahun_lulus' => 2026,
+        ]);
+
+        $otherBiodata = Biodata::create([
+            'user_id' => $otherUser->id,
+            'nim' => '71200002',
+            'prodi_id' => $this->prodi->id,
+            'atasan_id' => $sharedAtasan->id,
+        ]);
+
+        AdminAlumniProfileService::updateProfile($otherBiodata, [
+            'nama_atasan' => 'Atasan Alumni Lain',
+            'email_atasan' => 'atasan-lain@example.test',
+        ]);
+
+        $this->biodata->refresh();
+        $otherBiodata->refresh();
+
+        $this->assertSame($sharedAtasan->id, $this->biodata->atasan_id);
+        $this->assertNotSame($sharedAtasan->id, $otherBiodata->atasan_id);
+        $this->assertSame('Atasan Bersama Lama', $sharedAtasan->fresh()->nama);
+        $this->assertSame('Atasan Alumni Lain', Atasan::find($otherBiodata->atasan_id)->nama);
+        $this->assertDatabaseCount('atasan', 2);
+    }
+
+    /**
      * Status non-kerja menghapus bidang dan divisi agar data master tidak
      * menyimpan atribut pekerjaan yang sudah tidak relevan.
      */

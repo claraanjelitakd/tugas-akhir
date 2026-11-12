@@ -154,7 +154,7 @@ flowchart LR
 | Elemen | Spesifikasi |
 | :--- | :--- |
 | Aktor | Alumni. |
-| Deskripsi | Memutakhirkan kontak, domisili, karier, perusahaan, atasan, pendidikan lanjut, dan tautan jejaring pada `biodata`. |
+| Deskripsi | Memutakhirkan kontak, domisili, karier, perusahaan, snapshot atasan, pendidikan lanjut, dan tautan jejaring pada `biodata`. Data atasan berasal dari isian bebas alumni dan secara bisnis menjadi satu relasi untuk satu alumni; nama yang sama tidak digabung sebagai master atasan bersama. |
 | Prasyarat | Alumni login dan membuka `/alumni/profile`. |
 | Pasca-syarat | Field yang valid tersimpan; relasi wilayah memakai `kode_provinsi` dan `kode_kabupaten`. |
 | Alur dasar | 1. Sistem menampilkan data akademik referensi dan field profil aktif.<br>2. Alumni mengubah kontak, domisili, aktivitas, perusahaan, atasan, dan LinkedIn.<br>3. Sistem memvalidasi input.<br>4. Sistem menyimpan `biodata` dan relasi `perusahaan` atau `atasan` bila dipilih. |
@@ -241,7 +241,7 @@ flowchart LR
 | Deskripsi | Menelusuri daftar alumni sesuai scope, melihat detail, memperbarui profil yang diizinkan, dan mengirim komunikasi. |
 | Prasyarat | Aktor login; scope role dan alumni tersedia. |
 | Pasca-syarat | Data hanya berubah jika aksi update berhasil; akses detail tercatat sesuai kebijakan audit. |
-| Alur dasar | 1. Aktor membuka daftar alumni.<br>2. Sistem memfilter berdasarkan role, tahun, prodi, dan pencarian.<br>3. Aktor membuka detail `{id}`.<br>4. Aktor dapat memperbarui profil atau mengirim email melalui route role masing-masing. |
+| Alur dasar | 1. Aktor membuka daftar alumni.<br>2. Sistem memfilter berdasarkan role, tahun, prodi, dan pencarian.<br>3. Aktor membuka detail `{id}`.<br>4. Detail menampilkan satu snapshot atasan yang dimiliki alumni tersebut, termasuk status evaluasi jika tersedia.<br>5. Aktor dapat memperbarui profil atau mengirim email melalui route role masing-masing. |
 | Alur alternatif | A1. Detail dapat diekspor ke Excel.<br>A2. Biro III hanya dapat melakukan tindakan sesuai route yang tersedia, tanpa aksi LinkedIn. |
 | Alur eksepsi | E1. Alumni di luar scope mengembalikan 404 atau unauthorized.<br>E2. ID tidak ditemukan; sistem menampilkan halaman tidak ditemukan. |
 
@@ -385,7 +385,7 @@ flowchart LR
 | Deskripsi | Menampilkan, memperbarui, dan memverifikasi data alumni berdasarkan sumber akademik, biodata, tracer, prodi, dan perusahaan. |
 | Prasyarat | Record alumni ada pada `biodata` dan akses role valid. |
 | Pasca-syarat | Perubahan tersimpan pada tabel sumber yang tepat dan audit tersedia bila aksi dicatat. |
-| Alur dasar | 1. Admin membuka daftar atau detail alumni.<br>2. Sistem menggabungkan `data_akademik`, `yudisium`, `biodata`, dan relasi karier.<br>3. Admin mengubah field yang diizinkan.<br>4. Sistem memvalidasi FK dan menyimpan. |
+| Alur dasar | 1. Admin membuka daftar atau detail alumni.<br>2. Sistem menggabungkan `data_akademik`, `yudisium`, `biodata`, dan relasi karier.<br>3. Admin mengubah field yang diizinkan, termasuk snapshot atasan milik alumni tersebut.<br>4. Sistem memvalidasi FK dan menyimpan tanpa mengubah snapshot atasan alumni lain. |
 | Alur alternatif | A1. Data akademik readonly menjadi referensi, sedangkan kontak/karier diubah pada `biodata`.<br>A2. Admin mengirim email tindak lanjut dari detail alumni. |
 | Alur eksepsi | E1. NIM tidak ditemukan pada `data_akademik` sehingga profil tidak boleh dibuat parsial.<br>E2. Admin mencoba mengubah data di luar scope. |
 
