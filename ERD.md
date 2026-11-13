@@ -445,7 +445,7 @@ Tabel berikut merinci seluruh relasi kunci asing (*Foreign Key*) dan referensi l
 | 19 | `perusahaan` | `id` | `biodata` | `perusahaan_id` | `1 : N` | `SET NULL` | Satu perusahaan dapat mempekerjakan banyak alumni UKDW. |
 | 20 | `perusahaan` | `id` | `atasan` | `perusahaan_id` | `1 : N` | `SET NULL` | Satu perusahaan memiliki satu atau beberapa kontak pimpinan/atasan penilai. |
 | 21 | `users` | `id` | `atasan` | `user_id` | `1 : N` | `SET NULL` | Pimpinan/atasan terhubung ke akun login jika terdaftar sebagai pengguna sistem. |
-| 22 | `atasan` | `id` | `biodata` | `atasan_id` | `1 : N` | `SET NULL` | Satu atasan langsung dapat membawahi/menilai satu atau lebih alumni. |
+| 22 | `atasan` | `id` | `biodata` | `atasan_id` | `1 : 0..1` (aturan aplikasi) | `SET NULL` | Setiap isian bebas atasan dibuat sebagai snapshot milik satu alumni; nama atau kontak yang sama tidak dipakai untuk menyatukan beberapa alumni. Skema FK belum memakai indeks unik agar data lama yang terlanjur berbagi atasan tetap dapat dibaca dan dipisahkan saat diperbarui. |
 | 23 | `biodata` | `id` | `linkedin_sync_results` | `biodata_id` | `1 : N` | `CASCADE` | Satu alumni dapat memiliki riwayat staging sinkronisasi profil LinkedIn. |
 | 24 | `users` | `id` | `linkedin_sync_results` | `reviewed_by` | `1 : N` | `SET NULL` | Admin meninjau dan memverifikasi hasil sinkronisasi LinkedIn. |
 | 25 | `prodi` | `id` | `kuesioner_section` | `prodi_id` | `1 : N` | `SET NULL` | Satu program studi dapat memiliki bagian kuesioner prodi spesifik (`target = 'prodi'`). |

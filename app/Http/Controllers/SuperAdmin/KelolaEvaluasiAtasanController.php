@@ -8,6 +8,7 @@ use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
+use App\Models\LogActivity;
 use App\Services\Kuesioner\QuestionDefaultOptionsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -90,6 +91,8 @@ class KelolaEvaluasiAtasanController extends Controller
                 'deskripsi' => $p->keterangan,
                 'tipe' => $p->tipe,
                 'order' => (int) $pivot->order,
+                'is_required' => (bool) $pivot->wajib,
+                'tampil_di' => $pivot->tampil_di ?: 'kuesioner',
                 'is_active' => (bool) $p->is_active,
                 'is_company_field' => in_array($p->kode_pertanyaan, $companyFieldCodes, true) || in_array($cleanCode, $companyFieldCodes, true),
                 'pilihan_jawaban' => $p->opsi->pluck('label')->all(),
@@ -107,6 +110,49 @@ class KelolaEvaluasiAtasanController extends Controller
                 ],
             ];
         })->filter()->values();
+
+        $existingQuestionIds = $questions->pluck('id')->all();
+        $bankQuestions = KuesionerPertanyaan::query()
+            ->where('is_active', true)
+            ->where('is_reusable', true)
+            ->with([
+                'pemilikProdi:id,nama_prodi,kode_prodi',
+                'sections:id,target,prodi_id,judul',
+                'opsi' => fn ($query) => $query->orderBy('order'),
+            ])
+            ->orderByDesc('id')
+            ->get()
+            ->map(function (KuesionerPertanyaan $question) use ($existingQuestionIds): array {
+                $isAtasan = str_starts_with($question->kode_pertanyaan, 'EVA_')
+                    || $question->sections->contains(fn (KuesionerSection $section): bool => $section->target === 'atasan');
+
+                return [
+                    'id' => $question->id,
+                    'kode' => $question->kode_pertanyaan,
+                    'label' => $question->label_pertanyaan,
+                    'teks' => $question->teks_pertanyaan,
+                    'tipe' => $question->tipe,
+                    'asal' => $isAtasan
+                        ? 'Evaluasi Atasan'
+                        : ($question->pemilikProdi?->nama_prodi ?: 'Universitas (Pusat)'),
+                    'is_already_added' => in_array($question->id, $existingQuestionIds, true),
+                    'section_ids' => $question->sections
+                        ->where('target', 'atasan')
+                        ->pluck('id')
+                        ->values()
+                        ->all(),
+                    'section_ids' => $question->sections
+                        ->where('target', 'atasan')
+                        ->pluck('id')
+                        ->values()
+                        ->all(),
+                    'options' => $question->opsi->map(fn (KuesionerOpsi $option): array => [
+                        'label' => $option->label,
+                    ])->values()->all(),
+                ];
+            })
+            ->values()
+            ->all();
 
         // 3. Ambil riwayat evaluasi atasan yang masuk
         $evaluasis = EvaluasiAtasan::with([
@@ -130,6 +176,14 @@ class KelolaEvaluasiAtasanController extends Controller
                 'label' => $sec['title'],
             ])->values(),
             'questions' => $questions,
+            'bankQuestions' => $bankQuestions,
+            'availableJumpTargets' => $questions
+                ->map(fn (array $question): array => [
+                    'code' => $question['full_kode'] ?: $question['kode'],
+                    'text' => $question['label'] ?: $question['aspek'],
+                ])
+                ->values()
+                ->all(),
             'evaluasis' => $evaluasis,
             'stats' => [
                 'total_sections' => $sections->count(),
@@ -163,7 +217,7 @@ class KelolaEvaluasiAtasanController extends Controller
             $counter++;
         }
 
-        KuesionerSection::create([
+        $section = KuesionerSection::create([
             'target' => 'atasan',
             'kode_section' => $key,
             'judul' => $validated['title'],
@@ -171,6 +225,8 @@ class KelolaEvaluasiAtasanController extends Controller
             'order' => $order,
             'is_active' => true,
         ]);
+
+        LogActivity::record('KUESIONER_ATASAN_SECTION_CREATED', 'Membuat section kuesioner evaluasi atasan: '.$validated['title'].'.', $section, null, $validated);
 
         return redirect()->back()->with('success', 'Bagian kuesioner evaluasi atasan berhasil ditambahkan.');
     }
@@ -194,6 +250,8 @@ class KelolaEvaluasiAtasanController extends Controller
             'order' => $validated['order'] ?? $section->order,
         ]);
 
+        LogActivity::record('KUESIONER_ATASAN_SECTION_UPDATED', 'Memperbarui section kuesioner evaluasi atasan: '.$section->judul.'.', $section, null, $validated);
+
         return redirect()->back()->with('success', 'Bagian kuesioner evaluasi atasan berhasil diperbarui.');
     }
 
@@ -211,6 +269,8 @@ class KelolaEvaluasiAtasanController extends Controller
         }
 
         $section->delete();
+
+        LogActivity::record('KUESIONER_ATASAN_SECTION_DELETED', 'Menghapus section kuesioner evaluasi atasan: '.$section->judul.'.', null, $section->toArray());
 
         return redirect()->back()->with('success', 'Bagian kuesioner evaluasi atasan berhasil dihapus.');
     }
@@ -279,6 +339,7 @@ class KelolaEvaluasiAtasanController extends Controller
             'option_jump_to' => 'nullable|array',
             'option_jump_to.*' => 'nullable|string|max:50',
             'order' => 'nullable|integer',
+            'is_required' => 'nullable|boolean',
         ]);
 
         $sectionId = $validated['section_id'] ?? KuesionerSection::where('target', 'atasan')->orderBy('id', 'desc')->value('id');
@@ -330,6 +391,10 @@ class KelolaEvaluasiAtasanController extends Controller
             'is_active' => true,
         ]);
 
+        KuesionerSectionPertanyaan::where('pertanyaan_id', $pertanyaan->id)
+            ->where('section_id', $sectionId)
+            ->update(['wajib' => $request->boolean('is_required', true)]);
+
         if (is_array($pilihanJawaban)) {
             foreach ($pilihanJawaban as $idx => $label) {
                 KuesionerOpsi::create([
@@ -344,6 +409,8 @@ class KelolaEvaluasiAtasanController extends Controller
                 ]);
             }
         }
+
+        LogActivity::record('KUESIONER_ATASAN_QUESTION_CREATED', 'Membuat pertanyaan evaluasi atasan: '.$pertanyaan->kode_pertanyaan.'.', $pertanyaan, null, $validated);
 
         return redirect()->back()->with('success', 'Butir pertanyaan evaluasi atasan berhasil ditambahkan.');
     }
@@ -366,6 +433,7 @@ class KelolaEvaluasiAtasanController extends Controller
             'option_jump_to.*' => 'nullable|string|max:50',
             'is_active' => 'nullable|boolean',
             'order' => 'nullable|integer',
+            'is_required' => 'nullable|boolean',
         ]);
 
         $tipe = match ($validated['tipe'] ?? $pertanyaan->tipe) {
@@ -389,6 +457,7 @@ class KelolaEvaluasiAtasanController extends Controller
                 $pivot->update([
                     'section_id' => $sectionId,
                     'order' => $validated['order'] ?? $pivot->order,
+                    'wajib' => $request->boolean('is_required', (bool) $pivot->wajib),
                 ]);
             }
         }
@@ -416,6 +485,8 @@ class KelolaEvaluasiAtasanController extends Controller
             }
         }
 
+        LogActivity::record('KUESIONER_ATASAN_QUESTION_UPDATED', 'Memperbarui pertanyaan evaluasi atasan: '.$pertanyaan->kode_pertanyaan.'.', $pertanyaan, null, $validated);
+
         return redirect()->back()->with('success', 'Butir pertanyaan evaluasi atasan berhasil diperbarui.');
     }
 
@@ -435,13 +506,15 @@ class KelolaEvaluasiAtasanController extends Controller
         $question = $this->findAtasanQuestion((int) $validated['question_id']);
         $order = $validated['order'] ?? (($question->opsi()->max('order') ?? 0) + 1);
 
-        $question->opsi()->create([
+        $option = $question->opsi()->create([
             'kode_opsi' => trim((string) ($validated['code'] ?? '')) ?: $question->kode_pertanyaan.'-'.str_pad((string) $order, 2, '0', STR_PAD_LEFT),
             'label' => trim($validated['option_text']),
             'nilai_skor' => $question->tipe === 'likert_5' ? (int) $order : null,
             'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
             'order' => (int) $order,
         ]);
+
+        LogActivity::record('KUESIONER_ATASAN_OPTION_CREATED', 'Menambahkan opsi jawaban pada pertanyaan '.$question->kode_pertanyaan.'.', $option, null, $validated);
 
         return redirect()->back()->with('success', 'Opsi jawaban evaluasi atasan berhasil ditambahkan.');
     }
@@ -470,6 +543,8 @@ class KelolaEvaluasiAtasanController extends Controller
             'order' => (int) $order,
         ]);
 
+        LogActivity::record('KUESIONER_ATASAN_OPTION_UPDATED', 'Memperbarui opsi jawaban pada pertanyaan '.$question->kode_pertanyaan.'.', $option, null, $validated);
+
         return redirect()->back()->with('success', 'Opsi jawaban evaluasi atasan berhasil diperbarui.');
     }
 
@@ -480,7 +555,10 @@ class KelolaEvaluasiAtasanController extends Controller
     {
         $option = KuesionerOpsi::findOrFail($id);
         $this->findAtasanQuestion((int) $option->pertanyaan_id);
+        $questionCode = $option->pertanyaan?->kode_pertanyaan;
         $option->delete();
+
+        LogActivity::record('KUESIONER_ATASAN_OPTION_DELETED', 'Menghapus opsi jawaban pada pertanyaan '.$questionCode.'.', null, $option->toArray());
 
         return redirect()->back()->with('success', 'Opsi jawaban evaluasi atasan berhasil dihapus.');
     }
@@ -532,6 +610,8 @@ class KelolaEvaluasiAtasanController extends Controller
         KuesionerSectionPertanyaan::where('pertanyaan_id', $question->id)->delete();
         $question->opsi()->delete();
         $question->delete();
+
+        LogActivity::record('KUESIONER_ATASAN_QUESTION_DELETED', 'Menghapus pertanyaan evaluasi atasan: '.$question->kode_pertanyaan.'.', null, $question->toArray());
 
         return redirect()->back()->with('success', 'Butir aspek evaluasi atasan berhasil dihapus.');
     }
@@ -585,5 +665,59 @@ class KelolaEvaluasiAtasanController extends Controller
         }
 
         return redirect()->back()->withErrors(['message' => 'Parameter pengurutan pertanyaan tidak valid.']);
+    }
+
+    /**
+     * Menyematkan pertanyaan aktif yang reusable dari Bank Soal ke section evaluasi atasan.
+     *
+     * @return RedirectResponse Redirect kembali ke halaman pengelolaan instrumen.
+     */
+    public function attachFromBank(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'section_id' => 'required|exists:kuesioner_section,id',
+            'pertanyaan_ids' => 'required|array|min:1',
+            'pertanyaan_ids.*' => 'required|exists:kuesioner_pertanyaan,id',
+        ]);
+
+        $section = KuesionerSection::whereKey($validated['section_id'])
+            ->where('target', 'atasan')
+            ->firstOrFail();
+
+        $questions = KuesionerPertanyaan::query()
+            ->whereIn('id', $validated['pertanyaan_ids'])
+            ->where('is_active', true)
+            ->where('is_reusable', true)
+            ->get();
+
+        $order = (int) (KuesionerSectionPertanyaan::where('section_id', $section->id)->max('order') ?: 0);
+        $addedCount = 0;
+
+        foreach ($questions as $question) {
+            $placement = KuesionerSectionPertanyaan::firstOrCreate(
+                [
+                    'section_id' => $section->id,
+                    'pertanyaan_id' => $question->id,
+                ],
+                [
+                    'order' => ++$order,
+                    'wajib' => true,
+                    'is_active' => true,
+                    'tampil_di' => 'kuesioner',
+                ]
+            );
+
+            if (! $placement->wasRecentlyCreated) {
+                $placement->update(['is_active' => true]);
+            }
+
+            $addedCount++;
+        }
+
+        LogActivity::record('KUESIONER_ATASAN_BANK_ATTACHED', 'Menyematkan '.$addedCount.' pertanyaan dari Bank Soal ke section '.$section->judul.'.', $section, null, [
+            'pertanyaan_ids' => $validated['pertanyaan_ids'],
+        ]);
+
+        return redirect()->back()->with('success', $addedCount.' pertanyaan dari Bank Soal berhasil disematkan.');
     }
 }

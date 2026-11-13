@@ -1,5 +1,5 @@
 {
-  "revision": "2026-11-07",
+  "revision": "2026-11-13",
   "basis": "Implementasi lokal; integrasi langsung SIAKAD tidak diasumsikan",
   "entities": {
     "E1": "Alumni",
@@ -34,15 +34,15 @@
       "tables": "perusahaan"
     },
     "D4": {
-      "name": "Instrumen Kuesioner Terpadu",
+      "name": "Instrumen Universitas",
       "tables": "kuesioner, kuesioner_section, kuesioner_pertanyaan, kuesioner_opsi, kuesioner_section_pertanyaan"
     },
     "D5": {
-      "name": "Jawaban Kuesioner Alumni",
+      "name": "Jawaban Universitas",
       "tables": "kuesioner_jawaban"
     },
     "D6": {
-      "name": "Penempatan Pertanyaan Program Studi",
+      "name": "Instrumen Program Studi",
       "tables": "kuesioner_section, kuesioner_pertanyaan, kuesioner_opsi, kuesioner_section_pertanyaan"
     },
     "D7": {
@@ -50,11 +50,11 @@
       "tables": "kuesioner_jawaban"
     },
     "D8": {
-      "name": "Instrumen Evaluasi Pengguna Lulusan",
+      "name": "Instrumen Evaluasi Atasan",
       "tables": "kuesioner_section, kuesioner_pertanyaan, kuesioner_opsi, kuesioner_section_pertanyaan"
     },
     "D9": {
-      "name": "Undangan dan Konteks Evaluasi",
+      "name": "Undangan dan Jawaban Evaluasi",
       "tables": "evaluasi_atasan, atasan, kuesioner_jawaban"
     },
     "D10": {

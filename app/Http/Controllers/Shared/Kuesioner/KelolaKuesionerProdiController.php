@@ -7,6 +7,7 @@ use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
+use App\Models\LogActivity;
 use App\Models\Prodi;
 use App\Models\User;
 use App\Services\Kuesioner\QuestionDefaultOptionsService;
@@ -217,6 +218,7 @@ class KelolaKuesionerProdiController extends Controller
                 'type' => $master->tipe,
                 'order' => $placement->order,
                 'is_required' => (bool) $placement->wajib,
+                'tampil_di' => $placement->tampil_di ?: 'kuesioner',
                 'is_active' => (bool) $master->is_active,
                 'is_placement_active' => (bool) $placement->is_active,
                 'is_reusable' => (bool) $master->is_reusable,
@@ -373,7 +375,7 @@ class KelolaKuesionerProdiController extends Controller
 
         // Simpan ke skema terpadu kuesioner_section
         $code = 'PRODI_'.$prodiId.'_'.Str::upper(Str::slug(Str::limit($validated['title'], 15, ''))).'_'.time();
-        KuesionerSection::create([
+        $section = KuesionerSection::create([
             'target' => 'prodi',
             'prodi_id' => $prodiId,
             'kode_section' => $code,
@@ -382,6 +384,8 @@ class KelolaKuesionerProdiController extends Controller
             'order' => $validated['order'],
             'is_active' => true,
         ]);
+
+        LogActivity::record('KUESIONER_PRODI_SECTION_CREATED', 'Membuat section kuesioner prodi: '.$section->judul.'.', $section, null, $section->toArray());
 
         return redirect()->back()->with('success', 'Bagian (section) kuesioner prodi berhasil ditambahkan.');
     }
@@ -408,6 +412,8 @@ class KelolaKuesionerProdiController extends Controller
             'order' => $validated['order'] ?? $section->order,
         ]);
 
+        LogActivity::record('KUESIONER_PRODI_SECTION_UPDATED', 'Memperbarui section kuesioner prodi: '.$section->judul.'.', $section, null, $validated);
+
         return redirect()->back()->with('success', 'Bagian (section) kuesioner prodi berhasil diperbarui.');
     }
 
@@ -424,6 +430,8 @@ class KelolaKuesionerProdiController extends Controller
         // Hapus relasi penempatan di section ini
         $section->sectionPertanyaan()->delete();
         $section->delete();
+
+        LogActivity::record('KUESIONER_PRODI_SECTION_DELETED', 'Menghapus section kuesioner prodi: '.$section->judul.'.', null, $section->toArray());
 
         return redirect()->back()->with('success', 'Bagian (section) kuesioner prodi berhasil dihapus.');
     }
@@ -530,6 +538,7 @@ class KelolaKuesionerProdiController extends Controller
             'type' => 'required|string|in:text,textarea,number,single_choice,radio,radio_input,radio_text,multiple_choice,checkbox,multiple_choice_text,dropdown,searchable_select,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,date,time,file,header',
             'is_required' => 'boolean',
             'is_reusable' => 'boolean',
+            'tampil_di' => 'nullable|string|in:kuesioner,profil,profile,both,hidden,none',
             'section_id' => 'nullable',
             'target_section_ids' => 'nullable|array',
             'order' => 'nullable|integer',
@@ -621,6 +630,7 @@ class KelolaKuesionerProdiController extends Controller
                 'order' => $order,
                 'wajib' => $request->boolean('is_required', true),
                 'is_active' => true,
+                'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
             ]
         );
 
@@ -641,6 +651,7 @@ class KelolaKuesionerProdiController extends Controller
                             'order' => $extraOrder,
                             'wajib' => $request->boolean('is_required', true),
                             'is_active' => true,
+                            'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
                         ]
                     );
                 }
@@ -673,6 +684,8 @@ class KelolaKuesionerProdiController extends Controller
             }
         }
 
+        LogActivity::record('KUESIONER_PRODI_QUESTION_CREATED', 'Membuat dan menempatkan pertanyaan kuesioner prodi: '.$master->kode_pertanyaan.'.', $master, null, $validated);
+
         return redirect()->back()->with('success', 'Pertanyaan kuesioner prodi berhasil ditambahkan ke Bank Soal dan disematkan ke bagian tujuan.');
     }
 
@@ -692,6 +705,7 @@ class KelolaKuesionerProdiController extends Controller
             'type' => 'required|string|in:text,textarea,number,single_choice,radio,radio_input,radio_text,multiple_choice,checkbox,multiple_choice_text,dropdown,searchable_select,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,date,time,file,header',
             'is_required' => 'boolean',
             'is_reusable' => 'boolean',
+            'tampil_di' => 'nullable|string|in:kuesioner,profil,profile,both,hidden,none',
             'section_id' => 'required|exists:kuesioner_section,id',
             'target_section_ids' => 'nullable|array',
             'target_section_ids.*' => 'exists:kuesioner_section,id',
@@ -728,6 +742,7 @@ class KelolaKuesionerProdiController extends Controller
             $placement->update([
                 'order' => $validated['order'] ?? $placement->order,
                 'wajib' => $request->boolean('is_required', true),
+                'tampil_di' => $validated['tampil_di'] ?? $placement->tampil_di ?? 'kuesioner',
             ]);
         } else {
             KuesionerSectionPertanyaan::create([
@@ -736,6 +751,7 @@ class KelolaKuesionerProdiController extends Controller
                 'order' => $validated['order'] ?? 1,
                 'wajib' => $request->boolean('is_required', true),
                 'is_active' => true,
+                'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
             ]);
         }
 
@@ -762,10 +778,17 @@ class KelolaKuesionerProdiController extends Controller
             foreach ($targetIds as $tid) {
                 KuesionerSectionPertanyaan::firstOrCreate(
                     ['section_id' => $tid, 'pertanyaan_id' => $master->id],
-                    ['order' => 99, 'wajib' => $request->boolean('is_required', true), 'is_active' => true]
+                    [
+                        'order' => 99,
+                        'wajib' => $request->boolean('is_required', true),
+                        'is_active' => true,
+                        'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
+                    ]
                 );
             }
         }
+
+        LogActivity::record('KUESIONER_PRODI_QUESTION_UPDATED', 'Memperbarui pertanyaan kuesioner prodi: '.$master->kode_pertanyaan.'.', $master, null, $validated);
 
         return redirect()->back()->with('success', 'Pertanyaan kuesioner prodi berhasil diperbarui.');
     }
@@ -800,6 +823,11 @@ class KelolaKuesionerProdiController extends Controller
             $master->opsi()->delete();
             $master->delete();
         }
+
+        LogActivity::record('KUESIONER_PRODI_QUESTION_DETACHED', 'Melepas pertanyaan kuesioner prodi dari section.', $master, null, [
+            'placement_id' => $placementId,
+            'prodi_id' => $prodiId,
+        ]);
 
         return redirect()->back()->with('success', 'Pertanyaan kuesioner berhasil dihapus dari instrumen.');
     }
@@ -882,6 +910,8 @@ class KelolaKuesionerProdiController extends Controller
             'order' => $validated['order'],
         ]);
 
+        LogActivity::record('KUESIONER_PRODI_OPTION_CREATED', 'Menambahkan opsi jawaban pada pertanyaan '.$master->kode_pertanyaan.'.', $opt, null, $validated);
+
         return redirect()->back()->with('success', 'Opsi jawaban kuesioner berhasil ditambahkan.');
     }
 
@@ -910,6 +940,8 @@ class KelolaKuesionerProdiController extends Controller
             'order' => $order,
         ]);
 
+        LogActivity::record('KUESIONER_PRODI_OPTION_UPDATED', 'Memperbarui opsi jawaban pada pertanyaan '.($option->pertanyaan?->kode_pertanyaan ?? '-').'.', $option, null, $validated);
+
         return redirect()->back()->with('success', 'Opsi jawaban kuesioner berhasil diperbarui.');
     }
 
@@ -920,7 +952,10 @@ class KelolaKuesionerProdiController extends Controller
     {
         $option = KuesionerOpsi::with('pertanyaan')->findOrFail($id);
         $this->ensureOwnedQuestionForOption($this->authenticatedUser(), $option->pertanyaan);
+        $questionCode = $option->pertanyaan?->kode_pertanyaan;
         $option->delete();
+
+        LogActivity::record('KUESIONER_PRODI_OPTION_DELETED', 'Menghapus opsi jawaban pada pertanyaan '.$questionCode.'.', null, $option->toArray());
 
         return redirect()->back()->with('success', 'Opsi jawaban kuesioner berhasil dihapus.');
     }
@@ -976,6 +1011,12 @@ class KelolaKuesionerProdiController extends Controller
 
             $addedCount++;
         }
+
+        LogActivity::record('KUESIONER_PRODI_BANK_ATTACHED', 'Menyematkan '.$addedCount.' pertanyaan dari Bank Soal ke section kuesioner prodi.', null, null, [
+            'section_id' => $sectionId,
+            'prodi_id' => $prodiId,
+            'pertanyaan_ids' => $validated['pertanyaan_ids'],
+        ], KuesionerSectionPertanyaan::class, $sectionId);
 
         return redirect()->back()->with('success', $addedCount.' butir pertanyaan dari Bank Soal berhasil disematkan ke bagian kuesioner.');
     }

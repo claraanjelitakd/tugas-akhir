@@ -582,6 +582,7 @@ const questionForm = ref({
     order: 1,
     is_required: true,
     is_reusable: true,
+    tampil_di: 'kuesioner',
     options: [],
 });
 
@@ -753,6 +754,7 @@ const openQuestionModal = (questionToEdit = null) => {
             order: questionToEdit.order || 1,
             is_required: questionToEdit.is_required !== undefined ? Boolean(questionToEdit.is_required) : true,
             is_reusable: questionToEdit.is_reusable !== undefined ? Boolean(questionToEdit.is_reusable) : true,
+            tampil_di: questionToEdit.tampil_di || 'kuesioner',
             options: (questionToEdit.options || []).map(opt => ({
                 code: opt.code || opt.kode_opsi || '',
                 label: opt.option_text || '',
@@ -772,6 +774,7 @@ const openQuestionModal = (questionToEdit = null) => {
             order: props.questions.length + 1,
             is_required: true,
             is_reusable: true,
+            tampil_di: 'kuesioner',
             options: getDefaultFormOptions('single_choice'),
         };
     }
@@ -824,6 +827,7 @@ const submitQuestionForm = () => {
         order: questionForm.value.order ? parseInt(questionForm.value.order, 10) : null,
         is_required: questionForm.value.is_required,
         is_reusable: questionForm.value.is_reusable,
+        tampil_di: questionForm.value.tampil_di,
         options: questionForm.value.options
             .filter(o => o.label && o.label.trim() !== '')
             .map((option, index) => ({
@@ -1396,6 +1400,9 @@ const handleDeleteOption = (opt) => {
                                             <span v-if="q.is_reusable" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
                                                 Bank Bersama
                                             </span>
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-600 border border-slate-200">
+                                                {{ q.tampil_di === 'both' ? 'Kuesioner + Profil' : q.tampil_di === 'profil' || q.tampil_di === 'profile' ? 'Profil Alumni' : q.tampil_di === 'hidden' ? 'Disembunyikan' : 'Kuesioner Prodi' }}
+                                            </span>
                                         </div>
                                     </td>
                                     <td class="px-3 py-3.5 max-w-xs">
@@ -1715,6 +1722,21 @@ const handleDeleteOption = (opt) => {
                         <p v-if="questionFormErrors.question_text" class="text-red-600 text-xs mt-1">
                             {{ questionFormErrors.question_text }}
                         </p>
+                    </div>
+
+                    <!-- Lokasi tampil placement menentukan apakah butir hanya muncul di kuesioner atau juga profil. -->
+                    <div>
+                        <label class="mb-1 block font-bold text-gray-700">Tampil di</label>
+                        <select
+                            v-model="questionForm.tampil_di"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                        >
+                            <option value="kuesioner">Kuesioner Prodi</option>
+                            <option value="profil">Profil Alumni</option>
+                            <option value="both">Kuesioner Prodi dan Profil Alumni</option>
+                            <option value="hidden">Disimpan, tidak ditampilkan</option>
+                        </select>
+                        <p class="mt-1 text-[11px] text-gray-500">Pilihan ini mengatur lokasi tampil placement; master pertanyaan tetap satu di Bank Soal.</p>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">

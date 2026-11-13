@@ -13,6 +13,7 @@
 | 07 | admin directory routes | AdminProdi, AdminFakultas, SuperAdmin, directory controllers | AlumniDirectoryQueryService | role scope, filters, detail |
 | 07A | admin export routes | directory controllers | AlumniTracerExcelExporter | role scope, filter, file output |
 | 07B | admin reminder routes | directory controllers | PengingatKuesionerAlumniMail | role scope, email target |
+| 07C | halaman data alumni dan aksi per alumni | controller direktori sesuai role | AlumniDirectoryQueryService, AdminAlumniProfileService, AlumniTracerExcelExporter, PengingatKuesionerAlumniMail, LinkedInSyncController | role scope, filter kelengkapan, scope alumni, email tujuan, URL LinkedIn, status pending review |
 | 08 | /biro3/dashboard, /biro3/alumni/* | app/Http/Controllers/Biro3/* | directory service, exporter, PengingatKuesionerAlumniMail | read-only update guard, incomplete target |
 | 09 | /prodi/dashboard, /fakultas/dashboard | dashboard controllers by role | audit views, KelengkapanTracerService | prodi_id/fakultas_id scope |
 | 10 | /superadmin/dashboard | app/Http/Controllers/SuperAdmin/DashboardSuperAdminController.php | v_alumni_audit_rekap, audit services | year filter, university scope |

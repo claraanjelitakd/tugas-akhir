@@ -184,6 +184,70 @@ class SuperAdminEvaluasiAtasanManagementTest extends TestCase
     }
 
     /**
+     * Memastikan pertanyaan evaluasi atasan menyimpan sifat wajib/opsional dan tercatat di aktivitas.
+     */
+    public function test_superadmin_can_create_optional_supervisor_question_and_records_activity(): void
+    {
+        $section = KuesionerSection::where('target', 'atasan')->where('order', 3)->firstOrFail();
+
+        $this->actingAs($this->admin)
+            ->post('/superadmin/evaluasi-atasan/pertanyaan', [
+                'section_id' => $section->id,
+                'kode' => 'P102_OPSIONAL',
+                'aspek' => 'Catatan tambahan dari atasan',
+                'tipe' => 'textarea',
+                'is_required' => false,
+                'order' => 28,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $question = KuesionerPertanyaan::where('kode_pertanyaan', 'EVA_P102_OPSIONAL')->firstOrFail();
+
+        $this->assertDatabaseHas('kuesioner_section_pertanyaan', [
+            'section_id' => $section->id,
+            'pertanyaan_id' => $question->id,
+            'wajib' => false,
+        ]);
+        $this->assertDatabaseHas('log_activities', [
+            'action' => 'KUESIONER_ATASAN_QUESTION_CREATED',
+            'model_id' => $question->id,
+        ]);
+    }
+
+    /**
+     * Memastikan pertanyaan reusable dapat diambil dari Bank Soal tanpa membuat master duplikat.
+     */
+    public function test_superadmin_can_attach_reusable_question_from_bank_to_supervisor_section(): void
+    {
+        $section = KuesionerSection::where('target', 'atasan')->where('order', 3)->firstOrFail();
+        $bankQuestion = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'BANK_ATASAN_01',
+            'teks_pertanyaan' => 'Bagaimana kualitas kolaborasi alumni?',
+            'tipe' => 'rating_5',
+            'is_reusable' => true,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->post('/superadmin/evaluasi-atasan/bank/attach', [
+                'section_id' => $section->id,
+                'pertanyaan_ids' => [$bankQuestion->id],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('kuesioner_section_pertanyaan', [
+            'section_id' => $section->id,
+            'pertanyaan_id' => $bankQuestion->id,
+            'wajib' => true,
+        ]);
+        $this->assertSame(1, KuesionerPertanyaan::where('kode_pertanyaan', 'BANK_ATASAN_01')->count());
+        $this->assertDatabaseHas('log_activities', [
+            'action' => 'KUESIONER_ATASAN_BANK_ATTACHED',
+            'model_id' => $section->id,
+        ]);
+    }
+
+    /**
      * Memastikan opsi Evaluasi Atasan memiliki CRUD yang sama dengan instrumen lain
      * tanpa menerima field score/value dari client.
      */

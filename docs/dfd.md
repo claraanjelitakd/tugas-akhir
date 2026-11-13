@@ -1,6 +1,6 @@
 # Diagram Konteks dan DFD — SERU Tracer Study UKDW
 
-Revisi: **22 Oktober 2026**. Model ini menjelaskan perilaku aplikasi pada kode lokal, bukan rancangan integrasi yang belum tersedia. Penyatuan komponen antarmuka admin tidak menambah proses atau simpanan data baru; D3 Perusahaan tetap diproses oleh role sesuai batas prodi/fakultas/universitas.
+Revisi: **13 November 2026**. Model ini menjelaskan perilaku aplikasi pada kode lokal, bukan rancangan integrasi yang belum tersedia. Penyatuan komponen antarmuka admin tidak menambah proses atau simpanan data baru; D3 Perusahaan tetap diproses oleh role sesuai batas prodi/fakultas/universitas.
 
 ## 1. Berkas diagram dan cara membuka
 
@@ -62,18 +62,21 @@ Nama proses menyatakan pekerjaan; nama entitas, simpanan, dan panah menyatakan d
 | D1 | Akun dan Pemulihan Sandi | `users, password_reset_tokens` |
 | D2 | Profil Alumni dan Atasan | `biodata, atasan` |
 | D3 | Perusahaan | `perusahaan` |
-| D4 | Instrumen Survei Terpadu (Univ, Prodi, Atasan) | `kuesioner, kuesioner_section, kuesioner_pertanyaan, kuesioner_section_pertanyaan, kuesioner_opsi` |
-| D5 | Transaksi Jawaban Survei Terpadu | `kuesioner_jawaban` |
-| D6 | Undangan dan Sesi Evaluasi Atasan | `evaluasi_atasan` |
+| D4 | Instrumen Universitas | `kuesioner, kuesioner_section, kuesioner_pertanyaan, kuesioner_section_pertanyaan, kuesioner_opsi` dengan target universitas |
+| D5 | Jawaban Universitas | `kuesioner_jawaban` dengan responden alumni dan target universitas |
+| D6 | Instrumen Program Studi | Tabel instrumen terpadu yang sama dengan D4, dibedakan oleh target dan kepemilikan prodi |
+| D7 | Jawaban Program Studi | `kuesioner_jawaban` dengan responden alumni dan target prodi |
+| D8 | Instrumen Evaluasi Atasan | Tabel instrumen terpadu yang sama dengan D4, dibedakan oleh target atasan |
+| D9 | Undangan dan Jawaban Evaluasi | `evaluasi_atasan, atasan, kuesioner_jawaban` dengan responden atasan |
 
 
 
-| D7 | Hasil dan Peninjauan LinkedIn | `linkedin_sync_results` |
-| D8 | Catatan Aktivitas | `log_activities` |
-| D9 | Referensi Akademik, Populasi IKU, dan Kelulusan | `data_akademik, yudisium` — termasuk prodi, periode masuk semester ganjil, dan status mahasiswa non-lulus |
-| D10 | Referensi Organisasi dan Wilayah | `prodi, ref_fakultas, propinsi, kabupaten, ref_negara, ump` |
+| D10 | Hasil dan Peninjauan LinkedIn | `linkedin_sync_results` |
+| D11 | Catatan Aktivitas | `log_activities` |
+| D12 | Referensi Akademik dan Kelulusan | `data_akademik, yudisium` |
+| D13 | Referensi Organisasi dan Wilayah | `prodi, ref_fakultas, propinsi, kabupaten, ref_negara, ump` |
 
-D11 menunjukkan catatan pada operasi yang memang direkam kode; diagram tidak menyatakan semua pembacaan atau semua login pasti dicatat. D13 memuat referensi yang sudah tersedia; superadmin mengelola wilayah dan UMP, bukan berarti seluruh referensi punya CRUD web.
+Pemisahan D4--D9 adalah pemisahan **logis DFD**, bukan duplikasi tabel fisik pada ERD: instrumen dan jawaban memang disimpan oleh *Unified Survey Engine* yang sama, tetapi arus data Universitas, Prodi, dan Evaluasi Atasan mempunyai pemilik, responden, serta tujuan proses yang berbeda. D11 menunjukkan catatan pada operasi yang memang direkam kode; diagram tidak menyatakan semua pembacaan atau semua login pasti dicatat. D13 memuat referensi yang sudah tersedia; superadmin mengelola wilayah dan UMP, bukan berarti seluruh referensi punya CRUD web.
 
 ## 6. Diagram konteks
 

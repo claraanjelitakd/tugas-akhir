@@ -17,7 +17,7 @@ Setiap file memakai partition/swimlane aktor, backend, database, mail, provider,
 
 Notasi activity diagram mengacu pada Sundaramoorthy, S. (2022), *UML Diagramming: A Case Study Approach*, CRC Press: initial node, action, decision ber-guard, swimlane, dan activity final. Satu file menggambarkan satu tujuan proses; login, lupa/reset password, perubahan password wajib, undangan evaluasi, dan evaluasi publik tidak digabung.
 
-PlantUML CLI/JAR tidak tersedia saat audit. Karena itu SVG/PNG baru belum dibuat. Source tetap disediakan agar dapat dirender dengan PlantUML di lingkungan yang memiliki renderer.
+Hasil render PNG dan SVG berada di `../../images/activity-diagrams/`. Source PlantUML dan hasil render harus diperbarui bersama apabila alur berubah.
 
 ## Rendering
 
@@ -26,4 +26,4 @@ Contoh setelah PlantUML tersedia:
     plantuml -tsvg AD-01-login-alumni.puml
     plantuml -tpng AD-01-login-alumni.puml
 
-Jangan menganggap gambar lama di docs/images sebagai hasil render dari source pada folder ini.
+Gunakan source pada folder ini sebagai artefak normatif; gambar pada `docs/images/activity-diagrams` adalah hasil render source tersebut.

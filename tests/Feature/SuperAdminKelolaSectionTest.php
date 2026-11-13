@@ -72,6 +72,11 @@ class SuperAdminKelolaSectionTest extends TestCase
             'judul' => 'Bagian Riwayat Pekerjaan',
             'order' => 1,
         ]);
+        $section = KuesionerSection::where('judul', 'Bagian Riwayat Pekerjaan')->firstOrFail();
+        $this->assertDatabaseHas('log_activities', [
+            'action' => 'KUESIONER_UNIV_SECTION_CREATED',
+            'model_id' => $section->id,
+        ]);
     }
 
     /**

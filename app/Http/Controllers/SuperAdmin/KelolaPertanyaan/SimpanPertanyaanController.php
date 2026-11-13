@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSectionPertanyaan;
+use App\Models\LogActivity;
 use App\Services\Kuesioner\QuestionDefaultOptionsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -98,6 +99,8 @@ class SimpanPertanyaanController extends Controller
             QuestionDefaultOptionsService::generateForUnifiedQuestion($pertanyaan);
         }
 
+        LogActivity::record('KUESIONER_UNIV_QUESTION_CREATED', 'Membuat pertanyaan kuesioner universitas: '.$pertanyaan->kode_pertanyaan.'.', $pertanyaan, null, $validated);
+
         return redirect()->back()->with('success', 'Pertanyaan baru beserta pilihan opsi jawaban default berhasil ditambahkan.');
     }
 
@@ -148,6 +151,8 @@ class SimpanPertanyaanController extends Controller
             ]);
         }
 
+        LogActivity::record('KUESIONER_UNIV_QUESTION_UPDATED', 'Memperbarui pertanyaan kuesioner universitas: '.$pertanyaan->kode_pertanyaan.'.', $pertanyaan, null, $validated);
+
         return redirect()->back()->with('success', 'Data pertanyaan berhasil diperbarui.');
     }
 
@@ -164,6 +169,8 @@ class SimpanPertanyaanController extends Controller
             $pertanyaan->opsi()->delete();
             $pertanyaan->delete();
         }
+
+        LogActivity::record('KUESIONER_UNIV_QUESTION_DELETED', 'Menghapus pertanyaan kuesioner universitas: '.$pertanyaan->kode_pertanyaan.'.', null, $pertanyaan->toArray());
 
         return redirect()->back()->with('success', 'Pertanyaan berhasil dihapus.');
     }
@@ -301,6 +308,11 @@ class SimpanPertanyaanController extends Controller
                 $addedCount++;
             }
         }
+
+        LogActivity::record('KUESIONER_UNIV_BANK_ATTACHED', 'Menyematkan '.$addedCount.' pertanyaan dari Bank Soal ke section universitas.', null, null, [
+            'section_id' => $sectionId,
+            'pertanyaan_ids' => $validated['pertanyaan_ids'],
+        ], KuesionerSectionPertanyaan::class, $sectionId);
 
         return redirect()->back()->with('success', "{$addedCount} butir pertanyaan dari Bank Soal berhasil disematkan ke instrumen kuesioner universitas.");
     }

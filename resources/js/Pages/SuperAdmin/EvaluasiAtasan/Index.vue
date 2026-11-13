@@ -21,6 +21,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    bankQuestions: {
+        type: Array,
+        default: () => [],
+    },
     sections: {
         type: Array,
         default: () => [],
@@ -40,6 +44,9 @@ const props = defineProps({
         }),
     },
 });
+
+// Menyimpan daftar pertanyaan reusable yang dapat ditempatkan ke instrumen atasan.
+const bankQuestions = computed(() => props.bankQuestions || []);
 
 // Menentukan tab aktif dari URL agar CRUD tidak mengembalikan halaman ke section awal.
 const getInitialTab = () => {
@@ -242,6 +249,7 @@ const questionForm = ref({
     pilihan_jawaban: [],
     option_jump_to: [],
     order: 1,
+    is_required: true,
 });
 
 // State modal CRUD opsi jawaban agar Evaluasi Atasan memakai kontrak yang sama dengan instrumen lain.
@@ -268,6 +276,67 @@ const availableJumpTargets = computed(() => props.questions
     }))
     .filter((question) => question.code));
 
+// Mengelola state pemilihan pertanyaan dari Bank Soal.
+const isBankModalOpen = ref(false);
+const bankSearchQuery = ref('');
+const bankOriginFilter = ref('all');
+const targetSectionIdForBank = ref('');
+const selectedBankQuestionIds = ref([]);
+const isSubmittingBank = ref(false);
+
+// Menyaring Bank Soal berdasarkan asal dan teks pertanyaan.
+const filteredBankQuestions = computed(() => bankQuestions.value.filter((question) => {
+    const search = bankSearchQuery.value.trim().toLowerCase();
+    const matchesOrigin = bankOriginFilter.value === 'all' || question.asal === bankOriginFilter.value;
+    const matchesSearch = !search
+        || question.kode?.toLowerCase().includes(search)
+        || question.teks?.toLowerCase().includes(search)
+        || question.asal?.toLowerCase().includes(search);
+
+    return matchesOrigin && matchesSearch;
+}));
+
+// Menyediakan daftar asal pertanyaan untuk filter Bank Soal.
+const bankOrigins = computed(() => [...new Set(bankQuestions.value.map((question) => question.asal).filter(Boolean))]);
+
+// Memeriksa duplikasi hanya pada section tujuan, bukan pada seluruh instrumen atasan.
+const isQuestionInTargetSection = (question) => question.section_ids?.includes(Number(targetSectionIdForBank.value));
+
+// Membuka modal untuk memilih pertanyaan reusable dari Bank Soal.
+const openBankModal = () => {
+    targetSectionIdForBank.value = props.sections[0]?.id || '';
+    selectedBankQuestionIds.value = [];
+    bankSearchQuery.value = '';
+    bankOriginFilter.value = 'all';
+    isBankModalOpen.value = true;
+};
+
+// Menutup modal Bank Soal dan menghapus pilihan sementara.
+const closeBankModal = () => {
+    isBankModalOpen.value = false;
+    selectedBankQuestionIds.value = [];
+};
+
+// Mengirim pertanyaan terpilih ke section evaluasi atasan.
+const attachBankQuestions = () => {
+    if (!targetSectionIdForBank.value || selectedBankQuestionIds.value.length === 0) return;
+
+    isSubmittingBank.value = true;
+    router.post('/superadmin/evaluasi-atasan/bank/attach', {
+        section_id: targetSectionIdForBank.value,
+        pertanyaan_ids: selectedBankQuestionIds.value,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeBankModal();
+            Swal.fire('Berhasil', 'Pertanyaan dari Bank Soal berhasil disematkan.', 'success');
+        },
+        onFinish: () => {
+            isSubmittingBank.value = false;
+        },
+    });
+};
+
 // Mengambil opsi terstruktur; fallback menjaga kompatibilitas payload lama saat cache Inertia masih berupa label.
 const getQuestionOptions = (question) => Array.isArray(question.options) ? question.options : [];
 
@@ -280,9 +349,9 @@ const filteredQuestions = computed(() => {
     }
 
     if (selectedRequiredFilter.value === 'wajib') {
-        result = result.filter(q => q.is_active);
+        result = result.filter(q => q.is_required);
     } else if (selectedRequiredFilter.value === 'opsional') {
-        result = result.filter(q => !q.is_active);
+        result = result.filter(q => !q.is_required);
     }
 
     if (questionSearchQuery.value.trim()) {
@@ -325,6 +394,7 @@ const openQuestionModal = (questionToEdit = null) => {
             pilihan_jawaban: opts,
             option_jump_to: (questionToEdit.options || []).map((option) => option.jump_to || ''),
             order: questionToEdit.order || 1,
+            is_required: questionToEdit.is_required !== undefined ? Boolean(questionToEdit.is_required) : true,
             is_company_field: Boolean(questionToEdit.is_company_field),
         };
     } else {
@@ -339,6 +409,7 @@ const openQuestionModal = (questionToEdit = null) => {
             pilihan_jawaban: ['1 - Sangat Rendah', '2 - Rendah', '3 - Cukup', '4 - Tinggi', '5 - Sangat Tinggi'],
             option_jump_to: ['', '', '', '', ''],
             order: props.questions.length + 1,
+            is_required: true,
             is_company_field: false,
         };
     }
@@ -838,12 +909,19 @@ const closeDetailModal = () => {
                                     class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B] focus:outline-none bg-white text-gray-900"
                                 >
                                     <option value="all">Semua Status</option>
-                                    <option value="wajib">Aktif</option>
-                                    <option value="opsional">Nonaktif</option>
+                                    <option value="wajib">Wajib</option>
+                                    <option value="opsional">Opsional</option>
                                 </select>
                             </div>
 
                             <div class="sm:col-span-1 lg:col-span-2 flex justify-start sm:justify-end">
+                                <button
+                                    type="button"
+                                    @click="openBankModal"
+                                    class="mr-2 px-4 py-2 border border-[#0D542B] text-[#0D542B] hover:bg-emerald-50 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                                >
+                                    <span>Ambil dari Bank Soal</span>
+                                </button>
                                 <button
                                     type="button"
                                     @click="openQuestionModal(null)"
@@ -939,6 +1017,9 @@ const closeDetailModal = () => {
                                         <p v-if="q.is_company_field" class="text-[10px] text-emerald-700 font-semibold mt-1">
                                             Field Master Perusahaan
                                         </p>
+                                        <p class="text-[10px] text-slate-500 mt-1">
+                                            {{ q.is_required ? 'Wajib diisi' : 'Opsional' }}
+                                        </p>
                                     </td>
 
                                     <!-- Tipe & Bagian (Section) -->
@@ -949,6 +1030,7 @@ const closeDetailModal = () => {
                                         <p class="text-[11px] text-gray-500 mt-1">
                                             {{ q.section ? `Bagian ${q.section.order}: ${q.section.title}` : (q.kategori || '-') }}
                                         </p>
+                                        <p class="text-[10px] text-slate-500 mt-1">Tampil di: Kuesioner Evaluasi Atasan</p>
                                     </td>
 
                                     <!-- Opsi Jawaban & Percabangan (Identik Gambar 3) -->
@@ -1167,6 +1249,66 @@ const closeDetailModal = () => {
         </div>
 
         <!-- ======================================================== -->
+        <!-- MODAL BANK SOAL                                          -->
+        <!-- ======================================================== -->
+        <div v-if="isBankModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div class="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-gray-900">Ambil Pertanyaan dari Bank Soal</h3>
+                        <p class="mt-0.5 text-[11px] text-gray-500">Pertanyaan ditautkan ke section atasan tanpa membuat master duplikat.</p>
+                    </div>
+                    <button type="button" @click="closeBankModal" class="text-gray-400 hover:text-gray-600 cursor-pointer" aria-label="Tutup modal Bank Soal">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto p-6 text-xs lg:grid-cols-[220px_1fr]">
+                    <div class="space-y-3">
+                        <div>
+                            <label class="mb-1 block font-bold text-gray-700">Tempatkan ke Section</label>
+                            <select v-model="targetSectionIdForBank" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]">
+                                <option v-for="section in sections" :key="section.id" :value="section.id">{{ section.title }}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="mb-1 block font-bold text-gray-700">Asal Bank Soal</label>
+                            <select v-model="bankOriginFilter" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]">
+                                <option value="all">Semua Asal</option>
+                                <option v-for="origin in bankOrigins" :key="origin" :value="origin">{{ origin }}</option>
+                            </select>
+                        </div>
+                        <input v-model="bankSearchQuery" type="search" placeholder="Cari kode atau teks..." class="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+
+                    <div class="min-h-0 space-y-2 overflow-y-auto">
+                        <label v-for="question in filteredBankQuestions" :key="question.id" class="flex items-start gap-3 rounded-lg border border-gray-200 p-3 hover:bg-emerald-50/40 cursor-pointer">
+                            <input v-model="selectedBankQuestionIds" :value="question.id" type="checkbox" :disabled="isQuestionInTargetSection(question)" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0D542B] focus:ring-[#0D542B]" />
+                            <span class="min-w-0 flex-1">
+                                <span class="flex flex-wrap items-center gap-2">
+                                    <span class="font-mono font-bold text-gray-900">{{ question.kode }}</span>
+                                    <span class="text-[10px] text-slate-500">{{ question.asal }}</span>
+                                    <span v-if="isQuestionInTargetSection(question)" class="text-[10px] font-semibold text-slate-500">Sudah dipakai di section ini</span>
+                                </span>
+                                <span class="mt-1 block text-gray-700">{{ question.teks }}</span>
+                            </span>
+                        </label>
+                        <p v-if="filteredBankQuestions.length === 0" class="rounded-lg border border-dashed border-gray-300 p-8 text-center text-gray-500">Tidak ada pertanyaan reusable yang sesuai.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-6 py-3 text-xs">
+                    <button type="button" @click="closeBankModal" class="rounded-lg border border-gray-300 bg-white px-4 py-2 font-semibold text-gray-700 hover:bg-gray-100">Batal</button>
+                    <button type="button" :disabled="isSubmittingBank || selectedBankQuestionIds.length === 0" @click="attachBankQuestions" class="rounded-lg bg-[#0D542B] px-4 py-2 font-semibold text-white hover:bg-[#08381c] disabled:opacity-50">
+                        {{ isSubmittingBank ? 'Menyimpan...' : `Sematkan ${selectedBankQuestionIds.length} Pertanyaan` }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
         <!-- MODAL 2: TAMBAH / SUNTING PERTANYAAN (QUESTION)          -->
         <!-- ======================================================== -->
         <div v-if="isQuestionModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -1238,6 +1380,12 @@ const closeDetailModal = () => {
                         <p class="mt-1 text-[10px] text-gray-500">Dipakai pada grafik evaluasi atasan; teks aspek lengkap tetap tersedia pada form dan tabel.</p>
                     </div>
 
+                    <!-- Evaluasi atasan merupakan instrumen terpisah dari profil alumni. -->
+                    <div>
+                        <label class="mb-1 block font-bold text-gray-700">Tampil di</label>
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">Kuesioner Evaluasi Atasan</div>
+                    </div>
+
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
                             <label class="mb-1 block font-bold text-gray-700">Tipe Pertanyaan <span class="text-rose-600">*</span></label>
@@ -1266,6 +1414,19 @@ const closeDetailModal = () => {
                             />
                         </div>
                     </div>
+
+                    <!-- Kontrak pengisian pertanyaan atasan: wajib atau opsional. -->
+                    <label class="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 cursor-pointer">
+                        <input
+                            v-model="questionForm.is_required"
+                            type="checkbox"
+                            class="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0D542B] focus:ring-[#0D542B]"
+                        />
+                        <span>
+                            <span class="block font-bold text-gray-700">Pertanyaan wajib diisi</span>
+                            <span class="block text-[11px] text-gray-500">Jika dimatikan, atasan boleh melewati pertanyaan ini.</span>
+                        </span>
+                    </label>
 
                     <!-- Kelola opsi dan percabangan saat membuat atau mengedit pertanyaan. -->
                     <div v-if="canHaveOptions(questionForm.tipe)" class="border border-gray-200 bg-gray-50 p-3.5 rounded-lg space-y-2">

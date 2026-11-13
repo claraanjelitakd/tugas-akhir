@@ -32,6 +32,12 @@ Dokumen ini sengaja tidak membatasi jumlah diagram pada tujuh proses. Setiap dia
 
 Diagram Mermaid di bawah digunakan sebagai peta baca cepat. Detail source-of-truth dalam bentuk PlantUML tersedia pada folder UML.
 
+### 1.3 Berkas diagram siap pakai
+
+Setiap source PlantUML di `docs/uml/activity-diagrams/` memakai `activity-style.puml` agar keluaran mengikuti format visual PDF rujukan: halaman putih, judul dan header swimlane putih, garis hitam, action/decision putih, serta initial dan activity-final merah. Versi PNG yang siap dimasukkan ke naskah tersedia di `docs/images/activity-diagrams/`; SVG tetap disertakan sebagai versi vektor. Contoh: [AD-18 Sinkronisasi LinkedIn via Apify](images/activity-diagrams/AD-18-linkedin-apify.png).
+
+Decision selalu memiliki guard seperti `ya`, `tidak`, atau kondisi bisnis yang spesifik. Merge digunakan untuk menyatukan cabang alternatif; fork/join hanya ada jika implementasi memang mengerjakan aktivitas secara paralel, sehingga notasi tidak menyesatkan alur sebenarnya.
+
 ## 2. Aktor dan cakupan akses
 
 | Aktor | Cakupan dan tanggung jawab yang dibuktikan source code |
@@ -60,7 +66,7 @@ Catatan penting: RoleMiddleware menangani role; scope data kemudian ditegakkan d
 | Tracer universitas | Ambil instrumen, simpan jawaban parsial/akhir, branching | Alumni | KuesionerController, SimpanJawabanController, Tracer, KuesionerSyncService | AD-04 |
 | Tracer prodi | Isi dan simpan jawaban prodi | Alumni | KuesionerProdiController, ProdiResponse | AD-05 |
 | Evaluasi atasan | Kirim undangan evaluasi | Alumni/admin scope | SimpanProfilController, Atasan, EvaluasiAtasan, mail | AD-06 |
-| Direktori | Cari/filter/detail/update profile/ekspor/pengingat | Admin Prodi/Fakultas/Superadmin; Biro 3 baca | AlumniDirectoryQueryService, exporter, mail | AD-07 |
+| Direktori | Cari/filter/detail/update profile/ekspor/pengingat | Admin Prodi/Fakultas/Superadmin; Biro 3 baca | AlumniDirectoryQueryService, exporter, mail | AD-07, AD-07A, AD-07B, AD-07C |
 | Monitoring Biro 3 | Direktori, ekspor ZIP, blast, detail baca | Biro 3 | DashboardBiro3Controller, DaftarAlumniBiro3Controller | AD-08 |
 | Dashboard | Ringkasan berdasarkan tahun dan scope | Semua role administrator sesuai route | Controller dashboard, audit views, KelengkapanTracerService | AD-09, AD-10 |
 | Instrumen universitas | CRUD section/question/option, reorder, toggle | Superadmin | question management controllers, Kuesioner, KelompokPertanyaan, RefSubpertanyaan | AD-11 |
@@ -261,7 +267,7 @@ flowchart TD
 
 Pengisian formulir oleh pengguna lulusan tidak berada dalam AD-06. Proses tersebut didokumentasikan terpisah pada **AD-23** agar aktor, initial node, decision, dan final node-nya tidak tercampur.
 
-> Revisi struktur diagram: diagram direktori, ekspor, dan pengingat kini dipisah menjadi AD-07, AD-07A, dan AD-07B. Gunakan source PlantUML terbaru sebagai artefak normatif; uraian AD-07 lama di bawah hanya merupakan catatan audit historis.
+> Revisi struktur diagram: diagram direktori, ekspor, dan pengingat dipisah menjadi AD-07, AD-07A, dan AD-07B; AD-07C menjadi orkestrator pengelolaan data alumni dan hanya merujuk subproses profil serta LinkedIn. Gunakan source PlantUML terbaru sebagai artefak normatif; uraian AD-07 lama di bawah hanya merupakan catatan audit historis.
 
 ### AD-07 â€” Direktori alumni, detail, reminder, dan ekspor
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\SuperAdmin\KelolaPertanyaan;
 use App\Http\Controllers\Controller;
 use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
+use App\Models\LogActivity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -35,13 +36,15 @@ class KelolaOpsiController extends Controller
 
         $order = $validated['order'] ?? (($pertanyaan->opsi()->max('order') ?? 0) + 1);
 
-        $pertanyaan->opsi()->create([
+        $option = $pertanyaan->opsi()->create([
             'kode_opsi' => trim($validated['code']),
             'label' => trim($validated['option_text']),
             'nilai_skor' => $pertanyaan->tipe === 'rating_5' ? (int) $order : null,
             'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
             'order' => (int) $order,
         ]);
+
+        LogActivity::record('KUESIONER_UNIV_OPTION_CREATED', 'Menambahkan opsi jawaban pada pertanyaan '.$pertanyaan->kode_pertanyaan.'.', $option, null, $validated);
 
         return redirect()->back()->with('success', 'Pilihan opsi jawaban berhasil ditambahkan.');
     }
@@ -70,6 +73,8 @@ class KelolaOpsiController extends Controller
             'order' => $order,
         ]);
 
+        LogActivity::record('KUESIONER_UNIV_OPTION_UPDATED', 'Memperbarui opsi jawaban pada pertanyaan '.($option->pertanyaan?->kode_pertanyaan ?? '-').'.', $option, null, $validated);
+
         return redirect()->back()->with('success', 'Pilihan opsi jawaban berhasil diperbarui.');
     }
 
@@ -79,7 +84,10 @@ class KelolaOpsiController extends Controller
     public function destroyOption(int $optionId): RedirectResponse
     {
         $option = KuesionerOpsi::findOrFail($optionId);
+        $questionCode = $option->pertanyaan?->kode_pertanyaan;
         $option->delete();
+
+        LogActivity::record('KUESIONER_UNIV_OPTION_DELETED', 'Menghapus opsi jawaban pada pertanyaan '.$questionCode.'.', null, $option->toArray());
 
         return redirect()->back()->with('success', 'Pilihan opsi jawaban berhasil dihapus.');
     }

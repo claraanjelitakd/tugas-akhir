@@ -1,4 +1,5 @@
 @startuml
+!include activity-style.puml
 title AD-02 Pengisian dan Pembaruan Profil Alumni
 
 |Alumni/Admin Scope|

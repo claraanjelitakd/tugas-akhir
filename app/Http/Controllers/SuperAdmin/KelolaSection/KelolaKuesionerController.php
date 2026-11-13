@@ -4,6 +4,7 @@ namespace App\Http\Controllers\SuperAdmin\KelolaSection;
 
 use App\Http\Controllers\Controller;
 use App\Models\Kuesioner;
+use App\Models\LogActivity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -40,13 +41,15 @@ class KelolaKuesionerController extends Controller
             Kuesioner::query()->update(['is_active' => false]);
         }
 
-        Kuesioner::create([
+        $kuesioner = Kuesioner::create([
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'year' => $validated['year'],
             'is_active' => $isActive,
             'target_response_rate' => $targetResponseRate,
         ]);
+
+        LogActivity::record('KUESIONER_UNIV_CREATED', 'Membuat instrumen kuesioner universitas: '.$kuesioner->title.'.', $kuesioner, null, $kuesioner->toArray());
 
         return redirect()->back()->with('success', 'Kuesioner induk baru berhasil ditambahkan.');
     }
@@ -82,6 +85,8 @@ class KelolaKuesionerController extends Controller
             'target_response_rate' => $targetResponseRate,
         ]);
 
+        LogActivity::record('KUESIONER_UNIV_UPDATED', 'Memperbarui instrumen kuesioner universitas: '.$kuesioner->title.'.', $kuesioner, null, $kuesioner->toArray());
+
         return redirect()->back()->with('success', 'Data kuesioner induk berhasil diperbarui.');
     }
 
@@ -100,6 +105,8 @@ class KelolaKuesionerController extends Controller
 
         $kuesioner->update(['is_active' => $newStatus]);
 
+        LogActivity::record('KUESIONER_UNIV_STATUS_CHANGED', 'Mengubah status instrumen kuesioner universitas: '.$kuesioner->title.'.', $kuesioner, null, ['is_active' => $newStatus]);
+
         $statusText = $newStatus ? 'diaktifkan' : 'dinonaktifkan';
 
         return redirect()->back()->with('success', "Kuesioner \"{$kuesioner->title}\" berhasil {$statusText}.");
@@ -114,6 +121,8 @@ class KelolaKuesionerController extends Controller
 
         $title = $kuesioner->title;
         $kuesioner->delete();
+
+        LogActivity::record('KUESIONER_UNIV_DELETED', 'Menghapus instrumen kuesioner universitas: '.$title.'.', null, ['title' => $title, 'id' => $id]);
 
         return redirect()->back()->with('success', "Kuesioner \"{$title}\" berhasil dihapus.");
     }

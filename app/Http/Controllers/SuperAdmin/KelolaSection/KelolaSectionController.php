@@ -4,6 +4,7 @@ namespace App\Http\Controllers\SuperAdmin\KelolaSection;
 
 use App\Http\Controllers\Controller;
 use App\Models\KuesionerSection;
+use App\Models\LogActivity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -48,7 +49,7 @@ class KelolaSectionController extends Controller
             $code .= '_'.rand(10, 99);
         }
 
-        KuesionerSection::create([
+        $section = KuesionerSection::create([
             'kode_section' => $code,
             'target' => 'univ',
             'prodi_id' => null,
@@ -57,6 +58,8 @@ class KelolaSectionController extends Controller
             'order' => $validated['order'],
             'is_active' => true,
         ]);
+
+        LogActivity::record('KUESIONER_UNIV_SECTION_CREATED', 'Membuat section kuesioner universitas: '.$section->judul.'.', $section, null, $section->toArray());
 
         return redirect()->back()->with('success', 'Bagian kuesioner baru berhasil ditambahkan.');
     }
@@ -88,6 +91,8 @@ class KelolaSectionController extends Controller
 
         $section->update($updateData);
 
+        LogActivity::record('KUESIONER_UNIV_SECTION_UPDATED', 'Memperbarui section kuesioner universitas: '.$section->judul.'.', $section, null, $updateData);
+
         return redirect()->back()->with('success', 'Data bagian kuesioner berhasil diperbarui.');
     }
 
@@ -105,6 +110,8 @@ class KelolaSectionController extends Controller
 
         // Hapus section
         $section->delete();
+
+        LogActivity::record('KUESIONER_UNIV_SECTION_DELETED', 'Menghapus section kuesioner universitas: '.$section->judul.'.', null, $section->toArray());
 
         return redirect()->back()->with('success', 'Bagian kuesioner berhasil dihapus.');
     }

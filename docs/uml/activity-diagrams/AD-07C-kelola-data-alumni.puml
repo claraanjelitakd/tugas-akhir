@@ -1,0 +1,70 @@
+@startuml
+!include activity-style.puml
+title AD-07C Mengelola Data Alumni
+
+|Admin Berwenang / Biro 3|
+start
+:Buka halaman Data Alumni;
+:Masukkan kata kunci, tahun lulus, prodi,
+dan status Lengkap atau Belum Lengkap;
+
+|Sistem|
+:Validasi autentikasi, peran, dan scope data;
+if (Akses data valid?) then (ya)
+  |Database & Layanan|
+  :Ambil daftar alumni, status kelengkapan,
+  dan ringkasan kuesioner sesuai filter;
+
+  |Sistem|
+  :Tampilkan daftar alumni terfilter;
+
+  |Admin Berwenang / Biro 3|
+  :Pilih alumni;
+
+  |Sistem|
+  :Validasi alumni berada dalam scope akses;
+  if (Alumni dapat diakses?) then (ya)
+    |Database & Layanan|
+    :Ambil detail profil, status kuesioner,
+    data atasan, evaluasi, dan riwayat LinkedIn;
+
+    |Sistem|
+    :Tampilkan detail alumni;
+
+    |Admin Berwenang / Biro 3|
+    :Pilih tindakan pengelolaan;
+
+    |Sistem|
+    :Validasi hak akses tindakan;
+    note right
+      Tindakan yang tersedia:
+      - Kelola Profil Alumni (AD-02)
+      - Ekspor Data Alumni (AD-07A)
+      - Kirim Pengingat Email (AD-07B)
+      - Sinkronisasi/Review LinkedIn
+        (AD-18 dan AD-20)
+
+      Biro 3 hanya dapat melihat detail,
+      ekspor, dan mengirim pengingat.
+    end note
+    if (Tindakan diizinkan?) then (ya)
+      :Jalankan subproses sesuai tindakan
+      yang dipilih;
+
+      |Database & Layanan|
+      :Simpan hasil tindakan dan audit log
+      apabila terdapat perubahan atau pengiriman;
+
+      |Sistem|
+      :Tampilkan notifikasi hasil tindakan;
+    else (tidak)
+      :Tampilkan pesan akses tidak diizinkan;
+    endif
+  else (tidak)
+    :Tampilkan pesan data alumni tidak dapat diakses;
+  endif
+else (tidak)
+  :Tampilkan pesan akses tidak diizinkan;
+endif
+stop
+@enduml

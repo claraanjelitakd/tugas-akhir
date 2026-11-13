@@ -749,6 +749,39 @@ class AdminProdiKuesionerTest extends TestCase
     }
 
     /**
+     * Memastikan placement pertanyaan prodi dapat menentukan lokasi tampil profil dan kuesioner.
+     */
+    public function test_admin_prodi_can_configure_question_display_location(): void
+    {
+        $this->actingAs($this->adminSI)
+            ->post(route('prodi.kuesioner.pertanyaan.store'), [
+                'prodi_id' => $this->prodiSI->id,
+                'code' => 'PSI-TEST-DISPLAY-BOTH',
+                'question_text' => 'Bagaimana pengalaman belajar Anda?',
+                'type' => 'textarea',
+                'section_id' => $this->sectionSI->id,
+                'is_required' => false,
+                'is_reusable' => true,
+                'tampil_di' => 'both',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $question = KuesionerPertanyaan::where('kode_pertanyaan', 'PSI-TEST-DISPLAY-BOTH')->firstOrFail();
+
+        $this->assertDatabaseHas('kuesioner_section_pertanyaan', [
+            'section_id' => $this->sectionSI->id,
+            'pertanyaan_id' => $question->id,
+            'wajib' => false,
+            'tampil_di' => 'both',
+        ]);
+        $this->assertDatabaseHas('log_activities', [
+            'action' => 'KUESIONER_PRODI_QUESTION_CREATED',
+            'model_id' => $question->id,
+        ]);
+    }
+
+    /**
      * Memastikan pertanyaan prodi dapat menyimpan Jump To untuk opsi saat create.
      */
     public function test_admin_prodi_can_create_question_with_option_jump_to(): void

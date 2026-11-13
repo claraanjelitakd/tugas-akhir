@@ -1,4 +1,5 @@
 @startuml
+!include activity-style.puml
 title AD-21 Status Kelengkapan dan Audit Data
 |Backend|
 start

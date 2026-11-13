@@ -13,6 +13,7 @@
 | AD-07 | Direktori dan detail alumni | Admin scope | Admin, Backend, DB | Daftar/detail alumni | Biro 3 dirinci AD-08 |
 | AD-07A | Ekspor data alumni | Admin scope | Admin, Backend, DB | Excel atau ZIP | Berdiri sendiri dari AD-07 |
 | AD-07B | Kirim pengingat alumni | Admin scope | Admin, Backend, Mail | Email pengingat | Berdiri sendiri dari AD-07 |
+| AD-07C | Kelola data alumni terintegrasi | Admin scope/Biro 3 | Admin/Biro 3, Sistem, Database & Layanan | Detail atau hasil aksi | Merangkum AD-02, AD-07A, AD-07B, AD-18, dan AD-20 |
 | AD-08 | Monitoring dan blast Biro 3 | Biro 3 | Biro 3, Backend, DB, Mail | Monitoring/communication | Read-only detail |
 | AD-09 | Dashboard prodi dan fakultas | Admin Prodi/Fakultas | Admin, Backend, DB | Dashboard scoped | Memakai AD-21 |
 | AD-10 | Dashboard superadmin | Superadmin | Superadmin, Backend, DB | Dashboard university | Filter tahun |
