@@ -1,6 +1,8 @@
 <script setup>
+// Komponen navigasi stepper kuesioner program studi dengan label tahapan lengkap.
 import { ref, watch, onMounted } from 'vue';
 
+// Properti data section dan fungsi validasi navigasi dari halaman kuesioner.
 const props = defineProps({
     sections: {
         type: Array,
@@ -28,15 +30,19 @@ const props = defineProps({
     },
 });
 
+// Event perpindahan section ketika pengguna memilih langkah yang tersedia.
 const emit = defineEmits(['select-section']);
 
+// Referensi container dan elemen langkah untuk auto-scroll ke section aktif.
 const stepperContainerRef = ref(null);
 const stepRefs = ref({});
 
+// Mendaftarkan elemen DOM langkah berdasarkan indeks section.
 const setStepRef = (el, index) => {
     if (el) stepRefs.value[index] = el;
 };
 
+// Menggeser stepper agar section aktif tetap terlihat setelah navigasi.
 const scrollActiveStepIntoView = (index) => {
     if (typeof window === 'undefined') return;
     setTimeout(() => {
@@ -68,7 +74,7 @@ onMounted(() => {
                 <!-- Bulatan & Label Tahapan Seksi -->
                 <div 
                     :ref="el => setStepRef(el, index)"
-                    class="flex flex-col relative items-center justify-center group px-1 sm:px-2 md:px-3 py-0.5 sm:py-1 transition-all duration-200"
+                    class="flex shrink-0 flex-col relative items-center justify-center group px-1 sm:px-2 md:px-3 py-0.5 sm:py-1 transition-all duration-200"
                     :class="canSelectSection(index) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
                     @click="canSelectSection(index) && emit('select-section', index)"
                     :title="canSelectSection(index) ? ('Bagian ' + (index + 1) + ': ' + section.title) : 'Lengkapi bagian sebelumnya terlebih dahulu'"
@@ -109,9 +115,9 @@ onMounted(() => {
                         </span>
                     </div>
                     
-                    <!-- Judul Nama Seksi di Bawah Lingkaran -->
+                    <!-- Judul section ditampilkan utuh dan boleh membungkus beberapa baris. -->
                     <span 
-                        class="text-[9px] sm:text-[11px] md:text-xs mt-1 sm:mt-2 text-center w-20 sm:w-24 md:w-28 leading-tight transition-colors line-clamp-2"
+                        class="mt-1 block w-28 whitespace-normal text-center text-[9px] leading-snug transition-colors sm:mt-2 sm:w-36 sm:text-[11px] md:w-40 md:text-xs lg:w-44 xl:w-48"
                         :class="[
                             activeIndex === index
                                 ? 'text-[#0D542B] font-extrabold' : 
