@@ -190,14 +190,28 @@ class AdminAlumniProfileService
      */
     public static function getProfileQuestionConfigs(): array
     {
-        return KuesionerPertanyaan::whereHas('sections', function ($q) {
+        $questions = KuesionerPertanyaan::whereHas('sections', function ($q) {
             $q->whereIn('kuesioner_section_pertanyaan.tampil_di', ['profil', 'profile', 'both'])
                 ->where('kuesioner_section_pertanyaan.is_active', true);
         })
             ->orWhereIn('kuesioner_pertanyaan.kode_pertanyaan', ['F8', 'F11', 'F5D', 'F2G', 'F2H'])
-            ->get(['id', 'kode_pertanyaan', 'teks_pertanyaan as subpertanyaan', 'keterangan', 'tipe as type'])
-            ->keyBy(fn ($item) => strtoupper($item->kode_pertanyaan))
-            ->toArray();
+            ->with(['sections' => function ($query) {
+                $query->whereIn('kuesioner_section_pertanyaan.tampil_di', ['profil', 'profile', 'both'])
+                    ->where('kuesioner_section_pertanyaan.is_active', true);
+            }])
+            ->get(['id', 'kode_pertanyaan', 'teks_pertanyaan', 'keterangan', 'tipe']);
+
+        return $questions->mapWithKeys(function (KuesionerPertanyaan $question): array {
+            $profilePlacement = $question->sections->first();
+
+            return [strtoupper($question->kode_pertanyaan) => [
+                'id' => $question->id,
+                'subpertanyaan' => $question->teks_pertanyaan,
+                'keterangan' => $question->keterangan,
+                'type' => $question->tipe,
+                'wajib' => (bool) ($profilePlacement?->pivot?->wajib ?? true),
+            ]];
+        })->all();
     }
 
     /**

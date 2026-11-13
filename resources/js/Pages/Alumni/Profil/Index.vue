@@ -156,7 +156,7 @@ const isValidUrl = (val) => {
 
 // Helper untuk mengecek status wajib dan label butir pertanyaan dari konfigurasi Super Admin
 const isFieldMandatory = (code, fallback = true) => {
-    if (!props.profileQuestionConfigs) {
+    if (!props.profileQuestionConfigs || Object.keys(props.profileQuestionConfigs).length === 0) {
         return fallback;
     }
     const config = props.profileQuestionConfigs[code];
@@ -209,16 +209,19 @@ const tabCompleteness = computed(() => {
     if (isFieldMandatory('BIO_EXPERIENCE') && !hasExperience) missingKarier.push(getFieldLabel('BIO_EXPERIENCE', 'Pengalaman Kerja (Experience)'));
 
     const kategori = (form.kategori_pekerjaan || '').trim();
+    // Field kantor pusat yang terkunci tidak boleh menggagalkan profil ketika
+    // master perusahaan sudah dipilih tetapi datanya belum lengkap.
+    const hasSelectedCompanyMaster = Boolean(form.company_status_verifikasi || form.perusahaan_status_verifikasi);
     if (!kategori) {
         missingKarier.push(getFieldLabel('F8', 'Status Pekerjaan / Aktivitas Utama'));
     } else if (kategori === 'Pekerja') {
         if (isFieldMandatory('F2E') && (!form.nama_perusahaan || !String(form.nama_perusahaan).trim())) missingKarier.push(getFieldLabel('F2E', 'Nama Perusahaan / Instansi'));
-        if (isFieldMandatory('BIO_INST_BENTUK') && !form.perusahaan_bentuk && !form.company_bentuk) missingKarier.push(getFieldLabel('BIO_INST_BENTUK', 'Bentuk Perusahaan / Institusi'));
-        if (isFieldMandatory('F2F') && ((!form.perusahaan_alamat || !String(form.perusahaan_alamat).trim()) && (!form.company_alamat || !String(form.company_alamat).trim()))) missingKarier.push(getFieldLabel('F2F', 'Alamat Perusahaan'));
-        if (isFieldMandatory('F2H') && !form.perusahaan_skala && !form.company_skala) missingKarier.push(getFieldLabel('F2H', 'Skala Perusahaan'));
-        if (isFieldMandatory('F11') && !form.perusahaan_jenis_perusahaan && !form.company_jenis_perusahaan) missingKarier.push(getFieldLabel('F11', 'Jenis Perusahaan'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('BIO_INST_BENTUK') && !form.perusahaan_bentuk && !form.company_bentuk) missingKarier.push(getFieldLabel('BIO_INST_BENTUK', 'Bentuk Perusahaan / Institusi'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('F2F') && ((!form.perusahaan_alamat || !String(form.perusahaan_alamat).trim()) && (!form.company_alamat || !String(form.company_alamat).trim()))) missingKarier.push(getFieldLabel('F2F', 'Alamat Perusahaan'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('F2H') && !form.perusahaan_skala && !form.company_skala) missingKarier.push(getFieldLabel('F2H', 'Skala Perusahaan'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('F11') && !form.perusahaan_jenis_perusahaan && !form.company_jenis_perusahaan) missingKarier.push(getFieldLabel('F11', 'Jenis Perusahaan'));
         const hasKodePosKantor = (form.company_kode_pos && String(form.company_kode_pos).trim()) || (form.perusahaan_kode_pos && String(form.perusahaan_kode_pos).trim()) || (form.zipcode && String(form.zipcode).trim());
-        if (isFieldMandatory('BIO_INST_KODEPOS') && !hasKodePosKantor) missingKarier.push(getFieldLabel('BIO_INST_KODEPOS', 'Kode Pos Perusahaan'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('BIO_INST_KODEPOS') && !hasKodePosKantor) missingKarier.push(getFieldLabel('BIO_INST_KODEPOS', 'Kode Pos Perusahaan'));
         if (isFieldMandatory('F505') && (!form.gaji || Number(form.gaji) < 1000)) missingKarier.push(getFieldLabel('F505', 'Rata-rata Pendapatan / Gaji (Min Rp 1.000)'));
         if (isFieldMandatory('F2G') && (!form.posisi_jabatan || !String(form.posisi_jabatan).trim())) missingKarier.push(getFieldLabel('F2G', 'Posisi Jabatan'));
         if (isFieldMandatory('F2E1') && (!form.nama_atasan || !String(form.nama_atasan).trim())) missingKarier.push(getFieldLabel('F2E1', 'Nama Atasan Langsung'));
@@ -227,11 +230,11 @@ const tabCompleteness = computed(() => {
     } else if (kategori === 'Wiraswasta') {
         if (isFieldMandatory('F2E') && (!form.nama_perusahaan || !String(form.nama_perusahaan).trim())) missingKarier.push(getFieldLabel('F2E', 'Nama Usaha / Bisnis'));
         if (isFieldMandatory('F5C') && !form.posisi_wiraswasta) missingKarier.push(getFieldLabel('F5C', 'Posisi / Jabatan dalam Usaha'));
-        if (isFieldMandatory('F2F') && ((!form.perusahaan_alamat || !String(form.perusahaan_alamat).trim()) && (!form.company_alamat || !String(form.company_alamat).trim()))) missingKarier.push(getFieldLabel('F2F', 'Alamat Usaha'));
-        if (isFieldMandatory('F2H') && !form.perusahaan_skala && !form.company_skala) missingKarier.push(getFieldLabel('F2H', 'Skala Usaha'));
-        if (isFieldMandatory('F11') && !form.perusahaan_jenis_perusahaan && !form.company_jenis_perusahaan) missingKarier.push(getFieldLabel('F11', 'Jenis Usaha'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('F2F') && ((!form.perusahaan_alamat || !String(form.perusahaan_alamat).trim()) && (!form.company_alamat || !String(form.company_alamat).trim()))) missingKarier.push(getFieldLabel('F2F', 'Alamat Usaha'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('F2H') && !form.perusahaan_skala && !form.company_skala) missingKarier.push(getFieldLabel('F2H', 'Skala Usaha'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('F11') && !form.perusahaan_jenis_perusahaan && !form.company_jenis_perusahaan) missingKarier.push(getFieldLabel('F11', 'Jenis Usaha'));
         const hasKodePosUsaha = (form.company_kode_pos && String(form.company_kode_pos).trim()) || (form.perusahaan_kode_pos && String(form.perusahaan_kode_pos).trim()) || (form.zipcode && String(form.zipcode).trim());
-        if (isFieldMandatory('BIO_INST_KODEPOS') && !hasKodePosUsaha) missingKarier.push(getFieldLabel('BIO_INST_KODEPOS', 'Kode Pos Lokasi Usaha'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('BIO_INST_KODEPOS') && !hasKodePosUsaha) missingKarier.push(getFieldLabel('BIO_INST_KODEPOS', 'Kode Pos Lokasi Usaha'));
         if (isFieldMandatory('F505') && (!form.gaji || Number(form.gaji) < 1000)) missingKarier.push(getFieldLabel('F505', 'Rata-rata Pendapatan / Gaji (Min Rp 1.000)'));
         if (isFieldMandatory('F2E1') && (!form.nama_atasan || !String(form.nama_atasan).trim())) missingKarier.push(getFieldLabel('F2E1', 'Nama Atasan / Pemilik Usaha'));
         if (isFieldMandatory('F2E3') && (!form.email_atasan || !isValidEmail(form.email_atasan))) missingKarier.push(getFieldLabel('F2E3', 'Email Atasan / Pemilik Usaha'));
@@ -275,12 +278,47 @@ const isTabCompleted = (tabId) => {
     return Boolean(tabCompleteness.value[tabId]?.isComplete);
 };
 
+// Menentukan apakah tab boleh dibuka berdasarkan kelengkapan seluruh tab sebelumnya.
+const canSelectTab = (tabId) => {
+    const targetIndex = tabs.findIndex((tab) => tab.id === tabId);
+
+    if (targetIndex < 0) {
+        return false;
+    }
+
+    return tabs.slice(0, targetIndex).every((tab) => isTabCompleted(tab.id));
+};
+
+// Menampilkan alasan ketika alumni mencoba melewati tab yang belum lengkap.
+const notifyIncompleteTab = (tabId) => {
+    const missing = tabCompleteness.value[tabId]?.missing || [];
+    const firstMissing = missing[0] || 'isian wajib pada langkah ini';
+
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        icon: 'warning',
+        title: `Lengkapi ${firstMissing} terlebih dahulu`,
+    });
+};
+
 const currentTabIndex = computed(() => tabs.findIndex(t => t.id === activeTab.value));
 const prevTab = computed(() => currentTabIndex.value > 0 ? tabs[currentTabIndex.value - 1] : null);
 const nextTab = computed(() => currentTabIndex.value < tabs.length - 1 ? tabs[currentTabIndex.value + 1] : null);
 
 const switchTab = (tabName) => {
     if (!PROFILE_TAB_IDS.includes(tabName)) {
+        return;
+    }
+
+    if (!canSelectTab(tabName)) {
+        const targetIndex = tabs.findIndex((tab) => tab.id === tabName);
+        const firstIncompleteTab = tabs.slice(0, targetIndex).find((tab) => !isTabCompleted(tab.id));
+
+        notifyIncompleteTab(firstIncompleteTab?.id || tabName);
+
         return;
     }
 
@@ -331,6 +369,17 @@ const scrollToBottom = () => {
  * ====================================================================
  */
 const submit = (nextTabId = null, redirectTo = null) => {
+    const firstIncompleteTab = tabs.find((tab) => !isTabCompleted(tab.id));
+
+    if (firstIncompleteTab) {
+        if (activeTab.value !== firstIncompleteTab.id) {
+            activeTab.value = firstIncompleteTab.id;
+        }
+        notifyIncompleteTab(firstIncompleteTab.id);
+
+        return;
+    }
+
     // Validasi nominal gaji sebelum submit
     if (form.gaji && Number(form.gaji) > 0 && Number(form.gaji) < 1000) {
         activeTab.value = 'karier';
@@ -423,6 +472,12 @@ const handleBeforeUnload = (e) => {
 };
 
 onMounted(() => {
+    const firstIncompleteTab = tabs.find((tab) => !isTabCompleted(tab.id));
+
+    if (firstIncompleteTab && !canSelectTab(activeTab.value)) {
+        activeTab.value = firstIncompleteTab.id;
+    }
+
     window.addEventListener('beforeunload', handleBeforeUnload);
 });
 
@@ -459,6 +514,7 @@ onBeforeUnmount(() => {
                         :tabs="tabs"
                         :active-tab="activeTab"
                         :is-tab-completed="isTabCompleted"
+                        :can-select-tab="canSelectTab"
                         @select-tab="switchTab"
                     />
                 </div>

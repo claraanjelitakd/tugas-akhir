@@ -720,6 +720,16 @@ class AlumniSimulationSeeder extends Seeder
             $answers['F8'] = 'Bekerja (full time/part time)';
         }
 
+        // F10 tetap diisi untuk seluruh alumni agar indikator aktivitas mencari
+        // pekerjaan tidak kosong ketika filter memakai kohort lengkap.
+        $activityLabel = $this->optionLabel(
+            $univQuestions->get('F10'),
+            ($variation + $kategoriIdx) % 5,
+        );
+        if ($activityLabel !== null) {
+            $answers['F10'] = $activityLabel;
+        }
+
         // 3. Butir Kompetensi Wajib (F17a1 s/d F17b7) - Nilai skala 1 s/d 5.
         //    Nilai F17a dan F17b dibuat berhubungan tetapi tidak selalu sama,
         //    agar analitik dapat menampilkan kondisi defisit, selaras, dan surplus.
@@ -783,6 +793,24 @@ class AlumniSimulationSeeder extends Seeder
             $answers['F7'] = (string) $responses;
             $answers['F7A'] = (string) $interviews;
             $answers['F505'] = (string) ($biodata->gaji ?? 0);
+
+            $workplaceLabel = $this->optionLabel(
+                $univQuestions->get('F11'),
+                $variation,
+                match ($kategoriIdx) {
+                    1, 4 => 'Wiraswasta/perusahaan sendiri',
+                    3 => 'Perusahaan swasta',
+                    default => 'BUMN/BUMD',
+                },
+            );
+            if ($workplaceLabel !== null) {
+                $answers['F11'] = $workplaceLabel;
+            }
+
+            $mismatchLabel = $this->optionLabel($univQuestions->get('F16'), $variation);
+            if ($mismatchLabel !== null) {
+                $answers['F16'] = $mismatchLabel;
+            }
         } else {
             // Jalur Melanjutkan Pendidikan (Kategori 2 / Index 2)
             $fundingQuestion = $univQuestions->get('F12');
@@ -813,6 +841,34 @@ class AlumniSimulationSeeder extends Seeder
                 ]);
             }
         }
+    }
+
+    /**
+     * Mengambil label opsi aktif berdasarkan preferensi atau indeks deterministik.
+     *
+     * @param  int  $index  Indeks variasi yang berasal dari alumni fixture.
+     * @param  string|null  $preferredLabel  Label kanonik yang diprioritaskan.
+     */
+    protected function optionLabel(
+        ?KuesionerPertanyaan $question,
+        int $index,
+        ?string $preferredLabel = null,
+    ): ?string {
+        $options = $question?->opsi?->sortBy('order')->values() ?? collect();
+        if ($options->isEmpty()) {
+            return null;
+        }
+
+        if ($preferredLabel !== null) {
+            $preferredOption = $options->first(
+                fn ($option): bool => mb_strtolower(trim((string) $option->label)) === mb_strtolower(trim($preferredLabel))
+            );
+            if ($preferredOption !== null) {
+                return (string) $preferredOption->label;
+            }
+        }
+
+        return (string) $options->get($index % $options->count())->label;
     }
 
     /**

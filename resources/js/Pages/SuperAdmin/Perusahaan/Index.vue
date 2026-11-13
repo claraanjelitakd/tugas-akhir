@@ -639,6 +639,12 @@ const createForm = ref({
     jenis_lokasi: 'Dalam Negeri',
     nama_perusahaan: '',
     jenis_perusahaan: '3 - Perusahaan swasta',
+    jenis_perusahaan_lainnya: '',
+    homepage: '',
+    no_telp_fax: '',
+    sektor: '',
+    bentuk_perusahaan: '',
+    jumlah_pegawai: '',
     kode_provinsi: '',
     kode_kabupaten: '',
     kode_negara: 'ID',
@@ -652,6 +658,12 @@ const openCreateModal = () => {
         jenis_lokasi: 'Dalam Negeri',
         nama_perusahaan: '',
         jenis_perusahaan: '3 - Perusahaan swasta',
+        jenis_perusahaan_lainnya: '',
+        homepage: '',
+        no_telp_fax: '',
+        sektor: '',
+        bentuk_perusahaan: '',
+        jumlah_pegawai: '',
         kode_provinsi: '',
         kode_kabupaten: '',
         kode_negara: 'ID',
@@ -806,6 +818,12 @@ const editForm = ref({
     jenis_lokasi: 'Dalam Negeri',
     nama_perusahaan: '',
     jenis_perusahaan: '3 - Perusahaan swasta',
+    jenis_perusahaan_lainnya: '',
+    homepage: '',
+    no_telp_fax: '',
+    sektor: '',
+    bentuk_perusahaan: '',
+    jumlah_pegawai: '',
     kode_provinsi: '',
     kode_kabupaten: '',
     kode_negara: 'ID',
@@ -820,6 +838,12 @@ const openEditModal = async (company) => {
         jenis_lokasi: company.jenis_lokasi || 'Dalam Negeri',
         nama_perusahaan: company.nama_perusahaan || '',
         jenis_perusahaan: company.jenis_perusahaan || '3 - Perusahaan swasta',
+        jenis_perusahaan_lainnya: company.jenis_perusahaan_lainnya || '',
+        homepage: company.homepage || '',
+        no_telp_fax: company.no_telp_fax || '',
+        sektor: company.sektor || '',
+        bentuk_perusahaan: company.bentuk_perusahaan || '',
+        jumlah_pegawai: company.jumlah_pegawai || '',
         kode_provinsi: company.kode_provinsi ? String(company.kode_provinsi) : '',
         kode_kabupaten: company.kode_kabupaten ? String(company.kode_kabupaten) : '',
         kode_negara: company.kode_negara || 'ID',
@@ -2144,6 +2168,34 @@ const handleVerificationAction = (company, event) => {
                     </select>
                 </div>
 
+                <div v-if="createForm.jenis_perusahaan === '8 - Lainnya'">
+                    <label class="block font-semibold text-slate-700 mb-1">Jenis Perusahaan / Instansi Lainnya</label>
+                    <input v-model="createForm.jenis_perusahaan_lainnya" type="text" maxlength="150" placeholder="Tuliskan jenis perusahaan / instansi" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                </div>
+
+                <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Homepage / Website</label>
+                        <input v-model="createForm.homepage" type="url" placeholder="https://contoh.id" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Nomor Telepon / Fax</label>
+                        <input v-model="createForm.no_telp_fax" type="text" placeholder="0274-123456" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Sektor</label>
+                        <input v-model="createForm.sektor" type="text" placeholder="Teknologi Informasi" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Bentuk Perusahaan</label>
+                        <input v-model="createForm.bentuk_perusahaan" type="text" placeholder="Perseroan Terbatas" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Jumlah Pegawai</label>
+                        <input v-model="createForm.jumlah_pegawai" type="text" placeholder="51 - 100 Orang" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                </div>
+
                 <!-- 4. Kondisional: Provinsi & Kabupaten (Dalam Negeri) vs Negara Tempat Bekerja (Luar Negeri) -->
                 <div v-if="createForm.jenis_lokasi === 'Dalam Negeri'" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
@@ -2336,6 +2388,34 @@ const handleVerificationAction = (company, event) => {
                         <option value="7 - Usaha Mandiri / Wirausaha">7 - Usaha Mandiri / Wirausaha</option>
                         <option value="8 - Lainnya">8 - Lainnya</option>
                     </select>
+                </div>
+
+                <div v-if="editForm.jenis_perusahaan === '8 - Lainnya'">
+                    <label class="block font-semibold text-slate-700 mb-1">Jenis Perusahaan / Instansi Lainnya</label>
+                    <input v-model="editForm.jenis_perusahaan_lainnya" type="text" maxlength="150" placeholder="Tuliskan jenis perusahaan / instansi" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                </div>
+
+                <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Homepage / Website</label>
+                        <input v-model="editForm.homepage" type="url" placeholder="https://contoh.id" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Nomor Telepon / Fax</label>
+                        <input v-model="editForm.no_telp_fax" type="text" placeholder="0274-123456" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Sektor</label>
+                        <input v-model="editForm.sektor" type="text" placeholder="Teknologi Informasi" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Bentuk Perusahaan</label>
+                        <input v-model="editForm.bentuk_perusahaan" type="text" placeholder="Perseroan Terbatas" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Jumlah Pegawai</label>
+                        <input v-model="editForm.jumlah_pegawai" type="text" placeholder="51 - 100 Orang" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
                 </div>
 
                 <!-- Provinsi & Kabupaten vs Negara -->

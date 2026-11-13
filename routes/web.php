@@ -307,6 +307,8 @@ Route::middleware('auth')->group(function () {
             Route::get('/superadmin/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('superadmin.analytics-atasan.index');
             Route::get('/superadmin/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('superadmin.analytics-atasan.data');
             Route::get('/superadmin/atasan', [DaftarAtasanController::class, 'index'])->name('superadmin.atasan.index');
+            Route::post('/superadmin/atasan', [DaftarAtasanController::class, 'store'])->name('superadmin.atasan.store');
+            Route::put('/superadmin/atasan/{id}', [DaftarAtasanController::class, 'update'])->name('superadmin.atasan.update');
 
             // Kelola Butir Pertanyaan, Opsi Jawaban, & Alur Branching Kuesioner (Modular Controllers)
             Route::get('/superadmin/pertanyaan', [DaftarPertanyaanController::class, 'index'])->name('superadmin.pertanyaan.index');

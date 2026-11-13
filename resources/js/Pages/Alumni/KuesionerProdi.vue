@@ -376,10 +376,9 @@ const isQuestionAnswered = (q) => {
 const isSectionAnswered = (section) => {
     if (!section || !section.questions || section.questions.length === 0) return false;
     const validQuestions = section.questions.filter(q => q.type !== 'header' && isQuestionVisible(q.id));
-    if (validQuestions.length === 0) return false;
+    if (validQuestions.length === 0) return true;
     const requiredQuestions = validQuestions.filter(q => q.is_required);
-    const targetQuestions = requiredQuestions.length > 0 ? requiredQuestions : validQuestions;
-    return targetQuestions.every(q => isQuestionAnswered(q));
+    return requiredQuestions.every(q => isQuestionAnswered(q));
 };
 
 // Status kelengkapan seksi untuk stepper (hanya ceklist jika seluruh soal wajib di seksi tersebut benar-benar terjawab)
@@ -387,6 +386,29 @@ const isSectionCompleted = (index) => {
     const sec = visibleSections.value[index];
     if (!sec) return false;
     return isSectionAnswered(sec);
+};
+
+// Menentukan apakah section boleh dibuka setelah semua section sebelumnya selesai.
+const canSelectSection = (index) => {
+    if (!visibleSections.value[index]) {
+        return false;
+    }
+
+    return visibleSections.value
+        .slice(0, index)
+        .every((section, sectionIndex) => isSectionCompleted(sectionIndex));
+};
+
+// Menampilkan alasan ketika alumni mencoba melewati section yang belum lengkap.
+const notifyIncompleteSection = (section) => {
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        icon: 'warning',
+        title: `Lengkapi bagian ${section?.title || 'ini'} terlebih dahulu`,
+    });
 };
 
 const isLineCompleted = (index) => {
@@ -432,6 +454,13 @@ const progressStats = computed(() => {
 
 // Navigasi Section
 const setSection = (index) => {
+    if (!canSelectSection(index)) {
+        const firstIncompleteSection = visibleSections.value.find((section, sectionIndex) => !isSectionCompleted(sectionIndex));
+        notifyIncompleteSection(firstIncompleteSection);
+
+        return;
+    }
+
     syncSectionCompletion();
     activeSectionIndex.value = index;
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -469,7 +498,22 @@ const isLastSection = computed(() => {
 });
 
 const handleNextOrSubmit = () => {
+    if (!isSectionCompleted(activeSectionIndex.value)) {
+        notifyIncompleteSection(currentSection.value);
+
+        return;
+    }
+
     if (isLastSection.value) {
+        const firstIncompleteSection = visibleSections.value.find((section, sectionIndex) => !isSectionCompleted(sectionIndex));
+
+        if (firstIncompleteSection) {
+            activeSectionIndex.value = visibleSections.value.indexOf(firstIncompleteSection);
+            notifyIncompleteSection(firstIncompleteSection);
+
+            return;
+        }
+
         // Validasi seluruh pertanyaan wajib
         const requiredQuestions = orderedQuestionsList.value.filter(q => q.is_required && isQuestionVisible(q.id));
         const missing = requiredQuestions.filter(q => !isQuestionAnswered(q));
@@ -540,6 +584,11 @@ onMounted(() => {
         activeSectionIndex.value = 0;
     }
     syncSectionCompletion();
+
+    const firstIncompleteSection = visibleSections.value.find((section, sectionIndex) => !isSectionCompleted(sectionIndex));
+    if (!canSelectSection(activeSectionIndex.value) && firstIncompleteSection) {
+        activeSectionIndex.value = visibleSections.value.indexOf(firstIncompleteSection);
+    }
 });
 
 watch(activeSectionIndex, (newIdx) => {
@@ -588,6 +637,7 @@ watch(() => form.answers, (newAnswers) => {
                 :completed-indices="completedSectionIndices"
                 :is-section-completed="isSectionCompleted"
                 :is-line-completed="isLineCompleted"
+                :can-select-section="canSelectSection"
                 @select-section="setSection"
             />
         </header>

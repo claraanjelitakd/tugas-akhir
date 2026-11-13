@@ -47,6 +47,10 @@ const props = defineProps({
         type: Function,
         required: true,
     },
+    canSelectSection: {
+        type: Function,
+        required: true,
+    },
 });
 
 /**
@@ -109,9 +113,11 @@ onMounted(() => {
                 <!-- =================================================================================== -->
                 <div 
                     :ref="el => setStepRef(el, index)"
-                    class="flex flex-col relative items-center justify-center cursor-pointer group px-1 sm:px-2 md:px-3 py-0.5 sm:py-1 transition-all duration-200"
-                    @click="emit('select-section', section.originalIndex !== undefined ? section.originalIndex : index)"
-                    :title="'Bagian ' + (index + 1) + ': ' + section.title"
+                    class="flex flex-col relative items-center justify-center group px-1 sm:px-2 md:px-3 py-0.5 sm:py-1 transition-all duration-200"
+                    :class="canSelectSection(section.originalIndex !== undefined ? section.originalIndex : index) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+                    @click="canSelectSection(section.originalIndex !== undefined ? section.originalIndex : index) && emit('select-section', section.originalIndex !== undefined ? section.originalIndex : index)"
+                    :title="canSelectSection(section.originalIndex !== undefined ? section.originalIndex : index) ? ('Bagian ' + (index + 1) + ': ' + section.title) : 'Lengkapi bagian sebelumnya terlebih dahulu'"
+                    :aria-disabled="!canSelectSection(section.originalIndex !== undefined ? section.originalIndex : index)"
                 >
                     <!-- Lingkaran Angka / Centang Selesai -->
                     <div 

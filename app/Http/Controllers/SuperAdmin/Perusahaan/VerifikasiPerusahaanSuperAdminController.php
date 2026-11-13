@@ -185,6 +185,8 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             'jenis_perusahaan' => 'nullable|string|max:100',
             'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
             'sektor' => 'nullable|string|max:100',
+            'bentuk_perusahaan' => 'nullable|string|max:60',
+            'jumlah_pegawai' => 'nullable|string|max:60',
             'homepage' => 'nullable|string|max:255',
             'no_telp_fax' => 'nullable|string|max:100',
         ];
@@ -208,6 +210,8 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             'jenis_perusahaan' => $validated['jenis_perusahaan'] ?? null,
             'jenis_perusahaan_lainnya' => $validated['jenis_perusahaan_lainnya'] ?? null,
             'sektor' => $validated['sektor'] ?? null,
+            'bentuk_perusahaan' => $validated['bentuk_perusahaan'] ?? null,
+            'jumlah_pegawai' => $validated['jumlah_pegawai'] ?? null,
             'homepage' => $validated['homepage'] ?? null,
             'no_telp_fax' => $validated['no_telp_fax'] ?? null,
             'status_verifikasi' => 'Terverifikasi',
@@ -266,6 +270,10 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             'skala' => 'nullable|string|in:Lokal,Nasional,Internasional',
             'jenis_perusahaan' => 'nullable|string|max:100',
             'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
+            'bentuk_perusahaan' => 'nullable|string|max:60',
+            'jumlah_pegawai' => 'nullable|string|max:60',
+            'homepage' => 'nullable|string|max:255',
+            'no_telp_fax' => 'nullable|string|max:100',
             'jenis_lokasi' => 'required|string|in:Dalam Negeri,Luar Negeri',
             'kode_negara' => 'nullable|string|size:2|exists:ref_negara,kode_negara',
         ]);

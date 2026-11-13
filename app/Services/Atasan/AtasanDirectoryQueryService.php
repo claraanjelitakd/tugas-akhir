@@ -164,6 +164,7 @@ class AtasanDirectoryQueryService
             ],
             'atasan' => $biodata->atasan ? [
                 'id' => $biodata->atasan->id,
+                'perusahaan_id' => $biodata->atasan->perusahaan_id,
                 'nama' => $biodata->atasan->nama,
                 'email' => $biodata->atasan->email,
                 'telepon' => $biodata->atasan->telepon,

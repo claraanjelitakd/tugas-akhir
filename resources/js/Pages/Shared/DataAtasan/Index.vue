@@ -29,6 +29,10 @@ const props = defineProps({
             evaluasi_selesai: 0,
         }),
     },
+    masterOptions: {
+        type: Object,
+        default: () => ({ alumni: [], perusahaan: [] }),
+    },
 });
 
 // State filter lokal mengikuti pola filter pada master perusahaan.
@@ -39,6 +43,17 @@ const perPage = ref(Number(props.filters.per_page || 10));
 // State modal detail satu relasi alumni-atasan.
 const showDetailModal = ref(false);
 const activeRecord = ref(null);
+const showAtasanFormModal = ref(false);
+const isSubmittingAtasan = ref(false);
+const atasanFormMode = ref('create');
+const atasanForm = ref({
+    id: null,
+    biodata_id: '',
+    perusahaan_id: '',
+    nama: '',
+    email: '',
+    telepon: '',
+});
 
 // Menentukan judul halaman sesuai scope role admin aktif.
 const pageTitle = computed(() => `Data Atasan - ${props.roleTitle}`);
@@ -90,6 +105,62 @@ const openDetailModal = (record) => {
 const closeDetailModal = () => {
     showDetailModal.value = false;
     activeRecord.value = null;
+};
+
+// Membuka form tambah relasi atasan baru pada profil alumni terpilih.
+const openCreateAtasanModal = () => {
+    atasanFormMode.value = 'create';
+    atasanForm.value = {
+        id: null,
+        biodata_id: '',
+        perusahaan_id: '',
+        nama: '',
+        email: '',
+        telepon: '',
+    };
+    showAtasanFormModal.value = true;
+};
+
+// Membuka form edit dengan data atasan yang sudah tampil pada direktori.
+const openEditAtasanModal = (record) => {
+    atasanFormMode.value = 'edit';
+    atasanForm.value = {
+        id: record.atasan?.id || null,
+        biodata_id: record.alumni?.id || '',
+        perusahaan_id: record.atasan?.perusahaan_id || record.perusahaan?.id || '',
+        nama: record.atasan?.nama || '',
+        email: record.atasan?.email || '',
+        telepon: record.atasan?.telepon || '',
+    };
+    showAtasanFormModal.value = true;
+};
+
+// Menutup form tambah atau edit dan mengembalikan state form ke kondisi bersih.
+const closeAtasanFormModal = () => {
+    showAtasanFormModal.value = false;
+    isSubmittingAtasan.value = false;
+};
+
+// Menyimpan data atasan melalui endpoint sesuai mode form yang sedang aktif.
+const submitAtasanForm = () => {
+    isSubmittingAtasan.value = true;
+    const endpoint = atasanFormMode.value === 'create'
+        ? `/${props.prefix}/atasan`
+        : `/${props.prefix}/atasan/${atasanForm.value.id}`;
+    const payload = { ...atasanForm.value };
+    const requestOptions = {
+        preserveScroll: true,
+        onSuccess: () => closeAtasanFormModal(),
+        onError: () => { isSubmittingAtasan.value = false; },
+    };
+
+    if (atasanFormMode.value === 'create') {
+        router.post(endpoint, payload, requestOptions);
+
+        return;
+    }
+
+    router.put(endpoint, payload, requestOptions);
 };
 
 // Menentukan kelas badge status evaluasi.
@@ -150,12 +221,22 @@ const resetFilters = () => {
                             Daftar relasi atasan yang diisi alumni melalui profil kerja. Satu baris mewakili satu alumni, sehingga atasan yang sama dapat tampil berulang.
                         </p>
                     </div>
-                    <Link
-                        :href="`/${prefix}/analitik-atasan`"
-                        class="inline-flex w-fit items-center rounded-lg bg-white px-4 py-2 text-xs font-bold text-[#0D542B] transition-colors hover:bg-emerald-50"
-                    >
-                        Lihat Grafik Evaluasi Atasan
-                    </Link>
+                    <div class="flex flex-wrap gap-2">
+                        <button
+                            v-if="role === 'superadmin'"
+                            type="button"
+                            class="inline-flex w-fit items-center rounded-lg bg-[#FDC700] px-4 py-2 text-xs font-bold text-[#0D542B] transition-colors hover:bg-yellow-300"
+                            @click="openCreateAtasanModal"
+                        >
+                            Tambah Data Atasan
+                        </button>
+                        <Link
+                            :href="`/${prefix}/analitik-atasan`"
+                            class="inline-flex w-fit items-center rounded-lg bg-white px-4 py-2 text-xs font-bold text-[#0D542B] transition-colors hover:bg-emerald-50"
+                        >
+                            Lihat Grafik Evaluasi Atasan
+                        </Link>
+                    </div>
                 </div>
             </header>
 
@@ -257,6 +338,9 @@ const resetFilters = () => {
                                         <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900" title="Lihat detail data atasan" aria-label="Lihat detail data atasan" @click="openDetailModal(record)">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                         </button>
+                                        <button v-if="role === 'superadmin' && record.atasan" type="button" class="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-[11px] font-bold text-slate-700 transition-colors hover:bg-slate-50 hover:text-[#0D542B]" title="Edit data atasan" @click="openEditAtasanModal(record)">
+                                            Edit
+                                        </button>
                                         <Link :href="alumniDetailPath(record.alumni.id)" class="inline-flex h-9 items-center justify-center rounded-lg bg-[#0D542B] px-3 text-[11px] font-bold text-white transition-colors hover:bg-[#08381c]">Lihat Profil Alumni</Link>
                                     </div>
                                 </td>
@@ -270,6 +354,55 @@ const resetFilters = () => {
             </main>
 
             <footer class="mt-12 border-t border-slate-200 py-6 text-center text-xs text-slate-400">&copy; {{ new Date().getFullYear() }} Universitas Kristen Duta Wacana. Hak Cipta Dilindungi.</footer>
+        </div>
+
+        <!-- Modal tambah atau edit data atasan untuk Superadmin. -->
+        <div v-if="showAtasanFormModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @click.self="closeAtasanFormModal">
+            <div class="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-xl">
+                <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-[#0D542B]">Master Data Atasan</p>
+                        <h2 class="mt-1 text-lg font-bold text-slate-900">{{ atasanFormMode === 'create' ? 'Tambah Data Atasan' : 'Edit Data Atasan' }}</h2>
+                    </div>
+                    <button type="button" class="rounded-lg border border-slate-200 px-3 py-1 text-sm text-slate-500 hover:bg-slate-50" aria-label="Tutup form data atasan" @click="closeAtasanFormModal">Tutup</button>
+                </div>
+                <form class="space-y-4 px-5 py-5" @submit.prevent="submitAtasanForm">
+                    <div v-if="atasanFormMode === 'create'">
+                        <label class="mb-1 block text-xs font-bold text-slate-700">Alumni <span class="text-rose-600">*</span></label>
+                        <select v-model="atasanForm.biodata_id" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]">
+                            <option value="">Pilih alumni</option>
+                            <option v-for="alumni in masterOptions.alumni" :key="alumni.id" :value="alumni.id">
+                                {{ alumni.nim }} · {{ alumni.nama }}{{ alumni.prodi ? ` · ${alumni.prodi}` : '' }}{{ alumni.has_atasan ? ' · memperbarui data atasan' : '' }}
+                            </option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-bold text-slate-700">Perusahaan / Organisasi</label>
+                        <select v-model="atasanForm.perusahaan_id" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]">
+                            <option value="">Gunakan perusahaan dari profil alumni</option>
+                            <option v-for="company in masterOptions.perusahaan" :key="company.id" :value="company.id">{{ company.nama_perusahaan }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-bold text-slate-700">Nama Atasan <span class="text-rose-600">*</span></label>
+                        <input v-model="atasanForm.nama" required type="text" maxlength="100" placeholder="Nama lengkap atasan" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1 block text-xs font-bold text-slate-700">Email Atasan</label>
+                            <input v-model="atasanForm.email" type="email" maxlength="100" placeholder="atasan@perusahaan.id" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-bold text-slate-700">Telepon / WhatsApp</label>
+                            <input v-model="atasanForm.telepon" type="text" maxlength="20" placeholder="08xxxxxxxxxx" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2 border-t border-slate-200 pt-4">
+                        <button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50" @click="closeAtasanFormModal">Batal</button>
+                        <button type="submit" :disabled="isSubmittingAtasan" class="rounded-lg bg-[#0D542B] px-4 py-2 text-xs font-bold text-white hover:bg-[#08381c] disabled:cursor-not-allowed disabled:opacity-60">{{ isSubmittingAtasan ? 'Menyimpan...' : 'Simpan Data Atasan' }}</button>
+                    </div>
+                </form>
+            </div>
         </div>
 
         <!-- Modal detail relasi untuk pemeriksaan cepat sebelum membuka profil alumni. -->

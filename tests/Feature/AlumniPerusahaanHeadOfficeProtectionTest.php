@@ -111,6 +111,29 @@ class AlumniPerusahaanHeadOfficeProtectionTest extends TestCase
     }
 
     /**
+     * Profil tetap dapat disimpan saat field master kantor pusat masih kosong.
+     */
+    public function test_profile_save_accepts_missing_locked_master_company_fields(): void
+    {
+        [$user, $biodata] = $this->createAlumniUser('72220003');
+
+        $masterCompany = Perusahaan::create([
+            'nama_perusahaan' => 'PT Master Belum Lengkap',
+            'status_verifikasi' => 'Terverifikasi',
+            'jenis_perusahaan' => 'Perusahaan swasta',
+        ]);
+
+        $response = $this->actingAs($user)->post('/alumni/profile', [
+            'nama_perusahaan' => $masterCompany->nama_perusahaan,
+            'kategori_pekerjaan' => 'Pekerja',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame($masterCompany->id, $biodata->fresh()->perusahaan_id);
+        $this->assertNull($masterCompany->fresh()->bentuk_perusahaan);
+    }
+
+    /**
      * Uji alumni dapat mengajukan usulan pembaruan data kantor pusat via request-update.
      */
     public function test_alumni_can_request_update_for_head_office_company(): void

@@ -12,6 +12,10 @@ defineProps({
         type: Function,
         required: true,
     },
+    canSelectTab: {
+        type: Function,
+        required: true,
+    },
 });
 
 const emit = defineEmits(['select-tab']);
@@ -23,9 +27,11 @@ const emit = defineEmits(['select-tab']);
             <template v-for="(tab, index) in tabs" :key="tab.id">
                 <!-- Bulatan & Label Tahapan Stepper Profil -->
                 <div 
-                    class="flex flex-col items-center justify-center cursor-pointer group px-2 py-1 transition-all"
-                    @click="emit('select-tab', tab.id)"
-                    :title="'Langkah ' + tab.step + ': ' + tab.name"
+                    class="flex flex-col items-center justify-center group px-2 py-1 transition-all"
+                    :class="canSelectTab(tab.id) ? 'cursor-pointer' : 'cursor-not-allowed opacity-55'"
+                    @click="canSelectTab(tab.id) && emit('select-tab', tab.id)"
+                    :title="canSelectTab(tab.id) ? ('Langkah ' + tab.step + ': ' + tab.name) : 'Lengkapi langkah sebelumnya terlebih dahulu'"
+                    :aria-disabled="!canSelectTab(tab.id)"
                 >
                     <!-- Lingkaran Angka Tahapan -->
                     <div 

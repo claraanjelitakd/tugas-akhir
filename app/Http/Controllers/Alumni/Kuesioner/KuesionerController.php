@@ -76,6 +76,7 @@ class KuesionerController extends Controller
                     'label_pertanyaan' => $pertanyaan->label_pertanyaan,
                     'subpertanyaan' => $pertanyaan->teks_pertanyaan,
                     'type' => $pertanyaan->tipe,
+                    'wajib' => $isMandatory,
                     'is_mandatory' => $isMandatory,
                     'is_optional' => ! $isMandatory,
                     'optional' => ! $isMandatory,

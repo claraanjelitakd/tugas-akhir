@@ -111,6 +111,55 @@ class DataAtasanTest extends TestCase
     }
 
     /**
+     * Superadmin dapat menambahkan dan memperbarui relasi atasan dari direktori master.
+     */
+    public function test_superadmin_can_create_and_update_atasan_from_directory(): void
+    {
+        $prodi = Prodi::create([
+            'kode_prodi' => 'SI',
+            'nama_prodi' => 'Sistem Informasi',
+            'jenjang' => 'S1',
+        ]);
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Atasan Nusantara',
+            'status_verifikasi' => 'Terverifikasi',
+        ]);
+        $alumni = $this->createAlumni(
+            $this->createUser('alumni-atasan-create', 'alumni-atasan-create@example.test', 'alumni'),
+            $prodi,
+            '72123459',
+            'Alumni Atasan Create',
+        );
+        $admin = $this->createUser('superadmin-atasan-create', 'superadmin-atasan-create@example.test', 'superadmin');
+
+        $response = $this->actingAs($admin)->post(route('superadmin.atasan.store'), [
+            'biodata_id' => $alumni->id,
+            'perusahaan_id' => $company->id,
+            'nama' => 'Rudi Atasan',
+            'email' => 'rudi@example.test',
+            'telepon' => '08123456789',
+        ]);
+
+        $response->assertRedirect();
+        $atasan = Atasan::query()->where('nama', 'Rudi Atasan')->firstOrFail();
+        $this->assertSame($atasan->id, $alumni->fresh()->atasan_id);
+        $this->assertSame($company->id, $atasan->perusahaan_id);
+
+        $updateResponse = $this->actingAs($admin)->put(route('superadmin.atasan.update', $atasan->id), [
+            'perusahaan_id' => $company->id,
+            'nama' => 'Rudi Atasan Updated',
+            'email' => 'rudi.updated@example.test',
+            'telepon' => '08987654321',
+        ]);
+
+        $updateResponse->assertRedirect();
+        $atasan->refresh();
+        $this->assertSame('Rudi Atasan Updated', $atasan->nama);
+        $this->assertSame('rudi.updated@example.test', $atasan->email);
+        $this->assertSame('08987654321', $atasan->telepon);
+    }
+
+    /**
      * Buat akun dengan atribut minimal yang sesuai schema users aktif.
      *
      * @param  string  $username  Username unik akun.

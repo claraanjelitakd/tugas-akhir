@@ -760,8 +760,8 @@ const isSectionAnswered = (section) => {
         return mandatoryQuestions.every(q => isQuestionAnswered(q));
     }
 
-    // Jika seksi hanya berisi butir opsional: minimal 1 butir harus sudah diisi
-    return visibleQuestions.some(q => isQuestionAnswered(q));
+    // Seksi yang hanya berisi butir opsional tidak menghalangi perpindahan tahap.
+    return true;
 };
 
 /**
@@ -774,6 +774,31 @@ const isSectionCompleted = (index) => {
     const sec = props.questionnaire?.sections?.[index];
     if (!sec) return false;
     return isSectionAnswered(sec);
+};
+
+// Menentukan apakah section boleh dibuka setelah semua section sebelumnya selesai.
+const canSelectSection = (originalIndex) => {
+    const targetIndex = visibleSections.value.findIndex((section) => section.originalIndex === originalIndex);
+
+    if (targetIndex < 0) {
+        return false;
+    }
+
+    return visibleSections.value
+        .slice(0, targetIndex)
+        .every((section) => isSectionCompleted(section.originalIndex));
+};
+
+// Menampilkan alasan ketika alumni mencoba melewati section yang belum lengkap.
+const notifyIncompleteSection = (section) => {
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        icon: 'warning',
+        title: `Lengkapi bagian ${section?.title || 'ini'} terlebih dahulu`,
+    });
 };
 
 /**
@@ -814,6 +839,13 @@ const syncSectionCompletion = () => {
 
 // Navigasi Section: Berpindah ke section tertentu via stepper
 const setSection = (index) => {
+    if (!canSelectSection(index)) {
+        const firstIncompleteSection = visibleSections.value.find((section) => !isSectionCompleted(section.originalIndex));
+        notifyIncompleteSection(firstIncompleteSection);
+
+        return;
+    }
+
     syncSectionCompletion();
     activeSectionIndex.value = index;
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -834,7 +866,22 @@ const prevSection = () => {
 
 // Navigasi Section: Lanjut atau Simpan Form
 const handleNextOrSubmit = () => {
+    if (!isSectionCompleted(activeSectionIndex.value)) {
+        notifyIncompleteSection(currentSection.value);
+
+        return;
+    }
+
     if (isLastVisibleSection.value) {
+        const firstIncompleteSection = visibleSections.value.find((section) => !isSectionCompleted(section.originalIndex));
+
+        if (firstIncompleteSection) {
+            activeSectionIndex.value = firstIncompleteSection.originalIndex;
+            notifyIncompleteSection(firstIncompleteSection);
+
+            return;
+        }
+
         // Halaman terakhir: Simpan seluruh jawaban
         form.post('/alumni/kuesioner', {
             preserveScroll: true,
@@ -881,6 +928,11 @@ onMounted(() => {
             activeSectionIndex.value = 0;
         }
         syncSectionCompletion();
+
+        const firstIncompleteSection = visibleSections.value.find((section) => !isSectionCompleted(section.originalIndex));
+        if (!canSelectSection(activeSectionIndex.value) && firstIncompleteSection) {
+            activeSectionIndex.value = firstIncompleteSection.originalIndex;
+        }
     }
 });
 
@@ -941,6 +993,7 @@ watch(() => form.answers, (newAnswers) => {
                 :completed-indices="completedSectionIndices"
                 :is-section-completed="isSectionCompleted"
                 :is-line-completed="isLineCompleted"
+                :can-select-section="canSelectSection"
                 @select-section="setSection"
             />
         </header>

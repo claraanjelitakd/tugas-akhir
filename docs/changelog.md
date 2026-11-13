@@ -2,6 +2,10 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 12 November 2026
+
+- **Kelengkapan data indikator default**: fixture kohort 2026 kini mengisi F10 (aktivitas mencari pekerjaan) untuk seluruh alumni serta F11 (jenis tempat kerja) dan F16 (alasan ketidaksesuaian) untuk jalur kerja/wirausaha. Variasi jawaban diambil dari opsi instrumen aktif agar grafik universitas tidak kosong dan relasi jawaban tetap tersambung ke master pertanyaan.
+
 ## 11 November 2026
 
 - **Standardisasi Grafik Prodi**:

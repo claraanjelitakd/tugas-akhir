@@ -5,6 +5,7 @@ namespace App\Services\Kuesioner;
 use App\Models\AlumniProfileSummary;
 use App\Models\Biodata;
 use App\Models\KuesionerJawaban;
+use App\Services\Alumni\AdminAlumniProfileService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -98,6 +99,15 @@ class KelengkapanTracerService
         $dataAkademik = $biodata->dataAkademik;
         $perusahaan = $biodata->perusahaan;
         $atasan = $biodata->atasan;
+        $profileQuestionConfigs = AdminAlumniProfileService::getProfileQuestionConfigs();
+        $hasProfileQuestionConfigs = $profileQuestionConfigs !== [];
+        $isProfileFieldRequired = static function (string $code, bool $fallback = true) use ($profileQuestionConfigs, $hasProfileQuestionConfigs): bool {
+            if (! $hasProfileQuestionConfigs) {
+                return $fallback;
+            }
+
+            return (bool) ($profileQuestionConfigs[strtoupper($code)]['wajib'] ?? false);
+        };
 
         $fields = [
             // Data Pribadi & Kontak
@@ -133,6 +143,38 @@ class KelengkapanTracerService
             'Facebook Profil URL' => $summary?->facebook_url ?? $biodata->facebook_url,
             'Kode Pos Perusahaan (Zipcode)' => $summary?->kode_pos ?? $biodata->zipcode,
         ];
+
+        $configurableFields = [
+            'Nama Lengkap' => 'F2A',
+            'NIM' => 'F1',
+            'Tanggal Lahir' => 'BIO_TANGGAL_LAHIR',
+            'Jenis Kelamin' => 'BIO_JK',
+            'Nomor Telepon/HP' => 'F2B',
+            'Email Pribadi' => 'F2C',
+            'Alamat Domisili Saat Ini' => 'F2D',
+            'Nama Perusahaan' => 'F2E',
+            'Alamat Perusahaan' => 'F2F',
+            'Skala Perusahaan' => 'F2H',
+            'Provinsi Perusahaan' => 'BIO_INST_LOKASI',
+            'Kabupaten Perusahaan' => 'BIO_INST_LOKASI',
+            'Nama Atasan' => 'F2E1',
+            'Email Atasan' => 'F2E3',
+            'Nomor Telepon Atasan' => 'F2E2',
+            'Posisi Jabatan' => 'F2G',
+            'Keahlian (Skills)' => 'BIO_SKILLS',
+            'Pengalaman Kerja (Experience)' => 'BIO_EXPERIENCE',
+            'LinkedIn Profil URL' => 'BIO_LINKEDIN_URL',
+            'LinkedIn Username' => 'BIO_LINKEDIN_USER',
+            'Instagram Profil URL' => 'BIO_INSTAGRAM_URL',
+            'Facebook Profil URL' => 'BIO_FACEBOOK_URL',
+            'Kode Pos Perusahaan (Zipcode)' => 'BIO_INST_KODEPOS',
+        ];
+
+        foreach ($configurableFields as $label => $code) {
+            if (! $isProfileFieldRequired($code)) {
+                unset($fields[$label]);
+            }
+        }
 
         $dynamicProfileQuestions = KuesionerSyncService::getDynamicProfileQuestions()
             ->filter(fn ($question): bool => (bool) ($question->pivot_wajib ?? $question->wajib ?? false));

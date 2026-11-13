@@ -350,6 +350,15 @@ sumber logika kedua. Karena tabel jawaban mendukung riwayat pengisian ulang,
 jawaban terbaru ditentukan dari `kuesioner_jawaban.id`, bukan dari unique key
 yang tidak tersedia pada pasangan `biodata_id` dan `kode_pertanyaan`.
 
+Fixture default `AlumniSimulationSeeder` mengisi indikator universitas yang
+bergantung pada percabangan pekerjaan secara eksplisit: F10 untuk seluruh
+kohort, serta F11 dan F16 untuk alumni bekerja atau berwirausaha. Label jawaban
+diambil dari `kuesioner_opsi` aktif dan tetap melewati `pertanyaan_id` serta
+`opsi_id`, sehingga indikator universitas memiliki variasi yang dapat dibaca
+tanpa membuat jawaban yatim. Jalur tersebut tetap terhubung ke `biodata`,
+`data_akademik`, `prodi`, `perusahaan`, dan `atasan`; evaluasi atasan serta
+jawaban kuesioner prodi dibuat dari relasi alumni yang sama.
+
 Paket IKU S1 memakai dua read-model tambahan. `v_iku_s1_aee` membaca lulusan
 S1 melalui `data_akademik.prodi_id`, `angkatan_masuk`,
 `tahun_akademik_masuk`, dan `status_mahasiswa = 'Lulus'`; status aktif, AR, AK,

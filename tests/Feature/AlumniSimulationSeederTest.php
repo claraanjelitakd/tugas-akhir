@@ -152,6 +152,42 @@ class AlumniSimulationSeederTest extends TestCase
                 ->distinct('jawaban_teks')
                 ->count('jawaban_teks')
         );
+        foreach (['F10', 'F11', 'F16'] as $indicatorCode) {
+            $this->assertGreaterThan(
+                0,
+                KuesionerJawaban::query()
+                    ->where('responden_type', 'alumni')
+                    ->where('kode_pertanyaan', $indicatorCode)
+                    ->whereNotNull('opsi_id')
+                    ->whereHas('opsi')
+                    ->count(),
+                "Indikator {$indicatorCode} harus memiliki jawaban yang terhubung ke opsi aktif."
+            );
+        }
+        $this->assertGreaterThanOrEqual(
+            3,
+            KuesionerJawaban::query()
+                ->where('responden_type', 'alumni')
+                ->where('kode_pertanyaan', 'F10')
+                ->distinct('jawaban_teks')
+                ->count('jawaban_teks')
+        );
+        $this->assertGreaterThanOrEqual(
+            3,
+            KuesionerJawaban::query()
+                ->where('responden_type', 'alumni')
+                ->where('kode_pertanyaan', 'F11')
+                ->distinct('jawaban_teks')
+                ->count('jawaban_teks')
+        );
+        $this->assertGreaterThanOrEqual(
+            3,
+            KuesionerJawaban::query()
+                ->where('responden_type', 'alumni')
+                ->where('kode_pertanyaan', 'F16')
+                ->distinct('jawaban_teks')
+                ->count('jawaban_teks')
+        );
         $this->assertSame(
             99,
             KuesionerJawaban::query()

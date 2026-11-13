@@ -22,6 +22,10 @@ const props = defineProps({
         type: Function,
         required: true,
     },
+    canSelectSection: {
+        type: Function,
+        required: true,
+    },
 });
 
 const emit = defineEmits(['select-section']);
@@ -64,9 +68,11 @@ onMounted(() => {
                 <!-- Bulatan & Label Tahapan Seksi -->
                 <div 
                     :ref="el => setStepRef(el, index)"
-                    class="flex flex-col relative items-center justify-center cursor-pointer group px-1 sm:px-2 md:px-3 py-0.5 sm:py-1 transition-all duration-200"
-                    @click="emit('select-section', index)"
-                    :title="'Bagian ' + (index + 1) + ': ' + section.title"
+                    class="flex flex-col relative items-center justify-center group px-1 sm:px-2 md:px-3 py-0.5 sm:py-1 transition-all duration-200"
+                    :class="canSelectSection(index) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+                    @click="canSelectSection(index) && emit('select-section', index)"
+                    :title="canSelectSection(index) ? ('Bagian ' + (index + 1) + ': ' + section.title) : 'Lengkapi bagian sebelumnya terlebih dahulu'"
+                    :aria-disabled="!canSelectSection(index)"
                 >
                     <!-- Lingkaran Angka / Centang Selesai -->
                     <div 
