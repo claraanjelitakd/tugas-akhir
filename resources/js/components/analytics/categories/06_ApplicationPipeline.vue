@@ -9,7 +9,6 @@ import { computed } from 'vue';
 import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
 import {
     baseOption,
-    calculateMedian,
     escapeHtml,
     formatNumber,
     seriesLabel,
@@ -124,51 +123,14 @@ function applyClusterJitter(points, xKey = 'f6', yKey = 'f7') {
 
 // -----------------------------------------------------------------------------
 // 1. LINE CHART: Tahapan Lamaran per Program Studi (Gambar 4.7 Laporan Resmi)
+// Data pipeline per program studi dan nilai median dihitung secara terpusat oleh backend.
 // -----------------------------------------------------------------------------
 const prodiPipelineData = computed(() => {
-    if (props.chart?.prodi_pipeline) {
+    if (props.chart?.prodi_pipeline && props.chart.prodi_pipeline.length > 0) {
         return props.chart.prodi_pipeline;
     }
 
-    const list = alumniList.value;
-    if (list && list.length > 0) {
-        const prodiMap = {};
-        list.forEach((a) => {
-            const p = a.nama_prodi || 'Tanpa prodi';
-            if (!prodiMap[p]) prodiMap[p] = { prodi: p, f6: [], f7: [], f7a: [], count: 0 };
-            prodiMap[p].count++;
-            if (a.f6 !== null && a.f6 !== undefined) prodiMap[p].f6.push(Number(a.f6));
-            if (a.f7 !== null && a.f7 !== undefined) prodiMap[p].f7.push(Number(a.f7));
-            if (a.f7a !== null && a.f7a !== undefined) prodiMap[p].f7a.push(Number(a.f7a));
-        });
-
-        return Object.values(prodiMap)
-            .map((item) => ({
-                prodi: item.prodi,
-                count: item.count,
-                dilamar: calculateMedian(item.f6),
-                merespon: calculateMedian(item.f7),
-                wawancara: calculateMedian(item.f7a),
-            }))
-            .filter((item) => item.count > 0)
-            .sort((a, b) => b.count - a.count);
-    }
-
-    const prodis = [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))];
-    return prodis.map((prodi) => {
-        const prodiRows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
-        const f6 = prodiRows.filter((r) => r.kode_pertanyaan === 'F6').map((r) => Number(r.value));
-        const f7 = prodiRows.filter((r) => r.kode_pertanyaan === 'F7').map((r) => Number(r.value));
-        const f7a = prodiRows.filter((r) => r.kode_pertanyaan === 'F7A' || r.kode_pertanyaan === 'F7a').map((r) => Number(r.value));
-
-        return {
-            prodi,
-            count: new Set(prodiRows.map((r) => r.biodata_id)).size,
-            dilamar: calculateMedian(f6),
-            merespon: calculateMedian(f7),
-            wawancara: calculateMedian(f7a),
-        };
-    }).filter((item) => item.count > 0).sort((a, b) => b.count - a.count);
+    return [];
 });
 
 // Opsi stacked bar 100% horizontal untuk membandingkan proporsi tahapan pipeline per prodi.
@@ -624,97 +586,19 @@ const legacyScatter2Table = computed(() => {
     };
 });
 
-// Menyusun detail individu dan pivot prodi dari dua tahap pipeline yang dibandingkan.
-const buildPipelineAuditTable = (data, firstKey, secondKey, firstLabel, secondLabel) => {
-    const detail = (data || []).map((item) => {
-        const firstValue = Number(item[firstKey]);
-        const secondValue = Number(item[secondKey]);
-        const percentage = firstValue > 0 ? (secondValue / firstValue) * 100 : null;
+// Tabel audit individu untuk lamaran terhadap respons perusahaan dari backend.
+const scatter1Table = computed(() => props.chart?.relation_tables?.applications_responses || {
+    columns: [],
+    rows: [],
+    summary: { columns: [], rows: [] },
+});
 
-        return {
-            nama_alumni: item.name || '-',
-            nim: item.nim || '-',
-            prodi: item.prodi || 'Tanpa prodi',
-            ipk: item.ipk === null || item.ipk === undefined ? '-' : formatNumber(item.ipk, 2),
-            tahap_awal: formatNumber(firstValue, 0),
-            tahap_akhir: formatNumber(secondValue, 0),
-            persentase: percentage === null ? '-' : `${formatNumber(percentage, 1)}%`,
-            _firstValue: firstValue,
-            _secondValue: secondValue,
-            _percentage: percentage,
-            _ipk: item.ipk === null || item.ipk === undefined ? null : Number(item.ipk),
-        };
-    }).sort((left, right) => (right._percentage ?? -1) - (left._percentage ?? -1) || right._ipk - left._ipk);
-
-    const groups = new Map();
-    detail.forEach((row) => {
-        if (!groups.has(row.prodi)) groups.set(row.prodi, []);
-        groups.get(row.prodi).push(row);
-    });
-
-    const pivot = [...groups.entries()].map(([prodi, rows]) => {
-        const validPercentages = rows.filter((row) => row._percentage !== null);
-        const validIpk = rows.filter((row) => row._ipk !== null).map((row) => row._ipk);
-        const top = validPercentages.sort((left, right) => right._percentage - left._percentage || (right._ipk ?? -1) - (left._ipk ?? -1))[0];
-        const average = (key, source = rows) => source.length > 0 ? source.reduce((sum, row) => sum + row[key], 0) / source.length : null;
-
-        return {
-            prodi,
-            alumni_valid: formatNumber(rows.length, 0),
-            rata_ipk: validIpk.length > 0 ? formatNumber(validIpk.reduce((sum, value) => sum + value, 0) / validIpk.length, 2) : '-',
-            rata_awal: formatNumber(average('_firstValue'), 1),
-            rata_akhir: formatNumber(average('_secondValue'), 1),
-            rata_persentase: validPercentages.length > 0 ? `${formatNumber(average('_percentage', validPercentages), 1)}%` : '-',
-            alumni_tertinggi: top ? `${top.nama_alumni} (${formatNumber(top._percentage, 1)}%)` : '-',
-            ipk_tertinggi: top?._ipk === null || top?._ipk === undefined ? '-' : formatNumber(top._ipk, 2),
-            _sortPercentage: top?._percentage ?? -1,
-        };
-    }).sort((left, right) => right._sortPercentage - left._sortPercentage || left.prodi.localeCompare(right.prodi, 'id'));
-
-    return {
-        columns: [
-            { key: 'nama_alumni', label: 'Nama Alumni' },
-            { key: 'nim', label: 'NIM' },
-            { key: 'prodi', label: 'Program Studi' },
-            { key: 'ipk', label: 'IPK', align: 'right' },
-            { key: 'tahap_awal', label: firstLabel, align: 'right' },
-            { key: 'tahap_akhir', label: secondLabel, align: 'right' },
-            { key: 'persentase', label: 'Persentase', align: 'right' },
-        ],
-        rows: detail,
-        summary: {
-            columns: [
-                { key: 'prodi', label: 'Program Studi' },
-                { key: 'alumni_valid', label: 'Alumni Valid', align: 'right' },
-                { key: 'rata_ipk', label: 'Rata-rata IPK', align: 'right' },
-                { key: 'rata_awal', label: `Rata-rata ${firstLabel}`, align: 'right' },
-                { key: 'rata_akhir', label: `Rata-rata ${secondLabel}`, align: 'right' },
-                { key: 'rata_persentase', label: 'Rata-rata Persentase', align: 'right' },
-                { key: 'alumni_tertinggi', label: 'Persentase Tertinggi' },
-                { key: 'ipk_tertinggi', label: 'IPK Alumni Tertinggi', align: 'right' },
-            ],
-            rows: pivot,
-        },
-    };
-};
-
-// Tabel audit individu untuk lamaran terhadap respons perusahaan.
-const scatter1Table = computed(() => props.chart?.relation_tables?.applications_responses || buildPipelineAuditTable(
-    scatter1.value.data,
-    'f6',
-    'f7',
-    'Lamaran (F6)',
-    'Respons (F7)',
-));
-
-// Tabel audit individu untuk respons perusahaan terhadap undangan wawancara.
-const scatter2Table = computed(() => props.chart?.relation_tables?.responses_interviews || buildPipelineAuditTable(
-    scatter2.value.data,
-    'f7',
-    'f7a',
-    'Respons (F7)',
-    'Wawancara (F7a)',
-));
+// Tabel audit individu untuk respons perusahaan terhadap undangan wawancara dari backend.
+const scatter2Table = computed(() => props.chart?.relation_tables?.responses_interviews || {
+    columns: [],
+    rows: [],
+    summary: { columns: [], rows: [] },
+});
 
 // -----------------------------------------------------------------------------
 // 4. STACKED BAR: Distribusi Konversi berdasarkan Kelompok IPK
@@ -734,18 +618,7 @@ const conversionStageDefinitions = [
     { key: 'app_to_intv', label: 'Lamaran → Wawancara', fromKey: 'f6', toKey: 'f7a' },
 ];
 
-// Mengelompokkan IPK dengan interval konsisten dan tetap menyimpan nilai kosong.
-const getConversionIpkBand = (value) => {
-    const unavailableBand = conversionIpkBands.find((band) => band.key === 'ipk_unavailable');
-    if (value === null || value === undefined || String(value).trim() === '') return unavailableBand;
-
-    const ipk = Number(value);
-    if (!Number.isFinite(ipk) || ipk < 0 || ipk > 4) return unavailableBand;
-
-    return conversionIpkBands.find((band) => band.min !== undefined && ipk >= band.min && (ipk < band.max || (band.max === 4 && ipk <= 4))) || unavailableBand;
-};
-
-// Mengagregasi jumlah tahap per kelompok IPK; panjang bar memakai jumlah pembilang.
+// Mengagregasi jumlah tahap per kelompok IPK; statistik segmen dipasok oleh backend.
 const conversionIpkStats = computed(() => conversionStageDefinitions.map((stage) => {
     const backendStage = props.chart?.conversion_ipk_stats?.find((item) => item.key === stage.key);
     if (backendStage) {
@@ -759,27 +632,13 @@ const conversionIpkStats = computed(() => conversionStageDefinitions.map((stage)
         };
     }
 
-    const stageRecords = alumniList.value.filter((record) => {
-        const from = Number(record[stage.fromKey]);
-        const to = Number(record[stage.toKey]);
-
-        return Number.isFinite(from) && from > 0 && Number.isFinite(to) && to >= 0;
-    });
-    const fromCount = stageRecords.reduce((sum, record) => sum + Number(record[stage.fromKey]), 0);
-    const toCount = stageRecords.reduce((sum, record) => sum + Number(record[stage.toKey]), 0);
-    const counts = Object.fromEntries(conversionIpkBands.map((band) => [band.key, 0]));
-
-    stageRecords.forEach((record) => {
-        const band = getConversionIpkBand(record.ipk);
-        counts[band.key] += Number(record[stage.toKey]);
-    });
-
     return {
         ...stage,
-        fromCount,
-        toCount,
-        conversionPercentage: fromCount > 0 ? (toCount / fromCount) * 100 : 0,
-        counts,
+        fromCount: 0,
+        toCount: 0,
+        conversionPercentage: 0,
+        counts: Object.fromEntries(conversionIpkBands.map((band) => [band.key, 0])),
+        segmentPercentages: Object.fromEntries(conversionIpkBands.map((band) => [band.key, 0])),
     };
 }));
 

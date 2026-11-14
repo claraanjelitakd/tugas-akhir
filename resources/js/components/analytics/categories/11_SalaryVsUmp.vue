@@ -36,23 +36,13 @@ const records = computed(() => props.chart?.records || []);
 const summary = computed(() => props.chart?.summary || {});
 const validResponses = computed(() => records.value.length);
 
-// Helper perhitungan kuartil statistik
-const getQuantile = (sorted, percentile) => {
-    if (!sorted.length) return 0;
-    const position = (sorted.length - 1) * percentile;
-    const base = Math.floor(position);
-    const rest = position - base;
-    return sorted[base + 1] === undefined ? sorted[base] : sorted[base] + rest * (sorted[base + 1] - sorted[base]);
-};
-
 // -----------------------------------------------------------------------------
 // 1. STATISTIK LENGKAP PENDAPATAN PER PRODI (Min, Q1, Median, Q3, Max)
 // Menggabungkan 3 Garis: Q1, Median (Q2 di-highlight), dan Q3
+// Data statistik kuartil dan rentang gaji dikalkulasi secara terpusat oleh backend.
 // -----------------------------------------------------------------------------
-const prodisList = computed(() => [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]);
-
 const prodiSalaryStats = computed(() => {
-    if (props.chart?.series) {
+    if (props.chart?.series && props.chart.series.length > 0) {
         return props.chart.series.map((item) => ({
             prodi: item.label,
             count: Number(item.count || 0),
@@ -64,25 +54,14 @@ const prodiSalaryStats = computed(() => {
         }));
     }
 
-    return prodisList.value.map((prodi) => {
-        const prodiRows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
-        const salaries = prodiRows.map((r) => Number(r.salary)).filter((s) => Number.isFinite(s) && s > 0).sort((a, b) => a - b);
-        const count = salaries.length;
+    return [];
+});
 
-        if (count === 0) {
-            return { prodi, count: 0, min: 0, q1: 0, median: 0, q3: 0, max: 0 };
-        }
-
-        return {
-            prodi,
-            count,
-            min: salaries[0],
-            q1: getQuantile(salaries, 0.25),
-            median: getQuantile(salaries, 0.5),
-            q3: getQuantile(salaries, 0.75),
-            max: salaries[salaries.length - 1],
-        };
-    }).filter((item) => item.count > 0).sort((a, b) => b.median - a.median);
+const prodisList = computed(() => {
+    if (prodiSalaryStats.value.length > 0) {
+        return prodiSalaryStats.value.map((i) => i.prodi);
+    }
+    return [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))];
 });
 
 const prodiSalaryOption = computed(() => {
@@ -197,9 +176,10 @@ const prodiSalaryTable = computed(() => ({
 
 // -----------------------------------------------------------------------------
 // 2. GAJI VS AMBANG 1,2× UMP PER PROGRAM STUDI & RINCIAN ALUMNI
+// Data pemenuhan ambang per program studi dipasok langsung oleh backend.
 // -----------------------------------------------------------------------------
 const prodiUmpData = computed(() => {
-    if (props.chart?.ump_by_prodi) {
+    if (props.chart?.ump_by_prodi && props.chart.ump_by_prodi.length > 0) {
         return props.chart.ump_by_prodi.map((item) => ({
             prodi: item.label,
             total: Number(item.total || 0),
@@ -212,27 +192,7 @@ const prodiUmpData = computed(() => {
         }));
     }
 
-    return prodisList.value.map((prodi) => {
-        const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
-        const total = rows.length;
-        const meets = rows.filter((r) => r.meets_ump === true).length;
-        const below = rows.filter((r) => r.meets_ump === false).length;
-        const notComparable = rows.filter((r) => r.meets_ump === null || r.meets_ump === undefined).length;
-        const meetsPct = total > 0 ? Number(((meets / total) * 100).toFixed(1)) : 0;
-        const belowPct = total > 0 ? Number(((below / total) * 100).toFixed(1)) : 0;
-        const notComparablePct = total > 0 ? Number(((notComparable / total) * 100).toFixed(1)) : 0;
-
-        return {
-            prodi,
-            total,
-            meets,
-            below,
-            notComparable,
-            meetsPct,
-            belowPct,
-            notComparablePct,
-        };
-    }).filter((i) => i.total > 0).sort((a, b) => b.meetsPct - a.meetsPct);
+    return [];
 });
 
 const prodiUmpOption = computed(() => {
@@ -330,9 +290,10 @@ const alumniBelowUmp = computed(() => {
 // -----------------------------------------------------------------------------
 // 3. TABEL & GRAFIK STATUS PEMENUHAN 1,2× UMP PER PROVINSI
 // (Menggantikan peta spasial sesuai instruksi pengguna: list provinsi dan status pemenuhan)
+// Agregat provinsi dan median pendapatan dikalkulasi secara terpusat oleh backend.
 // -----------------------------------------------------------------------------
 const provinceStats = computed(() => {
-    if (props.chart?.ump_by_province) {
+    if (props.chart?.ump_by_province && props.chart.ump_by_province.length > 0) {
         return props.chart.ump_by_province.map((item) => ({
             province: item.label,
             total: Number(item.total || 0),
@@ -347,54 +308,7 @@ const provinceStats = computed(() => {
         }));
     }
 
-    const provinceMap = new Map();
-    records.value.forEach((r) => {
-        const prov = r.workplace_nama_provinsi || r.province_name || 'Tidak Teridentifikasi';
-        const cur = provinceMap.get(prov) || {
-            province: prov,
-            total: 0,
-            meets: 0,
-            below: 0,
-            notComparable: 0,
-            salaries: [],
-        };
-        cur.total += 1;
-        if (r.meets_ump === true) {
-            cur.meets += 1;
-        } else if (r.meets_ump === false) {
-            cur.below += 1;
-        } else {
-            cur.notComparable += 1;
-        }
-        if (Number(r.salary) > 0) {
-            cur.salaries.push(Number(r.salary));
-        }
-        provinceMap.set(prov, cur);
-    });
-
-    return [...provinceMap.values()].map((p) => {
-        const sorted = p.salaries.sort((a, b) => a - b);
-        const median = sorted.length ? getQuantile(sorted, 0.5) : 0;
-        const meetsPct = p.total > 0 ? Number(((p.meets / p.total) * 100).toFixed(1)) : 0;
-        const belowPct = p.total > 0 ? Number(((p.below / p.total) * 100).toFixed(1)) : 0;
-        const notComparablePct = p.total > 0 ? Number(((p.notComparable / p.total) * 100).toFixed(1)) : 0;
-        let statusLabel = 'Perlu Perhatian';
-        if (meetsPct >= 80) statusLabel = 'Memenuhi Mayoritas';
-        else if (meetsPct >= 50) statusLabel = 'Sebagian Memenuhi';
-
-        return {
-            province: p.province,
-            total: p.total,
-            meets: p.meets,
-            below: p.below,
-            notComparable: p.notComparable,
-            meetsPct,
-            belowPct,
-            notComparablePct,
-            medianSalary: median,
-            statusLabel,
-        };
-    }).sort((a, b) => b.total - a.total);
+    return [];
 });
 
 const provinceOption = computed(() => {

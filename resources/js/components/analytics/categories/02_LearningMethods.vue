@@ -107,9 +107,10 @@ const selectedMethodItem = computed(() => {
 });
 
 // Ringkasan agregat per program studi untuk analisis naratif pola antar program studi.
+// Nilai rata-rata dan skor integer dihitung secara terpusat oleh backend.
 const prodiSummaries = computed(() => {
-    if (props.chart?.prodi_series) {
-        return props.chart.prodi_series.flatMap((item) => item.methods)
+    if (props.chart?.prodi_series && props.chart.prodi_series.length > 0) {
+        return props.chart.prodi_series.flatMap((item) => item.methods || [])
             .filter((method) => Number(method.count || 0) > 0)
             .map((method) => ({
                 prodi: method.prodi || '-',
@@ -120,19 +121,7 @@ const prodiSummaries = computed(() => {
             }));
     }
 
-    return prodis.value.map((prodi) => {
-        const group = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
-        const scores = group.map((r) => Number(r.score)).filter((s) => !isNaN(s) && s >= 1 && s <= 5);
-        const count = scores.length;
-        const avg = count > 0 ? scores.reduce((a, b) => a + b, 0) / count : 0;
-        return {
-            prodi,
-            count,
-            average: avg,
-            scoreInt: Math.round(avg),
-            scoreLabel: scaleDescriptions[Math.round(avg)] || '-',
-        };
-    }).filter((p) => p.count > 0).sort((a, b) => b.average - a.average);
+    return [];
 });
 
 // -----------------------------------------------------------------------------
@@ -727,13 +716,13 @@ const heatmapPalette = {
 };
 
 const heatmapData = computed(() => {
-    if (props.chart?.prodi_series) {
+    if (props.chart?.prodi_series && props.chart.prodi_series.length > 0) {
         const listProdis = props.chart.prodi_series;
         const methodKeys = series.value.map((s) => s.key);
         const values = [];
         listProdis.forEach((prodiItem, yIndex) => {
             methodKeys.forEach((key, xIndex) => {
-                const method = prodiItem.methods.find((item) => item.key === key) || {};
+                const method = prodiItem.methods?.find((item) => item.key === key) || {};
                 const scoreInt = Number(method.score_int || 0);
                 values.push({
                     value: [xIndex, yIndex, scoreInt],
@@ -750,34 +739,7 @@ const heatmapData = computed(() => {
         return { values };
     }
 
-    const listProdis = prodis.value;
-    const methodKeys = series.value.map((s) => s.key);
-    const values = [];
-
-    listProdis.forEach((prodi, yIndex) => {
-        methodKeys.forEach((key, xIndex) => {
-            const group = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && r.kode_pertanyaan === key);
-            const scores = group.map((r) => Number(r.score)).filter((s) => !isNaN(s) && s >= 1 && s <= 5);
-            const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-            // Dibulatkan bulat ke integer 1 - 5 (INT penuh, tanpa desimal)
-            const roundInt = Math.max(1, Math.min(5, Math.round(avg) || 3));
-
-            values.push({
-                value: [xIndex, yIndex, roundInt],
-                rawAvg: avg,
-                scoreInt: roundInt,
-                count: scores.length,
-                prodi,
-                methodKey: key,
-                methodLabel: series.value.find((s) => s.key === key)?.label || key,
-                label: {
-                    color: roundInt === 3 ? '#0F172A' : '#FFFFFF',
-                },
-            });
-        });
-    });
-
-    return { values };
+    return { values: [] };
 });
 
 const heatmapOption = computed(() => {
@@ -940,26 +902,26 @@ const handleChartClick = (params) => {
     }
 };
 
-// Kalkulasi rata-rata skor per program studi untuk metode yang sedang dipilih.
+// Rincian skor per program studi untuk metode yang sedang dipilih.
+// Seluruh agregat prodi dipasok langsung oleh backend.
 const prodiScoresForSelectedMethod = computed(() => {
     if (!selectedMethodKey.value) return [];
     const key = selectedMethodKey.value;
 
-    return prodis.value.map((prodi) => {
-        const group = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && r.kode_pertanyaan === key);
-        const scores = group.map((r) => Number(r.score)).filter((s) => !isNaN(s) && s >= 1 && s <= 5);
-        const count = scores.length;
-        const avg = count > 0 ? scores.reduce((a, b) => a + b, 0) / count : 0;
-        const scoreInt = count > 0 ? Math.round(avg) : 0;
+    if (props.chart?.prodi_series && props.chart.prodi_series.length > 0) {
+        return props.chart.prodi_series.map((prodiItem) => {
+            const method = prodiItem.methods?.find((m) => m.key === key) || {};
+            return {
+                prodi: prodiItem.prodi,
+                count: Number(method.count || 0),
+                average: Number(method.average || 0),
+                score_int: Number(method.score_int || 0),
+                score_label: method.score_label || '-',
+            };
+        }).filter((p) => p.count > 0).sort((a, b) => b.average - a.average);
+    }
 
-        return {
-            prodi,
-            count,
-            average: avg,
-            score_int: scoreInt,
-            score_label: scaleDescriptions[scoreInt] || '-',
-        };
-    }).filter((p) => p.count > 0).sort((a, b) => b.average - a.average);
+    return [];
 });
 
 // -----------------------------------------------------------------------------
