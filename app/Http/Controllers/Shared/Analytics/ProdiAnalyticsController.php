@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\SuperAdmin\Analytics;
+namespace App\Http\Controllers\Shared\Analytics;
 
 use App\Http\Controllers\Controller;
 use App\Services\Analytics\ProdiAnalyticsService;
@@ -10,10 +10,10 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Controller Analitik Kuesioner Program Studi untuk Superadmin.
+ * Controller Analitik Kuesioner Program Studi untuk SuperAdmin, Biro 3, Fakultas, dan Prodi.
  *
  * Bertanggung jawab menyajikan visualisasi grafik dan data respon kuesioner khusus
- * program studi (default Sistem Informasi) berbasis seksi dan butir pertanyaan prodi.
+ * program studi berbasis seksi dan butir pertanyaan prodi.
  */
 class ProdiAnalyticsController extends Controller
 {
@@ -31,7 +31,7 @@ class ProdiAnalyticsController extends Controller
         $sectionId = $request->input('section_id') ?: null;
         $year = $request->string('tahun')->toString() ?: null;
 
-        return Inertia::render('SuperAdmin/Analytics/GrafikProdi', [
+        return Inertia::render('Shared/Analytics/GrafikProdi', [
             'user' => $user,
             'analytics' => $analyticsService->buildProdiChart($prodiId, $sectionId, $year),
         ]);

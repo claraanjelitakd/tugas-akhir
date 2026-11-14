@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\SuperAdmin\Analytics;
+namespace App\Http\Controllers\Shared\Analytics;
 
 use App\Http\Controllers\Controller;
 use App\Services\Analytics\AtasanAnalyticsService;
@@ -10,7 +10,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Menyajikan grafik dan data pembentuk evaluasi pengguna lulusan dari jawaban atasan.
+ * Menyajikan grafik dan data pembentuk evaluasi pengguna lulusan dari jawaban atasan untuk SuperAdmin, Biro 3, Fakultas, dan Prodi.
  */
 class AtasanAnalyticsController extends Controller
 {
@@ -25,7 +25,7 @@ class AtasanAnalyticsController extends Controller
             $prodiId = (int) $user->prodi_id;
         }
 
-        return Inertia::render('SuperAdmin/Analytics/GrafikAtasan', [
+        return Inertia::render('Shared/Analytics/GrafikAtasan', [
             'user' => $user,
             'analytics' => $analyticsService->build(
                 $request->string('tahun')->toString() ?: null,

@@ -102,7 +102,7 @@ class SuperAdminAnalyticsTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
-            ->component('SuperAdmin/Analytics/GrafikUniv')
+            ->component('Shared/Analytics/GrafikUniv')
             ->has('analytics.filters')
             ->has('analytics.chart_options')
             ->has('analytics.chart')

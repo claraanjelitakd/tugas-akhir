@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\SuperAdmin\Analytics;
+namespace App\Http\Controllers\Shared\Analytics;
 
 use App\Http\Controllers\Controller;
 use App\Services\Analytics\TracerAnalyticsService;
@@ -12,7 +12,7 @@ use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Menampilkan analitik Tracer Study tingkat universitas untuk Superadmin.
+ * Menampilkan analitik Tracer Study tingkat universitas untuk SuperAdmin, Biro 3, Fakultas, dan Prodi.
  */
 class TracerAnalyticsController extends Controller
 {
@@ -22,13 +22,18 @@ class TracerAnalyticsController extends Controller
      */
     public function index(Request $request, TracerAnalyticsService $analyticsService): Response
     {
+        $user = $request->user();
         $chart = $request->string('grafik')->toString() ?: null;
         $year = $request->string('tahun')->toString() ?: null;
         $umpYear = $request->integer('tahun_ump') ?: null;
         $prodiId = $request->integer('prodi_id') ?: null;
 
-        return Inertia::render('SuperAdmin/Analytics/GrafikUniv', [
-            'user' => $request->user(),
+        if ($user && $user->role === 'admin_prodi' && $user->prodi_id) {
+            $prodiId = (int) $user->prodi_id;
+        }
+
+        return Inertia::render('Shared/Analytics/GrafikUniv', [
+            'user' => $user,
             'analytics' => $analyticsService->buildUniversityChart($chart, $year, $umpYear, $prodiId),
         ]);
     }
@@ -39,10 +44,15 @@ class TracerAnalyticsController extends Controller
      */
     public function data(Request $request, TracerAnalyticsService $analyticsService): JsonResponse
     {
+        $user = $request->user();
         $chart = $request->string('grafik')->toString() ?: null;
         $year = $request->string('tahun')->toString() ?: null;
         $umpYear = $request->integer('tahun_ump') ?: null;
         $prodiId = $request->integer('prodi_id') ?: null;
+
+        if ($user && $user->role === 'admin_prodi' && $user->prodi_id) {
+            $prodiId = (int) $user->prodi_id;
+        }
 
         return response()->json(
             $analyticsService->buildUniversityChart($chart, $year, $umpYear, $prodiId)
@@ -54,9 +64,14 @@ class TracerAnalyticsController extends Controller
      */
     public function exportResponseRate(Request $request): StreamedResponse
     {
+        $user = $request->user();
         $year = $request->string('tahun')->toString() ?: (string) now()->year;
         $prodiId = $request->integer('prodi_id') ?: null;
         $status = $request->string('status')->toString() ?: 'all';
+
+        if ($user && $user->role === 'admin_prodi' && $user->prodi_id) {
+            $prodiId = (int) $user->prodi_id;
+        }
 
         return ResponseRateExcelExporter::download($year, $prodiId, $status);
     }

@@ -180,8 +180,8 @@ const getLikertLevelFromLabel = (label) => {
 };
 
 // -----------------------------------------------------------------------------
-// 1. GRAFIK INDIKATOR 01: STACKED BAR 100% ASPEK KINERJA LULUSAN
-// Sumbu Y = Aspek Kinerja, Sumbu X = Proporsi 0-100%, Segmen = Skala Likert 1-5
+// 1. GRAFIK INDIKATOR 01: STACKED BAR ASPEK KINERJA LULUSAN
+// Sumbu Y = Aspek Kinerja, Sumbu X = Jumlah Respon Atasan (n), Segmen = Skala Likert 1-5, Ujung Batang = Total Respon
 // -----------------------------------------------------------------------------
 const kinerjaStackedOption = computed(() => {
     const items = likertItems.value;
@@ -201,14 +201,20 @@ const kinerjaStackedOption = computed(() => {
                     && selectedItem.value.level === scale.level);
 
             return {
-                value: percentage,
+                value: count,
                 count,
                 total: item.valid_count,
+                percentage,
                 aspek: item.label || item.aspek,
                 kode: item.kode,
                 scaleLevel: scale.level,
                 scaleLabel: scale.label,
-                opacity: isSelected ? 1 : 0.25,
+                itemStyle: {
+                    color: scale.color,
+                    opacity: isSelected ? 1 : 0.25,
+                    borderColor: '#FFFFFF',
+                    borderWidth: 1.5,
+                },
             };
         });
 
@@ -221,20 +227,49 @@ const kinerjaStackedOption = computed(() => {
                 show: true,
                 position: 'inside',
                 formatter: (param) => {
-                    const val = Number(param.value ?? 0);
-                    return val >= 10 ? `${Math.round(val)}%` : '';
+                    const cnt = Number(param.value ?? 0);
+                    if (cnt <= 0) return '';
+                    const pct = param.data?.percentage ?? 0;
+                    return pct >= 12 ? `${cnt} (${Math.round(pct)}%)` : `${cnt}`;
                 },
                 color: scale.textColor,
                 fontSize: 10,
                 fontWeight: 700,
             },
-            itemStyle: {
-                color: scale.color,
-                borderColor: '#FFFFFF',
-                borderWidth: 1.5,
-            },
             data,
         };
+    });
+
+    // Series transparan di ujung kanan bar untuk menampilkan label total respon
+    seriesList.push({
+        name: 'Total Respon',
+        type: 'bar',
+        stack: 'total',
+        barMaxWidth: 26,
+        data: items.map((item) => ({
+            value: 0,
+            total: item.valid_count,
+            aspek: item.label || item.aspek,
+            kode: item.kode,
+        })),
+        label: {
+            show: true,
+            position: 'right',
+            distance: 8,
+            formatter: (params) => {
+                const total = params.data?.total ?? 0;
+                return total > 0 ? `${total} respon` : '';
+            },
+            color: '#0F172A',
+            fontSize: 11,
+            fontWeight: 700,
+        },
+        itemStyle: {
+            color: 'rgba(0, 0, 0, 0)',
+        },
+        tooltip: {
+            show: false,
+        },
     });
 
     return {
@@ -245,17 +280,22 @@ const kinerjaStackedOption = computed(() => {
             icon: 'rect',
             itemWidth: 16,
             itemHeight: 12,
+            data: likertScaleLevels.map((s) => `${s.level} - ${s.label}`),
             textStyle: { color: '#334155', fontSize: 11, fontWeight: 500 },
         },
-        grid: { left: 24, right: 36, top: 20, bottom: 48, containLabel: true },
+        grid: { left: 24, right: 85, top: 20, bottom: 48, containLabel: true },
         xAxis: {
             type: 'value',
             min: 0,
-            max: 100,
-            name: 'Proporsi jawaban atasan',
+            minInterval: 1,
+            name: 'Jumlah respon atasan (n)',
             nameLocation: 'middle',
             nameGap: 28,
-            axisLabel: { formatter: '{value}%', color: '#64748B', fontSize: 11 },
+            axisLabel: {
+                formatter: (val) => Math.round(val),
+                color: '#64748B',
+                fontSize: 11,
+            },
             splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
         },
         yAxis: {
@@ -277,8 +317,9 @@ const kinerjaStackedOption = computed(() => {
             trigger: 'item',
             formatter: (params) => {
                 const d = params.data || {};
+                if (!d.aspek || d.scaleLevel === undefined) return '';
                 return `
-                    <div style="min-width: 190px; font-family: inherit;">
+                    <div style="min-width: 200px; font-family: inherit;">
                         <div style="font-weight: 700; color: #0F172A; font-size: 13px; border-bottom: 1px solid #F1F5F9; padding-bottom: 4px; margin-bottom: 6px;">
                             ${escapeHtml(d.aspek)}
                         </div>
@@ -286,10 +327,10 @@ const kinerjaStackedOption = computed(() => {
                             Penilaian: <strong style="color: #0F172A;">${escapeHtml(d.scaleLabel)}</strong>
                         </div>
                         <div style="font-size: 12px; color: #475569; margin-bottom: 3px;">
-                            Proporsi: <strong style="color: #0D542B; font-size: 13px;">${formatNumber(d.value, 1)}%</strong>
+                            Jumlah Respon: <strong style="color: #0D542B; font-size: 13px;">${formatNumber(d.count, 0)} atasan</strong>
                         </div>
                         <div style="font-size: 11px; color: #64748B;">
-                            Jumlah Respon: <strong style="color: #334155;">${formatNumber(d.count, 0)} dari ${formatNumber(d.total, 0)} atasan</strong>
+                            Proporsi: <strong style="color: #334155;">${formatNumber(d.percentage, 1)}%</strong> dari total ${formatNumber(d.total, 0)} atasan
                         </div>
                         <div style="margin-top: 6px; padding-top: 4px; border-top: 1px dashed #E2E8F0; font-size: 10px; color: #0D542B; font-weight: 600;">
                             Klik batang untuk menyaring responden alumni

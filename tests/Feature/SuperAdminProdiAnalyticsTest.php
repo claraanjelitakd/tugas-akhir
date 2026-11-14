@@ -80,7 +80,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
-            ->component('SuperAdmin/Analytics/GrafikProdi')
+            ->component('Shared/Analytics/GrafikProdi')
             ->has('analytics')
             ->where('analytics.prodi.id', $prodi->id)
             ->where('analytics.has_data', true)

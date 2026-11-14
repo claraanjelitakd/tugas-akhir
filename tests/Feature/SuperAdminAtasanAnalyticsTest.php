@@ -47,7 +47,7 @@ class SuperAdminAtasanAnalyticsTest extends TestCase
             ->get('/superadmin/analitik-atasan')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('SuperAdmin/Analytics/GrafikAtasan')
+                ->component('Shared/Analytics/GrafikAtasan')
                 ->has('analytics.filters')
                 ->has('analytics.question_stats', 14)
                 ->where('analytics.summary.population', 0)
