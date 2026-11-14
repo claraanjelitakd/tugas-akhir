@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
  */
 class IkuS1AnalyticsService
 {
-    private const AEE_IDEAL_S1 = 25.0;
+    private const DEFAULT_AEE_IDEAL_S1 = 25.0;
 
     private const VALID_CAREER_CATEGORIES = [
         'Karyawan',
@@ -73,9 +73,10 @@ class IkuS1AnalyticsService
                 ->where('is_lulus_tepat_waktu', 0)
                 ->count();
             $unidentified = $eligible - $onTime - $late;
+            $aeeIdeal = (float) config('iku.s1.aee_ideal', self::DEFAULT_AEE_IDEAL_S1);
             $realization = $this->percentage($onTime, $eligible);
             $achievement = $eligible > 0
-                ? round(($realization / self::AEE_IDEAL_S1) * 100, 2)
+                ? round(($realization / $aeeIdeal) * 100, 2)
                 : 0.0;
             $status = $this->aeeStatus($realization);
 
@@ -91,7 +92,7 @@ class IkuS1AnalyticsService
                 'late' => $late,
                 'unidentified' => $unidentified,
                 'aee_realization' => $realization,
-                'aee_ideal' => self::AEE_IDEAL_S1,
+                'aee_ideal' => $aeeIdeal,
                 'achievement' => $achievement,
                 'status_key' => $status['key'],
                 'status_label' => $status['label'],
@@ -111,6 +112,7 @@ class IkuS1AnalyticsService
         $aeeRealization = $this->percentage($onTime, $eligible);
         $programAchievements = $series->where('eligible', '>', 0)->pluck('achievement');
         $topProgram = $series->first();
+        $overallAeeIdeal = (float) config('iku.s1.aee_ideal', self::DEFAULT_AEE_IDEAL_S1);
 
         return [
             'key' => 'iku_s1_aee',
@@ -125,7 +127,7 @@ class IkuS1AnalyticsService
                 'late_count' => $late,
                 'unidentified_count' => $unidentified,
                 'aee_realization' => $aeeRealization,
-                'aee_ideal' => self::AEE_IDEAL_S1,
+                'aee_ideal' => $overallAeeIdeal,
                 'aee_pt' => $programAchievements->isNotEmpty() ? round($programAchievements->avg(), 2) : 0.0,
                 'program_count' => $series->count(),
                 'top_program_id' => $topProgram['prodi_id'] ?? null,

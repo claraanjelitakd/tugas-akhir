@@ -8,6 +8,7 @@
  */
 return [
     's1' => [
+        'aee_ideal' => 25.0,
         'ump_multiplier' => 1.2,
         'slovin_error' => 0.023,
         'aee_status_target' => 60.0,

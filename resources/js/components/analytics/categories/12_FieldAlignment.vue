@@ -32,6 +32,8 @@ const emit = defineEmits(['select', 'reset']);
 
 // Ekstraksi data seri dan catatan responden.
 const series = computed(() => props.chart?.series || []);
+// Agregat per program studi sudah dihitung backend untuk konsumsi matriks dan visualisasi prodi.
+const prodiSeries = computed(() => props.chart?.prodi_series || []);
 const records = computed(() => props.chart?.records || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || records.value.length);
 
@@ -75,23 +77,40 @@ const getAlignmentColor = (label) => {
 // -----------------------------------------------------------------------------
 // 1. STACKED BAR ANTARPRODI (Desain & Palet Warna Indikator 02 + Vertical Scale Bar)
 // -----------------------------------------------------------------------------
-const prodis = computed(() => [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]);
+const prodis = computed(() => (
+    prodiSeries.value.length > 0
+        ? prodiSeries.value.map((item) => item.prodi)
+        : [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]
+));
 const orderedLevels = [1, 2, 3, 4, 5];
 
 const stackedOption = computed(() => {
     const listProdis = prodis.value;
-    const prodiTotals = Object.fromEntries(
-        listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]),
-    );
+    const prodiTotals = prodiSeries.value.length > 0
+        ? Object.fromEntries(prodiSeries.value.map((p) => [p.prodi, p.total]))
+        : Object.fromEntries(listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]));
 
     const seriesList = orderedLevels.map((lvl) => {
         const catName = scaleDescriptions[lvl];
         const catData = listProdis.map((prodi) => {
+            if (prodiSeries.value.length > 0) {
+                const backendProdi = prodiSeries.value.find((item) => item.prodi === prodi);
+                const backendItem = backendProdi?.items?.find((item) => getScaleLevel(item.label) === lvl);
+                return {
+                    value: backendItem?.percentage || 0,
+                    count: backendItem?.count || 0,
+                    total: backendProdi?.total || 0,
+                    prodi,
+                    category: catName,
+                    scoreLevel: lvl,
+                };
+            }
+
             const count = records.value.filter((r) => {
                 const p = r.nama_prodi || 'Tanpa prodi';
                 return p === prodi && getScaleLevel(recordCategory(r)) === lvl;
             }).length;
-            const total = Math.max(prodiTotals[prodi], 1);
+            const total = Math.max(prodiTotals[prodi] || 0, 1);
             const pct = Number(((count / total) * 100).toFixed(1));
             return {
                 value: pct,
@@ -330,6 +349,26 @@ const stackedTable = computed(() => ({
         { key: 'tidak', label: 'Tidak Sama Sekali (1)', align: 'right' },
     ],
     rows: prodis.value.map((prodi) => {
+        if (prodiSeries.value.length > 0) {
+            const backendProdi = prodiSeries.value.find((item) => item.prodi === prodi);
+            const total = backendProdi?.total || 0;
+            const fmt = (lvl) => {
+                const item = backendProdi?.items?.find((it) => getScaleLevel(it.label) === lvl);
+                const cnt = item?.count || 0;
+                const pct = item?.percentage || 0;
+                return `${cnt} (${pct}%)`;
+            };
+            return {
+                prodi,
+                total: formatNumber(total, 0),
+                sangat_erat: fmt(5),
+                erat: fmt(4),
+                cukup: fmt(3),
+                kurang: fmt(2),
+                tidak: fmt(1),
+            };
+        }
+
         const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const total = rows.length;
         const countByLvl = (lvl) => rows.filter((r) => getScaleLevel(recordCategory(r)) === lvl).length;
@@ -355,20 +394,36 @@ const heatmapCategories = computed(() => orderedLevels.map((lvl) => scaleDescrip
 const heatmapData = computed(() => {
     const listProdis = prodis.value;
     const cats = heatmapCategories.value;
-    const prodiTotals = Object.fromEntries(
-        listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]),
-    );
+    const prodiTotals = prodiSeries.value.length > 0
+        ? Object.fromEntries(prodiSeries.value.map((p) => [p.prodi, p.total]))
+        : Object.fromEntries(listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]));
 
     const rawValues = [];
     listProdis.forEach((prodi, yIndex) => {
+        const backendProdi = prodiSeries.value.length > 0
+            ? prodiSeries.value.find((item) => item.prodi === prodi)
+            : null;
+
         cats.forEach((cat, xIndex) => {
             const lvl = xIndex + 1;
-            const count = records.value.filter((r) => {
-                const p = r.nama_prodi || 'Tanpa prodi';
-                return p === prodi && getScaleLevel(recordCategory(r)) === lvl;
-            }).length;
-            const total = Math.max(prodiTotals[prodi], 1);
-            const pct = Number(((count / total) * 100).toFixed(1));
+            let count = 0;
+            let total = 0;
+            let pct = 0;
+
+            if (backendProdi) {
+                const backendItem = backendProdi.items?.find((item) => getScaleLevel(item.label) === lvl);
+                count = backendItem?.count || 0;
+                pct = backendItem?.percentage || 0;
+                total = backendProdi.total || 0;
+            } else {
+                count = records.value.filter((r) => {
+                    const p = r.nama_prodi || 'Tanpa prodi';
+                    return p === prodi && getScaleLevel(recordCategory(r)) === lvl;
+                }).length;
+                total = Math.max(prodiTotals[prodi] || 0, 1);
+                pct = Number(((count / total) * 100).toFixed(1));
+            }
+
             rawValues.push({
                 value: [xIndex, yIndex, pct],
                 prodi,
@@ -499,7 +554,7 @@ const heatmapOption = computed(() => {
 
 const heatmapTable = computed(() => {
     const cats = heatmapCategories.value;
-    const prodiTotals = heatmapData.value.prodiTotals;
+    const { values, prodiTotals } = heatmapData.value;
 
     const columns = [
         { key: 'prodi', label: 'Program Studi' },
@@ -517,13 +572,9 @@ const heatmapTable = computed(() => {
             total: formatNumber(prodiTotals[prodi] || 0, 0),
         };
         cats.forEach((cat, i) => {
-            const lvl = i + 1;
-            const count = records.value.filter((r) => {
-                const p = r.nama_prodi || 'Tanpa prodi';
-                return p === prodi && getScaleLevel(recordCategory(r)) === lvl;
-            }).length;
-            const total = Math.max(prodiTotals[prodi], 1);
-            const pct = ((count / total) * 100).toFixed(1);
+            const cell = values.find((v) => v.prodi === prodi && v.category === cat);
+            const count = cell?.count ?? 0;
+            const pct = cell?.rawPercentage ?? 0;
             row[`cat_${i}`] = `${formatNumber(count, 0)} (${pct}%)`;
         });
         return row;

@@ -32,10 +32,16 @@ const emit = defineEmits(['select', 'reset']);
 
 // Ekstraksi data seri dan catatan responden.
 const series = computed(() => props.chart?.series || []);
+// Agregat per program studi sudah dihitung backend untuk konsumsi matriks dan visualisasi prodi.
+const prodiSeries = computed(() => props.chart?.prodi_series || []);
 const records = computed(() => props.chart?.records || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || records.value.length);
 
-const prodis = computed(() => [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]);
+const prodis = computed(() => (
+    prodiSeries.value.length > 0
+        ? prodiSeries.value.map((item) => item.prodi)
+        : [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]
+));
 
 // -----------------------------------------------------------------------------
 // 1. BAR CHART: Vertical Match per Program Studi (Gambar 4.14 Laporan Resmi)
@@ -142,16 +148,32 @@ const categories = computed(() => {
 const heatmapData = computed(() => {
     const listProdis = prodis.value;
     const cats = categories.value;
-    const prodiTotals = Object.fromEntries(
-        listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]),
-    );
+    const prodiTotals = prodiSeries.value.length > 0
+        ? Object.fromEntries(prodiSeries.value.map((p) => [p.prodi, p.total]))
+        : Object.fromEntries(listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]));
 
     const values = [];
     listProdis.forEach((prodi, yIndex) => {
+        const backendProdi = prodiSeries.value.length > 0
+            ? prodiSeries.value.find((item) => item.prodi === prodi)
+            : null;
+
         cats.forEach((cat, xIndex) => {
-            const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
-            const total = Math.max(prodiTotals[prodi], 1);
-            const pct = Number(((count / total) * 100).toFixed(1));
+            let count = 0;
+            let total = 0;
+            let pct = 0;
+
+            if (backendProdi) {
+                const backendItem = backendProdi.items?.find((item) => item.label === cat);
+                count = backendItem?.count || 0;
+                pct = backendItem?.percentage || 0;
+                total = backendProdi.total || 0;
+            } else {
+                count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
+                total = Math.max(prodiTotals[prodi] || 0, 1);
+                pct = Number(((count / total) * 100).toFixed(1));
+            }
+
             values.push({
                 value: [xIndex, yIndex, pct],
                 prodi,
@@ -262,7 +284,7 @@ const heatmapOption = computed(() => {
 
 const heatmapTable = computed(() => {
     const cats = categories.value;
-    const prodiTotals = heatmapData.value.prodiTotals;
+    const { values, prodiTotals } = heatmapData.value;
 
     const columns = [
         { key: 'prodi', label: 'Program Studi' },
@@ -280,9 +302,9 @@ const heatmapTable = computed(() => {
             total: formatNumber(prodiTotals[prodi] || 0, 0),
         };
         cats.forEach((cat, i) => {
-            const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
-            const total = Math.max(prodiTotals[prodi], 1);
-            const pct = ((count / total) * 100).toFixed(1);
+            const cell = values.find((v) => v.prodi === prodi && v.category === cat);
+            const count = cell?.count ?? 0;
+            const pct = cell?.value ? cell.value[2] : 0;
             row[`cat_${i}`] = `${formatNumber(count, 0)} (${pct}%)`;
         });
         return row;
@@ -318,14 +340,26 @@ const getEducationAlignmentOrder = (label) => {
 const stackedOption = computed(() => {
     const listProdis = prodis.value;
     const cats = categories.value;
-    const prodiTotals = Object.fromEntries(
-        listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]),
-    );
+    const prodiTotals = prodiSeries.value.length > 0
+        ? Object.fromEntries(prodiSeries.value.map((p) => [p.prodi, p.total]))
+        : Object.fromEntries(listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]));
 
     const seriesList = cats.map((cat) => {
         const catData = listProdis.map((prodi) => {
+            if (prodiSeries.value.length > 0) {
+                const backendProdi = prodiSeries.value.find((item) => item.prodi === prodi);
+                const backendItem = backendProdi?.items?.find((item) => item.label === cat);
+                return {
+                    value: backendItem?.percentage || 0,
+                    count: backendItem?.count || 0,
+                    total: backendProdi?.total || 0,
+                    prodi,
+                    category: cat,
+                };
+            }
+
             const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
-            const total = Math.max(prodiTotals[prodi], 1);
+            const total = Math.max(prodiTotals[prodi] || 0, 1);
             const pct = Number(((count / total) * 100).toFixed(1));
             return {
                 value: pct,
@@ -443,6 +477,20 @@ const stackedTable = computed(() => ({
         { key: 'details', label: 'Sebaran Kualifikasi', align: 'left' },
     ],
     rows: prodis.value.map((prodi) => {
+        if (prodiSeries.value.length > 0) {
+            const backendProdi = prodiSeries.value.find((item) => item.prodi === prodi);
+            const details = categories.value.map((cat) => {
+                const item = backendProdi?.items?.find((it) => it.label === cat);
+                return `${cat}: ${item?.count || 0}`;
+            }).join(' · ');
+
+            return {
+                prodi,
+                total: formatNumber(backendProdi?.total || 0, 0),
+                details,
+            };
+        }
+
         const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const details = categories.value.map((cat) => {
             const cnt = rows.filter((r) => recordCategory(r) === cat).length;

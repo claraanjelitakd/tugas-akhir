@@ -282,8 +282,6 @@ class ManajemenAkunController extends Controller
 
     /**
      * Sinkronkan Data Akademik Mahasiswa Lulusan menjadi Akun Pengguna (Alumni) & Profil Biodata
-     *
-     * @return RedirectResponse
      */
     public function syncAlumniAccounts(Request $request): RedirectResponse
     {
