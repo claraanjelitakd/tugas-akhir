@@ -298,6 +298,13 @@ class AtasanAnalyticsService
                 ->filter()
                 ->values();
 
+            $answers = $evaluation->respons->mapWithKeys(static function ($response): array {
+                $kode = $response->pertanyaan?->kode_pertanyaan;
+                $val = trim((string) ($response->jawaban_teks ?? ($response->nilai ?? '')));
+
+                return $kode ? [$kode => $val] : [];
+            })->all();
+
             return [
                 'evaluasi_id' => $evaluation->id,
                 'biodata_id' => $evaluation->biodata_id,
@@ -310,6 +317,7 @@ class AtasanAnalyticsService
                 'submitted_at' => $evaluation->submitted_at?->toIso8601String(),
                 'answers_count' => $evaluation->respons->count(),
                 'average_score' => $scores->isNotEmpty() ? (int) round($scores->avg()) : null,
+                'answers' => $answers,
             ];
         })->values()->all();
     }
