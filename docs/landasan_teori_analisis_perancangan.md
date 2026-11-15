@@ -140,3 +140,4 @@ Namun, dalam arsitektur perangkat lunak berbasis web modern dengan pola **Object
 2. **Integritas Referensial (*Referential Integrity*)**:
    - Menerapkan batasan `ON DELETE RESTRICT` pada tabel referensi pokok (seperti data akademik, fakultas, prodi, dan wilayah) guna menjaga keabsahan data historis audit pelacakan jejak alumni.
    - Menerapkan batasan `ON DELETE CASCADE` secara tepat hanya pada data transaksi dependen yang tidak memiliki makna mandiri tanpa entitas induknya (misal: opsi jawaban terhadap pertanyaan kuesioner).
+
