@@ -4,6 +4,7 @@ namespace App\Services\Atasan;
 
 use App\Models\Biodata;
 use App\Models\Prodi;
+use App\Models\Propinsi;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -27,8 +28,11 @@ class AtasanDirectoryQueryService
     public function getDirectoryData(Request $request, User $user): array
     {
         $search = trim((string) $request->input('search', ''));
+        $companySearch = trim((string) $request->input('company', ''));
+        $provinsiDomisili = trim((string) $request->input('provinsi', ''));
         $selectedProdiId = $request->input('prodi_id');
-        $query = $this->buildQuery($user, $search, $selectedProdiId);
+
+        $query = $this->buildQuery($user, $search, $selectedProdiId, $companySearch, $provinsiDomisili);
         $matchedRecords = (clone $query)
             ->with([
                 'atasan:id,nama,email,telepon,perusahaan_id',
@@ -36,7 +40,7 @@ class AtasanDirectoryQueryService
                 'perusahaan:id,nama_perusahaan',
                 'evaluasiAtasan',
             ])
-            ->get(['id', 'atasan_id', 'perusahaan_id']);
+            ->get(['id', 'atasan_id', 'perusahaan_id', 'kode_provinsi', 'kode_kabupaten']);
 
         $perPage = min(max((int) $request->input('per_page', 10), 10), 50);
         $paginator = $query
@@ -60,8 +64,11 @@ class AtasanDirectoryQueryService
         return [
             'atasans' => $paginator,
             'prodis' => $prodisQuery->get(['id', 'kode_prodi', 'nama_prodi']),
+            'provinces' => Propinsi::query()->orderBy('nama_provinsi')->get(['kode_provinsi', 'nama_provinsi']),
             'filters' => [
                 'search' => $search,
+                'company' => $companySearch,
+                'provinsi' => $provinsiDomisili,
                 'prodi_id' => $selectedProdiId ?: '',
                 'per_page' => $perPage,
             ],
@@ -77,7 +84,7 @@ class AtasanDirectoryQueryService
      * @param  mixed  $selectedProdiId  ID prodi dari filter atau null.
      * @return Builder<Biodata> Kueri profil alumni yang memiliki atasan.
      */
-    private function buildQuery(User $user, string $search, mixed $selectedProdiId): Builder
+    private function buildQuery(User $user, string $search, mixed $selectedProdiId, string $companySearch = '', string $provinsiDomisili = ''): Builder
     {
         $query = Biodata::query()->whereNotNull('atasan_id');
 
@@ -85,6 +92,17 @@ class AtasanDirectoryQueryService
 
         if ($user->role !== 'admin_prodi' && filled($selectedProdiId) && $selectedProdiId !== 'all') {
             $query->where('prodi_id', $selectedProdiId);
+        }
+
+        if ($companySearch !== '') {
+            $query->where(function (Builder $q) use ($companySearch): void {
+                $q->whereHas('perusahaan', fn (Builder $cq) => $cq->where('nama_perusahaan', 'like', "%{$companySearch}%"))
+                    ->orWhereHas('atasan.perusahaan', fn (Builder $cq) => $cq->where('nama_perusahaan', 'like', "%{$companySearch}%"));
+            });
+        }
+
+        if ($provinsiDomisili !== '' && $provinsiDomisili !== 'all') {
+            $query->where('kode_provinsi', $provinsiDomisili);
         }
 
         if ($search !== '') {
@@ -138,6 +156,8 @@ class AtasanDirectoryQueryService
             'perusahaan:id,nama_perusahaan',
             'dataAkademik:nim,nama,tahun_lulus',
             'prodi:id,nama_prodi',
+            'propinsi:kode_provinsi,nama_provinsi',
+            'kabupaten:kode_kabupaten,nama_kabupaten',
             'evaluasiAtasan.respons.pertanyaan',
             'evaluasiAtasan.respons.opsi',
         ];
@@ -200,6 +220,10 @@ class AtasanDirectoryQueryService
                 'nama' => $biodata->dataAkademik?->nama ?? $biodata->nama ?? $biodata->nim,
                 'prodi' => $biodata->prodi?->nama_prodi,
                 'tahun_lulus' => $biodata->dataAkademik?->tahun_lulus,
+                'domisili' => $biodata->kabupaten
+                    ? "{$biodata->kabupaten->nama_kabupaten}, {$biodata->propinsi?->nama_provinsi}"
+                    : ($biodata->propinsi?->nama_provinsi ?? null),
+                'kode_provinsi' => $biodata->kode_provinsi,
             ],
             'atasan' => $biodata->atasan ? [
                 'id' => $biodata->atasan->id,

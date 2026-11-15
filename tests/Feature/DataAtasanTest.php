@@ -8,6 +8,7 @@ use App\Models\DataAkademik;
 use App\Models\EvaluasiAtasan;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
+use App\Models\Propinsi;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -157,6 +158,69 @@ class DataAtasanTest extends TestCase
         $this->assertSame('Rudi Atasan Updated', $atasan->nama);
         $this->assertSame('rudi.updated@example.test', $atasan->email);
         $this->assertSame('08987654321', $atasan->telepon);
+    }
+
+    /**
+     * Pengguna admin dapat memfilter direktori atasan berdasarkan nama perusahaan dan provinsi domisili alumni.
+     */
+    public function test_admin_can_filter_atasan_by_company_and_domisili_province(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => 'INF', 'nama_prodi' => 'Informatika', 'jenjang' => 'S1']);
+        $companyA = Perusahaan::create(['nama_perusahaan' => 'PT Alpha Solusi']);
+        $companyB = Perusahaan::create(['nama_perusahaan' => 'PT Beta Mandiri']);
+
+        $alumniA = $this->createAlumni($this->createUser('alumni-filter-a', 'a@example.test', 'alumni'), $prodi, '71123451', 'Alumni Alpha');
+        $alumniB = $this->createAlumni($this->createUser('alumni-filter-b', 'b@example.test', 'alumni'), $prodi, '71123452', 'Alumni Beta');
+
+        $atasanA = Atasan::create(['nama' => 'Atasan Alpha', 'perusahaan_id' => $companyA->id]);
+        $atasanB = Atasan::create(['nama' => 'Atasan Beta', 'perusahaan_id' => $companyB->id]);
+
+        $provinsiYogya = Propinsi::create(['kode_provinsi' => '34', 'nama_provinsi' => 'DI Yogyakarta']);
+        $provinsiJakarta = Propinsi::create(['kode_provinsi' => '31', 'nama_provinsi' => 'DKI Jakarta']);
+
+        $alumniA->update(['atasan_id' => $atasanA->id, 'kode_provinsi' => $provinsiYogya->kode_provinsi]);
+        $alumniB->update(['atasan_id' => $atasanB->id, 'kode_provinsi' => $provinsiJakarta->kode_provinsi]);
+
+        $admin = $this->createUser('superadmin-filter', 'filter@example.test', 'superadmin');
+
+        // Filter nama perusahaan
+        $responseCompany = $this->actingAs($admin)->get(route('superadmin.atasan.index', ['company' => 'Alpha']));
+        $responseCompany->assertInertia(fn ($page) => $page
+            ->has('atasans.data', 1)
+            ->where('atasans.data.0.atasan.nama', 'Atasan Alpha')
+        );
+
+        // Filter domisili provinsi
+        $responseProv = $this->actingAs($admin)->get(route('superadmin.atasan.index', ['provinsi' => '31']));
+        $responseProv->assertInertia(fn ($page) => $page
+            ->has('atasans.data', 1)
+            ->where('atasans.data.0.atasan.nama', 'Atasan Beta')
+        );
+    }
+
+    /**
+     * Admin dapat mendaftarkan perusahaan baru berstatus Menunggu Verifikasi melalui modal atasan.
+     */
+    public function test_admin_can_create_pending_perusahaan_from_atasan_modal(): void
+    {
+        $admin = $this->createUser('superadmin-new-corp', 'corp@example.test', 'superadmin');
+
+        $response = $this->actingAs($admin)->postJson(route('superadmin.atasan.perusahaan.store'), [
+            'nama_perusahaan' => 'PT Startup Inovasi',
+            'jenis_lokasi' => 'Dalam Negeri',
+            'alamat' => 'Jl. Gejayan No. 12',
+            'skala' => 'Nasional',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('perusahaan.nama_perusahaan', 'PT Startup Inovasi')
+            ->assertJsonPath('perusahaan.status_verifikasi', 'Menunggu Verifikasi');
+
+        $this->assertDatabaseHas('perusahaan', [
+            'nama_perusahaan' => 'PT Startup Inovasi',
+            'status_verifikasi' => 'Menunggu Verifikasi',
+        ]);
     }
 
     /**

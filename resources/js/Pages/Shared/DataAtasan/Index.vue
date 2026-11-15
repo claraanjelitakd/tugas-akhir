@@ -18,7 +18,8 @@ const props = defineProps({
     showProdiFilter: { type: Boolean, default: true },
     atasans: { type: Object, default: () => ({ data: [], links: [] }) },
     prodis: { type: Array, default: () => [] },
-    filters: { type: Object, default: () => ({ search: '', prodi_id: '', per_page: 10 }) },
+    provinces: { type: Array, default: () => [] },
+    filters: { type: Object, default: () => ({ search: '', company: '', provinsi: '', prodi_id: '', per_page: 10 }) },
     stats: {
         type: Object,
         default: () => ({
@@ -31,12 +32,14 @@ const props = defineProps({
     },
     masterOptions: {
         type: Object,
-        default: () => ({ alumni: [], perusahaan: [] }),
+        default: () => ({ alumni: [], perusahaan: [], propinsi: [], kabupaten: [], negara: [] }),
     },
 });
 
 // State filter lokal mengikuti pola filter pada master perusahaan.
 const search = ref(props.filters.search || '');
+const companySearch = ref(props.filters.company || '');
+const selectedProvinsi = ref(props.filters.provinsi || '');
 const selectedProdiId = ref(props.filters.prodi_id || '');
 const perPage = ref(Number(props.filters.per_page || 10));
 
@@ -55,15 +58,171 @@ const atasanForm = ref({
     telepon: '',
 });
 
+// State pencarian alumni pada modal form atasan
+const alumniSearch = ref('');
+const showAlumniDropdown = ref(false);
+
+const filteredAlumniOptions = computed(() => {
+    const query = alumniSearch.value.trim().toLowerCase();
+    const list = props.masterOptions?.alumni || [];
+    if (!query) {
+        return list.slice(0, 30);
+    }
+    return list.filter((a) => {
+        return (a.nim && a.nim.toLowerCase().includes(query))
+            || (a.nama && a.nama.toLowerCase().includes(query))
+            || (a.prodi && a.prodi.toLowerCase().includes(query));
+    }).slice(0, 30);
+});
+
+const selectedAlumni = computed(() => {
+    if (!atasanForm.value.biodata_id) return null;
+    return (props.masterOptions?.alumni || []).find((a) => a.id === atasanForm.value.biodata_id);
+});
+
+const selectAlumni = (alumni) => {
+    atasanForm.value.biodata_id = alumni.id;
+    if (alumni.perusahaan_id && !atasanForm.value.perusahaan_id) {
+        atasanForm.value.perusahaan_id = alumni.perusahaan_id;
+    }
+    showAlumniDropdown.value = false;
+    alumniSearch.value = '';
+};
+
+const clearSelectedAlumni = () => {
+    atasanForm.value.biodata_id = '';
+    alumniSearch.value = '';
+};
+
+// State modal Tambah Perusahaan Baru (Menunggu Verifikasi)
+const showCreateCompanyModal = ref(false);
+const isSubmittingCompany = ref(false);
+const companyError = ref('');
+
+const newCompanyForm = ref({
+    jenis_lokasi: 'Dalam Negeri',
+    nama_perusahaan: '',
+    bentuk_perusahaan: 'PT (Perseroan Terbatas)',
+    jenis_perusahaan: '3 - Perusahaan swasta',
+    jenis_perusahaan_lainnya: '',
+    kode_negara: '',
+    kode_provinsi: '',
+    kode_kabupaten: '',
+    alamat: '',
+    kode_pos: '',
+    skala: 'Nasional',
+    no_telp_fax: '',
+});
+
+const bentukPerusahaanOptions = [
+    'PT (Perseroan Terbatas)',
+    'CV (Commanditaire Vennootschap)',
+    'Firma',
+    'BUMN (Badan Usaha Milik Negara)',
+    'BUMD (Badan Usaha Milik Daerah)',
+    'Instansi Pemerintah / Kementerian',
+    'Lembaga Non-Profit / Yayasan / LSM',
+    'Organisasi Internasional / Multilateral',
+    'Koperasi',
+    'Usaha Dagang (UD) / Perorangan',
+    'Lainnya',
+];
+
+const jenisPerusahaanOptions = [
+    '1 - Instansi pemerintah',
+    '2 - Organisasi non-profit / Lembaga Swadaya Masyarakat',
+    '3 - Perusahaan swasta',
+    '4 - Perusahaan BUMN / BUMD',
+    '5 - Institusi / Organisasi Multilateral',
+    '6 - Lembaga Pendidikan',
+    '7 - Wirausaha / Perusahaan sendiri',
+    '8 - Lainnya',
+];
+
+const availableKabupatens = computed(() => {
+    if (!newCompanyForm.value.kode_provinsi) return [];
+    return (props.masterOptions?.kabupaten || []).filter(
+        (k) => k.kode_provinsi === newCompanyForm.value.kode_provinsi
+    );
+});
+
+const openCreateCompanyModal = () => {
+    newCompanyForm.value = {
+        jenis_lokasi: 'Dalam Negeri',
+        nama_perusahaan: '',
+        bentuk_perusahaan: 'PT (Perseroan Terbatas)',
+        jenis_perusahaan: '3 - Perusahaan swasta',
+        jenis_perusahaan_lainnya: '',
+        kode_negara: '',
+        kode_provinsi: '',
+        kode_kabupaten: '',
+        alamat: '',
+        kode_pos: '',
+        skala: 'Nasional',
+        no_telp_fax: '',
+    };
+    companyError.value = '';
+    showCreateCompanyModal.value = true;
+};
+
+const closeCreateCompanyModal = () => {
+    showCreateCompanyModal.value = false;
+    isSubmittingCompany.value = false;
+    companyError.value = '';
+};
+
+const submitNewCompany = async () => {
+    if (!newCompanyForm.value.nama_perusahaan?.trim()) {
+        companyError.value = 'Nama perusahaan wajib diisi.';
+        return;
+    }
+    if (newCompanyForm.value.jenis_lokasi === 'Luar Negeri' && !newCompanyForm.value.kode_negara) {
+        companyError.value = 'Negara tempat bekerja wajib dipilih untuk instansi luar negeri.';
+        return;
+    }
+
+    isSubmittingCompany.value = true;
+    companyError.value = '';
+
+    try {
+        const response = await fetch(`/${props.prefix}/atasan/perusahaan`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            body: JSON.stringify(newCompanyForm.value),
+        });
+
+        const data = await response.json();
+        if (response.ok && data.perusahaan) {
+            props.masterOptions.perusahaan.unshift(data.perusahaan);
+            atasanForm.value.perusahaan_id = data.perusahaan.id;
+            closeCreateCompanyModal();
+        } else {
+            companyError.value = data.message || 'Gagal menyimpan perusahaan baru.';
+        }
+    } catch (e) {
+        companyError.value = 'Terjadi kesalahan sistem saat menyimpan perusahaan.';
+    } finally {
+        isSubmittingCompany.value = false;
+    }
+};
+
 // Menentukan judul halaman sesuai scope role admin aktif.
 const pageTitle = computed(() => `Data Atasan - ${props.roleTitle}`);
 
 // Menentukan apakah ada filter yang sedang aktif.
-const hasActiveFilters = computed(() => Boolean(search.value || selectedProdiId.value || perPage.value !== 10));
+const hasActiveFilters = computed(() => Boolean(
+    search.value || companySearch.value || selectedProvinsi.value || selectedProdiId.value || perPage.value !== 10
+));
 
 // Sinkronkan filter lokal saat server mengembalikan props baru setelah navigasi.
 watch(() => props.filters, (newFilters) => {
     search.value = newFilters?.search || '';
+    companySearch.value = newFilters?.company || '';
+    selectedProvinsi.value = newFilters?.provinsi || '';
     selectedProdiId.value = newFilters?.prodi_id || '';
     perPage.value = Number(newFilters?.per_page || 10);
 }, { deep: true });
@@ -118,6 +277,8 @@ const openCreateAtasanModal = () => {
         email: '',
         telepon: '',
     };
+    alumniSearch.value = '';
+    showAlumniDropdown.value = false;
     showAtasanFormModal.value = true;
 };
 
@@ -132,6 +293,8 @@ const openEditAtasanModal = (record) => {
         email: record.atasan?.email || '',
         telepon: record.atasan?.telepon || '',
     };
+    alumniSearch.value = '';
+    showAlumniDropdown.value = false;
     showAtasanFormModal.value = true;
 };
 
@@ -186,6 +349,8 @@ const getLikertBadgeStyle = (label) => {
 const applyFilters = () => {
     router.get(`/${props.prefix}/atasan`, {
         search: search.value || undefined,
+        company: companySearch.value || undefined,
+        provinsi: selectedProvinsi.value || undefined,
         prodi_id: props.showProdiFilter ? (selectedProdiId.value || undefined) : undefined,
         per_page: perPage.value !== 10 ? perPage.value : undefined,
     }, {
@@ -205,6 +370,8 @@ const handleSearch = () => {
 // Mengembalikan seluruh filter ke kondisi awal.
 const resetFilters = () => {
     search.value = '';
+    companySearch.value = '';
+    selectedProvinsi.value = '';
     selectedProdiId.value = '';
     perPage.value = 10;
     router.get(`/${props.prefix}/atasan`, {}, { preserveState: true, preserveScroll: true });
@@ -234,7 +401,7 @@ const resetFilters = () => {
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <button
-                            v-if="role === 'superadmin'"
+                            v-if="['superadmin', 'admin_biro3', 'admin_fakultas', 'admin_prodi'].includes(role)"
                             type="button"
                             class="inline-flex w-fit items-center rounded-lg bg-[#FDC700] px-4 py-2 text-xs font-bold text-[#0D542B] transition-colors hover:bg-yellow-300"
                             @click="openCreateAtasanModal"
@@ -282,10 +449,23 @@ const resetFilters = () => {
                         <span class="text-xs font-bold uppercase tracking-wider text-slate-900">Filter & Pencarian Data Atasan</span>
                         <button v-if="hasActiveFilters" type="button" class="text-xs font-bold text-slate-500 transition-colors hover:text-[#0D542B]" @click="resetFilters">Reset Filter</button>
                     </div>
-                    <div class="grid grid-cols-1 gap-3.5 text-xs sm:grid-cols-2 lg:grid-cols-4">
-                        <div class="lg:col-span-2">
-                            <label class="mb-1 block text-[11px] font-bold uppercase text-slate-600">Cari Alumni / Atasan / Perusahaan</label>
-                            <input v-model="search" type="search" placeholder="Ketik nama, NIM, email, atau perusahaan..." class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]" @input="handleSearch" />
+                    <div class="grid grid-cols-1 gap-3.5 text-xs sm:grid-cols-2 lg:grid-cols-5">
+                        <div>
+                            <label class="mb-1 block text-[11px] font-bold uppercase text-slate-600">Cari Alumni / Atasan</label>
+                            <input v-model="search" type="search" placeholder="Nama, NIM, atau atasan..." class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]" @input="handleSearch" />
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-[11px] font-bold uppercase text-slate-600">Perusahaan (Head Office)</label>
+                            <input v-model="companySearch" type="search" placeholder="Cari nama kantor pusat / instansi..." class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]" @input="handleSearch" />
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-[11px] font-bold uppercase text-slate-600">Lokasi Kerja (Domisili Alumni)</label>
+                            <select v-model="selectedProvinsi" class="w-full cursor-pointer rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]" @change="applyFilters">
+                                <option value="">Semua Wilayah Domisili</option>
+                                <option v-for="prov in (provinces.length > 0 ? provinces : (masterOptions.propinsi || []))" :key="prov.kode_provinsi" :value="prov.kode_provinsi">
+                                    {{ prov.nama_provinsi }}
+                                </option>
+                            </select>
                         </div>
                         <div v-if="showProdiFilter">
                             <label class="mb-1 block text-[11px] font-bold uppercase text-slate-600">Program Studi</label>
@@ -333,6 +513,9 @@ const resetFilters = () => {
                                     <div class="font-bold leading-snug text-slate-900">{{ record.alumni?.nama || '-' }}</div>
                                     <div class="mt-0.5 font-mono text-[11px] text-slate-500">{{ record.alumni?.nim || '-' }}</div>
                                     <div class="mt-0.5 text-[11px] text-slate-500">{{ record.alumni?.prodi || '-' }}<span v-if="record.alumni?.tahun_lulus"> · Lulus {{ record.alumni.tahun_lulus }}</span></div>
+                                    <div v-if="record.alumni?.domisili" class="mt-1 text-[10px] text-slate-600">
+                                        <span class="font-semibold text-slate-700">Domisili:</span> {{ record.alumni.domisili }}
+                                    </div>
                                     <div class="mt-1 text-[10px] font-medium text-emerald-700">Pengisi melalui Profil alumni</div>
                                 </td>
                                 <td class="border-r border-slate-100 px-3.5 py-3">
@@ -362,7 +545,7 @@ const resetFilters = () => {
                                         <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900" title="Lihat detail data atasan" aria-label="Lihat detail data atasan" @click="openDetailModal(record)">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                         </button>
-                                        <button v-if="role === 'superadmin' && record.atasan" type="button" class="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-[11px] font-bold text-slate-700 transition-colors hover:bg-slate-50 hover:text-[#0D542B]" title="Edit data atasan" @click="openEditAtasanModal(record)">
+                                        <button v-if="['superadmin', 'admin_biro3', 'admin_fakultas', 'admin_prodi'].includes(role) && record.atasan" type="button" class="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-[11px] font-bold text-slate-700 transition-colors hover:bg-slate-50 hover:text-[#0D542B]" title="Edit data atasan" @click="openEditAtasanModal(record)">
                                             Edit
                                         </button>
                                         <Link :href="alumniDetailPath(record.alumni.id)" class="inline-flex h-9 items-center justify-center rounded-lg bg-[#0D542B] px-3 text-[11px] font-bold text-white transition-colors hover:bg-[#08381c]">Lihat Profil Alumni</Link>
@@ -380,7 +563,7 @@ const resetFilters = () => {
             <footer class="mt-12 border-t border-slate-200 py-6 text-center text-xs text-slate-400">&copy; {{ new Date().getFullYear() }} Universitas Kristen Duta Wacana. Hak Cipta Dilindungi.</footer>
         </div>
 
-        <!-- Modal tambah atau edit data atasan untuk Superadmin. -->
+        <!-- Modal tambah atau edit data atasan. -->
         <div v-if="showAtasanFormModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @click.self="closeAtasanFormModal">
             <div class="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-xl">
                 <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
@@ -391,39 +574,227 @@ const resetFilters = () => {
                     <button type="button" class="rounded-lg border border-slate-200 px-3 py-1 text-sm text-slate-500 hover:bg-slate-50" aria-label="Tutup form data atasan" @click="closeAtasanFormModal">Tutup</button>
                 </div>
                 <form class="space-y-4 px-5 py-5" @submit.prevent="submitAtasanForm">
-                    <div v-if="atasanFormMode === 'create'">
-                        <label class="mb-1 block text-xs font-bold text-slate-700">Alumni <span class="text-rose-600">*</span></label>
-                        <select v-model="atasanForm.biodata_id" required class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]">
-                            <option value="">Pilih alumni</option>
-                            <option v-for="alumni in masterOptions.alumni" :key="alumni.id" :value="alumni.id">
-                                {{ alumni.nim }} · {{ alumni.nama }}{{ alumni.prodi ? ` · ${alumni.prodi}` : '' }}{{ alumni.has_atasan ? ' · memperbarui data atasan' : '' }}
+                    <!-- Alumni (Searchable Selector) -->
+                    <div v-if="atasanFormMode === 'create'" class="space-y-1.5">
+                        <label class="block text-xs font-bold text-slate-700">
+                            Alumni <span class="text-rose-600">*</span>
+                        </label>
+                        <!-- Alumni Terpilih -->
+                        <div v-if="selectedAlumni" class="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
+                            <div class="min-w-0 flex-1 pr-2">
+                                <p class="text-xs font-bold text-slate-900 truncate">{{ selectedAlumni.nama }}</p>
+                                <p class="font-mono text-[11px] text-slate-500">{{ selectedAlumni.nim }} · {{ selectedAlumni.prodi || 'Program Studi' }}<span v-if="selectedAlumni.tahun_lulus"> · Lulus {{ selectedAlumni.tahun_lulus }}</span></p>
+                                <span v-if="selectedAlumni.has_atasan" class="mt-1 inline-block rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
+                                    Sudah ada data atasan (akan diperbarui)
+                                </span>
+                                <span v-else class="mt-1 inline-block rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600">
+                                    Belum ada data atasan
+                                </span>
+                            </div>
+                            <button type="button" class="shrink-0 text-xs font-bold text-rose-600 hover:underline cursor-pointer" @click="clearSelectedAlumni">
+                                Ganti Alumni
+                            </button>
+                        </div>
+
+                        <!-- Dropdown Pencarian Alumni -->
+                        <div v-else class="relative">
+                            <input
+                                v-model="alumniSearch"
+                                type="text"
+                                placeholder="Ketik nama, NIM, atau program studi alumni..."
+                                class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                @focus="showAlumniDropdown = true"
+                            />
+                            <!-- Daftar Pilihan Alumni -->
+                            <div
+                                v-if="showAlumniDropdown"
+                                class="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg"
+                            >
+                                <div v-if="filteredAlumniOptions.length === 0" class="p-3 text-center text-xs italic text-slate-400">
+                                    Tidak ada data alumni yang cocok dengan kata kunci "{{ alumniSearch }}".
+                                </div>
+                                <div
+                                    v-for="alumni in filteredAlumniOptions"
+                                    :key="alumni.id"
+                                    class="cursor-pointer rounded-lg px-3 py-2 text-xs transition-colors hover:bg-slate-50"
+                                    @click="selectAlumni(alumni)"
+                                >
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-bold text-slate-900">{{ alumni.nama }}</span>
+                                        <span class="font-mono text-[11px] text-slate-500">{{ alumni.nim }}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-[11px] text-slate-500 mt-0.5">
+                                        <span class="truncate">{{ alumni.prodi || '-' }}<span v-if="alumni.tahun_lulus"> · Lulus {{ alumni.tahun_lulus }}</span></span>
+                                        <span v-if="alumni.has_atasan" class="shrink-0 ml-2 text-[10px] text-amber-700 font-medium">Ada atasan</span>
+                                        <span v-else class="shrink-0 ml-2 text-[10px] text-slate-400">Belum ada atasan</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Perusahaan / Organisasi -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-bold text-slate-700">Perusahaan / Organisasi</label>
+                            <button
+                                type="button"
+                                class="text-[11px] font-bold text-[#0D542B] hover:underline cursor-pointer"
+                                @click="openCreateCompanyModal"
+                            >
+                                + Tambah Perusahaan Baru
+                            </button>
+                        </div>
+                        <select
+                            v-model="atasanForm.perusahaan_id"
+                            class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs text-slate-800 focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
+                        >
+                            <option value="">Gunakan perusahaan dari profil alumni</option>
+                            <option v-for="company in (masterOptions.perusahaan || [])" :key="company.id" :value="company.id">
+                                {{ company.nama_perusahaan }} {{ company.status_verifikasi === 'Menunggu Verifikasi' ? '(Menunggu Verifikasi)' : '' }}
                             </option>
                         </select>
                     </div>
-                    <div>
-                        <label class="mb-1 block text-xs font-bold text-slate-700">Perusahaan / Organisasi</label>
-                        <select v-model="atasanForm.perusahaan_id" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]">
-                            <option value="">Gunakan perusahaan dari profil alumni</option>
-                            <option v-for="company in masterOptions.perusahaan" :key="company.id" :value="company.id">{{ company.nama_perusahaan }}</option>
-                        </select>
-                    </div>
+
+                    <!-- Nama Atasan -->
                     <div>
                         <label class="mb-1 block text-xs font-bold text-slate-700">Nama Atasan <span class="text-rose-600">*</span></label>
-                        <input v-model="atasanForm.nama" required type="text" maxlength="100" placeholder="Nama lengkap atasan" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                        <input v-model="atasanForm.nama" required type="text" maxlength="100" placeholder="Nama lengkap atasan" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-xs text-slate-900 focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                     </div>
+
+                    <!-- Kontak Atasan -->
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
                             <label class="mb-1 block text-xs font-bold text-slate-700">Email Atasan</label>
-                            <input v-model="atasanForm.email" type="email" maxlength="100" placeholder="atasan@perusahaan.id" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                            <input v-model="atasanForm.email" type="email" maxlength="100" placeholder="atasan@perusahaan.id" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-xs text-slate-900 focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                         </div>
                         <div>
                             <label class="mb-1 block text-xs font-bold text-slate-700">Telepon / WhatsApp</label>
-                            <input v-model="atasanForm.telepon" type="text" maxlength="20" placeholder="08xxxxxxxxxx" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                            <input v-model="atasanForm.telepon" type="text" maxlength="20" placeholder="08xxxxxxxxxx" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-xs text-slate-900 focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                         </div>
                     </div>
+
+                    <!-- Footer Tombol -->
                     <div class="flex justify-end gap-2 border-t border-slate-200 pt-4">
-                        <button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50" @click="closeAtasanFormModal">Batal</button>
-                        <button type="submit" :disabled="isSubmittingAtasan" class="rounded-lg bg-[#0D542B] px-4 py-2 text-xs font-bold text-white hover:bg-[#08381c] disabled:cursor-not-allowed disabled:opacity-60">{{ isSubmittingAtasan ? 'Menyimpan...' : 'Simpan Data Atasan' }}</button>
+                        <button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer" @click="closeAtasanFormModal">Batal</button>
+                        <button type="submit" :disabled="isSubmittingAtasan || (!atasanForm.biodata_id && atasanFormMode === 'create')" class="rounded-lg bg-[#0D542B] px-4 py-2 text-xs font-bold text-white hover:bg-[#08381c] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer">{{ isSubmittingAtasan ? 'Menyimpan...' : 'Simpan Data Atasan' }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal Tambah Perusahaan Baru (Status: Menunggu Verifikasi) -->
+        <div v-if="showCreateCompanyModal" class="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4" @click.self="closeCreateCompanyModal">
+            <div class="flex max-h-[90vh] w-full max-w-xl flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <!-- Header Modal Sesuai Master Perusahaan -->
+                <div class="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-6 py-4">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-800">Tambah Perusahaan Baru</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Daftarkan institusi/kantor pusat baru (Status: Menunggu Verifikasi)</p>
+                    </div>
+                    <button type="button" class="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer" @click="closeCreateCompanyModal">
+                        <span class="sr-only">Tutup</span>
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <!-- Form Badan Modal Scrollable -->
+                <form class="flex-1 overflow-y-auto p-6 space-y-4 text-xs" @submit.prevent="submitNewCompany">
+                    <div v-if="companyError" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                        {{ companyError }}
+                    </div>
+
+                    <!-- 1. Jenis Lokasi Perusahaan -->
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1.5">Jenis Lokasi Perusahaan <span class="text-rose-500">*</span></label>
+                        <div class="flex items-center gap-6 mt-1">
+                            <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-slate-700">
+                                <input type="radio" value="Dalam Negeri" v-model="newCompanyForm.jenis_lokasi" class="text-[#0D542B] focus:ring-[#0D542B] border-slate-300" />
+                                <span>Dalam Negeri (Indonesia)</span>
+                            </label>
+                            <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-slate-700">
+                                <input type="radio" value="Luar Negeri" v-model="newCompanyForm.jenis_lokasi" class="text-[#0D542B] focus:ring-[#0D542B] border-slate-300" />
+                                <span>Luar Negeri (Abroad)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 2. Nama Perusahaan / Instansi (Head Office) -->
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Nama Perusahaan / Instansi (Head Office) <span class="text-rose-500">*</span></label>
+                        <input type="text" v-model="newCompanyForm.nama_perusahaan" required placeholder="Contoh: PT Teknologi Nusantara / Google Singapore" class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+
+                    <!-- 3. Bentuk & Jenis Perusahaan -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Bentuk Perusahaan / Institusi</label>
+                            <select v-model="newCompanyForm.bentuk_perusahaan" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer">
+                                <option v-for="opt in bentukPerusahaanOptions" :key="opt" :value="opt">{{ opt }}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Jenis Instansi (F11)</label>
+                            <select v-model="newCompanyForm.jenis_perusahaan" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer">
+                                <option v-for="opt in jenisPerusahaanOptions" :key="opt" :value="opt">{{ opt }}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 4. Wilayah: Luar Negeri vs Dalam Negeri -->
+                    <div v-if="newCompanyForm.jenis_lokasi === 'Luar Negeri'">
+                        <label class="block font-semibold text-slate-700 mb-1">Negara Tempat Bekerja <span class="text-rose-500">*</span></label>
+                        <select v-model="newCompanyForm.kode_negara" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer">
+                            <option value="">-- Pilih Negara --</option>
+                            <option v-for="n in (masterOptions.negara || [])" :key="n.kode_negara" :value="n.kode_negara">{{ n.nama_negara }} ({{ n.benua || 'Dunia' }})</option>
+                        </select>
+                    </div>
+                    <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Provinsi</label>
+                            <select v-model="newCompanyForm.kode_provinsi" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer">
+                                <option value="">-- Pilih Provinsi --</option>
+                                <option v-for="p in (masterOptions.propinsi || [])" :key="p.kode_provinsi" :value="p.kode_provinsi">{{ p.nama_provinsi }}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Kabupaten / Kota</label>
+                            <select v-model="newCompanyForm.kode_kabupaten" :disabled="!newCompanyForm.kode_provinsi" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer disabled:bg-slate-100">
+                                <option value="">-- Pilih Kota/Kabupaten --</option>
+                                <option v-for="k in availableKabupatens" :key="k.kode_kabupaten" :value="k.kode_kabupaten">{{ k.nama_kabupaten }}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 5. Alamat Kantor & Kode Pos -->
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Alamat Kantor / Head Office</label>
+                        <textarea v-model="newCompanyForm.alamat" rows="2" placeholder="Nama gedung, jalan, nomor kantor..." class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Skala Organisasi</label>
+                            <select v-model="newCompanyForm.skala" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer">
+                                <option value="Lokal">Lokal</option>
+                                <option value="Nasional">Nasional</option>
+                                <option value="Internasional">Internasional</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Kode Pos</label>
+                            <input type="text" v-model="newCompanyForm.kode_pos" placeholder="55224" maxlength="10" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Telepon / Fax</label>
+                            <input type="text" v-model="newCompanyForm.no_telp_fax" placeholder="021-xxxxxxx" maxlength="50" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                        </div>
+                    </div>
+
+                    <!-- 6. Footer Tombol -->
+                    <div class="flex items-center justify-end gap-2 border-t border-slate-200 pt-4">
+                        <button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer" @click="closeCreateCompanyModal">Batal</button>
+                        <button type="submit" :disabled="isSubmittingCompany" class="rounded-lg bg-[#0D542B] px-4 py-2 text-xs font-bold text-white hover:bg-[#08381c] disabled:opacity-60 cursor-pointer">{{ isSubmittingCompany ? 'Menyimpan...' : 'Simpan Perusahaan' }}</button>
                     </div>
                 </form>
             </div>

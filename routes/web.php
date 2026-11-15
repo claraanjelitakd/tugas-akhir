@@ -144,6 +144,9 @@ Route::middleware('auth')->group(function () {
             Route::get('/biro3/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('biro3.analytics-atasan.index');
             Route::get('/biro3/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('biro3.analytics-atasan.data');
             Route::get('/biro3/atasan', [DaftarAtasanController::class, 'index'])->name('biro3.atasan.index');
+            Route::post('/biro3/atasan', [DaftarAtasanController::class, 'store'])->name('biro3.atasan.store');
+            Route::put('/biro3/atasan/{id}', [DaftarAtasanController::class, 'update'])->name('biro3.atasan.update');
+            Route::post('/biro3/atasan/perusahaan', [DaftarAtasanController::class, 'storePerusahaan'])->name('biro3.atasan.perusahaan.store');
 
         });
 
@@ -216,6 +219,9 @@ Route::middleware('auth')->group(function () {
             Route::get('/prodi/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('prodi.analytics-atasan.index');
             Route::get('/prodi/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('prodi.analytics-atasan.data');
             Route::get('/prodi/atasan', [DaftarAtasanController::class, 'index'])->name('prodi.atasan.index');
+            Route::post('/prodi/atasan', [DaftarAtasanController::class, 'store'])->name('prodi.atasan.store');
+            Route::put('/prodi/atasan/{id}', [DaftarAtasanController::class, 'update'])->name('prodi.atasan.update');
+            Route::post('/prodi/atasan/perusahaan', [DaftarAtasanController::class, 'storePerusahaan'])->name('prodi.atasan.perusahaan.store');
         });
 
         // -----------------------------------------------------------------
@@ -280,6 +286,9 @@ Route::middleware('auth')->group(function () {
             Route::get('/fakultas/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('fakultas.analytics-atasan.index');
             Route::get('/fakultas/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('fakultas.analytics-atasan.data');
             Route::get('/fakultas/atasan', [DaftarAtasanController::class, 'index'])->name('fakultas.atasan.index');
+            Route::post('/fakultas/atasan', [DaftarAtasanController::class, 'store'])->name('fakultas.atasan.store');
+            Route::put('/fakultas/atasan/{id}', [DaftarAtasanController::class, 'update'])->name('fakultas.atasan.update');
+            Route::post('/fakultas/atasan/perusahaan', [DaftarAtasanController::class, 'storePerusahaan'])->name('fakultas.atasan.perusahaan.store');
         });
 
         // -----------------------------------------------------------------
@@ -309,6 +318,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/superadmin/atasan', [DaftarAtasanController::class, 'index'])->name('superadmin.atasan.index');
             Route::post('/superadmin/atasan', [DaftarAtasanController::class, 'store'])->name('superadmin.atasan.store');
             Route::put('/superadmin/atasan/{id}', [DaftarAtasanController::class, 'update'])->name('superadmin.atasan.update');
+            Route::post('/superadmin/atasan/perusahaan', [DaftarAtasanController::class, 'storePerusahaan'])->name('superadmin.atasan.perusahaan.store');
 
             // Kelola Butir Pertanyaan, Opsi Jawaban, & Alur Branching Kuesioner (Modular Controllers)
             Route::get('/superadmin/pertanyaan', [DaftarPertanyaanController::class, 'index'])->name('superadmin.pertanyaan.index');
