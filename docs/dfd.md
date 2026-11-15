@@ -276,9 +276,52 @@ flowchart TD
 
 ## 6. Diagram Rinci / Child Diagram (Level 1)
 
-Setiap diagram anak di bawah meledakkan satu proses induk di Diagram 0 dengan menjaga **keseimbangan vertikal (*vertical balancing*)**.
+Setiap diagram anak di bawah meledakkan satu proses induk di Diagram 0 dengan menjaga **keseimbangan vertikal (*vertical balancing*)**. Sembilan proses induk diuraikan secara lengkap sehingga seluruh fitur aplikasi terpetakan secara utuh:
 
-### 6.1 Diagram 2: Kelola Data Master Akademik & Referensi
+### 6.1 Diagram 1: Kelola Akun & Autentikasi Pengguna
+Meledakkan **Proses 1.0** yang menangani otentikasi multi-peran, ubah kata sandi, dan reset sandi.
+
+```mermaid
+flowchart TD
+    ENT_ALUMNI["Alumni"]
+    ENT_PRODI["Admin Program Studi"]
+    ENT_BIRO3["Admin Biro 3"]
+    ENT_SUPER["Superadmin (ITC)"]
+
+    D1[("D1 Data Pengguna & Akun")]
+    D2[("D2 Master Akademik & Yudisium")]
+    D10[("D10 Log Aktivitas Audit")]
+
+    P11["1.1<br/>Validasi Kredensial<br/>Login Pengguna"]
+    P12["1.2<br/>Proses Pemulihan &<br/>Ubah Kata Sandi"]
+    P13["1.3<br/>Kelola Hak Akses &<br/>Peran Pengguna"]
+    P14["1.4<br/>Inisialisasi Akun<br/>Alumni Baru"]
+
+    %% 1.1
+    ENT_ALUMNI -->|"Kredensial Login"| P11
+    ENT_PRODI -->|"Kredensial Login"| P11
+    ENT_BIRO3 -->|"Kredensial Login"| P11
+    D1 -->|"Data Akun Terdaftar"| P11
+    P11 -->|"Status Akses Login"| ENT_ALUMNI
+    P11 -->|"Status Akses Login"| ENT_PRODI
+    P11 -->|"Status Akses Login"| ENT_BIRO3
+    P11 -->|"Catatan Audit Akses"| D10
+
+    %% 1.2
+    ENT_ALUMNI -->|"Permohonan Reset / Ubah Sandi"| P12
+    D2 -->|"Validasi Tanggal Lahir & NIM"| P12
+    P12 -->|"Pembaruan Hash Kata Sandi & Token"| D1
+
+    %% 1.3
+    ENT_SUPER -->|"Kredensial & Pengaturan Peran"| P13
+    P13 -->|"Pembaruan Role & Status Keaktifan Akun"| D1
+
+    %% 1.4
+    D2 -->|"Data Mahasiswa Lulus Belum Berakun"| P14
+    P14 -->|"Pendaftaran Akun Baru Alumni"| D1
+```
+
+### 6.2 Diagram 2: Kelola Data Master Akademik & Referensi
 Meledakkan **Proses 2.0** yang menerima data dari kedua sistem eksternal (`Sistem Akademik` dan `Sistem Referensi`).
 
 ```mermaid
@@ -308,8 +351,121 @@ flowchart TD
     P24 -->|"Catatan Audit Pembaruan Master"| D10
 ```
 
-### 6.2 Diagram 6: Proses Kuesioner Tracer Alumni
-Meledakkan **Proses 6.0** yang menangani kuesioner universitas, kuesioner prodi, penguncian status karier F8, serta pembentukan token atasan.
+### 6.3 Diagram 3: Kelola Profil & Riwayat Karier Alumni
+Meledakkan **Proses 3.0** yang menangani pengisian identitas pribadi, domisili, sinkronisasi 5 status karier F8, dan riwayat pekerjaan/studi lanjut.
+
+```mermaid
+flowchart TD
+    ENT_ALUMNI["Alumni"]
+
+    D2[("D2 Master Akademik & Yudisium")]
+    D3[("D3 Data Biodata & Profil Alumni")]
+    D4[("D4 Master Perusahaan & Atasan")]
+    D9[("D9 Referensi Wilayah & UMP")]
+    D10[("D10 Log Aktivitas Audit")]
+
+    P31["3.1<br/>Validasi Identitas &<br/>Kontak Pribadi Alumni"]
+    P32["3.2<br/>Perbarui Wilayah<br/>Domisili Saat Ini"]
+    P33["3.3<br/>Catat Status Karier<br/>5 Opsi Dikti (F8)"]
+    P34["3.4<br/>Simpan Riwayat Pekerjaan<br/>& Studi Lanjut"]
+
+    %% 3.1
+    D2 -->|"Data Pokok Mahasiswa (NIM, IPK, Tgl Lulus)"| P31
+    ENT_ALUMNI -->|"Pembaruan Profil & Kontak Pribadi"| P31
+    P31 -->|"Identitas & Kontak Tervalidasi"| D3
+
+    %% 3.2
+    D9 -->|"Referensi Wilayah Domisili"| P32
+    ENT_ALUMNI -->|"Data Alamat & Kota Domisili"| P32
+    P32 -->|"Data Domisili Alumni"| D3
+
+    %% 3.3
+    ENT_ALUMNI -->|"Pilihan Status Aktivitas Utama F8"| P33
+    P33 -->|"Status Karier Kanonik Terkunci (F8 Sync)"| D3
+    P33 -->|"Status Keterisian Profil"| ENT_ALUMNI
+
+    %% 3.4
+    D4 -->|"Referensi Instansi Valid"| P34
+    ENT_ALUMNI -->|"Data Pekerjaan, Jabatan, Gaji, Studi"| P34
+    P34 -->|"Riwayat Karier Alumni"| D3
+    P34 -->|"Catatan Perubahan Profil"| D10
+```
+
+### 6.4 Diagram 4: Kelola Usulan Perusahaan & Kontak Atasan
+Meledakkan **Proses 4.0** yang menangani usulan perusahaan baru, rekomendasi kemiripan instansi, verifikasi, dan manajemen kontak atasan.
+
+```mermaid
+flowchart TD
+    ENT_ALUMNI["Alumni"]
+    ENT_PRODI["Admin Program Studi"]
+
+    D4[("D4 Master Perusahaan & Atasan")]
+    D10[("D10 Log Aktivitas Audit")]
+
+    P41["4.1<br/>Pencatatan Usulan<br/>Perusahaan Baru"]
+    P42["4.2<br/>Deteksi Kemiripan &<br/>Rekomendasi Duplikasi"]
+    P43["4.3<br/>Verifikasi Keputusan<br/>(Setujui/Tolak/Gabung)"]
+    P44["4.4<br/>Kelola Snapshot Kontak<br/>Atasan Langsung"]
+
+    %% 4.1
+    ENT_ALUMNI -->|"Usulan Nama Perusahaan & Kontak Atasan"| P41
+    P41 -->|"Data Usulan Status Menunggu Verifikasi"| D4
+
+    %% 4.2
+    D4 -->|"Daftar Master Perusahaan Terverifikasi"| P42
+    P42 -->|"Daftar Rekomendasi Instansi Serupa"| P43
+
+    %% 4.3
+    ENT_PRODI -->|"Keputusan Verifikasi Instansi"| P43
+    P43 -->|"Pembaruan Status Verifikasi / Penggabungan"| D4
+    P43 -->|"Catatan Audit Verifikasi Perusahaan"| D10
+
+    %% 4.4
+    ENT_ALUMNI -->|"Data Nama, Jabatan & Email Atasan"| P44
+    P44 -->|"Snapshot Kontak Atasan Per Alumni"| D4
+```
+
+### 6.5 Diagram 5: Kelola Instrumen Kuesioner Terpadu
+Meledakkan **Proses 5.0** yang menangani periode kuesioner, pembuatan section/stepper, butir bank pertanyaan, opsi pilihan, dan penempatan soal.
+
+```mermaid
+flowchart TD
+    ENT_BIRO3["Admin Biro 3"]
+    ENT_PRODI["Admin Program Studi"]
+
+    D5[("D5 Instrumen & Bank Soal Kuesioner")]
+
+    P51["5.1<br/>Kelola Periode Kuesioner<br/>& Target Response Rate"]
+    P52["5.2<br/>Kelola Bagian Instrumen<br/>(Section / Stepper)"]
+    P53["5.3<br/>Kelola Bank Butir<br/>Pertanyaan Terpadu"]
+    P54["5.4<br/>Kelola Opsi Jawaban<br/>& Bobot Skala Likert"]
+    P55["5.5<br/>Atur Penempatan Butir<br/>(Placement & Pinjam Soal)"]
+
+    %% 5.1
+    ENT_BIRO3 -->|"Tahun Periode & Target Response Rate"| P51
+    P51 -->|"Konfigurasi Kuesioner Aktif"| D5
+
+    %% 5.2
+    ENT_BIRO3 -->|"Struktur Kuesioner Universitas"| P52
+    ENT_PRODI -->|"Struktur Kuesioner Prodi"| P52
+    P52 -->|"Daftar Section Instrumen (univ/prodi/atasan)"| D5
+
+    %% 5.3
+    ENT_BIRO3 -->|"Definisi Butir Soal Baru"| P53
+    ENT_PRODI -->|"Definisi Butir Soal Prodi Baru"| P53
+    P53 -->|"Bank Soal Terpadu"| D5
+
+    %% 5.4
+    P53 -->|"Relasi Butir Soal ke Opsi"| P54
+    P54 -->|"Opsi Pilihan Ganda & Skala Likert"| D5
+
+    %% 5.5
+    D5 -->|"Katalog Butir Pertanyaan Aktif"| P55
+    P55 -->|"Penempatan Soal pada Section (placement_id)"| D5
+```
+
+### 6.6 Diagram 6: Proses Kuesioner Tracer Alumni
+Meledakkan **Proses 6.0** yang menangani pengisian survei universitas & prodi, validasi status karier F8, perhitungan kelengkapan 100%, serta inisialisasi sesi token atasan.
 
 ```mermaid
 flowchart TD
@@ -346,7 +502,7 @@ flowchart TD
     P64 -->|"Inisialisasi Sesi Evaluasi Atasan (Token 64-Karakter)"| D7
 ```
 
-### 6.3 Diagram 7: Proses Evaluasi Kinerja Pengguna Lulusan (Atasan)
+### 6.7 Diagram 7: Proses Evaluasi Kinerja Pengguna Lulusan (Atasan)
 Meledakkan **Proses 7.0** yang memfasilitasi penilaian kinerja alumni oleh pimpinan langsung tanpa perlu login akun.
 
 ```mermaid
@@ -381,17 +537,105 @@ flowchart TD
     P74 -->|"Konfirmasi Penyerahan Evaluasi"| ENT_ATASAN
 ```
 
+### 6.8 Diagram 8: Sinkronisasi & Verifikasi Profil LinkedIn
+Meledakkan **Proses 8.0** yang menangani permintaan penarikan profil via Apify, penampungan staging, dan persetujuan data karier alumni.
+
+```mermaid
+flowchart TD
+    ENT_APIFY["Layanan Apify"]
+    ENT_PRODI["Admin Program Studi"]
+
+    D3[("D3 Data Biodata & Profil Alumni")]
+    D8[("D8 Staging Sinkronisasi LinkedIn")]
+    D10[("D10 Log Aktivitas Audit")]
+
+    P81["8.1<br/>Kirim Permintaan Scraping<br/>Tautan Profil LinkedIn"]
+    P82["8.2<br/>Simpan Snapshot Hasil<br/>Scraping ke Staging"]
+    P83["8.3<br/>Sajikan Antarmuka Peninjauan<br/>Hasil Sinkronisasi"]
+    P84["8.4<br/>Verifikasi & Salin Riwayat<br/>Karier ke Profil Aktif"]
+
+    %% 8.1
+    D3 -->|"Tautan URL Profil LinkedIn Alumni"| P81
+    P81 -->|"Permintaan Scraping LinkedIn"| ENT_APIFY
+
+    %% 8.2
+    ENT_APIFY -->|"Data Snapshot Mentah LinkedIn"| P82
+    P82 -->|"Data Staging LinkedIn"| D8
+
+    %% 8.3
+    D8 -->|"Daftar Pengajuan Staging LinkedIn"| P83
+    P83 -->|"Data Peninjauan Hasil Sync"| ENT_PRODI
+
+    %% 8.4
+    ENT_PRODI -->|"Keputusan Approval Staging"| P84
+    P84 -->|"Pembaruan Riwayat Pekerjaan LinkedIn Terverifikasi"| D3
+    P84 -->|"Catatan Audit Sinkronisasi LinkedIn"| D10
+```
+
+### 6.9 Diagram 9: Susun Laporan Analitik & Capaian IKU
+Meledakkan **Proses 9.0** yang menyusun analitik tracer, evaluasi atasan, rekapitulasi IKU S1, blast pengingat, dan ekspor laporan.
+
+```mermaid
+flowchart TD
+    ENT_BIRO3["Admin Biro 3"]
+    ENT_PRODI["Admin Program Studi"]
+    ENT_SUPER["Superadmin (ITC)"]
+
+    D2[("D2 Master Akademik & Yudisium")]
+    D3[("D3 Data Biodata & Profil Alumni")]
+    D4[("D4 Master Perusahaan & Atasan")]
+    D6[("D6 Jawaban Survei Terpadu")]
+    D9[("D9 Referensi Wilayah & UMP")]
+    D10[("D10 Log Aktivitas Audit")]
+
+    P91["9.1<br/>Agregasi Statistik Partisipasi<br/>& Response Rate"]
+    P92["9.2<br/>Hitung Capaian Indikator<br/>Kinerja Utama (IKU S1)"]
+    P93["9.3<br/>Analisis Evaluasi Kinerja<br/>& Benchmark Prodi"]
+    P94["9.4<br/>Bentuk Berkas Laporan<br/>Ekspor (Excel & ZIP)"]
+    P95["9.5<br/>Rekapitulasi Catatan<br/>Audit Trail Sistem"]
+
+    %% 9.1
+    D2 -->|"Data Periode Kelulusan & Angkatan"| P91
+    D3 -->|"Data Populasi Alumni"| P91
+    D6 -->|"Data Jawaban Survei Terpadu"| P91
+    P91 -->|"Statistik Response Rate"| P94
+
+    %% 9.2
+    D4 -->|"Data Skala Instansi Tempat Bekerja"| P92
+    D9 -->|"Data Standar UMP & Wilayah Kerja"| P92
+    P92 -->|"Laporan Eksekutif, Response Rate & Capaian IKU S1"| ENT_BIRO3
+
+    %% 9.3
+    D6 -->|"Data Skor Kompetensi Atasan"| P93
+    P93 -->|"Laporan Kinerja Lulusan Program Studi"| ENT_PRODI
+
+    %% 9.4
+    P94 -->|"Ekspor Berkas Excel & ZIP"| ENT_BIRO3
+    P94 -->|"Ekspor Berkas Excel & ZIP"| ENT_PRODI
+
+    %% 9.5
+    D10 -->|"Data Rekam Jejak Audit"| P95
+    ENT_SUPER -->|"Kriteria Filter Audit Log"| P95
+    P95 -->|"Laporan Audit Trail Sistem"| ENT_SUPER
+```
+
 ---
 
 ## 7. Matriks Keseimbangan Vertikal (*Vertical Balancing Matrix*)
 
-Sesuai aturan Kendall & Kendall (hlm. 230), tabel berikut membuktikan bahwa seluruh aliran data pada child diagram konsisten 100% dengan proses induknya di Diagram 0:
+Sesuai aturan Kendall & Kendall (hlm. 230), tabel berikut membuktikan bahwa seluruh aliran data pada 9 child diagram konsisten 100% dengan proses induknya di Diagram 0:
 
 | Proses Induk (Diagram 0) | Aliran Data Masuk (*Input Interface Flow*) | Aliran Data Keluar (*Output Interface Flow*) | Anak Proses Penanggung Jawab | Status Seimbang |
 | :--- | :--- | :--- | :--- | :---: |
+| **1.0 Kelola Akun & Autentikasi Pengguna** | • `Kredensial Login` (dari `Alumni, Prodi, Biro3, Super`)<br/>• `Kredensial & Pengaturan Peran` (dari `Superadmin`)<br/>• `NIM & Tanggal Lahir` (dari `D2`) | • `Data Akun Terverifikasi` (ke `D1`)<br/>• `Status Akses Login` (ke pengguna)<br/>• `Catatan Audit Akses` (ke `D10`) | • Proses 1.1<br/>• Proses 1.2<br/>• Proses 1.3<br/>• Proses 1.4 | **Seimbang (*Balanced*)** |
 | **2.0 Kelola Data Master Akademik & Referensi** | • `Data Mahasiswa Lulus & Yudisium` (dari `Sistem Akademik`)<br/>• `Data Referensi Fakultas, Prodi, Wilayah & UMP` (dari `Sistem Referensi`) | • `Rekaman Mahasiswa Lulus & Yudisium` (ke `D2`)<br/>• `Data Master Wilayah, Organisasi & UMP` (ke `D9`)<br/>• `Catatan Audit Pembaruan Master` (ke `D10`) | • Proses 2.1 & 2.2<br/>• Proses 2.3 & 2.4 | **Seimbang (*Balanced*)** |
+| **3.0 Kelola Profil & Riwayat Karier Alumni** | • `Pembaruan Profil, Kontak & Status Karier F8` (dari `Alumni`)<br/>• `Data Pokok Mahasiswa` (dari `D2`)<br/>• `Referensi Wilayah Domisili` (dari `D9`)<br/>• `Referensi Instansi Valid` (dari `D4`) | • `Data Biodata & Karier Terkini` (ke `D3`)<br/>• `Status Keterisian Profil` (ke `Alumni`)<br/>• `Catatan Perubahan Profil` (ke `D10`) | • Proses 3.1<br/>• Proses 3.2<br/>• Proses 3.3<br/>• Proses 3.4 | **Seimbang (*Balanced*)** |
+| **4.0 Kelola Usulan Perusahaan & Kontak Atasan** | • `Usulan Nama Perusahaan & Kontak Atasan` (dari `Alumni`)<br/>• `Keputusan Verifikasi Instansi` (dari `Admin Prodi`) | • `Master Perusahaan & Kontak Atasan Terverifikasi` (ke `D4`)<br/>• `Catatan Audit Verifikasi Perusahaan` (ke `D10`) | • Proses 4.1<br/>• Proses 4.2<br/>• Proses 4.3<br/>• Proses 4.4 | **Seimbang (*Balanced*)** |
+| **5.0 Kelola Instrumen Kuesioner Terpadu** | • `Struktur Kuesioner Universitas` (dari `Admin Biro 3`)<br/>• `Struktur Kuesioner Prodi` (dari `Admin Prodi`) | • `Definisi Butir Pertanyaan, Section & Bobot Opsi` (ke `D5`) | • Proses 5.1<br/>• Proses 5.2<br/>• Proses 5.3<br/>• Proses 5.4<br/>• Proses 5.5 | **Seimbang (*Balanced*)** |
 | **6.0 Proses Kuesioner Tracer Alumni** | • `Pilihan & Isian Jawaban Kuesioner` (dari `Alumni`)<br/>• `Daftar Pertanyaan Wajib & Aturan Percabangan` (dari `D5`)<br/>• `Status Karier Alumni (F8 Sync)` (dari `D3`) | • `Respon Jawaban Terpadu (responden: alumni)` (ke `D6`)<br/>• `Status Penyelesaian Kuesioner (100% Selesai)` (ke `Alumni`)<br/>• `Inisialisasi Sesi Evaluasi Atasan` (ke `D7`) | • Proses 6.1<br/>• Proses 6.2<br/>• Proses 6.3<br/>• Proses 6.4 | **Seimbang (*Balanced*)** |
 | **7.0 Proses Evaluasi Kinerja Pengguna Lulusan** | • `Sesi Token Aktif & Identitas Sasaran` (dari `D7`)<br/>• `Butir Penilaian Kinerja (Target: atasan)` (dari `D5`)<br/>• `Jawaban Aspek Kompetensi Alumni` (dari `Atasan`) | • `Formulir Evaluasi Berbasis Token` (ke `Atasan`)<br/>• `Respon Jawaban Terpadu (responden: atasan)` (ke `D6`)<br/>• `Pembaruan Status Penyerahan Evaluasi` (ke `D7`)<br/>• `Konfirmasi Penyerahan Evaluasi` (ke `Atasan`) | • Proses 7.1<br/>• Proses 7.2<br/>• Proses 7.3<br/>• Proses 7.4 | **Seimbang (*Balanced*)** |
+| **8.0 Sinkronisasi & Verifikasi Profil LinkedIn** | • `Tautan URL Profil LinkedIn Alumni` (dari `D3`)<br/>• `Data Snapshot Mentah LinkedIn` (dari `Apify`)<br/>• `Keputusan Approval Staging` (dari `Admin Prodi`) | • `Permintaan Scraping LinkedIn` (ke `Apify`)<br/>• `Data Staging LinkedIn` (ke `D8`)<br/>• `Pembaruan Riwayat Pekerjaan LinkedIn Terverifikasi` (ke `D3`)<br/>• `Catatan Audit Sinkronisasi LinkedIn` (ke `D10`) | • Proses 8.1<br/>• Proses 8.2<br/>• Proses 8.3<br/>• Proses 8.4 | **Seimbang (*Balanced*)** |
+| **9.0 Susun Laporan Analitik & Capaian IKU** | • `Data Jawaban Survei Terpadu` (dari `D6`)<br/>• `Data Populasi Alumni` (dari `D3`)<br/>• `Data Periode Kelulusan & Angkatan` (dari `D2`)<br/>• `Data Skala Instansi Tempat Bekerja` (dari `D4`)<br/>• `Data Standar UMP & Wilayah Kerja` (dari `D9`)<br/>• `Data Rekam Jejak Audit` (dari `D10`) | • `Laporan Eksekutif, Response Rate & Capaian IKU S1` (ke `Admin Biro 3`)<br/>• `Laporan Kinerja Lulusan Program Studi` (ke `Admin Prodi`)<br/>• `Laporan Audit Trail Sistem` (ke `Superadmin`)<br/>• `Ekspor Berkas Excel & ZIP` (ke admin) | • Proses 9.1<br/>• Proses 9.2<br/>• Proses 9.3<br/>• Proses 9.4<br/>• Proses 9.5 | **Seimbang (*Balanced*)** |
 
 ---
 
