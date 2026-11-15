@@ -172,11 +172,29 @@ const likertScaleLevels = [
 
 const getLikertLevelFromLabel = (label) => {
     const l = String(label || '').toLowerCase().trim();
-    if (l.includes('sangat baik')) return 5;
-    if (l === 'baik' || (l.includes('baik') && !l.includes('kurang') && !l.includes('cukup') && !l.includes('sangat'))) return 4;
-    if (l.includes('cukup')) return 3;
-    if (l.includes('sangat kurang')) return 1;
-    if (l.includes('kurang')) return 2;
+    if (!l) return 3;
+
+    // Level 1: Sangat Kurang / Sangat Rendah / Tidak Sama Sekali
+    if (l.includes('sangat kurang') || l.includes('sangat rendah') || l.includes('tidak') || l.includes('sangat kecil')) {
+        return 1;
+    }
+    // Level 5: Sangat Baik / Sangat Tinggi / Sangat Besar
+    if (l.includes('sangat baik') || l.includes('sangat tinggi') || l.includes('sangat besar') || l.includes('sangat mampu')) {
+        return 5;
+    }
+    // Level 2: Kurang / Rendah / Kecil
+    if (l.includes('kurang') || l.includes('rendah') || l.includes('kecil') || l.includes('jarang')) {
+        return 2;
+    }
+    // Level 3: Cukup / Sedang
+    if (l.includes('cukup') || l.includes('sedang')) {
+        return 3;
+    }
+    // Level 4: Baik / Tinggi / Besar (setelah melewati filter 'sangat' dan 'kurang')
+    if (l.includes('baik') || l.includes('tinggi') || l.includes('besar') || l.includes('mampu')) {
+        return 4;
+    }
+
     return 3;
 };
 
@@ -685,6 +703,15 @@ const selectedFilterLabel = computed(() => {
     return '';
 });
 
+// Mengambil jawaban evaluasi atasan untuk kode pertanyaan tertentu (toleran prefix EVA_).
+const getRecordAnswer = (record, kode) => {
+    if (!record?.answers || !kode) return '';
+    return record.answers[kode]
+        || record.answers[`EVA_${kode}`]
+        || record.answers[kode.replace(/^EVA_/, '')]
+        || '';
+};
+
 // Menyaring records berdasarkan filter grafik aktif (cross-filtering).
 const selectedRecords = computed(() => {
     const list = records.value;
@@ -693,15 +720,18 @@ const selectedRecords = computed(() => {
 
     if (sel.type === 'aspek_opsi') {
         return list.filter((r) => {
-            const ans = String(r.answers?.[sel.kode] || '').trim().toLowerCase();
-            return ans === sel.opsi.toLowerCase();
+            const rawAns = getRecordAnswer(r, sel.kode);
+            if (!rawAns) return false;
+
+            return getLikertLevelFromLabel(rawAns) === Number(sel.level)
+                || String(rawAns).trim().toLowerCase() === String(sel.opsi).trim().toLowerCase();
         });
     }
 
     if (sel.type === 'kesiapan') {
         return list.filter((r) => {
-            const ans = String(r.answers?.['EVA_tingkat_kesiapan_kerja'] || r.answers?.['tingkat_kesiapan_kerja'] || '').trim().toLowerCase();
-            return ans === sel.label.toLowerCase();
+            const rawAns = getRecordAnswer(r, 'tingkat_kesiapan_kerja');
+            return String(rawAns).trim().toLowerCase() === String(sel.label).trim().toLowerCase();
         });
     }
 
@@ -1251,12 +1281,12 @@ onBeforeUnmount(() => {
                                                 <!-- Kolom Nilai Reaktif Sesuai Pilihan Grafik -->
                                                 <td v-if="selectedItem?.type === 'aspek_opsi'" class="px-3.5 py-2.5 text-center">
                                                     <span class="rounded bg-emerald-100 px-2 py-0.5 text-xs font-bold text-[#0D542B]">
-                                                        {{ record.answers?.[selectedItem.kode] || selectedItem.opsi }}
+                                                        {{ getRecordAnswer(record, selectedItem.kode) || selectedItem.opsi }}
                                                     </span>
                                                 </td>
                                                 <td v-else-if="selectedItem?.type === 'kesiapan'" class="px-3.5 py-2.5 text-center">
                                                     <span class="rounded bg-emerald-100 px-2 py-0.5 text-xs font-bold text-[#0D542B]">
-                                                        {{ record.answers?.['EVA_tingkat_kesiapan_kerja'] || record.answers?.['tingkat_kesiapan_kerja'] || selectedItem.label }}
+                                                        {{ getRecordAnswer(record, 'tingkat_kesiapan_kerja') || selectedItem.label }}
                                                     </span>
                                                 </td>
                                                 <td v-else class="px-3.5 py-2.5 text-center font-extrabold text-[#0D542B]">

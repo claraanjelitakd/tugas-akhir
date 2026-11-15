@@ -63,7 +63,8 @@ class AtasanAnalyticsService
             ->values();
 
         $questionStats = $this->questionStats($questions, $submitted);
-        $readiness = $questionStats->firstWhere('kode', 'tingkat_kesiapan_kerja');
+        $readiness = $questionStats->firstWhere('kode', 'tingkat_kesiapan_kerja')
+            ?? $questionStats->firstWhere('kode', 'EVA_tingkat_kesiapan_kerja');
         $likertStats = $questionStats->filter(static fn (array $stat): bool => $stat['type'] === 'likert_5');
         $allScores = $likertStats->flatMap(static fn (array $stat): array => $stat['scores'])->values()->all();
         $prodiSummary = $this->prodiSummary($submitted, $questions);
@@ -299,10 +300,19 @@ class AtasanAnalyticsService
                 ->values();
 
             $answers = $evaluation->respons->mapWithKeys(static function ($response): array {
-                $kode = $response->pertanyaan?->kode_pertanyaan;
+                $rawKode = $response->pertanyaan?->kode_pertanyaan;
+                $cleanKode = $response->pertanyaan?->kode;
                 $val = trim((string) ($response->jawaban_teks ?? ($response->nilai ?? '')));
 
-                return $kode ? [$kode => $val] : [];
+                $res = [];
+                if ($rawKode) {
+                    $res[$rawKode] = $val;
+                }
+                if ($cleanKode) {
+                    $res[$cleanKode] = $val;
+                }
+
+                return $res;
             })->all();
 
             return [
