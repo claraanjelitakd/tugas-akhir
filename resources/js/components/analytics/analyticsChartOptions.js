@@ -352,7 +352,7 @@ const stackOrderKey = (label) => {
     const isMet = (text.includes('memenuhi') || text.includes('sudah mengisi')) && !isUnmet;
     if (isMet) return [1, 0, text];
     if (isUnmet) return [1, 1, text];
-    const scale = text.match(/^([1-5])\s*=/);
+    const scale = text.match(/^([1-5])\s*[-=]/);
     if (scale) return [0, Number(scale[1]), text];
     const orderedTerms = [
         '< 2',
@@ -463,11 +463,10 @@ export const normalizeAnalyticsOption = (option) => {
     if (Array.isArray(normalized.series)) {
         normalizeStackOrder(normalized.series);
         normalized.series.forEach((series, seriesIndex) => {
-            const scaleValue = /^([1-5])\s*=/.exec(String(series.name || ''))?.[1];
+            const scaleValue = /^([1-5])\s*[-=]/.exec(String(series.name || ''))?.[1];
             const explicitSeriesColor = typeof series.itemStyle?.color === 'string' ? series.itemStyle.color : null;
-            const seriesColor = scaleValue
-                ? analyticsScalePalette[Number(scaleValue) - 1]
-                : explicitSeriesColor || (customPalette || analyticsPalette)[seriesIndex % (customPalette || analyticsPalette).length];
+            const seriesColor = explicitSeriesColor
+                || (scaleValue ? analyticsScalePalette[Number(scaleValue) - 1] : (customPalette || analyticsPalette)[seriesIndex % (customPalette || analyticsPalette).length]);
             if (typeof series.itemStyle?.color !== 'function') {
                 normalizeChartStyle(series.itemStyle, seriesColor);
             } else {

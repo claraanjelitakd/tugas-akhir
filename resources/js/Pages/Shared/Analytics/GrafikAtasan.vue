@@ -160,13 +160,14 @@ const readinessHighlights = computed(() => {
 // STANDAR SKALA & WARNA LIKERT EVALUASI ATASAN (Mengadopsi Indikator 02)
 // 1 = Sangat Kurang (Merah), 2 = Kurang (Oranye), 3 = Cukup (Kuning),
 // 4 = Baik (Hijau Muda), 5 = Sangat Baik (Hijau Tua UKDW).
+// Urutan array 1 -> 5 agar tumpukan batang horizontal dimulai dari kiri (Level 1).
 // -----------------------------------------------------------------------------
 const likertScaleLevels = [
-    { level: 5, label: 'Sangat Baik', color: '#0D542B', textColor: '#FFFFFF' },
-    { level: 4, label: 'Baik', color: '#2F7D4A', textColor: '#FFFFFF' },
-    { level: 3, label: 'Cukup', color: '#FACC15', textColor: '#1E293B' },
-    { level: 2, label: 'Kurang', color: '#EA580C', textColor: '#FFFFFF' },
     { level: 1, label: 'Sangat Kurang', color: '#B91C1C', textColor: '#FFFFFF' },
+    { level: 2, label: 'Kurang', color: '#EA580C', textColor: '#FFFFFF' },
+    { level: 3, label: 'Cukup', color: '#FACC15', textColor: '#1E293B' },
+    { level: 4, label: 'Baik', color: '#2F7D4A', textColor: '#FFFFFF' },
+    { level: 5, label: 'Sangat Baik', color: '#0D542B', textColor: '#FFFFFF' },
 ];
 
 const getLikertLevelFromLabel = (label) => {
@@ -182,6 +183,7 @@ const getLikertLevelFromLabel = (label) => {
 // -----------------------------------------------------------------------------
 // 1. GRAFIK INDIKATOR 01: STACKED BAR ASPEK KINERJA LULUSAN
 // Sumbu Y = Aspek Kinerja, Sumbu X = Jumlah Respon Atasan (n), Segmen = Skala Likert 1-5, Ujung Batang = Total Respon
+// Legenda diposisikan di sisi kanan grafik dengan warna yang sinkron 100%.
 // -----------------------------------------------------------------------------
 const kinerjaStackedOption = computed(() => {
     const items = likertItems.value;
@@ -222,7 +224,11 @@ const kinerjaStackedOption = computed(() => {
             name: `${scale.level} - ${scale.label}`,
             type: 'bar',
             stack: 'total',
+            stackOrder: scale.level,
             barMaxWidth: 26,
+            itemStyle: {
+                color: scale.color,
+            },
             label: {
                 show: true,
                 position: 'inside',
@@ -245,6 +251,7 @@ const kinerjaStackedOption = computed(() => {
         name: 'Total Respon',
         type: 'bar',
         stack: 'total',
+        stackOrder: 99,
         barMaxWidth: 26,
         data: items.map((item) => ({
             value: 0,
@@ -274,23 +281,33 @@ const kinerjaStackedOption = computed(() => {
 
     return {
         ...baseOption(summary.value.submitted || 0),
+        themePalette: likertScaleLevels.map((s) => s.color),
         legend: {
             show: true,
-            bottom: 0,
+            orient: 'vertical',
+            right: 16,
+            top: 'middle',
             icon: 'rect',
-            itemWidth: 16,
+            itemWidth: 14,
             itemHeight: 12,
-            data: likertScaleLevels.map((s) => `${s.level} - ${s.label}`),
-            textStyle: { color: '#334155', fontSize: 11, fontWeight: 500 },
+            itemGap: 12,
+            data: [
+                '5 - Sangat Baik',
+                '4 - Baik',
+                '3 - Cukup',
+                '2 - Kurang',
+                '1 - Sangat Kurang',
+            ],
+            textStyle: { color: '#334155', fontSize: 11, fontWeight: 600 },
         },
-        grid: { left: 24, right: 85, top: 20, bottom: 48, containLabel: true },
+        grid: { left: 24, right: 210, top: 20, bottom: 36, containLabel: true },
         xAxis: {
             type: 'value',
             min: 0,
             minInterval: 1,
             name: 'Jumlah respon atasan (n)',
             nameLocation: 'middle',
-            nameGap: 28,
+            nameGap: 24,
             axisLabel: {
                 formatter: (val) => Math.round(val),
                 color: '#64748B',
