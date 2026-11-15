@@ -171,6 +171,17 @@ const evaluationClass = (status) => {
     return 'bg-slate-100 text-slate-600 border-slate-200';
 };
 
+// Menentukan style badge evaluasi likert dan kesiapan kerja.
+const getLikertBadgeStyle = (label) => {
+    const l = String(label || '').toLowerCase();
+    if (l.includes('sangat baik') || l.includes('sangat tinggi') || l.includes('sangat siap')) return 'bg-emerald-100 text-[#0D542B] border-emerald-300';
+    if (l.includes('baik') || l.includes('tinggi') || l.includes('cukup siap')) return 'bg-emerald-50 text-[#2F7D4A] border-emerald-200';
+    if (l.includes('cukup') || l.includes('sedang')) return 'bg-amber-50 text-amber-800 border-amber-200';
+    if (l.includes('kurang') || l.includes('rendah') || l.includes('kurang siap')) return 'bg-orange-50 text-orange-800 border-orange-200';
+    if (l.includes('sangat kurang') || l.includes('sangat rendah') || l.includes('tidak')) return 'bg-rose-50 text-rose-800 border-rose-200';
+    return 'bg-slate-100 text-slate-700 border-slate-200';
+};
+
 // Mengirim filter direktori ke endpoint role aktif.
 const applyFilters = () => {
     router.get(`/${props.prefix}/atasan`, {
@@ -328,10 +339,23 @@ const resetFilters = () => {
                                     <div class="font-semibold leading-snug text-slate-900">{{ record.atasan?.nama || '-' }}</div>
                                     <div class="mt-1 text-[10px] text-slate-400">Kontak tersedia di detail</div>
                                 </td>
-                                <td class="border-r border-slate-100 px-3.5 py-3 font-medium text-slate-800">{{ record.perusahaan?.nama || 'Belum terhubung' }}</td>
+                                <td class="border-r border-slate-100 px-3.5 py-3 font-medium text-slate-800">
+                                    <div class="font-bold leading-snug text-slate-900">{{ record.perusahaan?.nama || 'Belum terhubung' }}</div>
+                                    <div v-if="record.evaluasi?.standar_gaji_pertama || record.evaluasi?.jumlah_pegawai" class="mt-1 flex flex-wrap gap-1">
+                                        <span v-if="record.evaluasi?.standar_gaji_pertama" class="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-[#0D542B]" title="Standar gaji pertama yang dilaporkan atasan">
+                                            Gaji: {{ record.evaluasi.standar_gaji_pertama }}
+                                        </span>
+                                        <span v-if="record.evaluasi?.jumlah_pegawai" class="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600" title="Jumlah pegawai perusahaan">
+                                            {{ record.evaluasi.jumlah_pegawai }} pegawai
+                                        </span>
+                                    </div>
+                                </td>
                                 <td class="border-r border-slate-100 px-3.5 py-3">
                                     <span class="inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-semibold" :class="evaluationClass(record.evaluasi?.status)">{{ record.evaluasi?.status || 'Belum ada evaluasi' }}</span>
-                                    <div v-if="record.evaluasi?.submitted_at" class="mt-1 text-[10px] text-slate-400">{{ formatDate(record.evaluasi.submitted_at) }}</div>
+                                    <div v-if="record.evaluasi?.kesiapan_kerja" class="mt-1 text-[10px] font-medium text-slate-600">
+                                        Kesiapan: <strong class="text-slate-800">{{ record.evaluasi.kesiapan_kerja }}</strong>
+                                    </div>
+                                    <div v-if="record.evaluasi?.submitted_at" class="mt-0.5 text-[10px] text-slate-400">{{ formatDate(record.evaluasi.submitted_at) }}</div>
                                 </td>
                                 <td class="px-4 py-3 text-center whitespace-nowrap">
                                     <div class="flex items-center justify-center gap-1.5">
@@ -405,48 +429,178 @@ const resetFilters = () => {
             </div>
         </div>
 
-        <!-- Modal detail relasi untuk pemeriksaan cepat sebelum membuka profil alumni. -->
+        <!-- Modal detail relasi dan seluruh instrumen evaluasi atasan -->
         <div v-if="showDetailModal && activeRecord" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @click.self="closeDetailModal">
-            <div class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-xl">
-                <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+            <div class="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <!-- Header Modal -->
+                <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
                     <div>
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-[#0D542B]">Detail Relasi</p>
-                        <h2 class="mt-1 text-lg font-bold text-slate-900">Data Atasan Alumni</h2>
+                        <div class="flex items-center gap-2">
+                            <span class="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#0D542B]">
+                                Evaluasi Pengguna Lulusan
+                            </span>
+                            <span class="rounded-full border px-2.5 py-0.5 text-[10px] font-semibold" :class="evaluationClass(activeRecord.evaluasi?.status)">
+                                {{ activeRecord.evaluasi?.status || 'Belum ada evaluasi' }}
+                            </span>
+                        </div>
+                        <h2 class="mt-1 text-lg font-bold text-slate-900">
+                            Data Atasan & Hasil Evaluasi Kinerja Alumni
+                        </h2>
                     </div>
-                    <button type="button" class="rounded-lg border border-slate-200 px-3 py-1 text-sm text-slate-500 hover:bg-slate-50" aria-label="Tutup detail" @click="closeDetailModal">Tutup</button>
+                    <button type="button" class="rounded-lg border border-slate-200 px-3 py-1 text-sm font-semibold text-slate-500 hover:bg-slate-50 transition-colors" aria-label="Tutup detail" @click="closeDetailModal">
+                        Tutup
+                    </button>
                 </div>
-                <!-- Card detail dipisah agar identitas alumni pengisi dan kontak atasan tidak bertumpuk. -->
-                <div class="grid gap-3 px-5 py-5 text-sm sm:grid-cols-2">
-                    <div class="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 sm:col-span-2">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Alumni Pengisi</p>
-                        <p class="mt-1 font-semibold text-slate-900">{{ activeRecord.alumni.nama }}</p>
-                        <p class="mt-0.5 font-mono text-xs text-slate-500">{{ activeRecord.alumni.nim }}</p>
-                        <p class="mt-1 text-xs text-slate-600">{{ activeRecord.alumni.prodi || '-' }}<span v-if="activeRecord.alumni.tahun_lulus"> · Lulus {{ activeRecord.alumni.tahun_lulus }}</span></p>
-                        <p class="mt-2 text-xs font-medium text-emerald-800">Mengisi melalui Profil alumni</p>
+
+                <!-- Body Modal (Scrollable) -->
+                <div class="flex-1 overflow-y-auto px-6 py-5 space-y-6 text-sm">
+                    <!-- Section 1: Profil Alumni & Atasan Penilai -->
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <!-- Kartu Alumni -->
+                        <div class="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Alumni yang Dinilai</p>
+                            <p class="mt-1 text-base font-bold text-slate-900">{{ activeRecord.alumni.nama }}</p>
+                            <p class="mt-0.5 font-mono text-xs text-slate-600">NIM: {{ activeRecord.alumni.nim }}</p>
+                            <p class="mt-1 text-xs text-slate-600">
+                                Program Studi: <strong class="text-slate-800">{{ activeRecord.alumni.prodi || '-' }}</strong>
+                                <span v-if="activeRecord.alumni.tahun_lulus"> · Lulus {{ activeRecord.alumni.tahun_lulus }}</span>
+                            </p>
+                        </div>
+
+                        <!-- Kartu Atasan & Perusahaan -->
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Atasan Langsung & Instansi</p>
+                            <p class="mt-1 text-base font-bold text-slate-900">{{ activeRecord.atasan?.nama || 'Belum ditentukan' }}</p>
+                            <p class="mt-0.5 text-xs text-slate-600">
+                                Perusahaan: <strong class="text-slate-800">{{ activeRecord.perusahaan?.nama || '-' }}</strong>
+                            </p>
+                            <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 font-mono">
+                                <div>Email: <span class="text-slate-800 font-sans">{{ activeRecord.atasan?.email || '-' }}</span></div>
+                                <div>Telp/WA: <span class="text-slate-800 font-sans">{{ activeRecord.atasan?.telepon || '-' }}</span></div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="rounded-xl border border-slate-200 bg-white p-4">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Atasan</p>
-                        <p class="mt-1 font-semibold text-slate-900">{{ activeRecord.atasan?.nama || '-' }}</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-200 bg-white p-4">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Perusahaan / Organisasi</p>
-                        <p class="mt-1 font-semibold text-slate-900">{{ activeRecord.perusahaan?.nama || '-' }}</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-200 bg-white p-4">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Email Atasan</p>
-                        <p class="mt-1 break-all text-slate-700">{{ activeRecord.atasan?.email || 'Belum diisi' }}</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-200 bg-white p-4">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Telepon Atasan</p>
-                        <p class="mt-1 text-slate-700">{{ activeRecord.atasan?.telepon || 'Belum diisi' }}</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-200 bg-white p-4 sm:col-span-2">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Status Evaluasi</p>
-                        <p class="mt-1 font-semibold text-slate-700">{{ activeRecord.evaluasi?.status || 'Belum ada evaluasi' }}</p>
+
+                    <!-- Jika Evaluasi Selesai: Tampilkan Seluruh Instrumen Pertanyaan Evaluasi -->
+                    <template v-if="activeRecord.evaluasi?.is_submitted">
+                        <!-- Section 2: Karakteristik Perusahaan & Ketenagakerjaan -->
+                        <div class="rounded-xl border border-slate-200 bg-white p-5">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                                <div>
+                                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                        Karakteristik Perusahaan & Ketenagakerjaan
+                                    </h3>
+                                    <p class="mt-0.5 text-xs text-slate-400">Informasi organisasi dan skala ketenagakerjaan alumni yang dilaporkan atasan</p>
+                                </div>
+                                <span class="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                                    5 Butir Profil
+                                </span>
+                            </div>
+
+                            <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                <div class="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bentuk Perusahaan</p>
+                                    <p class="mt-1 font-bold text-slate-900">{{ activeRecord.evaluasi.bentuk_perusahaan || '-' }}</p>
+                                </div>
+                                <div class="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Skala Organisasi</p>
+                                    <p class="mt-1 font-bold text-slate-900">{{ activeRecord.evaluasi.skala_perusahaan || '-' }}</p>
+                                </div>
+                                <div class="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Jumlah Pegawai / Karyawan</p>
+                                    <p class="mt-1 font-bold text-slate-900">{{ activeRecord.evaluasi.jumlah_pegawai || '-' }}</p>
+                                </div>
+                                <div class="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Jumlah Alumni UKDW Bekerja</p>
+                                    <p class="mt-1 font-bold text-slate-900">{{ activeRecord.evaluasi.jumlah_alumni_ukdw || '-' }}</p>
+                                </div>
+                                <div class="rounded-lg border border-emerald-200 bg-emerald-50/80 p-3 sm:col-span-2">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Standar Gaji Pertama Alumni UKDW (per bulan)</p>
+                                    <p class="mt-1 text-base font-extrabold text-[#0D542B]">{{ activeRecord.evaluasi.standar_gaji_pertama || '-' }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section 3: Tingkat Kesiapan Kerja Alumni -->
+                        <div class="rounded-xl border border-slate-200 bg-white p-5">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                Tingkat Kesiapan Kerja Alumni
+                            </h3>
+                            <div class="mt-3 flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/60 p-4">
+                                <span class="text-xs font-medium text-slate-700">Kesiapan alumni memasuki dunia kerja menurut atasan:</span>
+                                <span class="rounded-full border px-3 py-1 text-xs font-bold" :class="getLikertBadgeStyle(activeRecord.evaluasi.kesiapan_kerja)">
+                                    {{ activeRecord.evaluasi.kesiapan_kerja || 'Belum diisi' }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Section 4: Penilaian 13 Butir Aspek Kinerja Lulusan -->
+                        <div class="rounded-xl border border-slate-200 bg-white p-5">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                                <div>
+                                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                        Penilaian Aspek Kinerja Lulusan (Skala 1–5)
+                                    </h3>
+                                    <p class="mt-0.5 text-xs text-slate-400">Rincian jawaban evaluasi atasan terhadap 13 butir kompetensi lulusan</p>
+                                </div>
+                                <span class="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                                    13 Butir Penilaian
+                                </span>
+                            </div>
+
+                            <div class="mt-4 overflow-hidden rounded-lg border border-slate-200">
+                                <table class="w-full text-left text-xs">
+                                    <thead class="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-600">
+                                        <tr>
+                                            <th class="px-3.5 py-2.5 text-center w-12">No</th>
+                                            <th class="px-3.5 py-2.5">Aspek Kompetensi</th>
+                                            <th class="px-3.5 py-2.5 text-center">Jawaban Atasan</th>
+                                            <th class="px-3.5 py-2.5 text-center w-24">Skor</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        <tr v-for="(item, idx) in activeRecord.evaluasi.kompetensi || []" :key="item.kode" class="hover:bg-slate-50/60 transition-colors">
+                                            <td class="px-3.5 py-2.5 text-center font-mono text-slate-400">{{ idx + 1 }}</td>
+                                            <td class="px-3.5 py-2.5 font-medium text-slate-900">{{ item.pertanyaan }}</td>
+                                            <td class="px-3.5 py-2.5 text-center">
+                                                <span class="rounded-full border px-2.5 py-0.5 text-[11px] font-bold" :class="getLikertBadgeStyle(item.jawaban)">
+                                                    {{ item.jawaban }}
+                                                </span>
+                                            </td>
+                                            <td class="px-3.5 py-2.5 text-center font-bold text-[#0D542B]">
+                                                {{ item.skor ? `${item.skor} / 5` : '-' }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Jika Evaluasi Belum Selesai -->
+                    <div v-else class="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center">
+                        <p class="text-sm font-bold text-slate-700">Instrumen Evaluasi Belum Diisi</p>
+                        <p class="mt-1 text-xs text-slate-500">
+                            Atasan langsung belum mengirimkan kuesioner evaluasi kinerja dan karakteristik perusahaan untuk alumni ini.
+                        </p>
                     </div>
                 </div>
-                <div class="flex justify-end border-t border-slate-200 px-5 py-4">
-                    <Link :href="alumniDetailPath(activeRecord.alumni.id)" class="rounded-lg bg-[#0D542B] px-4 py-2 text-xs font-bold text-white hover:bg-[#08381c]">Buka Profil Alumni</Link>
+
+                <!-- Footer Modal -->
+                <div class="flex items-center justify-between border-t border-slate-200 px-6 py-4 bg-slate-50/50">
+                    <div class="text-xs text-slate-500">
+                        <span v-if="activeRecord.evaluasi?.submitted_at">
+                            Waktu pengisian: <strong>{{ formatDate(activeRecord.evaluasi.submitted_at) }}</strong>
+                        </span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors" @click="closeDetailModal">
+                            Tutup
+                        </button>
+                        <Link :href="alumniDetailPath(activeRecord.alumni.id)" class="rounded-lg bg-[#0D542B] px-4 py-2 text-xs font-bold text-white hover:bg-[#08381c] transition-colors">
+                            Buka Profil Alumni
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>

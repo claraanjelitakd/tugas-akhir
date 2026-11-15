@@ -138,12 +138,13 @@ class AtasanDirectoryQueryService
             'perusahaan:id,nama_perusahaan',
             'dataAkademik:nim,nama,tahun_lulus',
             'prodi:id,nama_prodi',
-            'evaluasiAtasan',
+            'evaluasiAtasan.respons.pertanyaan',
+            'evaluasiAtasan.respons.opsi',
         ];
     }
 
     /**
-     * Ubah satu profil alumni menjadi payload master Data Atasan.
+     * Ubah satu profil alumni menjadi payload master Data Atasan lengkap dengan seluruh isi evaluasi.
      *
      * @param  Biodata  $biodata  Profil alumni dengan relasi atasan yang sudah dimuat.
      * @return array<string, mixed> Data satu relasi alumni-atasan.
@@ -152,6 +153,44 @@ class AtasanDirectoryQueryService
     {
         $company = $biodata->atasan?->perusahaan ?? $biodata->perusahaan;
         $evaluation = $biodata->evaluasiAtasan;
+
+        $profilKarakteristik = [];
+        $kinerjaKompetensi = [];
+        $kesiapanKerja = null;
+
+        if ($evaluation && $evaluation->is_submitted) {
+            foreach ($evaluation->respons as $resp) {
+                $p = $resp->pertanyaan;
+                if (! $p) {
+                    continue;
+                }
+
+                $kode = (string) ($p->kode_pertanyaan ?? '');
+                $cleanKode = str_starts_with($kode, 'EVA_') ? substr($kode, 4) : $kode;
+                $jawaban = trim((string) ($resp->jawaban_teks ?? ''));
+                $skor = $resp->opsi?->nilai_skor;
+
+                if (in_array($cleanKode, ['bentuk_perusahaan', 'skala_perusahaan', 'jumlah_pegawai', 'jumlah_alumni_ukdw', 'standar_gaji_pertama'], true)) {
+                    $profilKarakteristik[$cleanKode] = [
+                        'kode' => $cleanKode,
+                        'pertanyaan' => $p->teks_pertanyaan,
+                        'jawaban' => $jawaban,
+                    ];
+                } elseif ($cleanKode === 'tingkat_kesiapan_kerja') {
+                    $kesiapanKerja = [
+                        'pertanyaan' => $p->teks_pertanyaan,
+                        'jawaban' => $jawaban,
+                    ];
+                } elseif ($p->tipe === 'likert_5') {
+                    $kinerjaKompetensi[] = [
+                        'kode' => $cleanKode,
+                        'pertanyaan' => $p->teks_pertanyaan,
+                        'jawaban' => $jawaban,
+                        'skor' => $skor,
+                    ];
+                }
+            }
+        }
 
         return [
             'id' => $biodata->id,
@@ -180,6 +219,15 @@ class AtasanDirectoryQueryService
                     ? 'Belum ada evaluasi'
                     : ($evaluation->is_submitted ? 'Selesai' : 'Menunggu'),
                 'submitted_at' => $evaluation?->submitted_at?->toIso8601String(),
+                'is_submitted' => (bool) ($evaluation?->is_submitted),
+                'bentuk_perusahaan' => $profilKarakteristik['bentuk_perusahaan']['jawaban'] ?? null,
+                'skala_perusahaan' => $profilKarakteristik['skala_perusahaan']['jawaban'] ?? null,
+                'jumlah_pegawai' => $profilKarakteristik['jumlah_pegawai']['jawaban'] ?? null,
+                'jumlah_alumni_ukdw' => $profilKarakteristik['jumlah_alumni_ukdw']['jawaban'] ?? null,
+                'standar_gaji_pertama' => $profilKarakteristik['standar_gaji_pertama']['jawaban'] ?? null,
+                'kesiapan_kerja' => $kesiapanKerja['jawaban'] ?? null,
+                'karakteristik' => array_values($profilKarakteristik),
+                'kompetensi' => $kinerjaKompetensi,
             ],
         ];
     }
