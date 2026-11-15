@@ -179,20 +179,35 @@ class KuesionerController extends Controller
                                 $jawabanAwal[$pId.'_custom'] = $customText;
                             }
                         } else {
-                            $matchedOpt = $options->first(function ($opt) use ($savedText) {
-                                $t = strtolower(trim((string) $savedText));
-                                $optText = strtolower(trim((string) $opt['option_text']));
-                                $optCode = strtolower(trim((string) ($opt['kode_opsi'] ?? '')));
+                            if ($pCode === 'F8') {
+                                $targetKat = ! empty($biodata->kategori_pekerjaan) ? $biodata->kategori_pekerjaan : $savedText;
+                                $vStr = strtolower(trim((string) $targetKat));
+                                $matchedOpt = $options->first(function ($opt) use ($vStr) {
+                                    $optText = strtolower(trim((string) $opt['option_text']));
 
-                                return $t === $optText
-                                    || $t === $optCode
-                                    || ($t === 'pekerja' && str_contains($optText, 'bekerja'))
-                                    || ($t === 'bekerja' && str_contains($optText, 'bekerja'))
-                                    || ($t === 'mencari kerja' && str_contains($optText, 'mencari kerja'))
-                                    || ($t === 'belum memungkinkan bekerja' && str_contains($optText, 'belum memungkinkan'));
-                            });
+                                    return $vStr === $optText
+                                        || ($vStr === 'belum memungkinkan bekerja' && str_contains($optText, 'belum memungkinkan'))
+                                        || ($vStr === 'mencari kerja' && str_contains($optText, 'mencari kerja'))
+                                        || ($vStr === 'melanjutkan pendidikan' && str_contains($optText, 'melanjutkan pendidikan'))
+                                        || ($vStr === 'wiraswasta' && str_contains($optText, 'wiraswasta'))
+                                        || ($vStr === 'pekerja' && str_contains($optText, 'bekerja') && ! str_contains($optText, 'belum'))
+                                        || ($vStr === 'bekerja' && str_contains($optText, 'bekerja') && ! str_contains($optText, 'belum'))
+                                        || ($vStr === 'tidak bekerja' && str_contains($optText, 'belum memungkinkan'))
+                                        || ($vStr === 'belum bekerja' && str_contains($optText, 'belum memungkinkan'));
+                                });
 
-                            $jawabanAwal[$pId] = $matchedOpt ? $matchedOpt['option_text'] : $savedText;
+                                $jawabanAwal[$pId] = $matchedOpt ? $matchedOpt['option_text'] : $savedText;
+                            } else {
+                                $matchedOpt = $options->first(function ($opt) use ($savedText) {
+                                    $t = strtolower(trim((string) $savedText));
+                                    $optText = strtolower(trim((string) $opt['option_text']));
+                                    $optCode = strtolower(trim((string) ($opt['kode_opsi'] ?? '')));
+
+                                    return $t === $optText || $t === $optCode;
+                                });
+
+                                $jawabanAwal[$pId] = $matchedOpt ? $matchedOpt['option_text'] : $savedText;
+                            }
                         }
                     } elseif (in_array($pType, ['radio_input', 'radio_text'], true)) {
                         $inputsObj = [];
@@ -311,9 +326,21 @@ class KuesionerController extends Controller
                             }
                         }
 
-                        if ($pCode === 'F8' && ! empty($val)) {
-                            $matchedOpt = $options->first(function ($opt) use ($val) {
-                                return strcasecmp($opt['option_text'], $val) === 0 || str_starts_with(strtolower($opt['option_text']), strtolower($val));
+                        if ($pCode === 'F8') {
+                            $targetKat = ! empty($biodata->kategori_pekerjaan) ? $biodata->kategori_pekerjaan : $val;
+                            $vStr = strtolower(trim((string) $targetKat));
+                            $matchedOpt = $options->first(function ($opt) use ($vStr) {
+                                $optText = strtolower(trim((string) $opt['option_text']));
+
+                                return $vStr === $optText
+                                    || ($vStr === 'belum memungkinkan bekerja' && str_contains($optText, 'belum memungkinkan'))
+                                    || ($vStr === 'mencari kerja' && str_contains($optText, 'mencari kerja'))
+                                    || ($vStr === 'melanjutkan pendidikan' && str_contains($optText, 'melanjutkan pendidikan'))
+                                    || ($vStr === 'wiraswasta' && str_contains($optText, 'wiraswasta'))
+                                    || ($vStr === 'pekerja' && str_contains($optText, 'bekerja') && ! str_contains($optText, 'belum'))
+                                    || ($vStr === 'bekerja' && str_contains($optText, 'bekerja') && ! str_contains($optText, 'belum'))
+                                    || ($vStr === 'tidak bekerja' && str_contains($optText, 'belum memungkinkan'))
+                                    || ($vStr === 'belum bekerja' && str_contains($optText, 'belum memungkinkan'));
                             });
                             $val = $matchedOpt ? $matchedOpt['option_text'] : $val;
                         }

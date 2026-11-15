@@ -176,6 +176,22 @@ class KelengkapanTracerService
             }
         }
 
+        $isNonWorking = in_array($biodata->kategori_pekerjaan, ['Mencari Kerja', 'Belum Memungkinkan Bekerja', 'Tidak Bekerja', 'Melanjutkan Pendidikan'], true);
+        if ($isNonWorking) {
+            unset(
+                $fields['Nama Perusahaan'],
+                $fields['Alamat Perusahaan'],
+                $fields['Skala Perusahaan'],
+                $fields['Provinsi Perusahaan'],
+                $fields['Kabupaten Perusahaan'],
+                $fields['Nama Atasan'],
+                $fields['Email Atasan'],
+                $fields['Nomor Telepon Atasan'],
+                $fields['Posisi Jabatan'],
+                $fields['Kode Pos Perusahaan (Zipcode)']
+            );
+        }
+
         $dynamicProfileQuestions = KuesionerSyncService::getDynamicProfileQuestions()
             ->filter(fn ($question): bool => (bool) ($question->pivot_wajib ?? $question->wajib ?? false));
 

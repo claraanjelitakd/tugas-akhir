@@ -377,18 +377,23 @@ const isMelanjutkanStudi = ref(
     )
 );
 
-// Normalisasi kategori_pekerjaan agar kompatibel dengan data LinkedIn ('Pekerja', 'Bekerja (Full Time)', 'Karyawan', dll.)
+// Normalisasi kategori_pekerjaan agar kompatibel dengan data dan opsi resmi Dikti F8
 if (props.form.kategori_pekerjaan) {
     const rawKat = String(props.form.kategori_pekerjaan).trim();
-    if (rawKat === 'Melanjutkan Pendidikan') {
+    const rawLower = rawKat.toLowerCase();
+    if (rawLower.includes('melanjutkan pendidikan') || rawKat === 'Melanjutkan Pendidikan') {
         isMelanjutkanStudi.value = true;
-        props.form.kategori_pekerjaan = '';
-    } else if (rawKat === 'Pekerja' || rawKat.toLowerCase().includes('bekerja') || rawKat.toLowerCase().includes('pekerja') || rawKat.toLowerCase().includes('karyawan')) {
-        props.form.kategori_pekerjaan = 'Pekerja';
-    } else if (rawKat === 'Wiraswasta' || rawKat.toLowerCase().includes('wira') || rawKat.toLowerCase().includes('founder') || rawKat.toLowerCase().includes('owner')) {
+        props.form.kategori_pekerjaan = 'Melanjutkan Pendidikan';
+    } else if (rawLower.includes('belum memungkinkan') || rawKat === 'Belum Memungkinkan Bekerja') {
+        props.form.kategori_pekerjaan = 'Belum Memungkinkan Bekerja';
+    } else if (rawLower.includes('mencari kerja') || rawKat === 'Mencari Kerja') {
+        props.form.kategori_pekerjaan = 'Mencari Kerja';
+    } else if (rawKat === 'Wiraswasta' || rawLower.includes('wira') || rawLower.includes('founder') || rawLower.includes('owner')) {
         props.form.kategori_pekerjaan = 'Wiraswasta';
-    } else if (['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'].some(s => rawKat.toLowerCase().includes(s.toLowerCase()))) {
-        props.form.kategori_pekerjaan = 'Tidak Bekerja';
+    } else if (rawKat === 'Pekerja' || rawLower.includes('bekerja') || rawLower.includes('pekerja') || rawLower.includes('karyawan')) {
+        props.form.kategori_pekerjaan = 'Pekerja';
+    } else if (rawLower.includes('tidak bekerja') || rawLower.includes('belum bekerja')) {
+        props.form.kategori_pekerjaan = 'Belum Memungkinkan Bekerja';
     }
 }
 
@@ -439,7 +444,7 @@ const autoFillAtasanOwner = () => {
     props.form.telepon_atasan = props.form.nomor_telepon || '';
 };
 
-// Pemilihan peran eksklusif Pekerja vs Wiraswasta (Single Choice)
+// Pemilihan peran eksklusif aktivitas karier alumni (Single Choice)
 const selectRole = (newRole) => {
     if (props.readonly) return;
 
@@ -471,7 +476,21 @@ const selectRole = (newRole) => {
             props.form.posisi_wiraswasta = '';
         }
         autoFillAtasanOwner();
-    } else if (newRole === 'Tidak Bekerja' || newRole === 'Mencari Kerja' || newRole === 'Belum Bekerja') {
+    } else if (newRole === 'Melanjutkan Pendidikan') {
+        isMelanjutkanStudi.value = true;
+        props.form.posisi_jabatan = null;
+        props.form.posisi_wiraswasta = null;
+        props.form.posisi_wiraswasta_lainnya = null;
+        props.form.bidang_pekerjaan = null;
+        props.form.bidang_pekerjaan_lainnya = null;
+        props.form.divisi = null;
+        props.form.gaji = null;
+        if (props.form.nama_atasan === props.form.nama || props.form.email_atasan === (props.form.email_pribadi || props.form.email)) {
+            props.form.nama_atasan = '';
+            props.form.email_atasan = '';
+            props.form.telepon_atasan = '';
+        }
+    } else if (['Mencari Kerja', 'Belum Memungkinkan Bekerja', 'Tidak Bekerja', 'Belum Bekerja'].includes(newRole)) {
         props.form.posisi_jabatan = null;
         props.form.posisi_wiraswasta = null;
         props.form.posisi_wiraswasta_lainnya = null;
@@ -1426,8 +1445,8 @@ onUnmounted(() => {
                         </label>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
-                        <!-- Opsi 1: Pekerja / Karyawan -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 mb-2">
+                        <!-- Opsi 1: Bekerja (Karyawan / Pegawai) -->
                         <div
                             @click="selectRole('Pekerja')"
                             class="p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between relative group"
@@ -1435,7 +1454,7 @@ onUnmounted(() => {
                         >
                             <div class="flex items-center justify-between">
                                 <div class="font-bold text-sm" :class="form.kategori_pekerjaan === 'Pekerja' ? 'text-[#0D542B]' : 'text-gray-800'">
-                                    Pekerja / Karyawan
+                                    Bekerja (Karyawan)
                                 </div>
                             </div>
                             <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Bekerja di instansi pemerintah, swasta, BUMN, LSM, dsb.</div>
@@ -1452,22 +1471,58 @@ onUnmounted(() => {
                                     Wirausaha / Founder
                                 </div>
                             </div>
-                            <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Mendirikan bisnis sendiri, startup, atau freelance</div>
+                            <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Mendirikan bisnis sendiri, UMKM, startup, atau freelance</div>
                         </div>
 
-                        <!-- Opsi 3: Tidak Bekerja / Mencari Kerja -->
+                        <!-- Opsi 3: Melanjutkan Pendidikan -->
                         <div
-                            @click="selectRole('Tidak Bekerja')"
+                            @click="selectRole('Melanjutkan Pendidikan')"
                             class="p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between relative group"
-                            :class="['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'].includes(form.kategori_pekerjaan) ? 'border-[#0D542B] bg-slate-50 text-gray-900 shadow-xs ring-1 ring-[#0D542B]' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'"
+                            :class="form.kategori_pekerjaan === 'Melanjutkan Pendidikan' ? 'border-[#0D542B] bg-slate-50 text-gray-900 shadow-xs ring-1 ring-[#0D542B]' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'"
                         >
                             <div class="flex items-center justify-between">
-                                <div class="font-bold text-sm" :class="['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'].includes(form.kategori_pekerjaan) ? 'text-[#0D542B]' : 'text-gray-800'">
-                                    Tidak Bekerja / Mencari Kerja
+                                <div class="font-bold text-sm" :class="form.kategori_pekerjaan === 'Melanjutkan Pendidikan' ? 'text-[#0D542B]' : 'text-gray-800'">
+                                    Melanjutkan Pendidikan
                                 </div>
                             </div>
-                            <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Belum memungkinkan bekerja atau sedang mencari kerja</div>
+                            <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Sedang menempuh studi lanjut (S2, S3, spesialis, profesi)</div>
                         </div>
+
+                        <!-- Opsi 4: Sedang Mencari Kerja -->
+                        <div
+                            @click="selectRole('Mencari Kerja')"
+                            class="p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between relative group"
+                            :class="form.kategori_pekerjaan === 'Mencari Kerja' ? 'border-[#0D542B] bg-slate-50 text-gray-900 shadow-xs ring-1 ring-[#0D542B]' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'"
+                        >
+                            <div class="flex items-center justify-between">
+                                <div class="font-bold text-sm" :class="form.kategori_pekerjaan === 'Mencari Kerja' ? 'text-[#0D542B]' : 'text-gray-800'">
+                                    Mencari Kerja
+                                </div>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Belum bekerja dan aktif mencari lowongan pekerjaan</div>
+                        </div>
+
+                        <!-- Opsi 5: Belum Memungkinkan Bekerja -->
+                        <div
+                            @click="selectRole('Belum Memungkinkan Bekerja')"
+                            class="p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between relative group"
+                            :class="['Belum Memungkinkan Bekerja', 'Tidak Bekerja'].includes(form.kategori_pekerjaan) ? 'border-[#0D542B] bg-slate-50 text-gray-900 shadow-xs ring-1 ring-[#0D542B]' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'"
+                        >
+                            <div class="flex items-center justify-between">
+                                <div class="font-bold text-sm" :class="['Belum Memungkinkan Bekerja', 'Tidak Bekerja'].includes(form.kategori_pekerjaan) ? 'text-[#0D542B]' : 'text-gray-800'">
+                                    Belum Bekerja
+                                </div>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Belum berencana bekerja (keluarga, istirahat, dsb.)</div>
+                        </div>
+                    </div>
+
+                    <!-- Notifikasi Status Karier Non-Pekerja -->
+                    <div v-if="['Mencari Kerja', 'Belum Memungkinkan Bekerja', 'Tidak Bekerja'].includes(form.kategori_pekerjaan)" class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 text-xs text-slate-800">
+                        <span class="font-bold text-[#0D542B]">Informasi Status Karier:</span>
+                        <p class="mt-0.5 text-slate-600 leading-relaxed">
+                            Karena Anda memilih status <span class="font-semibold text-slate-900">{{ form.kategori_pekerjaan === 'Mencari Kerja' ? 'Sedang Mencari Kerja' : 'Belum Memungkinkan Bekerja' }}</span>, data instansi/perusahaan dan kontak atasan tidak wajib diisi. Pilihan ini akan disinkronkan langsung ke Kuesioner Universitas.
+                        </p>
                     </div>
                 </div>
 
@@ -1789,7 +1844,7 @@ onUnmounted(() => {
         <!-- ================================================================= -->
         <!-- CARD 2: DATA PERUSAHAAN / INSTANSI TEMPAT BEKERJA (MASTER HEAD OFFICE) -->
         <!-- ================================================================= -->
-        <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
+        <div v-if="['Pekerja', 'Wiraswasta'].includes(form.kategori_pekerjaan)" class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-6 border-b border-gray-100 gap-3">
                 <div>
                     <h2 class="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -2265,7 +2320,7 @@ onUnmounted(() => {
         <!-- CARD 3: DATA ATASAN LANGSUNG / PIMPINAN                           -->
         <!-- (Hanya untuk Pekerja & Wiraswasta)                                -->
         <!-- ================================================================= -->
-        <div v-if="form.kategori_pekerjaan !== 'Melanjutkan Pendidikan' && (isQuestionVisible('F2E1') || isQuestionVisible('F2E2') || isQuestionVisible('F2E3'))" class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
+        <div v-if="['Pekerja', 'Wiraswasta'].includes(form.kategori_pekerjaan) && (isQuestionVisible('F2E1') || isQuestionVisible('F2E2') || isQuestionVisible('F2E3'))" class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
             <div class="flex items-center justify-between mb-2 pb-3 border-b border-gray-100">
                 <h2 class="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
                     <span class="w-1.5 h-5 bg-[#0D542B] rounded-full inline-block"></span>

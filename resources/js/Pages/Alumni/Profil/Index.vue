@@ -247,8 +247,8 @@ const tabCompleteness = computed(() => {
         }
     }
 
-    // Validasi studi lanjut jika alumni mengaktifkan studi lanjut
-    if (form.pendidikan_tingkat || form.perguruan_tinggi || form.pendidikan_prodi) {
+    // Validasi studi lanjut jika alumni memilih melanjutkan pendidikan atau mengisinya
+    if (form.pendidikan_tingkat || form.perguruan_tinggi || form.pendidikan_prodi || form.kategori_pekerjaan === 'Melanjutkan Pendidikan') {
         if (isFieldMandatory('BIO_PEND_TINGKAT') && (!form.pendidikan_tingkat || !String(form.pendidikan_tingkat).trim())) missingKarier.push(getFieldLabel('BIO_PEND_TINGKAT', 'Jenjang Pendidikan'));
         if (isFieldMandatory('BIO_PEND_KAMPUS', false) && (!form.perguruan_tinggi || !String(form.perguruan_tinggi).trim())) missingKarier.push(getFieldLabel('BIO_PEND_KAMPUS', 'Perguruan Tinggi Studi Lanjut'));
         if (isFieldMandatory('BIO_PEND_PRODI', false) && (!form.pendidikan_prodi || !String(form.pendidikan_prodi).trim())) missingKarier.push(getFieldLabel('BIO_PEND_PRODI', 'Program Studi Lanjut'));

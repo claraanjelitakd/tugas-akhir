@@ -12,6 +12,7 @@
           - text (teks bebas)
 -->
 <script setup>
+import { computed } from 'vue';
 import SearchableSelect from '@/components/form/searchable-select.vue';
 
 const props = defineProps({
@@ -31,6 +32,11 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+});
+
+const isF8Question = computed(() => {
+    const code = (props.subpertanyaan?.kode_pertanyaan || props.subpertanyaan?.code || '').toUpperCase();
+    return code === 'F8';
 });
 
 // Helper pembersih teks instruksi dari teks pertanyaan
@@ -610,13 +616,32 @@ const stepNumberInput = (qId, delta) => {
 
         <!-- TIPE INPUT: Pilihan Tunggal / Radio -->
         <div v-else-if="subpertanyaan.type === 'radio' || subpertanyaan.type === 'single_choice'">
+            <!-- Alert Khusus Butir F8 (Tersinkron dengan Profil Karier) -->
+            <div v-if="isF8Question" class="mb-3.5 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs text-slate-800">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="font-bold text-[#0D542B]">Status Aktivitas Utama Disinkronkan</span>
+                    <a href="/alumni/profile" class="shrink-0 text-xs font-bold text-[#0D542B] underline hover:text-[#093d1f]">Ubah di Profil</a>
+                </div>
+                <p class="mt-1 text-[11px] leading-relaxed text-slate-600">
+                    Pilihan ini dikunci otomatis berdasarkan data Profil &amp; Riwayat Karier Anda agar alur percabangan kuesioner dan data evaluasi atasan tetap konsisten.
+                </p>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-                <label v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" :key="opt.id" class="cursor-pointer group block select-none">
+                <label
+                    v-for="opt in (subpertanyaan.detils || subpertanyaan.options)"
+                    :key="opt.id"
+                    :class="[
+                        isF8Question ? 'cursor-default select-none' : 'cursor-pointer group block select-none',
+                        isF8Question && form.answers[subpertanyaan.id] !== opt.option_text ? 'opacity-50' : ''
+                    ]"
+                >
                     <input
                         type="radio"
                         :name="'question_'+subpertanyaan.id"
                         :value="opt.option_text"
                         v-model="form.answers[subpertanyaan.id]"
+                        :disabled="isF8Question"
                         :required="subpertanyaan.wajib && isVisible"
                         class="sr-only"
                     >

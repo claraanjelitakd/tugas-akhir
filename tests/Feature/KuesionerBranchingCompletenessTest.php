@@ -14,6 +14,7 @@ use App\Services\Kuesioner\KelengkapanTracerService;
 use Database\Seeders\KuesionerSeeder;
 use Database\Seeders\UnifiedKuesionerSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -177,6 +178,10 @@ class KuesionerBranchingCompletenessTest extends TestCase
         $this->assertTrue($eval['is_complete'], 'Missing questions for studi lanjut: '.json_encode($eval['missing_questions']));
         $this->assertEquals(100, $eval['percentage'], 'Persentase kuesioner studi lanjut harus 100%.');
         $this->assertEmpty($eval['missing_questions']);
+
+        $univStatus = DB::table('v_alumni_tracer_univ_status')->where('biodata_id', $this->biodata->id)->first();
+        $this->assertNotNull($univStatus);
+        $this->assertEquals($univStatus->total_mandatory_univ, $univStatus->answered_mandatory_univ, 'Total mandatory dan answered pada view harus 100% sama untuk studi lanjut.');
     }
 
     public function test_unemployed_not_seeking_alumni_reaches_100_percent(): void
@@ -237,5 +242,54 @@ class KuesionerBranchingCompletenessTest extends TestCase
         $this->assertTrue($eval['is_complete'], 'Missing questions for F504=Tidak: '.json_encode($eval['missing_questions']));
         $this->assertEquals(100, $eval['percentage']);
         $this->assertEmpty($eval['missing_questions']);
+    }
+
+    public function test_job_seeking_alumni_profile_and_kuesioner_reaches_100_percent(): void
+    {
+        // Ubah profil alumni menjadi Mencari Kerja (tidak perlu perusahaan atau atasan)
+        $this->biodata->update([
+            'kategori_pekerjaan' => 'Mencari Kerja',
+            'nomor_telepon' => '081234567890',
+            'alamat_saat_ini' => 'Jl. Solo Km 10',
+            'email_pribadi' => 'alumni.personal@example.com',
+            'perusahaan_id' => null,
+            'atasan_id' => null,
+        ]);
+
+        $evalProfil = KelengkapanTracerService::evaluasiProfil($this->biodata);
+        $this->assertTrue($evalProfil['is_complete'], 'Profil alumni pencari kerja harus lengkap: '.json_encode($evalProfil['missing_fields']));
+        $this->assertEquals(100, $evalProfil['percentage']);
+
+        // Alur Kuesioner: F8 = Mencari Kerja, mengisi F10 dan F12
+        $answers = [
+            'F8' => 'Tidak Kerja tetapi sedang mencari kerja',
+            'F10' => 'Ya',
+            'F3' => '3',
+            'F4' => 'Melalui iklan lowongan',
+            'F6' => '5',
+            'F7' => '2',
+            'F7A' => '1',
+            'F12' => 'Biaya Sendiri / Keluarga',
+        ];
+
+        $f17Questions = KuesionerPertanyaan::where('is_active', true)
+            ->where('kode_pertanyaan', 'LIKE', 'F17%')
+            ->get();
+
+        foreach ($f17Questions as $q) {
+            $answers[$q->kode_pertanyaan] = '4';
+        }
+
+        foreach ($answers as $code => $val) {
+            $this->saveAnswer($code, $val);
+        }
+
+        $eval = KelengkapanTracerService::evaluasiKuesionerWajib($this->biodata);
+        $this->assertTrue($eval['is_complete'], 'Missing questions pencari kerja: '.json_encode($eval['missing_questions']));
+        $this->assertEquals(100, $eval['percentage']);
+
+        $univStatus = DB::table('v_alumni_tracer_univ_status')->where('biodata_id', $this->biodata->id)->first();
+        $this->assertNotNull($univStatus);
+        $this->assertEquals($univStatus->total_mandatory_univ, $univStatus->answered_mandatory_univ, 'Total mandatory dan answered pada view harus 100% sama untuk pencari kerja.');
     }
 }

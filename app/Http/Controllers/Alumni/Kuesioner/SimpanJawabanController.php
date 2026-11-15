@@ -340,16 +340,16 @@ class SimpanJawabanController extends Controller
             $kodeUpper = strtoupper(trim((string) $pertanyaan->kode_pertanyaan));
             if ($kodeUpper === 'F8' && ! empty($answerText)) {
                 $ansLower = strtolower($answerText);
-                if (str_contains($ansLower, 'bekerja')) {
-                    $dataUpdateBiodata['kategori_pekerjaan'] = 'Pekerja';
-                } elseif (str_contains($ansLower, 'wiraswasta')) {
-                    $dataUpdateBiodata['kategori_pekerjaan'] = 'Wiraswasta';
-                } elseif (str_contains($ansLower, 'melanjutkan pendidikan')) {
-                    $dataUpdateBiodata['kategori_pekerjaan'] = 'Melanjutkan Pendidikan';
-                } elseif (str_contains($ansLower, 'belum memungkinkan')) {
+                if (str_contains($ansLower, 'belum memungkinkan')) {
                     $dataUpdateBiodata['kategori_pekerjaan'] = 'Belum Memungkinkan Bekerja';
                 } elseif (str_contains($ansLower, 'mencari kerja')) {
                     $dataUpdateBiodata['kategori_pekerjaan'] = 'Mencari Kerja';
+                } elseif (str_contains($ansLower, 'melanjutkan pendidikan')) {
+                    $dataUpdateBiodata['kategori_pekerjaan'] = 'Melanjutkan Pendidikan';
+                } elseif (str_contains($ansLower, 'wiraswasta')) {
+                    $dataUpdateBiodata['kategori_pekerjaan'] = 'Wiraswasta';
+                } elseif (str_contains($ansLower, 'bekerja')) {
+                    $dataUpdateBiodata['kategori_pekerjaan'] = 'Pekerja';
                 }
             }
 
