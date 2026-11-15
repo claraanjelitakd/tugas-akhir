@@ -83,7 +83,7 @@ const indicatorOptions = [
         code: 'Indikator 03',
         title: 'Perbandingan Antar Program Studi',
         badge: 'Benchmark Prodi',
-        description: 'Pemeringkatan skor rata-rata evaluasi kinerja alumni berdasarkan program studi asal.',
+        description: 'Matriks heatmap pemeringkatan skor rata-rata evaluasi kinerja alumni per aspek kompetensi berdasarkan program studi asal.',
     },
 ];
 
@@ -532,90 +532,160 @@ const readinessSummaryTable = computed(() => {
 });
 
 // -----------------------------------------------------------------------------
-// 3. GRAFIK INDIKATOR 03: PERBANDINGAN PROGRAM STUDI (HORIZONTAL BAR SKOR PER PRODI)
-// Sumbu Y = Program Studi (n=...), Sumbu X = Rata-rata Skor (1-5), Label = Skor
+// 3. GRAFIK INDIKATOR 03: BENCHMARK PROGRAM STUDI (HEATMAP MATRIKS PER PRODI & ASPEK)
+// Sumbu Y = Program Studi, Sumbu X = Aspek Kompetensi, Nilai = Skor (1 - 5)
 // -----------------------------------------------------------------------------
-const prodiOption = computed(() => {
-    const list = prodiSummary.value;
-    const names = list.map((item) => `${item.prodi} (n=${item.respondents})`);
+const prodiSeries = computed(() => currentAnalytics.value?.prodi_series || currentAnalytics.value?.prodi_summary || []);
+const prodis = computed(() => prodiSeries.value.map((item) => item.prodi));
 
-    const seriesData = list.map((item) => {
-        const avg = item.average ? Number(item.average) : 0;
-        const isSelected = !selectedItem.value
-            || (selectedItem.value.type === 'prodi' && selectedItem.value.name === item.prodi);
+const prodiHeatmapData = computed(() => {
+    const listProdis = prodiSeries.value;
+    const questions = likertItems.value.length > 0 ? likertItems.value : questionStats.value.filter((item) => item.type === 'likert_5');
+    const values = [];
 
-        return {
-            name: item.prodi,
-            value: avg,
-            respondents: item.respondents,
-            itemStyle: {
-                color: '#0D542B',
-                opacity: isSelected ? 1 : 0.25,
-                borderRadius: [0, 4, 4, 0],
-            },
-        };
+    listProdis.forEach((prodiItem, yIndex) => {
+        questions.forEach((q, xIndex) => {
+            const aspect = prodiItem.aspects?.find((item) => item.key === q.kode || item.label === q.label) || {};
+            const scoreInt = Number(aspect.score_int || 0);
+            values.push({
+                value: [xIndex, yIndex, scoreInt],
+                rawAvg: Number(aspect.average || 0),
+                scoreInt,
+                count: Number(aspect.count || 0),
+                prodi: prodiItem.prodi,
+                aspectKey: q.kode,
+                aspectLabel: q.label || q.aspek,
+            });
+        });
     });
+
+    return { values, questions };
+});
+
+const prodiOption = computed(() => {
+    const { values, questions } = prodiHeatmapData.value;
+    const aspectLabels = questions.map((q) => q.label || q.aspek);
+    const prodiNames = prodis.value;
 
     return {
         ...baseOption(summary.value.submitted || 0),
-        grid: { left: 24, right: 80, top: 20, bottom: 36, containLabel: true },
+        grid: { left: 20, right: 150, top: 80, bottom: 20, containLabel: true },
         xAxis: {
-            type: 'value',
-            min: 0,
-            max: 5,
-            interval: 1,
-            name: 'Rata-rata skor kinerja (skala 1-5)',
-            nameLocation: 'middle',
-            nameGap: 24,
-            axisLabel: { color: '#64748B', fontSize: 11 },
-            splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
+            type: 'category',
+            position: 'top',
+            data: aspectLabels,
+            axisLabel: {
+                rotate: -35,
+                color: '#1E293B',
+                fontSize: 11,
+                fontWeight: 600,
+                interval: 0,
+                formatter: (val) => {
+                    const clean = String(val || '');
+                    if (clean.length > 28) {
+                        return clean.slice(0, 25) + '...';
+                    }
+                    return clean;
+                },
+            },
+            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
+            splitArea: { show: false },
         },
         yAxis: {
             type: 'category',
             inverse: true,
-            data: names,
-            axisTick: { show: false },
+            data: prodiNames,
+            axisLabel: { color: '#1E293B', width: 170, fontSize: 11, fontWeight: 500 },
+            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
             axisLine: { lineStyle: { color: '#CBD5E1' } },
-            axisLabel: {
+            splitArea: { show: false },
+        },
+        visualMap: {
+            type: 'continuous',
+            min: 1,
+            max: 5,
+            precision: 0,
+            orient: 'vertical',
+            right: 18,
+            top: 'middle',
+            itemWidth: 18,
+            itemHeight: 240,
+            inRange: {
+                color: [
+                    '#B91C1C', // 1: Merah pekat (Highlight)
+                    '#EF4444', // 2: Merah terang (Highlight)
+                    '#E2F3E7', // 3: Hijau pucat netral
+                    '#2F7D4A', // 4: Hijau sedang
+                    '#0D542B', // 5: Hijau tua institusi UKDW
+                ],
+            },
+            text: ['5 (Sangat Baik)', '1 (Sangat Kurang)'],
+            textGap: 10,
+            textStyle: {
                 color: '#1E293B',
                 fontSize: 11,
                 fontWeight: 600,
-                width: 220,
-                overflow: 'break',
-                lineHeight: 14,
             },
         },
         tooltip: {
-            trigger: 'item',
+            ...lightTooltipConfig,
             formatter: ({ data }) => {
                 if (!data) return '';
+                const score = data.value?.[2] || data.scoreInt || 0;
                 return `
-                    <div style="font-family: inherit; font-size: 12px;">
-                        <div style="font-weight: 700; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 4px;">
-                            ${escapeHtml(data.name)}
+                    <div style="min-width: 190px; font-family: inherit;">
+                        <div style="font-weight: 700; color: #0F172A; font-size: 13px; border-bottom: 1px solid #F1F5F9; padding-bottom: 4px; margin-bottom: 6px;">
+                            ${escapeHtml(data.prodi)}
                         </div>
-                        <div style="color: #475569;">Rata-rata Skor: <strong style="color: #0D542B; font-size: 13px;">${data.value} / 5</strong></div>
-                        <div style="color: #64748B; font-size: 11px;">Responden Evaluasi: ${formatNumber(data.respondents, 0)} atasan</div>
-                        <div style="margin-top: 4px; font-size: 10px; color: #0D542B; font-weight: 600;">Klik prodi untuk menyaring responden alumni</div>
+                        <div style="font-size: 12px; color: #475569; margin-bottom: 3px;">
+                            Aspek: <strong style="color: #0F172A;">${escapeHtml(data.aspectLabel)}</strong>
+                        </div>
+                        <div style="font-size: 12px; color: #475569; margin-bottom: 3px;">
+                            Skor Rerata: <strong style="color: ${score <= 2 ? '#B91C1C' : '#0D542B'}; font-size: 13px;">${data.rawAvg || score} / 5</strong> (${escapeHtml(scaleDescriptions[score] || '-')})
+                        </div>
+                        <div style="font-size: 11px; color: #64748B;">
+                            Total Responden: <strong style="color: #334155;">${formatNumber(data.count, 0)} atasan</strong>
+                        </div>
+                        <div style="margin-top: 5px; font-size: 10px; color: #0D542B; font-weight: 600; border-top: 1px dashed #E2E8F0; padding-top: 4px;">
+                            Klik sel untuk menyaring responden alumni
+                        </div>
                     </div>
                 `;
             },
         },
         series: [{
-            name: 'Rata-rata Skor',
-            type: 'bar',
-            data: seriesData,
-            barWidth: 22,
-            showBackground: true,
-            backgroundStyle: { color: '#F1F5F9', borderRadius: [0, 4, 4, 0] },
+            name: 'Rata-rata Skor per Prodi',
+            type: 'heatmap',
+            data: values,
+            itemStyle: {
+                borderColor: '#FFFFFF',
+                borderWidth: 1.5,
+            },
             label: {
-                show: true,
-                position: 'right',
-                formatter: ({ data }) => (data.value > 0 ? `${data.value} / 5` : '-'),
-                color: '#0D542B',
-                fontWeight: 700,
-                fontSize: 11,
-                distance: 6,
+                show: false,
+            },
+            emphasis: {
+                focus: 'none',
+                itemStyle: {
+                    borderColor: '#FFFFFF',
+                    borderWidth: 1.5,
+                    shadowBlur: 0,
+                    shadowColor: 'transparent',
+                },
+                label: {
+                    show: true,
+                    formatter: ({ data }) => {
+                        const score = data?.value?.[2] || data?.scoreInt || 0;
+                        return score > 0 ? String(score) : '';
+                    },
+                    color: ({ data }) => {
+                        const score = data?.value?.[2] || data?.scoreInt || 0;
+                        return score === 3 ? '#0F172A' : '#FFFFFF';
+                    },
+                    fontWeight: 'bold',
+                    fontSize: 12,
+                },
             },
         }],
     };
@@ -631,7 +701,7 @@ const prodiSummaryTable = computed(() => ({
     rows: prodiSummary.value.map((item) => ({
         prodi: item.prodi,
         respondents: formatNumber(item.respondents, 0),
-        average: item.average ? `${item.average} / 5` : '-',
+        average: item.average ? `${item.raw_average || item.average} / 5` : '-',
     })),
 }));
 
@@ -671,14 +741,20 @@ const handleChartSelect = (params) => {
             }
         }
     } else if (selectedIndicatorKey.value === 'prodi') {
-        const prodiName = params.data?.name || String(params.name || '').split(' (n=')[0].trim();
+        const d = params.data;
+        const prodiName = d?.prodi || params.data?.name || String(params.name || '').split(' (n=')[0].trim();
         if (prodiName) {
-            if (selectedItem.value?.type === 'prodi' && selectedItem.value.name === prodiName) {
+            if (selectedItem.value?.type === 'prodi'
+                && selectedItem.value.name === prodiName
+                && (!d?.aspectLabel || selectedItem.value.aspect === d.aspectLabel)) {
                 selectedItem.value = null;
             } else {
                 selectedItem.value = {
                     type: 'prodi',
                     name: prodiName,
+                    aspect: d?.aspectLabel || null,
+                    aspectKey: d?.aspectKey || null,
+                    score: d?.scoreInt || null,
                 };
             }
         }
@@ -699,7 +775,12 @@ const selectedFilterLabel = computed(() => {
     if (!sel) return '';
     if (sel.type === 'aspek_opsi') return `${sel.aspek} · Nilai: ${sel.opsi}`;
     if (sel.type === 'kesiapan') return `Kesiapan Kerja: ${sel.label}`;
-    if (sel.type === 'prodi') return `Program Studi: ${sel.name}`;
+    if (sel.type === 'prodi') {
+        if (sel.aspect) {
+            return `${sel.name} · Aspek: ${sel.aspect}${sel.score ? ` (Skor: ${sel.score})` : ''}`;
+        }
+        return `Program Studi: ${sel.name}`;
+    }
     return '';
 });
 
@@ -1076,15 +1157,57 @@ onBeforeUnmount(() => {
                                     />
                                 </div>
 
-                                <!-- Indikator 03: Perbandingan Program Studi (Horizontal Bar Skor Rata-rata) -->
-                                <div v-else-if="selectedIndicatorKey === 'prodi'" class="min-h-[420px]">
-                                    <AnalyticsEChart
-                                        :option="prodiOption"
-                                        :loading="isLoading"
-                                        :height="Math.max(420, prodiSummary.length * 48)"
-                                        aria-label="Grafik perbandingan skor evaluasi antarprogram studi"
-                                        @select="handleChartSelect"
-                                    />
+                                <!-- Indikator 03: Perbandingan Program Studi (Heatmap Matriks Antar Prodi & Aspek) -->
+                                <div v-else-if="selectedIndicatorKey === 'prodi'" class="min-h-[480px]">
+                                    <div v-if="prodis.length === 0" class="flex h-64 items-center justify-center rounded-lg border border-dashed border-slate-200 text-xs text-slate-500">
+                                        Belum ada data evaluasi atasan yang sesuai dengan filter tahun terpilih.
+                                    </div>
+                                    <div v-else class="space-y-4">
+                                        <AnalyticsEChart
+                                            :option="prodiOption"
+                                            :loading="isLoading"
+                                            :height="Math.max(480, prodis.length * 36 + 120)"
+                                            aria-label="Grafik matriks perbandingan skor evaluasi atasan antarprogram studi"
+                                            @select="handleChartSelect"
+                                        />
+                                        <div class="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-slate-500">
+                                            <p class="leading-relaxed">
+                                                <span class="font-semibold text-slate-700">Caption:</span>
+                                                Intensitas skor rata-rata evaluasi kinerja alumni per aspek kompetensi pada setiap program studi dengan gradasi hijau UKDW dan sorotan merah untuk skor rendah (1–2).
+                                            </p>
+                                            <p class="font-semibold text-slate-400">N valid: {{ summary.submitted || 0 }}</p>
+                                        </div>
+
+                                        <!-- Legenda Skala Penilaian Jelas & Kontras -->
+                                        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 text-xs">
+                                            <div class="text-slate-600">
+                                                Responden Evaluasi Masuk: <strong class="text-slate-900 font-semibold">{{ formatNumber(summary.submitted || 0, 0) }} atasan</strong>
+                                            </div>
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="font-bold text-slate-500 mr-0.5">Skala Penilaian:</span>
+                                                <div class="flex items-center gap-1.5">
+                                                    <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#B91C1C]"></span>
+                                                    <span class="text-slate-700">1 (Sangat Kurang)</span>
+                                                </div>
+                                                <div class="flex items-center gap-1.5">
+                                                    <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#EF4444]"></span>
+                                                    <span class="text-slate-700">2 (Kurang)</span>
+                                                </div>
+                                                <div class="flex items-center gap-1.5">
+                                                    <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#E2F3E7] border border-slate-200"></span>
+                                                    <span class="text-slate-700">3 (Cukup)</span>
+                                                </div>
+                                                <div class="flex items-center gap-1.5">
+                                                    <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#2F7D4A]"></span>
+                                                    <span class="text-slate-700">4 (Baik)</span>
+                                                </div>
+                                                <div class="flex items-center gap-1.5">
+                                                    <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#0D542B]"></span>
+                                                    <span class="text-slate-700">5 (Sangat Baik)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- KILAS INDIKATOR (APPLE WEATHER STYLE - BEBAS AI SLOP) -->

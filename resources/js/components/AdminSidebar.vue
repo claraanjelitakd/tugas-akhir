@@ -77,9 +77,13 @@ const createSections = (role) => {
                     createMenuItem('analytics-prodi', `/${prefix}/analitik-prodi`, 'Grafik Prodi', 'chart', [`/${prefix}/analitik-prodi`]),
                     createMenuItem('analytics-atasan', `/${prefix}/analitik-atasan`, 'Grafik Evaluasi Atasan', 'chart', [`/${prefix}/analitik-atasan`]),
                 ] : []),
+            ],
+        },
+        {
+            label: 'Data Alumni & Atasan',
+            items: [
                 createMenuItem('alumni', `/${prefix}/alumni`, definition.alumniLabel, 'users'),
-                // Menu Sinkronisasi LinkedIn dinonaktifkan dari navigasi sidebar atas arahan pengguna (akses sinkronisasi dilakukan via tombol Aksi tabel alumni dan tab detail alumni)
-                // ...(capabilities.linkedin ? [createMenuItem('linkedin-sync', `/${prefix}/linkedin-sync`, 'Sinkronisasi LinkedIn', 'linkedin', [`/${prefix}/linkedin-sync`])] : []),
+                ...(capabilities.dataAtasan ? [createMenuItem('atasan', `/${prefix}/atasan`, 'Data Atasan', 'users', [`/${prefix}/atasan`])] : []),
             ],
         },
         {
@@ -100,7 +104,6 @@ const createSections = (role) => {
             label: 'Master Data & Verifikasi',
             items: [
                 ...(capabilities.wilayah ? [createMenuItem('master-wilayah', '/superadmin/master-wilayah', 'Master Wilayah & UMP', 'globe')] : []),
-                ...(capabilities.dataAtasan ? [createMenuItem('atasan', `/${prefix}/atasan`, 'Data Atasan', 'users', [`/${prefix}/atasan`])] : []),
                 ...(capabilities.company ? [createMenuItem('perusahaan', `/${prefix}/perusahaan`, 'Master Data Perusahaan', 'building')] : []),
                 ...(capabilities.accounts ? [createMenuItem('manajemen-akun', `/${prefix}/manajemen-akun`, 'Manajemen Akun', 'key')] : []),
                 ...(capabilities.logs ? [createMenuItem('logs', '/superadmin/logs', 'Log Aktivitas', 'document')] : []),

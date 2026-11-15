@@ -67,7 +67,7 @@ class AtasanAnalyticsService
             ?? $questionStats->firstWhere('kode', 'EVA_tingkat_kesiapan_kerja');
         $likertStats = $questionStats->filter(static fn (array $stat): bool => $stat['type'] === 'likert_5');
         $allScores = $likertStats->flatMap(static fn (array $stat): array => $stat['scores'])->values()->all();
-        $prodiSummary = $this->prodiSummary($submitted, $questions);
+        $prodiMetrics = $this->prodiMetrics($submitted, $questions);
         $population = $evaluations->count();
         $submittedCount = $submitted->count();
 
@@ -98,7 +98,8 @@ class AtasanAnalyticsService
                 'distribution' => [],
                 'valid_count' => 0,
             ],
-            'prodi_summary' => $prodiSummary,
+            'prodi_summary' => $prodiMetrics['summary'],
+            'prodi_series' => $prodiMetrics['prodi_series'],
             'records' => $this->records($submitted, $questions),
             'methodology' => [
                 'formula' => 'Rata-rata skor aspek = ROUND(Σ skor jawaban / n jawaban valid). Peringkat pilihan memakai frekuensi jawaban pada pertanyaan aktif.',
@@ -249,36 +250,82 @@ class AtasanAnalyticsService
     }
 
     /**
-     * Menyusun ringkasan skor per program studi untuk grafik perbandingan.
+     * Menyusun ringkasan skor per program studi dan matriks per aspek untuk visualisasi heatmap.
      *
      * @param  Collection<int, EvaluasiAtasan>  $submitted
      * @param  Collection<int, mixed>  $questions
-     * @return list<array<string, mixed>>
+     * @return array{summary: list<array<string, mixed>>, prodi_series: list<array<string, mixed>>}
      */
-    private function prodiSummary(Collection $submitted, Collection $questions): array
+    private function prodiMetrics(Collection $submitted, Collection $questions): array
     {
         $optionsByQuestion = $questions->keyBy('id')->mapWithKeys(static fn ($question): array => [$question->id => $question->pilihan_jawaban ?? []]);
+        $likertQuestions = $questions->filter(static fn ($q): bool => ($q->tipe ?? '') === 'likert_5')->values();
 
-        return $submitted
-            ->groupBy(fn (EvaluasiAtasan $evaluation): string => $evaluation->biodata?->prodi?->nama_prodi ?: 'Tanpa prodi')
-            ->map(function (Collection $evaluations, string $prodi) use ($optionsByQuestion): array {
-                $scores = $evaluations->flatMap(function (EvaluasiAtasan $evaluation) use ($optionsByQuestion): Collection {
+        $scaleDescriptions = [
+            1 => 'Sangat Kurang',
+            2 => 'Kurang',
+            3 => 'Cukup',
+            4 => 'Baik',
+            5 => 'Sangat Baik',
+        ];
+
+        $prodiGroups = $submitted
+            ->groupBy(static fn (EvaluasiAtasan $evaluation): string => $evaluation->biodata?->prodi?->nama_prodi ?: 'Tanpa prodi');
+
+        $summary = [];
+
+        foreach ($prodiGroups as $prodi => $evaluations) {
+            $allProdiScores = $evaluations->flatMap(function (EvaluasiAtasan $evaluation) use ($optionsByQuestion): Collection {
+                return $evaluation->respons
+                    ->filter(static fn ($response): bool => ($response->pertanyaan?->tipe ?? '') === 'likert_5')
+                    ->map(fn ($response): ?int => $this->scoreFor((string) ($response->jawaban_teks ?? ($response->nilai ?? '')), $optionsByQuestion->get($response->pertanyaan_id, [])))
+                    ->filter()
+                    ->values();
+            })->values();
+
+            $aspects = $likertQuestions->map(function ($q) use ($evaluations, $optionsByQuestion, $scaleDescriptions, $prodi): array {
+                $scores = $evaluations->flatMap(function (EvaluasiAtasan $evaluation) use ($q, $optionsByQuestion): Collection {
                     return $evaluation->respons
-                        ->filter(fn ($response): bool => ($response->pertanyaan?->tipe ?? '') === 'likert_5')
-                        ->map(fn ($response): ?int => $this->scoreFor((string) ($response->jawaban_teks ?? ($response->nilai ?? '')), $optionsByQuestion->get($response->pertanyaan_id, [])))
+                        ->filter(static fn ($response): bool => $response->pertanyaan_id === $q->id)
+                        ->map(fn ($response): ?int => $this->scoreFor((string) ($response->jawaban_teks ?? ($response->nilai ?? '')), $optionsByQuestion->get($q->id, [])))
                         ->filter()
                         ->values();
                 })->values();
 
+                $rawAvg = $scores->isNotEmpty() ? round($scores->avg(), 2) : 0.0;
+                $scoreInt = $scores->isNotEmpty() ? (int) round($rawAvg) : 0;
+
                 return [
                     'prodi' => $prodi,
-                    'respondents' => $evaluations->count(),
-                    'average' => $scores->isNotEmpty() ? (int) round($scores->avg()) : null,
+                    'key' => $q->kode,
+                    'label' => $q->label_ringkas,
+                    'aspek' => $q->aspek,
+                    'count' => $scores->count(),
+                    'average' => $rawAvg,
+                    'score_int' => $scoreInt,
+                    'score_label' => $scaleDescriptions[$scoreInt] ?? '-',
                 ];
-            })
-            ->sortByDesc('average')
-            ->values()
-            ->all();
+            })->values()->all();
+
+            $avgScore = $allProdiScores->isNotEmpty() ? (int) round($allProdiScores->avg()) : null;
+            $rawAvgScore = $allProdiScores->isNotEmpty() ? round($allProdiScores->avg(), 2) : null;
+
+            $summary[] = [
+                'prodi' => $prodi,
+                'respondents' => $evaluations->count(),
+                'average' => $avgScore,
+                'raw_average' => $rawAvgScore,
+                'aspects' => $aspects,
+            ];
+        }
+
+        // Urutkan summary berdasarkan skor rata-rata tertinggi
+        usort($summary, static fn (array $a, array $b): int => ($b['average'] ?? 0) <=> ($a['average'] ?? 0));
+
+        return [
+            'summary' => $summary,
+            'prodi_series' => $summary,
+        ];
     }
 
     /**
