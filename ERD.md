@@ -253,49 +253,69 @@ erDiagram
     kuesioner_pertanyaan ||--o{ kuesioner_section_pertanyaan : "dikelompokkan (pertanyaan_id)"
     kuesioner_pertanyaan ||--o{ kuesioner_opsi : "menyediakan (pertanyaan_id)"
     biodata ||--o{ kuesioner_jawaban : "respon_alumni (biodata_id)"
+    evaluasi_atasan ||--o{ kuesioner_jawaban : "respon_atasan (evaluasi_atasan_id)"
     kuesioner_section ||--o{ kuesioner_jawaban : "dalam_bagian (section_id)"
     kuesioner_pertanyaan ||--o{ kuesioner_jawaban : "menjawab_butir (pertanyaan_id)"
     kuesioner_opsi ||--o{ kuesioner_jawaban : "opsi_terpilih (opsi_id)"
 
     kuesioner {
         bigint id PK
+        year year "Tahun periode pelaksanaan"
+        varchar title "Judul instrumen survei"
+    }
+
+    prodi {
+        bigint id PK
+        varchar kode_prodi UK
+    }
+
+    biodata {
+        bigint id PK
+        char nim FK
+    }
+
+    evaluasi_atasan {
+        bigint id PK
+        varchar token UK
+        bigint biodata_id FK
     }
 
     kuesioner_section {
         bigint id PK
         varchar kode_section UK
+        varchar target "univ/prodi/atasan"
         bigint prodi_id FK
     }
 
     kuesioner_pertanyaan {
         bigint id PK
         varchar kode_pertanyaan UK
+        varchar tipe "Tipe butir pertanyaan"
         bigint pemilik_prodi_id FK
     }
 
     kuesioner_section_pertanyaan {
         bigint id PK
-        bigint section_id FK
-        bigint pertanyaan_id FK
+        bigint section_id FK "UK(section_id, pertanyaan_id)"
+        bigint pertanyaan_id FK "UK(section_id, pertanyaan_id)"
     }
 
     kuesioner_opsi {
         bigint id PK
-        bigint pertanyaan_id FK
-        varchar kode_opsi
-        text label
-        varchar "UNIQUE(pertanyaan_id, kode_opsi)"
+        bigint pertanyaan_id FK "UK(pertanyaan_id, kode_opsi)"
+        varchar kode_opsi UK "UK(pertanyaan_id, kode_opsi)"
     }
 
     kuesioner_jawaban {
         bigint id PK
+        varchar responden_type "alumni/atasan"
         bigint biodata_id FK
         bigint evaluasi_atasan_id FK
         bigint section_id FK
         bigint pertanyaan_id FK
         bigint opsi_id FK
-        text kode_opsi
-        text jawaban_teks
+        varchar kode_pertanyaan "Snapshot kode butir"
+        text kode_opsi "Snapshot kode opsi"
     }
 ```
 
@@ -790,10 +810,11 @@ Menghubungkan penempatan butir pertanyaan dari bank soal ke dalam bagian kuesion
 | Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
 | :--- | :--- | :---: | :---: | :--- |
 | `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik penempatan butir pertanyaan pada bagian. Di API disebut `placement_id`; ini bukan ID master pertanyaan. |
-| `section_id` | `bigint unsigned` | `FK`, `UK(1)` | `NOT NULL` | Referensi ke `kuesioner_section.id` (`ON DELETE CASCADE`). |
-| `pertanyaan_id` | `bigint unsigned` | `FK`, `UK(2)` | `NOT NULL` | Referensi ke `kuesioner_pertanyaan.id` (`ON DELETE CASCADE`). |
+| `section_id` | `bigint unsigned` | `FK`, `UK(1)` | `NOT NULL` | Referensi ke `kuesioner_section.id` (`ON DELETE CASCADE`); bersama `pertanyaan_id` membentuk kunci unik `sec_pertanyaan_unique`. |
+| `pertanyaan_id` | `bigint unsigned` | `FK`, `UK(2)` | `NOT NULL` | Referensi ke `kuesioner_pertanyaan.id` (`ON DELETE CASCADE`); bersama `section_id` membentuk kunci unik `sec_pertanyaan_unique`. |
 | `order` | `smallint` | - | `NOT NULL`, Default `'1'` | Nomor urut penampilan butir pertanyaan di dalam bagiannya. |
 | `wajib` | `tinyint(1)` | - | `NOT NULL`, Default `'1'` | Kewajiban pengisian (`1` = Wajib, `0` = Opsional). |
+| `is_active` | `tinyint(1)` | - | `NOT NULL`, Default `'1'` | Status tampil/keaktifan butir pertanyaan pada bagian ini (`1` = Aktif, `0` = Dinonaktifkan). |
 | `tampil_di` | `varchar(100)` | - | `NULL` | Logika percabangan atau lokasi kemunculan (misal: `kuesioner`, `profil`, `both`). |
 | `created_at` | `timestamp` | - | `NULL` | Waktu pembuatan rekaman relasi. |
 | `updated_at` | `timestamp` | - | `NULL` | Waktu pembaruan terakhir. |
@@ -804,8 +825,8 @@ Menyimpan pilihan opsi jawaban untuk butir pertanyaan bertipe pilihan ganda atau
 | Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
 | :--- | :--- | :---: | :---: | :--- |
 | `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik opsi pilihan jawaban. |
-| `pertanyaan_id` | `bigint unsigned` | `FK`, `INDEX` | `NOT NULL` | Referensi ke `kuesioner_pertanyaan.id` pemilik opsi (`ON DELETE CASCADE`). |
-| `kode_opsi` | `varchar(50)` | - | `NULL` | Kode identifikasi opsi jawaban standar (misal: `F8-01`, `1`, `F4-01`). |
+| `pertanyaan_id` | `bigint unsigned` | `FK`, `UK(1)` | `NOT NULL` | Referensi ke `kuesioner_pertanyaan.id` pemilik opsi (`ON DELETE CASCADE`); bersama `kode_opsi` membentuk indeks unik `kuesioner_opsi_question_code_unique`. |
+| `kode_opsi` | `varchar(50)` | `UK(2)` | `NULL` | Kode identifikasi opsi jawaban standar (misal: `F8-01`, `1`, `F4-01`); unik per butir pertanyaan (`UNIQUE(pertanyaan_id, kode_opsi)`). |
 | `label` | `text` | - | `NOT NULL` | Teks redaksi pilihan jawaban yang terbaca di antarmuka responden. |
 | `label_singkat` | `varchar(255)` | - | `NULL` | Label ringkas untuk grafik dan analitik. |
 | `nilai_skor` | `smallint` | - | `NULL` | Metadata internal skala Likert/rating; dihitung backend dari urutan opsi dan bukan input CRUD umum. |
@@ -826,7 +847,7 @@ Tabel transaksi terpadu (*Single Source of Truth*) penyimpan seluruh respon jawa
 | `section_id` | `bigint unsigned` | `FK`, `INDEX` | `NOT NULL` | Referensi ke `kuesioner_section.id` (`ON DELETE CASCADE`). |
 | `pertanyaan_id` | `bigint unsigned` | `FK`, `INDEX` | `NOT NULL` | Referensi ke `kuesioner_pertanyaan.id` (`ON DELETE CASCADE`). |
 | `kode_pertanyaan` | `varchar(50)` | `INDEX` | `NULL` | **SNAPSHOT/LEGACY**: salinan kode butir untuk kompatibilitas kueri lama; sumber kanonik adalah `pertanyaan_id` → `kuesioner_pertanyaan.kode_pertanyaan`. |
-| `opsi_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `kuesioner_opsi.id` pilihan jawaban master terpilih (`ON DELETE SET NULL`). |
+| `opsi_id` | `bigint unsigned` | `FK`, `INDEX` | `NULL` | Referensi ke `kuesioner_opsi.id` pilihan jawaban master terpilih (`ON DELETE SET NULL`). |
 | `kode_opsi` | `text` | - | `NULL` | **SNAPSHOT/LEGACY**: kode opsi terpilih atau array JSON kode jika jawaban multi-pilihan; sumber kanonik pilihan tunggal adalah `opsi_id` → `kuesioner_opsi.kode_opsi`. |
 | `jawaban_teks` | `text` | - | `NULL` | Nilai jawaban teks bebas, angka, atau label opsi pilihan tunggal terpilih. |
 | `jawaban_json` | `json` | - | `NULL` | Nilai jawaban terstruktur jika pertanyaan bertipe multi-select atau isian kustom. |
