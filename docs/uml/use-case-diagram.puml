@@ -1,132 +1,118 @@
 @startuml
-title Use Case Diagram Sistem Tracer Study UKDW (SERU)
+title Use Case Diagram Sistem Tracer Study UKDW
+
 left to right direction
 skinparam shadowing false
 skinparam packageStyle rectangle
+skinparam roundcorner 12
+
 skinparam usecase {
   BackgroundColor White
-  BorderColor #334155
-  ArrowColor #475569
+  BorderColor #0D542B
+  BorderThickness 1.5
+  ArrowColor #334155
 }
 
-actor "Publik / Tamu" as Guest
+skinparam actor {
+  BorderColor #0D542B
+  BackgroundColor White
+}
+
 actor Alumni
-actor "Pengguna Lulusan\n/ Atasan" as Supervisor
-actor "Admin Prodi" as Prodi
-actor "Admin Fakultas" as Faculty
-actor "Admin Biro III" as Biro
-actor Superadmin
-actor "Provider LinkedIn\n/ Apify" as Provider <<system>>
+actor "Pengguna Lulusan\n(Atasan)" as Supervisor
+actor "Superadmin (ITC)" as Superadmin
+actor admin
+actor admin_prodi
+actor admin_fakultas
+actor admin_biro3
+actor Apify <<system>>
 
-rectangle "Sistem Tracer Study UKDW (SERU)" {
-  usecase "UC01\nMengakses beranda" as UC01
-  usecase "UC02\nLogin" as UC02
-  usecase "UC03\nLupa dan reset kata sandi" as UC03
-  usecase "UC04\nUbah kata sandi wajib" as UC04
-  usecase "UC05\nKelola profil dan karier" as UC05
-  usecase "UC06\nUsulkan perusahaan baru" as UC06
-  usecase "UC07\nIsi kuesioner universitas" as UC07
-  usecase "UC08\nIsi kuesioner prodi" as UC08
-  usecase "UC09\nKirim undangan evaluasi" as UC09
-  usecase "UC10\nIsi evaluasi pengguna lulusan" as UC10
-  usecase "UC11\nDashboard dan monitoring" as UC11
-  usecase "UC12\nDirektori alumni" as UC12
-  usecase "UC13\nKelola kuesioner universitas" as UC13
-  usecase "UC14\nKelola kuesioner prodi" as UC14
-  usecase "UC15\nKelola instrumen evaluasi" as UC15
-  usecase "UC16\nVerifikasi perusahaan" as UC16
-  usecase "UC17\nManajemen akun" as UC17
-  usecase "UC18\nSinkronisasi dan review LinkedIn" as UC18
-  usecase "UC19\nKelola master wilayah, negara, dan UMP" as UC19
-  usecase "UC20\nMelihat log aktivitas" as UC20
-  usecase "UC21\nAnalitik universitas" as UC21
-  usecase "UC22\nAnalitik prodi" as UC22
-  usecase "UC23\nEkspor data" as UC23
-  usecase "UC24\nKelola data alumni" as UC24
-  usecase "UC25\nLogout" as UC25
-  usecase "UC26\nAnalitik evaluasi pengguna lulusan" as UC26
+' Hirarki Generalization Aktor Admin
+admin_prodi -up-|> admin
+admin_fakultas -up-|> admin
+admin_biro3 -up-|> admin
+
+rectangle "Tracer Study\n[UKDW]" {
+  ' Autentikasi & Akun
+  usecase "Login" as UC01
+  usecase "Mengubah Kata Sandi" as UC02
+  usecase "Memulihkan Kata Sandi" as UC03
+  usecase "Manajemen akun" as UC04
+  usecase "Melihat Log Aktivitas" as UC05
+
+  ' Instrumen & Master Wilayah (Superadmin)
+  usecase "Mengelola kuesioner universitas" as UC06
+  usecase "Mengelola kuesioner pengguna lulusan" as UC07
+  usecase "Mengelola master Wilayah" as UC08
+  usecase "Mengelola Master UMP" as UC09
+
+  ' Alumni
+  usecase "Mengelola profile alumni" as UC10
+  usecase "Menambah daftar perusahaan" as UC11
+  usecase "Mengisi Kuesioner Universitas" as UC12
+  usecase "Mengisi Kuesioner Program Studi" as UC13
+
+  ' Evaluasi Atasan
+  usecase "Evaluasi kinerja Alumni" as UC14
+
+  ' Pengelolaan Data & Pelaporan (Admin & Superadmin)
+  usecase "Mengelola data alumni" as UC15
+  usecase "Sinkronisasi Linkedin" as UC16
+  usecase "Menghubungi Alumni" as UC17
+  usecase "Melihat Laporan" as UC18
+  usecase "Ekspor Laporan" as UC19
+  usecase "Mengelola kuesioner prodi" as UC20
+
+  ' Master Data Perusahaan & Pengguna Lulusan
+  usecase "Master Data Perusahaan" as UC21
+  usecase "Verifikasi Perusahaan" as UC22
+  usecase "Master Data Pengguna Lulusan" as UC23
 }
 
-Guest -- UC01
-Guest -- UC02
-Guest -- UC03
-Alumni -- UC02
-Alumni -- UC04
-Alumni -- UC05
-Alumni -- UC06
-Alumni -- UC07
-Alumni -- UC08
-Alumni -- UC09
-Alumni -- UC25
-Supervisor -- UC10
+' Relasi Extend
+UC02 .> UC01 : <<extend>>
+UC03 .> UC01 : <<extend>>
+UC09 .> UC08 : <<extend>>
+UC11 .> UC10 : <<extend>>
+UC16 .> UC15 : <<extend>>
+UC17 .> UC15 : <<extend>>
+UC19 .> UC15 : <<extend>>
+UC19 .> UC18 : <<extend>>
+UC22 .> UC21 : <<extend>>
 
-Prodi -- UC02
-Prodi -- UC09
-Prodi -- UC11
-Prodi -- UC12
-Prodi -- UC14
-Prodi -- UC16
-Prodi -- UC18
-Prodi -- UC21
-Prodi -- UC22
-Prodi -- UC26
-Prodi -- UC23
-Prodi -- UC24
-Prodi -- UC25
+' Asosiasi Alumni
+Alumni -- UC01
+Alumni -- UC10
+Alumni -- UC12
+Alumni -- UC13
 
-Faculty -- UC02
-Faculty -- UC09
-Faculty -- UC11
-Faculty -- UC12
-Faculty -- UC14
-Faculty -- UC16
-Faculty -- UC18
-Faculty -- UC21
-Faculty -- UC22
-Faculty -- UC26
-Faculty -- UC23
-Faculty -- UC24
-Faculty -- UC25
+' Asosiasi Pengguna Lulusan (Atasan)
+Supervisor -- UC14
 
-Biro -- UC02
-Biro -- UC09
-Biro -- UC11
-Biro -- UC12
-Biro -- UC21
-Biro -- UC22
-Biro -- UC26
-Biro -- UC23
-Biro -- UC24
-Biro -- UC25
-
-Superadmin -- UC02
-Superadmin -- UC09
-Superadmin -- UC11
-Superadmin -- UC12
-Superadmin -- UC13
-Superadmin -- UC14
+' Asosiasi Superadmin (ITC)
+Superadmin -- UC01
+Superadmin -- UC04
+Superadmin -- UC05
+Superadmin -- UC06
+Superadmin -- UC07
+Superadmin -- UC08
 Superadmin -- UC15
-Superadmin -- UC16
-Superadmin -- UC17
 Superadmin -- UC18
-Superadmin -- UC19
 Superadmin -- UC20
 Superadmin -- UC21
-Superadmin -- UC22
 Superadmin -- UC23
-Superadmin -- UC24
-Superadmin -- UC25
-Superadmin -- UC26
-Provider -- UC18
 
-UC03 .> UC02 : <<extend>>
-UC06 .> UC05 : <<extend>>
-note bottom of UC09
-  Token dibuat dan undangan dikirim.
-  UC10 dilakukan kemudian oleh atasan.
-end note
-note bottom of UC24
-  Data atasan adalah snapshot per alumni,
-  bukan master atasan bersama.
-end note
+' Asosiasi Admin Induk (Diwarisi Prodi, Fakultas, Biro 3)
+admin -- UC01
+admin -- UC15
+admin -- UC18
+admin -- UC21
+admin -- UC23
+
+' Asosiasi Langsung Khusus Admin Prodi
+admin_prodi -- UC20
+
+' Asosiasi Sistem Eksternal
+Apify -- UC16
+
 @enduml
