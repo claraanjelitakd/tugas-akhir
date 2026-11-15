@@ -26,7 +26,8 @@ Status berikut dipakai konsisten pada ERD, kamus data, dan dokumentasi view:
 
 ## Daftar Isi
 
-1. [Bagian 1: Diagram ERD (Hanya PK, FK, UK, & Relasi)](#bagian-1-diagram-erd-hanya-pk-fk-uk--relasi)
+1. [Landasan Teori: Pemodelan Data Relasional (ERD) & Perspektif UML (Dr. Suriya Sundaramoorthy, 2022)](#landasan-teori-pemodelan-data-relasional-erd--perspektif-uml-dr-suriya-sundaramoorthy-2022)
+2. [Bagian 1: Diagram ERD (Hanya PK, FK, UK, & Relasi)](#bagian-1-diagram-erd-hanya-pk-fk-uk--relasi)
    - [1.1 ERD Master Keseluruhan (Overview Relasi Antar Tabel)](#11-erd-master-keseluruhan-overview-relasi-antar-tabel)
    - [1.2 ERD Modul 1: Autentikasi, Pengguna, & Audit Log](#12-erd-modul-1-autentikasi-pengguna--audit-log)
    - [1.3 ERD Modul 2: Master Akademik, Wilayah, & Standar UMP](#13-erd-modul-2-master-akademik-wilayah--standar-ump)
@@ -35,18 +36,68 @@ Status berikut dipakai konsisten pada ERD, kamus data, dan dokumentasi view:
    - [1.6 ERD Modul 5: Evaluasi Pengguna Lulusan (Atasan Langsung)](#16-erd-modul-5-evaluasi-pengguna-lulusan-atasan-langsung)
    - [1.7 Read-model IKU S1: AEE & Karier](#17-read-model-iku-s1-aee--karier)
    - [1.8 Audit Formula, Bobot, dan Sumber Konfigurasi](#18-audit-formula-bobot-dan-sumber-konfigurasi)
-2. [Bagian 2: Spesifikasi Relasi & Kardinalitas Antar Tabel](#bagian-2-spesifikasi-relasi--kardinalitas-antar-tabel)
-3. [Bagian 3: Kamus Data (Data Dictionary) Detail Per Tabel](#bagian-3-kamus-data-data-dictionary-detail-per-tabel)
+3. [Bagian 2: Spesifikasi Relasi & Kardinalitas Antar Tabel](#bagian-2-spesifikasi-relasi--kardinalitas-antar-tabel)
+4. [Bagian 3: Kamus Data (Data Dictionary) Detail Per Tabel](#bagian-3-kamus-data-data-dictionary-detail-per-tabel)
    - [3.1 Modul 1: Autentikasi, Pengguna, & Audit Log](#31-modul-1-autentikasi-pengguna--audit-log)
    - [3.2 Modul 2: Master Akademik, Wilayah, & Standar UMP](#32-modul-2-master-akademik-wilayah--standar-ump)
    - [3.3 Modul 3: Profil Alumni, Perusahaan, Atasan, & LinkedIn Sync](#33-modul-3-profil-alumni-perusahaan-atasan--linkedin-sync)
    - [3.4 Modul 4: Engine Kuesioner Terpadu (Unified Survey Engine)](#34-modul-4-engine-kuesioner-terpadu-unified-survey-engine)
    - [3.5 Modul 5: Evaluasi Pengguna Lulusan (Atasan)](#35-modul-5-evaluasi-pengguna-lulusan-atasan)
    - [3.6 Tabel Infrastruktur Framework Laravel](#36-tabel-infrastruktur-framework-laravel)
-4. [Bagian 4: Kepemilikan Data & Proyeksi View Analitik](#bagian-4-kepemilikan-data--proyeksi-view-analitik)
+5. [Bagian 4: Kepemilikan Data & Proyeksi View Analitik](#bagian-4-kepemilikan-data--proyeksi-view-analitik)
    - [4.3 Read-model IKU S1](#43-read-model-iku-s1)
    - [4.4 Audit Formula dan Bobot](#44-audit-formula-dan-bobot)
    - [4.5 Audit Schema Runtime](#45-audit-schema-runtime)
+
+---
+
+## Landasan Teori: Pemodelan Data Relasional (ERD) & Perspektif UML (Dr. Suriya Sundaramoorthy, 2022)
+
+### 1. Analisis Literatur Pustaka `sumber uml`
+Pustaka acuan pemodelan perangkat lunak di lingkungan sistem ini mencakup:
+- **Dr. Suriya Sundaramoorthy, *UML Diagramming: A Case Study Approach*, CRC Press / Taylor & Francis Group (2022)**.
+- **Kenneth E. Kendall & Julie E. Kendall, *Systems Analysis and Design*, 10th Edition, Global Edition, Pearson (2020)**.
+
+Dalam kajian teoritis rekayasa perangkat lunak:
+1. Pustaka Dr. Suriya Sundaramoorthy (2022) adalah literatur pemodelan berorientasi objek (*Object-Oriented Analysis and Design* / OOAD). Di dalam taksonomi diagram UML standar (Sundaramoorthy hlm. 2–3, Tabel 1.1), **tidak terdapat diagram bernama Entity-Relationship Diagram (ERD)** secara tersendiri.
+2. Sebagai padanan formal dalam metodologi berorientasi objek, Dr. Suriya Sundaramoorthy menetapkan **UML Class Diagram** (Chapter 1, Subbab 1.1.7, hlm. 17–19, Tabel 1.8) sebagai diagram struktural utama untuk merepresentasikan struktur data sistem, atribut, keterhubungan, dan operasinya.
+3. Namun, pada pengembangan perangkat lunak modern berbasis arsitektur *Object-Relational Mapping* (ORM) seperti Laravel Eloquent pada aplikasi Tracer Study ini, sistem memiliki dua representasi struktural yang saling melengkapi (*complementary duality*):
+   - **Layer Basis Data Relasional (*Physical/Relational Persistence Layer*)**: Dimodelkan menggunakan **Entity-Relationship Diagram (ERD)** untuk memetakan skema tabel basis data MySQL (`tracer`), primary key, foreign key, batasan integritas referensial, dan kardinalitas fisik.
+   - **Layer Model Domain Berorientasi Objek (*Object Domain Layer*)**: Dimodelkan menggunakan **UML Class Diagram** yang merepresentasikan kelas-kelas Model Eloquent (`User`, `Biodata`, `Kuesioner`, `KuesionerPertanyaan`, `EvaluasiAtasan`) beserta metode relasinya (`hasMany`, `belongsTo`, `belongsToMany`).
+
+### 2. Komponen Dasar Entity-Relationship Diagram (ERD)
+Entity-Relationship Diagram (ERD) memodelkan data konseptual dan logis menggunakan komponen standar:
+- **Entitas (*Entity*)**: Objek diskret pada domain bisnis yang datanya perlu dicatat dan disimpan dalam sistem (misal: tabel `users`, `biodata`, `perusahaan`, `kuesioner`).
+- **Atribut (*Attribute*)**: Karakteristik, sifat, atau kolom data yang melekat pada suatu entitas (misal: `nim`, `email`, `tanggal_lulus`, `kode_provinsi`).
+- **Kunci Entitas (*Keys*)**:
+  - **Primary Key (`PK`)**: Atribut atau kombinasi atribut unik yang mengidentifikasi secara tunggal setiap baris data dalam entitas.
+  - **Foreign Key (`FK`)**: Atribut yang mereferensikan primary key pada entitas lain untuk membentuk integritas hubungan antartabel.
+  - **Unique Key (`UK`)**: Batasan keunikan data untuk mencegah rekaman duplikat pada tingkat kolom tertentu (misal: kombinasi `(pertanyaan_id, kode_opsi)` pada opsi jawaban).
+- **Kardinalitas (*Cardinality*) & Modalitas (*Modality*)**:
+  - **Satu ke Satu (*One-to-One / 1:1*)**: Satu baris pada entitas A berhubungan tepat dengan maksimal satu baris pada entitas B (misal: `data_akademik` ke `biodata`).
+  - **Satu ke Banyak (*One-to-Many / 1:N*)**: Satu baris pada entitas A berhubungan dengan nol, satu, atau banyak baris pada entitas B (misal: satu `kuesioner_section` memiliki banyak `kuesioner_pertanyaan`).
+  - **Banyak ke Banyak (*Many-to-Many / N:M*)**: Banyak baris pada entitas A dapat berelasi dengan banyak baris pada entitas B, yang dinormalisasikan menggunakan tabel persimpangan/junction (misal: `kuesioner_section_pertanyaan` menghubungkan `kuesioner_section` dan `kuesioner_pertanyaan`).
+
+### 3. Matriks Korelasi ERD Relasional dan UML Class Diagram (Sundaramoorthy 2022)
+
+| Konsep ERD Relasional | Padanan UML Class Diagram (Sundaramoorthy hlm. 17–19) | Implementasi Nyata pada Aplikasi Tracer Study UKDW |
+| :--- | :--- | :--- |
+| **Entitas (Tabel)** | **Class** (Tiga kompartemen: Nama, Atribut, Operasi) | Model Eloquent Laravel (misal: `class Biodata extends Model`) |
+| **Kolom Data (Atribut)** | **Attributes** (`visibility name : type [= default]`) | Properti tabel dan atribut `$fillable` / `$casts` |
+| **Primary Key (`PK`)** | Properti pengenal objek unik (*Identifier / Primary Attribute*) | Kolom `id` atau kode unik kanonik (misal: `kode_provinsi`) |
+| **Foreign Key (`FK`)** | **Directed Association** dengan relasi navigasi | Definisi relasi ORM `belongsTo()` dan `hasMany()` |
+| **Relasi Kardinalitas ($1:1, 1:N, N:M$)** | **Multiplicity** (`1`, `0..1`, `1..*`, `*`) | Multiplisitas relasi antarkelas pada arsitektur perangkat lunak |
+| **Cascade Delete (Ketergantungan Kuat)** | **Composition** (Wajik penuh $\blacklozenge$, Sundaramoorthy hlm. 19) | Penghapusan berantai: jika kuesioner dihapus, section dan butir pertanyaan ikut terhapus |
+| **Non-identifying FK (Ketergantungan Lemah)** | **Aggregation** (Wajik kosong $\diamond$, Sundaramoorthy hlm. 18) | Asosiasi bebas: alumni memilih entitas `perusahaan`; penghapusan alumni tidak menghapus perusahaan |
+
+### 4. Kaidah Normalisasi dan Integritas Relasional
+Penyusunan basis data `tracer` menerapkan prinsip normalisasi sistematis:
+- **Bentuk Normal Pertama (1NF)**: Mengeliminasi nilai multi-nilai atau grup berulang (*repeating groups*); seluruh atribut bernilai atomik.
+- **Bentuk Normal Kedua (2NF)**: Memastikan seluruh atribut non-kunci bergantung secara fungsional penuh (*fully functionally dependent*) pada primary key, bukan pada sebagian primary key komposit.
+- **Bentuk Normal Ketiga (3NF)**: Menghilangkan ketergantungan transitif (*transitive dependency*). Hal ini diterapkan secara nyata pada pemisahan master geografis ke tabel `propinsi` dan `kabupaten` dengan foreign key berkode resmi, menggantikan penyimpanan teks string wilayah berulang yang rentan anomali pembaruan.
+- **Integritas Referensial (*Referential Integrity*)**: Menggunakan aturan `ON DELETE RESTRICT` pada tabel referensi pokok (seperti negara dan provinsi) guna melindungi konsistensi data riwayat akademik dan karier lulusan dari penghapusan tak sengaja.
+
+---
 
 ---
 

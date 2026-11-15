@@ -1,10 +1,73 @@
 # Spesifikasi Use Case Sistem Tracer Study UKDW
 
-Dokumen ini merupakan spesifikasi normatif use case untuk Sistem Informasi Tracer Study Universitas Kristen Duta Wanna (UKDW). Struktur use case, pembagian aktor, serta relasi asosiasi dan ekstensi pada dokumen ini diselaraskan secara penuh dengan Use Case Diagram terbaru, arsitektur route pada `routes/web.php`, controller pendukung, serta schema database aktif `tracer`.
+Dokumen ini merupakan spesifikasi normatif use case untuk Sistem Informasi Tracer Study Universitas Kristen Duta Wacana (UKDW). Struktur use case, pembagian aktor, relasi asosiasi dan ekstensi, serta format tabel spesifikasi skenario pada dokumen ini disusun mengacu penuh pada standar acuan akademik:
+**Dr. Suriya Sundaramoorthy, *UML Diagramming: A Case Study Approach*, CRC Press / Taylor & Francis Group (2022), Chapter 1: *Introduction to UML Diagrams and Its Components*, Subbab 1.1.2 & 1.1.2.1 (hlm. 1–7)**, serta diselaraskan dengan arsitektur route aktif pada `routes/web.php`, controller pendukung, dan schema database aktif `tracer`.
 
 ---
 
-## 1. Identifikasi Aktor
+## 1. Landasan Teori Use Case & UML (Dr. Suriya Sundaramoorthy, 2022)
+
+Berdasarkan Sundaramoorthy (2022, hlm. 1–7), pemodelan sistem berorientasi objek (*Object-Oriented System*) dikembangkan melalui metodologi **Unified Process (UP)** yang memiliki 4 fase berulang (*iterative lifecycle*):
+1. **Inception Phase**: Mengidentifikasi ruang lingkup proyek, kebutuhan awal pengguna, serta analisis kelayakan sistem (*feasibility report*).
+2. **Elaboration Phase**: Merancang arsitektur inti sistem (*core architecture*), jadwal pelaksanaan proyek, dan memetakan kebutuhan fungsional secara komprehensif ke dalam **UML Use Case Diagram**.
+3. **Construction Phase**: Melakukan pengkodean (*coding*), pengujian modul (*alpha testing*), dan evaluasi fitur.
+4. **Transition Phase**: Melakukan pengujian pengguna di lingkungan pengguna (*beta testing*), penyebaran (*deployment*), dan penyempurnaan sistem (*fine-tuning*).
+
+### 1.1 Kedudukan Use Case Diagram dalam Piramida UML
+Unified Modeling Language (UML) adalah bahasa grafis standar untuk menspesifikasikan, memvisualisasikan, membangun, dan mendokumentasikan artefak sistem perangkat lunak. Dalam taksonomi UML (Sundaramoorthy 2022, hlm. 2–4, Tabel 1.1), Use Case Diagram berada pada kategori **Behavioral Diagram** yang berfokus utama pada:
+> *"Identification of discrete functional requirements of the system under consideration from the perspective of external actors."*
+
+Use Case Diagram menggambarkan interaksi batas luar (*boundary*) antara pengguna sistem (*actors*) dan fungsi-fungsi layanan yang disediakan oleh sistem (*use cases*), tanpa membebani pembaca dengan detail teknis algoritma internal.
+
+### 1.2 Tiga Komponen Dasar Use Case Diagram (Sundaramoorthy hlm. 4, Tabel 1.2)
+Sesuai Tabel 1.2 dari pustaka acuan, Use Case Diagram dibentuk oleh 3 komponen fundamental:
+1. **Batas Sistem (*System Boundary*)**:
+   - Digambarkan berupa kotak persegi panjang bersudut tumpul atau tegas (*rectangle*) yang membungkus seluruh use case di dalamnya.
+   - Merepresentasikan ruang lingkup (*scope*) dari sistem yang sedang dirancang dan memisahkan secara tegas antara komponen internal aplikasi dan entitas luar.
+2. **Aktor (*Actors*)**:
+   - Digambarkan dengan simbol orang-orangan (*stick figure*) untuk aktor manusia, atau diberi anotasi stereotipe `<<system>>` jika berupa sistem perangkat lunak eksternal.
+   - Merepresentasikan pihak yang berinteraksi dengan sistem. Aktor dapat berupa **manusia (*person*)**, **organisasi (*organization*)**, atau **sistem eksternal (*outside system*)**.
+   - Aktor berada di luar batas sistem (*outside system boundary*) dan memiliki tanggung jawab memicu atau menerima hasil pemrosesan use case.
+3. **Kasus Penggunaan (*Usecases*)**:
+   - Digambarkan dengan bentuk elips mendatar (*oval/ellipse*) yang memuat nama use case.
+   - Merepresentasikan fungsionalitas bisnis diskret (*discrete business functionality*) yang memberikan nilai nyata (*observable result of value*) bagi aktor.
+   - Penamaan use case menggunakan kombinasi kata kerja aktif dan objek/sasaran (*Verb–Noun phrase*), misal: *Login*, *Mengelola profile alumni*, *Mengisi Kuesioner Universitas*.
+
+### 1.3 Hubungan dan Relasi Use Case (Sundaramoorthy hlm. 5–6, Tabel 1.3)
+Sundaramoorthy (2022) mengelompokkan relasi antar-elemen use case ke dalam 6 jenis relasi:
+1. **Asosiasi (*Association*)**:
+   - Garis lurus tanpa panah yang menghubungkan seorang aktor dengan sebuah use case.
+   - Menunjukkan komunikasi dua arah bahwa aktor tersebut terlibat aktif dalam mengeksekusi fungsionalitas use case bersangkutan.
+2. **Asosiasi Terarah (*Directed Association*)**:
+   - Garis lurus berpanah terbuka dari aktor menuju use case.
+   - Menunjukkan hubungan satu arah di mana aktor memegang inisiatif utama dalam memicu eksekusi use case.
+3. **Relasi Include (`<<include>>`)**:
+   - Garis putus-putus berpanah terbuka dengan label stereotipe `<<include>>` mengarah dari use case dasar ke use case inklusi.
+   - Menandakan fungsionalitas use case dasar **secara mutlak mewajibkan** dan menyertakan fungsionalitas dari use case lain agar proses dasar dapat selesai.
+4. **Relasi Extend (`<<extend>>`)**:
+   - Garis putus-putus berpanah terbuka dengan label stereotipe `<<extend>>` mengarah dari use case perluasan (*extension usecase*) ke use case dasar (*base usecase*).
+   - Menandakan perilaku tambahan yang bersifat **opsional/kondisional** yang disisipkan ke dalam use case dasar pada titik ekstensi (*extension point*) tertentu bila kondisi pemicu terpenuhi.
+5. **Generalisasi (*Generalization*)**:
+   - Garis lurus dengan kepala panah segitiga kosong tertutup mengarah dari aktor/use case spesifik (*child*) menuju aktor/use case umum (*parent*).
+   - Menunjukkan hubungan pewarisan perilaku dan hak akses (*inheritance*).
+6. **Ketergantungan (*Dependency*)**:
+   - Garis putus-putus berpanah terbuka yang mendefinisikan bahwa keberadaan atau perubahan suatu use case bergantung langsung pada use case lainnya.
+
+### 1.4 Standar Template Spesifikasi Use Case (Sundaramoorthy hlm. 6, Subbab 1.1.2.1)
+Untuk mendokumentasikan setiap skenario use case secara ketat dan terstruktur, Dr. Suriya Sundaramoorthy menetapkan format standar tabel spesifikasi yang mencakup:
+- **Usecase ID**: Nomor pengenal unik use case (misal: UC01, UC02).
+- **Usecase Name**: Nama fungsional use case yang ringkas dan jelas.
+- **Actors Involved**: Aktor-aktor yang berinteraksi langsung atau menerima luaran use case.
+- **Description**: Penjelasan ringkas mengenai tanggung jawab dan fungsi bisnis use case.
+- **Preconditions**: Status atau prasyarat yang wajib dipenuhi sistem/aktor sebelum use case dijalankan.
+- **Main / Normal Flow**: Urutan langkah kronologis pelaksanaan proses dalam kondisi normal dan berhasil.
+- **Postconditions**: Status akhir sistem dan data setelah eksekusi use case berhasil diselesaikan.
+- **Alternate Flow**: Jalur atau kemungkinan skenario cabang lain yang valid.
+- **Exception Flow**: Kondisi kegagalan sistem, galat validasi, atau pelanggaran hak akses beserta penanganannya.
+
+---
+
+## 2. Identifikasi Aktor
 
 Sistem Tracer Study UKDW melibatkan 8 aktor yang terdiri atas aktor manusia (primer), generalisasi peran administratif, dan satu sistem eksternal:
 
@@ -35,12 +98,12 @@ Sistem Tracer Study UKDW melibatkan 8 aktor yang terdiri atas aktor manusia (pri
 
 ---
 
-## 2. Hubungan Asosiasi dan Relasi Extend
+## 3. Hubungan Asosiasi dan Relasi Extend
 
-### 2.1 Hubungan Generalisasi Aktor
+### 3.1 Hubungan Generalisasi Aktor
 `admin_prodi`, `admin_fakultas`, dan `admin_biro3` adalah spesialisasi dari aktor induk `admin`. Setiap use case yang diasosiasikan dengan `admin` secara otomatis dapat diakses oleh ketiga peran tersebut sesuai dengan batasan lingkup (scope wewenang) masing-masing. Khusus use case **Mengelola kuesioner prodi**, garis asosiasi ditarik langsung ke `admin_prodi` dan `Superadmin (ITC)`, sehingga `admin_biro3` dan `admin_fakultas` tidak memiliki akses pengelolaan instrumen prodi.
 
-### 2.2 Hubungan Extend (`<<extend>>`)
+### 3.2 Hubungan Extend (`<<extend>>`)
 Relasi `<<extend>>` digunakan untuk memperluas fungsionalitas use case dasar pada titik ekstensi (*extension point*) tertentu dengan kondisi pemicu (*extension condition*):
 
 1. **Mengubah Kata Sandi** `<<extend>>` **Login**: Dipicu ketika pengguna terautentikasi memiliki atribut `must_change_password = true` (login perdana dengan kredensial bawaan) atau memilih opsi perubahan kata sandi berkala.
@@ -55,7 +118,7 @@ Relasi `<<extend>>` digunakan untuk memperluas fungsionalitas use case dasar pad
 
 ---
 
-## 3. Daftar Ringkasan 23 Use Case
+## 4. Daftar Ringkasan 23 Use Case
 
 | ID | Nama Use Case | Aktor Terkait | Hubungan Khusus | Rujukan Implementasi Utama |
 | :--- | :--- | :--- | :--- | :--- |
@@ -85,7 +148,7 @@ Relasi `<<extend>>` digunakan untuk memperluas fungsionalitas use case dasar pad
 
 ---
 
-## 4. Spesifikasi Rinci Use Case (Tabel Formal)
+## 5. Spesifikasi Rinci Use Case (Tabel Formal)
 
 Berikut adalah tabel spesifikasi teknis untuk setiap use case sesuai format standar UML:
 
@@ -457,7 +520,7 @@ Berikut adalah tabel spesifikasi teknis untuk setiap use case sesuai format stan
 
 ---
 
-## 5. Matriks Keterlacakan Aktor (Actor Traceability Matrix)
+## 6. Matriks Keterlacakan Aktor (Actor Traceability Matrix)
 
 Tabel berikut memetakan keterhubungan 23 use case terhadap aktor-aktor sistem secara komprehensif:
 
@@ -491,7 +554,7 @@ Tabel berikut memetakan keterhubungan 23 use case terhadap aktor-aktor sistem se
 
 ---
 
-## 6. Prinsip Keselarasan Data dan Standar Implementasi
+## 7. Prinsip Keselarasan Data dan Standar Implementasi
 
 1. **Integritas Database**: Seluruh implementasi use case terhubung ke basis data operasional `tracer`. Struktur relasi geografis menggunakan pasangan kanonik `kode_provinsi`, `kode_kabupaten`, dan `kode_negara` (ISO-3166-1 alpha-2).
 2. **Sentralisasi Instrumen Respon**: Jawaban atas kuesioner universitas (UC12), kuesioner prodi (UC13), dan survei evaluasi atasan (UC14) disimpan secara terpusat pada tabel engine kuesioner `kuesioner_jawaban`.

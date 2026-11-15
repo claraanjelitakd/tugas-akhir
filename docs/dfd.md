@@ -38,6 +38,24 @@ Sistem dan seluruh subsistem dimodelkan hanya menggunakan kombinasi **empat simb
 6. **Diagram Konteks Tanpa Simpanan Data**:
    - Diagram Konteks hanya memuat entitas eksternal, aliran data antarmuka, dan proses 0. Tidak ada *data store* yang digambarkan pada tingkat konteks.
 
+### 1.3 Pemodelan Logis vs Fisik & Partisi DFD (Kendall hlm. 235–244)
+
+Sesuai Kendall & Kendall (2020), siklus perancangan terstruktur membedakan DFD menjadi dua jenis model:
+1. **DFD Logis (*Logical DFD*)**:
+   - Berfokus murni pada logika bisnis organisasi: data apa yang diproses dan aturan apa yang dijalankan, tanpa terikat pada medium penyimpanan fisik atau teknologi tertentu.
+   - Memberikan kebebasan analisis konseptual sebelum menetapkan teknologi implementasi.
+2. **DFD Fisik (*Physical DFD*)**:
+   - Memetakan bagaimana proses bisnis tersebut diimplementasikan secara konkret pada sistem perangkat lunak, mencakup:
+     - Nama berkas atau tabel fisik database (misal: MySQL InnoDB `users`, `biodata`, `kuesioner_jawaban`).
+     - Metode antarmuka pengguna (Web Form, SPA Vue.js, REST API JSON).
+     - Identifikasi proses manual versus proses terotomatisasi komputer.
+3. **Partisi DFD Fisik (*Partitioning of Physical DFDs*)**:
+   - Kendall & Kendall (hlm. 240–244) mendefinisikan partisi sebagai teknik mengelompokkan beberapa proses atau simpanan data ke dalam batas modul operasional. Pada Sistem Tracer Study UKDW, partisi fisik dikelompokkan ke dalam 4 subsistem kerja:
+     - **Partisi Klien Interaktif Web/SPA**: Menangani interaksi formulir pengguna langsung (Alumni, Admin, Pengguna Lulusan).
+     - **Partisi Mesin Kuesioner Terpadu (*Unified Survey Engine*)**: Menangani evaluasi branching, validasi skema input, dan penyimpanan idempoten jawaban kuesioner.
+     - **Partisi Integrasi Pihak Ketiga & Staging**: Menangani panggilan asynchronous API ke Apify LinkedIn Scraper dan mekanisme pemulihan data pementasan.
+     - **Partisi Analitik & Proyeksi Database View**: Menangani pembacaan data performa tinggi berbasis SQL View untuk dasbor IKU-1 dan ekspor spreadsheet.
+
 ---
 
 ## 2. Batas Sistem & Analisis Entitas Eksternal Sistem Tracer
