@@ -47,7 +47,7 @@ class JovanMarllenSeeder extends Seeder
                 'password' => Hash::make('22112004'),
                 'role' => 'alumni',
                 'prodi_id' => $prodi?->id,
-                'must_change_password' => false,
+                'must_change_password' => true,
             ]
         );
 

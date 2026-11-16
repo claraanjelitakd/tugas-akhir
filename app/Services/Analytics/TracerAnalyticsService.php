@@ -2421,10 +2421,17 @@ class TracerAnalyticsService
                     'email' => $row->email ?? null,
                     'nama_perusahaan' => $profile?->nama_perusahaan,
                     'head_office_alamat' => $profile?->head_office_alamat,
-                    'head_office_lokasi' => $this->locationLabel($profile?->head_office_city, $profile?->head_office_province),
+                    'head_office_lokasi' => $this->locationLabel(
+                        $profile?->head_office_city,
+                        $profile?->head_office_province,
+                        $profile?->head_office_country,
+                    ),
                     'head_office_kode_pos' => $profile?->head_office_kode_pos,
                     'domisili_alamat' => $profile?->domisili_alamat,
-                    'domisili_saat_ini' => $this->locationLabel($profile?->domisili_city, $profile?->domisili_province),
+                    'domisili_saat_ini' => $this->locationLabel(
+                        $profile?->domisili_city,
+                        $profile?->domisili_province,
+                    ),
                     'domisili_kode_pos' => $profile?->domisili_kode_pos,
                     'bidang_pekerjaan' => $profile?->bidang_pekerjaan,
                     'divisi' => $profile?->divisi,
@@ -2468,6 +2475,7 @@ class TracerAnalyticsService
             ->leftJoin('perusahaan as company', 'biodata.perusahaan_id', '=', 'company.id')
             ->leftJoin('propinsi as office_province', 'company.kode_provinsi', '=', 'office_province.kode_provinsi')
             ->leftJoin('kabupaten as office_city', 'company.kode_kabupaten', '=', 'office_city.kode_kabupaten')
+            ->leftJoin('ref_negara as office_country', 'company.kode_negara', '=', 'office_country.kode_negara')
             ->leftJoin('propinsi as domicile_province', 'biodata.kode_provinsi', '=', 'domicile_province.kode_provinsi')
             ->leftJoin('kabupaten as domicile_city', 'biodata.kode_kabupaten', '=', 'domicile_city.kode_kabupaten')
             ->whereIn('biodata.id', $biodataIds)
@@ -2489,6 +2497,7 @@ class TracerAnalyticsService
                 'company.kode_pos as head_office_kode_pos',
                 'office_province.nama_provinsi as head_office_province',
                 'office_city.nama_kabupaten as head_office_city',
+                'office_country.nama_negara as head_office_country',
                 'domicile_province.nama_provinsi as domisili_province',
                 'domicile_city.nama_kabupaten as domisili_city',
             ])
@@ -2496,11 +2505,11 @@ class TracerAnalyticsService
     }
 
     /**
-     * Membentuk label wilayah yang ringkas untuk tabel analitik.
+     * Membentuk label wilayah yang ringkas untuk tabel analitik (termasuk negara untuk luar negeri).
      */
-    private function locationLabel(?string $city, ?string $province): ?string
+    private function locationLabel(?string $city, ?string $province, ?string $country = null): ?string
     {
-        $parts = array_values(array_filter([$city, $province], fn (?string $value): bool => filled($value)));
+        $parts = array_values(array_filter([$city, $province, $country], fn (?string $value): bool => filled($value)));
 
         return $parts === [] ? null : implode(', ', $parts);
     }

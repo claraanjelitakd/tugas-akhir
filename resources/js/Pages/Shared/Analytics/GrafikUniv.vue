@@ -1110,19 +1110,6 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                             <h2 class="text-xl font-extrabold text-slate-900 sm:text-2xl">{{ chart.title }}</h2>
                             <p class="mt-1 max-w-3xl text-xs sm:text-sm text-slate-500 leading-relaxed">{{ chart.subtitle }}</p>
                         </div>
-                        <div v-if="selectedItem?.label" class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-                            <span class="text-xs text-slate-500">Analisis Terpilih:</span>
-                            <span class="rounded bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-bold text-[#0D542B]">
-                                {{ selectedItem.label }}
-                            </span>
-                            <button
-                                type="button"
-                                class="rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
-                                @click="selectedItem = null; selectedProvince = null; drawerOpen = false"
-                            >
-                                Kembali ke Analisis Keseluruhan
-                            </button>
-                        </div>
                     </div>
 
                     <div
@@ -1174,9 +1161,9 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                 </section>
 
                 <template v-else>
-                    <!-- Navigasi dua fungsi utama: Grafik dan Data (Analisis terintegrasi langsung pada grafik) -->
+                    <!-- Navigasi dua fungsi utama: Grafik Analitik dan Data Alumni (Analisis terintegrasi langsung pada grafik) -->
                     <nav class="flex gap-1 bg-white p-1.5 rounded-xl border border-slate-200" role="tablist" aria-label="Tampilan analitik">
-                        <button v-for="panel in [{ key: 'charts', label: 'Grafik' }, { key: 'data', label: 'Data' }]" :key="panel.key" type="button" role="tab" :aria-selected="activePanel === panel.key" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition-all cursor-pointer" :class="activePanel === panel.key ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'" @click="activePanel = panel.key">{{ panel.label }}</button>
+                        <button v-for="panel in [{ key: 'charts', label: 'Grafik Analitik' }, { key: 'data', label: 'Data Alumni' }]" :key="panel.key" type="button" role="tab" :aria-selected="activePanel === panel.key" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition-all cursor-pointer" :class="activePanel === panel.key ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'" @click="activePanel = panel.key">{{ panel.label }}</button>
                     </nav>
 
                     <!-- Panel Grafik ECharts Utama Tanpa Suspense -->

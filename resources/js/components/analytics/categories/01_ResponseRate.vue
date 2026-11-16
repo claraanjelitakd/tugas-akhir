@@ -469,7 +469,13 @@ const participationBarOption = computed(() => {
             type: 'category',
             data: list.map((item) => item.nama_prodi),
             inverse: true,
-            axisLabel: { color: '#1E293B', fontWeight: 500, width: 170, overflow: 'truncate', fontSize: 12 },
+            axisLabel: {
+                color: (val) => selectedProdiName.value === val ? '#0D542B' : '#1E293B',
+                fontWeight: (val) => selectedProdiName.value === val ? 800 : 500,
+                width: 170,
+                overflow: 'truncate',
+                fontSize: 12,
+            },
             axisTick: { show: false },
             axisLine: { lineStyle: { color: '#CBD5E1' } },
         },
@@ -527,8 +533,11 @@ const participationBarOption = computed(() => {
                     prodi_id: item.prodi_id,
                     series_status: 'sudah',
                     itemStyle: {
-                    color: participationColor(item),
+                        color: participationColor(item),
                         borderRadius: [3, 0, 0, 3],
+                        opacity: !selectedProdiName.value || item.nama_prodi === selectedProdiName.value ? 1 : 0.22,
+                        borderWidth: selectedProdiName.value === item.nama_prodi ? 2 : 0,
+                        borderColor: '#0D542B',
                     },
                 })),
             },
@@ -560,6 +569,9 @@ const participationBarOption = computed(() => {
                     itemStyle: {
                         color: '#CBD5E1',
                         borderRadius: [0, 3, 3, 0],
+                        opacity: !selectedProdiName.value || item.nama_prodi === selectedProdiName.value ? 1 : 0.22,
+                        borderWidth: selectedProdiName.value === item.nama_prodi ? 2 : 0,
+                        borderColor: '#475569',
                     },
                 })),
             },
@@ -714,12 +726,12 @@ const downloadExcel = (statusTarget = null) => {
                     </p>
                 </div>
 
-                <!-- Switcher Mode: Grafik vs Data Ringkasan -->
-                <div class="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shrink-0 self-start sm:self-auto">
+                <!-- Switcher Mode: Grafik vs Data Ringkasan (Gaya Segmented Pill Netral Slate) -->
+                <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200 shrink-0 self-start sm:self-auto">
                     <button
                         type="button"
                         class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeViewMode === 'chart' ? 'bg-[#0D542B] font-bold text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'"
+                        :class="activeViewMode === 'chart' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeViewMode = 'chart'"
                     >
                         Grafik
@@ -727,7 +739,7 @@ const downloadExcel = (statusTarget = null) => {
                     <button
                         type="button"
                         class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeViewMode === 'table' ? 'bg-slate-100 font-bold text-slate-900' : 'text-slate-500 hover:text-slate-900'"
+                        :class="activeViewMode === 'table' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeViewMode = 'table'"
                     >
                         Data Ringkasan
@@ -837,6 +849,30 @@ const downloadExcel = (statusTarget = null) => {
                         <span class="inline-block h-3 w-3 rounded-xs bg-[#CBD5E1]"></span>
                         <span><strong>Abu-abu:</strong> Belum Mengisi</span>
                     </div>
+                </div>
+
+                <!-- Banner Informasi Status Fokus Grafik (Inline Tepat di Atas Visual) -->
+                <div
+                    v-if="selectedProdiName"
+                    class="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-[#0D542B]/30 bg-emerald-50/50 px-4 py-3 text-slate-800 shadow-2xs animate-in fade-in duration-200"
+                >
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="h-2.5 w-2.5 rounded-full bg-[#0D542B] shrink-0 animate-pulse"></span>
+                        <div class="min-w-0">
+                            <span class="text-xs text-slate-500 font-medium block">Analisis Sedang Terfokus:</span>
+                            <span class="text-sm font-extrabold text-[#0D542B] truncate block">
+                                Program Studi {{ selectedProdiName }}
+                            </span>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[#0D542B]/40 bg-white px-3 py-1.5 text-xs font-bold text-[#0D542B] hover:bg-[#0D542B] hover:text-white transition-all cursor-pointer shadow-2xs"
+                        @click="resetSelection"
+                    >
+                        <span>&times;</span>
+                        <span>Kembali ke Analisis Keseluruhan</span>
+                    </button>
                 </div>
 
                 <!-- Area Render Grafik ECharts Responsif -->

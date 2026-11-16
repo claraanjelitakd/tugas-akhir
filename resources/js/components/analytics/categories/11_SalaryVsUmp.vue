@@ -116,7 +116,7 @@ const prodiSalaryOption = computed(() => {
             {
                 name: 'Kuartil 1 (Q1)',
                 type: 'line',
-                data: list.map((i) => i.q1),
+                data: list.map((i) => ({ value: i.q1, name: i.prodi, prodi: i.prodi, category: 'Kuartil 1' })),
                 itemStyle: { color: '#64748B' },
                 lineStyle: { width: 2, type: 'dashed', color: '#64748B' },
                 symbol: 'circle',
@@ -125,7 +125,7 @@ const prodiSalaryOption = computed(() => {
             {
                 name: 'Median Pendapatan (Q2)',
                 type: 'line',
-                data: list.map((i) => i.median),
+                data: list.map((i) => ({ value: i.median, name: i.prodi, prodi: i.prodi, category: 'Median' })),
                 itemStyle: { color: '#0D542B' },
                 lineStyle: { width: 3.5, color: '#0D542B' },
                 symbol: 'circle',
@@ -143,7 +143,7 @@ const prodiSalaryOption = computed(() => {
             {
                 name: 'Kuartil 3 (Q3)',
                 type: 'line',
-                data: list.map((i) => i.q3),
+                data: list.map((i) => ({ value: i.q3, name: i.prodi, prodi: i.prodi, category: 'Kuartil 3' })),
                 itemStyle: { color: '#334155' },
                 lineStyle: { width: 2, type: 'dashed', color: '#334155' },
                 symbol: 'circle',
@@ -482,6 +482,17 @@ const dynamicProvinceAnalysis = computed(() => {
 });
 
 // Konfigurasi views untuk kontainer terpadu: Bebas Scatter, Bebas Boxplot, Rapi & Utuh
+const salaryDrillDownCols = [
+    { key: 'nama', label: 'Nama Alumni' },
+    { key: 'nim', label: 'NIM' },
+    { key: 'nama_prodi', label: 'Program Studi' },
+    { key: 'nama_perusahaan', label: 'Perusahaan / Tempat Kerja' },
+    { key: 'province_name', label: 'Provinsi Kerja' },
+    { key: 'salary', label: 'Gaji / Pendapatan' },
+    { key: 'ump', label: 'UMP Provinsi' },
+    { key: 'meets_ump', label: 'Status 1,2× UMP' },
+];
+
 const views = computed(() => [
     {
         key: 'prodi_salary_line',
@@ -493,6 +504,7 @@ const views = computed(() => [
         tableData: prodiSalaryTable.value,
         height: 410,
         analysis: dynamicSalaryAnalysis.value,
+        drillDownColumns: salaryDrillDownCols,
     },
     {
         key: 'prodi_ump_bullet',
@@ -504,6 +516,7 @@ const views = computed(() => [
         tableData: prodiUmpTable.value,
         height: Math.max(380, prodisList.value.length * 34 + 110),
         analysis: dynamicUmpProdiAnalysis.value,
+        drillDownColumns: salaryDrillDownCols,
     },
     {
         key: 'province_status',
@@ -515,6 +528,7 @@ const views = computed(() => [
         tableData: provinceStatusTable.value,
         height: Math.max(380, provinceStats.value.length * 32 + 100),
         analysis: dynamicProvinceAnalysis.value,
+        drillDownColumns: salaryDrillDownCols,
     },
 ]);
 </script>

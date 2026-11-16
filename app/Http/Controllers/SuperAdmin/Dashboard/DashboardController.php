@@ -237,6 +237,7 @@ class DashboardController extends Controller
                 'createdProdi:id,nama_prodi',
                 'propinsi:kode_provinsi,nama_provinsi',
                 'kabupaten:kode_kabupaten,nama_kabupaten',
+                'negaraMaster:kode_negara,nama_negara',
             ])
             ->where('status_verifikasi', 'Menunggu Verifikasi')
             ->latest('id')
@@ -259,6 +260,7 @@ class DashboardController extends Controller
                 'createdProdi:id,nama_prodi',
                 'propinsi:kode_provinsi,nama_provinsi',
                 'kabupaten:kode_kabupaten,nama_kabupaten',
+                'negaraMaster:kode_negara,nama_negara',
             ])
             ->withCount('biodata')
             ->latest('id')
@@ -304,7 +306,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * Mengagregasi sebaran perusahaan berdasarkan provinsi kantor yang tercatat.
+     * Mengagregasi sebaran perusahaan berdasarkan provinsi kantor atau negara (untuk luar negeri).
      *
      * @return array<int, array{label: string, count: int}>
      */
@@ -312,9 +314,15 @@ class DashboardController extends Controller
     {
         return DB::table('perusahaan')
             ->leftJoin('propinsi', 'propinsi.kode_provinsi', '=', 'perusahaan.kode_provinsi')
-            ->selectRaw("COALESCE(propinsi.nama_provinsi, 'Belum ditentukan') AS label")
+            ->leftJoin('ref_negara', 'ref_negara.kode_negara', '=', 'perusahaan.kode_negara')
+            ->selectRaw("
+                CASE
+                    WHEN perusahaan.jenis_lokasi = 'Luar Negeri' THEN COALESCE(ref_negara.nama_negara, 'Luar Negeri')
+                    ELSE COALESCE(propinsi.nama_provinsi, 'Belum ditentukan')
+                END AS label
+            ")
             ->selectRaw('COUNT(perusahaan.id) AS jumlah')
-            ->groupBy('propinsi.nama_provinsi')
+            ->groupBy('label')
             ->orderByDesc('jumlah')
             ->orderBy('label')
             ->limit(8)
@@ -333,13 +341,20 @@ class DashboardController extends Controller
      */
     private function formatCompanyRecord(Perusahaan $company): array
     {
+        $location = null;
+        if ($company->jenis_lokasi === 'Luar Negeri') {
+            $location = $company->negaraMaster?->nama_negara ?: 'Luar Negeri';
+        } else {
+            $location = $company->kabupaten?->nama_kabupaten
+                ?: ($company->propinsi?->nama_provinsi ?: 'Lokasi belum ditentukan');
+        }
+
         return [
             'id' => $company->id,
             'name' => $company->nama_perusahaan,
             'status' => $company->status_verifikasi,
             'sector' => $company->sektor ?: ($company->bentuk_perusahaan ?: '-'),
-            'location' => $company->kabupaten?->nama_kabupaten
-                ?: ($company->propinsi?->nama_provinsi ?: 'Lokasi belum ditentukan'),
+            'location' => $location,
             'applicant' => $company->creator?->name
                 ?: ($company->createdProdi?->nama_prodi ?: 'Sistem'),
             'applicant_role' => $company->creator?->role ?: 'admin_prodi',

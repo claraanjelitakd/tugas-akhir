@@ -548,18 +548,19 @@ const submitForm = () => {
             <form v-else @submit.prevent="submitForm" class="space-y-6">
 
                 <!-- STEPPER NAVIGASI 3 LANGKAH -->
+                <!-- Responsif mobile: tidak memaksa min-w-[500px] pada layar kecil agar pas di ponsel tanpa horizontal overflow -->
                 <div class="w-full bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
-                    <div class="overflow-x-auto py-3.5 sm:py-4 px-4 sm:px-8 border-b border-slate-200 bg-slate-50/50">
-                        <div class="flex items-center justify-between w-full min-w-[500px] px-2 sm:px-6 md:px-12">
+                    <div class="overflow-x-auto py-3 sm:py-4 px-2 sm:px-8 border-b border-slate-200 bg-slate-50/50">
+                        <div class="flex items-center justify-between w-full min-w-full sm:min-w-[500px] px-1 sm:px-6 md:px-12">
                             <template v-for="(tab, index) in steps" :key="tab.id">
                                 <!-- Lingkaran & Label Langkah -->
                                 <div
-                                    class="flex flex-col items-center justify-center cursor-pointer group px-2 py-1 transition-all"
+                                    class="flex flex-col items-center justify-center cursor-pointer group px-1 sm:px-2 py-1 transition-all"
                                     @click="goToStep(tab.id)"
                                     :title="'Langkah ' + tab.step + ': ' + tab.name"
                                 >
                                     <div
-                                        class="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full font-bold text-xs sm:text-sm transition-all duration-200 z-10 shadow-xs relative"
+                                        class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full font-bold text-xs sm:text-sm transition-all duration-200 z-10 shadow-xs relative shrink-0"
                                         :class="[
                                             activeStep === tab.id
                                                 ? 'bg-[#0D542B] text-white ring-4 ring-[#0D542B]/20 shadow-md scale-105' :
@@ -570,7 +571,7 @@ const submitForm = () => {
                                     >
                                         <svg
                                             v-if="isStepCompleted(tab.id) && activeStep !== tab.id"
-                                            class="w-4 h-4 text-white"
+                                            class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white"
                                             fill="none"
                                             stroke="currentColor"
                                             viewBox="0 0 24 24"
@@ -580,20 +581,20 @@ const submitForm = () => {
                                         <span v-else>{{ tab.step }}</span>
                                     </div>
                                     <span
-                                        class="text-[11px] sm:text-xs mt-1.5 text-center leading-tight transition-colors"
+                                        class="text-[10px] sm:text-xs mt-1.5 text-center leading-tight transition-colors line-clamp-1 sm:line-clamp-none max-w-[85px] sm:max-w-none"
                                         :class="activeStep === tab.id ? 'text-[#0D542B] font-extrabold' : (isStepCompleted(tab.id) ? 'text-slate-800 font-semibold' : 'text-slate-400 font-medium')"
                                     >
                                         {{ tab.name }}
                                     </span>
                                     <span
                                         v-if="isStepCompleted(tab.id)"
-                                        class="text-[9px] sm:text-[10px] text-emerald-800 font-bold mt-0.5"
+                                        class="text-[9px] sm:text-[10px] text-emerald-800 font-bold mt-0.5 hidden xs:inline-block"
                                     >
                                         Sudah Lengkap
                                     </span>
                                     <span
                                         v-else
-                                        class="text-[9px] sm:text-[10px] text-slate-400 font-normal mt-0.5"
+                                        class="text-[9px] sm:text-[10px] text-slate-400 font-normal mt-0.5 hidden xs:inline-block"
                                     >
                                         {{ tab.subtitle }}
                                     </span>
@@ -602,7 +603,7 @@ const submitForm = () => {
                                 <!-- Garis Penghubung -->
                                 <div
                                     v-if="index < steps.length - 1"
-                                    class="flex-1 h-1 sm:h-1.5 rounded-full transition-colors duration-300 mx-3 sm:mx-6 min-w-[30px]"
+                                    class="flex-1 h-1 sm:h-1.5 rounded-full transition-colors duration-300 mx-1.5 sm:mx-6 min-w-[12px] sm:min-w-[30px]"
                                     :class="isStepCompleted(tab.id) ? 'bg-[#0D542B]' : 'bg-slate-200'"
                                 ></div>
                             </template>
@@ -844,17 +845,18 @@ const submitForm = () => {
                         </div>
 
                         <!-- 5. Standar Gaji Pertama -->
+                        <!-- Responsif mobile: grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 agar nominal tidak terpotong -->
                         <div v-if="isCompanyQuestionActive('standar_gaji_pertama')" class="space-y-2">
                             <label class="block text-xs font-bold text-slate-800">
                                 {{ companyQuestion('standar_gaji_pertama')?.aspek || 'Standar Gaji Pertama (per bulan) yang Diberikan ke Alumni UKDW' }} <span class="text-rose-500">*</span>
                             </label>
-                            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
                                 <div
                                     v-for="opt in optionsForCompanyQuestion(companyQuestion('standar_gaji_pertama'))"
                                     :key="opt"
                                     @click="toggleFieldOption('standar_gaji_pertama', opt)"
                                     @dblclick.stop="form.standar_gaji_pertama = ''"
-                                    class="flex items-center gap-2.5 p-3 border rounded-lg cursor-pointer text-xs font-semibold transition-colors select-none"
+                                    class="flex items-center gap-2.5 p-2.5 sm:p-3 border rounded-lg cursor-pointer text-xs font-semibold transition-colors select-none"
                                     :class="form.standar_gaji_pertama === opt ? 'border-[#0D542B] bg-emerald-50 text-[#0D542B] ring-1 ring-[#0D542B] font-bold' : 'border-slate-200 text-slate-700 hover:bg-slate-50'"
                                 >
                                     <input
@@ -864,7 +866,7 @@ const submitForm = () => {
                                         readonly
                                         class="accent-[#0D542B] w-4 h-4 cursor-pointer shrink-0 pointer-events-none"
                                     />
-                                    <span class="truncate">{{ opt }}</span>
+                                    <span class="break-words leading-tight">{{ opt }}</span>
                                 </div>
                             </div>
                         </div>
@@ -912,20 +914,21 @@ const submitForm = () => {
                         </div>
 
                         <!-- 1. Kesiapan Kerja (Urutan paling kiri Tidak siap, paling kanan Sangat siap) -->
-                        <div v-if="kesiapanPertanyaan" class="p-4 sm:p-5 rounded-lg bg-slate-50 border border-slate-200 space-y-3">
+                        <!-- Responsif mobile: grid-cols-1 sm:grid-cols-2 md:grid-cols-4 -->
+                        <div v-if="kesiapanPertanyaan" class="p-3.5 sm:p-5 rounded-lg bg-slate-50 border border-slate-200 space-y-3">
                             <label class="block text-xs font-bold text-slate-900 leading-snug">
                                 1. Tingkat kesiapan alumni UKDW dalam bekerja di Perusahaan ini <span class="text-rose-500">*</span>
                                 <span class="block text-[11px] font-normal text-slate-500 mt-0.5">
                                     {{ kesiapanPertanyaan.deskripsi || 'Tingkat kesiapan alumni UKDW dalam bekerja dan beradaptasi di Perusahaan / Institusi ini.' }}
                                 </span>
                             </label>
-                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
                                 <div
                                     v-for="opt in kesiapanOptions"
                                     :key="opt"
                                     @click="toggleJawaban(kesiapanPertanyaan.kode, opt)"
                                     @dblclick.stop="clearJawaban(kesiapanPertanyaan.kode)"
-                                    class="flex items-center gap-2.5 p-3.5 border rounded-lg cursor-pointer text-xs font-semibold transition-colors select-none bg-white"
+                                    class="flex items-center gap-2.5 p-3 sm:p-3.5 border rounded-lg cursor-pointer text-xs font-semibold transition-colors select-none bg-white"
                                     :class="form.jawaban[kesiapanPertanyaan.kode] === opt ? 'border-[#0D542B] bg-emerald-50 text-[#0D542B] ring-1 ring-[#0D542B] font-bold' : 'border-slate-200 text-slate-700 hover:bg-slate-100'"
                                 >
                                     <input

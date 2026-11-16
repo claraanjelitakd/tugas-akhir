@@ -524,8 +524,9 @@ onBeforeUnmount(() => {
 
                 <!-- ============================================================= -->
                 <!-- KONTEN TAB FORM PROFIL -->
+                <!-- Responsif mobile: p-4 pada layar kecil agar field input leluasa, sm:p-8 md:p-12 di desktop -->
                 <!-- ============================================================= -->
-                <div class="p-6 sm:p-8 md:p-12 min-h-[500px]">
+                <div class="p-4 sm:p-8 md:p-12 min-h-[500px]">
                     <!-- Tab 1: Identitas & Alamat Pribadi -->
                     <div v-show="activeTab === 'pribadi'">
                         <FormPribadi
@@ -564,30 +565,31 @@ onBeforeUnmount(() => {
                 </div>
 
                 <!-- Bottom Sticky / Action Bar: Navigasi Antar Tab & Tombol Simpan di Langkah Terakhir -->
-                <div class="px-6 sm:px-8 md:px-12 py-5 bg-gray-50/90 backdrop-blur-md rounded-b-[2rem] flex flex-col md:flex-row justify-between items-center gap-4 border-t border-gray-100">
+                <!-- Responsif mobile: px-4 py-4 dan tombol w-full/sm:w-auto agar mudah ditekan di layar HP -->
+                <div class="px-4 sm:px-8 md:px-12 py-4 sm:py-5 bg-gray-50/90 backdrop-blur-md rounded-b-[2rem] flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-4 border-t border-gray-100">
                     <!-- Left: Navigasi Sebelumnya -->
-                    <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+                    <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
                         <button
                             v-if="prevTab"
                             type="button"
                             @click="switchTab(prevTab.id)"
-                            class="px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                            class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
                         >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                            <span>Sebelumnya: {{ prevTab.name }}</span>
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                            <span class="truncate">Sebelumnya: {{ prevTab.name }}</span>
                         </button>
-                        <span v-else class="text-xs text-gray-400 font-medium">Langkah 1 dari {{ tabs.length }}</span>
+                        <span v-else class="text-xs text-gray-400 font-medium text-center sm:text-left w-full sm:w-auto">Langkah 1 dari {{ tabs.length }}</span>
                     </div>
 
                     <!-- Right: Alur Lanjut Antar Langkah (Tanpa Duplikasi Tombol Simpan) -->
-                    <div class="flex items-center gap-3 w-full md:w-auto justify-end flex-wrap">
+                    <div class="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto justify-end flex-col sm:flex-row">
                         <!-- Tombol Batalkan Perubahan (Muncul jika ada isian yang diubah) -->
                         <button
                             v-if="form.isDirty"
                             type="button"
                             @click="handleCancelChanges"
                             :disabled="form.processing"
-                            class="px-4 py-2.5 rounded-xl border border-gray-300 hover:border-rose-300 bg-white hover:bg-rose-50 text-gray-700 hover:text-rose-700 text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-2xs"
+                            class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-gray-300 hover:border-rose-300 bg-white hover:bg-rose-50 text-gray-700 hover:text-rose-700 text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-2xs text-center"
                         >
                             Batalkan Perubahan
                         </button>
@@ -598,10 +600,10 @@ onBeforeUnmount(() => {
                             type="button"
                             @click="form.isDirty ? submit(nextTab.id) : switchTab(nextTab.id, true)"
                             :disabled="form.processing"
-                            class="px-6 py-3 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                            class="w-full sm:w-auto px-5 sm:px-6 py-2.5 sm:py-3 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                         >
                             <span>{{ form.isDirty && form.processing ? 'Menyimpan...' : `Lanjut: ${nextTab.name}` }}</span>
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </button>
 
                         <!-- Tombol Utama di Langkah Terakhir: Simpan Seluruh Profil -->
@@ -609,10 +611,10 @@ onBeforeUnmount(() => {
                             v-else
                             type="submit"
                             :disabled="form.processing"
-                            class="px-8 py-3 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                            class="w-full sm:w-auto px-6 sm:px-8 py-2.5 sm:py-3 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                         >
-                            <svg v-if="form.processing" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            <svg v-if="form.processing" class="animate-spin h-4 w-4 text-white shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            <svg v-else class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                             <span>{{ form.processing ? 'Menyimpan...' : 'Simpan Seluruh Profil' }}</span>
                         </button>
                     </div>
@@ -621,6 +623,7 @@ onBeforeUnmount(() => {
         </main>
 
         <!-- Popup Melayang Indikator Perubahan Belum Disimpan (Non-Intrusive Floating Bar) -->
+        <!-- Responsif mobile: w-[calc(100%-1.5rem)] agar tidak menabrak tepi layar di HP -->
         <transition
             enter-active-class="transition duration-300 ease-out"
             enter-from-class="transform translate-y-6 opacity-0"
@@ -631,26 +634,26 @@ onBeforeUnmount(() => {
         >
             <div
                 v-if="form.isDirty"
-                class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-5rem)] max-w-xl pointer-events-none"
+                class="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-1.5rem)] sm:w-[calc(100%-5rem)] max-w-xl pointer-events-none"
             >
-                <div class="pointer-events-auto flex items-center justify-between gap-4 rounded-2xl border border-[#0D542B]/30 bg-white px-5 py-3.5 text-gray-900 shadow-lg ring-1 ring-[#0D542B]/10">
-                    <div class="min-w-0 flex-1 flex items-center gap-3">
+                <div class="pointer-events-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 rounded-2xl border border-[#0D542B]/30 bg-white p-3.5 sm:px-5 sm:py-3.5 text-gray-900 shadow-xl ring-1 ring-[#0D542B]/10">
+                    <div class="min-w-0 flex-1 flex items-center gap-2.5 sm:gap-3">
                         <span class="h-2.5 w-2.5 rounded-full bg-[#0D542B] shrink-0"></span>
                         <div class="min-w-0 flex-1">
                             <p class="text-xs sm:text-sm font-bold text-gray-900 truncate">
                                 Perubahan Belum Disimpan
                             </p>
-                            <p class="text-[11px] text-gray-500 truncate">
-                                Ada isian yang diubah. Simpan perubahan atau batalkan untuk kembali ke data awal.
+                            <p class="text-[10px] sm:text-[11px] text-gray-500 truncate">
+                                Ada isian yang diubah. Simpan perubahan atau batalkan.
                             </p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2 shrink-0">
+                    <div class="flex items-center gap-2 shrink-0 justify-end">
                         <button
                             type="button"
                             @click="handleCancelChanges"
                             :disabled="form.processing"
-                            class="rounded-xl border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 px-3.5 py-2 text-xs font-bold text-gray-700 transition-all cursor-pointer disabled:opacity-50"
+                            class="rounded-xl border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-bold text-gray-700 transition-all cursor-pointer disabled:opacity-50"
                         >
                             Batalkan
                         </button>
@@ -658,7 +661,7 @@ onBeforeUnmount(() => {
                             type="button"
                             @click="submit()"
                             :disabled="form.processing"
-                            class="rounded-xl bg-[#0D542B] hover:bg-[#093d1f] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                            class="rounded-xl bg-[#0D542B] hover:bg-[#093d1f] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-bold text-white shadow-xs transition-all cursor-pointer disabled:opacity-50"
                         >
                             {{ form.processing ? 'Menyimpan...' : 'Simpan Sekarang' }}
                         </button>
@@ -668,26 +671,27 @@ onBeforeUnmount(() => {
         </transition>
 
         <!-- Tombol Gulir Cepat (Caping Ke Atas / Ke Bawah) -->
-        <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+        <!-- Responsif mobile: bottom-20 di layar HP agar tidak tertutup floating bar jika dirty -->
+        <div class="fixed bottom-20 sm:bottom-6 right-3.5 sm:right-6 z-40 flex flex-col gap-2">
             <button
                 type="button"
                 @click="scrollToTop"
-                class="w-10 h-10 rounded-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
                 title="Gulir ke paling atas"
                 aria-label="Gulir ke paling atas"
             >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
                 </svg>
             </button>
             <button
                 type="button"
                 @click="scrollToBottom"
-                class="w-10 h-10 rounded-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
                 title="Gulir ke paling bawah"
                 aria-label="Gulir ke paling bawah"
             >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
             </button>

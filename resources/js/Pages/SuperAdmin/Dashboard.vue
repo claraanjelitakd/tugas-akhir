@@ -1,5 +1,12 @@
 <script setup>
-// Halaman dashboard menyajikan ringkasan operasional dan tautan tindak lanjut superadmin.
+/**
+ * Halaman Dashboard Super Administrator
+ * File: resources/js/Pages/SuperAdmin/Dashboard.vue
+ *
+ * Menyajikan ringkasan eksekutif dan operasional Tracer Study UKDW secara runtut
+ * satu kolom (vertikal dari atas ke bawah) dengan palet warna formal institusi UKDW (#0D542B)
+ * dan slate netral yang bersih dan bebas dari distraksi warna berlebih.
+ */
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AdminSidebar from '@/components/AdminSidebar.vue';
@@ -101,17 +108,17 @@ const maxDistributionCount = computed(() => {
     return Math.max(...props.companyDistribution.map((item) => Number(item.count || 0)), 1);
 });
 
-// Menentukan warna badge status verifikasi perusahaan.
+// Badge status verifikasi perusahaan: palet netral bersih (tanpa warna menyala/bertabrakan)
 const getCompanyStatusClass = (status) => {
     if (status === 'Terverifikasi') {
-        return 'bg-emerald-50 text-[#0D542B] border-emerald-200';
+        return 'bg-slate-100 text-[#0D542B] border-slate-300';
     }
 
     if (status === 'Ditolak') {
-        return 'bg-red-50 text-red-700 border-red-200';
+        return 'bg-slate-100 text-slate-700 border-slate-300';
     }
 
-    return 'bg-amber-50 text-amber-700 border-amber-200';
+    return 'bg-slate-100 text-slate-700 border-slate-300';
 };
 
 // Menentukan teks peran pengaju agar informasi permintaan tidak ambigu.
@@ -127,14 +134,13 @@ const getApplicantLabel = (request) => {
     return request.applicant_role || 'Sistem';
 };
 
-// Menyusun lima kartu ringkasan utama dengan palet netral dan aksen status yang terukur.
+// Kartu ringkasan metrik statistik utama: monokromatis dan hijau institusi UKDW
 const summaryCards = computed(() => [
     {
         label: 'Pengajuan perusahaan baru',
         value: props.dashboardSummary.pending_perusahaan || 0,
         detail: 'Menunggu verifikasi',
         href: '/superadmin/perusahaan',
-        tone: 'border-l-slate-400 border-slate-200 bg-white',
         valueClass: 'text-slate-900',
     },
     {
@@ -142,15 +148,13 @@ const summaryCards = computed(() => [
         value: props.dashboardSummary.total_perusahaan || 0,
         detail: `${props.dashboardSummary.total_perusahaan_terverifikasi || 0} terverifikasi`,
         href: '/superadmin/perusahaan',
-        tone: 'border-l-[#0D542B] border-slate-200 bg-white',
-        valueClass: 'text-[#0D542B]',
+        valueClass: 'text-slate-900',
     },
     {
         label: 'Data atasan',
         value: props.dashboardSummary.total_atasan || 0,
         detail: 'Terhubung ke profil alumni',
         href: '/superadmin/atasan',
-        tone: 'border-slate-200 bg-white',
         valueClass: 'text-slate-900',
     },
     {
@@ -158,7 +162,6 @@ const summaryCards = computed(() => [
         value: props.dashboardSummary.total_alumni || 0,
         detail: `Lulusan ${props.selectedYear}`,
         href: '/superadmin/alumni',
-        tone: 'border-slate-200 bg-white',
         valueClass: 'text-slate-900',
     },
     {
@@ -166,7 +169,6 @@ const summaryCards = computed(() => [
         value: props.dashboardSummary.total_prodi || 0,
         detail: 'Dalam cakupan universitas',
         href: '/superadmin/analitik-prodi',
-        tone: 'border-slate-200 bg-white',
         valueClass: 'text-slate-900',
     },
 ]);
@@ -178,19 +180,15 @@ const completionRows = computed(() => [
     props.completionMetrics.profile_and_university,
 ].filter(Boolean));
 
-// Mengambil lima program studi dengan response rate terendah untuk prioritas tindak lanjut.
+// Mengambil program studi dengan response rate terendah untuk prioritas tindak lanjut.
 const lowestResponseProdis = computed(() => [...props.prodiSummaries]
     .sort((first, second) => Number(first.response_rate || 0) - Number(second.response_rate || 0))
     .slice(0, 5));
 
-// Menentukan label status response rate tanpa menambah warna dekoratif pada Dashboard.
+// Menentukan label status response rate tanpa menambah warna dekoratif
 const getResponseRateStatusClass = (status) => {
     if (status === 'green') {
-        return 'border-emerald-200 bg-emerald-50 text-[#0D542B]';
-    }
-
-    if (status === 'yellow') {
-        return 'border-slate-300 bg-slate-50 text-slate-700';
+        return 'border-slate-300 bg-slate-100 text-[#0D542B]';
     }
 
     return 'border-slate-300 bg-slate-100 text-slate-700';
@@ -204,30 +202,31 @@ const getResponseRateStatusClass = (status) => {
         <AdminSidebar role="superadmin" :user="user" active-menu="dashboard" />
 
         <div class="flex min-w-0 flex-1 flex-col lg:pl-72">
+            <!-- Header Halaman: Konsisten dengan Palet Institusi UKDW (#0D542B) -->
             <header class="border-b border-[#0A4322] bg-[#0D542B] px-4 py-6 text-white sm:px-6 lg:px-8">
-                <div class="mx-auto w-full max-w-[1440px]">
-                    <nav class="mb-2.5 flex items-center gap-2 text-xs font-medium text-emerald-100">
+                <div class="mx-auto w-full max-w-6xl">
+                    <nav class="mb-2 flex items-center gap-2 text-xs font-medium text-emerald-100">
                         <span>Tracer Study</span>
                         <span class="text-emerald-300/60">/</span>
-                        <span class="rounded-md bg-white/10 px-2 py-0.5 font-bold text-white">Pusat Kendali</span>
+                        <span class="font-bold text-white">Pusat Kendali</span>
                     </nav>
-                    <div class="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+                    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                         <div>
-                            <h1 class="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+                            <h1 class="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
                                 Dashboard Super Administrator
                             </h1>
-                            <p class="mt-1.5 max-w-2xl text-xs font-normal leading-relaxed text-emerald-100/90 sm:text-sm">
-                                Pusat informasi operasional untuk memantau data perusahaan, atasan, alumni, dan pengajuan baru.
+                            <p class="mt-1 text-xs text-emerald-100/90 sm:text-sm">
+                                Pusat pemantauan data kuesioner, master perusahaan, kontak atasan, dan pengajuan baru.
                             </p>
                         </div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <label for="dashboard-year" class="text-xs font-bold text-white">Tahun lulusan</label>
+                        <div class="flex items-center gap-2.5">
+                            <label for="dashboard-year" class="text-xs font-semibold text-white">Tahun Lulusan:</label>
                             <select
                                 id="dashboard-year"
                                 v-model="selectedYear"
                                 @change="applyYearFilter"
                                 aria-label="Pilih tahun lulusan dashboard"
-                                class="cursor-pointer appearance-none rounded-lg bg-[#FDC700] px-3 py-2 text-xs font-extrabold text-[#0D542B] outline-none focus-visible:ring-2 focus-visible:ring-white"
+                                class="cursor-pointer rounded-lg border border-white/20 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-2xs outline-none focus:ring-2 focus:ring-white"
                             >
                                 <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
                             </select>
@@ -236,275 +235,319 @@ const getResponseRateStatusClass = (status) => {
                 </div>
             </header>
 
-            <main class="admin-page-main w-full px-4 pb-12 pt-6 sm:px-6 lg:px-8">
-                <div class="mx-auto w-full max-w-[1440px] space-y-6">
-                <!-- Ringkasan operasional utama yang menjadi pintu masuk ke data terkait. -->
-                <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                    <Link
-                        v-for="card in summaryCards"
-                        :key="card.label"
-                        :href="card.href"
-                        :class="['group rounded-xl border border-l-4 p-5 shadow-sm transition-shadow hover:-translate-y-0.5 hover:shadow-md', card.tone]"
-                    >
-                        <p class="text-[11px] font-bold uppercase tracking-wide text-slate-500">{{ card.label }}</p>
-                        <p :class="['mt-3 text-3xl font-extrabold tracking-tight', card.valueClass]">{{ card.value }}</p>
-                        <div class="mt-2 flex items-center justify-between gap-2">
-                            <p class="text-xs text-slate-500">{{ card.detail }}</p>
-                            <span class="text-[11px] font-bold text-[#0D542B] opacity-0 transition-opacity group-hover:opacity-100">Buka</span>
-                        </div>
-                    </Link>
-                </section>
+            <!-- Main Content: Alur Vertikal Satu Kolom (Dari Atas ke Bawah) -->
+            <main class="w-full px-4 pb-12 pt-6 sm:px-6 lg:px-8">
+                <div class="mx-auto w-full max-w-6xl space-y-6">
 
-                <!-- Kilas indikator menghubungkan statistik tracer dengan prioritas kerja Superadmin. -->
-                <section class="grid grid-cols-1 gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-                    <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                        <div class="flex flex-col justify-between gap-3 border-b border-slate-100 pb-5 sm:flex-row sm:items-start">
+                    <!-- SEKSI 1: Kartu Metrik Ringkasan Utama (5 Kolom Bersih & Flat) -->
+                    <section class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                        <Link
+                            v-for="card in summaryCards"
+                            :key="card.label"
+                            :href="card.href"
+                            class="group block rounded-xl border border-slate-200 bg-white p-4 shadow-2xs transition-all hover:border-[#0D542B] hover:shadow-xs"
+                        >
+                            <p class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">{{ card.label }}</p>
+                            <p :class="['mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight', card.valueClass]">{{ card.value }}</p>
+                            <p class="mt-1 text-xs text-slate-400">{{ card.detail }}</p>
+                        </Link>
+                    </section>
+
+                    <!-- SEKSI 2: Kilas Indikator Respons & Kelengkapan Tracer Study -->
+                    <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                             <div>
-                                <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-[#0D542B]">Kilas indikator</p>
-                                <h2 class="mt-1 text-lg font-extrabold tracking-tight text-slate-900">Respons dan kelengkapan data</h2>
-                                <p class="mt-1 text-xs leading-5 text-slate-500">Ringkasan kohort lulusan {{ selectedYear }} untuk menentukan tindak lanjut.</p>
+                                <h2 class="text-base font-bold text-slate-900">Respons dan Kelengkapan Data Tracer</h2>
+                                <p class="text-xs text-slate-500 mt-0.5">Ringkasan capaian pengisian kohort lulusan tahun {{ selectedYear }}.</p>
                             </div>
-                            <span :class="['inline-flex w-fit rounded-full border px-2.5 py-1 text-[11px] font-bold', getResponseRateStatusClass(props.stats.response_rate_status?.code)]">
+                            <span :class="['inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-semibold', getResponseRateStatusClass(props.stats.response_rate_status?.code)]">
                                 {{ props.stats.response_rate_status?.label || 'Belum ada status' }}
                             </span>
                         </div>
 
-                        <div class="grid gap-5 pt-5 sm:grid-cols-[0.8fr_1.2fr] sm:items-center">
-                            <div>
-                                <p class="text-xs font-semibold text-slate-500">Response rate</p>
-                                <p class="mt-1 text-4xl font-extrabold tracking-tight text-[#0D542B]">{{ props.stats.response_rate || 0 }}%</p>
-                                <p class="mt-1 text-xs text-slate-500">{{ props.stats.total_responden || 0 }} dari {{ props.stats.total_alumni || 0 }} alumni merespons</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-5">
+                            <!-- Response Rate Persentase -->
+                            <div class="border-b md:border-b-0 md:border-r border-slate-100 pb-4 md:pb-0 md:pr-6 flex flex-col justify-center">
+                                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Response Rate Keseluruhan</span>
+                                <div class="mt-2 text-4xl sm:text-5xl font-extrabold tracking-tight text-[#0D542B]">
+                                    {{ props.stats.response_rate || 0 }}%
+                                </div>
+                                <p class="mt-1.5 text-xs text-slate-500">
+                                    {{ props.stats.total_responden || 0 }} dari {{ props.stats.total_alumni || 0 }} alumni telah mengisi kuesioner.
+                                </p>
                             </div>
-                            <div class="space-y-4">
+
+                            <!-- Progress Bar Kelengkapan Data -->
+                            <div class="md:col-span-2 space-y-3.5 flex flex-col justify-center">
                                 <div v-for="metric in completionRows" :key="metric.label">
-                                    <div class="mb-1.5 flex items-center justify-between gap-3 text-xs">
-                                        <span class="font-semibold text-slate-700">{{ metric.label }}</span>
+                                    <div class="mb-1 flex items-center justify-between text-xs">
+                                        <span class="font-medium text-slate-700">{{ metric.label }}</span>
                                         <span class="font-bold text-slate-900">{{ metric.percentage || 0 }}%</span>
                                     </div>
                                     <div class="h-2 overflow-hidden rounded-full bg-slate-100">
-                                        <div class="h-full rounded-full bg-[#0D542B] transition-all" :style="{ width: `${Math.min(Number(metric.percentage || 0), 100)}%` }"></div>
+                                        <div
+                                            class="h-full rounded-full bg-[#0D542B] transition-all duration-300"
+                                            :style="{ width: `${Math.min(Number(metric.percentage || 0), 100)}%` }"
+                                        ></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </article>
+                    </section>
 
-                    <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                        <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+                    <!-- SEKSI 3: Prioritas Program Studi (Response Rate Terendah) -->
+                    <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
                             <div>
-                                <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-[#0D542B]">Prioritas tindak lanjut</p>
-                                <h2 class="mt-1 text-lg font-extrabold tracking-tight text-slate-900">Response rate per prodi</h2>
-                                <p class="mt-1 text-xs leading-5 text-slate-500">Program studi dengan capaian terendah pada tahun terpilih.</p>
+                                <h2 class="text-base font-bold text-slate-900">Program Studi Perlu Perhatian</h2>
+                                <p class="text-xs text-slate-500 mt-0.5">Lima program studi dengan persentase response rate terendah pada tahun {{ selectedYear }}.</p>
                             </div>
-                            <Link href="/superadmin/analitik-prodi" class="shrink-0 text-xs font-bold text-[#0D542B] hover:underline">Lihat analitik</Link>
+                            <Link href="/superadmin/analitik-prodi" class="text-xs font-bold text-[#0D542B] hover:underline">
+                                Buka Analitik Prodi &rarr;
+                            </Link>
                         </div>
-                        <div class="divide-y divide-slate-100">
-                            <div v-for="prodi in lowestResponseProdis" :key="prodi.id" class="flex items-center justify-between gap-4 py-3 first:pt-4 last:pb-0">
+                        <div class="divide-y divide-slate-100 mt-2">
+                            <div
+                                v-for="prodi in lowestResponseProdis"
+                                :key="prodi.id"
+                                class="flex items-center justify-between gap-4 py-3"
+                            >
                                 <div class="min-w-0">
-                                    <p class="truncate text-sm font-bold text-slate-900">{{ prodi.nama_prodi }}</p>
-                                    <p class="mt-0.5 text-[11px] text-slate-500">{{ prodi.total_responden || 0 }} dari {{ prodi.total_alumni || 0 }} responden</p>
+                                    <p class="truncate text-xs sm:text-sm font-semibold text-slate-900">{{ prodi.nama_prodi }}</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">{{ prodi.total_responden || 0 }} dari {{ prodi.total_alumni || 0 }} responden</p>
                                 </div>
-                                <span class="shrink-0 text-sm font-extrabold text-slate-700">{{ prodi.response_rate || 0 }}%</span>
+                                <span class="shrink-0 text-xs sm:text-sm font-bold text-slate-800">{{ prodi.response_rate || 0 }}%</span>
                             </div>
-                            <div v-if="lowestResponseProdis.length === 0" class="py-8 text-center text-xs text-slate-400">
+                            <div v-if="lowestResponseProdis.length === 0" class="py-6 text-center text-xs text-slate-400">
                                 Belum ada ringkasan response rate per prodi.
                             </div>
                         </div>
-                    </article>
-                </section>
+                    </section>
 
-                <section class="grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-                    <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                        <div class="flex flex-col justify-between gap-3 border-b border-slate-100 px-5 py-5 sm:flex-row sm:items-center sm:px-6">
+                    <!-- SEKSI 4: Pengajuan Perusahaan Baru (Menunggu Verifikasi) -->
+                    <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
                             <div>
-                                <h2 class="text-base font-extrabold text-slate-900">Pengajuan perusahaan terbaru</h2>
-                                <p class="mt-1 text-xs text-slate-500">Perlu ditinjau sebelum masuk ke master perusahaan.</p>
+                                <h2 class="text-base font-bold text-slate-900">Pengajuan Perusahaan Baru</h2>
+                                <p class="text-xs text-slate-500 mt-0.5">Daftar instansi/perusahaan yang baru diajukan dan membutuhkan verifikasi Superadmin.</p>
                             </div>
-                            <Link href="/superadmin/perusahaan" class="text-xs font-bold text-[#0D542B] hover:underline">Lihat semua</Link>
+                            <Link href="/superadmin/perusahaan" class="text-xs font-bold text-[#0D542B] hover:underline">
+                                Kelola Perusahaan &rarr;
+                            </Link>
                         </div>
-                        <div class="divide-y divide-slate-100">
-                            <div v-for="request in companyRequests" :key="request.id" class="px-5 py-4 sm:px-6">
-                                <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                                    <div class="min-w-0">
-                                        <div class="flex flex-wrap items-center gap-2">
-                                            <p class="truncate text-sm font-bold text-slate-900">{{ request.name }}</p>
-                                            <span :class="['rounded-full border px-2 py-0.5 text-[10px] font-bold', getCompanyStatusClass(request.status)]">{{ request.status }}</span>
-                                        </div>
-                                        <p class="mt-1 text-xs text-slate-600">
-                                            Diajukan oleh <strong>{{ request.applicant }}</strong> · {{ getApplicantLabel(request) }}
-                                            <span v-if="request.applicant_prodi"> · {{ request.applicant_prodi }}</span>
-                                        </p>
-                                        <p class="mt-1 text-[11px] text-slate-400">{{ request.location }} · {{ request.created_at }}</p>
+                        <div class="divide-y divide-slate-100 mt-2">
+                            <div
+                                v-for="request in companyRequests"
+                                :key="request.id"
+                                class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5"
+                            >
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <p class="truncate text-xs sm:text-sm font-bold text-slate-900">{{ request.name }}</p>
+                                        <span :class="['rounded-full border px-2 py-0.5 text-[10px] font-semibold', getCompanyStatusClass(request.status)]">
+                                            {{ request.status }}
+                                        </span>
                                     </div>
-                                    <Link href="/superadmin/perusahaan" class="shrink-0 text-xs font-bold text-[#0D542B] hover:underline">Tinjau</Link>
+                                    <p class="text-xs text-slate-600 mt-1">
+                                        Diajukan oleh <strong>{{ request.applicant }}</strong> ({{ getApplicantLabel(request) }})
+                                        <span v-if="request.applicant_prodi"> &bull; {{ request.applicant_prodi }}</span>
+                                    </p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">{{ request.location }} &bull; {{ request.created_at }}</p>
                                 </div>
+                                <Link href="/superadmin/perusahaan" class="shrink-0 text-xs font-bold text-[#0D542B] hover:underline self-start sm:self-auto">
+                                    Tinjau &rarr;
+                                </Link>
                             </div>
-                            <div v-if="companyRequests.length === 0" class="px-5 py-10 text-center text-xs text-slate-400 sm:px-6">
+                            <div v-if="companyRequests.length === 0" class="py-6 text-center text-xs text-slate-400">
                                 Tidak ada pengajuan perusahaan baru yang menunggu verifikasi.
                             </div>
                         </div>
-                    </article>
+                    </section>
 
-                    <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                        <div class="flex items-start justify-between gap-3">
+                    <!-- SEKSI 5: Sebaran Lokasi Master Perusahaan -->
+                    <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
                             <div>
-                                <h2 class="text-base font-extrabold text-slate-900">Sebaran perusahaan</h2>
-                                <p class="mt-1 text-xs text-slate-500">Jumlah master perusahaan berdasarkan provinsi kantor.</p>
+                                <h2 class="text-base font-bold text-slate-900">Sebaran Lokasi Perusahaan</h2>
+                                <p class="text-xs text-slate-500 mt-0.5">Sebaran geografis kantor pusat perusahaan yang terdata di sistem.</p>
                             </div>
-                            <Link href="/superadmin/perusahaan" class="text-xs font-bold text-[#0D542B] hover:underline">Detail</Link>
+                            <Link href="/superadmin/perusahaan" class="text-xs font-bold text-[#0D542B] hover:underline">
+                                Buka Master &rarr;
+                            </Link>
                         </div>
-                        <div class="mt-5 space-y-4">
+                        <div class="mt-4 space-y-3">
                             <div v-for="item in companyDistribution" :key="item.label">
-                                <div class="mb-1.5 flex items-center justify-between gap-3 text-xs">
-                                    <span class="truncate font-semibold text-slate-700">{{ item.label }}</span>
+                                <div class="mb-1 flex items-center justify-between text-xs">
+                                    <span class="truncate font-medium text-slate-700">{{ item.label }}</span>
                                     <span class="shrink-0 font-bold text-slate-900">{{ item.count }}</span>
                                 </div>
                                 <div class="h-2 overflow-hidden rounded-full bg-slate-100">
-                                    <div class="h-full rounded-full bg-[#0D542B]" :style="{ width: `${(item.count / maxDistributionCount) * 100}%` }"></div>
+                                    <div
+                                        class="h-full rounded-full bg-[#0D542B]"
+                                        :style="{ width: `${(item.count / maxDistributionCount) * 100}%` }"
+                                    ></div>
                                 </div>
                             </div>
-                            <div v-if="companyDistribution.length === 0" class="py-8 text-center text-xs text-slate-400">
+                            <div v-if="companyDistribution.length === 0" class="py-6 text-center text-xs text-slate-400">
                                 Belum ada data lokasi perusahaan.
                             </div>
                         </div>
-                    </article>
-                </section>
+                    </section>
 
-                <section class="grid grid-cols-1 gap-5 xl:grid-cols-2">
-                    <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
+                    <!-- SEKSI 6: Daftar Master Perusahaan Terbaru -->
+                    <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
                             <div>
-                                <h2 class="text-base font-extrabold text-slate-900">Daftar perusahaan</h2>
-                                <p class="mt-1 text-xs text-slate-500">Master terbaru dan jumlah alumni yang terhubung.</p>
+                                <h2 class="text-base font-bold text-slate-900">Daftar Master Perusahaan</h2>
+                                <p class="text-xs text-slate-500 mt-0.5">Perusahaan aktif dan jumlah alumni yang terhubung.</p>
                             </div>
-                            <Link href="/superadmin/perusahaan" class="text-xs font-bold text-[#0D542B] hover:underline">Buka master</Link>
+                            <Link href="/superadmin/perusahaan" class="text-xs font-bold text-[#0D542B] hover:underline">
+                                Kelola Master &rarr;
+                            </Link>
                         </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full min-w-[620px] text-left text-xs">
-                                <thead class="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                        <div class="overflow-x-auto mt-2">
+                            <table class="w-full min-w-[500px] text-left text-xs">
+                                <thead class="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                                     <tr>
-                                        <th class="px-5 py-3">Perusahaan</th>
-                                        <th class="px-5 py-3">Lokasi</th>
-                                        <th class="px-5 py-3 text-center">Alumni</th>
-                                        <th class="px-5 py-3 text-right">Status</th>
+                                        <th class="px-4 py-2.5">Perusahaan</th>
+                                        <th class="px-4 py-2.5">Lokasi</th>
+                                        <th class="px-4 py-2.5 text-center">Alumni Terhubung</th>
+                                        <th class="px-4 py-2.5 text-right">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
-                                    <tr v-for="company in companyDirectory" :key="company.id" class="hover:bg-slate-50">
-                                        <td class="px-5 py-3">
-                                            <p class="font-bold text-slate-900">{{ company.name }}</p>
-                                            <p class="mt-0.5 text-[11px] text-slate-400">{{ company.sector }}</p>
+                                    <tr v-for="company in companyDirectory" :key="company.id" class="hover:bg-slate-50/70">
+                                        <td class="px-4 py-3">
+                                            <p class="font-semibold text-slate-900">{{ company.name }}</p>
+                                            <p class="text-[11px] text-slate-400 mt-0.5">{{ company.sector }}</p>
                                         </td>
-                                        <td class="px-5 py-3 text-slate-600">{{ company.location }}</td>
-                                        <td class="px-5 py-3 text-center font-bold text-[#0D542B]">{{ company.alumni_count }}</td>
-                                        <td class="px-5 py-3 text-right">
-                                            <span :class="['inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold', getCompanyStatusClass(company.status)]">{{ company.status }}</span>
+                                        <td class="px-4 py-3 text-slate-600">{{ company.location }}</td>
+                                        <td class="px-4 py-3 text-center font-bold text-[#0D542B]">{{ company.alumni_count }}</td>
+                                        <td class="px-4 py-3 text-right">
+                                            <span :class="['inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold', getCompanyStatusClass(company.status)]">
+                                                {{ company.status }}
+                                            </span>
                                         </td>
                                     </tr>
                                     <tr v-if="companyDirectory.length === 0">
-                                        <td colspan="4" class="px-5 py-8 text-center text-slate-400">Belum ada master perusahaan.</td>
+                                        <td colspan="4" class="px-4 py-6 text-center text-slate-400">Belum ada master perusahaan.</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
-                    </article>
+                    </section>
 
-                    <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
+                    <!-- SEKSI 7: Relasi Alumni dan Atasan Langsung -->
+                    <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
                             <div>
-                                <h2 class="text-base font-extrabold text-slate-900">Relasi alumni dan atasan</h2>
-                                <p class="mt-1 text-xs text-slate-500">Satu baris mewakili satu alumni dan data atasan dari profilnya.</p>
+                                <h2 class="text-base font-bold text-slate-900">Relasi Alumni &amp; Atasan Langsung</h2>
+                                <p class="text-xs text-slate-500 mt-0.5">Kontak penilai (atasan) yang dimasukkan oleh alumni di riwayat karier.</p>
                             </div>
-                            <Link href="/superadmin/atasan" class="text-xs font-bold text-[#0D542B] hover:underline">Buka data</Link>
+                            <Link href="/superadmin/atasan" class="text-xs font-bold text-[#0D542B] hover:underline">
+                                Buka Data Atasan &rarr;
+                            </Link>
                         </div>
-                        <div class="divide-y divide-slate-100">
-                            <div v-for="supervisor in supervisorDirectory" :key="supervisor.id" class="flex items-center justify-between gap-4 px-5 py-4 sm:px-6">
+                        <div class="divide-y divide-slate-100 mt-2">
+                            <div
+                                v-for="supervisor in supervisorDirectory"
+                                :key="supervisor.id"
+                                class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3"
+                            >
                                 <div class="min-w-0">
-                                    <p class="truncate text-sm font-bold text-slate-900">{{ supervisor.name }}</p>
-                                    <p class="mt-1 truncate text-xs text-slate-600">{{ supervisor.company }}</p>
-                                    <p class="mt-0.5 truncate text-[11px] text-slate-400">{{ supervisor.contact }}</p>
-                                    <p class="mt-1 truncate text-[11px] font-semibold text-[#0D542B]">Alumni: {{ supervisor.alumni_name }} · {{ supervisor.alumni_nim }}</p>
+                                    <p class="truncate text-xs sm:text-sm font-semibold text-slate-900">{{ supervisor.name }}</p>
+                                    <p class="text-xs text-slate-600 mt-0.5">{{ supervisor.company }} &bull; {{ supervisor.contact }}</p>
+                                    <p class="text-[11px] font-medium text-[#0D542B] mt-0.5">
+                                        Alumni: {{ supervisor.alumni_name }} ({{ supervisor.alumni_nim }})
+                                    </p>
                                 </div>
-                                <Link :href="`/superadmin/alumni/${supervisor.id}`" class="shrink-0 text-xs font-bold text-[#0D542B] hover:underline">Detail</Link>
+                                <Link :href="`/superadmin/alumni/${supervisor.id}`" class="shrink-0 text-xs font-bold text-[#0D542B] hover:underline self-start sm:self-auto">
+                                    Detail Alumni &rarr;
+                                </Link>
                             </div>
-                            <div v-if="supervisorDirectory.length === 0" class="px-5 py-10 text-center text-xs text-slate-400 sm:px-6">
+                            <div v-if="supervisorDirectory.length === 0" class="py-6 text-center text-xs text-slate-400">
                                 Belum ada data atasan yang tercatat.
                             </div>
                         </div>
-                    </article>
-                </section>
+                    </section>
 
-                <section class="grid grid-cols-1 gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-                    <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
+                    <!-- SEKSI 8: Data Alumni Terbaru -->
+                    <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
                             <div>
-                                <h2 class="text-base font-extrabold text-slate-900">Data alumni terbaru</h2>
-                                <p class="mt-1 text-xs text-slate-500">Pratinjau alumni pada tahun lulusan {{ selectedYear }}.</p>
+                                <h2 class="text-base font-bold text-slate-900">Data Alumni Terbaru</h2>
+                                <p class="text-xs text-slate-500 mt-0.5">Pratinjau alumni pada kohort lulusan tahun {{ selectedYear }}.</p>
                             </div>
-                            <Link href="/superadmin/alumni" class="text-xs font-bold text-[#0D542B] hover:underline">Buka data</Link>
+                            <Link href="/superadmin/alumni" class="text-xs font-bold text-[#0D542B] hover:underline">
+                                Kelola Alumni &rarr;
+                            </Link>
                         </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full min-w-[540px] text-left text-xs">
-                                <thead class="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                        <div class="overflow-x-auto mt-2">
+                            <table class="w-full min-w-[500px] text-left text-xs">
+                                <thead class="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                                     <tr>
-                                        <th class="px-5 py-3">Alumni</th>
-                                        <th class="px-5 py-3">Program Studi</th>
-                                        <th class="px-5 py-3 text-center">Profil</th>
-                                        <th class="px-5 py-3 text-right">Aksi</th>
+                                        <th class="px-4 py-2.5">Alumni</th>
+                                        <th class="px-4 py-2.5">Program Studi</th>
+                                        <th class="px-4 py-2.5 text-center">Kelengkapan Profil</th>
+                                        <th class="px-4 py-2.5 text-right">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
-                                    <tr v-for="alumni in recentAlumni" :key="alumni.id" class="hover:bg-slate-50">
-                                        <td class="px-5 py-3">
-                                            <p class="font-bold text-slate-900">{{ alumni.nama }}</p>
-                                            <p class="mt-0.5 font-mono text-[11px] text-slate-400">{{ alumni.nim }}</p>
+                                    <tr v-for="alumni in recentAlumni" :key="alumni.id" class="hover:bg-slate-50/70">
+                                        <td class="px-4 py-3">
+                                            <p class="font-semibold text-slate-900">{{ alumni.nama }}</p>
+                                            <p class="font-mono text-[11px] text-slate-400 mt-0.5">{{ alumni.nim }}</p>
                                         </td>
-                                        <td class="px-5 py-3 text-slate-600">{{ alumni.prodi }}</td>
-                                        <td class="px-5 py-3 text-center">
-                                            <span :class="['inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold', alumni.is_profile_complete ? 'border-emerald-200 bg-emerald-50 text-[#0D542B]' : 'border-slate-200 bg-slate-50 text-slate-500']">
+                                        <td class="px-4 py-3 text-slate-600">{{ alumni.prodi }}</td>
+                                        <td class="px-4 py-3 text-center">
+                                            <span :class="['inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold', alumni.is_profile_complete ? 'border-slate-300 bg-slate-100 text-[#0D542B]' : 'border-slate-200 bg-slate-50 text-slate-500']">
                                                 {{ alumni.is_profile_complete ? 'Lengkap' : 'Belum lengkap' }}
                                             </span>
                                         </td>
-                                        <td class="px-5 py-3 text-right">
-                                            <Link :href="`/superadmin/alumni/${alumni.id}`" class="text-xs font-bold text-[#0D542B] hover:underline">Detail</Link>
+                                        <td class="px-4 py-3 text-right">
+                                            <Link :href="`/superadmin/alumni/${alumni.id}`" class="text-xs font-bold text-[#0D542B] hover:underline">
+                                                Detail
+                                            </Link>
                                         </td>
                                     </tr>
                                     <tr v-if="recentAlumni.length === 0">
-                                        <td colspan="4" class="px-5 py-8 text-center text-slate-400">Belum ada data alumni pada tahun ini.</td>
+                                        <td colspan="4" class="px-4 py-6 text-center text-slate-400">Belum ada data alumni pada tahun ini.</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
-                    </article>
+                    </section>
 
-                    <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
+                    <!-- SEKSI 9: Log Aktivitas Audit Terbaru -->
+                    <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
                             <div>
-                                <h2 class="text-base font-extrabold text-slate-900">Aktivitas terbaru</h2>
-                                <p class="mt-1 text-xs text-slate-500">Jejak perubahan data dan aktivitas pengguna.</p>
+                                <h2 class="text-base font-bold text-slate-900">Aktivitas Sistem Terbaru</h2>
+                                <p class="text-xs text-slate-500 mt-0.5">Jejak audit perubahan data dan operasional pengguna.</p>
                             </div>
-                            <Link href="/superadmin/logs" class="text-xs font-bold text-[#0D542B] hover:underline">Buka log</Link>
+                            <Link href="/superadmin/logs" class="text-xs font-bold text-[#0D542B] hover:underline">
+                                Buka Log Aktivitas &rarr;
+                            </Link>
                         </div>
-                        <div class="divide-y divide-slate-100">
-                            <div v-for="log in recentLogs" :key="log.id" class="px-5 py-4 sm:px-6">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="min-w-0">
-                                        <p class="truncate text-xs font-bold text-slate-900">{{ log.user_name }}</p>
-                                        <p class="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">{{ log.description || log.action }}</p>
-                                    </div>
-                                    <span class="shrink-0 text-[10px] text-slate-400">{{ log.created_at }}</span>
+                        <div class="divide-y divide-slate-100 mt-2">
+                            <div v-for="log in recentLogs" :key="log.id" class="py-3 flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <p class="truncate text-xs font-semibold text-slate-900">{{ log.user_name }}</p>
+                                    <p class="text-xs text-slate-600 mt-0.5 leading-relaxed">{{ log.description || log.action }}</p>
                                 </div>
+                                <span class="shrink-0 text-[10px] text-slate-400">{{ log.created_at }}</span>
                             </div>
-                            <div v-if="recentLogs.length === 0" class="px-5 py-10 text-center text-xs text-slate-400 sm:px-6">
+                            <div v-if="recentLogs.length === 0" class="py-6 text-center text-xs text-slate-400">
                                 Belum ada aktivitas yang tercatat.
                             </div>
                         </div>
-                    </article>
-                </section>
+                    </section>
+
                 </div>
             </main>
 
-            <footer class="py-5 text-center text-xs text-slate-400">
+            <!-- Footer Resmi -->
+            <footer class="py-5 text-center text-xs text-slate-400 border-t border-slate-200 bg-white">
                 &copy; {{ new Date().getFullYear() }} Universitas Kristen Duta Wacana. Hak Cipta Dilindungi.
             </footer>
         </div>

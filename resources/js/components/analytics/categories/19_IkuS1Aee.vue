@@ -101,17 +101,10 @@ const chartOption = computed(() => {
                 padding: [5, 8],
             },
         }], */
-        // Label urutan interaktif berada pada toolbar HTML di atas grafik.
+        // Label urutan dan legenda disajikan lewat toolbar HTML rapi di atas grafik.
         graphic: [],
-        legend: {
-            data: segmentDefinitions.map((item) => item.label),
-            top: 2,
-            right: 8,
-            itemWidth: 12,
-            itemHeight: 12,
-            textStyle: { color: '#334155', fontSize: 10, fontWeight: 600 },
-        },
-        grid: { left: 24, right: 72, top: 58, bottom: 46, containLabel: true },
+        legend: { show: false },
+        grid: { left: 24, right: 72, top: 24, bottom: 46, containLabel: true },
         xAxis: {
             type: 'value',
             min: 0,
@@ -220,32 +213,57 @@ const views = computed(() => [{
     tableData: tableData.value,
     height: Math.max(380, Math.min(series.value.length * 42 + 145, 700)),
     analysis: analysis.value,
+    drillDownColumns: [
+        { key: 'nama', label: 'Nama Mahasiswa' },
+        { key: 'nim', label: 'NIM' },
+        { key: 'nama_prodi', label: 'Program Studi' },
+        { key: 'angkatan_masuk', label: 'Angkatan Masuk' },
+        { key: 'status_mahasiswa', label: 'Status Akademik' },
+        { key: 'is_lulus_tepat_waktu', label: 'Kelulusan' },
+    ],
 }]);
 </script>
 
 <template>
-    <div class="space-y-3">
-        <!-- Tombol urutan berada di luar ECharts agar benar-benar dapat diklik. -->
-        <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs">
-            <button
-                type="button"
-                class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-semibold text-slate-700 transition-colors hover:bg-slate-100"
-                @click="sortAsc = !sortAsc"
-            >
-                <span>Urutan:</span>
-                <span class="font-bold text-[#0D542B]">{{ sortAsc ? 'Terendah ke Tertinggi' : 'Tertinggi ke Terendah' }}</span>
-            </button>
-            <span class="text-[11px] text-slate-500">AEE hanya menghitung data dengan status akademik Lulus.</span>
-        </div>
+    <AnalyticsTabbedContainer
+        :views="views"
+        :rows="records"
+        :selected-label="selectedLabel"
+        :loading="loading"
+        indicator-badge="IKU S1"
+        @select="emit('select', $event)"
+        @reset="emit('reset')"
+    >
+        <template #before-chart>
+            <div class="mb-3 space-y-2.5">
+                <!-- Toolbar Kontrol: Toggle Urutan Capaian -->
+                <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <button
+                        type="button"
+                        class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+                        @click="sortAsc = !sortAsc"
+                    >
+                        <span>Urutan:</span>
+                        <span class="font-bold text-[#0D542B]">{{ sortAsc ? 'Terendah → Tertinggi' : 'Tertinggi → Terendah' }}</span>
+                    </button>
+                    <span class="text-[11px] text-slate-500">AEE hanya menghitung data dengan status akademik Lulus.</span>
+                </div>
 
-        <AnalyticsTabbedContainer
-            :views="views"
-            :rows="records"
-            :selected-label="selectedLabel"
-            :loading="loading"
-            indicator-badge="IKU S1"
-            @select="emit('select', $event)"
-            @reset="emit('reset')"
-        />
-    </div>
+                <!-- Legenda Status Capaian yang Konsisten dengan Palet & Ambang Target -->
+                <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/80 bg-slate-50/70 px-3 py-2 text-[11px] text-slate-600">
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                        <span class="font-bold text-slate-800">Status Capaian:</span>
+                        <span class="inline-flex items-center gap-1.5">
+                            <span class="h-2.5 w-2.5 rounded-xs bg-[#0D542B]"></span>
+                            <strong>Hijau:</strong> Tepat Waktu
+                        </span>
+                        <span class="inline-flex items-center gap-1.5">
+                            <span class="h-2.5 w-2.5 rounded-xs bg-[#DC2626]"></span>
+                            <strong>Merah:</strong> Belum Tepat Waktu
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </AnalyticsTabbedContainer>
 </template>

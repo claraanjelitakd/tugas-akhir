@@ -405,7 +405,7 @@ watch(() => props.analytics, (newAnalytics) => {
 
                     <!-- Tab utama hanya dua seperti Grafik Universitas; analisis klik tampil inline. -->
                     <nav class="flex gap-1 rounded-xl border border-slate-200 bg-white p-1.5" role="tablist" aria-label="Tampilan analitik program studi">
-                        <button v-for="panel in [{ key: 'charts', label: 'Grafik' }, { key: 'data', label: 'Data' }]" :key="panel.key" type="button" role="tab" :aria-selected="activePanel === panel.key" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition-all" :class="activePanel === panel.key ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'" @click="activePanel = panel.key">{{ panel.label }}</button>
+                        <button v-for="panel in [{ key: 'charts', label: 'Grafik Analitik' }, { key: 'data', label: 'Data Alumni' }]" :key="panel.key" type="button" role="tab" :aria-selected="activePanel === panel.key" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition-all" :class="activePanel === panel.key ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'" @click="activePanel = panel.key">{{ panel.label }}</button>
                     </nav>
 
                     <!-- Panel grafik menampilkan drill-down analisis dan jumlah responden pembentuk. -->

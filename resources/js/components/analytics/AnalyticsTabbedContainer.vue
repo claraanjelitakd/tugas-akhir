@@ -14,6 +14,7 @@ import {
     analyticsChartTypeReasons,
     analyticsChartTypes,
     escapeHtml,
+    formatFullCurrency,
     formatNumber,
     getAnalyticsChartHeight,
 } from './analyticsChartOptions';
@@ -326,8 +327,29 @@ const detailColumns = computed(() => {
 });
 
 // Menormalkan nilai detail dari payload JSON tanpa mengubah sumber datanya.
-const formatDetailValue = (value) => {
+const formatDetailValue = (value, key = '') => {
     if (value === null || value === undefined || value === '') return '-';
+    if (key === 'salary' || key === 'ump' || key === 'threshold') {
+        const num = Number(value);
+        return isNaN(num) ? String(value) : formatFullCurrency(num);
+    }
+    if (key === 'meets_ump') {
+        if (value === null || value === undefined) return 'Belum dapat dibandingkan';
+        return value ? 'Memenuhi (≥ 1,2× UMP)' : 'Di bawah 1,2× UMP';
+    }
+    if (key === 'salary_comparison') {
+        if (value === 'above') return 'Di atas 1,2× UMP';
+        if (value === 'below') return 'Di bawah 1,2× UMP';
+        return 'Belum dapat dibandingkan';
+    }
+    if (key === 'months') {
+        const num = Number(value);
+        return isNaN(num) ? String(value) : `${formatNumber(num, 1)} bulan`;
+    }
+    if (key === 'weight') {
+        const num = Number(value);
+        return isNaN(num) ? String(value) : formatNumber(num, 2);
+    }
     if (typeof value === 'boolean') return value ? 'Ya' : 'Tidak';
     if (Array.isArray(value)) return value.join(', ');
     if (typeof value === 'object') return JSON.stringify(value);
@@ -485,6 +507,9 @@ const recordDisplayAnswer = (rec) => {
     }
     if (rec.province_name) return `${rec.province_name}${rec.nama_perusahaan ? ` (${rec.nama_perusahaan})` : ''}`;
     if (rec.status || rec.metode || rec.method) return rec.status || rec.metode || rec.method;
+    if (rec.is_lulus_tepat_waktu !== undefined) {
+        return rec.is_lulus_tepat_waktu ? 'Tepat Waktu' : 'Belum Tepat Waktu';
+    }
     return activeSelectionLabel.value || '-';
 };
 
@@ -501,28 +526,138 @@ const drillDownRecords = computed(() => {
     const ptCat = cleanChartLabel(selectedPoint.value?.category || '').toLowerCase();
     const target = rawTarget.toLowerCase();
 
-    // Filter khusus rentang waktu tunggu (histogram bucket min-max bulan)
-    if (ptData.min !== undefined && ptData.max !== undefined && props.rows.some((r) => r.months !== undefined)) {
-        return props.rows.filter((r) => Number(r.months) >= Number(ptData.min) && Number(r.months) <= Number(ptData.max));
-    }
-    const bucketMatch = rawTarget.match(/^(\d+)\s*[–-]\s*(\d+)\s*bln/i);
-    if (bucketMatch && props.rows.some((r) => r.months !== undefined)) {
-        const minM = Number(bucketMatch[1]);
-        const maxM = Number(bucketMatch[2]);
-        return props.rows.filter((r) => Number(r.months) >= minM && Number(r.months) <= maxM);
-    }
-    if (/^>=\s*12\s*bln/i.test(rawTarget) && props.rows.some((r) => r.months !== undefined)) {
-        return props.rows.filter((r) => Number(r.months) >= 12);
+    // 1. Filter khusus IKU S1 UMP & Bobot (Audit Pendapatan, Masa Tunggu, Total Bobot per Role)
+    const hasIkuUmpFields = props.rows.some((r) => r.career_category !== undefined && (r.salary_comparison !== undefined || r.weight !== undefined));
+    if (hasIkuUmpFields) {
+        const roleCandidate = cleanChartLabel(ptData.role || ptData.name || ptProdi || '').toLowerCase();
+        const catCandidate = cleanChartLabel(ptCat || ptData.category || target || '').toLowerCase();
+
+        return props.rows.filter((r) => {
+            const rRole = String(r.career_category || '').toLowerCase();
+            // Cek kesesuaian role karier jika ada role yang diklik
+            if (roleCandidate) {
+                const matchRole = rRole.includes(roleCandidate)
+                    || roleCandidate.includes(rRole)
+                    || (roleCandidate.includes('founder') && rRole.includes('founder'))
+                    || (roleCandidate.includes('wirausaha') && rRole.includes('wirausaha'));
+                if (!matchRole) return false;
+            }
+
+            // 1.1 Status UMP / Pendapatan
+            if (catCandidate.includes('di atas') || (catCandidate.includes('memenuhi') && !catCandidate.includes('belum') && !catCandidate.includes('tidak'))) {
+                return r.salary_comparison === 'above' || r.salary_above_threshold === true;
+            }
+            if (catCandidate.includes('di bawah')) {
+                return r.salary_comparison === 'below' || r.salary_above_threshold === false;
+            }
+            if (catCandidate.includes('belum dapat dibandingkan') || catCandidate.includes('unavailable') || catCandidate.includes('tidak tersedia')) {
+                if (currentView.value.key === 'wait-time') {
+                    return (r.months === null || r.months === undefined) && !r.before_graduation;
+                }
+                return r.salary_comparison === 'unavailable' || r.salary_above_threshold === null;
+            }
+
+            // 1.2 Masa Tunggu
+            if (catCandidate.includes('sebelum lulus')) {
+                return Boolean(r.before_graduation);
+            }
+            if (catCandidate.includes('<6') || catCandidate.includes('< 6')) {
+                return !r.before_graduation && r.months !== null && r.months !== undefined && Number(r.months) < 6;
+            }
+            if (catCandidate.includes('6–<12') || catCandidate.includes('6-12') || (catCandidate.includes('6') && catCandidate.includes('12'))) {
+                return !r.before_graduation && r.months !== null && r.months !== undefined && Number(r.months) >= 6 && Number(r.months) < 12;
+            }
+            if (catCandidate.includes('≥12') || catCandidate.includes('>=12') || catCandidate.includes('> 12') || catCandidate.includes('≥ 12')) {
+                return !r.before_graduation && r.months !== null && r.months !== undefined && Number(r.months) >= 12;
+            }
+            if (catCandidate.includes('melanjutkan pendidikan')) {
+                return rRole.includes('melanjutkan pendidikan');
+            }
+
+            // 1.3 Total Bobot (Role diklik)
+            return true;
+        });
     }
 
-    // Filter khusus status pemenuhan UMP (Indikator 11)
-    if ((target.includes('memenuhi') && target.includes('ump')) || (target.includes('di bawah') && target.includes('ump'))) {
-        const wantsMeet = target.includes('memenuhi') && !target.includes('belum') && !target.includes('di bawah');
+    // 2. Filter khusus Indikator 11 (Pendapatan & Ambang UMP per Prodi/Provinsi)
+    const hasSalaryUmpFields = props.rows.some((r) => r.salary !== undefined && r.meets_ump !== undefined);
+    if (hasSalaryUmpFields) {
+        const catTarget = cleanChartLabel(ptCat || ptData.name || target || '').toLowerCase();
+        const prodiTarget = cleanChartLabel(ptProdi || (!ptData.province ? target : '')).toLowerCase();
+        const provinceTarget = cleanChartLabel(ptData.province || '').toLowerCase();
+
         return props.rows.filter((r) => {
-            const matchUmp = Boolean(r.meets_ump) === wantsMeet;
-            if (ptProdi) return matchUmp && String(r.nama_prodi || '').toLowerCase().includes(ptProdi);
-            return matchUmp;
+            const rProdi = String(r.nama_prodi || '').toLowerCase();
+            const rProv = String(r.province_name || '').toLowerCase();
+
+            // Cek kesesuaian prodi (jika klik pada grafik prodi)
+            if (prodiTarget && prodiTarget !== catTarget) {
+                const matchProdi = rProdi.includes(prodiTarget) || prodiTarget.includes(rProdi);
+                if (!matchProdi && !provinceTarget) return false;
+            }
+
+            // Cek kesesuaian provinsi (jika klik pada grafik provinsi)
+            if (provinceTarget) {
+                const matchProv = rProv.includes(provinceTarget) || provinceTarget.includes(rProv);
+                if (!matchProv) return false;
+            }
+
+            // Cek status UMP jika kategori menyatakan status UMP
+            if (catTarget.includes('di atas') || (catTarget.includes('memenuhi') && !catTarget.includes('belum') && !catTarget.includes('tidak'))) {
+                return r.meets_ump === true;
+            }
+            if (catTarget.includes('di bawah')) {
+                return r.meets_ump === false;
+            }
+            if (catTarget.includes('belum')) {
+                return r.meets_ump === null;
+            }
+
+            return true;
         });
+    }
+
+    // 3. Filter khusus Masa Tunggu (Indikator 05 / 03)
+    const hasWaitTimeFields = props.rows.some((r) => r.months !== undefined && (r.nama_prodi !== undefined || r.category !== undefined));
+    if (hasWaitTimeFields) {
+        const prodiTarget = cleanChartLabel(ptProdi || (!ptCat ? target : '')).toLowerCase();
+        const catTarget = cleanChartLabel(ptCat || target).toLowerCase();
+
+        // 3.1 Rentang waktu tunggu bucket min-max
+        if (ptData.min !== undefined && ptData.max !== undefined) {
+            return props.rows.filter((r) => Number(r.months) >= Number(ptData.min) && Number(r.months) <= Number(ptData.max));
+        }
+        const bucketMatch = rawTarget.match(/^(\d+)\s*[–-]\s*(\d+)\s*bln/i);
+        if (bucketMatch) {
+            const minM = Number(bucketMatch[1]);
+            const maxM = Number(bucketMatch[2]);
+            return props.rows.filter((r) => Number(r.months) >= minM && Number(r.months) <= maxM);
+        }
+        if (/^>=\s*12\s*bln/i.test(rawTarget)) {
+            return props.rows.filter((r) => Number(r.months) >= 12);
+        }
+
+        // 3.2 Indikator 05: Kuartil Waktu Tunggu per Prodi
+        if (prodiTarget && props.rows.some((r) => r.nama_prodi && String(r.nama_prodi).toLowerCase().includes(prodiTarget))) {
+            return props.rows.filter((r) => {
+                const rProdi = String(r.nama_prodi || '').toLowerCase();
+                return rProdi.includes(prodiTarget) || prodiTarget.includes(rProdi);
+            });
+        }
+
+        // 3.3 Indikator 03: Fase & Rentang Waktu Mulai Mencari Kerja
+        if (catTarget) {
+            const timingMatched = props.rows.filter((r) => {
+                const rCat = String(r.category || r.status || '').toLowerCase();
+                if (catTarget.includes('sebelum lulus')) return rCat.includes('sebelum') || Boolean(r.before_graduation);
+                if (catTarget.includes('tidak mencari')) return rCat.includes('tidak mencari');
+                if (catTarget.includes('<6') || catTarget.includes('< 6')) return Number(r.months) < 6;
+                if (catTarget.includes('6-12') || catTarget.includes('6–12') || (catTarget.includes('6') && catTarget.includes('12'))) return Number(r.months) >= 6 && Number(r.months) <= 12;
+                if (catTarget.includes('>12') || catTarget.includes('> 12')) return Number(r.months) > 12;
+                return rCat.includes(catTarget) || catTarget.includes(rCat);
+            });
+            if (timingMatched.length > 0) return timingMatched;
+        }
     }
 
     // Filter khusus tahapan pipeline lamaran F6 / F7 / F7A (Indikator 06)
@@ -546,6 +681,25 @@ const drillDownRecords = computed(() => {
                 && rFields.some((f) => f && (f.includes(ptCat) || ptCat.includes(f)));
         });
         if (exactBoth.length > 0) return exactBoth;
+    }
+
+    // Filter khusus IKU S1 AEE (Kelulusan Tepat Waktu S1 per Program Studi)
+    // r.is_lulus_tepat_waktu bernilai true/false atau 1/0
+    const hasAeeFields = props.rows.some((r) => r.is_lulus_tepat_waktu !== undefined);
+    if (hasAeeFields) {
+        const targetProdi = (ptProdi || target).toLowerCase();
+        const isTepatWaktuWants = ptCat.includes('tepat waktu') && !ptCat.includes('belum tepat waktu')
+            ? true
+            : (ptCat.includes('belum tepat waktu') ? false : null);
+
+        const aeeFiltered = props.rows.filter((r) => {
+            const rProdi = String(r.nama_prodi || '').toLowerCase();
+            const prodiMatch = rProdi === targetProdi || rProdi.includes(targetProdi) || targetProdi.includes(rProdi);
+            if (!prodiMatch) return false;
+            if (isTepatWaktuWants === null) return true;
+            return Boolean(r.is_lulus_tepat_waktu) === isTepatWaktuWants;
+        });
+        if (aeeFiltered.length > 0) return aeeFiltered;
     }
 
     return props.rows.filter((r) => {
@@ -871,12 +1025,12 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
             <div class="h-full bg-[#0D542B] animate-pulse w-full"></div>
         </div>
 
-        <!-- Header Kartu & Switcher Tab Visualisasi -->
-        <div class="flex flex-col gap-4 border-b border-slate-100 pb-4">
+        <!-- Header Kartu & Switcher Tab Visualisasi (Stay di Kanan Atas, Sejajar dan Bebas Layout Shift) -->
+        <div class="flex flex-col justify-between gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-center">
             <!-- Kolom Kiri: Judul & Subjudul dengan min-height tetap agar tata letak tidak bergeser -->
-            <div class="min-h-[50px] flex-1">
+            <div class="min-h-[46px]">
                 <div class="flex flex-wrap items-center gap-2">
-                    <span v-if="indicatorBadge" class="rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-[#0D542B]">
+                    <span v-if="indicatorBadge" class="rounded bg-white px-2 py-0.5 text-xs font-bold text-[#0D542B] border border-[#0D542B]/25">
                         {{ indicatorBadge }}
                     </span>
                     <h3 class="text-base font-extrabold text-slate-900">
@@ -905,32 +1059,31 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                         {{ currentView.description }}
                     </template>
                 </p>
-
             </div>
 
-            <!-- Kolom Kanan: Switcher Tab Tetap (Stay di Kanan Atas, Bebas dari Layout Shift) -->
-            <div class="shrink-0 flex flex-wrap items-center justify-start gap-2">
-                <!-- Switcher Antar Visualisasi (Hanya saat mode chart aktif) -->
-                <div v-if="views.length > 1" class="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+            <!-- Kolom Kanan: Switcher Tab Tetap (Stay di Kanan Atas, Netral Tanpa Warna Legenda) -->
+            <div class="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+                <!-- Switcher Antar Visualisasi (Selalu terlihat jika indikator memiliki lebih dari 1 sub-view) -->
+                <div v-if="views.length > 1" class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200">
                     <button
                         v-for="view in views"
                         :key="view.key"
                         type="button"
                         class="rounded-md px-3 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeTabKey === view.key ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                        :class="activeTabKey === view.key ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
                         @click="selectView(view)"
                     >
                         {{ view.tabLabel || view.title }}
                     </button>
                 </div>
 
-                <!-- Switcher Mode: Grafik vs Data Ringkasan -->
-                <div class="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
+                <!-- Switcher Mode: Grafik vs Data Ringkasan (Gaya Segmented Pill Netral Slate) -->
+                <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200">
                     <button
                         v-if="!currentViewIsTableOnly"
                         type="button"
                         class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeViewMode === 'chart' ? 'bg-[#0D542B] font-bold text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'"
+                        :class="activeViewMode === 'chart' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeViewMode = 'chart'"
                     >
                         Grafik
@@ -938,7 +1091,7 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                     <button
                         type="button"
                         class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeViewMode === 'table' ? 'bg-slate-100 font-bold text-slate-900' : 'text-slate-500 hover:text-slate-900'"
+                        :class="activeViewMode === 'table' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeViewMode = 'table'"
                     >
                         Data Ringkasan
@@ -1121,7 +1274,7 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                             <tr v-for="(rec, idx) in paginatedDrillDownRecords" :key="`custom-${idx}`" class="hover:bg-white/80">
                                 <td v-for="column in customDrillDownColumns" :key="column.key" class="max-w-xs whitespace-normal p-2 text-slate-700">
                                     <span :class="column.key === 'nama' ? 'font-semibold text-slate-900' : ''">
-                                        {{ formatDetailValue(rec[column.key]) }}
+                                        {{ formatDetailValue(rec[column.key], column.key) }}
                                     </span>
                                 </td>
                             </tr>

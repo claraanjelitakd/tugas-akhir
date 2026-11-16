@@ -109,9 +109,9 @@ const prodiChartOption = computed(() => {
     const data = prodiStats.value;
     const labels = data.map((item) => `${item.prodi}\n(n=${item.count})`);
 
-    const q1Values = data.map((item) => item.q1);
-    const medianValues = data.map((item) => item.median);
-    const q3Values = data.map((item) => item.q3);
+    const q1Values = data.map((item) => ({ value: item.q1, name: item.prodi, prodi: item.prodi, category: 'Q1' }));
+    const medianValues = data.map((item) => ({ value: item.median, name: item.prodi, prodi: item.prodi, category: 'Median' }));
+    const q3Values = data.map((item) => ({ value: item.q3, name: item.prodi, prodi: item.prodi, category: 'Q3' }));
 
     return {
         ...baseOption(records.value.length),
@@ -239,6 +239,13 @@ const views = computed(() => [
             lead: `Pada tingkat universitas, median masa tunggu alumni adalah ${formatNumber(medianMonths.value, 1)} bulan dengan rentang interkuartil Q1 sebesar ${formatNumber(p25Months.value, 1)} bulan dan Q3 sebesar ${formatNumber(p75Months.value, 1)} bulan.`,
             detail: 'Analisis jarak ke median menunjukkan bahwa sebagian besar program studi teknik dan bisnis memiliki rentang interkuartil (IQR) yang sempit (1 sampai 2 bulan), membuktikan konsistensi dan kecepatan serapan lulusan yang homogen. Program studi dengan dispersi kuartil lebih lebar mencerminkan adanya segmen alumni yang menempuh sertifikasi profesi atau uji kompetensi terlebih dahulu sebelum menandatangani kontrak kerja formal.',
         },
+        drillDownColumns: [
+            { key: 'nama', label: 'Nama Alumni' },
+            { key: 'nim', label: 'NIM' },
+            { key: 'nama_prodi', label: 'Program Studi' },
+            { key: 'nama_perusahaan', label: 'Perusahaan / Tempat Kerja' },
+            { key: 'months', label: 'Waktu Tunggu (Bulan)' },
+        ],
     },
 ]);
 </script>

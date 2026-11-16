@@ -1005,12 +1005,12 @@ const summaryTableData = computed(() => {
                     </button>
                 </div>
 
-                <!-- Toggle Mode Grafik / Data -->
-                <div class="flex items-center rounded-lg border border-slate-200 bg-white p-0.5">
+                <!-- Toggle Mode Grafik / Data (Gaya Segmented Pill Netral Slate) -->
+                <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200">
                     <button
                         type="button"
                         class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeViewMode === 'chart' ? 'bg-slate-100 font-bold text-slate-900' : 'text-slate-500 hover:text-slate-900'"
+                        :class="activeViewMode === 'chart' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeViewMode = 'chart'"
                     >
                         Grafik
@@ -1018,7 +1018,7 @@ const summaryTableData = computed(() => {
                     <button
                         type="button"
                         class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeViewMode === 'table' ? 'bg-slate-100 font-bold text-slate-900' : 'text-slate-500 hover:text-slate-900'"
+                        :class="activeViewMode === 'table' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeViewMode = 'table'"
                     >
                         Data Ringkasan

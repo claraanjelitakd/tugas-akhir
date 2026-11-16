@@ -65,6 +65,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             JoshuaAndreanSeeder::class,
             JovanMarllenSeeder::class,
+            KenazManuelSeeder::class,
         ]);
 
         // 6. Seed satu kohort kanonik 2026 lintas 12 prodi dengan maksimal

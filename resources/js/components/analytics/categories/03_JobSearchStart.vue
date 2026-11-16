@@ -239,7 +239,15 @@ const timingStackedOption = computed(() => {
                 const count = group.counts[segment.key] || 0;
                 const total = Object.values(group.counts).reduce((sum, value) => sum + value, 0);
 
-                return { name: group.phase, value: count, count, percentage: total > 0 ? (count / total) * 100 : 0 };
+                return {
+                    name: group.phase,
+                    category: segment.label,
+                    segmentKey: segment.key,
+                    phase: group.phase,
+                    value: count,
+                    count,
+                    percentage: total > 0 ? (count / total) * 100 : 0,
+                };
             }),
             label: {
                 show: true,
@@ -460,6 +468,14 @@ const views = computed(() => [
             detail: 'Sebelum lulus dan tidak mencari kerja tidak dipecah lagi. Hanya fase setelah lulus yang dibagi menjadi <6 bulan, 6–12 bulan, dan >12 bulan agar keterlambatan masuk kerja terlihat jelas.',
             reason: 'Dipilih sebagai Stacked Bar Chart berbasis jumlah agar panjang batang langsung menunjukkan banyaknya alumni dan warna hanya menjelaskan fase atau rentang masa tunggu.',
         },
+        drillDownColumns: [
+            { key: 'nama', label: 'Nama Alumni' },
+            { key: 'nim', label: 'NIM' },
+            { key: 'nama_prodi', label: 'Program Studi' },
+            { key: 'nama_perusahaan', label: 'Perusahaan / Tempat Kerja' },
+            { key: 'category', label: 'Fase / Rentang Waktu' },
+            { key: 'months', label: 'Waktu Tunggu (Bulan)' },
+        ],
     },
 ]);
 </script>

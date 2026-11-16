@@ -165,9 +165,9 @@ Database lama bernama tracer bukan koneksi aktif aplikasi dan tidak disentuh.
 
 ### IKU S1
 
-`v_iku_s1_aee` menghitung AEE per prodi dengan masa standar S1 delapan semester:
-mahasiswa angkatan `YYYY` dianggap tepat waktu jika lulus pada `Genap
-YYYY+3/YYYY+4`. `v_iku_s1_lulusan` menjadi sumber klasifikasi capaian karier.
+`v_iku_s1_aee` menghitung AEE per prodi dengan masa standar S1 maksimal delapan semester (≤ 4 tahun):
+mahasiswa angkatan `YYYY` dianggap tepat waktu jika lulus pada `Genap YYYY+3/YYYY+4`, `Ganjil YYYY+3/YYYY+4` (akselerasi 3,5 tahun),
+atau sebelum tahun ke-4 (`tahun_lulus - angkatan_masuk < 4`). `v_iku_s1_lulusan` menjadi sumber klasifikasi capaian karier.
 Bobot dihitung oleh `IkuS1AnalyticsService`, bukan oleh Vue; frontend hanya
 menampilkan pembilang, penyebut, bobot, dan metodologi.
 
