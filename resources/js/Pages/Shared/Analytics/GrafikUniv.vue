@@ -1034,11 +1034,6 @@ const sortTable = (columnIndex) => {
     currentPage.value = 1;
 };
 
-// Mengunduh / mencetak laporan analisis lengkap kategori dalam format PDF
-const printCategoryReport = () => {
-    window.print();
-};
-
 // Reset filter mengembalikan prodi ke seluruh universitas tanpa mengubah indikator.
 const resetGlobalFilters = () => {
     selectedProdiId.value = '';
@@ -1114,19 +1109,6 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                         <div class="min-w-0">
                             <h2 class="text-xl font-extrabold text-slate-900 sm:text-2xl">{{ chart.title }}</h2>
                             <p class="mt-1 max-w-3xl text-xs sm:text-sm text-slate-500 leading-relaxed">{{ chart.subtitle }}</p>
-                        </div>
-                        <div class="flex items-center gap-2 shrink-0 no-print">
-                            <button
-                                type="button"
-                                @click="printCategoryReport"
-                                class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs hover:border-[#0D542B] hover:text-[#0D542B] cursor-pointer transition-colors"
-                                title="Unduh laporan analisis kategori ini dalam format PDF"
-                            >
-                                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-                                </svg>
-                                <span>Unduh Laporan (PDF)</span>
-                            </button>
                         </div>
                     </div>
 

@@ -22,6 +22,7 @@ import {
     escapeHtml,
     formatNumber,
 } from '@/components/analytics/analyticsChartOptions';
+import { generateAnalyticsPdf } from '@/utils/analyticsPdfExporter';
 
 // Props awal berisi payload evaluasi atasan dari controller.
 const props = defineProps({
@@ -918,9 +919,72 @@ const resetFilters = () => {
     scheduleLoad();
 };
 
-// Mengunduh / mencetak laporan analisis lengkap kategori dalam format PDF
+// Mengunduh berkas laporan PDF analisis lengkap kategori atasan beserta grafik dan tabel data utuh
 const printCategoryReport = () => {
-    window.print();
+    const chartBase64 = echartRef.value?.getImageDataUrl ? echartRef.value.getImageDataUrl() : null;
+
+    let headers = [];
+    let rows = [];
+
+    if (selectedIndicatorKey.value === 'kinerja') {
+        headers = (kinerjaSummaryTable.value?.columns || []).map((c) => c.label);
+        rows = (kinerjaSummaryTable.value?.rows || []).map((r) => [
+            r.aspek || '-',
+            formatNumber(r.valid_count || 0, 0),
+            String(r.average ?? '-'),
+            String(r.sangat_baik ?? 0),
+            String(r.baik ?? 0),
+            String(r.cukup ?? 0),
+            String(r.kurang ?? 0),
+            String(r.sangat_kurang ?? 0),
+        ]);
+    } else if (selectedIndicatorKey.value === 'kesiapan') {
+        headers = (readinessSummaryTable.value?.columns || []).map((c) => c.label);
+        rows = (readinessSummaryTable.value?.rows || []).map((r) => [
+            r.label || '-',
+            formatNumber(r.count || 0, 0),
+            String(r.percentage ?? '-'),
+        ]);
+    } else {
+        headers = (prodiSummaryTable.value?.columns || []).map((c) => c.label);
+        rows = (prodiSummaryTable.value?.rows || []).map((r) => [
+            r.prodi || '-',
+            formatNumber(r.respondents || 0, 0),
+            String(r.average ?? '-'),
+        ]);
+    }
+
+    const titleText = currentIndicator.value?.label || 'Evaluasi Pengguna Lulusan (Atasan)';
+    const summaryNarrative = selectedIndicatorKey.value === 'kinerja'
+        ? `Rata-rata agregat skor kinerja alumni: ${performanceHighlights.value.overallAverage || '-'} / 5. Aspek tertinggi: ${performanceHighlights.value.highest?.aspek || '-'} (${performanceHighlights.value.highest?.average || '-'}/5). Fokus peningkatan: ${performanceHighlights.value.lowest?.aspek || '-'} (${performanceHighlights.value.lowest?.average || '-'}/5).`
+        : `Ringkasan evaluasi pengguna lulusan berdasarkan ${formatNumber(summary.value?.submitted || 0, 0)} respon atasan.`;
+
+    const prodiText = selectedProdiId.value
+        ? (prodis.value.find((p) => String(p.id) === String(selectedProdiId.value))?.nama_prodi || 'Program Studi Terpilih')
+        : 'Semua Program Studi';
+
+    generateAnalyticsPdf({
+        title: titleText,
+        subtitle: 'Laporan Evaluasi Kepuasan Pengguna Lulusan UKDW',
+        cohortYear: selectedYear.value === 'ALL' ? 'Semua Tahun' : selectedYear.value,
+        scopeName: prodiText,
+        summaryText: summaryNarrative,
+        chartImageBase64: chartBase64,
+        tableHeaders: headers,
+        tableRows: rows,
+        fileName: `Laporan_Evaluasi_Atasan_${selectedIndicatorKey.value}_${selectedYear.value}`,
+    });
+};
+
+// Referensi komponen EChart untuk unduh berkas gambar PNG
+const echartRef = ref(null);
+
+const handleDownloadChart = () => {
+    if (activeViewMode.value !== 'chart') activeViewMode.value = 'chart';
+    setTimeout(() => {
+        const safeTitle = `grafik-evaluasi-atasan-${currentIndicator.value?.code || 'chart'}`.toLowerCase();
+        echartRef.value?.downloadPng(safeTitle);
+    }, 120);
 };
 
 // Menjaga state lokal tetap mengikuti props ketika halaman Inertia dinavigasi ulang.
@@ -1098,38 +1162,42 @@ onBeforeUnmount(() => {
                                         </p>
                                     </div>
 
-                                    <!-- Toggle Grafik vs Data Ringkasan Tabulasi & Tombol Unduh Laporan PDF -->
-                                    <div class="flex flex-wrap items-center gap-2">
+                                    <!-- Bilah Aksi Terpadu: Grafik | Data | Unduh Grafik | Laporan PDF -->
+                                    <div class="flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1 no-print text-xs">
                                         <button
                                             type="button"
-                                            @click="printCategoryReport"
-                                            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs hover:border-[#0D542B] hover:text-[#0D542B] cursor-pointer transition-colors no-print"
-                                            title="Unduh laporan analisis kategori ini dalam format PDF"
+                                            class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                                            :class="activeViewMode === 'chart' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                                            @click="activeViewMode = 'chart'"
                                         >
-                                            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-                                            </svg>
-                                            <span>Unduh Laporan (PDF)</span>
+                                            Grafik
                                         </button>
-
-                                        <div class="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1 no-print">
-                                            <button
-                                                type="button"
-                                                class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                                                :class="activeViewMode === 'chart' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
-                                                @click="activeViewMode = 'chart'"
-                                            >
-                                                Grafik
-                                            </button>
-                                            <button
-                                                type="button"
-                                                class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                                                :class="activeViewMode === 'table' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
-                                                @click="activeViewMode = 'table'"
-                                            >
-                                                Data Ringkasan
-                                            </button>
-                                        </div>
+                                        <button
+                                            type="button"
+                                            class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                                            :class="activeViewMode === 'table' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                                            @click="activeViewMode = 'table'"
+                                        >
+                                            Data
+                                        </button>
+                                        <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
+                                        <button
+                                            type="button"
+                                            class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
+                                            @click="handleDownloadChart"
+                                            title="Unduh gambar grafik saat ini (PNG)"
+                                        >
+                                            Unduh Grafik
+                                        </button>
+                                        <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
+                                        <button
+                                            type="button"
+                                            class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
+                                            @click="printCategoryReport"
+                                            title="Unduh laporan analisis lengkap kategori ini (PDF)"
+                                        >
+                                            Laporan PDF
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -1157,6 +1225,7 @@ onBeforeUnmount(() => {
                                 <!-- Indikator 01: Evaluasi Aspek Kinerja (Horizontal Stacked Bar 100%) -->
                                 <div v-if="selectedIndicatorKey === 'kinerja'" class="min-h-[500px]">
                                     <AnalyticsEChart
+                                        :ref="el => { if (el) echartRef = el; }"
                                         :option="kinerjaStackedOption"
                                         :loading="isLoading"
                                         :height="Math.max(480, likertItems.length * 52)"
@@ -1168,6 +1237,7 @@ onBeforeUnmount(() => {
                                 <!-- Indikator 02: Tingkat Kesiapan Kerja (Horizontal Bar dengan Jumlah & %) -->
                                 <div v-else-if="selectedIndicatorKey === 'kesiapan'" class="min-h-[380px]">
                                     <AnalyticsEChart
+                                        :ref="el => { if (el) echartRef = el; }"
                                         :option="readinessOption"
                                         :loading="isLoading"
                                         :height="360"
@@ -1183,6 +1253,7 @@ onBeforeUnmount(() => {
                                     </div>
                                     <div v-else class="space-y-4">
                                         <AnalyticsEChart
+                                            :ref="el => { if (el) echartRef = el; }"
                                             :option="prodiOption"
                                             :loading="isLoading"
                                             :height="Math.max(480, prodis.length * 36 + 120)"

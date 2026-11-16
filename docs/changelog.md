@@ -2,6 +2,18 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 17 November 2026
+
+- **Ekspor Laporan Analisis PDF Utuh & Standarisasi Bilah Aksi Grafik**:
+  - Tombol **Laporan PDF** pada seluruh panel analitik (Grafik Universitas, Grafik Program Studi, dan Grafik Evaluasi Atasan) kini langsung menghasilkan dan mengunduh berkas fisik `.pdf` secara otomatis menggunakan pustaka client-side `jspdf` dan `jspdf-autotable` (`resources/js/utils/analyticsPdfExporter.js`) tanpa memicu dialog cetak peramban (`window.print`).
+  - Berkas laporan PDF berorientasi landscape A4 memuat satu laporan analitik utuh dan bersih: judul indikator formal, metadata parameter (tahun kelulusan, prodi, waktu unduh data), gambar grafik beresolusi tinggi dari canvas ECharts, narasi kilas analisis/capaian indikator, serta tabel rekapitulasi data lengkap berpaginasi otomatis tanpa terpotong.
+  - Seluruh kanvas visualisasi grafik dibersihkan dari toolbox bawaan ECharts (`saveAsImage`) yang mengambang di pojok grafik, digantikan dengan bilah kontrol terpadu yang seragam: `[ Grafik | Data | Unduh Grafik | Laporan PDF ]`.
+  - Penambahan method `getImageDataUrl` pada `AnalyticsEChart.vue` untuk mengekspor representasi grafis resolusi tinggi (pixelRatio 2 dengan latar putih) ke dalam berkas PDF.
+- **Penyelarasan Dashboard Lintas Peran**:
+  - Dashboard SuperAdmin kini sepenuhnya menggunakan komponen terpadu `RoleDashboard.vue` dengan pemisahan hak akses verifikasi perusahaan sesuai peran pengguna (disembunyikan untuk Biro 3 sesuai wewenang audit).
+  - Penambahan penanganan error dynamic chunk import Vite (`vite:preloadError`) pada `app.js` dan tombol pemulihan muat ulang pada panel analitik.
+  - Perbaikan validasi tahapan kuesioner alumni agar seksi opsional tidak otomatis berstatus selesai (centang hijau) sebelum diisi responden.
+
 ## 12 November 2026
 
 - **Kelengkapan data indikator default**: fixture kohort 2026 kini mengisi F10 (aktivitas mencari pekerjaan) untuk seluruh alumni serta F11 (jenis tempat kerja) dan F16 (alasan ketidaksesuaian) untuk jalur kerja/wirausaha. Variasi jawaban diambil dari opsi instrumen aktif agar grafik universitas tidak kosong dan relasi jawaban tetap tersambung ke master pertanyaan.

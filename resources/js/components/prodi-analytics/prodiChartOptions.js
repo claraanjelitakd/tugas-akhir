@@ -38,20 +38,6 @@ export const choiceChartHeight = (item) => Math.max(280, (item?.categories?.leng
 
 // Membuat opsi grafik rata-rata skor Likert dengan garis acuan skor 3.
 export const buildLikertOption = (items) => ({
-    toolbox: {
-        show: true,
-        right: 12,
-        top: 0,
-        feature: {
-            saveAsImage: {
-                show: true,
-                title: 'Unduh Gambar (PNG)',
-                type: 'png',
-                pixelRatio: 2,
-                backgroundColor: '#FFFFFF',
-            },
-        },
-    },
     tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
@@ -99,20 +85,6 @@ export const buildLikertOption = (items) => ({
 // ALUR 10: fungsi ini mengubah categories dan values dari satu item menjadi
 // konfigurasi ECharts. ECharts kemudian menggambar batang berdasarkan data itu.
 export const buildChoiceOption = (item) => ({
-    toolbox: {
-        show: true,
-        right: 12,
-        top: 0,
-        feature: {
-            saveAsImage: {
-                show: true,
-                title: 'Unduh Gambar (PNG)',
-                type: 'png',
-                pixelRatio: 2,
-                backgroundColor: '#FFFFFF',
-            },
-        },
-    },
     tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },

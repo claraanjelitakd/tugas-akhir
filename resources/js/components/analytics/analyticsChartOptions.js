@@ -437,32 +437,6 @@ export const normalizeAnalyticsOption = (option) => {
         normalized.legend.textStyle.color = analyticsColors.text;
     }
 
-    // Toolbox ECharts bawaan: Dukungan unduh gambar (saveAsImage) beresolusi tinggi dengan latar putih bersih
-    normalized.toolbox = {
-        show: true,
-        right: 12,
-        top: 0,
-        feature: {
-            saveAsImage: {
-                show: true,
-                title: 'Unduh Gambar Grafik (PNG)',
-                type: 'png',
-                pixelRatio: 2,
-                backgroundColor: '#FFFFFF',
-                name: (normalized.title?.text || 'grafik-tracer-study').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-            },
-        },
-        iconStyle: {
-            borderColor: analyticsColors.text,
-        },
-        emphasis: {
-            iconStyle: {
-                borderColor: analyticsColors.green,
-            },
-        },
-        ...(normalized.toolbox || {}),
-    };
-
     if (normalized.title) {
         const titles = Array.isArray(normalized.title) ? normalized.title : [normalized.title];
         titles.forEach((title) => {

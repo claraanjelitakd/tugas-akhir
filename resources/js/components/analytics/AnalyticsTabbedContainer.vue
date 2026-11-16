@@ -18,6 +18,7 @@ import {
     formatNumber,
     getAnalyticsChartHeight,
 } from './analyticsChartOptions';
+import { generateAnalyticsPdf } from '@/utils/analyticsPdfExporter';
 
 // Kontrak properti kontainer terpadu
 const props = defineProps({
@@ -107,6 +108,52 @@ const cleanChartLabel = (raw) => String(raw || '')
 
 // State detail titik/elemen grafik yang sedang diklik
 const selectedPoint = ref(null);
+
+// Referensi komponen EChart untuk unduh berkas gambar PNG
+const echartRef = ref(null);
+
+const handleDownloadChart = () => {
+    if (activeViewMode.value !== 'chart') {
+        activeViewMode.value = 'chart';
+    }
+    setTimeout(() => {
+        const rawTitle = currentView.value.title || currentView.value.tabLabel || 'grafik-analitik';
+        const safeTitle = String(rawTitle).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        echartRef.value?.downloadPng(safeTitle);
+    }, 120);
+};
+
+const handleDownloadPdf = () => {
+    const chartBase64 = echartRef.value?.getImageDataUrl ? echartRef.value.getImageDataUrl() : null;
+
+    const headers = (activeColumns.value || []).map((col) => col.label || col.key);
+    const rows = (activeRows.value || []).map((row) => {
+        return (activeColumns.value || []).map((col) => {
+            const val = row[col.key];
+            if (val === null || val === undefined) return '-';
+            return String(val);
+        });
+    });
+
+    const summaryNarrative = [
+        computedAnalysis.value?.title ? `${computedAnalysis.value.title}:` : '',
+        computedAnalysis.value?.lead || '',
+        computedAnalysis.value?.detail || '',
+    ].filter(Boolean).join(' ');
+
+    const rawTitle = currentView.value.title || currentView.value.tabLabel || 'Laporan Analisis Indikator';
+    const cleanFileName = `Laporan_${String(rawTitle).replace(/[^a-zA-Z0-9_-]+/g, '_')}`;
+
+    generateAnalyticsPdf({
+        title: rawTitle,
+        subtitle: currentView.value.description || '',
+        summaryText: summaryNarrative,
+        chartImageBase64: chartBase64,
+        tableHeaders: headers,
+        tableRows: rows,
+        fileName: cleanFileName,
+    });
+};
 
 // State elemen grafik yang sedang diarahkan oleh kursor mouse (hover dinamis)
 const hoveredPoint = ref(null);
@@ -1077,24 +1124,43 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                     </button>
                 </div>
 
-                <!-- Switcher Mode: Grafik vs Data Ringkasan (Gaya Segmented Pill Netral Slate) -->
-                <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200">
+                <!-- Bilah Aksi Terpadu: Grafik | Data | Unduh Grafik | Laporan PDF -->
+                <div class="flex flex-wrap items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200 no-print text-xs">
                     <button
                         v-if="!currentViewIsTableOnly"
                         type="button"
-                        class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeViewMode === 'chart' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                        class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                        :class="activeViewMode === 'chart' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeViewMode = 'chart'"
                     >
                         Grafik
                     </button>
                     <button
                         type="button"
-                        class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeViewMode === 'table' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                        class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                        :class="activeViewMode === 'table' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeViewMode = 'table'"
                     >
-                        Data Ringkasan
+                        Data
+                    </button>
+                    <span v-if="!currentViewIsTableOnly" class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
+                    <button
+                        v-if="!currentViewIsTableOnly"
+                        type="button"
+                        class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
+                        @click="handleDownloadChart"
+                        title="Unduh gambar grafik saat ini (PNG)"
+                    >
+                        Unduh Grafik
+                    </button>
+                    <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
+                    <button
+                        type="button"
+                        class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
+                        @click="handleDownloadPdf"
+                        title="Unduh laporan analisis lengkap kategori ini (PDF)"
+                    >
+                        Laporan PDF
                     </button>
                 </div>
             </div>
@@ -1176,6 +1242,7 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                 <slot name="before-chart" :view="currentView"></slot>
 
                 <AnalyticsEChart
+                    ref="echartRef"
                     :option="currentView.option"
                     :height="currentChartHeight"
                     :loading="loading"

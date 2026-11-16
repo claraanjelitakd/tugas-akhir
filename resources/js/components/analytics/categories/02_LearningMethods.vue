@@ -23,6 +23,7 @@ import {
     analyticsScalePalette,
     seriesLabel,
 } from '../analyticsChartOptions';
+import { generateAnalyticsPdf } from '@/utils/analyticsPdfExporter';
 
 // Kontrak properti data indikator, filter aktif, dan status pemuatan data.
 const props = defineProps({
@@ -52,6 +53,53 @@ const activeChartReason = computed(() => ({
 
 // Mode tampilan: 'chart' (Visualisasi Interaktif) atau 'table' (Data Ringkasan).
 const activeViewMode = ref('chart');
+
+// Referensi komponen EChart untuk unduh berkas gambar PNG
+const echartRef = ref(null);
+
+const handleDownloadChart = () => {
+    if (activeViewMode.value !== 'chart') activeViewMode.value = 'chart';
+    setTimeout(() => {
+        echartRef.value?.downloadPng(`grafik-penekanan-metode-pembelajaran-${activeChartTab.value}`);
+    }, 120);
+};
+
+const handleDownloadPdf = () => {
+    const chartBase64 = echartRef.value?.getImageDataUrl ? echartRef.value.getImageDataUrl() : null;
+
+    const headers = ['Kode', 'Metode Pembelajaran', 'Skor INT', 'Kategori Penilaian', 'Responden (N)'];
+    const rows = (summaryTableData.value || []).map((row) => [
+        row.key,
+        row.name,
+        row.score,
+        row.score_label,
+        formatNumber(row.count, 0),
+    ]);
+
+    const activeAnalysisObj = activeChartTab.value === 'radar'
+        ? radarAnalysis.value
+        : activeChartTab.value === 'line'
+            ? lineAnalysis.value
+            : activeChartTab.value === 'stacked'
+                ? stackedAnalysis.value
+                : heatmapAnalysis.value;
+
+    const summaryNarrative = [
+        activeAnalysisObj?.title ? `${activeAnalysisObj.title}:` : '',
+        activeAnalysisObj?.lead || '',
+        activeAnalysisObj?.detail || '',
+    ].filter(Boolean).join(' ');
+
+    generateAnalyticsPdf({
+        title: '02. Penekanan Metode Pembelajaran',
+        subtitle: 'Evaluasi Penekanan 7 Metode Pembelajaran Berdasarkan Persepsi Alumni',
+        summaryText: summaryNarrative,
+        chartImageBase64: chartBase64,
+        tableHeaders: headers,
+        tableRows: rows,
+        fileName: 'Laporan_Analisis_Metode_Pembelajaran',
+    });
+};
 
 // Kunci metode pembelajaran yang sedang dipilih untuk drill-down inline (misal: 'F21').
 const selectedMethodKey = ref('');
@@ -1005,23 +1053,41 @@ const summaryTableData = computed(() => {
                     </button>
                 </div>
 
-                <!-- Toggle Mode Grafik / Data (Gaya Segmented Pill Netral Slate) -->
-                <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200">
+                <!-- Bilah Aksi Terpadu: Grafik | Data | Unduh Grafik | Laporan PDF -->
+                <div class="flex flex-wrap items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200 no-print text-xs">
                     <button
                         type="button"
-                        class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeViewMode === 'chart' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                        class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                        :class="activeViewMode === 'chart' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeViewMode = 'chart'"
                     >
                         Grafik
                     </button>
                     <button
                         type="button"
-                        class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeViewMode === 'table' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                        class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                        :class="activeViewMode === 'table' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeViewMode = 'table'"
                     >
-                        Data Ringkasan
+                        Data
+                    </button>
+                    <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
+                    <button
+                        type="button"
+                        class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
+                        @click="handleDownloadChart"
+                        title="Unduh gambar grafik saat ini (PNG)"
+                    >
+                        Unduh Grafik
+                    </button>
+                    <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
+                    <button
+                        type="button"
+                        class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
+                        @click="handleDownloadPdf"
+                        title="Unduh laporan analisis lengkap kategori ini (PDF)"
+                    >
+                        Laporan PDF
                     </button>
                 </div>
             </div>
@@ -1032,6 +1098,7 @@ const summaryTableData = computed(() => {
             <!-- 1. Radar Chart (Jaring Laba-laba) -->
             <div v-if="activeChartTab === 'radar'" class="space-y-4">
                 <AnalyticsEChart
+                    :ref="el => { if (el) echartRef = el; }"
                     :option="methodsRadarOption"
                     :height="500"
                     :loading="loading"
@@ -1116,6 +1183,7 @@ const summaryTableData = computed(() => {
             <!-- 2. Stacked Bar Chart Distribusi Skala -->
             <div v-else-if="activeChartTab === 'stacked'" class="space-y-4">
                 <AnalyticsEChart
+                    :ref="el => { if (el) echartRef = el; }"
                     :option="methodsStackedOption"
                     :height="480"
                     :loading="loading"
@@ -1171,6 +1239,7 @@ const summaryTableData = computed(() => {
             <!-- 3. Heatmap Antar Program Studi -->
             <div v-else class="space-y-4">
                 <AnalyticsEChart
+                    :ref="el => { if (el) echartRef = el; }"
                     :option="heatmapOption"
                     :height="520"
                     :loading="loading"

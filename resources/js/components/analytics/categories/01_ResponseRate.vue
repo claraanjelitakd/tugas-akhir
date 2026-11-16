@@ -20,6 +20,7 @@ import {
     formatNumber,
     responseRatePalette,
 } from '../analyticsChartOptions';
+import { generateAnalyticsPdf } from '@/utils/analyticsPdfExporter';
 
 // Kontrak properti data indikator, filter aktif, dan status pemuatan data.
 const props = defineProps({
@@ -59,6 +60,54 @@ const sortAsc = ref(false);
 
 // Mode tampilan: 'chart' (grafik visual) atau 'table' (data ringkasan tabulasi prodi)
 const activeViewMode = ref('chart');
+
+// Referensi komponen EChart untuk unduh berkas gambar PNG
+const echartRef = ref(null);
+
+const handleDownloadChart = () => {
+    if (activeViewMode.value !== 'chart') activeViewMode.value = 'chart';
+    setTimeout(() => {
+        echartRef.value?.downloadPng('grafik-tingkat-partisipasi-alumni');
+    }, 120);
+};
+
+const handleDownloadPdf = () => {
+    const chartBase64 = echartRef.value?.getImageDataUrl ? echartRef.value.getImageDataUrl() : null;
+
+    const headers = ['No', 'Program Studi', 'Populasi (N)', 'Sudah Mengisi', 'Belum Mengisi', 'Response Rate', 'Target', 'Gap Target', 'Status Capaian'];
+
+    const sortedList = [...displaySeries.value].sort((a, b) => sortAsc.value ? a.response_rate - b.response_rate : b.response_rate - a.response_rate);
+
+    const rows = sortedList.map((item, idx) => [
+        idx + 1,
+        item.nama_prodi || '-',
+        formatNumber(item.population, 0),
+        formatNumber(item.respondents, 0),
+        formatNumber(item.unanswered, 0),
+        `${formatNumber(item.response_rate, 1)}%`,
+        `${formatNumber(item.target, 0)}%`,
+        `${item.target_gap >= 0 ? '+' : ''}${formatNumber(item.target_gap, 1)}%`,
+        getParticipationStatus(item).label || '-',
+    ]);
+
+    const summaryNarrative = [
+        naturalSummary.value?.title ? `${naturalSummary.value.title}:` : '',
+        naturalSummary.value?.lead || '',
+        naturalSummary.value?.detail || '',
+    ].filter(Boolean).join(' ');
+
+    generateAnalyticsPdf({
+        title: '01. Response Rate Universitas',
+        subtitle: 'Tingkat Partisipasi Pengisian Tracer Study Alumni Antar Program Studi',
+        cohortYear: activeYear.value,
+        scopeName: selectedProdiName.value ? `Fokus: ${selectedProdiName.value}` : 'Seluruh Program Studi',
+        summaryText: summaryNarrative,
+        chartImageBase64: chartBase64,
+        tableHeaders: headers,
+        tableRows: rows,
+        fileName: `Laporan_Analisis_Response_Rate_${String(activeYear.value).replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+    });
+};
 
 // State kontrol tabel drill-down inline di bawah grafik.
 const searchQuery = ref('');
@@ -726,23 +775,41 @@ const downloadExcel = (statusTarget = null) => {
                     </p>
                 </div>
 
-                <!-- Switcher Mode: Grafik vs Data Ringkasan (Gaya Segmented Pill Netral Slate) -->
-                <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200 shrink-0 self-start sm:self-auto">
+                <!-- Bilah Aksi Terpadu: Grafik | Data | Unduh Grafik | Laporan PDF -->
+                <div class="flex flex-wrap items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200 shrink-0 self-start sm:self-auto no-print text-xs">
                     <button
                         type="button"
-                        class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeViewMode === 'chart' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                        class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                        :class="activeViewMode === 'chart' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeViewMode = 'chart'"
                     >
                         Grafik
                     </button>
                     <button
                         type="button"
-                        class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeViewMode === 'table' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                        class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                        :class="activeViewMode === 'table' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeViewMode = 'table'"
                     >
-                        Data Ringkasan
+                        Data
+                    </button>
+                    <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
+                    <button
+                        type="button"
+                        class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
+                        @click="handleDownloadChart"
+                        title="Unduh gambar grafik saat ini (PNG)"
+                    >
+                        Unduh Grafik
+                    </button>
+                    <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
+                    <button
+                        type="button"
+                        class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
+                        @click="handleDownloadPdf"
+                        title="Unduh laporan analisis lengkap kategori ini (PDF)"
+                    >
+                        Laporan PDF
                     </button>
                 </div>
             </div>
@@ -880,6 +947,7 @@ const downloadExcel = (statusTarget = null) => {
                     <!-- Grafik tunggal response rate dengan target dinamis -->
                     <div class="space-y-4">
                         <AnalyticsEChart
+                            ref="echartRef"
                             :option="participationBarOption"
                             :height="Math.max(400, displaySeries.length * 36 + 70)"
                             :loading="loading"

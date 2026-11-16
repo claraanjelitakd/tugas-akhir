@@ -180,6 +180,12 @@ const downloadPng = (filename = 'grafik-tracer-study') => {
     link.click();
 };
 
+// Mengembalikan data URL base64 gambar grafik untuk disematkan pada berkas laporan PDF.
+const getImageDataUrl = () => {
+    if (!chartInstance) return null;
+    return chartInstance.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#FFFFFF' });
+};
+
 // Mengaktifkan atau menonaktifkan seluruh legend yang tersedia.
 const toggleLegend = () => {
     if (!chartInstance) return;
@@ -214,7 +220,7 @@ onBeforeUnmount(() => {
     chartInstance = null;
 });
 
-defineExpose({ downloadPng, reset, resize, toggleLegend });
+defineExpose({ downloadPng, getImageDataUrl, reset, resize, toggleLegend });
 </script>
 
 <template>

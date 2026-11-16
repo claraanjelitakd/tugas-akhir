@@ -569,7 +569,15 @@ Dengan aturan ini, perubahan urutan opsi atau hasil query tidak mengubah arti wa
 5. Tab salah: cek `sectionOrder` pada `GrafikProdi.vue` dan `categoryComponents` pada `ProdiAnalyticsChartsPanel.vue`.
 6. Drill-down salah: cek payload event `select` dan pencocokan `record.kode` di `GrafikProdi.vue`.
 
-## 9. File backend penting
+## 9. Fitur Ekspor Grafik dan Laporan Analisis PDF
+
+Setiap visualisasi analitik (Grafik Universitas, Grafik Program Studi, dan Evaluasi Atasan) dilengkapi bilah aksi terpadu dengan opsi:
+- **Grafik**: Menampilkan visualisasi interaktif ECharts beserta narasi analisis dan tabel drill-down inline.
+- **Data**: Menampilkan tabulasi ringkasan data pembentuk indikator.
+- **Unduh Grafik**: Mengunduh berkas gambar `.png` resolusi tinggi (`pixelRatio: 2`) langsung dari canvas grafik aktif.
+- **Laporan PDF**: Menghasilkan berkas dokumen `.pdf` fisik utuh secara client-side via `analyticsPdfExporter.js` (memanfaatkan `jspdf` dan `jspdf-autotable`). Laporan memuat judul indikator, parameter aktif, visualisasi grafik, ringkasan temuan capaian, serta tabel lengkap data pembentuk dengan paginasi bergaris rapi.
+
+## 10. File backend dan frontend penting
 
 | File | Tanggung jawab |
 | --- | --- |
@@ -578,4 +586,5 @@ Dengan aturan ini, perubahan urutan opsi atau hasil query tidak mengubah arti wa
 | `ProdiAnalyticsController.php` | Menerima filter Grafik Prodi dan memanggil service. |
 | `TracerAnalyticsService.php` | Menghitung indikator Universitas dan metodologinya, termasuk IKU S1. |
 | `ProdiAnalyticsService.php` | Membaca section/pertanyaan Prodi dan menghitung visualisasi dinamis. |
-| `AnalyticsEChart.vue` | Membungkus instance ECharts di frontend. |
+| `AnalyticsEChart.vue` | Membungkus instance ECharts di frontend, resize observer, dan utilitas ekspor canvas. |
+| `analyticsPdfExporter.js` | Generator berkas dokumen PDF laporan analitik resmi Tracer Study. |

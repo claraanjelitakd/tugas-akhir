@@ -11,6 +11,7 @@ import Sidebar from '../Components/Sidebar.vue';
 import ProdiAnalyticsChartsPanel from '@/components/prodi-analytics/ProdiAnalyticsChartsPanel.vue';
 import ProdiPivotTable from '@/components/prodi-analytics/ProdiPivotTable.vue';
 import PaginationControls from '@/components/PaginationControls.vue';
+import { generateAnalyticsPdf } from '@/utils/analyticsPdfExporter';
 
 // Props awal dari controller berisi filter, instrumen, ringkasan, grafik, dan records.
 const props = defineProps({
@@ -298,9 +299,46 @@ const paginatedRecords = computed(() => {
     return filteredRecords.value.slice(start, start + rowsPerPage.value);
 });
 
-// Mengunduh / mencetak laporan analisis kategori program studi dalam format PDF
+// Menghasilkan dan mengunduh berkas laporan PDF analitik program studi lengkap dengan grafik dan tabel data
 const printProdiReport = () => {
-    window.print();
+    const canvas = document.querySelector('main figure canvas, main canvas');
+    const chartBase64 = canvas ? canvas.toDataURL('image/png') : null;
+
+    const headers = ['No', 'Nama Alumni', 'NIM', 'Pertanyaan / Aspek', 'Jawaban'];
+    const rows = (filteredRecords.value || []).map((rec, idx) => [
+        idx + 1,
+        rec.nama || '-',
+        rec.nim || '-',
+        rec.aspek || rec.kode || '-',
+        rec.jawaban_label || '-',
+    ]);
+
+    const titleText = chart.value?.title || 'Analisis Kuesioner Khusus Program Studi';
+    const prodiText = selectedProdi.value?.nama_prodi || 'Program Studi';
+    const summaryNarrative = summary.value?.narrative || summary.value?.keterangan || '';
+
+    generateAnalyticsPdf({
+        title: titleText,
+        subtitle: `Hasil Analisis Kuesioner Program Studi ${prodiText}`,
+        scopeName: prodiText,
+        summaryText: summaryNarrative,
+        chartImageBase64: chartBase64,
+        tableHeaders: headers,
+        tableRows: rows,
+        fileName: `Laporan_Analisis_Prodi_${prodiText.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+    });
+};
+
+// Mengunduh canvas grafik aktif sebagai berkas gambar PNG
+const handleDownloadProdiChart = () => {
+    const canvas = document.querySelector('main figure canvas, main canvas');
+    if (canvas) {
+        const link = document.createElement('a');
+        const safeTitle = `grafik-prodi-${chart.value?.title || 'analitik'}`.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        link.download = `${safeTitle}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
 };
 
 // Menyesuaikan halaman ketika hasil pencarian menjadi lebih pendek.
@@ -390,19 +428,6 @@ watch(() => props.analytics, (newAnalytics) => {
                                 <h2 class="text-xl font-extrabold text-slate-900 sm:text-2xl">{{ chart.title }}</h2>
                                 <p class="mt-1 max-w-3xl text-xs leading-relaxed text-slate-500 sm:text-sm">{{ chart.subtitle }}</p>
                             </div>
-                            <div class="flex items-center gap-2 shrink-0 no-print">
-                                <button
-                                    type="button"
-                                    @click="printProdiReport"
-                                    class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs hover:border-[#0D542B] hover:text-[#0D542B] cursor-pointer transition-colors"
-                                    title="Unduh laporan analisis kategori prodi ini dalam format PDF"
-                                >
-                                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-                                    </svg>
-                                    <span>Unduh Laporan (PDF)</span>
-                                </button>
-                            </div>
                         </div>
                         <div class="mt-5 grid w-full grid-cols-2 gap-3.5 lg:grid-cols-4">
                             <div v-for="card in kpiCards" :key="card.label" class="relative flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4.5">
@@ -421,10 +446,45 @@ watch(() => props.analytics, (newAnalytics) => {
                         </div>
                     </section>
 
-                    <!-- Tab utama hanya dua seperti Grafik Universitas; analisis klik tampil inline. -->
-                    <nav class="flex gap-1 rounded-xl border border-slate-200 bg-white p-1.5" role="tablist" aria-label="Tampilan analitik program studi">
-                        <button v-for="panel in [{ key: 'charts', label: 'Grafik Analitik' }, { key: 'data', label: 'Data Alumni' }]" :key="panel.key" type="button" role="tab" :aria-selected="activePanel === panel.key" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition-all" :class="activePanel === panel.key ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'" @click="activePanel = panel.key">{{ panel.label }}</button>
-                    </nav>
+                    <!-- Bilah Aksi Terpadu: Grafik | Data | Unduh Grafik | Laporan PDF -->
+                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-2 no-print">
+                        <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs">
+                            <button
+                                type="button"
+                                class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                                :class="activePanel === 'charts' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                                @click="activePanel = 'charts'"
+                            >
+                                Grafik
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                                :class="activePanel === 'data' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                                @click="activePanel = 'data'"
+                            >
+                                Data
+                            </button>
+                            <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
+                            <button
+                                type="button"
+                                class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
+                                @click="handleDownloadProdiChart"
+                                title="Unduh gambar grafik saat ini (PNG)"
+                            >
+                                Unduh Grafik
+                            </button>
+                            <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
+                            <button
+                                type="button"
+                                class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
+                                @click="printProdiReport"
+                                title="Unduh laporan analisis lengkap prodi ini (PDF)"
+                            >
+                                Laporan PDF
+                            </button>
+                        </div>
+                    </div>
 
                     <!-- Panel grafik menampilkan drill-down analisis dan jumlah responden pembentuk. -->
                     <section v-if="activePanel === 'charts'" class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
