@@ -1,4 +1,5 @@
 @startuml
+!include activity-style.puml
 title AD-16 Penerimaan Data dan Rekomendasi Master Perusahaan
 |Alumni atau Proses LinkedIn|
 start

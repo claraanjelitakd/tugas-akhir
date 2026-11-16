@@ -38,23 +38,74 @@ const props = defineProps({
     message: String,
 });
 
-const STORAGE_ANSWERS_KEY = 'tracerstudy_alumni_kuesioner_prodi_answers';
-const STORAGE_SECTION_KEY = 'tracerstudy_alumni_kuesioner_prodi_sec';
+// Membentuk hash singkat untuk memisahkan cache antar alumni dan versi instrumen.
+const hashStorageValue = (value) => {
+    let hash = 0;
 
-// Inisialisasi formulir jawaban (gabung server + cache lokal jika ada)
+    for (let index = 0; index < value.length; index += 1) {
+        hash = ((hash << 5) - hash) + value.charCodeAt(index);
+        hash |= 0;
+    }
+
+    return Math.abs(hash).toString(36);
+};
+
+// Menghasilkan versi cache dari struktur pertanyaan dan opsi yang aktif.
+const getQuestionnaireVersion = () => {
+    const signature = (props.questions || [])
+        .map((question) => {
+            const options = (question.options || [])
+                .map((option) => `${option.id}:${option.option_text}:${option.jump_to || ''}`)
+                .join(',');
+
+            return `${question.id}:${question.code}:${question.type}:${options}`;
+        })
+        .sort()
+        .join('|');
+
+    return hashStorageValue(signature || 'empty-questionnaire-prodi');
+};
+
+const storageScope = `alumni_${props.alumni?.id || props.alumni?.nim || 'unknown'}_prodi_${props.prodi?.id || 'unknown'}_${getQuestionnaireVersion()}`;
+const STORAGE_ANSWERS_KEY = `tracerstudy_alumni_kuesioner_prodi_answers_${storageScope}`;
+const STORAGE_SECTION_KEY = `tracerstudy_alumni_kuesioner_prodi_sec_${storageScope}`;
+
+// Menentukan apakah nilai server atau draft lokal masih kosong.
+const isAnswerValEmpty = (value) => {
+    if (value === undefined || value === null || value === '') return true;
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === 'object') {
+        const keys = Object.keys(value);
+        return keys.length === 0 || keys.every((key) => isAnswerValEmpty(value[key]));
+    }
+    return false;
+};
+
+// Menggabungkan jawaban server dengan draft lokal; nilai server selalu menang.
 const getInitialAnswers = () => {
-    const base = { ...(props.initialAnswers || {}) };
+    const serverAnswers = JSON.parse(JSON.stringify(props.initialAnswers || {}));
+    let cachedAnswers = {};
     if (typeof window !== 'undefined') {
         try {
             const cached = localStorage.getItem(STORAGE_ANSWERS_KEY);
             if (cached) {
-                const parsed = JSON.parse(cached);
-                Object.assign(base, parsed);
+                cachedAnswers = JSON.parse(cached) || {};
             }
         } catch (e) {
             console.error('Gagal membaca cache jawaban prodi:', e);
         }
     }
+
+    const base = {};
+    const allKeys = new Set([...Object.keys(cachedAnswers), ...Object.keys(serverAnswers)]);
+    allKeys.forEach((key) => {
+        const serverValue = serverAnswers[key];
+        const cachedValue = cachedAnswers[key];
+        base[key] = !isAnswerValEmpty(serverValue)
+            ? serverValue
+            : (!isAnswerValEmpty(cachedValue) ? cachedValue : (serverValue ?? cachedValue));
+    });
+
     return base;
 };
 
@@ -77,6 +128,58 @@ const form = useForm({
     answers: getInitialAnswers(),
 });
 
+// Mendeteksi apakah terdapat perubahan jawaban dari data awal yang tersimpan
+const hasAnswerChanges = computed(() => {
+    const current = form.answers || {};
+    const initial = props.initialAnswers || {};
+
+    const allKeys = new Set([...Object.keys(current), ...Object.keys(initial)]);
+    for (const key of allKeys) {
+        const cVal = current[key];
+        const iVal = initial[key];
+        const cEmpty = cVal === undefined || cVal === null || cVal === '' || (Array.isArray(cVal) && cVal.length === 0);
+        const iEmpty = iVal === undefined || iVal === null || iVal === '' || (Array.isArray(iVal) && iVal.length === 0);
+
+        if (cEmpty && iEmpty) continue;
+        if (cEmpty !== iEmpty) return true;
+        if (JSON.stringify(cVal) !== JSON.stringify(iVal)) return true;
+    }
+    return false;
+});
+
+// Mengembalikan jawaban kuesioner prodi ke data awal yang tersimpan di server
+const resetAnswersToInitial = () => {
+    Swal.fire({
+        title: 'Batalkan Semua Perubahan Jawaban?',
+        text: 'Seluruh jawaban kuesioner prodi akan dikembalikan persis ke data yang telah tersimpan sebelumnya di server.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Kembalikan',
+        cancelButtonText: 'Lanjut Mengisi',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            form.answers = JSON.parse(JSON.stringify(props.initialAnswers || {}));
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.removeItem(STORAGE_ANSWERS_KEY);
+                } catch (e) {
+                    console.error('Gagal menghapus cache jawaban prodi:', e);
+                }
+            }
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 2500,
+                icon: 'info',
+                title: 'Jawaban dikembalikan ke data tersimpan',
+            });
+        }
+    });
+};
+
 const activeSectionIndex = ref(getInitialSectionIndex());
 const completedSectionIndices = ref(new Set());
 
@@ -86,7 +189,7 @@ const groupedSections = computed(() => {
         return props.sections.map((sec, sIdx) => {
             const secQuestions = (sec.questions && sec.questions.length > 0)
                 ? sec.questions
-                : props.questions.filter(q => q.prodi_question_section_id === sec.id);
+                : props.questions.filter(q => q.section_id === sec.id);
             
             // Urutkan pertanyaan berdasarkan order
             const sorted = [...secQuestions].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -111,14 +214,65 @@ const groupedSections = computed(() => {
 });
 
 const currentSection = computed(() => {
-    if (!groupedSections.value || groupedSections.value.length === 0) return null;
-    return groupedSections.value[activeSectionIndex.value] || groupedSections.value[0];
+    if (!visibleSections.value || visibleSections.value.length === 0) return null;
+    return visibleSections.value[activeSectionIndex.value] || visibleSections.value[0];
 });
+
+// Menyusun semua pertanyaan prodi dalam urutan section untuk evaluasi jump_to.
+const orderedQuestionsList = computed(() => groupedSections.value.flatMap((section) => section.questions || []));
+
+// Menentukan pertanyaan prodi yang dilewati berdasarkan opsi pilihan dan target jump_to.
+const hiddenQuestionIds = computed(() => {
+    const hidden = new Set();
+    const questions = orderedQuestionsList.value;
+    const codeToIndex = {};
+
+    questions.forEach((question, index) => {
+        const code = String(question.code || question.kode_pertanyaan || '').trim().toUpperCase();
+        if (code) codeToIndex[code] = index;
+    });
+
+    questions.forEach((question, index) => {
+        const answer = form.answers[question.id];
+        if (answer === undefined || answer === null || answer === '') return;
+
+        const selectedValue = typeof answer === 'object' && !Array.isArray(answer)
+            ? answer.selected
+            : answer;
+        if (selectedValue === undefined || selectedValue === null || selectedValue === '') return;
+
+        const selectedText = String(selectedValue).trim().toLowerCase();
+        const selectedOption = (question.options || []).find((option) => {
+            const optionText = String(option.option_text || option.text || '').trim().toLowerCase();
+            const optionCode = String(option.kode_opsi || option.code || '').trim().toLowerCase();
+
+            return optionText === selectedText || optionCode === selectedText;
+        });
+
+        const targetCode = String(selectedOption?.jump_to || '').trim().toUpperCase();
+        const targetIndex = codeToIndex[targetCode];
+        if (targetIndex === undefined || targetIndex <= index) return;
+
+        for (let skippedIndex = index + 1; skippedIndex < targetIndex; skippedIndex += 1) {
+            hidden.add(questions[skippedIndex].id);
+        }
+    });
+
+    return hidden;
+});
+
+// Memeriksa apakah pertanyaan masih terlihat setelah aturan jump_to diterapkan.
+const isQuestionVisible = (questionId) => !hiddenQuestionIds.value.has(questionId);
+
+// Menghapus section yang seluruh pertanyaannya dilewati agar navigasi tidak berhenti di halaman kosong.
+const visibleSections = computed(() => groupedSections.value.filter((section) => (
+    section.questions || []
+).some((question) => isQuestionVisible(question.id))));
 
 // Mengelompokkan butir pertanyaan di seksi aktif:
 // Butir-butir bertipe rating_5 yang berurutan akan digabung menjadi 1 blok matriks tabel (seperti F2)
 const currentSectionBlocks = computed(() => {
-    const list = currentSection.value?.questions || [];
+    const list = (currentSection.value?.questions || []).filter((question) => isQuestionVisible(question.id));
     const blocks = [];
     let currentRatingGroup = null;
 
@@ -221,18 +375,40 @@ const isQuestionAnswered = (q) => {
 // Validasi kelengkapan satu seksi
 const isSectionAnswered = (section) => {
     if (!section || !section.questions || section.questions.length === 0) return false;
-    const validQuestions = section.questions.filter(q => q.type !== 'header');
-    if (validQuestions.length === 0) return false;
+    const validQuestions = section.questions.filter(q => q.type !== 'header' && isQuestionVisible(q.id));
+    if (validQuestions.length === 0) return true;
     const requiredQuestions = validQuestions.filter(q => q.is_required);
-    const targetQuestions = requiredQuestions.length > 0 ? requiredQuestions : validQuestions;
-    return targetQuestions.every(q => isQuestionAnswered(q));
+    return requiredQuestions.every(q => isQuestionAnswered(q));
 };
 
 // Status kelengkapan seksi untuk stepper (hanya ceklist jika seluruh soal wajib di seksi tersebut benar-benar terjawab)
 const isSectionCompleted = (index) => {
-    const sec = groupedSections.value[index];
+    const sec = visibleSections.value[index];
     if (!sec) return false;
     return isSectionAnswered(sec);
+};
+
+// Menentukan apakah section boleh dibuka setelah semua section sebelumnya selesai.
+const canSelectSection = (index) => {
+    if (!visibleSections.value[index]) {
+        return false;
+    }
+
+    return visibleSections.value
+        .slice(0, index)
+        .every((section, sectionIndex) => isSectionCompleted(sectionIndex));
+};
+
+// Menampilkan alasan ketika alumni mencoba melewati section yang belum lengkap.
+const notifyIncompleteSection = (section) => {
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        icon: 'warning',
+        title: `Lengkapi bagian ${section?.title || 'ini'} terlebih dahulu`,
+    });
 };
 
 const isLineCompleted = (index) => {
@@ -248,7 +424,7 @@ const isLineCompleted = (index) => {
 // Sinkronisasi status kelengkapan
 const syncSectionCompletion = () => {
     const newCompleted = new Set();
-    groupedSections.value.forEach((sec, idx) => {
+    visibleSections.value.forEach((sec, idx) => {
         if (isSectionAnswered(sec)) {
             newCompleted.add(idx);
         }
@@ -258,7 +434,7 @@ const syncSectionCompletion = () => {
 
 // Hitung total progress
 const progressStats = computed(() => {
-    const validQuestions = (props.questions || []).filter(q => q.type !== 'header');
+    const validQuestions = orderedQuestionsList.value.filter(q => q.type !== 'header' && isQuestionVisible(q.id));
     const total = validQuestions.length;
     if (total === 0) return { answered: 0, total: 0, percentage: 0 };
 
@@ -278,6 +454,13 @@ const progressStats = computed(() => {
 
 // Navigasi Section
 const setSection = (index) => {
+    if (!canSelectSection(index)) {
+        const firstIncompleteSection = visibleSections.value.find((section, sectionIndex) => !isSectionCompleted(sectionIndex));
+        notifyIncompleteSection(firstIncompleteSection);
+
+        return;
+    }
+
     syncSectionCompletion();
     activeSectionIndex.value = index;
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -288,6 +471,7 @@ const setSection = (index) => {
     }, {
         preserveScroll: true,
         preserveState: true,
+        showProgress: false,
         only: ['initialAnswers'],
     });
 };
@@ -303,19 +487,35 @@ const prevSection = () => {
         }, {
             preserveScroll: true,
             preserveState: true,
+            showProgress: false,
             only: ['initialAnswers'],
         });
     }
 };
 
 const isLastSection = computed(() => {
-    return activeSectionIndex.value >= groupedSections.value.length - 1;
+    return activeSectionIndex.value >= visibleSections.value.length - 1;
 });
 
 const handleNextOrSubmit = () => {
+    if (!isSectionCompleted(activeSectionIndex.value)) {
+        notifyIncompleteSection(currentSection.value);
+
+        return;
+    }
+
     if (isLastSection.value) {
+        const firstIncompleteSection = visibleSections.value.find((section, sectionIndex) => !isSectionCompleted(sectionIndex));
+
+        if (firstIncompleteSection) {
+            activeSectionIndex.value = visibleSections.value.indexOf(firstIncompleteSection);
+            notifyIncompleteSection(firstIncompleteSection);
+
+            return;
+        }
+
         // Validasi seluruh pertanyaan wajib
-        const requiredQuestions = props.questions.filter(q => q.is_required);
+        const requiredQuestions = orderedQuestionsList.value.filter(q => q.is_required && isQuestionVisible(q.id));
         const missing = requiredQuestions.filter(q => !isQuestionAnswered(q));
 
         if (missing.length > 0) {
@@ -369,6 +569,7 @@ const handleNextOrSubmit = () => {
         }, {
             preserveScroll: true,
             preserveState: true,
+            showProgress: false,
             only: ['initialAnswers'],
             onSuccess: () => {
                 syncSectionCompletion();
@@ -379,21 +580,14 @@ const handleNextOrSubmit = () => {
 
 // Lifecycle & Watchers
 onMounted(() => {
-    if (activeSectionIndex.value >= groupedSections.value.length) {
+    if (activeSectionIndex.value >= visibleSections.value.length) {
         activeSectionIndex.value = 0;
     }
     syncSectionCompletion();
 
-    // Jika ada cache lokal, langsung sinkronisasi ke server database agar Dashboard selalu identik
-    if (typeof window !== 'undefined' && localStorage.getItem(STORAGE_ANSWERS_KEY)) {
-        router.post('/alumni/kuesioner-prodi', {
-            answers: form.answers,
-            stay_on_page: true,
-        }, {
-            preserveScroll: true,
-            preserveState: true,
-            only: ['initialAnswers'],
-        });
+    const firstIncompleteSection = visibleSections.value.find((section, sectionIndex) => !isSectionCompleted(sectionIndex));
+    if (!canSelectSection(activeSectionIndex.value) && firstIncompleteSection) {
+        activeSectionIndex.value = visibleSections.value.indexOf(firstIncompleteSection);
     }
 });
 
@@ -403,8 +597,14 @@ watch(activeSectionIndex, (newIdx) => {
     }
 });
 
+// Menyesuaikan section aktif ketika jawaban baru menyembunyikan section melalui jump_to.
+watch(visibleSections, (sections) => {
+    if (activeSectionIndex.value >= sections.length) {
+        activeSectionIndex.value = Math.max(0, sections.length - 1);
+    }
+}, { immediate: true });
+
 let draftTimer = null;
-let serverSyncTimer = null;
 watch(() => form.answers, (newAnswers) => {
     if (typeof window !== 'undefined') {
         clearTimeout(draftTimer);
@@ -414,19 +614,7 @@ watch(() => form.answers, (newAnswers) => {
             } catch (e) {
                 console.error('Gagal menyimpan cache jawaban prodi:', e);
             }
-        }, 500);
-
-        clearTimeout(serverSyncTimer);
-        serverSyncTimer = setTimeout(() => {
-            router.post('/alumni/kuesioner-prodi', {
-                answers: newAnswers,
-                stay_on_page: true,
-            }, {
-                preserveScroll: true,
-                preserveState: true,
-                only: ['initialAnswers'],
-            });
-        }, 1000);
+        }, 300);
     }
     syncSectionCompletion();
 }, { deep: true });
@@ -443,12 +631,13 @@ watch(() => form.answers, (newAnswers) => {
 
             <!-- 2. Stepper Tahapan (Bulatan Angka 1 s/d N & Judul Bagian) -->
             <Stepper 
-                v-if="groupedSections && groupedSections.length > 0"
-                :sections="groupedSections"
+                v-if="visibleSections && visibleSections.length > 0"
+                :sections="visibleSections"
                 :active-index="activeSectionIndex"
                 :completed-indices="completedSectionIndices"
                 :is-section-completed="isSectionCompleted"
                 :is-line-completed="isLineCompleted"
+                :can-select-section="canSelectSection"
                 @select-section="setSection"
             />
         </header>
@@ -478,12 +667,14 @@ watch(() => form.answers, (newAnswers) => {
                 <!-- 3. Banner Judul Bagian -->
                 <Banner 
                     :current-index="activeSectionIndex"
-                    :total-sections="groupedSections.length"
+                    :total-sections="visibleSections.length"
                     :title="currentSection.title"
                     :description="currentSection.description"
                     :badge-text="'Kuesioner Program Studi ' + (prodi?.nama_prodi || '')"
                     :percentage="progressStats.percentage"
                     :progress-label="progressStats.answered + ' / ' + progressStats.total + ' Soal'"
+                    :has-changes="hasAnswerChanges"
+                    @reset="resetAnswersToInitial"
                 />
 
                 <!-- Konten Formulir Seksi Aktif -->
@@ -509,7 +700,7 @@ watch(() => form.answers, (newAnswers) => {
                     <!-- Tombol Navigasi Desktop & Mobile (< Kembali & > Lanjut/Selesai) -->
                     <Navigasi 
                         :active-section-index="activeSectionIndex"
-                        :total-sections="groupedSections.length"
+                        :total-sections="visibleSections.length"
                         :is-last-visible-section="isLastSection"
                         :is-processing="form.processing"
                         @prev="prevSection"

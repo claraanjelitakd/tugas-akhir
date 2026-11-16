@@ -1,18 +1,19 @@
 <!--
   Halaman Utama (Parent Component): Kelola Profil Alumni
   File: resources/js/Pages/Alumni/Profil/Index.vue
-  
+
   DIRELOAD OLEH BACKEND DARI:
   - Controller Tampil : App\Http\Controllers\Alumni\Profil\ProfilController.php (method tampilkanHalamanProfil)
   - Route URL (GET)   : /alumni/profile
-  
+
   DISIMPAN KE BACKEND OLEH:
   - Controller Simpan : App\Http\Controllers\Alumni\Profil\SimpanProfilController.php (method simpanProfil)
   - Route URL (POST)  : /alumni/profile
 -->
 <script setup>
+// Halaman profil alumni: form menerima data ter-normalisasi dari controller dan mengirim perubahan melalui Inertia.
 import { Head, router, useForm, usePage, Link } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import Swal from 'sweetalert2';
 
 import FormPribadi from '@/components/AlumniProfil/FormPribadi.vue';
@@ -40,6 +41,10 @@ const props = defineProps({
     companies: Array,
     refOptions: Object,
     profileQuestions: Array,
+    profileQuestionConfigs: {
+        type: Object,
+        default: () => ({}),
+    },
     evaluasiAtasan: Object,
 });
 
@@ -79,7 +84,7 @@ const getInitialTab = () => {
  * ====================================================================
  * Di sinilah 'form' lahir!
  * Nilai awalnya diambil dari props.formData yang dikirim oleh ProfilController.php.
- * 
+ *
  * Objek 'form' inilah yang nanti dioper ke 3 komponen anak:
  * <FormPribadi  :form="form" />
  * <FormAkademik :form="form" />
@@ -149,66 +154,91 @@ const isValidUrl = (val) => {
     return /^https?:\/\/.+/i.test(String(val).trim());
 };
 
+// Helper untuk mengecek status wajib dan label butir pertanyaan dari konfigurasi Super Admin
+const isFieldMandatory = (code, fallback = true) => {
+    if (!props.profileQuestionConfigs || Object.keys(props.profileQuestionConfigs).length === 0) {
+        return fallback;
+    }
+    const config = props.profileQuestionConfigs[code];
+    // Jika pertanyaan tidak terdaftar di konfigurasi aktif (disembunyikan Superadmin), otomatis tidak wajib
+    if (!config) {
+        return false;
+    }
+    return Boolean(config.wajib);
+};
+
+// Helper untuk mengecek apakah suatu field diizinkan tampil di form profil oleh Super Admin
+const isFieldVisible = (code) => {
+    if (!props.profileQuestionConfigs || Object.keys(props.profileQuestionConfigs).length === 0) {
+        return true;
+    }
+    return Boolean(props.profileQuestionConfigs[code]);
+};
+
+const getFieldLabel = (code, fallback) => {
+    return props.profileQuestionConfigs?.[code]?.subpertanyaan || fallback;
+};
+
 // Evaluasi kelengkapan data tiap tab secara realtime
 const tabCompleteness = computed(() => {
     // 1. Tab Pribadi
     const missingPribadi = [];
-    if (!form.nama || !String(form.nama).trim()) missingPribadi.push('Nama Lengkap');
-    if (!form.tempat_lahir || !String(form.tempat_lahir).trim()) missingPribadi.push('Tempat Lahir');
-    if (!form.tanggal_lahir) missingPribadi.push('Tanggal Lahir');
-    if (!form.jenis_kelamin) missingPribadi.push('Jenis Kelamin');
-    if (!form.agama) missingPribadi.push('Agama');
-    if (!form.golongan_darah) missingPribadi.push('Golongan Darah');
-    if (!form.warga_negara || !String(form.warga_negara).trim()) missingPribadi.push('Kewarganegaraan');
-    if (!form.nomor_telepon || !isValidPhone(form.nomor_telepon)) missingPribadi.push('Nomor Telepon / WhatsApp');
-    if (!form.email_pribadi || !isValidEmail(form.email_pribadi)) missingPribadi.push('Email Pribadi');
-    if (!form.alamat_saat_ini || !String(form.alamat_saat_ini).trim()) missingPribadi.push('Alamat Domisili');
-    if (!form.provinsi_id && !form.propinsi_id) missingPribadi.push('Provinsi Domisili');
-    if (!form.kabupaten_id) missingPribadi.push('Kabupaten/Kota Domisili');
-    if (!form.kecamatan || !String(form.kecamatan).trim()) missingPribadi.push('Kecamatan Domisili');
-    if (!form.kelurahan || !String(form.kelurahan).trim()) missingPribadi.push('Kelurahan/Desa Domisili');
-    if (!form.kode_pos || !String(form.kode_pos).trim()) missingPribadi.push('Kode Pos Domisili');
+    if (isFieldMandatory('F2A') && (!form.nama || !String(form.nama).trim())) missingPribadi.push(getFieldLabel('F2A', 'Nama Lengkap'));
+    if (isFieldMandatory('BIO_TANGGAL_LAHIR') && !form.tanggal_lahir) missingPribadi.push(getFieldLabel('BIO_TANGGAL_LAHIR', 'Tanggal Lahir'));
+    if (isFieldMandatory('BIO_JK') && !form.jenis_kelamin) missingPribadi.push(getFieldLabel('BIO_JK', 'Jenis Kelamin'));
+    if (isFieldMandatory('BIO_WARGA_NEGARA') && (!form.warga_negara || !String(form.warga_negara).trim())) missingPribadi.push(getFieldLabel('BIO_WARGA_NEGARA', 'Kewarganegaraan'));
+    if (isFieldMandatory('F2B') && (!form.nomor_telepon || !isValidPhone(form.nomor_telepon))) missingPribadi.push(getFieldLabel('F2B', 'Nomor Telepon / WhatsApp'));
+    if (isFieldMandatory('F2C') && (!form.email_pribadi || !isValidEmail(form.email_pribadi))) missingPribadi.push(getFieldLabel('F2C', 'Email Pribadi'));
+    if (isFieldMandatory('F2D') && (!form.alamat_saat_ini || !String(form.alamat_saat_ini).trim())) missingPribadi.push(getFieldLabel('F2D', 'Alamat Domisili'));
+    if (isFieldMandatory('BIO_PROVINSI') && !form.kode_provinsi) missingPribadi.push(getFieldLabel('BIO_PROVINSI', 'Provinsi Domisili'));
+    if (isFieldMandatory('BIO_KABUPATEN') && !form.kode_kabupaten) missingPribadi.push(getFieldLabel('BIO_KABUPATEN', 'Kabupaten/Kota Domisili'));
+    if (isFieldMandatory('BIO_KECAMATAN') && (!form.kecamatan || !String(form.kecamatan).trim())) missingPribadi.push(getFieldLabel('BIO_KECAMATAN', 'Kecamatan Domisili'));
+    if (isFieldMandatory('BIO_KELURAHAN') && (!form.kelurahan || !String(form.kelurahan).trim())) missingPribadi.push(getFieldLabel('BIO_KELURAHAN', 'Kelurahan/Desa Domisili'));
+    if (isFieldMandatory('BIO_KODE_POS') && (!form.kode_pos || !String(form.kode_pos).trim())) missingPribadi.push(getFieldLabel('BIO_KODE_POS', 'Kode Pos Domisili'));
 
     // 2. Tab Karier
     const missingKarier = [];
-    if (!form.linkedin_url || !isValidUrl(form.linkedin_url)) missingKarier.push('LinkedIn URL');
-    if (!form.linkedin_username || !String(form.linkedin_username).trim()) missingKarier.push('LinkedIn Username');
-    if (!form.instagram_url || !isValidUrl(form.instagram_url)) missingKarier.push('Instagram URL');
-    if (!form.facebook_url || !isValidUrl(form.facebook_url)) missingKarier.push('Facebook URL');
+    if (isFieldMandatory('BIO_LINKEDIN_URL') && (!form.linkedin_url || !isValidUrl(form.linkedin_url))) missingKarier.push(getFieldLabel('BIO_LINKEDIN_URL', 'LinkedIn URL'));
+    if (isFieldMandatory('BIO_LINKEDIN_USER') && (!form.linkedin_username || !String(form.linkedin_username).trim())) missingKarier.push(getFieldLabel('BIO_LINKEDIN_USER', 'LinkedIn Username'));
+    if (isFieldMandatory('BIO_INSTAGRAM_URL') && (!form.instagram_url || !isValidUrl(form.instagram_url))) missingKarier.push(getFieldLabel('BIO_INSTAGRAM_URL', 'Instagram URL'));
+    if (isFieldMandatory('BIO_FACEBOOK_URL') && (!form.facebook_url || !isValidUrl(form.facebook_url))) missingKarier.push(getFieldLabel('BIO_FACEBOOK_URL', 'Facebook URL'));
     const hasSkills = form.skills && String(form.skills).trim();
-    if (!hasSkills) missingKarier.push('Keahlian (Skills)');
+    if (isFieldMandatory('BIO_SKILLS') && !hasSkills) missingKarier.push(getFieldLabel('BIO_SKILLS', 'Keahlian (Skills)'));
 
     const hasExperience = form.experience && String(form.experience).trim();
-    if (!hasExperience) missingKarier.push('Pengalaman Kerja (Experience)');
+    if (isFieldMandatory('BIO_EXPERIENCE') && !hasExperience) missingKarier.push(getFieldLabel('BIO_EXPERIENCE', 'Pengalaman Kerja (Experience)'));
 
     const kategori = (form.kategori_pekerjaan || '').trim();
+    // Field kantor pusat yang terkunci tidak boleh menggagalkan profil ketika
+    // master perusahaan sudah dipilih tetapi datanya belum lengkap.
+    const hasSelectedCompanyMaster = Boolean(form.company_status_verifikasi || form.perusahaan_status_verifikasi);
     if (!kategori) {
-        missingKarier.push('Status Pekerjaan / Aktivitas Utama');
+        missingKarier.push(getFieldLabel('F8', 'Status Pekerjaan / Aktivitas Utama'));
     } else if (kategori === 'Pekerja') {
-        if (!form.nama_perusahaan || !String(form.nama_perusahaan).trim()) missingKarier.push('Nama Perusahaan / Instansi');
-        if (!form.perusahaan_bentuk && !form.company_bentuk) missingKarier.push('Bentuk Perusahaan / Institusi');
-        if ((!form.perusahaan_alamat || !String(form.perusahaan_alamat).trim()) && (!form.company_alamat || !String(form.company_alamat).trim())) missingKarier.push('Alamat Perusahaan');
-        if (!form.perusahaan_skala && !form.company_skala) missingKarier.push('Skala Perusahaan');
-        if (!form.perusahaan_jenis_perusahaan && !form.company_jenis_perusahaan) missingKarier.push('Jenis Perusahaan');
+        if (isFieldMandatory('F2E') && (!form.nama_perusahaan || !String(form.nama_perusahaan).trim())) missingKarier.push(getFieldLabel('F2E', 'Nama Perusahaan / Instansi'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('BIO_INST_BENTUK') && !form.perusahaan_bentuk && !form.company_bentuk) missingKarier.push(getFieldLabel('BIO_INST_BENTUK', 'Bentuk Perusahaan / Institusi'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('F2F') && ((!form.perusahaan_alamat || !String(form.perusahaan_alamat).trim()) && (!form.company_alamat || !String(form.company_alamat).trim()))) missingKarier.push(getFieldLabel('F2F', 'Alamat Perusahaan'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('F2H') && !form.perusahaan_skala && !form.company_skala) missingKarier.push(getFieldLabel('F2H', 'Skala Perusahaan'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('F11') && !form.perusahaan_jenis_perusahaan && !form.company_jenis_perusahaan) missingKarier.push(getFieldLabel('F11', 'Jenis Perusahaan'));
         const hasKodePosKantor = (form.company_kode_pos && String(form.company_kode_pos).trim()) || (form.perusahaan_kode_pos && String(form.perusahaan_kode_pos).trim()) || (form.zipcode && String(form.zipcode).trim());
-        if (!hasKodePosKantor) missingKarier.push('Kode Pos Perusahaan');
-        if (!form.gaji || Number(form.gaji) < 1000) missingKarier.push('Rata-rata Pendapatan / Gaji (Min Rp 1.000)');
-        if (!form.posisi_jabatan || !String(form.posisi_jabatan).trim()) missingKarier.push('Posisi Jabatan');
-        if (!form.nama_atasan || !String(form.nama_atasan).trim()) missingKarier.push('Nama Atasan Langsung');
-        if (!form.email_atasan || !isValidEmail(form.email_atasan)) missingKarier.push('Email Atasan');
-        if (!form.telepon_atasan || !isValidPhone(form.telepon_atasan)) missingKarier.push('Nomor Telepon Atasan');
+        if (!hasSelectedCompanyMaster && isFieldMandatory('BIO_INST_KODEPOS') && !hasKodePosKantor) missingKarier.push(getFieldLabel('BIO_INST_KODEPOS', 'Kode Pos Perusahaan'));
+        if (isFieldMandatory('F505') && (!form.gaji || Number(form.gaji) < 1000)) missingKarier.push(getFieldLabel('F505', 'Rata-rata Pendapatan / Gaji (Min Rp 1.000)'));
+        if (isFieldMandatory('F2G') && (!form.posisi_jabatan || !String(form.posisi_jabatan).trim())) missingKarier.push(getFieldLabel('F2G', 'Posisi Jabatan'));
+        if (isFieldMandatory('F2E1') && (!form.nama_atasan || !String(form.nama_atasan).trim())) missingKarier.push(getFieldLabel('F2E1', 'Nama Atasan Langsung'));
+        if (isFieldMandatory('F2E3') && (!form.email_atasan || !isValidEmail(form.email_atasan))) missingKarier.push(getFieldLabel('F2E3', 'Email Atasan'));
+        if (isFieldMandatory('F2E2') && (!form.telepon_atasan || !isValidPhone(form.telepon_atasan))) missingKarier.push(getFieldLabel('F2E2', 'Nomor Telepon Atasan'));
     } else if (kategori === 'Wiraswasta') {
-        if (!form.nama_perusahaan || !String(form.nama_perusahaan).trim()) missingKarier.push('Nama Usaha / Bisnis');
-        if (!form.posisi_wiraswasta) missingKarier.push('Posisi / Jabatan dalam Usaha');
-        if ((!form.perusahaan_alamat || !String(form.perusahaan_alamat).trim()) && (!form.company_alamat || !String(form.company_alamat).trim())) missingKarier.push('Alamat Usaha');
-        if (!form.perusahaan_skala && !form.company_skala) missingKarier.push('Skala Usaha');
-        if (!form.perusahaan_jenis_perusahaan && !form.company_jenis_perusahaan) missingKarier.push('Jenis Usaha');
+        if (isFieldMandatory('F2E') && (!form.nama_perusahaan || !String(form.nama_perusahaan).trim())) missingKarier.push(getFieldLabel('F2E', 'Nama Usaha / Bisnis'));
+        if (isFieldMandatory('F5C') && !form.posisi_wiraswasta) missingKarier.push(getFieldLabel('F5C', 'Posisi / Jabatan dalam Usaha'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('F2F') && ((!form.perusahaan_alamat || !String(form.perusahaan_alamat).trim()) && (!form.company_alamat || !String(form.company_alamat).trim()))) missingKarier.push(getFieldLabel('F2F', 'Alamat Usaha'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('F2H') && !form.perusahaan_skala && !form.company_skala) missingKarier.push(getFieldLabel('F2H', 'Skala Usaha'));
+        if (!hasSelectedCompanyMaster && isFieldMandatory('F11') && !form.perusahaan_jenis_perusahaan && !form.company_jenis_perusahaan) missingKarier.push(getFieldLabel('F11', 'Jenis Usaha'));
         const hasKodePosUsaha = (form.company_kode_pos && String(form.company_kode_pos).trim()) || (form.perusahaan_kode_pos && String(form.perusahaan_kode_pos).trim()) || (form.zipcode && String(form.zipcode).trim());
-        if (!hasKodePosUsaha) missingKarier.push('Kode Pos Lokasi Usaha');
-        if (!form.gaji || Number(form.gaji) < 1000) missingKarier.push('Rata-rata Pendapatan / Gaji (Min Rp 1.000)');
-        if (!form.nama_atasan || !String(form.nama_atasan).trim()) missingKarier.push('Nama Atasan / Pemilik Usaha');
-        if (!form.email_atasan || !isValidEmail(form.email_atasan)) missingKarier.push('Email Atasan / Pemilik Usaha');
-        if (!form.telepon_atasan || !isValidPhone(form.telepon_atasan)) missingKarier.push('Nomor Telepon Atasan / Pemilik Usaha');
+        if (!hasSelectedCompanyMaster && isFieldMandatory('BIO_INST_KODEPOS') && !hasKodePosUsaha) missingKarier.push(getFieldLabel('BIO_INST_KODEPOS', 'Kode Pos Lokasi Usaha'));
+        if (isFieldMandatory('F505') && (!form.gaji || Number(form.gaji) < 1000)) missingKarier.push(getFieldLabel('F505', 'Rata-rata Pendapatan / Gaji (Min Rp 1.000)'));
+        if (isFieldMandatory('F2E1') && (!form.nama_atasan || !String(form.nama_atasan).trim())) missingKarier.push(getFieldLabel('F2E1', 'Nama Atasan / Pemilik Usaha'));
+        if (isFieldMandatory('F2E3') && (!form.email_atasan || !isValidEmail(form.email_atasan))) missingKarier.push(getFieldLabel('F2E3', 'Email Atasan / Pemilik Usaha'));
+        if (isFieldMandatory('F2E2') && (!form.telepon_atasan || !isValidPhone(form.telepon_atasan))) missingKarier.push(getFieldLabel('F2E2', 'Nomor Telepon Atasan / Pemilik Usaha'));
     }
 
     for (const question of props.profileQuestions || []) {
@@ -217,16 +247,16 @@ const tabCompleteness = computed(() => {
         }
     }
 
-    // Validasi studi lanjut jika alumni mengaktifkan studi lanjut
-    if (form.pendidikan_tingkat || form.perguruan_tinggi || form.pendidikan_prodi) {
-        if (!form.pendidikan_tingkat || !String(form.pendidikan_tingkat).trim()) missingKarier.push('Jenjang Pendidikan');
-        if (!form.perguruan_tinggi || !String(form.perguruan_tinggi).trim()) missingKarier.push('Perguruan Tinggi Studi Lanjut');
-        if (!form.pendidikan_prodi || !String(form.pendidikan_prodi).trim()) missingKarier.push('Program Studi Lanjut');
+    // Validasi studi lanjut jika alumni memilih melanjutkan pendidikan atau mengisinya
+    if (form.pendidikan_tingkat || form.perguruan_tinggi || form.pendidikan_prodi || form.kategori_pekerjaan === 'Melanjutkan Pendidikan') {
+        if (isFieldMandatory('BIO_PEND_TINGKAT') && (!form.pendidikan_tingkat || !String(form.pendidikan_tingkat).trim())) missingKarier.push(getFieldLabel('BIO_PEND_TINGKAT', 'Jenjang Pendidikan'));
+        if (isFieldMandatory('BIO_PEND_KAMPUS', false) && (!form.perguruan_tinggi || !String(form.perguruan_tinggi).trim())) missingKarier.push(getFieldLabel('BIO_PEND_KAMPUS', 'Perguruan Tinggi Studi Lanjut'));
+        if (isFieldMandatory('BIO_PEND_PRODI', false) && (!form.pendidikan_prodi || !String(form.pendidikan_prodi).trim())) missingKarier.push(getFieldLabel('BIO_PEND_PRODI', 'Program Studi Lanjut'));
     }
 
     // 3. Tab Akademik
     const missingAkademik = [];
-    if (!form.nim) missingAkademik.push('NIM');
+    if (isFieldMandatory('F1') && !form.nim) missingAkademik.push(getFieldLabel('F1', 'NIM'));
 
     return {
         pribadi: {
@@ -248,17 +278,53 @@ const isTabCompleted = (tabId) => {
     return Boolean(tabCompleteness.value[tabId]?.isComplete);
 };
 
+// Menentukan apakah tab boleh dibuka berdasarkan kelengkapan seluruh tab sebelumnya.
+const canSelectTab = (tabId) => {
+    const targetIndex = tabs.findIndex((tab) => tab.id === tabId);
+
+    if (targetIndex < 0) {
+        return false;
+    }
+
+    return tabs.slice(0, targetIndex).every((tab) => isTabCompleted(tab.id));
+};
+
+// Menampilkan alasan ketika alumni mencoba melewati tab yang belum lengkap.
+const notifyIncompleteTab = (tabId) => {
+    const missing = tabCompleteness.value[tabId]?.missing || [];
+    const firstMissing = missing[0] || 'isian wajib pada langkah ini';
+
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        icon: 'warning',
+        title: `Lengkapi ${firstMissing} terlebih dahulu`,
+    });
+};
+
 const currentTabIndex = computed(() => tabs.findIndex(t => t.id === activeTab.value));
 const prevTab = computed(() => currentTabIndex.value > 0 ? tabs[currentTabIndex.value - 1] : null);
 const nextTab = computed(() => currentTabIndex.value < tabs.length - 1 ? tabs[currentTabIndex.value + 1] : null);
 
-const switchTab = (tabName) => {
+const switchTab = (tabName, shouldScroll = true) => {
     if (!PROFILE_TAB_IDS.includes(tabName)) {
         return;
     }
 
+    if (!canSelectTab(tabName)) {
+        const targetIndex = tabs.findIndex((tab) => tab.id === tabName);
+        const firstIncompleteTab = tabs.slice(0, targetIndex).find((tab) => !isTabCompleted(tab.id));
+
+        notifyIncompleteTab(firstIncompleteTab?.id || tabName);
+
+        return;
+    }
+
+    const isDifferentTab = activeTab.value !== tabName;
     activeTab.value = tabName;
-    if (typeof window !== 'undefined') {
+    if (shouldScroll && isDifferentTab && typeof window !== 'undefined') {
         const container = document.getElementById('profile-form-container');
         if (container) {
             const topOffset = -90;
@@ -304,6 +370,17 @@ const scrollToBottom = () => {
  * ====================================================================
  */
 const submit = (nextTabId = null, redirectTo = null) => {
+    const firstIncompleteTab = tabs.find((tab) => !isTabCompleted(tab.id));
+
+    if (firstIncompleteTab) {
+        if (activeTab.value !== firstIncompleteTab.id) {
+            activeTab.value = firstIncompleteTab.id;
+        }
+        notifyIncompleteTab(firstIncompleteTab.id);
+
+        return;
+    }
+
     // Validasi nominal gaji sebelum submit
     if (form.gaji && Number(form.gaji) > 0 && Number(form.gaji) < 1000) {
         activeTab.value = 'karier';
@@ -338,11 +415,13 @@ const submit = (nextTabId = null, redirectTo = null) => {
                 return;
             }
 
-            const targetTab = nextTabId && PROFILE_TAB_IDS.includes(nextTabId)
-                ? nextTabId
-                : normalizeProfileTab(activeTab.value);
-
-            switchTab(targetTab);
+            if (nextTabId && PROFILE_TAB_IDS.includes(nextTabId)) {
+                switchTab(nextTabId, true);
+            } else {
+                // Jika menyimpan tanpa pindah tab (misal dari floating bar), tetap di tab yang sama
+                // dan pertahankan posisi scroll (shouldScroll = false agar tidak melompat ke atas)
+                switchTab(activeTab.value, false);
+            }
         },
         onError: (errors) => {
             const firstErr = Object.values(errors)[0] || 'Ada data yang belum lengkap atau salah';
@@ -357,6 +436,57 @@ const submit = (nextTabId = null, redirectTo = null) => {
         }
     });
 };
+
+/**
+ * Membatalkan seluruh perubahan yang belum disimpan dan mengembalikan form ke data tersimpan.
+ */
+const handleCancelChanges = () => {
+    Swal.fire({
+        title: 'Batalkan Semua Perubahan?',
+        text: 'Seluruh isian formulir yang belum disimpan akan dikembalikan ke data awal Anda.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Batalkan',
+        cancelButtonText: 'Lanjut Mengisi',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            form.reset();
+            form.clearErrors();
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 2500,
+                icon: 'info',
+                title: 'Perubahan profil berhasil dibatalkan',
+            });
+        }
+    });
+};
+
+// Peringatan sebelum meninggalkan halaman jika ada perubahan yang belum disimpan
+const handleBeforeUnload = (e) => {
+    if (form.isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+};
+
+onMounted(() => {
+    const firstIncompleteTab = tabs.find((tab) => !isTabCompleted(tab.id));
+
+    if (firstIncompleteTab && !canSelectTab(activeTab.value)) {
+        activeTab.value = firstIncompleteTab.id;
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+});
 </script>
 
 <template>
@@ -380,14 +510,15 @@ const submit = (nextTabId = null, redirectTo = null) => {
 
         <main id="profile-form-container" class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
             <form @submit.prevent="submit(null, currentTabIndex === tabs.length - 1 ? '/alumni/kuesioner' : null)" autocomplete="off" class="bg-white rounded-2xl shadow-xs border border-gray-200 relative transition-all duration-300">
-                
-                <!-- Sticky Stepper Navigation (Bersih, Formal & Konsisten) -->
-                <div class="sticky top-[72px] lg:top-20 z-40">
-                    <Stepper 
-                        :tabs="tabs" 
-                        :active-tab="activeTab" 
-                        :is-tab-completed="isTabCompleted" 
-                        @select-tab="switchTab" 
+
+                <!-- Sticky Stepper Navigation; offset mengikuti navbar satu atau dua baris. -->
+                <div class="sticky top-[130px] lg:top-[82px] z-40">
+                    <Stepper
+                        :tabs="tabs"
+                        :active-tab="activeTab"
+                        :is-tab-completed="isTabCompleted"
+                        :can-select-tab="canSelectTab"
+                        @select-tab="switchTab"
                     />
                 </div>
 
@@ -397,27 +528,37 @@ const submit = (nextTabId = null, redirectTo = null) => {
                 <div class="p-6 sm:p-8 md:p-12 min-h-[500px]">
                     <!-- Tab 1: Identitas & Alamat Pribadi -->
                     <div v-show="activeTab === 'pribadi'">
-                        <FormPribadi :form="form" :provinces="provinces" :kabupatens="kabupatens" :negaras="negaras" />
+                        <FormPribadi
+                            :form="form"
+                            :provinces="provinces"
+                            :kabupatens="kabupatens"
+                            :negaras="negaras"
+                            :profileQuestionConfigs="profileQuestionConfigs"
+                        />
                     </div>
 
                     <!-- Tab 2: Karier, Pekerjaan & Data Atasan -->
                     <div v-show="activeTab === 'karier'">
-                        <FormKarier 
-                            :form="form" 
-                            :provinces="provinces" 
-                            :kabupatens="kabupatens" 
-                            :negaras="negaras" 
-                            :companies="companies" 
-                            :alumniData="alumniData" 
-                            :refOptions="refOptions" 
+                        <FormKarier
+                            :form="form"
+                            :provinces="provinces"
+                            :kabupatens="kabupatens"
+                            :negaras="negaras"
+                            :companies="companies"
+                            :alumniData="alumniData"
+                            :refOptions="refOptions"
                             :profileQuestions="profileQuestions"
-                            :evaluasiAtasan="evaluasiAtasan" 
+                            :profileQuestionConfigs="profileQuestionConfigs"
+                            :evaluasiAtasan="evaluasiAtasan"
                         />
                     </div>
 
                     <!-- Tab 3: Data Akademik & Yudisium -->
                     <div v-show="activeTab === 'akademik'">
-                        <FormAkademik :form="form" />
+                        <FormAkademik
+                            :form="form"
+                            :profileQuestionConfigs="profileQuestionConfigs"
+                        />
                     </div>
 
                 </div>
@@ -426,9 +567,9 @@ const submit = (nextTabId = null, redirectTo = null) => {
                 <div class="px-6 sm:px-8 md:px-12 py-5 bg-gray-50/90 backdrop-blur-md rounded-b-[2rem] flex flex-col md:flex-row justify-between items-center gap-4 border-t border-gray-100">
                     <!-- Left: Navigasi Sebelumnya -->
                     <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-                        <button 
-                            v-if="prevTab" 
-                            type="button" 
+                        <button
+                            v-if="prevTab"
+                            type="button"
                             @click="switchTab(prevTab.id)"
                             class="px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
                         >
@@ -437,25 +578,37 @@ const submit = (nextTabId = null, redirectTo = null) => {
                         </button>
                         <span v-else class="text-xs text-gray-400 font-medium">Langkah 1 dari {{ tabs.length }}</span>
                     </div>
-                    
+
                     <!-- Right: Alur Lanjut Antar Langkah (Tanpa Duplikasi Tombol Simpan) -->
-                    <div class="flex items-center gap-3 w-full md:w-auto justify-end">
-                        <!-- Tombol Lanjut ke Langkah Berikutnya -->
-                        <button 
-                            v-if="nextTab" 
-                            type="button" 
-                            @click="switchTab(nextTab.id)"
-                            class="px-6 py-3 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    <div class="flex items-center gap-3 w-full md:w-auto justify-end flex-wrap">
+                        <!-- Tombol Batalkan Perubahan (Muncul jika ada isian yang diubah) -->
+                        <button
+                            v-if="form.isDirty"
+                            type="button"
+                            @click="handleCancelChanges"
+                            :disabled="form.processing"
+                            class="px-4 py-2.5 rounded-xl border border-gray-300 hover:border-rose-300 bg-white hover:bg-rose-50 text-gray-700 hover:text-rose-700 text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-2xs"
                         >
-                            <span>Lanjut: {{ nextTab.name }}</span>
+                            Batalkan Perubahan
+                        </button>
+
+                        <!-- Tombol Lanjut ke Langkah Berikutnya (Otomatis simpan jika ada isian yang diubah) -->
+                        <button
+                            v-if="nextTab"
+                            type="button"
+                            @click="form.isDirty ? submit(nextTab.id) : switchTab(nextTab.id, true)"
+                            :disabled="form.processing"
+                            class="px-6 py-3 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                        >
+                            <span>{{ form.isDirty && form.processing ? 'Menyimpan...' : `Lanjut: ${nextTab.name}` }}</span>
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </button>
 
                         <!-- Tombol Utama di Langkah Terakhir: Simpan Seluruh Profil -->
-                        <button 
+                        <button
                             v-else
-                            type="submit" 
-                            :disabled="form.processing" 
+                            type="submit"
+                            :disabled="form.processing"
                             class="px-8 py-3 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                         >
                             <svg v-if="form.processing" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -488,26 +641,36 @@ const submit = (nextTabId = null, redirectTo = null) => {
                                 Perubahan Belum Disimpan
                             </p>
                             <p class="text-[11px] text-gray-500 truncate">
-                                Silakan lanjutkan pengisian hingga selesai, lalu simpan perubahan.
+                                Ada isian yang diubah. Simpan perubahan atau batalkan untuk kembali ke data awal.
                             </p>
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        @click="submit()"
-                        :disabled="form.processing"
-                        class="shrink-0 rounded-xl bg-[#0D542B] hover:bg-[#093d1f] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all cursor-pointer disabled:opacity-50"
-                    >
-                        {{ form.processing ? 'Menyimpan...' : 'Simpan Sekarang' }}
-                    </button>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button
+                            type="button"
+                            @click="handleCancelChanges"
+                            :disabled="form.processing"
+                            class="rounded-xl border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 px-3.5 py-2 text-xs font-bold text-gray-700 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                            Batalkan
+                        </button>
+                        <button
+                            type="button"
+                            @click="submit()"
+                            :disabled="form.processing"
+                            class="rounded-xl bg-[#0D542B] hover:bg-[#093d1f] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                        >
+                            {{ form.processing ? 'Menyimpan...' : 'Simpan Sekarang' }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </transition>
 
         <!-- Tombol Gulir Cepat (Caping Ke Atas / Ke Bawah) -->
         <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
-            <button 
-                type="button" 
+            <button
+                type="button"
                 @click="scrollToTop"
                 class="w-10 h-10 rounded-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
                 title="Gulir ke paling atas"
@@ -517,8 +680,8 @@ const submit = (nextTabId = null, redirectTo = null) => {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
                 </svg>
             </button>
-            <button 
-                type="button" 
+            <button
+                type="button"
                 @click="scrollToBottom"
                 class="w-10 h-10 rounded-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
                 title="Gulir ke paling bawah"

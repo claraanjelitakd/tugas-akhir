@@ -4,8 +4,8 @@ namespace App\Services\Kuesioner;
 
 use App\Models\AlumniProfileSummary;
 use App\Models\Biodata;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\Tracer;
+use App\Models\KuesionerJawaban;
+use App\Services\Alumni\AdminAlumniProfileService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\DB;
  * Fungsi:
  * Mengaudit status kelengkapan data seorang alumni secara komprehensif, mencakup:
  * 1. Kelengkapan Profil (Data Pribadi, Data Akademik, Data Perusahaan, Data Atasan, dan Posisi Jabatan).
- * 2. Kelengkapan Kuesioner Wajib (Ditentukan secara dinamis berdasarkan kolom `wajib = 1` di tabel `ref_subpertanyaan2021`).
+ * 2. Kelengkapan Kuesioner Wajib (Ditentukan secara dinamis berdasarkan kolom
+ *    `wajib = 1` pada penempatan `kuesioner_section_pertanyaan`).
  *
  * Pertanyaan dengan `wajib = 0` bersifat OPSIONAL dan tidak membatalkan kelengkapan status alumni.
  */
@@ -27,10 +28,15 @@ class KelengkapanTracerService
      */
     public const PROFILE_MANAGED_CODES = [
         'F1', 'F2A', 'F2B', 'F2C', 'F2D',
-        'BIO_TEMPAT_LAHIR', 'BIO_TANGGAL_LAHIR', 'BIO_JK', 'BIO_TGL_LULUS', 'BIO_JUDUL_TA',
+        'BIO_TANGGAL_LAHIR', 'BIO_JK', 'BIO_TGL_LULUS', 'BIO_JUDUL_TA',
         'F5A1', 'F5A2', 'F510', 'F5B', 'F5C', 'F5D',
         'F2E', 'F2E1', 'F2E2', 'F2E3', 'F2F', 'F2G', 'F2H',
         'F11', 'F505', 'BIO_PEND_TINGKAT', 'BIO_BIDANG_DIVISI',
+        'BIO_WARGA_NEGARA', 'BIO_PROVINSI', 'BIO_KABUPATEN', 'BIO_KECAMATAN',
+        'BIO_KELURAHAN', 'BIO_KODE_POS', 'BIO_LINKEDIN_URL', 'BIO_LINKEDIN_USER',
+        'BIO_INSTAGRAM_URL', 'BIO_FACEBOOK_URL', 'BIO_SKILLS', 'BIO_EXPERIENCE',
+        'BIO_INST_BENTUK', 'BIO_INST_LOKASI', 'BIO_INST_NEGARA',
+        'BIO_INST_KODEPOS', 'BIO_PEND_KAMPUS', 'BIO_PEND_PRODI',
     ];
 
     /**
@@ -42,14 +48,20 @@ class KelengkapanTracerService
     {
         $profileCodesUpper = array_map('strtoupper', self::PROFILE_MANAGED_CODES);
 
-        return RefSubpertanyaan2021::where('wajib', true)
-            ->where('type', '!=', 'header')
+        return DB::table('kuesioner_section_pertanyaan as sp')
+            ->join('kuesioner_section as s', 's.id', '=', 'sp.section_id')
+            ->join('kuesioner_pertanyaan as q', 'q.id', '=', 'sp.pertanyaan_id')
+            ->where('s.target', 'univ')
+            ->where('sp.is_active', true)
+            ->where('sp.wajib', true)
+            ->where('q.tipe', '!=', 'header')
+            ->where('q.is_active', true)
             ->where(function ($query) {
-                $query->whereNull('tampil_di')
-                    ->orWhereNotIn('tampil_di', ['profil', 'profile']);
+                $query->whereNull('sp.tampil_di')
+                    ->orWhereNotIn('sp.tampil_di', ['profil', 'profile']);
             })
-            ->whereNotIn(DB::raw('UPPER(kode_pertanyaan)'), $profileCodesUpper)
-            ->pluck('kode_pertanyaan')
+            ->whereNotIn(DB::raw('UPPER(q.kode_pertanyaan)'), $profileCodesUpper)
+            ->pluck('q.kode_pertanyaan')
             ->all();
     }
 
@@ -60,9 +72,16 @@ class KelengkapanTracerService
      */
     public static function isMandatoryQuestion(string $code): bool
     {
-        $question = RefSubpertanyaan2021::where('kode_pertanyaan', $code)->first();
-
-        return (bool) ($question?->wajib && $question?->type !== 'header');
+        return DB::table('kuesioner_section_pertanyaan as sp')
+            ->join('kuesioner_section as s', 's.id', '=', 'sp.section_id')
+            ->join('kuesioner_pertanyaan as q', 'q.id', '=', 'sp.pertanyaan_id')
+            ->where('s.target', 'univ')
+            ->where('sp.is_active', true)
+            ->where('sp.wajib', true)
+            ->where('q.tipe', '!=', 'header')
+            ->where('q.is_active', true)
+            ->where('q.kode_pertanyaan', $code)
+            ->exists();
     }
 
     /**
@@ -80,12 +99,20 @@ class KelengkapanTracerService
         $dataAkademik = $biodata->dataAkademik;
         $perusahaan = $biodata->perusahaan;
         $atasan = $biodata->atasan;
+        $profileQuestionConfigs = AdminAlumniProfileService::getProfileQuestionConfigs();
+        $hasProfileQuestionConfigs = $profileQuestionConfigs !== [];
+        $isProfileFieldRequired = static function (string $code, bool $fallback = true) use ($profileQuestionConfigs, $hasProfileQuestionConfigs): bool {
+            if (! $hasProfileQuestionConfigs) {
+                return $fallback;
+            }
+
+            return (bool) ($profileQuestionConfigs[strtoupper($code)]['wajib'] ?? false);
+        };
 
         $fields = [
             // Data Pribadi & Kontak
             'Nama Lengkap' => $summary?->nama ?? ($dataAkademik?->nama ?? $biodata->user?->name),
             'NIM' => $summary?->nim ?? $biodata->nim,
-            'Tempat Lahir' => $summary?->tempat_lahir ?? $dataAkademik?->tempat_lahir,
             'Tanggal Lahir' => $summary?->tanggal_lahir ?? $dataAkademik?->tanggal_lahir,
             'Jenis Kelamin' => $summary?->jenis_kelamin ?? $dataAkademik?->jenis_kelamin,
             'Nomor Telepon/HP' => $summary?->nomor_telepon ?? $biodata->nomor_telepon,
@@ -100,8 +127,8 @@ class KelengkapanTracerService
             'Nama Perusahaan' => $summary?->nama_perusahaan ?? $perusahaan?->nama_perusahaan,
             'Alamat Perusahaan' => $summary?->alamat_perusahaan ?? $perusahaan?->alamat,
             'Skala Perusahaan' => $summary?->skala_perusahaan ?? $perusahaan?->skala,
-            'Provinsi Perusahaan' => $summary?->propinsi_id ?? $perusahaan?->propinsi_id,
-            'Kabupaten Perusahaan' => $summary?->kabupaten_id ?? $perusahaan?->kabupaten_id,
+            'Provinsi Perusahaan' => $summary?->kode_provinsi ?? $perusahaan?->kode_provinsi,
+            'Kabupaten Perusahaan' => $summary?->kode_kabupaten ?? $perusahaan?->kode_kabupaten,
             'Nama Atasan' => $summary?->nama_atasan ?? $atasan?->nama,
             'Email Atasan' => $summary?->email_atasan ?? $atasan?->email,
             'Nomor Telepon Atasan' => $summary?->telepon_atasan ?? $atasan?->telepon,
@@ -117,16 +144,67 @@ class KelengkapanTracerService
             'Kode Pos Perusahaan (Zipcode)' => $summary?->kode_pos ?? $biodata->zipcode,
         ];
 
-        $dynamicProfileQuestions = KuesionerSyncService::getDynamicProfileQuestions()
-            ->filter(fn (RefSubpertanyaan2021 $question): bool => (bool) $question->wajib);
-        $dynamicProfileResponses = Tracer::where('biodata_id', $biodata->id)
-            ->whereIn('question_id', $dynamicProfileQuestions->modelKeys())
-            ->get()
-            ->keyBy('question_id');
+        $configurableFields = [
+            'Nama Lengkap' => 'F2A',
+            'NIM' => 'F1',
+            'Tanggal Lahir' => 'BIO_TANGGAL_LAHIR',
+            'Jenis Kelamin' => 'BIO_JK',
+            'Nomor Telepon/HP' => 'F2B',
+            'Email Pribadi' => 'F2C',
+            'Alamat Domisili Saat Ini' => 'F2D',
+            'Nama Perusahaan' => 'F2E',
+            'Alamat Perusahaan' => 'F2F',
+            'Skala Perusahaan' => 'F2H',
+            'Provinsi Perusahaan' => 'BIO_INST_LOKASI',
+            'Kabupaten Perusahaan' => 'BIO_INST_LOKASI',
+            'Nama Atasan' => 'F2E1',
+            'Email Atasan' => 'F2E3',
+            'Nomor Telepon Atasan' => 'F2E2',
+            'Posisi Jabatan' => 'F2G',
+            'Keahlian (Skills)' => 'BIO_SKILLS',
+            'Pengalaman Kerja (Experience)' => 'BIO_EXPERIENCE',
+            'LinkedIn Profil URL' => 'BIO_LINKEDIN_URL',
+            'LinkedIn Username' => 'BIO_LINKEDIN_USER',
+            'Instagram Profil URL' => 'BIO_INSTAGRAM_URL',
+            'Facebook Profil URL' => 'BIO_FACEBOOK_URL',
+            'Kode Pos Perusahaan (Zipcode)' => 'BIO_INST_KODEPOS',
+        ];
 
-        foreach ($dynamicProfileQuestions as $question) {
-            $response = $dynamicProfileResponses->get($question->id);
-            $fields['Pertanyaan Profil: '.$question->subpertanyaan] = $response?->answer;
+        foreach ($configurableFields as $label => $code) {
+            if (! $isProfileFieldRequired($code)) {
+                unset($fields[$label]);
+            }
+        }
+
+        $isNonWorking = in_array($biodata->kategori_pekerjaan, ['Mencari Kerja', 'Belum Memungkinkan Bekerja', 'Tidak Bekerja', 'Melanjutkan Pendidikan'], true);
+        if ($isNonWorking) {
+            unset(
+                $fields['Nama Perusahaan'],
+                $fields['Alamat Perusahaan'],
+                $fields['Skala Perusahaan'],
+                $fields['Provinsi Perusahaan'],
+                $fields['Kabupaten Perusahaan'],
+                $fields['Nama Atasan'],
+                $fields['Email Atasan'],
+                $fields['Nomor Telepon Atasan'],
+                $fields['Posisi Jabatan'],
+                $fields['Kode Pos Perusahaan (Zipcode)']
+            );
+        }
+
+        $dynamicProfileQuestions = KuesionerSyncService::getDynamicProfileQuestions()
+            ->filter(fn ($question): bool => (bool) ($question->pivot_wajib ?? $question->wajib ?? false));
+
+        if ($dynamicProfileQuestions->isNotEmpty()) {
+            $dynamicProfileResponses = KuesionerJawaban::where('biodata_id', $biodata->id)
+                ->whereIn('pertanyaan_id', $dynamicProfileQuestions->pluck('id')->all())
+                ->get()
+                ->keyBy('pertanyaan_id');
+
+            foreach ($dynamicProfileQuestions as $question) {
+                $response = $dynamicProfileResponses->get($question->id);
+                $fields['Pertanyaan Profil: '.$question->teks_pertanyaan] = $response?->jawaban_teks ?? $response?->jawaban_json;
+            }
         }
 
         $isTeologi = ($biodata->prodi?->kode_prodi === '31' || substr((string) $biodata->nim, 0, 2) === '31');
@@ -196,8 +274,8 @@ class KelengkapanTracerService
                 continue;
             }
 
-            $rawAnswer = $resp->answer ?? $resp->answer_text;
-            $jsonAnswer = $resp->answer_json;
+            $rawAnswer = $resp->jawaban_teks ?? ($resp->answer_text ?? ($resp->answer ?? null));
+            $jsonAnswer = $resp->jawaban_json ?? ($resp->answer_json ?? null);
 
             // Aturan Berbasis Status Pekerjaan F8 (Standar Tracer Study Kemendikbud Dikti)
             if ($code === 'F8') {
@@ -268,7 +346,7 @@ class KelengkapanTracerService
                 continue;
             }
 
-            $options = $q->detils ?? collect();
+            $options = $q->opsi ?? ($q->detils ?? collect());
             if ($options->isEmpty()) {
                 continue;
             }
@@ -278,7 +356,7 @@ class KelengkapanTracerService
             if (! empty($rawAnswer)) {
                 $ansStr = strtolower(trim((string) $rawAnswer));
                 $selectedOption = $options->first(function ($opt) use ($ansStr) {
-                    $optText = strtolower(trim((string) $opt->option_text));
+                    $optText = strtolower(trim((string) ($opt->label ?? $opt->option_text)));
                     $optCode = strtolower(trim((string) ($opt->kode_opsi ?? '')));
 
                     return $optText === $ansStr || $optCode === $ansStr || ($ansStr !== '' && str_starts_with($ansStr, $optText));
@@ -288,7 +366,7 @@ class KelengkapanTracerService
                 if ($sel) {
                     $selStr = strtolower(trim((string) $sel));
                     $selectedOption = $options->first(function ($opt) use ($selStr) {
-                        $optText = strtolower(trim((string) $opt->option_text));
+                        $optText = strtolower(trim((string) ($opt->label ?? $opt->option_text)));
                         $optCode = strtolower(trim((string) ($opt->kode_opsi ?? '')));
 
                         return $optText === $selStr || $optCode === $selStr;
@@ -316,27 +394,32 @@ class KelengkapanTracerService
 
     /**
      * Evaluasi kelengkapan kuesioner tracer study wajib bagi alumni.
-     * Murni didasarkan pada butir pertanyaan dengan status wajib = 1 di tabel ref_subpertanyaan2021
-     * yang berlaku pada jalur alur pengisian alumni (memperhitungkan percabangan / IF jump_to).
+     * Menggunakan tabel kuesioner_pertanyaan dan kuesioner_jawaban terpadu.
      *
      * @return array Shape: ['is_complete' => bool, 'percentage' => int, 'answered_count' => int, 'total_mandatory' => int, 'missing_questions' => array]
      */
     public static function evaluasiKuesionerWajib(Biodata $biodata): array
     {
-        // Pastikan respon profil tersinkron ke tabel tracer
+        // Pastikan respon profil tersinkron ke tabel kuesioner_jawaban
         KuesionerSyncService::syncProfileResponses($biodata);
 
-        // Ambil ID dan respon pertanyaan alumni
-        $responses = Tracer::where('biodata_id', $biodata->id)
-            ->with('masterPertanyaan')
+        // Ambil respon kuesioner alumni
+        $responses = DB::table('kuesioner_jawaban')
+            ->where('biodata_id', $biodata->id)
             ->get()
             ->keyBy(function ($item) {
-                return strtoupper(trim((string) ($item->masterPertanyaan?->kode_pertanyaan ?? $item->kode_pertanyaan)));
+                return strtoupper(trim((string) $item->kode_pertanyaan));
             });
 
-        // Ambil seluruh butir pertanyaan terurut
-        $allQuestions = RefSubpertanyaan2021::with('detils')
-            ->orderBy('order', 'asc')
+        // Ambil seluruh butir pertanyaan universitas
+        $allQuestions = DB::table('kuesioner_pertanyaan as q')
+            ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'q.id')
+            ->join('kuesioner_section as s', 's.id', '=', 'sp.section_id')
+            ->where('s.target', 'univ')
+            ->where('sp.is_active', true)
+            ->where('q.is_active', true)
+            ->select('q.*', 'sp.wajib as pivot_wajib', 'sp.tampil_di as pivot_tampil_di', 'sp.order as pivot_order')
+            ->orderBy('sp.order')
             ->get();
 
         $skippedCodes = self::getSkippedQuestionCodes($allQuestions, $responses);
@@ -346,10 +429,11 @@ class KelengkapanTracerService
         // Ambil seluruh butir pertanyaan wajib (wajib = 1, non-header, dan bukan bagian profil)
         $mandatoryQuestions = $allQuestions->filter(function ($q) use ($profileCodesUpper) {
             $code = strtoupper(trim((string) $q->kode_pertanyaan));
-            $displayLocation = strtolower(trim((string) $q->tampil_di));
+            $displayLocation = strtolower(trim((string) ($q->pivot_tampil_di ?? '')));
+            $isWajib = (bool) ($q->pivot_wajib ?? true);
 
-            return $q->wajib
-                && $q->type !== 'header'
+            return $isWajib
+                && $q->tipe !== 'header'
                 && ! in_array($code, $profileCodesUpper)
                 && ! in_array($displayLocation, ['profil', 'profile']);
         });
@@ -360,8 +444,6 @@ class KelengkapanTracerService
         foreach ($mandatoryQuestions as $q) {
             $code = strtoupper(trim((string) $q->kode_pertanyaan));
 
-            // Jika pertanyaan ini dilewati oleh alur percabangan (jump_to / IF),
-            // maka dianggap sudah selesai / tidak wajib diisi alumni
             if (isset($skippedCodes[$code]) || isset($skippedCodes[$q->id])) {
                 continue;
             }
@@ -371,25 +453,25 @@ class KelengkapanTracerService
             $hasAnswer = false;
 
             if ($resp) {
-                $rawAnswer = $resp->answer ?? $resp->answer_text;
+                $rawAnswer = $resp->jawaban_teks ?? ($resp->answer ?? $resp->answer_text ?? null);
                 if (! empty($rawAnswer) && trim((string) $rawAnswer) !== '') {
                     $hasAnswer = true;
-                } elseif (is_array($resp->answer_json) && count($resp->answer_json) > 0) {
+                } elseif (! empty($resp->jawaban_json)) {
                     $hasAnswer = true;
                 }
             }
 
             if (! $hasAnswer) {
-                $missing[] = "{$q->kode_pertanyaan} ({$q->subpertanyaan})";
+                $missing[] = "{$q->kode_pertanyaan} ({$q->teks_pertanyaan})";
             }
         }
 
         // Evaluasi Keterisian Seluruh Butir Instrumen Relevan (Wajib + Opsional)
         $allApplicableQuestions = $allQuestions->filter(function ($q) use ($profileCodesUpper) {
             $code = strtoupper(trim((string) $q->kode_pertanyaan));
-            $displayLocation = strtolower(trim((string) $q->tampil_di));
+            $displayLocation = strtolower(trim((string) ($q->pivot_tampil_di ?? '')));
 
-            return $q->type !== 'header'
+            return $q->tipe !== 'header'
                 && ! in_array($code, $profileCodesUpper)
                 && ! in_array($displayLocation, ['profil', 'profile']);
         });
@@ -410,18 +492,18 @@ class KelengkapanTracerService
             $hasAnswer = false;
 
             if ($resp) {
-                $rawAnswer = $resp->answer ?? $resp->answer_text;
+                $rawAnswer = $resp->jawaban_teks ?? ($resp->answer ?? $resp->answer_text ?? null);
                 if (! empty($rawAnswer) && trim((string) $rawAnswer) !== '') {
                     $hasAnswer = true;
-                } elseif (is_array($resp->answer_json) && count($resp->answer_json) > 0) {
+                } elseif (! empty($resp->jawaban_json)) {
                     $hasAnswer = true;
                 }
             }
 
             if ($hasAnswer) {
                 $totalAnsweredQuestions++;
-            } elseif (! $q->wajib) {
-                $missingOptional[] = "{$q->kode_pertanyaan} ({$q->subpertanyaan})";
+            } elseif (! ($q->pivot_wajib ?? true)) {
+                $missingOptional[] = "{$q->kode_pertanyaan} ({$q->teks_pertanyaan})";
             }
         }
 

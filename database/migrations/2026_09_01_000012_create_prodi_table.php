@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -19,7 +20,7 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "prodi" ("id" integer primary key autoincrement not null, "fakultas_id" integer, "kode_prodi" varchar not null, "nama_prodi" varchar not null, "created_at" datetime, "updated_at" datetime, foreign key("fakultas_id") references "ref_fakultas"("id") on delete set null);
+CREATE TABLE "prodi" ("id" integer primary key autoincrement not null, "fakultas_id" integer, "kode_prodi" varchar not null, "nama_prodi" varchar not null, "jenjang" varchar not null default 'S1', "created_at" datetime, "updated_at" datetime, foreign key("fakultas_id") references "ref_fakultas"("id") on delete set null);
 SQL
             );
 
@@ -37,6 +38,7 @@ CREATE TABLE `prodi` (
   `fakultas_id` bigint unsigned DEFAULT NULL,
   `kode_prodi` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Kode resmi program studi (misal: 71, 72)',
   `nama_prodi` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nama resmi program studi (misal: Informatika)',
+  `jenjang` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'S1' COMMENT 'Jenjang pendidikan program studi untuk perhitungan IKU',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -47,6 +49,24 @@ CREATE TABLE `prodi` (
 SQL
             );
         }
+
+        Schema::table('users', function (Blueprint $table): void {
+            $table->foreign('prodi_id', 'users_prodi_id_foreign')
+                ->references('id')
+                ->on('prodi')
+                ->nullOnDelete();
+            $table->foreign('fakultas_id', 'users_fakultas_id_foreign')
+                ->references('id')
+                ->on('ref_fakultas')
+                ->nullOnDelete();
+        });
+
+        Schema::table('data_akademik', function (Blueprint $table): void {
+            $table->foreign('prodi_id', 'data_akademik_prodi_id_foreign')
+                ->references('id')
+                ->on('prodi')
+                ->nullOnDelete();
+        });
     }
 
     /**

@@ -8,6 +8,7 @@
   nominal penghasilan bulanan (tanpa auto-multiplier), serta data kontak atasan langsung.
 -->
 <script setup>
+// Form karier alumni: opsi perusahaan, wilayah, negara, dan pertanyaan berasal dari props database.
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
@@ -27,8 +28,37 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    profileQuestionConfigs: {
+        type: Object,
+        default: () => ({}),
+    },
     evaluasiAtasan: Object,
+    /** Mode baca-saja untuk detail alumni di luar lingkup admin. */
+    readonly: {
+        type: Boolean,
+        default: false,
+    },
 });
+
+// Helper pembacaan konfigurasi pertanyaan dinamis dari Super Admin
+const getQuestionLabel = (code, fallback) => {
+    return props.profileQuestionConfigs?.[code]?.subpertanyaan || fallback;
+};
+
+const isQuestionRequired = (code, fallback = true) => {
+    return props.profileQuestionConfigs?.[code]?.wajib ?? fallback;
+};
+
+const getQuestionHint = (code, fallback = '') => {
+    return props.profileQuestionConfigs?.[code]?.keterangan || fallback;
+};
+
+const isQuestionVisible = (code) => {
+    if (!props.profileQuestionConfigs || Object.keys(props.profileQuestionConfigs).length === 0) {
+        return true;
+    }
+    return Boolean(props.profileQuestionConfigs[code]);
+};
 
 if (!props.form.profile_answers) {
     props.form.profile_answers = {};
@@ -45,37 +75,8 @@ const negaraContainerRef = ref(null);
 const companyContainerRef = ref(null);
 
 // ============================================================================
-// 2. OPSI DINAMIS DARI DATABASE (ref_subpertanyaan_detil)
+// 2. OPSI DINAMIS DARI DATABASE (kuesioner_opsi)
 // ============================================================================
-
-// Pilihan Posisi Jabatan Struktural (F2G)
-const posisiJabatanOptions = computed(() => {
-    let opts = [];
-    if (props.refOptions?.F2G && props.refOptions.F2G.length > 0) {
-        opts = props.refOptions.F2G.map(opt => ({
-            value: opt.option_text,
-            label: `${opt.kode_opsi} - ${opt.option_text}`
-        }));
-    } else {
-        opts = [
-            { value: 'Direksi', label: '1 - Direksi' },
-            { value: 'Top Manager', label: '2 - Top Manager' },
-            { value: 'Middle Manager', label: '3 - Middle Manager' },
-            { value: 'Low Manager', label: '4 - Low Manager' },
-            { value: 'Supervisor', label: '5 - Supervisor' },
-            { value: 'Staff', label: '6 - Staff' },
-        ];
-    }
-
-    if (props.form?.posisi_jabatan && !opts.some(o => o.value.toLowerCase() === props.form.posisi_jabatan.toLowerCase())) {
-        opts.unshift({
-            value: props.form.posisi_jabatan,
-            label: `${props.form.posisi_jabatan} (LinkedIn / Kustom)`
-        });
-    }
-
-    return opts;
-});
 
 // Pilihan Jenis Instansi / Perusahaan (F11)
 const jenisPerusahaanOptions = computed(() => {
@@ -96,14 +97,65 @@ const jenisPerusahaanOptions = computed(() => {
     ];
 });
 
-// Pilihan Bentuk Perusahaan / Institusi (Sinkron dengan Evaluasi Atasan)
-const bentukPerusahaanOptions = [
-    { value: 'BUMN', label: 'BUMN' },
-    { value: 'Perusahaan Terbatas', label: 'Perusahaan Terbatas' },
-    { value: 'Koperasi', label: 'Koperasi' },
-    { value: 'CV', label: 'CV' },
-    { value: 'Firma', label: 'Firma' },
-];
+// Pilihan Bentuk Perusahaan / Institusi (Sinkron dengan Evaluasi Atasan & Super Admin)
+const bentukPerusahaanOptions = computed(() => {
+    const configured = props.refOptions?.BIO_INST_BENTUK || [];
+    if (configured.length > 0) {
+        const options = configured.map(opt => ({
+            value: opt.option_text,
+            label: opt.option_text,
+        }));
+        if (!options.some(opt => isOtherOptionValue(opt.value))) {
+            options.push({ value: 'Lainnya', label: 'Lainnya' });
+        }
+
+        return options;
+    }
+    return [
+        { value: 'BUMN', label: 'BUMN' },
+        { value: 'Perusahaan Terbatas', label: 'Perusahaan Terbatas' },
+        { value: 'Koperasi', label: 'Koperasi' },
+        { value: 'CV', label: 'CV' },
+        { value: 'Firma', label: 'Firma' },
+        { value: 'Lainnya', label: 'Lainnya' },
+    ];
+});
+
+// Pilihan Posisi Jabatan Struktural (F2G) dari konfigurasi Super Admin
+const posisiJabatanOptions = computed(() => {
+    const configured = props.refOptions?.F2G || [];
+    if (configured.length > 0) {
+        const opts = configured.map(opt => ({
+            value: opt.option_text,
+            label: `${opt.kode_opsi} - ${opt.option_text}`,
+        }));
+        if (!opts.some(opt => isOtherOptionValue(opt.value))) {
+            opts.push({ value: 'Lainnya', label: 'Lainnya (Tuliskan jabatan spesifik)' });
+        }
+        return opts;
+    }
+    return [];
+});
+
+// Pilihan Posisi / Jabatan Wiraswasta (F5C) dari konfigurasi Super Admin
+const posisiWiraswastaOptions = computed(() => {
+    const configured = props.refOptions?.F5C || [];
+    if (configured.length > 0) {
+        return configured.map(opt => ({
+            value: opt.option_text,
+            label: opt.option_text,
+        }));
+    }
+    return [
+        { value: 'Owner', label: 'Owner' },
+        { value: 'Founder', label: 'Founder' },
+        { value: 'Co-Founder', label: 'Co-Founder' },
+        { value: 'Direktur Utama', label: 'Direktur Utama' },
+        { value: 'Pengelola Usaha', label: 'Pengelola Usaha' },
+        { value: 'Freelancer / Konsultan Mandiri', label: 'Freelancer / Konsultan Mandiri' },
+        { value: 'Lainnya', label: 'Lainnya' },
+    ];
+});
 
 // Pilihan Skala Perusahaan (F2H / F5D)
 const skalaOptions = computed(() => {
@@ -130,19 +182,41 @@ const skalaOptions = computed(() => {
     return opts;
 });
 
-// Pilihan bidang pekerjaan / divisi (BIO_BIDANG_DIVISI) disimpan langsung ke biodata.
+// Pilihan bidang pekerjaan (BIO_BIDANG_DIVISI) disimpan langsung ke biodata.
+const DEFAULT_BIDANG_PEKERJAAN_OPTIONS = [
+    { value: 'Akademik / Pendidikan', label: '1 - Akademik / Pendidikan' },
+    { value: 'Administrasi / Tata Usaha', label: '2 - Administrasi / Tata Usaha' },
+    { value: 'Keuangan / Akuntansi', label: '3 - Keuangan / Akuntansi' },
+    { value: 'Sumber Daya Manusia', label: '4 - Sumber Daya Manusia' },
+    { value: 'Teknologi Informasi', label: '5 - Teknologi Informasi' },
+    { value: 'Operasional', label: '6 - Operasional' },
+    { value: 'Pemasaran / Komunikasi', label: '7 - Pemasaran / Komunikasi' },
+    { value: 'Penjualan / Pengembangan Bisnis', label: '8 - Penjualan / Pengembangan Bisnis' },
+    { value: 'Penelitian dan Pengembangan', label: '9 - Penelitian dan Pengembangan' },
+    { value: 'Pelayanan / Customer Service', label: '10 - Pelayanan / Customer Service' },
+    { value: 'Produksi / Manufaktur', label: '11 - Produksi / Manufaktur' },
+    { value: 'Kesehatan', label: '12 - Kesehatan' },
+    { value: 'Hukum', label: '13 - Hukum' },
+    { value: 'Teknik', label: '14 - Teknik' },
+    { value: 'Lainnya', label: '15 - Lainnya' },
+];
+
 const bidangPekerjaanOptions = computed(() => {
     const configured = props.refOptions?.BIO_BIDANG_DIVISI || [];
-    const options = configured.map(opt => ({
-        value: opt.option_text,
-        label: `${opt.kode_opsi} - ${opt.option_text}`,
-    }));
+    if (configured.length > 0) {
+        const options = configured.map(opt => ({
+            value: opt.option_text,
+            label: `${opt.kode_opsi} - ${opt.option_text}`,
+        }));
 
-    if (!options.some(opt => isOtherOptionValue(opt.value))) {
-        options.push({ value: 'Lainnya', label: 'Lainnya' });
+        if (!options.some(opt => isOtherOptionValue(opt.value))) {
+            options.push({ value: 'Lainnya', label: 'Lainnya' });
+        }
+
+        return options;
     }
 
-    return options;
+    return DEFAULT_BIDANG_PEKERJAAN_OPTIONS;
 });
 
 const isOtherOptionValue = (value) => {
@@ -183,6 +257,35 @@ const syncBidangPekerjaan = () => {
 
     props.form.bidang_pekerjaan = bidangPekerjaanSelection.value;
     props.form.bidang_pekerjaan_lainnya = '';
+};
+
+// Logika sinkronisasi Posisi Jabatan Struktural (F2G)
+const isConfiguredPosisiJabatan = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return posisiJabatanOptions.value.some(opt => opt.value.toLowerCase() === normalized && !isOtherOptionValue(opt.value));
+};
+
+const posisiJabatanValue = String(props.form?.posisi_jabatan || '').trim();
+const posisiJabatanSelection = ref(
+    posisiJabatanValue && isConfiguredPosisiJabatan(posisiJabatanValue)
+        ? posisiJabatanValue
+        : posisiJabatanValue
+            ? 'Lainnya'
+            : ''
+);
+
+const posisiJabatanKustom = ref(
+    posisiJabatanValue && !isConfiguredPosisiJabatan(posisiJabatanValue)
+        ? posisiJabatanValue
+        : ''
+);
+
+const syncPosisiJabatan = () => {
+    if (isOtherOptionValue(posisiJabatanSelection.value)) {
+        props.form.posisi_jabatan = posisiJabatanKustom.value;
+    } else {
+        props.form.posisi_jabatan = posisiJabatanSelection.value;
+    }
 };
 
 const isProfileQuestionSelect = (question) => {
@@ -274,22 +377,25 @@ const isMelanjutkanStudi = ref(
     )
 );
 
-// Normalisasi kategori_pekerjaan agar kompatibel dengan data LinkedIn ('Pekerja', 'Bekerja (Full Time)', 'Karyawan', dll.)
+// Normalisasi kategori_pekerjaan agar kompatibel dengan data dan opsi resmi Dikti F8
 if (props.form.kategori_pekerjaan) {
     const rawKat = String(props.form.kategori_pekerjaan).trim();
-    if (rawKat === 'Melanjutkan Pendidikan') {
+    const rawLower = rawKat.toLowerCase();
+    if (rawLower.includes('melanjutkan pendidikan') || rawKat === 'Melanjutkan Pendidikan') {
         isMelanjutkanStudi.value = true;
-        props.form.kategori_pekerjaan = '';
-    } else if (rawKat === 'Pekerja' || rawKat.toLowerCase().includes('bekerja') || rawKat.toLowerCase().includes('pekerja') || rawKat.toLowerCase().includes('karyawan')) {
-        props.form.kategori_pekerjaan = 'Pekerja';
-    } else if (rawKat === 'Wiraswasta' || rawKat.toLowerCase().includes('wira') || rawKat.toLowerCase().includes('founder') || rawKat.toLowerCase().includes('owner')) {
+        props.form.kategori_pekerjaan = 'Melanjutkan Pendidikan';
+    } else if (rawLower.includes('belum memungkinkan') || rawKat === 'Belum Memungkinkan Bekerja') {
+        props.form.kategori_pekerjaan = 'Belum Memungkinkan Bekerja';
+    } else if (rawLower.includes('mencari kerja') || rawKat === 'Mencari Kerja') {
+        props.form.kategori_pekerjaan = 'Mencari Kerja';
+    } else if (rawKat === 'Wiraswasta' || rawLower.includes('wira') || rawLower.includes('founder') || rawLower.includes('owner')) {
         props.form.kategori_pekerjaan = 'Wiraswasta';
-    } else if (['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'].some(s => rawKat.toLowerCase().includes(s.toLowerCase()))) {
-        props.form.kategori_pekerjaan = 'Tidak Bekerja';
+    } else if (rawKat === 'Pekerja' || rawLower.includes('bekerja') || rawLower.includes('pekerja') || rawLower.includes('karyawan')) {
+        props.form.kategori_pekerjaan = 'Pekerja';
+    } else if (rawLower.includes('tidak bekerja') || rawLower.includes('belum bekerja')) {
+        props.form.kategori_pekerjaan = 'Belum Memungkinkan Bekerja';
     }
 }
-
-const isCustomJabatan = ref(false);
 
 const toggleMelanjutkanStudi = () => {
     isMelanjutkanStudi.value = !isMelanjutkanStudi.value;
@@ -328,8 +434,31 @@ const isVerifiedCompany = computed(() => {
 
 // Alumni selalu dapat melengkapi/memperbarui detail perusahaan agar tersinkronisasi dua arah dengan form atasan
 const canEditCompanyDetails = computed(() => {
-    return true;
+    return !props.readonly;
 });
+
+// Inisialisasi status non-bekerja
+const isNonWorkingInitial = ['Mencari Kerja', 'Belum Memungkinkan Bekerja', 'Tidak Bekerja', 'Belum Bekerja'].includes(props.form.kategori_pekerjaan);
+
+if (isNonWorkingInitial) {
+    props.form.gaji = null;
+    props.form.nama_perusahaan = '';
+    props.form.perusahaan_id = null;
+    props.form.atasan_id = null;
+    props.form.nama_atasan = '';
+    props.form.email_atasan = '';
+    props.form.telepon_atasan = '';
+    props.form.divisi = null;
+    props.form.posisi_jabatan = null;
+    props.form.posisi_wiraswasta = null;
+    props.form.bidang_pekerjaan = null;
+}
+
+// Cache field pekerjaan agar tidak hilang hanya saat alumni berpindah antar kategori kerja (Pekerja <-> Wiraswasta)
+const cachedGaji = ref(isNonWorkingInitial ? null : (props.form.gaji || null));
+const cachedDivisi = ref(isNonWorkingInitial ? '' : (props.form.divisi || ''));
+const cachedBidang = ref(isNonWorkingInitial ? '' : (props.form.bidang_pekerjaan || ''));
+const cachedJabatan = ref(isNonWorkingInitial ? '' : (props.form.posisi_jabatan || ''));
 
 // Mengisi data atasan otomatis dengan kontak alumni jika pemilik usaha
 const autoFillAtasanOwner = () => {
@@ -338,19 +467,46 @@ const autoFillAtasanOwner = () => {
     props.form.telepon_atasan = props.form.nomor_telepon || '';
 };
 
-// Pemilihan peran eksklusif Pekerja vs Wiraswasta (Single Choice)
+// Pemilihan peran eksklusif aktivitas karier alumni (Single Choice)
 const selectRole = (newRole) => {
+    if (props.readonly) return;
+
+    // Jika mengklik tombol yang sudah aktif, pertahankan pilihan (tidak unselect)
     if (props.form.kategori_pekerjaan === newRole) {
-        props.form.kategori_pekerjaan = '';
-        props.form.posisi_jabatan = null;
-        props.form.posisi_wiraswasta = null;
-        props.form.posisi_wiraswasta_lainnya = null;
         return;
+    }
+
+    const previousRole = props.form.kategori_pekerjaan;
+    const isPreviousNonWorking = ['Mencari Kerja', 'Belum Memungkinkan Bekerja', 'Tidak Bekerja', 'Belum Bekerja'].includes(previousRole);
+
+    // Hanya simpan ke cache jika role sebelumnya adalah Pekerja atau Wiraswasta
+    if (!isPreviousNonWorking) {
+        if (props.form.gaji) cachedGaji.value = props.form.gaji;
+        if (props.form.divisi) cachedDivisi.value = props.form.divisi;
+        if (props.form.bidang_pekerjaan) cachedBidang.value = props.form.bidang_pekerjaan;
+        if (props.form.posisi_jabatan) cachedJabatan.value = props.form.posisi_jabatan;
     }
 
     props.form.kategori_pekerjaan = newRole;
 
     if (newRole === 'Pekerja') {
+        // Jika sebelumnya dari status mencari kerja/belum bekerja, pastikan gaji bersih
+        if (isPreviousNonWorking) {
+            props.form.gaji = null;
+            cachedGaji.value = null;
+        } else if (!props.form.gaji && cachedGaji.value) {
+            props.form.gaji = cachedGaji.value;
+        }
+
+        if (!props.form.divisi && cachedDivisi.value) {
+            props.form.divisi = cachedDivisi.value;
+        }
+        if (!props.form.bidang_pekerjaan && cachedBidang.value) {
+            props.form.bidang_pekerjaan = cachedBidang.value;
+        }
+        if (!props.form.posisi_jabatan && cachedJabatan.value) {
+            props.form.posisi_jabatan = cachedJabatan.value;
+        }
         props.form.posisi_wiraswasta = null;
         props.form.posisi_wiraswasta_lainnya = null;
 
@@ -360,21 +516,57 @@ const selectRole = (newRole) => {
             props.form.telepon_atasan = '';
         }
     } else if (newRole === 'Wiraswasta') {
+        // Jika sebelumnya dari status mencari kerja/belum bekerja, pastikan gaji bersih
+        if (isPreviousNonWorking) {
+            props.form.gaji = null;
+            cachedGaji.value = null;
+        } else if (!props.form.gaji && cachedGaji.value) {
+            props.form.gaji = cachedGaji.value;
+        }
+
+        if (!props.form.divisi && cachedDivisi.value) {
+            props.form.divisi = cachedDivisi.value;
+        }
+        if (!props.form.bidang_pekerjaan && cachedBidang.value) {
+            props.form.bidang_pekerjaan = cachedBidang.value;
+        }
         props.form.posisi_jabatan = null;
         if (!props.form.posisi_wiraswasta) {
             props.form.posisi_wiraswasta = '';
         }
         autoFillAtasanOwner();
-    } else if (newRole === 'Tidak Bekerja' || newRole === 'Mencari Kerja' || newRole === 'Belum Bekerja') {
+    } else if (['Mencari Kerja', 'Belum Memungkinkan Bekerja', 'Tidak Bekerja', 'Belum Bekerja'].includes(newRole)) {
+        props.form.nama_perusahaan = '';
+        props.form.company_alamat = '';
+        props.form.perusahaan_alamat = '';
+        props.form.company_kode_provinsi = '';
+        props.form.perusahaan_kode_provinsi = '';
+        props.form.company_kode_kabupaten = '';
+        props.form.perusahaan_kode_kabupaten = '';
+        props.form.company_skala = '';
+        props.form.perusahaan_skala = '';
+        props.form.company_bentuk = '';
+        props.form.perusahaan_bentuk = '';
+        props.form.company_jenis_perusahaan = '';
+        props.form.perusahaan_jenis_perusahaan = '';
+        props.form.perusahaan_id = null;
+        props.form.atasan_id = null;
+        props.form.nama_atasan = '';
+        props.form.email_atasan = '';
+        props.form.telepon_atasan = '';
+        props.form.gaji = null;
         props.form.posisi_jabatan = null;
         props.form.posisi_wiraswasta = null;
         props.form.posisi_wiraswasta_lainnya = null;
-        props.form.gaji = null;
-        if (props.form.nama_atasan === props.form.nama || props.form.email_atasan === (props.form.email_pribadi || props.form.email)) {
-            props.form.nama_atasan = '';
-            props.form.email_atasan = '';
-            props.form.telepon_atasan = '';
-        }
+        props.form.bidang_pekerjaan = null;
+        props.form.bidang_pekerjaan_lainnya = null;
+        props.form.divisi = null;
+
+        // Reset cache agar data pekerjaan lama bersih dan tidak kembali
+        cachedGaji.value = null;
+        cachedDivisi.value = '';
+        cachedBidang.value = '';
+        cachedJabatan.value = '';
     }
 };
 
@@ -513,30 +705,30 @@ if (!props.form.company_jenis_lokasi && !props.form.perusahaan_jenis_lokasi) {
     props.form.company_jenis_lokasi = 'Dalam Negeri';
     props.form.perusahaan_jenis_lokasi = 'Dalam Negeri';
 }
-if (!props.form.company_negara && !props.form.perusahaan_negara) {
-    props.form.company_negara = props.form.company_jenis_lokasi === 'Luar Negeri' ? '' : 'Indonesia';
-    props.form.perusahaan_negara = props.form.company_negara;
+if (!props.form.company_kode_negara && !props.form.perusahaan_kode_negara) {
+    props.form.company_kode_negara = props.form.company_jenis_lokasi === 'Luar Negeri' ? '' : 'ID';
+    props.form.perusahaan_kode_negara = props.form.company_kode_negara;
 }
 
 watch(() => props.form.company_jenis_lokasi, (newVal) => {
     props.form.perusahaan_jenis_lokasi = newVal;
     if (newVal === 'Luar Negeri') {
-        props.form.company_province_id = null;
-        props.form.perusahaan_propinsi_id = null;
-        props.form.company_kabupaten_id = null;
-        props.form.perusahaan_kabupaten_id = null;
-        if (!props.form.company_negara || props.form.company_negara === 'Indonesia') {
-            props.form.company_negara = '';
-            props.form.perusahaan_negara = '';
+        props.form.company_kode_provinsi = null;
+        props.form.perusahaan_kode_provinsi = null;
+        props.form.company_kode_kabupaten = null;
+        props.form.perusahaan_kode_kabupaten = null;
+        if (!props.form.company_kode_negara || props.form.company_kode_negara === 'ID') {
+            props.form.company_kode_negara = '';
+            props.form.perusahaan_kode_negara = '';
         }
     } else {
-        props.form.company_negara = 'Indonesia';
-        props.form.perusahaan_negara = 'Indonesia';
+        props.form.company_kode_negara = 'ID';
+        props.form.perusahaan_kode_negara = 'ID';
     }
 });
 
-watch(() => props.form.company_negara, (newVal) => {
-    props.form.perusahaan_negara = newVal;
+watch(() => props.form.company_kode_negara, (newVal) => {
+    props.form.perusahaan_kode_negara = newVal;
 });
 
 // Dropdown Provinsi
@@ -544,8 +736,8 @@ const showProvinsiDropdown = ref(false);
 const searchProvinsiQuery = ref('');
 
 const selectedProvinceName = computed(() => {
-    if (!props.form.company_province_id || !props.provinces) return '';
-    const prov = props.provinces.find(p => p.id == props.form.company_province_id);
+    if (!props.form.company_kode_provinsi || !props.provinces) return '';
+    const prov = props.provinces.find(p => p.kode_provinsi == props.form.company_kode_provinsi);
     return prov ? prov.nama_provinsi : '';
 });
 
@@ -557,19 +749,19 @@ const filteredProvinces = computed(() => {
 });
 
 const selectProvinsi = (prov) => {
-    props.form.company_province_id = prov.id;
-    props.form.perusahaan_propinsi_id = prov.id;
-    props.form.company_kabupaten_id = '';
-    props.form.perusahaan_kabupaten_id = '';
+    props.form.company_kode_provinsi = prov.kode_provinsi;
+    props.form.perusahaan_kode_provinsi = prov.kode_provinsi;
+    props.form.company_kode_kabupaten = '';
+    props.form.perusahaan_kode_kabupaten = '';
     showProvinsiDropdown.value = false;
     searchProvinsiQuery.value = '';
 };
 
 const clearProvinsi = () => {
-    props.form.company_province_id = null;
-    props.form.perusahaan_propinsi_id = null;
-    props.form.company_kabupaten_id = null;
-    props.form.perusahaan_kabupaten_id = null;
+    props.form.company_kode_provinsi = null;
+    props.form.perusahaan_kode_provinsi = null;
+    props.form.company_kode_kabupaten = null;
+    props.form.perusahaan_kode_kabupaten = null;
     showProvinsiDropdown.value = false;
     searchProvinsiQuery.value = '';
 };
@@ -579,15 +771,15 @@ const showKabupatenDropdown = ref(false);
 const searchKabupatenQuery = ref('');
 
 const selectedKabupatenName = computed(() => {
-    if (!props.form.company_kabupaten_id || !props.kabupatens) return '';
-    const kab = props.kabupatens.find(k => k.id == props.form.company_kabupaten_id);
+    if (!props.form.company_kode_kabupaten || !props.kabupatens) return '';
+    const kab = props.kabupatens.find(k => k.kode_kabupaten == props.form.company_kode_kabupaten);
     return kab ? kab.nama_kabupaten : '';
 });
 
 const filteredKabupatens = computed(() => {
     let list = props.kabupatens || [];
-    if (props.form.company_province_id) {
-        list = list.filter(k => k.province_id == props.form.company_province_id);
+    if (props.form.company_kode_provinsi) {
+        list = list.filter(k => k.kode_provinsi == props.form.company_kode_provinsi);
     }
     if (!searchKabupatenQuery.value.trim()) return list;
     const q = searchKabupatenQuery.value.toLowerCase();
@@ -595,15 +787,15 @@ const filteredKabupatens = computed(() => {
 });
 
 const selectKabupaten = (kab) => {
-    props.form.company_kabupaten_id = kab.id;
-    props.form.perusahaan_kabupaten_id = kab.id;
+    props.form.company_kode_kabupaten = kab.kode_kabupaten;
+    props.form.perusahaan_kode_kabupaten = kab.kode_kabupaten;
     showKabupatenDropdown.value = false;
     searchKabupatenQuery.value = '';
 };
 
 const clearKabupaten = () => {
-    props.form.company_kabupaten_id = null;
-    props.form.perusahaan_kabupaten_id = null;
+    props.form.company_kode_kabupaten = null;
+    props.form.perusahaan_kode_kabupaten = null;
     showKabupatenDropdown.value = false;
     searchKabupatenQuery.value = '';
 };
@@ -613,8 +805,8 @@ const showNegaraDropdown = ref(false);
 const searchNegaraQuery = ref('');
 
 const selectedNegaraName = computed(() => {
-    if (!props.form.company_negara || props.form.company_negara === 'Indonesia') return '';
-    return props.form.company_negara;
+    if (!props.form.company_kode_negara || props.form.company_kode_negara === 'ID') return '';
+    return props.form.company_kode_negara;
 });
 
 const filteredNegaras = computed(() => {
@@ -625,20 +817,20 @@ const filteredNegaras = computed(() => {
         n.nama_negara.toLowerCase().includes(q) ||
         (n.benua && n.benua.toLowerCase().includes(q)) ||
         (n.ibu_kota && n.ibu_kota.toLowerCase().includes(q)) ||
-        (n.kode_iso2 && n.kode_iso2.toLowerCase().includes(q))
+        (n.kode_negara && n.kode_negara.toLowerCase().includes(q))
     );
 });
 
 const selectNegara = (neg) => {
-    props.form.company_negara = neg.nama_negara;
-    props.form.perusahaan_negara = neg.nama_negara;
+    props.form.company_kode_negara = neg.kode_negara;
+    props.form.perusahaan_kode_negara = neg.kode_negara;
     showNegaraDropdown.value = false;
     searchNegaraQuery.value = '';
 };
 
 const clearNegara = () => {
-    props.form.company_negara = '';
-    props.form.perusahaan_negara = '';
+    props.form.company_kode_negara = '';
+    props.form.perusahaan_kode_negara = '';
     showNegaraDropdown.value = false;
     searchNegaraQuery.value = '';
 };
@@ -646,36 +838,65 @@ const clearNegara = () => {
 // Dropdown Perusahaan
 const showCompanyDropdown = ref(false);
 const searchCompanyQuery = ref('');
+// Mode saring wilayah opsional (default false agar pencarian langsung ke seluruh master Head Office)
+const showWilayahFilter = ref(false);
 
 const filteredCompanies = computed(() => {
     let list = localCompanies.value || [];
 
-    if (props.form.company_jenis_lokasi) {
-        list = list.filter(c => (c.jenis_lokasi || 'Dalam Negeri') === props.form.company_jenis_lokasi);
-    }
+    // Jika filter wilayah diaktifkan secara opsional
+    if (showWilayahFilter.value) {
+        if (props.form.company_jenis_lokasi) {
+            list = list.filter(c => (c.jenis_lokasi || 'Dalam Negeri') === props.form.company_jenis_lokasi);
+        }
 
-    if (props.form.company_jenis_lokasi === 'Luar Negeri') {
-        if (props.form.company_negara && props.form.company_negara !== 'Indonesia') {
-            const qNegara = props.form.company_negara.toLowerCase();
-            list = list.filter(c => c.negara && c.negara.toLowerCase() === qNegara);
-        }
-    } else {
-        if (props.form.company_province_id) {
-            list = list.filter(c => c.province_id == props.form.company_province_id);
-        }
-        if (props.form.company_kabupaten_id) {
-            list = list.filter(c => c.kabupaten_id == props.form.company_kabupaten_id);
+        if (props.form.company_jenis_lokasi === 'Luar Negeri') {
+            if (props.form.company_kode_negara && props.form.company_kode_negara !== 'ID') {
+                const qNegara = props.form.company_kode_negara.toLowerCase();
+                list = list.filter(c => c.kode_negara && c.kode_negara.toLowerCase() === qNegara);
+            }
+        } else {
+            if (props.form.company_kode_provinsi) {
+                list = list.filter(c => c.kode_provinsi == props.form.company_kode_provinsi);
+            }
+            if (props.form.company_kode_kabupaten) {
+                list = list.filter(c => c.kode_kabupaten == props.form.company_kode_kabupaten);
+            }
         }
     }
 
     if (!searchCompanyQuery.value.trim()) return list;
     const q = searchCompanyQuery.value.toLowerCase();
-    return list.filter(c =>
-        c.nama_perusahaan.toLowerCase().includes(q) ||
-        (c.negara && c.negara.toLowerCase().includes(q)) ||
-        (c.alamat && c.alamat.toLowerCase().includes(q))
-    );
+    return list.filter(c => {
+        const matchNama = (c.nama_perusahaan || '').toLowerCase().includes(q);
+        const matchAlamat = (c.alamat || '').toLowerCase().includes(q);
+        const matchNegara = (c.kode_negara || '').toLowerCase().includes(q);
+        const provName = props.provinces?.find(p => p.kode_provinsi == c.kode_provinsi)?.nama_provinsi?.toLowerCase() || '';
+        const kabName = props.kabupatens?.find(k => k.kode_kabupaten == c.kode_kabupaten)?.nama_kabupaten?.toLowerCase() || '';
+        const countryName = props.negaras?.find(n => n.kode_negara == c.kode_negara)?.nama_negara?.toLowerCase() || '';
+
+        return matchNama || matchAlamat || matchNegara || provName.includes(q) || kabName.includes(q) || countryName.includes(q);
+    });
 });
+
+const companyWilayahDisplay = computed(() => {
+    if (props.form.company_jenis_lokasi === 'Luar Negeri') {
+        const neg = (props.negaras || []).find(n => n.kode_negara === props.form.company_kode_negara);
+        return `Luar Negeri · ${neg ? neg.nama_negara : (props.form.company_kode_negara || 'Negara Asing')}`;
+    }
+    const prov = (props.provinces || []).find(p => p.kode_provinsi == props.form.company_kode_provinsi)?.nama_provinsi;
+    const kab = (props.kabupatens || []).find(k => k.kode_kabupaten == props.form.company_kode_kabupaten)?.nama_kabupaten;
+    if (prov && kab) {
+        return `Dalam Negeri · ${prov} - ${kab}`;
+    }
+    if (prov) {
+        return `Dalam Negeri · ${prov}`;
+    }
+    return 'Dalam Negeri';
+});
+
+// Styling konsisten untuk input, select, dan textarea yang berstatus disabled/terkunci
+const lockedInputClass = 'block w-full border border-gray-300 bg-gray-100 text-gray-800 rounded-xl px-4 py-2.5 text-sm font-medium cursor-not-allowed select-none shadow-2xs';
 
 const selectCompany = (company) => {
     props.form.nama_perusahaan = company.nama_perusahaan;
@@ -684,17 +905,17 @@ const selectCompany = (company) => {
         props.form.company_jenis_lokasi = company.jenis_lokasi;
         props.form.perusahaan_jenis_lokasi = company.jenis_lokasi;
     }
-    if (company.negara) {
-        props.form.company_negara = company.negara;
-        props.form.perusahaan_negara = company.negara;
+    if (company.kode_negara) {
+        props.form.company_kode_negara = company.kode_negara;
+        props.form.perusahaan_kode_negara = company.kode_negara;
     }
-    if (company.province_id) {
-        props.form.company_province_id = company.province_id;
-        props.form.perusahaan_propinsi_id = company.province_id;
+    if (company.kode_provinsi) {
+        props.form.company_kode_provinsi = company.kode_provinsi;
+        props.form.perusahaan_kode_provinsi = company.kode_provinsi;
     }
-    if (company.kabupaten_id) {
-        props.form.company_kabupaten_id = company.kabupaten_id;
-        props.form.perusahaan_kabupaten_id = company.kabupaten_id;
+    if (company.kode_kabupaten) {
+        props.form.company_kode_kabupaten = company.kode_kabupaten;
+        props.form.perusahaan_kode_kabupaten = company.kode_kabupaten;
     }
     if (company.alamat) {
         props.form.company_alamat = company.alamat;
@@ -788,9 +1009,9 @@ const newCompanyForm = ref({
     nama_perusahaan: '',
     bentuk_perusahaan: 'Perusahaan Terbatas',
     jenis_lokasi: 'Dalam Negeri',
-    negara: 'Indonesia',
-    province_id: '',
-    kabupaten_id: '',
+    kode_negara: 'ID',
+    kode_provinsi: '',
+    kode_kabupaten: '',
     kode_pos: '',
     skala: 'Regional/Lokal',
     jenis_perusahaan: 'Perusahaan swasta',
@@ -811,20 +1032,20 @@ const foreignCountries = computed(() => {
 // agar HANYA menampilkan kabupaten yang berada di bawah provinsi yang dipilih pengguna saat ini.
 const modalFilteredKabupatens = computed(() => {
     // Jika provinsi belum dipilih, kosongkan opsi kabupaten
-    if (!newCompanyForm.value.province_id) {
+    if (!newCompanyForm.value.kode_provinsi) {
         return [];
     }
     // Filter array kabupaten berdasarkan kecocokan ID provinsi
-    return (props.kabupatens || []).filter(k => String(k.province_id) === String(newCompanyForm.value.province_id));
+    return (props.kabupatens || []).filter(k => String(k.kode_provinsi) === String(newCompanyForm.value.kode_provinsi));
 });
 
 // watch() adalah pemantau (listener) yang berjalan setiap kali variabel tertentu berubah nilai.
-// Di bawah ini, jika pengguna mengganti provinsi (province_id), watch akan memeriksa:
+// Di bawah ini, jika pengguna mengganti provinsi (kode_provinsi), watch akan memeriksa:
 // apakah kabupaten yang dipilih sebelumnya masih ada di provinsi baru? Jika tidak, reset jadi kosong.
-watch(() => newCompanyForm.value.province_id, (newProvId) => {
-    const isKabupatenStillValid = modalFilteredKabupatens.value.some(k => String(k.id) === String(newCompanyForm.value.kabupaten_id));
+watch(() => newCompanyForm.value.kode_provinsi, (newProvId) => {
+    const isKabupatenStillValid = modalFilteredKabupatens.value.some(k => String(k.id) === String(newCompanyForm.value.kode_kabupaten));
     if (!newProvId || !isKabupatenStillValid) {
-        newCompanyForm.value.kabupaten_id = '';
+        newCompanyForm.value.kode_kabupaten = '';
     }
 });
 
@@ -833,14 +1054,14 @@ watch(() => newCompanyForm.value.province_id, (newProvId) => {
 watch(() => newCompanyForm.value.jenis_lokasi, (newLokasi) => {
     if (newLokasi === 'Luar Negeri') {
         // Jika Luar Negeri, kita tidak butuh provinsi & kabupaten Indonesia
-        newCompanyForm.value.province_id = '';
-        newCompanyForm.value.kabupaten_id = '';
+        newCompanyForm.value.kode_provinsi = '';
+        newCompanyForm.value.kode_kabupaten = '';
         if (newCompanyForm.value.skala === 'Regional/Lokal') {
             newCompanyForm.value.skala = 'Internasional';
         }
     } else {
         // Jika Dalam Negeri, otomatis atur nama negara ke Indonesia
-        newCompanyForm.value.negara = 'Indonesia';
+        newCompanyForm.value.kode_negara = 'ID';
         if (newCompanyForm.value.skala === 'Internasional') {
             newCompanyForm.value.skala = 'Nasional';
         }
@@ -863,9 +1084,9 @@ const openAddCompanyModal = () => {
         nama_perusahaan: '',
         bentuk_perusahaan: props.form.company_bentuk || props.form.perusahaan_bentuk || 'Perusahaan Terbatas',
         jenis_lokasi: initialJenisLokasi,
-        negara: isLuar ? (props.form.company_negara || '') : 'Indonesia',
-        province_id: isLuar ? '' : (props.form.company_province_id || ''),
-        kabupaten_id: isLuar ? '' : (props.form.company_kabupaten_id || ''),
+        kode_negara: isLuar ? (props.form.company_kode_negara || '') : 'ID',
+        kode_provinsi: isLuar ? '' : (props.form.company_kode_provinsi || ''),
+        kode_kabupaten: isLuar ? '' : (props.form.company_kode_kabupaten || ''),
         kode_pos: props.form.zipcode || props.form.company_kode_pos || '',
         skala: props.form.company_skala || (isLuar ? 'Internasional' : 'Regional/Lokal'),
         jenis_perusahaan: props.form.company_jenis_perusahaan || 'Perusahaan swasta',
@@ -904,16 +1125,16 @@ const submitNewCompany = async () => {
 
     // 2. Validasi wilayah berdasarkan jenis lokasi
     if (isLuar) {
-        if (!formVal.negara || formVal.negara === 'Indonesia' || !foreignCountries.value.some(n => n.nama_negara === formVal.negara)) {
+        if (!formVal.kode_negara || formVal.kode_negara === 'ID' || !foreignCountries.value.some(n => n.kode_negara === formVal.kode_negara)) {
             companyModalError.value = 'Silakan pilih salah satu negara di luar negeri dari daftar master resmi.';
             return;
         }
     } else {
-        if (!formVal.province_id) {
+        if (!formVal.kode_provinsi) {
             companyModalError.value = 'Provinsi Perusahaan wajib dipilih.';
             return;
         }
-        if (!formVal.kabupaten_id) {
+        if (!formVal.kode_kabupaten) {
             companyModalError.value = 'Kabupaten / Kota Perusahaan wajib dipilih.';
             return;
         }
@@ -939,9 +1160,9 @@ const submitNewCompany = async () => {
                 nama_perusahaan: nama,
                 bentuk_perusahaan: formVal.bentuk_perusahaan || null,
                 jenis_lokasi: formVal.jenis_lokasi,
-                negara: isLuar ? formVal.negara : 'Indonesia',
-                province_id: isLuar ? null : formVal.province_id,
-                kabupaten_id: isLuar ? null : formVal.kabupaten_id,
+                kode_negara: isLuar ? formVal.kode_negara : 'ID',
+                kode_provinsi: isLuar ? null : formVal.kode_provinsi,
+                kode_kabupaten: isLuar ? null : formVal.kode_kabupaten,
                 kode_pos: formVal.kode_pos ? formVal.kode_pos.trim() : null,
                 skala: formVal.skala || (isLuar ? 'Internasional' : 'Regional/Lokal'),
                 jenis_perusahaan: formVal.jenis_perusahaan || 'Perusahaan swasta',
@@ -966,14 +1187,14 @@ const submitNewCompany = async () => {
         props.form.nama_perusahaan = newCompany.nama_perusahaan;
         props.form.company_bentuk = newCompany.bentuk_perusahaan || '';
         props.form.perusahaan_bentuk = props.form.company_bentuk;
-        props.form.company_jenis_lokasi = newCompany.jenis_lokasi || (newCompany.negara && newCompany.negara !== 'Indonesia' ? 'Luar Negeri' : 'Dalam Negeri');
+        props.form.company_jenis_lokasi = newCompany.jenis_lokasi || (newCompany.kode_negara && newCompany.kode_negara !== 'ID' ? 'Luar Negeri' : 'Dalam Negeri');
         props.form.perusahaan_jenis_lokasi = props.form.company_jenis_lokasi;
-        props.form.company_negara = newCompany.negara || (props.form.company_jenis_lokasi === 'Luar Negeri' ? '' : 'Indonesia');
-        props.form.perusahaan_negara = props.form.company_negara;
-        props.form.company_province_id = newCompany.province_id;
-        props.form.perusahaan_propinsi_id = newCompany.province_id;
-        props.form.company_kabupaten_id = newCompany.kabupaten_id;
-        props.form.perusahaan_kabupaten_id = newCompany.kabupaten_id;
+        props.form.company_kode_negara = newCompany.kode_negara || (props.form.company_jenis_lokasi === 'Luar Negeri' ? '' : 'ID');
+        props.form.perusahaan_kode_negara = props.form.company_kode_negara;
+        props.form.company_kode_provinsi = newCompany.kode_provinsi;
+        props.form.perusahaan_kode_provinsi = newCompany.kode_provinsi;
+        props.form.company_kode_kabupaten = newCompany.kode_kabupaten;
+        props.form.perusahaan_kode_kabupaten = newCompany.kode_kabupaten;
         props.form.company_alamat = newCompany.alamat || '';
         props.form.company_skala = newCompany.skala === 'Lokal' ? 'Regional/Lokal' : (newCompany.skala || 'Regional/Lokal');
         props.form.perusahaan_skala = props.form.company_skala;
@@ -1004,6 +1225,143 @@ const submitNewCompany = async () => {
         companyModalError.value = 'Gagal menghubungi server. Silakan coba lagi.';
     } finally {
         isSubmittingCompany.value = false;
+    }
+};
+
+// ============================================================================
+// 6B. MODAL USULAN PEMBARUAN DATA KANTOR PUSAT (REQUEST UPDATE HEAD OFFICE)
+// ============================================================================
+const isRequestUpdateModalOpen = ref(false);
+const isSubmittingRequestUpdate = ref(false);
+const requestUpdateError = ref('');
+const requestUpdateForm = ref({
+    nama_perusahaan: '',
+    jenis_lokasi: 'Dalam Negeri',
+    kode_negara: 'ID',
+    kode_provinsi: '',
+    kode_kabupaten: '',
+    jenis_perusahaan: 'Perusahaan swasta',
+    jenis_perusahaan_lainnya: '',
+    bentuk_perusahaan: 'Perusahaan Terbatas',
+    skala: 'Regional/Lokal',
+    alamat: '',
+    kode_pos: '',
+    no_telp_fax: '',
+    homepage: '',
+});
+
+// Filter kabupaten untuk modal usulan pembaruan
+const requestUpdateFilteredKabupatens = computed(() => {
+    if (!requestUpdateForm.value.kode_provinsi) {
+        return [];
+    }
+    return (props.kabupatens || []).filter(k => String(k.kode_provinsi) === String(requestUpdateForm.value.kode_provinsi));
+});
+
+watch(() => requestUpdateForm.value.kode_provinsi, (newProvId) => {
+    const isKabValid = requestUpdateFilteredKabupatens.value.some(k => String(k.kode_kabupaten) === String(requestUpdateForm.value.kode_kabupaten));
+    if (!newProvId || !isKabValid) {
+        requestUpdateForm.value.kode_kabupaten = '';
+    }
+});
+
+watch(() => requestUpdateForm.value.jenis_lokasi, (newLokasi) => {
+    if (newLokasi === 'Luar Negeri') {
+        requestUpdateForm.value.kode_provinsi = '';
+        requestUpdateForm.value.kode_kabupaten = '';
+        if (!requestUpdateForm.value.kode_negara || requestUpdateForm.value.kode_negara === 'ID') {
+            requestUpdateForm.value.kode_negara = '';
+        }
+    } else {
+        requestUpdateForm.value.kode_negara = 'ID';
+    }
+});
+
+const openRequestUpdateModal = () => {
+    requestUpdateError.value = '';
+    const initialJenisLokasi = props.form.company_jenis_lokasi || 'Dalam Negeri';
+    const isLuar = initialJenisLokasi === 'Luar Negeri';
+
+    requestUpdateForm.value = {
+        nama_perusahaan: props.form.nama_perusahaan || '',
+        jenis_lokasi: initialJenisLokasi,
+        kode_negara: isLuar ? (props.form.company_kode_negara || '') : 'ID',
+        kode_provinsi: isLuar ? '' : (props.form.company_kode_provinsi || ''),
+        kode_kabupaten: isLuar ? '' : (props.form.company_kode_kabupaten || ''),
+        jenis_perusahaan: props.form.company_jenis_perusahaan || props.form.perusahaan_jenis_perusahaan || 'Perusahaan swasta',
+        jenis_perusahaan_lainnya: props.form.company_jenis_perusahaan_lainnya || props.form.perusahaan_jenis_perusahaan_lainnya || '',
+        bentuk_perusahaan: props.form.company_bentuk || props.form.perusahaan_bentuk || 'Perusahaan Terbatas',
+        skala: props.form.company_skala || props.form.perusahaan_skala || 'Regional/Lokal',
+        alamat: props.form.company_alamat || props.form.perusahaan_alamat || '',
+        kode_pos: props.form.company_kode_pos || props.form.perusahaan_kode_pos || props.form.zipcode || '',
+        no_telp_fax: props.form.company_no_telp_fax || props.form.perusahaan_no_telp_fax || '',
+        homepage: props.form.company_homepage || props.form.perusahaan_homepage || '',
+    };
+    isRequestUpdateModalOpen.value = true;
+};
+
+const closeRequestUpdateModal = () => {
+    if (isSubmittingRequestUpdate.value) return;
+    isRequestUpdateModalOpen.value = false;
+    requestUpdateError.value = '';
+};
+
+const submitRequestUpdate = async () => {
+    const selectedCompany = localCompanies.value.find(c => c.nama_perusahaan === props.form.nama_perusahaan);
+    const companyId = selectedCompany?.id || props.form?.perusahaan_id;
+
+    if (!companyId) {
+        requestUpdateError.value = 'Data perusahaan kantor pusat belum dipilih atau belum tersimpan di master.';
+        return;
+    }
+
+    isSubmittingRequestUpdate.value = true;
+    requestUpdateError.value = '';
+
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const res = await fetch('/alumni/company/request-update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            body: JSON.stringify({
+                perusahaan_id: companyId,
+                nama_perusahaan: requestUpdateForm.value.nama_perusahaan?.trim() || null,
+                jenis_lokasi: requestUpdateForm.value.jenis_lokasi,
+                kode_negara: requestUpdateForm.value.kode_negara || null,
+                kode_provinsi: requestUpdateForm.value.kode_provinsi || null,
+                kode_kabupaten: requestUpdateForm.value.kode_kabupaten || null,
+                jenis_perusahaan: requestUpdateForm.value.jenis_perusahaan || null,
+                jenis_perusahaan_lainnya: requestUpdateForm.value.jenis_perusahaan_lainnya?.trim() || null,
+                bentuk_perusahaan: requestUpdateForm.value.bentuk_perusahaan || null,
+                skala: requestUpdateForm.value.skala || null,
+                alamat: requestUpdateForm.value.alamat?.trim() || null,
+                kode_pos: requestUpdateForm.value.kode_pos?.trim() || null,
+                no_telp_fax: requestUpdateForm.value.no_telp_fax?.trim() || null,
+                homepage: requestUpdateForm.value.homepage?.trim() || null,
+            }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            requestUpdateError.value = data.message || 'Gagal mengajukan usulan pembaruan.';
+            return;
+        }
+
+        isRequestUpdateModalOpen.value = false;
+        Swal.fire({
+            icon: 'success',
+            title: 'Usulan Berhasil Diajukan',
+            text: data.message || 'Usulan pembaruan data kantor pusat telah dicatat dan akan ditinjau oleh administrator.',
+            confirmButtonColor: '#0D542B',
+        });
+    } catch (err) {
+        requestUpdateError.value = 'Terjadi kesalahan sistem saat mengirim usulan.';
+    } finally {
+        isSubmittingRequestUpdate.value = false;
     }
 };
 
@@ -1049,9 +1407,9 @@ onUnmounted(() => {
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <!-- Input: LinkedIn URL -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_LINKEDIN_URL')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        LinkedIn Profil URL <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_LINKEDIN_URL', 'LinkedIn Profil URL') }} <span v-if="isQuestionRequired('BIO_LINKEDIN_URL')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         type="url"
@@ -1063,9 +1421,9 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Input: LinkedIn Username -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_LINKEDIN_USER')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        LinkedIn Username <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_LINKEDIN_USER', 'LinkedIn Username') }} <span v-if="isQuestionRequired('BIO_LINKEDIN_USER')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         type="text"
@@ -1077,9 +1435,9 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Input: Instagram URL -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_INSTAGRAM_URL')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Instagram Profil URL <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_INSTAGRAM_URL', 'Instagram Profil URL') }} <span v-if="isQuestionRequired('BIO_INSTAGRAM_URL')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         type="url"
@@ -1091,9 +1449,9 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Input: Facebook URL -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_FACEBOOK_URL')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Facebook Profil URL <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_FACEBOOK_URL', 'Facebook Profil URL') }} <span v-if="isQuestionRequired('BIO_FACEBOOK_URL')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         type="url"
@@ -1105,9 +1463,9 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Input: Keahlian (Skills) -->
-                <div class="md:col-span-2">
+                <div v-if="isQuestionVisible('BIO_SKILLS')" class="md:col-span-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Keahlian (Skills) <span class="text-rose-500 font-bold">*</span></span>
+                        <span>{{ getQuestionLabel('BIO_SKILLS', 'Keahlian (Skills)') }} <span v-if="isQuestionRequired('BIO_SKILLS')" class="text-rose-500 font-bold">*</span></span>
                         <span class="text-[11px] font-normal text-gray-500">Sinkron dengan LinkedIn Skills</span>
                     </label>
                     <input
@@ -1120,9 +1478,9 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Input: Pengalaman Kerja (Experience) -->
-                <div class="md:col-span-2">
+                <div v-if="isQuestionVisible('BIO_EXPERIENCE')" class="md:col-span-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Pengalaman Kerja (Experience) <span class="text-rose-500 font-bold">*</span></span>
+                        <span>{{ getQuestionLabel('BIO_EXPERIENCE', 'Pengalaman Kerja (Experience)') }} <span v-if="isQuestionRequired('BIO_EXPERIENCE')" class="text-rose-500 font-bold">*</span></span>
                         <span class="text-[11px] font-normal text-gray-500">Sinkron dengan LinkedIn Experiences</span>
                     </label>
                     <input
@@ -1138,12 +1496,12 @@ onUnmounted(() => {
                 <div class="md:col-span-2 pt-2">
                     <div class="flex items-center justify-between mb-2">
                         <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                            Status Pekerjaan / Aktivitas Utama <span class="text-rose-500 font-bold">*</span>
+                            {{ getQuestionLabel('F8', 'Status Pekerjaan / Aktivitas Utama') }} <span v-if="isQuestionRequired('F8')" class="text-rose-500 font-bold">*</span>
                         </label>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
-                        <!-- Opsi 1: Pekerja / Karyawan -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
+                        <!-- Opsi 1: Bekerja (Karyawan / Pegawai) -->
                         <div
                             @click="selectRole('Pekerja')"
                             class="p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between relative group"
@@ -1151,7 +1509,7 @@ onUnmounted(() => {
                         >
                             <div class="flex items-center justify-between">
                                 <div class="font-bold text-sm" :class="form.kategori_pekerjaan === 'Pekerja' ? 'text-[#0D542B]' : 'text-gray-800'">
-                                    Pekerja / Karyawan
+                                    Bekerja (Karyawan)
                                 </div>
                             </div>
                             <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Bekerja di instansi pemerintah, swasta, BUMN, LSM, dsb.</div>
@@ -1168,35 +1526,57 @@ onUnmounted(() => {
                                     Wirausaha / Founder
                                 </div>
                             </div>
-                            <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Mendirikan bisnis sendiri, startup, atau freelance</div>
+                            <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Mendirikan bisnis sendiri, UMKM, startup, atau freelance</div>
                         </div>
 
-                        <!-- Opsi 3: Tidak Bekerja / Mencari Kerja -->
+                        <!-- Opsi 3: Sedang Mencari Kerja -->
                         <div
-                            @click="selectRole('Tidak Bekerja')"
+                            @click="selectRole('Mencari Kerja')"
                             class="p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between relative group"
-                            :class="['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'].includes(form.kategori_pekerjaan) ? 'border-[#0D542B] bg-slate-50 text-gray-900 shadow-xs ring-1 ring-[#0D542B]' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'"
+                            :class="form.kategori_pekerjaan === 'Mencari Kerja' ? 'border-[#0D542B] bg-slate-50 text-gray-900 shadow-xs ring-1 ring-[#0D542B]' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'"
                         >
                             <div class="flex items-center justify-between">
-                                <div class="font-bold text-sm" :class="['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'].includes(form.kategori_pekerjaan) ? 'text-[#0D542B]' : 'text-gray-800'">
-                                    Tidak Bekerja / Mencari Kerja
+                                <div class="font-bold text-sm" :class="form.kategori_pekerjaan === 'Mencari Kerja' ? 'text-[#0D542B]' : 'text-gray-800'">
+                                    Mencari Kerja
                                 </div>
                             </div>
-                            <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Belum memungkinkan bekerja atau sedang mencari kerja</div>
+                            <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Belum bekerja dan aktif mencari lowongan pekerjaan</div>
                         </div>
+
+                        <!-- Opsi 4: Belum Memungkinkan Bekerja -->
+                        <div
+                            @click="selectRole('Belum Memungkinkan Bekerja')"
+                            class="p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between relative group"
+                            :class="['Belum Memungkinkan Bekerja', 'Tidak Bekerja'].includes(form.kategori_pekerjaan) ? 'border-[#0D542B] bg-slate-50 text-gray-900 shadow-xs ring-1 ring-[#0D542B]' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'"
+                        >
+                            <div class="flex items-center justify-between">
+                                <div class="font-bold text-sm" :class="['Belum Memungkinkan Bekerja', 'Tidak Bekerja'].includes(form.kategori_pekerjaan) ? 'text-[#0D542B]' : 'text-gray-800'">
+                                    Belum Bekerja
+                                </div>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Belum berencana bekerja (keluarga, istirahat, dsb.)</div>
+                        </div>
+                    </div>
+
+                    <!-- Notifikasi Status Karier Non-Pekerja -->
+                    <div v-if="['Mencari Kerja', 'Belum Memungkinkan Bekerja', 'Tidak Bekerja'].includes(form.kategori_pekerjaan)" class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 text-xs text-slate-800">
+                        <span class="font-bold text-[#0D542B]">Informasi Status Karier:</span>
+                        <p class="mt-0.5 text-slate-600 leading-relaxed">
+                            Karena Anda memilih status <span class="font-semibold text-slate-900">{{ form.kategori_pekerjaan === 'Mencari Kerja' ? 'Sedang Mencari Kerja' : 'Belum Memungkinkan Bekerja' }}</span>, data instansi/perusahaan dan kontak atasan tidak wajib diisi. Pilihan ini akan disinkronkan langsung ke Kuesioner Universitas.
+                        </p>
                     </div>
                 </div>
 
-                <div class="md:col-span-2 space-y-2">
+                <div v-if="['Pekerja', 'Wiraswasta'].includes(form.kategori_pekerjaan)" class="md:col-span-2 space-y-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                        Bidang Pekerjaan / Divisi
+                        {{ getQuestionLabel('BIO_BIDANG_DIVISI', 'Bidang Pekerjaan / Sektor Industri') }} <span v-if="isQuestionRequired('BIO_BIDANG_DIVISI', false)" class="text-rose-500 font-bold">*</span>
                     </label>
                     <select
                         v-model="bidangPekerjaanSelection"
                         @change="syncBidangPekerjaan"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                     >
-                        <option value="">-- Pilih Bidang Pekerjaan / Divisi --</option>
+                        <option value="">-- Pilih Sektor / Bidang Industri --</option>
                         <option v-for="opt in bidangPekerjaanOptions" :key="opt.value" :value="opt.value">
                             {{ opt.label }}
                         </option>
@@ -1206,77 +1586,90 @@ onUnmounted(() => {
                         v-model="form.bidang_pekerjaan_lainnya"
                         @input="syncBidangPekerjaan"
                         type="text"
-                        placeholder="Tuliskan bidang pekerjaan atau divisi"
+                        placeholder="Tuliskan sektor atau bidang industri pekerjaan Anda"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                     />
                     <p class="text-[11px] text-gray-400">
-                        Pilihan dikelola dari master Superadmin. Jika belum tersedia, pilih Lainnya dan tuliskan sendiri.
+                        {{ getQuestionHint('BIO_BIDANG_DIVISI', 'Pilih sektor atau rumpun industri tempat Anda bekerja (misal: Teknologi Informasi, Keuangan, Kesehatan).') }}
                     </p>
                 </div>
 
-                <!-- Jika Karyawan/Pekerja: Posisi Jabatan Struktural (F2G) Dinamis dari Database -->
+                <!-- Input divisi terpisah dari rumpun bidang pekerjaan untuk kebutuhan direktori dan analitik. -->
+                <div v-if="['Pekerja', 'Wiraswasta'].includes(form.kategori_pekerjaan)" class="md:col-span-2 space-y-2">
+                    <label for="divisi" class="block text-xs sm:text-sm font-bold text-gray-700">
+                        Divisi / Departemen Kantor
+                    </label>
+                    <input
+                        id="divisi"
+                        v-model="form.divisi"
+                        type="text"
+                        autocomplete="organization"
+                        maxlength="150"
+                        placeholder="Contoh: Divisi IT Support, Human Capital (HR), Accounting, Marketing"
+                        class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
+                    />
+                    <p class="text-[11px] text-gray-400">
+                        Tuliskan nama divisi, seksi, atau unit departemen tempat Anda bertugas di kantor saat ini.
+                    </p>
+                </div>
+
+                <!-- Jika Karyawan/Pekerja: Posisi Jabatan Struktural (F2G) -->
                 <div v-if="form.kategori_pekerjaan === 'Pekerja'" class="md:col-span-2 space-y-2">
-                    <div class="flex items-center justify-between">
-                        <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                            Posisi Jabatan Struktural (F2G) <span class="text-rose-500 font-bold">*</span>
-                        </label>
-                        <button
-                            type="button"
-                            @click="isCustomJabatan = !isCustomJabatan"
-                            class="text-xs font-bold text-[#0D542B] hover:underline cursor-pointer"
-                        >
-                            {{ isCustomJabatan ? '&larr; Pilih dari Dropdown Standar' : '+ Tulis Jabatan Kustom' }}
-                        </button>
-                    </div>
-
-                    <!-- Input Bebas jika jabatan spesifik/kustom -->
-                    <div v-if="isCustomJabatan">
-                        <input
-                            type="text"
-                            v-model="form.posisi_jabatan"
-                            placeholder="Contoh: Wakil Dekan I, Lead Software Engineer, Konsultan..."
-                            class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        />
-                        <p class="text-[11px] text-gray-400 mt-1">Jabatan kustom otomatis tersimpan ke profil alumni.</p>
-                    </div>
-
-                    <!-- Dropdown Standar F2G (jika tidak memilih input kustom) -->
-                    <div v-else>
+                    <label class="block text-xs sm:text-sm font-bold text-gray-700">
+                        {{ getQuestionLabel('F2G', 'Posisi Jabatan Struktural (F2G)') }} <span v-if="isQuestionRequired('F2G')" class="text-rose-500 font-bold">*</span>
+                    </label>
+                    <div v-if="posisiJabatanOptions.length > 0" class="space-y-2">
                         <select
-                            v-model="form.posisi_jabatan"
+                            v-model="posisiJabatanSelection"
+                            @change="syncPosisiJabatan"
                             class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                         >
-                            <option value="">-- Pilih Posisi Jabatan --</option>
+                            <option value="">-- Pilih Posisi / Jabatan --</option>
                             <option v-for="opt in posisiJabatanOptions" :key="opt.value" :value="opt.value">
                                 {{ opt.label }}
                             </option>
                         </select>
+                        <input
+                            v-if="isOtherOptionValue(posisiJabatanSelection)"
+                            type="text"
+                            v-model="posisiJabatanKustom"
+                            @input="syncPosisiJabatan"
+                            placeholder="Tuliskan posisi jabatan struktural spesifik Anda..."
+                            class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
+                        />
                     </div>
+                    <div v-else>
+                        <input
+                            type="text"
+                            v-model="form.posisi_jabatan"
+                            placeholder="Contoh: Dosen, Software Engineer, Supervisor, Manager, Staff..."
+                            class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
+                        />
+                    </div>
+                    <p class="text-[11px] text-gray-400">
+                        {{ getQuestionHint('F2G', 'Tuliskan posisi jabatan struktural atau fungsional Anda di instansi/perusahaan tempat bekerja.') }}
+                    </p>
                 </div>
 
                 <!-- Jika Wiraswasta: Posisi / Jabatan Wiraswasta (F5C) -->
                 <div v-else-if="form.kategori_pekerjaan === 'Wiraswasta'" class="md:col-span-2 space-y-4">
                     <div>
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            Posisi / Jabatan Wiraswasta & Startup (F5C) <span class="text-rose-500 font-bold">*</span>
+                            {{ getQuestionLabel('F5C', 'Posisi / Jabatan Wiraswasta & Startup (F5C)') }} <span v-if="isQuestionRequired('F5C')" class="text-rose-500 font-bold">*</span>
                         </label>
                         <select
                             v-model="form.posisi_wiraswasta"
                             class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                         >
                             <option value="">-- Pilih Posisi / Jabatan Wiraswasta --</option>
-                            <option value="Owner">Owner</option>
-                            <option value="Founder">Founder</option>
-                            <option value="Co-Founder">Co-Founder</option>
-                            <option value="Direktur Utama">Direktur Utama</option>
-                            <option value="Pengelola Usaha">Pengelola Usaha</option>
-                            <option value="Freelancer / Konsultan Mandiri">Freelancer / Konsultan Mandiri</option>
-                            <option value="Lainnya">Lainnya</option>
+                            <option v-for="opt in posisiWiraswastaOptions" :key="opt.value" :value="opt.value">
+                                {{ opt.label }}
+                            </option>
                         </select>
                     </div>
 
                     <!-- Input Tambahan jika memilih Lainnya -->
-                    <div v-if="form.posisi_wiraswasta === 'Lainnya'">
+                    <div v-if="isOtherOptionValue(form.posisi_wiraswasta)">
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">Sebutkan Jabatan Wiraswasta Lainnya</label>
                         <input
                             type="text"
@@ -1338,7 +1731,7 @@ onUnmounted(() => {
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                                Jenjang Pendidikan <span class="text-rose-500 font-bold">*</span>
+                                {{ getQuestionLabel('BIO_PEND_TINGKAT', 'Jenjang Pendidikan') }} <span v-if="isQuestionRequired('BIO_PEND_TINGKAT')" class="text-rose-500 font-bold">*</span>
                             </label>
                             <select
                                 v-model="pendidikanTingkatSelection"
@@ -1362,7 +1755,7 @@ onUnmounted(() => {
 
                         <div>
                             <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                                Perguruan Tinggi <span class="text-rose-500 font-bold">*</span>
+                                {{ getQuestionLabel('BIO_PEND_KAMPUS', 'Perguruan Tinggi') }} <span v-if="isQuestionRequired('BIO_PEND_KAMPUS', false)" class="text-rose-500 font-bold">*</span>
                             </label>
                             <input
                                 type="text"
@@ -1374,7 +1767,7 @@ onUnmounted(() => {
 
                         <div>
                             <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                                Program Studi <span class="text-rose-500 font-bold">*</span>
+                                {{ getQuestionLabel('BIO_PEND_PRODI', 'Program Studi') }} <span v-if="isQuestionRequired('BIO_PEND_PRODI', false)" class="text-rose-500 font-bold">*</span>
                             </label>
                             <input
                                 type="text"
@@ -1386,11 +1779,11 @@ onUnmounted(() => {
                     </div>
                 </div>
 
-                <!-- Input Penghasilan / Take Home Pay (Format Nominal Bersih Tanpa Pengali Otomatis) -->
-                <div class="md:col-span-2">
+                <!-- Input Penghasilan / Take Home Pay (Hanya muncul jika bekerja atau wirausaha) -->
+                <div v-if="['Pekerja', 'Wiraswasta'].includes(form.kategori_pekerjaan) && isQuestionVisible('F505')" class="md:col-span-2">
                     <div class="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 !mb-0">
-                            Rata-rata Pendapatan per Bulan (Take Home Pay) <span class="text-rose-500 font-bold">*</span>
+                            {{ getQuestionLabel('F505', 'Rata-rata Pendapatan per Bulan (Take Home Pay)') }} <span v-if="isQuestionRequired('F505')" class="text-rose-500 font-bold">*</span>
                         </label>
                         <span v-if="form.gaji && form.gaji >= 1000" class="text-xs text-[#0D542B] font-bold inline-flex items-center gap-1">
                             Terbaca: <strong>{{ formatRupiah(form.gaji) }}</strong> / bulan
@@ -1490,241 +1883,42 @@ onUnmounted(() => {
         </div>
 
         <!-- ================================================================= -->
-        <!-- CARD 2: DATA PERUSAHAAN / INSTANSI TEMPAT BEKERJA                 -->
+        <!-- CARD 2: DATA PERUSAHAAN / INSTANSI TEMPAT BEKERJA (MASTER HEAD OFFICE) -->
         <!-- ================================================================= -->
-        <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
+        <div v-if="['Pekerja', 'Wiraswasta'].includes(form.kategori_pekerjaan)" class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-6 border-b border-gray-100 gap-3">
                 <div>
                     <h2 class="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
                         <span class="w-1.5 h-5 bg-[#0D542B] rounded-full inline-block"></span>
-                        Data {{ form.kategori_pekerjaan === 'Wiraswasta' ? 'Usaha / Bisnis' : 'Perusahaan / Tempat Bekerja' }}
+                        Data {{ form.kategori_pekerjaan === 'Wiraswasta' ? 'Usaha / Bisnis' : 'Perusahaan / Tempat Bekerja' }} (Master Head Office)
                     </h2>
-                    <p class="text-xs text-gray-400 mt-0.5">Filter lokasi wilayah atau pilih perusahaan yang terdaftar</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Cari langsung perusahaan kantor pusat terdaftar atau ajukan pendaftaran baru</p>
                 </div>
 
-                <!-- Pilihan Lokasi Perusahaan: Dalam Negeri / Luar Negeri -->
-                <div class="flex items-center gap-2 bg-gray-100/80 p-1.5 rounded-xl border border-gray-200">
+                <div class="flex items-center gap-2">
                     <button
                         type="button"
-                        @click="form.company_jenis_lokasi = 'Dalam Negeri'"
-                        class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                        :class="form.company_jenis_lokasi === 'Dalam Negeri' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'"
+                        @click="showWilayahFilter = !showWilayahFilter"
+                        class="px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                        :class="showWilayahFilter ? 'bg-emerald-50 border-emerald-300 text-[#0D542B]' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'"
                     >
-                        Dalam Negeri
-                    </button>
-                    <button
-                        type="button"
-                        @click="form.company_jenis_lokasi = 'Luar Negeri'"
-                        class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                        :class="form.company_jenis_lokasi === 'Luar Negeri' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'"
-                    >
-                        Luar Negeri
+                        <span>{{ showWilayahFilter ? 'Tutup Filter Wilayah' : 'Filter Wilayah Kantor Pusat' }}</span>
                     </button>
                 </div>
             </div>
 
             <div class="space-y-5">
                 <!-- ============================================================= -->
-                <!-- 1. FILTER LOKASI WILAYAH (BISA DIPILIH SEBELUM MEMILIH PT)    -->
+                <!-- 1. PENCARIAN LANGSUNG NAMA PERUSAHAAN (PRIORITAS UTAMA)       -->
                 <!-- ============================================================= -->
-
-                <!-- Jika Luar Negeri: Dropdown Pencarian Master Negara Dunia -->
-                <div v-if="form.company_jenis_lokasi === 'Luar Negeri'" class="relative" ref="negaraContainerRef">
+                <div class="relative" ref="companyContainerRef">
                     <div class="flex items-center justify-between mb-1.5">
                         <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                            Negara Tempat Bekerja <span class="text-rose-500 font-bold">*</span>
+                            Nama {{ form.kategori_pekerjaan === 'Wiraswasta' ? 'Usaha / Perusahaan' : 'Perusahaan / Instansi' }} (Master Head Office) <span class="text-rose-500 font-bold">*</span>
                         </label>
-                        <button
-                            v-if="selectedNegaraName"
-                            type="button"
-                            @click="clearNegara"
-                            class="text-[11px] font-bold text-gray-500 hover:text-rose-600 cursor-pointer"
-                        >
-                            Reset Negara
-                        </button>
-                    </div>
-
-                    <div
-                        @click="showNegaraDropdown = !showNegaraDropdown; if (showNegaraDropdown) searchNegaraQuery = '';"
-                        class="w-full rounded-xl border border-gray-300 bg-white text-gray-900 px-4 py-3 text-sm font-medium cursor-pointer flex justify-between items-center shadow-xs hover:border-[#0D542B] transition-colors"
-                    >
-                        <span v-if="selectedNegaraName" class="text-gray-900 font-semibold">
-                            {{ selectedNegaraName }}
+                        <span v-if="form.nama_perusahaan" class="text-xs font-semibold text-[#0D542B]">
+                            Perusahaan Terpilih
                         </span>
-                        <span v-else class="text-gray-400">Pilih Negara di Luar Negeri...</span>
-                        <svg class="w-4 h-4 text-gray-400 shrink-0 ml-2 transition-transform duration-200" :class="{'rotate-180': showNegaraDropdown}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-
-                    <!-- Dropdown List Negara -->
-                    <div v-if="showNegaraDropdown" class="absolute z-50 w-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-                        <div class="p-2.5 border-b border-gray-100 bg-gray-50/80">
-                            <div class="relative">
-                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                                </div>
-                                <input
-                                    type="text"
-                                    v-model="searchNegaraQuery"
-                                    class="w-full pl-9 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] outline-none"
-                                    placeholder="Ketik untuk mencari negara..."
-                                    autofocus
-                                >
-                            </div>
-                        </div>
-                        <ul class="max-h-56 overflow-y-auto divide-y divide-gray-50">
-                            <li
-                                v-for="neg in filteredNegaras"
-                                :key="neg.id"
-                                @click="selectNegara(neg)"
-                                class="px-4 py-2.5 hover:bg-slate-50 hover:text-[#0D542B] cursor-pointer text-sm font-medium transition-colors flex items-center justify-between"
-                                :class="{'bg-slate-100 text-[#0D542B] font-semibold': form.company_negara === neg.nama_negara}"
-                            >
-                                <div class="flex items-center gap-2">
-                                    <span>{{ neg.nama_negara }}</span>
-                                    <span v-if="neg.kode_iso2" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 uppercase">{{ neg.kode_iso2 }}</span>
-                                </div>
-                                <div class="text-xs text-gray-400 font-normal">
-                                    {{ neg.benua || 'Luar Negeri' }} <span v-if="neg.ibu_kota">• {{ neg.ibu_kota }}</span>
-                                </div>
-                            </li>
-                            <li v-if="filteredNegaras.length === 0" class="px-4 py-6 text-center text-sm text-gray-400">
-                                <div>Negara tidak ditemukan dalam daftar master resmi negara dunia.</div>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- Jika Dalam Negeri: Filter Provinsi & Kabupaten / Kota -->
-                <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Dropdown Provinsi -->
-                    <div class="relative" ref="provinsiContainerRef">
-                        <div class="flex items-center justify-between mb-1.5">
-                            <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                                Provinsi Perusahaan <span class="text-rose-500 font-bold">*</span>
-                            </label>
-                            <button
-                                v-if="form.company_province_id"
-                                type="button"
-                                @click="clearProvinsi"
-                                class="text-[11px] font-bold text-gray-500 hover:text-rose-600 cursor-pointer"
-                            >
-                                Reset Provinsi
-                            </button>
-                        </div>
-
-                        <div
-                            @click="showProvinsiDropdown = !showProvinsiDropdown; if (showProvinsiDropdown) searchProvinsiQuery = '';"
-                            class="w-full rounded-xl border border-gray-300 bg-white text-gray-900 px-4 py-3 text-sm font-medium cursor-pointer flex justify-between items-center shadow-xs hover:border-[#0D542B] transition-colors"
-                        >
-                            <span v-if="selectedProvinceName" class="text-gray-900 font-medium">{{ selectedProvinceName }}</span>
-                            <span v-else class="text-gray-400">Pilih Provinsi Perusahaan...</span>
-                            <svg class="w-4 h-4 text-gray-400 shrink-0 ml-2 transition-transform duration-200" :class="{'rotate-180': showProvinsiDropdown}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-
-                        <div v-if="showProvinsiDropdown" class="absolute z-50 w-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-                            <div class="p-2.5 border-b border-gray-100 bg-gray-50/80">
-                                <div class="relative">
-                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        v-model="searchProvinsiQuery"
-                                        class="w-full pl-9 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] outline-none"
-                                        placeholder="Ketik untuk mencari provinsi..."
-                                        autofocus
-                                    >
-                                </div>
-                            </div>
-                            <ul class="max-h-52 overflow-y-auto">
-                                <li
-                                    v-for="prov in filteredProvinces"
-                                    :key="prov.id"
-                                    @click="selectProvinsi(prov)"
-                                    class="px-4 py-2.5 hover:bg-slate-50 hover:text-[#0D542B] cursor-pointer text-sm font-medium transition-colors border-b border-gray-50 last:border-b-0"
-                                    :class="{'bg-slate-100 text-[#0D542B] font-semibold': form.company_province_id == prov.id}"
-                                >
-                                    {{ prov.nama_provinsi }}
-                                </li>
-                                <li v-if="filteredProvinces.length === 0" class="px-4 py-4 text-center text-sm text-gray-400">
-                                    Tidak ada hasil yang cocok.
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <!-- Dropdown Kabupaten -->
-                    <div class="relative" ref="kabupatenContainerRef">
-                        <div class="flex items-center justify-between mb-1.5">
-                            <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                                Kabupaten / Kota Perusahaan <span class="text-rose-500 font-bold">*</span>
-                            </label>
-                            <button
-                                v-if="form.company_kabupaten_id"
-                                type="button"
-                                @click="clearKabupaten"
-                                class="text-[11px] font-bold text-gray-500 hover:text-rose-600 cursor-pointer"
-                            >
-                                Reset Kota
-                            </button>
-                        </div>
-
-                        <div
-                            @click="if (form.company_province_id) { showKabupatenDropdown = !showKabupatenDropdown; if (showKabupatenDropdown) searchKabupatenQuery = ''; }"
-                            class="w-full rounded-xl border px-4 py-3 text-sm font-medium cursor-pointer flex justify-between items-center shadow-xs transition-colors"
-                            :class="[
-                                !form.company_province_id ? 'opacity-60 cursor-not-allowed bg-gray-50 border-gray-200 text-gray-400' :
-                                'border-gray-300 bg-white text-gray-900 hover:border-[#0D542B]'
-                            ]"
-                        >
-                            <span v-if="selectedKabupatenName" class="text-gray-900 font-medium">{{ selectedKabupatenName }}</span>
-                            <span v-else class="text-gray-400">
-                                {{ form.company_province_id ? 'Pilih Kabupaten/Kota...' : 'Pilih Provinsi terlebih dahulu' }}
-                            </span>
-                            <svg class="w-4 h-4 text-gray-400 shrink-0 ml-2 transition-transform duration-200" :class="{'rotate-180': showKabupatenDropdown}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-
-                        <div v-if="showKabupatenDropdown && form.company_province_id" class="absolute z-50 w-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-                            <div class="p-2.5 border-b border-gray-100 bg-gray-50/80">
-                                <div class="relative">
-                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        v-model="searchKabupatenQuery"
-                                        class="w-full pl-9 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] outline-none"
-                                        placeholder="Ketik untuk mencari kabupaten/kota..."
-                                        autofocus
-                                    >
-                                </div>
-                            </div>
-                            <ul class="max-h-52 overflow-y-auto">
-                                <li
-                                    v-for="kab in filteredKabupatens"
-                                    :key="kab.id"
-                                    @click="selectKabupaten(kab)"
-                                    class="px-4 py-2.5 hover:bg-slate-50 hover:text-[#0D542B] cursor-pointer text-sm font-medium transition-colors border-b border-gray-50 last:border-b-0"
-                                    :class="{'bg-slate-100 text-[#0D542B] font-semibold': form.company_kabupaten_id == kab.id}"
-                                >
-                                    {{ kab.nama_kabupaten }}
-                                </li>
-                                <li v-if="filteredKabupatens.length === 0" class="px-4 py-4 text-center text-sm text-gray-400">
-                                    Tidak ada kabupaten/kota yang cocok.
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ============================================================= -->
-                <!-- 2. PEMILIHAN / PENCARIAN NAMA PERUSAHAAN (BERDASARKAN FILTER)  -->
-                <!-- ============================================================= -->
-                <div class="relative pt-1" ref="companyContainerRef">
-                    <div class="flex items-center justify-between mb-1.5">
-                        <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                            Nama {{ form.kategori_pekerjaan === 'Wiraswasta' ? 'Usaha / Perusahaan' : 'Perusahaan / Instansi' }} <span class="text-rose-500 font-bold">*</span>
-                        </label>
                     </div>
 
                     <div class="flex items-center gap-2">
@@ -1734,7 +1928,7 @@ onUnmounted(() => {
                         >
                             <span v-if="form.nama_perusahaan" class="text-gray-900 font-semibold truncate">{{ form.nama_perusahaan }}</span>
                             <span v-else class="text-gray-400">
-                                {{ (form.company_province_id || form.company_negara) ? 'Pilih atau cari perusahaan di wilayah ini...' : 'Pilih atau cari nama perusahaan...' }}
+                                Cari nama perusahaan kantor pusat (contoh: Dinas Komunikasi dan Informatika DIY, Bank Mandiri, Google)...
                             </span>
                             <svg class="w-4 h-4 text-gray-400 shrink-0 ml-2 transition-transform duration-200" :class="{'rotate-180': showCompanyDropdown}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </div>
@@ -1747,7 +1941,7 @@ onUnmounted(() => {
                             class="px-3.5 py-3 bg-gray-100 hover:bg-rose-50 text-gray-600 hover:text-rose-600 rounded-xl transition-colors shrink-0 text-xs font-bold border border-gray-200 cursor-pointer flex items-center gap-1 shadow-2xs"
                             title="Kosongkan Pilihan Perusahaan"
                         >
-                            <span>✕ Kosongkan</span>
+                            <span>Kosongkan</span>
                         </button>
 
                         <!-- Tombol Tambah Perusahaan Baru -->
@@ -1772,54 +1966,54 @@ onUnmounted(() => {
                                     type="text"
                                     v-model="searchCompanyQuery"
                                     class="w-full pl-9 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] outline-none"
-                                    placeholder="Ketik untuk mencari nama perusahaan..."
+                                    placeholder="Ketik untuk mencari nama perusahaan, kota, atau negara..."
                                     autofocus
                                 >
                             </div>
                         </div>
 
-                        <ul class="max-h-56 overflow-y-auto">
+                        <ul class="max-h-64 overflow-y-auto divide-y divide-gray-50">
                             <!-- Opsi Kosongkan di Dalam List Dropdown -->
                             <li
                                 v-if="form.nama_perusahaan"
                                 @click="clearCompany"
-                                class="px-4 py-2.5 hover:bg-rose-50 text-rose-600 cursor-pointer text-xs font-bold border-b border-gray-100 flex items-center gap-1.5 transition-colors"
+                                class="px-4 py-2.5 hover:bg-rose-50 text-rose-600 cursor-pointer text-xs font-bold flex items-center gap-1.5 transition-colors"
                             >
-                                <span>✕ Kosongkan Pilihan Perusahaan</span>
+                                <span>Kosongkan Pilihan Perusahaan</span>
                             </li>
 
                             <li
                                 v-for="company in filteredCompanies"
                                 :key="company.id"
                                 @click="selectCompany(company)"
-                                class="px-4 py-3 hover:bg-slate-50 hover:text-[#0D542B] cursor-pointer text-sm font-medium transition-colors border-b border-gray-50 last:border-b-0 flex justify-between items-center"
+                                class="px-4 py-3 hover:bg-slate-50 hover:text-[#0D542B] cursor-pointer text-sm font-medium transition-colors flex justify-between items-center"
                                 :class="{'bg-slate-100 text-[#0D542B] font-semibold': form.nama_perusahaan === company.nama_perusahaan}"
                             >
                                 <div>
                                     <span class="block text-gray-800" :class="{'text-[#0D542B] font-bold': form.nama_perusahaan === company.nama_perusahaan}">
                                         {{ company.nama_perusahaan }}
                                     </span>
-                                    <span class="text-xs text-gray-400" v-if="company.jenis_lokasi === 'Luar Negeri' || (company.negara && company.negara !== 'Indonesia')">
-                                        {{ company.negara || 'Luar Negeri' }}
+                                    <span class="text-xs text-gray-400" v-if="company.jenis_lokasi === 'Luar Negeri' || (company.kode_negara && company.kode_negara !== 'ID')">
+                                        Luar Negeri · {{ negaras?.find(n => n.kode_negara === company.kode_negara)?.nama_negara || company.kode_negara || 'Luar Negeri' }}
                                     </span>
-                                    <span class="text-xs text-gray-400" v-else-if="company.province_id">
-                                        {{ provinces.find(p => p.id == company.province_id)?.nama_provinsi || '' }}
-                                        {{ company.kabupaten_id ? ' - ' + (kabupatens.find(k => k.id == company.kabupaten_id)?.nama_kabupaten || '') : '' }}
+                                    <span class="text-xs text-gray-400" v-else-if="company.kode_provinsi">
+                                        Dalam Negeri · {{ provinces?.find(p => p.kode_provinsi == company.kode_provinsi)?.nama_provinsi || '' }}
+                                        {{ company.kode_kabupaten ? ' - ' + (kabupatens?.find(k => k.kode_kabupaten == company.kode_kabupaten)?.nama_kabupaten || '') : '' }}
                                     </span>
                                 </div>
-                                <span v-if="company.status_verifikasi === 'Terverifikasi'" class="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold shrink-0 ml-2">
-                                    Terverifikasi
+                                <span v-if="company.status_verifikasi === 'Terverifikasi'" class="text-xs text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded font-semibold shrink-0 ml-2 border border-emerald-200">
+                                    Terverifikasi Resmi
                                 </span>
-                                <span v-else class="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-semibold shrink-0 ml-2">
+                                <span v-else class="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-semibold shrink-0 ml-2 border border-amber-200">
                                     Menunggu Verifikasi
                                 </span>
                             </li>
 
                             <!-- State Jika Tidak Ada Perusahaan Ditemukan -->
                             <li v-if="filteredCompanies.length === 0" class="px-4 py-6 text-center text-sm text-gray-500">
-                                <div class="font-medium text-gray-600">Data perusahaan tidak ditemukan pada wilayah/filter yang dipilih.</div>
+                                <div class="font-medium text-gray-600">Perusahaan tidak ditemukan dalam master data.</div>
                                 <button type="button" @click="openAddCompanyModal" class="mt-2 text-xs font-bold text-[#0D542B] hover:underline cursor-pointer">
-                                    + Tambah Perusahaan Baru
+                                    + Tambah Perusahaan Baru Sekarang
                                 </button>
                             </li>
                         </ul>
@@ -1827,185 +2021,337 @@ onUnmounted(() => {
                 </div>
 
                 <!-- ============================================================= -->
-                <!-- 3. DETAIL PERUSAHAAN (Hanya Muncul Jika Perusahaan Sudah Dipilih) -->
+                <!-- 2. FILTER WILAYAH TAMBAHAN (OPSIONAL - COLLAPSIBLE)           -->
                 <!-- ============================================================= -->
-                <div v-if="form.nama_perusahaan?.trim()" class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4 border-t border-gray-100">
-
-                    <!-- Banner Notifikasi Status Verifikasi Perusahaan -->
-                    <div v-if="!canEditCompanyDetails" class="md:col-span-2 bg-gray-50 border border-gray-200 rounded-xl p-3.5 flex items-center gap-3 text-xs text-gray-600 font-medium shadow-2xs">
-                        <div class="w-2 h-2 rounded-full bg-emerald-600 shrink-0"></div>
-                        <div>
-                            Perusahaan ini telah <strong>Terverifikasi Resmi</strong> oleh universitas. Detail data perusahaan terkunci untuk menjaga konsistensi master data institusi.
+                <div v-if="showWilayahFilter" class="p-4 rounded-xl border border-gray-200 bg-gray-50/70 space-y-3 animate-in fade-in duration-150">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-gray-700">Filter Tambahan Wilayah Kantor Pusat (Head Office):</span>
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="button"
+                                @click="form.company_jenis_lokasi = 'Dalam Negeri'"
+                                class="px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer"
+                                :class="form.company_jenis_lokasi === 'Dalam Negeri' ? 'bg-[#0D542B] text-white' : 'bg-white border text-gray-600'"
+                            >
+                                Dalam Negeri
+                            </button>
+                            <button
+                                type="button"
+                                @click="form.company_jenis_lokasi = 'Luar Negeri'"
+                                class="px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer"
+                                :class="form.company_jenis_lokasi === 'Luar Negeri' ? 'bg-[#0D542B] text-white' : 'bg-white border text-gray-600'"
+                            >
+                                Luar Negeri
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Jenis Perusahaan / Instansi (F11 Standar Dikti Dinamis) -->
-                    <div class="md:col-span-2">
-                        <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            Jenis Perusahaan / Instansi (F11) <span v-if="form.kategori_pekerjaan === 'Pekerja'" class="text-rose-500 font-bold">*</span>
-                        </label>
-                        <select
-                            v-model="form.company_jenis_perusahaan"
-                            @change="form.perusahaan_jenis_perusahaan = form.company_jenis_perusahaan"
-                            :disabled="!canEditCompanyDetails"
-                            class="block w-full border rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors"
-                            :class="[
-                                !canEditCompanyDetails ? 'bg-gray-100/90 text-gray-500 cursor-not-allowed border-gray-200' :
-                                'border-gray-300 bg-white text-gray-900 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none'
-                            ]"
+                    <!-- Filter Luar Negeri -->
+                    <div v-if="form.company_jenis_lokasi === 'Luar Negeri'" class="relative" ref="negaraContainerRef">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-semibold text-gray-600">Negara Kantor Pusat:</span>
+                            <button v-if="selectedNegaraName" type="button" @click="clearNegara" class="text-[11px] text-rose-600 font-bold">Reset</button>
+                        </div>
+                        <div
+                            @click="showNegaraDropdown = !showNegaraDropdown; if (showNegaraDropdown) searchNegaraQuery = '';"
+                            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs cursor-pointer flex justify-between items-center"
                         >
-                            <option value="">-- Pilih Jenis Instansi / Perusahaan --</option>
-                            <option v-for="opt in jenisPerusahaanOptions" :key="opt.value" :value="opt.value">
-                                {{ opt.label }}
-                            </option>
-                        </select>
+                            <span v-if="selectedNegaraName" class="text-gray-900 font-semibold">{{ selectedNegaraName }}</span>
+                            <span v-else class="text-gray-400">Pilih Negara di Luar Negeri...</span>
+                            <svg class="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                        <div v-if="showNegaraDropdown" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden">
+                            <div class="p-2 border-b bg-gray-50">
+                                <input type="text" v-model="searchNegaraQuery" class="w-full px-2 py-1 text-xs border rounded bg-white outline-none" placeholder="Cari negara...">
+                            </div>
+                            <ul class="max-h-48 overflow-y-auto divide-y text-xs">
+                                <li v-for="neg in filteredNegaras" :key="neg.id" @click="selectNegara(neg)" class="px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                                    {{ neg.nama_negara }} ({{ neg.kode_negara }})
+                                </li>
+                            </ul>
+                        </div>
                     </div>
 
-                    <!-- Input Isian Bebas jika memilih Jenis Lainnya -->
-                    <div v-if="form.company_jenis_perusahaan === 'Lainnya'" class="md:col-span-2">
-                        <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">Sebutkan Jenis Instansi Lainnya</label>
-                        <input
-                            type="text"
-                            v-model="form.company_jenis_perusahaan_lainnya"
-                            @input="form.perusahaan_jenis_perusahaan_lainnya = form.company_jenis_perusahaan_lainnya"
-                            :disabled="!canEditCompanyDetails"
-                            class="block w-full border rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors"
-                            :class="[
-                                !canEditCompanyDetails ? 'bg-gray-100/90 text-gray-500 cursor-not-allowed border-gray-200' :
-                                'border-gray-300 bg-white text-gray-900 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none'
-                            ]"
-                            placeholder="Contoh: Lembaga Riset Independen, Startup Komunitas..."
-                        />
-                    </div>
+                    <!-- Filter Dalam Negeri -->
+                    <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="relative" ref="provinsiContainerRef">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-semibold text-gray-600">Provinsi Kantor Pusat:</span>
+                                <button v-if="form.company_kode_provinsi" type="button" @click="clearProvinsi" class="text-[11px] text-rose-600 font-bold">Reset</button>
+                            </div>
+                            <div
+                                @click="showProvinsiDropdown = !showProvinsiDropdown; if (showProvinsiDropdown) searchProvinsiQuery = '';"
+                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs cursor-pointer flex justify-between items-center"
+                            >
+                                <span v-if="selectedProvinceName" class="text-gray-900 font-semibold">{{ selectedProvinceName }}</span>
+                                <span v-else class="text-gray-400">Semua Provinsi...</span>
+                                <svg class="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                            <div v-if="showProvinsiDropdown" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden">
+                                <div class="p-2 border-b bg-gray-50">
+                                    <input type="text" v-model="searchProvinsiQuery" class="w-full px-2 py-1 text-xs border rounded bg-white outline-none" placeholder="Cari provinsi...">
+                                </div>
+                                <ul class="max-h-48 overflow-y-auto divide-y text-xs">
+                                    <li v-for="prov in filteredProvinces" :key="prov.kode_provinsi" @click="selectProvinsi(prov)" class="px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                                        {{ prov.nama_provinsi }}
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
 
-                    <!-- Bentuk Perusahaan / Institusi -->
-                    <div>
-                        <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            Bentuk Perusahaan / Institusi <span v-if="form.kategori_pekerjaan === 'Pekerja'" class="text-rose-500 font-bold">*</span>
-                        </label>
-                        <select
-                            v-model="form.company_bentuk"
-                            @change="form.perusahaan_bentuk = form.company_bentuk"
-                            :disabled="!canEditCompanyDetails"
-                            class="block w-full border rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors"
-                            :class="[
-                                !canEditCompanyDetails ? 'bg-gray-100/90 text-gray-500 cursor-not-allowed border-gray-200' :
-                                'border-gray-300 bg-white text-gray-900 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none'
-                            ]"
-                        >
-                            <option value="">-- Pilih Bentuk Perusahaan --</option>
-                            <option v-for="opt in bentukPerusahaanOptions" :key="opt.value" :value="opt.value">
-                                {{ opt.label }}
-                            </option>
-                        </select>
-                    </div>
-
-                    <!-- Skala Perusahaan / Instansi (F2H / F5D Dinamis) -->
-                    <div>
-                        <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            Skala Perusahaan / Instansi (F2H / F5D) <span v-if="form.kategori_pekerjaan === 'Pekerja'" class="text-rose-500 font-bold">*</span>
-                        </label>
-                        <select
-                            v-model="form.company_skala"
-                            @change="form.perusahaan_skala = form.company_skala"
-                            :disabled="!canEditCompanyDetails"
-                            class="block w-full border rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors"
-                            :class="[
-                                !canEditCompanyDetails ? 'bg-gray-100/90 text-gray-500 cursor-not-allowed border-gray-200' :
-                                'border-gray-300 bg-white text-gray-900 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none'
-                            ]"
-                        >
-                            <option value="">-- Pilih Skala Perusahaan --</option>
-                            <option v-for="opt in skalaOptions" :key="opt.value" :value="opt.value">
-                                {{ opt.label }}
-                            </option>
-                        </select>
-                    </div>
-
-                    <!-- Alamat Kantor / Perusahaan -->
-                    <div class="md:col-span-2">
-                        <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            Alamat Perusahaan <span v-if="form.kategori_pekerjaan === 'Pekerja'" class="text-rose-500 font-bold">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            v-model="form.company_alamat"
-                            @input="form.perusahaan_alamat = form.company_alamat"
-                            :disabled="!canEditCompanyDetails"
-                            class="block w-full border rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors"
-                            :class="[
-                                !canEditCompanyDetails ? 'bg-gray-100/90 text-gray-500 cursor-not-allowed border-gray-200' :
-                                'border-gray-300 bg-white text-gray-900 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none'
-                            ]"
-                            placeholder="Contoh: Pacific Building, Jl. Laksda Adisucipto No. 157, Sleman"
-                        />
-                    </div>
-
-                    <!-- Kode Pos Perusahaan -->
-                    <div>
-                        <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            Kode Pos Kantor / Perusahaan <span class="text-rose-500 font-bold">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            v-model="form.zipcode"
-                            @input="form.company_kode_pos = form.zipcode; form.perusahaan_kode_pos = form.zipcode"
-                            autocomplete="off"
-                            :disabled="!canEditCompanyDetails"
-                            class="block w-full border rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors"
-                            :class="[
-                                !canEditCompanyDetails ? 'bg-gray-100/90 text-gray-500 cursor-not-allowed border-gray-200' :
-                                'border-gray-300 bg-white text-gray-900 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none'
-                            ]"
-                            placeholder="Kode Pos Kantor (Cth: 55281)"
-                        />
-                    </div>
-
-                    <!-- No. Telp / Fax Perusahaan -->
-                    <div>
-                        <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            No. Telp / Fax Perusahaan
-                        </label>
-                        <input
-                            type="text"
-                            v-model="form.company_no_telp_fax"
-                            @input="form.perusahaan_no_telp_fax = form.company_no_telp_fax"
-                            autocomplete="off"
-                            :disabled="!canEditCompanyDetails"
-                            class="block w-full border rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors"
-                            :class="[
-                                !canEditCompanyDetails ? 'bg-gray-100/90 text-gray-500 cursor-not-allowed border-gray-200' :
-                                'border-gray-300 bg-white text-gray-900 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none'
-                            ]"
-                            placeholder="Contoh: 0274-563929"
-                        />
-                    </div>
-
-                    <!-- Website / Homepage Perusahaan -->
-                    <div class="md:col-span-2">
-                        <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                            Website / Homepage Perusahaan
-                        </label>
-                        <input
-                            type="text"
-                            v-model="form.company_homepage"
-                            @input="form.perusahaan_homepage = form.company_homepage"
-                            autocomplete="off"
-                            :disabled="!canEditCompanyDetails"
-                            class="block w-full border rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors"
-                            :class="[
-                                !canEditCompanyDetails ? 'bg-gray-100/90 text-gray-500 cursor-not-allowed border-gray-200' :
-                                'border-gray-300 bg-white text-gray-900 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none'
-                            ]"
-                            placeholder="Contoh: https://perusahaan.com"
-                        />
+                        <div class="relative" ref="kabupatenContainerRef">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-semibold text-gray-600">Kabupaten/Kota Kantor Pusat:</span>
+                                <button v-if="form.company_kode_kabupaten" type="button" @click="clearKabupaten" class="text-[11px] text-rose-600 font-bold">Reset</button>
+                            </div>
+                            <div
+                                @click="if (form.company_kode_provinsi) { showKabupatenDropdown = !showKabupatenDropdown; if (showKabupatenDropdown) searchKabupatenQuery = ''; }"
+                                class="w-full rounded-lg border px-3 py-2 text-xs cursor-pointer flex justify-between items-center"
+                                :class="!form.company_kode_provinsi ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-900 border-gray-300'"
+                            >
+                                <span v-if="selectedKabupatenName" class="text-gray-900 font-semibold">{{ selectedKabupatenName }}</span>
+                                <span v-else class="text-gray-400">{{ form.company_kode_provinsi ? 'Semua Kabupaten/Kota...' : 'Pilih provinsi terlebih dahulu' }}</span>
+                                <svg class="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                            <div v-if="showKabupatenDropdown && form.company_kode_provinsi" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden">
+                                <div class="p-2 border-b bg-gray-50">
+                                    <input type="text" v-model="searchKabupatenQuery" class="w-full px-2 py-1 text-xs border rounded bg-white outline-none" placeholder="Cari kota...">
+                                </div>
+                                <ul class="max-h-48 overflow-y-auto divide-y text-xs">
+                                    <li v-for="kab in filteredKabupatens" :key="kab.kode_kabupaten" @click="selectKabupaten(kab)" class="px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                                        {{ kab.nama_kabupaten }}
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Petunjuk jika belum memilih nama perusahaan (Netral Abu-Abu) -->
-                <div v-else class="p-5 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-center">
-                    <div class="text-xs text-gray-500 font-medium">
-                        Silakan pilih atau tambahkan nama {{ form.kategori_pekerjaan === 'Wiraswasta' ? 'usaha' : 'perusahaan' }} pada lokasi di atas untuk melengkapi jenis, skala, dan alamat kantor.
+                <!-- ============================================================= -->
+                <!-- 3. DETAIL MASTER HEAD OFFICE TERPILIH (TERKUNCI / DISABLED)   -->
+                <!-- ============================================================= -->
+                <div v-if="form.nama_perusahaan?.trim()" class="space-y-4 pt-2">
+                    <!-- Banner Informasi Master Head Office -->
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 text-xs text-emerald-950 leading-relaxed shadow-2xs">
+                        <div class="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                            <span class="font-extrabold text-sm text-[#0D542B] flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-[#0D542B]"></span>
+                                Identitas Resmi Kantor Pusat (Master Head Office)
+                            </span>
+                            <span v-if="form.company_status_verifikasi === 'Terverifikasi'" class="px-2.5 py-0.5 rounded-md bg-emerald-100 text-[#0D542B] font-bold text-[10px] border border-emerald-300">
+                                Terverifikasi Resmi
+                            </span>
+                            <span v-else class="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-300">
+                                Menunggu Verifikasi
+                            </span>
+                        </div>
+                        Data di bawah ini merupakan identitas kantor pusat (Head Office) resmi dari pangkalan data universitas dan dikunci secara otomatis demi konsistensi data institusi. Jika Anda bertugas di kantor cabang atau bekerja secara remote, wilayah penugasan operasional Anda dicatat pada bagian <strong>Kontak & Alamat Domisili</strong>.
+                    </div>
+
+                    <!-- Form Controls Lengkap dalam Status Disabled / Terkunci -->
+                    <div class="space-y-4 bg-gray-50/80 p-5 sm:p-6 rounded-2xl border border-gray-200 shadow-2xs">
+                        <!-- Jenis Lokasi Kantor Pusat -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1.5">
+                                Jenis Lokasi Kantor Pusat
+                            </label>
+                            <div class="flex items-center gap-6">
+                                <label class="inline-flex items-center gap-2 text-xs font-semibold text-gray-700 cursor-not-allowed select-none">
+                                    <input
+                                        type="radio"
+                                        disabled
+                                        :checked="(form.company_jenis_lokasi || 'Dalam Negeri') === 'Dalam Negeri'"
+                                        class="text-[#0D542B] border-gray-300 cursor-not-allowed"
+                                    />
+                                    <span>Dalam Negeri (Indonesia)</span>
+                                </label>
+                                <label class="inline-flex items-center gap-2 text-xs font-semibold text-gray-700 cursor-not-allowed select-none">
+                                    <input
+                                        type="radio"
+                                        disabled
+                                        :checked="form.company_jenis_lokasi === 'Luar Negeri'"
+                                        class="text-[#0D542B] border-gray-300 cursor-not-allowed"
+                                    />
+                                    <span>Luar Negeri (Abroad)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Wilayah Kantor Pusat (Luar Negeri vs Dalam Negeri) -->
+                        <div v-if="form.company_jenis_lokasi === 'Luar Negeri'">
+                            <label class="block text-xs font-bold text-gray-700 mb-1">
+                                Negara Kantor Pusat
+                            </label>
+                            <input
+                                type="text"
+                                disabled
+                                :value="selectedNegaraName || form.company_kode_negara || '-'"
+                                :class="lockedInputClass"
+                            />
+                        </div>
+                        <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">
+                                    Provinsi Kantor Pusat
+                                </label>
+                                <input
+                                    type="text"
+                                    disabled
+                                    :value="selectedProvinceName || (provinces?.find(p => p.kode_provinsi == form.company_kode_provinsi)?.nama_provinsi) || '-'"
+                                    :class="lockedInputClass"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">
+                                    Kabupaten / Kota Kantor Pusat
+                                </label>
+                                <input
+                                    type="text"
+                                    disabled
+                                    :value="selectedKabupatenName || (kabupatens?.find(k => k.kode_kabupaten == form.company_kode_kabupaten)?.nama_kabupaten) || '-'"
+                                    :class="lockedInputClass"
+                                />
+                            </div>
+                        </div>
+
+                        <!-- Nama Perusahaan / Instansi (Master Head Office) -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">
+                                Nama Perusahaan / Instansi (Master Head Office)
+                            </label>
+                            <input
+                                type="text"
+                                disabled
+                                :value="form.nama_perusahaan"
+                                :class="lockedInputClass"
+                            />
+                        </div>
+
+                        <!-- Jenis Perusahaan / Instansi (F11) & Bentuk Lembaga / Perusahaan -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">
+                                    Apa jenis perusahaan/instansi/institusi tempat Anda bekerja sekarang? (F11)
+                                </label>
+                                <input
+                                    type="text"
+                                    disabled
+                                    :value="form.company_jenis_perusahaan || form.perusahaan_jenis_perusahaan || 'Perusahaan swasta'"
+                                    :class="lockedInputClass"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">
+                                    Bentuk Lembaga / Perusahaan
+                                </label>
+                                <input
+                                    type="text"
+                                    disabled
+                                    :value="form.company_bentuk || form.perusahaan_bentuk || 'Perusahaan Terbatas'"
+                                    :class="lockedInputClass"
+                                />
+                            </div>
+                        </div>
+
+                        <!-- Skala Perusahaan / Instansi / Institusi (F2H / F5D) -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">
+                                Skala Perusahaan / Instansi / Institusi (F2H / F5D)
+                            </label>
+                            <input
+                                type="text"
+                                disabled
+                                :value="form.company_skala || form.perusahaan_skala || 'Regional/Lokal'"
+                                :class="lockedInputClass"
+                            />
+                        </div>
+
+                        <!-- Alamat Kantor Pusat (F2F) -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">
+                                Alamat Kantor Pusat (Head Office)
+                            </label>
+                            <textarea
+                                disabled
+                                rows="2"
+                                :value="form.company_alamat || form.perusahaan_alamat || '-'"
+                                :class="lockedInputClass"
+                                class="resize-none"
+                            ></textarea>
+                        </div>
+
+                        <!-- Kode Pos & No. Telp / Fax Perusahaan -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">
+                                    Kode Pos Kantor / Lokasi Usaha
+                                </label>
+                                <input
+                                    type="text"
+                                    disabled
+                                    :value="form.company_kode_pos || form.perusahaan_kode_pos || form.zipcode || '-'"
+                                    :class="lockedInputClass"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">
+                                    No. Telp / Fax Perusahaan
+                                </label>
+                                <input
+                                    type="text"
+                                    disabled
+                                    :value="form.company_no_telp_fax || form.perusahaan_no_telp_fax || '-'"
+                                    :class="lockedInputClass"
+                                />
+                            </div>
+                        </div>
+
+                        <!-- Website / Homepage Perusahaan -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">
+                                Website / Homepage Perusahaan
+                            </label>
+                            <div class="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    disabled
+                                    :value="form.company_homepage || form.perusahaan_homepage || '-'"
+                                    :class="lockedInputClass"
+                                    class="flex-1"
+                                />
+                                <a
+                                    v-if="form.company_homepage || form.perusahaan_homepage"
+                                    :href="form.company_homepage || form.perusahaan_homepage"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="px-3.5 py-2.5 rounded-xl bg-white border border-gray-300 hover:border-[#0D542B] text-xs font-bold text-[#0D542B] shadow-2xs hover:bg-slate-50 transition-colors shrink-0"
+                                    title="Kunjungi website resmi perusahaan"
+                                >
+                                    Buka Situs
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tombol Ajukan Usulan Pembaruan Data Kantor Pusat -->
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-xl border border-dashed border-gray-300 bg-white">
+                        <div class="text-xs text-gray-500">
+                            Ada data kantor pusat yang belum lengkap atau berpindah (misal: website/telepon belum tercatat)?
+                        </div>
+                        <button
+                            type="button"
+                            @click="openRequestUpdateModal"
+                            class="px-3.5 py-2 rounded-xl border border-[#0D542B]/30 bg-emerald-50 hover:bg-emerald-100 text-[#0D542B] text-xs font-bold transition-colors cursor-pointer shrink-0"
+                        >
+                            + Usulkan Pembaruan Data Kantor Pusat
+                        </button>
+                    </div>
+                </div>
+
+                <!-- State Petunjuk jika belum memilih perusahaan -->
+                <div v-else class="p-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-center">
+                    <div class="text-xs text-gray-500 font-medium max-w-md mx-auto">
+                        Ketik nama perusahaan kantor pusat (Head Office) pada kolom pencarian di atas untuk memilih instansi resmi atau klik <strong>+ Tambah Baru</strong> jika perusahaan belum terdaftar.
                     </div>
                 </div>
             </div>
@@ -2015,7 +2361,7 @@ onUnmounted(() => {
         <!-- CARD 3: DATA ATASAN LANGSUNG / PIMPINAN                           -->
         <!-- (Hanya untuk Pekerja & Wiraswasta)                                -->
         <!-- ================================================================= -->
-        <div v-if="form.kategori_pekerjaan !== 'Melanjutkan Pendidikan'" class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
+        <div v-if="['Pekerja', 'Wiraswasta'].includes(form.kategori_pekerjaan) && (isQuestionVisible('F2E1') || isQuestionVisible('F2E2') || isQuestionVisible('F2E3'))" class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
             <div class="flex items-center justify-between mb-2 pb-3 border-b border-gray-100">
                 <h2 class="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
                     <span class="w-1.5 h-5 bg-[#0D542B] rounded-full inline-block"></span>
@@ -2034,9 +2380,9 @@ onUnmounted(() => {
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div class="md:col-span-2">
+                <div v-if="isQuestionVisible('F2E1')" class="md:col-span-2">
                     <label for="input_nama_atasan_langsung" class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Nama Lengkap Atasan <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('F2E1', 'Nama Lengkap Atasan') }} <span v-if="isQuestionRequired('F2E1')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         id="input_nama_atasan_langsung"
@@ -2049,9 +2395,9 @@ onUnmounted(() => {
                     />
                 </div>
 
-                <div>
+                <div v-if="isQuestionVisible('F2E3')">
                     <label for="input_email_atasan_langsung" class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Email Atasan <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('F2E3', 'Email Atasan') }} <span v-if="isQuestionRequired('F2E3')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         id="input_email_atasan_langsung"
@@ -2064,9 +2410,9 @@ onUnmounted(() => {
                     />
                 </div>
 
-                <div>
+                <div v-if="isQuestionVisible('F2E2')">
                     <label for="input_telepon_atasan_langsung" class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Nomor Telepon Atasan <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('F2E2', 'Nomor Telepon Atasan') }} <span v-if="isQuestionRequired('F2E2')" class="text-rose-500 font-bold">*</span>
                     </label>
                     <input
                         id="input_telepon_atasan_langsung"
@@ -2278,14 +2624,14 @@ onUnmounted(() => {
                                 Negara Tempat Bekerja <span class="text-rose-500">*</span>
                             </label>
                             <select
-                                v-model="newCompanyForm.negara"
+                                v-model="newCompanyForm.kode_negara"
                                 class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
                             >
                                 <option value="">-- Pilih Negara di Luar Negeri --</option>
                                 <option
                                     v-for="n in foreignCountries"
-                                    :key="n.id || n.nama_negara"
-                                    :value="n.nama_negara"
+                                    :key="n.kode_negara"
+                                    :value="n.kode_negara"
                                 >
                                     {{ n.nama_negara }} ({{ n.benua || 'Dunia' }})
                                 </option>
@@ -2299,14 +2645,14 @@ onUnmounted(() => {
                                     Provinsi <span class="text-rose-500">*</span>
                                 </label>
                                 <select
-                                    v-model="newCompanyForm.province_id"
+                                    v-model="newCompanyForm.kode_provinsi"
                                     class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
                                 >
                                     <option value="">-- Pilih Provinsi --</option>
                                     <option
                                         v-for="prov in props.provinces || []"
-                                        :key="prov.id"
-                                        :value="prov.id"
+                                        :key="prov.kode_provinsi"
+                                        :value="prov.kode_provinsi"
                                     >
                                         {{ prov.nama_provinsi }}
                                     </option>
@@ -2317,15 +2663,15 @@ onUnmounted(() => {
                                     Kabupaten / Kota <span class="text-rose-500">*</span>
                                 </label>
                                 <select
-                                    v-model="newCompanyForm.kabupaten_id"
-                                    :disabled="!newCompanyForm.province_id"
+                                    v-model="newCompanyForm.kode_kabupaten"
+                                    :disabled="!newCompanyForm.kode_provinsi"
                                     class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all disabled:bg-slate-100 disabled:text-slate-400"
                                 >
                                     <option value="">-- Pilih Kabupaten --</option>
                                     <option
                                         v-for="kab in modalFilteredKabupatens"
-                                        :key="kab.id"
-                                        :value="kab.id"
+                                        :key="kab.kode_kabupaten"
+                                        :value="kab.kode_kabupaten"
                                     >
                                         {{ kab.nama_kabupaten }}
                                     </option>
@@ -2424,6 +2770,311 @@ onUnmounted(() => {
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
                                 <span>{{ isSubmittingCompany ? 'Menyimpan...' : 'Simpan Perusahaan' }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- ============================================================= -->
+        <!-- MODAL USULAN PEMBARUAN DATA KANTOR PUSAT (REQUEST UPDATE)     -->
+        <!-- ============================================================= -->
+        <Teleport to="body">
+            <div
+                v-if="isRequestUpdateModalOpen"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="modal-request-update-title"
+            >
+                <!-- Backdrop -->
+                <div
+                    class="fixed inset-0 bg-slate-900/60 transition-opacity"
+                    @click="closeRequestUpdateModal"
+                ></div>
+
+                <!-- Card Modal -->
+                <div class="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 z-10 animate-in fade-in zoom-in-95 duration-150">
+                    <!-- Header -->
+                    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                        <div>
+                            <h3 id="modal-request-update-title" class="text-base font-bold text-slate-800">
+                                Usulkan Pembaruan Data Kantor Pusat
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-0.5">
+                                {{ form.nama_perusahaan }} (Master Head Office)
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            @click="closeRequestUpdateModal"
+                            :disabled="isSubmittingRequestUpdate"
+                            class="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                            title="Tutup dialog"
+                        >
+                            <span class="sr-only">Tutup</span>
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Body / Form Fields -->
+                    <form @submit.prevent="submitRequestUpdate" class="p-6 space-y-4 overflow-y-auto flex-1">
+                        <div class="p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl text-xs text-emerald-950 leading-relaxed">
+                            Usulan pembaruan akan dicatat dan ditinjau oleh administrator universitas tanpa langsung mengubah master data terverifikasi.
+                        </div>
+
+                        <!-- Pesan Error jika ada -->
+                        <div v-if="requestUpdateError" class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
+                            <svg class="w-4 h-4 text-rose-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>{{ requestUpdateError }}</span>
+                        </div>
+
+                        <!-- Jenis Lokasi Perusahaan -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                Jenis Lokasi Perusahaan <span class="text-rose-500">*</span>
+                            </label>
+                            <div class="flex items-center gap-6 mt-1">
+                                <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        value="Dalam Negeri"
+                                        v-model="requestUpdateForm.jenis_lokasi"
+                                        class="text-[#0D542B] focus:ring-[#0D542B] border-slate-300"
+                                    />
+                                    <span>Dalam Negeri (Indonesia)</span>
+                                </label>
+                                <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        value="Luar Negeri"
+                                        v-model="requestUpdateForm.jenis_lokasi"
+                                        class="text-[#0D542B] focus:ring-[#0D542B] border-slate-300"
+                                    />
+                                    <span>Luar Negeri (Abroad)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Wilayah: Luar Negeri (Negara) vs Dalam Negeri (Provinsi & Kabupaten) -->
+                        <div v-if="requestUpdateForm.jenis_lokasi === 'Luar Negeri'">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                Negara Tempat Bekerja
+                            </label>
+                            <select
+                                v-model="requestUpdateForm.kode_negara"
+                                class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                            >
+                                <option value="">-- Pilih Negara di Luar Negeri --</option>
+                                <option
+                                    v-for="n in foreignCountries"
+                                    :key="n.kode_negara"
+                                    :value="n.kode_negara"
+                                >
+                                    {{ n.nama_negara }} ({{ n.benua || 'Dunia' }})
+                                </option>
+                            </select>
+                        </div>
+                        <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                    Provinsi Kantor Pusat
+                                </label>
+                                <select
+                                    v-model="requestUpdateForm.kode_provinsi"
+                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                                >
+                                    <option value="">-- Pilih Provinsi --</option>
+                                    <option
+                                        v-for="prov in props.provinces || []"
+                                        :key="prov.kode_provinsi"
+                                        :value="prov.kode_provinsi"
+                                    >
+                                        {{ prov.nama_provinsi }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                    Kabupaten / Kota Kantor Pusat
+                                </label>
+                                <select
+                                    v-model="requestUpdateForm.kode_kabupaten"
+                                    :disabled="!requestUpdateForm.kode_provinsi"
+                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all disabled:bg-slate-100 disabled:text-slate-400"
+                                >
+                                    <option value="">-- Pilih Kabupaten --</option>
+                                    <option
+                                        v-for="kab in requestUpdateFilteredKabupatens"
+                                        :key="kab.kode_kabupaten"
+                                        :value="kab.kode_kabupaten"
+                                    >
+                                        {{ kab.nama_kabupaten }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Nama Perusahaan / Instansi -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                Nama Perusahaan / Instansi (Master Head Office)
+                            </label>
+                            <input
+                                type="text"
+                                v-model="requestUpdateForm.nama_perusahaan"
+                                class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                                placeholder="Nama resmi kantor pusat perusahaan..."
+                            />
+                        </div>
+
+                        <!-- Bentuk Perusahaan & Jenis Perusahaan (F11) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                    Bentuk Perusahaan / Institusi
+                                </label>
+                                <select
+                                    v-model="requestUpdateForm.bentuk_perusahaan"
+                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                                >
+                                    <option
+                                        v-for="opt in bentukPerusahaanOptions"
+                                        :key="opt.value"
+                                        :value="opt.value"
+                                    >
+                                        {{ opt.label }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                    Jenis Perusahaan / Instansi (F11)
+                                </label>
+                                <select
+                                    v-model="requestUpdateForm.jenis_perusahaan"
+                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                                >
+                                    <option
+                                        v-for="opt in jenisPerusahaanOptions"
+                                        :key="opt.value"
+                                        :value="opt.value"
+                                    >
+                                        {{ opt.label }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Input Tambahan jika Jenis Perusahaan 'Lainnya' -->
+                        <div v-if="requestUpdateForm.jenis_perusahaan === 'Lainnya'">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                Sebutkan Jenis Instansi Lainnya
+                            </label>
+                            <input
+                                type="text"
+                                v-model="requestUpdateForm.jenis_perusahaan_lainnya"
+                                class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                                placeholder="Contoh: Startup Komunitas, Lembaga Riset..."
+                            />
+                        </div>
+
+                        <!-- Skala Perusahaan (F2H / F5D) -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                Skala Perusahaan / Instansi / Institusi (F2H / F5D)
+                            </label>
+                            <select
+                                v-model="requestUpdateForm.skala"
+                                class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                            >
+                                <option
+                                    v-for="s in skalaOptions"
+                                    :key="s.value"
+                                    :value="s.value"
+                                >
+                                    {{ s.label }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Alamat Kantor Pusat (F2F) -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                Alamat Kantor Pusat (Head Office)
+                            </label>
+                            <textarea
+                                v-model="requestUpdateForm.alamat"
+                                rows="2"
+                                class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all resize-y"
+                                placeholder="Nama Jalan, Gedung, Nomor..."
+                            ></textarea>
+                        </div>
+
+                        <!-- Kode Pos & No. Telp / Fax Perusahaan -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                    Kode Pos Kantor / Lokasi Usaha
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="requestUpdateForm.kode_pos"
+                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                                    placeholder="Contoh: 55281 / 117371"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                    No. Telp / Fax Perusahaan
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="requestUpdateForm.no_telp_fax"
+                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                                    placeholder="Contoh: 0274-563929"
+                                />
+                            </div>
+                        </div>
+
+                        <!-- Website / Homepage Perusahaan -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                Website / Homepage Perusahaan
+                            </label>
+                            <input
+                                type="text"
+                                v-model="requestUpdateForm.homepage"
+                                class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                                placeholder="Contoh: https://perusahaan.co.id"
+                            />
+                        </div>
+
+                        <!-- Footer / Tombol Aksi -->
+                        <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                @click="closeRequestUpdateModal"
+                                :disabled="isSubmittingRequestUpdate"
+                                class="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="isSubmittingRequestUpdate"
+                                class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#0D542B] hover:bg-[#093d1f] transition-all shadow-xs shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <svg v-if="isSubmittingRequestUpdate" class="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>{{ isSubmittingRequestUpdate ? 'Mengirim...' : 'Kirim Usulan' }}</span>
                             </button>
                         </div>
                     </form>

@@ -18,7 +18,7 @@ return new class extends Migration
 CREATE VIEW v_analytics_work_location AS
 SELECT
     population.*,
-    CASE WHEN population.workplace_province_code IS NULL THEN 0 ELSE 1 END AS has_work_location
+    CASE WHEN population.workplace_kode_provinsi IS NULL THEN 0 ELSE 1 END AS has_work_location
 FROM v_analytics_population AS population
 SQL);
     }

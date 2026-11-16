@@ -5,12 +5,18 @@ namespace Tests\Feature;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\Kuesioner;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\Propinsi;
 use App\Models\Ump;
 use App\Models\User;
 use App\Services\Analytics\TracerAnalyticsService;
+use App\Services\Export\ResponseRateExcelExporter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -22,6 +28,43 @@ use Tests\TestCase;
 class SuperAdminAnalyticsTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function insertUnifiedQuestion(string $code, string $text, string $type = 'radio', bool $wajib = true): int
+    {
+        $section = KuesionerSection::firstOrCreate(
+            ['kode_section' => 'SEC_UNIV_MAIN'],
+            ['target' => 'univ', 'judul' => 'Kuesioner Universitas', 'order' => 1, 'is_active' => true]
+        );
+
+        $pertanyaan = KuesionerPertanyaan::firstOrCreate(
+            ['kode_pertanyaan' => $code],
+            ['teks_pertanyaan' => $text, 'tipe' => $type, 'is_active' => true]
+        );
+
+        KuesionerSectionPertanyaan::firstOrCreate(
+            ['section_id' => $section->id, 'pertanyaan_id' => $pertanyaan->id],
+            ['wajib' => $wajib, 'order' => 1]
+        );
+
+        return $pertanyaan->id;
+    }
+
+    private function insertUnifiedAnswer(int $biodataId, string $code, string $text, ?string $answer, ?array $answerJson = null, ?int $year = null): void
+    {
+        $qId = $this->insertUnifiedQuestion($code, $text);
+        $section = KuesionerSection::where('target', 'univ')->first();
+
+        KuesionerJawaban::updateOrCreate(
+            ['biodata_id' => $biodataId, 'pertanyaan_id' => $qId],
+            [
+                'section_id' => $section->id,
+                'jawaban' => $answer,
+                'jawaban_teks' => $answer,
+                'jawaban_json' => $answerJson ? json_encode($answerJson) : null,
+                'tahun_lulus' => (string) ($year ?? now()->year),
+            ]
+        );
+    }
 
     /**
      * Tamu harus diarahkan ke login dan tidak boleh membuka analitik.
@@ -59,7 +102,7 @@ class SuperAdminAnalyticsTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
-            ->component('SuperAdmin/Analytics/GrafikUniv')
+            ->component('Shared/Analytics/GrafikUniv')
             ->has('analytics.filters')
             ->has('analytics.chart_options')
             ->has('analytics.chart')
@@ -140,6 +183,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'prodi_id' => $includedProdi->id,
             'nomor_telepon' => '081234567811',
             'email_pribadi' => 'included@example.test',
+            'linkedin_url' => 'https://www.linkedin.com/in/alumni-terpilih',
         ]);
         $excludedBiodata = Biodata::create([
             'user_id' => $excludedUser->id,
@@ -148,38 +192,8 @@ class SuperAdminAnalyticsTest extends TestCase
             'nomor_telepon' => '081234567812',
             'email_pribadi' => 'excluded@example.test',
         ]);
-        $questionId = DB::table('ref_subpertanyaan2021')->insertGetId([
-            'kelompok' => 'F3',
-            'kode_pertanyaan' => 'F3',
-            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
-            'type' => 'radio',
-            'wajib' => true,
-            'order' => 1,
-        ]);
-        DB::table('tracer')->insert([
-            'biodata_id' => $includedBiodata->id,
-            'question_id' => $questionId,
-            'nim' => $includedBiodata->nim,
-            'kelompok' => 'F3',
-            'kode_pertanyaan' => 'F3',
-            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
-            'answer' => 'Sebelum lulus',
-            'tahun_lulus' => $year,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        DB::table('tracer')->insert([
-            'biodata_id' => $excludedBiodata->id,
-            'question_id' => $questionId,
-            'nim' => $excludedBiodata->nim,
-            'kelompok' => 'F3',
-            'kode_pertanyaan' => 'F3',
-            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
-            'answer' => 'Setelah lulus',
-            'tahun_lulus' => $year,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $this->insertUnifiedAnswer($includedBiodata->id, 'F3', 'Kapan mulai mencari pekerjaan?', 'Sebelum lulus', null, $year);
+        $this->insertUnifiedAnswer($excludedBiodata->id, 'F3', 'Kapan mulai mencari pekerjaan?', 'Setelah lulus', null, $year);
 
         $analytics = app(TracerAnalyticsService::class)
             ->buildUniversityChart('response_rate', (string) $year, null, $includedProdi->id);
@@ -188,6 +202,14 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertSame(1, $analytics['chart']['summary']['respondents']);
         $this->assertSame('72200011', $analytics['chart']['records'][0]['nim']);
         $this->assertTrue($analytics['chart']['records'][0]['answered']);
+        $this->assertSame('https://www.linkedin.com/in/alumni-terpilih', $analytics['chart']['records'][0]['linkedin_url']);
+        $this->assertArrayHasKey('nama_perusahaan', $analytics['chart']['records'][0]);
+        $this->assertArrayHasKey('head_office_lokasi', $analytics['chart']['records'][0]);
+        $this->assertArrayHasKey('domisili_saat_ini', $analytics['chart']['records'][0]);
+        $this->assertArrayHasKey('bidang_pekerjaan', $analytics['chart']['records'][0]);
+        $this->assertArrayHasKey('divisi', $analytics['chart']['records'][0]);
+        $this->assertArrayHasKey('posisi_jabatan', $analytics['chart']['records'][0]);
+        $this->assertArrayHasKey('skills', $analytics['chart']['records'][0]);
     }
 
     /**
@@ -213,9 +235,9 @@ class SuperAdminAnalyticsTest extends TestCase
         ]);
         $company = Perusahaan::create([
             'nama_perusahaan' => 'Perusahaan Analitik',
-            'propinsi_id' => $province->id,
+            'kode_provinsi' => $province->kode_provinsi,
             'jenis_lokasi' => 'Dalam Negeri',
-            'negara' => 'Indonesia',
+            'kode_negara' => 'ID',
             'status_verifikasi' => 'Terverifikasi',
         ]);
         Ump::create([
@@ -247,6 +269,7 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertCount(1, $analytics['salary_vs_ump']['by_prodi']);
         $this->assertSame(1, $analytics['salary_vs_ump']['by_prodi'][0]['meeting_count']);
         $this->assertSame($biodata->prodi_id, (int) $analytics['salary_vs_ump']['by_prodi'][0]['key']);
+        $this->assertSame(1, $analytics['salary_vs_ump']['by_prodi_ump'][0]['meets']);
 
         $chart = app(TracerAnalyticsService::class)
             ->buildUniversityChart('salary_vs_ump', (string) now()->year);
@@ -269,7 +292,6 @@ class SuperAdminAnalyticsTest extends TestCase
             'employment_status',
             'field_alignment',
             'education_alignment',
-            'education_alignment_university',
             'response_rate',
             'profile_completion',
             'learning_methods',
@@ -294,19 +316,250 @@ class SuperAdminAnalyticsTest extends TestCase
             $this->assertNotEmpty($result['chart']['methodology']['tables'] ?? []);
             $this->assertNotEmpty($result['chart']['methodology']['views'] ?? []);
             $this->assertNotEmpty($result['chart']['methodology']['charts'] ?? []);
+
+            if ($chartKey === 'competency_gap') {
+                $this->assertSame(
+                    'ROUND ke bilangan bulat terdekat untuk skor A, skor B, dan gap visual.',
+                    $result['chart']['methodology']['rounding'],
+                );
+            }
         }
     }
 
     /**
-     * Navigasi analitik mempertahankan seluruh 16 indikator evaluasi wajib.
+     * View jawaban kanonik hanya mengambil jawaban tracer alumni terbaru.
      */
-    public function test_university_analytics_exposes_all_sixteen_required_indicators(): void
+    public function test_tracer_answer_view_uses_latest_answer_per_alumni_and_question(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '72', 'nama_prodi' => 'Sistem Informasi']);
+        $user = User::create([
+            'username' => 'analytics-latest-answer',
+            'name' => 'Alumni Jawaban Terbaru',
+            'email' => 'analytics-latest-answer@example.test',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+        DataAkademik::create([
+            'nim' => '72220199',
+            'nama' => 'Alumni Jawaban Terbaru',
+            'prodi_id' => $prodi->id,
+            'tahun_lulus' => now()->year,
+            'status_mahasiswa' => 'Lulus',
+        ]);
+        $biodata = Biodata::create([
+            'user_id' => $user->id,
+            'nim' => '72220199',
+            'nama' => 'Alumni Jawaban Terbaru',
+            'prodi_id' => $prodi->id,
+            'nomor_telepon' => '081234567899',
+            'email_pribadi' => 'analytics-latest-answer@example.test',
+        ]);
+
+        $this->insertUnifiedAnswer($biodata->id, 'F3', 'Kapan mulai mencari pekerjaan?', 'Sebelum lulus');
+        $question = KuesionerPertanyaan::where('kode_pertanyaan', 'F3')->firstOrFail();
+        $section = KuesionerSection::where('target', 'univ')->firstOrFail();
+        KuesionerJawaban::create([
+            'responden_type' => 'alumni',
+            'biodata_id' => $biodata->id,
+            'section_id' => $section->id,
+            'pertanyaan_id' => $question->id,
+            'kode_pertanyaan' => 'F3',
+            'jawaban_teks' => 'Setelah lulus',
+        ]);
+
+        $chart = app(TracerAnalyticsService::class)
+            ->buildUniversityChart('job_search_start', (string) now()->year);
+
+        $this->assertCount(1, $chart['chart']['records']);
+        $this->assertSame('Setelah lulus', $chart['chart']['records'][0]['answer']);
+    }
+
+    /**
+     * Grafik F3 menerima angka bulan hasil normalisasi backend, bukan hasil
+     * pembacaan ulang teks jawaban di komponen frontend.
+     */
+    public function test_job_search_start_chart_exposes_normalized_months_from_text_answer(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '72', 'nama_prodi' => 'Sistem Informasi']);
+        $user = User::create([
+            'username' => 'analytics-f3-normalized',
+            'name' => 'Alumni F3 Normalized',
+            'email' => 'analytics-f3-normalized@example.test',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+        DataAkademik::create([
+            'nim' => '72220200',
+            'nama' => 'Alumni F3 Normalized',
+            'prodi_id' => $prodi->id,
+            'tahun_lulus' => now()->year,
+            'status_mahasiswa' => 'Lulus',
+        ]);
+        $biodata = Biodata::create([
+            'user_id' => $user->id,
+            'nim' => '72220200',
+            'nama' => 'Alumni F3 Normalized',
+            'prodi_id' => $prodi->id,
+            'nomor_telepon' => '081234567890',
+            'email_pribadi' => 'analytics-f3-normalized@example.test',
+        ]);
+
+        $this->insertUnifiedAnswer(
+            $biodata->id,
+            'F3',
+            'Kapan mulai mencari pekerjaan?',
+            'Setelah lulus ... bulan: 3',
+        );
+
+        $chart = app(TracerAnalyticsService::class)
+            ->buildUniversityChart('job_search_start', (string) now()->year);
+        $record = $chart['chart']['records'][0];
+
+        $this->assertSame(3.0, $record['months']);
+        $this->assertSame('after_under_6', $record['segment_key']);
+        $this->assertSame('< 6 bulan', $record['range']);
+        $this->assertArrayHasKey('timing_range_rows', $chart['chart']);
+        $this->assertArrayHasKey('timing_stack_groups', $chart['chart']);
+        $this->assertSame(100.0, (float) $chart['chart']['summary']['after_percentage']);
+    }
+
+    /**
+     * Grafik F16 hanya menampilkan alasan yang dipilih dan tidak membuat tab
+     * awan kata dari pilihan Lainnya tanpa teks tambahan.
+     */
+    public function test_mismatch_reasons_hides_zero_options(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '72', 'nama_prodi' => 'Sistem Informasi']);
+        $user = User::create([
+            'username' => 'analytics-mismatch-zero',
+            'name' => 'Alumni Mismatch',
+            'email' => 'analytics-mismatch-zero@example.test',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+        DataAkademik::create([
+            'nim' => '72220099',
+            'nama' => 'Alumni Mismatch',
+            'prodi_id' => $prodi->id,
+            'tahun_lulus' => now()->year,
+            'status_mahasiswa' => 'Lulus',
+        ]);
+        $biodata = Biodata::create([
+            'user_id' => $user->id,
+            'nim' => '72220099',
+            'prodi_id' => $prodi->id,
+            'email_pribadi' => $user->email,
+        ]);
+        $questionId = $this->insertUnifiedQuestion('F16', 'Alasan pekerjaan tidak sesuai', 'multiple_choice');
+        KuesionerOpsi::create(['pertanyaan_id' => $questionId, 'kode_opsi' => 'F1601', 'label' => 'Alasan dipilih', 'order' => 1]);
+        KuesionerOpsi::create(['pertanyaan_id' => $questionId, 'kode_opsi' => 'F1613', 'label' => 'Lainnya', 'order' => 2]);
+        $this->insertUnifiedAnswer($biodata->id, 'F16', 'Alasan pekerjaan tidak sesuai', 'Alasan dipilih', ['selected' => ['Alasan dipilih']], now()->year);
+
+        $chart = app(TracerAnalyticsService::class)->buildUniversityChart('mismatch_reasons', (string) now()->year)['chart'];
+
+        $this->assertSame(['Alasan dipilih'], array_column($chart['series'], 'label'));
+        $this->assertSame(1, $chart['series'][0]['count']);
+    }
+
+    /**
+     * Isian bebas F10 harus tetap tersedia sebagai detail Lainnya untuk awan kata,
+     * tanpa mengubahnya menjadi label umum saat analitik dibangun.
+     */
+    public function test_job_search_activity_preserves_other_free_text_for_word_cloud(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '73', 'nama_prodi' => 'Manajemen']);
+        $user = User::create([
+            'username' => 'analytics-f10-other',
+            'name' => 'Alumni F10 Lainnya',
+            'email' => 'analytics-f10-other@example.test',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+        DataAkademik::create([
+            'nim' => '73220099',
+            'nama' => 'Alumni F10 Lainnya',
+            'prodi_id' => $prodi->id,
+            'tahun_lulus' => now()->year,
+            'status_mahasiswa' => 'Lulus',
+        ]);
+        $biodata = Biodata::create([
+            'user_id' => $user->id,
+            'nim' => '73220099',
+            'prodi_id' => $prodi->id,
+            'email_pribadi' => $user->email,
+        ]);
+        $questionId = $this->insertUnifiedQuestion('F10', 'Keaktifan mencari kerja', 'radio');
+        KuesionerOpsi::create(['pertanyaan_id' => $questionId, 'kode_opsi' => 'F1001', 'label' => 'Tidak', 'order' => 1]);
+        KuesionerOpsi::create(['pertanyaan_id' => $questionId, 'kode_opsi' => 'F1005', 'label' => 'Lainnya', 'order' => 5]);
+        $this->insertUnifiedAnswer($biodata->id, 'F10', 'Keaktifan mencari kerja', 'Lainnya: Menunggu rekrutmen ASN', null, now()->year);
+
+        $chart = app(TracerAnalyticsService::class)->buildUniversityChart('job_search_activity', (string) now()->year)['chart'];
+
+        $this->assertSame('Lainnya', $chart['records'][0]['category']);
+        $this->assertSame('Menunggu rekrutmen ASN', $chart['records'][0]['detail']);
+        $this->assertSame(1, collect($chart['series'])->firstWhere('label', 'Lainnya')['count']);
+    }
+
+    /**
+     * Kategori Lainnya F11 harus dikeluarkan dari seri pembanding agar hanya
+     * ditampilkan sebagai isian bebas pada awan kata di antarmuka.
+     */
+    public function test_workplace_type_excludes_other_category_from_comparison_series(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '75', 'nama_prodi' => 'Akuntansi']);
+        $user = User::create([
+            'username' => 'analytics-f11-other',
+            'name' => 'Alumni F11 Lainnya',
+            'email' => 'analytics-f11-other@example.test',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'Konsultan Mandiri Nusantara',
+            'jenis_perusahaan' => 'Lainnya',
+            'jenis_perusahaan_lainnya' => 'Konsultan independen',
+        ]);
+        DataAkademik::create([
+            'nim' => '75220099',
+            'nama' => 'Alumni F11 Lainnya',
+            'prodi_id' => $prodi->id,
+            'tahun_lulus' => now()->year,
+            'status_mahasiswa' => 'Lulus',
+        ]);
+        $biodata = Biodata::create([
+            'user_id' => $user->id,
+            'nim' => '75220099',
+            'prodi_id' => $prodi->id,
+            'perusahaan_id' => $company->id,
+            'email_pribadi' => $user->email,
+        ]);
+        $questionId = $this->insertUnifiedQuestion('F11', 'Jenis tempat kerja', 'radio');
+        KuesionerOpsi::create(['pertanyaan_id' => $questionId, 'kode_opsi' => 'F1101', 'label' => 'Perusahaan swasta', 'order' => 1]);
+        KuesionerOpsi::create(['pertanyaan_id' => $questionId, 'kode_opsi' => 'F1105', 'label' => 'Lainnya', 'order' => 5]);
+        $this->insertUnifiedAnswer($biodata->id, 'F11', 'Jenis tempat kerja', 'Lainnya', null, now()->year);
+
+        $chart = app(TracerAnalyticsService::class)->buildUniversityChart('workplace_type', (string) now()->year)['chart'];
+
+        $this->assertNotContains('Lainnya', array_column($chart['series'], 'label'));
+        $this->assertSame('Lainnya', $chart['records'][0]['category']);
+        $this->assertSame('Konsultan independen', $chart['records'][0]['jenis_perusahaan_lainnya']);
+    }
+
+    /**
+     * Navigasi analitik mempertahankan seluruh indikator evaluasi yang aktif.
+     */
+    public function test_university_analytics_exposes_all_active_required_indicators(): void
     {
         $required = [
             'response_rate', 'learning_methods', 'job_search_start', 'job_search_methods',
             'wait_time', 'application_pipeline', 'employment_status', 'job_search_activity',
             'workplace_type', 'further_study', 'salary_vs_ump', 'field_alignment',
-            'education_alignment', 'education_alignment_university', 'mismatch_reasons',
+            'education_alignment', 'mismatch_reasons',
             'competency_gap',
         ];
 
@@ -315,6 +568,7 @@ class SuperAdminAnalyticsTest extends TestCase
 
         $this->assertSame('response_rate', $result['selected_chart']);
         $this->assertSame([], array_values(array_diff($required, $available)));
+        $this->assertNotContains('education_alignment_university', $available);
         $this->assertArrayHasKey('metadata', $result['chart']);
         $this->assertArrayHasKey('missing_count', $result['chart']['metadata']);
     }
@@ -349,24 +603,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'nomor_telepon' => '081234567899',
             'email_pribadi' => 'analytics-response-rate@example.test',
         ]);
-        $questionId = DB::table('ref_subpertanyaan2021')->insertGetId([
-            'kelompok' => 'F3',
-            'kode_pertanyaan' => 'F3',
-            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
-            'type' => 'radio',
-            'wajib' => true,
-            'order' => 1,
-        ]);
-        DB::table('tracer')->insert([
-            'biodata_id' => $biodata->id,
-            'question_id' => $questionId,
-            'nim' => $biodata->nim,
-            'kelompok' => 'F3',
-            'kode_pertanyaan' => 'F3',
-            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
-            'answer' => 'Sebelum lulus',
-            'tahun_lulus' => now()->year,
-        ]);
+        $this->insertUnifiedAnswer($biodata->id, 'F3', 'Kapan mulai mencari pekerjaan?', 'Sebelum lulus');
 
         $chart = app(TracerAnalyticsService::class)
             ->buildUniversityChart('response_rate', (string) now()->year);
@@ -409,24 +646,8 @@ class SuperAdminAnalyticsTest extends TestCase
             'nomor_telepon' => '081234567891',
             'email_pribadi' => 'analytics-tracer-answer@example.test',
         ]);
-        DB::table('tracer')->insert([
-            'biodata_id' => $biodata->id,
-            'nim' => '72200002',
-            'kelompok' => 'F3',
-            'kode_pertanyaan' => 'F3',
-            'subpertanyaan' => 'Kapan mulai mencari pekerjaan?',
-            'answer' => 'Sebelum lulus',
-            'tahun_lulus' => now()->year,
-        ]);
-        DB::table('tracer')->insert([
-            'biodata_id' => $biodata->id,
-            'nim' => '72200002',
-            'kelompok' => 'F18',
-            'kode_pertanyaan' => 'F18b',
-            'subpertanyaan' => 'Perguruan tinggi studi lanjut',
-            'answer' => 'Universitas Gadjah Mada',
-            'tahun_lulus' => now()->year,
-        ]);
+        $this->insertUnifiedAnswer($biodata->id, 'F3', 'Kapan mulai mencari pekerjaan?', 'Sebelum lulus');
+        $this->insertUnifiedAnswer($biodata->id, 'F18b', 'Perguruan tinggi studi lanjut', 'Universitas Gadjah Mada', ['degree' => 'S2']);
 
         $chart = app(TracerAnalyticsService::class)
             ->buildUniversityChart('job_search_start', (string) now()->year);
@@ -483,15 +704,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'F14' => 'Erat',
             'F15' => 'Tingkat yang sama',
         ] as $code => $answer) {
-            DB::table('tracer')->insert([
-                'biodata_id' => $biodata->id,
-                'nim' => $biodata->nim,
-                'kelompok' => $code,
-                'kode_pertanyaan' => $code,
-                'subpertanyaan' => 'Pertanyaan '.$code,
-                'answer' => $answer,
-                'tahun_lulus' => now()->year,
-            ]);
+            $this->insertUnifiedAnswer($biodata->id, $code, 'Pertanyaan '.$code, $answer);
         }
 
         $secondUser = User::create([
@@ -517,15 +730,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'nomor_telepon' => '081234567893',
             'email_pribadi' => 'analytics-alignment-distinct@example.test',
         ]);
-        DB::table('tracer')->insert([
-            'biodata_id' => $secondBiodata->id,
-            'nim' => $secondBiodata->nim,
-            'kelompok' => 'F14',
-            'kode_pertanyaan' => 'F14',
-            'subpertanyaan' => 'Hubungan bidang studi',
-            'answer' => 'Kurang erat',
-            'tahun_lulus' => now()->year,
-        ]);
+        $this->insertUnifiedAnswer($secondBiodata->id, 'F14', 'Hubungan bidang studi', 'Kurang erat');
 
         $service = app(TracerAnalyticsService::class);
         $waitTime = $service->buildUniversityChart('wait_time', (string) now()->year);
@@ -558,6 +763,18 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertArrayHasKey('response_rate', $result['chart']['summary']);
         $this->assertArrayHasKey('unanswered_rate', $result['chart']['summary']);
         $this->assertArrayHasKey('target', $result['chart']['summary']);
+        $this->assertArrayHasKey('minimum_respondents', $result['chart']['summary']);
+        $this->assertArrayHasKey('slovin_error', $result['chart']['summary']);
+        $this->assertArrayHasKey('series', $result['chart']);
+        $this->assertIsArray($result['chart']['series']);
+
+        if ($result['chart']['series'] !== []) {
+            $firstSeriesItem = $result['chart']['series'][0];
+            $this->assertContains('population', array_keys($firstSeriesItem));
+            $this->assertContains('respondents', array_keys($firstSeriesItem));
+            $this->assertContains('response_rate', array_keys($firstSeriesItem));
+            $this->assertContains('target', array_keys($firstSeriesItem));
+        }
     }
 
     /**
@@ -581,6 +798,21 @@ class SuperAdminAnalyticsTest extends TestCase
     }
 
     /**
+     * SpreadsheetML response rate harus dapat diparse sebagai XML oleh Excel.
+     */
+    public function test_response_rate_excel_contains_valid_spreadsheetml(): void
+    {
+        $records = DB::table('v_analytics_response_rate')->get();
+        $xml = ResponseRateExcelExporter::generateSpreadsheetXml('ALL', null, 'all', $records);
+        $document = new \DOMDocument;
+
+        $this->assertTrue($document->loadXML($xml));
+        $this->assertStringContainsString('<Style ss:ID="Default" ss:Name="Normal">', $xml);
+        $this->assertStringContainsString('<Created>', $xml);
+        $this->assertStringContainsString('x:FullColumns="1" x:FullRows="1"', $xml);
+    }
+
+    /**
      * Target response rate membaca konfigurasi kuesioner dinamis dari database.
      */
     public function test_response_rate_uses_configured_target_from_kuesioner(): void
@@ -600,16 +832,17 @@ class SuperAdminAnalyticsTest extends TestCase
     }
 
     /**
-     * Filter semua tahun tersedia, sedangkan tanpa parameter tetap memakai tahun berjalan.
+     * Filter semua tahun tersedia, sedangkan tanpa parameter memakai tahun
+     * terbaru yang benar-benar ada atau ALL jika belum ada data.
      */
-    public function test_all_year_filter_is_available_and_current_year_remains_default(): void
+    public function test_all_year_filter_is_available_and_data_year_is_default(): void
     {
         $service = app(TracerAnalyticsService::class);
 
         $defaultResult = $service->buildUniversityChart('response_rate');
         $allYearsResult = $service->buildUniversityChart('response_rate', 'ALL');
 
-        $this->assertSame((string) now()->year, $defaultResult['filters']['selected_year']);
+        $this->assertSame('ALL', $defaultResult['filters']['selected_year']);
         $this->assertSame('ALL', $allYearsResult['filters']['selected_year']);
         $this->assertSame('ALL', $allYearsResult['filters']['available_years'][0]);
     }
@@ -645,27 +878,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'email_pribadi' => 'alumni-f2-tester@example.test',
         ]);
 
-        $questionId = DB::table('ref_subpertanyaan2021')->insertGetId([
-            'kelompok' => 'F2',
-            'kode_pertanyaan' => 'F21',
-            'subpertanyaan' => 'Perkuliahan',
-            'type' => 'radio',
-            'wajib' => true,
-            'order' => 1,
-        ]);
-
-        DB::table('tracer')->insert([
-            'biodata_id' => $biodata->id,
-            'question_id' => $questionId,
-            'nim' => $biodata->nim,
-            'kelompok' => 'F2',
-            'kode_pertanyaan' => 'F21',
-            'subpertanyaan' => 'Perkuliahan',
-            'answer' => 'Besar',
-            'tahun_lulus' => 2024,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $this->insertUnifiedAnswer($biodata->id, 'F21', 'Perkuliahan', 'Besar', null, 2024);
 
         $result = app(TracerAnalyticsService::class)->buildUniversityChart('learning_methods', '2024');
 
@@ -684,5 +897,96 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $f21['score']);
         $this->assertLessThanOrEqual(5, $f21['score']);
         $this->assertArrayHasKey('distribution', $f21);
+    }
+
+    /**
+     * Indikator proses lamaran (application_pipeline) menyediakan 2 scatter plot dengan korelasi Spearman dan diagram konversi 3 tahap.
+     */
+    public function test_application_pipeline_provides_scatter_plots_and_conversion_stages(): void
+    {
+        $prodi = Prodi::create([
+            'kode_prodi' => '72',
+            'nama_prodi' => 'Sistem Informasi',
+        ]);
+
+        $testData = [
+            ['nim' => '72200001', 'name' => 'Alumni A', 'ipk' => 3.75, 'f6' => '10', 'f7' => '5', 'f7a' => '3'],
+            ['nim' => '72200002', 'name' => 'Alumni B', 'ipk' => 3.50, 'f6' => '8', 'f7' => '4', 'f7a' => '2'],
+            ['nim' => '72200003', 'name' => 'Alumni C', 'ipk' => 3.20, 'f6' => '5', 'f7' => '2', 'f7a' => '1'],
+        ];
+
+        foreach ($testData as $idx => $d) {
+            $user = User::create([
+                'username' => 'pipeline-tester-'.$idx,
+                'name' => $d['name'],
+                'email' => 'pipeline-'.$idx.'@example.test',
+                'password' => Hash::make('password123'),
+                'role' => 'alumni',
+                'must_change_password' => false,
+            ]);
+            DataAkademik::create([
+                'nim' => $d['nim'],
+                'nama' => $d['name'],
+                'tanggal_lahir' => '2001-01-01',
+                'tahun_lulus' => 2024,
+                'ip_kumulatif' => $d['ipk'],
+            ]);
+            $biodata = Biodata::create([
+                'user_id' => $user->id,
+                'nim' => $d['nim'],
+                'prodi_id' => $prodi->id,
+                'nomor_telepon' => '08123456789'.$idx,
+                'email_pribadi' => 'pipeline-'.$idx.'@example.test',
+            ]);
+            $this->insertUnifiedAnswer($biodata->id, 'F6', 'Jumlah Perusahaan Dilamar', $d['f6'], null, 2024);
+            $this->insertUnifiedAnswer($biodata->id, 'F7', 'Jumlah Perusahaan Merespons', $d['f7'], null, 2024);
+            $this->insertUnifiedAnswer($biodata->id, 'F7A', 'Jumlah Panggilan Wawancara', $d['f7a'], null, 2024);
+        }
+
+        $service = app(TracerAnalyticsService::class);
+        $result = $service->buildUniversityChart('application_pipeline', '2024');
+
+        $this->assertSame('application_pipeline', $result['selected_chart']);
+        $chart = $result['chart'];
+
+        // 1. Verifikasi Scatter Plot 1: Lamaran vs Respons
+        $this->assertArrayHasKey('scatter_applications_responses', $chart);
+        $s1 = $chart['scatter_applications_responses'];
+        $this->assertSame('Hubungan Jumlah Lamaran dengan Jumlah Respons Perusahaan', $s1['title']);
+        $this->assertArrayHasKey('data', $s1);
+        $this->assertCount(3, $s1['data']);
+        $this->assertArrayHasKey('stats', $s1);
+        $this->assertArrayHasKey('trendline', $s1);
+        $this->assertArrayHasKey('summary', $s1);
+        $this->assertNotNull($s1['stats']['rho']);
+        $this->assertNotNull($s1['stats']['p_value']);
+        $this->assertSame(3, $s1['stats']['n']);
+        $this->assertArrayHasKey('relation_tables', $chart);
+        $this->assertCount(3, $chart['relation_tables']['applications_responses']['rows']);
+        $this->assertCount(1, $chart['relation_tables']['applications_responses']['summary']['rows']);
+        $this->assertArrayHasKey('conversion_ipk_stats', $chart);
+
+        // 2. Verifikasi Scatter Plot 2: Respons vs Wawancara
+        $this->assertArrayHasKey('scatter_responses_interviews', $chart);
+        $s2 = $chart['scatter_responses_interviews'];
+        $this->assertSame('Hubungan Jumlah Respons Perusahaan dengan Undangan Wawancara', $s2['title']);
+        $this->assertArrayHasKey('data', $s2);
+        $this->assertCount(3, $s2['data']);
+        $this->assertArrayHasKey('stats', $s2);
+        $this->assertArrayHasKey('trendline', $s2);
+        $this->assertNotNull($s2['stats']['rho']);
+        $this->assertNotNull($s2['stats']['p_value']);
+        $this->assertSame(3, $s2['stats']['n']);
+
+        // 3. Verifikasi Konversi 3 Tahap Berbobot
+        $this->assertArrayHasKey('conversion_stages', $chart);
+        $conv = $chart['conversion_stages'];
+        $this->assertCount(3, $conv['stages']);
+        $this->assertSame('Lamaran → Respons', $conv['stages'][0]['label']);
+        $this->assertSame('Respons → Wawancara', $conv['stages'][1]['label']);
+        $this->assertSame('Lamaran → Wawancara', $conv['stages'][2]['label']);
+        $this->assertGreaterThan(0, $conv['stages'][0]['percentage']);
+        $this->assertGreaterThan(0, $conv['stages'][1]['percentage']);
+        $this->assertGreaterThan(0, $conv['stages'][2]['percentage']);
     }
 }

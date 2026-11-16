@@ -5,10 +5,9 @@ namespace Database\Seeders;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\Kabupaten;
+use App\Models\KuesionerJawaban;
 use App\Models\Prodi;
-use App\Models\ProdiResponse;
 use App\Models\Propinsi;
-use App\Models\Tracer;
 use App\Models\User;
 use App\Models\Yudisium;
 use Illuminate\Database\Seeder;
@@ -60,6 +59,8 @@ class JoshuaAndreanSeeder extends Seeder
             ['nim' => $nim],
             [
                 'nama' => $nama,
+                'email_pribadi' => $personalEmail,
+                'prodi_id' => $prodi?->id,
                 // Data Universitas
                 'angkatan_masuk' => $angkatan,
                 'status_mahasiswa' => 'Lulus',
@@ -71,19 +72,11 @@ class JoshuaAndreanSeeder extends Seeder
                 'total_angka_kualitas' => $angkaKualitas,
 
                 // Identitas Diri
-                'tempat_lahir' => 'Yogyakarta',
                 'tanggal_lahir' => '2004-08-15',
                 'jenis_kelamin' => 'Laki-laki',
                 'warga_negara' => 'WNI',
 
-                'email_students' => $nim.'@students.ukdw.ac.id',
-
                 // Data Asal Sekolah
-                'asal_sekolah' => 'SMA Negeri 3 Yogyakarta',
-                'alamat_asal_sekolah' => 'Jl. Yos Sudarso No. 7',
-                'kota_kabupaten_asal_sekolah' => 'Kota Yogyakarta',
-                'provinsi_asal_sekolah' => 'DI Yogyakarta',
-                'jurusan_asal_sekolah' => 'IPA',
             ]
         );
 
@@ -111,8 +104,8 @@ class JoshuaAndreanSeeder extends Seeder
                 'email_pribadi' => $personalEmail,
                 'nomor_telepon' => '081234567890',
                 'alamat_saat_ini' => 'Jl. Timoho No. 45, RT 02/RW 08',
-                'kabupaten_id' => $sleman?->id,
-                'propinsi_id' => $diy?->id,
+                'kode_kabupaten' => $sleman?->kode_kabupaten,
+                'kode_provinsi' => $diy?->kode_provinsi,
                 'kode_pos' => '55281',
                 'instagram_url' => null,
                 'facebook_url' => null,
@@ -133,8 +126,7 @@ class JoshuaAndreanSeeder extends Seeder
             ]
         );
 
-        // 6. Bersihkan respon tracer lama untuk Joshua agar fresh siap uji
-        Tracer::where('biodata_id', $biodata->id)->delete();
-        ProdiResponse::where('biodata_id', $biodata->id)->delete();
+        // 6. Bersihkan respon kuesioner untuk Joshua agar fresh siap uji
+        KuesionerJawaban::where('biodata_id', $biodata->id)->delete();
     }
 }

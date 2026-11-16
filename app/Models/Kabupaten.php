@@ -16,26 +16,25 @@ class Kabupaten extends Model
 
     protected $table = 'kabupaten';
 
+    protected $primaryKey = 'kode_kabupaten';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
     protected $fillable = [
-        'propinsi_id',
         'kode_kabupaten',
+        'kode_provinsi',
         'nama_kabupaten',
     ];
 
-    protected $appends = ['province_id'];
-
-    public function getProvinceIdAttribute()
-    {
-        return $this->attributes['propinsi_id'] ?? null;
-    }
-
     public function propinsi()
     {
-        return $this->belongsTo(Propinsi::class, 'propinsi_id');
+        return $this->belongsTo(Propinsi::class, 'kode_provinsi', 'kode_provinsi');
     }
 
     public function perusahaan()
     {
-        return $this->hasMany(Perusahaan::class, 'kabupaten_id');
+        return $this->hasMany(Perusahaan::class, 'kode_kabupaten', 'kode_kabupaten');
     }
 }

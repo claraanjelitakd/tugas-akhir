@@ -34,9 +34,24 @@ use Throwable;
  */
 class ApifyLinkedInProvider implements LinkedInProfileProvider
 {
-    public const DEFAULT_ACTOR_ID = 'data_forge_org~linkedin-scraper';
+    public const DEFAULT_ACTOR_ID = 'harvestapi/linkedin-profile-scraper';
 
     public const APIFY_BASE_URL = 'https://api.apify.com/v2/actors';
+
+    public const MONTH_MAP = [
+        'jan' => 1, 'january' => 1, 'januari' => 1,
+        'feb' => 2, 'february' => 2, 'februari' => 2,
+        'mar' => 3, 'march' => 3, 'maret' => 3,
+        'apr' => 4, 'april' => 4,
+        'may' => 5, 'mei' => 5,
+        'jun' => 6, 'june' => 6, 'juni' => 6,
+        'jul' => 7, 'july' => 7, 'juli' => 7,
+        'aug' => 8, 'august' => 8, 'agustus' => 8,
+        'sep' => 9, 'september' => 9,
+        'oct' => 10, 'october' => 10, 'oktober' => 10,
+        'nov' => 11, 'november' => 11,
+        'dec' => 12, 'december' => 12, 'desember' => 12,
+    ];
 
     protected ?string $apiToken;
 
@@ -117,15 +132,18 @@ class ApifyLinkedInProvider implements LinkedInProfileProvider
             throw new LinkedInSyncException('APIFY_API_TOKEN belum dikonfigurasi di server. Silakan hubungi Administrator.');
         }
 
-        $endpoint = sprintf('%s/%s/run-sync-get-dataset-items', self::APIFY_BASE_URL, $this->actorId);
+        // Format actor ID untuk endpoint URL Apify (mengubah '/' menjadi '~' jika diperlukan, dan buang trailing slash)
+        $actorIdClean = trim(rtrim($this->actorId, '/'));
+        $actorIdEndpoint = str_replace('/', '~', $actorIdClean);
+        $endpoint = sprintf('%s/%s/run-sync-get-dataset-items', self::APIFY_BASE_URL, $actorIdEndpoint);
 
+        // Format URL LinkedIn dengan trailing slash resmi
+        $targetUrl = rtrim($cleanUrl, '/').'/';
+
+        // Payload resmi HarvestAPI LinkedIn Profile Scraper
         $payload = [
-            'profileUrls' => [$cleanUrl],
-            'includeProfilePosts' => false,
-            'includeComments' => false,
-            'includeCompanyPosts' => false,
-            'includeCompanyJobs' => false,
-            'includeJobDetails' => false,
+            'profileScraperMode' => 'Profile details no email ($4 per 1k)',
+            'queries' => [$targetUrl],
         ];
 
         try {
@@ -138,8 +156,10 @@ class ApifyLinkedInProvider implements LinkedInProfileProvider
             $status = $response->status();
 
             if ($status === 400) {
-                Log::warning('Apify Scraper 400 Bad Request');
-                throw new LinkedInSyncException('Permintaan ke Apify tidak valid (Bad Request).');
+                $body = $response->json();
+                $errDetail = $body['error']['message'] ?? $response->body();
+                Log::warning('Apify Scraper 400 Bad Request: '.$errDetail);
+                throw new LinkedInSyncException("Permintaan ke Apify tidak valid (Bad Request). {$errDetail}");
             }
 
             if ($status === 401) {
@@ -173,6 +193,7 @@ class ApifyLinkedInProvider implements LinkedInProfileProvider
 
             // Parsing respons JSON mentah
             $data = $response->json();
+            Log::info("Apify Raw Result for [{$cleanUrl}]: ".json_encode($data));
 
             if (! is_array($data)) {
                 throw new LinkedInSyncException('Format data respons dari Apify tidak valid.');
@@ -183,9 +204,16 @@ class ApifyLinkedInProvider implements LinkedInProfileProvider
                 throw new LinkedInProfileNotFoundException($cleanUrl);
             }
 
-            // Cek apakah dataset berisi pesan error khusus dari Actor
-            if (isset($data[0]['error']) && ! empty($data[0]['error'])) {
-                $err = $data[0]['error'];
+            // Actor dapat mengembalikan HTTP 200 tetapi menaruh kegagalan di item dataset.
+            $actorItem = $data[0] ?? [];
+            $actorError = $actorItem['error'] ?? null;
+            $actorMessage = $actorItem['message'] ?? null;
+            $isBlocked = ($actorItem['entity_type'] ?? null) === 'error'
+                || strtoupper((string) ($actorItem['error_label'] ?? '')) === 'BLOCKED';
+
+            if ($isBlocked || ! empty($actorError)) {
+                $err = (string) ($actorError ?: $actorMessage ?: 'Actor Apify mengembalikan error tanpa pesan.');
+                Log::warning("Apify Scraped URL [{$cleanUrl}] returned error: {$err}");
                 if (stripos($err, 'not found') !== false || stripos($err, 'private') !== false) {
                     throw new LinkedInProfileNotFoundException($cleanUrl);
                 }
@@ -269,49 +297,59 @@ class ApifyLinkedInProvider implements LinkedInProfileProvider
 
         $headline = $item['headline'] ?? $item['title'] ?? '';
 
-        // Ekstraksi vanity name dari URL
-        $vanity = '';
-        if (preg_match('#linkedin\.com/in/([^/?#]+)#i', $sourceUrl, $matches)) {
+        // Ekstraksi vanity name dari publicIdentifier atau regex URL
+        $vanity = ! empty($item['publicIdentifier']) ? trim((string) $item['publicIdentifier']) : '';
+        if (empty($vanity) && preg_match('~linkedin\.com/in/([^/?#]+)~i', $sourceUrl, $matches)) {
             $vanity = $matches[1];
         }
 
-        // Ekstraksi pengalaman kerja / positions
+        // Ekstraksi pengalaman kerja / positions (menggabungkan currentPosition & experience tanpa duplikasi)
         $positions = [];
-        $rawExp = $item['experience'] ?? $item['experiences'] ?? $item['positions'] ?? [];
+        $rawExp = $this->asList($item['currentPosition'] ?? []);
+        $rawExp = array_merge($rawExp, $this->asList($item['experience'] ?? $item['experiences'] ?? $item['positions'] ?? []));
 
-        if (is_array($rawExp)) {
-            foreach ($rawExp as $pos) {
-                if (! is_array($pos)) {
-                    continue;
-                }
+        // Deduplikasi entri posisi berdasarkan kombinasi title dan companyName
+        $deduplicatedExp = [];
+        $seenPositions = [];
+        foreach ($rawExp as $pos) {
+            if (! is_array($pos)) {
+                continue;
+            }
+            $t = strtolower(trim((string) ($pos['position'] ?? $pos['title'] ?? $pos['jobTitle'] ?? $pos['role'] ?? '')));
+            $c = strtolower(trim((string) ($pos['companyName'] ?? $pos['company'] ?? $pos['name'] ?? '')));
+            $dedupKey = "{$t}|{$c}";
+            if ($dedupKey !== '|' && isset($seenPositions[$dedupKey])) {
+                continue;
+            }
+            $seenPositions[$dedupKey] = true;
+            $deduplicatedExp[] = $pos;
+        }
 
+        if (! empty($deduplicatedExp)) {
+            foreach ($deduplicatedExp as $pos) {
                 $title = $pos['position'] ?? $pos['title'] ?? $pos['jobTitle'] ?? $pos['role'] ?? 'Alumni';
                 $company = $pos['companyName'] ?? $pos['company'] ?? $pos['name'] ?? 'Perusahaan';
-                $location = $pos['location'] ?? $pos['locationName'] ?? null;
+
+                // Ekstraksi display nama lokasi (string atau parsed text)
+                $location = null;
+                if (! empty($pos['location'])) {
+                    $location = is_array($pos['location'])
+                        ? ($pos['location']['parsed']['text'] ?? $pos['location']['linkedinText'] ?? null)
+                        : $pos['location'];
+                } elseif (! empty($pos['locationName'])) {
+                    $location = $pos['locationName'];
+                }
+
+                $endDateRaw = $pos['endDate'] ?? null;
+                $endDateText = is_array($endDateRaw) ? ($endDateRaw['text'] ?? null) : $endDateRaw;
+
                 $isCurrent = (isset($pos['isCurrent']) && $pos['isCurrent'] === true)
-                    || (array_key_exists('endDate', $pos) && (is_null($pos['endDate']) || $pos['endDate'] === 'Present'));
+                    || (array_key_exists('endDate', $pos) && (is_null($endDateText) || strcasecmp(trim((string) $endDateText), 'Present') === 0 || strcasecmp(trim((string) $endDateText), 'Saat ini') === 0));
 
                 $startYear = null;
                 $startMonth = null;
-                if (! empty($pos['startDate'])) {
-                    if (preg_match('/(\d{4})/', $pos['startDate'], $m)) {
-                        $startYear = (int) $m[1];
-                    }
-                    if (preg_match('/-(\d{1,2})/', $pos['startDate'], $m)) {
-                        $startMonth = (int) $m[1];
-                    }
-                }
-
-                $endYear = null;
-                $endMonth = null;
-                if (! empty($pos['endDate']) && $pos['endDate'] !== 'Present') {
-                    if (preg_match('/(\d{4})/', $pos['endDate'], $m)) {
-                        $endYear = (int) $m[1];
-                    }
-                    if (preg_match('/-(\d{1,2})/', $pos['endDate'], $m)) {
-                        $endMonth = (int) $m[1];
-                    }
-                }
+                [$startYear, $startMonth] = $this->dateParts($pos['startDate'] ?? null);
+                [$endYear, $endMonth] = $this->dateParts($pos['endDate'] ?? null);
 
                 $positions[] = new LinkedInPosition(
                     id: (string) ($pos['id'] ?? uniqid('pos_')),
@@ -321,11 +359,13 @@ class ApifyLinkedInProvider implements LinkedInProfileProvider
                     localizedCompanyName: $company,
                     startMonthYear: $startYear ? ['year' => $startYear, 'month' => $startMonth ?? 1] : null,
                     endMonthYear: $endYear ? ['year' => $endYear, 'month' => $endMonth ?? 1] : null,
-                    locationName: $location ? ['localized' => ['en_US' => $location]] : null,
+                    geoPositionLocation: $location ? ['localizedDisplayLocationName' => $location] : null,
                     localizedDisplayLocationName: $location,
                 );
             }
         }
+
+        $photoPayload = $item['profilePicture'] ?? ($item['photo'] ?? null);
 
         return new LinkedInProfile(
             id: (string) ($item['id'] ?? uniqid('apify_')),
@@ -336,8 +376,82 @@ class ApifyLinkedInProvider implements LinkedInProfileProvider
             headline: ['localized' => ['en_US' => $headline]],
             localizedHeadline: $headline,
             vanityName: $vanity,
-            profilePicture: ! empty($item['profilePicture']) ? ['url' => $item['profilePicture']] : null,
+            profilePicture: $this->profilePicture($photoPayload),
             positions: $positions,
         );
+    }
+
+    /**
+     * Mengubah nilai actor yang dapat berupa satu objek atau daftar objek menjadi daftar.
+     *
+     * @param  mixed  $value  Nilai mentah dari actor.
+     * @return list<array<string, mixed>>
+     */
+    private function asList(mixed $value): array
+    {
+        if (! is_array($value) || $value === []) {
+            return [];
+        }
+
+        return array_is_list($value) ? $value : [$value];
+    }
+
+    /**
+     * Membaca tanggal actor berbentuk string maupun objek month/year/text.
+     * Mendukung format integer bulan maupun teks singkatan (misal 'Aug', 'Jan').
+     *
+     * @param  mixed  $value  Nilai tanggal dari actor.
+     * @return array{0: ?int, 1: ?int}
+     */
+    private function dateParts(mixed $value): array
+    {
+        if (is_array($value)) {
+            $year = isset($value['year']) ? (int) $value['year'] : null;
+            $month = null;
+
+            if (isset($value['month'])) {
+                if (is_numeric($value['month'])) {
+                    $month = (int) $value['month'];
+                } elseif (is_string($value['month'])) {
+                    $monthLower = strtolower(trim($value['month']));
+                    $month = self::MONTH_MAP[$monthLower] ?? null;
+                }
+            }
+
+            return [$year, $month];
+        }
+
+        if (! is_string($value) || trim($value) === '' || strcasecmp(trim($value), 'Present') === 0 || strcasecmp(trim($value), 'Saat ini') === 0) {
+            return [null, null];
+        }
+
+        preg_match('/(\d{4})/', $value, $yearMatch);
+        preg_match('/-(\d{1,2})/', $value, $monthMatch);
+
+        return [
+            isset($yearMatch[1]) ? (int) $yearMatch[1] : null,
+            isset($monthMatch[1]) ? (int) $monthMatch[1] : null,
+        ];
+    }
+
+    /**
+     * Menyamakan struktur foto profil actor menjadi bentuk URL DTO.
+     *
+     * @param  mixed  $value  Objek foto atau URL mentah dari actor.
+     * @return array{url: string}|null
+     */
+    private function profilePicture(mixed $value): ?array
+    {
+        if (is_string($value) && trim($value) !== '') {
+            return ['url' => trim($value)];
+        }
+
+        if (! is_array($value)) {
+            return null;
+        }
+
+        $url = $value['url'] ?? ($value['sizes'][0]['url'] ?? null);
+
+        return is_string($url) && trim($url) !== '' ? ['url' => trim($url)] : null;
     }
 }

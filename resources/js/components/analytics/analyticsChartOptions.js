@@ -15,19 +15,19 @@ export const analyticsColors = {
     greenPale: '#B7D7C0',
     greenMist: '#DCEBE0',
     white: '#FFFFFF',
-    scaleOne: '#F3F8F4',
-    scaleTwo: '#DCEEE1',
-    scaleThree: '#B9D8C3',
-    scaleFour: '#2F7D4A',
-    scaleFive: '#0D542B',
+    scaleOne: '#B91C1C',   // Merah (1: Tidak Sama Sekali / Sangat Rendah)
+    scaleTwo: '#EA580C',   // Oranye (2: Kurang)
+    scaleThree: '#FACC15', // Kuning Emas (3: Cukup Besar / Sedang)
+    scaleFour: '#5EBA7D',  // Hijau Muda (4: Besar / Baik)
+    scaleFive: '#1E6B37',  // Hijau Tua (5: Sangat Besar / Sangat Baik)
     text: '#334155',
     textStrong: '#0F172A',
     grid: 'rgba(13, 84, 43, 0.14)',
     axis: 'rgba(13, 84, 43, 0.36)',
 };
 
-// Palet khusus Indikator 01 mempertahankan kontras hijau-kuning untuk komposisi respons.
-export const responseRatePalette = ['#0D542B', '#D6A928'];
+// Palet khusus komposisi biner: hijau untuk terpenuhi dan slate untuk sisa/belum.
+export const responseRatePalette = ['#0D542B', '#94A3B8'];
 
 // Urutan warna seri konsisten untuk grafik dengan dua atau lebih seri.
 export const analyticsPalette = [
@@ -38,18 +38,19 @@ export const analyticsPalette = [
     analyticsColors.greenMist,
 ];
 
-// Urutan warna ordinal skala 1-5 dibuat naik dari netral ke capaian tertinggi.
+// Urutan warna ordinal skala 1-5 sesuai standar distribusi penilaian alumni.
 export const analyticsScalePalette = [
-    analyticsColors.scaleOne,
-    analyticsColors.scaleTwo,
-    analyticsColors.scaleThree,
-    analyticsColors.scaleFour,
-    analyticsColors.scaleFive,
+    '#B91C1C', // 1: Tidak Sama Sekali (Merah)
+    '#EA580C', // 2: Kurang (Oranye)
+    '#FACC15', // 3: Cukup Besar (Kuning)
+    '#5EBA7D', // 4: Besar (Hijau Muda)
+    '#1E6B37', // 5: Sangat Besar (Hijau Tua)
 ];
 
 // Kamus pusat nama tipe grafik agar label tampilan tidak bergantung pada nama key view.
 export const analyticsChartTypes = Object.freeze({
     horizontal_bar: 'Diagram Batang Horizontal',
+    stacked_horizontal: 'Diagram Batang Bertumpuk Horizontal',
     stacked_horizontal_100: 'Diagram Batang Bertumpuk 100% Horizontal',
     stacked_vertical: 'Diagram Kolom Bertumpuk',
     grouped_bar: 'Diagram Batang Berkelompok',
@@ -74,11 +75,13 @@ export const analyticsChartTypes = Object.freeze({
     combo_bar_line: 'Diagram Kombinasi Batang dan Garis',
     map: 'Peta Geografis Interaktif',
     table: 'Tabel Data Detail',
+    word_cloud: 'Awan Kata (Word Cloud)',
 });
 
 // Alasan pemilihan grafik disimpan bersama kamus tipe agar narasi tetap konsisten.
 export const analyticsChartTypeReasons = Object.freeze({
     horizontal_bar: 'Dipilih untuk membandingkan jumlah atau persentase kategori secara langsung dari satu baseline horizontal.',
+    stacked_horizontal: 'Dipilih untuk membandingkan dua status jumlah pada setiap role tanpa menghilangkan total responden.',
     stacked_horizontal_100: 'Dipilih untuk membandingkan komposisi kategori dalam total 100% pada setiap program studi.',
     stacked_vertical: 'Dipilih untuk membandingkan beberapa fase dalam batang vertikal dengan pembagian kategori yang konsisten.',
     grouped_bar: 'Dipilih untuk membandingkan dua atau lebih jumlah pada kategori yang sama secara berdampingan.',
@@ -103,6 +106,7 @@ export const analyticsChartTypeReasons = Object.freeze({
     combo_bar_line: 'Dipilih untuk melihat dua ukuran batang dan satu ukuran gap dalam satu tampilan terpadu.',
     map: 'Dipilih untuk memperlihatkan lokasi geografis penempatan alumni dan mendukung penyaringan berbasis wilayah.',
     table: 'Dipilih sebagai tabel detail karena data individu perlu ditampilkan dalam bentuk baris yang dapat ditelusuri.',
+    word_cloud: 'Dipilih untuk memetakan frekuensi kata kunci dan topik yang paling sering muncul dari isian terbuka responden secara visual dan intuitif.',
 });
 
 // Preset grid bersama menjaga margin dan ruang label tetap seragam antar tipe grafik.
@@ -129,6 +133,7 @@ export const getAnalyticsChartHeight = (chartType = 'standard', itemCount = 0) =
     if (chartType === 'stacked_horizontal_100') return Math.max(380, Math.min(count * 36 + 120, 620));
     if (chartType === 'horizontal_bar') return Math.max(360, Math.min(count * 38 + 100, 640));
     if (chartType === 'stacked_vertical') return 420;
+    if (chartType === 'word_cloud') return 380;
     return 400;
 };
 
@@ -321,7 +326,9 @@ const normalizeChartGrid = (option) => {
 const normalizeChartStyle = (style, color) => {
     if (!style || typeof style !== 'object') return;
 
-    style.color = color;
+    if (typeof style.color !== 'function') {
+        style.color = typeof style.color === 'string' ? style.color : color;
+    }
     style.borderColor = 'transparent';
     style.borderWidth = 0;
     style.shadowBlur = 0;
@@ -345,7 +352,7 @@ const stackOrderKey = (label) => {
     const isMet = (text.includes('memenuhi') || text.includes('sudah mengisi')) && !isUnmet;
     if (isMet) return [1, 0, text];
     if (isUnmet) return [1, 1, text];
-    const scale = text.match(/^([1-5])\s*=/);
+    const scale = text.match(/^([1-5])\s*[-=]/);
     if (scale) return [0, Number(scale[1]), text];
     const orderedTerms = [
         '< 2',
@@ -373,9 +380,18 @@ const normalizeStackOrder = (series) => {
             .map((item, index) => item?.stack === stackName ? index : -1)
             .filter((index) => index >= 0);
         const ordered = indexes.map((index) => series[index]).sort((left, right) => {
-            const leftKey = stackOrderKey(left.name);
-            const rightKey = stackOrderKey(right.name);
-            return leftKey[0] - rightKey[0] || leftKey[1] - rightKey[1] || leftKey[2].localeCompare(rightKey[2], 'id');
+            // Grafik tertentu membutuhkan urutan stack eksplisit agar segmen sisa
+            // denominator tetap berada di ujung kanan setelah normalisasi warna.
+            const leftKey = Number.isFinite(Number(left.stackOrder))
+                ? [0, Number(left.stackOrder), 0, String(left.name || '')]
+                : [1, ...stackOrderKey(left.name)];
+            const rightKey = Number.isFinite(Number(right.stackOrder))
+                ? [0, Number(right.stackOrder), 0, String(right.name || '')]
+                : [1, ...stackOrderKey(right.name)];
+            return leftKey[0] - rightKey[0]
+                || leftKey[1] - rightKey[1]
+                || leftKey[2] - rightKey[2]
+                || String(leftKey[3] || '').localeCompare(String(rightKey[3] || ''), 'id');
         });
         indexes.forEach((index, position) => {
             series[index] = ordered[position];
@@ -447,11 +463,18 @@ export const normalizeAnalyticsOption = (option) => {
     if (Array.isArray(normalized.series)) {
         normalizeStackOrder(normalized.series);
         normalized.series.forEach((series, seriesIndex) => {
-            const scaleValue = /^([1-5])\s*=/.exec(String(series.name || ''))?.[1];
-            const seriesColor = scaleValue
-                ? analyticsScalePalette[Number(scaleValue) - 1]
-                : (customPalette || analyticsPalette)[seriesIndex % (customPalette || analyticsPalette).length];
-            normalizeChartStyle(series.itemStyle, seriesColor);
+            const scaleValue = /^([1-5])\s*[-=]/.exec(String(series.name || ''))?.[1];
+            const explicitSeriesColor = typeof series.itemStyle?.color === 'string' ? series.itemStyle.color : null;
+            const seriesColor = explicitSeriesColor
+                || (scaleValue ? analyticsScalePalette[Number(scaleValue) - 1] : (customPalette || analyticsPalette)[seriesIndex % (customPalette || analyticsPalette).length]);
+            if (typeof series.itemStyle?.color !== 'function') {
+                normalizeChartStyle(series.itemStyle, seriesColor);
+            } else {
+                series.itemStyle.borderColor = 'transparent';
+                series.itemStyle.borderWidth = 0;
+                series.itemStyle.shadowBlur = 0;
+                series.itemStyle.shadowColor = 'transparent';
+            }
             if (series.lineStyle) {
                 series.lineStyle.color = seriesColor;
                 series.lineStyle.shadowBlur = 0;
@@ -460,21 +483,22 @@ export const normalizeAnalyticsOption = (option) => {
                 series.areaStyle.color = seriesColor;
                 series.areaStyle.shadowBlur = 0;
             }
-            normalizeChartStyle(series.emphasis?.itemStyle, seriesColor);
+            if (series.type !== 'heatmap') {
+                normalizeChartStyle(series.emphasis?.itemStyle, seriesColor);
+            }
             if (series.emphasis?.lineStyle) series.emphasis.lineStyle.color = seriesColor;
             if (series.type === 'bar' && series.stack) {
                 const percentageAxis = normalized.xAxis?.max === 100
                     || normalized.yAxis?.max === 100
                     || (Array.isArray(series.data) && series.data.some((datum) => Number(typeof datum === 'object' ? datum.value : datum) > 1));
                 const originalFormatter = series.label?.formatter;
-                // Pertahankan formatter lokal, tetapi pulihkan label positif yang sengaja dikosongkan karena segmennya kecil.
+                // Pertahankan formatter lokal agar aturan label setiap grafik tetap berfungsi.
                 const stackedLabelFormatter = (params) => {
                     const value = Number(params?.value ?? params?.data?.value ?? 0);
                     const formatted = typeof originalFormatter === 'function' ? originalFormatter(params) : '';
 
-                    if (formatted !== undefined && formatted !== null && String(formatted).trim() !== '') {
-                        return formatted;
-                    }
+                    // Formatter lokal menjadi sumber kebenaran, termasuk ketika sengaja mengembalikan label kosong.
+                    if (typeof originalFormatter === 'function') return formatted ?? '';
 
                     if (value <= 0) return '';
 
@@ -507,11 +531,14 @@ export const normalizeAnalyticsOption = (option) => {
             if (series.type === 'heatmap') {
                 series.itemStyle = series.itemStyle || {};
                 series.itemStyle.borderColor = analyticsColors.white;
-                series.itemStyle.borderWidth = 1;
+                series.itemStyle.borderWidth = 1.5;
                 series.emphasis = series.emphasis || {};
+                series.emphasis.focus = 'none';
                 series.emphasis.itemStyle = series.emphasis.itemStyle || {};
-                series.emphasis.itemStyle.borderColor = analyticsColors.green;
-                series.emphasis.itemStyle.borderWidth = 1;
+                delete series.emphasis.itemStyle.color;
+                series.emphasis.itemStyle.borderColor = analyticsColors.white;
+                series.emphasis.itemStyle.borderWidth = 1.5;
+                series.emphasis.itemStyle.shadowBlur = 0;
             }
             if (series.markLine) {
                 series.markLine.lineStyle = series.markLine.lineStyle || {};
@@ -530,14 +557,30 @@ export const normalizeAnalyticsOption = (option) => {
             if (Array.isArray(series.data)) {
                 series.data.forEach((datum, datumIndex) => {
                     if (!datum || typeof datum !== 'object') return;
-                    const explicitDatumColor = customPalette && typeof datum.itemStyle?.color === 'string'
+                    if (series.type === 'heatmap') {
+                        if (datum.emphasis?.itemStyle) {
+                            delete datum.emphasis.itemStyle.color;
+                            datum.emphasis.itemStyle.shadowBlur = 0;
+                            datum.emphasis.itemStyle.borderColor = analyticsColors.white;
+                        }
+                        if (datum.itemStyle) {
+                            delete datum.itemStyle.color;
+                        }
+                        return;
+                    }
+                    const explicitDatumColor = typeof datum.itemStyle?.color === 'string'
                         ? datum.itemStyle.color
                         : null;
-                    const datumColor = explicitDatumColor || (['pie', 'funnel', 'treemap', 'sankey'].includes(series.type)
-                        ? (customPalette || analyticsPalette)[datumIndex % (customPalette || analyticsPalette).length]
-                        : seriesColor);
-                    normalizeChartStyle(datum.itemStyle, datumColor);
-                    normalizeChartStyle(datum.emphasis?.itemStyle, datumColor);
+                    if (explicitDatumColor) {
+                        normalizeChartStyle(datum.itemStyle, explicitDatumColor);
+                        normalizeChartStyle(datum.emphasis?.itemStyle, explicitDatumColor);
+                    } else if (typeof series.itemStyle?.color !== 'function') {
+                        const datumColor = (['pie', 'funnel', 'treemap', 'sankey'].includes(series.type)
+                            ? (customPalette || analyticsPalette)[datumIndex % (customPalette || analyticsPalette).length]
+                            : seriesColor);
+                        normalizeChartStyle(datum.itemStyle, datumColor);
+                        normalizeChartStyle(datum.emphasis?.itemStyle, datumColor);
+                    }
                     if (datum.lineStyle) {
                         datum.lineStyle.color = datumColor;
                         datum.lineStyle.shadowBlur = 0;
@@ -589,7 +632,7 @@ export const normalizeAnalyticsOption = (option) => {
                 : analyticsPalette[index % analyticsPalette.length];
         });
     }
-    if (normalized.visualMap?.inRange?.color) {
+    if (normalized.visualMap?.inRange && !normalized.visualMap.inRange.color) {
         normalized.visualMap.inRange.color = analyticsScalePalette;
     }
 
@@ -1259,7 +1302,20 @@ export const stackedByProdi = (records, selectedLabel) => {
             stack: 'total',
             barMaxWidth: 26,
             emphasis: { focus: 'series' },
-            itemStyle: { color: analyticsPalette[index % analyticsPalette.length], opacity: !selectedLabel || selectedLabel === category ? 1 : 0.2 },
+            itemStyle: {
+                color: String(category).toLowerCase().includes('belum') || String(category).toLowerCase().includes('tidak')
+                    ? '#94A3B8'
+                    : '#0D542B',
+                opacity: !selectedLabel || selectedLabel === category ? 1 : 0.2,
+            },
+            label: {
+                show: true,
+                position: 'inside',
+                formatter: (params) => params.value >= 10 ? `${params.value}%` : '',
+                fontSize: 10,
+                color: '#FFFFFF',
+                fontWeight: 600,
+            },
             data: prodis.map((prodi) => {
                 const prodiRows = records.filter((record) => (record.nama_prodi || 'Tanpa prodi') === prodi);
                 const count = prodiRows.filter((record) => recordCategory(record) === category).length;
@@ -1716,19 +1772,23 @@ export const pipelineScatter = (records) => {
  * Scatter plot gaji terhadap ambang UMP.
  */
 export const salaryScatter = (records) => {
-    const meetsRows = records.filter((record) => record.meets_ump);
-    const belowRows = records.filter((record) => !record.meets_ump);
+    const meetsRows = records.filter((record) => record.meets_ump === true);
+    const belowRows = records.filter((record) => record.meets_ump === false);
+    const notComparableRows = records.filter((record) => record.meets_ump === null || record.meets_ump === undefined);
 
     const option = {
         ...baseOption(records.length),
-        legend: { data: ['Memenuhi', 'Belum memenuhi'], bottom: 0 },
+        // Urutan seri mengikuti legenda: di atas ambang, di bawah ambang, lalu belum dapat dibandingkan.
+        themePalette: ['#1E6B37', '#B91C1C', '#CBD5E1'],
+        legend: { data: ['Di atas 1,2× UMP', 'Di bawah 1,2× UMP', 'Belum dapat dibandingkan'], bottom: 0 },
         grid: { left: 16, right: 24, top: 18, bottom: 52, containLabel: true },
         xAxis: { type: 'value', name: 'Ambang 1,2 × UMP', nameLocation: 'middle', nameGap: 28, axisLabel: { formatter: formatCompactCurrency }, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
         yAxis: { type: 'value', name: 'Gaji alumni', axisLabel: { formatter: formatCompactCurrency }, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-        tooltip: { ...baseOption().tooltip, formatter: ({ data }) => `<strong>${escapeHtml(data.name)}</strong><br>${escapeHtml(data.prodi)}<br>${escapeHtml(data.company)}<br>Gaji: <strong>${formatCompactCurrency(data.value[1])}</strong><br>Ambang: ${formatCompactCurrency(data.value[0])}<br>Status: ${data.meets ? 'Memenuhi' : 'Belum memenuhi'}` },
+        tooltip: { ...baseOption().tooltip, formatter: ({ data }) => `<strong>${escapeHtml(data.name)}</strong><br>${escapeHtml(data.prodi)}<br>${escapeHtml(data.company)}<br>Gaji: <strong>${formatCompactCurrency(data.value[1])}</strong><br>Ambang: ${formatCompactCurrency(data.value[0])}<br>Status: ${data.status}` },
         series: [
-            { name: 'Memenuhi', type: 'scatter', symbolSize: 10, data: meetsRows.map((record) => ({ name: record.nama, prodi: record.nama_prodi, company: record.nama_perusahaan, meets: true, value: [Number(record.threshold), Number(record.salary)] })), itemStyle: { color: '#0D542B', opacity: 0.75 } },
-            { name: 'Belum memenuhi', type: 'scatter', symbolSize: 10, data: belowRows.map((record) => ({ name: record.nama, prodi: record.nama_prodi, company: record.nama_perusahaan, meets: false, value: [Number(record.threshold), Number(record.salary)] })), itemStyle: { color: '#DC2626', opacity: 0.75 } },
+            { name: 'Di atas 1,2× UMP', type: 'scatter', symbolSize: 10, data: meetsRows.map((record) => ({ name: record.nama, prodi: record.nama_prodi, company: record.nama_perusahaan, status: 'Di atas 1,2× UMP', value: [Number(record.threshold), Number(record.salary)] })), itemStyle: { color: '#1E6B37', opacity: 0.75 } },
+            { name: 'Di bawah 1,2× UMP', type: 'scatter', symbolSize: 10, data: belowRows.map((record) => ({ name: record.nama, prodi: record.nama_prodi, company: record.nama_perusahaan, status: 'Di bawah 1,2× UMP', value: [Number(record.threshold), Number(record.salary)] })), itemStyle: { color: '#B91C1C', opacity: 0.75 } },
+            { name: 'Belum dapat dibandingkan', type: 'scatter', symbolSize: 10, data: notComparableRows.filter((record) => Number.isFinite(Number(record.salary)) && Number.isFinite(Number(record.threshold))).map((record) => ({ name: record.nama, prodi: record.nama_prodi, company: record.nama_perusahaan, status: 'Belum dapat dibandingkan', value: [Number(record.threshold), Number(record.salary)] })), itemStyle: { color: '#CBD5E1', opacity: 0.75 } },
         ],
     };
 
@@ -2053,7 +2113,6 @@ export const buildAnalyticsChartDefinitions = ({ chart, selectedChart, selectedL
                 return { key: 'rate', title: 'Distribusi keselarasan pendidikan', description: 'Perbandingan proporsi keselarasan pendidikan alumni.', option, tableData, rows: records, height: 380 };
             })(),
         ],
-        education_alignment_university: [genericDonut(), genericStacked(), genericHeatmap()],
         mismatch_reasons: [genericBar(), genericTreemap(), genericHeatmap()],
         competency_gap: [
             (() => {

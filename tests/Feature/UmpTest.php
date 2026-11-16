@@ -58,7 +58,8 @@ class UmpTest extends TestCase
     }
 
     /**
-     * Test seeder UmpSeeder berhasil memasukkan 38 provinsi.
+     * Test seeder UmpSeeder memuat nominal CSV dan memetakan kode Papua ke
+     * kode master wilayah aplikasi tanpa membuat foreign key baru.
      */
     public function test_ump_seeder_successfully_seeds_all_provinces(): void
     {
@@ -81,5 +82,15 @@ class UmpTest extends TestCase
         $ntt = Ump::where('kode_provinsi', '53')->first();
         $this->assertNotNull($ntt);
         $this->assertEquals('2455898.00', (string) $ntt->besaran);
+
+        $this->assertSame('3228949.00', (string) Ump::where('kode_provinsi', '12')->value('besaran'));
+        $this->assertSame('3762431.00', (string) Ump::where('kode_provinsi', '64')->value('besaran'));
+        $this->assertSame('3510240.00', (string) Ump::where('kode_provinsi', '82')->value('besaran'));
+        $this->assertSame('4436283.00', (string) Ump::where('kode_provinsi', '91')->value('besaran'));
+        $this->assertSame('3841000.00', (string) Ump::where('kode_provinsi', '92')->value('besaran'));
+        $this->assertSame('4508100.00', (string) Ump::where('kode_provinsi', '93')->value('besaran'));
+        $this->assertSame('4285848.00', (string) Ump::where('kode_provinsi', '94')->value('besaran'));
+        $this->assertSame('4508714.00', (string) Ump::where('kode_provinsi', '95')->value('besaran'));
+        $this->assertSame('3766000.00', (string) Ump::where('kode_provinsi', '96')->value('besaran'));
     }
 }

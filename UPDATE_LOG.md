@@ -1,5 +1,131 @@
 # UPDATE LOG - SERU (Sistem Ekosistem Rekam Jejak Alumni)
 
+## [2026-11-12] Penyelarasan Relasi Alumni dan Atasan pada Dashboard
+
+- Dashboard Superadmin tidak lagi menampilkan tombol `Kelola perusahaan` sebagai aksi utama pada header.
+- Daftar atasan pada Dashboard kini membaca relasi `biodata.atasan_id` dan menampilkan satu baris per alumni, sehingga nama atasan yang sama tidak ditampilkan sebagai satu entitas dengan jumlah “anak” gabungan.
+- Penyimpanan profil membuat snapshot atasan baru ketika record lama ternyata masih dipakai lebih dari satu alumni, sehingga perubahan satu alumni tidak mengubah data alumni lain.
+- Seeder simulasi Dashboard dan AlumniSimulationSeeder menggunakan identitas atasan berbasis NIM alumni agar data uji mengikuti kontrak satu atasan per alumni.
+
+## [2026-11-11] Penyelarasan Opsi Kontribusi Alumni Sistem Informasi
+
+- Menambahkan opsi master `Kunjungan perusahaan` pada pertanyaan `PSI-1-04` melalui fixture seeding kanonik; opsi `Lainnya` tetap dipertahankan dengan ID lama agar respons historis tidak tertukar.
+- Seeder simulasi kini mengambil jawaban pertanyaan pilihan prodi dari opsi aktif, bukan mengisi angka mentah `4`; data kontribusi Sistem Informasi otomatis dapat memuat `Kunjungan perusahaan`.
+- Master kuesioner dan seeder simulasi sudah dijalankan ulang pada database lokal.
+
+## [2026-11-11] Penyelarasan Seed Evaluasi Atasan
+
+- Seeder evaluasi atasan terpusat kini membuat evaluasi tersubmit untuk setiap alumni yang memiliki perusahaan dan atasan, dengan relasi evaluator, alumni, dan perusahaan yang konsisten; seeder alumni utama dan kohort dashboard sama-sama memanggilnya.
+- Seluruh jawaban evaluasi atasan mengambil label serta ID opsi dari master form aktif; angka mentah `4` tidak lagi dipakai sebagai jawaban pilihan.
+- Butir evaluasi placeholder `EVA_891` diperjelas menjadi `Kepemimpinan dan Pengambilan Keputusan` dan dilengkapi lima opsi penilaian agar form aktif dapat dijawab secara valid.
+- Jawaban numerik lama pada instrumen prodi dinormalisasi ke label serta opsi master aktif tanpa menghapus respons historis.
+
+## [2026-11-11] Koreksi Kategori Status Gabungan IKU S1
+
+- Status `Karyawan + Studi Lanjut` tetap memakai kategori utama `Karyawan`; studi lanjut hanya menjadi label tambahan agar kontribusinya tidak hilang dari seri Karyawan.
+- Baris legacy dengan status sumber `Melanjutkan Pendidikan` tetapi masih memiliki data perusahaan/jabatan/bidang/divisi juga dipromosikan ke kategori `Karyawan`, karena labelnya memang menunjukkan bekerja sekaligus studi lanjut.
+- Seeder skenario kini tidak lagi mengisi perusahaan, atasan, jabatan, bidang, atau jenis pekerjaan untuk studi lanjut murni; data studi lanjut murni tetap memiliki rincian pendidikan tanpa dipaksa menjadi pekerjaan.
+- Drill-down Outcomes menambahkan filter status `Bekerja`, `Bekerja + Studi Lanjut`, dan `Studi Lanjut Murni`; pencarian juga membaca rincian studi lanjut, perusahaan, lokasi, atasan, dan skills.
+- Normalizer ECharts kini mempertahankan warna seri eksplisit; Status UMP tidak lagi tertukar: di atas ambang hijau, di bawah ambang merah, dan belum dapat dibandingkan abu-abu.
+
+## [2026-11-11] Audit dan Penyelarasan Pagination Seluruh Tabel
+
+- Menambahkan `resources/js/components/PaginationControls.vue` sebagai kontrol pagination bersama untuk paginator Laravel dan tabel lokal pada grafik.
+- Label navigasi diseragamkan menjadi Bahasa Indonesia (`Sebelumnya`, `Selanjutnya`), nomor halaman panjang diringkas dengan ellipsis, dan label HTML mentah dari backend tidak lagi dirender langsung.
+- Menerapkan pola yang sama pada Data Atasan, Perusahaan, Log Aktivitas, Manajemen Akun, Master Wilayah, Evaluasi Atasan, LinkedIn, tabel grafik Universitas/Prodi/Atasan, Response Rate, serta tabel ringkasan, detail, dan drill-down analitik.
+
+## [2026-11-11] Kategori Outcomes Freelancer dan Wirausaha Lainnya
+
+- Grafik IKU S1 Outcomes kini menampilkan `Wirausaha Lainnya` ketika status alumni memang Wiraswasta tetapi role terstrukturnya belum dapat dipetakan. Kategori ini tetap berbobot `0` agar aplikasi tidak menebak bobot kebijakan.
+- Seeder dashboard dan distribusi analitik demo kini menyebarkan role `Founder / Owner`, `Owner / Managing Director`, `Freelancer / Konsultan Mandiri`, dan `Pengelola Usaha`, sehingga kategori freelancer tidak hilang dari data uji.
+- `Freelancer` tetap memakai matriks bobot freelancer pada `config/iku.php`; hanya kategori usaha umum yang dikeluarkan dari denominator sampai ada aturan bobot resmi.
+- Field boolean analitik kini membedakan jawaban `Tidak` dari data yang belum tersedia. Nilai F504 kosong tidak lagi dipaksa menjadi `Tidak`; tabel menampilkannya sebagai `-` dan bobot tetap `0`.
+- Klasifikasi role Outcomes kini membaca `biodata.kategori_pekerjaan` dan `biodata.posisi_wiraswasta` sebagai data induk; service tidak menulis hasil kategori ke database view. Hanya role yang eksplisit mengandung `Founder`/`Co-Founder` yang masuk kategori founder; `Owner`, `Direktur Utama`, dan `Pengelola Usaha` tetap menjadi `Wirausaha Lainnya`.
+- Form profil menyembunyikan `Bidang Pekerjaan` dan `Divisi` untuk status tidak bekerja serta membersihkan nilainya saat disimpan.
+- Audit IKU S1 memisahkan makna tiga tab: Status UMP membandingkan gaji dengan `1,2 × UMP`, Masa Tunggu hanya mengelompokkan waktu memperoleh pekerjaan, dan Total Bobot menjumlahkan kontribusi bobot tanpa menghitung UMP kedua kali. Warna grafik diselaraskan: hijau memenuhi/sebelum lulus, merah di bawah atau ≥12 bulan, kuning <6 bulan, oranye 6–<12 bulan, dan abu-abu untuk data yang belum dapat dibandingkan.
+
+## [2026-11-11] Penyelarasan Autofill Profil dan Kuesioner Alumni
+
+- Menetapkan profil alumni/data akademik sebagai sumber kanonik field identitas pada Kuesioner Universitas dan Prodi; jawaban evaluasi yang memang diisi alumni tetap dipertahankan.
+- Memperbaiki autofill Kuesioner Prodi untuk variasi label `Nama Lengkap Mahasiswa`, `Nomor Induk Mahasiswa (NIM)`, dan `Tahun Kelulusan`, termasuk koreksi jawaban identitas lama.
+- Memisahkan cache draft Kuesioner Prodi berdasarkan alumni, prodi, dan versi instrumen; nilai server terbaru tidak lagi tertimpa cache lokal lama atau cache alumni lain.
+
+## [2026-11-09] Pemutakhiran ERD, Kamus Data, dan Audit Bobot
+
+- Menyelaraskan `ERD.md` dengan migration aktif yang sudah `Ran`, termasuk kolom terbaru pada `perusahaan`, `biodata`, `linkedin_sync_results`, `ump`, `ref_negara`, `ref_fakultas`, dan `kuesioner_opsi`.
+- Menghapus referensi nama kolom legacy dari kamus data ERD dan menegaskan bahwa `kuesioner_section_pertanyaan` tidak memiliki kolom `is_active`.
+- Menambahkan alur read-model IKU S1 yang memperlihatkan sumber `ump` dan `config/iku.php` sebelum kalkulasi di `IkuS1AnalyticsService`.
+- Mendokumentasikan audit bobot: bobot utama IKU S1 berada di `config/iku.php`; fallback numerik masih ada di service; `kuesioner_opsi.nilai_skor` tersimpan di database untuk skor opsi; dan bonus kemiripan perusahaan masih berupa konstanta algoritma di service.
+- Menambahkan master Data Atasan lintas role dengan pola tampilan seperti Master Data Perusahaan. Read-model menampilkan satu baris per alumni dari relasi `biodata.atasan_id`, perusahaan mengikuti relasi data aktif, `diisi_oleh` ditetapkan sebagai Alumni melalui Profil alumni, dan tidak menambahkan PIC/collector atau field hardcode baru.
+- Memperbaiki query eager loading evaluasi atasan agar tidak menghasilkan kolom `biodata_id` ambigu pada SQLite maupun MySQL; kegagalan ini sebelumnya membuat respons Inertia tidak valid dan halaman terlihat tidak dapat diklik.
+- Menambahkan drill-down inline pada grafik Outcomes IKU S1. Daftar alumni kini mengambil nama, perusahaan/lokasi cabang, atasan, jabatan, skills, peran wirausaha, dan studi lanjut dari relasi aktif Data Alumni; status kerja + studi lanjut ditampilkan sebagai status gabungan tanpa mengubah formula bobot.
+- Memperbaiki agregasi grafik Outcomes agar hanya kategori karier valid yang tampil. Kategori tidak memenuhi klasifikasi tidak lagi bocor ke series atau membuat persentase kategori tampak melebihi denominator valid.
+- Memperbaiki fixture `DashboardScenarioSeeder`: jawaban studi lanjut F12/F18b/F18c/F18d hanya dibuat untuk status studi lanjut, peran wirausaha diisi terstruktur, dan service mengabaikan kode opsi non-tanggal seperti `4` sebagai tanggal studi.
+- Menjadikan `v_analytics_tracer_answers` sebagai sumber kanonik satu jawaban terbaru per alumni/pertanyaan, menghapus ketergantungan service pada sembilan view filter-tipis, serta mencegah fallback seeder mengisi nilai sintetis `4` untuk pertanyaan yang belum dipetakan.
+- Mengubah formula AEE S1 agar populasi hanya mengambil `data_akademik.status_mahasiswa = 'Lulus'`. Status aktif, AR, AK, cuti, pindah, dan drop out tidak lagi masuk denominator; kategori abu-abu “belum terdeteksi” dihapus dari grafik.
+
+## [2026-11-05] Penyelarasan Response Rate 100% Kuesioner Universitas, Penyederhanaan RBAC Akun, & Penataan Folder
+
+- **Penyelarasan Response Rate dan Status Kuesioner Selesai (Single Source of Truth)**:
+  - Memperbaiki database view `v_alumni_tracer_univ_status` (`database/migrations/2026_09_02_000005_create_v_alumni_tracer_univ_status_view.php`) dengan mengecualikan seluruh kode pertanyaan profil dinamis (`AND UPPER(q.kode_pertanyaan) NOT LIKE 'BIO_%'`) dan filter lokasi tampilan profil (`(sp.tampil_di IS NULL OR LOWER(sp.tampil_di) NOT IN ('profil', 'profile'))`).
+  - Menyelaraskan pembagi kuesioner wajib universitas murni menjadi tepat 19 butir kuesioner (F8, F504, F502/F506, F14, F15, dan 14 butir kompetensi F17), sehingga alumni yang baru mengisi data biodata/profil tidak lagi mendapat nilai persentase palsu 44% pada kuesioner.
+  - Memperbarui database view `v_analytics_response_rate` (`database/migrations/2026_10_25_000002_create_v_analytics_response_rate_view.php`) agar kolom `answered` (Sudah Mengisi) terikat langsung pada status penyelesaian kuesioner universitas 100% (`is_complete_univ = 1` dari `v_alumni_tracer_univ_status`).
+  - Menghilangkan selisih data antara halaman Grafik Universitas (`/superadmin/analitik`) dan Direktori Mahasiswa & Alumni (`/superadmin/alumni`), di mana keduanya kini membaca angka kohort, responden selesai, dan alumni belum mengisi yang persis identik (misal kohort 2026: 532 populasi, 256 kuesioner selesai, 276 belum selesai).
+- **Penyederhanaan Hak Akses Manajemen Akun (Eksklusif Super Admin)**:
+  - Menghapus modul Manajemen Akun untuk peran `admin_prodi` dan `admin_fakultas` dari `routes/web.php`, `resources/js/components/AdminSidebar.vue`, dan `resources/js/components/RoleDashboard.vue`.
+  - Menghapus controller dan komponen yang usang (`ManajemenAkunProdiController.php`, `ManajemenAkunFakultasController.php`, folder `Pages/AdminProdi/ManajemenAkun/`, dan folder `Pages/AdminFakultas/ManajemenAkun/`).
+  - Hak pengelolaan akun pengguna, pemulihan kata sandi, dan sinkronisasi akun alumni tersentralisasi penuh di bawah peran `superadmin` (`SuperAdmin\ManajemenAkunController`).
+- **Pembaruan Seeder Simulasi Kuesioner Universitas (`DashboardScenarioSeeder.php`)**:
+  - Mengambil instrumen kuesioner universitas dari seluruh section bernilai `target = 'univ'` yang relevan (`section_id > 1`) dan bukan sekadar section pertama, menjamin kelengkapan data jawaban riil (F8, F504, F502, F14, F15, F17 kompetensi, F21..F27 metode pembelajaran) untuk seluruh alumni berstatus responden.
+  - Menghasilkan variasi data kelulusan yang realistis (alumni selesai 100%, alumni dalam progress pengisian, dan alumni belum mengisi) serta mempertahankan data staging scraping LinkedIn dari berkas cadangan lokal via `LinkedinSyncResultSeeder`.
+- **Penataan Struktur Komponen dan RBAC Clean Architecture**:
+  - Memastikan folder fitur bersama (*cross-role activities*) terpusat pada foldernya (seperti `Shared/LinkedInSync`, `app/Services/Alumni/`, `app/Services/Kuesioner/`, `app/Services/Analytics/`).
+  - Membatasi penempatan file spesifik peran (`SuperAdmin/`, `AdminProdi/`) hanya untuk fitur yang eksklusif bagi peran tersebut.
+  - Seluruh 252 pengujian otomatis PHPUnit lulus 100% tanpa regresi.
+
+## [2026-11-04] Penyatuan Engine Kuesioner Terpadu (Unified Survey Engine), Fleksibilitas Login, & Sinkronisasi ERD
+
+- **Penyatuan Skema Kuesioner Terpadu (Unified Survey Engine)**:
+  - Mengonsolidasikan seluruh survei (Tracer Universitas, Kuesioner Khusus Program Studi, dan Evaluasi Pengguna Lulusan/Atasan) ke dalam 5 tabel terpadu: `kuesioner_section`, `kuesioner_pertanyaan`, `kuesioner_section_pertanyaan`, `kuesioner_opsi`, dan `kuesioner_jawaban`.
+  - Menghapus 11 tabel legacy silo yang redundan (`kelompok_pertanyaan`, `ref_subpertanyaan2021`, `ref_subpertanyaan_detil`, `tracer`, `prodi_question_section`, `prodi_question`, `prodi_question_option`, `prodi_response`, `section_evaluasi_atasan`, `pertanyaan_evaluasi_atasan`, `respon_evaluasi_atasan`).
+  - Menghubungkan lembar transaksi `evaluasi_atasan` secara langsung ke `kuesioner_jawaban` dengan penanda `responden_type = 'atasan'` dan kunci `evaluasi_atasan_id`.
+- **Peningkatan Fleksibilitas Autentikasi Pengguna (`LoginController.php`)**:
+  - Mendukung login menggunakan `username` maupun alamat `email` secara transparan.
+  - Menambahkan dukungan ganda kata sandi awal alumni: format tanggal lahir `ddmmyyyy` dan kata sandi seeder `password123`.
+  - Menambahkan pengujian otomatis komprehensif pada `tests/Feature/LoginAuthenticationTest.php` (6/6 skenario lulus 100%).
+- **Harmonisasi dan Audit Dokumentasi Sistem**:
+  - Memperbarui total `ERD.md`: diagram master, diagram per modul (Mermaid), tabel relasi spesifikasi foreign key, dan kamus data (*data dictionary*) untuk 21 tabel domain bisnis dan 7 tabel infrastruktur Laravel.
+  - Memperbarui `docs/ARCHITECTURE.md`, `USE_CASE.md`, dan `docs/dfd.md` agar seluruh simpanan data dan kontrak transaksi merujuk ke tabel kanonik kuesioner terpadu.
+
+## [2026-11-03] Plotting Otomatis Studi Lanjut, Bidang Pekerjaan, dan Penyederhanaan Form Karier
+
+- **Plotting Riwayat Studi Lanjut LinkedIn**:
+  - Mengembangkan algoritma deteksi studi lanjut pada `LinkedinSyncResult::getPreviewData()` yang secara cerdas mendeteksi jenjang pascasarjana (Doktor/S3 dan Magister/S2 di luar S1 almamater UKDW).
+  - Menambahkan kolom penyesuaian studi lanjut (`sync_studi_lanjut`, `pendidikan_tingkat`, `perguruan_tinggi`, `pendidikan_prodi`) pada modal peninjauan dan tab audit LinkedIn.
+  - Memetakan hasil persetujuan langsung ke kolom `biodata.pendidikan_tingkat`, `biodata.perguruan_tinggi`, dan `biodata.pendidikan_prodi`.
+- **Plotting Bidang Pekerjaan / Divisi**:
+  - Mengekstrak data industri HarvestAPI (`industry.name`) menjadi usulan `bidang_pekerjaan` alumni.
+  - Menampilkan input bidang pekerjaan pada modal peninjauan dan menyimpan nilai ke `biodata.bidang_pekerjaan` saat disetujui.
+- **Penyederhanaan FormKarier.vue**:
+  - Menghapus dropdown pilihan 1-6 (Direksi s.d. Staff) dan tombol toggle pada pertanyaan Posisi Jabatan Struktural (F2G).
+  - Pertanyaan F2G kini langsung berupa input teks kustom bebas yang terikat ke `form.posisi_jabatan`.
+- **Integrasi Live HarvestAPI & Preservasi Mock**:
+  - Mengonfigurasi parameter resmi HarvestAPI: `"queries": ["https://..."]` dan `"profileScraperMode": "Profile details no email ($4 per 1k)"`.
+  - Memperbarui fixture mock Pak Argo (`argo-wibowo-99180935.json` dan `argo-wibowo-99180935-mock.json`) dengan data live Apify resmi.
+- **Seeder 8 Alumni Sistem Informasi**:
+  - Mendaftarkan seeder `AlumniSistemInformasiSeeder` dengan profil nyata lulusan Sistem Informasi dan preservasi data staging LinkedIn melalui `LinkedinSyncResultSeeder`.
+
+## [2026-11-03] Migrasi Actor Apify HarvestAPI, Pengujian Mock Berakhiran `-mock`, dan Harmonisasi Skema
+
+- Mengalihkan Actor scraping default Apify ke `harvestapi/linkedin-profile-scraper` (Endpoint: `harvestapi~linkedin-profile-scraper/run-sync-get-dataset-items`, Console ID: `LpVuK3Zozwuipa5bp`).
+- Menyesuaikan payload request: `profileScraperMode: 'Full'`, `queries`, `profileUrls`, dan `maxItems: 1`.
+- Memprioritaskan atribut `topSkills` untuk mengisi field keahlian `skills` alumni, mendukung tipe data array maupun string berpemisah bullet `•`.
+- Menyelaraskan atribut profil: nama lengkap (`firstName` + `lastName`), posisi aktif (`currentPosition[0]`), sertifikasi (`certifications`), dan organisasi (`volunteering`).
+- Menstandarisasi penanda pengujian: profil mock lokal diidentifikasi dengan akhiran `-mock` pada URL (misal: `https://www.linkedin.com/in/jovanyulianto-mock`), dan dipetakan ke fixture kanonik di `storage/app/mock/apify`.
+- Memperbaiki galat runtime Vue pada `TabLinkedin.vue` (`row.db_value.startsWith is not a function`) saat `location` berupa objek bersarang; nilai audit dijamin bertipe string dan template frontend aman dari tipe non-string.
+- Menjelaskan perilaku biner MySQL JSON (`JSON` data type) yang mengurutkan kunci secara alfabetis saat raw JSON ditampilkan.
+- Memperbarui dokumentasi panduan integrasi (`docs/linkedin-mcp-integration.md`), `PANDUAN_APLIKASI.md`, `docs/ARCHITECTURE.md`, `docs/changelog.md`, dan `docs/updatelog.md`.
+
 ## [2026-10-28] Pembalikan Skala Metode Pembelajaran dan Median Pipeline Lamaran
 
 - Mengubah opsi F21-F27 pada `ref_subpertanyaan_detil` menjadi `1 = Tidak Sama Sekali`, `2 = Kurang`, `3 = Cukup Besar`, `4 = Besar`, dan `5 = Sangat Besar`; seeder referensi diperbarui dan dijalankan pada database aktif.

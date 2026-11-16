@@ -13,6 +13,7 @@
   7. Catatan & Masukan Tunggal Penilai di bagian paling bawah
 -->
 <script setup>
+// Tab audit evaluasi atasan: hanya menampilkan respons evaluasi yang diberikan backend.
 import { computed } from 'vue';
 
 /**
@@ -70,7 +71,7 @@ const wilayahPerusahaanDisplay = computed(() => {
     const parts = [
         c.kabupaten?.nama_kabupaten,
         c.propinsi?.nama_provinsi,
-        c.negara && c.negara !== 'Indonesia' ? c.negara : null,
+        c.kode_negara && c.kode_negara !== 'ID' ? c.kode_negara : null,
         c.kode_pos ? `Kode Pos ${c.kode_pos}` : null,
     ].filter(Boolean);
 
@@ -85,7 +86,7 @@ const karakteristik = computed(() => {
     return {
         bentuk: c.bentuk_perusahaan || props.alumni?.perusahaan?.bentuk_perusahaan || '-',
         skala: c.skala || props.alumni?.perusahaan?.skala || '-',
-        jumlah_pegawai: c.jumlah_pegawai || props.alumni?.perusahaan?.jumlah_pegawai || '-',
+        jumlah_pegawai: props.evaluasiAtasan?.jumlah_pegawai || '-',
         jumlah_alumni_ukdw: props.evaluasiAtasan?.jumlah_alumni_ukdw || '-',
         standar_gaji_pertama: props.evaluasiAtasan?.standar_gaji_pertama || '-',
     };
@@ -404,7 +405,7 @@ const rataRataSkorKinerja = computed(() => {
                     <div>
                         <span class="text-[10px] uppercase font-semibold text-slate-400 block">Negara</span>
                         <span class="font-medium text-slate-800">
-                            {{ company.negara || (company.jenis_lokasi === 'Luar Negeri' ? 'Luar Negeri' : 'Indonesia') }}
+                            {{ company.kode_negara || (company.jenis_lokasi === 'Luar Negeri' ? 'Luar Negeri' : 'ID') }}
                             <span v-if="company.jenis_lokasi === 'Luar Negeri'" class="text-[10px] text-slate-500 block font-normal">(Luar Negeri)</span>
                         </span>
                     </div>

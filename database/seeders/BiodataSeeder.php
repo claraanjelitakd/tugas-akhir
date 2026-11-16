@@ -30,7 +30,7 @@ class BiodataSeeder extends Seeder
             ->get();
         $perusahaans = Perusahaan::all();
 
-        // Ambil wilayah untuk relasi ID yang valid
+        // Ambil wilayah untuk relasi kode natural yang valid
         $diy = Propinsi::where('kode_provinsi', '34')->orWhere('nama_provinsi', 'LIKE', '%Yogyakarta%')->first();
         $sleman = Kabupaten::where('kode_kabupaten', '34.04')->orWhere('nama_kabupaten', 'LIKE', '%Sleman%')->first();
 
@@ -41,9 +41,9 @@ class BiodataSeeder extends Seeder
         $acehSelatan = Kabupaten::where('kode_kabupaten', '11.01')->orWhere('nama_kabupaten', 'LIKE', '%Aceh Selatan%')->first();
 
         $lokasiList = [
-            ['prov' => $diy?->id, 'kab' => $sleman?->id, 'kota' => 'Kabupaten Sleman', 'kec' => 'Depok', 'kel' => 'Caturtunggal', 'kodepos' => '55281'],
-            ['prov' => $jakarta?->id, 'kab' => $jakpus?->id, 'kota' => 'Kota Jakarta Pusat', 'kec' => 'Gambir', 'kel' => 'Kebon Kelapa', 'kodepos' => '10120'],
-            ['prov' => $aceh?->id, 'kab' => $acehSelatan?->id, 'kota' => 'Kabupaten Aceh Selatan', 'kec' => 'Tapaktuan', 'kel' => 'Lhok Ketapang', 'kodepos' => '23715'],
+            ['prov' => $diy?->kode_provinsi, 'kab' => $sleman?->kode_kabupaten, 'kota' => 'Kabupaten Sleman', 'kec' => 'Depok', 'kel' => 'Caturtunggal', 'kodepos' => '55281'],
+            ['prov' => $jakarta?->kode_provinsi, 'kab' => $jakpus?->kode_kabupaten, 'kota' => 'Kota Jakarta Pusat', 'kec' => 'Gambir', 'kel' => 'Kebon Kelapa', 'kodepos' => '10120'],
+            ['prov' => $aceh?->kode_provinsi, 'kab' => $acehSelatan?->kode_kabupaten, 'kota' => 'Kabupaten Aceh Selatan', 'kec' => 'Tapaktuan', 'kel' => 'Lhok Ketapang', 'kodepos' => '23715'],
         ];
 
         $jabatanList = [
@@ -145,8 +145,8 @@ class BiodataSeeder extends Seeder
                     'alamat_saat_ini' => 'Jl. Kenanga No. '.($index + 12).', RT 03/RW 05',
                     'kelurahan' => $lokasi['kel'],
                     'kecamatan' => $lokasi['kec'],
-                    'kabupaten_id' => $lokasi['kab'],
-                    'propinsi_id' => $lokasi['prov'],
+                    'kode_kabupaten' => $lokasi['kab'],
+                    'kode_provinsi' => $lokasi['prov'],
                     'kode_pos' => $lokasi['kodepos'],
                     'instagram_url' => 'https://instagram.com/'.$cleanUsername,
                     'facebook_url' => 'https://facebook.com/'.$cleanUsername,

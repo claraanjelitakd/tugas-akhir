@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Model Perusahaan
@@ -18,8 +19,8 @@ class Perusahaan extends Model
 
     protected $fillable = [
         'nama_perusahaan',
-        'propinsi_id',
-        'kabupaten_id',
+        'kode_provinsi',
+        'kode_kabupaten',
         'alamat',
         'homepage',
         'no_telp_fax',
@@ -31,27 +32,28 @@ class Perusahaan extends Model
         'jenis_perusahaan',
         'jenis_perusahaan_lainnya',
         'jenis_lokasi',
-        'negara',
+        'kode_negara',
         'status_verifikasi',
         'created_by_user_id',
         'created_by_prodi_id',
     ];
 
-    protected $appends = ['province_id'];
-
-    public function getProvinceIdAttribute()
-    {
-        return $this->attributes['propinsi_id'] ?? null;
-    }
-
     public function propinsi()
     {
-        return $this->belongsTo(Propinsi::class, 'propinsi_id');
+        return $this->belongsTo(Propinsi::class, 'kode_provinsi', 'kode_provinsi');
+    }
+
+    /**
+     * Resolve the country master row through the canonical natural key.
+     */
+    public function negaraMaster(): BelongsTo
+    {
+        return $this->belongsTo(RefNegara::class, 'kode_negara', 'kode_negara');
     }
 
     public function kabupaten()
     {
-        return $this->belongsTo(Kabupaten::class, 'kabupaten_id');
+        return $this->belongsTo(Kabupaten::class, 'kode_kabupaten', 'kode_kabupaten');
     }
 
     public function biodata()

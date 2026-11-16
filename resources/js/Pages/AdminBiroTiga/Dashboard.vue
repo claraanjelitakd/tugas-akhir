@@ -9,6 +9,7 @@ defineProps({
     selectedYear: { type: [String, Number], default: () => new Date().getFullYear() },
     dashboardStats: { type: Object, default: () => ({}) },
     completionMetrics: { type: Object, default: () => ({}) },
+    companySummary: { type: Object, default: () => ({}) },
     prodiSummaries: { type: Array, default: () => [] },
     recentAlumni: { type: Array, default: () => [] },
     sectionsList: { type: Array, default: () => [] },

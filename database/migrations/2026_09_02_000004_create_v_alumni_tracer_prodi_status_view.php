@@ -20,15 +20,60 @@ return new class extends Migration
 
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::statement(<<<'SQL'
-CREATE VIEW v_alumni_tracer_prodi_status AS SELECT b.id AS biodata_id, b.prodi_id,
-    COALESCE((SELECT COUNT(*) FROM prodi_question pq WHERE pq.prodi_id = b.prodi_id AND pq.type != 'header'), 0) AS total_prodi_questions,
-    COUNT(DISTINCT CASE WHEN ((pr.answer_text IS NOT NULL AND TRIM(pr.answer_text) != '') OR (pr.answer_json IS NOT NULL AND pr.answer_json NOT IN ('','[]','{}'))) THEN pr.prodi_question_id ELSE NULL END) AS answered_prodi_questions
-FROM biodata b LEFT JOIN prodi_response pr ON pr.biodata_id = b.id GROUP BY b.id, b.prodi_id;
+CREATE VIEW v_alumni_tracer_prodi_status AS
+SELECT b.id AS biodata_id, b.prodi_id,
+    COALESCE((
+        SELECT COUNT(DISTINCT ksp.pertanyaan_id)
+        FROM kuesioner_section_pertanyaan ksp
+        INNER JOIN kuesioner_section ks ON ks.id = ksp.section_id
+        INNER JOIN kuesioner_pertanyaan kp ON kp.id = ksp.pertanyaan_id
+        WHERE ks.target = 'prodi'
+          AND ks.prodi_id = b.prodi_id
+          AND kp.tipe != 'header'
+          AND kp.is_active = 1
+    ), 0) AS total_prodi_questions,
+    COUNT(DISTINCT CASE
+        WHEN ((j.jawaban_teks IS NOT NULL AND TRIM(j.jawaban_teks) != '') OR (j.jawaban_json IS NOT NULL AND j.jawaban_json NOT IN ('','[]','{}')))
+        THEN j.pertanyaan_id
+        ELSE NULL
+    END) AS answered_prodi_questions
+FROM biodata b
+LEFT JOIN (
+    SELECT kj.biodata_id, kj.pertanyaan_id, kj.jawaban_teks, kj.jawaban_json
+    FROM kuesioner_jawaban kj
+    INNER JOIN kuesioner_section ks ON ks.id = kj.section_id
+    WHERE ks.target = 'prodi'
+) j ON j.biodata_id = b.id
+GROUP BY b.id, b.prodi_id;
 SQL
             );
         } else {
             DB::statement(<<<'SQL'
-CREATE VIEW `v_alumni_tracer_prodi_status` AS select `b`.`id` AS `biodata_id`,`b`.`prodi_id` AS `prodi_id`,coalesce((select count(0) from `prodi_question` `pq` where ((`pq`.`prodi_id` = `b`.`prodi_id`) and (`pq`.`type` <> 'header'))),0) AS `total_prodi_questions`,count(distinct (case when (((`pr`.`answer_text` is not null) and (trim(`pr`.`answer_text`) <> '')) or ((`pr`.`answer_json` is not null) and (`pr`.`answer_json` not in ('','[]','{}')))) then `pr`.`prodi_question_id` else NULL end)) AS `answered_prodi_questions` from (`biodata` `b` left join `prodi_response` `pr` on((`pr`.`biodata_id` = `b`.`id`))) group by `b`.`id`,`b`.`prodi_id`;
+CREATE VIEW `v_alumni_tracer_prodi_status` AS
+SELECT `b`.`id` AS `biodata_id`, `b`.`prodi_id` AS `prodi_id`,
+    COALESCE((
+        SELECT COUNT(DISTINCT `ksp`.`pertanyaan_id`)
+        FROM `kuesioner_section_pertanyaan` `ksp`
+        INNER JOIN `kuesioner_section` `ks` ON `ks`.`id` = `ksp`.`section_id`
+        INNER JOIN `kuesioner_pertanyaan` `kp` ON `kp`.`id` = `ksp`.`pertanyaan_id`
+        WHERE `ks`.`target` = 'prodi'
+          AND `ks`.`prodi_id` = `b`.`prodi_id`
+          AND `kp`.`tipe` <> 'header'
+          AND `kp`.`is_active` = 1
+    ), 0) AS `total_prodi_questions`,
+    COUNT(DISTINCT CASE
+        WHEN ((`j`.`jawaban_teks` IS NOT NULL AND TRIM(`j`.`jawaban_teks`) <> '') OR (`j`.`jawaban_json` IS NOT NULL AND `j`.`jawaban_json` NOT IN ('','[]','{}')))
+        THEN `j`.`pertanyaan_id`
+        ELSE NULL
+    END) AS `answered_prodi_questions`
+FROM `biodata` `b`
+LEFT JOIN (
+    SELECT `kj`.`biodata_id`, `kj`.`pertanyaan_id`, `kj`.`jawaban_teks`, `kj`.`jawaban_json`
+    FROM `kuesioner_jawaban` `kj`
+    INNER JOIN `kuesioner_section` `ks` ON `ks`.`id` = `kj`.`section_id`
+    WHERE `ks`.`target` = 'prodi'
+) `j` ON `j`.`biodata_id` = `b`.`id`
+GROUP BY `b`.`id`, `b`.`prodi_id`;
 SQL
             );
         }

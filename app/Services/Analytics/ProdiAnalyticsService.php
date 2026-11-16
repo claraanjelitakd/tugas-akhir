@@ -2,11 +2,11 @@
 
 namespace App\Services\Analytics;
 
+use App\Models\KuesionerSection;
 use App\Models\Prodi;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiQuestionSection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Menyediakan data analitik kuesioner yang dimiliki setiap program studi.
@@ -27,7 +27,9 @@ class ProdiAnalyticsService
      */
     public function getAvailableProdis(): Collection
     {
-        $prodisWithQuestions = ProdiQuestion::query()
+        $prodisWithQuestions = KuesionerSection::query()
+            ->where('target', 'prodi')
+            ->whereNotNull('prodi_id')
             ->distinct()
             ->pluck('prodi_id')
             ->map(static fn ($id): int => (int) $id)
@@ -91,11 +93,18 @@ class ProdiAnalyticsService
         $selectedYear = $year && in_array($year, $availableYears, true)
             ? $year
             : $this->defaultYear($availableYears);
-        $sections = ProdiQuestionSection::query()
+        $sections = KuesionerSection::query()
+            ->where('target', 'prodi')
             ->where('prodi_id', $selectedProdi->id)
-            ->withCount('questions')
+            ->withCount('pertanyaan as questions_count')
             ->orderBy('order')
-            ->get();
+            ->get()
+            ->map(function ($sec) {
+                $sec->title = $sec->judul;
+                $sec->description = $sec->deskripsi;
+
+                return $sec;
+            });
 
         if ($sections->isEmpty()) {
             return $this->emptyPayload($availableProdis, $selectedProdi, $selectedYear, $availableYears);
@@ -108,11 +117,25 @@ class ProdiAnalyticsService
 
         // ALUR 2: pertanyaan dan opsi pada section aktif diambil dari metadata
         // database. Karena itu frontend tidak perlu menulis nama pertanyaan.
-        $questions = ProdiQuestion::query()
-            ->where('prodi_question_section_id', $selectedSection->id)
-            ->with(['options' => static fn ($query) => $query->orderBy('order')])
-            ->orderBy('order')
-            ->get();
+        $questions = $selectedSection->pertanyaan()
+            ->with('opsi')
+            ->orderBy('kuesioner_section_pertanyaan.order')
+            ->get()
+            ->map(function ($q) {
+                $q->question_text = $q->teks_pertanyaan;
+                $q->question_label = $q->label_pertanyaan ?: Str::limit($q->teks_pertanyaan, 72);
+                $q->code = $q->kode_pertanyaan;
+                $q->type = $q->tipe;
+                $q->is_required = (bool) ($q->pivot->wajib ?? true);
+                $q->options = $q->opsi->map(function ($o) {
+                    $o->option_text = $o->label;
+                    $o->code = $o->kode_opsi;
+
+                    return $o;
+                });
+
+                return $q;
+            });
         $responses = $this->getResponses((int) $selectedProdi->id, $questions, $selectedYear);
         $totalRespondents = $responses->pluck('biodata_id')->unique()->count();
         $totalPopulation = $this->getPopulationCount((int) $selectedProdi->id, $selectedYear);
@@ -125,7 +148,7 @@ class ProdiAnalyticsService
                 'selected_prodi_id' => (int) $selectedProdi->id,
                 'available_years' => $availableYears,
                 'selected_year' => $selectedYear,
-                'sections' => $sections->map(static fn (ProdiQuestionSection $section): array => [
+                'sections' => $sections->map(static fn ($section): array => [
                     'id' => (int) $section->id,
                     'title' => $section->title,
                     'description' => $section->description,
@@ -164,9 +187,9 @@ class ProdiAnalyticsService
     /**
      * Menentukan bagian pertanyaan dari filter atau bagian default.
      *
-     * @param  Collection<int, ProdiQuestionSection>  $sections
+     * @param  Collection<int, object>  $sections
      */
-    private function resolveSection(Collection $sections, int|string|null $sectionKey): ProdiQuestionSection
+    private function resolveSection(Collection $sections, int|string|null $sectionKey): object
     {
         $section = $sectionKey ? $sections->firstWhere('id', (int) $sectionKey) : null;
 
@@ -176,7 +199,7 @@ class ProdiAnalyticsService
     /**
      * Mengambil jawaban hanya untuk pertanyaan pada bagian aktif.
      *
-     * @param  Collection<int, ProdiQuestion>  $questions
+     * @param  Collection<int, object>  $questions
      * @return Collection<int, object>
      */
     private function getResponses(int $prodiId, Collection $questions, string $year): Collection
@@ -185,21 +208,23 @@ class ProdiAnalyticsService
             return collect();
         }
 
-        $query = DB::table('prodi_response')
-            ->join('biodata', 'biodata.id', '=', 'prodi_response.biodata_id')
+        $query = DB::table('kuesioner_jawaban')
+            ->join('biodata', 'biodata.id', '=', 'kuesioner_jawaban.biodata_id')
             ->leftJoin('data_akademik', 'data_akademik.nim', '=', 'biodata.nim')
             ->leftJoin('users', 'users.id', '=', 'biodata.user_id')
+            ->where('kuesioner_jawaban.responden_type', 'alumni')
             ->where('biodata.prodi_id', $prodiId)
-            ->whereIn('prodi_response.prodi_question_id', $questions->pluck('id'))
+            ->whereIn('kuesioner_jawaban.pertanyaan_id', $questions->pluck('id'))
             ->select([
-                'prodi_response.id as response_id',
-                'prodi_response.biodata_id',
-                'prodi_response.prodi_question_id',
-                'prodi_response.answer_text',
-                'prodi_response.answer_json',
-                'prodi_response.created_at as answered_at',
+                'kuesioner_jawaban.id as response_id',
+                'kuesioner_jawaban.biodata_id',
+                'kuesioner_jawaban.pertanyaan_id as question_id',
+                'kuesioner_jawaban.jawaban_teks as answer_text',
+                'kuesioner_jawaban.jawaban_json as answer_json',
+                'kuesioner_jawaban.created_at as answered_at',
                 'biodata.nim',
                 'biodata.nomor_telepon',
+                'biodata.linkedin_url',
                 'biodata.email_pribadi',
                 'users.name as nama_user',
                 'users.email as email_user',
@@ -245,11 +270,11 @@ class ProdiAnalyticsService
     /**
      * Memformat satu bagian menjadi visualisasi, pivot table, ringkasan, dan data detail.
      *
-     * @param  Collection<int, ProdiQuestion>  $questions
+     * @param  Collection<int, object>  $questions
      * @param  Collection<int, object>  $responses
      */
     private function formatSectionChart(
-        ProdiQuestionSection $section,
+        object $section,
         Collection $questions,
         Collection $responses,
         int $totalRespondents,
@@ -260,11 +285,17 @@ class ProdiAnalyticsService
         $records = [];
 
         foreach ($questions as $question) {
-            $questionResponses = $responses->where('prodi_question_id', $question->id)->values();
+            $questionResponses = $responses->where('question_id', $question->id)->values();
 
-            // ALUR 3: `type` pertanyaan menentukan cara menghitung datanya.
-            // rating_5 menjadi skor Likert, text menjadi kartu jawaban terbuka,
-            // sedangkan tipe lain menjadi distribusi pilihan batang horizontal.
+            /**
+             * Dispatch visualisasi memakai tipe master pertanyaan.
+             *
+             * `rating_5` dihitung sebagai skor Likert dan `text`/`textarea`
+             * dipertahankan sebagai jawaban terbuka. Tipe lain saat ini masuk
+             * formatter pilihan; pertanyaan `number` dinamis belum memiliki
+             * formatter numerik umum dan tidak boleh dianggap otomatis sebagai
+             * rata-rata sebelum aturan agregasinya ditentukan.
+             */
             $item = match ($question->type) {
                 'rating_5' => $this->formatLikertQuestion($question, $questionResponses),
                 'text', 'textarea' => $this->formatTextQuestion($question, $questionResponses),
@@ -313,11 +344,11 @@ class ProdiAnalyticsService
             'denominator' => $chartType === 'likert'
                 ? 'n jawaban valid = jumlah alumni yang memberi skor 1–5 pada setiap butir. Skor yang ditampilkan dibulatkan ke bilangan bulat pada skala 1–5.'
                 : 'N jawaban valid = jumlah alumni yang memberi jawaban valid pada pertanyaan aktif. Pada pilihan ganda, satu alumni dapat menambah frekuensi lebih dari satu pilihan.',
-            'source' => 'Tabel: prodi_response, prodi_question, prodi_question_option, prodi_question_section, biodata, data_akademik, users, prodi.',
+            'source' => 'Tabel: kuesioner_jawaban, kuesioner_pertanyaan, kuesioner_opsi, kuesioner_section, biodata, data_akademik, users, prodi.',
             'tables' => [
-                ['table' => 'prodi_response', 'columns' => 'biodata_id, prodi_question_id, answer_text, answer_json, created_at', 'role' => 'Jawaban kuesioner prodi per alumni'],
-                ['table' => 'prodi_question', 'columns' => 'id, prodi_id, prodi_question_section_id, code, question_text, type, order', 'role' => 'Definisi butir dan tipe perhitungan'],
-                ['table' => 'prodi_question_option', 'columns' => 'prodi_question_id, option_text, order', 'role' => 'Opsi pembentuk distribusi pilihan'],
+                ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, pertanyaan_id, jawaban_teks, jawaban_json, created_at', 'role' => 'Jawaban kuesioner prodi per alumni'],
+                ['table' => 'kuesioner_pertanyaan', 'columns' => 'id, pemilik_prodi_id, kode_pertanyaan, label_pertanyaan, teks_pertanyaan, tipe', 'role' => 'Definisi butir, label grafik, dan tipe perhitungan'],
+                ['table' => 'kuesioner_opsi', 'columns' => 'pertanyaan_id, label_opsi, urutan', 'role' => 'Opsi pembentuk distribusi pilihan'],
                 ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, nomor_telepon, email_pribadi', 'role' => 'Relasi responden, prodi, dan kontak alumni'],
                 ['table' => 'data_akademik', 'columns' => 'nim, nama, tahun_lulus', 'role' => 'Identitas akademik dan filter kohort'],
             ],
@@ -329,7 +360,7 @@ class ProdiAnalyticsService
                     'formula' => $chartType === 'likert'
                         ? 'Skor butir = ROUND(Σ skor valid / n jawaban valid pada butir).'
                         : 'Frekuensi opsi = jumlah alumni yang memilih opsi pada butir.',
-                    'source' => 'prodi_response bergabung dengan prodi_question dan prodi_question_option',
+                    'source' => 'kuesioner_jawaban bergabung dengan kuesioner_pertanyaan dan kuesioner_opsi',
                 ];
             })->values()->all(),
             'likert' => 'Rata-rata dan median dibulatkan ke bilangan bulat agar skor tetap konsisten pada skala 1-5.',
@@ -351,14 +382,15 @@ class ProdiAnalyticsService
                 'generated_at' => now()->toIso8601String(),
             ],
             'summary' => $summary,
-            'insights' => $this->buildInsights($section, $prodi, $chartType, $summary, $highest, $lowest),
+            'insights' => $this->buildInsights($section, $prodi, $chartType, $summary, $highest, $lowest, $items),
             'series' => $this->legacySeries($items, $chartType),
             'visualizations' => $items,
             'pivot' => $questionStats->all(),
-            'questions' => $questions->map(static fn (ProdiQuestion $question): array => [
+            'questions' => $questions->map(static fn ($question): array => [
                 'id' => (int) $question->id,
                 'code' => $question->code,
                 'question_text' => $question->question_text,
+                'question_label' => $question->question_label,
                 'type' => $question->type,
                 'is_required' => (bool) $question->is_required,
                 'options' => $question->options->map(static fn ($option): array => [
@@ -377,7 +409,7 @@ class ProdiAnalyticsService
      * @param  Collection<int, object>  $responses
      * @return array<string, mixed>
      */
-    private function formatLikertQuestion(ProdiQuestion $question, Collection $responses): array
+    private function formatLikertQuestion(object $question, Collection $responses): array
     {
         $scores = [];
         $distribution = array_fill_keys([1, 2, 3, 4, 5], 0);
@@ -419,10 +451,12 @@ class ProdiAnalyticsService
             'key' => $question->code ?: 'question-'.$question->id,
             'question_id' => (int) $question->id,
             'type' => 'likert',
-            'title' => $question->question_text,
+            'title' => $question->question_label,
+            'question_text' => $question->question_text,
+            'question_label' => $question->question_label,
             'subtitle' => 'Rata-rata dan median skor dari jawaban valid pada skala 1 sampai 5.',
             'caption' => 'Diagram batang horizontal dipakai agar teks pernyataan panjang tetap terbaca dan perbandingan skor antarbutir mudah dilakukan.',
-            'categories' => [$question->question_text],
+            'categories' => [$question->question_label],
             'values' => [$average],
             'scores' => $scores,
             'stat' => $stat,
@@ -436,14 +470,18 @@ class ProdiAnalyticsService
      * @param  Collection<int, object>  $responses
      * @return array<string, mixed>
      */
-    private function formatChoiceQuestion(ProdiQuestion $question, Collection $responses): array
+    private function formatChoiceQuestion(object $question, Collection $responses): array
     {
         $optionLabels = $question->options
             ->mapWithKeys(fn ($option): array => [$option->id => $this->canonicalChoiceLabel((string) $option->option_text)])
             ->all();
         $orderedLabels = array_values($optionLabels);
+        $hasOtherOption = in_array('Lainnya', $orderedLabels, true);
         $counts = array_fill_keys($orderedLabels, 0);
         $records = [];
+        $otherRecords = [];
+        $otherTexts = [];
+        $otherCount = 0;
         $validCount = 0;
 
         foreach ($responses as $response) {
@@ -453,29 +491,49 @@ class ProdiAnalyticsService
             }
             $validCount++;
             foreach ($labels as $label) {
+                if ($label === 'Lainnya') {
+                    $otherCount++;
+
+                    continue;
+                }
+
                 $counts[$label] = ($counts[$label] ?? 0) + 1;
             }
             $record = $this->recordPayload($response, $question, implode(', ', $labels));
             $record['jawaban_lainnya'] = $this->otherAnswerDetail($response);
             $records[] = $record;
+            if (in_array('Lainnya', $labels, true)) {
+                $otherRecords[] = $record;
+                if ($record['jawaban_lainnya'] !== '') {
+                    $otherTexts[] = $record['jawaban_lainnya'];
+                }
+            }
         }
 
-        $categories = collect($counts)->map(static fn (int $count, string $label): array => [
-            'label' => $label,
-            'value' => $count,
-            'count' => $count,
-            'percentage' => $validCount > 0 ? round(($count / $validCount) * 100, 1) : 0,
-        ])->values()->all();
+        $categories = collect($counts)
+            ->map(static fn (int $count, string $label): array => [
+                'label' => $label,
+                'value' => $count,
+                'count' => $count,
+                'percentage' => $validCount > 0 ? round(($count / $validCount) * 100, 1) : 0,
+            ])
+            ->filter(static fn (array $category): bool => $category['count'] > 0)
+            ->values()
+            ->all();
         $top = collect($categories)->sortByDesc('count')->first();
         $stat = $this->questionStat($question, $validCount, null, $categories);
         $stat['top_choice'] = $top['label'] ?? '-';
-        $stat['top_count'] = $top['count'] ?? 0;
+        $stat['top_count'] = (int) ($top['count'] ?? 0);
+        $stat['other_count'] = $otherCount;
+        $stat['other_percentage'] = $validCount > 0 ? round(($otherCount / $validCount) * 100, 1) : 0;
 
         return [
             'key' => $question->code ?: 'question-'.$question->id,
             'question_id' => (int) $question->id,
             'type' => 'choice',
-            'title' => $question->question_text,
+            'title' => $question->question_label,
+            'question_text' => $question->question_text,
+            'question_label' => $question->question_label,
             'subtitle' => $question->type === 'multiple_choice' ? 'Satu alumni dapat tercatat pada lebih dari satu pilihan.' : 'Distribusi pilihan alumni yang mengisi pertanyaan ini.',
             'caption' => 'Diagram batang horizontal dipakai untuk membandingkan jumlah jawaban tanpa memotong label pilihan.',
             'categories' => array_column($categories, 'label'),
@@ -483,6 +541,12 @@ class ProdiAnalyticsService
             'scores' => [],
             'stat' => $stat,
             'records' => $records,
+            'has_other_option' => $hasOtherOption,
+            'other_word_cloud' => [
+                'count' => $otherCount,
+                'texts' => array_values($otherTexts),
+                'records' => array_values($otherRecords),
+            ],
         ];
     }
 
@@ -492,7 +556,7 @@ class ProdiAnalyticsService
      * @param  Collection<int, object>  $responses
      * @return array<string, mixed>
      */
-    private function formatTextQuestion(ProdiQuestion $question, Collection $responses): array
+    private function formatTextQuestion(object $question, Collection $responses): array
     {
         $records = [];
         foreach ($responses as $response) {
@@ -506,7 +570,9 @@ class ProdiAnalyticsService
             'key' => $question->code ?: 'question-'.$question->id,
             'question_id' => (int) $question->id,
             'type' => 'text',
-            'title' => $question->question_text,
+            'title' => $question->question_label,
+            'question_text' => $question->question_text,
+            'question_label' => $question->question_label,
             'subtitle' => 'Jawaban terbuka ditampilkan di tab Data agar konteks masukan alumni tetap utuh.',
             'caption' => 'Jawaban terbuka tidak dipaksakan menjadi angka; daftar respons menjadi bentuk visualisasi yang paling tepat.',
             'categories' => [],
@@ -523,12 +589,13 @@ class ProdiAnalyticsService
      * @param  array<int, array<string, mixed>>  $categories
      * @return array<string, mixed>
      */
-    private function questionStat(ProdiQuestion $question, int $validCount, ?int $average, array $categories): array
+    private function questionStat(object $question, int $validCount, ?int $average, array $categories): array
     {
         return [
             'question_id' => (int) $question->id,
             'code' => $question->code ?: 'Q'.$question->id,
             'question_text' => $question->question_text,
+            'question_label' => $question->question_label,
             'type' => $question->type,
             'valid_count' => $validCount,
             'average' => $average,
@@ -614,7 +681,7 @@ class ProdiAnalyticsService
      *
      * @return array<string, mixed>
      */
-    private function recordPayload(object $response, ProdiQuestion $question, string $answer, ?int $score = null): array
+    private function recordPayload(object $response, object $question, string $answer, ?int $score = null): array
     {
         return [
             'response_id' => (int) $response->response_id,
@@ -623,6 +690,7 @@ class ProdiAnalyticsService
             'nama' => $response->nama_akademik ?: ($response->nama_user ?: 'Alumni'),
             'tahun_lulus' => $response->tahun_lulus ?: '-',
             'nomor_telepon' => $response->nomor_telepon ?: null,
+            'linkedin_url' => $response->linkedin_url ?: null,
             'email' => $response->email_pribadi ?: ($response->email_user ?: null),
             'aspek' => $question->question_text,
             'kode' => $question->code ?: 'Q'.$question->id,
@@ -681,27 +749,58 @@ class ProdiAnalyticsService
      * @param  array<string, mixed>  $summary
      * @param  array<string, mixed>|null  $highest
      * @param  array<string, mixed>|null  $lowest
+     * @param  array<int, array<string, mixed>>  $items
      * @return array{headline: string, points: array<int, string>}
      */
     private function buildInsights(
-        ProdiQuestionSection $section,
+        object $section,
         Prodi $prodi,
         string $chartType,
         array $summary,
         ?array $highest,
         ?array $lowest,
+        array $items,
     ): array {
         $headline = match ($chartType) {
             'likert' => "Evaluasi {$section->title} pada Program Studi {$prodi->nama_prodi} memiliki skor {$summary['average_score']} pada skala 1-5.",
             'text' => "Terdapat {$summary['valid_answers']} jawaban terbuka yang dapat ditinjau pada bagian {$section->title}.",
-            default => "Distribusi jawaban untuk {$section->title} ditampilkan per pertanyaan agar setiap pilihan dapat dibandingkan secara langsung.",
+            default => "Distribusi {$summary['total_questions']} pertanyaan pilihan pada {$section->title} diringkas berdasarkan frekuensi jawaban valid.",
         };
         $points = ["{$summary['total_respondents']} alumni memberikan jawaban dari populasi {$summary['population_count']} alumni pada filter aktif."];
         if ($chartType === 'likert' && $highest && $lowest) {
             $points[] = "Rata-rata tertinggi terdapat pada \"{$highest['question_text']}\" sebesar {$highest['average']} dengan {$highest['valid_count']} jawaban valid.";
             if ($highest['question_id'] !== $lowest['question_id']) {
-                $points[] = "Rata-rata terendah terdapat pada \"{$lowest['question_text']}\" sebesar {$lowest['average']} dan perlu dibaca bersama distribusi skornya.";
+                $points[] = "Rata-rata terendah terdapat pada \"{$lowest['question_text']}\" sebesar {$lowest['average']} dengan {$lowest['valid_count']} jawaban valid.";
             }
+            $points[] = "Rata-rata keseluruhan bagian adalah {$summary['average_score']} dari 5, sedangkan median keseluruhan adalah {$summary['median_score']}.";
+        } elseif ($chartType === 'choice') {
+            $choiceSummaries = collect($items)
+                ->map(function (array $item): ?array {
+                    $top = collect($item['stat']['categories'] ?? [])
+                        ->filter(static fn (array $category): bool => (int) ($category['count'] ?? 0) > 0)
+                        ->sortByDesc('count')
+                        ->first();
+
+                    return $top ? [
+                        'question' => $item['title'],
+                        'label' => $top['label'],
+                        'count' => (int) $top['count'],
+                        'percentage' => $top['percentage'],
+                    ] : null;
+                })
+                ->filter()
+                ->sortByDesc('count')
+                ->values();
+
+            if ($choiceSummaries->isNotEmpty()) {
+                $top = $choiceSummaries->first();
+                $points[] = "Pilihan terbanyak adalah \"{$top['label']}\" pada pertanyaan \"{$top['question']}\" dengan {$top['count']} jawaban ({$top['percentage']}%).";
+                $points[] = "Sebanyak {$summary['valid_answers']} jawaban valid membentuk distribusi pilihan; pada pertanyaan ganda, satu alumni dapat menyumbang lebih dari satu pilihan.";
+                $points[] = 'Pertanyaan aktif dapat dibandingkan melalui tab masing-masing, sedangkan rincian alumni tersedia pada tabel data pembentuk.';
+            }
+        } elseif ($chartType === 'text') {
+            $points[] = "Sebanyak {$summary['valid_answers']} respons terisi dapat ditelusuri per alumni pada tab Data.";
+            $points[] = 'Jawaban terbuka dipertahankan apa adanya agar konteks masukan alumni tidak hilang karena kategorisasi otomatis.';
         }
 
         return ['headline' => $headline, 'points' => $points];
@@ -736,7 +835,7 @@ class ProdiAnalyticsService
     /**
      * Menentukan caption standar per tipe visualisasi.
      */
-    private function buildCaption(string $chartType, ProdiQuestionSection $section, int $questionCount): string
+    private function buildCaption(string $chartType, object $section, int $questionCount): string
     {
         return match ($chartType) {
             'likert' => "Diagram batang horizontal memperlihatkan skor bilangan bulat dari {$questionCount} pernyataan pada bagian {$section->title}; buka tab Data untuk distribusi skala dan median.",

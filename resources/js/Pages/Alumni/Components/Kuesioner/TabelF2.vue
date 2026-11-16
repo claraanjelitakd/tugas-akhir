@@ -42,6 +42,18 @@ const completedCount = computed(() => {
 const handleSelect = (qId, optionText) => {
     props.form.answers[qId] = optionText;
 };
+
+// Pengecek kecocokan nilai jawaban yang dipilih secara tangguh
+const isOptionChecked = (qId, opt) => {
+    const val = props.form.answers[qId];
+    if (val === undefined || val === null || val === '') return false;
+    if (val === opt.label || val == opt.score) return true;
+    if (typeof val === 'string') {
+        const str = val.trim().toLowerCase();
+        if (str === opt.label.toLowerCase() || str === opt.score.toString()) return true;
+    }
+    return false;
+};
 </script>
 
 <template>
@@ -118,14 +130,14 @@ const handleSelect = (qId, optionText) => {
                                     type="radio" 
                                     :name="'f2_' + q.id" 
                                     :value="opt.label" 
-                                    :checked="form.answers[q.id] === opt.label || form.answers[q.id] == opt.score"
+                                    :checked="isOptionChecked(q.id, opt)"
                                     @change="handleSelect(q.id, opt.label)" 
                                     class="sr-only"
                                 >
                                 <div 
                                     class="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm transition-all"
                                     :class="[
-                                        (form.answers[q.id] === opt.label || form.answers[q.id] == opt.score)
+                                        isOptionChecked(q.id, opt)
                                             ? 'bg-[#005B3C] text-white ring-2 ring-offset-1 ring-[#005B3C] shadow-sm scale-105 font-black'
                                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-emerald-50 hover:border-emerald-500'
                                     ]"

@@ -4,12 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\KelompokPertanyaan;
 use App\Models\Kuesioner;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Prodi;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\RefSubpertanyaanDetil;
-use App\Models\Tracer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -25,15 +26,15 @@ class AlumniKuesionerMultipleNumberTest extends TestCase
 
     protected Kuesioner $kuesioner;
 
-    protected KelompokPertanyaan $section;
+    protected KuesionerSection $section;
 
-    protected RefSubpertanyaan2021 $questionF13;
+    protected KuesionerPertanyaan $questionF13;
 
-    protected RefSubpertanyaanDetil $opt1;
+    protected KuesionerOpsi $opt1;
 
-    protected RefSubpertanyaanDetil $opt2;
+    protected KuesionerOpsi $opt2;
 
-    protected RefSubpertanyaanDetil $opt3;
+    protected KuesionerOpsi $opt3;
 
     protected function setUp(): void
     {
@@ -51,7 +52,6 @@ class AlumniKuesionerMultipleNumberTest extends TestCase
         $prodi = Prodi::create([
             'kode_prodi' => '71',
             'nama_prodi' => 'Informatika',
-            'jenjang' => 'S1',
         ]);
 
         DataAkademik::create([
@@ -75,42 +75,47 @@ class AlumniKuesionerMultipleNumberTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->section = KelompokPertanyaan::create([
-            'kuesioner_id' => $this->kuesioner->id,
-            'title' => 'Karakteristik Pekerjaan Saat Ini',
+        $this->section = KuesionerSection::create([
+            'kode_section' => 'SEC-UNIV-7',
+            'target' => 'univ',
+            'judul' => 'Karakteristik Pekerjaan Saat Ini',
             'order' => 7,
+            'is_active' => true,
         ]);
 
-        $this->questionF13 = RefSubpertanyaan2021::create([
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $this->questionF13 = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F13',
-            'subpertanyaan' => 'Kira-kira berapa pendapatan anda setiap bulannya?',
-            'type' => 'multiple_number',
+            'teks_pertanyaan' => 'Kira-kira berapa pendapatan anda setiap bulannya?',
+            'tipe' => 'multiple_number',
+            'is_reusable' => true,
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $this->questionF13->id,
+            'order' => 1,
             'wajib' => true,
-            'order' => 1,
         ]);
 
-        $this->opt1 = RefSubpertanyaanDetil::create([
+        $this->opt1 = KuesionerOpsi::create([
             'pertanyaan_id' => $this->questionF13->id,
-            'kode_pertanyaan' => 'F13',
             'kode_opsi' => 'F13-01',
-            'option_text' => 'Dari Pekerjaan Utama',
+            'label' => 'Dari Pekerjaan Utama',
             'order' => 1,
         ]);
 
-        $this->opt2 = RefSubpertanyaanDetil::create([
+        $this->opt2 = KuesionerOpsi::create([
             'pertanyaan_id' => $this->questionF13->id,
-            'kode_pertanyaan' => 'F13',
             'kode_opsi' => 'F13-02',
-            'option_text' => 'Dari Lembur dan Tips',
+            'label' => 'Dari Lembur dan Tips',
             'order' => 2,
         ]);
 
-        $this->opt3 = RefSubpertanyaanDetil::create([
+        $this->opt3 = KuesionerOpsi::create([
             'pertanyaan_id' => $this->questionF13->id,
-            'kode_pertanyaan' => 'F13',
             'kode_opsi' => 'F13-03',
-            'option_text' => 'Dari Pekerjaan Lainnya',
+            'label' => 'Dari Pekerjaan Lainnya',
             'order' => 3,
         ]);
     }
@@ -136,19 +141,19 @@ class AlumniKuesionerMultipleNumberTest extends TestCase
         $response = $this->actingAs($this->user)->post('/alumni/kuesioner', $payload);
         $response->assertStatus(302);
 
-        $saved = Tracer::where('biodata_id', $this->alumni->id)
-            ->where('question_id', $this->questionF13->id)
+        $saved = KuesionerJawaban::where('biodata_id', $this->alumni->id)
+            ->where('pertanyaan_id', $this->questionF13->id)
             ->first();
 
         $this->assertNotNull($saved);
-        $this->assertEquals(6500000, $saved->answer_json['F13-01']);
-        $this->assertEquals(750000, $saved->answer_json['F13-02']);
-        $this->assertEquals(0, $saved->answer_json['F13-03']);
-        $this->assertEquals(7250000, $saved->answer_json['total']);
+        $this->assertEquals(6500000, $saved->jawaban_json['F13-01']);
+        $this->assertEquals(750000, $saved->jawaban_json['F13-02']);
+        $this->assertEquals(0, $saved->jawaban_json['F13-03']);
+        $this->assertEquals(7250000, $saved->jawaban_json['total']);
 
-        $this->assertStringContainsString('Dari Pekerjaan Utama: Rp 6.500.000', $saved->answer_text);
-        $this->assertStringContainsString('Dari Lembur dan Tips: Rp 750.000', $saved->answer_text);
-        $this->assertStringContainsString('Total Pendapatan: Rp 7.250.000', $saved->answer_text);
+        $this->assertStringContainsString('Dari Pekerjaan Utama: Rp 6.500.000', $saved->jawaban_teks);
+        $this->assertStringContainsString('Dari Lembur dan Tips: Rp 750.000', $saved->jawaban_teks);
+        $this->assertStringContainsString('Total Pendapatan: Rp 7.250.000', $saved->jawaban_teks);
     }
 
     /**
@@ -167,10 +172,10 @@ class AlumniKuesionerMultipleNumberTest extends TestCase
             ],
         ]);
 
-        $saved1 = Tracer::where('biodata_id', $this->alumni->id)
-            ->where('question_id', $this->questionF13->id)
+        $saved1 = KuesionerJawaban::where('biodata_id', $this->alumni->id)
+            ->where('pertanyaan_id', $this->questionF13->id)
             ->first();
-        $this->assertEquals(5500000, $saved1->answer_json['total']);
+        $this->assertEquals(5500000, $saved1->jawaban_json['total']);
 
         // Update nominal F13-01 naik menjadi 7000 (Rp 7.000.000) dan F13-03 menjadi 1000 (Rp 1.000.000)
         $this->actingAs($this->user)->post('/alumni/kuesioner', [
@@ -183,12 +188,12 @@ class AlumniKuesionerMultipleNumberTest extends TestCase
             ],
         ]);
 
-        $saved2 = Tracer::where('biodata_id', $this->alumni->id)
-            ->where('question_id', $this->questionF13->id)
+        $saved2 = KuesionerJawaban::where('biodata_id', $this->alumni->id)
+            ->where('pertanyaan_id', $this->questionF13->id)
             ->first();
 
-        $this->assertEquals(8500000, $saved2->answer_json['total']);
-        $this->assertStringContainsString('Total Pendapatan: Rp 8.500.000', $saved2->answer_text);
+        $this->assertEquals(8500000, $saved2->jawaban_json['total']);
+        $this->assertStringContainsString('Total Pendapatan: Rp 8.500.000', $saved2->jawaban_teks);
     }
 
     /**
@@ -197,11 +202,14 @@ class AlumniKuesionerMultipleNumberTest extends TestCase
     public function test_loading_kuesioner_normalizes_multiple_number_to_thousands(): void
     {
         // Simpan jawaban ke DB dengan nominal penuh
-        Tracer::create([
+        KuesionerJawaban::create([
+            'responden_type' => 'alumni',
             'biodata_id' => $this->alumni->id,
-            'question_id' => $this->questionF13->id,
-            'answer' => 'Dari Pekerjaan Utama: Rp 6.000.000, Dari Lembur dan Tips: Rp 500.000, Dari Pekerjaan Lainnya: Rp 0, Total Pendapatan: Rp 6.500.000',
-            'answer_json' => [
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $this->questionF13->id,
+            'kode_pertanyaan' => 'F13',
+            'jawaban_teks' => 'Dari Pekerjaan Utama: Rp 6.000.000, Dari Lembur dan Tips: Rp 500.000, Dari Pekerjaan Lainnya: Rp 0, Total Pendapatan: Rp 6.500.000',
+            'jawaban_json' => [
                 'F13-01' => 6000000,
                 'F13-02' => 500000,
                 'F13-03' => 0,
@@ -240,11 +248,11 @@ class AlumniKuesionerMultipleNumberTest extends TestCase
         $response = $this->actingAs($this->user)->post('/alumni/kuesioner', $payload);
         $response->assertStatus(302);
 
-        $saved = Tracer::where('biodata_id', $this->alumni->id)
-            ->where('question_id', $this->questionF13->id)
+        $saved = KuesionerJawaban::where('biodata_id', $this->alumni->id)
+            ->where('pertanyaan_id', $this->questionF13->id)
             ->first();
 
-        $this->assertEquals(5000000, $saved->answer_json['F13-01']);
-        $this->assertEquals(5000000, $saved->answer_json['total']);
+        $this->assertEquals(5000000, $saved->jawaban_json['F13-01']);
+        $this->assertEquals(5000000, $saved->jawaban_json['total']);
     }
 }

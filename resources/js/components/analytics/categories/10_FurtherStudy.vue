@@ -123,12 +123,12 @@ const degreeBarOption = computed(() => {
 
 // Daftar universitas untuk jenjang yang sedang dipilih
 const currentUniversityList = computed(() => {
-    const deg = activeSelectedDegree.value || degreeSeries.value[0]?.label || 'S2';
+    const deg = activeSelectedDegree.value || degreeSeries.value[0]?.label || '';
     return universityByDegree.value[deg] || [];
 });
 
 const currentDegreeCount = computed(() => {
-    const deg = activeSelectedDegree.value || degreeSeries.value[0]?.label || 'S2';
+    const deg = activeSelectedDegree.value || degreeSeries.value[0]?.label || '';
     const found = degreeSeries.value.find((s) => s.label === deg);
     return found ? found.count : currentUniversityList.value.reduce((a, b) => a + b.count, 0);
 });
@@ -138,12 +138,20 @@ const degreeTable = computed(() => ({
         { key: 'name', label: 'Jenjang Pendidikan Lanjut' },
         { key: 'count', label: 'Jumlah Alumni (n)', align: 'right' },
         { key: 'percentage', label: 'Persentase', align: 'right' },
+        { key: 'description', label: 'Keterangan Program / Profesi' },
     ],
-    rows: degreeSeries.value.map((item) => ({
-        name: seriesLabel(item),
-        count: formatNumber(seriesMetric(item), 0),
-        percentage: formatPercentage(item.percentage || 0),
-    })),
+    rows: degreeSeries.value.map((item) => {
+        const label = seriesLabel(item);
+        const desc = label === 'S2'
+            ? 'Program Pascasarjana Magister (S2)'
+            : (label === 'Lainnya' ? 'Pendidikan Profesi, Spesialis, dan Program Sertifikasi Keahlian' : `Pendidikan ${label}`);
+        return {
+            name: label === 'Lainnya' ? 'Lainnya (Profesi / Pelatihan)' : label,
+            count: formatNumber(seriesMetric(item), 0),
+            percentage: formatPercentage(item.percentage || 0),
+            description: desc,
+        };
+    }),
 }));
 
 // -----------------------------------------------------------------------------
@@ -238,7 +246,7 @@ const recordsTable = computed(() => ({
         nim: r.nim || '-',
         nama: r.nama || '-',
         nama_prodi: r.nama_prodi || '-',
-        degree: r.degree || 'S2',
+        degree: r.degree || '-',
         university: r.university || 'Universitas Mitra',
         study_program: r.study_program || '-',
         funding_source: r.funding_source || 'Biaya Sendiri / Keluarga',
@@ -330,7 +338,7 @@ const views = computed(() => [
             :rows="records"
             :selected-label="selectedLabel"
             :loading="loading"
-            indicator-badge="Indikator 10"
+            indicator-badge="Indikator 13"
             @select="handleDegreeSelect($event)"
             @reset="emit('reset')"
         />
@@ -343,8 +351,8 @@ const views = computed(() => [
                         Drill-down Perguruan Tinggi
                     </span>
                     <h4 class="mt-1 text-sm font-bold text-slate-900">
-                        Daftar Universitas Tujuan Jenjang:
-                        <span class="text-[#0D542B] underline">{{ activeSelectedDegree || 'Semua Jenjang' }}</span>
+                        Daftar Perguruan Tinggi Tujuan:
+                        <span class="text-[#0D542B] underline">{{ activeSelectedDegree === 'Lainnya' ? 'Lainnya (Pendidikan Profesi / Pelatihan)' : (activeSelectedDegree || 'Semua Jenjang') }}</span>
                         ({{ formatNumber(currentDegreeCount, 0) }} Alumni)
                     </h4>
                     <p class="text-xs text-slate-500">
@@ -360,7 +368,7 @@ const views = computed(() => [
                         :class="activeSelectedDegree === deg.label ? 'bg-[#0D542B] text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
                         @click="handleDegreeSelect(deg.label)"
                     >
-                        {{ deg.label }} ({{ deg.count }})
+                        {{ deg.label === 'Lainnya' ? 'Lainnya (Profesi)' : deg.label }} ({{ deg.count }})
                     </button>
                 </div>
             </div>
@@ -371,8 +379,10 @@ const views = computed(() => [
                     <thead class="bg-slate-50 text-[11px] font-bold uppercase text-slate-600">
                         <tr>
                             <th class="px-3 py-2.5 w-12">No</th>
-                            <th class="px-3 py-2.5">Perguruan Tinggi Tujuan</th>
-                            <th class="px-3 py-2.5">Program Studi / Bidang Peminatan</th>
+                            <th class="px-3 py-2.5">Perguruan Tinggi / Lembaga Tujuan</th>
+                            <th class="px-3 py-2.5">
+                                {{ activeSelectedDegree === 'S2' ? 'Program Studi S2 (Magister)' : (activeSelectedDegree === 'Lainnya' ? 'Program Studi / Keahlian Profesi' : 'Program Studi / Bidang Peminatan') }}
+                            </th>
                             <th class="px-3 py-2.5 text-right w-36">Jumlah Alumni</th>
                         </tr>
                     </thead>

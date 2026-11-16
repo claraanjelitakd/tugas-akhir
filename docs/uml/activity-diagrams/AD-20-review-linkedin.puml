@@ -1,4 +1,5 @@
 @startuml
+!include activity-style.puml
 title AD-20 Review, Approve, Plot Ulang, dan Reject LinkedIn
 |Admin Scope|
 start
@@ -15,11 +16,14 @@ if (Approve atau plot ulang?) then (ya)
   :Append pengalaman tanpa duplikasi;
   |Database|
   :Update biodata, hasil, dan log;
-else (Reject?) then (ya)
-  |Database|
-  :Set hasil rejected dan tulis log;
-else (History)
-  :Baca history sync;
+else (tidak)
+  if (Pilih reject?) then (ya)
+    |Database|
+    :Set hasil rejected dan tulis log;
+  else (history)
+    |Database|
+    :Baca history sync;
+  endif
 endif
 stop
 @enduml

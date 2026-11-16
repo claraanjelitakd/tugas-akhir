@@ -34,39 +34,12 @@ class Kuesioner extends Model
     ];
 
     /**
-     * Relasi ke kelompok pertanyaan (KelompokPertanyaan / QuestionSection).
-     */
-    public function kelompokPertanyaan()
-    {
-        return $this->hasMany(KelompokPertanyaan::class, 'kuesioner_id')->orderBy('order');
-    }
-
-    public function kelompokPertanyaans()
-    {
-        return $this->kelompokPertanyaan();
-    }
-
-    /**
-     * Alias relasi sections untuk kompatibilitas frontend & kode lama.
+     * Relasi ke bagian kuesioner universitas (KuesionerSection).
      */
     public function sections()
     {
-        return $this->kelompokPertanyaan();
-    }
-
-    /**
-     * Relasi ke seluruh butir pertanyaan melalui kelompok pertanyaan.
-     */
-    public function subpertanyaans()
-    {
-        return $this->hasManyThrough(RefSubpertanyaan2021::class, KelompokPertanyaan::class, 'kuesioner_id', 'kelompok_pertanyaan_id');
-    }
-
-    /**
-     * Alias relasi questions untuk kompatibilitas.
-     */
-    public function questions()
-    {
-        return $this->subpertanyaans();
+        return $this->hasMany(KuesionerSection::class, 'kuesioner_id')
+            ->where('target', 'univ')
+            ->orderBy('order');
     }
 }

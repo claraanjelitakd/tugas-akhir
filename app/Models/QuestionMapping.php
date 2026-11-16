@@ -30,7 +30,7 @@ class QuestionMapping extends Model
 
     public function subpertanyaan()
     {
-        return $this->belongsTo(RefSubpertanyaan2021::class, 'question_id');
+        return $this->belongsTo(KuesionerPertanyaan::class, 'question_id');
     }
 
     public function question()

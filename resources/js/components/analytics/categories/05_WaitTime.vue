@@ -67,6 +67,10 @@ const calculateQuartiles = (values) => {
 
 // Pengelompokan record per program studi dengan metrik kuartil
 const prodiStats = computed(() => {
+    if (props.chart?.prodi_stats) {
+        return props.chart.prodi_stats;
+    }
+
     const prodiMap = new Map();
     records.value.forEach((record) => {
         const prodi = record.nama_prodi || 'Tanpa prodi';
@@ -245,7 +249,7 @@ const views = computed(() => [
         :rows="records"
         :selected-label="selectedLabel"
         :loading="loading"
-        indicator-badge="Indikator 05"
+        indicator-badge="Indikator 08"
         @select="emit('select', $event)"
         @reset="emit('reset')"
     />

@@ -10,12 +10,12 @@ use Illuminate\Database\Eloquent\Model;
  *
  * Mengelola data master riwayat akademik mahasiswa/alumni UKDW.
  * Merupakan Single Source of Truth untuk:
- * - Identitas master (nama, tempat/tanggal lahir, jenis kelamin, warga negara)
+ * - Identitas master (nama, tanggal lahir, jenis kelamin, warga negara)
  * - Riwayat akademik (angkatan, IPK, total SKS, status kelulusan, tahun & periode kelulusan)
- * - Email resmi mahasiswa (email_students)
+ * - Snapshot email pribadi dari sumber akademik saat impor data.
  *
- * Kontak dan domisili aktif alumni berada di Biodata agar tidak ada dua sumber
- * perubahan untuk alamat, telepon, email pribadi, dan wilayah tempat tinggal.
+ * Email pada model ini hanya menjadi nilai awal saat Biodata dibuat. Kontak aktif alumni
+ * berada di Biodata dan perubahan pada Biodata tidak pernah ditulis balik ke model ini.
  * Kolom no_bpjs, golongan_darah, agama, dan nisn dihapus sesuai kepatuhan privasi UU PDP No. 27/2022.
  */
 class DataAkademik extends Model
@@ -27,17 +27,13 @@ class DataAkademik extends Model
     protected $fillable = [
         'nim',
         'nama',
+        'email_pribadi',
+        'prodi_id',
         'angkatan_masuk',
-        'tempat_lahir',
+        'tahun_akademik_masuk',
         'tanggal_lahir',
         'jenis_kelamin',
         'warga_negara',
-        'email_students',
-        'asal_sekolah',
-        'alamat_asal_sekolah',
-        'kota_kabupaten_asal_sekolah',
-        'provinsi_asal_sekolah',
-        'jurusan_asal_sekolah',
         'status_mahasiswa',
         'tahun_akademik_lulus',
         'tahun_lulus',
@@ -54,6 +50,21 @@ class DataAkademik extends Model
         'tahun_lulus' => 'integer',
         'ip_kumulatif' => 'float',
     ];
+
+    /**
+     * Membentuk label periode masuk kanonik untuk mahasiswa reguler.
+     *
+     * @param  int|null  $angkatan  Tahun angkatan masuk.
+     * @return string|null Label tahun akademik semester ganjil atau null jika tahun tidak valid.
+     */
+    public static function formatAcademicEntryPeriod(?int $angkatan): ?string
+    {
+        if ($angkatan === null || $angkatan < 1900) {
+            return null;
+        }
+
+        return $angkatan.'/'.($angkatan + 1).' (Semester Ganjil)';
+    }
 
     /**
      * Relasi ke model Biodata (profil aktif alumni & karier).

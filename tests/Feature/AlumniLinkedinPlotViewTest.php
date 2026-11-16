@@ -49,7 +49,6 @@ class AlumniLinkedinPlotViewTest extends TestCase
             'nim' => $nim,
             'nama' => $nama,
             'email_pribadi' => "{$nim}@gmail.com",
-            'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2001-01-01',
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',

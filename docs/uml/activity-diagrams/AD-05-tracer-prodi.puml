@@ -1,4 +1,5 @@
 @startuml
+!include activity-style.puml
 title AD-05 Pengisian Tracer Study Prodi
 
 |Alumni|
@@ -21,9 +22,9 @@ if (Biodata dan prodi tersedia?) then (ya)
   opsi, format, dan jawaban terstruktur;
   if (Valid?) then (ya)
     |Database|
-    :Upsert ProdiResponse dengan
-    biodata_id dan prodi_question_id;
-    :Simpan answer_text dan answer_json;
+    :Upsert kuesioner_jawaban dengan
+    biodata_id dan pertanyaan_id;
+    :Simpan jawaban_teks dan jawaban_json;
     :Hapus respons kosong yang bukan autofill;
     |Backend|
     :Hitung status kelengkapan prodi terpisah;

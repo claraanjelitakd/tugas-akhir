@@ -13,14 +13,35 @@ Dokumen ini menjelaskan struktur antarmuka dan batas akses untuk Superadmin, Adm
 
 - `biodata.alamat_saat_ini` adalah satu-satunya field alamat domisili alumni. Alias runtime `alamat` tidak lagi digunakan; alamat perusahaan tetap berada di tabel `perusahaan`.
 - `biodata.skills` dan `biodata.experience` adalah field kanonik. Alias lama `expert` dan `minat` dihapus dari model, frontend, sinkronisasi LinkedIn, exporter, dan seeder.
+- `biodata.bidang_pekerjaan` dan `biodata.divisi` adalah dua atribut karier yang berbeda. Bidang menyatakan rumpun pekerjaan, sedangkan divisi menyatakan unit kerja aktual; keduanya diproyeksikan pada direktori dan analitik.
 - NIK, No KK, dan NPWP tidak lagi menjadi bagian dari data aplikasi. Kolom tersebut tidak dibuat pada migration schema aktif.
 - Tabel `data_orang_tua` dan foreign key `biodata.orang_tua_id` tidak ada pada schema aktif karena data orang tua tidak digunakan dalam profil maupun ekspor Excel.
 - Data pembimbing/penguji dihapus dari `yudisium`; judul tugas akhir, tanggal lulus, status lulus, dan publikasi yang masih digunakan tetap dipertahankan.
-- NISN, BPJS, email mahasiswa, dan negara belum dihapus karena masih menjadi bagian dari sumber akademik/integrasi yang tersedia; visibilitasnya tetap dikendalikan oleh payload halaman.
+- Data sekolah asal dan tempat lahir tidak termasuk schema aktif. Domisili alumni dan lokasi perusahaan memakai `kode_provinsi` serta `kode_kabupaten` sebagai foreign key berbasis primary key natural; negara perusahaan memakai `kode_negara` sebagai FK ke `ref_negara.kode_negara`.
+- Nama perusahaan pada direktori mengambil master `perusahaan` sebagai entitas head office. Cabang atau lokasi tempat tinggal alumni tidak ditulis ke master perusahaan; lokasi alumni ditampilkan dari domisili aktif pada `biodata`.
+- Filter direktori memakai opsi yang dikirim backend dalam `filterOptions`. Wilayah
+  dipisahkan menjadi provinsi dan kabupaten/kota; pilihan kabupaten/kota di UI
+  dibatasi oleh provinsi yang dipilih dan query backend tetap menerapkan keduanya.
+  Nilai filter wilayah memakai ID master kode_provinsi dan kode_kabupaten;
+  opsi provinsi/kabupaten berasal dari tabel master, sedangkan opsi karier hanya
+  menyaring nilai yang tersedia pada scope alumni aktif.
+- Kolom status kelengkapan direktori selalu memproyeksikan status kuesioner Univ
+  dan Prodi, profil, serta atasan. Kuesioner Prodi tanpa pertanyaan aktif dikirim
+  sebagai nilai tidak berlaku (`NULL`) dan ditampilkan sebagai `Prodi: -`.
+- Direktori mempertahankan aksi kirim email per alumni. Flash notification dari
+  endpoint ditampilkan kembali setelah pengiriman berhasil atau ditolak.
+- Direktori operasional tetap memakai ikon LinkedIn untuk sinkronisasi dan review; grafik analitik hanya memakai tautan profil langsung saat pengguna membuka detail alumni.
 
 ### Kontrak migration schema
 
 Schema runtime untuk instalasi baru disusun dalam `database/migrations` dengan satu migration untuk setiap tabel atau view aktif. Migration historis yang berisi perubahan bertahap, `add`, `refresh`, dan backfill telah dipadatkan ke definisi pembentuk tabel/view final. `php artisan migrate` menjalankan migration tersebut, sedangkan `php artisan db:seed` mengisi data master dan simulasi.
+
+Data referensi UMP dipisahkan dari kode seeder pada
+`database/data/ump_2026.csv`. `UmpSeeder` memvalidasi nilai nominal sebagai
+angka rupiah, mencocokkan nama provinsi dengan master wilayah, lalu melakukan
+update atomik ke tabel `ump`. Kode sumber CSV tidak dipaksakan menjadi foreign
+key ketika berbeda dari kode master aplikasi; keputusan ini menjaga relasi
+kabupaten/kota dan perusahaan yang sudah ada tetap konsisten.
 
 ### Kontrak metrik Dashboard Superadmin
 
@@ -51,6 +72,89 @@ resources/js/
     └── AdminBiroTiga/
         └── Components/Sidebar.vue
 ```
+
+### Modul Analitik Evaluasi Atasan
+
+Analitik evaluasi pengguna lulusan memakai alur data yang sama dengan modul
+analitik lain, tetapi sumbernya adalah tabel transaksi evaluasi atasan:
+
+| Lapisan | Implementasi | Tanggung jawab |
+| --- | --- | --- |
+| Route | `GET /superadmin/analitik-atasan` dan `/data` | Menyediakan navigasi dan payload JSON untuk Superadmin. |
+| Controller | `AtasanAnalyticsController` | Mengirim props Inertia atau JSON tanpa menghitung agregasi di Vue. |
+| Service | `AtasanAnalyticsService` | Memuat evaluasi terkirim, memetakan opsi master ke skor, dan menghitung ringkasan. |
+| View | `SuperAdmin/Analytics/GrafikAtasan.vue` | Mengelola filter, empty state, tiga grafik, tabel, dan metodologi. |
+| Chart | `AnalyticsEChart.vue` | Merender opsi ECharts dan menangani resize/loading bersama. |
+
+Nilai aspek dan opsi tidak ditulis ulang pada view. Perubahan instrumen aktif di
+`pertanyaan_evaluasi_atasan` langsung tercermin pada payload selama tipe dan
+opsinya valid.
+
+### Provider LinkedIn dan mode mock Apify
+
+Pemilihan provider sinkronisasi dikendalikan oleh `LINKEDIN_PROVIDER` pada
+konfigurasi server. Nilai `mock_apify` memakai kontrak staging yang sama dengan
+Apify, tetapi membaca fixture JSON lokal dari `APIFY_MOCK_PATH`; token dan
+request eksternal tidak digunakan. Mode ini menjaga pengembangan lokal tetap
+aman ketika LinkedIn mengembalikan `HTTP 999` atau kuota actor habis. Provider
+mock tidak boleh dianggap sebagai data produksi dan tetap mengharuskan proses
+review sebelum perubahan biodata diterapkan.
+
+Resolver perusahaan LinkedIn menggunakan master `perusahaan` dan
+`PerusahaanVerificationService`. Nama yang cocok kuat disiapkan sebagai
+rekomendasi dan baru memetakan `biodata.perusahaan_id` setelah admin melakukan
+approval; nama baru dibuat sebagai kandidat `Menunggu Verifikasi`; konflik
+dengan perusahaan biodata yang sudah ada tidak ditimpa. Field profil lainnya
+tetap menunggu approval staging.
+Tabel Data Alumni dan halaman Sinkronisasi LinkedIn menyediakan `Preview`,
+`Approve`, dan `Tolak` berbasis hasil staging tanpa navigasi ke halaman detail;
+modal detail tetap dipertahankan untuk penyesuaian manual.
+
+Tabel `perusahaan` adalah master head office. Homepage, telepon/fax, alamat,
+provinsi, kabupaten, dan kode pos disimpan sebagai metadata kantor pusat yang
+boleh kosong. Lokasi kerja LinkedIn tidak ditulis ke kolom head office dan
+tetap berada pada `linkedin_sync_results` sebagai data staging.
+Penyimpanan profil alumni yang parsial tidak menurunkan status verifikasi atau
+mengosongkan metadata head office yang sudah tersimpan.
+Form evaluasi atasan memakai master head office yang sama dan hanya melengkapi
+kolom kosong pada master terverifikasi. Kode pos head office tidak dipetakan
+ke kode pos domisili alumni.
+
+Stepper evaluasi atasan memiliki kontrak penempatan yang tegas: section profil
+(`SEC_ATASAN_1`) hanya memuat identitas perusahaan dan atasan yang dirender oleh
+form; section karakteristik (`SEC_ATASAN_2`) memuat bentuk, skala, jumlah
+pegawai, sebaran alumni, dan standar gaji; section penilaian (`SEC_ATASAN_3`)
+memuat tingkat kesiapan serta seluruh aspek kinerja. Pada form publik, section
+profil diringkas di banner dan hanya dua langkah input yang ditampilkan;
+jumlah pegawai, sebaran alumni, dan standar gaji disimpan sebagai jawaban pada
+`kuesioner_jawaban`.
+Satu pertanyaan tidak boleh
+memiliki placement aktif ganda lintas stepper. `UnifiedKuesionerSeeder` juga
+membersihkan placement lama yang menduplikasi pertanyaan karakteristik atau
+penilaian ke section profil, tanpa menghapus master pertanyaan maupun jawaban.
+Service analitik juga mereduksi placement ganda berdasarkan ID master sebelum
+membentuk statistik agar satu aspek tidak dihitung dua kali.
+
+Untuk membedakan pengujian mock lokal dengan profil live, URL LinkedIn pada
+database lokal menggunakan akhiran `-mock` (misal `jovanyulianto-mock`). Sistem
+secara otomatis mencocokkan handle bersih ke berkas kanonik di `storage/app/mock/apify`.
+
+Normalizer staging mendukung actor `harvestapi/linkedin-profile-scraper`:
+- Mengambil nama lengkap dari `firstName` dan `lastName`.
+- Mengutamakan `topSkills` (array maupun string berpemisah `•`) untuk field keahlian `skills`.
+- Mengurai posisi aktif dari `currentPosition[0]` serta menduplikasi riwayat pekerjaan secara aman.
+- Memetakan bidang industri (`industry.name`) ke atribut usulan `bidang_pekerjaan` alumni.
+- Mendeteksi riwayat studi lanjut pascasarjana secara cerdas (`further_study`: Doktor/S3, Magister/S2, Profesi, atau entri aktif non-almamater UKDW) untuk dipetakan ke `pendidikan_tingkat`, `perguruan_tinggi`, dan `pendidikan_prodi`.
+- Payload request resmi HarvestAPI dikirim dengan `"profileScraperMode": "Profile details no email ($4 per 1k)"` dan `"queries": ["https://..."]`.
+- Menyimpan payload mentah utuh pada kolom `scraped_data` (tipe `JSON` di MySQL). MySQL binary JSON secara alami mengurutkan kunci objek secara alfabetis saat disimpan. Field lokasi dan atribut lainnya dipastikan berupa string aman agar tabel pemetaan audit trace (`LinkedinTraceHelper`) tidak memicu kesalahan tipe di frontend Vue.
+
+### Aturan Preservasi Data Scraping LinkedIn (Staging & Backup)
+
+Data staging hasil scraping LinkedIn (`linkedin_sync_results`) dan tautan URL profil alumni untuk pengujian tidak boleh hilang saat `php artisan migrate:fresh --seed`:
+1. `LinkedinSyncResultSeeder` terdaftar pada `DatabaseSeeder.php` dan otomatis dijalankan saat proses migrasi fresh atau seeding ulang.
+2. Seeder membaca snapshot cadangan dari `storage/app/backup/linkedin_sync_results_backup.json` dan memulihkannya berbasis NIM alumni (bukan sekadar auto-increment `biodata_id`), sehingga perubahan ID tabel tidak merusak data scraping.
+3. Seeder memastikan profil uji kunci (Jovan Yulianto NIM `72220002` dan Argo Wibowo NIM `71170001`) selalu terhubung dengan fixture kanoniknya di `storage/app/mock/apify`.
+4. Setiap penarikan scraping baru (`syncSingle`) serta mutasi persetujuan/penolakan (`approveResult` / `rejectResult`) di `LinkedInSyncController` otomatis mencadangkan status data terkini ke berkas JSON cadangan di disk.
 
 ### Komponen bersama
 
@@ -108,25 +212,52 @@ Route didefinisikan dalam `routes/web.php`. Endpoint verifikasi, penolakan, pemb
 
 Controller Fakultas dan Prodi membatasi daftar maupun aksi melalui query lingkup yang sama. Dengan demikian, data yang dapat ditampilkan juga merupakan data yang dapat diverifikasi oleh role tersebut.
 
-## Kuesioner Per Prodi
+## Kuesioner Terpadu (Unified Survey Engine)
 
-Fungsi kuesioner program studi juga memakai satu halaman bersama:
+Aplikasi menggunakan arsitektur kuesioner terpadu (*Unified Survey Engine*) yang mengonsolidasikan seluruh jenis instrumen survei ke dalam satu set tabel kanonik:
+- `kuesioner_section`: Mengelompokkan bagian/stepper kuesioner (`target`: `'univ'`, `'prodi'`, atau `'atasan'`).
+- `kuesioner_pertanyaan`: Bank butir pertanyaan terpusat untuk kuesioner universitas, kuesioner prodi, dan kuesioner atasan.
+- `kuesioner_section_pertanyaan`: Mengatur penempatan butir pertanyaan pada bagian, urutan tampilan, status tampil lokal (`is_active`), dan status kewajiban (`wajib = 1` atau `0`). Setiap baris adalah satu penggunaan pertanyaan. Kolom `id` baris ini disebut `placement_id` pada payload/antarmuka aplikasi; `pertanyaan_id` tetap menunjuk master pertanyaan. Status lokal memungkinkan Prodi pengguna menonaktifkan pertanyaan pinjaman tanpa memengaruhi placement Prodi lain.
+
+Untuk operasi pengelolaan kuesioner Prodi, PUT/edit dan pengelolaan opsi memakai ID master (`pertanyaan_id`). Toggle aktif, hapus penggunaan, dan reorder memakai ID penempatan (`placement_id`), yaitu nilai kolom `id` pada `kuesioner_section_pertanyaan`. Dengan demikian, satu pertanyaan master dapat dipakai di banyak section tanpa operasi lokal saling mengubah.
+- `kuesioner_opsi`: Master opsi pilihan jawaban beserta skor bobot numerik dan kode lompatan (*jump_to*). `kode_opsi` bersifat unik per `pertanyaan_id`, bukan unik global; `jawaban_teks` pada jawaban pilihan dinormalisasi dari `label` master.
+- `kuesioner_jawaban`: Transaksi jawaban terpadu untuk Alumni maupun Atasan penilai (`responden_type`: `'alumni'` atau `'atasan'`).
+
+Fungsi kuesioner program studi memakai satu halaman bersama:
 
 | File tampilan | Role |
 | --- | --- |
-| `resources/js/Pages/SuperAdmin/Pertanyaan/ProdiKuesionerIndex.vue` | Superadmin, Admin Fakultas, dan Admin Prodi |
+| `resources/js/Pages/Shared/Kuesioner/ProdiKuesionerIndex.vue` | Superadmin, Admin Fakultas, dan Admin Prodi |
 
-Controller `app/Http/Controllers/SuperAdmin/KelolaPertanyaan/KelolaKuesionerProdiSuperAdminController.php` menerima konteks role dan memberikan daftar program studi sesuai otorisasi. Route Superadmin, Fakultas, dan Prodi tetap terpisah agar middleware dan batas akses tetap jelas.
+Controller bersama `app/Http/Controllers/Shared/Kuesioner/KelolaKuesionerProdiController.php` menerima konteks role dan memberikan daftar program studi sesuai otorisasi. Route Superadmin, Fakultas, dan Prodi tetap terpisah agar middleware dan batas akses tetap jelas.
 
 ## Kontrak Data dan Response
 
-### Jawaban Tracer
+### Jawaban Kuesioner Terpadu
 
-Satu record tracer tetap menjadi unit jawaban per alumni dan per pertanyaan. Kolom `question_id` adalah foreign key ke `ref_subpertanyaan2021.id` meskipun namanya historis memakai istilah `question`; kolom ini menjadi identitas stabil butir untuk pemeliharaan, sedangkan `kode_pertanyaan` dan `subpertanyaan` adalah salinan untuk kompatibilitas laporan. Relasi Eloquent ke master memakai nama `masterPertanyaan` karena `subpertanyaan` sudah digunakan sebagai kolom snapshot teks. `answer` digunakan sebagai representasi teks untuk export dan kompatibilitas, sedangkan `answer_json` digunakan sebagai representasi terstruktur. Untuk jawaban teks sederhana, bentuk JSON minimum adalah { "value": "..." }. Struktur khusus jawaban lama tetap dipertahankan agar radio input, matriks, pilihan ganda, dan nominal tidak rusak.
+Satu rekaman pada `kuesioner_jawaban` menjadi unit jawaban per responden (`biodata_id` untuk alumni, atau `evaluasi_atasan_id` untuk atasan) dan per butir pertanyaan (`pertanyaan_id`). Kolom `kode_pertanyaan` dipertahankan sebagai snapshot identitas butir untuk kompatibilitas dan kecepatan kueri analitik. Nilai jawaban teks/angka disimpan pada `jawaban_teks`, sedangkan pilihan ganda terstruktur disimpan pada `jawaban_json`.
 
-F505 (Take Home Pay) memiliki sumber tunggal pada `biodata.gaji`. Setiap sinkronisasi profil menimpa jawaban F505 lama dengan nominal gaji terbaru dan menyimpannya dalam `answer` serta `answer_json`, sehingga nilai lama tidak dapat menjadi sumber berbeda.
+Field `kuesioner_pertanyaan.tipe` adalah kontrak input dan dispatch analitik:
+`text`/`textarea` menjadi jawaban terbuka, `single_choice` dan turunannya
+menjadi distribusi opsi, `multiple_choice` memakai array pada `jawaban_json`,
+`likert_5`/`rating_5` menjadi skor 1–5, dan `number` menjadi representasi angka
+yang harus dinormalisasi sebelum agregasi. Tipe yang sama berlaku pada semua
+placement pertanyaan; penempatan hanya menentukan section, urutan, kewajiban,
+dan status tampil lokal.
 
-Model Tracer melengkapi proyeksi yang kosong ketika record disimpan. Migrasi backfill_legacy_tracer_answer_json mengisi record lama tanpa menghapus nilai yang sudah ada.
+Satu tipe angka belum menentukan satu rumus. Pertanyaan numerik harus memiliki
+aturan analitik yang eksplisit, seperti rata-rata, median, jumlah, distribusi,
+dan unit pengukuran. Detail tabel tipe, denominator, serta batas formatter
+dinamis dicatat di [Kontrak Data Kuesioner](kuesioner-data-contract.md).
+
+F505 (Take Home Pay) memiliki sumber tunggal pada `biodata.gaji`. Setiap sinkronisasi profil menimpa jawaban F505 lama dengan nominal gaji terbaru dan menyimpannya dalam `jawaban_teks`, sehingga nilai lama tidak menjadi sumber inkonsistensi.
+
+Field identitas pada Kuesioner Universitas dan Kuesioner Prodi mengikuti sumber
+kanonik profil/akademik alumni. Saat halaman dibuka atau profil disimpan,
+sinkronisasi memperbarui jawaban identitas lama; jawaban evaluasi lain tetap
+berasal dari `kuesioner_jawaban`. Draft lokal Kuesioner Prodi dipisahkan per
+alumni, prodi, dan versi instrumen, serta hanya dipakai jika nilai server masih
+kosong, sehingga draft lama tidak dapat menimpa pembaruan profil.
 
 ### Response Inertia dan API
 
@@ -140,18 +271,17 @@ Link profil alumni pada halaman bersama tidak menggunakan prefix superadmin seca
 
 ### Kebijakan Data Sensitif pada Profil Alumni
 
-Halaman self-service `/alumni/profile` hanya menerima props yang diperlukan untuk pengisian tracer. NIK, NPWP, KK, data orang tua, dan data pembimbing/penguji tidak lagi menjadi bagian dari schema aktif. NISN, BPJS, email mahasiswa, dan publikasi tetap berada pada sumber akademik yang diperlukan untuk audit/admin, tetapi tidak dikirim ke form self-service. Judul tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai referensi akademik non-sensitif.
+Halaman self-service `/alumni/profile` hanya menerima props yang diperlukan untuk pengisian tracer. NIK, NPWP, KK, data orang tua, dan data pembimbing/penguji tidak lagi menjadi bagian dari schema aktif. `data_akademik.email_pribadi` menjadi snapshot email dari sumber akademik dan hanya dipakai sebagai nilai awal saat `biodata` dibuat; kontak aktif alumni tetap berada pada `biodata.email_pribadi` dan tidak ditulis balik ke data akademik. Email sumber akademik tidak dikirim ke form self-service sebagai field terpisah. Judul tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai referensi akademik non-sensitif.
 
-Kontak dan domisili aktif hanya ditulis ke `biodata`. Migrasi final melakukan backfill dari kolom legacy sebelum kolom duplikat dihapus, tanpa menimpa nilai biodata yang sudah ada. Database terpisah `tracer` tidak disentuh.
+Kontak dan domisili aktif hanya ditulis ke `biodata`. Perubahan `biodata.email_pribadi` tidak mengubah snapshot `data_akademik.email_pribadi`.
 
-Payload audit evaluasi atasan juga dipetakan melalui `EvaluasiAtasan::toAdminAuditArray()`. Payload tersebut hanya membawa status, identitas atasan, instansi, dan jawaban per butir; token akses survei tidak dikirim ke halaman detail alumni. Nilai jawaban dibaca dari kolom sumber `respon_evaluasi_atasan.nilai`, bukan alias `skor`.
+Payload audit evaluasi atasan juga dipetakan melalui `EvaluasiAtasan::toAdminAuditArray()`. Payload tersebut hanya membawa status, identitas atasan, instansi, dan jawaban per butir; token akses survei tidak dikirim ke halaman detail alumni. Tabel `evaluasi_atasan` hanya menjadi konteks sesi/token dan relasi alumni-perusahaan-atasan. Seluruh jawaban evaluasi, termasuk jumlah pegawai, jumlah alumni UKDW, dan standar gaji pertama, disimpan langsung ke `kuesioner_jawaban` dengan `responden_type = 'atasan'` dan `evaluasi_atasan_id = evaluasi_atasan.id`.
 
-### Sinkronisasi Dua Arah Data Perusahaan (Profil Alumni dan Evaluasi Atasan)
+### Sumber Data Perusahaan dan Snapshot Evaluasi Atasan
 
-Atribut perusahaan pada halaman profil alumni (`FormKarier.vue` dan `SimpanProfilController`) serta halaman evaluasi pengguna lulusan (`EvaluasiAtasanForm.vue` dan `EvaluasiAtasanController`) membaca dan menulis langsung ke record master `perusahaan` yang sama:
-- Field yang tersinkronisasi dua arah: `nama_perusahaan`, `bentuk_perusahaan`, `jenis_perusahaan`, `jenis_perusahaan_lainnya`, `skala`, `jenis_lokasi`, `negara`, `propinsi_id`, `kabupaten_id`, `alamat`, `kode_pos`, `no_telp_fax`, dan `homepage`.
-- Tiga pertanyaan karakteristik survei pengguna lulusan yang diisi khusus oleh atasan disimpan sesuai peruntukannya: `jumlah_pegawai` disimpan pada tabel `perusahaan`, sedangkan `jumlah_alumni_ukdw` dan `standar_gaji_pertama` disimpan pada tabel `evaluasi_atasan`.
-- Penempatan kerja (`bidang_pekerjaan`, `posisi_jabatan`) dan studi lanjut alumni ditampilkan sebagai ringkasan informasi di bagian atas halaman evaluasi atasan (tanpa membebani atasan dengan input ulang), serta identitas alumni ditampilkan melalui avatar bundar ber-dropdown di header kanan atas.
+Profil alumni (`FormKarier.vue` dan `SimpanProfilController`) membaca dan mengelola record master `perusahaan`. Form evaluasi atasan membaca metadata master tersebut sebagai data baca-saja:
+- Metadata master: `nama_perusahaan`, `bentuk_perusahaan`, `jenis_perusahaan`, `jenis_perusahaan_lainnya`, `skala`, `jenis_lokasi`, `kode_negara`, `kode_provinsi`, `kode_kabupaten`, `alamat`, `kode_pos`, `no_telp_fax`, dan `homepage`.
+- Data master perusahaan seperti bentuk dan skala hanya dikelola admin pada tabel `perusahaan`; atasan tidak mengeditnya pada formulir publik. Karakteristik yang dilaporkan atasan—`jumlah_pegawai`, `jumlah_alumni_ukdw`, dan `standar_gaji_pertama`—disimpan sebagai butir `kuesioner_jawaban` dengan `responden_type = 'atasan'` dan konteks `evaluasi_atasan_id`; ketiganya bukan kolom pada `evaluasi_atasan`. Seluruh skor penilaian kinerja juga disimpan pada tabel `kuesioner_jawaban`.
 
 ### Keseragaman Komponen Kartu Pertanyaan Kuesioner Universitas dan Prodi
 
@@ -184,7 +314,7 @@ Saat menambah fungsi administrasi yang sama lintas role, gunakan pola berikut:
 Alur login, reset password, dan wajib ganti password menggunakan komponen visual bersama `resources/js/components/Otentikasi/AuthBackdrop.vue`. Detail endpoint, batas frontend/backend, aturan komentar komponen, dan organisasi aset tersedia di [arsitektur-autentikasi.md](arsitektur-autentikasi.md).
 ### Dashboard Pengelola Berbasis Scope
 
-Dashboard Admin Prodi, Admin Fakultas, dan Biro 3 menggunakan kontrak data yang sama melalui `RoleDashboardDataService` dan komponen Vue `RoleDashboard`. Controller role hanya menentukan scope data dan metadata navigasi, sedangkan service membaca `v_alumni_audit_rekap` untuk menghitung populasi, response rate, kelengkapan profil, kelengkapan kuesioner universitas, ringkasan per prodi, serta pratinjau alumni.
+Dashboard Admin Prodi, Admin Fakultas, dan Biro 3 menggunakan kontrak data yang sama melalui `RoleDashboardDataService` dan komponen Vue `RoleDashboard`. Controller role hanya menentukan scope data dan metadata navigasi, sedangkan service membaca `v_alumni_audit_rekap` untuk menghitung populasi, response rate, kelengkapan profil, kelengkapan kuesioner universitas, ringkasan per prodi, serta pratinjau alumni. Direktori juga menerapkan filter server-side untuk wilayah domisili, head office, skills, bidang, dan unit/divisi.
 
 Komponen dashboard menerapkan layout responsif yang sama untuk ketiga role. Tautan pintasan tetap dibatasi berdasarkan route yang tersedia pada role tersebut, sehingga Biro 3 tidak menerima tautan modul yang hanya dimiliki Admin Prodi atau Admin Fakultas. Filter tahun diteruskan sebagai query `tahun` ke dashboard role dan seluruh metrik pada halaman dihitung ulang memakai tahun yang sama.
 
@@ -194,28 +324,61 @@ Halaman analitik Superadmin tersedia pada `/superadmin/analitik` dan dirender ol
 
 Halaman dibagi menjadi tiga tab: Analisis menyusun temuan otomatis dari statistik aktual, Grafik menampilkan visual utama dan pendukung yang saling melakukan cross-filter, sedangkan Data menyediakan pencarian, sorting, dan pagination detail. Klik batang, titik, irisan, treemap, heatmap, Sankey, atau provinsi membuka drawer drill-down tanpa menghilangkan konteks filter. Kuesioner prodi tidak dipakai pada halaman ini; filter program studi hanya membatasi populasi lulusan universitas.
 
-Dataset indikator aktif dibaca melalui view terpisah: `v_analytics_population`,
+Pada konteks Admin Fakultas, tautan detail dari tabel/grafik memakai route `GET /fakultas/analitik/alumni/{id}`. Route ini mengizinkan pembacaan detail alumni lintas fakultas untuk kebutuhan analitik, tetapi mengirim prop `readonly = true`. Detail dari direktori biasa tetap memakai `GET /fakultas/alumni/{id}` dan hanya menerima alumni dalam fakultas admin. Endpoint mutasi profil dan ekspor tetap memeriksa scope fakultas sehingga mode baca-saja tidak menjadi jalur perubahan data.
+
+Dataset indikator aktif memakai `v_analytics_population`,
 `v_analytics_response_rate`, `v_analytics_profile_completion`,
 `v_analytics_wait_time`, `v_analytics_salary_ump`,
 `v_analytics_work_location`, `v_analytics_employment_status`, dan
-`v_analytics_alignment`, dan view indikator lanjutan
-`v_analytics_learning_methods`, `v_analytics_job_search_start`,
+`v_analytics_alignment`. Indikator tracer berbasis kode pertanyaan memakai
+alias legacy `v_analytics_learning_methods`, `v_analytics_job_search_start`,
 `v_analytics_job_search_methods`, `v_analytics_application_pipeline`,
 `v_analytics_job_search_activity`, `v_analytics_workplace_type`,
 `v_analytics_further_study`, `v_analytics_mismatch_reasons`, serta
-`v_analytics_competency_gap`. Seluruh view indikator lanjutan memakai
-`v_analytics_tracer_answers` sebagai fondasi jawaban kanonik per alumni dan
-kode pertanyaan. Keunikan pasangan `biodata_id` dan `kode_pertanyaan` dijamin
-oleh unique key tabel `tracer`, sehingga view tidak melakukan agregasi
-`MAX(id)` berulang. Service tidak mengambil seluruh jawaban F2–F18 lalu
+`v_analytics_competency_gap`. Alias tersebut hanya kompatibilitas; service
+memakai `v_analytics_tracer_answers` sebagai fondasi jawaban kanonik per alumni
+dan kode pertanyaan. Karena tabel jawaban mendukung riwayat pengisian ulang,
+view memilih satu record terbaru dari `kuesioner_jawaban` berdasarkan `id` dan
+tidak menggandakan jawaban. Service tidak mengambil seluruh jawaban tracer lalu
 memilahnya di PHP. View bukan cache materialisasi, sehingga indeks pada tabel
 sumber tetap menjadi bagian penting dari performa.
 
+Sembilan view lanjutan yang hanya memproyeksikan `v_analytics_tracer_answers`
+dengan filter `kode_pertanyaan` kini diperlakukan sebagai alias legacy; service
+memfilter read-model kanonik secara langsung. View tersebut tidak boleh menjadi
+sumber logika kedua. Karena tabel jawaban mendukung riwayat pengisian ulang,
+jawaban terbaru ditentukan dari `kuesioner_jawaban.id`, bukan dari unique key
+yang tidak tersedia pada pasangan `biodata_id` dan `kode_pertanyaan`.
+
+Fixture default `AlumniSimulationSeeder` mengisi indikator universitas yang
+bergantung pada percabangan pekerjaan secara eksplisit: F10 untuk seluruh
+kohort, serta F11 dan F16 untuk alumni bekerja atau berwirausaha. Label jawaban
+diambil dari `kuesioner_opsi` aktif dan tetap melewati `pertanyaan_id` serta
+`opsi_id`, sehingga indikator universitas memiliki variasi yang dapat dibaca
+tanpa membuat jawaban yatim. Jalur tersebut tetap terhubung ke `biodata`,
+`data_akademik`, `prodi`, `perusahaan`, dan `atasan`; evaluasi atasan serta
+jawaban kuesioner prodi dibuat dari relasi alumni yang sama.
+
+Paket IKU S1 memakai dua read-model tambahan. `v_iku_s1_aee` membaca lulusan
+S1 melalui `data_akademik.prodi_id`, `angkatan_masuk`,
+`tahun_akademik_masuk`, dan `status_mahasiswa = 'Lulus'`; status aktif, AR, AK,
+Drop Out, Pindah, serta Cuti tidak masuk populasi AEE. `v_iku_s1_lulusan` mengambil lulusan S1,
+status F8, masa tunggu F504/F502/F506, tanggal studi lanjut F18d, gaji, serta
+provinsi perusahaan. Saat grafik Outcomes diklik, `IkuS1AnalyticsService` juga
+menjodohkan `biodata` ke master `perusahaan`, wilayah cabang, dan `atasan` untuk
+mengirim detail alumni tanpa membuat tabel analitik baru. Service menghitung
+formula dan bobot dari konfigurasi `config/iku.php`,
+sedangkan komponen Vue hanya menyajikan hasil read-only. Payload AEE hanya
+memisahkan lulusan tepat waktu dan lulusan terlambat; status non-lulusan tidak
+lagi ditampilkan sebagai kategori abu-abu.
+
 `v_analytics_population` hanya membaca identitas, akademik, program studi,
-perusahaan, dan provinsi kerja dari tabel kanonik. Status pernah menjawab
-butir wajib dihitung khusus oleh `v_analytics_response_rate`; indikator lain
-tidak ikut membayar biaya agregasi response rate. Denominator kohort dihitung
-langsung dari `biodata` dan `data_akademik` tanpa memanggil rekap audit prodi.
+perusahaan, URL profil LinkedIn, dan provinsi kerja dari tabel kanonik. URL tersebut
+hanya menjadi tautan baca pada tabel analitik; direktori operasional tetap memakai
+aksi sinkronisasi/review. Status responden kuesioner selesai
+dihitung khusus oleh `v_analytics_response_rate` berbasis penyelesaian 100% butir kuesioner
+universitas (`v_alumni_tracer_univ_status`), menjamin sinkronisasi mutlak dengan direktori
+alumni. Denominator kohort dihitung langsung dari `biodata` dan `data_akademik` tanpa memanggil rekap audit prodi.
 
 `v_analytics_further_study` secara khusus mencakup F12, F18b, F18c, dan F18d.
 Service memberi label dimensi sebelum agregasi agar sumber biaya tidak
@@ -238,9 +401,9 @@ tampilan, serta tombol ekspor PNG, mengeliminasi tombol toolbar berlebih.
 Tabel data sampingan mendukung pencarian dan interaksi dua arah dengan grafik
 (klik baris tabel menyorot elemen visual, klik grafik menyorot baris tabel).
 
-Visualisasi 18 indikator dipecah ke berkas mandiri pada direktori
+Visualisasi indikator dipecah ke berkas mandiri pada direktori
 `resources/js/components/analytics/categories/` (`01_ResponseRate.vue` s.d.
-`18_WorkLocation.vue`) dan dimuat secara asinkron melalui Index Hub
+`21_IkuS1UmpWeighted.vue`) dan dimuat secara asinkron melalui Index Hub
 `AnalyticsChartsPanel.vue`. Setiap modul dibungkus oleh komponen terpadu
 `AnalyticsTabbedContainer.vue` yang mengintegrasikan navigasi tab visualisasi,
 analisis naratif data-driven ("Kilas Indikator"), drill-down inline tanpa
@@ -261,6 +424,13 @@ Tahapan lamaran per program studi memakai median jumlah perusahaan dilamar, mere
 dan wawancara; visual, tooltip, dan tabel menampilkan hasilnya sebagai bilangan bulat
 tanpa pecahan desimal.
 Halaman analitik lama `SuperAdmin/Analytics/Index.vue` telah dihapus.
+Matriks bobot karier tidak ditanam di Vue. `config/iku.php` menyimpan ambang
+1,2 kali UMP, galat Slovin 2,3%, dan bobot setiap role. Payload grafik UMP
+menyertakan `weight_confirmation_status` karena label matriks pada salinan
+keputusan masih perlu dikonfirmasi Biro 3. `DatabaseSeeder` memakai dataset
+default ringkas; fixture dashboard, distribusi analitik, skeleton alumni, dan
+profil unggulan tetap dapat dijalankan langsung sebagai seeder opsional.
+
 Saat record kosong, `data_availability` membedakan tidak ada populasi, belum ada
 jawaban valid, dan jawaban yang tidak berlaku akibat percabangan.
 
@@ -270,13 +440,15 @@ jawaban valid, dan jawaban yang tidak berlaku akibat percabangan.
 | --- | --- | --- |
 | Response rate | `v_analytics_response_rate.answered_mandatory_univ` | Bar horizontal per prodi |
 | Waktu memperoleh pekerjaan | `tracer.F502`, `tracer.F504`, `tracer.F506` | Distribusi bucket dan median per prodi |
-| Gaji dibandingkan 1,2× UMP | `biodata.gaji`, `perusahaan.propinsi_id`, `propinsi`, `ump` | Dispersi kuartil Q1/Q2/Q3 garis per prodi, kelayakan UMP per prodi, dan status per provinsi |
-| Wilayah kerja | `perusahaan.propinsi_id`, `propinsi` | Peta choropleth dan ranking provinsi |
+| Gaji dibandingkan 1,2× UMP | `biodata.gaji`, `perusahaan.kode_provinsi`, `propinsi`, `ump` | Dispersi kuartil Q1/Q2/Q3 garis per prodi, kelayakan UMP per prodi, dan status per provinsi |
+| Wilayah kerja | `perusahaan.kode_provinsi`, `propinsi` | Peta choropleth dan ranking provinsi |
 | Status pekerjaan dan IKU 1 awal | `tracer.F8` | Bar status dan KPI |
 | Hubungan bidang studi | `tracer.F14`, `ref_subpertanyaan_detil` | Bar kategori dan line chart keselarasan per prodi |
 | Keselarasan tingkat pendidikan | `tracer.F15`, `ref_subpertanyaan_detil` | Bar kategori dan line chart keselarasan vertikal per prodi (Gambar 4.14) |
 | Kompetensi & Gap Selisih | `tracer.F17` | Kombinasi batang Likert (0-5) dan garis gap selisih Dual Y-Axis (-3 s/d +3) |
 | Kelengkapan profil | `v_analytics_population.is_profile_complete` | Bar lengkap/belum lengkap dan tabel alumni |
+| AEE S1 | `v_iku_s1_aee` | Bar capaian per prodi dengan pembilang tepat waktu/denominator |
+| Capaian karier S1 | `v_iku_s1_lulusan`, `ump`, `kuesioner_jawaban`, `config/iku.php` | Bar kontribusi bobot karyawan, founder/co-founder, freelancer, studi lanjut, serta audit `Wirausaha Lainnya` tanpa bobot otomatis |
 
 Grafik pendapatan menggunakan aturan `gaji >= 1,2 × UMP`, bukan sekadar `gaji >= UMP`. Record salary menyimpan nama alumni, NIM, program studi, perusahaan, provinsi, gaji, UMP, ambang pembanding, dan status. Grafik waktu tunggu mengklasifikasikan alumni sebagai lebih cepat, sama dengan, atau lebih lama dari median aktual pada filter aktif.
 

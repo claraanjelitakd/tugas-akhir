@@ -88,13 +88,13 @@ class WilayahSeeder extends Seeder
                         if (! $kab) {
                             Kabupaten::create([
                                 'kode_kabupaten' => $kodeKabupaten,
-                                'propinsi_id' => $propinsi->id,
+                                'kode_provinsi' => $propinsi->kode_provinsi,
                                 'nama_kabupaten' => $namaKabupaten,
                             ]);
                             $inserted++;
                         } else {
                             $kab->update([
-                                'propinsi_id' => $propinsi->id,
+                                'kode_provinsi' => $propinsi->kode_provinsi,
                                 'nama_kabupaten' => $namaKabupaten,
                             ]);
                             $updated++;

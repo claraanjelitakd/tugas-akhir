@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Swal from 'sweetalert2';
 import Sidebar from '../Components/Sidebar.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 
 const props = defineProps({
     user: Object,
@@ -107,13 +108,13 @@ const openDetailModal = (log) => {
 <template>
     <Head title="Log Aktivitas Sistem - Super Admin Tracer Study UKDW" />
 
-    <div class="min-h-screen bg-slate-50 flex font-sans">
+    <div class="min-h-screen bg-slate-50 flex font-sans min-w-[1280px]">
         <Sidebar :user="user" />
 
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             <!-- Header Solid UKDW Green Konsisten -->
             <div class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
-                <div class="w-full max-w-[1440px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div class="flex items-center gap-2 text-xs text-white/70 font-medium mb-1.5">
                             <Link href="/superadmin/dashboard" class="hover:text-white transition-colors">Dashboard</Link>
@@ -144,7 +145,7 @@ const openDetailModal = (log) => {
             </div>
 
             <!-- Kontainer Konten Utama -->
-            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
+            <main class="admin-page-main w-full -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-12">
                 <!-- Filter Bar -->
                 <div class="bg-white p-3.5 rounded-xl border border-gray-300 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs shadow-2xs">
                     <div class="flex items-center gap-3 flex-wrap">
@@ -268,28 +269,8 @@ const openDetailModal = (log) => {
                     </table>
                 </div>
 
-                    <!-- Pagination -->
-                    <div v-if="logs.total > 0" class="px-4 py-3 border-t border-gray-200 bg-slate-50 flex items-center justify-between text-xs text-gray-600">
-                        <div>
-                            Menampilkan {{ logs.from }} - {{ logs.to }} dari total {{ logs.total }} log.
-                        </div>
-                        <div class="flex gap-1">
-                            <Link
-                                v-for="(link, lIdx) in logs.links"
-                                :key="lIdx"
-                                :href="link.url || '#'"
-                                v-html="link.label"
-                                class="px-2.5 py-1 rounded text-xs font-semibold transition-colors"
-                                :class="[
-                                    link.active
-                                        ? 'bg-[#0D542B] text-white'
-                                        : link.url
-                                            ? 'bg-white text-gray-700 hover:bg-gray-200 border border-gray-300'
-                                            : 'text-gray-400 cursor-not-allowed pointer-events-none'
-                                ]"
-                            />
-                        </div>
-                    </div>
+                    <!-- Pagination log aktivitas memakai label Bahasa Indonesia dan nomor halaman ringkas. -->
+                    <PaginationControls :pagination="logs" summary-label="log aktivitas" />
                 </div>
 
             </main>

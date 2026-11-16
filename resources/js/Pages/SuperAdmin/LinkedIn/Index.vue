@@ -1,3 +1,4 @@
+<!-- HALAMAN MASIH DISEMBUNYIKAN -->
 <!--
   Halaman Direktori & Sinkronisasi LinkedIn Alumni
   File: resources/js/Pages/SuperAdmin/LinkedIn/Index.vue
@@ -24,6 +25,8 @@ import Swal from 'sweetalert2';
 import SidebarSuperAdmin from '../Components/Sidebar.vue';
 import SidebarFakultas from '../../AdminFakultas/Components/Sidebar.vue';
 import SidebarProdi from '../../AdminProdi/Components/Sidebar.vue';
+import SidebarBiroTiga from '../../AdminBiroTiga/Components/Sidebar.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 
 const props = defineProps({
     alumnis: {
@@ -156,8 +159,14 @@ const approveForm = ref({
     posisi_jabatan: '',
     posisi_wiraswasta: '',
     nama_perusahaan: '',
+    bidang_pekerjaan: '',
+    divisi: '',
     skills: '',
     sync_foto: true,
+    sync_studi_lanjut: false,
+    pendidikan_tingkat: '',
+    perguruan_tinggi: '',
+    pendidikan_prodi: '',
 });
 
 // State Modal Histori Sinkronisasi
@@ -365,6 +374,20 @@ const syncSingle = async (alumni) => {
                 alumni.status_color = 'amber';
                 alumni.terakhir_sync = data.alumni.terakhir_sync;
                 alumni.latest_sync_result = data.alumni.latest_sync_result;
+                if (data.alumni.latest_sync_result?.company_resolution) {
+                    const resolution = data.alumni.latest_sync_result.company_resolution;
+                    alumni.company_mapping = {
+                        scraped_name: resolution.company_name,
+                        master_name: resolution.recommendation?.company_name || resolution.company_name,
+                        master_status: resolution.company_status,
+                        status: resolution.status,
+                        label: resolution.status === 'matched'
+                            ? 'Master cocok, siap di-approve'
+                            : (resolution.status === 'needs_review'
+                                ? 'Perlu review perusahaan'
+                                : 'Perusahaan baru menunggu verifikasi'),
+                    };
+                }
                 if (data.alumni.keterangan_nama) alumni.keterangan_nama = data.alumni.keterangan_nama;
                 if (data.alumni.status_plot_label) alumni.status_plot_label = data.alumni.status_plot_label;
                 if (data.alumni.nama_linkedin) alumni.nama_linkedin = data.alumni.nama_linkedin;
@@ -415,6 +438,9 @@ const copyRawJson = (raw) => {
     showToast('success', 'Data JSON mentah berhasil disalin ke clipboard.');
 };
 
+/**
+ * Menambahkan keahlian individual dari daftar keterampilan LinkedIn ke kolom form penyesuaian.
+ */
 const addSkillToForm = (skillName) => {
     if (!skillName) return;
     const current = approveForm.value.skills ? approveForm.value.skills.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -422,6 +448,17 @@ const addSkillToForm = (skillName) => {
         current.push(skillName);
         approveForm.value.skills = current.join(', ');
     }
+};
+
+/**
+ * Memilih salah satu entri riwayat pendidikan lanjutan LinkedIn dan mengisi kolom form studi lanjut.
+ */
+const selectStudyOption = (study) => {
+    if (!study) return;
+    approveForm.value.sync_studi_lanjut = true;
+    approveForm.value.pendidikan_tingkat = study.degree_normalized || study.degree || '';
+    approveForm.value.perguruan_tinggi = study.school || '';
+    approveForm.value.pendidikan_prodi = study.field_of_study || '';
 };
 
 const openReviewModal = async (syncResultId, alumni) => {
@@ -445,11 +482,33 @@ const openReviewModal = async (syncResultId, alumni) => {
             approveForm.value.posisi_jabatan = data.result.preview?.current_job || '';
             approveForm.value.posisi_wiraswasta = '';
             approveForm.value.nama_perusahaan = data.result.preview?.current_company || '';
+            approveForm.value.bidang_pekerjaan = data.result.preview?.bidang_pekerjaan || data.result.preview?.suggested_bidang_pekerjaan || data.result.current_data?.bidang_pekerjaan || '';
+            approveForm.value.divisi = data.result.preview?.current_divisi || data.result.current_data?.divisi || '';
             approveForm.value.sync_foto = !!data.result.preview?.profile_picture;
 
-            // Inisialisasi Skills: Prioritas dari preview.skills, lalu suggested_skills, lalu data saat ini
+            // Inisialisasi Studi Lanjut jika terdeteksi dari riwayat pendidikan LinkedIn
+            if (data.result.preview?.further_study) {
+                approveForm.value.sync_studi_lanjut = true;
+                approveForm.value.pendidikan_tingkat = data.result.preview.further_study.pendidikan_tingkat || '';
+                approveForm.value.perguruan_tinggi = data.result.preview.further_study.perguruan_tinggi || '';
+                approveForm.value.pendidikan_prodi = data.result.preview.further_study.pendidikan_prodi || '';
+            } else if (data.result.current_data?.perguruan_tinggi) {
+                approveForm.value.sync_studi_lanjut = false;
+                approveForm.value.pendidikan_tingkat = data.result.current_data.pendidikan_tingkat || '';
+                approveForm.value.perguruan_tinggi = data.result.current_data.perguruan_tinggi || '';
+                approveForm.value.pendidikan_prodi = data.result.current_data.pendidikan_prodi || '';
+            } else {
+                approveForm.value.sync_studi_lanjut = false;
+                approveForm.value.pendidikan_tingkat = '';
+                approveForm.value.perguruan_tinggi = '';
+                approveForm.value.pendidikan_prodi = '';
+            }
+
+            // Inisialisasi Skills: Prioritas mutlak dari Top Skills (top_skills), lalu fallback ke skills, lalu data saat ini
             let initialSkills = '';
-            if (Array.isArray(data.result.preview?.skills) && data.result.preview.skills.length > 0) {
+            if (Array.isArray(data.result.preview?.top_skills) && data.result.preview.top_skills.length > 0) {
+                initialSkills = data.result.preview.top_skills.join(', ');
+            } else if (Array.isArray(data.result.preview?.skills) && data.result.preview.skills.length > 0) {
                 initialSkills = data.result.preview.skills.join(', ');
             } else if (typeof data.result.preview?.skills === 'string' && data.result.preview.skills.trim()) {
                 initialSkills = data.result.preview.skills.trim();
@@ -523,8 +582,14 @@ const handleApprove = async () => {
                 posisi_jabatan: approveForm.value.posisi_jabatan,
                 posisi_wiraswasta: approveForm.value.posisi_wiraswasta,
                 nama_perusahaan: approveForm.value.nama_perusahaan,
+                bidang_pekerjaan: approveForm.value.bidang_pekerjaan,
+                divisi: approveForm.value.divisi,
                 skills: approveForm.value.skills,
                 sync_foto: approveForm.value.sync_foto,
+                sync_studi_lanjut: approveForm.value.sync_studi_lanjut,
+                pendidikan_tingkat: approveForm.value.pendidikan_tingkat,
+                perguruan_tinggi: approveForm.value.perguruan_tinggi,
+                pendidikan_prodi: approveForm.value.pendidikan_prodi,
             }),
         });
 
@@ -620,6 +685,104 @@ const handleReject = async () => {
     }
 };
 
+// Menyetujui hasil pending dengan nilai hasil scraping tanpa membuka modal detail.
+const quickApprove = async (alumni) => {
+    const resultId = alumni.latest_sync_result?.id;
+    if (!resultId || isActionLoading.value) return;
+
+    const confirmation = await Swal.fire({
+        title: 'Approve hasil LinkedIn?',
+        text: `${alumni.nama}: data posisi, perusahaan, skills, dan riwayat akan diterapkan sesuai hasil scraping.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Approve & Terapkan',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#9CA3AF',
+        reverseButtons: true,
+    });
+
+    if (!confirmation.isConfirmed) return;
+
+    isActionLoading.value = true;
+    try {
+        const response = await fetch(`${props.baseRoute}/results/${resultId}/approve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': getCsrfToken(),
+            },
+            body: JSON.stringify({}),
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            alumni.perusahaan = data.alumni.perusahaan;
+            alumni.posisi = data.alumni.posisi;
+            alumni.status_sync = 'Approved';
+            alumni.status_color = 'emerald';
+            alumni.latest_sync_result = data.alumni.latest_sync_result;
+            recalculateLocalStats();
+            showToast('success', `${alumni.nama}: hasil LinkedIn berhasil diterapkan.`);
+        } else {
+            showToast('error', data.message || 'Approval cepat gagal diproses.');
+        }
+    } catch (err) {
+        showToast('error', 'Terjadi gangguan sistem saat approval cepat.');
+    } finally {
+        isActionLoading.value = false;
+    }
+};
+
+// Menolak hasil pending langsung dari tabel dengan tetap menyimpan histori staging.
+const quickReject = async (alumni) => {
+    const resultId = alumni.latest_sync_result?.id;
+    if (!resultId || isActionLoading.value) return;
+
+    const confirmation = await Swal.fire({
+        title: 'Tolak hasil LinkedIn?',
+        text: `${alumni.nama}: data utama alumni tidak akan diubah.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Tolak Hasil',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#B91C1C',
+        cancelButtonColor: '#9CA3AF',
+        reverseButtons: true,
+    });
+
+    if (!confirmation.isConfirmed) return;
+
+    isActionLoading.value = true;
+    try {
+        const response = await fetch(`${props.baseRoute}/results/${resultId}/reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': getCsrfToken(),
+            },
+            body: JSON.stringify({}),
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            alumni.status_sync = 'Rejected';
+            alumni.status_color = 'rose';
+            alumni.latest_sync_result = data.alumni.latest_sync_result;
+            recalculateLocalStats();
+            showToast('success', `${alumni.nama}: hasil LinkedIn ditolak.`);
+        } else {
+            showToast('error', data.message || 'Penolakan hasil gagal diproses.');
+        }
+    } catch (err) {
+        showToast('error', 'Terjadi gangguan sistem saat menolak hasil.');
+    } finally {
+        isActionLoading.value = false;
+    }
+};
+
 // =========================================================================
 // HISTORI SINKRONISASI
 // =========================================================================
@@ -666,18 +829,19 @@ const dashboardRoute = computed(() => {
 <template>
     <Head :title="`Sinkronisasi LinkedIn - ${roleTitle}`" />
 
-    <div class="min-h-screen bg-[#f8fafc] text-gray-800 font-sans flex">
+    <div class="min-h-screen bg-[#f8fafc] text-gray-800 font-sans flex min-w-[1280px]">
         <!-- Sidebar Adaptif Sesuai Role Pengguna -->
         <SidebarSuperAdmin v-if="role === 'superadmin' || !role" activeMenu="linkedin-sync" />
-        <SidebarFakultas v-else-if="role === 'admin_fakultas'" />
-        <SidebarProdi v-else-if="role === 'admin_prodi'" />
+        <SidebarFakultas v-else-if="role === 'admin_fakultas'" activeMenu="linkedin-sync" />
+        <SidebarProdi v-else-if="role === 'admin_prodi'" activeMenu="linkedin-sync" />
+        <SidebarBiroTiga v-else-if="role === 'admin_biro3'" activeMenu="linkedin-sync" />
 
         <!-- Area Konten Utama -->
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
 
             <!-- Header Solid Hijau Resmi UKDW #0D542B (Serasi dengan superadmin/alumni) -->
             <header class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8">
-                <div class="w-full max-w-[1400px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div class="w-full flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <div class="flex items-center gap-2 text-xs text-white/80 font-medium mb-2">
                             <Link :href="dashboardRoute" class="hover:underline">Dashboard</Link>
@@ -718,7 +882,7 @@ const dashboardRoute = computed(() => {
             </header>
 
             <!-- Main Content Container -->
-            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-16">
+            <main class="admin-page-main w-full -mt-10 px-4 sm:px-6 lg:px-8 space-y-6 pb-16">
 
                 <!-- 6 Kartu Statistik Ringkas & Profesional (Formal, Flat, Bersih) -->
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
@@ -904,7 +1068,7 @@ const dashboardRoute = computed(() => {
                             </span>
                         </div>
                         <div class="text-xs text-gray-500 font-medium">
-                            Menampilkan halaman {{ currentPage }} dari {{ totalPages }}
+                            {{ filteredAlumni.length }} data alumni
                         </div>
                     </div>
 
@@ -1013,6 +1177,22 @@ const dashboardRoute = computed(() => {
                                                 <span class="text-[11px] text-slate-500 block truncate max-w-[210px]" :title="alumni.perusahaan_linkedin">{{ alumni.perusahaan_linkedin || '-' }}</span>
                                             </div>
 
+                                            <div v-if="alumni.company_mapping" class="pt-1 border-t border-gray-100">
+                                                <span
+                                                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border"
+                                                    :class="{
+                                                        'bg-emerald-50 text-emerald-800 border-emerald-200': alumni.company_mapping.status === 'auto_mapped' || alumni.company_mapping.status === 'matched',
+                                                        'bg-amber-50 text-amber-800 border-amber-200': alumni.company_mapping.status === 'pending_verification',
+                                                        'bg-rose-50 text-rose-800 border-rose-200': alumni.company_mapping.status === 'needs_review',
+                                                    }"
+                                                >
+                                                    {{ alumni.company_mapping.label }}
+                                                </span>
+                                                <span v-if="alumni.company_mapping.master_name" class="text-[10px] text-slate-500 block truncate max-w-[210px] mt-0.5">
+                                                    Master: {{ alumni.company_mapping.master_name }}
+                                                </span>
+                                            </div>
+
                                             <div v-if="alumni.status_plot_label" class="mt-1">
                                                 <span 
                                                     class="inline-block text-[10px] font-medium px-2 py-0.5 rounded border"
@@ -1062,6 +1242,34 @@ const dashboardRoute = computed(() => {
                                                 </svg>
                                             </button>
 
+                                            <!-- Approval cepat untuk hasil pending yang tidak memerlukan penyesuaian manual -->
+                                            <template v-if="alumni.latest_sync_result && alumni.latest_sync_result.status === 'pending'">
+                                                <button
+                                                    type="button"
+                                                    @click="quickApprove(alumni)"
+                                                    :disabled="isActionLoading"
+                                                    class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-[#0D542B] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 active:scale-95 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                    title="Approve cepat dan terapkan hasil scraping"
+                                                    aria-label="Approve cepat hasil sinkronisasi"
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    @click="quickReject(alumni)"
+                                                    :disabled="isActionLoading"
+                                                    class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 active:scale-95 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                    title="Tolak hasil scraping"
+                                                    aria-label="Tolak hasil sinkronisasi"
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </template>
+
                                             <!-- Tombol Review (Jika status Pending Review, Icon Berukuran Pasti 32x32) -->
                                             <button
                                                 v-if="alumni.latest_sync_result && alumni.latest_sync_result.status === 'pending'"
@@ -1095,45 +1303,14 @@ const dashboardRoute = computed(() => {
                         </table>
                     </div>
 
-                    <!-- Footer Pagination ala DataTables -->
-                    <div class="px-6 py-4 bg-gray-50/50 border-t border-gray-300 flex items-center justify-between flex-wrap gap-4">
-                        <div class="text-xs text-gray-500">
-                            Menampilkan {{ filteredAlumni.length > 0 ? (currentPage - 1) * perPage + 1 : 0 }} sampai 
-                            {{ Math.min(currentPage * perPage, filteredAlumni.length) }} dari 
-                            {{ filteredAlumni.length }} data alumni
-                        </div>
-
-                        <div class="flex items-center gap-1.5">
-                            <button
-                                type="button"
-                                @click="goToPage(currentPage - 1)"
-                                :disabled="currentPage === 1"
-                                class="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                            >
-                                Sebelumnya
-                            </button>
-
-                            <button
-                                v-for="p in Math.min(totalPages, 5)"
-                                :key="p"
-                                type="button"
-                                @click="goToPage(p)"
-                                class="w-8 h-8 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                                :class="currentPage === p ? 'bg-[#0D542B] text-white shadow-2xs' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'"
-                            >
-                                {{ p }}
-                            </button>
-
-                            <button
-                                type="button"
-                                @click="goToPage(currentPage + 1)"
-                                :disabled="currentPage === totalPages"
-                                class="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                            >
-                                Selanjutnya
-                            </button>
-                        </div>
-                    </div>
+                    <!-- Pagination daftar alumni memakai kontrol bersama. -->
+                    <PaginationControls
+                        :total="filteredAlumni.length"
+                        :current-page="currentPage"
+                        :page-size="perPage"
+                        summary-label="data alumni"
+                        @update:current-page="goToPage"
+                    />
                 </div>
 
             </main>
@@ -1247,7 +1424,9 @@ const dashboardRoute = computed(() => {
                                     <div class="space-y-1.5 text-xs">
                                         <p><span class="text-slate-500">Jabatan:</span> <b class="text-slate-800 block">{{ activeReview.current_data?.posisi_jabatan || '- Belum diisi -' }}</b></p>
                                         <p><span class="text-slate-500">Perusahaan:</span> <b class="text-slate-800 block">{{ activeReview.current_data?.nama_perusahaan || '- Belum diisi -' }}</b></p>
-                                        <p><span class="text-slate-500">Keahlian (Skills):</span> <span class="text-slate-700 block truncate">{{ activeReview.current_data?.skills || '- Belum diisi -' }}</span></p>
+                                        <p><span class="text-slate-500">Head office:</span> <span class="text-slate-700 block break-words">{{ activeReview.current_data?.head_office?.lokasi || 'Belum tersedia' }}</span></p>
+                                        <p><span class="text-slate-500">Domisili alumni:</span> <span class="text-slate-700 block break-words">{{ activeReview.current_data?.domisili?.label || 'Belum diisi' }}</span></p>
+                                        <p><span class="text-slate-500">Keahlian (Skills):</span> <span class="text-slate-700 block whitespace-pre-wrap break-words">{{ activeReview.current_data?.skills || '- Belum diisi -' }}</span></p>
                                     </div>
                                 </div>
 
@@ -1319,18 +1498,47 @@ const dashboardRoute = computed(() => {
                                             />
                                         </div>
 
+                                        <!-- Bidang Pekerjaan / Divisi -->
+                                        <div class="sm:col-span-2">
+                                            <label class="block text-[11px] font-semibold text-emerald-950 mb-1 flex items-center justify-between">
+                                                <span>Bidang Pekerjaan / Divisi:</span>
+                                                <span v-if="activeReview.preview?.industry" class="text-[10px] text-slate-500 font-normal">
+                                                    Industri LinkedIn: {{ activeReview.preview.industry }}
+                                                </span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                v-model="approveForm.bidang_pekerjaan"
+                                                placeholder="contoh: IT Services and IT Consulting, Software Engineering, Marketing..."
+                                                class="w-full px-3 py-2 text-xs bg-white border border-emerald-300 rounded-lg focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
+                                            />
+                                        </div>
+
+                                        <!-- Unit kerja dipisahkan dari bidang agar kontrak direktori tetap konsisten. -->
+                                        <div class="sm:col-span-2">
+                                            <label class="block text-[11px] font-semibold text-emerald-950 mb-1">
+                                                Divisi / Unit Kerja:
+                                            </label>
+                                            <input
+                                                type="text"
+                                                v-model="approveForm.divisi"
+                                                placeholder="contoh: Human Capital, Product Development, Unit Operasional"
+                                                class="w-full px-3 py-2 text-xs bg-white border border-emerald-300 rounded-lg focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
+                                            />
+                                        </div>
+
                                         <!-- Kolom Keahlian (Skills) yang Akan Disimpan ke Profil -->
                                         <div class="sm:col-span-2">
                                             <label class="block text-[11px] font-semibold text-emerald-950 mb-1 flex items-center justify-between">
                                                 <span>Keahlian / Skills yang Akan Disimpan ke Profil:</span>
                                                 <span class="text-[10px] text-slate-500 font-normal">Sinkron ke kolom Keahlian profil alumni (pisahkan dengan koma)</span>
                                             </label>
-                                            <input
-                                                type="text"
+                                            <textarea
                                                 v-model="approveForm.skills"
+                                                rows="2"
                                                 placeholder="contoh: IT Audit, Business Process Management, SQL, Python..."
-                                                class="w-full px-3 py-2 text-xs bg-white border border-emerald-300 rounded-lg focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
-                                            />
+                                                class="w-full resize-y rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs leading-5 focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B]"
+                                            ></textarea>
 
                                             <!-- Pills Keahlian dari Hasil Scraping Asli LinkedIn -->
                                             <div
@@ -1376,6 +1584,70 @@ const dashboardRoute = computed(() => {
                                             />
                                             <span class="text-xs font-semibold text-emerald-900">Gunakan</span>
                                         </label>
+                                    </div>
+
+                                    <!-- Seksi Informasi Studi Lanjut (Jika Alumni Melanjutkan Pendidikan) -->
+                                    <div class="p-3 bg-white/95 rounded-xl border border-emerald-300 space-y-2.5 shadow-2xs">
+                                        <div class="flex items-center justify-between">
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    v-model="approveForm.sync_studi_lanjut"
+                                                    class="rounded text-[#0D542B] focus:ring-[#0D542B] w-4 h-4 cursor-pointer"
+                                                />
+                                                <span class="text-xs font-bold text-slate-900">
+                                                    Plot Informasi Studi Lanjut ke Profil
+                                                </span>
+                                            </label>
+                                            <span v-if="activeReview.preview?.further_study" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-[#0D542B] border border-emerald-300">
+                                                Terdeteksi di LinkedIn
+                                            </span>
+                                        </div>
+
+                                        <!-- Pilihan Cepat jika ada riwayat studi di LinkedIn -->
+                                        <div v-if="activeReview.preview?.further_studies && activeReview.preview.further_studies.length > 0" class="pt-1 flex items-center gap-1.5 flex-wrap">
+                                            <span class="text-[10px] text-slate-500 font-medium">Pilih dari riwayat pendidikan:</span>
+                                            <button
+                                                v-for="(fst, fIdx) in activeReview.preview.further_studies"
+                                                :key="'fst-' + fIdx"
+                                                type="button"
+                                                @click="selectStudyOption(fst)"
+                                                class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 transition-colors cursor-pointer"
+                                                :title="fst.school + ' - ' + (fst.degree || '')"
+                                            >
+                                                {{ fst.school }} ({{ fst.degree_normalized || fst.degree || 'Lanjut' }})
+                                            </button>
+                                        </div>
+
+                                        <div v-if="approveForm.sync_studi_lanjut" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
+                                            <div>
+                                                <label class="block text-[10px] font-semibold text-slate-700 mb-1">Jenjang Pendidikan:</label>
+                                                <input
+                                                    type="text"
+                                                    v-model="approveForm.pendidikan_tingkat"
+                                                    placeholder="contoh: S2, S3, Master..."
+                                                    class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-semibold text-slate-700 mb-1">Perguruan Tinggi:</label>
+                                                <input
+                                                    type="text"
+                                                    v-model="approveForm.perguruan_tinggi"
+                                                    placeholder="contoh: Universitas Gadjah Mada"
+                                                    class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-semibold text-slate-700 mb-1">Program Studi:</label>
+                                                <input
+                                                    type="text"
+                                                    v-model="approveForm.pendidikan_prodi"
+                                                    placeholder="contoh: Ilmu Komputer"
+                                                    class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B]"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1543,53 +1815,117 @@ const dashboardRoute = computed(() => {
                                 </div>
                             </div>
 
-                            <!-- Daftar Keahlian / Skills dari Profil LinkedIn -->
-                            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                            <!-- Riwayat Sertifikasi & Lisensi (Certifications) -->
+                            <div v-if="activeReview.preview?.certifications && activeReview.preview.certifications.length > 0" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                                 <div class="flex items-center justify-between">
                                     <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
                                         <svg class="w-4 h-4 text-[#0D542B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
                                         </svg>
-                                        <span>Keahlian (Skills) dari LinkedIn ({{ activeReview.preview?.skills?.length || 0 }})</span>
+                                        <span>Sertifikasi & Lisensi Resmi ({{ activeReview.preview.certifications.length }})</span>
                                     </h4>
+                                    <span class="text-[11px] text-slate-500">Kompetensi terverifikasi industri</span>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div
+                                        v-for="(cert, cIdx) in activeReview.preview.certifications"
+                                        :key="'cert-' + cIdx"
+                                        class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5"
+                                    >
+                                        <div class="flex items-start justify-between gap-2">
+                                            <span class="font-bold text-slate-900 block leading-snug">{{ cert.title }}</span>
+                                            <span v-if="cert.issued_at" class="text-[10px] text-slate-500 shrink-0 font-mono">{{ cert.issued_at }}</span>
+                                        </div>
+                                        <p class="text-slate-600 font-medium">Penerbit: <b class="text-slate-800">{{ cert.issued_by || '-' }}</b></p>
+                                        <p v-if="cert.credential_id" class="text-[11px] text-slate-500 font-mono">ID: {{ cert.credential_id }}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Daftar Keahlian / Skills dari Profil LinkedIn -->
+                            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                                <div class="flex items-center justify-between flex-wrap gap-2">
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                                            <svg class="w-4 h-4 text-[#0D542B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                            </svg>
+                                            <span>
+                                                {{ activeReview.preview?.top_skills?.length ? 'Keahlian Utama (Top Skills) LinkedIn' : 'Keahlian (Skills) LinkedIn' }}
+                                                ({{ (activeReview.preview?.top_skills?.length || activeReview.preview?.skills?.length) || 0 }})
+                                            </span>
+                                        </h4>
+                                        <span v-if="activeReview.preview?.top_skills?.length" class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#0D542B] text-white">
+                                            Top Skills Terpilih
+                                        </span>
+                                    </div>
                                     <button
                                         v-if="activeReview.preview?.skills && activeReview.preview.skills.length > 0"
                                         type="button"
                                         @click="approveForm.skills = activeReview.preview.skills.join(', ')"
                                         class="text-[11px] font-bold text-[#0D542B] hover:underline cursor-pointer"
                                     >
-                                        Gunakan Semua di Form Penyesuaian
+                                        Terapkan Top Skills ke Form Penyesuaian
                                     </button>
                                 </div>
 
+                                <!-- Pills Top Skills Resmi -->
                                 <div v-if="activeReview.preview?.skills && activeReview.preview.skills.length > 0" class="flex items-center gap-2 flex-wrap">
                                     <span
                                         v-for="sk in activeReview.preview.skills"
                                         :key="'sk-' + sk"
-                                        class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-[#0D542B] border border-emerald-200 shadow-2xs"
+                                        class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-[#0D542B] border border-emerald-200 shadow-2xs flex items-center gap-1.5"
                                     >
-                                        {{ sk }}
+                                        <span class="w-1.5 h-1.5 rounded-full bg-[#0D542B]"></span>
+                                        <span>{{ sk }}</span>
                                     </span>
                                 </div>
                                 <div v-else class="text-center py-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500">
                                     Tidak ada data keahlian (skills) pada profil publik LinkedIn alumni ini.
                                 </div>
+
+                                <!-- Riwayat All Skills Lengkap jika berbeda dari Top Skills -->
+                                <div v-if="activeReview.preview?.all_skills && activeReview.preview.all_skills.length > (activeReview.preview?.top_skills?.length || 0)" class="pt-3 border-t border-slate-100">
+                                    <span class="text-[11px] font-bold text-slate-600 block mb-2">Seluruh Daftar Keahlian Tambahan ({{ activeReview.preview.all_skills.length }}):</span>
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        <span
+                                            v-for="(ask, aIdx) in activeReview.preview.all_skills"
+                                            :key="'ask-' + aIdx"
+                                            class="px-2 py-0.5 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 cursor-pointer hover:bg-emerald-50 hover:text-emerald-900 transition-colors"
+                                            @click="addSkillToForm(ask)"
+                                            :title="'Tambahkan ' + ask + ' ke form'"
+                                        >
+                                            + {{ ask }}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
 
-                            <!-- Riwayat Sukarelawan jika ada -->
-                            <div v-if="activeReview.preview?.volunteer_experiences && activeReview.preview.volunteer_experiences.length > 0" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-                                <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                                    Pengalaman Sukarelawan / Volunteer ({{ activeReview.preview.volunteer_experiences.length }})
-                                </h4>
+                            <!-- Riwayat Sukarelawan / Volunteer jika ada -->
+                            <div v-if="activeReview.preview?.volunteering && activeReview.preview.volunteering.length > 0" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                                        <svg class="w-4 h-4 text-[#0D542B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                        </svg>
+                                        <span>Pengalaman Kepemimpinan & Organisasi ({{ activeReview.preview.volunteering.length }})</span>
+                                    </h4>
+                                    <span class="text-[11px] text-slate-500">Volunteering & Student Leadership</span>
+                                </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <div
-                                        v-for="(vol, idx) in activeReview.preview.volunteer_experiences"
-                                        :key="idx"
-                                        class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1"
+                                        v-for="(vol, vIdx) in activeReview.preview.volunteering"
+                                        :key="'vol-' + vIdx"
+                                        class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5"
                                     >
-                                        <p class="font-bold text-slate-900">{{ vol.role || 'Volunteer' }}</p>
-                                        <p class="text-slate-600">{{ vol.organization || '-' }}</p>
-                                        <p v-if="vol.date" class="text-slate-400 text-[11px]">{{ vol.date }}</p>
+                                        <div class="flex items-start justify-between gap-2">
+                                            <span class="font-bold text-slate-900 block leading-snug">{{ vol.role || 'Volunteer' }}</span>
+                                            <span v-if="vol.duration" class="text-[10px] text-slate-500 shrink-0 font-medium">{{ vol.duration }}</span>
+                                        </div>
+                                        <p class="text-slate-700 font-medium">{{ vol.organization || '-' }}</p>
+                                        <p v-if="vol.description" class="text-[11px] text-slate-600 whitespace-pre-line leading-relaxed bg-white p-2 rounded-lg border border-slate-100">
+                                            {{ vol.description }}
+                                        </p>
                                     </div>
                                 </div>
                             </div>

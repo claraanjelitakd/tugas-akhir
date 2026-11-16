@@ -15,7 +15,7 @@ Dokumen ini mencatat daftar kebutuhan fitur baru, penyempurnaan modul, serta age
   * Filter dropdown berdasarkan wilayah benua (Asia, Eropa, Afrika, Amerika Utara, Amerika Selatan, Oseania, Antartika).
   * Modal formulir reaktif Vue (`<Teleport to="body">`) untuk Tambah Negara Baru dan Sunting Negara (ISO-2, ISO-3, nama umum, nama resmi, benua, ibu kota).
   * Aksi Hapus Negara yang dilengkapi verifikasi dependensi ke tabel perusahaan (mencegah penghapusan jika negara tercatat pada instansi/perusahaan aktif).
-  * Sinkronisasi otomatis: Jika nama negara disunting, seluruh relasi nama negara pada tabel instansi perusahaan ikut diperbarui secara konsisten.
+  * Relasi perusahaan memakai `kode_negara` sebagai FK canonical sehingga perubahan nama negara hanya mengubah label master tanpa menyentuh data perusahaan.
 
 ---
 

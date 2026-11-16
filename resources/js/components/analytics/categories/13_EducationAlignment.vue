@@ -9,6 +9,7 @@
 import { computed } from 'vue';
 import AnalyticsTabbedContainer from '../AnalyticsTabbedContainer.vue';
 import {
+    analyticsScalePalette,
     baseOption,
     escapeHtml,
     formatNumber,
@@ -31,15 +32,30 @@ const emit = defineEmits(['select', 'reset']);
 
 // Ekstraksi data seri dan catatan responden.
 const series = computed(() => props.chart?.series || []);
+// Agregat per program studi sudah dihitung backend untuk konsumsi matriks dan visualisasi prodi.
+const prodiSeries = computed(() => props.chart?.prodi_series || []);
 const records = computed(() => props.chart?.records || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || records.value.length);
 
-const prodis = computed(() => [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]);
+const prodis = computed(() => (
+    prodiSeries.value.length > 0
+        ? prodiSeries.value.map((item) => item.prodi)
+        : [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]
+));
 
 // -----------------------------------------------------------------------------
 // 1. BAR CHART: Vertical Match per Program Studi (Gambar 4.14 Laporan Resmi)
 // -----------------------------------------------------------------------------
 const prodiVerticalMatchData = computed(() => {
+    if (props.chart?.prodi_series) {
+        return props.chart.prodi_series.map((item) => ({
+            prodi: item.prodi,
+            matches: Number(item.match_count || 0),
+            total: Number(item.total || 0),
+            percentage: Number(item.match_percentage || 0),
+        }));
+    }
+
     return prodis.value.map((prodi) => {
         const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const total = rows.length;
@@ -122,22 +138,228 @@ const verticalMatchTable = computed(() => ({
 }));
 
 // -----------------------------------------------------------------------------
-// 2. STACKED BAR: Komposisi Lengkap Kualifikasi Pendidikan per Prodi
+// 2. MATRIKS HEATMAP: Sebaran Kualifikasi per Program Studi (Mengadopsi Indikator 02)
 // -----------------------------------------------------------------------------
-const categories = computed(() => [...new Set(series.value.map((s) => s.label))]);
-const catPalette = ['#0D542B', '#2F7D4A', '#78B18B', '#B7D7C0'];
+const categories = computed(() => {
+    const activeCats = series.value.filter((s) => seriesMetric(s) > 0).map((s) => s.label);
+    return activeCats.length > 0 ? activeCats : [...new Set(series.value.map((s) => s.label))];
+});
+
+const heatmapData = computed(() => {
+    const listProdis = prodis.value;
+    const cats = categories.value;
+    const prodiTotals = prodiSeries.value.length > 0
+        ? Object.fromEntries(prodiSeries.value.map((p) => [p.prodi, p.total]))
+        : Object.fromEntries(listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]));
+
+    const values = [];
+    listProdis.forEach((prodi, yIndex) => {
+        const backendProdi = prodiSeries.value.length > 0
+            ? prodiSeries.value.find((item) => item.prodi === prodi)
+            : null;
+
+        cats.forEach((cat, xIndex) => {
+            let count = 0;
+            let total = 0;
+            let pct = 0;
+
+            if (backendProdi) {
+                const backendItem = backendProdi.items?.find((item) => item.label === cat);
+                count = backendItem?.count || 0;
+                pct = backendItem?.percentage || 0;
+                total = backendProdi.total || 0;
+            } else {
+                count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
+                total = Math.max(prodiTotals[prodi] || 0, 1);
+                pct = Number(((count / total) * 100).toFixed(1));
+            }
+
+            values.push({
+                value: [xIndex, yIndex, pct],
+                prodi,
+                category: cat,
+                count,
+                total,
+            });
+        });
+    });
+
+    const maxPct = Math.max(...values.map((v) => v.value[2]), 10);
+
+    return { values, maxPct, prodiTotals };
+});
+
+const heatmapOption = computed(() => {
+    const { values, maxPct, prodiTotals } = heatmapData.value;
+    const cats = categories.value;
+    const listProdis = prodis.value;
+    const yLabels = listProdis.map((p) => `${p} (n=${prodiTotals[p]})`);
+
+    return {
+        ...baseOption(records.value.length),
+        grid: { left: 24, right: 120, top: 75, bottom: 24, containLabel: true },
+        xAxis: {
+            type: 'category',
+            position: 'top',
+            data: cats,
+            axisLabel: {
+                rotate: -20,
+                color: '#1E293B',
+                fontSize: 11,
+                fontWeight: 600,
+                interval: 0,
+            },
+            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
+            splitArea: { show: false },
+        },
+        yAxis: {
+            type: 'category',
+            inverse: true,
+            data: yLabels,
+            axisLabel: { color: '#1E293B', fontSize: 11, fontWeight: 500 },
+            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
+            splitArea: { show: false },
+        },
+        visualMap: {
+            type: 'continuous',
+            min: 0,
+            max: Math.min(100, Math.ceil(maxPct / 10) * 10),
+            orient: 'vertical',
+            right: 14,
+            top: 'middle',
+            itemWidth: 16,
+            itemHeight: 220,
+            calculable: true,
+            inRange: {
+                color: analyticsScalePalette,
+            },
+            text: ['Tinggi (%)', 'Rendah (%)'],
+            textGap: 8,
+            textStyle: { color: '#1E293B', fontSize: 11, fontWeight: 600 },
+            formatter: (val) => `${Number(val).toFixed(0)}%`,
+        },
+        tooltip: {
+            ...baseOption().tooltip,
+            trigger: 'item',
+            formatter: ({ data }) => {
+                if (!data) return '';
+                return `
+                    <div class="font-sans text-xs">
+                        <div class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5">${escapeHtml(data.prodi)}</div>
+                        <div class="text-slate-600 mb-0.5"><span class="text-slate-500">Kualifikasi:</span> <strong>${escapeHtml(data.category)}</strong></div>
+                        <div class="text-slate-600 mb-0.5"><span class="text-slate-500">Jumlah Alumni:</span> <strong>${formatNumber(data.count, 0)}</strong> (dari n=${data.total})</div>
+                        <div class="text-slate-600"><span class="text-slate-500">Proporsi di Prodi:</span> <strong class="text-emerald-700 font-mono text-sm">${formatNumber(data.value[2], 1)}%</strong></div>
+                    </div>
+                `;
+            },
+        },
+        series: [{
+            name: 'Proporsi Kualifikasi Pendidikan',
+            type: 'heatmap',
+            data: values,
+            itemStyle: {
+                borderColor: '#FFFFFF',
+                borderWidth: 1.5,
+            },
+            label: {
+                show: true,
+                formatter: ({ data }) => (data && data.value[2] > 0 ? `${formatNumber(data.value[2], 0)}%` : ''),
+                fontSize: 10,
+                fontWeight: 600,
+                color: (param) => (param.data?.value[2] >= 30 ? '#FFFFFF' : '#1E293B'),
+            },
+            emphasis: {
+                itemStyle: {
+                    shadowBlur: 8,
+                    shadowColor: 'rgba(13, 84, 43, 0.25)',
+                    borderColor: '#0D542B',
+                    borderWidth: 2,
+                },
+            },
+        }],
+    };
+});
+
+const heatmapTable = computed(() => {
+    const cats = categories.value;
+    const { values, prodiTotals } = heatmapData.value;
+
+    const columns = [
+        { key: 'prodi', label: 'Program Studi' },
+        { key: 'total', label: 'Responden (n)', align: 'right' },
+        ...cats.map((cat, i) => ({
+            key: `cat_${i}`,
+            label: cat,
+            align: 'right',
+        })),
+    ];
+
+    const rows = prodis.value.map((prodi) => {
+        const row = {
+            prodi,
+            total: formatNumber(prodiTotals[prodi] || 0, 0),
+        };
+        cats.forEach((cat, i) => {
+            const cell = values.find((v) => v.prodi === prodi && v.category === cat);
+            const count = cell?.count ?? 0;
+            const pct = cell?.value ? cell.value[2] : 0;
+            row[`cat_${i}`] = `${formatNumber(count, 0)} (${pct}%)`;
+        });
+        return row;
+    });
+
+    return { columns, rows };
+});
+
+// -----------------------------------------------------------------------------
+// 3. STACKED BAR: Komposisi Lengkap Kualifikasi Pendidikan per Prodi
+// -----------------------------------------------------------------------------
+// Warna dipetakan berdasarkan makna kategori: merah untuk kualifikasi di bawah kebutuhan pendidikan,
+// hijau untuk kualifikasi yang setara atau lebih tinggi.
+const getEducationAlignmentColor = (label) => {
+    const normalized = String(label || '').toLowerCase().trim();
+    if (normalized.includes('lebih tinggi')) return '#0D542B';
+    if (normalized.includes('sama')) return '#2F7D4A';
+    if (normalized.includes('lebih rendah')) return '#EF4444';
+    if (normalized.includes('tidak perlu')) return '#B91C1C';
+    return '#64748B';
+};
+
+// Menjaga urutan stack dari kondisi paling rendah hingga paling tinggi secara konsisten.
+const getEducationAlignmentOrder = (label) => {
+    const normalized = String(label || '').toLowerCase().trim();
+    if (normalized.includes('tidak perlu')) return 0;
+    if (normalized.includes('lebih rendah')) return 1;
+    if (normalized.includes('sama')) return 2;
+    if (normalized.includes('lebih tinggi')) return 3;
+    return 4;
+};
 
 const stackedOption = computed(() => {
     const listProdis = prodis.value;
     const cats = categories.value;
-    const prodiTotals = Object.fromEntries(
-        listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]),
-    );
+    const prodiTotals = prodiSeries.value.length > 0
+        ? Object.fromEntries(prodiSeries.value.map((p) => [p.prodi, p.total]))
+        : Object.fromEntries(listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]));
 
-    const seriesList = cats.map((cat, index) => {
+    const seriesList = cats.map((cat) => {
         const catData = listProdis.map((prodi) => {
+            if (prodiSeries.value.length > 0) {
+                const backendProdi = prodiSeries.value.find((item) => item.prodi === prodi);
+                const backendItem = backendProdi?.items?.find((item) => item.label === cat);
+                return {
+                    value: backendItem?.percentage || 0,
+                    count: backendItem?.count || 0,
+                    total: backendProdi?.total || 0,
+                    prodi,
+                    category: cat,
+                };
+            }
+
             const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
-            const total = Math.max(prodiTotals[prodi], 1);
+            const total = Math.max(prodiTotals[prodi] || 0, 1);
             const pct = Number(((count / total) * 100).toFixed(1));
             return {
                 value: pct,
@@ -154,12 +376,22 @@ const stackedOption = computed(() => {
             name: cat,
             type: 'bar',
             stack: 'total',
+            stackOrder: getEducationAlignmentOrder(cat),
             barMaxWidth: 26,
             itemStyle: {
-                color: catPalette[index % catPalette.length],
+                // Fungsi menjaga warna semantik saat normalizer global mengurutkan seri stack.
+                color: () => getEducationAlignmentColor(cat),
                 opacity: selected ? 1 : 0.22,
                 borderColor: '#FFFFFF',
                 borderWidth: 1.5,
+            },
+            label: {
+                show: true,
+                position: 'inside',
+                formatter: ({ data }) => (data && data.value >= 10 ? `${data.value}%` : ''),
+                fontSize: 10,
+                color: '#FFFFFF',
+                fontWeight: 'bold',
             },
             data: catData,
         };
@@ -167,15 +399,38 @@ const stackedOption = computed(() => {
 
     const labels = listProdis.map((p) => `${p} (n=${prodiTotals[p]})`);
 
+    // Legenda vertikal mengikuti pola Indikator 02 dengan dua keluarga warna saja.
+    const qualificationScale = [
+        { label: 'Setingkat lebih tinggi', color: '#0D542B' },
+        { label: 'Tingkat yang sama', color: '#2F7D4A' },
+        { label: 'Setingkat lebih rendah', color: '#EF4444' },
+        { label: 'Tidak perlu pendidikan tinggi', color: '#B91C1C' },
+    ];
+    const qualificationScaleGraphic = qualificationScale.flatMap((item, index) => {
+        const top = index * 42;
+        return [
+            {
+                type: 'rect',
+                left: 30,
+                top,
+                shape: { width: 22, height: 42 },
+                style: { fill: item.color, stroke: '#1E293B', lineWidth: 1 },
+            },
+            {
+                type: 'text',
+                left: 60,
+                top: top + 13,
+                style: { text: item.label, fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+            },
+        ];
+    });
+
     return {
         ...baseOption(records.value.length),
         legend: {
-            data: cats,
-            bottom: 0,
-            icon: 'circle',
-            textStyle: { color: '#334155', fontSize: 11, fontWeight: 600 },
+            show: false,
         },
-        grid: { left: 24, right: 36, top: 20, bottom: 56, containLabel: true },
+        grid: { left: 24, right: 250, top: 20, bottom: 36, containLabel: true },
         xAxis: {
             type: 'value',
             max: 100,
@@ -188,6 +443,21 @@ const stackedOption = computed(() => {
             data: labels,
             axisLabel: { color: '#334155', fontSize: 11, width: 190, overflow: 'break' },
         },
+        graphic: [{
+            type: 'group',
+            right: 18,
+            top: 'middle',
+            children: [
+                {
+                    type: 'text',
+                    left: 0,
+                    top: 84,
+                    rotation: -Math.PI / 2,
+                    style: { text: 'Kualifikasi', fill: '#0F172A', font: 'bold 11px Inter, sans-serif', textAlign: 'center' },
+                },
+                ...qualificationScaleGraphic,
+            ],
+        }],
         tooltip: {
             ...baseOption().tooltip,
             trigger: 'item',
@@ -207,6 +477,20 @@ const stackedTable = computed(() => ({
         { key: 'details', label: 'Sebaran Kualifikasi', align: 'left' },
     ],
     rows: prodis.value.map((prodi) => {
+        if (prodiSeries.value.length > 0) {
+            const backendProdi = prodiSeries.value.find((item) => item.prodi === prodi);
+            const details = categories.value.map((cat) => {
+                const item = backendProdi?.items?.find((it) => it.label === cat);
+                return `${cat}: ${item?.count || 0}`;
+            }).join(' · ');
+
+            return {
+                prodi,
+                total: formatNumber(backendProdi?.total || 0, 0),
+                details,
+            };
+        }
+
         const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const details = categories.value.map((cat) => {
             const cnt = rows.filter((r) => recordCategory(r) === cat).length;
@@ -286,7 +570,7 @@ const views = computed(() => [
         :rows="records"
         :selected-label="selectedLabel"
         :loading="loading"
-        indicator-badge="Indikator 13"
+        indicator-badge="Indikator 16"
         @select="emit('select', $event)"
         @reset="emit('reset')"
     />

@@ -18,36 +18,19 @@ return new class extends Migration
 CREATE VIEW v_analytics_response_rate AS
 SELECT
     population.*,
-    CASE WHEN respondents.biodata_id IS NOT NULL THEN 1 ELSE 0 END AS answered_mandatory_univ,
-    CASE WHEN respondents.biodata_id IS NOT NULL THEN 1 ELSE 0 END AS answered,
+    COALESCE(tus.answered_mandatory_univ, 0) AS answered_mandatory_univ,
+    CASE WHEN COALESCE(tus.total_mandatory_univ, 0) > 0 AND COALESCE(tus.answered_mandatory_univ, 0) >= tus.total_mandatory_univ THEN 1 ELSE 0 END AS answered,
     respondents.last_response_at
 FROM v_analytics_population AS population
+LEFT JOIN v_alumni_tracer_univ_status AS tus ON tus.biodata_id = population.biodata_id
 LEFT JOIN (
     SELECT
-        tracer.biodata_id,
-        MAX(tracer.updated_at) AS last_response_at
-    FROM tracer
-    INNER JOIN ref_subpertanyaan2021 AS questions ON questions.id = tracer.question_id
-    WHERE (
-        (
-            questions.wajib = 1
-            AND questions.type != 'header'
-            AND UPPER(questions.kode_pertanyaan) NOT IN (
-                'F1', 'F2A', 'F2B', 'F2C', 'F2D',
-                'BIO_TEMPAT_LAHIR', 'BIO_TANGGAL_LAHIR', 'BIO_JK',
-                'BIO_TGL_LULUS', 'BIO_JUDUL_TA',
-                'F5A1', 'F5A2', 'F5B', 'F5C', 'F5D', 'F510',
-                'F2E', 'F2E1', 'F2E2', 'F2E3', 'F2F', 'F2G', 'F2H',
-                'F11', 'F505', 'F502', 'F506'
-            )
-        )
-        OR UPPER(questions.kode_pertanyaan) IN ('F502', 'F506')
-    )
-        AND (
-            (tracer.answer IS NOT NULL AND TRIM(tracer.answer) != '')
-            OR (tracer.answer_json IS NOT NULL AND tracer.answer_json NOT IN ('', '[]', '{}'))
-        )
-    GROUP BY tracer.biodata_id
+        j.biodata_id,
+        MAX(j.updated_at) AS last_response_at
+    FROM kuesioner_jawaban j
+    INNER JOIN kuesioner_section s ON s.id = j.section_id
+    WHERE s.target = 'univ'
+    GROUP BY j.biodata_id
 ) AS respondents ON respondents.biodata_id = population.biodata_id
 SQL);
     }

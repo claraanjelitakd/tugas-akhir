@@ -19,30 +19,20 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "kabupaten" ("id" integer primary key autoincrement not null, "propinsi_id" integer not null, "kode_kabupaten" varchar, "nama_kabupaten" varchar not null, "created_at" datetime, "updated_at" datetime, foreign key("propinsi_id") references "propinsi"("id") on delete cascade);
+CREATE TABLE "kabupaten" ("kode_kabupaten" varchar primary key not null, "kode_provinsi" varchar not null, "nama_kabupaten" varchar not null, "created_at" datetime, "updated_at" datetime, foreign key("kode_provinsi") references "propinsi"("kode_provinsi") on delete cascade);
 SQL
             );
-
-            foreach ([
-                <<<'SQL'
-CREATE UNIQUE INDEX "kabupaten_kode_kabupaten_unique" on "kabupaten" ("kode_kabupaten");
-SQL,
-            ] as $indexSql) {
-                DB::statement($indexSql);
-            }
         } else {
             DB::unprepared(<<<'SQL'
 CREATE TABLE `kabupaten` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID unik referensi kabupaten/kota',
-  `propinsi_id` bigint unsigned NOT NULL,
-  `kode_kabupaten` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Kode BPS/Kemendagri kabupaten (misal: 34.04)',
+  `kode_kabupaten` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Kode BPS/Kemendagri kabupaten (misal: 34.04)',
+  `kode_provinsi` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `nama_kabupaten` varchar(60) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nama resmi kabupaten/kota (misal: Kabupaten Sleman)',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `kabupaten_kode_kabupaten_unique` (`kode_kabupaten`),
-  KEY `kabupaten_propinsi_id_foreign` (`propinsi_id`),
-  CONSTRAINT `kabupaten_propinsi_id_foreign` FOREIGN KEY (`propinsi_id`) REFERENCES `propinsi` (`id`) ON DELETE CASCADE
+  PRIMARY KEY (`kode_kabupaten`),
+  KEY `kabupaten_kode_provinsi_foreign` (`kode_provinsi`),
+  CONSTRAINT `kabupaten_kode_provinsi_foreign` FOREIGN KEY (`kode_provinsi`) REFERENCES `propinsi` (`kode_provinsi`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 SQL
             );

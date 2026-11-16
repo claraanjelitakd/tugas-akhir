@@ -232,3 +232,26 @@ public static function getSkippedQuestionCodes($allQuestions, $responses): array
 Contoh kode di dokumen adalah penjelasan, bukan salinan lengkap implementasi. Rujukan aktif: `Kuesioner.vue`, `KelengkapanTracerService`, `KuesionerSyncService`, dan konfigurasi butir/opsi di database. Aturan F504 = Tidak melewati **F502 dan F505**, bukan hanya F502. Butir yang dikelola pada profil dapat disembunyikan dari formulir melalui `tampil_di`; karena itu daftar bagian konseptual tidak selalu sama dengan tampilan setiap alumni.
 
 Data pekerjaan/profil digunakan bersama kuesioner melalui pemetaan, bukan diketik ulang sebagai sumber data independen. Lihat [DFD](docs/dfd.md), proses 2 dan 4, untuk antarmukanya.
+
+---
+
+## 5. Visualisasi Analitik & Pengolahan Isian Terbuka (Revisi November 2026)
+
+### A. Pengolahan Opsi "Lainnya" Menggunakan Word Cloud Interaktif
+Pada instrumen kuesioner pilihan ganda yang memuat opsi isian bebas "Lainnya" (khususnya **F4 - Cara Mencari Pekerjaan** dan **F16 - Alasan Mengambil Pekerjaan Tidak Sesuai**), serta pertanyaan aspirasi terbuka kuesioner prodi:
+1. **Komponen Visual**: Menggunakan [`AnalyticsWordCloud.vue`](resources/js/components/analytics/AnalyticsWordCloud.vue).
+2. **Skala Proporsional Non-Linier**:
+   - Peringkat 1 (Topik Dominan Utama): Font size **48px – 62px**, `font-weight: 900`, warna institusi primer `#0D542B`.
+   - Peringkat 2–3 (Topik Utama): Font size **34px – 46px**, `font-weight: 900`, aksen `#C2410C` / `#15803D`.
+   - Peringkat 4–7 (Frekuensi Tinggi): Font size **24px – 34px**, `font-weight: 800`.
+   - Peringkat 8–19 (Frekuensi Sedang): Font size **15px – 21px**, `font-weight: 700`.
+   - Peringkat 20+ (Frekuensi Rendah/1–2 responden): Font size **11px – 13px**, `font-weight: 500`, warna slate lembut.
+3. **Cross-Filtering Interaktif**:
+   - Mengklik kata kunci pada Word Cloud langsung memfilter data tabel responden di bawahnya tanpa memuat ulang halaman (*instant zero-reload filtering*).
+4. **Stabilitas Render (*Zero-Jitter & Anti-Clipping*)**:
+   - SVG berdimensi aman `viewBox="0 0 800 400"` dengan margin spiral Archimedes 25px horizontal & 22px vertikal untuk menjamin tidak ada desender huruf yang terpotong.
+   - Tooltip diposisikan pada level kontainer kartu dengan fitur *auto-flip* (ke atas saat kursor di bawah, ke bawah saat kursor dekat header) dan pembatas tepi horizontal.
+
+### B. Aturan Anti-Clutter Grafik Distribusi Skala
+Pada diagram batang bertumpuk 100% horizontal (seperti Indikator 02 - Metode Pembelajaran F2):
+- Dua segmen nilai terkecil pada setiap baris secara otomatis disembunyikan label persentasenya (`formatter: ''`) untuk menghindari tumpang tindih visual (*text overlap*) pada proporsi sempit (< 5%). Data lengkap tetap dapat diakses melalui tooltip hover interaktif.

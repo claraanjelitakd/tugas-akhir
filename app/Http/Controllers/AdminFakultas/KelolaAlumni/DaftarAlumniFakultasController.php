@@ -7,6 +7,7 @@ use App\Mail\PengingatKuesionerAlumniMail;
 use App\Models\Biodata;
 use App\Models\Prodi;
 use App\Models\RefFakultas;
+use App\Models\User;
 use App\Services\Alumni\AlumniDirectoryQueryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,12 +31,13 @@ class DaftarAlumniFakultasController extends Controller
      */
     public function index(Request $request, AlumniDirectoryQueryService $directoryService): Response
     {
-        $user = Auth::user()->load('fakultas');
+        /** @var User $user */
+        $user = Auth::user();
+        $user->load('fakultas');
         $fakultasId = $user->fakultas_id;
 
         if (! $fakultasId) {
-            $fakultas = RefFakultas::first();
-            $fakultasId = $fakultas?->id;
+            abort(403, 'Akun Admin Fakultas belum dikaitkan dengan Fakultas.');
         } else {
             $fakultas = $user->fakultas ?: RefFakultas::find($fakultasId);
         }
@@ -61,9 +63,21 @@ class DaftarAlumniFakultasController extends Controller
     /**
      * Kirim Email Pengingat Kuesioner ke Satu Alumni Tertentu (Flash Notifikasi)
      */
-    public function sendReminderEmail(Request $request, $id): RedirectResponse
+    public function sendReminderEmail(Request $request, int|string $id): RedirectResponse
     {
-        $alumni = Biodata::with(['user', 'dataAkademik'])->findOrFail($id);
+        /** @var User $user */
+        $user = Auth::user();
+        $fakultasId = $user->fakultas_id;
+
+        if (! $fakultasId) {
+            abort(403, 'Akun Anda belum dikaitkan dengan Fakultas.');
+        }
+
+        $alumni = Biodata::whereHas('prodi', function ($query) use ($fakultasId) {
+            $query->where('fakultas_id', $fakultasId);
+        })
+            ->with(['user', 'dataAkademik'])
+            ->findOrFail($id);
         $targetEmail = $alumni->email_pribadi ?: $alumni->user?->email;
 
         if (! $targetEmail || ! filter_var($targetEmail, FILTER_VALIDATE_EMAIL)) {

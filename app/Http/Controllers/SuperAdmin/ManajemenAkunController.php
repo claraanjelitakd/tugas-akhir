@@ -15,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
@@ -24,6 +25,11 @@ use Throwable;
  */
 class ManajemenAkunController extends Controller
 {
+    /**
+     * ID baris tunggal pengaturan permintaan sinkronisasi akun.
+     */
+    private const ACCOUNT_SYNC_SETTING_ID = 1;
+
     /**
      * Role yang dapat menerima tautan reset dari Manajemen Akun Super Admin.
      *
@@ -91,7 +97,7 @@ class ManajemenAkunController extends Controller
                 $q->select('nim')->from('biodata');
             })
             ->orderBy('nim', 'asc')
-            ->get(['nim', 'nama', 'tahun_lulus', 'tahun_akademik_lulus', 'tanggal_lahir'])
+            ->get(['nim', 'nama', 'email_pribadi', 'tahun_lulus', 'tahun_akademik_lulus', 'tanggal_lahir'])
             ->map(function ($row) {
                 $parsed = Biodata::parseNim($row->nim);
                 $prodi = $parsed ? Prodi::where('kode_prodi', $parsed['kode_prodi'])->first() : null;
@@ -99,6 +105,7 @@ class ManajemenAkunController extends Controller
                 return [
                     'nim' => $row->nim,
                     'nama' => $row->nama ?: 'Mahasiswa UKDW',
+                    'email_pribadi' => $row->email_pribadi,
                     'tahun_lulus' => $row->tahun_lulus ? (string) $row->tahun_lulus : '-',
                     'tahun_akademik_lulus' => $row->tahun_akademik_lulus ?: '-',
                     'tanggal_lahir' => $row->tanggal_lahir,
@@ -128,47 +135,104 @@ class ManajemenAkunController extends Controller
                 'search' => $search,
             ],
             'stats' => $stats,
+            'account_sync' => $this->getAccountSyncSetting(),
         ]);
+    }
+
+    /**
+     * Membuka atau menutup penerimaan permintaan pembuatan akun dari Data Akademik.
+     *
+     * @param  Request  $request  Request yang berisi status buka/tutup.
+     * @return RedirectResponse Redirect kembali ke halaman manajemen akun.
+     */
+    public function updateSyncAvailability(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'is_open' => ['required', 'boolean'],
+        ]);
+
+        $isOpen = (bool) $validated['is_open'];
+
+        DB::table('account_sync_settings')->updateOrInsert(
+            ['id' => self::ACCOUNT_SYNC_SETTING_ID],
+            [
+                'is_open' => $isOpen,
+                'updated_by' => $request->user()?->id,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+
+        LogActivity::record(
+            'UPDATE_ACCOUNT_SYNC_AVAILABILITY',
+            'Super Admin '.($isOpen ? 'membuka' : 'menutup').' permintaan pembuatan akun dari Data Akademik.'
+        );
+
+        return back()->with('success', $isOpen
+            ? 'Permintaan pembuatan akun dari Data Akademik telah dibuka.'
+            : 'Permintaan pembuatan akun dari Data Akademik telah ditutup.');
     }
 
     /**
      * Perbarui Data Pengguna (Edit Email, Nama, Username, Role, Prodi/Fakultas)
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id): RedirectResponse
     {
         $user = User::findOrFail($id);
 
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email,'.$user->id,
-            'username' => 'required|string|max:255|unique:users,username,'.$user->id,
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($user->id),
+            ],
+            'username' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('users', 'username')->ignore($user->id),
+            ],
             'role' => 'required|string|in:superadmin,admin_biro3,admin_fakultas,admin_prodi,alumni',
             'prodi_id' => 'nullable|exists:prodi,id',
-            'fakultas_id' => 'nullable|exists:ref_fakultas,id',
+            'fakultas_id' => [
+                'nullable',
+                'exists:ref_fakultas,id',
+                Rule::requiredIf(fn (): bool => $request->input('role') === 'admin_fakultas'),
+            ],
         ]);
 
         $oldValues = $user->only(['name', 'email', 'username', 'role', 'prodi_id', 'fakultas_id']);
 
+        $role = $validated['role'];
+        $prodiId = in_array($role, ['admin_prodi', 'alumni'], true)
+            ? ($validated['prodi_id'] ?? null)
+            : null;
+        $fakultasId = $role === 'admin_fakultas'
+            ? $validated['fakultas_id']
+            : ($prodiId ? Prodi::find($prodiId)?->fakultas_id : null);
+
         $user->update([
-            'name' => $request->name,
-            'email' => $request->email,
-            'username' => $request->username,
-            'role' => $request->role,
-            'prodi_id' => $request->prodi_id,
-            'fakultas_id' => $request->fakultas_id,
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'username' => $validated['username'],
+            'role' => $role,
+            'prodi_id' => $prodiId,
+            'fakultas_id' => $fakultasId,
         ]);
 
         if ($user->biodata) {
             $user->biodata->update([
-                'nama' => $request->name,
-                'email_pribadi' => $request->email,
+                'nama' => $validated['name'],
+                'email_pribadi' => $validated['email'],
             ]);
         }
 
         // Catat Audit Trail ke tabel log_activities
         LogActivity::record(
             'UPDATE_USER_ACCOUNT',
-            "Super Admin memperbarui data akun {$user->name} (@{$user->username}). Email diatur ke {$request->email}.",
+            "Super Admin memperbarui data akun {$user->name} (@{$user->username}). Email diatur ke {$validated['email']}.",
             $user,
             $oldValues,
             $user->only(['name', 'email', 'username', 'role', 'prodi_id', 'fakultas_id'])
@@ -218,11 +282,15 @@ class ManajemenAkunController extends Controller
 
     /**
      * Sinkronkan Data Akademik Mahasiswa Lulusan menjadi Akun Pengguna (Alumni) & Profil Biodata
-     *
-     * @return RedirectResponse
      */
-    public function syncAlumniAccounts(Request $request)
+    public function syncAlumniAccounts(Request $request): RedirectResponse
     {
+        if (! $this->getAccountSyncSetting()['is_open']) {
+            return back()->withErrors([
+                'sync' => 'Permintaan pembuatan akun sedang ditutup. Buka kembali sinkronisasi sebelum memproses Data Akademik.',
+            ]);
+        }
+
         $selectedNims = $request->input('selected_nims');
 
         $query = DataAkademik::where('status_mahasiswa', 'Lulus')
@@ -265,7 +333,10 @@ class ManajemenAkunController extends Controller
                     $plainPassword = Carbon::parse($record->tanggal_lahir)->format('dmY');
                 }
 
-                $email = $record->email_students ?: ($nim.'@students.ukdw.ac.id');
+                $sourceEmail = trim((string) $record->email_pribadi);
+                $email = filter_var($sourceEmail, FILTER_VALIDATE_EMAIL)
+                    ? $sourceEmail
+                    : ($nim.'@students.ukdw.ac.id');
                 // Pastikan email unik jika sudah ada user lain yang menggunakan email sama
                 if (User::where('email', $email)->exists()) {
                     $email = $nim.'.'.time().'@students.ukdw.ac.id';
@@ -286,6 +357,7 @@ class ManajemenAkunController extends Controller
                     ]);
                 } else {
                     $user->update([
+                        'email' => $email,
                         'role' => 'alumni',
                         'prodi_id' => $prodiId,
                         'fakultas_id' => $fakultasId,
@@ -298,7 +370,7 @@ class ManajemenAkunController extends Controller
                     [
                         'user_id' => $user->id,
                         'prodi_id' => $prodiId,
-                        'email_pribadi' => $user->email,
+                        'email_pribadi' => $email,
                     ]
                 );
 
@@ -313,5 +385,36 @@ class ManajemenAkunController extends Controller
         );
 
         return back()->with('success', "Berhasil menyinkronkan {$syncedCount} akun alumni baru dari data akademik.");
+    }
+
+    /**
+     * Mengambil status sinkronisasi akun dan membuat baris default jika diperlukan.
+     *
+     * @return array{is_open: bool, updated_at: string|null} Status permintaan akun.
+     */
+    private function getAccountSyncSetting(): array
+    {
+        $setting = DB::table('account_sync_settings')
+            ->where('id', self::ACCOUNT_SYNC_SETTING_ID)
+            ->first();
+
+        if (! $setting) {
+            DB::table('account_sync_settings')->insert([
+                'id' => self::ACCOUNT_SYNC_SETTING_ID,
+                'is_open' => true,
+                'updated_by' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $setting = DB::table('account_sync_settings')
+                ->where('id', self::ACCOUNT_SYNC_SETTING_ID)
+                ->first();
+        }
+
+        return [
+            'is_open' => (bool) $setting->is_open,
+            'updated_at' => $setting->updated_at,
+        ];
     }
 }

@@ -31,8 +31,9 @@ class MasterWilayahController extends Controller
     {
         $activeTab = $request->input('tab', 'provinsi');
         $search = $request->input('search');
-        $selectedYear = (int) $request->input('tahun', 2026);
-        $propinsiFilterId = $request->input('propinsi_id');
+        $currentYear = (int) now()->year;
+        $selectedYear = (int) $request->input('tahun', $currentYear);
+        $kodeProvinsiFilter = $request->input('kode_provinsi');
         $benuaFilter = $request->input('benua');
         $perPage = (int) $request->input('per_page', 15);
 
@@ -44,7 +45,7 @@ class MasterWilayahController extends Controller
             ->toArray();
 
         if (empty($availableYears)) {
-            $availableYears = [2026];
+            $availableYears = [$currentYear];
         }
 
         if (! in_array($selectedYear, $availableYears, true)) {
@@ -83,7 +84,7 @@ class MasterWilayahController extends Controller
         ];
 
         // Daftar seluruh provinsi untuk dropdown modal/filter
-        $allProvinces = Propinsi::select('id', 'kode_provinsi', 'nama_provinsi')
+        $allProvinces = Propinsi::select('kode_provinsi', 'nama_provinsi')
             ->orderBy('nama_provinsi', 'asc')
             ->get();
 
@@ -99,7 +100,6 @@ class MasterWilayahController extends Controller
 
         $provinces = $provinsiQuery->orderBy('kode_provinsi', 'asc')->get()->map(function ($prov) {
             return [
-                'id' => $prov->id,
                 'kode_provinsi' => $prov->kode_provinsi,
                 'nama_provinsi' => $prov->nama_provinsi,
                 'total_kabupaten' => $prov->kabupaten_count,
@@ -109,8 +109,8 @@ class MasterWilayahController extends Controller
         // Query Kabupaten murni untuk master data dengan relasi Provinsi Induk
         $kabupatenQuery = Kabupaten::with('propinsi');
 
-        if ($propinsiFilterId) {
-            $kabupatenQuery->where('propinsi_id', $propinsiFilterId);
+        if ($kodeProvinsiFilter) {
+            $kabupatenQuery->where('kode_provinsi', $kodeProvinsiFilter);
         }
 
         if ($search && $activeTab === 'kabupaten') {
@@ -128,12 +128,10 @@ class MasterWilayahController extends Controller
             ->withQueryString()
             ->through(function ($kab) {
                 return [
-                    'id' => $kab->id,
-                    'propinsi_id' => $kab->propinsi_id,
                     'kode_kabupaten' => $kab->kode_kabupaten,
+                    'kode_provinsi' => $kab->kode_provinsi,
                     'nama_kabupaten' => $kab->nama_kabupaten,
                     'nama_provinsi' => $kab->propinsi?->nama_provinsi ?? '-',
-                    'kode_provinsi' => $kab->propinsi?->kode_provinsi ?? '-',
                 ];
             });
 
@@ -158,7 +156,7 @@ class MasterWilayahController extends Controller
 
                     return [
                         'id' => $activeUmp?->id,
-                        'provinsi_id' => $item->id,
+                        'kode_provinsi' => $item->kode_provinsi,
                         'kode_provinsi' => $item->kode_provinsi,
                         'nama_provinsi' => $item->nama_provinsi,
                         'tahun' => $activeUmp ? $activeUmp->tahun : $selectedYear,
@@ -182,7 +180,7 @@ class MasterWilayahController extends Controller
             if ($search) {
                 $negaraQuery->where(function ($q) use ($search) {
                     $q->where('nama_negara', 'like', "%{$search}%")
-                        ->orWhere('kode_iso2', 'like', "%{$search}%")
+                        ->orWhere('kode_negara', 'like', "%{$search}%")
                         ->orWhere('kode_iso3', 'like', "%{$search}%")
                         ->orWhere('nama_resmi', 'like', "%{$search}%")
                         ->orWhere('ibu_kota', 'like', "%{$search}%")
@@ -216,7 +214,7 @@ class MasterWilayahController extends Controller
             'filters' => [
                 'search' => $search ?: '',
                 'tahun' => $selectedYear,
-                'propinsi_id' => $propinsiFilterId ?: '',
+                'kode_provinsi' => $kodeProvinsiFilter ?: '',
                 'benua' => $benuaFilter ?: '',
                 'per_page' => $perPage,
                 'tab' => $activeTab,
@@ -245,7 +243,7 @@ class MasterWilayahController extends Controller
         if (! empty($validated['besaran_ump'])) {
             Ump::create([
                 'kode_provinsi' => $provinsi->kode_provinsi,
-                'tahun' => $validated['tahun_ump'] ?: 2026,
+                'tahun' => $validated['tahun_ump'] ?: (int) now()->year,
                 'besaran' => $validated['besaran_ump'],
                 'catatan' => $validated['catatan_ump'] ?? null,
             ]);
@@ -265,12 +263,12 @@ class MasterWilayahController extends Controller
     /**
      * Perbarui Data Provinsi
      */
-    public function updateProvinsi(Request $request, int $id): RedirectResponse
+    public function updateProvinsi(Request $request, string $kodeProvinsi): RedirectResponse
     {
-        $provinsi = Propinsi::findOrFail($id);
+        $provinsi = Propinsi::findOrFail($kodeProvinsi);
 
         $validated = $request->validate([
-            'kode_provinsi' => 'required|string|max:10|unique:propinsi,kode_provinsi,'.$provinsi->id,
+            'kode_provinsi' => 'required|string|max:10|unique:propinsi,kode_provinsi,'.$provinsi->kode_provinsi.',kode_provinsi',
             'nama_provinsi' => 'required|string|max:255',
         ]);
 
@@ -302,12 +300,12 @@ class MasterWilayahController extends Controller
     /**
      * Hapus Provinsi
      */
-    public function destroyProvinsi(int $id): RedirectResponse
+    public function destroyProvinsi(string $kodeProvinsi): RedirectResponse
     {
-        $provinsi = Propinsi::findOrFail($id);
+        $provinsi = Propinsi::findOrFail($kodeProvinsi);
 
         // Cek keterkaitan dengan kabupaten
-        $kabupatenCount = Kabupaten::where('propinsi_id', $provinsi->id)->count();
+        $kabupatenCount = Kabupaten::where('kode_provinsi', $provinsi->kode_provinsi)->count();
         if ($kabupatenCount > 0) {
             return back()->withErrors([
                 'error' => "Provinsi {$provinsi->nama_provinsi} tidak dapat dihapus karena masih memuat {$kabupatenCount} kabupaten/kota.",
@@ -344,19 +342,19 @@ class MasterWilayahController extends Controller
     public function storeKabupaten(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'propinsi_id' => 'required|exists:propinsi,id',
+            'kode_provinsi' => 'required|exists:propinsi,kode_provinsi',
             'kode_kabupaten' => 'required|string|max:20|unique:kabupaten,kode_kabupaten',
             'nama_kabupaten' => 'required|string|max:255',
         ]);
 
         $kabupaten = Kabupaten::create([
-            'propinsi_id' => $validated['propinsi_id'],
+            'kode_provinsi' => $validated['kode_provinsi'],
             'kode_kabupaten' => $validated['kode_kabupaten'],
             'nama_kabupaten' => strtoupper(trim($validated['nama_kabupaten'])),
         ]);
 
         // Bersihkan cache kabupaten per provinsi agar dropdown selalu mutakhir
-        Cache::forget("wilayah:kabupaten:prov_{$validated['propinsi_id']}");
+        Cache::forget("wilayah:kabupaten:prov_{$validated['kode_provinsi']}");
 
         LogActivity::record(
             'CREATE_KABUPATEN',
@@ -372,34 +370,34 @@ class MasterWilayahController extends Controller
     /**
      * Perbarui Data Kabupaten/Kota
      */
-    public function updateKabupaten(Request $request, int $id): RedirectResponse
+    public function updateKabupaten(Request $request, string $kodeKabupaten): RedirectResponse
     {
-        $kabupaten = Kabupaten::findOrFail($id);
+        $kabupaten = Kabupaten::findOrFail($kodeKabupaten);
 
         $validated = $request->validate([
-            'propinsi_id' => 'required|exists:propinsi,id',
-            'kode_kabupaten' => 'required|string|max:20|unique:kabupaten,kode_kabupaten,'.$kabupaten->id,
+            'kode_provinsi' => 'required|exists:propinsi,kode_provinsi',
+            'kode_kabupaten' => 'required|string|max:20|unique:kabupaten,kode_kabupaten,'.$kabupaten->kode_kabupaten.',kode_kabupaten',
             'nama_kabupaten' => 'required|string|max:255',
         ]);
 
-        $oldValues = $kabupaten->only(['propinsi_id', 'kode_kabupaten', 'nama_kabupaten']);
+        $oldValues = $kabupaten->only(['kode_provinsi', 'kode_kabupaten', 'nama_kabupaten']);
 
         $kabupaten->update([
-            'propinsi_id' => $validated['propinsi_id'],
+            'kode_provinsi' => $validated['kode_provinsi'],
             'kode_kabupaten' => $validated['kode_kabupaten'],
             'nama_kabupaten' => strtoupper(trim($validated['nama_kabupaten'])),
         ]);
 
         // Bersihkan cache kabupaten untuk provinsi lama dan provinsi baru
-        Cache::forget("wilayah:kabupaten:prov_{$oldValues['propinsi_id']}");
-        Cache::forget("wilayah:kabupaten:prov_{$validated['propinsi_id']}");
+        Cache::forget("wilayah:kabupaten:prov_{$oldValues['kode_provinsi']}");
+        Cache::forget("wilayah:kabupaten:prov_{$validated['kode_provinsi']}");
 
         LogActivity::record(
             'UPDATE_KABUPATEN',
             "Super Admin memperbarui kabupaten/kota: {$kabupaten->nama_kabupaten} (Kode: {$kabupaten->kode_kabupaten})",
             $kabupaten,
             $oldValues,
-            $kabupaten->only(['propinsi_id', 'kode_kabupaten', 'nama_kabupaten'])
+            $kabupaten->only(['kode_provinsi', 'kode_kabupaten', 'nama_kabupaten'])
         );
 
         return back()->with('success', "Data kabupaten/kota {$kabupaten->nama_kabupaten} berhasil diperbarui.");
@@ -408,9 +406,9 @@ class MasterWilayahController extends Controller
     /**
      * Hapus Kabupaten/Kota
      */
-    public function destroyKabupaten(int $id): RedirectResponse
+    public function destroyKabupaten(string $kodeKabupaten): RedirectResponse
     {
-        $kabupaten = Kabupaten::findOrFail($id);
+        $kabupaten = Kabupaten::findOrFail($kodeKabupaten);
 
         if ($kabupaten->perusahaan()->exists()) {
             return back()->withErrors([
@@ -419,11 +417,11 @@ class MasterWilayahController extends Controller
         }
 
         $oldData = $kabupaten->toArray();
-        $propinsiId = $kabupaten->propinsi_id;
+        $kodeProvinsi = $kabupaten->kode_provinsi;
         $kabupaten->delete();
 
         // Bersihkan cache kabupaten per provinsi
-        Cache::forget("wilayah:kabupaten:prov_{$propinsiId}");
+        Cache::forget("wilayah:kabupaten:prov_{$kodeProvinsi}");
 
         LogActivity::record(
             'DELETE_KABUPATEN',
@@ -439,9 +437,9 @@ class MasterWilayahController extends Controller
     /**
      * Endpoint API asinkron untuk mengambil daftar kabupaten berdasarkan ID provinsi (cascading dropdown).
      */
-    public function getKabupatenByProvinsi(int $propinsiId): JsonResponse
+    public function getKabupatenByProvinsi(string $kodeProvinsi): JsonResponse
     {
-        $cacheKey = "wilayah:kabupaten:prov_{$propinsiId}";
+        $cacheKey = "wilayah:kabupaten:prov_{$kodeProvinsi}";
 
         try {
             $cached = Cache::get($cacheKey);
@@ -452,8 +450,8 @@ class MasterWilayahController extends Controller
             Cache::forget($cacheKey);
         }
 
-        $kabupatens = Kabupaten::select('id', 'propinsi_id', 'nama_kabupaten')
-            ->where('propinsi_id', $propinsiId)
+        $kabupatens = Kabupaten::select('kode_kabupaten', 'kode_provinsi', 'nama_kabupaten')
+            ->where('kode_provinsi', $kodeProvinsi)
             ->orderBy('nama_kabupaten')
             ->get()
             ->toArray();
@@ -585,7 +583,7 @@ class MasterWilayahController extends Controller
     public function storeNegara(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'kode_iso2' => 'required|string|size:2|unique:ref_negara,kode_iso2',
+            'kode_negara' => 'required|string|size:2|unique:ref_negara,kode_negara',
             'kode_iso3' => 'nullable|string|size:3|unique:ref_negara,kode_iso3',
             'nama_negara' => 'required|string|max:80|unique:ref_negara,nama_negara',
             'nama_resmi' => 'nullable|string|max:120',
@@ -594,7 +592,7 @@ class MasterWilayahController extends Controller
         ]);
 
         $negara = RefNegara::create([
-            'kode_iso2' => strtoupper(trim($validated['kode_iso2'])),
+            'kode_negara' => strtoupper(trim($validated['kode_negara'])),
             'kode_iso3' => ! empty($validated['kode_iso3']) ? strtoupper(trim($validated['kode_iso3'])) : null,
             'nama_negara' => trim($validated['nama_negara']),
             'nama_resmi' => ! empty($validated['nama_resmi']) ? trim($validated['nama_resmi']) : null,
@@ -604,7 +602,7 @@ class MasterWilayahController extends Controller
 
         LogActivity::record(
             'CREATE_NEGARA',
-            "Super Admin menambahkan negara baru: {$negara->nama_negara} (ISO-2: {$negara->kode_iso2})",
+            "Super Admin menambahkan negara baru: {$negara->nama_negara} (kode: {$negara->kode_negara})",
             $negara,
             null,
             $negara->toArray()
@@ -616,30 +614,24 @@ class MasterWilayahController extends Controller
     /**
      * Perbarui Data Master Negara
      */
-    public function updateNegara(Request $request, int $id): RedirectResponse
+    public function updateNegara(Request $request, string $kodeNegara): RedirectResponse
     {
-        $negara = RefNegara::findOrFail($id);
+        $negara = RefNegara::findOrFail($kodeNegara);
 
         $validated = $request->validate([
-            'kode_iso2' => 'required|string|size:2|unique:ref_negara,kode_iso2,'.$negara->id,
-            'kode_iso3' => 'nullable|string|size:3|unique:ref_negara,kode_iso3,'.$negara->id,
-            'nama_negara' => 'required|string|max:80|unique:ref_negara,nama_negara,'.$negara->id,
+            'kode_negara' => 'required|string|size:2|unique:ref_negara,kode_negara,'.$negara->kode_negara.',kode_negara',
+            'kode_iso3' => 'nullable|string|size:3|unique:ref_negara,kode_iso3,'.$negara->kode_negara.',kode_negara',
+            'nama_negara' => 'required|string|max:80|unique:ref_negara,nama_negara,'.$negara->kode_negara.',kode_negara',
             'nama_resmi' => 'nullable|string|max:120',
             'benua' => 'nullable|string|max:50',
             'ibu_kota' => 'nullable|string|max:80',
         ]);
 
         $oldValues = $negara->toArray();
-        $oldNama = $negara->nama_negara;
         $newNama = trim($validated['nama_negara']);
 
-        // Jika nama negara berubah, sinkronkan relasi string pada tabel perusahaan
-        if ($oldNama !== $newNama) {
-            Perusahaan::where('negara', $oldNama)->update(['negara' => $newNama]);
-        }
-
         $negara->update([
-            'kode_iso2' => strtoupper(trim($validated['kode_iso2'])),
+            'kode_negara' => strtoupper(trim($validated['kode_negara'])),
             'kode_iso3' => ! empty($validated['kode_iso3']) ? strtoupper(trim($validated['kode_iso3'])) : null,
             'nama_negara' => $newNama,
             'nama_resmi' => ! empty($validated['nama_resmi']) ? trim($validated['nama_resmi']) : null,
@@ -649,7 +641,7 @@ class MasterWilayahController extends Controller
 
         LogActivity::record(
             'UPDATE_NEGARA',
-            "Super Admin memperbarui data negara: {$negara->nama_negara} (ISO-2: {$negara->kode_iso2})",
+            "Super Admin memperbarui data negara: {$negara->nama_negara} (kode: {$negara->kode_negara})",
             $negara,
             $oldValues,
             $negara->toArray()
@@ -661,11 +653,11 @@ class MasterWilayahController extends Controller
     /**
      * Hapus Data Master Negara
      */
-    public function destroyNegara(int $id): RedirectResponse
+    public function destroyNegara(string $kodeNegara): RedirectResponse
     {
-        $negara = RefNegara::findOrFail($id);
+        $negara = RefNegara::findOrFail($kodeNegara);
 
-        $perusahaanCount = Perusahaan::where('negara', $negara->nama_negara)->count();
+        $perusahaanCount = Perusahaan::where('kode_negara', $negara->kode_negara)->count();
         if ($perusahaanCount > 0) {
             return back()->withErrors([
                 'error' => "Negara {$negara->nama_negara} tidak dapat dihapus karena masih digunakan oleh {$perusahaanCount} data perusahaan.",
@@ -677,7 +669,7 @@ class MasterWilayahController extends Controller
 
         LogActivity::record(
             'DELETE_NEGARA',
-            "Super Admin menghapus data negara: {$negara->nama_negara} (ISO-2: {$negara->kode_iso2})",
+            "Super Admin menghapus data negara: {$negara->nama_negara} (kode: {$negara->kode_negara})",
             null,
             $oldData,
             null

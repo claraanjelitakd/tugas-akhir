@@ -2,11 +2,219 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 12 November 2026
+
+- **Kelengkapan data indikator default**: fixture kohort 2026 kini mengisi F10 (aktivitas mencari pekerjaan) untuk seluruh alumni serta F11 (jenis tempat kerja) dan F16 (alasan ketidaksesuaian) untuk jalur kerja/wirausaha. Variasi jawaban diambil dari opsi instrumen aktif agar grafik universitas tidak kosong dan relasi jawaban tetap tersambung ke master pertanyaan.
+
+## 11 November 2026
+
+- **Standardisasi Grafik Prodi**:
+  - Payload pilihan dari `ProdiAnalyticsService` hanya mengirim kategori dengan jumlah lebih dari nol; nilai jumlah tetap bertipe integer sehingga sumbu grafik tidak membuat pecahan seperti `0,5`.
+  - Opsi `Lainnya` tidak lagi menjadi batang kategori. Isian bebasnya dikirim sebagai `other_word_cloud` dan ditampilkan melalui renderer word cloud pada semua bagian pertanyaan pilihan.
+  - Renderer pilihan program studi sekarang memilih visualisasi berdasarkan tipe pertanyaan dari backend, termasuk dukungan bagian campuran tanpa menghitung ulang frekuensi di frontend.
+  - Aksi drill-down alumni pada tabel pilihan mengikuti pola tombol Data Alumni untuk detail, WhatsApp, email, dan LinkedIn.
+- **Radio + teks tanpa opsi master Lainnya**: opsi `Lainnya` ditampilkan secara virtual pada form alumni untuk pertanyaan `radio_text`; jawaban bebas tetap disimpan melalui payload jawaban tanpa menambah baris ke master `kuesioner_opsi`.
+- **Perbaikan tambah opsi kuesioner prodi**: field skor yang tidak dikirim editor kini diperlakukan sebagai `null`, sehingga opsi seperti `Lainnya` dapat disimpan tanpa error `Undefined array key "value"`.
+- **Penyederhanaan builder opsi prodi**: input skor tidak lagi ditampilkan pada setiap pertanyaan; konfigurasi percabangan tetap dilakukan melalui `Jump To` pada editor opsi.
+- **Penyempurnaan tipe pertanyaan dan opsi**: builder mendukung `Checkbox + Isian`, rating otomatis menyediakan opsi 1–5 dengan skor internal di backend, setiap opsi memakai `kode_opsi`, dan multi-placement memakai dropdown multi-pilih.
+- **Radio + Angka (Bulan) lintas instrumen**: Universitas, Evaluasi Atasan, dan Prodi memakai default opsi singkat `Sebelum lulus`, `Sesudah lulus ... bulan`, dan `Tidak mencari kerja` yang dapat diedit; skor hanya disimpan untuk Likert, sedangkan input bulan diisi responden melalui penanda `...`.
+- **Preservasi konteks CRUD kuesioner**: tab aktif, program studi, section, filter, dan pencarian disimpan pada query URL agar redirect Inertia setelah tambah, ubah, hapus, atau reorder tidak kembali ke section pertama.
+- **Multi-Placement searchable dan dapat dikosongkan**: builder Prodi kini memakai dropdown pencarian dengan pilihan yang dapat dihapus satu per satu atau sekaligus; backend menyinkronkan relasi placement dan menghapus hanya penempatan tambahan yang tidak lagi dipilih.
+- **Konsistensi CRUD opsi lintas instrumen**: kontrak request Universitas, Evaluasi Atasan, dan Prodi tidak lagi menerima field kompatibilitas `score`/`value`; `nilai_skor` hanya dihitung backend untuk rating/Likert. Evaluasi Atasan kini memiliki CRUD opsi lengkap, termasuk kode, urutan, label, dan `Jump To`.
+
+## 09 November 2026
+
+- **Kanonisasi fixture seeding 2026**:
+  - Default `DatabaseSeeder` kini hanya menyiapkan satu kohort contoh 2026, Joshua, master referensi, instrumen kuesioner, dan snapshot LinkedIn.
+  - `AlumniSimulationSeeder` menyiapkan 99 alumni lengkap lintas 12 program studi S1; bersama Joshua, total fixture lulusan maksimal 100 orang. Akun, data akademik, yudisium, biodata, perusahaan, atasan, jawaban kuesioner, dan evaluasi atasan saling terhubung.
+  - Joshua dan fixture alumni memakai `prodi_id` serta periode akademik 2025/2026; data non-lulusan dan simulasi lintas tahun tidak lagi masuk default seed.
+  - Seeder LinkedIn tidak lagi memakai fallback biodata pertama yang dapat menautkan hasil scraping ke alumni yang salah.
+  - Ditambahkan pengujian integritas yang memastikan nama, akun, biodata, yudisium, prodi, relasi atasan-perusahaan, total maksimal 100 lulusan, dan batas maksimal 10 atasan tetap konsisten.
+
+- **Audit visualisasi Grafik Universitas**:
+  - Menambahkan tabel detail individu generik pada mode `Data`; kolom dan nilainya berasal dari `chart.records` backend, bukan hardcode frontend.
+  - Menyeragamkan aturan stacked bar: skala ordinal memakai gradasi merah-oranye-kuning-hijau, status biner memakai hijau UKDW dan slate, dan keselarasan pendidikan memakai pemetaan warna berdasarkan label kategori.
+  - Mengubah response rate serta perbandingan UMP agar status yang belum terpenuhi memakai slate netral dan memperjelas pembacaan jumlah serta persentase.
+  - Menyelaraskan grafik AEE kelulusan tepat waktu dengan response rate menggunakan stacked bar horizontal berbasis denominator AEE, lengkap dengan jumlah tepat waktu, sisa denominator, dan data yang dikecualikan.
+  - Memecah indikator UMP dan bobot menjadi tiga view: komposisi status UMP, distribusi masa tunggu, dan total bobot per role; seluruh records termasuk bobot nol dan data belum lengkap tetap ditampilkan.
+  - Memperbaiki indikator capaian karier IKU S1 agar kategori `Melanjutkan Pendidikan` dan kategori berbobot nol tetap masuk seri grafik; tabel individu kini dapat mencari, mengurutkan, dan berpaginasi berdasarkan records backend.
+  - Memperjelas batang AEE berdasarkan status akademik: abu-abu untuk status kelulusan belum teridentifikasi, merah untuk lulusan belum tepat waktu, dan hijau untuk lulusan tepat waktu; urutannya dibaca dari kiri ke kanan.
+
+- **IKU S1 berbasis UMP dan role karier**: menambahkan grafik khusus perbandingan pendapatan dengan 1,2 kali UMP, rincian masa tunggu, role Founder/Co-Founder dan Freelancer, bobot configurable pada `config/iku.php`, formula capaian berbobot, serta status konfirmasi Biro 3 untuk matriks yang masih ambigu.
+- **Kecukupan responden**: menambahkan formula response rate `R = (t / N) x 100%` dan Slovin `n_min = ceil(N / (1 + N x e^2))` dengan `e = 0,023` ke payload response rate.
+- **Seeder demo diringkas**: `DatabaseSeeder` hanya menjalankan master runtime, kuesioner terpadu, fixture alumni kanonik 2026, Joshua, dan snapshot LinkedIn. Fixture dashboard, distribusi analitik, populasi non-alumni, profil unggulan, serta skeleton alumni tetap tersedia untuk dijalankan langsung saat diperlukan.
+
+- **Normalisasi kohort demo IKU S1**: fixture default lulusan aktif diarahkan ke angkatan 2022 dan tahun lulus 2026 dengan periode akademik `Genap 2025/2026`. Filter tahun kini hanya mengambil tahun yang benar-benar tersedia, tidak menambahkan tahun berjalan secara sintetis, dan menghapus kemungkinan opsi duplikat.
+
+- **Referensi IKU S1 dan populasi akademik**:
+  - Menambahkan `prodi.jenjang` dan `data_akademik.prodi_id` agar seluruh mahasiswa, termasuk yang belum menjadi alumni, dapat dihitung per program studi.
+  - Menambahkan `data_akademik.tahun_akademik_masuk` dengan format `YYYY/YYYY+1 (Semester Ganjil)` serta status `Pindah`.
+  - Menambahkan `IkuS1AcademicPopulationSeeder` untuk menormalkan seluruh seed akademik dan menyediakan contoh status Aktif, Cuti, Drop Out, Pindah, AR, dan AK.
+  - Menambahkan `v_iku_s1_aee`, `v_iku_s1_lulusan`, `IkuS1AnalyticsService`, dan dua komponen grafik read-only di Grafik Universitas.
+  - Memperbaiki fixture masa tunggu F3 agar konsisten dengan F502 dan mendokumentasikan sumber data, denominator, dan bobot formula IKU.
+
+## 08 November 2026
+
+- **Pemisahan sumber data UMP dan audit seeder**:
+  - Memindahkan daftar UMP 2026 dari array hardcode ke `database/data/ump_2026.csv` agar nominal mudah diaudit dan diperbarui tanpa mengubah logika seeder.
+  - Memvalidasi kode, tahun, dan nominal sebagai angka; memperbarui data secara transaksional dan menghapus baris stale hanya pada tahun yang ada di sumber.
+  - Memetakan kode Papua berdasarkan nama ke kode master wilayah aplikasi agar foreign key dan relasi kabupaten/kota existing tidak rusak.
+  - Menghapus `QuestionMappingSeeder` yang tidak lagi terdaftar maupun dipakai test; sinkronisasi profil sekarang dilakukan saat alur profil/kuesioner berjalan.
+
+- **Pengembangan Visualisasi Analitik Indikator 06 (Pipeline Lamaran, Respons, dan Wawancara - F6, F7, F7a, IPK)**:
+  - Mengimplementasikan visualisasi hubungan IPK dan proses pencarian kerja alumni:
+    1. *Scatter Plot Lamaran vs Respons* dengan gradasi warna kontinu IPK (0–4 skala Viridis-like), garis tren, serta informasi statistik Korelasi Spearman ($\rho$), p-value, dan $N$ valid.
+    2. *Scatter Plot Respons vs Undangan Wawancara* dengan skala dan palet warna IPK kontinu yang konsisten.
+    3. *Horizontal Bar Chart Persentase Konversi Tahapan*: Lamaran → Respons, Respons → Wawancara, dan Lamaran → Wawancara menggunakan rasio total (*weighted conversion*).
+    4. *Grafik Garis Median Capaian per Program Studi*: Mempertahankan garis median jumlah lamaran, respons, dan wawancara antarfakultas/prodi.
+  - Menghilangkan data dummy dan menangani sebaran ribuan observasi aktual dengan penanganan titik bertumpuk (*jitter / opacity*).
+
+- **Standardisasi Diagram Batang Bertumpuk 100% Horizontal (Stacked Bar 100%)**:
+  - Menerapkan batasan ambang persentase `< 10%` otomatis tidak menampilkan label teks di dalam batang pada seluruh grafik stacked horizontal di analitik (Indikator 01, 02, 03, 07, 09, 11, 12, 13, 14) agar tampilan bersih, bebas tumpukan angka, dan tidak memenuhi area visual.
+  - Grafik Donut Indikator 07 kini memuat persentase dan nama kategori status pekerjaan secara langsung (misal: `71,9% Bekerja`, `10% Melanjutkan pendidikan`).
+
+- **Penyelarasan Instrumen Kuesioner Resmi F10 (Aktivitas Pencarian Kerja)**:
+  - Menyelaraskan teks instrumen F10 kuesioner resmi Tracer Study UKDW / Dikti: *"Apakah anda aktif mencari pekerjaan dalam 4 minggu terakhir? Pilihlah Satu Jawaban. KEMUDIAN LANJUT KE F17"*.
+  - Merapikan 5 opsi resmi F10 dan memperbaiki pemecahan string pada opsi 2 (*"Tidak, tapi saya sedang menunggu hasil lamaran kerja"*) agar tanda koma tidak memecah opsi menjadi baris ganda.
+
+- **Penerapan Matriks Heatmap Sebaran per Program Studi (Indikator 09, 12, 13)**:
+  - Mengadopsi visualisasi matriks heatmap dari Indikator 02 ke Indikator 09 (*Bentuk Tempat Kerja*), Indikator 13 (*Kualifikasi Pendidikan / Vertical Match*), dan Indikator 12 (*Keselarasan Bidang Studi / Horizontal Match*). Tampilan Indikator 14 (*Keselarasan Pendidikan Universitas*) tidak lagi menjadi indikator aktif.
+  - Sumbu X menyajikan kategori/pilihan jawaban kuesioner, sumbu Y menyajikan seluruh program studi di UKDW beserta jumlah responden `(n=...)`, sel memuat persentase proporsi dengan palet hijau monokromatik UKDW (`#F8FAFC` s/d `#0D542B`), serta tabulasi data ringkasan matriks prodi.
+
+- **Penyelarasan Desain & Skala Warna Indikator 12 (Horizontal Match - F14)**:
+  - Menyesuaikan diagram batang bertumpuk 100% horizontal Indikator 12 dengan palet 5 skala warna Likert Indikator 02 (1 Merah s/d 5 Hijau Tua UKDW) dan Vertical Scale Bar terdedikasi di sisi kanan grafik.
+
+- **Penyempurnaan Indikator 10 (Distribusi Jenjang Studi Lanjut - F12, F18)**:
+  - Memperbaiki atribut program studi pada data tabel detail alumni kategori S2 agar memproyeksikan **Program Studi S2 (Lanjut)** (seperti *Magister Sistem Informasi*, *Magister Informatika*), bukan program studi S1 asal.
+  - Menghilangkan placeholder dummy `4` dan melengkapi kategori *Lainnya* dengan rincian program profesi/spesialis yang kontekstual (*Pendidikan Profesi Dokter*, *PPAk*, *PPAr*, *PPG*, dsb.) baik pada tabel drill-down universitas maupun tabel rincian data terpilih responden.
+
+- **Sinkronisasi Word Cloud Saran Mutu & Validasi Kuesioner (F9)**:
+  - Memperbaiki penanganan pencarian kata kunci dan visualisasi kata pada awan kata (Word Cloud) saran perbaikan kurikulum dan mutu pembelajaran.
+
+## 06 November 2026
+
+- **Mapping Perusahaan LinkedIn dan Approval Cepat**:
+  - Memperluas normalisasi parser LinkedIn untuk alias field perusahaan, posisi, lokasi, dan URL dari provider.
+  - Menghubungkan mapper LinkedIn ke algoritma similarity master perusahaan; kecocokan kuat disiapkan sebagai rekomendasi dan baru diterapkan setelah approval, sedangkan nama baru dibuat `Menunggu Verifikasi` tanpa menghapus data staging.
+  - Menampilkan status mapping perusahaan pada tabel sinkronisasi serta menyediakan aksi `Approve` dan `Reject` langsung tanpa membuka detail.
+  - Menambahkan `Preview`, `Approve`, dan `Tolak` inline pada tabel Data Alumni; preview dibuka sebagai modal tanpa navigasi ke halaman show.
+  - Memisahkan metadata master head office dari lokasi kerja LinkedIn, mempertahankan master terverifikasi, dan menyertakan homepage/telepon-fax opsional pada form profil admin.
+  - Menjaga status verifikasi serta metadata head office saat profil alumni dikirim secara parsial; nilai kosong dari form tidak lagi menghapus data master.
+  - Menyelaraskan form evaluasi atasan dengan profil alumni untuk F11, bentuk, skala, jumlah pegawai, alamat, kode pos, telepon/fax, dan homepage; metadata master terverifikasi hanya dilengkapi, bukan ditimpa.
+  - Memperbaiki metadata pertanyaan evaluasi atasan yang sebelumnya dikirim sebagai model mentah sehingga langkah karakteristik tampil kosong di Vue.
+  - Memisahkan kode pos kantor dari domisili alumni dan menyembunyikan perusahaan pending milik pengguna lain pada dropdown profil alumni.
+  - Memastikan setiap langkah evaluasi atasan hanya merender kontennya sendiri; metadata head office tidak ikut tampil di Langkah 3. Field master yang sudah terverifikasi menjadi read-only di sisi atasan.
+  - Merapikan placement instrumen evaluasi atasan agar pertanyaan penilaian hanya berada di Step 3 dan pertanyaan karakteristik hanya berada di Step 2; seeder membersihkan relasi duplikat lama tanpa menghapus master pertanyaan atau jawaban.
+  - Membalik urutan opsi pada tampilan Step 3 menjadi tingkat terendah di kiri dan tingkat tertinggi di kanan tanpa mengubah urutan master yang dipakai analytics untuk scoring.
+  - Menjadikan metadata head office read-only pada formulir publik atasan; Step 2 hanya meminta jumlah pegawai, jumlah alumni UKDW, dan standar gaji pertama yang disimpan sebagai jawaban `kuesioner_jawaban` bertipe responden atasan.
+
+- **Detail Alumni Baca-Saja dari Analitik Fakultas**:
+  - Menambahkan route `/fakultas/analitik/alumni/{id}` untuk membuka detail alumni lintas fakultas dari tabel atau grafik analitik.
+  - Detail tersebut bersifat baca-saja; direktori dan endpoint mutasi profil tetap dibatasi pada fakultas admin yang sedang login.
+- **Kontrak Direktori Profil Karier Alumni**:
+  - Memperbaiki nama field program studi pada payload direktori agar `nama_prodi` dan `nama_fakultas` konsisten dengan Vue.
+  - Menambahkan `biodata.divisi` sebagai field terpisah dari `bidang_pekerjaan`.
+  - Direktori menampilkan perusahaan master/head office, domisili alumni, bidang pekerjaan, divisi, dan skills sebagai frasa/chip.
+  - Aksi LinkedIn pada direktori alumni tetap menjalankan sinkronisasi; tautan profil langsung digunakan pada tabel detail analitik.
+  - Menambahkan `linkedin_url` ke proyeksi `v_analytics_population` dan payload analitik Prodi/Atasan agar ikon profil hanya muncul pada konteks grafik yang sesuai.
+  - Menggabungkan bidang, unit/divisi, dan posisi pada satu kolom direktori; menambahkan filter wilayah, head office, skills, bidang, dan unit.
+  - Menampilkan ringkasan studi lanjut/wiraswasta pada kolom aktivitas serta membuat riwayat LinkedIn terlihat langsung dari kolom sinkronisasi.
+  - Mengubah filter wilayah menjadi dropdown searchable berbasis ID master provinsi/kabupaten dan mengembalikan tombol email per alumni dengan flash notification.
+  - Meneruskan metadata filter ke seluruh wrapper halaman direktori; filter wilayah kini bertingkat provinsi → kabupaten/kota.
+  - Menampilkan status kuesioner Prodi secara konsisten. Prodi tanpa pertanyaan aktif ditampilkan sebagai `-`, bukan disembunyikan atau dianggap selesai.
+
+## 04 November 2026
+
+- **Penyatuan Skema Kuesioner Terpadu (Unified Survey Engine)**:
+  - Mengonsolidasikan seluruh survei (Tracer Universitas, Kuesioner Khusus Program Studi, dan Evaluasi Pengguna Lulusan/Atasan) ke dalam 5 tabel terpadu: `kuesioner_section`, `kuesioner_pertanyaan`, `kuesioner_section_pertanyaan`, `kuesioner_opsi`, dan `kuesioner_jawaban`.
+  - Menghapus 11 tabel legacy silo yang redundan (`kelompok_pertanyaan`, `ref_subpertanyaan2021`, `ref_subpertanyaan_detil`, `tracer`, `prodi_question_section`, `prodi_question`, `prodi_question_option`, `prodi_response`, `section_evaluasi_atasan`, `pertanyaan_evaluasi_atasan`, `respon_evaluasi_atasan`).
+  - Menghubungkan lembar transaksi `evaluasi_atasan` secara langsung ke `kuesioner_jawaban` dengan penanda `responden_type = 'atasan'` dan kunci `evaluasi_atasan_id`.
+- **Peningkatan Fleksibilitas Autentikasi Pengguna (`LoginController.php`)**:
+  - Mendukung login menggunakan `username` maupun alamat `email` secara transparan.
+  - Menambahkan dukungan ganda kata sandi awal alumni: format tanggal lahir `ddmmyyyy` dan kata sandi seeder `password123`.
+  - Menambahkan pengujian otomatis komprehensif pada `tests/Feature/LoginAuthenticationTest.php` (6/6 skenario lulus 100%).
+- **Harmonisasi dan Audit Dokumentasi Sistem**:
+  - Memperbarui total `ERD.md`: diagram master, diagram per modul (Mermaid), tabel relasi spesifikasi foreign key, dan kamus data (*data dictionary*) untuk 21 tabel domain bisnis dan 7 tabel infrastruktur Laravel.
+  - Memperbarui `docs/ARCHITECTURE.md`, `USE_CASE.md`, dan `docs/dfd.md` agar seluruh simpanan data dan kontrak transaksi merujuk ke tabel kanonik kuesioner terpadu.
+
+## 03 November 2026
+
+- **Plotting Studi Lanjut, Bidang Pekerjaan, dan Penyederhanaan Form Karier**:
+  - Memperbaiki payload request resmi HarvestAPI pada `ApifyLinkedInProvider.php` menjadi `"queries": ["https://..."]` dan `"profileScraperMode": "Profile details no email ($4 per 1k)"`, menyelesaikan kendala request kosong (results 0).
+  - Memperbarui fixture mock Pak Argo (`argo-wibowo-99180935.json` dan `argo-wibowo-99180935-mock.json`) menggunakan snapshot data live HarvestAPI resmi.
+  - Menambahkan deteksi cerdas riwayat studi lanjut (`further_study`) pada `LinkedinSyncResult::getPreviewData()` yang memprioritaskan jenjang pascasarjana (Doktor/S3 dan Master/S2 di luar S1 almamater UKDW).
+  - Menyediakan kolom penyesuaian studi lanjut (`sync_studi_lanjut`, `pendidikan_tingkat`, `perguruan_tinggi`, `pendidikan_prodi`) pada modal peninjauan SuperAdmin dan tab audit LinkedIn, serta menerapkan pembaruan ke tabel `biodata` saat disetujui atau diplot ulang.
+  - Mengekstrak industri LinkedIn (`industry.name`) menjadi usulan `bidang_pekerjaan` alumni dan memetakannya ke `biodata.bidang_pekerjaan`.
+  - Menyederhanakan pertanyaan Posisi Jabatan Struktural (F2G) pada `FormKarier.vue` menjadi input teks kustom bebas langsung tanpa batasan opsi 1-6 (Direksi s.d. Staff).
+  - Menyelaraskan sub-tab profil admin audit dengan pola `/alumni`: menghapus tombol ganda di header, menyatukan tombol navigasi bawah (Lanjut pada tab 1 & 2, Simpan Profil pada tab 3), dan mengatasi false-dirty state saat inisialisasi form.
+  - Menambahkan seeder 8 alumni Sistem Informasi berprestasi dengan riwayat karier nyata dan preservasi data staging LinkedIn.
+
+- **Migrasi Actor Apify HarvestAPI dan Harmonisasi Skema**:
+  - Mengganti Actor default Apify ke `harvestapi/linkedin-profile-scraper` (Console ID: `LpVuK3Zozwuipa5bp`, Endpoint: `harvestapi~linkedin-profile-scraper/run-sync-get-dataset-items`).
+  - Memprioritaskan atribut `topSkills` untuk field keahlian `skills` alumni, mendukung format array maupun teks berpemisah bullet (`•`).
+  - Harmonisasi field modern: nama (`firstName` + `lastName`), posisi/perusahaan saat ini (`currentPosition[0]`), sertifikasi (`certifications`), dan organisasi (`volunteering`).
+  - Standarisasi penanda pengujian: profil mock lokal diidentifikasi dengan akhiran `-mock` pada URL (`https://www.linkedin.com/in/{username}-mock`), dipetakan otomatis ke fixture kanonik di `storage/app/mock/apify`.
+  - Memperbaiki bug runtime Vue pada `TabLinkedin.vue` di mana `row.db_value.startsWith` menyebabkan layar putih ketika atribut `location` berupa objek bersarang; nilai pemetaan audit kini dijamin string dan template aman terhadap tipe non-string.
+  - Memperbarui dokumentasi panduan integrasi, arsitektur, dan langkah pengujian live Apify.
+
+- **Mock Apify untuk Pengujian Sinkronisasi LinkedIn**:
+  - Menambahkan `MockApifyLinkedInProvider` yang membaca fixture actor dari
+    `storage/app/mock/apify` tanpa request jaringan atau konsumsi kredit.
+  - Menambahkan fixture terpisah untuk dataset actor yang sudah tervalidasi
+    (`people.enrich`): `eunike-alelang`, `argo-wibowo-99180935`, `aydierahma`,
+    `evanhansefri`, `rafif-hadyan`, dan `andhikagaluh`. Array profil yang ditempel
+    berurutan dipisahkan menjadi satu file JSON per handle agar dapat dipilih oleh
+    mock berdasarkan URL alumni.
+  - Memperluas preview/DTO normalizer untuk `currentPosition`,
+    `profileTopEducation`, `profilePicture`, lokasi nested, metrik follower, dan
+    objek tanggal `startDate`/`endDate` tanpa mengubah kontrak database.
+  - Menambahkan konfigurasi `LINKEDIN_PROVIDER=mock_apify`, fixture payload
+    `people.enrich`, serta pengujian staging yang memastikan data masuk ke
+    `linkedin_sync_results` tanpa mengubah profil utama sebelum approval.
+  - Memperbaiki deteksi dataset actor yang mengembalikan
+    `entity_type=error`/`error_label=BLOCKED`, sehingga respons HTTP 200 yang
+    sebenarnya ditolak LinkedIn tidak disimpan sebagai hasil pending palsu.
+
+- **Grafik Evaluasi Atasan dan Highlight Sidebar**:
+  - Menambahkan halaman `/superadmin/analitik-atasan` beserta endpoint data
+    berbasis `AtasanAnalyticsService`; grafik rata-rata aspek Likert, kesiapan
+    kerja, dan perbandingan program studi seluruhnya dibentuk dari data evaluasi
+    database.
+  - Menambahkan kartu ringkasan, filter tahun/prodi, tabel respon penelusuran,
+    empty state, dan penjelasan metodologi tanpa hardcode data contoh di Vue.
+  - Menormalkan pencocokan URL pada `AdminSidebar.vue` agar menu aktif tetap
+    ter-highlight ketika halaman memiliki query string, hash, atau trailing
+    slash. Perbaikan berlaku untuk seluruh wrapper sidebar role.
+
+- **Audit hardcode dan opsi evaluasi**:
+  - Opsi evaluasi atasan (kesiapan dan Likert) kini disimpan pada master pertanyaan melalui seeder; formulir publik tidak lagi membawa daftar jawaban cadangan di JavaScript.
+  - Dataset analitik tidak membuat nama perusahaan, jabatan, provinsi, perguruan tinggi, atau jenjang studi sintetis ketika data kosong; tabel menampilkan tanda kosong dan grafik tetap memakai baris database yang valid.
+  - Default tahun master UMP mengikuti tahun berjalan saat props/filter belum tersedia, sehingga tidak mengunci aplikasi pada tahun tertentu.
+  - Pemeriksaan akhir frontend menggunakan `npm run build`, sedangkan perubahan PHP diformat dengan Pint dan diuji pada suite fitur analitik, evaluasi atasan, wilayah, profil, dan verifikasi perusahaan.
+
+- **Pembaruan ERD dan Use Case**:
+  - Mengaudit `ERD.md` terhadap migration berstatus `Ran` dan database runtime `tracer`; dokumentasi kini menegaskan PK/FK kanonik `kode_provinsi`, `kode_kabupaten`, dan `kode_negara` ISO-3166-1.
+  - Memperbaiki kamus data agar tipe kolom, aturan `ON DELETE`, tabel jawaban, dan relasi akun-biodata mengikuti schema aktif.
+  - Menulis ulang `USE_CASE.md` dalam format tabel Dr. Surya dengan 25 use case, aktor, prasyarat, pasca-syarat, alur dasar, alternatif, dan eksepsi yang merujuk route serta tabel aktual.
+
 ## 02 November 2026
 
+- **Pengelolaan Pertanyaan Evaluasi Atasan Berbasis Stepper**:
+  - Menambahkan lima metadata pertanyaan karakteristik perusahaan (bentuk, skala, jumlah pegawai, jumlah alumni UKDW, dan standar gaji pertama) ke `PertanyaanEvaluasiAtasanSeeder` agar ikut tampil di tabel Kelola Pertanyaan.
+  - Menambahkan label langkah stepper pada tabel dan modal `/superadmin/evaluasi-atasan`; field karakteristik perusahaan dikunci pada Langkah 2 karena tersimpan ke kolom profil perusahaan/evaluasi.
+  - Menyediakan metadata opsi dari database ke formulir publik, memisahkan field perusahaan dari jawaban penilaian, dan mempertahankan validasi respons agar tidak meminta field profil sebagai jawaban Likert.
+  - Menyamakan pola halaman kelola dengan Kuesioner Prodi melalui tab **Daftar Bagian (Section)** dan **Daftar Pertanyaan (Kuesioner)**; metadata section yang sama sekarang dikirim ke halaman admin dan formulir publik.
+  - Menambahkan filter section pada daftar pertanyaan dan menampilkan sumber tabel kanonik (`perusahaan`, `atasan`, `evaluasi_atasan`, atau `respon_evaluasi_atasan`) agar kunci `instansi` tidak disalahartikan sebagai nama tabel.
+
+- **Cutover Schema Runtime dan Konsistensi Master**:
+  - Mengaktifkan `tracer` sebagai database runtime canonical, menyimpan backup legacy di `storage/backups/`, lalu mengimpor 152 users, 131 data akademik, 131 biodata, 44 perusahaan, 1.405 jawaban tracer, dan tabel aktif lain tanpa mengimpor tabel legacy orang tua.
+  - Menghapus field tempat lahir dan seluruh field sekolah asal dari schema aktif; tanggal lahir tetap berasal dari `data_akademik`.
+  - Menegakkan FK `users.prodi_id`, `users.fakultas_id`, `perusahaan.created_by_prodi_id`, dan `perusahaan.kode_negara → ref_negara.kode_negara`; seluruh pemeriksaan orphan menghasilkan nol.
+  - Membuat migration view analitik idempotent dengan `DROP VIEW IF EXISTS` agar `migrate:fresh` dapat dijalankan ulang tanpa view tertinggal.
+
 - **Audit Konsistensi Wilayah dan UMP**:
-  - Menambahkan [audit-konsistensi-wilayah.md](audit-konsistensi-wilayah.md) yang memisahkan foreign key `propinsi_id` dari natural key `ump.kode_provinsi` dan mencatat hasil pemeriksaan orphan/duplikasi runtime.
-  - Memperjelas catatan kunci wilayah pada [ERD.md](../ERD.md) agar relasi UMP berbasis kode tidak disalahartikan sebagai kolom `provinsi_id` yang hilang, serta menampilkan relasi logis `ref_negara` ke `perusahaan.negara` sebagai validasi non-FK.
+  - Menambahkan [audit-konsistensi-wilayah.md](audit-konsistensi-wilayah.md) yang mendokumentasikan satu standar FK `kode_provinsi`/`kode_kabupaten` dan hasil pemeriksaan orphan/duplikasi runtime.
+  - Memperjelas catatan kunci wilayah pada [ERD.md](../ERD.md) agar seluruh relasi memakai kode natural dan menampilkan relasi `ref_negara` ke `perusahaan.kode_negara` sebagai FK.
   - Memperbaiki `UmpFactory` yang sebelumnya mengimpor model `Province` yang tidak tersedia menjadi model aktif `Propinsi`, serta menambahkan regression test.
 
 - **Dokumentasi Analitik**:
@@ -23,7 +231,14 @@
   - Menghitung tinggi grafik Likert berdasarkan label pernyataan yang terbungkus agar label dan batang tidak bertumpuk, serta menghapus caption visualisasi yang tampil dua kali.
   - Memisahkan grafik pilihan menjadi tab per pertanyaan dengan analisis untuk pertanyaan aktif sehingga beberapa grafik tidak saling bertabrakan.
   - Menyelaraskan panel sumber dan metodologi dengan Grafik Universitas, menyediakan drill-down responden dengan aksi detail, WhatsApp, dan email, serta menormalkan opsi `Other` menjadi **Lainnya** sambil mempertahankan isi bebasnya.
-  - Memperbarui data demo aman-jalankan-ulang untuk menyebarkan skor, pilihan, dan isian Lainnya pada kuesioner prodi sehingga setiap visualisasi memiliki kombinasi respons yang berbeda.
+  - Memperbarui data demo aman-jalankan-ulang untuk menyebarkan skor, pilihan, dan isian Lainnya pada kuesioner prodi sehingga setiap visualisasi memiliki kombinasi respons yang berbeda; opsi kontribusi Sistem Informasi kini berputar ke seluruh pilihan aktif.
+  - Mengambil pilihan F15/F16 langsung dari metadata pertanyaan, menghapus opsi legacy `Lainnya isian`, menormalkan kapitalisasi F15, dan menjaga gaji demo Yogyakarta minimal 1,2× UMP berdasarkan tahun lulusan.
+  - Mengubah agregasi gap kompetensi Likert menjadi rata-rata per dimensi dan memberi profil seeding berbeda agar gap tidak seragam.
+  - Menampilkan skor kompetensi A, B, dan gap sebagai bilangan bulat konsisten pada payload service, grafik, tooltip, tabel, dan narasi analisis.
+  - Memisahkan opsi F16 `Lainnya` dari batang grafik sehingga rincian isian bebas hanya tampil pada tabel drill-down; data demo studi lanjut kini mencakup seluruh jenjang S1, S2, S3, Profesi, Spesialis, dan lima opsi pembiayaan F12.
+  - Menghapus dua opsi "Analitik tambahan" dari navigasi utama Grafik Universitas; endpoint lama tetap dipertahankan untuk kompatibilitas internal.
+  - Menetapkan Sistem Informasi (kode prodi 72) sebagai pilihan default Grafik Prodi berdasarkan kode master, bukan ID database; label batang pilihan kini hanya menampilkan jumlah dan persentase tersedia pada tooltip.
+  - Memperluas analisis Prodi dengan rincian pilihan dominan, frekuensi terendah, total pilihan tercatat, validasi skor, dan konteks perbandingan antarpertanyaan.
 - **Penyelarasan ERD dan Kamus Data Skripsi (Relasi Master Perusahaan dan Atasan)**:
   - Mengonfirmasi penguatan relasi langsung antara entitas `perusahaan` dan `atasan` sesuai kaidah perancangan skripsi (1 perusahaan menaungi banyak atasan, `1 : N`).
   - Memperbarui diagram ERD Modul 6 (Evaluasi Pengguna Lulusan) pada [ERD.md](file:///c:/study/tracer-ta/ERD.md) dan [storage/app/tugas-akhir-publication/ERD.md](file:///c:/study/tracer-ta/storage/app/tugas-akhir-publication/ERD.md) dengan menyertakan relasi eksplisit `perusahaan ||--o{ atasan : "menaungi (perusahaan_id)"` serta kotak entitas `atasan` dan `perusahaan`.

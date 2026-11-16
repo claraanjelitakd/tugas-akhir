@@ -7,7 +7,7 @@ use App\Models\Kabupaten;
 use App\Models\Perusahaan;
 use App\Models\Propinsi;
 use App\Models\RefNegara;
-use App\Models\RefSubpertanyaanDetil;
+use App\Services\Alumni\AdminAlumniProfileService;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Http\Request;
 
@@ -29,7 +29,7 @@ class ProfilController extends Controller
 
         $propinsi = Propinsi::all();
         $kabupaten = Kabupaten::all();
-        $negaras = RefNegara::orderBy('nama_negara')->get(['id', 'nama_negara', 'kode_iso2', 'benua']);
+        $negaras = RefNegara::orderBy('nama_negara')->get(['kode_negara', 'nama_negara', 'kode_iso3', 'benua']);
         $dataAkademik = $biodata?->dataAkademik;
         $yudisium = $biodata?->yudisium ?? $dataAkademik?->yudisium;
         $atasan = $biodata?->atasan;
@@ -38,12 +38,13 @@ class ProfilController extends Controller
             ? KuesionerSyncService::getDynamicProfileAnswers($biodata, $profileQuestions)
             : ['answers' => [], 'custom' => []];
 
+        $isNonWorking = in_array($biodata?->kategori_pekerjaan, ['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'], true);
+
         // Merakit formData murni di backend agar frontend Vue tidak perlu logika inisialisasi / pengecekan manual
         $formData = [
             // Identitas Pribadi (Prioritaskan nilai di tabel biodata, fallback ke data_akademik)
             'nim' => $biodata?->nim ?? '',
             'nama' => $biodata?->nama ?? ($dataAkademik?->nama ?? ''),
-            'tempat_lahir' => $biodata?->tempat_lahir ?? ($dataAkademik?->tempat_lahir ?? ''),
             'tanggal_lahir' => $biodata?->tanggal_lahir ?? ($dataAkademik?->tanggal_lahir ?? ''),
             'jenis_kelamin' => $biodata?->jenis_kelamin ?? ($dataAkademik?->jenis_kelamin ?? ''),
             'warga_negara' => $biodata?->warga_negara ?? ($dataAkademik?->warga_negara ?? 'WNI'),
@@ -53,9 +54,8 @@ class ProfilController extends Controller
             'alamat_saat_ini' => $biodata?->alamat_saat_ini ?? '',
             'kelurahan' => $biodata?->kelurahan ?? '',
             'kecamatan' => $biodata?->kecamatan ?? '',
-            'kabupaten_id' => $biodata?->kabupaten_id ?? '',
-            'propinsi_id' => $biodata?->propinsi_id ?? '',
-            'provinsi_id' => $biodata?->propinsi_id ?? '',
+            'kode_kabupaten' => $biodata?->kode_kabupaten ?? '',
+            'kode_provinsi' => $biodata?->kode_provinsi ?? '',
             'kode_pos' => $biodata?->kode_pos ?? '',
             'nomor_telepon' => $biodata?->nomor_telepon ?? '',
             'email_pribadi' => $biodata?->email_pribadi ?? $pengguna->email,
@@ -73,7 +73,6 @@ class ProfilController extends Controller
             'ip_kumulatif' => $dataAkademik?->ip_kumulatif ?? '',
             'total_sks' => $dataAkademik?->total_sks ?? '',
             'total_angka_kualitas' => $dataAkademik?->total_angka_kualitas ?? '',
-            'asal_sekolah' => $dataAkademik?->asal_sekolah ?? '',
 
             // Tugas akhir dan tanggal kelulusan tetap ditampilkan sebagai data akademik non-sensitif.
             'judul_ta' => $yudisium?->judul_ta ?? '',
@@ -89,65 +88,73 @@ class ProfilController extends Controller
             'skills' => $biodata?->skills ?? '',
             'experience' => $biodata?->experience ?? '',
             'kategori_pekerjaan' => $biodata?->kategori_pekerjaan ?? '',
-            'posisi_jabatan' => $biodata?->posisi_jabatan ?? '',
-            'bidang_pekerjaan' => $biodata?->bidang_pekerjaan ?? '',
-            'posisi_wiraswasta' => $biodata?->posisi_wiraswasta ?? '',
+            'posisi_jabatan' => $isNonWorking ? '' : ($biodata?->posisi_jabatan ?? ''),
+            'bidang_pekerjaan' => $isNonWorking ? '' : ($biodata?->bidang_pekerjaan ?? ''),
+            'divisi' => $isNonWorking ? '' : ($biodata?->divisi ?? ''),
+            'posisi_wiraswasta' => $isNonWorking ? '' : ($biodata?->posisi_wiraswasta ?? ''),
             'pendidikan_tingkat' => $biodata?->pendidikan_tingkat ?? '',
             'perguruan_tinggi' => $biodata?->perguruan_tinggi ?? '',
             'pendidikan_prodi' => $biodata?->pendidikan_prodi ?? '',
-            'gaji' => $biodata?->gaji !== null ? (int) $biodata->gaji : '',
-            'jenis_pekerjaan' => $biodata?->jenis_pekerjaan ?? '',
+            'gaji' => (! $isNonWorking && $biodata?->gaji !== null) ? (int) $biodata->gaji : '',
+            'jenis_pekerjaan' => $isNonWorking ? '' : ($biodata?->jenis_pekerjaan ?? ''),
             'zipcode' => $biodata?->zipcode ?? '',
 
-            'nama_perusahaan' => $biodata?->perusahaan?->nama_perusahaan ?? '',
-            'perusahaan_alamat' => $biodata?->perusahaan?->alamat ?? '',
-            'perusahaan_skala' => $biodata?->perusahaan?->skala ?? '',
-            'perusahaan_bentuk' => $biodata?->perusahaan?->bentuk_perusahaan ?? '',
-            'perusahaan_no_telp_fax' => $biodata?->perusahaan?->no_telp_fax ?? '',
-            'perusahaan_homepage' => $biodata?->perusahaan?->homepage ?? '',
-            'perusahaan_jenis_perusahaan' => $biodata?->perusahaan?->jenis_perusahaan ?? '',
-            'perusahaan_jenis_perusahaan_lainnya' => $biodata?->perusahaan?->jenis_perusahaan_lainnya ?? '',
-            'perusahaan_jenis_lokasi' => $biodata?->perusahaan?->jenis_lokasi ?? 'Dalam Negeri',
-            'perusahaan_negara' => $biodata?->perusahaan?->negara ?? 'Indonesia',
-            'perusahaan_propinsi_id' => $biodata?->perusahaan?->propinsi_id ?? '',
-            'perusahaan_kabupaten_id' => $biodata?->perusahaan?->kabupaten_id ?? '',
-            'perusahaan_status_verifikasi' => $biodata?->perusahaan?->status_verifikasi ?? '',
+            'nama_perusahaan' => $isNonWorking ? '' : ($biodata?->perusahaan?->nama_perusahaan ?? ''),
+            'perusahaan_alamat' => $isNonWorking ? '' : ($biodata?->perusahaan?->alamat ?? ''),
+            'perusahaan_skala' => $isNonWorking ? '' : ($biodata?->perusahaan?->skala ?? ''),
+            'perusahaan_bentuk' => $isNonWorking ? '' : ($biodata?->perusahaan?->bentuk_perusahaan ?? ''),
+            'perusahaan_no_telp_fax' => $isNonWorking ? '' : ($biodata?->perusahaan?->no_telp_fax ?? ''),
+            'perusahaan_homepage' => $isNonWorking ? '' : ($biodata?->perusahaan?->homepage ?? ''),
+            'perusahaan_jenis_perusahaan' => $isNonWorking ? '' : ($biodata?->perusahaan?->jenis_perusahaan ?? ''),
+            'perusahaan_jenis_perusahaan_lainnya' => $isNonWorking ? '' : ($biodata?->perusahaan?->jenis_perusahaan_lainnya ?? ''),
+            'perusahaan_jenis_lokasi' => $isNonWorking ? 'Dalam Negeri' : ($biodata?->perusahaan?->jenis_lokasi ?? 'Dalam Negeri'),
+            'perusahaan_kode_negara' => $isNonWorking ? 'ID' : ($biodata?->perusahaan?->kode_negara ?? 'ID'),
+            'perusahaan_kode_provinsi' => $isNonWorking ? '' : ($biodata?->perusahaan?->kode_provinsi ?? ''),
+            'perusahaan_kode_kabupaten' => $isNonWorking ? '' : ($biodata?->perusahaan?->kode_kabupaten ?? ''),
+            'perusahaan_status_verifikasi' => $isNonWorking ? '' : ($biodata?->perusahaan?->status_verifikasi ?? ''),
 
             // Fallback key untuk kompatibilitas frontend
-            'company_alamat' => $biodata?->perusahaan?->alamat ?? '',
-            'company_skala' => $biodata?->perusahaan?->skala ?? '',
-            'company_bentuk' => $biodata?->perusahaan?->bentuk_perusahaan ?? '',
-            'company_no_telp_fax' => $biodata?->perusahaan?->no_telp_fax ?? '',
-            'company_homepage' => $biodata?->perusahaan?->homepage ?? '',
-            'company_jenis_perusahaan' => $biodata?->perusahaan?->jenis_perusahaan ?? '',
-            'company_jenis_perusahaan_lainnya' => $biodata?->perusahaan?->jenis_perusahaan_lainnya ?? '',
-            'company_jenis_lokasi' => $biodata?->perusahaan?->jenis_lokasi ?? 'Dalam Negeri',
-            'company_negara' => $biodata?->perusahaan?->negara ?? 'Indonesia',
-            'company_province_id' => $biodata?->perusahaan?->propinsi_id ?? '',
-            'company_kabupaten_id' => $biodata?->perusahaan?->kabupaten_id ?? '',
-            'company_kode_pos' => $biodata?->perusahaan?->kode_pos ?? '',
-            'perusahaan_kode_pos' => $biodata?->perusahaan?->kode_pos ?? '',
-            'company_status_verifikasi' => $biodata?->perusahaan?->status_verifikasi ?? '',
+            'company_alamat' => $isNonWorking ? '' : ($biodata?->perusahaan?->alamat ?? ''),
+            'company_skala' => $isNonWorking ? '' : ($biodata?->perusahaan?->skala ?? ''),
+            'company_bentuk' => $isNonWorking ? '' : ($biodata?->perusahaan?->bentuk_perusahaan ?? ''),
+            'company_no_telp_fax' => $isNonWorking ? '' : ($biodata?->perusahaan?->no_telp_fax ?? ''),
+            'company_homepage' => $isNonWorking ? '' : ($biodata?->perusahaan?->homepage ?? ''),
+            'company_jenis_perusahaan' => $isNonWorking ? '' : ($biodata?->perusahaan?->jenis_perusahaan ?? ''),
+            'company_jenis_perusahaan_lainnya' => $isNonWorking ? '' : ($biodata?->perusahaan?->jenis_perusahaan_lainnya ?? ''),
+            'company_jenis_lokasi' => $isNonWorking ? 'Dalam Negeri' : ($biodata?->perusahaan?->jenis_lokasi ?? 'Dalam Negeri'),
+            'company_kode_negara' => $isNonWorking ? 'ID' : ($biodata?->perusahaan?->kode_negara ?? 'ID'),
+            'company_kode_provinsi' => $isNonWorking ? '' : ($biodata?->perusahaan?->kode_provinsi ?? ''),
+            'company_kode_kabupaten' => $isNonWorking ? '' : ($biodata?->perusahaan?->kode_kabupaten ?? ''),
+            'company_kode_pos' => $isNonWorking ? '' : ($biodata?->perusahaan?->kode_pos ?? ''),
+            'perusahaan_kode_pos' => $isNonWorking ? '' : ($biodata?->perusahaan?->kode_pos ?? ''),
+            'company_status_verifikasi' => $isNonWorking ? '' : ($biodata?->perusahaan?->status_verifikasi ?? ''),
 
             // Data Atasan
-            'nama_atasan' => $atasan?->nama ?? '',
-            'email_atasan' => $atasan?->email ?? '',
-            'telepon_atasan' => $atasan?->telepon ?? '',
+            'nama_atasan' => $isNonWorking ? '' : ($atasan?->nama ?? ''),
+            'email_atasan' => $isNonWorking ? '' : ($atasan?->email ?? ''),
+            'telepon_atasan' => $isNonWorking ? '' : ($atasan?->telepon ?? ''),
 
             // Pertanyaan tambahan yang dikonfigurasi Superadmin untuk halaman profil.
             'profile_answers' => $dynamicProfileAnswers['answers'],
             'profile_answer_custom' => $dynamicProfileAnswers['custom'],
         ];
 
-        // Ambil opsi referensi kuesioner resmi dari database (F2G, F2H, F5D, F11, F8)
-        $refOptions = RefSubpertanyaanDetil::whereIn('kode_pertanyaan', ['F2G', 'F2H', 'F5D', 'F11', 'F8', 'BIO_BIDANG_DIVISI', 'BIO_PEND_TINGKAT', 'f2g', 'f2h', 'f5d', 'f11', 'f8', 'bio_bidang_divisi', 'bio_pend_tingkat'])
-            ->orderBy('order')
-            ->get(['id', 'kode_pertanyaan', 'kode_opsi', 'option_text', 'order'])
-            ->groupBy(fn ($item) => strtoupper($item->kode_pertanyaan))
-            ->toArray();
+        // Ambil opsi referensi kuesioner resmi dari database (F2G, F2H, F5D, F11, F8, F5C, dll)
+        $refOptions = AdminAlumniProfileService::getRefOptions();
 
-        // Get all perusahaan for Autocomplete
-        $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'propinsi_id', 'kabupaten_id', 'alamat', 'kode_pos', 'skala', 'bentuk_perusahaan', 'no_telp_fax', 'homepage', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'jenis_lokasi', 'negara', 'status_verifikasi')->get();
+        // Konfigurasi dinamis butir pertanyaan profil dari Super Admin (label, keterangan, status wajib, tipe)
+        $profileQuestionConfigs = AdminAlumniProfileService::getProfileQuestionConfigs();
+
+        // Alumni hanya boleh memilih master terverifikasi atau kandidat yang memang
+        // diajukan olehnya; kandidat pending milik pengguna lain tidak ditampilkan.
+        $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'kode_provinsi', 'kode_kabupaten', 'alamat', 'kode_pos', 'skala', 'bentuk_perusahaan', 'no_telp_fax', 'homepage', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'jenis_lokasi', 'kode_negara', 'status_verifikasi')
+            ->where(function ($query) use ($pengguna, $biodata): void {
+                $query->where('status_verifikasi', 'Terverifikasi')
+                    ->orWhere('created_by_user_id', $pengguna->id)
+                    ->orWhere('id', $biodata?->perusahaan_id);
+            })
+            ->orderBy('nama_perusahaan')
+            ->get();
 
         return inertia('Alumni/Profil/Index', [
             // Hanya kirim konteks minimum yang dibutuhkan FormKarier; relasi akademik/keluarga
@@ -172,6 +179,7 @@ class ProfilController extends Controller
             'companies' => $perusahaans,
             'refOptions' => $refOptions,
             'profileQuestions' => $profileQuestions,
+            'profileQuestionConfigs' => $profileQuestionConfigs,
         ]);
     }
 }

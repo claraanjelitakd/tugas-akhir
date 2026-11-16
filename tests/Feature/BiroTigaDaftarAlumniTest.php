@@ -109,4 +109,30 @@ class BiroTigaDaftarAlumniTest extends TestCase
             ->has('alumnis.0.kelengkapan.questionnaire')
         );
     }
+
+    /**
+     * Biro 3 tidak memiliki endpoint mutasi sinkronisasi LinkedIn.
+     */
+    public function test_admin_biro3_cannot_access_linkedin_mutation_endpoints(): void
+    {
+        $this->actingAs($this->adminBiro3)
+            ->post('/biro3/linkedin-sync/batch', [])
+            ->assertNotFound();
+
+        $this->actingAs($this->adminBiro3)
+            ->patch('/biro3/linkedin-sync/1/url', ['linkedin_url' => 'https://www.linkedin.com/in/test'])
+            ->assertNotFound();
+
+        $this->actingAs($this->adminBiro3)
+            ->post('/biro3/linkedin-sync/1', [])
+            ->assertNotFound();
+
+        $this->actingAs($this->adminBiro3)
+            ->post('/biro3/linkedin-sync/results/1/approve', [])
+            ->assertNotFound();
+
+        $this->actingAs($this->adminBiro3)
+            ->post('/biro3/linkedin-sync/results/1/reject', [])
+            ->assertNotFound();
+    }
 }

@@ -36,41 +36,32 @@ const records = computed(() => props.chart?.records || []);
 const summary = computed(() => props.chart?.summary || {});
 const validResponses = computed(() => records.value.length);
 
-// Helper perhitungan kuartil statistik
-const getQuantile = (sorted, percentile) => {
-    if (!sorted.length) return 0;
-    const position = (sorted.length - 1) * percentile;
-    const base = Math.floor(position);
-    const rest = position - base;
-    return sorted[base + 1] === undefined ? sorted[base] : sorted[base] + rest * (sorted[base + 1] - sorted[base]);
-};
-
 // -----------------------------------------------------------------------------
 // 1. STATISTIK LENGKAP PENDAPATAN PER PRODI (Min, Q1, Median, Q3, Max)
 // Menggabungkan 3 Garis: Q1, Median (Q2 di-highlight), dan Q3
+// Data statistik kuartil dan rentang gaji dikalkulasi secara terpusat oleh backend.
 // -----------------------------------------------------------------------------
-const prodisList = computed(() => [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]);
-
 const prodiSalaryStats = computed(() => {
-    return prodisList.value.map((prodi) => {
-        const prodiRows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
-        const salaries = prodiRows.map((r) => Number(r.salary)).filter((s) => Number.isFinite(s) && s > 0).sort((a, b) => a - b);
-        const count = salaries.length;
+    if (props.chart?.series && props.chart.series.length > 0) {
+        return props.chart.series.map((item) => ({
+            prodi: item.label,
+            count: Number(item.count || 0),
+            min: Number(item.min_salary || 0),
+            q1: Number(item.q1_salary || 0),
+            median: Number(item.median_salary || 0),
+            q3: Number(item.q3_salary || 0),
+            max: Number(item.max_salary || 0),
+        }));
+    }
 
-        if (count === 0) {
-            return { prodi, count: 0, min: 0, q1: 0, median: 0, q3: 0, max: 0 };
-        }
+    return [];
+});
 
-        return {
-            prodi,
-            count,
-            min: salaries[0],
-            q1: getQuantile(salaries, 0.25),
-            median: getQuantile(salaries, 0.5),
-            q3: getQuantile(salaries, 0.75),
-            max: salaries[salaries.length - 1],
-        };
-    }).filter((item) => item.count > 0).sort((a, b) => b.median - a.median);
+const prodisList = computed(() => {
+    if (prodiSalaryStats.value.length > 0) {
+        return prodiSalaryStats.value.map((i) => i.prodi);
+    }
+    return [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))];
 });
 
 const prodiSalaryOption = computed(() => {
@@ -185,25 +176,23 @@ const prodiSalaryTable = computed(() => ({
 
 // -----------------------------------------------------------------------------
 // 2. GAJI VS AMBANG 1,2× UMP PER PROGRAM STUDI & RINCIAN ALUMNI
+// Data pemenuhan ambang per program studi dipasok langsung oleh backend.
 // -----------------------------------------------------------------------------
 const prodiUmpData = computed(() => {
-    return prodisList.value.map((prodi) => {
-        const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
-        const total = rows.length;
-        const meets = rows.filter((r) => r.meets_ump).length;
-        const below = total - meets;
-        const meetsPct = total > 0 ? Number(((meets / total) * 100).toFixed(1)) : 0;
-        const belowPct = total > 0 ? Number(((below / total) * 100).toFixed(1)) : 0;
+    if (props.chart?.ump_by_prodi && props.chart.ump_by_prodi.length > 0) {
+        return props.chart.ump_by_prodi.map((item) => ({
+            prodi: item.label,
+            total: Number(item.total || 0),
+            meets: Number(item.meets || 0),
+            below: Number(item.below || 0),
+            notComparable: Number(item.not_comparable || 0),
+            meetsPct: Number(item.meets_percentage || 0),
+            belowPct: Number(item.below_percentage || 0),
+            notComparablePct: Number(item.not_comparable_percentage || 0),
+        }));
+    }
 
-        return {
-            prodi,
-            total,
-            meets,
-            below,
-            meetsPct,
-            belowPct,
-        };
-    }).filter((i) => i.total > 0).sort((a, b) => b.meetsPct - a.meetsPct);
+    return [];
 });
 
 const prodiUmpOption = computed(() => {
@@ -212,9 +201,10 @@ const prodiUmpOption = computed(() => {
 
     return {
         ...baseOption(validResponses.value),
-        themePalette: ['#0D542B', '#DCEBE0'],
+        // Urutan baca kiri ke kanan: belum dapat dibandingkan, di bawah ambang, lalu di atas ambang.
+        themePalette: ['#CBD5E1', '#B91C1C', '#1E6B37'],
         legend: {
-            data: ['Memenuhi 1,2× UMP', 'Belum Memenuhi'],
+            data: ['Di atas 1,2× UMP', 'Di bawah 1,2× UMP', 'Belum dapat dibandingkan'],
             bottom: 0,
             icon: 'circle',
             textStyle: { color: '#334155', fontWeight: 600, fontSize: 12 },
@@ -242,22 +232,34 @@ const prodiUmpOption = computed(() => {
         },
         series: [
             {
-                name: 'Memenuhi 1,2× UMP',
+                name: 'Di atas 1,2× UMP',
                 type: 'bar',
                 stack: 'total',
+                stackOrder: 2,
                 barMaxWidth: 26,
-                itemStyle: { color: '#0D542B', borderColor: '#FFFFFF', borderWidth: 1 },
-                data: list.map((i) => ({ value: i.meetsPct, count: i.meets, total: i.total, prodi: i.prodi, name: 'Memenuhi 1,2× UMP' })),
-                label: { show: true, position: 'inside', formatter: ({ data }) => data.value > 0 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
+                itemStyle: { color: '#1E6B37', borderColor: '#FFFFFF', borderWidth: 1 },
+                data: list.map((i) => ({ value: i.meetsPct, count: i.meets, total: i.total, prodi: i.prodi, name: 'Di atas 1,2× UMP' })),
+                label: { show: true, position: 'inside', formatter: ({ data }) => data.value >= 10 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
             },
             {
-                name: 'Belum Memenuhi',
+                name: 'Di bawah 1,2× UMP',
                 type: 'bar',
                 stack: 'total',
+                stackOrder: 1,
                 barMaxWidth: 26,
-                itemStyle: { color: '#DCEBE0', borderColor: '#FFFFFF', borderWidth: 1 },
-                data: list.map((i) => ({ value: i.belowPct, count: i.below, total: i.total, prodi: i.prodi, name: 'Belum Memenuhi' })),
-                label: { show: true, position: 'inside', formatter: ({ data }) => data.value > 0 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
+                itemStyle: { color: '#B91C1C', borderColor: '#FFFFFF', borderWidth: 1 },
+                data: list.map((i) => ({ value: i.belowPct, count: i.below, total: i.total, prodi: i.prodi, name: 'Di bawah 1,2× UMP' })),
+                label: { show: true, position: 'inside', formatter: ({ data }) => data.value >= 10 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
+            },
+            {
+                name: 'Belum dapat dibandingkan',
+                type: 'bar',
+                stack: 'total',
+                stackOrder: 0,
+                barMaxWidth: 26,
+                itemStyle: { color: '#CBD5E1', borderColor: '#FFFFFF', borderWidth: 1 },
+                data: list.map((i) => ({ value: i.notComparablePct, count: i.notComparable, total: i.total, prodi: i.prodi, name: 'Belum dapat dibandingkan' })),
+                label: { show: true, position: 'inside', formatter: ({ data }) => data.value >= 10 ? `${data.value}%` : '', color: '#1E293B', fontWeight: 'bold', fontSize: 10 },
             },
         ],
     };
@@ -267,69 +269,46 @@ const prodiUmpTable = computed(() => ({
     columns: [
         { key: 'prodi', label: 'Program Studi' },
         { key: 'total', label: 'Total Alumni (n)', align: 'right' },
-        { key: 'meets', label: 'Memenuhi 1,2× UMP', align: 'right' },
-        { key: 'below', label: 'Belum Memenuhi', align: 'right' },
+        { key: 'meets', label: 'Di atas 1,2× UMP', align: 'right' },
+        { key: 'below', label: 'Di bawah 1,2× UMP', align: 'right' },
+        { key: 'notComparable', label: 'Belum dapat dibandingkan', align: 'right' },
     ],
     rows: prodiUmpData.value.map((i) => ({
         prodi: i.prodi,
         total: formatNumber(i.total, 0),
         meets: `${i.meets} (${formatPercentage(i.meetsPct)})`,
         below: `${i.below} (${formatPercentage(i.belowPct)})`,
+        notComparable: `${i.notComparable} (${formatPercentage(i.notComparablePct)})`,
     })),
 }));
 
 // Rincian spesifik alumni yang BELUM memenuhi ambang 1,2x UMP
 const alumniBelowUmp = computed(() => {
-    return records.value.filter((r) => !r.meets_ump);
+    return records.value.filter((r) => r.meets_ump === false);
 });
 
 // -----------------------------------------------------------------------------
 // 3. TABEL & GRAFIK STATUS PEMENUHAN 1,2× UMP PER PROVINSI
 // (Menggantikan peta spasial sesuai instruksi pengguna: list provinsi dan status pemenuhan)
+// Agregat provinsi dan median pendapatan dikalkulasi secara terpusat oleh backend.
 // -----------------------------------------------------------------------------
 const provinceStats = computed(() => {
-    const provinceMap = new Map();
-    records.value.forEach((r) => {
-        const prov = r.workplace_province_name || r.province_name || 'Tidak Teridentifikasi';
-        const cur = provinceMap.get(prov) || {
-            province: prov,
-            total: 0,
-            meets: 0,
-            below: 0,
-            salaries: [],
-        };
-        cur.total += 1;
-        if (r.meets_ump) {
-            cur.meets += 1;
-        } else {
-            cur.below += 1;
-        }
-        if (Number(r.salary) > 0) {
-            cur.salaries.push(Number(r.salary));
-        }
-        provinceMap.set(prov, cur);
-    });
+    if (props.chart?.ump_by_province && props.chart.ump_by_province.length > 0) {
+        return props.chart.ump_by_province.map((item) => ({
+            province: item.label,
+            total: Number(item.total || 0),
+            meets: Number(item.meets || 0),
+            below: Number(item.below || 0),
+            notComparable: Number(item.not_comparable || 0),
+            meetsPct: Number(item.meets_percentage || 0),
+            belowPct: Number(item.below_percentage || 0),
+            notComparablePct: Number(item.not_comparable_percentage || 0),
+            medianSalary: Number(item.median_salary || 0),
+            statusLabel: item.status_label || 'Perlu Perhatian',
+        }));
+    }
 
-    return [...provinceMap.values()].map((p) => {
-        const sorted = p.salaries.sort((a, b) => a - b);
-        const median = sorted.length ? getQuantile(sorted, 0.5) : 0;
-        const meetsPct = p.total > 0 ? Number(((p.meets / p.total) * 100).toFixed(1)) : 0;
-        const belowPct = p.total > 0 ? Number(((p.below / p.total) * 100).toFixed(1)) : 0;
-        let statusLabel = 'Perlu Perhatian';
-        if (meetsPct >= 80) statusLabel = 'Memenuhi Mayoritas';
-        else if (meetsPct >= 50) statusLabel = 'Sebagian Memenuhi';
-
-        return {
-            province: p.province,
-            total: p.total,
-            meets: p.meets,
-            below: p.below,
-            meetsPct,
-            belowPct,
-            medianSalary: median,
-            statusLabel,
-        };
-    }).sort((a, b) => b.total - a.total);
+    return [];
 });
 
 const provinceOption = computed(() => {
@@ -338,9 +317,10 @@ const provinceOption = computed(() => {
 
     return {
         ...baseOption(validResponses.value),
-        themePalette: ['#0D542B', '#DCEBE0'],
+        // Urutan baca kiri ke kanan: belum dapat dibandingkan, di bawah ambang, lalu di atas ambang.
+        themePalette: ['#CBD5E1', '#B91C1C', '#1E6B37'],
         legend: {
-            data: ['Memenuhi 1,2× UMP', 'Belum Memenuhi'],
+            data: ['Di atas 1,2× UMP', 'Di bawah 1,2× UMP', 'Belum dapat dibandingkan'],
             bottom: 0,
             icon: 'circle',
             textStyle: { color: '#334155', fontWeight: 600, fontSize: 11 },
@@ -368,22 +348,34 @@ const provinceOption = computed(() => {
         },
         series: [
             {
-                name: 'Memenuhi 1,2× UMP',
+                name: 'Di atas 1,2× UMP',
                 type: 'bar',
                 stack: 'total',
+                stackOrder: 2,
                 barMaxWidth: 24,
-                itemStyle: { color: '#0D542B', borderColor: '#FFFFFF', borderWidth: 1 },
-                data: list.map((i) => ({ value: i.meetsPct, count: i.meets, total: i.total, province: i.province, name: 'Memenuhi 1,2× UMP' })),
-                label: { show: true, position: 'inside', formatter: ({ data }) => data.value > 0 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
+                itemStyle: { color: '#1E6B37', borderColor: '#FFFFFF', borderWidth: 1 },
+                data: list.map((i) => ({ value: i.meetsPct, count: i.meets, total: i.total, province: i.province, name: 'Di atas 1,2× UMP' })),
+                label: { show: true, position: 'inside', formatter: ({ data }) => data.value >= 10 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
             },
             {
-                name: 'Belum Memenuhi',
+                name: 'Di bawah 1,2× UMP',
                 type: 'bar',
                 stack: 'total',
+                stackOrder: 1,
                 barMaxWidth: 24,
-                itemStyle: { color: '#DCEBE0', borderColor: '#FFFFFF', borderWidth: 1 },
-                data: list.map((i) => ({ value: i.belowPct, count: i.below, total: i.total, province: i.province, name: 'Belum Memenuhi' })),
-                label: { show: true, position: 'inside', formatter: ({ data }) => data.value > 0 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
+                itemStyle: { color: '#B91C1C', borderColor: '#FFFFFF', borderWidth: 1 },
+                data: list.map((i) => ({ value: i.belowPct, count: i.below, total: i.total, province: i.province, name: 'Di bawah 1,2× UMP' })),
+                label: { show: true, position: 'inside', formatter: ({ data }) => data.value >= 10 ? `${data.value}%` : '', color: '#FFFFFF', fontWeight: 'bold', fontSize: 10 },
+            },
+            {
+                name: 'Belum dapat dibandingkan',
+                type: 'bar',
+                stack: 'total',
+                stackOrder: 0,
+                barMaxWidth: 24,
+                itemStyle: { color: '#CBD5E1', borderColor: '#FFFFFF', borderWidth: 1 },
+                data: list.map((i) => ({ value: i.notComparablePct, count: i.notComparable, total: i.total, province: i.province, name: 'Belum dapat dibandingkan' })),
+                label: { show: true, position: 'inside', formatter: ({ data }) => data.value >= 10 ? `${data.value}%` : '', color: '#1E293B', fontWeight: 'bold', fontSize: 10 },
             },
         ],
     };
@@ -393,8 +385,9 @@ const provinceStatusTable = computed(() => ({
     columns: [
         { key: 'province', label: 'Provinsi Penempatan' },
         { key: 'total', label: 'Alumni (n)', align: 'right' },
-        { key: 'meetsDisplay', label: 'Memenuhi 1,2× UMP', align: 'right' },
-        { key: 'belowDisplay', label: 'Belum Memenuhi', align: 'right' },
+        { key: 'meetsDisplay', label: 'Di atas 1,2× UMP', align: 'right' },
+        { key: 'belowDisplay', label: 'Di bawah 1,2× UMP', align: 'right' },
+        { key: 'notComparableDisplay', label: 'Belum dapat dibandingkan', align: 'right' },
         { key: 'percentageDisplay', label: '% Memenuhi', align: 'right' },
         { key: 'medianDisplay', label: 'Median Gaji', align: 'right' },
         { key: 'status', label: 'Status Kelayakan', align: 'center' },
@@ -404,6 +397,7 @@ const provinceStatusTable = computed(() => ({
         total: formatNumber(p.total, 0),
         meetsDisplay: `${p.meets} alumni`,
         belowDisplay: `${p.below} alumni`,
+        notComparableDisplay: `${p.notComparable} alumni`,
         percentageDisplay: `${p.meetsPct}%`,
         medianDisplay: formatFullCurrency(p.medianSalary),
         status: p.statusLabel,
@@ -533,7 +527,7 @@ const views = computed(() => [
             :rows="records"
             :selected-label="selectedLabel"
             :loading="loading"
-            indicator-badge="Indikator 11"
+            indicator-badge="Indikator 14"
             @select="emit('select', $event)"
             @reset="emit('reset')"
         />
@@ -577,7 +571,7 @@ const views = computed(() => [
                             <td class="px-3 py-2">{{ r.nama_prodi }}</td>
                             <td class="px-3 py-2">
                                 <span class="font-medium text-slate-900">{{ r.nama_perusahaan || '-' }}</span>
-                                <span class="block text-[10px] text-[#0D542B]">{{ r.workplace_province_name || r.province_name || 'D.I. Yogyakarta' }}</span>
+                                <span class="block text-[10px] text-[#0D542B]">{{ r.workplace_nama_provinsi || r.province_name || '-' }}</span>
                             </td>
                             <td class="px-3 py-2 text-right font-bold text-slate-900">
                                 {{ formatFullCurrency(r.salary) }}

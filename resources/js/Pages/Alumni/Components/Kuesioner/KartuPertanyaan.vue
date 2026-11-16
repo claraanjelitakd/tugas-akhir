@@ -5,13 +5,14 @@
           - rating_5 (skala skor 1-5 dengan panduan)
           - searchable_select (dropdown pencarian bidang pekerjaan)
           - single_choice / radio (pilihan tunggal dengan input kustom)
-          - multiple_choice / checkbox (pilihan ganda dengan input kustom)
+          - multiple_choice / checkbox / multiple_choice_text (pilihan ganda dengan input kustom)
           - radio_input / radio_text (opsi radio dengan input kolom)
           - multiple_number (input nominal penghasilan & kalkulasi gaji)
           - number (angka)
           - text (teks bebas)
 -->
 <script setup>
+import { computed } from 'vue';
 import SearchableSelect from '@/components/form/searchable-select.vue';
 
 const props = defineProps({
@@ -31,6 +32,11 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+});
+
+const isF8Question = computed(() => {
+    const code = (props.subpertanyaan?.kode_pertanyaan || props.subpertanyaan?.code || '').toUpperCase();
+    return code === 'F8';
 });
 
 // Helper pembersih teks instruksi dari teks pertanyaan
@@ -58,11 +64,12 @@ const getTypeInstruction = (type) => {
             return 'Pilih salah satu jawaban';
         case 'checkbox':
         case 'multiple_choice':
+        case 'multiple_choice_text':
             return 'Jawaban bisa lebih dari satu (centang yang sesuai)';
         case 'radio_text':
             return 'Pilih salah satu jawaban (tuliskan keterangan jika memilih Lainnya)';
         case 'radio_input':
-            return 'Pilih salah satu jawaban dan lengkapi angka pada kolom isian';
+            return 'Pilih satu jawaban; isi angka bulan jika diminta.';
         case 'rating_5':
             return 'Pilih satu angka skala 1 s/d 5';
         case 'dropdown':
@@ -92,6 +99,15 @@ const getTypeInstruction = (type) => {
     }
 };
 
+// Instruksi khusus F3 menjelaskan bahwa angka hanya diperlukan sesudah lulus.
+const getQuestionInstruction = (question) => {
+    const code = (question?.kode_pertanyaan || question?.code || '').toUpperCase();
+
+    if (code === 'F3') return 'Pilih salah satu jawaban; isi jumlah bulan hanya jika sesudah lulus';
+
+    return getTypeInstruction(question?.type);
+};
+
 // Deteksi apakah opsi membutuhkan input teks kustom (Lainnya / Other / Tuliskan / ...)
 const isCustomOption = (opt) => {
     if (!opt) return false;
@@ -99,6 +115,40 @@ const isCustomOption = (opt) => {
     const text = (typeof opt === 'object' ? opt.option_text : opt) || '';
     const lower = String(text).trim().toLowerCase();
     return lower === 'other' || lower.includes('lainnya') || lower.includes('tuliskan') || lower.includes('...') || lower.includes('…');
+};
+
+// Menambahkan opsi Lainnya hanya pada tampilan radio_text, tanpa membuat baris master baru.
+const getRadioOptions = (question) => {
+    const options = question?.detils || question?.options || [];
+    if (question?.type !== 'radio_text' || options.some((option) => isCustomOption(option))) {
+        return options;
+    }
+
+    return [
+        ...options,
+        { id: `virtual-other-${question.id}`, option_text: 'Lainnya', is_other: true },
+    ];
+};
+
+// Menambahkan opsi Lainnya virtual untuk checkbox yang menyediakan isian bebas.
+const getCheckboxOptions = (question) => {
+    const options = question?.detils || question?.options || [];
+    if (question?.type !== 'multiple_choice_text' || options.some((option) => isCustomOption(option))) {
+        return options;
+    }
+
+    return [
+        ...options,
+        { id: `virtual-other-${question.id}`, option_text: 'Lainnya', is_other: true },
+    ];
+};
+
+// Opsi sebelum lulus pada F3 tidak lagi meminta jumlah bulan.
+const isF3BeforeGraduationOption = (question, opt) => {
+    const code = (question?.kode_pertanyaan || question?.code || '').toUpperCase();
+    const text = String(opt?.option_text || opt || '').toLowerCase();
+
+    return code === 'F3' && text.includes('sebelum lulus');
 };
 
 // Mencegah karakter aneh pada input angka
@@ -204,8 +254,7 @@ const getSplitDotsText = (text) => {
 // Helper radio_input
 const getRadioInputVal = (qId, optId) => {
     if (!props.form.answers[qId] || typeof props.form.answers[qId] !== 'object') return '';
-    if (!props.form.answers[qId].inputs) return '';
-    return props.form.answers[qId].inputs[optId] ?? '';
+    return props.form.answers[qId].inputs?.[optId] ?? props.form.answers[qId].input ?? '';
 };
 
 const setRadioInputVal = (qId, optId, val, optText = null) => {
@@ -249,6 +298,10 @@ const handleRadioOptionSelect = (qId, optId, optText = null) => {
             props.form.answers[qId].inputs[o.id] = '';
         }
     });
+
+    if (isF3BeforeGraduationOption(props.subpertanyaan, optText)) {
+        props.form.answers[qId].inputs[optId] = '';
+    }
 
     props.form.answers[qId].input = props.form.answers[qId].inputs[optId] ?? '';
 };
@@ -385,9 +438,9 @@ const stepNumberInput = (qId, delta) => {
             </p>
 
             <!-- Badge Instruksi Default Sesuai Tipe Pertanyaan -->
-            <div v-if="getTypeInstruction(subpertanyaan.type)" class="mt-2.5">
+            <div v-if="getQuestionInstruction(subpertanyaan)" class="mt-2.5">
                 <span class="inline-block px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-[11px] font-semibold text-slate-700">
-                    {{ getTypeInstruction(subpertanyaan.type) }}
+                    {{ getQuestionInstruction(subpertanyaan) }}
                 </span>
             </div>
         </div>
@@ -563,13 +616,32 @@ const stepNumberInput = (qId, delta) => {
 
         <!-- TIPE INPUT: Pilihan Tunggal / Radio -->
         <div v-else-if="subpertanyaan.type === 'radio' || subpertanyaan.type === 'single_choice'">
+            <!-- Alert Khusus Butir F8 (Tersinkron dengan Profil Karier) -->
+            <div v-if="isF8Question" class="mb-3.5 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs text-slate-800">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="font-bold text-[#0D542B]">Status Aktivitas Utama Disinkronkan</span>
+                    <a href="/alumni/profile" class="shrink-0 text-xs font-bold text-[#0D542B] underline hover:text-[#093d1f]">Ubah di Profil</a>
+                </div>
+                <p class="mt-1 text-[11px] leading-relaxed text-slate-600">
+                    Pilihan ini dikunci otomatis berdasarkan data Profil &amp; Riwayat Karier Anda agar alur percabangan kuesioner dan data evaluasi atasan tetap konsisten.
+                </p>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-                <label v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" :key="opt.id" class="cursor-pointer group block select-none">
+                <label
+                    v-for="opt in (subpertanyaan.detils || subpertanyaan.options)"
+                    :key="opt.id"
+                    :class="[
+                        isF8Question ? 'cursor-default select-none' : 'cursor-pointer group block select-none',
+                        isF8Question && form.answers[subpertanyaan.id] !== opt.option_text ? 'opacity-50' : ''
+                    ]"
+                >
                     <input
                         type="radio"
                         :name="'question_'+subpertanyaan.id"
                         :value="opt.option_text"
                         v-model="form.answers[subpertanyaan.id]"
+                        :disabled="isF8Question"
                         :required="subpertanyaan.wajib && isVisible"
                         class="sr-only"
                     >
@@ -624,9 +696,9 @@ const stepNumberInput = (qId, delta) => {
         </div>
 
         <!-- TIPE INPUT: Pilihan Ganda / Checkbox -->
-        <div v-else-if="subpertanyaan.type === 'checkbox' || subpertanyaan.type === 'multiple_choice'">
+        <div v-else-if="subpertanyaan.type === 'checkbox' || subpertanyaan.type === 'multiple_choice' || subpertanyaan.type === 'multiple_choice_text'">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-                <label v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" :key="opt.id" class="cursor-pointer group block select-none">
+                <label v-for="opt in getCheckboxOptions(subpertanyaan)" :key="opt.id" class="cursor-pointer group block select-none">
                     <input
                         type="checkbox"
                         :value="opt.option_text"
@@ -686,7 +758,7 @@ const stepNumberInput = (qId, delta) => {
         <!-- TIPE INPUT: Radio Input / Radio Text -->
         <div v-else-if="subpertanyaan.type === 'radio_input' || subpertanyaan.type === 'radio_text'">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-                <label v-for="opt in (subpertanyaan.detils || subpertanyaan.options)" :key="opt.id" class="cursor-pointer group block select-none">
+                <label v-for="opt in getRadioOptions(subpertanyaan)" :key="opt.id" class="cursor-pointer group block select-none">
                     <input
                         type="radio"
                         :name="'question_'+subpertanyaan.id"
@@ -711,7 +783,7 @@ const stepNumberInput = (qId, delta) => {
                         </div>
 
                         <div class="flex-1 text-left">
-                            <div v-if="getSplitDotsText(opt.option_text).hasDots" class="inline-flex flex-wrap items-center gap-1.5 leading-relaxed">
+                            <div v-if="getSplitDotsText(opt.option_text).hasDots && !isF3BeforeGraduationOption(subpertanyaan, opt)" class="inline-flex flex-wrap items-center gap-1.5 leading-relaxed">
                                 <span v-if="getSplitDotsText(opt.option_text).before">{{ getSplitDotsText(opt.option_text).before }}</span>
                                 <input
                                     :type="subpertanyaan.type === 'radio_input' ? 'number' : 'text'"
@@ -727,7 +799,7 @@ const stepNumberInput = (qId, delta) => {
                                 >
                                 <span v-if="getSplitDotsText(opt.option_text).after">{{ getSplitDotsText(opt.option_text).after }}</span>
                             </div>
-                            <span v-else>{{ opt.option_text }}</span>
+                            <span v-else>{{ isF3BeforeGraduationOption(subpertanyaan, opt) ? getSplitDotsText(opt.option_text).before : opt.option_text }}</span>
 
                             <div
                                 v-if="!getSplitDotsText(opt.option_text).hasDots && form.answers[subpertanyaan.id]?.selected === opt.option_text && isCustomOption(opt)"

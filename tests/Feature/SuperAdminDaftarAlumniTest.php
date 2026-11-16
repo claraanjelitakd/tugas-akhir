@@ -6,12 +6,14 @@ use App\Mail\PengingatKuesionerAlumniMail;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\EvaluasiAtasan;
-use App\Models\KelompokPertanyaan;
+use App\Models\Kabupaten;
 use App\Models\Kuesioner;
-use App\Models\PertanyaanEvaluasiAtasan;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Prodi;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\ResponEvaluasiAtasan;
+use App\Models\Propinsi;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -33,7 +35,7 @@ class SuperAdminDaftarAlumniTest extends TestCase
 
     protected Kuesioner $kuesioner;
 
-    protected KelompokPertanyaan $section;
+    protected KuesionerSection $section;
 
     protected function setUp(): void
     {
@@ -50,6 +52,16 @@ class SuperAdminDaftarAlumniTest extends TestCase
         $this->prodi = Prodi::create([
             'kode_prodi' => '72',
             'nama_prodi' => 'Sistem Informasi',
+        ]);
+
+        Propinsi::create([
+            'kode_provinsi' => '34',
+            'nama_provinsi' => 'DI Yogyakarta',
+        ]);
+        Kabupaten::create([
+            'kode_kabupaten' => '3404',
+            'kode_provinsi' => '34',
+            'nama_kabupaten' => 'Sleman',
         ]);
 
         $this->alumniUser = User::create([
@@ -75,6 +87,8 @@ class SuperAdminDaftarAlumniTest extends TestCase
             'nim' => '72200001',
             'nama' => 'Budi Santoso',
             'prodi_id' => $this->prodi->id,
+            'kode_provinsi' => '34',
+            'kode_kabupaten' => '3404',
             'posisi_jabatan' => 'Software Engineer',
         ]);
 
@@ -84,28 +98,40 @@ class SuperAdminDaftarAlumniTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->section = KelompokPertanyaan::create([
-            'kuesioner_id' => $this->kuesioner->id,
-            'title' => 'Kurikulum, Fasilitas & Nilai Kedutawacanaan',
+        $this->section = KuesionerSection::create([
+            'kode_section' => 'SEC_UNIV_9',
+            'target' => 'univ',
+            'judul' => 'Kurikulum, Fasilitas & Nilai Kedutawacanaan',
             'order' => 9,
+            'is_active' => true,
         ]);
 
-        RefSubpertanyaan2021::create([
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $q1 = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F24A',
-            'subpertanyaan' => 'Sebutkan sumberdana dalam pembiayaan kuliah S1 di UKDW :',
-            'type' => 'single_choice',
-            'wajib' => true,
+            'teks_pertanyaan' => 'Sebutkan sumberdana dalam pembiayaan kuliah S1 di UKDW :',
+            'tipe' => 'single_choice',
+            'is_active' => true,
+        ]);
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $q1->id,
             'order' => 1,
+            'wajib' => true,
+            'tampil_di' => 'kuesioner',
         ]);
 
-        RefSubpertanyaan2021::create([
-            'kelompok_pertanyaan_id' => $this->section->id,
+        $q2 = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F24B',
-            'subpertanyaan' => 'Jika Anda melanjutkan ke jenjang pascasarjana (S2), sebutkan sumberdana dalam pembiayaan kuliah S2 Anda :',
-            'type' => 'single_choice',
-            'wajib' => true,
+            'teks_pertanyaan' => 'Jika Anda melanjutkan ke jenjang pascasarjana (S2), sebutkan sumberdana dalam pembiayaan kuliah S2 Anda :',
+            'tipe' => 'single_choice',
+            'is_active' => true,
+        ]);
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $this->section->id,
+            'pertanyaan_id' => $q2->id,
             'order' => 2,
+            'wajib' => true,
+            'tampil_di' => 'kuesioner',
         ]);
     }
 
@@ -128,6 +154,62 @@ class SuperAdminDaftarAlumniTest extends TestCase
             ->has('prodis')
             ->has('filters')
             ->has('stats')
+        );
+    }
+
+    /** Memastikan direktori mengirim nama prodi, domisili, karier, divisi, dan skills terstruktur. */
+    public function test_alumni_directory_exposes_canonical_career_fields(): void
+    {
+        $this->alumni->update([
+            'foto' => '/uploads/profile/budi.jpg',
+            'alamat_saat_ini' => 'Jalan Kaliurang',
+            'bidang_pekerjaan' => 'Teknologi Informasi',
+            'divisi' => 'Product Development',
+            'skills' => 'Project Management, Python; Project Management | SQL',
+            'experience' => 'Software Engineer di PT Teknologi Unggul',
+            'linkedin_url' => 'https://www.linkedin.com/in/budi-santoso',
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->get(route('superadmin.alumni.index', ['tahun' => '2024']));
+
+        $response->assertInertia(fn (Assert $page) => $page
+            ->where('alumnis.0.nama_prodi', 'Sistem Informasi')
+            ->where('alumnis.0.prodi', 'Sistem Informasi')
+            ->where('alumnis.0.foto', '/uploads/profile/budi.jpg')
+            ->where('alumnis.0.bidang_pekerjaan', 'Teknologi Informasi')
+            ->where('alumnis.0.divisi', 'Product Development')
+            ->where('alumnis.0.domisili', 'Sleman, DI Yogyakarta')
+            ->where('alumnis.0.experience', 'Software Engineer di PT Teknologi Unggul')
+            ->where('alumnis.0.linkedin_url', 'https://www.linkedin.com/in/budi-santoso')
+            ->where('alumnis.0.skills_list', ['Project Management', 'Python', 'SQL'])
+            ->has('filterOptions.wilayah.provinsi')
+            ->has('filterOptions.wilayah.kabupaten')
+            ->has('filterOptions.head_office')
+            ->has('filterOptions.skills')
+            ->has('filterOptions.bidang')
+            ->has('filterOptions.unit')
+            ->where('filters.kode_provinsi', 'all')
+            ->where('filters.kode_kabupaten', 'all')
+        );
+
+        $filteredResponse = $this->actingAs($this->superadmin)
+            ->get(route('superadmin.alumni.index', [
+                'tahun' => '2024',
+                'bidang' => 'Teknologi Informasi',
+                'unit' => 'Product Development',
+                'skills' => 'Python',
+                'kode_provinsi' => '34',
+                'kode_kabupaten' => '3404',
+            ]));
+
+        $filteredResponse->assertInertia(fn (Assert $page) => $page
+            ->has('alumnis', 1)
+            ->where('filters.bidang', 'Teknologi Informasi')
+            ->where('filters.unit', 'Product Development')
+            ->where('filters.skills', 'Python')
+            ->where('filters.kode_provinsi', '34')
+            ->where('filters.kode_kabupaten', '3404')
         );
     }
 
@@ -279,23 +361,43 @@ class SuperAdminDaftarAlumniTest extends TestCase
      */
     public function test_superadmin_detail_alumni_includes_evaluasi_atasan(): void
     {
-        $question = PertanyaanEvaluasiAtasan::create([
-            'kode' => 'integritas',
-            'aspek' => 'Integritas',
-            'kategori' => 'Kinerja',
-            'tipe' => 'likert_5',
-            'is_active' => true,
+        $section = KuesionerSection::create([
+            'kode_section' => 'SEC_ATASAN_1',
+            'target' => 'atasan',
+            'judul' => 'Evaluasi Pengguna Lulusan',
             'order' => 1,
+            'is_active' => true,
         ]);
+
+        $question = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'integritas',
+            'teks_pertanyaan' => 'Integritas',
+            'tipe' => 'rating_5',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $section->id,
+            'pertanyaan_id' => $question->id,
+            'order' => 1,
+            'wajib' => true,
+            'tampil_di' => 'kuesioner',
+        ]);
+
         $evaluasiAtasan = EvaluasiAtasan::create([
             'biodata_id' => $this->alumni->id,
             'token' => 'secret-evaluation-token',
             'is_submitted' => true,
         ]);
-        ResponEvaluasiAtasan::create([
+
+        KuesionerJawaban::create([
+            'responden_type' => 'atasan',
+            'biodata_id' => $this->alumni->id,
             'evaluasi_atasan_id' => $evaluasiAtasan->id,
+            'section_id' => $section->id,
             'pertanyaan_id' => $question->id,
-            'nilai' => 'Sangat Tinggi',
+            'kode_pertanyaan' => 'integritas',
+            'jawaban_teks' => 'Sangat Tinggi',
         ]);
 
         $response = $this->actingAs($this->superadmin)
@@ -327,5 +429,73 @@ class SuperAdminDaftarAlumniTest extends TestCase
         $response->assertSessionHas('success');
 
         Mail::assertSent(PengingatKuesionerAlumniMail::class);
+    }
+
+    /**
+     * Test opsi filter skills dan perusahaan menyesuaikan tahun kelulusan aktif
+     * serta otomatis mereset parameter yang tidak relevan dengan tahun tersebut.
+     */
+    public function test_filter_options_cascade_by_selected_year_and_resets_invalid_skills(): void
+    {
+        // 1. Tambah data alumni kedua dengan tahun kelulusan berbeda (2022)
+        $user2022 = User::create([
+            'username' => '72180099',
+            'name' => 'Alumni Angkatan 2018',
+            'email' => 'alumni2018@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'must_change_password' => false,
+        ]);
+
+        DataAkademik::create([
+            'nim' => '72180099',
+            'nama' => 'Alumni Angkatan 2018',
+            'angkatan_masuk' => '2018',
+            'tahun_akademik_lulus' => 'Genap 2021/2022',
+            'tahun_lulus' => 2022,
+            'ip_kumulatif' => '3.50',
+        ]);
+
+        Biodata::create([
+            'user_id' => $user2022->id,
+            'nim' => '72180099',
+            'nama' => 'Alumni Angkatan 2018',
+            'prodi_id' => $this->prodi->id,
+            'kode_provinsi' => '34',
+            'kode_kabupaten' => '3404',
+            'skills' => 'Big Data Infrastructure, Hadoop',
+        ]);
+
+        // Perbarui alumni Budi Santoso (lulus 2024) dengan skill khusus
+        $this->alumni->update([
+            'skills' => 'Vue.js, Tailwind CSS',
+        ]);
+
+        // 2. Akses direktori dengan Tahun 2024
+        $response2024 = $this->actingAs($this->superadmin)
+            ->get(route('superadmin.alumni.index', ['tahun' => '2024']));
+
+        $response2024->assertStatus(200);
+        $response2024->assertInertia(fn (Assert $page) => $page
+            ->component('SuperAdmin/Alumni/Index')
+            ->where('filters.tahun', '2024')
+            ->where('filterOptions.skills', fn ($skills) => collect($skills)->contains('Vue.js') && ! collect($skills)->contains('Big Data Infrastructure'))
+        );
+
+        // 3. Akses direktori tahun 2024 namun menyertakan filter skill tahun 2022 yang tidak relevan
+        $responseStale = $this->actingAs($this->superadmin)
+            ->get(route('superadmin.alumni.index', [
+                'tahun' => '2024',
+                'skills' => 'Big Data Infrastructure',
+            ]));
+
+        $responseStale->assertStatus(200);
+        $responseStale->assertInertia(fn (Assert $page) => $page
+            ->component('SuperAdmin/Alumni/Index')
+            ->where('filters.tahun', '2024')
+            // Otomatis di-reset ke 'all' agar tabel tidak menghasilkan 0 data
+            ->where('filters.skills', 'all')
+            ->has('alumnis', 1)
+        );
     }
 }

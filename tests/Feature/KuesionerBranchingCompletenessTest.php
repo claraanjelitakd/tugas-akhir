@@ -4,17 +4,17 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\Tracer;
 use App\Models\User;
 use App\Services\Kuesioner\KelengkapanTracerService;
-use Database\Seeders\KelompokPertanyaanSeeder;
 use Database\Seeders\KuesionerSeeder;
-use Database\Seeders\RefSubpertanyaan2021Seeder;
-use Database\Seeders\RefSubpertanyaanDetilSeeder;
+use Database\Seeders\UnifiedKuesionerSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -25,6 +25,8 @@ class KuesionerBranchingCompletenessTest extends TestCase
     protected User $user;
 
     protected Biodata $biodata;
+
+    protected int $univSectionId;
 
     protected function setUp(): void
     {
@@ -48,7 +50,6 @@ class KuesionerBranchingCompletenessTest extends TestCase
             'nim' => '72220099',
             'nama' => 'Testing Alumni',
             'email_pribadi' => 'alumni.personal@example.com',
-            'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2001-05-15',
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',
@@ -81,13 +82,41 @@ class KuesionerBranchingCompletenessTest extends TestCase
             'tahun_lulus' => '2026',
         ]);
 
-        // Jalankan seeders kuesioner
+        // Jalankan seeders kuesioner terpadu
         $this->seed([
             KuesionerSeeder::class,
-            KelompokPertanyaanSeeder::class,
-            RefSubpertanyaan2021Seeder::class,
-            RefSubpertanyaanDetilSeeder::class,
+            UnifiedKuesionerSeeder::class,
         ]);
+
+        $univSection = KuesionerSection::where('target', 'univ')->first();
+        $this->univSectionId = $univSection?->id ?: 1;
+    }
+
+    private function saveAnswer(string $code, mixed $val): void
+    {
+        $q = KuesionerPertanyaan::where('kode_pertanyaan', $code)->with('opsi')->first();
+        if (! $q) {
+            return;
+        }
+
+        $opsi = $q->opsi->first(fn ($o) => mb_strtolower(trim($o->label)) === mb_strtolower(trim((string) $val)));
+
+        KuesionerJawaban::updateOrCreate(
+            [
+                'responden_type' => 'alumni',
+                'biodata_id' => $this->biodata->id,
+                'pertanyaan_id' => $q->id,
+            ],
+            [
+                'evaluasi_atasan_id' => null,
+                'section_id' => $this->univSectionId,
+                'kode_pertanyaan' => $q->kode_pertanyaan,
+                'opsi_id' => $opsi?->id,
+                'kode_opsi' => $opsi?->kode_opsi,
+                'jawaban_teks' => is_string($val) ? $val : json_encode($val),
+                'jawaban_json' => is_array($val) ? $val : null,
+            ]
+        );
     }
 
     public function test_working_alumni_with_f504_yes_reaches_100_percent(): void
@@ -97,14 +126,14 @@ class KuesionerBranchingCompletenessTest extends TestCase
             'F8' => 'Bekerja (full time/part time)',
             'F504' => 'Ya',
             'F502' => '2',
-            'F505' => json_encode(['F5051' => 7000000, 'total' => 7000000]),
-            'F12' => 'Biaya sendiri/keluarga',
-            'F14' => 'Sangat erat',
+            'F505' => '7000000',
+            'F12' => 'Biaya Sendiri / Keluarga',
+            'F14' => 'Sangat Erat',
             'F15' => 'Tingkat yang sama',
         ];
 
         // Isi F17 (F17-1 s/d F17-54 atau F17a/b)
-        $f17Questions = RefSubpertanyaan2021::where('wajib', true)
+        $f17Questions = KuesionerPertanyaan::where('is_active', true)
             ->where('kode_pertanyaan', 'LIKE', 'F17%')
             ->get();
 
@@ -113,20 +142,7 @@ class KuesionerBranchingCompletenessTest extends TestCase
         }
 
         foreach ($answers as $code => $val) {
-            $sub = RefSubpertanyaan2021::where('kode_pertanyaan', $code)->first();
-            if ($sub) {
-                Tracer::updateOrCreate(
-                    ['biodata_id' => $this->biodata->id, 'kode_pertanyaan' => $code],
-                    [
-                        'question_id' => $sub->id,
-                        'nim' => $this->biodata->nim,
-                        'kelompok' => $sub->kelompok,
-                        'subpertanyaan' => $sub->subpertanyaan,
-                        'answer' => is_string($val) ? $val : null,
-                        'answer_json' => is_array(json_decode($val, true)) ? json_decode($val, true) : null,
-                    ]
-                );
-            }
+            $this->saveAnswer($code, $val);
         }
 
         $eval = KelengkapanTracerService::evaluasiKuesionerWajib($this->biodata);
@@ -141,11 +157,11 @@ class KuesionerBranchingCompletenessTest extends TestCase
         // Alur Melanjutkan Pendidikan: F8 = 'Melanjutkan Pendidikan' -> melompati F504, F502, F505, F506, F14, F15
         $answers = [
             'F8' => 'Melanjutkan Pendidikan',
-            'F12' => 'Biaya sendiri/keluarga',
+            'F12' => 'Biaya Sendiri / Keluarga',
         ];
 
         // Isi F17
-        $f17Questions = RefSubpertanyaan2021::where('wajib', true)
+        $f17Questions = KuesionerPertanyaan::where('is_active', true)
             ->where('kode_pertanyaan', 'LIKE', 'F17%')
             ->get();
 
@@ -154,19 +170,7 @@ class KuesionerBranchingCompletenessTest extends TestCase
         }
 
         foreach ($answers as $code => $val) {
-            $sub = RefSubpertanyaan2021::where('kode_pertanyaan', $code)->first();
-            if ($sub) {
-                Tracer::updateOrCreate(
-                    ['biodata_id' => $this->biodata->id, 'kode_pertanyaan' => $code],
-                    [
-                        'question_id' => $sub->id,
-                        'nim' => $this->biodata->nim,
-                        'kelompok' => $sub->kelompok,
-                        'subpertanyaan' => $sub->subpertanyaan,
-                        'answer' => $val,
-                    ]
-                );
-            }
+            $this->saveAnswer($code, $val);
         }
 
         $eval = KelengkapanTracerService::evaluasiKuesionerWajib($this->biodata);
@@ -174,6 +178,10 @@ class KuesionerBranchingCompletenessTest extends TestCase
         $this->assertTrue($eval['is_complete'], 'Missing questions for studi lanjut: '.json_encode($eval['missing_questions']));
         $this->assertEquals(100, $eval['percentage'], 'Persentase kuesioner studi lanjut harus 100%.');
         $this->assertEmpty($eval['missing_questions']);
+
+        $univStatus = DB::table('v_alumni_tracer_univ_status')->where('biodata_id', $this->biodata->id)->first();
+        $this->assertNotNull($univStatus);
+        $this->assertEquals($univStatus->total_mandatory_univ, $univStatus->answered_mandatory_univ, 'Total mandatory dan answered pada view harus 100% sama untuk studi lanjut.');
     }
 
     public function test_unemployed_not_seeking_alumni_reaches_100_percent(): void
@@ -181,11 +189,11 @@ class KuesionerBranchingCompletenessTest extends TestCase
         // Alur Belum Memungkinkan Bekerja
         $answers = [
             'F8' => 'Belum memungkinkan bekerja',
-            'F12' => 'Biaya sendiri/keluarga',
+            'F12' => 'Biaya Sendiri / Keluarga',
         ];
 
         // Isi F17
-        $f17Questions = RefSubpertanyaan2021::where('wajib', true)
+        $f17Questions = KuesionerPertanyaan::where('is_active', true)
             ->where('kode_pertanyaan', 'LIKE', 'F17%')
             ->get();
 
@@ -194,19 +202,7 @@ class KuesionerBranchingCompletenessTest extends TestCase
         }
 
         foreach ($answers as $code => $val) {
-            $sub = RefSubpertanyaan2021::where('kode_pertanyaan', $code)->first();
-            if ($sub) {
-                Tracer::updateOrCreate(
-                    ['biodata_id' => $this->biodata->id, 'kode_pertanyaan' => $code],
-                    [
-                        'question_id' => $sub->id,
-                        'nim' => $this->biodata->nim,
-                        'kelompok' => $sub->kelompok,
-                        'subpertanyaan' => $sub->subpertanyaan,
-                        'answer' => $val,
-                    ]
-                );
-            }
+            $this->saveAnswer($code, $val);
         }
 
         $eval = KelengkapanTracerService::evaluasiKuesionerWajib($this->biodata);
@@ -223,13 +219,13 @@ class KuesionerBranchingCompletenessTest extends TestCase
             'F8' => 'Bekerja (full time/part time)',
             'F504' => 'Tidak',
             'F506' => '8',
-            'F12' => 'Biaya sendiri/keluarga',
+            'F12' => 'Biaya Sendiri / Keluarga',
             'F14' => 'Erat',
             'F15' => 'Tingkat yang sama',
         ];
 
         // Isi F17
-        $f17Questions = RefSubpertanyaan2021::where('wajib', true)
+        $f17Questions = KuesionerPertanyaan::where('is_active', true)
             ->where('kode_pertanyaan', 'LIKE', 'F17%')
             ->get();
 
@@ -238,19 +234,7 @@ class KuesionerBranchingCompletenessTest extends TestCase
         }
 
         foreach ($answers as $code => $val) {
-            $sub = RefSubpertanyaan2021::where('kode_pertanyaan', $code)->first();
-            if ($sub) {
-                Tracer::updateOrCreate(
-                    ['biodata_id' => $this->biodata->id, 'kode_pertanyaan' => $code],
-                    [
-                        'question_id' => $sub->id,
-                        'nim' => $this->biodata->nim,
-                        'kelompok' => $sub->kelompok,
-                        'subpertanyaan' => $sub->subpertanyaan,
-                        'answer' => $val,
-                    ]
-                );
-            }
+            $this->saveAnswer($code, $val);
         }
 
         $eval = KelengkapanTracerService::evaluasiKuesionerWajib($this->biodata);
@@ -258,5 +242,54 @@ class KuesionerBranchingCompletenessTest extends TestCase
         $this->assertTrue($eval['is_complete'], 'Missing questions for F504=Tidak: '.json_encode($eval['missing_questions']));
         $this->assertEquals(100, $eval['percentage']);
         $this->assertEmpty($eval['missing_questions']);
+    }
+
+    public function test_job_seeking_alumni_profile_and_kuesioner_reaches_100_percent(): void
+    {
+        // Ubah profil alumni menjadi Mencari Kerja (tidak perlu perusahaan atau atasan)
+        $this->biodata->update([
+            'kategori_pekerjaan' => 'Mencari Kerja',
+            'nomor_telepon' => '081234567890',
+            'alamat_saat_ini' => 'Jl. Solo Km 10',
+            'email_pribadi' => 'alumni.personal@example.com',
+            'perusahaan_id' => null,
+            'atasan_id' => null,
+        ]);
+
+        $evalProfil = KelengkapanTracerService::evaluasiProfil($this->biodata);
+        $this->assertTrue($evalProfil['is_complete'], 'Profil alumni pencari kerja harus lengkap: '.json_encode($evalProfil['missing_fields']));
+        $this->assertEquals(100, $evalProfil['percentage']);
+
+        // Alur Kuesioner: F8 = Mencari Kerja, mengisi F10 dan F12
+        $answers = [
+            'F8' => 'Tidak Kerja tetapi sedang mencari kerja',
+            'F10' => 'Ya',
+            'F3' => '3',
+            'F4' => 'Melalui iklan lowongan',
+            'F6' => '5',
+            'F7' => '2',
+            'F7A' => '1',
+            'F12' => 'Biaya Sendiri / Keluarga',
+        ];
+
+        $f17Questions = KuesionerPertanyaan::where('is_active', true)
+            ->where('kode_pertanyaan', 'LIKE', 'F17%')
+            ->get();
+
+        foreach ($f17Questions as $q) {
+            $answers[$q->kode_pertanyaan] = '4';
+        }
+
+        foreach ($answers as $code => $val) {
+            $this->saveAnswer($code, $val);
+        }
+
+        $eval = KelengkapanTracerService::evaluasiKuesionerWajib($this->biodata);
+        $this->assertTrue($eval['is_complete'], 'Missing questions pencari kerja: '.json_encode($eval['missing_questions']));
+        $this->assertEquals(100, $eval['percentage']);
+
+        $univStatus = DB::table('v_alumni_tracer_univ_status')->where('biodata_id', $this->biodata->id)->first();
+        $this->assertNotNull($univStatus);
+        $this->assertEquals($univStatus->total_mandatory_univ, $univStatus->answered_mandatory_univ, 'Total mandatory dan answered pada view harus 100% sama untuk pencari kerja.');
     }
 }

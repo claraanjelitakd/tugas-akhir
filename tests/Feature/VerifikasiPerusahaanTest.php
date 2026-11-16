@@ -70,7 +70,7 @@ class VerifikasiPerusahaanTest extends TestCase
         ]);
 
         $this->kabupaten = Kabupaten::create([
-            'propinsi_id' => $this->propinsi->id,
+            'kode_provinsi' => $this->propinsi->kode_provinsi,
             'kode_kabupaten' => '3404',
             'nama_kabupaten' => 'Kabupaten Sleman',
         ]);
@@ -95,21 +95,79 @@ class VerifikasiPerusahaanTest extends TestCase
         );
     }
 
+    /**
+     * Superadmin dapat menyimpan field perusahaan yang juga ditampilkan pada tabel master.
+     */
+    public function test_superadmin_can_create_and_update_complete_company_fields(): void
+    {
+        $superadmin = User::create([
+            'username' => 'superadmin-company',
+            'name' => 'Superadmin Company',
+            'password' => Hash::make('password123'),
+            'role' => 'superadmin',
+            'must_change_password' => false,
+        ]);
+
+        $payload = [
+            'nama_perusahaan' => 'PT Teknologi Nusantara',
+            'jenis_lokasi' => 'Dalam Negeri',
+            'kode_negara' => 'ID',
+            'kode_provinsi' => $this->propinsi->kode_provinsi,
+            'kode_kabupaten' => $this->kabupaten->kode_kabupaten,
+            'kode_pos' => '55281',
+            'skala' => 'Nasional',
+            'jenis_perusahaan' => '3 - Perusahaan swasta',
+            'jenis_perusahaan_lainnya' => null,
+            'sektor' => 'Teknologi Informasi',
+            'bentuk_perusahaan' => 'Perseroan Terbatas',
+            'jumlah_pegawai' => '51 - 100 Orang',
+            'homepage' => 'https://teknologi-nusantara.example',
+            'no_telp_fax' => '0274-123456',
+            'alamat' => 'Jalan Teknologi Nomor 1',
+        ];
+
+        $response = $this->actingAs($superadmin)->post(route('superadmin.perusahaan.store'), $payload);
+
+        $response->assertRedirect();
+        $company = Perusahaan::query()->where('nama_perusahaan', 'PT Teknologi Nusantara')->firstOrFail();
+        $this->assertSame('https://teknologi-nusantara.example', $company->homepage);
+        $this->assertSame('0274-123456', $company->no_telp_fax);
+        $this->assertSame('Perseroan Terbatas', $company->bentuk_perusahaan);
+        $this->assertSame('51 - 100 Orang', $company->jumlah_pegawai);
+
+        $updateResponse = $this->actingAs($superadmin)->put(
+            route('superadmin.perusahaan.update', $company->id),
+            array_merge($payload, [
+                'homepage' => 'https://updated.example',
+                'no_telp_fax' => '0274-654321',
+                'bentuk_perusahaan' => 'Koperasi',
+                'jumlah_pegawai' => '101 - 150 Orang',
+            ])
+        );
+
+        $updateResponse->assertRedirect();
+        $company->refresh();
+        $this->assertSame('https://updated.example', $company->homepage);
+        $this->assertSame('0274-654321', $company->no_telp_fax);
+        $this->assertSame('Koperasi', $company->bentuk_perusahaan);
+        $this->assertSame('101 - 150 Orang', $company->jumlah_pegawai);
+    }
+
     public function test_sistem_dapat_mendeteksi_rekomendasi_kemiripan_perusahaan(): void
     {
         // Buat master terverifikasi
         $verifiedBCA = Perusahaan::create([
             'nama_perusahaan' => 'PT Bank Central Asia Tbk',
-            'propinsi_id' => $this->propinsi->id,
-            'kabupaten_id' => $this->kabupaten->id,
+            'kode_provinsi' => $this->propinsi->kode_provinsi,
+            'kode_kabupaten' => $this->kabupaten->kode_kabupaten,
             'status_verifikasi' => 'Terverifikasi',
         ]);
 
         // Inputan alumni
         $pendingBCA = Perusahaan::create([
             'nama_perusahaan' => 'BCA',
-            'propinsi_id' => $this->propinsi->id,
-            'kabupaten_id' => $this->kabupaten->id,
+            'kode_provinsi' => $this->propinsi->kode_provinsi,
+            'kode_kabupaten' => $this->kabupaten->kode_kabupaten,
             'status_verifikasi' => 'Menunggu Verifikasi',
         ]);
 
@@ -262,11 +320,11 @@ class VerifikasiPerusahaanTest extends TestCase
         $response = $this->actingAs($this->adminFakultas)->put("/fakultas/perusahaan/{$pendingCompany->id}", [
             'nama_perusahaan' => 'PT Tokopedia',
             'alamat' => 'Jl. Prof Dr Satrio',
-            'propinsi_id' => $this->propinsi->id,
-            'kabupaten_id' => $this->kabupaten->id,
+            'kode_provinsi' => $this->propinsi->kode_provinsi,
+            'kode_kabupaten' => $this->kabupaten->kode_kabupaten,
             'skala' => 'Nasional',
             'jenis_lokasi' => 'Dalam Negeri',
-            'negara' => 'Indonesia',
+            'kode_negara' => 'ID',
         ]);
 
         $response->assertRedirect();
@@ -304,9 +362,9 @@ class VerifikasiPerusahaanTest extends TestCase
         $response = $this->actingAs($alumniUser)->postJson('/alumni/company', [
             'nama_perusahaan' => 'PT Gameloft Indonesia Jogja',
             'jenis_lokasi' => 'Dalam Negeri',
-            'negara' => 'Indonesia',
-            'province_id' => $this->propinsi->id,
-            'kabupaten_id' => $this->kabupaten->id,
+            'kode_negara' => 'ID',
+            'kode_provinsi' => $this->propinsi->kode_provinsi,
+            'kode_kabupaten' => $this->kabupaten->kode_kabupaten,
             'skala' => 'Nasional',
         ]);
 
@@ -337,9 +395,9 @@ class VerifikasiPerusahaanTest extends TestCase
         $response = $this->actingAs($this->adminProdi)->postJson('/alumni/company', [
             'nama_perusahaan' => 'PT Duta Wacana Kreatif',
             'jenis_lokasi' => 'Dalam Negeri',
-            'negara' => 'Indonesia',
-            'province_id' => $this->propinsi->id,
-            'kabupaten_id' => $this->kabupaten->id,
+            'kode_negara' => 'ID',
+            'kode_provinsi' => $this->propinsi->kode_provinsi,
+            'kode_kabupaten' => $this->kabupaten->kode_kabupaten,
             'skala' => 'Nasional',
         ]);
 
@@ -358,16 +416,16 @@ class VerifikasiPerusahaanTest extends TestCase
         $verifiedCompany = Perusahaan::create([
             'nama_perusahaan' => 'PT Tokopedia Jaya',
             'status_verifikasi' => 'Terverifikasi',
-            'propinsi_id' => $this->propinsi->id,
-            'kabupaten_id' => $this->kabupaten->id,
+            'kode_provinsi' => $this->propinsi->kode_provinsi,
+            'kode_kabupaten' => $this->kabupaten->kode_kabupaten,
         ]);
 
         $pendingCompany = Perusahaan::create([
             'nama_perusahaan' => 'PT Tokopedia',
             'status_verifikasi' => 'Menunggu Verifikasi',
             'created_by_prodi_id' => $this->prodi->id,
-            'propinsi_id' => $this->propinsi->id,
-            'kabupaten_id' => $this->kabupaten->id,
+            'kode_provinsi' => $this->propinsi->kode_provinsi,
+            'kode_kabupaten' => $this->kabupaten->kode_kabupaten,
         ]);
 
         $response = $this->actingAs($this->adminProdi)->getJson("/prodi/perusahaan/{$pendingCompany->id}/recommendations");
@@ -383,11 +441,11 @@ class VerifikasiPerusahaanTest extends TestCase
 
     public function test_cascading_kabupaten_endpoint_returns_json(): void
     {
-        $response = $this->actingAs($this->adminProdi)->getJson("/api/wilayah/kabupaten/{$this->propinsi->id}");
+        $response = $this->actingAs($this->adminProdi)->getJson("/api/wilayah/kabupaten/{$this->propinsi->kode_provinsi}");
 
         $response->assertOk();
         $response->assertJsonStructure([
-            '*' => ['id', 'propinsi_id', 'nama_kabupaten'],
+            '*' => ['kode_kabupaten', 'kode_provinsi', 'nama_kabupaten'],
         ]);
         $this->assertCount(1, $response->json());
         $this->assertEquals($this->kabupaten->nama_kabupaten, $response->json()[0]['nama_kabupaten']);

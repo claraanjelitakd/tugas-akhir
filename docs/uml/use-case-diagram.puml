@@ -1,0 +1,118 @@
+@startuml
+title Use Case Diagram Sistem Tracer Study UKDW
+
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam roundcorner 12
+
+skinparam usecase {
+  BackgroundColor White
+  BorderColor #0D542B
+  BorderThickness 1.5
+  ArrowColor #334155
+}
+
+skinparam actor {
+  BorderColor #0D542B
+  BackgroundColor White
+}
+
+actor Alumni
+actor "Pengguna Lulusan\n(Atasan)" as Supervisor
+actor "Superadmin (ITC)" as Superadmin
+actor admin
+actor admin_prodi
+actor admin_fakultas
+actor admin_biro3
+actor Apify <<system>>
+
+' Hirarki Generalization Aktor Admin
+admin_prodi -up-|> admin
+admin_fakultas -up-|> admin
+admin_biro3 -up-|> admin
+
+rectangle "Tracer Study\n[UKDW]" {
+  ' Autentikasi & Akun
+  usecase "Login" as UC01
+  usecase "Mengubah Kata Sandi" as UC02
+  usecase "Memulihkan Kata Sandi" as UC03
+  usecase "Manajemen akun" as UC04
+  usecase "Melihat Log Aktivitas" as UC05
+
+  ' Instrumen & Master Wilayah (Superadmin)
+  usecase "Mengelola kuesioner universitas" as UC06
+  usecase "Mengelola kuesioner pengguna lulusan" as UC07
+  usecase "Mengelola master Wilayah" as UC08
+  usecase "Mengelola Master UMP" as UC09
+
+  ' Alumni
+  usecase "Mengelola profile alumni" as UC10
+  usecase "Menambah daftar perusahaan" as UC11
+  usecase "Mengisi Kuesioner Universitas" as UC12
+  usecase "Mengisi Kuesioner Program Studi" as UC13
+
+  ' Evaluasi Atasan
+  usecase "Evaluasi kinerja Alumni" as UC14
+
+  ' Pengelolaan Data & Pelaporan (Admin & Superadmin)
+  usecase "Mengelola data alumni" as UC15
+  usecase "Sinkronisasi Linkedin" as UC16
+  usecase "Menghubungi Alumni" as UC17
+  usecase "Melihat Laporan" as UC18
+  usecase "Ekspor Laporan" as UC19
+  usecase "Mengelola kuesioner prodi" as UC20
+
+  ' Master Data Perusahaan & Pengguna Lulusan
+  usecase "Master Data Perusahaan" as UC21
+  usecase "Verifikasi Perusahaan" as UC22
+  usecase "Master Data Pengguna Lulusan" as UC23
+}
+
+' Relasi Extend
+UC02 .> UC01 : <<extend>>
+UC03 .> UC01 : <<extend>>
+UC09 .> UC08 : <<extend>>
+UC11 .> UC10 : <<extend>>
+UC16 .> UC15 : <<extend>>
+UC17 .> UC15 : <<extend>>
+UC19 .> UC15 : <<extend>>
+UC19 .> UC18 : <<extend>>
+UC22 .> UC21 : <<extend>>
+
+' Asosiasi Alumni
+Alumni -- UC01
+Alumni -- UC10
+Alumni -- UC12
+Alumni -- UC13
+
+' Asosiasi Pengguna Lulusan (Atasan)
+Supervisor -- UC14
+
+' Asosiasi Superadmin (ITC)
+Superadmin -- UC01
+Superadmin -- UC04
+Superadmin -- UC05
+Superadmin -- UC06
+Superadmin -- UC07
+Superadmin -- UC08
+Superadmin -- UC15
+Superadmin -- UC18
+Superadmin -- UC20
+Superadmin -- UC21
+Superadmin -- UC23
+
+' Asosiasi Admin Induk (Diwarisi Prodi, Fakultas, Biro 3)
+admin -- UC01
+admin -- UC15
+admin -- UC18
+admin -- UC21
+admin -- UC23
+
+' Asosiasi Langsung Khusus Admin Prodi
+admin_prodi -- UC20
+
+' Asosiasi Sistem Eksternal
+Apify -- UC16
+
+@enduml

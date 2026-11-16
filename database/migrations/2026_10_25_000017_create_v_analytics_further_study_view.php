@@ -11,6 +11,7 @@ return new class extends Migration
     /** Membuat proyeksi khusus indikator studi lanjut. */
     public function up(): void
     {
+        DB::statement('DROP VIEW IF EXISTS v_analytics_further_study');
         DB::statement(<<<'SQL'
 CREATE VIEW v_analytics_further_study AS
 SELECT *

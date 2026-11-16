@@ -1,14 +1,15 @@
 <!--
   Komponen Anak (Child Component): Form Data Pribadi
   File: resources/js/Pages/Alumni/Profil/Components/FormPribadi.vue
-  
+
   DIPANGGIL OLEH (Parent Component):
   - resources/js/Pages/Alumni/Profil/Index.vue
-  
+
   SUMBER DATA DARI BACKEND:
   - Controller: App\Http\Controllers\Alumni\Profil\ProfilController.php
 -->
 <script setup>
+// Form pribadi alumni: menyimpan identitas dan relasi wilayah dengan field kode kanonik.
 import { ref } from 'vue';
 import Swal from 'sweetalert2';
 
@@ -22,7 +23,31 @@ const props = defineProps({
     provinces: Array,
     kabupatens: Array,
     negaras: Array,
+    profileQuestionConfigs: {
+        type: Object,
+        default: () => ({}),
+    },
 });
+
+// Helper pembacaan konfigurasi pertanyaan dinamis dari Super Admin
+const getQuestionLabel = (code, fallback) => {
+    return props.profileQuestionConfigs?.[code]?.subpertanyaan || fallback;
+};
+
+const isQuestionRequired = (code, fallback = true) => {
+    return props.profileQuestionConfigs?.[code]?.wajib ?? fallback;
+};
+
+const getQuestionHint = (code, fallback = '') => {
+    return props.profileQuestionConfigs?.[code]?.keterangan || fallback;
+};
+
+const isQuestionVisible = (code) => {
+    if (!props.profileQuestionConfigs || Object.keys(props.profileQuestionConfigs).length === 0) {
+        return true;
+    }
+    return Boolean(props.profileQuestionConfigs[code]);
+};
 
 const fotoPreview = ref(null);
 const fileInputRef = ref(null);
@@ -105,7 +130,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
 
 <template>
     <div class="space-y-8">
-        
+
         <!-- ================================================================= -->
         <!-- BAGIAN 1: IDENTITAS DIRI RESMI (DARI DATA AKADEMIK)              -->
         <!-- ================================================================= -->
@@ -121,7 +146,7 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
             </div>
 
             <p class="text-xs text-gray-500 mb-5 leading-relaxed bg-slate-50 border border-slate-200/80 p-3.5 rounded-xl">
-                Identitas kependudukan dan akademik (Nama, Tempat/Tanggal Lahir, Jenis Kelamin, Agama, Golongan Darah, Dokumen) terhubung langsung dari Pangkalan Data Akademik resmi kampus dan dikunci secara permanen untuk menjamin validitas serta mencegah duplikasi data.
+                Nama, tanggal lahir, jenis kelamin, kewarganegaraan, dan dokumen akademik terhubung langsung dari Pangkalan Data Akademik resmi kampus dan dikunci secara permanen untuk menjamin validitas serta mencegah duplikasi data.
             </p>
 
             <!-- Foto Profil Resmi Alumni -->
@@ -135,17 +160,17 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                         :class="fotoPreview || form.foto ? 'border-2 border-white bg-slate-100' : 'border-2 border-dashed border-[#0D542B]/50 bg-white hover:bg-emerald-50/50'"
                         @click="!fotoPreview && !form.foto ? triggerFileInput() : null"
                     >
-                        <img 
-                            v-if="fotoPreview" 
-                            :src="fotoPreview" 
+                        <img
+                            v-if="fotoPreview"
+                            :src="fotoPreview"
                             alt="Pratinjau Foto"
-                            class="w-full h-full object-cover object-top" 
+                            class="w-full h-full object-cover object-top"
                         />
-                        <img 
-                            v-else-if="form.foto && typeof form.foto === 'string'" 
-                            :src="form.foto" 
-                            :alt="form.nama || 'Foto Profil'" 
-                            class="w-full h-full object-cover object-top" 
+                        <img
+                            v-else-if="form.foto && typeof form.foto === 'string'"
+                            :src="form.foto"
+                            :alt="form.nama || 'Foto Profil'"
+                            class="w-full h-full object-cover object-top"
                         />
                         <div v-else class="flex flex-col items-center justify-center text-[#0D542B] px-2 text-center">
                             <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
@@ -175,16 +200,16 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                     </p>
 
                     <div class="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                        <input 
-                            ref="fileInputRef" 
-                            type="file" 
-                            accept="image/jpeg,image/png,image/webp,image/jpg" 
-                            class="hidden" 
-                            @change="handleFotoChange" 
+                        <input
+                            ref="fileInputRef"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/jpg"
+                            class="hidden"
+                            @change="handleFotoChange"
                         />
-                        <button 
-                            type="button" 
-                            @click="triggerFileInput" 
+                        <button
+                            type="button"
+                            @click="triggerFileInput"
                             class="px-4 py-2 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
                             :class="fotoPreview || form.foto ? 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-700' : 'bg-[#0D542B] hover:bg-[#093d1f] text-white'"
                         >
@@ -205,243 +230,209 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <!-- NIM (Terkunci) -->
-                <div>
+                <div v-if="isQuestionVisible('F1')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Nomor Induk Mahasiswa (NIM)
+                        {{ getQuestionLabel('F1', 'Nomor Induk Mahasiswa (NIM)') }}
                     </label>
                     <input type="text" :value="form.nim" disabled :class="lockedInputClass" />
                 </div>
 
                 <!-- Nama Lengkap (Terkunci dari Data Akademik) -->
-                <div>
+                <div v-if="isQuestionVisible('F2A')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Nama Lengkap (Sesuai Ijazah)</span>
+                        <span>{{ getQuestionLabel('F2A', 'Nama Lengkap (Sesuai Ijazah)') }}</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
                     </label>
-                    <input 
-                        type="text" 
-                        :value="form.nama" 
-                        disabled 
-                        :class="lockedInputClass" 
-                        title="Nama lengkap sesuai data akademik resmi kampus" 
+                    <input
+                        type="text"
+                        :value="form.nama"
+                        disabled
+                        :class="lockedInputClass"
+                        title="Nama lengkap sesuai data akademik resmi kampus"
                     />
                 </div>
 
-                <!-- Tempat Lahir (Terkunci dari Data Akademik) -->
-                <div>
+                <!-- Tanggal Lahir -->
+                <div v-if="isQuestionVisible('BIO_TANGGAL_LAHIR')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Tempat Lahir</span>
+                        <span>{{ getQuestionLabel('BIO_TANGGAL_LAHIR', 'Tanggal Lahir') }}</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
                     </label>
-                    <input 
-                        type="text" 
-                        :value="form.tempat_lahir" 
-                        disabled 
-                        :class="lockedInputClass" 
-                        placeholder="Kota / Kabupaten Kelahiran" 
+                    <input
+                        type="text"
+                        :value="form.tanggal_lahir"
+                        disabled
+                        :class="lockedInputClass"
                     />
                 </div>
 
-                <!-- Tanggal Lahir (Terkunci dari Data Akademik) -->
-                <div>
+                <!-- Jenis Kelamin -->
+                <div v-if="isQuestionVisible('BIO_JK')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Tanggal Lahir</span>
+                        <span>{{ getQuestionLabel('BIO_JK', 'Jenis Kelamin') }}</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
                     </label>
-                    <input 
-                        type="text" 
-                        :value="form.tanggal_lahir" 
-                        disabled 
-                        :class="lockedInputClass" 
-                    />
-                </div>
-                
-                <!-- Jenis Kelamin (Terkunci dari Data Akademik) -->
-                <div>
-                    <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Jenis Kelamin</span>
-                        <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        :value="form.jenis_kelamin" 
-                        disabled 
-                        :class="lockedInputClass" 
+                    <input
+                        type="text"
+                        :value="form.jenis_kelamin"
+                        disabled
+                        :class="lockedInputClass"
                     />
                 </div>
 
-                <!-- Agama (Terkunci dari Data Akademik) -->
-                <div>
+                <!-- Kewarganegaraan -->
+                <div v-if="isQuestionVisible('BIO_WARGA_NEGARA')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Agama</span>
+                        <span>{{ getQuestionLabel('BIO_WARGA_NEGARA', 'Kewarganegaraan') }}</span>
                         <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
                     </label>
-                    <input 
-                        type="text" 
-                        :value="form.agama" 
-                        disabled 
-                        :class="lockedInputClass" 
+                    <input
+                        type="text"
+                        :value="form.warga_negara || 'WNI'"
+                        disabled
+                        :class="lockedInputClass"
                     />
                 </div>
 
-                <!-- Golongan Darah (Terkunci dari Data Akademik) -->
-                <div>
-                    <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Golongan Darah</span>
-                        <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        :value="form.golongan_darah || '-'" 
-                        disabled 
-                        :class="lockedInputClass" 
-                    />
-                </div>
-
-                <!-- Kewarganegaraan (Terkunci dari Data Akademik) -->
-                <div>
-                    <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                        <span>Kewarganegaraan</span>
-                        <span class="text-[11px] text-gray-400 font-normal">Data Akademik</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        :value="form.warga_negara || 'WNI'" 
-                        disabled 
-                        :class="lockedInputClass" 
-                    />
-                </div>
             </div>
         </div>
 
         <!-- ================================================================= -->
-        <!-- BAGIAN 2: KONTAK & ALAMAT DOMISILI                                -->
+        <!-- BAGIAN 2: KONTAK & ALAMAT DOMISILI (LOKASI PENUGASAN / CABANG)    -->
         <!-- ================================================================= -->
         <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
-            <div class="flex items-center justify-between mb-6 pb-3 border-b border-gray-100">
+            <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-100 flex-wrap gap-2">
                 <h2 class="text-lg sm:text-xl font-black text-gray-900 flex items-center gap-2">
                     <span class="w-2.5 h-6 bg-[#005B3C] rounded-full inline-block"></span>
-                    Kontak & Alamat Domisili
+                    Kontak & Alamat Domisili (Lokasi Penugasan / Kantor Cabang)
                 </h2>
                 <span class="text-xs text-gray-400 font-medium">Kolom bertanda <span class="text-rose-500 font-bold">*</span> wajib diisi</span>
             </div>
 
+            <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5 text-xs text-emerald-950 leading-relaxed">
+                <div class="font-bold mb-1 text-emerald-900 flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#0D542B]"></span>
+                    Pedoman Domisili & Wilayah Kantor Cabang
+                </div>
+                Alamat domisili pada bagian ini mencatat lokasi tempat tinggal Anda sekaligus wilayah kantor cabang/lokasi operasional tempat Anda bertugas saat ini. Jika perusahaan tempat Anda bekerja memiliki kantor pusat (Head Office) di kota atau negara lain, data kantor pusat dipilih pada tab Karier (Data Perusahaan / Head Office), sedangkan domisili cabang/tempat penugasan Anda dicatat di sini.
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <!-- Nomor Telepon / WA -->
-                <div>
+                <div v-if="isQuestionVisible('F2B')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Nomor Telepon / WhatsApp <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('F2B', 'Nomor Telepon / WhatsApp') }} <span v-if="isQuestionRequired('F2B')" class="text-rose-500 font-bold">*</span>
                     </label>
-                    <input 
-                        type="tel" 
-                        :value="form.nomor_telepon" 
+                    <input
+                        type="tel"
+                        :value="form.nomor_telepon"
                         @input="handlePhoneInput"
                         autocomplete="off"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-mono font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="Contoh: 081234567890" 
+                        placeholder="Contoh: 081234567890"
                     />
                 </div>
 
                 <!-- Email Pribadi -->
-                <div>
+                <div v-if="isQuestionVisible('F2C')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Email Pribadi <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('F2C', 'Email Pribadi') }} <span v-if="isQuestionRequired('F2C')" class="text-rose-500 font-bold">*</span>
                     </label>
-                    <input 
-                        type="email" 
-                        v-model="form.email_pribadi" 
+                    <input
+                        type="email"
+                        v-model="form.email_pribadi"
                         autocomplete="off"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="contoh: nama.alumni@gmail.com" 
+                        placeholder="contoh: nama.alumni@gmail.com"
                     />
                 </div>
 
                 <!-- Alamat Domisili -->
-                <div class="md:col-span-2">
+                <div v-if="isQuestionVisible('F2D')" class="md:col-span-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Alamat Domisili Saat Ini <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('F2D', 'Alamat Domisili Tempat Tinggal / Kantor Cabang Saat Ini') }} <span v-if="isQuestionRequired('F2D')" class="text-rose-500 font-bold">*</span>
                     </label>
-                    <textarea 
-                        v-model="form.alamat_saat_ini" 
-                        rows="3" 
+                    <textarea
+                        v-model="form.alamat_saat_ini"
+                        rows="3"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="Nama Jalan, RT/RW, Dusun/Kelurahan..."
+                        placeholder="Nama Jalan, RT/RW, Dusun/Kelurahan (Alamat domisili tempat tinggal atau lokasi kantor cabang bertugas)..."
                     ></textarea>
                 </div>
 
                 <!-- Provinsi -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_PROVINSI')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Provinsi <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_PROVINSI', 'Provinsi Domisili / Penugasan Cabang') }} <span v-if="isQuestionRequired('BIO_PROVINSI')" class="text-rose-500 font-bold">*</span>
                     </label>
-                    <select 
-                        v-model="form.provinsi_id" 
+                    <select
+                        v-model="form.kode_provinsi"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                     >
-                        <option value="">-- Pilih Provinsi --</option>
-                        <option v-for="prov in provinces" :key="prov.id" :value="prov.id">{{ prov.nama_provinsi }}</option>
+                        <option value="">-- Pilih Provinsi Domisili / Cabang --</option>
+                        <option v-for="prov in provinces" :key="prov.kode_provinsi" :value="prov.kode_provinsi">{{ prov.nama_provinsi }}</option>
                     </select>
                 </div>
 
                 <!-- Kabupaten / Kota -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_KABUPATEN')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Kabupaten / Kota <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_KABUPATEN', 'Kabupaten / Kota Domisili / Penugasan Cabang') }} <span v-if="isQuestionRequired('BIO_KABUPATEN')" class="text-rose-500 font-bold">*</span>
                     </label>
-                    <select 
-                        v-model="form.kabupaten_id" 
+                    <select
+                        v-model="form.kode_kabupaten"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                     >
-                        <option value="">-- Pilih Kabupaten/Kota --</option>
-                        <option v-for="kab in kabupatens" :key="kab.id" :value="kab.id" v-show="!form.provinsi_id || kab.province_id == form.provinsi_id">
+                        <option value="">-- Pilih Kabupaten/Kota Domisili / Cabang --</option>
+                        <option v-for="kab in kabupatens" :key="kab.kode_kabupaten" :value="kab.kode_kabupaten" v-show="!form.kode_provinsi || kab.kode_provinsi == form.kode_provinsi">
                             {{ kab.nama_kabupaten }}
                         </option>
                     </select>
                 </div>
 
                 <!-- Kecamatan -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_KECAMATAN')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Kecamatan <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_KECAMATAN', 'Kecamatan') }} <span v-if="isQuestionRequired('BIO_KECAMATAN')" class="text-rose-500 font-bold">*</span>
                     </label>
-                    <input 
-                        type="text" 
-                        v-model="form.kecamatan" 
+                    <input
+                        type="text"
+                        v-model="form.kecamatan"
                         autocomplete="off"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="Kecamatan" 
+                        placeholder="Kecamatan"
                     />
                 </div>
 
                 <!-- Kelurahan / Desa -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_KELURAHAN')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Kelurahan / Desa <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_KELURAHAN', 'Kelurahan / Desa') }} <span v-if="isQuestionRequired('BIO_KELURAHAN')" class="text-rose-500 font-bold">*</span>
                     </label>
-                    <input 
-                        type="text" 
-                        v-model="form.kelurahan" 
+                    <input
+                        type="text"
+                        v-model="form.kelurahan"
                         autocomplete="off"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="Kelurahan/Desa" 
+                        placeholder="Kelurahan/Desa"
                     />
                 </div>
 
                 <!-- Kode Pos -->
-                <div>
+                <div v-if="isQuestionVisible('BIO_KODE_POS')">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">
-                        Kode Pos <span class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_KODE_POS', 'Kode Pos') }} <span v-if="isQuestionRequired('BIO_KODE_POS')" class="text-rose-500 font-bold">*</span>
                     </label>
-                    <input 
-                        type="text" 
-                        v-model="form.kode_pos" 
+                    <input
+                        type="text"
+                        v-model="form.kode_pos"
                         autocomplete="off"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="Kode Pos (5 digit)" 
+                        placeholder="Kode Pos (5 digit)"
                     />
                 </div>
             </div>
         </div>
-        
+
     </div>
 </template>

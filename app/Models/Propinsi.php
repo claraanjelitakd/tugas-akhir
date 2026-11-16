@@ -16,16 +16,22 @@ class Propinsi extends Model
 
     protected $table = 'propinsi';
 
+    protected $primaryKey = 'kode_provinsi';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
     protected $fillable = ['kode_provinsi', 'nama_provinsi'];
 
     public function kabupaten()
     {
-        return $this->hasMany(Kabupaten::class, 'propinsi_id');
+        return $this->hasMany(Kabupaten::class, 'kode_provinsi', 'kode_provinsi');
     }
 
     public function perusahaan()
     {
-        return $this->hasMany(Perusahaan::class, 'propinsi_id');
+        return $this->hasMany(Perusahaan::class, 'kode_provinsi', 'kode_provinsi');
     }
 
     public function ump()

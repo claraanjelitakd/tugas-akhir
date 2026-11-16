@@ -6,20 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Biodata;
 use App\Models\EvaluasiAtasan;
 use App\Models\Kabupaten;
-use App\Models\Kuesioner;
 use App\Models\LinkedinSyncResult;
-use App\Models\PertanyaanEvaluasiAtasan;
 use App\Models\Perusahaan;
-use App\Models\ProdiQuestionSection;
-use App\Models\ProdiResponse;
 use App\Models\Propinsi;
 use App\Models\RefNegara;
-use App\Models\Tracer;
 use App\Services\Alumni\AdminAlumniProfileService;
 use App\Services\Alumni\LinkedinTraceHelper;
 use App\Services\Export\AlumniTracerExcelExporter;
 use App\Services\Kuesioner\KelengkapanTracerService;
 use App\Services\Kuesioner\KuesionerSyncService;
+use App\Services\Kuesioner\UnifiedDetailAlumniService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -37,11 +33,12 @@ class DetailAlumniController extends Controller
 {
     /**
      * Tampilkan Detail Profil & Kuesioner Alumni
-     *
-     * @param  int|string  $id
      */
-    public function tampilkanDetailAlumni($id): Response
+    public function tampilkanDetailAlumni(Request $request, int|string $id): Response
     {
+        // Biro 3 memiliki akses observasi dan komunikasi, bukan perubahan data profil.
+        $isReadOnly = true;
+
         $alumni = Biodata::with([
             'dataAkademik.yudisium',
             'yudisium',
@@ -53,232 +50,27 @@ class DetailAlumniController extends Controller
         ])->findOrFail($id);
 
         // Pastikan respon profil tersinkron ke tabel responses
-        KuesionerSyncService::syncProfileResponses($alumni);
+        if (! $isReadOnly) {
+            KuesionerSyncService::syncProfileResponses($alumni);
+        }
 
         // Ambil evaluasi kelengkapan terpadu
         $evaluasi = KelengkapanTracerService::evaluasiKelengkapanTotal($alumni);
 
-        // Ambil seluruh jawaban kuesioner alumni
-        $savedResponses = Tracer::where('biodata_id', $alumni->id)
-            ->get()
-            ->keyBy('question_id');
-
-        // Ambil seluruh section dan pertanyaan dari kuesioner aktif
-        $kuesioner = Kuesioner::where('is_active', true)
-            ->with(['sections' => function ($secQuery) {
-                $secQuery->where(function ($sq) {
-                    $sq->whereNull('kode_kelompok')
-                        ->orWhere('kode_kelompok', '!=', '1');
-                })
-                    ->orderBy('order', 'asc')
-                    ->with(['subpertanyaans' => function ($qQuery) {
-                        $qQuery->where(function ($w) {
-                            $w->whereNull('tampil_di')
-                                ->orWhereNotIn('tampil_di', ['profil', 'profile']);
-                        })->where(function ($w) {
-                            $w->whereNull('kelompok')
-                                ->orWhere('kelompok', '!=', 'BIO');
-                        })
-                            ->orderBy('order', 'asc')
-                            ->with('detils');
-                    }]);
-            }])
-            ->first();
-
-        // Susun struktur data section & jawaban terformat untuk Frontend
-        $sectionsWithAnswers = [];
-
-        if ($kuesioner) {
-            foreach ($kuesioner->sections as $section) {
-                $subpertanyaansList = [];
-
-                foreach ($section->subpertanyaans as $subpertanyaan) {
-                    $resp = $savedResponses->get($subpertanyaan->id);
-                    $isMandatory = KelengkapanTracerService::isMandatoryQuestion($subpertanyaan->kode_pertanyaan);
-
-                    $hasAnswer = false;
-                    $displayAnswer = null;
-
-                    if ($resp) {
-                        if (! empty($resp->answer_text) && trim((string) $resp->answer_text) !== '') {
-                            $hasAnswer = true;
-                            $displayAnswer = (string) $resp->answer_text;
-                        } elseif (! empty($resp->answer) && trim((string) $resp->answer) !== '') {
-                            $hasAnswer = true;
-                            $displayAnswer = (string) $resp->answer;
-                        } elseif (is_array($resp->answer_json) && count($resp->answer_json) > 0) {
-                            $displayAnswer = implode(', ', $resp->answer_json);
-                            $hasAnswer = true;
-                        }
-                    }
-
-                    $isHeader = in_array($subpertanyaan->type, ['header', 'section_header']);
-
-                    $subpertanyaansList[] = [
-                        'id' => $subpertanyaan->id,
-                        'kode_pertanyaan' => $subpertanyaan->kode_pertanyaan,
-                        'subpertanyaan' => $subpertanyaan->subpertanyaan,
-                        'type' => $subpertanyaan->type,
-                        'kelompok' => $subpertanyaan->kelompok,
-                        'is_mandatory' => $isMandatory,
-                        'is_header' => $isHeader,
-                        'is_answered' => $hasAnswer,
-                        'answer' => $displayAnswer,
-                        'answer_json' => $resp?->answer_json,
-                        'detils' => $subpertanyaan->detils,
-                    ];
-                }
-
-                $unansweredMandatoryCount = count(array_filter($subpertanyaansList, function ($item) {
-                    return $item['is_mandatory'] && ! $item['is_answered'] && ! $item['is_header'];
-                }));
-
-                $unansweredOptionalCount = count(array_filter($subpertanyaansList, function ($item) {
-                    return ! $item['is_mandatory'] && ! $item['is_answered'] && ! $item['is_header'];
-                }));
-
-                $answeredCount = count(array_filter($subpertanyaansList, function ($item) {
-                    return $item['is_answered'] && ! $item['is_header'];
-                }));
-
-                $totalQuestionsCount = count(array_filter($subpertanyaansList, function ($item) {
-                    return ! $item['is_header'];
-                }));
-
-                $sectionsWithAnswers[] = [
-                    'id' => $section->id,
-                    'section' => $section->section,
-                    'title' => $section->title ?: $section->section,
-                    'order' => $section->order,
-                    'subpertanyaans' => $subpertanyaansList,
-                    'unanswered_mandatory_count' => $unansweredMandatoryCount,
-                    'unanswered_optional_count' => $unansweredOptionalCount,
-                    'answered_count' => $answeredCount,
-                    'total_questions_count' => $totalQuestionsCount,
-                ];
-            }
-        }
-
-        // Susun Data Form Profil Lengkap
-        $dataAkademik = $alumni->dataAkademik;
-        $yudisium = $alumni->yudisium ?? $dataAkademik?->yudisium;
-        $atasan = $alumni->atasan;
+        // Ambil data section dan jawaban kuesioner terpadu
+        $sectionsWithAnswers = UnifiedDetailAlumniService::getUnivSectionsWithAnswers($alumni);
+        $prodiData = UnifiedDetailAlumniService::getProdiSectionsWithAnswers($alumni);
+        $prodiSectionsWithAnswers = $prodiData['sections'];
+        $prodiEvaluasi = $prodiData['evaluasi'];
 
         // Susun Data Form Profil Lengkap menggunakan AdminAlumniProfileService
         $formData = AdminAlumniProfileService::buildFormData($alumni);
-
-        // Kuesioner Khusus Program Studi
-        $prodiSectionsWithAnswers = [];
-        $prodiEvaluasi = [
-            'is_complete' => false,
-            'percentage' => 0,
-            'answered_count' => 0,
-            'total_questions' => 0,
-        ];
-
-        if ($alumni->prodi_id) {
-            $prodiSections = ProdiQuestionSection::where('prodi_id', $alumni->prodi_id)
-                ->with(['questions' => function ($qQuery) {
-                    $qQuery->orderBy('order', 'asc')->with('options');
-                }])
-                ->orderBy('order', 'asc')
-                ->get();
-
-            $savedProdiResponses = ProdiResponse::where('biodata_id', $alumni->id)
-                ->get()
-                ->keyBy('prodi_question_id');
-
-            $totalProdiQuestions = 0;
-            $totalProdiAnswered = 0;
-
-            foreach ($prodiSections as $pSection) {
-                $pQuestionsList = [];
-
-                foreach ($pSection->questions as $pQuestion) {
-                    $isHeader = in_array($pQuestion->type, ['header', 'section_header']);
-                    $pResp = $savedProdiResponses->get($pQuestion->id);
-
-                    $hasAnswer = false;
-                    $displayAnswer = null;
-
-                    if ($pResp && ! $isHeader) {
-                        if (! empty($pResp->answer_text) && trim((string) $pResp->answer_text) !== '') {
-                            $hasAnswer = true;
-                            $displayAnswer = (string) $pResp->answer_text;
-                        } elseif (is_array($pResp->answer_json) && count($pResp->answer_json) > 0) {
-                            $hasAnswer = true;
-                            $displayAnswer = implode(', ', $pResp->answer_json);
-                        }
-                    }
-
-                    if (! $isHeader) {
-                        $totalProdiQuestions++;
-                        if ($hasAnswer) {
-                            $totalProdiAnswered++;
-                        }
-                    }
-
-                    $pQuestionsList[] = [
-                        'id' => $pQuestion->id,
-                        'code' => $pQuestion->code,
-                        'question_text' => $pQuestion->question_text,
-                        'type' => $pQuestion->type,
-                        'is_header' => $isHeader,
-                        'is_mandatory' => (bool) $pQuestion->is_required,
-                        'is_answered' => $hasAnswer,
-                        'answer_text' => $displayAnswer,
-                        'options' => $pQuestion->options->map(function ($opt) {
-                            return [
-                                'id' => $opt->id,
-                                'text' => $opt->option_text,
-                            ];
-                        }),
-                    ];
-                }
-
-                $unansweredProdiMandatory = count(array_filter($pQuestionsList, function ($item) {
-                    return $item['is_mandatory'] && ! $item['is_answered'] && ! $item['is_header'];
-                }));
-                $unansweredProdiOptional = count(array_filter($pQuestionsList, function ($item) {
-                    return ! $item['is_mandatory'] && ! $item['is_answered'] && ! $item['is_header'];
-                }));
-                $answeredProdiCount = count(array_filter($pQuestionsList, function ($item) {
-                    return $item['is_answered'] && ! $item['is_header'];
-                }));
-                $totalProdiCountInSec = count(array_filter($pQuestionsList, function ($item) {
-                    return ! $item['is_header'];
-                }));
-
-                $prodiSectionsWithAnswers[] = [
-                    'id' => $pSection->id,
-                    'title' => $pSection->title,
-                    'description' => $pSection->description,
-                    'order' => $pSection->order,
-                    'questions' => $pQuestionsList,
-                    'unanswered_mandatory_count' => $unansweredProdiMandatory,
-                    'unanswered_optional_count' => $unansweredProdiOptional,
-                    'answered_count' => $answeredProdiCount,
-                    'total_questions_count' => $totalProdiCountInSec,
-                ];
-            }
-
-            $prodiPercentage = $totalProdiQuestions > 0
-                ? round(($totalProdiAnswered / $totalProdiQuestions) * 100)
-                : 0;
-
-            $prodiEvaluasi = [
-                'is_complete' => ($totalProdiQuestions > 0 && $totalProdiAnswered >= $totalProdiQuestions),
-                'percentage' => $prodiPercentage,
-                'answered_count' => $totalProdiAnswered,
-                'total_questions' => $totalProdiQuestions,
-            ];
-        }
 
         $propinsis = Propinsi::orderBy('nama_provinsi', 'asc')->get();
         $kabupatens = Kabupaten::orderBy('nama_kabupaten', 'asc')->get();
         $negaras = RefNegara::orderBy('nama_negara', 'asc')->get();
         $refOptions = AdminAlumniProfileService::getRefOptions();
-        $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'jenis_lokasi', 'negara', 'propinsi_id', 'kabupaten_id', 'alamat', 'kode_pos', 'skala', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'status_verifikasi')->get();
+        $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'jenis_lokasi', 'kode_negara', 'kode_provinsi', 'kode_kabupaten', 'alamat', 'kode_pos', 'homepage', 'no_telp_fax', 'skala', 'bentuk_perusahaan', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'status_verifikasi')->get();
 
         $latestSync = $alumni->latestLinkedinSyncResult;
         $linkedinTraceMapping = LinkedinTraceHelper::buildTraceMapping($alumni, $latestSync);
@@ -296,11 +88,10 @@ class DetailAlumniController extends Controller
 
         $evaluasiAtasanData = $evaluasiAtasan?->toAdminAuditArray();
 
-        $pertanyaanEvaluasiAtasan = PertanyaanEvaluasiAtasan::where('is_active', true)
-            ->orderBy('order', 'asc')
-            ->get();
+        $pertanyaanEvaluasiAtasan = UnifiedDetailAlumniService::getPertanyaanEvaluasiAtasan();
 
         return Inertia::render('AdminBiroTiga/AlumniShow', [
+            'user' => $request->user(),
             'biodata' => $alumni,
             'alumni' => $alumni,
             'evaluasi' => $evaluasi,
@@ -320,6 +111,7 @@ class DetailAlumniController extends Controller
             'linkedinSyncResult' => $latestSync,
             'linkedinTraceMapping' => $linkedinTraceMapping,
             'linkedinHistory' => $linkedinHistory,
+            'readonly' => $isReadOnly,
         ]);
     }
 

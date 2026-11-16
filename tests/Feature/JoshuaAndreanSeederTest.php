@@ -4,8 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
-use App\Models\ProdiResponse;
-use App\Models\Tracer;
+use App\Models\KuesionerJawaban;
 use App\Models\User;
 use App\Models\Yudisium;
 use Database\Seeders\DatabaseSeeder;
@@ -33,7 +32,6 @@ class JoshuaAndreanSeederTest extends TestCase
         $this->assertEquals('Joshua Andrean', $dataAkademik->nama);
         $this->assertEquals('2022', $dataAkademik->angkatan_masuk);
         $this->assertEquals(2026, $dataAkademik->tahun_lulus);
-        $this->assertEquals('SMA Negeri 3 Yogyakarta', $dataAkademik->asal_sekolah);
 
         $yudisium = Yudisium::where('nim', '72220001')->first();
         $this->assertNotNull($yudisium, 'Data yudisium harus terisi.');
@@ -56,8 +54,7 @@ class JoshuaAndreanSeederTest extends TestCase
         $this->assertNull($biodata->getAttribute('npwp'));
 
         // Pastikan kuesioner belum diisi
-        $this->assertEquals(0, Tracer::where('biodata_id', $biodata->id)->count());
-        $this->assertEquals(0, ProdiResponse::where('biodata_id', $biodata->id)->count());
+        $this->assertEquals(0, KuesionerJawaban::where('biodata_id', $biodata->id)->count());
 
         // Alumni baru wajib diarahkan untuk mengganti password awal.
         $response = $this->actingAs($user)->get(route('alumni.profile'));

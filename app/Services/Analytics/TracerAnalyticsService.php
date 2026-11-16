@@ -4,18 +4,27 @@ namespace App\Services\Analytics;
 
 use App\Models\Kuesioner;
 use App\Models\Prodi;
+use App\Services\Kuesioner\F3AnswerParser;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Menyediakan dataset analitik Tracer Study untuk halaman analitik Superadmin.
  *
- * Service ini membentuk payload satu indikator dari database view terpilah.
- * Ia tidak menyimpan data baru; normalisasi sumber tetap berada di lapisan
- * view, sedangkan statistik dan metadata presentasi dibentuk di service.
+ * Service ini membentuk payload satu indikator dari database read-model kanonik.
+ * Ia tidak menyimpan data baru; proyeksi umum berasal dari view, sedangkan
+ * normalisasi format jawaban khusus dilakukan oleh parser backend terkait.
  */
 class TracerAnalyticsService
 {
+    /**
+     * Dependensi formula IKU S1 yang membaca read-model akademik dan tracer.
+     */
+    public function __construct(
+        private IkuS1AnalyticsService $ikuS1Analytics,
+        private F3AnswerParser $f3AnswerParser,
+    ) {}
+
     /** Sentinel filter value that includes every available graduation year. */
     private const ALL_YEARS = 'ALL';
 
@@ -52,6 +61,7 @@ class TracerAnalyticsService
             'key' => 'work_location',
             'label' => 'Sebaran wilayah kerja',
             'description' => 'Sebaran provinsi perusahaan tempat alumni bekerja, bukan alamat domisili alumni.',
+            'visible' => false,
         ],
         [
             'key' => 'employment_status',
@@ -72,6 +82,7 @@ class TracerAnalyticsService
             'key' => 'education_alignment_university',
             'label' => 'Keselarasan tingkat pendidikan universitas',
             'description' => 'Komposisi tingkat pendidikan yang dianggap sesuai untuk pekerjaan dari pertanyaan F15 pada tingkat universitas.',
+            'visible' => false,
         ],
         [
             'key' => 'response_rate',
@@ -79,9 +90,28 @@ class TracerAnalyticsService
             'description' => 'Perbandingan alumni terdata dan alumni yang mengisi kuesioner universitas.',
         ],
         [
+            'key' => 'iku_s1_aee',
+            'label' => 'AEE S1: kelulusan tepat waktu',
+            'description' => 'Populasi seluruh mahasiswa S1 dibandingkan dengan lulusan tepat waktu per program studi.',
+            'visual_plan' => 'Stacked bar horizontal AEE per prodi, segmen tepat waktu dibanding sisa denominator, dan tabel status akademik.',
+        ],
+        [
+            'key' => 'iku_s1_outcomes',
+            'label' => 'IKU S1: bekerja, berwirausaha, atau studi lanjut',
+            'description' => 'Persentase berbobot masa tunggu, 1,2× UMP, posisi usaha, dan studi lanjut maksimal satu tahun.',
+            'visual_plan' => 'Batang bobot per kategori karier, ringkasan capaian, dan rincian formula per lulusan.',
+        ],
+        [
+            'key' => 'iku_s1_ump_weighted',
+            'label' => 'IKU S1: perbandingan UMP dan bobot',
+            'description' => 'Rincian gaji dibandingkan 1,2 kali UMP, masa tunggu, role karier, dan bobot setiap responden.',
+            'visual_plan' => 'Batang status UMP per role, tabel formula individu, dan metadata konfirmasi bobot.',
+        ],
+        [
             'key' => 'profile_completion',
             'label' => 'Kelengkapan profil alumni',
             'description' => 'Kelengkapan profil berdasarkan status audit profil pada tahun lulusan terpilih.',
+            'visible' => false,
         ],
         [
             'key' => 'learning_methods',
@@ -93,7 +123,7 @@ class TracerAnalyticsService
             'key' => 'job_search_start',
             'label' => 'Waktu mulai mencari pekerjaan',
             'description' => 'Distribusi waktu alumni mulai mencari pekerjaan setelah memperhatikan kategori sebelum atau sesudah lulus.',
-            'visual_plan' => 'Batang divergen, distribusi kategori, dan tabel individu.',
+            'visual_plan' => 'Stacked bar berbasis jumlah fase, distribusi rentang waktu, dan tabel ringkasan.',
         ],
         [
             'key' => 'job_search_methods',
@@ -104,8 +134,8 @@ class TracerAnalyticsService
         [
             'key' => 'application_pipeline',
             'label' => 'Lamaran, respons, dan wawancara',
-            'description' => 'Median tahapan proses lamaran pekerjaan sebelum memperoleh pekerjaan pertama.',
-            'visual_plan' => 'Batang berkelompok, funnel proses, dan tabel individu.',
+            'description' => 'Hubungan IPK, jumlah lamaran, respons, wawancara, dan persentase konversi tahapan rekrutmen.',
+            'visual_plan' => 'Scatter plot lamaran vs respons (warna IPK), scatter plot respons vs wawancara (warna IPK), dan diagram batang horizontal konversi tahapan.',
         ],
         [
             'key' => 'job_search_activity',
@@ -135,7 +165,7 @@ class TracerAnalyticsService
             'key' => 'competency_gap',
             'label' => 'Gap kompetensi lulusan',
             'description' => 'Perbandingan kompetensi yang dikuasai saat lulus dan yang diperlukan di pekerjaan.',
-            'visual_plan' => 'Dumbbell median, radar kompetensi, dan heatmap gap.',
+            'visual_plan' => 'Batang rata-rata, radar kompetensi, dan heatmap gap.',
         ],
     ];
 
@@ -144,20 +174,27 @@ class TracerAnalyticsService
     private const WAIT_TIME_MEDIAN_EPSILON = 0.01;
 
     /**
-     * View terpilah per indikator kuesioner universitas.
+     * Kode pertanyaan yang dibaca dari satu view jawaban tracer kanonik.
      *
-     * @var array<string, string>
+     * View filter-tipis lama tetap dapat ada pada database lama, tetapi service
+     * tidak lagi bergantung padanya agar sumber query indikator lebih mudah diaudit.
+     *
+     * @var array<string, array<int, string>>
      */
-    private const QUESTION_CHART_VIEWS = [
-        'learning_methods' => 'v_analytics_learning_methods',
-        'job_search_start' => 'v_analytics_job_search_start',
-        'job_search_methods' => 'v_analytics_job_search_methods',
-        'application_pipeline' => 'v_analytics_application_pipeline',
-        'job_search_activity' => 'v_analytics_job_search_activity',
-        'workplace_type' => 'v_analytics_workplace_type',
-        'further_study' => 'v_analytics_further_study',
-        'mismatch_reasons' => 'v_analytics_mismatch_reasons',
-        'competency_gap' => 'v_analytics_competency_gap',
+    private const QUESTION_CHART_CODES = [
+        'learning_methods' => ['F21', 'F22', 'F23', 'F24', 'F25', 'F26', 'F27'],
+        'job_search_start' => ['F3'],
+        'job_search_methods' => ['F4'],
+        'application_pipeline' => ['F6', 'F7', 'F7A'],
+        'job_search_activity' => ['F10'],
+        'workplace_type' => ['F11'],
+        'further_study' => ['F12', 'F18b', 'F18c', 'F18d'],
+        'mismatch_reasons' => ['F16'],
+        'competency_gap' => [
+            'F17a1', 'F17b1', 'F17a2', 'F17b2', 'F17a3', 'F17b3',
+            'F17a4', 'F17b4', 'F17a5', 'F17b5', 'F17a6', 'F17b6',
+            'F17a7', 'F17b7',
+        ],
     ];
 
     /**
@@ -226,6 +263,11 @@ class TracerAnalyticsService
         $selectedYear = $this->resolveYear($requestedYear, $availableYears);
         $availableUmpYears = $this->availableUmpYears();
         $selectedUmpYear = $this->resolveUmpYear($requestedUmpYear, $selectedYear, $availableUmpYears);
+
+        if ($this->ikuS1Analytics->supports($chartKey)) {
+            return $this->buildIkuChartPayload($chartKey, $selectedYear, $selectedUmpYear, $prodiId, $availableYears, $availableUmpYears);
+        }
+
         $rows = $this->analyticsRows($chartKey, $selectedYear, $selectedUmpYear, $prodiId);
         $responses = $chartKey === 'employment_status'
             ? $this->responsesByAlumni($rows->pluck('biodata_id')->all(), ['F8', 'F18a', 'F18b', 'F18c', 'F18d', 'F11', 'F5B', 'F5C', 'F2E', 'F2G'])
@@ -293,7 +335,7 @@ class TracerAnalyticsService
                     ->values()
                     ->all(),
             ],
-            'chart_options' => self::UNIVERSITY_CHARTS,
+            'chart_options' => $this->universityChartOptions(),
             'selected_chart' => $chartKey,
             'chart' => $chart,
         ];
@@ -306,7 +348,87 @@ class TracerAnalyticsService
      */
     public function universityChartOptions(): array
     {
-        return self::UNIVERSITY_CHARTS;
+        return collect(self::UNIVERSITY_CHARTS)
+            ->reject(fn (array $chart): bool => ($chart['visible'] ?? true) === false)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Membungkus payload IKU S1 ke kontrak halaman grafik universitas.
+     *
+     * @param  string  $chartKey  Kunci indikator IKU.
+     * @param  string  $selectedYear  Tahun filter global halaman.
+     * @param  int|null  $selectedUmpYear  Tahun UMP aktif.
+     * @param  int|null  $prodiId  Filter prodi opsional.
+     * @param  array<int, string>  $availableYears  Tahun filter yang tersedia.
+     * @param  array<int, int>  $availableUmpYears  Tahun UMP yang tersedia.
+     * @return array<string, mixed> Payload Inertia/JSON untuk grafik IKU.
+     */
+    private function buildIkuChartPayload(
+        string $chartKey,
+        string $selectedYear,
+        ?int $selectedUmpYear,
+        ?int $prodiId,
+        array $availableYears,
+        array $availableUmpYears,
+    ): array {
+        $chart = match ($chartKey) {
+            'iku_s1_aee' => $this->ikuS1Analytics->buildAeeChart($selectedYear, $prodiId),
+            'iku_s1_ump_weighted' => $this->ikuS1Analytics->buildUmpWeightedChart($selectedUmpYear, $selectedYear, $prodiId),
+            default => $this->ikuS1Analytics->buildOutcomeChart($selectedUmpYear, $selectedYear, $prodiId),
+        };
+        $populationCount = (int) ($chart['summary']['population'] ?? 0);
+        $validRespondentCount = in_array($chartKey, ['iku_s1_outcomes', 'iku_s1_ump_weighted'], true)
+            ? (int) ($chart['summary']['valid_respondents'] ?? 0)
+            : (int) ($chart['summary']['eligible_count'] ?? 0);
+        $recordCount = count($chart['records'] ?? []);
+        $availabilityMessage = $recordCount > 0
+            ? ($chartKey === 'iku_s1_aee'
+                ? 'Data akademik lulusan S1 tersedia untuk perhitungan AEE.'
+                : 'Data akademik S1 dan jawaban tracer valid tersedia untuk perhitungan.')
+            : ($chartKey === 'iku_s1_aee'
+                ? 'Belum ada data akademik lulusan S1 yang dapat dihitung.'
+                : 'Belum ada data akademik atau jawaban tracer S1 yang dapat dihitung.');
+        $chart['data_availability'] = [
+            'status' => $recordCount > 0 ? 'available' : 'no_population',
+            'population_count' => $populationCount,
+            'record_count' => $recordCount,
+            'message' => $availabilityMessage,
+        ];
+        $chart['metadata'] = [
+            'generated_at' => now()->toIso8601String(),
+            'population_count' => $populationCount,
+            'valid_respondent_count' => $validRespondentCount,
+            'missing_count' => max($populationCount - $validRespondentCount, 0),
+            'data_type' => $chartKey === 'iku_s1_aee'
+                ? 'Populasi akademik dan status kelulusan'
+                : ($chartKey === 'iku_s1_ump_weighted' ? 'Perbandingan UMP dan bobot per role karier' : 'Numerik berbobot berdasarkan kategori karier'),
+            'percentage_basis' => 'Formula dihitung di service backend berdasarkan read-model IKU; Vue hanya menyajikan hasil.',
+        ];
+
+        return [
+            'filters' => [
+                'available_years' => $availableYears,
+                'selected_year' => $selectedYear,
+                'available_ump_years' => $availableUmpYears,
+                'selected_ump_year' => $selectedUmpYear,
+                'selected_prodi_id' => $prodiId,
+                'prodis' => Prodi::query()
+                    ->orderBy('kode_prodi')
+                    ->get(['id', 'kode_prodi', 'nama_prodi'])
+                    ->map(fn (Prodi $prodi): array => [
+                        'id' => $prodi->id,
+                        'kode' => $prodi->kode_prodi,
+                        'nama' => $prodi->nama_prodi,
+                    ])
+                    ->values()
+                    ->all(),
+            ],
+            'chart_options' => $this->universityChartOptions(),
+            'selected_chart' => $chartKey,
+            'chart' => $chart,
+        ];
     }
 
     /**
@@ -357,17 +479,80 @@ class TracerAnalyticsService
      */
     private function analyticsDataType(string $chartKey): string
     {
-        return match ($chartKey) {
+        $dataType = match ($chartKey) {
             'wait_time', 'salary_vs_ump', 'application_pipeline' => 'Numerik kontinu atau diskrit',
+            'iku_s1_aee' => 'Populasi akademik dengan status dan periode kelulusan',
+            'iku_s1_ump_weighted' => 'Perbandingan UMP dan bobot per role karier',
+            'iku_s1_outcomes' => 'Numerik berbobot berdasarkan kategori karier',
             'learning_methods', 'competency_gap' => 'Skala ordinal Likert',
             'job_search_methods', 'mismatch_reasons' => 'Kategorikal pilihan jamak',
             'work_location' => 'Kategorikal geografis',
             default => 'Kategorikal pilihan tunggal',
         };
+
+        return $dataType;
+    }
+
+    /**
+     * Menyamakan metadata sembilan alias view dengan read-model kanonik.
+     *
+     * Alias masih ada untuk kompatibilitas database lama, tetapi tidak boleh
+     * muncul sebagai sumber utama setelah service memfilter view kanonik.
+     *
+     * @param  array<string, mixed>  $methodology
+     * @return array<string, mixed>
+     */
+    private function normalizeLegacyViewMetadata(array $methodology, string $chartKey): array
+    {
+        if (! isset(self::QUESTION_CHART_CODES[$chartKey])) {
+            return $methodology;
+        }
+
+        $legacyViews = [
+            'v_analytics_learning_methods',
+            'v_analytics_job_search_start',
+            'v_analytics_job_search_methods',
+            'v_analytics_application_pipeline',
+            'v_analytics_job_search_activity',
+            'v_analytics_workplace_type',
+            'v_analytics_further_study',
+            'v_analytics_mismatch_reasons',
+            'v_analytics_competency_gap',
+        ];
+
+        $normalize = function (mixed $value) use (&$normalize, $legacyViews): mixed {
+            if (is_array($value)) {
+                $normalized = [];
+                foreach ($value as $key => $item) {
+                    $normalized[$key] = $normalize($item);
+                }
+
+                if (array_is_list($normalized)) {
+                    return array_values(array_unique($normalized, SORT_REGULAR));
+                }
+
+                return $normalized;
+            }
+
+            if (is_string($value)) {
+                return str_replace($legacyViews, 'v_analytics_tracer_answers', $value);
+            }
+
+            return $value;
+        };
+
+        /** @var array<string, mixed> $normalizedMethodology */
+        $normalizedMethodology = $normalize($methodology);
+
+        return $normalizedMethodology;
     }
 
     /**
      * Mengambil tahun lulusan yang tersedia pada populasi analitik.
+     *
+     * Daftar tahun bersumber dari data, bukan menambahkan tahun kalender
+     * berjalan secara sintetis. Dengan begitu filter tidak membuka kohort
+     * kosong dan tidak menghasilkan opsi tahun duplikat.
      *
      * @return array<int, string>
      */
@@ -379,7 +564,6 @@ class TracerAnalyticsService
             ->filter()
             ->map(fn (mixed $year): string => (string) $year)
             ->unique()
-            ->push((string) now()->year)
             ->sortDesc()
             ->values()
             ->all();
@@ -420,16 +604,22 @@ class TracerAnalyticsService
     }
 
     /**
-     * Menentukan tahun lulusan aktif dengan default tahun berjalan.
+     * Menentukan tahun lulusan aktif dengan default tahun data terbaru.
      *
      * @param  array<int, string>  $availableYears
      */
     private function resolveYear(?string $requestedYear, array $availableYears): string
     {
-        $defaultYear = (string) now()->year;
+        $defaultYear = collect($availableYears)
+            ->reject(fn (string $availableYear): bool => $availableYear === self::ALL_YEARS)
+            ->first() ?? self::ALL_YEARS;
         $year = $requestedYear ?: $defaultYear;
 
-        return in_array($year, $availableYears, true) ? $year : $defaultYear;
+        if (in_array($year, $availableYears, true)) {
+            return $year;
+        }
+
+        return $availableYears[0] ?? self::ALL_YEARS;
     }
 
     /**
@@ -458,6 +648,11 @@ class TracerAnalyticsService
     private function resolveChartKey(?string $requestedChart): string
     {
         $requestedChart = trim((string) $requestedChart);
+
+        if ($requestedChart === 'education_alignment_university') {
+            return 'education_alignment';
+        }
+
         $availableKeys = array_column(self::UNIVERSITY_CHARTS, 'key');
 
         return in_array($requestedChart, $availableKeys, true)
@@ -469,7 +664,7 @@ class TracerAnalyticsService
      * Mengambil hanya view analitik yang dibutuhkan indikator aktif.
      *
      * View ini menjaga proyeksi dan normalisasi data tetap berada di database,
-     * sementara service hanya bertugas membentuk metadata, median, dan payload UI.
+     * sementara service hanya bertugas membentuk metadata, statistik agregat, dan payload UI.
      *
      * @return Collection<int, object>
      */
@@ -479,8 +674,9 @@ class TracerAnalyticsService
             return $this->responseRateRows($selectedYear, $prodiId);
         }
 
-        if (isset(self::QUESTION_CHART_VIEWS[$chartKey])) {
-            return DB::table(self::QUESTION_CHART_VIEWS[$chartKey])
+        if (isset(self::QUESTION_CHART_CODES[$chartKey])) {
+            return DB::table('v_analytics_tracer_answers')
+                ->whereIn('kode_pertanyaan', self::QUESTION_CHART_CODES[$chartKey])
                 ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
                 ->when($prodiId, fn ($query) => $query->where('prodi_id', $prodiId))
                 ->get();
@@ -518,70 +714,10 @@ class TracerAnalyticsService
      */
     private function responseRateRows(string $selectedYear, ?int $prodiId): Collection
     {
-        $population = DB::table('biodata')
-            ->leftJoin('users', 'users.id', '=', 'biodata.user_id')
-            ->leftJoin('data_akademik as academic', 'academic.nim', '=', 'biodata.nim')
-            ->leftJoin('prodi as study_program', 'study_program.id', '=', 'biodata.prodi_id')
-            ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('academic.tahun_lulus', $selectedYear))
-            ->when($prodiId, fn ($query) => $query->where('biodata.prodi_id', $prodiId))
-            ->select([
-                'biodata.id as biodata_id',
-                'biodata.user_id',
-                'biodata.nim',
-                DB::raw("COALESCE(academic.nama, users.name, 'Mahasiswa UKDW') as nama"),
-                'biodata.prodi_id',
-                'study_program.nama_prodi',
-                'academic.tahun_lulus',
-                'biodata.nomor_telepon',
-                DB::raw('COALESCE(biodata.email_pribadi, users.email) as email'),
-            ])
+        return DB::table('v_analytics_response_rate')
+            ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
+            ->when($prodiId, fn ($query) => $query->where('prodi_id', $prodiId))
             ->get();
-
-        if ($population->isEmpty()) {
-            return $population;
-        }
-
-        $respondents = DB::table('tracer')
-            ->join('ref_subpertanyaan2021 as questions', 'questions.id', '=', 'tracer.question_id')
-            ->whereIn('tracer.biodata_id', $population->pluck('biodata_id')->all())
-            ->where(function ($query): void {
-                $query->where(function ($mandatoryQuery): void {
-                    $mandatoryQuery
-                        ->where('questions.wajib', 1)
-                        ->where('questions.type', '!=', 'header')
-                        ->whereNotIn(DB::raw('UPPER(questions.kode_pertanyaan)'), [
-                            'F1', 'F2A', 'F2B', 'F2C', 'F2D',
-                            'BIO_TEMPAT_LAHIR', 'BIO_TANGGAL_LAHIR', 'BIO_JK',
-                            'BIO_TGL_LULUS', 'BIO_JUDUL_TA',
-                            'F5A1', 'F5A2', 'F5B', 'F5C', 'F5D', 'F510',
-                            'F2E', 'F2E1', 'F2E2', 'F2E3', 'F2F', 'F2G', 'F2H',
-                            'F11', 'F505', 'F502', 'F506',
-                        ]);
-                })->orWhereIn(DB::raw('UPPER(questions.kode_pertanyaan)'), ['F502', 'F506']);
-            })
-            ->where(function ($answerQuery): void {
-                $answerQuery
-                    ->whereNotNull('tracer.answer')
-                    ->whereRaw("TRIM(tracer.answer) != ''")
-                    ->orWhere(function ($jsonQuery): void {
-                        $jsonQuery
-                            ->whereNotNull('tracer.answer_json')
-                            ->whereNotIn('tracer.answer_json', ['', '[]', '{}']);
-                    });
-            })
-            ->selectRaw('tracer.biodata_id, MAX(tracer.updated_at) as last_response_at')
-            ->groupBy('tracer.biodata_id')
-            ->get()
-            ->keyBy('biodata_id');
-
-        return $population->map(function (object $alumnus) use ($respondents): object {
-            $respondent = $respondents->get($alumnus->biodata_id);
-            $alumnus->answered_mandatory_univ = $respondent === null ? 0 : 1;
-            $alumnus->answered = $alumnus->answered_mandatory_univ;
-            $alumnus->last_response_at = $respondent?->last_response_at;
-
-            return $alumnus;
-        });
     }
 
     /**
@@ -596,6 +732,10 @@ class TracerAnalyticsService
      */
     private function questionChart(Collection $rows, string $chartKey): array
     {
+        if ($chartKey === 'job_search_start') {
+            return $this->jobSearchStartChart($rows);
+        }
+
         if ($chartKey === 'competency_gap') {
             return $this->competencyGapChart($rows);
         }
@@ -627,7 +767,7 @@ class TracerAnalyticsService
             ],
             'job_search_activity' => [
                 'title' => 'Aktivitas mencari pekerjaan',
-                'subtitle' => 'Aktivitas pencarian pekerjaan alumni dalam empat minggu terakhir.',
+                'subtitle' => 'Apakah anda aktif mencari pekerjaan dalam 4 minggu terakhir? Pilihlah Satu Jawaban. KEMUDIAN LANJUT KE F17 (Instrumen F10).',
                 'type' => 'categorical',
                 'formula' => 'Setiap jawaban valid F10 dihitung satu kali.',
             ],
@@ -649,8 +789,9 @@ class TracerAnalyticsService
             $biodataIds = $records->pluck('biodata_id')->unique()->all();
             $perusahaanInfo = DB::table('biodata')
                 ->leftJoin('perusahaan', 'biodata.perusahaan_id', '=', 'perusahaan.id')
-                ->leftJoin('propinsi', 'perusahaan.propinsi_id', '=', 'propinsi.id')
-                ->leftJoin('kabupaten', 'perusahaan.kabupaten_id', '=', 'kabupaten.id')
+                ->leftJoin('propinsi', 'perusahaan.kode_provinsi', '=', 'propinsi.kode_provinsi')
+                ->leftJoin('kabupaten', 'perusahaan.kode_kabupaten', '=', 'kabupaten.kode_kabupaten')
+                ->leftJoin('ref_negara', 'perusahaan.kode_negara', '=', 'ref_negara.kode_negara')
                 ->whereIn('biodata.id', $biodataIds)
                 ->select(
                     'biodata.id as biodata_id',
@@ -658,7 +799,8 @@ class TracerAnalyticsService
                     'perusahaan.jenis_perusahaan_lainnya',
                     'perusahaan.skala',
                     'perusahaan.jenis_lokasi',
-                    'perusahaan.negara',
+                    'perusahaan.kode_negara',
+                    'ref_negara.nama_negara',
                     'propinsi.nama_provinsi',
                     'kabupaten.nama_kabupaten'
                 )
@@ -673,14 +815,15 @@ class TracerAnalyticsService
                 // Pemecahan entitas wilayah perusahaan: Negara, Provinsi, Kabupaten/Kota
                 $isLuarNegeri = ($info?->jenis_lokasi === 'Luar Negeri');
                 $rec['jenis_lokasi'] = $info?->jenis_lokasi ?: 'Dalam Negeri';
-                $rec['negara'] = $isLuarNegeri ? ($info?->negara ?: 'Luar Negeri') : 'Indonesia';
+                $rec['kode_negara'] = $info?->kode_negara ?: 'ID';
+                $rec['nama_negara'] = $isLuarNegeri ? ($info?->nama_negara ?: 'Luar Negeri') : 'Indonesia';
                 $rec['provinsi'] = $isLuarNegeri ? '-' : ($info?->nama_provinsi ?: '-');
                 $rec['kabupaten'] = $isLuarNegeri ? '-' : ($info?->nama_kabupaten ?: '-');
 
                 // Tentukan nama wilayah/region operasional terpadu (backward compatibility)
                 $regionParts = [];
                 if ($isLuarNegeri) {
-                    $regionParts[] = $rec['negara'];
+                    $regionParts[] = $rec['nama_negara'];
                 } else {
                     if ($info?->nama_kabupaten) {
                         $regionParts[] = $info->nama_kabupaten;
@@ -704,49 +847,138 @@ class TracerAnalyticsService
             default => null,
         };
 
-        $grouped = $records->groupBy('answer');
-        $officialOptions = $questionCode
-            ? DB::table('ref_subpertanyaan_detil')
-                ->where('kode_pertanyaan', $questionCode)
-                ->orderBy('order')
-                ->pluck('option_text')
-                ->filter()
-                ->unique()
-                ->values()
-                ->all()
-            : [];
+        if ($chartKey === 'job_search_activity') {
+            $records = $records->map(function (array $rec): array {
+                $raw = trim((string) ($rec['answer'] ?? ''));
+                $hasOtherDetail = preg_match('/^(?:lainnya|other)\s*:\s*.+$/iu', $raw) === 1;
+                $norm = match (true) {
+                    // Pertahankan teks bebas agar opsi F10 "Lainnya" dapat ditelusuri melalui awan kata.
+                    $hasOtherDetail => $raw,
+                    str_starts_with(strtolower($raw), 'tidak, tetapi') || str_starts_with(strtolower($raw), 'tidak, tapi') => 'Tidak, tapi saya sedang menunggu hasil lamaran kerja',
+                    str_starts_with(strtolower($raw), 'ya, saya akan mulai') => 'Ya, saya akan mulai bekerja dalam 2 minggu ke depan',
+                    str_starts_with(strtolower($raw), 'ya, tapi saya belum') || str_starts_with(strtolower($raw), 'ya, tetapi saya belum') => 'Ya, tapi saya belum pasti akan bekerja dalam 2 minggu ke depan',
+                    str_starts_with(strtolower($raw), 'ya, saya aktif') => 'Tidak, tapi saya sedang menunggu hasil lamaran kerja',
+                    $raw === '1' || strtolower($raw) === 'tidak' => 'Tidak',
+                    $raw === '2' => 'Tidak, tapi saya sedang menunggu hasil lamaran kerja',
+                    $raw === '3' => 'Ya, saya akan mulai bekerja dalam 2 minggu ke depan',
+                    $raw === '4' => 'Ya, tapi saya belum pasti akan bekerja dalam 2 minggu ke depan',
+                    $raw === '5' || str_starts_with(strtolower($raw), 'lainnya') || str_starts_with(strtolower($raw), 'other') => 'Lainnya',
+                    default => $raw,
+                };
+                $rec['answer'] = $norm;
+
+                return $rec;
+            });
+        }
+
+        $records = $records->map(function (array $rec): array {
+            $raw = $rec['answer'] ?? '';
+            if (preg_match('/^(?:lainnya|other)\s*:\s*(.+)$/i', $raw, $m)) {
+                $rec['category'] = 'Lainnya';
+                $rec['detail'] = trim($m[1]);
+            } else {
+                $rec['category'] = $raw;
+                $rec['detail'] = null;
+            }
+
+            return $rec;
+        });
+
+        $grouped = $records->groupBy('category');
+        $officialOptions = [];
+        $shortLabelMap = [];
+
+        if ($questionCode) {
+            $optionsRows = DB::table('kuesioner_opsi as o')
+                ->join('kuesioner_pertanyaan as p', 'p.id', '=', 'o.pertanyaan_id')
+                ->where('p.kode_pertanyaan', $questionCode)
+                ->orderBy('o.order')
+                ->get(['o.label', 'o.label_singkat', 'o.kode_opsi']);
+
+            foreach ($optionsRows as $row) {
+                if ($row->label) {
+                    $officialOptions[$row->label] = $row;
+                    if ($row->label_singkat) {
+                        $shortLabelMap[$row->label] = $row->label_singkat;
+                    }
+                }
+            }
+        }
 
         $seriesCollection = collect();
         if (! empty($officialOptions)) {
-            // Masukkan seluruh opsi resmi kuesioner
-            foreach ($officialOptions as $optText) {
+            // Masukkan seluruh opsi resmi kuesioner dengan dukungan label singkat
+            foreach ($officialOptions as $optText => $optRow) {
                 $group = $grouped->get($optText);
                 $cnt = $group ? $group->count() : 0;
+                $short = $optRow->label_singkat ?: $optText;
                 $seriesCollection->push([
-                    'label' => $optText,
+                    'label' => $short,
+                    'short_label' => $short,
+                    'full_label' => $optText,
+                    'kode_opsi' => $optRow->kode_opsi,
                     'count' => $cnt,
                     'percentage' => $this->percentage($cnt, max($records->count(), 1)),
                 ]);
             }
             // Tambahkan jawaban alumni di luar opsi resmi jika ada (misal teks bebas lainnya)
             foreach ($grouped as $label => $group) {
-                if (! in_array($label, $officialOptions, true)) {
+                if (! isset($officialOptions[$label])) {
                     $cnt = $group->count();
                     $seriesCollection->push([
                         'label' => $label,
+                        'short_label' => $label,
+                        'full_label' => $label,
+                        'kode_opsi' => null,
                         'count' => $cnt,
                         'percentage' => $this->percentage($cnt, max($records->count(), 1)),
                     ]);
                 }
             }
-            $series = $seriesCollection->sortByDesc('count')->values()->all();
+            $series = $chartKey === 'job_search_activity'
+                ? $seriesCollection->values()->all()
+                : $seriesCollection->sortByDesc('count')->values()->all();
         } else {
             $series = $grouped->map(fn (Collection $group, string $label): array => [
                 'label' => $label,
+                'short_label' => $label,
+                'full_label' => $label,
                 'count' => $group->count(),
                 'percentage' => $this->percentage($group->count(), max($records->count(), 1)),
             ])->sortByDesc('count')->values()->all();
         }
+
+        if (! empty($shortLabelMap)) {
+            $records = $records->map(function (array $rec) use ($shortLabelMap): array {
+                $ans = $rec['answer'] ?? null;
+                $rec['short_label'] = $shortLabelMap[$ans] ?? $ans;
+
+                return $rec;
+            });
+        }
+
+        if (in_array($chartKey, ['mismatch_reasons', 'workplace_type'], true)) {
+            // Opsi bernilai nol tidak menjadi batang kosong. Lainnya hanya menjadi pintu
+            // ke rincian teks bebas/awan kata agar tidak mencampurkan klasifikasi baku.
+            $series = collect($series)
+                ->reject(fn (array $item): bool => str_contains(mb_strtolower(trim((string) ($item['label'] ?? ''))), 'lainnya'))
+                ->filter(fn (array $item): bool => (int) ($item['count'] ?? 0) > 0)
+                ->values()
+                ->all();
+        }
+        $prodiSeries = $records->groupBy('nama_prodi')->map(function (Collection $prodiRows, string $prodi): array {
+            $total = $prodiRows->count();
+
+            return [
+                'prodi' => $prodi,
+                'total' => $total,
+                'items' => $prodiRows->groupBy('category')->map(fn (Collection $group, string $label): array => [
+                    'label' => $label,
+                    'count' => $group->count(),
+                    'percentage' => $this->percentage($group->count(), $total),
+                ])->values()->all(),
+            ];
+        })->values()->all();
 
         return [
             'key' => $chartKey,
@@ -761,11 +993,142 @@ class TracerAnalyticsService
                 'leading_percentage' => $series[0]['percentage'] ?? 0,
             ],
             'series' => $series,
+            'prodi_series' => $prodiSeries,
             'records' => $records->values()->all(),
             'methodology' => [
                 'formula' => $metadata['formula'],
                 'denominator' => 'Alumni dengan jawaban valid pada indikator aktif.',
                 'source' => 'v_analytics_tracer_answers (tracer terbaru per alumni dan kode pertanyaan)',
+            ],
+        ];
+    }
+
+    /**
+     * Menyusun indikator F3 dari fase dan angka masa tunggu yang dinormalisasi backend.
+     *
+     * @return array<string, mixed>
+     */
+    private function jobSearchStartChart(Collection $rows): array
+    {
+        $records = $this->questionRecords($rows)
+            ->map(function (array $record): array {
+                return [
+                    ...$record,
+                    ...$this->f3AnswerParser->parse($record['answer']),
+                ];
+            })
+            ->filter(fn (array $record): bool => $record['phase_key'] !== 'unknown')
+            ->values();
+
+        $segmentOrder = [
+            'before_graduation',
+            'after_under_6',
+            'after_6_to_12',
+            'after_over_12',
+            'after_unavailable',
+            'not_searching',
+        ];
+        $grouped = $records->groupBy('segment_key');
+        $series = collect($segmentOrder)
+            ->map(function (string $segmentKey) use ($grouped, $records): ?array {
+                $group = $grouped->get($segmentKey);
+                if (! $group || $group->isEmpty()) {
+                    return null;
+                }
+
+                $first = $group->first();
+                $count = $group->count();
+
+                return [
+                    'label' => $first['label'],
+                    'short_label' => $first['label'],
+                    'full_label' => $first['label'],
+                    'phase_key' => $first['phase_key'],
+                    'phase' => $first['phase'],
+                    'range_key' => $first['range_key'],
+                    'range' => $first['range'],
+                    'segment_key' => $segmentKey,
+                    'count' => $count,
+                    'percentage' => $this->percentage($count, max($records->count(), 1)),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+        $beforeCount = collect($series)->where('segment_key', 'before_graduation')->sum('count');
+        $afterCount = collect($series)->whereIn('segment_key', ['after_under_6', 'after_6_to_12', 'after_over_12', 'after_unavailable'])->sum('count');
+        $notSearchingCount = collect($series)->where('segment_key', 'not_searching')->sum('count');
+        $totalCount = $records->count();
+        $timingRangeRows = collect($series)->map(fn (array $item): array => [
+            'phase' => $item['phase'],
+            'range' => $item['range'],
+            'segment_key' => $item['segment_key'],
+            'label' => $item['range'] ? $item['phase']."\n".$item['range'] : $item['phase'],
+            'count' => $item['count'],
+            'percentage' => $this->percentage($item['count'], $totalCount),
+        ])->values()->all();
+        $timingStackGroups = collect([
+            ['phase' => 'Sebelum lulus', 'segment_keys' => ['before_graduation']],
+            ['phase' => 'Setelah lulus', 'segment_keys' => ['after_under_6', 'after_6_to_12', 'after_over_12', 'after_unavailable']],
+            ['phase' => 'Tidak mencari kerja', 'segment_keys' => ['not_searching']],
+        ])->map(function (array $group) use ($series, $segmentOrder): array {
+            $counts = array_fill_keys($segmentOrder, 0);
+            foreach ($group['segment_keys'] as $segmentKey) {
+                $counts[$segmentKey] = (int) collect($series)->where('segment_key', $segmentKey)->sum('count');
+            }
+
+            return [
+                'phase' => $group['phase'],
+                'counts' => $counts,
+                'total' => array_sum($counts),
+                'percentages' => collect($counts)->mapWithKeys(fn (int $count, string $key): array => [$key => $this->percentage($count, array_sum($counts))])->all(),
+            ];
+        })->all();
+        $divergingRows = collect($series)->map(fn (array $item): array => [
+            'name' => $item['label'],
+            'natural_label' => $item['full_label'] ?? $item['label'],
+            'short_label' => $item['short_label'] ?? $item['label'],
+            'display_label' => ($item['short_label'] ?? $item['label']).' ('.($item['phase_key'] === 'before_graduation' ? 'Sebelum' : 'Setelah').')',
+            'value' => $item['phase_key'] === 'before_graduation' ? -$item['count'] : $item['count'],
+            'absolute_value' => $item['count'],
+            'percentage' => $this->percentage($item['count'], $totalCount),
+            'phase_key' => $item['phase_key'],
+        ])->values()->all();
+        $sortedCategories = collect($series)->map(fn (array $item): array => [
+            'name' => $item['label'],
+            'natural_label' => $item['full_label'] ?? $item['label'],
+            'value' => $item['count'],
+            'percentage' => $this->percentage($item['count'], $totalCount),
+            'phase_key' => $item['phase_key'],
+        ])->sortByDesc('value')->values()->all();
+
+        return [
+            'key' => 'job_search_start',
+            'type' => 'categorical',
+            'title' => 'Waktu mulai mencari pekerjaan',
+            'subtitle' => 'Distribusi fase pencarian kerja dan angka masa tunggu hasil normalisasi jawaban F3.',
+            'visual_plan' => $this->visualPlan('job_search_start'),
+            'summary' => [
+                'answered_count' => $records->pluck('biodata_id')->unique()->count(),
+                'response_count' => $records->count(),
+                'leading_category' => $series[0]['label'] ?? null,
+                'leading_percentage' => $series[0]['percentage'] ?? 0,
+                'before_count' => $beforeCount,
+                'after_count' => $afterCount,
+                'not_searching_count' => $notSearchingCount,
+                'before_percentage' => $this->percentage($beforeCount, $totalCount),
+                'after_percentage' => $this->percentage($afterCount, $totalCount),
+            ],
+            'series' => $series,
+            'timing_range_rows' => $timingRangeRows,
+            'timing_stack_groups' => $timingStackGroups,
+            'diverging_rows' => $divergingRows,
+            'sorted_categories' => $sortedCategories,
+            'records' => $records->all(),
+            'methodology' => [
+                'formula' => 'Jawaban F3 dinormalisasi menjadi fase, angka bulan, dan rentang masa tunggu di backend sebelum dihitung.',
+                'denominator' => 'Alumni dengan jawaban F3 yang dapat diidentifikasi.',
+                'source' => 'kuesioner_jawaban melalui v_analytics_tracer_answers dan F3AnswerParser',
             ],
         ];
     }
@@ -787,12 +1150,14 @@ class TracerAnalyticsService
                 'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
                 'kode_pertanyaan' => $row->kode_pertanyaan,
                 'answer' => $value,
+                'ipk' => isset($row->ipk) && $row->ipk !== null ? (float) $row->ipk : null,
             ], $values);
         })->filter(fn (array $record): bool => $record['answer'] !== '')->values();
     }
 
     /**
-     * Menyusun tahapan lamaran dengan median jumlah lamaran, respons, dan wawancara.
+     * Menyusun tahapan lamaran dengan scatter plot hubungan IPK, korelasi Spearman,
+     * serta persentase konversi berbobot (weighted conversion rate).
      *
      * @return array<string, mixed>
      */
@@ -804,6 +1169,7 @@ class TracerAnalyticsService
 
             return $record;
         })->filter(fn (array $record): bool => $record['value'] !== null && $record['value'] >= 0)->values();
+
         $series = collect($labels)->map(function (string $label, string $code) use ($records): array {
             $values = $records->where('kode_pertanyaan', $code)->pluck('value')->all();
 
@@ -816,24 +1182,214 @@ class TracerAnalyticsService
             ];
         })->values()->all();
 
+        // Rekonstruksi struktur data per alumni untuk scatter plot dan analisis konversi
+        $alumniMap = [];
+        foreach ($records as $record) {
+            $id = $record['biodata_id'];
+            if (! isset($alumniMap[$id])) {
+                $alumniMap[$id] = [
+                    'biodata_id' => $id,
+                    'nim' => $record['nim'] ?? '',
+                    'nama' => $record['nama'] ?? 'Tanpa nama',
+                    'nama_prodi' => $record['nama_prodi'] ?? 'Tanpa prodi',
+                    'ipk' => $record['ipk'] ?? null,
+                    'f6' => null,
+                    'f7' => null,
+                    'f7a' => null,
+                ];
+            }
+            $val = $record['value'];
+            $code = strtoupper(trim((string) $record['kode_pertanyaan']));
+            if ($code === 'F6') {
+                $alumniMap[$id]['f6'] = $val;
+            } elseif ($code === 'F7') {
+                $alumniMap[$id]['f7'] = $val;
+            } elseif ($code === 'F7A') {
+                $alumniMap[$id]['f7a'] = $val;
+            }
+        }
+        $alumniList = array_values($alumniMap);
+        $alumniCollection = collect($alumniList);
+        $prodiPipeline = $alumniCollection->groupBy('nama_prodi')->map(function (Collection $prodiRows, string $prodi): array {
+            return [
+                'prodi' => $prodi,
+                'count' => $prodiRows->count(),
+                'dilamar' => $this->median($prodiRows->pluck('f6')->filter(fn (mixed $value): bool => $value !== null)->all()),
+                'merespon' => $this->median($prodiRows->pluck('f7')->filter(fn (mixed $value): bool => $value !== null)->all()),
+                'wawancara' => $this->median($prodiRows->pluck('f7a')->filter(fn (mixed $value): bool => $value !== null)->all()),
+            ];
+        })->sortByDesc('count')->values()->all();
+
+        // 1. Scatter Plot 1: Lamaran vs Respons Perusahaan (F6 vs F7)
+        $s1Alumni = array_values(array_filter($alumniList, fn (array $a): bool => $a['f6'] !== null && $a['f7'] !== null));
+        $x1 = array_map(fn (array $a): float => (float) $a['f6'], $s1Alumni);
+        $y1 = array_map(fn (array $a): float => (float) $a['f7'], $s1Alumni);
+        $stat1 = $this->spearmanCorrelation($x1, $y1);
+        $trend1 = $this->calculateTrendline($x1, $y1);
+        $scatter1Data = array_map(fn (array $a): array => [
+            'value' => [(float) $a['f6'], (float) $a['f7'], $a['ipk']],
+            'name' => $a['nama'],
+            'nim' => $a['nim'],
+            'prodi' => $a['nama_prodi'],
+            'ipk' => $a['ipk'],
+            'f6' => $a['f6'],
+            'f7' => $a['f7'],
+            'biodata_id' => $a['biodata_id'],
+        ], $s1Alumni);
+        $ipk1 = array_values(array_filter(array_map(fn (array $a) => $a['ipk'], $s1Alumni), fn ($v): bool => $v !== null));
+
+        // 2. Scatter Plot 2: Respons vs Undangan Wawancara (F7 vs F7a)
+        $s2Alumni = array_values(array_filter($alumniList, fn (array $a): bool => $a['f7'] !== null && $a['f7a'] !== null));
+        $x2 = array_map(fn (array $a): float => (float) $a['f7'], $s2Alumni);
+        $y2 = array_map(fn (array $a): float => (float) $a['f7a'], $s2Alumni);
+        $stat2 = $this->spearmanCorrelation($x2, $y2);
+        $trend2 = $this->calculateTrendline($x2, $y2);
+        $scatter2Data = array_map(fn (array $a): array => [
+            'value' => [(float) $a['f7'], (float) $a['f7a'], $a['ipk']],
+            'name' => $a['nama'],
+            'nim' => $a['nim'],
+            'prodi' => $a['nama_prodi'],
+            'ipk' => $a['ipk'],
+            'f7' => $a['f7'],
+            'f7a' => $a['f7a'],
+            'biodata_id' => $a['biodata_id'],
+        ], $s2Alumni);
+        $ipk2 = array_values(array_filter(array_map(fn (array $a) => $a['ipk'], $s2Alumni), fn ($v): bool => $v !== null));
+
+        // 3. Persentase Konversi Berbobot (Weighted Conversion Rate)
+        // Tahap 1: Lamaran -> Respons (eksklusi F6 = 0)
+        $c1Alumni = array_values(array_filter($alumniList, fn (array $a): bool => $a['f6'] !== null && $a['f6'] > 0 && $a['f7'] !== null));
+        $totF6_c1 = (int) array_sum(array_map(fn (array $a) => $a['f6'], $c1Alumni));
+        $totF7_c1 = (int) array_sum(array_map(fn (array $a) => $a['f7'], $c1Alumni));
+        $rate1 = $totF6_c1 > 0 ? round(($totF7_c1 / $totF6_c1) * 100, 1) : 0.0;
+
+        // Tahap 2: Respons -> Wawancara (eksklusi F7 = 0)
+        $c2Alumni = array_values(array_filter($alumniList, fn (array $a): bool => $a['f7'] !== null && $a['f7'] > 0 && $a['f7a'] !== null));
+        $totF7_c2 = (int) array_sum(array_map(fn (array $a) => $a['f7'], $c2Alumni));
+        $totF7a_c2 = (int) array_sum(array_map(fn (array $a) => $a['f7a'], $c2Alumni));
+        $rate2 = $totF7_c2 > 0 ? round(($totF7a_c2 / $totF7_c2) * 100, 1) : 0.0;
+
+        // Tahap 3: Lamaran -> Wawancara (eksklusi F6 = 0)
+        $c3Alumni = array_values(array_filter($alumniList, fn (array $a): bool => $a['f6'] !== null && $a['f6'] > 0 && $a['f7a'] !== null));
+        $totF6_c3 = (int) array_sum(array_map(fn (array $a) => $a['f6'], $c3Alumni));
+        $totF7a_c3 = (int) array_sum(array_map(fn (array $a) => $a['f7a'], $c3Alumni));
+        $rate3 = $totF6_c3 > 0 ? round(($totF7a_c3 / $totF6_c3) * 100, 1) : 0.0;
+
+        $allF6 = (int) array_sum(array_filter(array_map(fn (array $a) => $a['f6'], $alumniList), fn ($v): bool => $v !== null));
+        $allF7 = (int) array_sum(array_filter(array_map(fn (array $a) => $a['f7'], $alumniList), fn ($v): bool => $v !== null));
+        $allF7a = (int) array_sum(array_filter(array_map(fn (array $a) => $a['f7a'], $alumniList), fn ($v): bool => $v !== null));
+        $allIpk = array_values(array_filter(array_map(fn (array $a) => $a['ipk'], $alumniList), fn ($v): bool => $v !== null));
+        $relationTables = [
+            'applications_responses' => $this->pipelineRelationTable($alumniCollection, 'f6', 'f7', 'Lamaran (F6)', 'Respons (F7)'),
+            'responses_interviews' => $this->pipelineRelationTable($alumniCollection, 'f7', 'f7a', 'Respons (F7)', 'Wawancara (F7a)'),
+        ];
+        $conversionIpkStats = $this->conversionIpkStats($alumniCollection);
+
         return [
             'key' => 'application_pipeline',
             'type' => 'application_pipeline',
             'title' => 'Lamaran, respons, dan wawancara',
-            'subtitle' => 'Tahapan proses lamaran pekerjaan sebelum memperoleh pekerjaan pertama.',
+            'subtitle' => 'Analisis proses pencarian kerja alumni, korelasi IPK, serta konversi tahapan lamaran hingga wawancara.',
             'visual_plan' => $this->visualPlan('application_pipeline'),
             'summary' => [
-                'answered_count' => $records->pluck('biodata_id')->unique()->count(),
+                'answered_count' => count($alumniList),
+                'valid_alumni_count' => count($alumniList),
+                'total_applications' => $allF6,
+                'total_responses' => $allF7,
+                'total_interviews' => $allF7a,
                 'median_applications' => $series[0]['median'] ?? null,
                 'median_responses' => $series[1]['median'] ?? null,
                 'median_interviews' => $series[2]['median'] ?? null,
+                'median_ipk' => $this->median($allIpk),
+                'mean_ipk' => count($allIpk) > 0 ? round(array_sum($allIpk) / count($allIpk), 2) : null,
+            ],
+            'scatter_applications_responses' => [
+                'title' => 'Hubungan Jumlah Lamaran dengan Jumlah Respons Perusahaan',
+                'x_label' => 'Jumlah Perusahaan Dilamar (F6)',
+                'y_label' => 'Jumlah Perusahaan Merespons (F7)',
+                'data' => $scatter1Data,
+                'stats' => $stat1,
+                'trendline' => $trend1,
+                'summary' => [
+                    'valid_n' => count($s1Alumni),
+                    'total_applications' => (int) array_sum($x1),
+                    'total_responses' => (int) array_sum($y1),
+                    'median_ipk' => $this->median($ipk1),
+                    'mean_ipk' => count($ipk1) > 0 ? round(array_sum($ipk1) / count($ipk1), 2) : null,
+                    'rho' => $stat1['rho'],
+                    'p_value' => $stat1['p_value'],
+                ],
+            ],
+            'scatter_responses_interviews' => [
+                'title' => 'Hubungan Jumlah Respons Perusahaan dengan Undangan Wawancara',
+                'x_label' => 'Jumlah Perusahaan Merespons (F7)',
+                'y_label' => 'Jumlah Undangan Wawancara (F7a)',
+                'data' => $scatter2Data,
+                'stats' => $stat2,
+                'trendline' => $trend2,
+                'summary' => [
+                    'valid_n' => count($s2Alumni),
+                    'total_responses' => (int) array_sum($x2),
+                    'total_interviews' => (int) array_sum($y2),
+                    'median_ipk' => $this->median($ipk2),
+                    'mean_ipk' => count($ipk2) > 0 ? round(array_sum($ipk2) / count($ipk2), 2) : null,
+                    'rho' => $stat2['rho'],
+                    'p_value' => $stat2['p_value'],
+                ],
+            ],
+            'conversion_stages' => [
+                'title' => 'Persentase Konversi Lamaran hingga Wawancara',
+                'stages' => [
+                    [
+                        'key' => 'app_to_resp',
+                        'label' => 'Lamaran → Respons',
+                        'from_label' => 'Total Lamaran (F6)',
+                        'to_label' => 'Total Respons (F7)',
+                        'from_count' => $totF6_c1,
+                        'to_count' => $totF7_c1,
+                        'percentage' => $rate1,
+                        'formula' => '(Total Respons / Total Lamaran) × 100%',
+                        'denominator_note' => 'Hanya memperhitungkan alumni dengan jumlah lamaran (F6) > 0',
+                    ],
+                    [
+                        'key' => 'resp_to_intv',
+                        'label' => 'Respons → Wawancara',
+                        'from_label' => 'Total Respons (F7)',
+                        'to_label' => 'Total Wawancara (F7a)',
+                        'from_count' => $totF7_c2,
+                        'to_count' => $totF7a_c2,
+                        'percentage' => $rate2,
+                        'formula' => '(Total Wawancara / Total Respons) × 100%',
+                        'denominator_note' => 'Hanya memperhitungkan alumni dengan jumlah respons (F7) > 0',
+                    ],
+                    [
+                        'key' => 'app_to_intv',
+                        'label' => 'Lamaran → Wawancara',
+                        'from_label' => 'Total Lamaran (F6)',
+                        'to_label' => 'Total Wawancara (F7a)',
+                        'from_count' => $totF6_c3,
+                        'to_count' => $totF7a_c3,
+                        'percentage' => $rate3,
+                        'formula' => '(Total Wawancara / Total Lamaran) × 100%',
+                        'denominator_note' => 'Hanya memperhitungkan alumni dengan jumlah lamaran (F6) > 0',
+                    ],
+                ],
+                'summary' => [
+                    'total_applications' => $allF6,
+                    'total_responses' => $allF7,
+                    'total_interviews' => $allF7a,
+                ],
             ],
             'series' => $series,
             'records' => $records->all(),
+            'alumni_list' => $alumniList,
+            'prodi_pipeline' => $prodiPipeline,
+            'relation_tables' => $relationTables,
+            'conversion_ipk_stats' => $conversionIpkStats,
             'methodology' => [
-                'formula' => 'Median dihitung terpisah untuk jumlah lamaran, respons, dan undangan wawancara.',
-                'denominator' => 'Alumni dengan nilai numerik valid pada tahap terkait.',
-                'source' => 'tracer.F6, tracer.F7, tracer.F7A melalui v_analytics_tracer_answers',
+                'formula' => 'Korelasi Spearman (ρ) & signifikansi p-value untuk hubungan F6 vs F7 dan F7 vs F7A dengan pemetaan warna IPK kontinum. Rasio konversi berbobot: Konversi = (Total Tahap Akhir / Total Tahap Awal) × 100%.',
+                'denominator' => 'Alumni dengan jawaban numerik valid pada masing-masing tahapan (F6 > 0 untuk konversi lamaran, F7 > 0 untuk konversi respons).',
+                'source' => 'v_analytics_application_pipeline (kuesioner F6, F7, F7A dan data akademik IPK)',
             ],
         ];
     }
@@ -843,6 +1399,129 @@ class TracerAnalyticsService
      *
      * @return array<string, mixed>
      */
+    /**
+     * Menyusun tabel hubungan dua tahap pipeline per alumni dan pivot prodi.
+     *
+     * @param  Collection<int, array<string, mixed>>  $alumniRows  Data numerik per alumni.
+     * @param  string  $firstKey  Kolom tahap awal.
+     * @param  string  $secondKey  Kolom tahap lanjutan.
+     * @param  string  $firstLabel  Label tahap awal.
+     * @param  string  $secondLabel  Label tahap lanjutan.
+     * @return array<string, mixed> Baris individu dan agregasi prodi yang siap dirender.
+     */
+    private function pipelineRelationTable(Collection $alumniRows, string $firstKey, string $secondKey, string $firstLabel, string $secondLabel): array
+    {
+        $detail = $alumniRows
+            ->filter(fn (array $row): bool => $row[$firstKey] !== null && $row[$secondKey] !== null)
+            ->map(function (array $row) use ($firstKey, $secondKey): array {
+                $firstValue = (float) $row[$firstKey];
+                $secondValue = (float) $row[$secondKey];
+
+                return [
+                    'nama_alumni' => $row['nama'],
+                    'nim' => $row['nim'],
+                    'prodi' => $row['nama_prodi'],
+                    'ipk' => $row['ipk'],
+                    'tahap_awal' => $firstValue,
+                    'tahap_akhir' => $secondValue,
+                    'persentase' => $firstValue > 0 ? round(($secondValue / $firstValue) * 100, 1) : null,
+                ];
+            })->sortByDesc(fn (array $row): float => $row['persentase'] ?? -1)->values();
+        $pivot = $detail->groupBy('prodi')->map(function (Collection $rows, string $prodi): array {
+            $validPercentages = $rows->pluck('persentase')->filter(fn (mixed $value): bool => $value !== null)->all();
+            $ipkValues = $rows->pluck('ipk')->filter(fn (mixed $value): bool => $value !== null)->all();
+            $top = $rows->firstWhere('persentase', $rows->max('persentase'));
+
+            return [
+                'prodi' => $prodi,
+                'alumni_valid' => $rows->count(),
+                'rata_ipk' => $this->average($ipkValues),
+                'rata_awal' => $this->average($rows->pluck('tahap_awal')->all()),
+                'rata_akhir' => $this->average($rows->pluck('tahap_akhir')->all()),
+                'rata_persentase' => $this->average($validPercentages),
+                'alumni_tertinggi' => $top['nama_alumni'] ?? null,
+                'persentase_tertinggi' => $top['persentase'] ?? null,
+                'ipk_tertinggi' => $top['ipk'] ?? null,
+            ];
+        })->sortByDesc('persentase_tertinggi')->values()->all();
+
+        return [
+            'columns' => [
+                ['key' => 'nama_alumni', 'label' => 'Nama Alumni'],
+                ['key' => 'nim', 'label' => 'NIM'],
+                ['key' => 'prodi', 'label' => 'Program Studi'],
+                ['key' => 'ipk', 'label' => 'IPK', 'align' => 'right'],
+                ['key' => 'tahap_awal', 'label' => $firstLabel, 'align' => 'right'],
+                ['key' => 'tahap_akhir', 'label' => $secondLabel, 'align' => 'right'],
+                ['key' => 'persentase', 'label' => 'Persentase', 'align' => 'right'],
+            ],
+            'rows' => $detail->all(),
+            'summary' => [
+                'columns' => [
+                    ['key' => 'prodi', 'label' => 'Program Studi'],
+                    ['key' => 'alumni_valid', 'label' => 'Alumni Valid', 'align' => 'right'],
+                    ['key' => 'rata_ipk', 'label' => 'Rata-rata IPK', 'align' => 'right'],
+                    ['key' => 'rata_awal', 'label' => 'Rata-rata Tahap Awal', 'align' => 'right'],
+                    ['key' => 'rata_akhir', 'label' => 'Rata-rata Tahap Lanjutan', 'align' => 'right'],
+                    ['key' => 'rata_persentase', 'label' => 'Rata-rata Persentase', 'align' => 'right'],
+                    ['key' => 'alumni_tertinggi', 'label' => 'Alumni Persentase Tertinggi'],
+                    ['key' => 'persentase_tertinggi', 'label' => 'Persentase Tertinggi', 'align' => 'right'],
+                    ['key' => 'ipk_tertinggi', 'label' => 'IPK Alumni Tertinggi', 'align' => 'right'],
+                ],
+                'rows' => $pivot,
+            ],
+        ];
+    }
+
+    /**
+     * Mengelompokkan total tahap lanjutan berdasarkan rentang IPK.
+     *
+     * @param  Collection<int, array<string, mixed>>  $alumniRows  Data numerik per alumni.
+     * @return array<int, array<string, mixed>> Statistik tiga tahap konversi per rentang IPK.
+     */
+    private function conversionIpkStats(Collection $alumniRows): array
+    {
+        $bands = [
+            ['key' => 'ipk_unavailable', 'label' => 'IPK Tidak tersedia'],
+            ['key' => 'ipk_0_1', 'label' => 'IPK 0–<1', 'min' => 0.0, 'max' => 1.0],
+            ['key' => 'ipk_1_2', 'label' => 'IPK 1–<2', 'min' => 1.0, 'max' => 2.0],
+            ['key' => 'ipk_2_3', 'label' => 'IPK 2–<3', 'min' => 2.0, 'max' => 3.0],
+            ['key' => 'ipk_3_4', 'label' => 'IPK 3–4', 'min' => 3.0, 'max' => 4.0],
+        ];
+        $stages = [
+            ['key' => 'app_to_resp', 'label' => 'Lamaran → Respons', 'from_key' => 'f6', 'to_key' => 'f7'],
+            ['key' => 'resp_to_intv', 'label' => 'Respons → Wawancara', 'from_key' => 'f7', 'to_key' => 'f7a'],
+            ['key' => 'app_to_intv', 'label' => 'Lamaran → Wawancara', 'from_key' => 'f6', 'to_key' => 'f7a'],
+        ];
+
+        return collect($stages)->map(function (array $stage) use ($alumniRows, $bands): array {
+            $eligible = $alumniRows->filter(fn (array $row): bool => $row[$stage['from_key']] !== null && $row[$stage['from_key']] > 0 && $row[$stage['to_key']] !== null);
+            $fromCount = (int) $eligible->sum($stage['from_key']);
+            $toCount = (int) $eligible->sum($stage['to_key']);
+            $counts = array_fill_keys(array_column($bands, 'key'), 0);
+            foreach ($eligible as $row) {
+                $ipk = $row['ipk'];
+                $band = $bands[0];
+                foreach (array_slice($bands, 1) as $candidate) {
+                    if ($ipk !== null && $ipk >= $candidate['min'] && ($ipk < $candidate['max'] || ($candidate['max'] === 4.0 && $ipk <= 4.0))) {
+                        $band = $candidate;
+                        break;
+                    }
+                }
+                $counts[$band['key']] += (int) $row[$stage['to_key']];
+            }
+
+            return [
+                ...$stage,
+                'from_count' => $fromCount,
+                'to_count' => $toCount,
+                'conversion_percentage' => $fromCount > 0 ? round(($toCount / $fromCount) * 100, 1) : 0.0,
+                'counts' => $counts,
+                'segment_percentages' => collect($counts)->map(fn (int $count): float => $this->percentage($count, $toCount))->all(),
+            ];
+        })->all();
+    }
+
     private function learningMethodsChart(Collection $rows): array
     {
         $labels = [
@@ -912,6 +1591,24 @@ class TracerAnalyticsService
         $sortedByEmphasis = collect($series)->filter(fn ($item) => $item['count'] > 0)->sortByDesc('average')->values();
         $leading = $sortedByEmphasis->first();
         $least = $sortedByEmphasis->last();
+        $prodiSeries = $records->groupBy('nama_prodi')->map(function (Collection $prodiRows, string $prodi) use ($labels, $scaleDescriptions): array {
+            $methods = collect($labels)->map(function (string $label, string $code) use ($prodi, $prodiRows, $scaleDescriptions): array {
+                $scores = $prodiRows->where('kode_pertanyaan', $code)->pluck('score')->filter()->all();
+                $average = $this->average($scores) ?? 0.0;
+
+                return [
+                    'prodi' => $prodi,
+                    'key' => $code,
+                    'label' => $label,
+                    'count' => count($scores),
+                    'average' => round($average, 2),
+                    'score_int' => (int) round($average),
+                    'score_label' => $scaleDescriptions[$average > 0 ? (int) round($average) : 0] ?? '-',
+                ];
+            })->values()->all();
+
+            return ['prodi' => $prodi, 'methods' => $methods];
+        })->values()->all();
 
         return [
             'key' => 'learning_methods',
@@ -939,12 +1636,13 @@ class TracerAnalyticsService
                 'least_score_label' => $least['score_label'] ?? null,
             ],
             'series' => $series,
+            'prodi_series' => $prodiSeries,
             'records' => $records->all(),
             'methodology' => [
                 'formula' => 'Nilai rerata respon alumni dihitung per metode pembelajaran pada skala Likert 1 (Tidak Sama Sekali) sampai 5 (Sangat Besar) dengan pembulatan bilangan bulat (INT).',
                 'scale_legend' => '1 = Tidak Sama Sekali | 2 = Kurang | 3 = Cukup Besar | 4 = Besar | 5 = Sangat Besar',
                 'denominator' => 'Jawaban valid alumni pada instrumen tracer F21 sampai F27.',
-                'source' => 'tracer.F21 sampai tracer.F27 melalui v_analytics_tracer_answers',
+                'source' => 'kuesioner_jawaban.F21 sampai kuesioner_jawaban.F27 melalui v_analytics_tracer_answers',
             ],
         ];
     }
@@ -999,7 +1697,27 @@ class TracerAnalyticsService
 
             // Perguruan tinggi studi lanjut
             $university = ! empty($bio?->perguruan_tinggi) ? trim($bio->perguruan_tinggi) : (! empty($f18bAnswer) ? trim($f18bAnswer) : 'Universitas Mitra');
+            if ($university === '4' || is_numeric($university) || empty($university)) {
+                $university = 'Universitas Mitra / Lembaga Profesi';
+            }
+
             $studyProgram = ! empty($bio?->pendidikan_prodi) ? trim($bio->pendidikan_prodi) : (! empty($f18cAnswer) ? trim($f18cAnswer) : '-');
+            if ($studyProgram === '4' || is_numeric($studyProgram) || empty($studyProgram) || $studyProgram === '-') {
+                $prodiName = (string) ($first->nama_prodi ?: '');
+                $studyProgram = match (true) {
+                    str_contains($prodiName, 'Kedokteran') => 'Pendidikan Profesi Dokter (Profesi)',
+                    str_contains($prodiName, 'Akuntansi') => 'Pendidikan Profesi Akuntan (PPAk / Profesi)',
+                    str_contains($prodiName, 'Arsitektur') => 'Pendidikan Profesi Arsitek (PPAr / Profesi)',
+                    str_contains($prodiName, 'Pendidikan Bahasa Inggris') => 'Pendidikan Profesi Guru (PPG / Profesi)',
+                    str_contains($prodiName, 'Informatika') || str_contains($prodiName, 'Sistem Informasi') => 'Program Profesi / Sertifikasi Keahlian TI',
+                    str_contains($prodiName, 'Manajemen') => 'Program Profesi / Sertifikasi Manajemen Bisnis',
+                    str_contains($prodiName, 'Desain') => 'Program Profesi Desain Industri & Kreatif',
+                    str_contains($prodiName, 'Biologi') || str_contains($prodiName, 'Pangan') => 'Program Profesi / Pengendalian Mutu & Riset',
+                    str_contains($prodiName, 'Filsafat') || str_contains($prodiName, 'Humanitas') => 'Pendidikan Profesi Kependetaan / Pelayanan Gerejawi',
+                    default => 'Pendidikan Profesi / Program Keahlian Khusus',
+                };
+            }
+
             $funding = ! empty($f12Answer) ? trim($f12Answer) : 'Biaya Sendiri / Keluarga';
 
             $alumniList->push([
@@ -1028,14 +1746,16 @@ class TracerAnalyticsService
             ];
         })->filter(fn (array $item): bool => $item['count'] > 0)->sortByDesc('count')->values()->all();
 
-        // Seluruh opsi resmi kuesioner instrumen F12
-        $allFundings = [
-            'Biaya Sendiri / Keluarga',
-            'Beasiswa Pemerintah',
-            'Beasiswa Swasta / Perusahaan',
-            'Beasiswa Luar Negeri',
-            'Lainnya',
-        ];
+        // Seluruh opsi resmi F12 dibaca dari metadata kuesioner terpadu agar grafik mengikuti instrumen aktif.
+        $allFundings = DB::table('kuesioner_opsi as o')
+            ->join('kuesioner_pertanyaan as p', 'p.id', '=', 'o.pertanyaan_id')
+            ->where('p.kode_pertanyaan', 'F12')
+            ->orderBy('o.order')
+            ->pluck('o.label')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
         $fundingCounts = $alumniList->groupBy('funding_source');
         $fundingSeries = collect($allFundings)->map(function (string $fnd) use ($fundingCounts, $alumniList): array {
             $group = $fundingCounts->get($fnd, collect());
@@ -1082,7 +1802,7 @@ class TracerAnalyticsService
             'methodology' => [
                 'formula' => 'Jenjang pendidikan dihitung dari F18/biodata, didukung drill-down perguruan tinggi dan sumber biaya F12.',
                 'denominator' => 'Alumni dengan riwayat studi lanjut valid.',
-                'source' => 'v_analytics_further_study, biodata.pendidikan_tingkat, dan tracer.F12',
+                'source' => 'v_analytics_further_study, biodata.pendidikan_tingkat, dan kuesioner_jawaban.F12',
             ],
         ];
     }
@@ -1122,17 +1842,24 @@ class TracerAnalyticsService
                     'competency' => $labels[$index] ?? 'Kompetensi '.$index,
                     'graduation_score' => $scores['a']['score'],
                     'need_score' => $scores['b']['score'],
-                    'gap' => round($scores['b']['score'] - $scores['a']['score'], 2),
+                    // Skor Likert dan selisih visual selalu dikirim sebagai bilangan bulat.
+                    'gap' => (int) round($scores['a']['score'] - $scores['b']['score']),
                 ]);
             }
         }
-        $series = $records->groupBy('competency')->map(fn (Collection $group, string $label): array => [
-            'label' => $label,
-            'count' => $group->count(),
-            'graduation_score' => $this->median($group->pluck('graduation_score')->all()),
-            'need_score' => $this->median($group->pluck('need_score')->all()),
-            'gap' => $this->median($group->pluck('gap')->all()),
-        ])->values()->all();
+        $series = $records->groupBy('competency')->map(function (Collection $group, string $label): array {
+            $gap = $this->averageInteger($group->pluck('gap')->all());
+
+            return [
+                'label' => $label,
+                'count' => $group->count(),
+                'graduation_score' => $this->averageInteger($group->pluck('graduation_score')->all()),
+                'need_score' => $this->averageInteger($group->pluck('need_score')->all()),
+                'gap' => $gap,
+                'is_deficit' => $gap < 0,
+                'is_neutral' => $gap === 0,
+            ];
+        })->values()->all();
 
         $sortedByGap = collect($series)->sortByDesc('gap')->values();
         $largestGapItem = $sortedByGap->first();
@@ -1145,7 +1872,7 @@ class TracerAnalyticsService
             'visual_plan' => $this->visualPlan('competency_gap'),
             'summary' => [
                 'answered_count' => $records->pluck('biodata_id')->unique()->count(),
-                'average_gap' => $this->median($records->pluck('gap')->all()),
+                'average_gap' => $this->averageInteger($records->pluck('gap')->all()),
                 'largest_gap_label' => $largestGapItem['label'] ?? null,
                 'largest_gap' => $largestGapItem['gap'] ?? null,
                 'leading_category' => $largestGapItem['label'] ?? null,
@@ -1153,9 +1880,10 @@ class TracerAnalyticsService
             'series' => $series,
             'records' => $records->all(),
             'methodology' => [
-                'formula' => 'Gap = median kebutuhan di pekerjaan - median penguasaan saat lulus.',
+                'formula' => 'Rata-rata skor A = Σ skor penguasaan saat lulus / n; rata-rata skor B = Σ skor kebutuhan kerja / n; Gap = rata-rata A - rata-rata B.',
+                'rounding' => 'ROUND ke bilangan bulat terdekat untuk skor A, skor B, dan gap visual.',
                 'denominator' => 'Pasangan jawaban F17a dan F17b yang lengkap pada kompetensi yang sama.',
-                'source' => 'tracer.F17a1-F17a7 dan tracer.F17b1-F17b7 melalui v_analytics_tracer_answers',
+                'source' => 'kuesioner_jawaban.F17a1-F17a7 dan kuesioner_jawaban.F17b1-F17b7 melalui v_analytics_tracer_answers',
             ],
         ];
     }
@@ -1199,11 +1927,12 @@ class TracerAnalyticsService
             return [];
         }
 
-        $responses = DB::table('tracer')
-            ->whereIn('biodata_id', $biodataIds)
-            ->whereIn('kode_pertanyaan', $questionCodes ?: self::ANALYTICS_QUESTION_CODES)
-            ->orderByDesc('id')
-            ->get(['biodata_id', 'kode_pertanyaan', 'answer', 'answer_json']);
+        $responses = DB::table('kuesioner_jawaban as j')
+            ->join('kuesioner_pertanyaan as p', 'p.id', '=', 'j.pertanyaan_id')
+            ->whereIn('j.biodata_id', $biodataIds)
+            ->whereIn('p.kode_pertanyaan', $questionCodes ?: self::ANALYTICS_QUESTION_CODES)
+            ->orderByDesc('j.id')
+            ->get(['j.biodata_id', 'p.kode_pertanyaan', 'j.jawaban_teks as answer', 'j.jawaban_json as answer_json']);
 
         $indexed = [];
         foreach ($responses as $response) {
@@ -1243,6 +1972,23 @@ class TracerAnalyticsService
 
             return $record;
         });
+        $prodiStats = $records->groupBy('nama_prodi')->map(function (Collection $prodiRecords, string $prodi): array {
+            $prodiValues = $prodiRecords->pluck('months')->all();
+            $q1 = $this->percentile($prodiValues, 25);
+            $q2 = $this->percentile($prodiValues, 50);
+            $q3 = $this->percentile($prodiValues, 75);
+
+            return [
+                'prodi' => $prodi,
+                'count' => count($prodiValues),
+                'q1' => $q1,
+                'median' => $q2,
+                'q3' => $q3,
+                'iqr' => $q1 === null || $q3 === null ? null : round($q3 - $q1, 1),
+                'min' => min($prodiValues),
+                'max' => max($prodiValues),
+            ];
+        })->sortBy(fn (array $item): array => [$item['median'] ?? 0, -$item['count']])->values()->all();
 
         $categories = ['Lebih cepat', 'Sama dengan median', 'Lebih lama'];
         $series = array_map(function (string $category) use ($records): array {
@@ -1267,11 +2013,12 @@ class TracerAnalyticsService
                 'p75_months' => $this->percentile($values, 75),
             ],
             'series' => $series,
+            'prodi_stats' => $prodiStats,
             'records' => $records->sortBy('months')->values()->all(),
             'methodology' => [
                 'formula' => 'Median dihitung dari F502 atau F506 yang berlaku setelah percabangan F504.',
                 'denominator' => 'Alumni dengan jawaban waktu tunggu numerik yang valid.',
-                'source' => 'tracer.F502, tracer.F504, tracer.F506',
+                'source' => 'kuesioner_jawaban.F502, kuesioner_jawaban.F504, kuesioner_jawaban.F506',
             ],
         ];
     }
@@ -1322,8 +2069,9 @@ class TracerAnalyticsService
             ? $this->salaryFromAnalyticsView($rows)
             : $this->salaryVsUmp($rows, $umpRows);
         $records = collect($salary['records']);
-        $meeting = $records->where('meets_ump', true)->count();
-        $comparable = $records->count();
+        $comparableRecords = collect($salary['comparable_records'] ?? $records->filter(fn (array $record): bool => is_bool($record['meets_ump'] ?? null)));
+        $meeting = $comparableRecords->where('meets_ump', true)->count();
+        $comparable = $comparableRecords->count();
 
         return [
             'key' => 'salary_vs_ump',
@@ -1343,13 +2091,15 @@ class TracerAnalyticsService
             ],
             'series' => collect($salary['by_prodi'])->values()->all(),
             'regions' => collect($salary['by_province'])->values()->all(),
+            'ump_by_prodi' => collect($salary['by_prodi_ump'] ?? [])->values()->all(),
+            'ump_by_province' => collect($salary['by_province_ump'] ?? [])->values()->all(),
             'records' => $records->sortByDesc('salary')->values()->all(),
-            'below_threshold' => $records->where('meets_ump', false)->sortBy('salary')->values()->all(),
-            'top_salary' => $records->sortByDesc('salary')->take(10)->values()->all(),
+            'below_threshold' => $comparableRecords->where('meets_ump', false)->sortBy('salary')->values()->all(),
+            'top_salary' => $comparableRecords->sortByDesc('salary')->take(10)->values()->all(),
             'methodology' => [
                 'formula' => 'Memenuhi jika gaji >= 1,2 × UMP provinsi tempat kerja pada tahun UMP terpilih.',
                 'denominator' => 'Alumni dengan gaji, provinsi kerja, dan UMP yang tersedia.',
-                'source' => 'biodata.gaji, perusahaan.propinsi_id, propinsi.kode_provinsi, ump.besaran',
+                'source' => 'biodata.gaji, perusahaan.kode_provinsi, propinsi.kode_provinsi, ump.besaran',
             ],
         ];
     }
@@ -1361,13 +2111,14 @@ class TracerAnalyticsService
      */
     private function salaryFromAnalyticsView(Collection $rows): array
     {
-        $comparableRows = $rows->filter(function (object $row): bool {
-            return $this->numericValue($row->gaji) !== null
-                && $this->numericValue($row->gaji) > 0
-                && $this->numericValue($row->ump) !== null
-                && $this->numericValue($row->threshold) !== null;
-        })->map(function (object $row): array {
+        $allRows = $rows->map(function (object $row): array {
             $salary = $this->numericValue($row->gaji);
+            $ump = $this->numericValue($row->ump);
+            $threshold = $this->numericValue($row->threshold);
+            $isComparable = $salary !== null
+                && $salary > 0
+                && $ump !== null
+                && $threshold !== null;
 
             return [
                 'prodi_id' => $row->prodi_id,
@@ -1376,21 +2127,25 @@ class TracerAnalyticsService
                 'nama' => $row->nama ?: 'Tanpa nama',
                 'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
                 'nama_perusahaan' => $row->nama_perusahaan ?: 'Belum tercatat',
-                'province_id' => $row->workplace_province_id,
-                'province_code' => $row->workplace_province_code,
-                'province_name' => $row->workplace_province_name ?: 'Tidak teridentifikasi',
+                'kode_provinsi' => $row->workplace_kode_provinsi,
+                'province_code' => $row->workplace_kode_provinsi,
+                'province_name' => $row->workplace_nama_provinsi ?: 'Tidak teridentifikasi',
                 'salary' => $salary,
-                'ump' => (float) $row->ump,
-                'threshold' => (float) $row->threshold,
-                'meets_ump' => (int) $row->meets_ump === 1,
+                'ump' => $ump,
+                'threshold' => $threshold,
+                'meets_ump' => $isComparable ? (int) $row->meets_ump === 1 : null,
             ];
         })->values();
+        $comparableRows = $allRows->filter(fn (array $row): bool => is_bool($row['meets_ump']))->values();
 
         return [
             'summary' => $this->salarySummary($comparableRows, $rows->count()),
             'by_prodi' => $this->aggregateSalary($comparableRows, 'prodi_id', 'nama_prodi'),
             'by_province' => $this->aggregateSalary($comparableRows, 'province_code', 'province_name'),
-            'records' => $comparableRows->all(),
+            'by_prodi_ump' => $this->aggregateUmpStatus($allRows, 'prodi_id', 'nama_prodi'),
+            'by_province_ump' => $this->aggregateUmpStatus($allRows, 'province_code', 'province_name'),
+            'records' => $allRows->all(),
+            'comparable_records' => $comparableRows->all(),
         ];
     }
 
@@ -1420,7 +2175,7 @@ class TracerAnalyticsService
             'methodology' => [
                 'formula' => 'Jumlah alumni dikelompokkan berdasarkan provinsi perusahaan yang terhubung ke biodata.',
                 'denominator' => 'Alumni dengan provinsi perusahaan yang terisi.',
-                'source' => 'biodata.perusahaan_id, perusahaan.propinsi_id, propinsi',
+                'source' => 'biodata.perusahaan_id, perusahaan.kode_provinsi, propinsi',
             ],
         ];
     }
@@ -1433,15 +2188,15 @@ class TracerAnalyticsService
     private function workLocationRecords(Collection $rows): Collection
     {
         return $rows
-            ->filter(fn (object $row): bool => ! empty($row->workplace_province_code))
+            ->filter(fn (object $row): bool => ! empty($row->workplace_kode_provinsi))
             ->map(fn (object $row): array => [
                 'biodata_id' => (int) $row->biodata_id,
                 'nim' => $row->nim,
                 'nama' => $row->nama ?: 'Tanpa nama',
                 'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
                 'nama_perusahaan' => $row->nama_perusahaan ?: 'Belum tercatat',
-                'province_code' => $row->workplace_province_code,
-                'province_name' => $row->workplace_province_name ?: 'Tidak teridentifikasi',
+                'province_code' => $row->workplace_kode_provinsi,
+                'province_name' => $row->workplace_nama_provinsi ?: 'Tidak teridentifikasi',
             ])
             ->values();
     }
@@ -1473,8 +2228,8 @@ class TracerAnalyticsService
                 : ($alumniResponses['F5B']['answer'] ?? $alumniResponses['F2E']['answer'] ?? null);
             $position = $alumniResponses['F5C']['answer'] ?? $alumniResponses['F2G']['answer'] ?? null;
             $workplaceType = $alumniResponses['F11']['answer'] ?? null;
-            $provinceName = property_exists($row, 'workplace_province_name') && $row->workplace_province_name
-                ? $row->workplace_province_name
+            $provinceName = property_exists($row, 'workplace_nama_provinsi') && $row->workplace_nama_provinsi
+                ? $row->workplace_nama_provinsi
                 : null;
 
             return [
@@ -1483,15 +2238,25 @@ class TracerAnalyticsService
                 'nama' => $row->nama ?: 'Tanpa nama',
                 'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
                 'status' => $label,
-                'nama_perusahaan' => $companyName ?: ($label === 'Wiraswasta' ? 'Wirausaha Mandiri' : ($label === 'Bekerja' ? 'Perusahaan Mitra' : '-')),
-                'posisi_jabatan' => $position ?: ($label === 'Wiraswasta' ? 'Owner / Founder' : ($label === 'Bekerja' ? 'Staf Profesional' : '-')),
-                'workplace_province_name' => $provinceName ?: 'D.I. Yogyakarta',
+                'nama_perusahaan' => $companyName,
+                'posisi_jabatan' => $position,
+                'workplace_nama_provinsi' => $provinceName,
                 'workplace_type' => $workplaceType ?: '-',
-                'study_univ' => $studyUniv ?: ($label === 'Melanjutkan pendidikan' ? 'Universitas Kristen Duta Wacana / Mitra' : '-'),
-                'study_prodi' => $studyProdi ?: ($label === 'Melanjutkan pendidikan' ? 'Magister (S2)' : '-'),
-                'study_jenjang' => $studyJenjang ?: ($label === 'Melanjutkan pendidikan' ? 'S2' : '-'),
+                'study_univ' => $studyUniv,
+                'study_prodi' => $studyProdi,
+                'study_jenjang' => $studyJenjang,
             ];
         })->filter()->values();
+        $prodiSeries = $records->groupBy('nama_prodi')->map(function (Collection $prodiRows, string $prodi): array {
+            $total = $prodiRows->count();
+            $items = $prodiRows->groupBy('status')->map(fn (Collection $group, string $label): array => [
+                'label' => $label,
+                'count' => $group->count(),
+                'percentage' => $this->percentage($group->count(), $total),
+            ])->values()->all();
+
+            return ['prodi' => $prodi, 'total' => $total, 'items' => $items];
+        })->values()->all();
 
         return [
             'key' => 'employment_status',
@@ -1504,11 +2269,12 @@ class TracerAnalyticsService
                 'iku1_positive_percentage' => $status['iku1_positive_percentage'],
             ],
             'series' => $status['items'],
+            'prodi_series' => $prodiSeries,
             'records' => $records->all(),
             'methodology' => [
                 'formula' => 'IKU 1 awal menghitung alumni bekerja, wiraswasta, atau melanjutkan pendidikan.',
                 'denominator' => 'Alumni yang memberikan jawaban F8.',
-                'source' => 'tracer.F8',
+                'source' => 'kuesioner_jawaban.F8',
             ],
         ];
     }
@@ -1544,6 +2310,24 @@ class TracerAnalyticsService
             'count' => $group->count(),
             'percentage' => $this->percentage($group->count(), $records->count()),
         ])->sortByDesc('count')->values()->all();
+        $prodiSeries = $records->groupBy('nama_prodi')->map(function (Collection $prodiRows, string $prodi) use ($code): array {
+            $total = $prodiRows->count();
+            $items = $prodiRows->groupBy('answer')->map(fn (Collection $group, string $label): array => [
+                'label' => $label,
+                'count' => $group->count(),
+                'percentage' => $this->percentage($group->count(), $total),
+            ])->values()->all();
+            $matchLabels = $code === 'F14' ? ['Sangat erat', 'Erat'] : ['Tingkat yang sama'];
+            $matchCount = $prodiRows->whereIn('answer', $matchLabels)->count();
+
+            return [
+                'prodi' => $prodi,
+                'total' => $total,
+                'items' => $items,
+                'match_count' => $matchCount,
+                'match_percentage' => $this->percentage($matchCount, $total),
+            ];
+        })->sortByDesc('match_percentage')->values()->all();
 
         return [
             'key' => $chartKey ?? ($code === 'F14' ? 'field_alignment' : 'education_alignment'),
@@ -1556,11 +2340,12 @@ class TracerAnalyticsService
                 'leading_percentage' => $series[0]['percentage'] ?? 0,
             ],
             'series' => $series,
+            'prodi_series' => $prodiSeries,
             'records' => $records->all(),
             'methodology' => [
                 'formula' => 'Setiap jawaban valid dihitung satu kali berdasarkan kategori pilihan.',
                 'denominator' => 'Alumni yang menjawab '.$code.'.',
-                'source' => 'tracer.'.$code.', ref_subpertanyaan_detil',
+                'source' => 'kuesioner_jawaban.kode_pertanyaan = '.$code.', kuesioner_opsi',
             ],
         ];
     }
@@ -1590,11 +2375,16 @@ class TracerAnalyticsService
     private function responseRateChart(Collection $rows, float $target = 60.0): array
     {
         $series = $this->responseByProdi($rows, $target);
+        $profileDetails = $this->responseRateProfileDetails($rows);
         $population = $rows->count();
         $respondents = $rows->where('answered', '>', 0)->count();
         $unanswered = max($population - $respondents, 0);
         $rate = $this->percentage($respondents, $population);
         $unansweredRate = $this->percentage($unanswered, $population);
+        $slovinError = (float) config('iku.s1.slovin_error', 0.023);
+        $minimumRespondents = $population > 0
+            ? (int) ceil($population / (1 + ($population * ($slovinError ** 2))))
+            : 0;
 
         return [
             'key' => 'response_rate',
@@ -1609,28 +2399,110 @@ class TracerAnalyticsService
                 'unanswered_rate' => $unansweredRate,
                 'target' => $target,
                 'target_gap' => round($rate - $target, 1),
+                'minimum_respondents' => $minimumRespondents,
+                'slovin_error' => $slovinError,
             ],
             'series' => $series,
-            'records' => $rows->map(fn (object $row): array => [
-                'biodata_id' => (int) $row->biodata_id,
-                'user_id' => (int) $row->user_id,
-                'nim' => $row->nim,
-                'nama' => $row->nama ?: 'Tanpa nama',
-                'prodi_id' => (int) $row->prodi_id,
-                'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
-                'tahun_lulus' => (string) ($row->tahun_lulus ?? ''),
-                'status' => (int) $row->answered > 0 ? 'Sudah Mengisi' : 'Belum Mengisi',
-                'answered' => (int) $row->answered > 0,
-                'nomor_telepon' => $row->nomor_telepon ?? null,
-                'email' => $row->email ?? null,
-                'last_response_at' => $row->last_response_at ? date('d-m-Y H:i', strtotime($row->last_response_at)) : null,
-            ])->values()->all(),
+            'records' => $rows->map(function (object $row) use ($profileDetails): array {
+                $profile = $profileDetails->get((int) $row->biodata_id);
+
+                return [
+                    'biodata_id' => (int) $row->biodata_id,
+                    'user_id' => (int) $row->user_id,
+                    'nim' => $row->nim,
+                    'nama' => $row->nama ?: 'Tanpa nama',
+                    'prodi_id' => (int) $row->prodi_id,
+                    'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
+                    'tahun_lulus' => (string) ($row->tahun_lulus ?? ''),
+                    'status' => (int) $row->answered > 0 ? 'Sudah Mengisi' : 'Belum Mengisi',
+                    'answered' => (int) $row->answered > 0,
+                    'nomor_telepon' => $row->nomor_telepon ?? null,
+                    'linkedin_url' => $row->linkedin_url ?? null,
+                    'email' => $row->email ?? null,
+                    'nama_perusahaan' => $profile?->nama_perusahaan,
+                    'head_office_alamat' => $profile?->head_office_alamat,
+                    'head_office_lokasi' => $this->locationLabel($profile?->head_office_city, $profile?->head_office_province),
+                    'head_office_kode_pos' => $profile?->head_office_kode_pos,
+                    'domisili_alamat' => $profile?->domisili_alamat,
+                    'domisili_saat_ini' => $this->locationLabel($profile?->domisili_city, $profile?->domisili_province),
+                    'domisili_kode_pos' => $profile?->domisili_kode_pos,
+                    'bidang_pekerjaan' => $profile?->bidang_pekerjaan,
+                    'divisi' => $profile?->divisi,
+                    'posisi_jabatan' => $profile?->posisi_jabatan,
+                    'skills' => $profile?->skills,
+                    'experience' => $profile?->experience,
+                    'kategori_pekerjaan' => $profile?->kategori_pekerjaan,
+                    'pendidikan_tingkat' => $profile?->pendidikan_tingkat,
+                    'perguruan_tinggi' => $profile?->perguruan_tinggi,
+                    'pendidikan_prodi' => $profile?->pendidikan_prodi,
+                    'last_response_at' => $row->last_response_at ? date('d-m-Y H:i', strtotime($row->last_response_at)) : null,
+                ];
+            })->values()->all(),
             'methodology' => [
                 'formula' => 'Alumni unik yang memenuhi kriteria responden dibagi seluruh populasi kohort × 100%.',
+                'formula_detail' => 'R = (t / N) x 100%; n_min = ceil(N / (1 + N x e^2)), e = 0.023.',
                 'denominator' => 'Seluruh alumni pada tahun kelulusan dan program studi terpilih.',
                 'source' => 'v_analytics_response_rate (answered dan last_response_at)',
             ],
         ];
+    }
+
+    /**
+     * Mengambil detail profil untuk tabel drill-down response rate dalam satu query.
+     *
+     * Data perusahaan memakai master head office, sedangkan lokasi alumni memakai
+     * domisili aktif pada biodata. Query dibatasi pada biodata yang sudah masuk
+     * kohort agar halaman analitik tetap read-only dan tidak memicu N+1 query.
+     *
+     * @return Collection<int, object>
+     */
+    private function responseRateProfileDetails(Collection $rows): Collection
+    {
+        $biodataIds = $rows->pluck('biodata_id')->filter()->unique()->values();
+
+        if ($biodataIds->isEmpty()) {
+            return collect();
+        }
+
+        return DB::table('biodata')
+            ->leftJoin('perusahaan as company', 'biodata.perusahaan_id', '=', 'company.id')
+            ->leftJoin('propinsi as office_province', 'company.kode_provinsi', '=', 'office_province.kode_provinsi')
+            ->leftJoin('kabupaten as office_city', 'company.kode_kabupaten', '=', 'office_city.kode_kabupaten')
+            ->leftJoin('propinsi as domicile_province', 'biodata.kode_provinsi', '=', 'domicile_province.kode_provinsi')
+            ->leftJoin('kabupaten as domicile_city', 'biodata.kode_kabupaten', '=', 'domicile_city.kode_kabupaten')
+            ->whereIn('biodata.id', $biodataIds)
+            ->get([
+                'biodata.id as biodata_id',
+                'biodata.alamat_saat_ini as domisili_alamat',
+                'biodata.kode_pos as domisili_kode_pos',
+                'biodata.bidang_pekerjaan',
+                'biodata.divisi',
+                'biodata.posisi_jabatan',
+                'biodata.skills',
+                'biodata.experience',
+                'biodata.kategori_pekerjaan',
+                'biodata.pendidikan_tingkat',
+                'biodata.perguruan_tinggi',
+                'biodata.pendidikan_prodi',
+                'company.nama_perusahaan',
+                'company.alamat as head_office_alamat',
+                'company.kode_pos as head_office_kode_pos',
+                'office_province.nama_provinsi as head_office_province',
+                'office_city.nama_kabupaten as head_office_city',
+                'domicile_province.nama_provinsi as domisili_province',
+                'domicile_city.nama_kabupaten as domisili_city',
+            ])
+            ->keyBy('biodata_id');
+    }
+
+    /**
+     * Membentuk label wilayah yang ringkas untuk tabel analitik.
+     */
+    private function locationLabel(?string $city, ?string $province): ?string
+    {
+        $parts = array_values(array_filter([$city, $province], fn (?string $value): bool => filled($value)));
+
+        return $parts === [] ? null : implode(', ', $parts);
     }
 
     /**
@@ -1712,6 +2584,11 @@ class TracerAnalyticsService
             $rate = $this->percentage($respondents, $population);
             $unansweredRate = $this->percentage($unanswered, $population);
             $gap = round($rate - $target, 1);
+            $status = $rate >= 50
+                ? ['key' => 'met', 'label' => 'Capaian Baik', 'meaning' => '50% atau lebih', 'color' => '#0D542B']
+                : ($rate >= 30
+                    ? ['key' => 'warning', 'label' => 'Perlu Ditingkatkan', 'meaning' => '30% hingga kurang dari 50%', 'color' => '#D97706']
+                    : ['key' => 'danger', 'label' => 'Perlu Perhatian', 'meaning' => 'Kurang dari 30%', 'color' => '#DC2626']);
 
             return [
                 'prodi_id' => (int) $prodiRows->first()->prodi_id,
@@ -1723,6 +2600,10 @@ class TracerAnalyticsService
                 'unanswered_rate' => $unansweredRate,
                 'target' => $target,
                 'target_gap' => $gap,
+                'status_key' => $status['key'],
+                'status_label' => $status['label'],
+                'status_meaning' => $status['meaning'],
+                'status_color' => $status['color'],
             ];
         })->sortByDesc('response_rate')->values()->all();
     }
@@ -1806,16 +2687,12 @@ class TracerAnalyticsService
     private function salaryVsUmp(Collection $rows, Collection $umpRows): array
     {
         $umpByProvince = $umpRows->keyBy('kode_provinsi');
-        $comparableRows = $rows->map(function (object $row) use ($umpByProvince): ?array {
+        $allRows = $rows->map(function (object $row) use ($umpByProvince): array {
             $salary = $this->numericValue($row->gaji);
-            $ump = $row->workplace_province_code ? $umpByProvince->get($row->workplace_province_code) : null;
-
-            if ($salary === null || $salary <= 0 || ! $ump) {
-                return null;
-            }
-
-            $umpValue = (float) $ump->besaran;
-            $threshold = round($umpValue * self::SALARY_UMP_MULTIPLIER, 2);
+            $ump = $row->workplace_kode_provinsi ? $umpByProvince->get($row->workplace_kode_provinsi) : null;
+            $umpValue = $ump ? (float) $ump->besaran : null;
+            $threshold = $umpValue !== null ? round($umpValue * self::SALARY_UMP_MULTIPLIER, 2) : null;
+            $isComparable = $salary !== null && $salary > 0 && $threshold !== null;
 
             return [
                 'prodi_id' => $row->prodi_id,
@@ -1824,21 +2701,25 @@ class TracerAnalyticsService
                 'nama' => $row->nama ?: 'Tanpa nama',
                 'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
                 'nama_perusahaan' => $row->nama_perusahaan ?: 'Belum tercatat',
-                'province_id' => $row->workplace_province_id,
-                'province_code' => $row->workplace_province_code,
-                'province_name' => $row->workplace_province_name ?: 'Tidak teridentifikasi',
+                'kode_provinsi' => $row->workplace_kode_provinsi,
+                'province_code' => $row->workplace_kode_provinsi,
+                'province_name' => $row->workplace_nama_provinsi ?: 'Tidak teridentifikasi',
                 'salary' => $salary,
                 'ump' => $umpValue,
                 'threshold' => $threshold,
-                'meets_ump' => $salary >= $threshold,
+                'meets_ump' => $isComparable ? $salary >= $threshold : null,
             ];
-        })->filter()->values();
+        })->values();
+        $comparableRows = $allRows->filter(fn (array $row): bool => is_bool($row['meets_ump']))->values();
 
         return [
             'summary' => $this->salarySummary($comparableRows, $rows->count()),
             'by_prodi' => $this->aggregateSalary($comparableRows, 'prodi_id', 'nama_prodi'),
             'by_province' => $this->aggregateSalary($comparableRows, 'province_code', 'province_name'),
-            'records' => $comparableRows->values()->all(),
+            'by_prodi_ump' => $this->aggregateUmpStatus($allRows, 'prodi_id', 'nama_prodi'),
+            'by_province_ump' => $this->aggregateUmpStatus($allRows, 'province_code', 'province_name'),
+            'records' => $allRows->all(),
+            'comparable_records' => $comparableRows->all(),
         ];
     }
 
@@ -1882,9 +2763,54 @@ class TracerAnalyticsService
                 'below_count' => $comparable - $meeting,
                 'meeting_percentage' => $this->percentage($meeting, $comparable),
                 'median_salary' => $this->median($group->pluck('salary')->all()),
+                'min_salary' => min($group->pluck('salary')->all()),
+                'q1_salary' => $this->percentile($group->pluck('salary')->all(), 25),
+                'q3_salary' => $this->percentile($group->pluck('salary')->all(), 75),
+                'max_salary' => max($group->pluck('salary')->all()),
                 'ump' => $this->median($group->pluck('ump')->all()),
             ];
         })->sortByDesc('count')->values()->all();
+    }
+
+    /**
+     * Mengagregasi status pembanding UMP termasuk alumni yang belum dapat dibandingkan.
+     *
+     * @return array<int, array<string, mixed>> Statistik status UMP per kelompok.
+     */
+    private function aggregateUmpStatus(Collection $rows, string $groupKey, string $labelKey): array
+    {
+        return $rows->groupBy($groupKey)->map(function (Collection $group) use ($groupKey, $labelKey): array {
+            $total = $group->count();
+            $meets = $group->where('meets_ump', true)->count();
+            $below = $group->where('meets_ump', false)->count();
+            $unavailable = $total - $meets - $below;
+            $salaries = $group->pluck('salary')->filter(fn (mixed $salary): bool => $salary !== null && $salary > 0)->all();
+            $first = $group->first();
+
+            return [
+                'key' => (string) data_get($first, $groupKey, ''),
+                'label' => data_get($first, $labelKey, 'Tanpa label'),
+                'total' => $total,
+                'meets' => $meets,
+                'below' => $below,
+                'not_comparable' => $unavailable,
+                'meets_percentage' => $this->percentage($meets, $total),
+                'below_percentage' => $this->percentage($below, $total),
+                'not_comparable_percentage' => $this->percentage($unavailable, $total),
+                'median_salary' => $this->median($salaries),
+                'status_label' => $this->umpStatusLabel($meets, $total),
+            ];
+        })->sortByDesc('total')->values()->all();
+    }
+
+    /**
+     * Menghasilkan label ringkas status pemenuhan UMP.
+     */
+    private function umpStatusLabel(int $meetingCount, int $total): string
+    {
+        $percentage = $this->percentage($meetingCount, $total);
+
+        return $percentage >= 80 ? 'Memenuhi Mayoritas' : ($percentage >= 50 ? 'Sebagian Memenuhi' : 'Perlu Perhatian');
     }
 
     /**
@@ -1895,12 +2821,12 @@ class TracerAnalyticsService
     private function workLocation(Collection $rows): array
     {
         return $rows
-            ->filter(fn (object $row): bool => ! empty($row->workplace_province_code))
-            ->groupBy('workplace_province_code')
+            ->filter(fn (object $row): bool => ! empty($row->workplace_kode_provinsi))
+            ->groupBy('workplace_kode_provinsi')
             ->map(fn (Collection $group): array => [
-                'province_code' => $group->first()->workplace_province_code,
-                'province_name' => $group->first()->workplace_province_name,
-                'label' => $group->first()->workplace_province_name,
+                'province_code' => $group->first()->workplace_kode_provinsi,
+                'province_name' => $group->first()->workplace_nama_provinsi,
+                'label' => $group->first()->workplace_nama_provinsi,
                 'count' => $group->count(),
             ])
             ->sortByDesc('count')
@@ -1966,25 +2892,25 @@ class TracerAnalyticsService
                 'title' => 'Waktu memperoleh pekerjaan',
                 'formula' => 'Nilai bulan diambil dari F502 atau F506 yang berlaku setelah percabangan F504.',
                 'denominator' => 'Alumni dengan jawaban bulan yang valid.',
-                'source' => 'tracer.F502, tracer.F504, tracer.F506',
+                'source' => 'kuesioner_jawaban.F502, kuesioner_jawaban.F504, kuesioner_jawaban.F506',
             ],
             'salary_vs_ump' => [
                 'title' => 'Gaji dibandingkan UMP',
                 'formula' => 'Memenuhi jika biodata.gaji >= 1,2 × UMP provinsi tempat bekerja pada tahun UMP terpilih.',
                 'denominator' => 'Hanya alumni dengan gaji, provinsi kerja, dan UMP yang tersedia.',
-                'source' => 'biodata.gaji, perusahaan.propinsi_id, ump',
+                'source' => 'biodata.gaji, perusahaan.kode_provinsi, ump',
             ],
             'work_location' => [
                 'title' => 'Wilayah kerja',
                 'formula' => 'Jumlah alumni dikelompokkan berdasarkan provinsi pada perusahaan terpilih.',
                 'denominator' => 'Alumni dengan provinsi tempat kerja yang terisi.',
-                'source' => 'perusahaan.propinsi_id, propinsi',
+                'source' => 'perusahaan.kode_provinsi, propinsi',
             ],
             'employment_status' => [
                 'title' => 'Status pekerjaan dan IKU 1',
                 'formula' => 'Distribusi berdasarkan F8. Indikator IKU 1 tahap awal menghitung bekerja, wiraswasta, dan melanjutkan pendidikan.',
                 'denominator' => 'Alumni yang menjawab F8.',
-                'source' => 'tracer.F8',
+                'source' => 'kuesioner_jawaban.F8',
             ],
             'response_rate' => [
                 'title' => 'Response rate per program studi',
@@ -2006,17 +2932,18 @@ class TracerAnalyticsService
         $targetFormatted = number_format($targetResponseRate, 1, ',', '.');
         $umpYearLabel = $umpYear !== null ? (string) $umpYear : 'terpilih';
 
-        return match ($chartKey) {
+        $methodology = match ($chartKey) {
             'response_rate' => [
                 'formula' => "Response Rate (%) = (Σ Alumni Responden Valid / Σ Populasi Kohort) × 100%  |  Belum Mengisi (%) = 100% - Response Rate (%)  |  Selisih Target (Gap) = Response Rate (%) - Target ({$targetFormatted}%)",
                 'denominator' => 'N_populasi = seluruh baris alumni pada tabel biodata yang berelasi dengan data_akademik pada tahun lulusan & program studi terpilih.',
-                'source' => 'Tabel: biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi), tracer (biodata_id, question_id, answer, answer_json, updated_at), ref_subpertanyaan2021 (id, kode_pertanyaan, wajib, type), kuesioner (year, target_response_rate) — View: v_analytics_response_rate, v_analytics_population',
+                'source' => 'Tabel: biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi), kuesioner_jawaban (biodata_id, pertanyaan_id, kode_pertanyaan, jawaban_teks, jawaban_json, updated_at), kuesioner_section_pertanyaan (pertanyaan_id, wajib), kuesioner_pertanyaan (id, kode_pertanyaan, tipe, is_active), kuesioner (year, target_response_rate) — View: v_analytics_response_rate, v_analytics_population',
                 'tables' => [
                     ['table' => 'biodata', 'columns' => 'id, user_id, nim, prodi_id, nomor_telepon, email_pribadi', 'role' => 'Master identitas populasi alumni'],
                     ['table' => 'data_akademik', 'columns' => 'nim, nama, tahun_lulus', 'role' => 'Filter kohort tahun kelulusan'],
                     ['table' => 'prodi', 'columns' => 'id, kode_prodi, nama_prodi', 'role' => 'Pengelompokan program studi'],
-                    ['table' => 'tracer', 'columns' => 'biodata_id, question_id, kode_pertanyaan, answer, answer_json, updated_at', 'role' => 'Jawaban kuesioner universitas per alumni'],
-                    ['table' => 'ref_subpertanyaan2021', 'columns' => 'id, kode_pertanyaan, wajib, type', 'role' => 'Penentu pertanyaan wajib (wajib = 1)'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, pertanyaan_id, kode_pertanyaan, jawaban_teks, jawaban_json, updated_at', 'role' => 'Jawaban kuesioner universitas per alumni'],
+                    ['table' => 'kuesioner_section_pertanyaan', 'columns' => 'section_id, pertanyaan_id, wajib, is_active', 'role' => 'Penempatan dan status wajib pertanyaan'],
+                    ['table' => 'kuesioner_pertanyaan', 'columns' => 'id, kode_pertanyaan, tipe, is_active', 'role' => 'Definisi dan status pertanyaan'],
                     ['table' => 'kuesioner', 'columns' => 'year, is_active, target_response_rate', 'role' => "Ambang target response rate ({$targetFormatted}%)"],
                 ],
                 'views' => ['v_analytics_response_rate', 'v_analytics_population'],
@@ -2039,9 +2966,9 @@ class TracerAnalyticsService
                 'formula' => 'Rerata Skor Metode (x̄_k) = (Σ_{i=1..n_k} Skor_{i,k}) / n_k  |  Skor Bulat (INT) = ROUND(x̄_k) pada Skala Likert 1..5  |  Proporsi Skala s (%) = (n_{k,s} / n_k) × 100%',
                 'scale_legend' => '1 = Tidak Sama Sekali | 2 = Kurang | 3 = Cukup Besar | 4 = Besar | 5 = Sangat Besar',
                 'denominator' => 'n_k = jumlah alumni yang memberikan jawaban valid skala 1–5 pada metode pembelajaran ke-k (instrumen F21 s.d. F27).',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F21..F27], answer, answer_json), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_learning_methods, v_analytics_tracer_answers, v_analytics_population',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan IN [F21..F27], jawaban_teks, jawaban_json), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_learning_methods, v_analytics_tracer_answers, v_analytics_population',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F21..F27), answer, answer_json', 'role' => 'Skor penilaian 7 metode pembelajaran (1–5)'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F21..F27), jawaban_teks, jawaban_json', 'role' => 'Skor penilaian 7 metode pembelajaran (1–5)'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Relasi responden ke program studi'],
                     ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus', 'role' => 'Filter kohort tahun lulusan'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi per program studi'],
@@ -2077,9 +3004,9 @@ class TracerAnalyticsService
             'job_search_start' => [
                 'formula' => 'Proporsi Fase f & Rentang r (%) = (n_{f,r} / N_valid_F3) × 100%  |  Proporsi Fase f (%) = (Σ_r n_{f,r} / N_valid_F3) × 100%',
                 'denominator' => 'N_valid_F3 = jumlah alumni dengan jawaban valid pada instrumen waktu mulai mencari pekerjaan (F3).',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F3, answer, answer_json), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_job_search_start, v_analytics_tracer_answers',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan = F3, jawaban_teks, jawaban_json), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_job_search_start, v_analytics_tracer_answers',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F3), answer, answer_json', 'role' => 'Jawaban waktu mulai mencari kerja (sebelum/setelah lulus & bulan)'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F3), jawaban_teks, jawaban_json', 'role' => 'Jawaban waktu mulai mencari kerja (sebelum/setelah lulus & bulan)'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas alumni'],
                     ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus', 'role' => 'Filter kohort tahun lulusan'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Master program studi'],
@@ -2088,19 +3015,19 @@ class TracerAnalyticsService
                 'charts' => [
                     [
                         'key' => 'timing_stacked',
-                        'title' => 'Diagram Kolom Bertumpuk Rentang Waktu Mulai Mencari Kerja',
-                        'formula' => 'Proporsi Segmen (f, r) (%) = (n_{f,r} / N_valid_F3) × 100%, dengan f ∈ {Sebelum lulus, Setelah lulus, Tidak mencari kerja} dan r ∈ {< 2 bulan, 2–6 bulan, > 6 bulan}',
-                        'source' => 'v_analytics_job_search_start (tracer.kode_pertanyaan = F3)',
+                        'title' => 'Diagram Batang Bertumpuk Rentang Waktu Mulai Mencari Kerja',
+                        'formula' => 'Panjang batang fase = Σ n_{f,r}; label segmen (%) = (n_{f,r} / Σ_r n_{f,r}) × 100%. Fase sebelum lulus dan tidak mencari kerja tidak dipecah; fase setelah lulus memakai r ∈ {< 6 bulan, 6–12 bulan, > 12 bulan}.',
+                        'source' => 'v_analytics_job_search_start (kuesioner_jawaban.kode_pertanyaan = F3)',
                     ],
                 ],
             ],
             'job_search_methods' => [
                 'formula' => 'Frekuensi Saluran m = n_m (jumlah pilihan pada opsi m)  |  Proporsi Pilihan m (%) = (n_m / Σ_j n_j) × 100% (Pertanyaan Pilihan Jamak / Multiple Response F4)',
                 'denominator' => 'N_respon_F4 = total catatan pilihan saluran pencarian kerja valid yang dipilih alumni pada instrumen F4 (N_alumni = jumlah responden unik).',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F4, answer, answer_json), ref_subpertanyaan_detil (kode_pertanyaan = F4, option_text, order), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_job_search_methods, v_analytics_tracer_answers',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan = F4, jawaban_teks, jawaban_json), kuesioner_opsi (pertanyaan_id, label, urutan), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_job_search_methods, v_analytics_tracer_answers',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F4), answer, answer_json', 'role' => 'Jawaban pilihan jamak saluran pencarian kerja'],
-                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F4), option_text, order', 'role' => 'Referensi 15 opsi saluran resmi kuesioner F4'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F4), jawaban_teks, jawaban_json', 'role' => 'Jawaban pilihan jamak saluran pencarian kerja'],
+                    ['table' => 'kuesioner_opsi', 'columns' => 'pertanyaan_id, label, urutan', 'role' => 'Referensi opsi saluran resmi kuesioner F4'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas alumni'],
                     ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus', 'role' => 'Filter kohort tahun lulusan'],
                 ],
@@ -2110,7 +3037,7 @@ class TracerAnalyticsService
                         'key' => 'distribution',
                         'title' => 'Diagram Batang Horizontal Distribusi Saluran Pencarian Pekerjaan',
                         'formula' => 'n_m = COUNT(biodata_id memilih saluran m) ; Persentase_m (%) = (n_m / Total Respon F4) × 100%',
-                        'source' => 'v_analytics_job_search_methods + ref_subpertanyaan_detil (F4)',
+                        'source' => 'v_analytics_job_search_methods + kuesioner_opsi (F4)',
                     ],
                     [
                         'key' => 'lainnya_detail',
@@ -2123,9 +3050,9 @@ class TracerAnalyticsService
             'wait_time' => [
                 'formula' => 'Bulan Tunggu (W_i) = COALESCE(F502_i, F506_i)  |  Median (Q2) = P_50(W)  |  Kuartil Bawah (Q1) = P_25(W)  |  Kuartil Atas (Q3) = P_75(W)  |  IQR = Q3 - Q1',
                 'denominator' => 'n_valid = jumlah alumni yang memiliki nilai numerik masa tunggu kerja (W_i >= 0 bulan) pada instrumen F502 atau F506.',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F502, F504, F506], answer), biodata (id, nim, prodi_id, perusahaan_id), perusahaan (id, nama_perusahaan), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_wait_time, v_analytics_population',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan IN [F502, F504, F506], jawaban_teks), biodata (id, nim, prodi_id, perusahaan_id), perusahaan (id, nama_perusahaan), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_wait_time, v_analytics_population',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F502, F504, F506), answer', 'role' => 'Nilai bulan memperoleh pekerjaan pertama (F502 ≤ 6 bln, F506 > 6 bln)'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F502, F504, F506), jawaban_teks', 'role' => 'Nilai bulan memperoleh pekerjaan pertama (F502 ≤ 6 bln, F506 > 6 bln)'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, perusahaan_id', 'role' => 'Identitas alumni & relasi perusahaan'],
                     ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan', 'role' => 'Nama tempat bekerja alumni'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Pengelompokan kuartil per program studi'],
@@ -2141,39 +3068,45 @@ class TracerAnalyticsService
                 ],
             ],
             'application_pipeline' => [
-                'formula' => 'Median Tahap t (Q2_t) = P_50(X_t) untuk t ∈ {F6 (Dilamar), F7 (Merespon), F7A (Wawancara)}  |  Rasio Partisipasi Tahap t (%) = (n_t / n_F6) × 100%',
-                'denominator' => 'n_t = jumlah alumni yang mengisikan angka numerik valid (X_{i,t} >= 0) pada pertanyaan F6, F7, atau F7A.',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F6, F7, F7A], answer), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_application_pipeline, v_analytics_tracer_answers',
+                'formula' => 'Spearman Rank Correlation ρ(F6, F7) & ρ(F7, F7A) | Rasio Konversi Berbobot (Weighted Conversion Rate) = (Total Tahap Akhir / Total Tahap Awal) × 100%',
+                'denominator' => 'n_t = responden valid dengan jawaban numerik pada tahap terkait (F6 > 0 untuk konversi lamaran, F7 > 0 untuk konversi respons).',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan IN [F6, F7, F7A], jawaban_teks), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus, ip_kumulatif), prodi (id, nama_prodi) — View: v_analytics_application_pipeline, v_analytics_tracer_answers, v_analytics_population',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F6, F7, F7A), answer', 'role' => 'Jumlah perusahaan dilamar (F6), merespon (F7), dan mewawancara (F7A)'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F6, F7, F7A), jawaban_teks', 'role' => 'Jumlah perusahaan dilamar (F6), merespon (F7), dan mewawancara (F7A)'],
+                    ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus, ip_kumulatif', 'role' => 'Skala warna kontinu IPK (0–4) dan filter tahun kelulusan'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
-                    ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus', 'role' => 'Filter kohort tahun lulusan'],
-                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi median pipeline per prodi'],
+                    ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Filter program studi'],
                 ],
                 'views' => ['v_analytics_application_pipeline', 'v_analytics_tracer_answers', 'v_analytics_population'],
                 'charts' => [
                     [
-                        'key' => 'prodi_pipeline',
-                        'title' => 'Diagram Garis Pipeline Lamaran per Program Studi (Gambar 4.7)',
-                        'formula' => 'Dilamar_p = Median(F6_p) ; Merespon_p = Median(F7_p) ; Wawancara_p = Median(F7A_p)',
-                        'source' => 'v_analytics_application_pipeline dikelompokkan per nama_prodi',
+                        'key' => 'scatter_applications_responses',
+                        'title' => 'Scatter Plot Hubungan Jumlah Lamaran dengan Jumlah Respons (F6 vs F7)',
+                        'formula' => 'Spearman ρ(F6, F7) & p-value | Garis tren linier y = mx + c | Titik diwarnai gradasi IPK (0–4)',
+                        'source' => 'v_analytics_application_pipeline (kolom answer F6, F7, dan ipk)',
                     ],
                     [
-                        'key' => 'stages',
-                        'title' => 'Diagram Batang Horizontal Median Tahapan Lamaran Universitas',
-                        'formula' => 'Median_univ(t) = P_50({X_{i,t} | i ∈ seluruh responden valid tahap t})',
-                        'source' => 'v_analytics_application_pipeline (agregat universitas F6, F7, F7A)',
+                        'key' => 'scatter_responses_interviews',
+                        'title' => 'Scatter Plot Hubungan Jumlah Respons dengan Undangan Wawancara (F7 vs F7A)',
+                        'formula' => 'Spearman ρ(F7, F7A) & p-value | Garis tren linier y = mx + c | Titik diwarnai gradasi IPK (0–4)',
+                        'source' => 'v_analytics_application_pipeline (kolom answer F7, F7A, dan ipk)',
+                    ],
+                    [
+                        'key' => 'conversion_stages',
+                        'title' => 'Diagram Batang Horizontal Persentase Konversi Lamaran hingga Wawancara',
+                        'formula' => 'Konversi Lamaran→Respons = (ΣF7/ΣF6)×100% ; Konversi Respons→Wawancara = (ΣF7A/ΣF7)×100% ; Konversi Lamaran→Wawancara = (ΣF7A/ΣF6)×100%',
+                        'source' => 'v_analytics_application_pipeline (total F6, F7, F7A berbobot)',
                     ],
                 ],
             ],
             'employment_status' => [
                 'formula' => 'Proporsi Status s (%) = (n_s / N_valid_F8) × 100%  |  Capaian IKU 1 Awal (%) = ((n_Bekerja + n_Wiraswasta + n_StudiLanjut) / N_valid_F8) × 100%',
                 'denominator' => 'N_valid_F8 = jumlah alumni yang memberikan jawaban status pekerjaan valid pada instrumen F8.',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F8, F5B, F5C, F11, F18a..F18d], answer), biodata (id, nim, prodi_id, perusahaan_id), perusahaan (id, nama_perusahaan, propinsi_id), propinsi (id, nama_provinsi), prodi (id, nama_prodi) — View: v_analytics_employment_status, v_analytics_population',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan IN [F8, F5B, F5C, F11, F18a..F18d], jawaban_teks), biodata (id, nim, prodi_id, perusahaan_id), perusahaan (id, nama_perusahaan, kode_provinsi), propinsi (kode_provinsi, nama_provinsi), prodi (id, nama_prodi) — View: v_analytics_employment_status, v_analytics_population',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F8, F5B, F5C, F11, F18a–F18d), answer', 'role' => 'Status aktivitas saat ini (F8) & detail pekerjaan/studi lanjut'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F8, F5B, F5C, F11, F18a–F18d), jawaban_teks', 'role' => 'Status aktivitas saat ini (F8) & detail pekerjaan/studi lanjut'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, perusahaan_id', 'role' => 'Identitas alumni & relasi perusahaan'],
-                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, propinsi_id', 'role' => 'Perusahaan/usaha tempat alumni bekerja'],
+                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, kode_provinsi', 'role' => 'Perusahaan/usaha tempat alumni bekerja'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Komposisi dan aliran status per prodi'],
                 ],
                 'views' => ['v_analytics_employment_status', 'v_analytics_population'],
@@ -2201,10 +3134,10 @@ class TracerAnalyticsService
             'job_search_activity' => [
                 'formula' => 'Proporsi Keaktifan k (%) = (n_k / N_valid_F10) × 100%',
                 'denominator' => 'N_valid_F10 = jumlah alumni yang memberikan jawaban valid pada instrumen keaktifan mencari pekerjaan dalam 4 minggu terakhir (F10).',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F10, answer, answer_json), ref_subpertanyaan_detil (kode_pertanyaan = F10, option_text), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_job_search_activity, v_analytics_tracer_answers',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan = F10, jawaban_teks, jawaban_json), kuesioner_opsi (pertanyaan_id, label), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_job_search_activity, v_analytics_tracer_answers',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F10), answer, answer_json', 'role' => 'Jawaban status keaktifan mencari kerja 4 minggu terakhir'],
-                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F10), option_text, order', 'role' => 'Daftar opsi baku instrumen F10'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F10), jawaban_teks, jawaban_json', 'role' => 'Jawaban status keaktifan mencari kerja 4 minggu terakhir'],
+                    ['table' => 'kuesioner_opsi', 'columns' => 'pertanyaan_id, label, urutan', 'role' => 'Daftar opsi baku instrumen F10'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Program studi alumni'],
                 ],
@@ -2214,17 +3147,17 @@ class TracerAnalyticsService
                         'key' => 'activity_bar',
                         'title' => 'Diagram Batang Horizontal Keaktifan Mencari Pekerjaan (F10)',
                         'formula' => 'n_k = COUNT(alumni dengan jawaban F10 = k) ; Persentase_k (%) = (n_k / N_valid_F10) × 100%',
-                        'source' => 'v_analytics_job_search_activity + ref_subpertanyaan_detil (F10)',
+                        'source' => 'v_analytics_job_search_activity + kuesioner_opsi (F10)',
                     ],
                 ],
             ],
             'workplace_type' => [
                 'formula' => 'Proporsi Jenis Instansi j (%) = (n_j / N_valid_F11) × 100%  |  Proporsi per Prodi (p, j) (%) = (n_{p,j} / n_p) × 100%',
                 'denominator' => 'N_valid_F11 = jumlah alumni yang menjawab jenis tempat/instansi bekerja pada instrumen F11.',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F11, answer, answer_json), ref_subpertanyaan_detil (kode_pertanyaan = F11, option_text), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_workplace_type, v_analytics_tracer_answers',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan = F11, jawaban_teks, jawaban_json), kuesioner_opsi (pertanyaan_id, label), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_workplace_type, v_analytics_tracer_answers',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F11), answer, answer_json', 'role' => 'Jawaban jenis instansi/perusahaan tempat bekerja'],
-                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F11), option_text, order', 'role' => 'Referensi kategori jenis tempat kerja F11'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F11), jawaban_teks, jawaban_json', 'role' => 'Jawaban jenis instansi/perusahaan tempat bekerja'],
+                    ['table' => 'kuesioner_opsi', 'columns' => 'pertanyaan_id, label, urutan', 'role' => 'Referensi kategori jenis tempat kerja F11'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi komposisi sektor per prodi'],
                 ],
@@ -2234,7 +3167,7 @@ class TracerAnalyticsService
                         'key' => 'univ_proportion',
                         'title' => 'Diagram Donat Proporsi Jenis Instansi Universitas',
                         'formula' => 'Proporsi_j (%) = (n_j / N_valid_F11) × 100%',
-                        'source' => 'v_analytics_workplace_type (tracer.kode_pertanyaan = F11)',
+                        'source' => 'v_analytics_workplace_type (kuesioner_jawaban.kode_pertanyaan = F11)',
                     ],
                     [
                         'key' => 'by_prodi',
@@ -2247,9 +3180,9 @@ class TracerAnalyticsService
             'further_study' => [
                 'formula' => 'Proporsi Jenjang d (%) = (n_d / N_studi_lanjut) × 100%  |  Proporsi Sumber Biaya b (%) = (n_b / N_studi_lanjut) × 100%  |  Proporsi PT Tujuan u pada Jenjang d (%) = (n_{d,u} / n_d) × 100%',
                 'denominator' => 'N_studi_lanjut = jumlah alumni unik yang memiliki rekaman studi lanjut valid pada instrumen F12/F18 dan profil pendidikan lanjut.',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F12, F18b, F18c, F18d], answer), biodata (id, nim, prodi_id, pendidikan_tingkat, perguruan_tinggi, pendidikan_prodi), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_further_study, v_analytics_tracer_answers',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan IN [F12, F18b, F18c, F18d], jawaban_teks), biodata (id, nim, prodi_id, pendidikan_tingkat, perguruan_tinggi, pendidikan_prodi), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_further_study, v_analytics_tracer_answers',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F12, F18b, F18c, F18d), answer', 'role' => 'Sumber biaya (F12), perguruan tinggi (F18b), prodi lanjut (F18c), jenjang (F18d)'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F12, F18b, F18c, F18d), jawaban_teks', 'role' => 'Sumber biaya (F12), perguruan tinggi (F18b), prodi lanjut (F18c), jenjang (F18d)'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, pendidikan_tingkat, perguruan_tinggi, pendidikan_prodi', 'role' => 'Atribut studi lanjut pada profil alumni'],
                     ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus', 'role' => 'Filter kohort tahun lulusan'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Program studi asal alumni di UKDW'],
@@ -2266,7 +3199,7 @@ class TracerAnalyticsService
                         'key' => 'funding_view',
                         'title' => 'Diagram Batang Horizontal Sumber Pembiayaan Studi (F12)',
                         'formula' => 'Proporsi Biaya b (%) = (n_b / N_studi_lanjut) × 100%',
-                        'source' => 'v_analytics_further_study (tracer.kode_pertanyaan = F12)',
+                        'source' => 'v_analytics_further_study (kuesioner_jawaban.kode_pertanyaan = F12)',
                     ],
                     [
                         'key' => 'records_view',
@@ -2278,12 +3211,12 @@ class TracerAnalyticsService
             ],
             'salary_vs_ump' => [
                 'formula' => "Ambang Provinsi = ROUND(1,2 × ump.besaran, 2)  |  Status Memenuhi = 1 jika biodata.gaji >= 1,2 × UMP (tahun {$umpYearLabel})  |  Persentase Memenuhi (%) = (n_memenuhi / n_comparable) × 100%  |  Kuartil Gaji: Q1 = P_25, Median (Q2) = P_50, Q3 = P_75",
-                'denominator' => 'n_comparable = jumlah alumni yang memiliki biodata.gaji > 0, terhubung ke perusahaan.propinsi_id, dan memiliki nilai ump.besaran pada tahun UMP terpilih.',
-                'source' => 'Tabel: biodata (id, nim, prodi_id, gaji, perusahaan_id), perusahaan (id, nama_perusahaan, propinsi_id), propinsi (id, kode_provinsi, nama_provinsi), ump (kode_provinsi, tahun, besaran), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_salary_ump, v_analytics_population',
+                'denominator' => 'n_comparable = jumlah alumni yang memiliki biodata.gaji > 0, terhubung ke perusahaan.kode_provinsi, dan memiliki nilai ump.besaran pada tahun UMP terpilih.',
+                'source' => 'Tabel: biodata (id, nim, prodi_id, gaji, perusahaan_id), perusahaan (id, nama_perusahaan, kode_provinsi), propinsi (kode_provinsi, nama_provinsi), ump (kode_provinsi, tahun, besaran), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_salary_ump, v_analytics_population',
                 'tables' => [
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, gaji, perusahaan_id', 'role' => 'Nominal pendapatan bulanan alumni (gaji > 0)'],
-                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, propinsi_id', 'role' => 'Lokasi provinsi tempat bekerja'],
-                    ['table' => 'propinsi', 'columns' => 'id, kode_provinsi, nama_provinsi', 'role' => 'Kode provinsi penghubung ke tabel UMP'],
+                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, kode_provinsi', 'role' => 'Lokasi provinsi tempat bekerja'],
+                    ['table' => 'propinsi', 'columns' => 'kode_provinsi, nama_provinsi', 'role' => 'Kode provinsi penghubung ke tabel UMP'],
                     ['table' => 'ump', 'columns' => 'kode_provinsi, tahun, besaran', 'role' => "Besaran Upah Minimum Provinsi tahun {$umpYearLabel}"],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi kuartil gaji & pemenuhan UMP per prodi'],
                 ],
@@ -2305,17 +3238,17 @@ class TracerAnalyticsService
                         'key' => 'province_ump',
                         'title' => 'Diagram Batang Bertumpuk 100% Status Pemenuhan 1,2× UMP per Provinsi',
                         'formula' => 'Memenuhi_{prov} (%) = (COUNT(gaji >= 1,2 × ump_{prov}) / n_{prov}) × 100% ; Median_{prov} = P_50(Gaji_{prov})',
-                        'source' => 'v_analytics_salary_ump dikelompokkan per workplace_province_name',
+                        'source' => 'v_analytics_salary_ump dikelompokkan per workplace_nama_provinsi',
                     ],
                 ],
             ],
             'field_alignment' => [
                 'formula' => 'Proporsi Kategori k (%) = (n_k / N_valid_F14) × 100%  |  Horizontal Match Prodi p (%) = ((n_{p, Sangat Erat} + n_{p, Erat}) / n_p) × 100%',
                 'denominator' => 'N_valid_F14 = jumlah alumni yang menjawab tingkat hubungan bidang studi dengan pekerjaan pada instrumen F14.',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F14, answer), ref_subpertanyaan_detil (kode_pertanyaan = F14, option_text), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_alignment (indicator_code = F14), v_analytics_population',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan = F14, jawaban_teks), kuesioner_opsi (pertanyaan_id, label), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_alignment (indicator_code = F14), v_analytics_population',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F14), answer', 'role' => 'Jawaban hubungan bidang studi dengan pekerjaan (Sangat Erat s.d. Tidak Sama Sekali)'],
-                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F14), option_text', 'role' => 'Kamus skala keselarasan horizontal F14'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F14), jawaban_teks', 'role' => 'Jawaban hubungan bidang studi dengan pekerjaan (Sangat Erat s.d. Tidak Sama Sekali)'],
+                    ['table' => 'kuesioner_opsi', 'columns' => 'pertanyaan_id, label', 'role' => 'Kamus skala keselarasan horizontal F14'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi keselarasan per program studi'],
                 ],
@@ -2344,10 +3277,10 @@ class TracerAnalyticsService
             'education_alignment' => [
                 'formula' => 'Vertical Match Prodi p (%) = (n_{p, Tingkat yang sama} / n_p) × 100% (Gambar 4.14)  |  Proporsi Kualifikasi k pada Prodi p (%) = (n_{p,k} / n_p) × 100%',
                 'denominator' => 'n_p = jumlah alumni pada program studi p yang memberikan jawaban valid pada instrumen keselarasan tingkat pendidikan (F15).',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F15, answer), ref_subpertanyaan_detil (kode_pertanyaan = F15, option_text), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_alignment (indicator_code = F15), v_analytics_population',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan = F15, jawaban_teks), kuesioner_opsi (pertanyaan_id, label), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_alignment (indicator_code = F15), v_analytics_population',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F15), answer', 'role' => 'Jawaban tingkat pendidikan yang sesuai pekerjaan (F15)'],
-                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F15), option_text', 'role' => 'Opsi tingkat pendidikan (Setingkat lebih tinggi, Tingkat yang sama, Setingkat lebih rendah, Tidak perlu pendidikan tinggi)'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F15), jawaban_teks', 'role' => 'Jawaban tingkat pendidikan yang sesuai pekerjaan (F15)'],
+                    ['table' => 'kuesioner_opsi', 'columns' => 'pertanyaan_id, label', 'role' => 'Opsi tingkat pendidikan (Setingkat lebih tinggi, Tingkat yang sama, Setingkat lebih rendah, Tidak perlu pendidikan tinggi)'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Agregasi vertical match per program studi'],
                 ],
@@ -2370,10 +3303,10 @@ class TracerAnalyticsService
             'education_alignment_university' => [
                 'formula' => 'Proporsi Universitas k (%) = (n_k / N_valid_F15) × 100% (Gambar 4.15)  |  Proporsi Prodi (p, k) (%) = (n_{p,k} / n_p) × 100%',
                 'denominator' => 'N_valid_F15 = total seluruh alumni di tingkat universitas yang memberikan jawaban valid pada instrumen F15.',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F15, answer), ref_subpertanyaan_detil (kode_pertanyaan = F15, option_text), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_alignment (indicator_code = F15), v_analytics_population',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan = F15, jawaban_teks), kuesioner_opsi (pertanyaan_id, label), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_alignment (indicator_code = F15), v_analytics_population',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F15), answer', 'role' => 'Jawaban kesesuaian tingkat pendidikan dengan pekerjaan (F15)'],
-                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F15), option_text', 'role' => 'Referensi 4 kategori kualifikasi pendidikan F15'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F15), jawaban_teks', 'role' => 'Jawaban kesesuaian tingkat pendidikan dengan pekerjaan (F15)'],
+                    ['table' => 'kuesioner_opsi', 'columns' => 'pertanyaan_id, label', 'role' => 'Referensi 4 kategori kualifikasi pendidikan F15'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Perbandingan distribusi antarprodi & universitas'],
                 ],
@@ -2396,10 +3329,10 @@ class TracerAnalyticsService
             'mismatch_reasons' => [
                 'formula' => 'Frekuensi Alasan r = n_r (jumlah pilihan pada alasan r)  |  Proporsi Alasan r (%) = (n_r / Σ_j n_j) × 100% (Pertanyaan Pilihan Jamak F16)',
                 'denominator' => 'N_respon_F16 = total pilihan alasan ketidaksesuaian pekerjaan yang dicantumkan alumni pada instrumen F16 (N_alumni = responden unik F16).',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan = F16, answer, answer_json), ref_subpertanyaan_detil (kode_pertanyaan = F16, option_text, order), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_mismatch_reasons, v_analytics_tracer_answers',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan = F16, jawaban_teks, jawaban_json), kuesioner_opsi (pertanyaan_id, label, urutan), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_mismatch_reasons, v_analytics_tracer_answers',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F16), answer, answer_json', 'role' => 'Jawaban pilihan jamak alasan mengambil pekerjaan tidak sesuai pendidikan'],
-                    ['table' => 'ref_subpertanyaan_detil', 'columns' => 'kode_pertanyaan (F16), option_text, order', 'role' => 'Referensi 13+ opsi resmi alasan pada instrumen F16'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F16), jawaban_teks, jawaban_json', 'role' => 'Jawaban pilihan jamak alasan mengambil pekerjaan tidak sesuai pendidikan'],
+                    ['table' => 'kuesioner_opsi', 'columns' => 'pertanyaan_id, label, urutan', 'role' => 'Referensi opsi resmi alasan pada instrumen F16'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Program studi alumni'],
                 ],
@@ -2409,7 +3342,7 @@ class TracerAnalyticsService
                         'key' => 'reasons_bar',
                         'title' => 'Diagram Batang Horizontal Alasan Mengambil Pekerjaan Tidak Sesuai Pendidikan (Gambar 4.16)',
                         'formula' => 'n_r = COUNT(pilihan alasan r pada F16) ; Persentase_r (%) = (n_r / Total Respon F16) × 100%',
-                        'source' => 'v_analytics_mismatch_reasons + ref_subpertanyaan_detil (F16)',
+                        'source' => 'v_analytics_mismatch_reasons + kuesioner_opsi (F16)',
                     ],
                     [
                         'key' => 'lainnya_detail',
@@ -2420,11 +3353,11 @@ class TracerAnalyticsService
                 ],
             ],
             'competency_gap' => [
-                'formula' => 'Saat Lulus (A_d) = Median(F17a_d)  |  Diperlukan Kerja (B_d) = Median(F17b_d)  |  Gap Visual (Surplus/Defisit) = A_d - B_d  |  Gap Kebutuhan = B_d - A_d (Skala Likert 1–5)',
+                'formula' => 'Saat Lulus (A_d) = Rata-rata(F17a_d)  |  Diperlukan Kerja (B_d) = Rata-rata(F17b_d)  |  Gap Visual (Surplus/Defisit) = A_d - B_d  |  Gap Kebutuhan = B_d - A_d (Skala Likert 1-5)',
                 'denominator' => 'n_d = jumlah alumni yang memiliki pasangan jawaban lengkap F17a_d (saat lulus) dan F17b_d (kebutuhan kerja) pada dimensi kompetensi ke-d (d ∈ {1..7}).',
-                'source' => 'Tabel: tracer (biodata_id, kode_pertanyaan IN [F17a1..F17a7, F17b1..F17b7], answer), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_competency_gap, v_analytics_tracer_answers',
+                'source' => 'Tabel: kuesioner_jawaban (biodata_id, kode_pertanyaan IN [F17a1..F17a7, F17b1..F17b7], jawaban_teks), biodata (id, nim, prodi_id), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_competency_gap, v_analytics_tracer_answers',
                 'tables' => [
-                    ['table' => 'tracer', 'columns' => 'biodata_id, kode_pertanyaan (F17a1–F17a7 & F17b1–F17b7), answer', 'role' => 'Skor penguasaan kompetensi saat lulus (F17a) & tuntutan pekerjaan (F17b)'],
+                    ['table' => 'kuesioner_jawaban', 'columns' => 'biodata_id, kode_pertanyaan (F17a1–F17a7 & F17b1–F17b7), jawaban_teks', 'role' => 'Skor penguasaan kompetensi saat lulus (F17a) & tuntutan pekerjaan (F17b)'],
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id', 'role' => 'Identitas responden'],
                     ['table' => 'data_akademik', 'columns' => 'nim, tahun_lulus', 'role' => 'Filter kohort tahun lulusan'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Program studi alumni'],
@@ -2434,7 +3367,7 @@ class TracerAnalyticsService
                     [
                         'key' => 'unified_gap',
                         'title' => 'Diagram Kombinasi Batang & Garis Kompetensi Saat Lulus, Diperlukan Kerja, dan Gap (Gambar 4.17)',
-                        'formula' => 'A_d = P_50(F17a_d) ; B_d = P_50(F17b_d) ; Selisih Surplus/Defisit = A_d - B_d (Surplus jika >= 0, Defisit jika < 0)',
+                        'formula' => 'A_d = Rata-rata(F17a_d) ; B_d = Rata-rata(F17b_d) ; Selisih Surplus/Defisit = A_d - B_d (Surplus jika >= 0, Defisit jika < 0)',
                         'source' => 'v_analytics_competency_gap (pasangan kode F17a1..7 dan F17b1..7)',
                     ],
                 ],
@@ -2472,13 +3405,14 @@ class TracerAnalyticsService
                 ],
             ],
             'work_location' => [
-                'formula' => 'Jumlah Alumni Provinsi prov (n_{prov}) = COUNT(biodata_id dengan workplace_province_code = prov)  |  Proporsi Provinsi prov (%) = (n_{prov} / N_terpetakan) × 100%',
-                'denominator' => 'N_terpetakan = jumlah alumni yang telah terhubung ke entitas perusahaan dengan provinsi tempat kerja teridentifikasi (workplace_province_code IS NOT NULL).',
-                'source' => 'Tabel: biodata (id, nim, prodi_id, perusahaan_id), perusahaan (id, nama_perusahaan, propinsi_id, kabupaten_id, jenis_lokasi, negara), propinsi (id, kode_provinsi, nama_provinsi), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_work_location, v_analytics_population',
+                'formula' => 'Jumlah Alumni Provinsi prov (n_{prov}) = COUNT(biodata_id dengan workplace_kode_provinsi = prov)  |  Proporsi Provinsi prov (%) = (n_{prov} / N_terpetakan) × 100%',
+                'denominator' => 'N_terpetakan = jumlah alumni yang telah terhubung ke entitas perusahaan dengan provinsi tempat kerja teridentifikasi (workplace_kode_provinsi IS NOT NULL).',
+                'source' => 'Tabel: biodata (id, nim, prodi_id, perusahaan_id), perusahaan (id, nama_perusahaan, kode_provinsi, kode_kabupaten, jenis_lokasi, kode_negara), ref_negara (kode_negara, nama_negara), propinsi (kode_provinsi, nama_provinsi), data_akademik (nim, tahun_lulus), prodi (id, nama_prodi) — View: v_analytics_work_location, v_analytics_population',
                 'tables' => [
                     ['table' => 'biodata', 'columns' => 'id, nim, prodi_id, perusahaan_id', 'role' => 'Relasi alumni ke perusahaan tempat bekerja'],
-                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, propinsi_id, jenis_lokasi, negara', 'role' => 'Entitas perusahaan dan referensi provinsi kerja'],
-                    ['table' => 'propinsi', 'columns' => 'id, kode_provinsi, nama_provinsi', 'role' => 'Master wilayah provinsi Indonesia'],
+                    ['table' => 'perusahaan', 'columns' => 'id, nama_perusahaan, kode_provinsi, jenis_lokasi, kode_negara', 'role' => 'Entitas perusahaan dan referensi provinsi kerja'],
+                    ['table' => 'ref_negara', 'columns' => 'kode_negara, nama_negara', 'role' => 'Label negara untuk lokasi kerja luar negeri'],
+                    ['table' => 'propinsi', 'columns' => 'kode_provinsi, nama_provinsi', 'role' => 'Master wilayah provinsi Indonesia'],
                     ['table' => 'prodi', 'columns' => 'id, nama_prodi', 'role' => 'Sebaran wilayah kerja per program studi'],
                 ],
                 'views' => ['v_analytics_work_location', 'v_analytics_population'],
@@ -2487,19 +3421,19 @@ class TracerAnalyticsService
                         'key' => 'bar',
                         'title' => 'Diagram Batang Horizontal Distribusi Provinsi Tempat Bekerja',
                         'formula' => 'n_{prov} = COUNT(biodata_id pada provinsi prov) ; Proporsi_{prov} (%) = (n_{prov} / N_terpetakan) × 100%',
-                        'source' => 'v_analytics_work_location (kolom workplace_province_code, workplace_province_name)',
+                        'source' => 'v_analytics_work_location (kolom workplace_kode_provinsi, workplace_nama_provinsi)',
                     ],
                     [
                         'key' => 'treemap',
                         'title' => 'Treemap Komposisi Wilayah Kerja',
                         'formula' => 'Luas Area_{prov} ∝ n_{prov} / N_terpetakan',
-                        'source' => 'v_analytics_work_location (agregasi per workplace_province_name)',
+                        'source' => 'v_analytics_work_location (agregasi per workplace_nama_provinsi)',
                     ],
                     [
                         'key' => 'heatmap',
                         'title' => 'Peta Panas (Heatmap) Sebaran Wilayah Kerja Antarprogram Studi',
                         'formula' => 'Sel (p, prov) = COUNT(alumni ∈ prodi p yang bekerja di provinsi prov)',
-                        'source' => 'v_analytics_work_location (matriks nama_prodi × workplace_province_name)',
+                        'source' => 'v_analytics_work_location (matriks nama_prodi × workplace_nama_provinsi)',
                     ],
                     [
                         'key' => 'map',
@@ -2511,6 +3445,8 @@ class TracerAnalyticsService
             ],
             default => [],
         };
+
+        return $this->normalizeLegacyViewMetadata($methodology, $chartKey);
     }
 
     /**
@@ -2553,16 +3489,62 @@ class TracerAnalyticsService
         };
 
         if (is_array($json)) {
-            foreach (['selected', 'pilihan', 'values', 'options', 'value'] as $key) {
-                if (array_key_exists($key, $json)) {
-                    $collect($json[$key]);
+            if (array_is_list($json)) {
+                $collect($json);
+            } else {
+                foreach (['selected', 'pilihan', 'values', 'options', 'value'] as $key) {
+                    if (array_key_exists($key, $json)) {
+                        $collect($json[$key]);
+                    }
                 }
             }
         }
 
         if ($values === [] && is_scalar($answer)) {
             $answerText = trim((string) $answer);
-            $values = preg_split('/\s*[,;|]\s*/', $answerText) ?: [$answerText];
+
+            // Opsi pertanyaan resmi kuesioner yang mengandung tanda koma di dalam kalimatnya.
+            // Frase ini harus diekstraksi secara utuh agar tidak terpecah menjadi potongan aneh seperti 'dll)'.
+            $knownPhrasesWithCommas = [
+                'Melalui relasi (misalnya dosen, orang tua, saudara, teman, dll)',
+                'Melalui iklan di koran/majalah, brosur',
+                'Pekerjaan saya saat ini lebih memungkinkan saya mengambil pekerjaan tambahan/jadwal yang fleksibel, dll.',
+                'Pada awal meniti karir ini, saya harus menerima pekerjaan yang tidak berhubungan dengan pendidikan saya',
+                'Tidak, tetapi saya sedang menunggu hasil lamaran kerja',
+                'Tidak, tapi saya sedang menunggu hasil lamaran kerja',
+                'Ya, saya akan mulai bekerja dalam 2 minggu ke depan',
+                'Ya, tapi saya belum pasti akan bekerja dalam 2 minggu ke depan',
+            ];
+
+            $matched = false;
+            foreach ($knownPhrasesWithCommas as $phrase) {
+                if ($answerText === $phrase) {
+                    $values = [$phrase];
+                    $matched = true;
+                    break;
+                }
+            }
+
+            if (! $matched) {
+                $remainingText = $answerText;
+                $extracted = [];
+                foreach ($knownPhrasesWithCommas as $phrase) {
+                    if (str_contains($remainingText, $phrase)) {
+                        $extracted[] = $phrase;
+                        $remainingText = str_replace($phrase, '', $remainingText);
+                    }
+                }
+
+                $remainingPieces = preg_split('/\s*[,;|]\s*/', $remainingText) ?: [];
+                foreach ($remainingPieces as $piece) {
+                    $piece = trim($piece);
+                    if ($piece !== '') {
+                        $extracted[] = $piece;
+                    }
+                }
+
+                $values = ! empty($extracted) ? $extracted : (preg_split('/\s*[,;|]\s*/', $answerText) ?: [$answerText]);
+            }
         }
 
         return array_values(array_unique(array_filter($values, fn (string $value): bool => $value !== '')));
@@ -2742,10 +3724,37 @@ class TracerAnalyticsService
     }
 
     /**
+     * Menghitung rata-rata skor numerik tanpa memasukkan nilai kosong ke distribusi.
+     *
+     * @param  array<int, mixed>  $values
+     */
+    private function average(array $values): ?float
+    {
+        $values = array_values(array_filter(array_map('floatval', $values), fn (float $value): bool => is_finite($value)));
+        if ($values === []) {
+            return null;
+        }
+
+        return round(array_sum($values) / count($values), 2);
+    }
+
+    /**
      * Menghitung persentil interpolasi sederhana untuk rentang P25–P75.
      *
      * @param  array<int, mixed>  $values
      */
+    /**
+     * Menghitung rata-rata skor lalu membulatkannya ke bilangan bulat terdekat.
+     *
+     * @param  array<int, mixed>  $values
+     */
+    private function averageInteger(array $values): ?int
+    {
+        $average = $this->average($values);
+
+        return $average === null ? null : (int) round($average);
+    }
+
     private function percentile(array $values, int $percentile): ?float
     {
         $values = array_values(array_filter(array_map('floatval', $values), fn (float $value): bool => is_finite($value)));
@@ -2773,5 +3782,152 @@ class TracerAnalyticsService
     private function percentage(int $numerator, int $denominator): float
     {
         return $denominator > 0 ? round(($numerator / $denominator) * 100, 1) : 0.0;
+    }
+
+    /**
+     * Menghitung ranking nilai dengan penanganan ikatan rata-rata (tied ranks).
+     *
+     * @param  array<int, float|int>  $values
+     * @return array<int, float>
+     */
+    private function rankData(array $values): array
+    {
+        $n = count($values);
+        $indexed = [];
+        foreach ($values as $i => $v) {
+            $indexed[] = ['val' => (float) $v, 'orig' => $i];
+        }
+        usort($indexed, fn (array $a, array $b): int => $a['val'] <=> $b['val']);
+
+        $ranks = array_fill(0, $n, 0.0);
+        $i = 0;
+        while ($i < $n) {
+            $j = $i;
+            while ($j < $n - 1 && $indexed[$j + 1]['val'] == $indexed[$j]['val']) {
+                $j++;
+            }
+            $avgRank = ($i + 1 + $j + 1) / 2.0;
+            for ($k = $i; $k <= $j; $k++) {
+                $ranks[$indexed[$k]['orig']] = $avgRank;
+            }
+            $i = $j + 1;
+        }
+
+        return $ranks;
+    }
+
+    /**
+     * Menghitung nilai Cumulative Distribution Function (CDF) normal standar
+     * menggunakan rumus aproksimasi numerik presisi Abramowitz & Stegun 26.2.17.
+     */
+    private function normalCdf(float $x): float
+    {
+        $t = 1.0 / (1.0 + 0.2316419 * abs($x));
+        $d = 0.3989422804014327; // 1 / sqrt(2 * pi)
+        $prob = $d * exp(-$x * $x / 2.0) * ($t * (0.319381530 + $t * (-0.356563782 + $t * (1.781477937 + $t * (-1.821255978 + $t * 1.330274429)))));
+
+        return $x > 0 ? (1.0 - $prob) : $prob;
+    }
+
+    /**
+     * Menghitung koefisien korelasi rank Spearman (rho) dan p-value dua sisi.
+     *
+     * @param  array<int, float|int>  $x
+     * @param  array<int, float|int>  $y
+     * @return array{rho: ?float, p_value: ?float, n: int}
+     */
+    private function spearmanCorrelation(array $x, array $y): array
+    {
+        $n = count($x);
+        if ($n < 3 || count($y) !== $n) {
+            return ['rho' => null, 'p_value' => null, 'n' => $n];
+        }
+
+        if (count(array_unique($x)) <= 1 || count(array_unique($y)) <= 1) {
+            return ['rho' => 0.0, 'p_value' => 1.0, 'n' => $n];
+        }
+
+        $rx = $this->rankData($x);
+        $ry = $this->rankData($y);
+
+        $meanRx = array_sum($rx) / $n;
+        $meanRy = array_sum($ry) / $n;
+
+        $num = 0.0;
+        $denX = 0.0;
+        $denY = 0.0;
+        for ($i = 0; $i < $n; $i++) {
+            $dx = $rx[$i] - $meanRx;
+            $dy = $ry[$i] - $meanRy;
+            $num += $dx * $dy;
+            $denX += $dx * $dx;
+            $denY += $dy * $dy;
+        }
+
+        if ($denX <= 0.0 || $denY <= 0.0) {
+            return ['rho' => 0.0, 'p_value' => 1.0, 'n' => $n];
+        }
+
+        $rho = $num / sqrt($denX * $denY);
+        $rho = max(-1.0, min(1.0, $rho));
+
+        $df = $n - 2;
+        if (abs($rho) >= 0.999999) {
+            $p = 0.0001;
+        } else {
+            $t = $rho * sqrt($df / (1.0 - $rho * $rho));
+            $tail = 1.0 - $this->normalCdf(abs($t));
+            $p = 2.0 * $tail;
+            $p = max(0.0001, min(1.0, $p));
+        }
+
+        return [
+            'rho' => round($rho, 4),
+            'p_value' => round($p, 4),
+            'n' => $n,
+        ];
+    }
+
+    /**
+     * Menghitung garis tren linier (Ordinary Least Squares) untuk koordinat scatter plot.
+     *
+     * @param  array<int, float|int>  $x
+     * @param  array<int, float|int>  $y
+     * @return array{slope: float, intercept: float, start: array{float, float}, end: array{float, float}}|null
+     */
+    private function calculateTrendline(array $x, array $y): ?array
+    {
+        $n = count($x);
+        if ($n < 2) {
+            return null;
+        }
+
+        $meanX = array_sum($x) / $n;
+        $meanY = array_sum($y) / $n;
+
+        $num = 0.0;
+        $den = 0.0;
+        for ($i = 0; $i < $n; $i++) {
+            $dx = $x[$i] - $meanX;
+            $num += $dx * ($y[$i] - $meanY);
+            $den += $dx * $dx;
+        }
+
+        if ($den == 0.0) {
+            return null;
+        }
+
+        $slope = $num / $den;
+        $intercept = $meanY - $slope * $meanX;
+
+        $minX = min($x);
+        $maxX = max($x);
+
+        return [
+            'slope' => round($slope, 4),
+            'intercept' => round($intercept, 4),
+            'start' => [(float) $minX, round($slope * $minX + $intercept, 2)],
+            'end' => [(float) $maxX, round($slope * $maxX + $intercept, 2)],
+        ];
     }
 }

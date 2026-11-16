@@ -118,6 +118,54 @@ class AlumniLinkedinPlot extends Model
     }
 
     /**
+     * Fallback accessor untuk nama LinkedIn jika actor baru menggunakan skema berbeda (firstName + lastName).
+     */
+    public function getNamaLinkedinAttribute(?string $value): ?string
+    {
+        if (! empty($value)) {
+            return $value;
+        }
+
+        return $this->syncResult?->preview['name'] ?? null;
+    }
+
+    /**
+     * Fallback accessor untuk posisi jabatan LinkedIn jika actor baru menggunakan skema berbeda (currentPosition/experience).
+     */
+    public function getPosisiLinkedinAttribute(?string $value): ?string
+    {
+        if (! empty($value)) {
+            return $value;
+        }
+
+        return $this->syncResult?->preview['current_job'] ?? null;
+    }
+
+    /**
+     * Fallback accessor untuk nama perusahaan LinkedIn jika actor baru menggunakan skema berbeda (currentPosition/experience).
+     */
+    public function getPerusahaanLinkedinAttribute(?string $value): ?string
+    {
+        if (! empty($value)) {
+            return $value;
+        }
+
+        return $this->syncResult?->preview['current_company'] ?? null;
+    }
+
+    /**
+     * Fallback accessor untuk display lokasi LinkedIn jika actor baru menggunakan skema berbeda (location.parsed.text).
+     */
+    public function getLokasiLinkedinAttribute(?string $value): ?string
+    {
+        if (! empty($value)) {
+            return $value;
+        }
+
+        return $this->syncResult?->preview['location'] ?? null;
+    }
+
+    /**
      * Scope filter alumni yang namanya sesuai dengan profil LinkedIn
      */
     public function scopeNamaSesuai(Builder $query): Builder

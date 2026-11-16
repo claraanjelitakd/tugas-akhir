@@ -1,16 +1,16 @@
-# 📋 Pemetaan Lengkap Daftar Pertanyaan & Arsitektur Form Tracer Study UKDW
+# ðŸ“‹ Pemetaan Lengkap Daftar Pertanyaan & Arsitektur Form Tracer Study UKDW
 
 Dokumen ini berisi peta komprehensif seluruh instrumen pertanyaan Tracer Study (Standar Dikti Kemendikbudristek & Kuesioner Khusus Program Studi), mencakup kode pertanyaan, tipe input, komponen Vue pengelola, tabel database, serta alur sinkronisasi otomatis dua arah antara **Profil Alumni** dan **Kuesioner Tracer Study**.
 
 ---
 
-## 📑 Daftar Isi
+## ðŸ“‘ Daftar Isi
 1. [Struktur Alur Form & Komponen Vue](#1-struktur-alur-form--komponen-vue)
 2. [Peta Pertanyaan Inti Standar Dikti (F1 s/d F18, F24)](#2-peta-pertanyaan-inti-standar-dikti-f1-sd-f18-f24)
 3. [Peta Data Identitas & Biodata Alumni](#3-peta-data-identitas--biodata-alumni)
 4. [Peta Kuesioner Khusus Program Studi](#4-peta-kuesioner-khusus-program-studi)
 5. [Mekanisme Sinkronisasi Otomatis 2 Arah (KuesionerSyncService)](#5-mekanisme-sinkronisasi-otomatis-2-arah-kuesionersyncservice)
-6. [AdminAlumniProfileService — Persistensi Terpusat oleh Admin](#6-adminalumniprofileservice--persistensi-terpusat-oleh-admin)
+6. [AdminAlumniProfileService â€” Persistensi Terpusat oleh Admin](#6-adminalumniprofileservice--persistensi-terpusat-oleh-admin)
 7. [Fitur Ekspor Kode Pertanyaan & Jawaban (Superadmin)](#7-fitur-ekspor-kode-pertanyaan--jawaban-superadmin)
 8. [Peta Kuesioner Evaluasi Pengguna Lulusan (Atasan Langsung)](#8-peta-kuesioner-evaluasi-pengguna-lulusan-atasan-langsung)
 
@@ -53,14 +53,14 @@ Berikut adalah rincian setiap butir pertanyaan standar Dikti, peletakan komponen
 | **F18d** | Tanggal Masuk studi lanjut | `date` | `KartuPertanyaan.vue` | `tracer.answer` (F18d) | Format tanggal standar HTML5 date picker (`YYYY-MM-DD`). |
 | **F3** | Kapan mulai mencari pekerjaan (sebelum/setelah lulus) | `radio_input` | `KartuPertanyaan.vue` | `tracer.answer`<br>`tracer.answer_json` | Opsi input bulan sebelum/sesudah lulus. Opsi 3 (Tidak mencari kerja) $\rightarrow$ lompat ke `F504`. |
 | **F4** | Bagaimana cara mencari pekerjaan | `multiple_choice` / `checkbox` | `KartuPertanyaan.vue` | `tracer.answer_json` (F4) | Multi-pilihan strategi mencari kerja (iklan, bursa kerja, relasi, dll.). |
-| **F504** | Apakah telah mendapatkan pekerjaan ≤ 6 bulan | `radio` | `KartuPertanyaan.vue` | `tracer.answer` (F504) | Opsi "Ya" $\rightarrow$ `jump_to: 'F502'`, Opsi "Tidak" $\rightarrow$ `jump_to: 'F506'`. |
+| **F504** | Apakah telah mendapatkan pekerjaan â‰¤ 6 bulan | `radio` | `KartuPertanyaan.vue` | `tracer.answer` (F504) | Opsi "Ya" $\rightarrow$ `jump_to: 'F502'`, Opsi "Tidak" $\rightarrow$ `jump_to: 'F506'`. |
 | **F502** | Dalam berapa bulan mendapatkan pekerjaan | `number` | `KartuPertanyaan.vue` | `tracer.answer` (F502) | Satuan unit: Bulan. Dilengkapi stepper angka `+` / `-`. |
 | **F505** | Rata-rata pendapatan per bulan (Take Home Pay) | `multiple_number` | `FormKarier.vue`<br>`KartuPertanyaan.vue` | `biodata.gaji`<br>`tracer.answer_json` (F5051) | 1 Opsi tunggal: Rata-rata Pendapatan per Bulan (Take Home Pay). Batasan constraint: Minimal Rp 1.000 (kelipatan ribuan). Format ribuan otomatis. **Input gaji dari admin disanitasi oleh `AdminAlumniProfileService`: separator ribuan dibersihkan, hasil dibulatkan ke integer agar tidak berlipat ganda.** |
 | **F505A**| Kesesuaian Gaji dengan UMR | `radio` | `KartuPertanyaan.vue` | `tracer.answer` (F505A) | Pilihan: Sesuai / Tidak Sesuai. `jump_to: 'F6'`. |
 | **F506** | Dalam berapa bulan mendapatkan pekerjaan (pencarian > 6 bulan) | `number` | `KartuPertanyaan.vue` | `tracer.answer` (F506) | Satuan unit: Bulan. Dilengkapi stepper angka `+` / `-`. |
 | **F5C** | Posisi/jabatan wiraswasta | `select`, `text` | `FormKarier.vue`<br>`KartuPertanyaan.vue` | `biodata.posisi_wiraswasta`<br>`tracer.answer` (F5C) | **Eksklusif**: Hanya diisi jika `biodata.kategori_pekerjaan = 'Wiraswasta'`. Jika alumni bukan wiraswasta, field ini di-`null`-kan otomatis oleh `AdminAlumniProfileService::updateProfile()`. |
-| **F5a1** | Provinsi tempat bekerja | `text` | `KartuPertanyaan.vue` | `perusahaan.propinsi_id` → `propinsi.nama_propinsi`<br>`tracer.answer` (F5a1) | Dipetakan otomatis dari relasi `perusahaan.propinsi` melalui view `v_alumni_kuesioner_autofill`. |
-| **F5a2** | Kabupaten/Kota tempat bekerja | `text` | `KartuPertanyaan.vue` | `perusahaan.kabupaten_id` → `kabupaten.nama_kabupaten`<br>`tracer.answer` (F5a2) | Dipetakan otomatis dari relasi `perusahaan.kabupaten` melalui view `v_alumni_kuesioner_autofill`. |
+| **F5a1** | Provinsi tempat bekerja | `text` | `KartuPertanyaan.vue` | `perusahaan.kode_provinsi` â†’ `propinsi.nama_propinsi`<br>`tracer.answer` (F5a1) | Dipetakan otomatis dari relasi `perusahaan.propinsi` melalui view `v_alumni_kuesioner_autofill`. |
+| **F5a2** | Kabupaten/Kota tempat bekerja | `text` | `KartuPertanyaan.vue` | `perusahaan.kode_kabupaten` â†’ `kabupaten.nama_kabupaten`<br>`tracer.answer` (F5a2) | Dipetakan otomatis dari relasi `perusahaan.kabupaten` melalui view `v_alumni_kuesioner_autofill`. |
 | **F6** | Berapa perusahaan/instansi yang sudah dilamar | `number` | `KartuPertanyaan.vue` | `tracer.answer` (F6) | Satuan unit: Perusahaan / Instansi. Grid 2 kolom berpasangan dengan F7. |
 | **F7** | Berapa perusahaan/instansi yang merespons lamaran | `number` | `KartuPertanyaan.vue` | `tracer.answer` (F7) | Satuan unit: Perusahaan / Instansi. Grid 2 kolom berpasangan dengan F6. |
 | **F7A** | Berapa perusahaan/instansi yang mengundang wawancara | `number` | `KartuPertanyaan.vue` | `tracer.answer` (F7A) | Satuan unit: Undangan Wawancara. |
@@ -79,10 +79,10 @@ Selain pertanyaan kuesioner Dikti, alumni mengisi data identitas terpadu di hala
 | Tab Profil | Field Data | Tipe Input | Komponen Vue | Tabel Database |
 | :--- | :--- | :--- | :--- | :--- |
 | **Identitas & Alamat** | Nama, NIM, NIK, NPWP (15/16 Digit UU HPP & PMK 112/2022), No HP, Email | `text`, `email`, `tel` | `FormPribadi.vue` | `biodata`, `users` |
-| **Identitas & Alamat** | Alamat Domisili KTP, Provinsi, Kabupaten/Kota, Negara, Kode Pos | `select` Searchable, `text` | `FormPribadi.vue` | `biodata.provinsi_id`, `biodata.kabupaten_id`, `biodata.negara_id` |
+| **Identitas & Alamat** | Alamat Domisili KTP, Provinsi, Kabupaten/Kota, Negara, Kode Pos | `select` Searchable, `text` | `FormPribadi.vue` | `biodata.kode_provinsi`, `biodata.kode_kabupaten`, `biodata.negara` |
 | **Karier & Jejaring** | Kategori Peran (Pekerja, Wiraswasta, Melanjutkan Pendidikan) - *Single Choice & Auto-Reset* | `role_cards` | `FormKarier.vue` | `biodata.kategori_pekerjaan` |
 | **Karier & Jejaring** | Posisi Jabatan Struktural (`F2G`) / Wiraswasta (`F5C`) | `select`, `text` | `FormKarier.vue` | `biodata.posisi_jabatan`, `biodata.posisi_wiraswasta` |
-| **Karier & Jejaring** | Lokasi Perusahaan (DN/LN), Provinsi/Kabupaten atau Master Negara Dunia | `select` Searchable Modal | `FormKarier.vue` | `perusahaan.jenis_lokasi`, `perusahaan.propinsi_id`, `perusahaan.kabupaten_id`, `perusahaan.negara` |
+| **Karier & Jejaring** | Lokasi Perusahaan (DN/LN), Provinsi/Kabupaten atau Master Negara Dunia | `select` Searchable Modal | `FormKarier.vue` | `perusahaan.jenis_lokasi`, `perusahaan.kode_provinsi`, `perusahaan.kode_kabupaten`, `perusahaan.negara` |
 | **Karier & Jejaring** | Take Home Pay (Gaji), Data Atasan Langsung (`F24A`, `F24B`) | `number`, `text`, `email`, `tel` | `FormKarier.vue` | `biodata.gaji`, `atasan` |
 | **Akademik & Yudisium**| Program Studi, IPK, Tahun Masuk, Tahun Lulus, Tanggal Yudisium, Judul Skripsi | `text`, `readonly` | `FormAkademik.vue` | `data_akademik`, `prodi`, `yudisium` |
 | **Data Orang Tua** | Nama Orang Tua, Pekerjaan, Alamat, No Telepon, Provinsi, Kabupaten | `text`, `tel`, `select` | `FormOrangTua.vue` | `data_orang_tua` |
@@ -123,14 +123,14 @@ graph LR
 3. **Penyelarasan Posisi Wiraswasta (F5C)**:
    Dropdown `F5C` di form karier langsung dipetakan ke kode instrumen `F5C` di tabel kuesioner. Jika `kategori_pekerjaan` bukan `Wiraswasta`, field `posisi_wiraswasta` di-null-kan secara otomatis oleh `AdminAlumniProfileService` sebelum sinkronisasi dijalankan.
 4. **Autofill F5a1 & F5a2 dari View**:
-   View database `v_alumni_kuesioner_autofill` menyediakan kolom `F5a1` (nama provinsi perusahaan) dan `F5a2` (nama kabupaten perusahaan) yang di-join dari tabel `propinsi` dan `kabupaten` melalui relasi `perusahaan.propinsi_id` / `perusahaan.kabupaten_id`. `KuesionerSyncService` kemudian memetakan nilai ini ke baris `tracer` dengan kode pertanyaan yang sesuai.
+   View database `v_alumni_kuesioner_autofill` menyediakan kolom `F5a1` (nama provinsi perusahaan) dan `F5a2` (nama kabupaten perusahaan) yang di-join dari tabel `propinsi` dan `kabupaten` melalui relasi `perusahaan.kode_provinsi` / `perusahaan.kode_kabupaten`. `KuesionerSyncService` kemudian memetakan nilai ini ke baris `tracer` dengan kode pertanyaan yang sesuai.
 
 ### Source of Truth per Kode Pertanyaan:
 | Kode | Sumber Autofill (v_alumni_kuesioner_autofill) | Kolom Tujuan (tracer) |
 | :---: | :--- | :--- |
 | F1 | `biodata.nim` | `tracer.answer` |
-| F5a1 | `propinsi.nama_propinsi` (via `perusahaan.propinsi_id`) | `tracer.answer` |
-| F5a2 | `kabupaten.nama_kabupaten` (via `perusahaan.kabupaten_id`) | `tracer.answer` |
+| F5a1 | `propinsi.nama_propinsi` (via `perusahaan.kode_provinsi`) | `tracer.answer` |
+| F5a2 | `kabupaten.nama_kabupaten` (via `perusahaan.kode_kabupaten`) | `tracer.answer` |
 | F5C | `biodata.posisi_wiraswasta` (hanya jika kategori = Wiraswasta) | `tracer.answer` |
 | F505 | `biodata.gaji` (dibulatkan ke integer) | `tracer.answer` + `answer_json` |
 | F8 | `biodata.kategori_pekerjaan` | `tracer.answer` |
@@ -142,7 +142,7 @@ graph LR
 
 ---
 
-## 6. AdminAlumniProfileService — Persistensi Terpusat oleh Admin
+## 6. AdminAlumniProfileService â€” Persistensi Terpusat oleh Admin
 
 **File**: [`app/Services/Alumni/AdminAlumniProfileService.php`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Alumni/AdminAlumniProfileService.php)
 
@@ -153,16 +153,16 @@ Service ini adalah **Single Source of Truth** untuk seluruh operasi baca dan tul
 #### `buildFormData(Biodata $alumni): array`
 Menyusun array `formData` lengkap dengan 150+ field untuk dikirim ke frontend Vue. Mendukung multi-level fallback:
 ```
-biodata → dataAkademik → yudisium → perusahaan → atasan → orangTua
+biodata â†’ dataAkademik â†’ yudisium â†’ perusahaan â†’ atasan â†’ orangTua
 ```
 Field yang dihasilkan mencakup:
-- **Identitas Pribadi**: nim, nama, nik, npwp, no_kk, no_bpjs, nisn, agama, jenis_kelamin, golongan_darah, warga_negara, tempat_lahir, tanggal_lahir
-- **Kontak & Alamat**: nomor_telepon, email, email_pribadi, alamat, kelurahan, kecamatan, kabupaten_id, propinsi_id, kode_pos
+- **Identitas Pribadi**: nim, nama, jenis_kelamin, warga_negara, tanggal_lahir
+- **Kontak & Alamat**: nomor_telepon, email, email_pribadi, alamat, kelurahan, kecamatan, kode_kabupaten, kode_provinsi, kode_pos
 - **Akademik**: prodi_id, program_studi, fakultas, angkatan_masuk, ipk, total_sks, strata, no_ijazah
 - **Yudisium**: judul_ta, dosen_pembimbing_1/2, dosen_penguji_1/2, status_yudisium, tahun_lulus, url_publikasi
 - **Orang Tua**: nama_orang_tua, pekerjaan_orang_tua, alamat_orang_tua, nomor_telepon_orang_tua
 - **Karier**: kategori_pekerjaan, posisi_jabatan, posisi_wiraswasta, gaji, jenis_pekerjaan, pendidikan_tingkat, perguruan_tinggi
-- **Perusahaan**: nama_perusahaan, perusahaan_jenis_lokasi, perusahaan_negara, perusahaan_propinsi_id, perusahaan_kabupaten_id, skala, jenis_perusahaan
+- **Perusahaan**: nama_perusahaan, perusahaan_jenis_lokasi, perusahaan_negara, perusahaan_kode_provinsi, perusahaan_kode_kabupaten, skala, jenis_perusahaan
 - **Atasan**: nama_atasan, email_atasan, telepon_atasan
 - **Sosial Media**: instagram_url, facebook_url, linkedin_url, linkedin_username
 
@@ -171,19 +171,19 @@ Mengambil opsi dropdown referensi dari tabel `ref_subpertanyaan_detil` untuk kod
 
 #### `updateProfile(Biodata $biodata, array $data): void`
 Menyimpan seluruh pembaruan profil secara atomik dalam 7 langkah berurutan:
-1. **DataOrangTua** — `updateOrCreate` by NIM
-2. **Yudisium** — `updateOrCreate` by NIM
-3. **Perusahaan** — `firstOrCreate` by `nama_perusahaan`, lalu update atribut
-4. **Atasan** — update jika sudah ada (by `atasan_id`), atau `create` baru
-5. **Sanitasi Gaji** — strip separator ribuan + desimal, round ke integer
-6. **Biodata** — `update()` dengan eksklusivitas posisi berdasarkan `kategori_pekerjaan`
-7. **Sinkronisasi Kuesioner** — panggil `KuesionerSyncService::syncProfileResponses()`
+1. **DataOrangTua** â€” `updateOrCreate` by NIM
+2. **Yudisium** â€” `updateOrCreate` by NIM
+3. **Perusahaan** â€” `firstOrCreate` by `nama_perusahaan`, lalu update atribut
+4. **Atasan** â€” update jika sudah ada (by `atasan_id`), atau `create` baru
+5. **Sanitasi Gaji** â€” strip separator ribuan + desimal, round ke integer
+6. **Biodata** â€” `update()` dengan eksklusivitas posisi berdasarkan `kategori_pekerjaan`
+7. **Sinkronisasi Kuesioner** â€” panggil `KuesionerSyncService::syncProfileResponses()`
 
 ### Aturan Eksklusivitas Posisi
 | `kategori_pekerjaan` | `posisi_jabatan` | `posisi_wiraswasta` |
 | :--- | :--- | :--- |
-| `Pekerja` | ✅ Diisi dari input | `null` (dihapus) |
-| `Wiraswasta` | `null` (dihapus) | ✅ Diisi dari input |
+| `Pekerja` | âœ… Diisi dari input | `null` (dihapus) |
+| `Wiraswasta` | `null` (dihapus) | âœ… Diisi dari input |
 | `Melanjutkan Pendidikan` | `null` (dihapus) | `null` (dihapus) |
 
 ### Controller yang Menggunakan Service Ini
@@ -200,7 +200,7 @@ Menyimpan seluruh pembaruan profil secara atomik dalam 7 langkah berurutan:
 
 Bagi Superadmin dan Admin Program Studi, tersedia modul rekapitulasi data:
 - **Format Ekspor**: Microsoft Excel (`.xls`) berformat HTML kaya gaya.
-- **Service Backend**: [`AlumniTracerExcelExporter`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Export/AlumniTracerExcelExporter.php) — digunakan seragam oleh seluruh stakeholder admin.
+- **Service Backend**: [`AlumniTracerExcelExporter`](https://github.com/claraanjelitakd/tracer-ta/blob/bea8270d6b2f92a598ed52ec862ea2f1260b2b75/app/Services/Export/AlumniTracerExcelExporter.php) â€” digunakan seragam oleh seluruh stakeholder admin.
 - **Isi Ekspor**:
   - **Blok Identitas Lengkap (4 Sub-Bagian)**:
     1. Data Diri & Kontak Pribadi (NIM, NIK, NPWP, No KK, No BPJS, NISN, Telepon, Email, LinkedIn, dll.)
@@ -235,12 +235,12 @@ Bagian ini dinormalisasi ke tabel master `perusahaan`, `atasan`, dan transaksi `
 | **Homepage / Website** | `url` / `text` | Alamat web resmi | `perusahaan.homepage` |
 | **Bentuk Perusahaan / Institusi** | `select` | 1. BUMN<br>2. Perusahaan Terbatas<br>3. Koperasi<br>4. CV<br>5. Firma | `perusahaan.bentuk_perusahaan` |
 | **Skala Perusahaan** | `select` | 1. Lokal<br>2. Nasional<br>3. Internasional | `perusahaan.skala` |
-| **Jumlah Pegawai Keseluruhan** | `select` | 1. < 50 Orang<br>2. 51 - 100 Orang<br>3. 101 – 150 Orang<br>4. 151 – 300 Orang<br>5. 301 – 500 Orang<br>6. > 500 Orang | `perusahaan.jumlah_pegawai` |
+| **Jumlah Pegawai Keseluruhan** | `select` | 1. < 50 Orang<br>2. 51 - 100 Orang<br>3. 101 â€“ 150 Orang<br>4. 151 â€“ 300 Orang<br>5. 301 â€“ 500 Orang<br>6. > 500 Orang | `perusahaan.jumlah_pegawai` |
 | **Nama Pimpinan / Kontak Person** | `text` | Nama atasan penilai | `atasan.nama` |
 | **Email Pimpinan / Kontak Person** | `email` | Email aktif atasan | `atasan.email` |
 | **Nomor Telepon Pimpinan** | `tel` | Nomor HP/telepon kerja atasan | `atasan.telepon` |
-| **Jumlah Alumni UKDW di Perusahaan** | `select` | 1. < 5 Orang<br>2. 6 - 10 Orang<br>3. 11 – 20 Orang<br>4. > 21 Orang | `evaluasi_atasan.jumlah_alumni_ukdw` |
-| **Standar Gaji Pertama Alumni UKDW** | `select` | 1. < 1.000.000<br>2. 1.000.000 – 1.500.000<br>3. 1.500.000 – 2.000.000<br>4. 2.000.000 – 3.000.000<br>5. 3.000.000 – 4.000.000<br>6. > 5.000.000 | `evaluasi_atasan.standar_gaji_pertama` |
+| **Jumlah Alumni UKDW di Perusahaan** | `select` | 1. < 5 Orang<br>2. 6 - 10 Orang<br>3. 11 â€“ 20 Orang<br>4. > 21 Orang | `evaluasi_atasan.jumlah_alumni_ukdw` |
+| **Standar Gaji Pertama Alumni UKDW** | `select` | 1. < 1.000.000<br>2. 1.000.000 â€“ 1.500.000<br>3. 1.500.000 â€“ 2.000.000<br>4. 2.000.000 â€“ 3.000.000<br>5. 3.000.000 â€“ 4.000.000<br>6. > 5.000.000 | `evaluasi_atasan.standar_gaji_pertama` |
 
 ---
 
@@ -250,7 +250,7 @@ Instrumen kuesioner dinamis tersimpan pada tabel `pertanyaan_evaluasi_atasan` da
 
 | No | Kode Aspek | Topik / Butir Pertanyaan | Tipe Input & Pilihan | Kolom Jawaban Database |
 | :---: | :---: | :--- | :--- | :--- |
-| **1** | `KES_1` | **Tingkat Kesiapan Alumni dalam Bekerja**: Seberapa siap alumni UKDW saat pertama kali mulai bekerja di perusahaan Anda? | `pilihan_ganda`<br>• Sangat siap<br>• Cukup Siap<br>• Kurang siap<br>• Tidak siap | `respon_evaluasi_atasan.jawaban_teks` |
+| **1** | `KES_1` | **Tingkat Kesiapan Alumni dalam Bekerja**: Seberapa siap alumni UKDW saat pertama kali mulai bekerja di perusahaan Anda? | `pilihan_ganda`<br>â€¢ Sangat siap<br>â€¢ Cukup Siap<br>â€¢ Kurang siap<br>â€¢ Tidak siap | `respon_evaluasi_atasan.jawaban_teks` |
 | **2** | `ASP_01` | **Etika, Moral, dan Integritas**: Kejujuran, kedisiplinan, dan ketaatan terhadap norma etika kerja | `likert_5` (1: Sangat Kurang s/d 5: Sangat Baik) | `respon_evaluasi_atasan.nilai` |
 | **3** | `ASP_02` | **Keahlian Berdasarkan Bidang Ilmu**: Penguasaan keilmuan dan kemampuan teknis sesuai program studi kelulusan | `likert_5` (1 s/d 5) | `respon_evaluasi_atasan.nilai` |
 | **4** | `ASP_03` | **Kemampuan Berbahasa Inggris**: Kemampuan komunikasi lisan dan tulisan dalam bahasa Inggris kerja | `likert_5` (1 s/d 5) | `respon_evaluasi_atasan.nilai` |

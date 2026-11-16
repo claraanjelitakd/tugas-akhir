@@ -6,13 +6,12 @@ use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\Kabupaten;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiResponse;
 use App\Models\Propinsi;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\Tracer;
 use App\Models\User;
 use App\Models\Yudisium;
 use Carbon\Carbon;
@@ -20,20 +19,22 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * Seeder Simulasi Alumni Tracer Study Komprehensif (12 Program Studi UKDW)
+ * Seeder Simulasi Alumni Tracer Study Kanonik Tahun 2026.
  *
  * Tujuan:
- * Menyiapkan data simulasi riil kuesioner Tracer Study untuk seluruh 12 Program Studi di UKDW.
- * Setiap Program Studi memiliki minimal 10 alumni dengan distribusi data:
- * - 4 Orang: Lengkap 100% (Status: Selesai) dengan 4 Kategori Karier Berbeda:
+ * Menyiapkan fixture satu kohort lintas seluruh program studi S1 dengan maksimal
+ * 99 alumni lengkap dan distribusi data:
+ * - 99 Orang: Lengkap 100% dengan lima kategori karier berbeda yang tersebar
+ *   di seluruh program studi aktif:
  *     1. Bekerja di Perusahaan Swasta / BUMN (Dapat kerja sebelum lulus / F504 = Ya)
- *     2. Wiraswasta / Pendiri Usaha Mandiri (Founder & Owner)
+ *     2. Founder / Co-Founder (Dapat kerja sebelum lulus / F504 = Ya)
  *     3. Melanjutkan Pendidikan S2 (Studi Lanjut Pascasarjana & Beasiswa LPDP)
  *     4. Bekerja di Startup / Industri Kreatif / Multinasional (Dapat kerja setelah lulus / F504 = Tidak)
- * - 3 Orang: Sedang Mengisi (Status: Belum Selesai, progress pengisian 40% - 75%)
- * - 3 Orang: Belum Mengisi (Status: Belum Selesai, hanya data induk akademik & yudisium)
+ *     5. Freelancer / Konsultan Mandiri (Dapat kerja setelah lulus / F504 = Tidak)
+ * Joshua Andrean tetap disediakan terpisah sebagai akun uji pengisian mandiri
+ * dengan profil dan jawaban kosong.
  *
- * Seluruh alumni memiliki catatan kelulusan Yudisium dengan proses_yudisium = 'Lulus'
+ * Seluruh fixture alumni memiliki catatan kelulusan Yudisium dengan status_lulus = 'Lulus'
  * serta tahun_akademik_lulus yang sinkron persis dengan tahun_lulus.
  */
 class AlumniSimulationSeeder extends Seeder
@@ -43,8 +44,12 @@ class AlumniSimulationSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Ambil seluruh master Program Studi UKDW
-        $prodis = Prodi::all()->keyBy('kode_prodi');
+        // 1. Ambil seluruh Program Studi S1 agar fixture mewakili data lintas prodi.
+        $prodis = Prodi::query()
+            ->where('jenjang', 'S1')
+            ->orderBy('kode_prodi')
+            ->get()
+            ->keyBy('kode_prodi');
         if ($prodis->isEmpty()) {
             $this->command->error('Master Prodi belum di-seed!');
 
@@ -62,19 +67,19 @@ class AlumniSimulationSeeder extends Seeder
 
         $perusahaans = Perusahaan::all();
 
-        // 3. Matriks Target Kelulusan Sinkron (Representasi Lengkap 2021 s/d 2026)
+        // 3. Matriks target kelulusan sinkron untuk satu kohort S1 tahun 2026.
         // Format: [angkatan_masuk, tahun_akademik_lulus, tahun_lulus]
         $targetKelulusanList = [
-            ['angkatan' => '2017', 'semester' => 'Gasal 2020/2021', 'tahun' => 2021], // Index 0: Selesai (Kategori 1: Swasta/BUMN)
-            ['angkatan' => '2017', 'semester' => 'Genap 2020/2021', 'tahun' => 2021], // Index 1: Selesai (Kategori 2: Wiraswasta)
-            ['angkatan' => '2018', 'semester' => 'Gasal 2021/2022', 'tahun' => 2022], // Index 2: Selesai (Kategori 3: Studi Lanjut S2)
-            ['angkatan' => '2018', 'semester' => 'Genap 2021/2022', 'tahun' => 2022], // Index 3: Selesai (Kategori 4: Startup/Industri Kreatif)
-            ['angkatan' => '2019', 'semester' => 'Gasal 2022/2023', 'tahun' => 2023], // Index 4: Sedang Mengisi (Progress ~60%)
-            ['angkatan' => '2019', 'semester' => 'Genap 2022/2023', 'tahun' => 2023], // Index 5: Sedang Mengisi (Progress ~50%)
-            ['angkatan' => '2020', 'semester' => 'Gasal 2023/2024', 'tahun' => 2024], // Index 6: Sedang Mengisi (Progress ~40%)
-            ['angkatan' => '2020', 'semester' => 'Genap 2023/2024', 'tahun' => 2024], // Index 7: Belum Mengisi (0%)
-            ['angkatan' => '2021', 'semester' => 'Gasal 2024/2025', 'tahun' => 2025], // Index 8: Belum Mengisi (0%)
-            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 9: Belum Mengisi (0%)
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 0: Selesai (Kategori 1: Swasta/BUMN)
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 1: Selesai (Kategori 2: Wiraswasta)
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 2: Selesai (Kategori 3: Studi Lanjut S2)
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 3: Selesai (Kategori 4: Startup/Industri Kreatif)
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 4: Selesai (Kategori 5: Freelancer)
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 5: Siklus kedua kategori karyawan
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 6: Siklus kedua kategori founder
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 7: Siklus kedua studi lanjut
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 8: Siklus kedua kategori karyawan
+            ['angkatan' => '2022', 'semester' => 'Genap 2025/2026', 'tahun' => 2026], // Index 9: Siklus kedua freelancer
         ];
 
         // 4. Bank 120 Nama Mahasiswa Riil Unik Tanpa Duplikasi Lintas Seluruh 12 Prodi UKDW
@@ -95,7 +100,7 @@ class AlumniSimulationSeeder extends Seeder
             // FTI - Sistem Informasi (72)
             '72' => [
                 0 => ['nama' => 'David Alexander Haryanto', 'jk' => 'Laki-laki', 'agama' => 'Kristen Protestan'],
-                1 => ['nama' => 'Stephanie Amanda Sihombing', 'jk' => 'Perempuan', 'agama' => 'Kristen Protestan'],
+                1 => ['nama' => 'Jovan Yulianto', 'jk' => 'Laki-laki', 'agama' => 'Kristen Protestan'],
                 2 => ['nama' => 'Michael Steven Nugroho', 'jk' => 'Laki-laki', 'agama' => 'Katolik'],
                 3 => ['nama' => 'Nathania Grace Gunawan', 'jk' => 'Perempuan', 'agama' => 'Kristen Protestan'],
                 4 => ['nama' => 'Andreas Timothy Wijaya', 'jk' => 'Laki-laki', 'agama' => 'Kristen Protestan'],
@@ -253,22 +258,43 @@ class AlumniSimulationSeeder extends Seeder
             '82' => 'Representasi Identitas Sosio-Kultural Masyarakat Urban dalam Film Indonesia Kontemporer',
         ];
 
-        // 6. Ambil master butir kuesioner universitas (ref_subpertanyaan2021)
-        $univQuestions = RefSubpertanyaan2021::all()->keyBy('kode_pertanyaan');
+        // 6. Ambil master butir kuesioner universitas dan prodi dari Unified Survey Engine
+        $univSection = KuesionerSection::where('target', 'univ')->first();
+        $univQuestions = KuesionerPertanyaan::query()
+            ->with('opsi')
+            ->get()
+            ->keyBy(fn ($q) => strtoupper((string) $q->kode_pertanyaan));
+        $defaultHashedPassword = Hash::make('15082004');
 
-        // Iterasi ke seluruh 12 Program Studi
+        // Tiga prodi utama mendapat 9 alumni, sembilan prodi lainnya 8 alumni.
+        // Totalnya 99; ditambah Joshua Andrean menjadi maksimal 100 lulusan.
+        $alumniCountByProdi = $prodis
+            ->keys()
+            ->mapWithKeys(fn (string $kodeProdi): array => [
+                $kodeProdi => in_array($kodeProdi, ['11', '71', '72'], true) ? 9 : 8,
+            ])
+            ->all();
+
+        // Iterasi seluruh Program Studi dan satu kohort tahun 2026.
         foreach ($prodis as $kodeProdi => $prodi) {
             $kodeProdiStr = (string) $kodeProdi;
             // Butir pertanyaan spesifik prodi (jika ada)
-            $prodiQuestions = ProdiQuestion::where('prodi_id', $prodi->id)
-                ->where('type', '!=', 'header')
-                ->get();
+            $prodiSection = KuesionerSection::where('target', 'prodi')
+                ->where('prodi_id', $prodi->id)
+                ->first();
+            $prodiQuestions = $prodiSection
+                ? KuesionerPertanyaan::whereHas('sections', fn ($sq) => $sq->where('kuesioner_section.id', $prodiSection->id))
+                    ->where('tipe', '!=', 'header')
+                    ->with('opsi')
+                    ->get()
+                : collect();
 
             // Ambil daftar nama khusus program studi ini
             $prodiNamaList = $bankNamaPerProdi[$kodeProdiStr] ?? $bankNamaPerProdi['71'];
 
-            // Iterasi 10 Alumni untuk Program Studi Ini
-            for ($i = 0; $i < 10; $i++) {
+            // Sebarkan alumni secara merata dengan batas total 99 lulusan.
+            $alumniCount = $alumniCountByProdi[$kodeProdiStr] ?? 0;
+            for ($i = 0; $i < $alumniCount; $i++) {
                 $cfg = $targetKelulusanList[$i];
                 $angkatan = $cfg['angkatan'];
                 $duaDigitAngkatan = substr($angkatan, 2, 2);
@@ -297,7 +323,7 @@ class AlumniSimulationSeeder extends Seeder
                     [
                         'name' => $nama,
                         'email' => $personalEmail,
-                        'password' => Hash::make($defaultPassword),
+                        'password' => $defaultHashedPassword,
                         'role' => 'alumni',
                         'prodi_id' => $prodi->id,
                         'must_change_password' => true,
@@ -311,6 +337,8 @@ class AlumniSimulationSeeder extends Seeder
                     ['nim' => $nim],
                     [
                         'nama' => $nama,
+                        'email_pribadi' => $personalEmail,
+                        'prodi_id' => $prodi->id,
                         'angkatan_masuk' => (int) $angkatan,
                         'status_mahasiswa' => 'Lulus',
                         'tahun_akademik_lulus' => $cfg['semester'],
@@ -319,16 +347,9 @@ class AlumniSimulationSeeder extends Seeder
                         'ip_kumulatif' => $ipk,
                         'total_sks' => $totalSks,
                         'total_angka_kualitas' => round($ipk * $totalSks, 2),
-                        'tempat_lahir' => ($i % 2 === 0 ? 'Yogyakarta' : 'Jakarta'),
                         'tanggal_lahir' => $birthDate,
                         'jenis_kelamin' => $alumniBio['jk'],
                         'warga_negara' => 'WNI',
-                        'email_students' => $nim.'@students.ukdw.ac.id',
-                        'asal_sekolah' => 'SMA Negeri '.(($i % 5) + 1).' Yogyakarta',
-                        'alamat_asal_sekolah' => 'Jl. Kebangsaan No. 10',
-                        'kota_kabupaten_asal_sekolah' => 'Kota Yogyakarta',
-                        'provinsi_asal_sekolah' => 'DI Yogyakarta',
-                        'jurusan_asal_sekolah' => ($kodeProdiStr === '11' || $kodeProdiStr === '12' ? 'IPS' : 'IPA'),
                     ]
                 );
 
@@ -347,80 +368,89 @@ class AlumniSimulationSeeder extends Seeder
                     ]
                 );
 
-                // E. Bangun Profil Biodata & Variasi Status Responden
+                // E. Bangun profil biodata dan jawaban lengkap dengan lima kategori
+                // karier yang berulang merata di semua program studi.
                 $cleanUsername = strtolower(str_replace(' ', '', explode(' ', $nama)[0])).$nim;
-
-                // =========================================================================
-                // SKENARIO 1: LENGKAP 100% (Status: Selesai) - 4 Kategori Karier Berbeda
-                // =========================================================================
-                if ($i < 4) {
-                    $this->seedAlumniLengkap(
-                        $i,
-                        $user,
-                        $nim,
-                        $nama,
-                        $prodi,
-                        $dataAkademik,
-                        $yudisium,
-                        $cfg,
-                        $perusahaans,
-                        $propinsiDiy,
-                        $kabSleman,
-                        $propinsiJkt,
-                        $kabJaksel,
-                        $cleanUsername,
-                        $univQuestions,
-                        $prodiQuestions
-                    );
-                }
-                // =========================================================================
-                // SKENARIO 2: SEDANG MENGISI (Status: Belum Selesai, Progress 40% - 75%)
-                // =========================================================================
-                elseif ($i >= 4 && $i <= 6) {
-                    $this->seedAlumniSedangMengisi(
-                        $i,
-                        $user,
-                        $nim,
-                        $nama,
-                        $prodi,
-                        $dataAkademik,
-                        $yudisium,
-                        $cfg,
-                        $perusahaans,
-                        $propinsiDiy,
-                        $kabSleman,
-                        $cleanUsername,
-                        $univQuestions
-                    );
-                }
-                // =========================================================================
-                // SKENARIO 3: BELUM MENGISI (Status: Belum Selesai, 0% Pengisian Kuesioner)
-                // =========================================================================
-                else {
-                    $this->seedAlumniBelumMengisi(
-                        $user,
-                        $nim,
-                        $nama,
-                        $prodi,
-                        $dataAkademik,
-                        $yudisium,
-                        $cfg
-                    );
-                }
+                $this->seedAlumniLengkap(
+                    $i % 5,
+                    $i,
+                    $user,
+                    $nim,
+                    $nama,
+                    $prodi,
+                    $dataAkademik,
+                    $yudisium,
+                    $cfg,
+                    $perusahaans,
+                    $propinsiDiy,
+                    $kabSleman,
+                    $propinsiJkt,
+                    $kabJaksel,
+                    $cleanUsername,
+                    $univQuestions,
+                    $prodiQuestions
+                );
             }
+        }
+
+        $this->normalizeLegacyProdiAnswers();
+        $this->call(EvaluasiAtasanSimulationSeeder::class);
+    }
+
+    /**
+     * Menormalkan jawaban prodi lama yang masih tersimpan sebagai angka.
+     *
+     * Data lama dipetakan ke opsi aktif berdasarkan posisi skala agar respons
+     * tetap dipertahankan, tetapi penyimpanan runtime selalu memakai label dan
+     * relasi opsi master yang dibaca oleh form serta analitik.
+     */
+    protected function normalizeLegacyProdiAnswers(): void
+    {
+        $answers = KuesionerJawaban::query()
+            ->where('responden_type', 'alumni')
+            ->whereHas('section', fn ($query) => $query->where('target', 'prodi'))
+            ->with('pertanyaan.opsi')
+            ->get();
+
+        foreach ($answers as $answer) {
+            $options = $answer->pertanyaan?->opsi?->sortBy('order')->values() ?? collect();
+            if ($options->isEmpty()) {
+                continue;
+            }
+
+            $option = $options->first(fn ($item): bool => mb_strtolower(trim((string) $item->label)) === mb_strtolower(trim((string) $answer->jawaban_teks)));
+            if (! $option && is_numeric($answer->jawaban_teks)) {
+                $index = max(0, min($options->count() - 1, (int) $answer->jawaban_teks - 1));
+                $option = $options->get($index);
+            }
+
+            if (! $option) {
+                continue;
+            }
+
+            $answer->update([
+                'opsi_id' => $option->id,
+                'kode_opsi' => $option->kode_opsi,
+                'jawaban_teks' => $option->label,
+                'jawaban_json' => in_array($answer->pertanyaan?->tipe, ['multiple_choice', 'checkbox'], true)
+                    ? [$option->label]
+                    : $answer->jawaban_json,
+            ]);
         }
     }
 
     /**
      * Seeder untuk Alumni Lengkap 100% (Status Selesai)
-     * Mengimplementasikan 4 Kategori Berbeda:
+     * Mengimplementasikan 5 Kategori Berbeda:
      * - Kategori 1 (Index 0): Bekerja Swasta / BUMN (Bekerja sebelum lulus / F504 Ya)
-     * - Kategori 2 (Index 1): Wiraswasta / Pendiri Usaha Sendiri
+     * - Kategori 2 (Index 1): Founder / Co-Founder
      * - Kategori 3 (Index 2): Melanjutkan Pendidikan S2 (Studi Lanjut)
      * - Kategori 4 (Index 3): Bekerja Startup / Multinasional (Mencari setelah lulus / F504 Tidak)
+     * - Kategori 5 (Index 4): Freelancer / Konsultan Mandiri (Mencari setelah lulus / F504 Tidak)
      */
     protected function seedAlumniLengkap(
         int $kategoriIdx,
+        int $seedIndex,
         User $user,
         string $nim,
         string $nama,
@@ -450,7 +480,6 @@ class AlumniSimulationSeeder extends Seeder
         $perguruanTinggi = null;
         $pendidikanProdi = null;
         $gaji = 8500000;
-
         if ($kategoriIdx === 0) {
             // Kategori 1: Bekerja Swasta / BUMN
             $kategoriPekerjaan = 'Bekerja (Full Time)';
@@ -462,20 +491,20 @@ class AlumniSimulationSeeder extends Seeder
             $perusahaan = Perusahaan::firstOrCreate(
                 ['nama_perusahaan' => 'PT Bank Mandiri (Persero) Tbk'],
                 [
-                    'propinsi_id' => $propinsiJkt?->id,
-                    'kabupaten_id' => $kabJaksel?->id,
+                    'kode_provinsi' => $propinsiJkt?->kode_provinsi,
+                    'kode_kabupaten' => $kabJaksel?->kode_kabupaten,
                     'alamat' => 'Jl. Gatot Subroto Kav. 36-38, Senayan',
                     'sektor' => 'Perbankan & Keuangan',
                     'skala' => 'Nasional',
                     'jenis_perusahaan' => 'BUMN/BUMD',
                     'jenis_lokasi' => 'Dalam Negeri',
-                    'negara' => 'Indonesia',
+                    'kode_negara' => 'ID',
                     'status_verifikasi' => 'Terverifikasi',
                 ]
             );
             $perusahaanId = $perusahaan->id;
 
-            $atasan = Atasan::firstOrCreate(
+            $atasan = Atasan::updateOrCreate(
                 ['email' => 'atasan.mandiri.'.$nim.'@mandiri.co.id'],
                 [
                     'perusahaan_id' => $perusahaanId,
@@ -492,23 +521,23 @@ class AlumniSimulationSeeder extends Seeder
             $gaji = 15000000;
 
             $perusahaan = Perusahaan::firstOrCreate(
-                ['nama_perusahaan' => 'CV '.explode(' ', $nama)[0].' Inovasi Mandiri'],
+                ['nama_perusahaan' => 'CV Alumni Inovasi Mandiri'],
                 [
-                    'propinsi_id' => $propinsiDiy?->id,
-                    'kabupaten_id' => $kabSleman?->id,
+                    'kode_provinsi' => $propinsiDiy?->kode_provinsi,
+                    'kode_kabupaten' => $kabSleman?->kode_kabupaten,
                     'alamat' => 'Jl. Kaliurang Km. 5, Pogung Kidul',
                     'sektor' => 'Industri Kreatif & Digital Agency',
                     'skala' => 'Nasional',
                     'jenis_perusahaan' => 'Wiraswasta',
                     'jenis_lokasi' => 'Dalam Negeri',
-                    'negara' => 'Indonesia',
+                    'kode_negara' => 'ID',
                     'status_verifikasi' => 'Terverifikasi',
                 ]
             );
             $perusahaanId = $perusahaan->id;
 
-            $atasan = Atasan::firstOrCreate(
-                ['email' => 'partner.'.$nim.'@inovasimandiri.id'],
+            $atasan = Atasan::updateOrCreate(
+                ['email' => 'partner.inovasi.'.$nim.'@inovasimandiri.id'],
                 [
                     'perusahaan_id' => $perusahaanId,
                     'nama' => 'Rendra Pratama, S.Kom. (Co-Founder)',
@@ -528,20 +557,20 @@ class AlumniSimulationSeeder extends Seeder
             $perusahaan = Perusahaan::firstOrCreate(
                 ['nama_perusahaan' => 'Sekolah Pascasarjana Universitas Gadjah Mada'],
                 [
-                    'propinsi_id' => $propinsiDiy?->id,
-                    'kabupaten_id' => $kabSleman?->id,
+                    'kode_provinsi' => $propinsiDiy?->kode_provinsi,
+                    'kode_kabupaten' => $kabSleman?->kode_kabupaten,
                     'alamat' => 'Jl. Teknika Utara, Pogung',
                     'sektor' => 'Pendidikan Tinggi & Riset',
                     'skala' => 'Internasional',
                     'jenis_perusahaan' => 'Instansi pemerintah',
                     'jenis_lokasi' => 'Dalam Negeri',
-                    'negara' => 'Indonesia',
+                    'kode_negara' => 'ID',
                     'status_verifikasi' => 'Terverifikasi',
                 ]
             );
             $perusahaanId = $perusahaan->id;
 
-            $atasan = Atasan::firstOrCreate(
+            $atasan = Atasan::updateOrCreate(
                 ['email' => 'kaprodi.s2.'.$nim.'@mail.ugm.ac.id'],
                 [
                     'perusahaan_id' => $perusahaanId,
@@ -550,7 +579,7 @@ class AlumniSimulationSeeder extends Seeder
                 ]
             );
             $atasanId = $atasan->id;
-        } else {
+        } elseif ($kategoriIdx === 3) {
             // Kategori 4: Bekerja di Startup / Tech Multinasional (F504 = Tidak)
             $kategoriPekerjaan = 'Bekerja (Full Time)';
             $posisiJabatan = ($prodi->kode_prodi === '71' || $prodi->kode_prodi === '72') ? 'Product Data Analyst' : 'Business Development Specialist';
@@ -559,25 +588,57 @@ class AlumniSimulationSeeder extends Seeder
             $perusahaan = Perusahaan::firstOrCreate(
                 ['nama_perusahaan' => 'PT GoTo Gojek Tokopedia Tbk'],
                 [
-                    'propinsi_id' => $propinsiJkt?->id,
-                    'kabupaten_id' => $kabJaksel?->id,
+                    'kode_provinsi' => $propinsiJkt?->kode_provinsi,
+                    'kode_kabupaten' => $kabJaksel?->kode_kabupaten,
                     'alamat' => 'Pasaraya Blok M Gedung B Lt. 6, Kebayoran Baru',
                     'sektor' => 'Teknologi Informasi & E-Commerce',
                     'skala' => 'Internasional',
                     'jenis_perusahaan' => 'Perusahaan swasta',
                     'jenis_lokasi' => 'Dalam Negeri',
-                    'negara' => 'Indonesia',
+                    'kode_negara' => 'ID',
                     'status_verifikasi' => 'Terverifikasi',
                 ]
             );
             $perusahaanId = $perusahaan->id;
 
-            $atasan = Atasan::firstOrCreate(
+            $atasan = Atasan::updateOrCreate(
                 ['email' => 'lead.goto.'.$nim.'@gotocompany.com'],
                 [
                     'perusahaan_id' => $perusahaanId,
                     'nama' => 'Maya Indrawati, S.T., M.Kom. (Engineering Manager)',
                     'telepon' => '081223344004',
+                ]
+            );
+            $atasanId = $atasan->id;
+        } else {
+            // Kategori 5: Freelancer / Konsultan Mandiri (F504 = Tidak)
+            $kategoriPekerjaan = 'Wiraswasta';
+            $posisiWiraswasta = 'Freelancer / Konsultan Mandiri';
+            $posisiJabatan = 'Freelancer / Konsultan Mandiri';
+            $gaji = 7000000;
+
+            $perusahaan = Perusahaan::firstOrCreate(
+                ['nama_perusahaan' => 'Studio Mandiri Alumni'],
+                [
+                    'kode_provinsi' => $propinsiDiy?->kode_provinsi,
+                    'kode_kabupaten' => $kabSleman?->kode_kabupaten,
+                    'alamat' => 'Jl. Gejayan No. '.($kategoriIdx + 10).', Caturtunggal',
+                    'sektor' => 'Jasa Profesional dan Kreatif',
+                    'skala' => 'Lokal',
+                    'jenis_perusahaan' => 'Wiraswasta',
+                    'jenis_lokasi' => 'Dalam Negeri',
+                    'kode_negara' => 'ID',
+                    'status_verifikasi' => 'Terverifikasi',
+                ]
+            );
+            $perusahaanId = $perusahaan->id;
+
+            $atasan = Atasan::updateOrCreate(
+                ['email' => 'mentor.freelance.'.$nim.'@studio-mandiri.id'],
+                [
+                    'perusahaan_id' => $perusahaanId,
+                    'nama' => 'Dimas Prasetya, S.Kom. (Mitra Profesional)',
+                    'telepon' => '081223344005',
                 ]
             );
             $atasanId = $atasan->id;
@@ -595,8 +656,8 @@ class AlumniSimulationSeeder extends Seeder
                 'alamat_saat_ini' => $alamatSaatIni,
                 'kelurahan' => 'Caturtunggal',
                 'kecamatan' => 'Depok',
-                'kabupaten_id' => $kabSleman?->id,
-                'propinsi_id' => $propinsiDiy?->id,
+                'kode_kabupaten' => $kabSleman?->kode_kabupaten,
+                'kode_provinsi' => $propinsiDiy?->kode_provinsi,
                 'kode_pos' => '55281',
                 'instagram_url' => 'https://instagram.com/'.$cleanUsername,
                 'facebook_url' => 'https://facebook.com/'.$cleanUsername,
@@ -618,31 +679,40 @@ class AlumniSimulationSeeder extends Seeder
         );
 
         // Jangan reset kuesioner Joshua Andrean jika sudah memiliki jawaban
-        if ($nim === '72220001' && Tracer::where('biodata_id', $biodata->id)->count() > 0) {
+        if ($nim === '72220001' && KuesionerJawaban::where('biodata_id', $biodata->id)->count() > 0) {
             return;
         }
 
         // Isi Jawaban Kuesioner Universitas Lengkap (100% Wajib Terpenuhi)
-        $this->seedTracerAnswersLengkap($biodata, $kategoriIdx, $cfg['tahun'], $univQuestions);
+        $this->seedTracerAnswersLengkap($biodata, $kategoriIdx, $seedIndex, $univQuestions);
 
         // Isi Jawaban Kuesioner Khusus Prodi (Jika Prodi Memiliki Instrumen Soal)
         $this->seedProdiAnswersLengkap($biodata, $prodiQuestions);
+
     }
 
     /**
      * Mengisi Butir Kuesioner Universitas 100% Sesuai Kategori
      */
-    protected function seedTracerAnswersLengkap(Biodata $biodata, int $kategoriIdx, int $tahunLulus, $univQuestions): void
-    {
-        // Bersihkan jawaban tracer sebelumnya untuk alumni ini
-        Tracer::where('biodata_id', $biodata->id)->delete();
+    protected function seedTracerAnswersLengkap(
+        Biodata $biodata,
+        int $kategoriIdx,
+        int $seedIndex,
+        $univQuestions
+    ): void {
+        $univSection = KuesionerSection::where('target', 'univ')->first();
+        $univSectionId = $univSection?->id ?: 1;
+        $variation = $seedIndex + $biodata->id;
+
+        // Bersihkan jawaban kuesioner sebelumnya untuk alumni ini
+        KuesionerJawaban::where('biodata_id', $biodata->id)->delete();
 
         $answers = [];
 
         // 1. Status Pekerjaan F8 (Standar Dikti)
         if ($kategoriIdx === 0) {
             $answers['F8'] = 'Bekerja (full time/part time)';
-        } elseif ($kategoriIdx === 1) {
+        } elseif ($kategoriIdx === 1 || $kategoriIdx === 4) {
             $answers['F8'] = 'Wiraswasta';
         } elseif ($kategoriIdx === 2) {
             $answers['F8'] = 'Melanjutkan Pendidikan';
@@ -650,64 +720,155 @@ class AlumniSimulationSeeder extends Seeder
             $answers['F8'] = 'Bekerja (full time/part time)';
         }
 
-        // 3. Butir Kompetensi Wajib (F17a1 s/d F17b7) - Nilai skala 1 s/d 5
-        $kompetensiCodes = [
-            'F17a1', 'F17b1', 'F17a2', 'F17b2', 'F17a3', 'F17b3',
-            'F17a4', 'F17b4', 'F17a5', 'F17b5', 'F17a6', 'F17b6',
-            'F17a7', 'F17b7',
-        ];
-        foreach ($kompetensiCodes as $c) {
-            $answers[$c] = '4'; // 4 = Setuju / Tinggi
+        // F10 tetap diisi untuk seluruh alumni agar indikator aktivitas mencari
+        // pekerjaan tidak kosong ketika filter memakai kohort lengkap.
+        $activityLabel = $this->optionLabel(
+            $univQuestions->get('F10'),
+            ($variation + $kategoriIdx) % 5,
+        );
+        if ($activityLabel !== null) {
+            $answers['F10'] = $activityLabel;
         }
 
-        // 4. Jalur Non-Pendidikan (Bekerja / Wiraswasta: Kategori 0, 1, 3)
+        // 3. Butir Kompetensi Wajib (F17a1 s/d F17b7) - Nilai skala 1 s/d 5.
+        //    Nilai F17a dan F17b dibuat berhubungan tetapi tidak selalu sama,
+        //    agar analitik dapat menampilkan kondisi defisit, selaras, dan surplus.
+        $gapProfiles = [
+            [3, 5],
+            [4, 5],
+            [4, 4],
+            [4, 3],
+            [5, 4],
+            [3, 3],
+            [2, 4],
+        ];
+        foreach ($gapProfiles as $dimensionIndex => [$graduationScore, $needScore]) {
+            $adjustment = (($variation + $dimensionIndex) % 3) - 1;
+            $graduation = max(1, min(5, $graduationScore + $adjustment));
+            $need = max(1, min(5, $needScore + $adjustment));
+            $answers['F17a'.($dimensionIndex + 1)] = (string) $graduation;
+            $answers['F17b'.($dimensionIndex + 1)] = (string) $need;
+        }
+
+        // 3b. Penilaian metode pembelajaran F21 s.d. F27 dibuat dari opsi
+        // master agar indikator universitas memiliki jawaban valid yang nyata.
+        foreach (['F21', 'F22', 'F23', 'F24', 'F25', 'F26', 'F27'] as $methodIndex => $methodCode) {
+            $methodQuestion = $univQuestions->get($methodCode);
+            $methodOptions = $methodQuestion?->opsi?->sortBy('order')->values();
+
+            if ($methodOptions?->isNotEmpty()) {
+                $answers[$methodCode] = (string) $methodOptions->get(
+                    ($variation + $methodIndex) % $methodOptions->count()
+                )->label;
+            }
+        }
+
+        // 4. Jalur Non-Pendidikan (Bekerja / Wiraswasta: Kategori 0, 1, 3, 4)
         if ($kategoriIdx !== 2) {
-            $answers['F14'] = 'Sangat Erat';
-            $answers['F15'] = 'Tingkat yang Sama';
+            $answers['F14'] = ['Sangat erat', 'Erat', 'Cukup erat'][$variation % 3];
+            $answers['F15'] = ['Tingkat yang sama', 'Setingkat lebih tinggi', 'Setingkat lebih rendah'][$variation % 3];
 
             if ($kategoriIdx === 0 || $kategoriIdx === 1) {
                 // Mendapatkan kerja sebelum lulus
                 $answers['F504'] = 'Ya';
-                $answers['F502'] = '3'; // 3 bulan sebelum lulus
-                $answers['F3'] = 'Sebelum lulus ... bulan: 4';
+                $beforeMonths = [1, 3, 5][$variation % 3];
+                $answers['F502'] = (string) $beforeMonths;
+                $answers['F3'] = 'Sebelum lulus ... bulan: '.$beforeMonths;
             } else {
-                // Mendapatkan kerja setelah lulus (Kategori 3 / Index 3)
+                // Mendapatkan kerja setelah lulus (Startup atau Freelancer)
                 $answers['F504'] = 'Tidak';
-                $answers['F506'] = '2'; // 2 bulan setelah lulus
-                $answers['F3'] = 'Setelah lulus ... bulan: 2';
+                $afterMonths = [2, 7, 14][$variation % 3];
+                $answers['F506'] = (string) $afterMonths;
+                $answers['F3'] = 'Setelah lulus ... bulan: '.$afterMonths;
             }
 
-            $answers['F4'] = 'Mencari lewat internet/iklan online/milis';
-            $answers['F6'] = '4';
-            $answers['F7'] = '3';
-            $answers['F7A'] = '2';
-            $answers['F505'] = '8500000';
+            $f4Question = $univQuestions->get('F4');
+            $f4Options = $f4Question?->opsi?->sortBy('order')->values();
+            $answers['F4'] = $f4Options?->get($variation % max(1, $f4Options->count()))?->label
+                ?? 'Mencari lewat internet/iklan online/milis';
+            $applications = 2 + ($variation % 6);
+            $responses = max(1, $applications - ($variation % 3));
+            $interviews = max(1, $responses - 1);
+            $answers['F6'] = (string) $applications;
+            $answers['F7'] = (string) $responses;
+            $answers['F7A'] = (string) $interviews;
+            $answers['F505'] = (string) ($biodata->gaji ?? 0);
+
+            $workplaceLabel = $this->optionLabel(
+                $univQuestions->get('F11'),
+                $variation,
+                match ($kategoriIdx) {
+                    1, 4 => 'Wiraswasta/perusahaan sendiri',
+                    3 => 'Perusahaan swasta',
+                    default => 'BUMN/BUMD',
+                },
+            );
+            if ($workplaceLabel !== null) {
+                $answers['F11'] = $workplaceLabel;
+            }
+
+            $mismatchLabel = $this->optionLabel($univQuestions->get('F16'), $variation);
+            if ($mismatchLabel !== null) {
+                $answers['F16'] = $mismatchLabel;
+            }
         } else {
             // Jalur Melanjutkan Pendidikan (Kategori 2 / Index 2)
-            $answers['F12'] = 'Beasiswa Pemerintah';
+            $fundingQuestion = $univQuestions->get('F12');
+            $fundingOptions = $fundingQuestion?->opsi?->sortBy('order')->values();
+            $answers['F12'] = $fundingOptions?->get($variation % max(1, $fundingOptions->count()))?->label
+                ?? 'Beasiswa Pemerintah';
             $answers['F18b'] = 'Universitas Gadjah Mada';
             $answers['F18c'] = 'Program Magister Pascasarjana';
-            $answers['F18d'] = '2025-09-01';
+            $answers['F18d'] = $variation % 2 === 0 ? '2026-08-01' : '2026-09-01';
         }
 
-        // Simpan seluruh record ke tabel tracer
+        // Simpan seluruh record ke tabel kuesioner_jawaban terpadu
         foreach ($answers as $kode => $ans) {
-            $q = $univQuestions->get($kode);
+            $q = $univQuestions->get(strtoupper($kode));
             if ($q) {
-                Tracer::create([
+                $opsi = $q->opsi?->first(fn ($o) => mb_strtolower(trim($o->label)) === mb_strtolower(trim((string) $ans)));
+                KuesionerJawaban::create([
+                    'responden_type' => 'alumni',
                     'biodata_id' => $biodata->id,
-                    'question_id' => $q->id,
-                    'nim' => $biodata->nim,
-                    'kelompok' => $q->kelompok,
+                    'evaluasi_atasan_id' => null,
+                    'section_id' => $univSectionId,
+                    'pertanyaan_id' => $q->id,
                     'kode_pertanyaan' => $q->kode_pertanyaan,
-                    'subpertanyaan' => $q->subpertanyaan,
-                    'answer' => $ans,
-                    'answer_json' => null,
-                    'keterangan' => null,
-                    'tahun_lulus' => (string) $tahunLulus,
+                    'opsi_id' => $opsi?->id,
+                    'kode_opsi' => $opsi?->kode_opsi,
+                    'jawaban_teks' => (string) $ans,
+                    'jawaban_json' => null,
                 ]);
             }
         }
+    }
+
+    /**
+     * Mengambil label opsi aktif berdasarkan preferensi atau indeks deterministik.
+     *
+     * @param  int  $index  Indeks variasi yang berasal dari alumni fixture.
+     * @param  string|null  $preferredLabel  Label kanonik yang diprioritaskan.
+     */
+    protected function optionLabel(
+        ?KuesionerPertanyaan $question,
+        int $index,
+        ?string $preferredLabel = null,
+    ): ?string {
+        $options = $question?->opsi?->sortBy('order')->values() ?? collect();
+        if ($options->isEmpty()) {
+            return null;
+        }
+
+        if ($preferredLabel !== null) {
+            $preferredOption = $options->first(
+                fn ($option): bool => mb_strtolower(trim((string) $option->label)) === mb_strtolower(trim($preferredLabel))
+            );
+            if ($preferredOption !== null) {
+                return (string) $preferredOption->label;
+            }
+        }
+
+        return (string) $options->get($index % $options->count())->label;
     }
 
     /**
@@ -719,22 +880,56 @@ class AlumniSimulationSeeder extends Seeder
             return;
         }
 
-        ProdiResponse::where('biodata_id', $biodata->id)->delete();
+        $prodiSection = KuesionerSection::where('target', 'prodi')
+            ->where('prodi_id', $biodata->prodi_id)
+            ->first();
+        $sectionId = $prodiSection?->id ?: 1;
 
         foreach ($prodiQuestions as $pq) {
-            $ans = '4'; // Default skala likert 4 = Setuju
-            if ($pq->type === 'text' || $pq->type === 'textarea') {
-                $ans = 'Program studi memberikan bekal keahlian yang relevan dan aplikatif di dunia profesional.';
-            } elseif ($pq->type === 'radio' || $pq->type === 'dropdown') {
-                $ans = 'Sangat Setuju';
+            $ans = '';
+            $answerJson = null;
+            $opsi = null;
+
+            if ($pq->tipe === 'text' || $pq->tipe === 'textarea') {
+                $textAnswers = [
+                    'Program studi memberikan bekal keahlian yang relevan dan aplikatif di dunia profesional.',
+                    'Kegiatan praktikum dan proyek membantu alumni memahami kebutuhan dunia kerja.',
+                    'Kurikulum perlu terus diperbarui agar selaras dengan perkembangan industri dan masyarakat.',
+                    'Kolaborasi dengan alumni dan mitra kerja dapat memperkuat pengalaman belajar mahasiswa.',
+                ];
+                $ans = $textAnswers[($biodata->id + $pq->id) % count($textAnswers)];
+            } elseif ($pq->opsi?->isNotEmpty()) {
+                $selectedOptions = $pq->opsi->sortBy('order')->values();
+                $opsi = $selectedOptions->get($biodata->id % $selectedOptions->count());
+                $ans = $opsi?->label ?? '';
+                $answerJson = in_array($pq->tipe, ['multiple_choice', 'checkbox'], true)
+                    ? [$ans]
+                    : null;
             }
 
-            ProdiResponse::create([
-                'biodata_id' => $biodata->id,
-                'prodi_question_id' => $pq->id,
-                'answer_text' => $ans,
-                'answer_json' => null,
-            ]);
+            if ($ans === '') {
+                continue;
+            }
+
+            if (! $opsi && $pq->opsi?->isNotEmpty()) {
+                $opsi = $pq->opsi->first(fn ($o) => mb_strtolower(trim($o->label)) === mb_strtolower(trim((string) $ans)));
+            }
+
+            KuesionerJawaban::updateOrCreate(
+                [
+                    'responden_type' => 'alumni',
+                    'biodata_id' => $biodata->id,
+                    'pertanyaan_id' => $pq->id,
+                ],
+                [
+                    'section_id' => $sectionId,
+                    'kode_pertanyaan' => $pq->kode_pertanyaan,
+                    'opsi_id' => $opsi?->id,
+                    'kode_opsi' => $opsi?->kode_opsi,
+                    'jawaban_teks' => $ans,
+                    'jawaban_json' => $answerJson,
+                ]
+            );
         }
     }
 
@@ -760,7 +955,7 @@ class AlumniSimulationSeeder extends Seeder
         $personalEmail = strtolower(str_replace(' ', '', explode(' ', $nama)[0])).$prodi->kode_prodi.($idx + 1).'@gmail.com';
         $nomorTelepon = '0812'.str_pad((string) (11000000 + $idx), 8, '0', STR_PAD_LEFT);
         $alamatSaatIni = 'Jl. Solo Km. '.($idx + 4).' No. '.($idx * 7 + 10).', Caturtunggal';
-        $perusahaan = $perusahaans->first();
+        $perusahaan = $perusahaans->first() ?? Perusahaan::query()->first();
 
         $biodata = Biodata::updateOrCreate(
             ['user_id' => $user->id],
@@ -773,8 +968,8 @@ class AlumniSimulationSeeder extends Seeder
                 'alamat_saat_ini' => $alamatSaatIni,
                 'kelurahan' => 'Caturtunggal',
                 'kecamatan' => 'Depok',
-                'kabupaten_id' => $kabSleman?->id,
-                'propinsi_id' => $propinsiDiy?->id,
+                'kode_kabupaten' => $kabSleman?->kode_kabupaten,
+                'kode_provinsi' => $propinsiDiy?->kode_provinsi,
                 'kode_pos' => '55281',
                 'instagram_url' => 'https://instagram.com/'.$cleanUsername,
                 'facebook_url' => null,
@@ -790,8 +985,10 @@ class AlumniSimulationSeeder extends Seeder
             ]
         );
 
-        Tracer::where('biodata_id', $biodata->id)->delete();
-        ProdiResponse::where('biodata_id', $biodata->id)->delete();
+        $univSection = KuesionerSection::where('target', 'univ')->first();
+        $univSectionId = $univSection?->id ?: 1;
+
+        KuesionerJawaban::where('biodata_id', $biodata->id)->delete();
 
         // Hanya jawab sebagian kuesioner wajib (misal 8 dari 20 butir = 40% - 50%)
         $partialAnswers = [
@@ -806,19 +1003,20 @@ class AlumniSimulationSeeder extends Seeder
         ];
 
         foreach ($partialAnswers as $kode => $ans) {
-            $q = $univQuestions->get($kode);
+            $q = $univQuestions->get(strtoupper($kode));
             if ($q) {
-                Tracer::create([
+                $opsi = $q->opsi?->first(fn ($o) => mb_strtolower(trim($o->label)) === mb_strtolower(trim((string) $ans)));
+                KuesionerJawaban::create([
+                    'responden_type' => 'alumni',
                     'biodata_id' => $biodata->id,
-                    'question_id' => $q->id,
-                    'nim' => $biodata->nim,
-                    'kelompok' => $q->kelompok,
+                    'evaluasi_atasan_id' => null,
+                    'section_id' => $univSectionId,
+                    'pertanyaan_id' => $q->id,
                     'kode_pertanyaan' => $q->kode_pertanyaan,
-                    'subpertanyaan' => $q->subpertanyaan,
-                    'answer' => $ans,
-                    'answer_json' => null,
-                    'keterangan' => null,
-                    'tahun_lulus' => (string) $cfg['tahun'],
+                    'opsi_id' => $opsi?->id,
+                    'kode_opsi' => $opsi?->kode_opsi,
+                    'jawaban_teks' => (string) $ans,
+                    'jawaban_json' => null,
                 ]);
             }
         }
@@ -848,8 +1046,8 @@ class AlumniSimulationSeeder extends Seeder
                 'alamat_saat_ini' => null,
                 'kelurahan' => null,
                 'kecamatan' => null,
-                'kabupaten_id' => null,
-                'propinsi_id' => null,
+                'kode_kabupaten' => null,
+                'kode_provinsi' => null,
                 'kode_pos' => null,
                 'instagram_url' => null,
                 'facebook_url' => null,
@@ -871,7 +1069,6 @@ class AlumniSimulationSeeder extends Seeder
         );
 
         // Pastikan tidak ada jawaban kuesioner tersimpan (0% Progress)
-        Tracer::where('biodata_id', $biodata->id)->delete();
-        ProdiResponse::where('biodata_id', $biodata->id)->delete();
+        KuesionerJawaban::where('biodata_id', $biodata->id)->delete();
     }
 }

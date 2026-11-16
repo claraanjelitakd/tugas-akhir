@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\SuperAdmin\KelolaPertanyaan;
 
 use App\Http\Controllers\Controller;
-use App\Models\RefSubpertanyaan2021;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSectionPertanyaan;
+use App\Models\LogActivity;
 use App\Services\Kuesioner\QuestionDefaultOptionsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,34 +15,40 @@ use Illuminate\Http\Request;
  * Class SimpanPertanyaanController
  *
  * Fungsi:
- * Controller khusus untuk menangani aksi manipulasi data butir pertanyaan:
+ * Controller khusus untuk menangani aksi manipulasi data butir pertanyaan kuesioner universitas:
  * 1. Tambah pertanyaan baru (store)
  * 2. Perbarui data pertanyaan (update)
  * 3. Hapus pertanyaan beserta opsinya (destroy)
  * 4. Pindah urutan pertanyaan naik/turun dalam section yang sama (reorder)
+ * 5. Toggle visibilitas kuesioner / profil (toggleVisibility)
  */
 class SimpanPertanyaanController extends Controller
 {
     /**
      * Menyimpan butir pertanyaan baru ke dalam database.
-     *
-     * @return RedirectResponse
      */
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'kelompok_pertanyaan_id' => 'required|exists:kelompok_pertanyaan,id',
-            'kode_pertanyaan' => 'required|string|max:50|unique:ref_subpertanyaan2021,kode_pertanyaan',
+            'section_id' => 'required|exists:kuesioner_section,id',
+            'kode_pertanyaan' => 'required|string|max:50|unique:kuesioner_pertanyaan,kode_pertanyaan',
+            'label_pertanyaan' => 'nullable|string|max:255',
             'subpertanyaan' => 'required|string',
-            'type' => 'required|string|in:radio,single_choice,radio_input,radio_text,multiple_choice,checkbox,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,text,textarea,number,date,time,dropdown,searchable_select,file,header',
+            'type' => 'required|string|in:radio,single_choice,radio_input,radio_text,multiple_choice,checkbox,multiple_choice_text,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,text,textarea,number,date,time,dropdown,searchable_select,file,header',
             'keterangan' => 'nullable|string|max:500',
             'wajib' => 'required|boolean',
-            'tampil_di' => 'nullable|string|in:kuesioner,profile,profil,both',
+            'tampil_di' => 'nullable|string|in:kuesioner,profile,profil,both,hidden,none',
             'order' => 'nullable|integer',
+            'options' => 'nullable|array',
+            'options.*.code' => 'nullable|string|max:50|distinct',
+            'options.*.label' => 'required_with:options.*.code|nullable|string',
+            'options.*.jump_to' => 'nullable|string|max:50',
         ]);
 
+        $sectionId = (int) $validated['section_id'];
+
         if (empty($validated['order'])) {
-            $validated['order'] = (RefSubpertanyaan2021::where('kelompok_pertanyaan_id', $validated['kelompok_pertanyaan_id'])->max('order') ?? 0) + 1;
+            $validated['order'] = (int) ((KuesionerSectionPertanyaan::where('section_id', $sectionId)->max('order') ?? 0) + 1);
         }
 
         if (empty($validated['tampil_di'])) {
@@ -50,92 +59,159 @@ class SimpanPertanyaanController extends Controller
             $validated['keterangan'] = QuestionDefaultOptionsService::getDefaultInstruction($validated['type']);
         }
 
-        $subpertanyaan = RefSubpertanyaan2021::create($validated);
+        $pertanyaan = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => trim($validated['kode_pertanyaan']),
+            'label_pertanyaan' => filled($validated['label_pertanyaan'] ?? null) ? trim($validated['label_pertanyaan']) : null,
+            'teks_pertanyaan' => trim($validated['subpertanyaan']),
+            'tipe' => $validated['type'],
+            'keterangan' => $validated['keterangan'],
+            'pemilik_prodi_id' => null,
+            'is_reusable' => true,
+            'is_active' => true,
+        ]);
 
-        // Otomatis buatkan opsi pilihan default jika pertanyaan mendukung opsi
-        QuestionDefaultOptionsService::generateForUnivQuestion($subpertanyaan);
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $sectionId,
+            'pertanyaan_id' => $pertanyaan->id,
+            'order' => (int) $validated['order'],
+            'wajib' => (bool) $validated['wajib'],
+            'tampil_di' => $validated['tampil_di'],
+        ]);
+
+        if ($request->has('options') && is_array($validated['options'] ?? null) && count($validated['options']) > 0) {
+            foreach ($validated['options'] as $index => $option) {
+                $label = trim((string) ($option['label'] ?? ''));
+                if ($label === '') {
+                    continue;
+                }
+
+                $optionOrder = $index + 1;
+                KuesionerOpsi::create([
+                    'pertanyaan_id' => $pertanyaan->id,
+                    'kode_opsi' => trim((string) ($option['code'] ?? '')) ?: $pertanyaan->kode_pertanyaan.'-'.str_pad((string) $optionOrder, 2, '0', STR_PAD_LEFT),
+                    'label' => $label,
+                    'nilai_skor' => $pertanyaan->tipe === 'rating_5' ? $optionOrder : null,
+                    'lompat_ke_pertanyaan_id' => filled($option['jump_to'] ?? null) ? trim((string) $option['jump_to']) : null,
+                    'order' => $optionOrder,
+                ]);
+            }
+        } else {
+            QuestionDefaultOptionsService::generateForUnifiedQuestion($pertanyaan);
+        }
+
+        LogActivity::record('KUESIONER_UNIV_QUESTION_CREATED', 'Membuat pertanyaan kuesioner universitas: '.$pertanyaan->kode_pertanyaan.'.', $pertanyaan, null, $validated);
 
         return redirect()->back()->with('success', 'Pertanyaan baru beserta pilihan opsi jawaban default berhasil ditambahkan.');
     }
 
     /**
      * Memperbarui data butir pertanyaan yang sudah ada.
-     *
-     * @param  int  $id
-     * @return RedirectResponse
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id): RedirectResponse
     {
-        $subpertanyaan = RefSubpertanyaan2021::findOrFail($id);
+        $pertanyaan = KuesionerPertanyaan::findOrFail($id);
 
         $validated = $request->validate([
-            'kelompok_pertanyaan_id' => 'required|exists:kelompok_pertanyaan,id',
-            'kode_pertanyaan' => 'required|string|max:50|unique:ref_subpertanyaan2021,kode_pertanyaan,'.$subpertanyaan->id,
+            'section_id' => 'required|exists:kuesioner_section,id',
+            'kode_pertanyaan' => 'required|string|max:50|unique:kuesioner_pertanyaan,kode_pertanyaan,'.$pertanyaan->id,
+            'label_pertanyaan' => 'nullable|string|max:255',
             'subpertanyaan' => 'required|string',
-            'type' => 'required|string|in:radio,single_choice,radio_input,radio_text,multiple_choice,checkbox,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,text,textarea,number,date,time,dropdown,searchable_select,file,header',
+            'type' => 'required|string|in:radio,single_choice,radio_input,radio_text,multiple_choice,checkbox,multiple_choice_text,rating_5,multiple_number,matrix,matrix_dual,multiple_textbox,text,textarea,number,date,time,dropdown,searchable_select,file,header',
             'keterangan' => 'nullable|string|max:500',
             'wajib' => 'required|boolean',
-            'tampil_di' => 'nullable|string|in:kuesioner,profile,profil,both',
+            'tampil_di' => 'nullable|string|in:kuesioner,profile,profil,both,hidden,none',
             'order' => 'nullable|integer',
         ]);
 
-        if (empty($validated['tampil_di'])) {
-            $validated['tampil_di'] = $subpertanyaan->tampil_di ?? 'kuesioner';
+        $sectionId = (int) $validated['section_id'];
+
+        $pertanyaan->update([
+            'kode_pertanyaan' => trim($validated['kode_pertanyaan']),
+            'label_pertanyaan' => filled($validated['label_pertanyaan'] ?? null) ? trim($validated['label_pertanyaan']) : null,
+            'teks_pertanyaan' => trim($validated['subpertanyaan']),
+            'tipe' => $validated['type'],
+            'keterangan' => $validated['keterangan'] ?? $pertanyaan->keterangan,
+        ]);
+
+        $sp = KuesionerSectionPertanyaan::where('pertanyaan_id', $pertanyaan->id)->first();
+        if ($sp) {
+            $sp->update([
+                'section_id' => $sectionId,
+                'order' => $validated['order'] ?? $sp->order,
+                'wajib' => (bool) $validated['wajib'],
+                'tampil_di' => $validated['tampil_di'] ?? $sp->tampil_di,
+            ]);
+        } else {
+            KuesionerSectionPertanyaan::create([
+                'section_id' => $sectionId,
+                'pertanyaan_id' => $pertanyaan->id,
+                'order' => $validated['order'] ?? 1,
+                'wajib' => (bool) $validated['wajib'],
+                'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
+            ]);
         }
 
-        if (empty($validated['keterangan'])) {
-            $validated['keterangan'] = QuestionDefaultOptionsService::getDefaultInstruction($validated['type']);
-        }
-
-        $subpertanyaan->update($validated);
+        LogActivity::record('KUESIONER_UNIV_QUESTION_UPDATED', 'Memperbarui pertanyaan kuesioner universitas: '.$pertanyaan->kode_pertanyaan.'.', $pertanyaan, null, $validated);
 
         return redirect()->back()->with('success', 'Data pertanyaan berhasil diperbarui.');
     }
 
     /**
      * Menghapus butir pertanyaan.
-     *
-     * @param  int  $id
-     * @return RedirectResponse
      */
-    public function destroy($id)
+    public function destroy(int $id): RedirectResponse
     {
-        $subpertanyaan = RefSubpertanyaan2021::findOrFail($id);
-        $subpertanyaan->delete();
+        $pertanyaan = KuesionerPertanyaan::findOrFail($id);
+
+        KuesionerSectionPertanyaan::where('pertanyaan_id', $pertanyaan->id)->delete();
+
+        if ($pertanyaan->jawaban()->count() === 0) {
+            $pertanyaan->opsi()->delete();
+            $pertanyaan->delete();
+        }
+
+        LogActivity::record('KUESIONER_UNIV_QUESTION_DELETED', 'Menghapus pertanyaan kuesioner universitas: '.$pertanyaan->kode_pertanyaan.'.', null, $pertanyaan->toArray());
 
         return redirect()->back()->with('success', 'Pertanyaan berhasil dihapus.');
     }
 
     /**
-     * Mengatur ulang urutan butir pertanyaan.
-     *
-     * Mendukung:
-     * - Direct directional reorder (naik / turun) via 'id' & 'direction'
-     * - Bulk drag-and-drop reorder via array 'orders'
-     *
-     * @return RedirectResponse
+     * Mengubah status aktif master pertanyaan tanpa menghapus penempatan atau jawaban historis.
      */
-    public function reorder(Request $request)
+    public function toggleActive(int $id): RedirectResponse
+    {
+        $pertanyaan = KuesionerPertanyaan::findOrFail($id);
+        $pertanyaan->update(['is_active' => ! $pertanyaan->is_active]);
+
+        $status = $pertanyaan->is_active ? 'diaktifkan' : 'dinonaktifkan';
+
+        return redirect()->back()->with('success', "Pertanyaan [{$pertanyaan->kode_pertanyaan}] berhasil {$status}.");
+    }
+
+    /**
+     * Mengatur ulang urutan butir pertanyaan.
+     */
+    public function reorder(Request $request): RedirectResponse
     {
         if ($request->has(['id', 'direction'])) {
             $validated = $request->validate([
-                'id' => 'required|exists:ref_subpertanyaan2021,id',
+                'id' => 'required|exists:kuesioner_pertanyaan,id',
                 'direction' => 'required|in:up,down',
             ]);
 
-            $currentSubpertanyaan = RefSubpertanyaan2021::findOrFail($validated['id']);
+            $currentSp = KuesionerSectionPertanyaan::where('pertanyaan_id', $validated['id'])->firstOrFail();
             $operator = $validated['direction'] === 'up' ? '<' : '>';
             $sortOrder = $validated['direction'] === 'up' ? 'desc' : 'asc';
 
-            $adjacentSubpertanyaan = RefSubpertanyaan2021::where('kelompok_pertanyaan_id', $currentSubpertanyaan->kelompok_pertanyaan_id)
-                ->where('order', $operator, $currentSubpertanyaan->order)
+            $adjacentSp = KuesionerSectionPertanyaan::where('section_id', $currentSp->section_id)
+                ->where('order', $operator, $currentSp->order)
                 ->orderBy('order', $sortOrder)
                 ->first();
 
-            if ($adjacentSubpertanyaan) {
-                $tempOrder = $currentSubpertanyaan->order;
-                $currentSubpertanyaan->update(['order' => $adjacentSubpertanyaan->order]);
-                $adjacentSubpertanyaan->update(['order' => $tempOrder]);
+            if ($adjacentSp) {
+                $tempOrder = $currentSp->order;
+                $currentSp->update(['order' => $adjacentSp->order]);
+                $adjacentSp->update(['order' => $tempOrder]);
             }
 
             return redirect()->back()->with('success', 'Urutan pertanyaan berhasil diperbarui.');
@@ -144,17 +220,100 @@ class SimpanPertanyaanController extends Controller
         if ($request->has('orders')) {
             $validated = $request->validate([
                 'orders' => 'required|array',
-                'orders.*.id' => 'required|exists:ref_subpertanyaan2021,id',
+                'orders.*.id' => 'required|exists:kuesioner_pertanyaan,id',
                 'orders.*.order' => 'required|integer',
             ]);
 
             foreach ($validated['orders'] as $item) {
-                RefSubpertanyaan2021::where('id', $item['id'])->update(['order' => $item['order']]);
+                KuesionerSectionPertanyaan::where('pertanyaan_id', $item['id'])->update(['order' => $item['order']]);
             }
 
             return redirect()->back()->with('success', 'Seluruh urutan pertanyaan berhasil diperbarui.');
         }
 
         return redirect()->back()->withErrors(['message' => 'Parameter pengurutan tidak valid.']);
+    }
+
+    /**
+     * Mengubah visibilitas tampilnya butir pertanyaan (di Profil Alumni atau Kuesioner Tracer).
+     */
+    public function toggleVisibility(Request $request, int $id): RedirectResponse
+    {
+        $pertanyaan = KuesionerPertanyaan::findOrFail($id);
+        $sp = KuesionerSectionPertanyaan::where('pertanyaan_id', $pertanyaan->id)->firstOrFail();
+        $target = $request->input('target', 'profil');
+        $current = $sp->tampil_di ?? 'kuesioner';
+
+        if ($target === 'profil') {
+            $isCurrentlyInProfile = in_array($current, ['profil', 'profile', 'both'], true);
+
+            if ($isCurrentlyInProfile) {
+                $newTampilDi = ($current === 'both') ? 'kuesioner' : 'hidden';
+                $message = 'Pertanyaan ['.$pertanyaan->kode_pertanyaan.'] disembunyikan dari Profil Alumni.';
+            } else {
+                $newTampilDi = ($current === 'kuesioner') ? 'both' : 'profil';
+                $message = 'Pertanyaan ['.$pertanyaan->kode_pertanyaan.'] kini ditampilkan di Profil Alumni.';
+            }
+        } else {
+            $isCurrentlyInTracer = in_array($current, ['kuesioner', 'both'], true) || empty($current);
+
+            if ($isCurrentlyInTracer) {
+                $newTampilDi = ($current === 'both') ? 'profil' : 'hidden';
+                $message = 'Pertanyaan ['.$pertanyaan->kode_pertanyaan.'] disembunyikan dari Kuesioner Tracer.';
+            } else {
+                $newTampilDi = ($current === 'profil') ? 'both' : 'kuesioner';
+                $message = 'Pertanyaan ['.$pertanyaan->kode_pertanyaan.'] kini ditampilkan di Kuesioner Tracer.';
+            }
+        }
+
+        $sp->update(['tampil_di' => $newTampilDi]);
+
+        return redirect()->back()->with('success', $message);
+    }
+
+    /**
+     * Menyematkan pertanyaan dari Bank Soal ke bagian (section) instrumen universitas.
+     */
+    public function attachFromBank(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'section_id' => 'required|exists:kuesioner_section,id',
+            'pertanyaan_ids' => 'required|array|min:1',
+            'pertanyaan_ids.*' => 'required|exists:kuesioner_pertanyaan,id',
+        ]);
+
+        $sectionId = (int) $validated['section_id'];
+        $selectedQuestions = KuesionerPertanyaan::whereIn('id', $validated['pertanyaan_ids'])->get();
+
+        $maxOrder = (int) (KuesionerSectionPertanyaan::where('section_id', $sectionId)->max('order') ?: 0);
+        $addedCount = 0;
+
+        foreach ($selectedQuestions as $bankQuestion) {
+            $maxOrder++;
+
+            $created = KuesionerSectionPertanyaan::firstOrCreate(
+                [
+                    'section_id' => $sectionId,
+                    'pertanyaan_id' => $bankQuestion->id,
+                ],
+                [
+                    'order' => $maxOrder,
+                    'wajib' => true,
+                    'tampil_di' => 'kuesioner',
+                    'is_active' => true,
+                ]
+            );
+
+            if ($created->wasRecentlyCreated) {
+                $addedCount++;
+            }
+        }
+
+        LogActivity::record('KUESIONER_UNIV_BANK_ATTACHED', 'Menyematkan '.$addedCount.' pertanyaan dari Bank Soal ke section universitas.', null, null, [
+            'section_id' => $sectionId,
+            'pertanyaan_ids' => $validated['pertanyaan_ids'],
+        ], KuesionerSectionPertanyaan::class, $sectionId);
+
+        return redirect()->back()->with('success', "{$addedCount} butir pertanyaan dari Bank Soal berhasil disematkan ke instrumen kuesioner universitas.");
     }
 }

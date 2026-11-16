@@ -5,11 +5,14 @@ namespace Tests\Feature;
 use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
+use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\RefFakultas;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\RefSubpertanyaanDetil;
-use App\Models\Tracer;
 use App\Models\User;
 use App\Models\Yudisium;
 use App\Services\Alumni\AdminAlumniProfileService;
@@ -67,7 +70,7 @@ class AlumniProfileEnhancementTest extends TestCase
         $dataAkademik = DataAkademik::create([
             'nim' => '71200001',
             'nama' => 'Clara Anjelita',
-            'tempat_lahir' => 'Sleman',
+            'email_pribadi' => 'clara.akademik@ukdw.ac.id',
             'tanggal_lahir' => '2001-08-15',
             'jenis_kelamin' => 'Perempuan',
             'warga_negara' => 'WNI',
@@ -91,6 +94,16 @@ class AlumniProfileEnhancementTest extends TestCase
             'judul_ta' => 'Sistem Informasi Tracer Study',
             'judul_ta_inggris' => 'Tracer Study Information System',
         ]);
+
+        KuesionerSection::firstOrCreate(
+            ['target' => 'univ'],
+            [
+                'kode_section' => 'SEC_UNIV_1',
+                'judul' => 'Kuesioner Universitas',
+                'order' => 1,
+                'is_active' => true,
+            ]
+        );
     }
 
     /**
@@ -105,10 +118,6 @@ class AlumniProfileEnhancementTest extends TestCase
 
     public function test_sensitive_reference_data_is_not_exposed_on_alumni_profile_and_is_preserved_on_save(): void
     {
-        DataAkademik::where('nim', $this->biodata->nim)->update([
-            'email_students' => '71200001@students.ukdw.ac.id',
-        ]);
-
         $page = $this->actingAs($this->alumniUser)->get(route('alumni.profile'));
 
         $page->assertInertia(fn ($assertion) => $assertion
@@ -218,6 +227,132 @@ class AlumniProfileEnhancementTest extends TestCase
         }
     }
 
+    /**
+     * Memastikan pembaruan parsial admin tidak mengosongkan field profil yang tidak dikirim.
+     */
+    public function test_admin_partial_profile_update_preserves_unsubmitted_profile_data(): void
+    {
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Data Lama',
+            'status_verifikasi' => 'Terverifikasi',
+            'alamat' => 'Alamat Head Office Lama',
+            'kode_pos' => '55281',
+            'homepage' => 'https://data-lama.example.test',
+            'no_telp_fax' => '0274-123456',
+        ]);
+        $atasan = Atasan::create([
+            'perusahaan_id' => $company->id,
+            'nama' => 'Atasan Lama',
+            'email' => 'atasan.lama@example.test',
+            'telepon' => '081234567890',
+        ]);
+
+        $this->biodata->update([
+            'nomor_telepon' => '081200000001',
+            'alamat_saat_ini' => 'Domisili Lama',
+            'kode_pos' => '55111',
+            'skills' => 'Laravel, Vue',
+            'experience' => 'Pengalaman kerja lama',
+            'kategori_pekerjaan' => 'Pekerja',
+            'posisi_jabatan' => 'Staf Lama',
+            'gaji' => 7000000,
+            'perusahaan_id' => $company->id,
+            'atasan_id' => $atasan->id,
+        ]);
+
+        AdminAlumniProfileService::updateProfile($this->biodata, [
+            'posisi_jabatan' => 'Lead Engineer',
+        ]);
+
+        $freshBiodata = $this->biodata->fresh();
+        $this->assertSame('Lead Engineer', $freshBiodata->posisi_jabatan);
+        $this->assertSame('081200000001', $freshBiodata->nomor_telepon);
+        $this->assertSame('Domisili Lama', $freshBiodata->alamat_saat_ini);
+        $this->assertSame('Laravel, Vue', $freshBiodata->skills);
+        $this->assertSame('Pengalaman kerja lama', $freshBiodata->experience);
+        $this->assertSame(7000000, $freshBiodata->gaji);
+        $this->assertSame($company->id, $freshBiodata->perusahaan_id);
+        $this->assertSame($atasan->id, $freshBiodata->atasan_id);
+
+        $this->assertSame('Alamat Head Office Lama', $company->fresh()->alamat);
+        $this->assertSame('atasan.lama@example.test', $atasan->fresh()->email);
+        $this->assertSame('081234567890', $atasan->fresh()->telepon);
+    }
+
+    /**
+     * Memastikan perubahan isian atasan tidak mengubah record atasan milik alumni lain.
+     */
+    public function test_profile_update_does_not_share_atasan_record_between_alumni(): void
+    {
+        $sharedAtasan = Atasan::create([
+            'nama' => 'Atasan Bersama Lama',
+            'email' => 'atasan-bersama@example.test',
+        ]);
+
+        $this->biodata->update(['atasan_id' => $sharedAtasan->id]);
+
+        $otherUser = User::create([
+            'name' => 'Alumni Lain',
+            'email' => 'alumni-lain@ukdw.ac.id',
+            'username' => '71200002',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'prodi_id' => $this->prodi->id,
+            'must_change_password' => false,
+        ]);
+
+        DataAkademik::create([
+            'nim' => '71200002',
+            'nama' => 'Alumni Lain',
+            'tahun_lulus' => 2026,
+        ]);
+
+        $otherBiodata = Biodata::create([
+            'user_id' => $otherUser->id,
+            'nim' => '71200002',
+            'prodi_id' => $this->prodi->id,
+            'atasan_id' => $sharedAtasan->id,
+        ]);
+
+        AdminAlumniProfileService::updateProfile($otherBiodata, [
+            'nama_atasan' => 'Atasan Alumni Lain',
+            'email_atasan' => 'atasan-lain@example.test',
+        ]);
+
+        $this->biodata->refresh();
+        $otherBiodata->refresh();
+
+        $this->assertSame($sharedAtasan->id, $this->biodata->atasan_id);
+        $this->assertNotSame($sharedAtasan->id, $otherBiodata->atasan_id);
+        $this->assertSame('Atasan Bersama Lama', $sharedAtasan->fresh()->nama);
+        $this->assertSame('Atasan Alumni Lain', Atasan::find($otherBiodata->atasan_id)->nama);
+        $this->assertDatabaseCount('atasan', 2);
+    }
+
+    /**
+     * Status non-kerja menghapus bidang dan divisi agar data master tidak
+     * menyimpan atribut pekerjaan yang sudah tidak relevan.
+     */
+    public function test_non_working_status_clears_job_field_and_division(): void
+    {
+        $this->biodata->update([
+            'kategori_pekerjaan' => 'Pekerja',
+            'bidang_pekerjaan' => 'Teknologi Informasi',
+            'divisi' => 'Product Development',
+        ]);
+
+        AdminAlumniProfileService::updateProfile($this->biodata, [
+            'kategori_pekerjaan' => 'Tidak Bekerja',
+            'bidang_pekerjaan' => 'Teknologi Informasi',
+            'divisi' => 'Product Development',
+        ]);
+
+        $freshBiodata = $this->biodata->fresh();
+        $this->assertSame('Tidak Bekerja', $freshBiodata->kategori_pekerjaan);
+        $this->assertNull($freshBiodata->bidang_pekerjaan);
+        $this->assertNull($freshBiodata->divisi);
+    }
+
     public function test_profile_updates_biodata_without_changing_reference_data(): void
     {
         $academicEmail = DataAkademik::where('nim', $this->biodata->nim)->value('email_pribadi');
@@ -230,6 +365,102 @@ class AlumniProfileEnhancementTest extends TestCase
         $this->assertSame('email.biodata.baru@example.com', $this->biodata->fresh()->email_pribadi);
         $this->assertSame($academicEmail, DataAkademik::where('nim', $this->biodata->nim)->value('email_pribadi'));
         $this->assertNull($this->biodata->fresh()->getAttribute('orang_tua_id'));
+    }
+
+    /**
+     * Memastikan biodata mengambil email akademik hanya saat pembuatan awal.
+     */
+    public function test_new_biodata_copies_academic_email_without_two_way_sync(): void
+    {
+        $nim = '71200002';
+        $academicEmail = 'academic.source@example.com';
+
+        User::create([
+            'name' => 'Alumni Email Source',
+            'email' => 'source.user@example.com',
+            'username' => $nim,
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'prodi_id' => $this->prodi->id,
+            'must_change_password' => false,
+        ]);
+
+        DataAkademik::create([
+            'nim' => $nim,
+            'nama' => 'Alumni Email Source',
+            'email_pribadi' => $academicEmail,
+        ]);
+
+        $biodata = Biodata::create([
+            'nim' => $nim,
+            'prodi_id' => $this->prodi->id,
+            'email_pribadi' => null,
+        ]);
+
+        $biodata->update(['email_pribadi' => 'updated.biodata@example.com']);
+
+        $this->assertSame($academicEmail, DataAkademik::where('nim', $nim)->value('email_pribadi'));
+        $this->assertSame('updated.biodata@example.com', $biodata->fresh()->email_pribadi);
+    }
+
+    /** Memastikan profil alumni tidak menurunkan status atau menghapus metadata master head office. */
+    public function test_profile_preserves_verified_head_office_when_form_is_partial(): void
+    {
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Master Head Office',
+            'status_verifikasi' => 'Terverifikasi',
+            'alamat' => 'Jl. Kantor Pusat No. 1',
+            'kode_pos' => '12950',
+            'homepage' => 'https://master.example.test',
+            'no_telp_fax' => '021-123456',
+        ]);
+
+        $response = $this->actingAs($this->alumniUser)->post(route('alumni.profile.simpan'), [
+            'nama_perusahaan' => $company->nama_perusahaan,
+        ]);
+
+        $response->assertRedirect();
+
+        $company->refresh();
+        $this->assertSame('Terverifikasi', $company->status_verifikasi);
+        $this->assertSame('Jl. Kantor Pusat No. 1', $company->alamat);
+        $this->assertSame('12950', $company->kode_pos);
+        $this->assertSame('https://master.example.test', $company->homepage);
+        $this->assertSame('021-123456', $company->no_telp_fax);
+        $this->assertSame($company->id, $this->biodata->fresh()->perusahaan_id);
+    }
+
+    /** Memastikan kandidat perusahaan pending milik alumni lain tidak bocor ke dropdown profil. */
+    public function test_profile_company_options_hide_pending_companies_from_other_users(): void
+    {
+        $otherUser = User::create([
+            'name' => 'Alumni Lain',
+            'email' => 'alumni-lain@example.com',
+            'username' => '71200010',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'prodi_id' => $this->prodi->id,
+            'must_change_password' => false,
+        ]);
+
+        $ownPending = Perusahaan::create([
+            'nama_perusahaan' => 'PT Pending Milik Clara',
+            'status_verifikasi' => 'Menunggu Verifikasi',
+            'created_by_user_id' => $this->alumniUser->id,
+        ]);
+        $otherPending = Perusahaan::create([
+            'nama_perusahaan' => 'PT Pending Milik Alumni Lain',
+            'status_verifikasi' => 'Menunggu Verifikasi',
+            'created_by_user_id' => $otherUser->id,
+        ]);
+
+        $this->actingAs($this->alumniUser)
+            ->get(route('alumni.profile'))
+            ->assertInertia(fn ($page) => $page->where('companies', function ($companies) use ($ownPending, $otherPending): bool {
+                $ids = collect($companies)->pluck('id')->all();
+
+                return in_array($ownPending->id, $ids, true) && ! in_array($otherPending->id, $ids, true);
+            }));
     }
 
     /**
@@ -270,41 +501,37 @@ class AlumniProfileEnhancementTest extends TestCase
      */
     public function test_gaji_syncs_to_tracer_f505(): void
     {
-        $qF505 = RefSubpertanyaan2021::create([
-            'section_kode' => '4',
-            'kelompok' => 'F5',
+        $qF505 = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F505',
-            'subpertanyaan' => 'Berapa rata-rata pendapatan anda per bulan ? (take home pay)?',
-            'type' => 'number',
+            'teks_pertanyaan' => 'Berapa rata-rata pendapatan anda per bulan ? (take home pay)?',
+            'tipe' => 'number',
             'keterangan' => 'Nominal Take Home Pay',
-            'wajib' => 1,
-            'order' => 25,
+            'is_active' => true,
         ]);
 
-        Tracer::create([
+        KuesionerJawaban::create([
+            'responden_type' => 'alumni',
             'biodata_id' => $this->biodata->id,
-            'question_id' => $qF505->id,
-            'nim' => $this->biodata->nim,
-            'kelompok' => 'F5',
+            'section_id' => 1,
+            'pertanyaan_id' => $qF505->id,
             'kode_pertanyaan' => 'F505',
-            'subpertanyaan' => $qF505->subpertanyaan,
-            'answer' => '850000',
-            'answer_json' => ['F5051' => '850000', 'total' => 850000],
+            'jawaban_teks' => '850000',
+            'jawaban_json' => ['F5051' => '850000', 'total' => 850000],
         ]);
 
         $this->biodata->update(['gaji' => 9500000]);
         KuesionerSyncService::syncProfileResponses($this->biodata);
 
-        $tracer = Tracer::where('biodata_id', $this->biodata->id)
+        $tracer = KuesionerJawaban::where('biodata_id', $this->biodata->id)
             ->where('kode_pertanyaan', 'F505')
             ->first();
 
         $this->assertNotNull($tracer);
-        $this->assertSame('9500000', $tracer->answer);
-        $this->assertSame($qF505->id, $tracer->question_id);
-        $this->assertSame($qF505->id, $tracer->masterPertanyaan->id);
-        $this->assertSame('9500000', $tracer->answer_json['F5051']);
-        $this->assertSame(9500000, $tracer->answer_json['total']);
+        $this->assertSame('9500000', $tracer->jawaban_teks);
+        $this->assertSame($qF505->id, $tracer->pertanyaan_id);
+        $this->assertSame($qF505->id, $tracer->pertanyaan->id);
+        $this->assertSame('9500000', $tracer->jawaban_json['F5051']);
+        $this->assertSame(9500000, $tracer->jawaban_json['total']);
     }
 
     /**
@@ -341,22 +568,18 @@ class AlumniProfileEnhancementTest extends TestCase
      */
     public function test_f11_and_wiraswasta_f5c_syncs_to_tracer(): void
     {
-        $qF11 = RefSubpertanyaan2021::create([
-            'kelompok' => 'F11',
+        $qF11 = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F11',
-            'subpertanyaan' => 'Apa jenis perusahaan/instansi/institusi tempat Anda bekerja sekarang?',
-            'type' => 'radio',
-            'wajib' => 1,
-            'order' => 30,
+            'teks_pertanyaan' => 'Apa jenis perusahaan/instansi/institusi tempat Anda bekerja sekarang?',
+            'tipe' => 'radio',
+            'is_active' => true,
         ]);
 
-        $qF5C = RefSubpertanyaan2021::create([
-            'kelompok' => 'F5',
+        $qF5C = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F5C',
-            'subpertanyaan' => 'Bila berwiraswasta, apa posisi/jabatan Anda saat ini?',
-            'type' => 'text',
-            'wajib' => 0,
-            'order' => 31,
+            'teks_pertanyaan' => 'Bila berwiraswasta, apa posisi/jabatan Anda saat ini?',
+            'tipe' => 'text',
+            'is_active' => true,
         ]);
 
         $response = $this->actingAs($this->alumniUser)->post('/alumni/profile', [
@@ -374,39 +597,47 @@ class AlumniProfileEnhancementTest extends TestCase
         $this->assertEquals('Chief Executive Officer', $this->biodata->posisi_wiraswasta);
         $this->assertEquals('Perusahaan swasta', $this->biodata->perusahaan->jenis_perusahaan);
 
-        $tracerF11 = Tracer::where('biodata_id', $this->biodata->id)->where('kode_pertanyaan', 'F11')->first();
+        $tracerF11 = KuesionerJawaban::where('biodata_id', $this->biodata->id)->where('kode_pertanyaan', 'F11')->first();
         $this->assertNotNull($tracerF11);
-        $this->assertEquals('Perusahaan swasta', $tracerF11->answer);
+        $this->assertEquals('Perusahaan swasta', $tracerF11->jawaban_teks);
 
-        $tracerF5C = Tracer::where('biodata_id', $this->biodata->id)->where('kode_pertanyaan', 'F5C')->first();
+        $tracerF5C = KuesionerJawaban::where('biodata_id', $this->biodata->id)->where('kode_pertanyaan', 'F5C')->first();
         $this->assertNotNull($tracerF5C);
-        $this->assertEquals('Chief Executive Officer', $tracerF5C->answer);
+        $this->assertEquals('Chief Executive Officer', $tracerF5C->jawaban_teks);
     }
 
     public function test_dynamic_profile_dropdown_saves_other_text_to_tracer(): void
     {
-        $question = RefSubpertanyaan2021::create([
-            'kelompok' => 'BIO',
+        $sec = KuesionerSection::firstOrCreate(
+            ['target' => 'univ'],
+            ['kode_section' => 'SEC_UNIV_1', 'judul' => 'Kuesioner Universitas', 'order' => 1, 'is_active' => true]
+        );
+
+        $question = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'BIO_BIDANG_TEST',
-            'subpertanyaan' => 'Bidang pekerjaan atau divisi',
-            'type' => 'dropdown',
-            'wajib' => 1,
-            'tampil_di' => 'profile',
-            'order' => 90,
+            'teks_pertanyaan' => 'Bidang pekerjaan atau divisi',
+            'tipe' => 'dropdown',
+            'is_active' => true,
         ]);
 
-        RefSubpertanyaanDetil::create([
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $sec->id,
             'pertanyaan_id' => $question->id,
-            'kode_pertanyaan' => $question->kode_pertanyaan,
+            'order' => 90,
+            'wajib' => true,
+            'tampil_di' => 'profile',
+        ]);
+
+        KuesionerOpsi::create([
+            'pertanyaan_id' => $question->id,
             'kode_opsi' => '1',
-            'option_text' => 'Teknologi Informasi',
+            'label' => 'Teknologi Informasi',
             'order' => 1,
         ]);
-        RefSubpertanyaanDetil::create([
+        KuesionerOpsi::create([
             'pertanyaan_id' => $question->id,
-            'kode_pertanyaan' => $question->kode_pertanyaan,
             'kode_opsi' => '2',
-            'option_text' => 'Lainnya',
+            'label' => 'Lainnya',
             'order' => 2,
         ]);
 
@@ -422,17 +653,17 @@ class AlumniProfileEnhancementTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('tracer', [
+        $this->assertDatabaseHas('kuesioner_jawaban', [
             'biodata_id' => $this->biodata->id,
-            'question_id' => $question->id,
-            'answer' => 'Lainnya: Konsultan Independen',
+            'pertanyaan_id' => $question->id,
+            'jawaban_teks' => 'Lainnya: Konsultan Independen',
         ]);
 
-        $saved = Tracer::where('biodata_id', $this->biodata->id)
-            ->where('question_id', $question->id)
+        $saved = KuesionerJawaban::where('biodata_id', $this->biodata->id)
+            ->where('pertanyaan_id', $question->id)
             ->firstOrFail();
-        $this->assertSame('Lainnya', $saved->answer_json['selected']);
-        $this->assertSame('Konsultan Independen', $saved->answer_json['input']);
+        $this->assertSame('Lainnya', $saved->jawaban_json['selected']);
+        $this->assertSame('Konsultan Independen', $saved->jawaban_json['input']);
     }
 
     /**
@@ -441,23 +672,20 @@ class AlumniProfileEnhancementTest extends TestCase
      */
     public function test_bidang_pekerjaan_dropdown_saves_to_biodata(): void
     {
-        $question = RefSubpertanyaan2021::create([
-            'kelompok' => 'BIO',
+        $question = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'BIO_BIDANG_DIVISI',
-            'subpertanyaan' => 'Bidang pekerjaan atau divisi',
-            'type' => 'dropdown',
-            'wajib' => 0,
-            'tampil_di' => 'profil',
-            'order' => 91,
+            'teks_pertanyaan' => 'Bidang pekerjaan atau divisi',
+            'tipe' => 'dropdown',
+            'is_active' => true,
         ]);
 
-        RefSubpertanyaanDetil::updateOrCreate(
+        KuesionerOpsi::updateOrCreate(
             ['pertanyaan_id' => $question->id, 'kode_opsi' => '5'],
-            ['kode_pertanyaan' => $question->kode_pertanyaan, 'option_text' => 'Teknologi Informasi', 'order' => 1]
+            ['label' => 'Teknologi Informasi', 'order' => 1]
         );
-        RefSubpertanyaanDetil::updateOrCreate(
+        KuesionerOpsi::updateOrCreate(
             ['pertanyaan_id' => $question->id, 'kode_opsi' => '15'],
-            ['kode_pertanyaan' => $question->kode_pertanyaan, 'option_text' => 'Lainnya', 'order' => 2]
+            ['label' => 'Lainnya', 'order' => 2]
         );
 
         $page = $this->actingAs($this->alumniUser)->get(route('alumni.profile'));
@@ -467,13 +695,13 @@ class AlumniProfileEnhancementTest extends TestCase
         );
 
         $response = $this->actingAs($this->alumniUser)->post(route('alumni.profile.simpan'), [
-            'bidang_pekerjaan' => 'Lainnya',
+            'bidang_pekerjaan' => '15 - Lainnya',
             'bidang_pekerjaan_lainnya' => 'Konsultan Independen',
         ]);
 
         $response->assertRedirect();
         $this->assertSame('Konsultan Independen', $this->biodata->fresh()->bidang_pekerjaan);
-        $this->assertDatabaseMissing('tracer', [
+        $this->assertDatabaseMissing('kuesioner_jawaban', [
             'biodata_id' => $this->biodata->id,
             'kode_pertanyaan' => 'BIO_BIDANG_DIVISI',
         ]);
@@ -484,24 +712,18 @@ class AlumniProfileEnhancementTest extends TestCase
      */
     public function test_melanjutkan_pendidikan_profile_and_atasan_saves_properly(): void
     {
-        $qF18b = RefSubpertanyaan2021::create([
-            'section_kode' => '10',
-            'kelompok' => 'F18',
+        $qF18b = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F18b',
-            'subpertanyaan' => 'Perguruan Tinggi',
-            'type' => 'text',
-            'wajib' => 1,
-            'order' => 68,
+            'teks_pertanyaan' => 'Perguruan Tinggi',
+            'tipe' => 'text',
+            'is_active' => true,
         ]);
 
-        $qF18c = RefSubpertanyaan2021::create([
-            'section_kode' => '10',
-            'kelompok' => 'F18',
+        $qF18c = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'F18c',
-            'subpertanyaan' => 'Program Studi',
-            'type' => 'text',
-            'wajib' => 1,
-            'order' => 69,
+            'teks_pertanyaan' => 'Program Studi',
+            'tipe' => 'text',
+            'is_active' => true,
         ]);
 
         $response = $this->actingAs($this->alumniUser)->post('/alumni/profile', [
@@ -531,12 +753,12 @@ class AlumniProfileEnhancementTest extends TestCase
         $this->assertEquals('081234567899', $atasan->telepon);
 
         // Pastikan sinkronisasi ke tracer F18b dan F18c berjalan
-        $tracerF18b = Tracer::where('biodata_id', $this->biodata->id)->where('kode_pertanyaan', 'F18b')->first();
+        $tracerF18b = KuesionerJawaban::where('biodata_id', $this->biodata->id)->where('kode_pertanyaan', 'F18b')->first();
         $this->assertNotNull($tracerF18b);
-        $this->assertEquals('Universitas Gadjah Mada', $tracerF18b->answer);
+        $this->assertEquals('Universitas Gadjah Mada', $tracerF18b->jawaban_teks);
 
-        $tracerF18c = Tracer::where('biodata_id', $this->biodata->id)->where('kode_pertanyaan', 'F18c')->first();
+        $tracerF18c = KuesionerJawaban::where('biodata_id', $this->biodata->id)->where('kode_pertanyaan', 'F18c')->first();
         $this->assertNotNull($tracerF18c);
-        $this->assertEquals('Magister Ilmu Komputer', $tracerF18c->answer);
+        $this->assertEquals('Magister Ilmu Komputer', $tracerF18c->jawaban_teks);
     }
 }

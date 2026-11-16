@@ -2,11 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Models\Atasan;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
+use App\Models\Perusahaan;
 use App\Models\Prodi;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\Tracer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -52,7 +56,6 @@ class SuperAdminDashboardTest extends TestCase
             'nim' => '72200001',
             'nama' => 'Alumni SI 1',
             'email_pribadi' => 'alumni1@test.com',
-            'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2001-08-15',
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',
@@ -62,12 +65,27 @@ class SuperAdminDashboardTest extends TestCase
             'tahun_akademik_lulus' => 'Genap 2024/2025',
         ]);
 
-        Biodata::create([
+        $biodata = Biodata::create([
             'user_id' => $alumniUser->id,
             'nim' => '72200001',
             'nama' => 'Alumni SI 1',
             'prodi_id' => $prodi->id,
         ]);
+
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Dashboard Operasional',
+            'status_verifikasi' => 'Menunggu Verifikasi',
+            'created_by_user_id' => $alumniUser->id,
+            'created_by_prodi_id' => $prodi->id,
+        ]);
+
+        $atasan = Atasan::create([
+            'perusahaan_id' => $company->id,
+            'nama' => 'Atasan Dashboard',
+            'email' => 'atasan.dashboard@example.com',
+        ]);
+
+        $biodata->update(['atasan_id' => $atasan->id]);
 
         $response = $this->actingAs($superadmin)->get('/superadmin/dashboard');
 
@@ -86,6 +104,78 @@ class SuperAdminDashboardTest extends TestCase
             ->where('completionMetrics.population', 1)
             ->where('completionMetrics.profile.percentage', 0)
             ->where('completionMetrics.university_questionnaire.percentage', 0)
+            ->where('dashboardSummary.pending_perusahaan', 1)
+            ->where('dashboardSummary.total_perusahaan', 1)
+            ->where('dashboardSummary.total_atasan', 1)
+            ->where('companyRequests.0.applicant', 'Alumni SI 1')
+            ->where('companyRequests.0.name', 'PT Dashboard Operasional')
+            ->where('supervisorDirectory.0.name', 'Atasan Dashboard')
+            ->where('supervisorDirectory.0.alumni_name', 'Alumni SI 1')
+        );
+    }
+
+    /**
+     * Memastikan Dashboard menampilkan satu baris relasi untuk setiap alumni,
+     * bukan menggabungkan jumlah alumni di bawah satu nama atasan.
+     */
+    public function test_dashboard_lists_one_supervisor_relation_per_alumni(): void
+    {
+        $prodi = Prodi::create([
+            'kode_prodi' => '72',
+            'nama_prodi' => 'Sistem Informasi',
+        ]);
+
+        $superadmin = User::create([
+            'username' => 'superadmin-supervisor-relations',
+            'name' => 'Super Administrator',
+            'password' => Hash::make('password123'),
+            'role' => 'superadmin',
+            'must_change_password' => false,
+        ]);
+
+        $sharedAtasan = Atasan::create([
+            'nama' => 'Atasan yang Sama',
+            'email' => 'atasan-sama@example.test',
+        ]);
+
+        foreach ([
+            ['nim' => '72200021', 'nama' => 'Alumni Relasi Satu'],
+            ['nim' => '72200022', 'nama' => 'Alumni Relasi Dua'],
+        ] as $alumniData) {
+            $user = User::create([
+                'username' => $alumniData['nim'],
+                'name' => $alumniData['nama'],
+                'password' => Hash::make('password123'),
+                'role' => 'alumni',
+                'prodi_id' => $prodi->id,
+                'must_change_password' => false,
+            ]);
+
+            DataAkademik::create([
+                'nim' => $alumniData['nim'],
+                'nama' => $alumniData['nama'],
+                'tahun_lulus' => now()->year,
+            ]);
+
+            Biodata::create([
+                'user_id' => $user->id,
+                'nim' => $alumniData['nim'],
+                'prodi_id' => $prodi->id,
+                'atasan_id' => $sharedAtasan->id,
+            ]);
+        }
+
+        $response = $this->actingAs($superadmin)->get('/superadmin/dashboard');
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('dashboardSummary.total_atasan', 2)
+            ->where('supervisorDirectory', function ($supervisors): bool {
+                $records = collect($supervisors);
+
+                return $records->count() === 2
+                    && $records->every(fn (array $record): bool => ! array_key_exists('alumni_count', $record))
+                    && $records->pluck('alumni_name')->sort()->values()->all() === ['Alumni Relasi Dua', 'Alumni Relasi Satu'];
+            })
         );
     }
 
@@ -104,54 +194,85 @@ class SuperAdminDashboardTest extends TestCase
             'must_change_password' => false,
         ]);
 
-        $currentYear = now()->year;
-        $previousYear = $currentYear - 1;
+        $currentYear = (string) now()->year;
+        $previousYear = (string) (now()->year - 1);
 
-        foreach ([$currentYear, $previousYear] as $index => $graduationYear) {
-            $nim = '7220'.str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT);
-            $alumniUser = User::create([
-                'username' => $nim,
-                'name' => 'Alumni '.$graduationYear,
-                'password' => Hash::make('password123'),
-                'role' => 'alumni',
-                'prodi_id' => $prodi->id,
-                'must_change_password' => false,
-            ]);
+        $currentYearUser = User::create([
+            'username' => '72200011',
+            'name' => 'Alumni Tahun Berjalan',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'prodi_id' => $prodi->id,
+            'must_change_password' => false,
+        ]);
+        DataAkademik::create([
+            'nim' => '72200011',
+            'nama' => 'Alumni Tahun Berjalan',
+            'tahun_lulus' => (int) $currentYear,
+        ]);
+        Biodata::create([
+            'user_id' => $currentYearUser->id,
+            'nim' => '72200011',
+            'nama' => 'Alumni Tahun Berjalan',
+            'prodi_id' => $prodi->id,
+        ]);
 
-            DataAkademik::create([
-                'nim' => $nim,
-                'nama' => 'Alumni '.$graduationYear,
-                'tahun_lulus' => $graduationYear,
-            ]);
-
-            Biodata::create([
-                'user_id' => $alumniUser->id,
-                'nim' => $nim,
-                'nama' => 'Alumni '.$graduationYear,
-                'prodi_id' => $prodi->id,
-            ]);
-        }
+        $previousYearUser = User::create([
+            'username' => '72200012',
+            'name' => 'Alumni Tahun Lalu',
+            'password' => Hash::make('password123'),
+            'role' => 'alumni',
+            'prodi_id' => $prodi->id,
+            'must_change_password' => false,
+        ]);
+        DataAkademik::create([
+            'nim' => '72200012',
+            'nama' => 'Alumni Tahun Lalu',
+            'tahun_lulus' => (int) $previousYear,
+        ]);
+        Biodata::create([
+            'user_id' => $previousYearUser->id,
+            'nim' => '72200012',
+            'nama' => 'Alumni Tahun Lalu',
+            'prodi_id' => $prodi->id,
+        ]);
 
         $response = $this->actingAs($superadmin)->get('/superadmin/dashboard?tahun='.$previousYear);
 
+        $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
-            ->where('selectedYear', (string) $previousYear)
+            ->where('selectedYear', $previousYear)
+            ->where('availableYears', fn ($years) => collect($years)->contains($previousYear) && collect($years)->contains($currentYear))
             ->where('stats.total_alumni', 1)
             ->where('completionMetrics.population', 1)
             ->where('prodiSummaries.0.total_alumni', 1)
-            ->where('recentAlumni.0.tahun_lulus', $previousYear)
+            ->where('recentAlumni.0.tahun_lulus', (int) $previousYear)
         );
     }
 
     public function test_dashboard_classifies_response_rate_by_three_thresholds(): void
     {
-        $question = RefSubpertanyaan2021::create([
-            'kelompok' => 'F8',
-            'kode_pertanyaan' => 'F8',
-            'subpertanyaan' => 'Status utama setelah lulus',
-            'type' => 'radio',
-            'wajib' => true,
+        $univSection = KuesionerSection::create([
+            'kode_section' => 'SEC_UNIV_DASH',
+            'target' => 'univ',
+            'judul' => 'Bagian Universitas',
             'order' => 1,
+            'is_active' => true,
+        ]);
+
+        $question = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'F8',
+            'teks_pertanyaan' => 'Status utama setelah lulus',
+            'tipe' => 'radio',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $univSection->id,
+            'pertanyaan_id' => $question->id,
+            'order' => 1,
+            'wajib' => true,
+            'tampil_di' => 'kuesioner',
         ]);
 
         $superadmin = User::create([
@@ -199,14 +320,13 @@ class SuperAdminDashboardTest extends TestCase
                 ]);
 
                 if ($index <= $prodiDefinition['responded']) {
-                    Tracer::create([
+                    KuesionerJawaban::create([
+                        'responden_type' => 'alumni',
                         'biodata_id' => $biodata->id,
-                        'question_id' => $question->id,
-                        'nim' => $nim,
-                        'kelompok' => 'F8',
+                        'section_id' => $univSection->id,
+                        'pertanyaan_id' => $question->id,
                         'kode_pertanyaan' => 'F8',
-                        'subpertanyaan' => $question->subpertanyaan,
-                        'answer' => 'Bekerja',
+                        'jawaban_teks' => 'Bekerja',
                     ]);
                 }
             }
@@ -229,6 +349,14 @@ class SuperAdminDashboardTest extends TestCase
 
     public function test_audit_view_counts_active_mandatory_questions_instead_of_fixed_twenty(): void
     {
+        $univSection = KuesionerSection::create([
+            'kode_section' => 'SEC_UNIV_MANDATORY',
+            'target' => 'univ',
+            'judul' => 'Bagian Universitas Wajib',
+            'order' => 1,
+            'is_active' => true,
+        ]);
+
         $prodi = Prodi::create([
             'kode_prodi' => '72',
             'nama_prodi' => 'Sistem Informasi',
@@ -256,24 +384,29 @@ class SuperAdminDashboardTest extends TestCase
             'prodi_id' => $prodi->id,
         ]);
 
-        foreach (['F8', 'F504', 'F14', 'F15', 'F502'] as $code) {
-            $question = RefSubpertanyaan2021::create([
-                'kelompok' => $code,
+        foreach (['F8', 'F504', 'F14', 'F15', 'F502'] as $index => $code) {
+            $question = KuesionerPertanyaan::create([
                 'kode_pertanyaan' => $code,
-                'subpertanyaan' => 'Butir '.$code,
-                'type' => 'radio',
-                'wajib' => true,
-                'order' => 1,
+                'teks_pertanyaan' => 'Butir '.$code,
+                'tipe' => 'radio',
+                'is_active' => true,
             ]);
 
-            Tracer::create([
+            KuesionerSectionPertanyaan::create([
+                'section_id' => $univSection->id,
+                'pertanyaan_id' => $question->id,
+                'order' => $index + 1,
+                'wajib' => true,
+                'tampil_di' => 'kuesioner',
+            ]);
+
+            KuesionerJawaban::create([
+                'responden_type' => 'alumni',
                 'biodata_id' => $biodata->id,
-                'question_id' => $question->id,
-                'nim' => $biodata->nim,
-                'kelompok' => $question->kelompok,
-                'kode_pertanyaan' => $question->kode_pertanyaan,
-                'subpertanyaan' => $question->subpertanyaan,
-                'answer' => 'Terisi',
+                'section_id' => $univSection->id,
+                'pertanyaan_id' => $question->id,
+                'kode_pertanyaan' => $code,
+                'jawaban_teks' => 'Terisi',
             ]);
         }
 

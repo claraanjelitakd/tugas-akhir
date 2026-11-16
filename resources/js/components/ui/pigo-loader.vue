@@ -1,6 +1,6 @@
 <template>
     <transition name="fade">
-        <div v-if="isLoading" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/65 backdrop-blur-xs transition-opacity">
+        <div v-if="isLoading" class="pointer-events-none fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/65 backdrop-blur-xs transition-opacity">
             
             <!-- Container Spinner Dotted (Gaya Gambar 3) -->
             <div class="relative flex items-center justify-center w-36 h-36">
@@ -39,6 +39,9 @@
 </template>
 
 <script setup>
+/**
+ * Indikator transisi navigasi global yang tidak menghalangi interaksi menu.
+ */
 defineProps({
     isLoading: {
         type: Boolean,

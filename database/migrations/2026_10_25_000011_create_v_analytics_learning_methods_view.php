@@ -11,6 +11,7 @@ return new class extends Migration
     /** Membuat proyeksi khusus indikator metode pembelajaran. */
     public function up(): void
     {
+        DB::statement('DROP VIEW IF EXISTS v_analytics_learning_methods');
         DB::statement('CREATE VIEW v_analytics_learning_methods AS SELECT * FROM v_analytics_tracer_answers WHERE kode_pertanyaan IN (\'F21\', \'F22\', \'F23\', \'F24\', \'F25\', \'F26\', \'F27\')');
     }
 

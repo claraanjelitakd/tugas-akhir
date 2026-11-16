@@ -11,8 +11,8 @@ return new class extends Migration
     /**
      * Membuat satu baris jawaban per alumni dan kode pertanyaan.
      *
-     * Tabel tracer sudah menjamin keunikan pasangan biodata dan kode melalui
-     * unique key sehingga tidak diperlukan agregasi MAX(id) pada setiap baca.
+     * Jawaban tracer diambil dari tabel kanonik `kuesioner_jawaban` dan
+     * dihubungkan ke master pertanyaan melalui `pertanyaan_id`.
      */
     public function up(): void
     {
@@ -27,13 +27,28 @@ SELECT
     population.prodi_id,
     population.nama_prodi,
     population.tahun_lulus,
-    tracer.kode_pertanyaan,
-    tracer.kelompok,
-    tracer.subpertanyaan,
-    tracer.answer,
-    tracer.answer_json
+    population.ipk,
+    p.kode_pertanyaan,
+    s.kode_section AS kelompok,
+    p.kode_pertanyaan AS subpertanyaan,
+    j.jawaban_teks AS answer,
+    j.jawaban_json AS answer_json
 FROM v_analytics_population AS population
-INNER JOIN tracer ON tracer.biodata_id = population.biodata_id
+INNER JOIN (
+    SELECT
+        biodata_id,
+        pertanyaan_id,
+        MAX(id) AS latest_id
+    FROM kuesioner_jawaban
+    WHERE responden_type = 'alumni'
+      AND biodata_id IS NOT NULL
+    GROUP BY biodata_id, pertanyaan_id
+) AS latest ON latest.biodata_id = population.biodata_id
+INNER JOIN kuesioner_jawaban j ON j.id = latest.latest_id
+INNER JOIN kuesioner_pertanyaan p ON p.id = j.pertanyaan_id
+INNER JOIN kuesioner_section s ON s.id = j.section_id
+WHERE s.target = 'univ'
+  AND j.responden_type = 'alumni';
 SQL);
     }
 

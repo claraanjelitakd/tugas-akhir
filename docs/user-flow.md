@@ -120,9 +120,9 @@ flowchart TD
     C --> F[3. Kelola Kuesioner Khusus Prodi]
     F --> F1[Kelola Section / Bagian: /prodi/sections]
     F1 --> F2[Tambah, Edit, Hapus & Atur Urutan Section: /reorder]
-    F --> F3[Kelola Pertanyaan Prodi: /prodi/pertanyaan]
-    F3 --> F4[Tambah, Edit, Hapus & Reorder Butir Pertanyaan]
-    F --> F5[Kelola Pilihan Opsi Jawaban: /prodi/opsi]
+    F --> F3[Kelola Kuesioner Prodi: /prodi/kuesioner]
+    F3 --> F4[Tambah, Ambil, Atur Status Tampil, Hapus Penggunaan & Reorder Butir]
+    F --> F5[Kelola Pilihan Opsi Jawaban melalui /prodi/kuesioner]
     F5 --> F6[Tambah, Edit, Hapus Opsi Jawaban Radio / Checkbox]
 
     C --> G[4. Verifikasi Pengajuan Perusahaan: /prodi/perusahaan]
@@ -157,10 +157,12 @@ flowchart TD
    - Melihat rincian profil biodata dan seluruh riwayat jawaban tracer study alumni (`/prodi/alumni/{id}`).
    - Memperbarui data profil alumni jika terdapat koreksi informasi.
    - Mengunduh rekap data alumni prodi ke format Excel (`/prodi/alumni/{id}/export-excel`).
+   - Mengirim email pengingat per alumni (`POST /prodi/alumni/{id}/send-email`) hanya jika akun Admin Prodi memiliki `prodi_id` dan alumni berada pada Prodi yang sama.
 3. **Instrumen Kuesioner Khusus Prodi**:
    - **Section Kuesioner Prodi (`/prodi/sections`)**: Menambah, mengedit, menghapus, dan mengatur urutan tampilan bagian soal (*reorder*).
-   - **Pertanyaan Prodi (`/prodi/pertanyaan`)**: Menambah, mengedit, menghapus, dan mengatur urutan butir pertanyaan prodi. Saat butir baru dibuat, sistem secara otomatis mengenerate opsi pilihan default melalui `QuestionDefaultOptionsService` (misal 2 opsi pilihan ganda, skala 1-5, atau pilihan ganda + kolom isian teks 'Lainnya (Tuliskan)').
-   - **Opsi Jawaban Prodi (`/prodi/opsi`)**: Mengelola, menyunting teks, menambah, atau menghapus pilihan opsi respon untuk tipe pertanyaan yang mendukung opsi.
+   - **Kuesioner Prodi (`/prodi/kuesioner`)**: Menambah pertanyaan, mengambil pertanyaan reusable dari Bank Pertanyaan, mengatur status tampil pada section lokal, menghapus penggunaan lokal, dan mengatur urutan butir. Pertanyaan pinjaman tidak dapat diedit oleh Prodi pengguna, tetapi tetap dapat diedit oleh Superadmin.
+   - **Pembedaan ID**: `pertanyaan_id` adalah ID master pada bank soal. `placement_id` adalah nilai kolom `id` pada `kuesioner_section_pertanyaan`, yaitu ID penggunaan pertanyaan pada satu section. Edit master memakai `pertanyaan_id`, sedangkan toggle, hapus penggunaan, dan reorder memakai `placement_id`.
+   - **Opsi Jawaban Prodi (`/prodi/kuesioner/opsi`)**: Mengelola, menyunting teks, menambah, atau menghapus pilihan opsi respon untuk tipe pertanyaan yang mendukung opsi melalui controller unified.
 4. **Verifikasi Perusahaan (`/prodi/perusahaan`)**:
    - Memeriksa nama instansi/perusahaan baru yang dimasukkan alumni prodi saat memperbarui profil pekerjaan.
    - Aksi: Setujui perusahaan baru (`verify`), tolak (`reject`), edit lalu verifikasi (`update`), atau ganti/hubungkan ke data perusahaan master yang sudah terverifikasi sebelumnya (`replace`).
@@ -223,10 +225,15 @@ flowchart TD
    - Meninjau data detail profil dan lembar jawaban tracer study alumni (`/fakultas/alumni/{id}`).
    - Melakukan koreksi/perubahan profil alumni bila diperlukan.
    - Mengekspor data profil dan isian kuesioner alumni ke format Excel (`/export-excel`).
-3. **Verifikasi Perusahaan Lingkup Fakultas (`/fakultas/perusahaan`)**:
+   - Mengirim email pengingat per alumni (`POST /fakultas/alumni/{id}/send-email`) hanya jika akun Admin Fakultas memiliki `fakultas_id` dan alumni berada pada salah satu Prodi dalam Fakultas tersebut.
+3. **Analitik Alumni Lintas Fakultas (`/fakultas/analitik`)**:
+   - Memfilter dan membaca ringkasan alumni berdasarkan indikator seperti perusahaan, wilayah, dan bidang keahlian.
+   - Membuka detail alumni dari baris/grafik melalui `/fakultas/analitik/alumni/{id}`.
+   - Detail lintas fakultas bersifat baca-saja; tombol edit, simpan profil, ekspor, dan mutasi LinkedIn tidak tersedia dan endpoint perubahan tetap menolak alumni di luar scope fakultas.
+4. **Verifikasi Perusahaan Lingkup Fakultas (`/fakultas/perusahaan`)**:
    - Meninjau pengajuan perusahaan baru yang diinput oleh alumni dari prodi-prodi di fakultas terkait.
    - Fitur approval: Verifikasi (`verify`), tolak (`reject`), edit & setujui (`update`), atau tautkan ke perusahaan terverifikasi (`replace`).
-4. **Manajemen Akun Mahasiswa / Alumni Se-Fakultas (`/fakultas/manajemen-akun`)**:
+5. **Manajemen Akun Mahasiswa / Alumni Se-Fakultas (`/fakultas/manajemen-akun`)**:
    - Mengelola akun alumni pada semua prodi di fakultas bersangkutan.
    - Mengedit informasi akun serta mereset kata sandi ke tanggal lahir bawaan (`DDMMYYYY`) via tombol *Reset Default & Notify*.
 
@@ -404,19 +411,23 @@ flowchart TD
     E -->|Token Valid| G[Buka Formulir Evaluasi Full Page]
 
     G --> H[Periksa Data Identitas Alumni Yang Dinilai]
-    G --> I[Bagian I: Lengkapi / Perbarui Profil Instansi & Kontak Atasan]
-    I --> J[Tersimpan Otomatis ke Master Tabel Perusahaan & Atasan]
+    G --> I[Ringkasan Master Head Office & Identitas Penilai]
+    I --> J[Metadata Master Read-only; koreksi melalui admin]
 
-    G --> K[Bagian II: Evaluasi Kesiapan & Kinerja Lulusan]
-    K --> K1[Nilai Tingkat Kesiapan Alumni dalam Bekerja]
-    K --> K2[Nilai Aspek Kinerja Lulusan pada Matriks Likert]
-    K --> K3[Tuliskan Catatan Tambahan / Saran Khusus Opsional]
+    G --> K[Langkah 1: Karakteristik Instansi & Sebaran Alumni]
+    K --> K0[Isi jumlah pegawai, jumlah alumni UKDW, dan standar gaji pertama]
+    K0 --> K4[Simpan sebagai jawaban kuesioner atasan]
+
+    G --> K5[Langkah 2: Evaluasi Kesiapan & Kinerja Lulusan]
+    K5 --> K1[Nilai Tingkat Kesiapan Alumni dalam Bekerja]
+    K5 --> K2[Nilai Aspek Kinerja Lulusan pada Matriks Likert]
+    K5 --> K3[Tuliskan Catatan Tambahan / Saran Khusus Opsional]
 
     K1 & K2 & K3 --> L[Klik Tombol: Kirim Respon Evaluasi Kinerja]
     L --> M[Sistem Validasi Kelengkapan Jawaban]
     M -->|Ada Butir Terlewat| N[SweetAlert2: Peringatan Aspek Belum Lengkap]
-    N --> K
-    M -->|Lengkap| O[Simpan Jawaban ke respon_evaluasi_atasan]
+    N --> K5
+    M -->|Lengkap| O[Simpan Jawaban ke kuesioner_jawaban dengan responden_type atasan]
     O --> P[Update evaluasi_atasan: is_submitted = true, submitted_at = now]
     P --> Q[Tampilkan Status Berhasil & Kartu Ucapan Terima Kasih Resmi]
     Q --> R[Selesai]
@@ -426,13 +437,14 @@ flowchart TD
 1. **Pemicu Undangan**: penyimpanan profil menyiapkan record `evaluasi_atasan` bila data atasan tersedia. Pengiriman email dilakukan melalui aksi terpisah `POST /alumni/kirim-email-atasan` oleh alumni atau admin yang diizinkan (tombol aktif selama nama dan email atasan valid). Token dihasilkan sepanjang 40 karakter; kapasitas kolom database 64 karakter.
 2. **Akses Formulir Tanpa Hambatan**: Atasan membuka tautan langsung dari email (`/evaluasi-atasan/{token}`). Tidak dibutuhkan proses registrasi atau login akun. Header kanan atas menampilkan foto bundar alumni ber-dropdown (nama, NIM, prodi, fakultas), sedangkan banner pengantar menyapa nama atasan secara formal dan menyajikan ringkasan jabatan/divisi, instansi penempatan, serta studi lanjut alumni.
 3. **Penyempurnaan Profil & Karakteristik Instansi (Langkah 1 & Langkah 2)**:
-   - **Langkah 1 (Profil Perusahaan)**: Atasan memverifikasi atau memperbarui nama perusahaan, jenis instansi (F11), cakupan wilayah (Dalam/Luar Negeri), provinsi/kabupaten atau negara, kode pos, alamat lengkap, no. telp/fax, dan website/homepage. Perubahan tersinkronisasi dua arah dengan profil karier alumni pada tabel `perusahaan`.
-   - **Langkah 2 (Karakteristik Perusahaan)**: Atasan memilih bentuk perusahaan, skala perusahaan, jumlah pegawai keseluruhan (`perusahaan.jumlah_pegawai`), jumlah alumni UKDW (`evaluasi_atasan.jumlah_alumni_ukdw`), dan standar gaji pertama (`evaluasi_atasan.standar_gaji_pertama`). Pilihan mendukung pembatalan jawaban (*uncheck*) dengan klik ulang atau klik dua kali.
-4. **Penilaian Kesiapan & Kinerja (Langkah 3)**:
+   - **Ringkasan Profil**: Informasi perusahaan/head office dan identitas alumni ditampilkan pada banner ringkasan, bukan sebagai langkah input terpisah. Metadata master `perusahaan` tidak dapat diedit oleh atasan; koreksi dilakukan melalui admin.
+   - **Langkah 1 (Karakteristik Perusahaan)**: Atasan mengisi jumlah pegawai keseluruhan, jumlah alumni UKDW, dan standar gaji pertama. Ketiganya disimpan sebagai jawaban pada `kuesioner_jawaban` dengan konteks sesi atasan; bentuk dan skala perusahaan tetap berasal dari master `perusahaan` dan dikelola admin. Pilihan mendukung pembatalan jawaban (*uncheck*) dengan klik ulang atau klik dua kali.
+   - **Langkah 2 (Penilaian)**: Atasan mengisi tingkat kesiapan dan seluruh aspek kinerja alumni.
+4. **Penilaian Kesiapan & Kinerja (Langkah 2)**:
    - Menilai tingkat kesiapan alumni dalam bekerja dengan urutan skala dari kiri ke kanan: *Tidak siap*, *Kurang siap*, *Cukup Siap*, hingga *Sangat siap*.
    - Menilai 12 butir aspek kinerja lulusan pada matriks Likert dengan urutan skala dari kiri ke kanan: *Sangat Kurang*, *Kurang*, *Cukup*, *Tinggi*, hingga *Sangat Tinggi* (mendukung pembatalan pilihan dengan klik ulang/klik 2x).
    - Menyampaikan saran/masukan konstruktif untuk universitas.
-5. **Konfirmasi & Audit**: Respon tersimpan ke tabel `respon_evaluasi_atasan` dan status berubah menjadi *"Sudah Selesai Diisi"*.
+5. **Konfirmasi & Audit**: Jawaban tersimpan ke tabel `kuesioner_jawaban` dengan `evaluasi_atasan_id` sebagai konteks sesi, lalu status `evaluasi_atasan.is_submitted` berubah menjadi *"Sudah Selesai Diisi"*.
 
 ---
 
@@ -444,7 +456,7 @@ Pada penyimpanan jawaban tracer, `tracer.question_id` menyimpan ID subpertanyaan
 
 Pada halaman profil alumni, alur self-service hanya mengirim dan menampilkan data yang diperlukan untuk tracer. NIK, NPWP, KK, data orang tua, dan data pembimbing/penguji tidak lagi berada pada schema aktif. NISN, BPJS, email mahasiswa, dan publikasi tetap berada di sumber akademik untuk kebutuhan admin, tetapi tidak dikirim sebagai props halaman alumni. Judul tugas akhir dan tanggal kelulusan tetap dikirim sebagai referensi akademik non-sensitif. Penyimpanan profil parsial tidak mengosongkan field yang tidak dikirim.
 
-Pada detail admin, hasil evaluasi atasan menampilkan nilai dari kolom \`respon_evaluasi_atasan.nilai\` dan status survei berdasarkan \`evaluasi_atasan.is_submitted\`. Token akses tidak ditampilkan pada detail alumni karena merupakan kredensial tautan survei publik.
+Pada detail admin, hasil evaluasi atasan menampilkan nilai dari `kuesioner_jawaban.jawaban_teks` dan status survei berdasarkan `evaluasi_atasan.is_submitted`. Token akses tidak ditampilkan pada detail alumni karena merupakan kredensial tautan survei publik.
 
 ## Alur Analitik Superadmin
 
@@ -483,6 +495,23 @@ Halaman `GrafikUniv.vue` hanya memuat satu indikator aktif agar waktu tunggu awa
 Pada sisi backend, request memilih satu view analitik sesuai parameter `grafik`. View yang dipakai tidak memuat indikator lain. View indikator lanjutan mengambil jawaban kanonik dari fondasi `v_analytics_tracer_answers` sebelum service menghitung median, kategori, funnel, atau gap kompetensi. Tabel `tracer` menjamin satu record per alumni dan kode pertanyaan, sehingga view tidak lagi melakukan agregasi `MAX(id)`. Status partisipasi wajib hanya dihitung pada `v_analytics_response_rate`, sedangkan indikator lain memakai `v_analytics_population` yang ringan. Endpoint JSON mengembalikan metadata tipe data, N valid, missing data, dasar persentase, dan waktu kalkulasi. Bila tidak ada record, backend mengirim status ketersediaan yang membedakan tidak ada populasi, belum dijawab, dan tidak berlaku karena percabangan.
 
 Untuk indikator studi lanjut, backend membaca F12, F18b, F18c, dan F18d dari `v_analytics_further_study`, lalu menandai setiap jawaban sebagai dimensi sumber biaya, perguruan tinggi, program studi, atau tanggal mulai sebelum agregasi dan cross-filter dibuat.
+
+### Alur Grafik Evaluasi Atasan
+
+```mermaid
+flowchart TD
+    A[Superadmin membuka /superadmin/analitik-atasan] --> B[Controller memuat evaluasi terkirim]
+    B --> C[AtasanAnalyticsService memetakan opsi dan menghitung skor]
+    C --> D[Tampilkan grafik Likert, kesiapan, dan perbandingan prodi]
+    A --> E[Pilih tahun atau prodi]
+    E --> F[GET /superadmin/analitik-atasan/data]
+    F --> C
+    D --> G[Tabel respon dan metodologi]
+```
+
+Sidebar admin menggunakan komponen bersama `AdminSidebar.vue`. URL query,
+hash, dan trailing slash dinormalisasi sebelum menu dibandingkan, sehingga
+menu halaman aktif tetap ter-highlight di seluruh role.
 
 ## Ringkasan Matriks Akses Peran (RBAC Matrix)
 

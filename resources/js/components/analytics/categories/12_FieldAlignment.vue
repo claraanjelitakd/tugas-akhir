@@ -32,69 +32,120 @@ const emit = defineEmits(['select', 'reset']);
 
 // Ekstraksi data seri dan catatan responden.
 const series = computed(() => props.chart?.series || []);
+// Agregat per program studi sudah dihitung backend untuk konsumsi matriks dan visualisasi prodi.
+const prodiSeries = computed(() => props.chart?.prodi_series || []);
 const records = computed(() => props.chart?.records || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || records.value.length);
 
-// Palet warna bertingkat institusional UKDW yang harmonis dan konsisten
-const getAlignmentColor = (label) => {
+// -----------------------------------------------------------------------------
+// STANDAR SKALA & WARNA KESELARASAN BIDANG STUDI (Mengadopsi Indikator 02)
+// Skala Likert 1-5 resmi instrumen Tracer Study F14:
+// 1 = Tidak Sama Sekali (Merah), 2 = Kurang Erat (Oranye), 3 = Cukup Erat (Kuning),
+// 4 = Erat (Hijau Muda), 5 = Sangat Erat (Hijau Tua UKDW).
+// -----------------------------------------------------------------------------
+const getScaleLevel = (label) => {
     const l = String(label || '').toLowerCase().trim();
-    if (l.includes('sangat erat')) return '#0D542B';
-    if (l === 'erat' || (l.includes('erat') && !l.includes('kurang') && !l.includes('cukup') && !l.includes('tidak'))) {
-        return '#2F7D4A';
-    }
-    if (l.includes('cukup')) return '#78B18B';
-    if (l.includes('kurang')) return '#B7D7C0';
-    if (l.includes('tidak')) return '#DCEBE0';
-    return '#78B18B';
+    if (l.includes('sangat erat')) return 5;
+    if (l === 'erat' || (l.includes('erat') && !l.includes('kurang') && !l.includes('cukup') && !l.includes('tidak'))) return 4;
+    if (l.includes('cukup')) return 3;
+    if (l.includes('kurang')) return 2;
+    if (l.includes('tidak')) return 1;
+    return 3;
+};
+
+const scaleDescriptions = {
+    1: 'Tidak Sama Sekali',
+    2: 'Kurang Erat',
+    3: 'Cukup Erat',
+    4: 'Erat',
+    5: 'Sangat Erat',
+};
+
+const scaleColors = {
+    1: '#B91C1C', // Merah - Tidak Sama Sekali
+    2: '#EA580C', // Oranye - Kurang Erat
+    3: '#FACC15', // Kuning Emas - Cukup Erat
+    4: '#5EBA7D', // Hijau Muda - Erat
+    5: '#1E6B37', // Hijau Tua - Sangat Erat
+};
+
+const getAlignmentColor = (label) => {
+    const lvl = getScaleLevel(label);
+    return scaleColors[lvl] || '#5EBA7D';
 };
 
 // -----------------------------------------------------------------------------
-// 1. STACKED BAR ANTARPRODI (Label Persentase dan Urutan Kategori Konsisten)
+// 1. STACKED BAR ANTARPRODI (Desain & Palet Warna Indikator 02 + Vertical Scale Bar)
 // -----------------------------------------------------------------------------
-const prodis = computed(() => [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]);
-const categories = computed(() => [...new Set(series.value.map((s) => s.label))]);
+const prodis = computed(() => (
+    prodiSeries.value.length > 0
+        ? prodiSeries.value.map((item) => item.prodi)
+        : [...new Set(records.value.map((r) => r.nama_prodi || 'Tanpa prodi'))]
+));
+const orderedLevels = [1, 2, 3, 4, 5];
 
 const stackedOption = computed(() => {
     const listProdis = prodis.value;
-    const cats = categories.value;
-    const prodiTotals = Object.fromEntries(
-        listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]),
-    );
+    const prodiTotals = prodiSeries.value.length > 0
+        ? Object.fromEntries(prodiSeries.value.map((p) => [p.prodi, p.total]))
+        : Object.fromEntries(listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]));
 
-    const seriesList = cats.map((cat) => {
+    const seriesList = orderedLevels.map((lvl) => {
+        const catName = scaleDescriptions[lvl];
         const catData = listProdis.map((prodi) => {
-            const count = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
-            const total = Math.max(prodiTotals[prodi], 1);
+            if (prodiSeries.value.length > 0) {
+                const backendProdi = prodiSeries.value.find((item) => item.prodi === prodi);
+                const backendItem = backendProdi?.items?.find((item) => getScaleLevel(item.label) === lvl);
+                return {
+                    value: backendItem?.percentage || 0,
+                    count: backendItem?.count || 0,
+                    total: backendProdi?.total || 0,
+                    prodi,
+                    category: catName,
+                    scoreLevel: lvl,
+                };
+            }
+
+            const count = records.value.filter((r) => {
+                const p = r.nama_prodi || 'Tanpa prodi';
+                return p === prodi && getScaleLevel(recordCategory(r)) === lvl;
+            }).length;
+            const total = Math.max(prodiTotals[prodi] || 0, 1);
             const pct = Number(((count / total) * 100).toFixed(1));
             return {
                 value: pct,
                 count,
                 total,
                 prodi,
-                category: cat,
+                category: catName,
+                scoreLevel: lvl,
             };
         });
 
-        const selected = !props.selectedLabel || props.selectedLabel === cat;
+        const selected = !props.selectedLabel || props.selectedLabel === catName || getScaleLevel(props.selectedLabel) === lvl;
 
         return {
-            name: cat,
+            name: `${lvl} = ${catName}`,
             type: 'bar',
             stack: 'total',
-            barMaxWidth: 28,
+            barMaxWidth: 26,
             label: {
                 show: true,
                 position: 'inside',
-                formatter: (params) => params.value > 0 ? `${params.value}%` : '',
-                fontSize: 10,
-                color: '#FFFFFF',
-                fontWeight: 'bold',
+                formatter: (param) => {
+                    const val = Number(param.value ?? 0);
+                    if (val < 10) return '';
+                    return `${Math.round(val)}%`;
+                },
+                color: lvl === 3 ? '#1E293B' : '#FFFFFF',
+                fontSize: 11,
+                fontWeight: 700,
             },
             itemStyle: {
-                color: getAlignmentColor(cat),
+                color: scaleColors[lvl],
                 opacity: selected ? 1 : 0.22,
-                borderColor: 'transparent',
-                borderWidth: 0,
+                borderColor: '#FFFFFF',
+                borderWidth: 1.5,
             },
             data: catData,
         };
@@ -105,30 +156,182 @@ const stackedOption = computed(() => {
     return {
         ...baseOption(records.value.length),
         legend: {
-            data: cats,
-            bottom: 0,
-            icon: 'circle',
-            textStyle: { color: '#334155', fontSize: 11, fontWeight: 600 },
+            show: false, // Digantikan oleh vertical scale bar di sisi kanan
         },
-        grid: { left: 24, right: 36, top: 20, bottom: 56, containLabel: true },
+        grid: { left: 24, right: 210, top: 40, bottom: 48, containLabel: true },
         xAxis: {
             type: 'value',
+            min: 0,
             max: 100,
-            axisLabel: { formatter: '{value}%' },
+            name: 'Proporsi jawaban alumni',
+            nameLocation: 'middle',
+            nameGap: 30,
+            axisLabel: { formatter: '{value}%', color: '#64748B', fontSize: 11 },
             splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
         },
         yAxis: {
             type: 'category',
             inverse: true,
             data: labels,
-            axisLabel: { color: '#334155', fontSize: 11, width: 190, overflow: 'break' },
+            axisLabel: {
+                color: '#1E293B',
+                fontWeight: 500,
+                fontSize: 12,
+                width: 170,
+                overflow: 'break',
+            },
+            axisTick: { show: false },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
         },
+        graphic: [
+            // Vertical Scale Bar Legenda Skala Penilaian di sisi kanan (Urutan: 5 Hijau Tua paling atas s/d 1 Merah paling bawah)
+            {
+                type: 'group',
+                right: 18,
+                top: 'middle',
+                children: [
+                    // Teks vertikal "Tingkat Keselarasan"
+                    {
+                        type: 'text',
+                        left: 0,
+                        top: 110,
+                        rotation: -Math.PI / 2,
+                        style: {
+                            text: 'Skala Penilaian',
+                            fill: '#0F172A',
+                            font: 'bold 11px Inter, sans-serif',
+                            textAlign: 'center',
+                        },
+                    },
+
+                    // Segmen 5: Hijau Tua - Sangat Erat (Skala 5)
+                    {
+                        type: 'text',
+                        left: 18,
+                        top: 15,
+                        style: { text: '5', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+                    },
+                    {
+                        type: 'rect',
+                        left: 28,
+                        top: 0,
+                        shape: { width: 22, height: 44 },
+                        style: { fill: '#1E6B37', stroke: '#1E293B', lineWidth: 1 },
+                    },
+                    {
+                        type: 'text',
+                        left: 58,
+                        top: 15,
+                        style: { text: 'Sangat Erat', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+                    },
+
+                    // Segmen 4: Hijau Muda - Erat (Skala 4)
+                    {
+                        type: 'text',
+                        left: 18,
+                        top: 59,
+                        style: { text: '4', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+                    },
+                    {
+                        type: 'rect',
+                        left: 28,
+                        top: 44,
+                        shape: { width: 22, height: 44 },
+                        style: { fill: '#5EBA7D', stroke: '#1E293B', lineWidth: 1 },
+                    },
+                    {
+                        type: 'text',
+                        left: 58,
+                        top: 59,
+                        style: { text: 'Erat', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+                    },
+
+                    // Segmen 3: Kuning - Cukup Erat (Skala 3)
+                    {
+                        type: 'text',
+                        left: 18,
+                        top: 103,
+                        style: { text: '3', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+                    },
+                    {
+                        type: 'rect',
+                        left: 28,
+                        top: 88,
+                        shape: { width: 22, height: 44 },
+                        style: { fill: '#FACC15', stroke: '#1E293B', lineWidth: 1 },
+                    },
+                    {
+                        type: 'text',
+                        left: 58,
+                        top: 103,
+                        style: { text: 'Cukup Erat', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+                    },
+
+                    // Segmen 2: Oranye - Kurang Erat (Skala 2)
+                    {
+                        type: 'text',
+                        left: 18,
+                        top: 147,
+                        style: { text: '2', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+                    },
+                    {
+                        type: 'rect',
+                        left: 28,
+                        top: 132,
+                        shape: { width: 22, height: 44 },
+                        style: { fill: '#EA580C', stroke: '#1E293B', lineWidth: 1 },
+                    },
+                    {
+                        type: 'text',
+                        left: 58,
+                        top: 147,
+                        style: { text: 'Kurang Erat', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+                    },
+
+                    // Segmen 1: Merah - Tidak Sama Sekali (Skala 1)
+                    {
+                        type: 'text',
+                        left: 18,
+                        top: 191,
+                        style: { text: '1', fill: '#0F172A', font: '600 11px Inter, sans-serif', textAlign: 'right' },
+                    },
+                    {
+                        type: 'rect',
+                        left: 28,
+                        top: 176,
+                        shape: { width: 22, height: 44 },
+                        style: { fill: '#B91C1C', stroke: '#1E293B', lineWidth: 1 },
+                    },
+                    {
+                        type: 'text',
+                        left: 58,
+                        top: 191,
+                        style: { text: 'Tidak Sama Sekali', fill: '#1E293B', font: '500 11px Inter, sans-serif' },
+                    },
+                ],
+            },
+        ],
         tooltip: {
             ...baseOption().tooltip,
             trigger: 'item',
-            formatter: ({ data }) => {
-                if (!data) return '';
-                return `<strong>${escapeHtml(data.prodi)}</strong><br>Keselarasan: <strong>${escapeHtml(data.category)}</strong><br>Jumlah: <strong>${data.count} alumni</strong> (dari total n=${data.total})<br>Proporsi: <strong>${data.value}%</strong>`;
+            formatter: (params) => {
+                const d = params.data || {};
+                return `
+                    <div style="min-width: 170px;">
+                        <div style="font-weight: 700; color: #0F172A; font-size: 13px; border-bottom: 1px solid #F1F5F9; padding-bottom: 4px; margin-bottom: 6px;">
+                            ${escapeHtml(d.prodi || params.name)}
+                        </div>
+                        <div style="font-size: 12px; color: #475569; margin-bottom: 3px;">
+                            Tingkat Keselarasan: <strong style="color: #0F172A;">${escapeHtml(d.category || params.seriesName)}</strong>
+                        </div>
+                        <div style="font-size: 12px; color: #475569; margin-bottom: 3px;">
+                            Proporsi di Prodi: <strong style="color: #0D542B; font-size: 13px;">${formatNumber(d.value, 1)}%</strong>
+                        </div>
+                        <div style="font-size: 11px; color: #64748B;">
+                            Jumlah Alumni: <strong style="color: #334155;">${formatNumber(d.count, 0)} dari n=${formatNumber(d.total, 0)} alumni</strong>
+                        </div>
+                    </div>
+                `;
             },
         },
         series: seriesList,
@@ -139,34 +342,260 @@ const stackedTable = computed(() => ({
     columns: [
         { key: 'prodi', label: 'Program Studi' },
         { key: 'total', label: 'Total Alumni (n)', align: 'right' },
-        { key: 'erat', label: 'Erat / Sangat Erat', align: 'right' },
-        { key: 'cukup', label: 'Cukup Erat', align: 'right' },
-        { key: 'kurang', label: 'Kurang / Tidak Sama Sekali', align: 'right' },
+        { key: 'sangat_erat', label: 'Sangat Erat (5)', align: 'right' },
+        { key: 'erat', label: 'Erat (4)', align: 'right' },
+        { key: 'cukup', label: 'Cukup Erat (3)', align: 'right' },
+        { key: 'kurang', label: 'Kurang Erat (2)', align: 'right' },
+        { key: 'tidak', label: 'Tidak Sama Sekali (1)', align: 'right' },
     ],
     rows: prodis.value.map((prodi) => {
+        if (prodiSeries.value.length > 0) {
+            const backendProdi = prodiSeries.value.find((item) => item.prodi === prodi);
+            const total = backendProdi?.total || 0;
+            const fmt = (lvl) => {
+                const item = backendProdi?.items?.find((it) => getScaleLevel(it.label) === lvl);
+                const cnt = item?.count || 0;
+                const pct = item?.percentage || 0;
+                return `${cnt} (${pct}%)`;
+            };
+            return {
+                prodi,
+                total: formatNumber(total, 0),
+                sangat_erat: fmt(5),
+                erat: fmt(4),
+                cukup: fmt(3),
+                kurang: fmt(2),
+                tidak: fmt(1),
+            };
+        }
+
         const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const total = rows.length;
-        const countErat = rows.filter((r) => {
-            const ans = String(recordCategory(r) || '').toLowerCase();
-            return ans.includes('sangat erat') || ans === 'erat';
-        }).length;
-        const countCukup = rows.filter((r) => String(recordCategory(r) || '').toLowerCase().includes('cukup')).length;
-        const countKurang = total - (countErat + countCukup);
+        const countByLvl = (lvl) => rows.filter((r) => getScaleLevel(recordCategory(r)) === lvl).length;
+        const fmtPct = (cnt) => `${cnt} (${total > 0 ? ((cnt / total) * 100).toFixed(1) : 0}%)`;
 
         return {
             prodi,
             total: formatNumber(total, 0),
-            erat: `${countErat} (${formatPercentage(total ? (countErat / total) * 100 : 0)})`,
-            cukup: `${countCukup} (${formatPercentage(total ? (countCukup / total) * 100 : 0)})`,
-            kurang: `${countKurang} (${formatPercentage(total ? (countKurang / total) * 100 : 0)})`,
+            sangat_erat: fmtPct(countByLvl(5)),
+            erat: fmtPct(countByLvl(4)),
+            cukup: fmtPct(countByLvl(3)),
+            kurang: fmtPct(countByLvl(2)),
+            tidak: fmtPct(countByLvl(1)),
         };
     }),
 }));
 
 // -----------------------------------------------------------------------------
+// 2. MATRIKS HEATMAP: Sebaran Keselarasan Bidang per Program Studi (Mengadopsi Indikator 02)
+// -----------------------------------------------------------------------------
+const heatmapCategories = computed(() => orderedLevels.map((lvl) => scaleDescriptions[lvl]));
+
+const heatmapData = computed(() => {
+    const listProdis = prodis.value;
+    const cats = heatmapCategories.value;
+    const prodiTotals = prodiSeries.value.length > 0
+        ? Object.fromEntries(prodiSeries.value.map((p) => [p.prodi, p.total]))
+        : Object.fromEntries(listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]));
+
+    const rawValues = [];
+    listProdis.forEach((prodi, yIndex) => {
+        const backendProdi = prodiSeries.value.length > 0
+            ? prodiSeries.value.find((item) => item.prodi === prodi)
+            : null;
+
+        cats.forEach((cat, xIndex) => {
+            const lvl = xIndex + 1;
+            let count = 0;
+            let total = 0;
+            let pct = 0;
+
+            if (backendProdi) {
+                const backendItem = backendProdi.items?.find((item) => getScaleLevel(item.label) === lvl);
+                count = backendItem?.count || 0;
+                pct = backendItem?.percentage || 0;
+                total = backendProdi.total || 0;
+            } else {
+                count = records.value.filter((r) => {
+                    const p = r.nama_prodi || 'Tanpa prodi';
+                    return p === prodi && getScaleLevel(recordCategory(r)) === lvl;
+                }).length;
+                total = Math.max(prodiTotals[prodi] || 0, 1);
+                pct = Number(((count / total) * 100).toFixed(1));
+            }
+
+            rawValues.push({
+                value: [xIndex, yIndex, pct],
+                prodi,
+                category: cat,
+                count,
+                total,
+            });
+        });
+    });
+
+    // Persentase asli tetap dipakai untuk tooltip dan tabel. Skor 1-5 hanya
+    // dipakai untuk palet diskret merah-ke-hijau yang sama dengan Indikator 02.
+    const positivePercentages = rawValues
+        .map((item) => item.value[2])
+        .filter((percentage) => percentage > 0);
+    const minPct = Math.min(...positivePercentages, 0);
+    const maxPct = Math.max(...positivePercentages, 0);
+    const values = rawValues.map((item) => {
+        const percentage = item.value[2];
+        const intensity = percentage <= 0
+            ? 1
+            : (maxPct === minPct ? 3 : Math.round(1 + ((percentage - minPct) / (maxPct - minPct)) * 4));
+
+        return {
+            ...item,
+            rawPercentage: percentage,
+            value: [item.value[0], item.value[1], intensity],
+        };
+    });
+
+    return { values, maxPct, prodiTotals };
+});
+
+const heatmapOption = computed(() => {
+    const { values, prodiTotals } = heatmapData.value;
+    const cats = heatmapCategories.value;
+    const listProdis = prodis.value;
+    const yLabels = listProdis.map((p) => `${p} (n=${prodiTotals[p]})`);
+
+    return {
+        ...baseOption(records.value.length),
+        grid: { left: 20, right: 150, top: 75, bottom: 20, containLabel: true },
+        xAxis: {
+            type: 'category',
+            position: 'top',
+            data: cats,
+            axisLabel: {
+                rotate: -35,
+                color: '#1E293B',
+                fontSize: 11,
+                fontWeight: 600,
+                interval: 0,
+            },
+            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
+            splitArea: { show: false },
+        },
+        yAxis: {
+            type: 'category',
+            inverse: true,
+            data: yLabels,
+            axisLabel: { color: '#1E293B', width: 170, fontSize: 11, fontWeight: 500 },
+            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
+            splitArea: { show: false },
+        },
+        visualMap: {
+            type: 'continuous',
+            min: 1,
+            max: 5,
+            precision: 0,
+            orient: 'vertical',
+            right: 18,
+            top: 'middle',
+            itemWidth: 18,
+            itemHeight: 240,
+            inRange: {
+                color: ['#B91C1C', '#EF4444', '#E2F3E7', '#2F7D4A', '#0D542B'],
+            },
+            text: ['5 (Proporsi tertinggi)', '1 (Proporsi terendah)'],
+            textGap: 10,
+            textStyle: { color: '#1E293B', fontSize: 11, fontWeight: 600 },
+        },
+        tooltip: {
+            ...baseOption().tooltip,
+            trigger: 'item',
+            formatter: ({ data }) => {
+                if (!data) return '';
+                return `
+                    <div class="font-sans text-xs">
+                        <div class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5">${escapeHtml(data.prodi)}</div>
+                        <div class="text-slate-600 mb-0.5"><span class="text-slate-500">Tingkat Keselarasan:</span> <strong>${escapeHtml(data.category)}</strong></div>
+                        <div class="text-slate-600 mb-0.5"><span class="text-slate-500">Jumlah Alumni:</span> <strong>${formatNumber(data.count, 0)}</strong> (dari n=${data.total})</div>
+                        <div class="text-slate-600"><span class="text-slate-500">Proporsi di Prodi:</span> <strong class="text-emerald-700 font-mono text-sm">${formatNumber(data.rawPercentage, 1)}%</strong></div>
+                    </div>
+                `;
+            },
+        },
+        series: [{
+            name: 'Proporsi Keselarasan Bidang',
+            type: 'heatmap',
+            data: values,
+            itemStyle: {
+                borderColor: '#FFFFFF',
+                borderWidth: 1.5,
+            },
+            label: {
+                show: false,
+            },
+            emphasis: {
+                focus: 'none',
+                itemStyle: {
+                    borderColor: '#FFFFFF',
+                    borderWidth: 1.5,
+                    shadowBlur: 0,
+                    shadowColor: 'transparent',
+                },
+                label: {
+                    show: true,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    formatter: ({ data }) => (data?.rawPercentage > 0 ? `${formatNumber(data.rawPercentage, 0)}%` : '-'),
+                },
+            },
+        }],
+    };
+});
+
+const heatmapTable = computed(() => {
+    const cats = heatmapCategories.value;
+    const { values, prodiTotals } = heatmapData.value;
+
+    const columns = [
+        { key: 'prodi', label: 'Program Studi' },
+        { key: 'total', label: 'Responden (n)', align: 'right' },
+        ...cats.map((cat, i) => ({
+            key: `cat_${i}`,
+            label: cat,
+            align: 'right',
+        })),
+    ];
+
+    const rows = prodis.value.map((prodi) => {
+        const row = {
+            prodi,
+            total: formatNumber(prodiTotals[prodi] || 0, 0),
+        };
+        cats.forEach((cat, i) => {
+            const cell = values.find((v) => v.prodi === prodi && v.category === cat);
+            const count = cell?.count ?? 0;
+            const pct = cell?.rawPercentage ?? 0;
+            row[`cat_${i}`] = `${formatNumber(count, 0)} (${pct}%)`;
+        });
+        return row;
+    });
+
+    return { columns, rows };
+});
+
+// -----------------------------------------------------------------------------
 // 2. GRAFIK GARIS: Horizontal Match (Persentase Selaras) per Program Studi
 // -----------------------------------------------------------------------------
 const prodiMatchLineData = computed(() => {
+    if (props.chart?.prodi_series) {
+        return props.chart.prodi_series.map((item) => ({
+            prodi: item.prodi,
+            count: Number(item.match_count || 0),
+            total: Number(item.total || 0),
+            percentage: Number(item.match_percentage || 0),
+        }));
+    }
+
     return prodis.value.map((prodi) => {
         const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const total = rows.length;
@@ -347,7 +776,7 @@ const views = computed(() => [
         chartType: 'stacked_horizontal_100',
         tabLabel: 'Komposisi Antarprodi',
         title: 'Komposisi keselarasan bidang per program studi',
-        description: 'Perbandingan komposisi keselarasan bidang kerja antarprogram studi dengan persentase pada setiap segmen.',
+        description: 'Perbandingan komposisi keselarasan bidang kerja antarprogram studi dengan skala penilaian 1-5 (mengadopsi desain & palet Indikator 02).',
         option: stackedOption.value,
         tableData: stackedTable.value,
         height: Math.max(380, prodis.value.length * 36 + 120),
@@ -359,6 +788,23 @@ const views = computed(() => [
                 ? `Kategori keselarasan horizontal dominan adalah "${series.value[0].label}" dengan proporsi ${formatPercentage(series.value[0].percentage)} (${series.value[0].count} alumni).`
                 : 'Data keselarasan bidang pekerjaan tersaji lengkap.',
             detail: 'Setiap segmen menunjukkan proporsi alumni yang menilai bidang kerjanya selaras dengan keilmuan yang ditempuh selama masa studi di UKDW.',
+        },
+    },
+    {
+        key: 'by_prodi_heatmap',
+        chartType: 'matrix_heatmap',
+        tabLabel: 'Sebaran per Prodi',
+        title: 'Matriks sebaran keselarasan bidang per program studi',
+        description: 'Sebaran persentase keselarasan bidang kerja alumni di setiap program studi dalam format matriks heatmap.',
+        option: heatmapOption.value,
+        tableData: heatmapTable.value,
+        height: Math.max(380, prodis.value.length * 36 + 120),
+        analysis: {
+            title: 'Kilas Matriks Sebaran per Prodi',
+            statusBadge: 'Matriks Sebaran',
+            badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+            lead: 'Visualisasi intensitas pilihan keselarasan bidang kerja per program studi untuk memetakan konsentrasi tingkat relevansi kurikulum.',
+            detail: 'Warna hijau yang lebih pekat mencerminkan konsentrasi alumni yang lebih tinggi pada kategori keselarasan terkait.',
         },
     },
     {
@@ -398,7 +844,7 @@ const views = computed(() => [
         :rows="records"
         :selected-label="selectedLabel"
         :loading="loading"
-        indicator-badge="Indikator 12"
+        indicator-badge="Indikator 15"
         @select="emit('select', $event)"
         @reset="emit('reset')"
     />

@@ -11,6 +11,7 @@ return new class extends Migration
     /** Membuat proyeksi khusus indikator alasan ketidaksesuaian. */
     public function up(): void
     {
+        DB::statement('DROP VIEW IF EXISTS v_analytics_mismatch_reasons');
         DB::statement('CREATE VIEW v_analytics_mismatch_reasons AS SELECT * FROM v_analytics_tracer_answers WHERE kode_pertanyaan = \'F16\'');
     }
 

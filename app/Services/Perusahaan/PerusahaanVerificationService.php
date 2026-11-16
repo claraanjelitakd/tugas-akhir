@@ -26,7 +26,7 @@ class PerusahaanVerificationService
         // Bentuk badan usaha & legalitas
         'pt', 'p.t', 'cv', 'c.v', 'tbk', 'persero', 'corp', 'corporation', 'inc', 'ltd',
         'llc', 'gmbh', 'co', 'company', 'group', 'holding', 'perum', 'yayasan',
-        'ud', 'u.d', 'fa', 'firma', 'koperasi', 'pte',
+        'ud', 'u.d', 'fa', 'firma', 'koperasi', 'pte', 'official',
 
         // Keterangan kantor, cabang, unit operasional, dan wilayah
         'kantor', 'pusat', 'cabang', 'branch', 'subcabang', 'kcu', 'kc', 'kcp',
@@ -79,36 +79,36 @@ class PerusahaanVerificationService
             $query->where('status_verifikasi', $status);
         }
 
-        if (! empty($filters['negara']) && $filters['negara'] !== 'all') {
-            if ($filters['negara'] === 'Luar Negeri') {
+        if (! empty($filters['kode_negara']) && $filters['kode_negara'] !== 'all') {
+            if ($filters['kode_negara'] === 'Luar Negeri') {
                 $query->where('jenis_lokasi', 'Luar Negeri');
             } else {
-                $query->where('negara', $filters['negara']);
+                $query->where('kode_negara', $filters['kode_negara']);
             }
         }
 
-        if (! empty($filters['propinsi_id'])) {
-            $query->where('propinsi_id', $filters['propinsi_id']);
+        if (! empty($filters['kode_provinsi'])) {
+            $query->where('kode_provinsi', $filters['kode_provinsi']);
         }
 
-        if (! empty($filters['kabupaten_id'])) {
-            $query->where('kabupaten_id', $filters['kabupaten_id']);
+        if (! empty($filters['kode_kabupaten'])) {
+            $query->where('kode_kabupaten', $filters['kode_kabupaten']);
         }
 
-        if (! empty($filters['negara']) && $filters['negara'] !== 'all') {
-            if ($filters['negara'] === 'Luar Negeri') {
+        if (! empty($filters['kode_negara']) && $filters['kode_negara'] !== 'all') {
+            if ($filters['kode_negara'] === 'Luar Negeri') {
                 $query->where('jenis_lokasi', 'Luar Negeri');
             } else {
-                $query->where('negara', $filters['negara']);
+                $query->where('kode_negara', $filters['kode_negara']);
             }
         }
 
-        if (! empty($filters['propinsi_id'])) {
-            $query->where('propinsi_id', $filters['propinsi_id']);
+        if (! empty($filters['kode_provinsi'])) {
+            $query->where('kode_provinsi', $filters['kode_provinsi']);
         }
 
-        if (! empty($filters['kabupaten_id'])) {
-            $query->where('kabupaten_id', $filters['kabupaten_id']);
+        if (! empty($filters['kode_kabupaten'])) {
+            $query->where('kode_kabupaten', $filters['kode_kabupaten']);
         }
 
         // Filter apakah hanya pengajuan dari alumni prodi ini atau semua
@@ -166,20 +166,20 @@ class PerusahaanVerificationService
             $query->where('status_verifikasi', $status);
         }
 
-        if (! empty($filters['negara']) && $filters['negara'] !== 'all') {
-            if ($filters['negara'] === 'Luar Negeri') {
+        if (! empty($filters['kode_negara']) && $filters['kode_negara'] !== 'all') {
+            if ($filters['kode_negara'] === 'Luar Negeri') {
                 $query->where('jenis_lokasi', 'Luar Negeri');
             } else {
-                $query->where('negara', $filters['negara']);
+                $query->where('kode_negara', $filters['kode_negara']);
             }
         }
 
-        if (! empty($filters['propinsi_id'])) {
-            $query->where('propinsi_id', $filters['propinsi_id']);
+        if (! empty($filters['kode_provinsi'])) {
+            $query->where('kode_provinsi', $filters['kode_provinsi']);
         }
 
-        if (! empty($filters['kabupaten_id'])) {
-            $query->where('kabupaten_id', $filters['kabupaten_id']);
+        if (! empty($filters['kode_kabupaten'])) {
+            $query->where('kode_kabupaten', $filters['kode_kabupaten']);
         }
 
         if (! empty($filters['prodi_id']) && in_array((int) $filters['prodi_id'], $prodiIds)) {
@@ -291,8 +291,8 @@ class PerusahaanVerificationService
         // Variabel $verifiedCompanies (Collection): Kumpulan objek model Perusahaan terverifikasi dari tabel database.
         $verifiedCompanies = Perusahaan::query()
             ->with([
-                'propinsi:id,nama_provinsi',
-                'kabupaten:id,nama_kabupaten',
+                'propinsi:kode_provinsi,nama_provinsi',
+                'kabupaten:kode_kabupaten,kode_provinsi,nama_kabupaten',
                 'createdProdi:id,nama_prodi',
                 'creator:id,name,role,username',
             ])
@@ -480,12 +480,12 @@ class PerusahaanVerificationService
             $isSameProvince = false;
             $isSameCity = false;
 
-            if ($pendingCompany->propinsi_id && $pendingCompany->propinsi_id === $verified->propinsi_id) {
+            if ($pendingCompany->kode_provinsi && $pendingCompany->kode_provinsi === $verified->kode_provinsi) {
                 $isSameProvince = true;
                 $reasons[] = 'Provinsi Sama ('.$verified->propinsi?->nama_provinsi.')';
             }
 
-            if ($pendingCompany->kabupaten_id && $pendingCompany->kabupaten_id === $verified->kabupaten_id) {
+            if ($pendingCompany->kode_kabupaten && $pendingCompany->kode_kabupaten === $verified->kode_kabupaten) {
                 $isSameCity = true;
                 $reasons[] = 'Kota/Kabupaten Sama ('.$verified->kabupaten?->nama_kabupaten.')';
             }
@@ -510,8 +510,8 @@ class PerusahaanVerificationService
                     'id' => $verified->id,
                     'nama_perusahaan' => $verified->nama_perusahaan,
                     'alamat' => $verified->alamat,
-                    'propinsi_id' => $verified->propinsi_id,
-                    'kabupaten_id' => $verified->kabupaten_id,
+                    'kode_provinsi' => $verified->kode_provinsi,
+                    'kode_kabupaten' => $verified->kode_kabupaten,
                     'nama_provinsi' => $verified->propinsi?->nama_provinsi ?? '-',
                     'nama_kabupaten' => $verified->kabupaten?->nama_kabupaten ?? '-',
                     'homepage' => $verified->homepage,
@@ -524,7 +524,7 @@ class PerusahaanVerificationService
                     'jenis_perusahaan' => $verified->jenis_perusahaan ?? '-',
                     'jenis_perusahaan_lainnya' => $verified->jenis_perusahaan_lainnya,
                     'jenis_lokasi' => $verified->jenis_lokasi,
-                    'negara' => $verified->negara,
+                    'kode_negara' => $verified->kode_negara,
                     'status_verifikasi' => $verified->status_verifikasi,
                     'created_by_user_id' => $verified->created_by_user_id,
                     'created_by_prodi_id' => $verified->created_by_prodi_id,
@@ -563,7 +563,7 @@ class PerusahaanVerificationService
         }
 
         return Perusahaan::query()
-            ->with(['propinsi:id,nama_provinsi', 'kabupaten:id,nama_kabupaten'])
+            ->with(['propinsi:kode_provinsi,nama_provinsi', 'kabupaten:kode_kabupaten,kode_provinsi,nama_kabupaten'])
             ->where('status_verifikasi', 'Terverifikasi')
             ->where(function ($q) use ($term) {
                 $q->where('nama_perusahaan', 'like', "%{$term}%")
@@ -603,22 +603,22 @@ class PerusahaanVerificationService
                     ->update(['perusahaan_id' => $verifiedCompany->id]);
             }
 
-            // 3. Alihkan jawaban kuesioner Tracer Study (tabel tracer) yang terhubung dengan perusahaan usulan
-            if (Schema::hasTable('tracer') && ! empty($affectedBiodataIds)) {
+            // 3. Alihkan jawaban kuesioner Tracer Study (tabel kuesioner_jawaban) yang terhubung dengan perusahaan usulan
+            if (! empty($affectedBiodataIds)) {
                 // Alihkan jawaban eksplisit bernilai nama usulan alumni
-                DB::table('tracer')
+                DB::table('kuesioner_jawaban')
                     ->whereIn('biodata_id', $affectedBiodataIds)
-                    ->where('answer', $pendingName)
-                    ->update(['answer' => $verifiedName]);
+                    ->where('jawaban_teks', $pendingName)
+                    ->update(['jawaban_teks' => $verifiedName]);
 
                 // Alihkan butir kuesioner penanda instansi/perusahaan tempat kerja (F5B / F2E)
-                DB::table('tracer')
+                DB::table('kuesioner_jawaban')
                     ->whereIn('biodata_id', $affectedBiodataIds)
                     ->where(function ($q) {
                         $q->where('kode_pertanyaan', 'LIKE', 'F5B%')
                             ->orWhere('kode_pertanyaan', 'LIKE', 'F2E%');
                     })
-                    ->update(['answer' => $verifiedName]);
+                    ->update(['jawaban_teks' => $verifiedName]);
             }
 
             // 4. Hapus record usulan perusahaan yang sudah berhasil digantikan dan dikonsolidasikan

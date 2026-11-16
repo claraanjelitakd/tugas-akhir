@@ -496,6 +496,8 @@ class ApifyLinkedInProviderTest extends TestCase
         $row = collect($directory['alumnis'])->firstWhere('id', $alumni->id);
 
         $this->assertNotNull($row);
+        $this->assertSame($result->id, $row['linkedin_sync']['sync_id']);
+        $this->assertSame('pending', $row['linkedin_sync']['status']);
         $this->assertSame('Super Administrator Apify', $row['linkedin_sync']['initiator_name']);
         $this->assertSame('30/10/2026 03:59', $row['linkedin_sync']['waktu_terakhir']);
     }
@@ -535,6 +537,34 @@ class ApifyLinkedInProviderTest extends TestCase
         $this->assertNull($fresh->perusahaan_id);
     }
 
+    /**
+     * Memastikan perusahaan master yang cocok hanya disiapkan saat sync dan baru dipetakan saat approval.
+     */
+    public function test_sync_prepares_existing_verified_company_without_mutating_profile(): void
+    {
+        Config::set('services.linkedin.provider', 'apify');
+
+        $masterCompany = Perusahaan::create([
+            'nama_perusahaan' => 'PT Bukalapak.com Tbk',
+            'status_verifikasi' => 'Terverifikasi',
+        ]);
+        $alumni = $this->createAlumni('71190009', 'Alumni Auto Mapping');
+
+        Http::fake([
+            'https://api.apify.com/*' => Http::response($this->sampleApifyResponse($alumni->linkedin_url), 200),
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->postJson("/superadmin/linkedin-sync/{$alumni->id}");
+
+        $response->assertOk()->assertJsonPath('sync_result.company_resolution.status', 'matched');
+        $this->assertNull($alumni->fresh()->perusahaan_id);
+        $this->assertDatabaseHas('linkedin_sync_results', [
+            'biodata_id' => $alumni->id,
+            'status' => 'pending',
+        ]);
+    }
+
     // -------------------------------------------------------------------------
     // Test 19: Approve Succeeded for Pending Record
     // -------------------------------------------------------------------------
@@ -562,6 +592,47 @@ class ApifyLinkedInProviderTest extends TestCase
         $this->assertEquals('approved', $result->status);
         $this->assertEquals($this->superadmin->id, $result->reviewed_by);
         $this->assertNotNull($result->reviewed_at);
+    }
+
+    /**
+     * Memastikan payload preview membawa foto, URL LinkedIn, head office, dan domisili aktif alumni.
+     */
+    public function test_show_result_returns_complete_review_context(): void
+    {
+        $alumni = $this->createAlumni('71190011', 'Alumni Review Context');
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Review Context',
+            'alamat' => 'Jl. Head Office 1',
+            'kode_pos' => '55281',
+            'homepage' => 'https://review-context.example.com',
+            'status_verifikasi' => 'Terverifikasi',
+        ]);
+        $alumni->update([
+            'foto' => '/uploads/profile/review-context.jpg',
+            'perusahaan_id' => $company->id,
+            'alamat_saat_ini' => 'Jl. Domisili 2',
+            'kode_pos' => '55111',
+        ]);
+
+        $result = LinkedinSyncResult::create([
+            'biodata_id' => $alumni->id,
+            'linkedin_url' => $alumni->linkedin_url,
+            'scraped_data' => $this->sampleApifyResponse($alumni->linkedin_url),
+            'status' => 'pending',
+            'scraped_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->getJson("/superadmin/linkedin-sync/results/{$result->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('result.current_data.foto', '/uploads/profile/review-context.jpg')
+            ->assertJsonPath('result.current_data.linkedin_url', $alumni->linkedin_url)
+            ->assertJsonPath('result.current_data.head_office.nama', 'PT Review Context')
+            ->assertJsonPath('result.current_data.head_office.kode_pos', '55281')
+            ->assertJsonPath('result.current_data.head_office.homepage', 'https://review-context.example.com')
+            ->assertJsonPath('result.current_data.domisili.alamat', 'Jl. Domisili 2')
+            ->assertJsonPath('result.current_data.domisili.kode_pos', '55111');
     }
 
     // -------------------------------------------------------------------------

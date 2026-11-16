@@ -12,6 +12,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import Sidebar from '../Components/Sidebar.vue';
+import PaginationControls from '@/components/PaginationControls.vue';
 
 const props = defineProps({
     user: Object,
@@ -206,6 +207,11 @@ const editErrors = ref({});
 // Status loading saat request pengiriman sedang berlangsung
 const isSubmitting = ref(false);
 
+// Menentukan apakah akun memiliki alamat email yang dapat menerima tautan reset.
+const hasValidEmail = (userData) => {
+    return typeof userData?.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userData.email);
+};
+
 /**
  * Membuka modal edit pengguna dan mengisi form dengan data yang dipilih
  * Catatan Belajar: Mengisi objek form sebelum membuka modal memastikan pengguna
@@ -267,6 +273,12 @@ const submitEditUser = () => {
     if (!editForm.value.username.trim()) {
         editErrors.value.username = 'Username / NIM wajib diisi.';
     }
+    if (editForm.value.role === 'admin_fakultas' && !editForm.value.fakultas_id) {
+        editErrors.value.fakultas_id = 'Fakultas wajib dipilih untuk Admin Fakultas.';
+    }
+    if (editForm.value.role === 'admin_prodi' && !editForm.value.prodi_id) {
+        editErrors.value.prodi_id = 'Program studi wajib dipilih untuk Admin Prodi.';
+    }
 
     if (Object.keys(editErrors.value).length > 0) {
         return;
@@ -325,13 +337,13 @@ const handleSendPasswordResetLink = (userData) => {
 <template>
     <Head title="Manajemen Akun - Super Admin UKDW" />
 
-    <div class="min-h-screen bg-slate-50 flex font-sans">
+    <div class="min-h-screen bg-slate-50 flex font-sans min-w-[1280px]">
         <Sidebar :user="user" />
 
         <div class="flex-1 flex flex-col min-w-0 lg:pl-72">
             <!-- Header Solid UKDW Green Konsisten -->
             <div class="admin-page-header bg-[#0D542B] text-white pt-8 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-900/40">
-                <div class="w-full max-w-[1440px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div class="flex items-center gap-2 text-xs text-white/70 font-medium mb-1.5">
                             <Link href="/superadmin/dashboard" class="hover:text-white transition-colors">Dashboard</Link>
@@ -362,7 +374,7 @@ const handleSendPasswordResetLink = (userData) => {
             </div>
 
             <!-- Kontainer Konten Utama -->
-            <main class="admin-page-main w-full max-w-[1440px] mx-auto -mt-10 px-4 sm:px-6 lg:px-8 space-y-5 pb-12">
+            <main class="admin-page-main w-full -mt-10 px-4 sm:px-6 lg:px-8 space-y-5 pb-12">
                 <!-- Tab Navigasi Role & Tombol Aksi Sinkronisasi -->
                 <div class="bg-white p-3 rounded-xl border border-gray-300 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                     <!-- Tab Kategori Peran (Role) -->
@@ -463,7 +475,13 @@ const handleSendPasswordResetLink = (userData) => {
                                     <div class="text-[11px] text-gray-500 font-mono">@{{ u.username }}</div>
                                 </td>
                                 <td class="border border-gray-300 px-3 py-2 font-medium text-gray-800">
-                                    {{ u.email }}
+                                    <div>{{ u.email || '-' }}</div>
+                                    <div
+                                        :class="hasValidEmail(u) ? 'text-emerald-700' : 'text-rose-600'"
+                                        class="text-[10px] font-semibold mt-0.5"
+                                    >
+                                        {{ hasValidEmail(u) ? 'Siap untuk reset kata sandi' : 'Email belum valid untuk reset' }}
+                                    </div>
                                 </td>
                                 <td class="border border-gray-300 px-3 py-2">
                                     <span v-if="u.role === 'superadmin' || u.role?.startsWith('admin')" class="inline-block px-2.5 py-0.5 rounded-full font-semibold text-[10px] text-[#0D542B] bg-emerald-50 border border-emerald-200">
@@ -474,7 +492,11 @@ const handleSendPasswordResetLink = (userData) => {
                                     </span>
                                 </td>
                                 <td class="border border-gray-300 px-3 py-2 text-gray-700">
-                                    <template v-if="u.role === 'alumni' || u.role === 'admin_prodi'">
+                                    <template v-if="u.role === 'admin_fakultas'">
+                                        <div class="font-medium text-gray-900">{{ u.fakultas?.nama_fakultas || '-' }}</div>
+                                        <div class="text-[11px] text-gray-500 mt-0.5">Scope Admin Fakultas</div>
+                                    </template>
+                                    <template v-else-if="u.role === 'alumni' || u.role === 'admin_prodi'">
                                         <div class="font-medium text-gray-900">{{ u.prodi?.nama_prodi || '-' }}</div>
                                         <div v-if="u.prodi?.fakultas" class="text-[11px] text-gray-500 mt-0.5">{{ u.prodi.fakultas.nama_fakultas }}</div>
                                     </template>
@@ -500,8 +522,12 @@ const handleSendPasswordResetLink = (userData) => {
                                             v-if="u.role !== 'superadmin'"
                                             type="button"
                                             @click="handleSendPasswordResetLink(u)"
-                                            class="p-1.5 text-gray-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
-                                            title="Kirim tautan reset kata sandi"
+                                            :disabled="!hasValidEmail(u)"
+                                            :class="hasValidEmail(u)
+                                                ? 'text-gray-600 hover:text-[#0D542B] hover:bg-emerald-50 cursor-pointer'
+                                                : 'text-gray-300 cursor-not-allowed'"
+                                            class="p-1.5 rounded-lg transition-colors"
+                                            :title="hasValidEmail(u) ? 'Kirim tautan reset kata sandi' : 'Isi email valid terlebih dahulu'"
                                         >
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -514,28 +540,8 @@ const handleSendPasswordResetLink = (userData) => {
                     </table>
                 </div>
 
-                    <!-- Pagination -->
-                    <div v-if="users.links && users.links.length > 3" class="px-4 py-3 border-t border-gray-200 bg-slate-50 flex items-center justify-between text-xs text-gray-600">
-                        <div>
-                            Menampilkan {{ users.from || 0 }} - {{ users.to || 0 }} dari total {{ users.total || 0 }} pengguna.
-                        </div>
-                        <div class="flex gap-1">
-                            <Link
-                                v-for="(link, lIdx) in users.links"
-                                :key="lIdx"
-                                :href="link.url || '#'"
-                                v-html="link.label"
-                                class="px-2.5 py-1 rounded text-xs font-semibold transition-colors"
-                                :class="[
-                                    link.active
-                                        ? 'bg-[#0D542B] text-white'
-                                        : link.url
-                                            ? 'bg-white text-gray-700 hover:bg-gray-200 border border-gray-300'
-                                            : 'text-gray-400 cursor-not-allowed pointer-events-none'
-                                ]"
-                            />
-                        </div>
-                    </div>
+                    <!-- Pagination akun memakai kontrol bersama agar tidak menampilkan semua nomor halaman mentah. -->
+                    <PaginationControls :pagination="users" summary-label="akun pengguna" />
                 </div>
             </main>
         </div>
@@ -637,7 +643,10 @@ const handleSendPasswordResetLink = (userData) => {
                             </div>
 
                             <div>
-                                <label class="block font-bold text-slate-700 mb-1">Program Studi</label>
+                                <label class="block font-bold text-slate-700 mb-1">
+                                    Program Studi
+                                    <span v-if="editForm.role === 'admin_prodi'" class="text-rose-600">*</span>
+                                </label>
                                 <select
                                     v-model="editForm.prodi_id"
                                     @change="handleProdiChange"
@@ -648,10 +657,16 @@ const handleSendPasswordResetLink = (userData) => {
                                         {{ p.nama_prodi }}
                                     </option>
                                 </select>
+                                <p v-if="editErrors.prodi_id" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                    {{ editErrors.prodi_id }}
+                                </p>
                             </div>
 
                             <div>
-                                <label class="block font-bold text-slate-700 mb-1">Fakultas</label>
+                                <label class="block font-bold text-slate-700 mb-1">
+                                    Fakultas
+                                    <span v-if="editForm.role === 'admin_fakultas'" class="text-rose-600">*</span>
+                                </label>
                                 <select
                                     v-model="editForm.fakultas_id"
                                     class="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
@@ -661,6 +676,9 @@ const handleSendPasswordResetLink = (userData) => {
                                         {{ f.nama_fakultas }}
                                     </option>
                                 </select>
+                                <p v-if="editErrors.fakultas_id" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                    {{ editErrors.fakultas_id }}
+                                </p>
                             </div>
                         </div>
 

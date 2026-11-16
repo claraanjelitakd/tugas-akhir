@@ -41,13 +41,45 @@ Semua kotak, label dan konektor dalam `.drawio` dapat diedit. Diagram 0 memakai 
 | [User flow](docs/user-flow.md) | Langkah penggunaan per role dan visualisasi analitik. |
 | [ERD](ERD.md) | Relasi tabel database dan kamus data. |
 | [Kuesioner](KUESIONER.md) | Bagian dan percabangan pertanyaan. |
+| [Kontrak data kuesioner](docs/kuesioner-data-contract.md) | Tipe input, penyimpanan jawaban, validasi, dan cara grafik menghitung. |
 | [Pemetaan pertanyaan](DAFTAR_PERTANYAAN_MAPPING.md) | Kode pertanyaan dan sumber datanya. |
 | [Activity diagram](docs/activitydiagram.md) | Aktivitas, keputusan dan pemetaan implementasi. |
 | [Database views](docs/database-views.md) | Referensi view analitik dan audit. |
+| [Audit wilayah & UMP](docs/audit-konsistensi-wilayah.md) | Kontrak master wilayah, sumber CSV UMP, dan mapping kode provinsi. |
 | [Integrasi LinkedIn](docs/linkedin-mcp-integration.md) | Driver provider dan peninjauan hasil. |
 | [Verifikasi perusahaan](docs/verifikasi-perusahaan-similarity.md) | Algoritma rekomendasi dan konsolidasi. |
 | [Arsitektur admin](docs/ARCHITECTURE.md) | Komponen bersama, halaman lintas-role, route, dan batas data. |
 | [Riwayat perubahan](docs/changelog.md) | Arsip dan log pembaruan teknis lengkap. |
+
+### Mapping perusahaan LinkedIn
+
+Hasil sinkronisasi LinkedIn membaca nama posisi/perusahaan dari beberapa variasi
+payload provider. Nama perusahaan dicari ke master `perusahaan` menggunakan
+pencocokan eksak dan rekomendasi similarity. Kecocokan dengan confidence tinggi
+disiapkan sebagai rekomendasi master dan baru diterapkan setelah admin memilih
+`Approve/Plot`; perusahaan baru tetap dibuat dengan status `Menunggu Verifikasi`
+agar nama yang ditemukan tidak hilang dan tidak dianggap sebagai master
+terverifikasi.
+
+Hasil yang masih ambigu tetap berstatus `Pending Review`. Admin dapat memilih
+`Approve`, `Reject`, atau `Preview` langsung dari kolom Sinkronisasi pada tabel
+Data Alumni maupun halaman Sinkronisasi LinkedIn. Preview dibuka sebagai modal
+di halaman yang sama, sehingga approval cepat tidak memerlukan halaman detail.
+Approval memakai nilai staging dan tetap menulis histori audit.
+
+Data perusahaan pada form profil alumni mewakili master head office: homepage,
+alamat kantor, kode pos, dan telepon/fax bersifat opsional. Lokasi pekerjaan
+yang dikumpulkan LinkedIn disimpan pada staging dan tidak mengubah lokasi head
+office atau domisili alumni.
+
+Pengiriman form profil yang parsial juga bersifat preservatif: field head office
+yang kosong tidak menghapus metadata master yang sudah ada, termasuk status
+`Terverifikasi`.
+
+Form evaluasi atasan menggunakan master head office yang sama. Isian atasan
+melengkapi kolom yang masih kosong; jika master sudah terverifikasi, metadata
+resmi tidak ditimpa. Kode pos kantor tetap berbeda dari kode pos domisili
+alumni.
 
 ## Sumber dan batas model
 

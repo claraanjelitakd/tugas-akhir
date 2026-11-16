@@ -14,11 +14,10 @@ use Illuminate\Support\Str;
  * Mengelola data profil aktif alumni untuk sistem Tracer Study UKDW.
  *
  * Kebijakan Integritas & Anti-Duplikasi Data:
- * - Data akademik master (nama, tempat/tanggal lahir, jenis kelamin, agama,
- *   golongan darah, status kelulusan, dan email_students)
+ * - Data akademik master (nama, tanggal lahir, jenis kelamin, status kelulusan)
  *   tersimpan terpusat di tabel `data_akademik`.
- * - Model Biodata ini menyediakan Accessor dinamis ke `dataAkademik` sehingga kode
- *   aplikasi yang memanggil `$biodata->nama`, `$biodata->tahun_lulus`, dsb. tetap berjalan lancar.
+ * - Model Biodata menyediakan accessor dinamis ke `dataAkademik` untuk nilai akademik yang
+ *   memang menjadi referensi master.
  * - Untuk korespondensi alumni, tabel ini hanya menyimpan `email_pribadi`.
  */
 class Biodata extends Model
@@ -36,6 +35,8 @@ class Biodata extends Model
     {
         static::creating(function (Biodata $biodata) {
             if ($biodata->nim) {
+                $dataAkad = DataAkademik::where('nim', $biodata->nim)->first();
+
                 // 1. Hubungkan ke data yudisium jika belum terisi
                 if (empty($biodata->yudisium_id)) {
                     $biodata->yudisium_id = Yudisium::where('nim', $biodata->nim)->value('id');
@@ -49,14 +50,18 @@ class Biodata extends Model
                     }
                 }
 
-                // 3. Pastikan Akun Pengguna (User) tersedia jika belum terisi
+                // 3. Salin email awal dari sumber akademik tanpa membuat sinkronisasi dua arah
+                if (empty($biodata->email_pribadi) && ! empty($dataAkad?->email_pribadi)) {
+                    $biodata->email_pribadi = $dataAkad->email_pribadi;
+                }
+
+                // 4. Pastikan Akun Pengguna (User) tersedia jika belum terisi
                 if (empty($biodata->user_id)) {
-                    $dataAkad = DataAkademik::where('nim', $biodata->nim)->first();
                     $user = User::firstOrCreate(
                         ['username' => $biodata->nim],
                         [
                             'name' => $dataAkad?->nama ?? 'Alumni UKDW',
-                            'email' => $dataAkad?->email_pribadi ?? ($biodata->nim.'@alumni.ukdw.ac.id'),
+                            'email' => $biodata->email_pribadi ?? ($biodata->nim.'@alumni.ukdw.ac.id'),
                             'password' => Hash::make(
                                 $dataAkad?->tanggal_lahir ? Carbon::parse($dataAkad->tanggal_lahir)->format('dmY') : Str::password(32)
                             ),
@@ -127,8 +132,8 @@ class Biodata extends Model
         'alamat_saat_ini',
         'kelurahan',
         'kecamatan',
-        'kabupaten_id',
-        'propinsi_id',
+        'kode_kabupaten',
+        'kode_provinsi',
         'kode_pos',
         'instagram_url',
         'facebook_url',
@@ -140,6 +145,7 @@ class Biodata extends Model
         'atasan_id',
         'posisi_jabatan',
         'bidang_pekerjaan',
+        'divisi',
         'kategori_pekerjaan',
         'posisi_wiraswasta',
         'pendidikan_tingkat',
@@ -206,7 +212,7 @@ class Biodata extends Model
      */
     public function propinsi()
     {
-        return $this->belongsTo(Propinsi::class, 'propinsi_id');
+        return $this->belongsTo(Propinsi::class, 'kode_provinsi', 'kode_provinsi');
     }
 
     /**
@@ -214,33 +220,15 @@ class Biodata extends Model
      */
     public function kabupaten()
     {
-        return $this->belongsTo(Kabupaten::class, 'kabupaten_id');
+        return $this->belongsTo(Kabupaten::class, 'kode_kabupaten', 'kode_kabupaten');
     }
 
     /**
-     * Relasi ke Hasil Pengisian Kuesioner Universitas (Tracer).
+     * Relasi ke seluruh respon kuesioner terpadu alumni (KuesionerJawaban).
      */
-    public function tracer()
+    public function jawabanKuesioner()
     {
-        return $this->hasMany(Tracer::class, 'biodata_id');
-    }
-
-    public function tracers()
-    {
-        return $this->tracer();
-    }
-
-    /**
-     * Relasi ke Hasil Pengisian Kuesioner Khusus Program Studi.
-     */
-    public function prodiResponse()
-    {
-        return $this->hasMany(ProdiResponse::class, 'biodata_id');
-    }
-
-    public function prodiResponses()
-    {
-        return $this->prodiResponse();
+        return $this->hasMany(KuesionerJawaban::class, 'biodata_id');
     }
 
     /**
@@ -328,22 +316,6 @@ class Biodata extends Model
     public function getEmailAttribute(): ?string
     {
         return $this->email_pribadi ?? $this->user?->email;
-    }
-
-    /**
-     * Akses email mahasiswa kampus (mengambil dari data_akademik saja).
-     */
-    public function getEmailStudentsAttribute(): ?string
-    {
-        return $this->dataAkademik?->email_students;
-    }
-
-    /**
-     * Akses tempat lahir (dari data_akademik).
-     */
-    public function getTempatLahirAttribute(): ?string
-    {
-        return $this->dataAkademik?->tempat_lahir;
     }
 
     /**

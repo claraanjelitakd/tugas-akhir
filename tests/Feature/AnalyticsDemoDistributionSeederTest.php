@@ -5,16 +5,16 @@ namespace Tests\Feature;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\Kabupaten;
+use App\Models\KuesionerJawaban;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Prodi;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiQuestionOption;
-use App\Models\ProdiQuestionSection;
-use App\Models\ProdiResponse;
 use App\Models\Propinsi;
 use App\Models\User;
 use Database\Seeders\AnalyticsDemoDistributionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -35,7 +35,7 @@ class AnalyticsDemoDistributionSeederTest extends TestCase
             'nama_provinsi' => 'DI Yogyakarta',
         ]);
         Kabupaten::create([
-            'propinsi_id' => $province->id,
+            'kode_provinsi' => $province->kode_provinsi,
             'kode_kabupaten' => '34.71',
             'nama_kabupaten' => 'Kota Yogyakarta',
         ]);
@@ -47,50 +47,78 @@ class AnalyticsDemoDistributionSeederTest extends TestCase
             'kode_prodi' => '72',
             'nama_prodi' => 'Sistem Informasi',
         ]);
-        $section = ProdiQuestionSection::create([
+
+        $univSection = KuesionerSection::create([
+            'kode_section' => 'SEC_UNIV_1',
+            'judul' => 'Kuesioner Dikti',
+            'target' => 'univ',
+            'order' => 1,
+            'is_active' => true,
+        ]);
+
+        $section = KuesionerSection::create([
+            'kode_section' => 'SEC_PRODI_72',
             'prodi_id' => $sistemInformasi->id,
-            'title' => 'Kontribusi Alumni',
+            'judul' => 'Kontribusi Alumni',
+            'target' => 'prodi',
+            'order' => 1,
+            'is_active' => true,
+        ]);
+
+        $prodiQuestion = KuesionerPertanyaan::create([
+            'pemilik_prodi_id' => $sistemInformasi->id,
+            'kode_pertanyaan' => 'PSI-1-04',
+            'teks_pertanyaan' => 'Kontribusi alumni',
+            'tipe' => 'multiple_choice',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $section->id,
+            'pertanyaan_id' => $prodiQuestion->id,
             'order' => 1,
         ]);
-        $prodiQuestion = ProdiQuestion::create([
-            'prodi_id' => $sistemInformasi->id,
-            'prodi_question_section_id' => $section->id,
-            'code' => 'PSI-1-04',
-            'question_text' => 'Kontribusi alumni',
-            'type' => 'multiple_choice',
-            'order' => 1,
-        ]);
-        foreach (['Kuliah Umum / Dosen Praktisi', 'Kerjasama Magang', 'Lainnya (Tuliskan)'] as $order => $optionText) {
-            ProdiQuestionOption::create([
-                'prodi_question_id' => $prodiQuestion->id,
-                'code' => 'PSI-1-04-0'.($order + 1),
-                'option_text' => $optionText,
+
+        foreach (['Kuliah Umum / Dosen Praktisi', 'Kerjasama Magang', 'Sponsor', 'Lainnya (Tuliskan)'] as $order => $optionText) {
+            KuesionerOpsi::create([
+                'pertanyaan_id' => $prodiQuestion->id,
+                'kode_opsi' => 'PSI-1-04-0'.($order + 1),
+                'label' => $optionText,
                 'order' => $order + 1,
             ]);
         }
+
         $questions = collect(['F8', 'F21', 'F22', 'F23', 'F24', 'F25', 'F26', 'F27'])
-            ->mapWithKeys(fn (string $code, int $index): array => [$code => DB::table('ref_subpertanyaan2021')->insertGetId([
-                'kelompok' => $code === 'F8' ? 'F8' : 'F2',
-                'kode_pertanyaan' => $code,
-                'subpertanyaan' => 'Pertanyaan '.$code,
-                'type' => 'radio',
-                'wajib' => true,
-                'order' => $index + 1,
-            ])]);
+            ->mapWithKeys(function (string $code, int $index) use ($univSection): array {
+                $q = KuesionerPertanyaan::create([
+                    'kode_pertanyaan' => $code,
+                    'teks_pertanyaan' => 'Pertanyaan '.$code,
+                    'tipe' => 'radio',
+                    'is_active' => true,
+                ]);
+                KuesionerSectionPertanyaan::create([
+                    'section_id' => $univSection->id,
+                    'pertanyaan_id' => $q->id,
+                    'order' => $index + 1,
+                ]);
+
+                return [$code => $q->id];
+            });
+
         $informatikaBiodata = $this->createDemoAlumnus('71000001', $informatika);
         $sistemInformasiBiodata = $this->createDemoAlumnus('72000001', $sistemInformasi);
         $sistemInformasiBiodataLain = $this->createDemoAlumnus('72000002', $sistemInformasi);
+        $sistemInformasiBiodataSponsor = $this->createDemoAlumnus('72000003', $sistemInformasi);
+        $sistemInformasiBiodataMagang = $this->createDemoAlumnus('72000004', $sistemInformasi);
 
-        foreach ([$informatikaBiodata, $sistemInformasiBiodata, $sistemInformasiBiodataLain] as $biodata) {
-            DB::table('tracer')->insert([
+        foreach ([$informatikaBiodata, $sistemInformasiBiodata, $sistemInformasiBiodataLain, $sistemInformasiBiodataSponsor, $sistemInformasiBiodataMagang] as $biodata) {
+            KuesionerJawaban::create([
+                'responden_type' => 'alumni',
                 'biodata_id' => $biodata->id,
-                'question_id' => $questions['F8'],
-                'nim' => $biodata->nim,
-                'kelompok' => 'F8',
+                'section_id' => $univSection->id,
+                'pertanyaan_id' => $questions['F8'],
                 'kode_pertanyaan' => 'F8',
-                'subpertanyaan' => 'Status pekerjaan',
-                'answer' => 'Bekerja (full time/part time)',
-                'tahun_lulus' => now()->year,
+                'jawaban_teks' => 'Bekerja (full time/part time)',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -98,29 +126,39 @@ class AnalyticsDemoDistributionSeederTest extends TestCase
 
         $this->seed(AnalyticsDemoDistributionSeeder::class);
 
-        $this->assertDatabaseHas('tracer', [
+        $this->assertDatabaseHas('kuesioner_jawaban', [
             'biodata_id' => $informatikaBiodata->id,
             'kode_pertanyaan' => 'F21',
-            'answer' => 'Sangat Besar',
+            'jawaban_teks' => 'Sangat Besar',
         ]);
-        $this->assertDatabaseHas('tracer', [
+        $this->assertDatabaseHas('kuesioner_jawaban', [
             'biodata_id' => $sistemInformasiBiodata->id,
             'kode_pertanyaan' => 'F21',
-            'answer' => 'Besar',
+            'jawaban_teks' => 'Besar',
         ]);
-        $this->assertDatabaseHas('prodi_response', [
+        $this->assertDatabaseHas('kuesioner_jawaban', [
             'biodata_id' => $sistemInformasiBiodata->id,
-            'prodi_question_id' => $prodiQuestion->id,
-            'answer_text' => 'Kuliah Umum / Dosen Praktisi',
+            'kode_pertanyaan' => 'PSI-1-04',
+            'jawaban_teks' => 'Sponsor',
         ]);
-        $this->assertDatabaseHas('prodi_response', [
+        $this->assertDatabaseHas('kuesioner_jawaban', [
             'biodata_id' => $sistemInformasiBiodataLain->id,
-            'prodi_question_id' => $prodiQuestion->id,
-            'answer_text' => 'Lainnya (Tuliskan), Kerjasama Magang',
+            'kode_pertanyaan' => 'PSI-1-04',
+            'jawaban_teks' => 'Lainnya (Tuliskan)',
+        ]);
+        $this->assertDatabaseHas('kuesioner_jawaban', [
+            'biodata_id' => $sistemInformasiBiodataSponsor->id,
+            'kode_pertanyaan' => 'PSI-1-04',
+            'jawaban_teks' => 'Kuliah Umum / Dosen Praktisi',
+        ]);
+        $this->assertDatabaseHas('kuesioner_jawaban', [
+            'biodata_id' => $sistemInformasiBiodataMagang->id,
+            'kode_pertanyaan' => 'PSI-1-04',
+            'jawaban_teks' => 'Kerjasama Magang',
         ]);
         $this->assertNotSame(
-            ProdiResponse::where('biodata_id', $sistemInformasiBiodata->id)->where('prodi_question_id', $prodiQuestion->id)->value('answer_text'),
-            ProdiResponse::where('biodata_id', $sistemInformasiBiodataLain->id)->where('prodi_question_id', $prodiQuestion->id)->value('answer_text'),
+            KuesionerJawaban::where('biodata_id', $sistemInformasiBiodata->id)->where('kode_pertanyaan', 'PSI-1-04')->value('jawaban_teks'),
+            KuesionerJawaban::where('biodata_id', $sistemInformasiBiodataLain->id)->where('kode_pertanyaan', 'PSI-1-04')->value('jawaban_teks'),
         );
     }
 

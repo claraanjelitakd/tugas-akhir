@@ -1,0 +1,33 @@
+' Gaya visual activity diagram mengikuti halaman PDF referensi skripsi.
+' Kertas putih, garis swimlane hitam, action/decision putih, penanda mulai/akhir merah.
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 16
+skinparam ArrowColor #111111
+skinparam ArrowThickness 1.5
+skinparam ActivityBorderColor #111111
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityFontColor #000000
+skinparam ActivityDiamondBackgroundColor #FFFFFF
+skinparam ActivityDiamondBorderColor #111111
+skinparam ActivityDiamondFontColor #000000
+skinparam ActivityStartColor #FF0000
+skinparam ActivityEndColor #FF0000
+skinparam ActivityEndBorderColor #FF0000
+skinparam ActivityEndBackgroundColor #FF0000
+skinparam CircleEndColor #FF0000
+skinparam ActivityBarColor #000000
+skinparam SwimlaneBorderColor #111111
+skinparam SwimlaneTitleBackgroundColor #FFFFFF
+skinparam SwimlaneTitleFontColor #000000
+skinparam SwimlaneTitleFontStyle bold
+skinparam PartitionBorderColor #111111
+skinparam PartitionBackgroundColor #FFFFFF
+skinparam PartitionFontColor #000000
+skinparam NoteBackgroundColor #FFFFFF
+skinparam NoteBorderColor #111111
+skinparam NoteFontColor #000000
+skinparam TitleBackgroundColor #FFFFFF
+skinparam TitleBorderColor #111111
+skinparam TitleFontColor #000000

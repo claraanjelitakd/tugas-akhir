@@ -5,7 +5,7 @@
           dengan Kuesioner Universitas (KartuPertanyaan.vue):
           - Badge instruksi default pada setiap tipe pertanyaan
           - Indikator bulatan radio button (single choice / radio / radio_text / radio_input)
-          - Indikator kotak centang checkbox (multiple choice / checkbox)
+          - Indikator kotak centang checkbox (multiple choice / checkbox / checkbox + teks)
           - Input teks kustom otomatis untuk opsi Lainnya / Other / ...
 -->
 <script setup>
@@ -36,11 +36,12 @@ const getTypeInstruction = (type) => {
             return 'Pilih salah satu jawaban';
         case 'checkbox':
         case 'multiple_choice':
+        case 'multiple_choice_text':
             return 'Jawaban bisa lebih dari satu (centang yang sesuai)';
         case 'radio_text':
             return 'Pilih salah satu jawaban (tuliskan keterangan jika memilih Lainnya)';
         case 'radio_input':
-            return 'Pilih salah satu jawaban dan lengkapi angka pada kolom isian';
+            return 'Pilih satu jawaban; isi angka bulan jika diminta.';
         case 'rating_5':
             return 'Pilih satu angka skala 1 s/d 5';
         case 'dropdown':
@@ -83,6 +84,32 @@ const isCustomOption = (opt) => {
     const text = (typeof opt === 'object' ? opt.option_text : opt) || '';
     const lower = String(text).trim().toLowerCase();
     return lower === 'other' || lower.includes('lainnya') || lower.includes('tuliskan') || lower.includes('...') || lower.includes('…');
+};
+
+// Menambahkan opsi Lainnya hanya pada tampilan radio_text, tanpa membuat baris master baru.
+const getRadioOptions = (question) => {
+    const options = question?.options || [];
+    if (question?.type !== 'radio_text' || options.some((option) => isCustomOption(option))) {
+        return options;
+    }
+
+    return [
+        ...options,
+        { id: `virtual-other-${question.id}`, option_text: 'Lainnya', is_other: true },
+    ];
+};
+
+// Menambahkan opsi Lainnya virtual untuk checkbox yang menyediakan isian bebas.
+const getCheckboxOptions = (question) => {
+    const options = question?.options || [];
+    if (question?.type !== 'multiple_choice_text' || options.some((option) => isCustomOption(option))) {
+        return options;
+    }
+
+    return [
+        ...options,
+        { id: `virtual-other-${question.id}`, option_text: 'Lainnya', is_other: true },
+    ];
 };
 
 // Helper radio_text & radio_input
@@ -262,9 +289,9 @@ const stepNumberInput = (qId, delta) => {
         </div>
 
         <!-- TIPE INPUT: Pilihan Ganda / Checkbox (Bisa memilih lebih dari satu) -->
-        <div v-else-if="block.question.type === 'multiple_choice' || block.question.type === 'checkbox'">
+        <div v-else-if="block.question.type === 'multiple_choice' || block.question.type === 'checkbox' || block.question.type === 'multiple_choice_text'">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-                <label v-for="opt in block.question.options" :key="opt.id" class="cursor-pointer group block select-none">
+                <label v-for="opt in getCheckboxOptions(block.question)" :key="opt.id" class="cursor-pointer group block select-none">
                     <input
                         type="checkbox"
                         :value="opt.option_text"
@@ -325,7 +352,7 @@ const stepNumberInput = (qId, delta) => {
         <!-- TIPE INPUT: Radio + Teks / Radio + Angka (radio_text & radio_input) -->
         <div v-else-if="block.question.type === 'radio_text' || block.question.type === 'radio_input'">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-                <label v-for="opt in block.question.options" :key="opt.id" class="cursor-pointer group block select-none">
+                <label v-for="opt in getRadioOptions(block.question)" :key="opt.id" class="cursor-pointer group block select-none">
                     <input
                         type="radio"
                         :name="'q_' + block.question.id"

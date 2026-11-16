@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\SuperAdmin\KelolaPertanyaan;
 
 use App\Http\Controllers\Controller;
-use App\Models\RefSubpertanyaan2021;
-use App\Models\RefSubpertanyaanDetil;
+use App\Models\KuesionerOpsi;
+use App\Models\KuesionerPertanyaan;
+use App\Models\LogActivity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -21,87 +22,72 @@ class KelolaOpsiController extends Controller
 {
     /**
      * Menyimpan opsi pilihan jawaban baru untuk butir pertanyaan tertentu.
-     *
-     * @param  int  $questionId
-     * @return RedirectResponse
      */
-    public function storeOption(Request $request, $questionId)
+    public function storeOption(Request $request, int $questionId): RedirectResponse
     {
-        $subpertanyaan = RefSubpertanyaan2021::findOrFail($questionId);
+        $pertanyaan = KuesionerPertanyaan::findOrFail($questionId);
 
         $validated = $request->validate([
-            'kode_opsi' => 'nullable|string|max:50',
-            'code' => 'nullable|string|max:50',
+            'code' => 'required|string|max:50',
             'option_text' => 'required|string',
             'jump_to' => 'nullable|string|max:50',
             'order' => 'nullable|integer',
         ]);
 
-        $order = $validated['order'] ?? (($subpertanyaan->detils()->max('order') ?? 0) + 1);
-        $kodeOpsi = $validated['kode_opsi'] ?? $validated['code'] ?? null;
+        $order = $validated['order'] ?? (($pertanyaan->opsi()->max('order') ?? 0) + 1);
 
-        if (empty($kodeOpsi)) {
-            $optionCount = $subpertanyaan->detils()->count() + 1;
-            $kodeOpsi = $subpertanyaan->kode_pertanyaan.'-'.str_pad($optionCount, 2, '0', STR_PAD_LEFT);
-        }
-
-        $subpertanyaan->detils()->create([
-            'kode_pertanyaan' => $subpertanyaan->kode_pertanyaan,
-            'kode_opsi' => $kodeOpsi,
-            'option_text' => $validated['option_text'],
-            'jump_to' => $validated['jump_to'] ?? null,
-            'order' => $order,
+        $option = $pertanyaan->opsi()->create([
+            'kode_opsi' => trim($validated['code']),
+            'label' => trim($validated['option_text']),
+            'nilai_skor' => $pertanyaan->tipe === 'rating_5' ? (int) $order : null,
+            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
+            'order' => (int) $order,
         ]);
+
+        LogActivity::record('KUESIONER_UNIV_OPTION_CREATED', 'Menambahkan opsi jawaban pada pertanyaan '.$pertanyaan->kode_pertanyaan.'.', $option, null, $validated);
 
         return redirect()->back()->with('success', 'Pilihan opsi jawaban berhasil ditambahkan.');
     }
 
     /**
      * Memperbarui data opsi jawaban dan target alur percabangan.
-     *
-     * @param  int  $optionId
-     * @return RedirectResponse
      */
-    public function updateOption(Request $request, $optionId)
+    public function updateOption(Request $request, int $optionId): RedirectResponse
     {
-        $option = RefSubpertanyaanDetil::findOrFail($optionId);
+        $option = KuesionerOpsi::findOrFail($optionId);
 
         $validated = $request->validate([
-            'kode_opsi' => 'nullable|string|max:50',
-            'code' => 'nullable|string|max:50',
+            'code' => 'required|string|max:50',
             'option_text' => 'required|string',
             'jump_to' => 'nullable|string|max:50',
             'order' => 'nullable|integer',
         ]);
 
-        $data = [
-            'option_text' => $validated['option_text'],
-            'jump_to' => $validated['jump_to'] ?? null,
-        ];
+        $order = $validated['order'] ?? $option->order;
 
-        if (isset($validated['kode_opsi']) || isset($validated['code'])) {
-            $data['kode_opsi'] = $validated['kode_opsi'] ?? $validated['code'];
-        }
+        $option->update([
+            'kode_opsi' => trim($validated['code']),
+            'label' => trim($validated['option_text']),
+            'nilai_skor' => $option->pertanyaan?->tipe === 'rating_5' ? (int) $order : null,
+            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
+            'order' => $order,
+        ]);
 
-        if (! empty($validated['order'])) {
-            $data['order'] = $validated['order'];
-        }
-
-        $option->update($data);
+        LogActivity::record('KUESIONER_UNIV_OPTION_UPDATED', 'Memperbarui opsi jawaban pada pertanyaan '.($option->pertanyaan?->kode_pertanyaan ?? '-').'.', $option, null, $validated);
 
         return redirect()->back()->with('success', 'Pilihan opsi jawaban berhasil diperbarui.');
     }
 
     /**
      * Menghapus opsi pilihan jawaban.
-     *
-     * @param  int  $optionId
-     * @return RedirectResponse
      */
-    public function destroyOption($optionId)
+    public function destroyOption(int $optionId): RedirectResponse
     {
-        $option = RefSubpertanyaanDetil::findOrFail($optionId);
+        $option = KuesionerOpsi::findOrFail($optionId);
+        $questionCode = $option->pertanyaan?->kode_pertanyaan;
         $option->delete();
+
+        LogActivity::record('KUESIONER_UNIV_OPTION_DELETED', 'Menghapus opsi jawaban pada pertanyaan '.$questionCode.'.', null, $option->toArray());
 
         return redirect()->back()->with('success', 'Pilihan opsi jawaban berhasil dihapus.');
     }

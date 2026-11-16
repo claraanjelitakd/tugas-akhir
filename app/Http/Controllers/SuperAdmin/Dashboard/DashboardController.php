@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\SuperAdmin\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\KelompokPertanyaan;
+use App\Models\Biodata;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
 use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
-use App\Models\RefSubpertanyaan2021;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -53,12 +55,12 @@ class DashboardController extends Controller
         }
 
         // 1. Menghitung ringkasan statistik kuesioner dan partisipasi via v_alumni_audit_rekap
-        $totalPertanyaan = RefSubpertanyaan2021::count();
-        $totalSections = KelompokPertanyaan::count();
+        $totalPertanyaan = KuesionerPertanyaan::where('is_active', true)->count();
+        $totalSections = KuesionerSection::where('is_active', true)->count();
         $dashboardAggregate = DB::table('v_alumni_audit_rekap')
             ->where('tahun_lulus', $selectedYear)
             ->selectRaw('COUNT(*) AS total_alumni')
-            ->selectRaw('SUM(CASE WHEN answered_mandatory_univ > 0 THEN 1 ELSE 0 END) AS total_responden')
+            ->selectRaw('SUM(CASE WHEN is_complete_univ = 1 THEN 1 ELSE 0 END) AS total_responden')
             ->selectRaw('SUM(CASE WHEN is_profile_complete = 1 THEN 1 ELSE 0 END) AS profile_complete_count')
             ->selectRaw('SUM(CASE WHEN is_complete_univ = 1 THEN 1 ELSE 0 END) AS university_complete_count')
             ->selectRaw('SUM(CASE WHEN is_profile_complete = 1 AND is_complete_univ = 1 THEN 1 ELSE 0 END) AS overall_complete_count')
@@ -69,6 +71,12 @@ class DashboardController extends Controller
         $totalResponden = (int) ($dashboardAggregate->total_responden ?? 0);
         $totalProdi = Prodi::count();
         $totalPendingPerusahaan = Perusahaan::where('status_verifikasi', 'Menunggu Verifikasi')->count();
+        $totalPerusahaan = Perusahaan::count();
+        $totalPerusahaanTerverifikasi = Perusahaan::where('status_verifikasi', 'Terverifikasi')->count();
+        $totalAtasan = Biodata::query()
+            ->whereNotNull('atasan_id')
+            ->whereHas('dataAkademik', fn (Builder $query): Builder => $query->where('tahun_lulus', $selectedYear))
+            ->count();
         $responseRate = $totalAlumni > 0 ? round(($totalResponden / $totalAlumni) * 100, 1) : 0;
 
         $totalLinkedIn = (int) ($dashboardAggregate->total_linkedin ?? 0);
@@ -98,7 +106,7 @@ class DashboardController extends Controller
             ->select(
                 'prodi_id',
                 DB::raw('COUNT(*) as total_alumni'),
-                DB::raw('SUM(CASE WHEN answered_mandatory_univ > 0 THEN 1 ELSE 0 END) as total_responden')
+                DB::raw('SUM(CASE WHEN is_complete_univ = 1 THEN 1 ELSE 0 END) as total_responden')
             )
             ->whereNotNull('prodi_id')
             ->groupBy('prodi_id')
@@ -175,6 +183,11 @@ class DashboardController extends Controller
                 ];
             });
 
+        $companyRequests = $this->buildCompanyRequests();
+        $companyDirectory = $this->buildCompanyDirectory();
+        $supervisorDirectory = $this->buildSupervisorDirectory($selectedYear);
+        $companyDistribution = $this->buildCompanyDistribution();
+
         // 6. Mengembalikan view dasbor Superadmin
         return Inertia::render('SuperAdmin/Dashboard', [
             'user' => $user,
@@ -196,7 +209,143 @@ class DashboardController extends Controller
             'recentAlumni' => $recentAlumni,
             'recentLogs' => $recentLogs,
             'pendingPerusahaanList' => $pendingPerusahaanList,
+            'dashboardSummary' => [
+                'total_alumni' => $totalAlumni,
+                'total_perusahaan' => $totalPerusahaan,
+                'total_perusahaan_terverifikasi' => $totalPerusahaanTerverifikasi,
+                'total_atasan' => $totalAtasan,
+                'total_prodi' => $totalProdi,
+                'pending_perusahaan' => $totalPendingPerusahaan,
+            ],
+            'companyRequests' => $companyRequests,
+            'companyDirectory' => $companyDirectory,
+            'supervisorDirectory' => $supervisorDirectory,
+            'companyDistribution' => $companyDistribution,
         ]);
+    }
+
+    /**
+     * Membentuk antrean pengajuan perusahaan dan identitas pengusulnya.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildCompanyRequests(): array
+    {
+        return Perusahaan::query()
+            ->with([
+                'creator:id,name,role,username',
+                'createdProdi:id,nama_prodi',
+                'propinsi:kode_provinsi,nama_provinsi',
+                'kabupaten:kode_kabupaten,nama_kabupaten',
+            ])
+            ->where('status_verifikasi', 'Menunggu Verifikasi')
+            ->latest('id')
+            ->limit(6)
+            ->get()
+            ->map(fn (Perusahaan $company): array => $this->formatCompanyRecord($company))
+            ->all();
+    }
+
+    /**
+     * Membentuk pratinjau master perusahaan dengan jumlah alumni yang terhubung.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildCompanyDirectory(): array
+    {
+        return Perusahaan::query()
+            ->with([
+                'creator:id,name,role,username',
+                'createdProdi:id,nama_prodi',
+                'propinsi:kode_provinsi,nama_provinsi',
+                'kabupaten:kode_kabupaten,nama_kabupaten',
+            ])
+            ->withCount('biodata')
+            ->latest('id')
+            ->limit(8)
+            ->get()
+            ->map(fn (Perusahaan $company): array => [
+                ...$this->formatCompanyRecord($company),
+                'alumni_count' => (int) $company->biodata_count,
+            ])
+            ->all();
+    }
+
+    /**
+     * Membentuk pratinjau data atasan beserta perusahaan dan jumlah alumni.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildSupervisorDirectory(string $selectedYear): array
+    {
+        return Biodata::query()
+            ->whereNotNull('atasan_id')
+            ->whereHas('dataAkademik', fn (Builder $query): Builder => $query->where('tahun_lulus', $selectedYear))
+            ->with([
+                'atasan:id,nama,email,telepon,perusahaan_id',
+                'atasan.perusahaan:id,nama_perusahaan',
+                'perusahaan:id,nama_perusahaan',
+                'dataAkademik:nim,nama,tahun_lulus',
+            ])
+            ->latest('updated_at')
+            ->limit(8)
+            ->get()
+            ->map(fn (Biodata $biodata): array => [
+                'id' => $biodata->id,
+                'name' => $biodata->atasan?->nama ?? 'Atasan belum diisi',
+                'company' => $biodata->atasan?->perusahaan?->nama_perusahaan
+                    ?? $biodata->perusahaan?->nama_perusahaan
+                    ?? 'Perusahaan belum ditentukan',
+                'alumni_name' => $biodata->dataAkademik?->nama ?? $biodata->nim,
+                'alumni_nim' => $biodata->nim,
+                'contact' => $biodata->atasan?->email ?: ($biodata->atasan?->telepon ?: '-'),
+            ])
+            ->all();
+    }
+
+    /**
+     * Mengagregasi sebaran perusahaan berdasarkan provinsi kantor yang tercatat.
+     *
+     * @return array<int, array{label: string, count: int}>
+     */
+    private function buildCompanyDistribution(): array
+    {
+        return DB::table('perusahaan')
+            ->leftJoin('propinsi', 'propinsi.kode_provinsi', '=', 'perusahaan.kode_provinsi')
+            ->selectRaw("COALESCE(propinsi.nama_provinsi, 'Belum ditentukan') AS label")
+            ->selectRaw('COUNT(perusahaan.id) AS jumlah')
+            ->groupBy('propinsi.nama_provinsi')
+            ->orderByDesc('jumlah')
+            ->orderBy('label')
+            ->limit(8)
+            ->get()
+            ->map(fn (object $row): array => [
+                'label' => (string) $row->label,
+                'count' => (int) $row->jumlah,
+            ])
+            ->all();
+    }
+
+    /**
+     * Menormalkan data perusahaan untuk kartu pengajuan dan daftar master.
+     *
+     * @return array<string, mixed>
+     */
+    private function formatCompanyRecord(Perusahaan $company): array
+    {
+        return [
+            'id' => $company->id,
+            'name' => $company->nama_perusahaan,
+            'status' => $company->status_verifikasi,
+            'sector' => $company->sektor ?: ($company->bentuk_perusahaan ?: '-'),
+            'location' => $company->kabupaten?->nama_kabupaten
+                ?: ($company->propinsi?->nama_provinsi ?: 'Lokasi belum ditentukan'),
+            'applicant' => $company->creator?->name
+                ?: ($company->createdProdi?->nama_prodi ?: 'Sistem'),
+            'applicant_role' => $company->creator?->role ?: 'admin_prodi',
+            'applicant_prodi' => $company->createdProdi?->nama_prodi,
+            'created_at' => $company->created_at?->diffForHumans() ?: '-',
+        ];
     }
 
     /**

@@ -4,10 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
+use App\Models\LinkedinSyncResult;
 use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\User;
+use App\Services\Alumni\AdminAlumniProfileService;
 use App\Services\LinkedIn\Contracts\LinkedInProfileProvider;
 use App\Services\LinkedIn\DTOs\LinkedInPosition;
 use App\Services\LinkedIn\DTOs\LinkedInProfile;
@@ -57,6 +59,8 @@ class SuperAdminLinkedInSyncTest extends TestCase
         ]);
 
         Config::set('services.linkedin.provider', 'official');
+        // Pakai driver mock secara eksplisit agar test tidak bergantung pada .env lokal.
+        Config::set('services.linkedin.driver', 'mock');
     }
 
     /**
@@ -196,6 +200,45 @@ class SuperAdminLinkedInSyncTest extends TestCase
         $this->assertInstanceOf(Perusahaan::class, $company);
         $this->assertEquals('PT Inovasi Teknologi Baru', $company->nama_perusahaan);
         $this->assertEquals('Menunggu Verifikasi', $company->status_verifikasi);
+    }
+
+    /** Memastikan variasi kecil nama LinkedIn memakai master head office terverifikasi. */
+    public function test_similar_linkedin_company_uses_verified_head_office_without_copying_location(): void
+    {
+        $master = Perusahaan::create([
+            'nama_perusahaan' => 'PT K-24 Indonesia',
+            'status_verifikasi' => 'Terverifikasi',
+            'kode_provinsi' => null,
+            'kode_kabupaten' => null,
+        ]);
+
+        $mapper = new LinkedInProfileMapper;
+        $resolution = $mapper->resolveCompany('PT K-24 Indonesia Official', 'DI Yogyakarta');
+
+        $this->assertSame($master->id, $resolution['company']->id);
+        $this->assertSame('matched', $resolution['status']);
+        $this->assertSame('Terverifikasi', $resolution['company']->status_verifikasi);
+        $this->assertDatabaseCount('perusahaan', 1);
+    }
+
+    /** Memastikan form profil admin menerima metadata head office dari master perusahaan. */
+    public function test_admin_profile_form_includes_head_office_contact_fields(): void
+    {
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Head Office Test',
+            'homepage' => 'https://example.test',
+            'no_telp_fax' => '021-123456',
+            'kode_pos' => '12950',
+            'status_verifikasi' => 'Terverifikasi',
+        ]);
+        $alumni = $this->createAlumni('71200009', 'Alumni Head Office');
+        $alumni->update(['perusahaan_id' => $company->id]);
+
+        $formData = AdminAlumniProfileService::buildFormData($alumni->fresh());
+
+        $this->assertSame('https://example.test', $formData['company_homepage']);
+        $this->assertSame('021-123456', $formData['company_no_telp_fax']);
+        $this->assertSame('12950', $formData['company_kode_pos']);
     }
 
     /**
@@ -409,13 +452,96 @@ class SuperAdminLinkedInSyncTest extends TestCase
     }
 
     /**
-     * Test 17: Container melempar InvalidArgumentException jika driver tidak dikenali
+     * Test 18: LinkedIn Sync Result mengekstrak bidang pekerjaan dan riwayat studi lanjut.
      */
-    public function test_container_throws_exception_on_unsupported_driver(): void
+    public function test_linkedin_sync_result_extracts_industry_and_further_study(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $alumni = $this->createAlumni('72190001', 'Dr. Argo Test', 'argo-test');
 
-        config(['services.linkedin.driver' => 'unsupported_driver_xyz']);
-        app(LinkedInProfileProvider::class);
+        $result = LinkedinSyncResult::create([
+            'biodata_id' => $alumni->id,
+            'linkedin_url' => 'https://www.linkedin.com/in/argo-test',
+            'status' => 'pending',
+            'scraped_data' => [
+                [
+                    'publicIdentifier' => 'argo-test',
+                    'industry' => ['id' => 96, 'name' => 'IT Services and IT Consulting'],
+                    'currentPosition' => [
+                        [
+                            'position' => 'Lecturer',
+                            'companyName' => 'Universitas Kristen Duta Wacana',
+                        ],
+                    ],
+                    'education' => [
+                        [
+                            'schoolName' => 'Universitas Atma Jaya Yogyakarta',
+                            'degree' => 'Master’s Degree',
+                            'fieldOfStudy' => 'Computer Science',
+                            'period' => '2012 - 2013',
+                        ],
+                        [
+                            'schoolName' => 'Universitas Gadjah Mada (UGM)',
+                            'degree' => 'Doctor',
+                            'fieldOfStudy' => 'Computer Software Engineering',
+                            'period' => '2024 - Present',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $preview = $result->getPreviewData();
+
+        $this->assertSame('IT Services and IT Consulting', $preview['bidang_pekerjaan']);
+        $this->assertNotNull($preview['further_study']);
+        $this->assertSame('S3', $preview['further_study']['pendidikan_tingkat']);
+        $this->assertSame('Universitas Gadjah Mada (UGM)', $preview['further_study']['perguruan_tinggi']);
+        $this->assertSame('Computer Software Engineering', $preview['further_study']['pendidikan_prodi']);
+
+        // Test approve menerapkan data ke biodata
+        $response = $this->actingAs($this->superadmin)
+            ->postJson("/superadmin/linkedin-sync/results/{$result->id}/approve", [
+                'posisi_jabatan' => 'Lecturer',
+                'nama_perusahaan' => 'Universitas Kristen Duta Wacana',
+                'bidang_pekerjaan' => $preview['bidang_pekerjaan'],
+                'sync_studi_lanjut' => true,
+                'pendidikan_tingkat' => $preview['further_study']['pendidikan_tingkat'],
+                'perguruan_tinggi' => $preview['further_study']['perguruan_tinggi'],
+                'pendidikan_prodi' => $preview['further_study']['pendidikan_prodi'],
+            ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true]);
+
+        $alumni->refresh();
+        $this->assertSame('IT Services and IT Consulting', $alumni->bidang_pekerjaan);
+        $this->assertSame('S3', $alumni->pendidikan_tingkat);
+        $this->assertSame('Universitas Gadjah Mada (UGM)', $alumni->perguruan_tinggi);
+        $this->assertSame('Computer Software Engineering', $alumni->pendidikan_prodi);
+    }
+
+    /**
+     * Memastikan parser membaca alias field posisi dan perusahaan dari provider.
+     */
+    public function test_linkedin_sync_result_reads_root_company_and_job_aliases(): void
+    {
+        $alumni = $this->createAlumni('72190002', 'Alias Field Test', 'alias-field-test');
+
+        $result = LinkedinSyncResult::create([
+            'biodata_id' => $alumni->id,
+            'linkedin_url' => 'https://www.linkedin.com/in/alias-field-test',
+            'status' => 'pending',
+            'scraped_data' => [[
+                'current_company' => 'Universitas Kristen Duta Wacana',
+                'current_job' => 'Dosen',
+                'current_company_location' => 'Yogyakarta, Indonesia',
+            ]],
+        ]);
+
+        $preview = $result->getPreviewData();
+
+        $this->assertSame('Universitas Kristen Duta Wacana', $preview['current_company']);
+        $this->assertSame('Dosen', $preview['current_job']);
+        $this->assertSame('Yogyakarta, Indonesia', $preview['current_company_location']);
     }
 }

@@ -2,12 +2,10 @@
 
 namespace App\Services\Dashboard;
 
-use App\Models\KelompokPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiQuestionSection;
-use App\Models\RefSubpertanyaan2021;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +33,7 @@ class RoleDashboardDataService
         $prodiIds = $prodis->pluck('id')->all();
 
         $totalAlumni = $auditRows->count();
-        $totalRespondents = $auditRows->where('answered_mandatory_univ', '>', 0)->count();
+        $totalRespondents = $auditRows->where('is_complete_univ', 1)->count();
         $responseRate = $this->percentage($totalRespondents, $totalAlumni);
         $profileComplete = $auditRows->where('is_profile_complete', 1)->count();
         $universityComplete = $auditRows->where('is_complete_univ', 1)->count();
@@ -45,11 +43,11 @@ class RoleDashboardDataService
             ->count();
 
         $totalQuestions = $scope === 'prodi'
-            ? ProdiQuestion::where('prodi_id', $scopeId)->count()
-            : RefSubpertanyaan2021::count();
+            ? KuesionerSectionPertanyaan::whereHas('section', fn ($q) => $q->where('target', 'prodi')->where('prodi_id', $scopeId))->distinct('pertanyaan_id')->count('pertanyaan_id')
+            : KuesionerSectionPertanyaan::whereHas('section', fn ($q) => $q->where('target', 'univ'))->distinct('pertanyaan_id')->count('pertanyaan_id');
         $totalSections = $scope === 'prodi'
-            ? ProdiQuestionSection::where('prodi_id', $scopeId)->count()
-            : KelompokPertanyaan::count();
+            ? KuesionerSection::where('target', 'prodi')->where('prodi_id', $scopeId)->count()
+            : KuesionerSection::where('target', 'univ')->count();
 
         $pendingCompaniesQuery = Perusahaan::where('status_verifikasi', 'Menunggu Verifikasi');
         if ($scope === 'prodi') {
@@ -82,6 +80,7 @@ class RoleDashboardDataService
                 'university_questionnaire' => $this->completionMetric('Kuesioner Universitas', $universityComplete, $totalAlumni),
                 'profile_and_university' => $this->completionMetric('Profil dan Kuesioner Universitas', $overallComplete, $totalAlumni),
             ],
+            'companySummary' => $this->buildCompanySummary($auditRows),
             'prodiSummaries' => $this->buildProdiSummaries($prodis, $auditRows),
             'recentAlumni' => $this->buildRecentAlumni($auditRows),
             'sectionsList' => $this->buildSections($scope, $scopeId),
@@ -90,13 +89,15 @@ class RoleDashboardDataService
 
     /**
      * Mengambil tahun lulusan yang tersedia dan selalu menyertakan tahun berjalan.
+     * Menggunakan tabel canonical data_akademik untuk performa instan tanpa membebani kalkulasi view audit.
      *
      * @return array<int, string>
      */
     private function availableYears(): array
     {
-        return DB::table('v_alumni_audit_rekap')
+        return DB::table('data_akademik')
             ->whereNotNull('tahun_lulus')
+            ->distinct()
             ->pluck('tahun_lulus')
             ->filter()
             ->map(fn (mixed $year): string => (string) $year)
@@ -154,7 +155,7 @@ class RoleDashboardDataService
         return $prodis->map(function (Prodi $prodi) use ($auditRows): array {
             $rows = $auditRows->where('prodi_id', $prodi->id);
             $total = $rows->count();
-            $respondents = $rows->where('answered_mandatory_univ', '>', 0)->count();
+            $respondents = $rows->where('is_complete_univ', 1)->count();
             $rate = $this->percentage($respondents, $total);
 
             return [
@@ -167,6 +168,47 @@ class RoleDashboardDataService
                 'response_rate_status' => $this->responseRateStatus($rate),
             ];
         });
+    }
+
+    /**
+     * Membentuk ringkasan perusahaan tempat alumni dalam scope bekerja.
+     *
+     * Perhitungan hanya memakai perusahaan yang sudah terhubung pada biodata,
+     * sehingga kartu dashboard tidak mencampur master perusahaan yang belum
+     * dipakai oleh alumni dalam tahun filter aktif.
+     *
+     * @param  Collection<int, object>  $auditRows
+     * @return array{total_companies: int, mapped_alumni: int, unmapped_alumni: int, top_company: array<string, mixed>|null, top_companies: array<int, array<string, mixed>>}
+     */
+    private function buildCompanySummary(Collection $auditRows): array
+    {
+        $companies = $auditRows
+            ->filter(fn (object $row): bool => ! empty($row->perusahaan_id) && ! empty($row->nama_perusahaan))
+            ->groupBy('perusahaan_id')
+            ->map(function (Collection $rows, mixed $companyId): array {
+                $first = $rows->first();
+
+                return [
+                    'id' => (int) $companyId,
+                    'name' => (string) $first->nama_perusahaan,
+                    'alumni_count' => $rows->count(),
+                ];
+            })
+            ->sort(function (array $first, array $second): int {
+                return $second['alumni_count'] <=> $first['alumni_count']
+                    ?: strcmp(mb_strtolower($first['name']), mb_strtolower($second['name']));
+            })
+            ->values();
+
+        $topCompanies = $companies->take(5)->values()->all();
+
+        return [
+            'total_companies' => $companies->count(),
+            'mapped_alumni' => $companies->sum('alumni_count'),
+            'unmapped_alumni' => $auditRows->whereNull('perusahaan_id')->count(),
+            'top_company' => $topCompanies[0] ?? null,
+            'top_companies' => $topCompanies,
+        ];
     }
 
     /**
@@ -207,14 +249,15 @@ class RoleDashboardDataService
             return [];
         }
 
-        return ProdiQuestionSection::where('prodi_id', $scopeId)
-            ->withCount('questions')
+        return KuesionerSection::where('target', 'prodi')
+            ->where('prodi_id', $scopeId)
+            ->withCount('sectionPertanyaan')
             ->orderBy('order')
             ->get()
-            ->map(fn (ProdiQuestionSection $section): array => [
+            ->map(fn (KuesionerSection $section): array => [
                 'id' => $section->id,
-                'title' => $section->title,
-                'questions_count' => $section->questions_count,
+                'title' => $section->judul,
+                'questions_count' => $section->section_pertanyaan_count,
             ]);
     }
 

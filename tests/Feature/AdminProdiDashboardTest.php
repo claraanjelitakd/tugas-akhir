@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Biodata;
 use App\Models\DataAkademik;
+use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
+use App\Models\Perusahaan;
 use App\Models\Prodi;
-use App\Models\ProdiQuestion;
-use App\Models\ProdiQuestionSection;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -38,20 +40,27 @@ class AdminProdiDashboardTest extends TestCase
             'must_change_password' => false,
         ]);
 
-        $section = ProdiQuestionSection::create([
+        $section = KuesionerSection::create([
+            'kode_section' => 'SEC_TEST_SI',
+            'target' => 'prodi',
             'prodi_id' => $prodi->id,
-            'title' => 'Seksi Evaluasi Kurikulum',
+            'judul' => 'Seksi Evaluasi Kurikulum',
             'order' => 1,
+            'is_active' => true,
         ]);
 
-        ProdiQuestion::create([
-            'prodi_id' => $prodi->id,
-            'prodi_question_section_id' => $section->id,
-            'code' => 'SI_01',
-            'question_text' => 'Bagaimana relevansi kurikulum SI?',
-            'type' => 'radio',
+        $question = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'SI_01',
+            'teks_pertanyaan' => 'Bagaimana relevansi kurikulum SI?',
+            'tipe' => 'radio',
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $section->id,
+            'pertanyaan_id' => $question->id,
             'order' => 1,
-            'is_required' => true,
+            'wajib' => true,
         ]);
 
         $alumniUser = User::create([
@@ -68,7 +77,6 @@ class AdminProdiDashboardTest extends TestCase
             'nim' => '72200001',
             'nama' => 'Alumni SI 1',
             'email_pribadi' => 'alumni1@test.com',
-            'tempat_lahir' => 'Yogyakarta',
             'tanggal_lahir' => '2001-08-15',
             'jenis_kelamin' => 'Laki-laki',
             'nomor_telepon' => '081234567890',
@@ -78,11 +86,17 @@ class AdminProdiDashboardTest extends TestCase
             'tahun_lulus' => now()->year,
         ]);
 
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Dashboard Utama',
+            'status_verifikasi' => 'Terverifikasi',
+        ]);
+
         Biodata::create([
             'user_id' => $alumniUser->id,
             'nim' => '72200001',
             'nama' => 'Alumni SI 1',
             'prodi_id' => $prodi->id,
+            'perusahaan_id' => $company->id,
         ]);
 
         $response = $this->actingAs($admin)->get('/prodi/dashboard');
@@ -93,6 +107,9 @@ class AdminProdiDashboardTest extends TestCase
             ->has('stats')
             ->has('sectionsList')
             ->has('recentAlumnis')
+            ->where('companySummary.top_company.name', 'PT Dashboard Utama')
+            ->where('companySummary.top_company.alumni_count', 1)
+            ->where('companySummary.total_companies', 1)
             ->where('stats.totalAlumni', 1)
             ->where('stats.totalSections', 1)
             ->where('stats.totalPertanyaan', 1)

@@ -40,6 +40,7 @@ class SimpanProfilController extends Controller
             'kelurahan' => ['nullable', 'string', 'max:50'],
             'kecamatan' => ['nullable', 'string', 'max:50'],
             'kode_pos' => ['nullable', 'digits:5'],
+            'divisi' => ['nullable', 'string', 'max:150'],
         ]);
 
         if ($request->hasFile('foto')) {
@@ -53,27 +54,36 @@ class SimpanProfilController extends Controller
 
         $dataTervalidasi = $request->all();
 
+        $kategoriPekerjaan = ! empty($dataTervalidasi['kategori_pekerjaan']) ? $dataTervalidasi['kategori_pekerjaan'] : null;
+        $isNonWorkingCategory = in_array($kategoriPekerjaan, ['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'], true);
+
         // =========================================================================================
         // 2. TANGANI PERUSAHAAN (DALAM NEGERI VS LUAR NEGERI)
         // =========================================================================================
         $idPerusahaan = null;
 
-        // Cek apakah alumni mengisi nama perusahaan pada FormKarier
-        if (! empty($dataTervalidasi['nama_perusahaan'])) {
+        // Cek apakah alumni mengisi nama perusahaan pada FormKarier (hanya diproses jika status bekerja/wiraswasta)
+        if (! $isNonWorkingCategory && ! empty($dataTervalidasi['nama_perusahaan'])) {
             $jenisLokasi = ! empty($dataTervalidasi['perusahaan_jenis_lokasi']) ? $dataTervalidasi['perusahaan_jenis_lokasi'] : (! empty($dataTervalidasi['company_jenis_lokasi']) ? $dataTervalidasi['company_jenis_lokasi'] : 'Dalam Negeri');
-            $rawNegara = ! empty($dataTervalidasi['perusahaan_negara']) ? $dataTervalidasi['perusahaan_negara'] : (! empty($dataTervalidasi['company_negara']) ? $dataTervalidasi['company_negara'] : null);
-            $negara = 'Indonesia';
+            $rawKodeNegara = ! empty($dataTervalidasi['perusahaan_kode_negara']) ? $dataTervalidasi['perusahaan_kode_negara'] : (! empty($dataTervalidasi['company_kode_negara']) ? $dataTervalidasi['company_kode_negara'] : null);
+            $kodeNegara = 'ID';
             if ($jenisLokasi === 'Luar Negeri') {
-                $negara = ($rawNegara && strtolower((string) $rawNegara) !== 'indonesia') ? $rawNegara : 'Singapura';
+                if (empty($rawKodeNegara)) {
+                    throw ValidationException::withMessages([
+                        'perusahaan_kode_negara' => 'Kode negara ISO wajib dipilih untuk perusahaan luar negeri.',
+                    ]);
+                }
+
+                $kodeNegara = strtoupper((string) $rawKodeNegara);
             }
 
-            $propinsiId = $jenisLokasi === 'Luar Negeri'
+            $kodeProvinsi = $jenisLokasi === 'Luar Negeri'
                 ? null
-                : (! empty($dataTervalidasi['company_province_id']) ? $dataTervalidasi['company_province_id'] : (! empty($dataTervalidasi['perusahaan_propinsi_id']) ? $dataTervalidasi['perusahaan_propinsi_id'] : null));
+                : (! empty($dataTervalidasi['company_kode_provinsi']) ? $dataTervalidasi['company_kode_provinsi'] : (! empty($dataTervalidasi['perusahaan_kode_provinsi']) ? $dataTervalidasi['perusahaan_kode_provinsi'] : null));
 
-            $kabupatenId = $jenisLokasi === 'Luar Negeri'
+            $kodeKabupaten = $jenisLokasi === 'Luar Negeri'
                 ? null
-                : (! empty($dataTervalidasi['company_kabupaten_id']) ? $dataTervalidasi['company_kabupaten_id'] : (! empty($dataTervalidasi['perusahaan_kabupaten_id']) ? $dataTervalidasi['perusahaan_kabupaten_id'] : null));
+                : (! empty($dataTervalidasi['company_kode_kabupaten']) ? $dataTervalidasi['company_kode_kabupaten'] : (! empty($dataTervalidasi['perusahaan_kode_kabupaten']) ? $dataTervalidasi['perusahaan_kode_kabupaten'] : null));
 
             $jenisPerusahaan = ! empty($dataTervalidasi['company_jenis_perusahaan']) ? $dataTervalidasi['company_jenis_perusahaan'] : (! empty($dataTervalidasi['perusahaan_jenis_perusahaan']) ? $dataTervalidasi['perusahaan_jenis_perusahaan'] : null);
             $jenisPerusahaanLainnya = ! empty($dataTervalidasi['company_jenis_perusahaan_lainnya']) ? $dataTervalidasi['company_jenis_perusahaan_lainnya'] : (! empty($dataTervalidasi['perusahaan_jenis_perusahaan_lainnya']) ? $dataTervalidasi['perusahaan_jenis_perusahaan_lainnya'] : null);
@@ -88,8 +98,8 @@ class SimpanProfilController extends Controller
             $perusahaan = Perusahaan::firstOrCreate(
                 ['nama_perusahaan' => $dataTervalidasi['nama_perusahaan']],
                 [
-                    'propinsi_id' => $propinsiId,
-                    'kabupaten_id' => $kabupatenId,
+                    'kode_provinsi' => $kodeProvinsi,
+                    'kode_kabupaten' => $kodeKabupaten,
                     'alamat' => $alamat,
                     'kode_pos' => $kodePos,
                     'skala' => $skala ?: 'Nasional',
@@ -99,46 +109,46 @@ class SimpanProfilController extends Controller
                     'jenis_perusahaan' => $jenisPerusahaan,
                     'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya,
                     'jenis_lokasi' => $jenisLokasi,
-                    'negara' => $negara,
+                    'kode_negara' => $kodeNegara,
                     'status_verifikasi' => 'Menunggu Verifikasi',
                     'created_by_user_id' => $pengguna?->id,
                     'created_by_prodi_id' => $prodiIdPengaju,
                 ]
             );
 
-            // Perbarui data perusahaan agar tersinkronisasi dua arah antara profil alumni dan form evaluasi atasan
-            $perusahaan->update([
-                'propinsi_id' => $propinsiId,
-                'kabupaten_id' => $kabupatenId,
-                'alamat' => $alamat ?: $perusahaan->alamat,
-                'kode_pos' => $kodePos ?: $perusahaan->kode_pos,
-                'skala' => $skala ?: $perusahaan->skala,
-                'bentuk_perusahaan' => $bentukPerusahaan ?: $perusahaan->bentuk_perusahaan,
-                'no_telp_fax' => $noTelpFax ?: $perusahaan->no_telp_fax,
-                'homepage' => $homepage ?: $perusahaan->homepage,
-                'jenis_perusahaan' => $jenisPerusahaan ?: $perusahaan->jenis_perusahaan,
-                'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya,
-                'jenis_lokasi' => $jenisLokasi,
-                'negara' => $negara,
-            ]);
+            // Data master head office yang berstatus Terverifikasi dikunci permanen
+            // dan tidak boleh ditimpa langsung oleh alumni saat menyimpan profil.
+            if ($perusahaan->status_verifikasi !== 'Terverifikasi') {
+                $perusahaan->update([
+                    'kode_provinsi' => $jenisLokasi === 'Luar Negeri' ? null : ($kodeProvinsi ?: $perusahaan->kode_provinsi),
+                    'kode_kabupaten' => $jenisLokasi === 'Luar Negeri' ? null : ($kodeKabupaten ?: $perusahaan->kode_kabupaten),
+                    'alamat' => $alamat ?: $perusahaan->alamat,
+                    'kode_pos' => $kodePos ?: $perusahaan->kode_pos,
+                    'skala' => $skala ?: $perusahaan->skala,
+                    'bentuk_perusahaan' => $bentukPerusahaan ?: $perusahaan->bentuk_perusahaan,
+                    'no_telp_fax' => $noTelpFax ?: $perusahaan->no_telp_fax,
+                    'homepage' => $homepage ?: $perusahaan->homepage,
+                    'jenis_perusahaan' => $jenisPerusahaan ?: $perusahaan->jenis_perusahaan,
+                    'jenis_perusahaan_lainnya' => $jenisPerusahaanLainnya ?: $perusahaan->jenis_perusahaan_lainnya,
+                    'jenis_lokasi' => $jenisLokasi,
+                    'kode_negara' => $kodeNegara,
+                ]);
+            }
             $idPerusahaan = $perusahaan->id;
         }
 
         // =========================================================================================
         // 3. TANGANI DATA ATASAN (SUPERVISOR / AUTO-FILL OWNER)
         // =========================================================================================
-        // 3. TANGANI DATA ATASAN & KATEGORI PEKERJAAN
-        // =========================================================================================
         // Jangan menghapus relasi atasan hanya karena form parsial tidak membawa field atasan.
-        $idAtasan = $biodata->atasan_id;
-        $kategoriPekerjaan = ! empty($dataTervalidasi['kategori_pekerjaan']) ? $dataTervalidasi['kategori_pekerjaan'] : null;
+        $idAtasan = $isNonWorkingCategory ? null : $biodata->atasan_id;
         $posisiJabatan = ! empty($dataTervalidasi['posisi_jabatan']) ? $dataTervalidasi['posisi_jabatan'] : null;
         $posisiWiraswasta = ! empty($dataTervalidasi['posisi_wiraswasta']) ? $dataTervalidasi['posisi_wiraswasta'] : null;
-        if ($posisiWiraswasta === 'Lainnya' && ! empty($dataTervalidasi['posisi_wiraswasta_lainnya'])) {
+        if ($posisiWiraswasta && str_contains(strtolower($posisiWiraswasta), 'lainnya') && ! empty($dataTervalidasi['posisi_wiraswasta_lainnya'])) {
             $posisiWiraswasta = $dataTervalidasi['posisi_wiraswasta_lainnya'];
         }
         $bidangPekerjaan = ! empty($dataTervalidasi['bidang_pekerjaan']) ? trim((string) $dataTervalidasi['bidang_pekerjaan']) : null;
-        if ($bidangPekerjaan && strtolower($bidangPekerjaan) === 'lainnya') {
+        if ($bidangPekerjaan && str_contains(strtolower($bidangPekerjaan), 'lainnya')) {
             $bidangPekerjaan = ! empty($dataTervalidasi['bidang_pekerjaan_lainnya'])
                 ? trim((string) $dataTervalidasi['bidang_pekerjaan_lainnya'])
                 : null;
@@ -149,9 +159,14 @@ class SimpanProfilController extends Controller
             $posisiWiraswasta = null;
         } elseif ($kategoriPekerjaan === 'Wiraswasta') {
             $posisiJabatan = null;
-        } elseif ($kategoriPekerjaan === 'Melanjutkan Pendidikan') {
+        }
+
+        if ($isNonWorkingCategory) {
             $posisiJabatan = null;
             $posisiWiraswasta = null;
+            $bidangPekerjaan = null;
+            $idPerusahaan = null;
+            $idAtasan = null;
         }
 
         $isOwnerOrFounder = ($kategoriPekerjaan === 'Wiraswasta') || ($posisiJabatan && in_array(strtolower((string) $posisiJabatan), [
@@ -174,7 +189,7 @@ class SimpanProfilController extends Controller
             $teleponAtasan = $teleponAtasan ?: ($dataTervalidasi['nomor_telepon'] ?? $biodata->nomor_telepon);
         }
 
-        if (! empty($namaAtasan) || ! empty($emailAtasan) || ! empty($teleponAtasan)) {
+        if (! $isNonWorkingCategory && (! empty($namaAtasan) || ! empty($emailAtasan) || ! empty($teleponAtasan))) {
             if ($biodata->atasan_id && $biodata->atasan) {
                 $biodata->atasan->update([
                     'perusahaan_id' => $idPerusahaan ?: $biodata->atasan->perusahaan_id,
@@ -231,8 +246,8 @@ class SimpanProfilController extends Controller
             'alamat_saat_ini' => ! empty($dataTervalidasi['alamat_saat_ini']) ? $dataTervalidasi['alamat_saat_ini'] : null,
             'kelurahan' => ! empty($dataTervalidasi['kelurahan']) ? $dataTervalidasi['kelurahan'] : null,
             'kecamatan' => ! empty($dataTervalidasi['kecamatan']) ? $dataTervalidasi['kecamatan'] : null,
-            'kabupaten_id' => ! empty($dataTervalidasi['kabupaten_id']) ? $dataTervalidasi['kabupaten_id'] : null,
-            'propinsi_id' => ! empty($dataTervalidasi['propinsi_id']) ? $dataTervalidasi['propinsi_id'] : (! empty($dataTervalidasi['provinsi_id']) ? $dataTervalidasi['provinsi_id'] : null),
+            'kode_kabupaten' => ! empty($dataTervalidasi['kode_kabupaten']) ? $dataTervalidasi['kode_kabupaten'] : null,
+            'kode_provinsi' => $dataTervalidasi['kode_provinsi'] ?? null,
             'kode_pos' => ! empty($dataTervalidasi['kode_pos']) ? $dataTervalidasi['kode_pos'] : null,
             'instagram_url' => ! empty($dataTervalidasi['instagram_url']) ? $dataTervalidasi['instagram_url'] : null,
             'facebook_url' => ! empty($dataTervalidasi['facebook_url']) ? $dataTervalidasi['facebook_url'] : null,
@@ -242,12 +257,13 @@ class SimpanProfilController extends Controller
             'experience' => ! empty($dataTervalidasi['experience']) ? $dataTervalidasi['experience'] : null,
             'kategori_pekerjaan' => $kategoriPekerjaan,
             'posisi_jabatan' => $posisiJabatan,
-            'bidang_pekerjaan' => $bidangPekerjaan,
+            'bidang_pekerjaan' => $isNonWorkingCategory ? null : $bidangPekerjaan,
+            'divisi' => $isNonWorkingCategory ? null : (! empty($dataTervalidasi['divisi']) ? trim((string) $dataTervalidasi['divisi']) : null),
             'posisi_wiraswasta' => $posisiWiraswasta,
             'pendidikan_tingkat' => ! empty($dataTervalidasi['pendidikan_tingkat']) ? $dataTervalidasi['pendidikan_tingkat'] : null,
             'perguruan_tinggi' => ! empty($dataTervalidasi['perguruan_tinggi']) ? $dataTervalidasi['perguruan_tinggi'] : null,
             'pendidikan_prodi' => ! empty($dataTervalidasi['pendidikan_prodi']) ? $dataTervalidasi['pendidikan_prodi'] : null,
-            'gaji' => $gajiNominal !== null ? $gajiNominal : null,
+            'gaji' => $isNonWorkingCategory ? null : ($gajiNominal !== null ? $gajiNominal : null),
             'jenis_pekerjaan' => ! empty($dataTervalidasi['jenis_pekerjaan']) ? $dataTervalidasi['jenis_pekerjaan'] : (! empty($dataTervalidasi['company_jenis_perusahaan']) ? $dataTervalidasi['company_jenis_perusahaan'] : (! empty($dataTervalidasi['perusahaan_jenis_perusahaan']) ? $dataTervalidasi['perusahaan_jenis_perusahaan'] : null)),
             'perusahaan_id' => $idPerusahaan,
             'atasan_id' => $idAtasan,
@@ -407,10 +423,9 @@ class SimpanProfilController extends Controller
         $rules = [
             'nama_perusahaan' => 'required|string|max:255',
             'jenis_lokasi' => 'nullable|string|in:Dalam Negeri,Luar Negeri',
-            'negara' => $jenisLokasi === 'Luar Negeri' ? 'required|string|max:100|not_in:Indonesia|exists:ref_negara,nama_negara' : 'nullable|string|max:100',
-            'propinsi_id' => 'nullable|exists:propinsi,id',
-            'province_id' => 'nullable|exists:propinsi,id',
-            'kabupaten_id' => $jenisLokasi === 'Luar Negeri' ? 'nullable|exists:kabupaten,id' : 'required|exists:kabupaten,id',
+            'kode_negara' => $jenisLokasi === 'Luar Negeri' ? 'required|string|size:2|not_in:ID|exists:ref_negara,kode_negara' : 'nullable|size:2|exists:ref_negara,kode_negara',
+            'kode_provinsi' => 'nullable|exists:propinsi,kode_provinsi',
+            'kode_kabupaten' => $jenisLokasi === 'Luar Negeri' ? 'nullable|exists:kabupaten,kode_kabupaten' : 'required|exists:kabupaten,kode_kabupaten',
             'kode_pos' => 'nullable|string|max:15',
             'alamat' => 'nullable|string',
             'skala' => 'nullable|string',
@@ -423,17 +438,17 @@ class SimpanProfilController extends Controller
 
         $messages = [
             'nama_perusahaan.required' => 'Nama perusahaan wajib diisi.',
-            'kabupaten_id.required' => 'Kabupaten/Kota perusahaan wajib dipilih untuk lokasi Dalam Negeri.',
-            'negara.required' => 'Nama negara tempat perusahaan berada wajib dipilih.',
-            'negara.not_in' => 'Indonesia tidak dapat dipilih untuk lokasi Luar Negeri.',
-            'negara.exists' => 'Negara yang dipilih tidak terdaftar dalam master data negara resmi dunia.',
+            'kode_kabupaten.required' => 'Kabupaten/Kota perusahaan wajib dipilih untuk lokasi Dalam Negeri.',
+            'kode_negara.required' => 'Kode negara wajib dipilih untuk lokasi Luar Negeri.',
+            'kode_negara.not_in' => 'Kode ID tidak dapat dipilih untuk lokasi Luar Negeri.',
+            'kode_negara.exists' => 'Kode negara yang dipilih tidak terdaftar dalam master data negara resmi dunia.',
         ];
 
         $validated = $request->validate($rules, $messages);
 
-        $propinsiId = $jenisLokasi === 'Luar Negeri' ? null : ($validated['propinsi_id'] ?? ($validated['province_id'] ?? null));
-        $kabupatenId = $jenisLokasi === 'Luar Negeri' ? null : ($validated['kabupaten_id'] ?? null);
-        $negara = $jenisLokasi === 'Luar Negeri' ? $validated['negara'] : 'Indonesia';
+        $kodeProvinsi = $jenisLokasi === 'Luar Negeri' ? null : ($validated['kode_provinsi'] ?? null);
+        $kodeKabupaten = $jenisLokasi === 'Luar Negeri' ? null : ($validated['kode_kabupaten'] ?? null);
+        $kodeNegara = $jenisLokasi === 'Luar Negeri' ? strtoupper($validated['kode_negara']) : 'ID';
 
         $user = Auth::user();
         $biodata = $user?->biodata;
@@ -442,9 +457,9 @@ class SimpanProfilController extends Controller
         $perusahaan = Perusahaan::create([
             'nama_perusahaan' => $validated['nama_perusahaan'],
             'jenis_lokasi' => $jenisLokasi,
-            'negara' => $negara,
-            'propinsi_id' => $propinsiId,
-            'kabupaten_id' => $kabupatenId,
+            'kode_negara' => $kodeNegara,
+            'kode_provinsi' => $kodeProvinsi,
+            'kode_kabupaten' => $kodeKabupaten,
             'alamat' => $validated['alamat'] ?? null,
             'kode_pos' => $validated['kode_pos'] ?? null,
             'skala' => $validated['skala'] ?? ($jenisLokasi === 'Luar Negeri' ? 'Internasional' : 'Lokal'),
@@ -467,6 +482,63 @@ class SimpanProfilController extends Controller
             'message' => 'Perusahaan berhasil ditambahkan ke database! Status: Menunggu Verifikasi.',
             'perusahaan' => $perusahaan,
             'company' => $perusahaan,
+        ]);
+    }
+
+    /**
+     * Mengajukan Usulan Pembaruan Data Kantor Pusat Perusahaan (Request Update Head Office)
+     *
+     * Usulan mencakup seluruh atribut kanonik perusahaan dan dicatat ke tabel log_activities
+     * agar administrator dapat meninjau tanpa langsung merusak data master yang sudah terverifikasi.
+     */
+    public function usulkanPembaruanPerusahaan(Request $request)
+    {
+        $validated = $request->validate([
+            'perusahaan_id' => 'required|exists:perusahaan,id',
+            'nama_perusahaan' => 'nullable|string|max:255',
+            'jenis_lokasi' => 'nullable|in:Dalam Negeri,Luar Negeri',
+            'kode_negara' => 'nullable|string|max:10',
+            'kode_provinsi' => 'nullable|string|max:10',
+            'kode_kabupaten' => 'nullable|string|max:10',
+            'jenis_perusahaan' => 'nullable|string|max:100',
+            'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
+            'bentuk_perusahaan' => 'nullable|string|max:100',
+            'skala' => 'nullable|string|max:100',
+            'alamat' => 'nullable|string|max:500',
+            'kode_pos' => 'nullable|string|max:20',
+            'no_telp_fax' => 'nullable|string|max:100',
+            'homepage' => 'nullable|string|max:150',
+        ]);
+
+        $perusahaan = Perusahaan::findOrFail($validated['perusahaan_id']);
+        $user = Auth::user();
+
+        $detailUsulan = array_filter([
+            'nama_perusahaan' => $validated['nama_perusahaan'] ?? null,
+            'jenis_lokasi' => $validated['jenis_lokasi'] ?? null,
+            'kode_negara' => $validated['kode_negara'] ?? null,
+            'kode_provinsi' => $validated['kode_provinsi'] ?? null,
+            'kode_kabupaten' => $validated['kode_kabupaten'] ?? null,
+            'jenis_perusahaan' => $validated['jenis_perusahaan'] ?? null,
+            'jenis_perusahaan_lainnya' => $validated['jenis_perusahaan_lainnya'] ?? null,
+            'bentuk_perusahaan' => $validated['bentuk_perusahaan'] ?? null,
+            'skala' => $validated['skala'] ?? null,
+            'alamat' => $validated['alamat'] ?? null,
+            'kode_pos' => $validated['kode_pos'] ?? null,
+            'no_telp_fax' => $validated['no_telp_fax'] ?? null,
+            'homepage' => $validated['homepage'] ?? null,
+        ], fn ($val) => ! is_null($val) && $val !== '');
+
+        LogActivity::record(
+            'REQUEST_UPDATE_PERUSAHAAN',
+            "Alumni '{$user->name}' ({$user->username}) mengusulkan pembaruan data kantor pusat '{$perusahaan->nama_perusahaan}': ".json_encode($detailUsulan, JSON_UNESCAPED_UNICODE),
+            $perusahaan
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => "Usulan pembaruan data kantor pusat '{$perusahaan->nama_perusahaan}' berhasil diajukan dan akan ditinjau oleh administrator.",
+            'detail_usulan' => $detailUsulan,
         ]);
     }
 }

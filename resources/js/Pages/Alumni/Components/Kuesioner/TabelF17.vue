@@ -49,6 +49,12 @@ const ratingScores = {
     'Cukup': 3,
     'Tinggi': 4,
     'Sangat Tinggi': 5,
+    'Tidak Sama Sekali': 1,
+    'Kurang': 2,
+    'Cukup Besar': 3,
+    'Besar': 4,
+    'Sangat Besar': 5,
+    'Sangat Kurang': 1,
     '1': 1,
     '2': 2,
     '3': 3,
@@ -114,9 +120,21 @@ const setScoreB = (item, score) => {
 
 const getRatingScore = (val) => {
     if (val === undefined || val === null || val === '') return null;
-    if (typeof val === 'number') return val;
-    if (ratingScores[val]) return ratingScores[val];
-    const n = Number(val);
+    if (typeof val === 'number') {
+        return (val >= 1 && val <= 5) ? val : null;
+    }
+    const str = val.toString().trim();
+    if (ratingScores[str]) return ratingScores[str];
+
+    // Pemeriksaan fleksibel case-insensitive
+    const lower = str.toLowerCase();
+    for (const [key, score] of Object.entries(ratingScores)) {
+        if (key.toLowerCase() === lower) {
+            return score;
+        }
+    }
+
+    const n = Number(str);
     if (!isNaN(n) && n >= 1 && n <= 5) return n;
     return null;
 };

@@ -13,11 +13,14 @@ use App\Services\LinkedIn\Exceptions\LinkedInSyncException;
 use App\Services\LinkedIn\LinkedInProfileService;
 use App\Services\LinkedIn\Mappers\LinkedInProfileMapper;
 use App\Services\LinkedIn\Providers\ApifyLinkedInProvider;
+use App\Services\LinkedIn\Providers\MockApifyLinkedInProvider;
+use Database\Seeders\LinkedinSyncResultSeeder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -32,6 +35,7 @@ use Inertia\Response;
  *   3. Admin Prodi: Khusus alumni program studinya sendiri.
  * - Mendukung 2 provider resmi: Official Provider dan Apify Third-Party Scraper (Staging & Review).
  * - Menyediakan fitur sinkronisasi langsung (in-place) per alumni maupun massal.
+ * - Memetakan perusahaan secara otomatis jika kecocokan master sangat kuat.
  */
 class LinkedInSyncController extends Controller
 {
@@ -201,6 +205,8 @@ class LinkedInSyncController extends Controller
         // 6. Kueri data alumni berbasis Database View `v_alumni_linkedin_plot` (AlumniLinkedinPlot)
         $queryAlumni = AlumniLinkedinPlot::query()->with([
             'biodata.latestLinkedinSyncLog',
+            'perusahaan',
+            'syncResult',
         ]);
 
         // Terapkan batasan wewenang (Role Scope)
@@ -298,7 +304,7 @@ class LinkedInSyncController extends Controller
                 $terplotBiodata++;
             }
 
-            if ($provider === 'apify') {
+            if (in_array($provider, ['apify', 'mock_apify'], true)) {
                 if ($hasUrl) {
                     $denganLinkedin++;
                 } else {
@@ -364,6 +370,7 @@ class LinkedInSyncController extends Controller
                     'keterangan_nama' => $b->keterangan_nama,
                     'is_terplot_ke_biodata' => (bool) $b->is_terplot_ke_biodata,
                     'status_plot_label' => $b->status_plot_label,
+                    'company_mapping' => $this->formatDirectoryCompanyMapping($b),
                 ];
             } else {
                 // Official Provider Flow
@@ -423,6 +430,7 @@ class LinkedInSyncController extends Controller
                     'keterangan_nama' => $b->keterangan_nama,
                     'is_terplot_ke_biodata' => (bool) $b->is_terplot_ke_biodata,
                     'status_plot_label' => $b->status_plot_label,
+                    'company_mapping' => null,
                 ];
             }
 
@@ -535,7 +543,7 @@ class LinkedInSyncController extends Controller
      * Memproses sinkronisasi profil LinkedIn untuk satu alumni.
      * Mengembalikan respons JSON agar tidak memicu reload halaman penuh.
      */
-    public function syncSingle(Request $request, int $id, LinkedInProfileService $service): JsonResponse
+    public function syncSingle(Request $request, int $id, LinkedInProfileService $service, LinkedInProfileMapper $mapper): JsonResponse
     {
         $scope = $this->getUserScope($request);
         $biodata = Biodata::with(['perusahaan', 'dataAkademik'])->findOrFail($id);
@@ -546,7 +554,7 @@ class LinkedInSyncController extends Controller
         // =====================================================================
         // FLOW APIFY: STAGING PER-ALUMNI (STATUS PENDING)
         // =====================================================================
-        if ($provider === 'apify') {
+        if (in_array($provider, ['apify', 'mock_apify'], true)) {
             $url = trim($biodata->linkedin_url ?? '');
 
             // 1. Validasi URL tidak boleh kosong
@@ -568,14 +576,15 @@ class LinkedInSyncController extends Controller
             }
 
             try {
-                /** @var ApifyLinkedInProvider $apify */
-                $apify = app(ApifyLinkedInProvider::class);
+                /** @var ApifyLinkedInProvider|MockApifyLinkedInProvider $apify */
+                $apify = $provider === 'mock_apify'
+                    ? app(MockApifyLinkedInProvider::class)
+                    : app(ApifyLinkedInProvider::class);
 
                 // Jalankan request ke Apify Actor (tepat 1 alumni -> 1 request)
                 $scrapedData = $apify->scrapeProfile($url);
 
-                // Simpan hasil ke staging linkedin_sync_results (STATUS PENDING)
-                // DATA UTAMA ALUMNI TIDAK BERUBAH SAMA SEKALI PADA TAHAP INI
+                // Simpan hasil ke staging; field profil selain mapping perusahaan tetap menunggu approval.
                 $syncResult = LinkedinSyncResult::create([
                     'biodata_id' => $biodata->id,
                     'linkedin_url' => $url,
@@ -584,6 +593,26 @@ class LinkedInSyncController extends Controller
                     'status' => 'pending',
                     'scraped_at' => now(),
                 ]);
+
+                $preview = $syncResult->getPreviewData();
+                $companyResolution = null;
+
+                if (filled($preview['current_company'] ?? null)) {
+                    $companyResolution = $mapper->resolveCompany(
+                        (string) $preview['current_company'],
+                        $preview['current_company_location'] ?? null,
+                    );
+
+                    // Sinkronisasi hanya menyiapkan rekomendasi. Relasi biodata baru
+                    // diubah ketika admin menekan Approve/Plot.
+                    if (
+                        $companyResolution['status'] === 'matched'
+                        && $biodata->perusahaan_id
+                        && $biodata->perusahaan_id !== $companyResolution['company']->id
+                    ) {
+                        $companyResolution['status'] = 'needs_review';
+                    }
+                }
 
                 // Catat log audit aktivitas
                 LogActivity::record(
@@ -595,8 +624,17 @@ class LinkedInSyncController extends Controller
                         'sync_result_id' => $syncResult->id,
                         'status' => 'pending',
                         'provider' => 'apify',
+                        'company_resolution' => $companyResolution ? [
+                            'company_id' => $companyResolution['company']->id,
+                            'status' => $companyResolution['status'],
+                            'match_type' => $companyResolution['match_type'],
+                            'similarity_score' => $companyResolution['similarity_score'],
+                        ] : null,
                     ],
                 );
+
+                // Cadangkan snapshot scraping aktif ke disk agar aman dari migrate:fresh
+                LinkedinSyncResultSeeder::backupSyncResults();
 
                 return response()->json([
                     'success' => true,
@@ -608,6 +646,7 @@ class LinkedInSyncController extends Controller
                         'status' => 'pending',
                         'scraped_at' => $syncResult->scraped_at?->format('d/m/Y H:i'),
                         'parsed' => $syncResult->getPreviewData(),
+                        'company_resolution' => $this->formatCompanyResolution($companyResolution),
                     ],
                     'alumni' => [
                         'id' => $biodata->id,
@@ -621,6 +660,7 @@ class LinkedInSyncController extends Controller
                             'id' => $syncResult->id,
                             'status' => 'pending',
                             'scraped_at' => $syncResult->scraped_at?->format('d/m/Y H:i'),
+                            'company_resolution' => $this->formatCompanyResolution($companyResolution),
                         ],
                         'nama_linkedin' => AlumniLinkedinPlot::where('biodata_id', $biodata->id)->value('nama_linkedin'),
                         'posisi_linkedin' => AlumniLinkedinPlot::where('biodata_id', $biodata->id)->value('posisi_linkedin'),
@@ -699,14 +739,37 @@ class LinkedInSyncController extends Controller
 
     /**
      * Menampilkan detail hasil sinkronisasi staging untuk peninjauan (Review Modal).
+     *
+     * @param  Request  $request  HTTP request dengan scope peran pengguna
+     * @param  int  $id  ID hasil sinkronisasi staging (linkedin_sync_results.id)
+     * @return JsonResponse Data payload staging, preview ekstraksi, dan data aktual alumni saat ini
      */
     public function showResult(Request $request, int $id): JsonResponse
     {
         $scope = $this->getUserScope($request);
-        $result = LinkedinSyncResult::with(['biodata.dataAkademik', 'biodata.perusahaan', 'reviewer'])
+        $result = LinkedinSyncResult::with([
+            'biodata.dataAkademik',
+            'biodata.prodi.fakultas',
+            'biodata.propinsi',
+            'biodata.kabupaten',
+            'biodata.perusahaan.propinsi',
+            'biodata.perusahaan.kabupaten',
+            'reviewer',
+        ])
             ->findOrFail($id);
 
         $this->validateAlumniScope($result->biodata, $scope);
+
+        $biodata = $result->biodata;
+        $perusahaan = $biodata->perusahaan;
+        $domisili = collect([
+            $biodata->kabupaten?->nama_kabupaten,
+            $biodata->propinsi?->nama_provinsi,
+        ])->filter()->implode(', ');
+        $headOfficeLocation = collect([
+            $perusahaan?->kabupaten?->nama_kabupaten,
+            $perusahaan?->propinsi?->nama_provinsi,
+        ])->filter()->implode(', ');
 
         return response()->json([
             'success' => true,
@@ -723,10 +786,34 @@ class LinkedInSyncController extends Controller
                 'preview' => $result->getPreviewData(),
                 'raw' => $result->scraped_data,
                 'current_data' => [
-                    'posisi_jabatan' => $result->biodata->posisi_jabatan,
-                    'nama_perusahaan' => $result->biodata->perusahaan?->nama_perusahaan,
-                    'skills' => $result->biodata->skills,
-                    'experience' => $result->biodata->experience,
+                    'foto' => $biodata->foto,
+                    'linkedin_url' => $biodata->linkedin_url ?: $result->linkedin_url,
+                    'posisi_jabatan' => $biodata->posisi_jabatan,
+                    'nama_perusahaan' => $perusahaan?->nama_perusahaan,
+                    'bidang_pekerjaan' => $biodata->bidang_pekerjaan,
+                    'kategori_pekerjaan' => $biodata->kategori_pekerjaan,
+                    'divisi' => $biodata->divisi,
+                    'pendidikan_tingkat' => $biodata->pendidikan_tingkat,
+                    'perguruan_tinggi' => $biodata->perguruan_tinggi,
+                    'pendidikan_prodi' => $biodata->pendidikan_prodi,
+                    'skills' => $biodata->skills,
+                    'experience' => $biodata->experience,
+                    'prodi' => $biodata->prodi?->nama_prodi,
+                    'fakultas' => $biodata->prodi?->fakultas?->nama_fakultas,
+                    'domisili' => [
+                        'label' => $domisili ?: null,
+                        'alamat' => $biodata->alamat_saat_ini,
+                        'kode_pos' => $biodata->kode_pos,
+                    ],
+                    'head_office' => [
+                        'nama' => $perusahaan?->nama_perusahaan,
+                        'status_verifikasi' => $perusahaan?->status_verifikasi,
+                        'lokasi' => $headOfficeLocation ?: null,
+                        'alamat' => $perusahaan?->alamat,
+                        'kode_pos' => $perusahaan?->kode_pos,
+                        'no_telp_fax' => $perusahaan?->no_telp_fax,
+                        'homepage' => $perusahaan?->homepage,
+                    ],
                 ],
             ],
         ]);
@@ -734,6 +821,14 @@ class LinkedInSyncController extends Controller
 
     /**
      * Menyetujui (Approve) hasil sinkronisasi Apify dan menerapkan data ke data utama.
+     * Mendukung pemetaan jabatan/wirausaha, perusahaan (status Menunggu Verifikasi),
+     * bidang pekerjaan (industri LinkedIn), keahlian (top skills), foto profil lokal,
+     * serta riwayat studi lanjut (jenjang, perguruan tinggi, prodi).
+     *
+     * @param  Request  $request  HTTP request berisi data usulan modifikasi dari modal review
+     * @param  int  $id  ID hasil sinkronisasi staging yang ditinjau
+     * @param  LinkedInProfileMapper  $mapper  Mapper untuk pencocokan atau pembuatan data master perusahaan
+     * @return JsonResponse|RedirectResponse Respons JSON hasil approval beserta ringkasan perubahan
      */
     public function approveResult(Request $request, int $id, LinkedInProfileMapper $mapper): JsonResponse|RedirectResponse
     {
@@ -759,6 +854,7 @@ class LinkedInSyncController extends Controller
             $biodata = $result->biodata;
             $updates = [];
             $changesSummary = [];
+            $companyResolution = null;
 
             // Input kustom dari Super Admin (opsional jika diedit/disesuaikan di modal)
             $customJob = $request->filled('posisi_jabatan') ? trim($request->input('posisi_jabatan')) : null;
@@ -766,6 +862,8 @@ class LinkedInSyncController extends Controller
             $customCompany = $request->filled('nama_perusahaan')
                 ? trim($request->input('nama_perusahaan'))
                 : ($request->filled('perusahaan_nama') ? trim($request->input('perusahaan_nama')) : null);
+            $customBidang = $request->filled('bidang_pekerjaan') ? trim($request->input('bidang_pekerjaan')) : null;
+            $customDivisi = $request->filled('divisi') ? trim($request->input('divisi')) : null;
             $customSkills = $request->filled('skills') ? trim($request->input('skills')) : null;
             $customExperience = $request->filled('experience') ? trim($request->input('experience')) : null;
             $tipePekerjaan = $request->input('tipe_pekerjaan', 'pekerja'); // 'pekerja' atau 'wirausaha'
@@ -788,7 +886,22 @@ class LinkedInSyncController extends Controller
                 }
             }
 
-            // 2. Pemetaan Perusahaan (Otomatis ditambahkan ke tabel master perusahaan dengan status Menunggu Verifikasi)
+            // 1b. Pemetaan Bidang Pekerjaan / Divisi
+            $targetBidang = $customBidang ?: ($preview['bidang_pekerjaan'] ?? null);
+            if (! empty($targetBidang) && $biodata->bidang_pekerjaan !== $targetBidang) {
+                $updates['bidang_pekerjaan'] = $targetBidang;
+                $changesSummary[] = "Bidang pekerjaan diselaraskan: {$targetBidang}";
+            }
+
+            // Divisi/unit kerja berasal dari metadata posisi LinkedIn jika tersedia.
+            $targetDivisi = $customDivisi ?: ($preview['current_divisi'] ?? null);
+            if (! empty($targetDivisi) && $biodata->divisi !== $targetDivisi) {
+                $updates['divisi'] = $targetDivisi;
+                $changesSummary[] = "Divisi/unit kerja diselaraskan: {$targetDivisi}";
+            }
+
+            // 2. Pemetaan Perusahaan: master terverifikasi dipakai langsung, sedangkan
+            //    nama yang benar-benar baru tetap menjadi kandidat Menunggu Verifikasi.
             $perusahaan = null;
             $targetCompany = $customCompany ?: $preview['current_company'];
             if (! empty($targetCompany)) {
@@ -796,53 +909,50 @@ class LinkedInSyncController extends Controller
                 // Hanya gunakan lokasi pada entri pekerjaan aktif. Lokasi profil
                 // umum tidak cukup spesifik untuk dipetakan ke perusahaan.
                 $locationName = $preview['current_company_location'] ?? null;
-                $companyUrl = $preview['current_company_url'] ?? null;
 
-                $perusahaan = $mapper->findOrCreateCompany($companyName, $locationName);
-
-                // Pastikan status perusahaan SELALU 'Menunggu Verifikasi' sesuai kebijakan approval ulang
-                $perusahaanUpdates = [];
-                if ($perusahaan->status_verifikasi !== 'Menunggu Verifikasi') {
-                    $perusahaanUpdates['status_verifikasi'] = 'Menunggu Verifikasi';
-                }
-                if (empty($perusahaan->homepage) && ! empty($companyUrl)) {
-                    $perusahaanUpdates['homepage'] = $companyUrl;
-                }
-                if (! empty($perusahaanUpdates)) {
-                    $perusahaan->update($perusahaanUpdates);
-                }
+                $companyResolution = $mapper->resolveCompany($companyName, $locationName);
+                $perusahaan = $companyResolution['company'];
 
                 if ($biodata->perusahaan_id !== $perusahaan->id) {
                     $oldCompany = $biodata->perusahaan?->nama_perusahaan ?? '-';
                     $updates['perusahaan_id'] = $perusahaan->id;
-                    $changesSummary[] = "Perusahaan diperbarui dari '{$oldCompany}' menjadi '{$perusahaan->nama_perusahaan}' (Status: Menunggu Verifikasi)";
+                    $statusLabel = $perusahaan->status_verifikasi === 'Terverifikasi'
+                        ? 'Master terverifikasi'
+                        : 'Menunggu Verifikasi';
+                    $changesSummary[] = "Perusahaan diperbarui dari '{$oldCompany}' menjadi '{$perusahaan->nama_perusahaan}' (Status: {$statusLabel})";
                 }
             }
 
             // 3. Pemetaan Foto Profil (Diunduh ke public/uploads/profile)
             $syncFoto = $request->has('sync_foto') ? $request->boolean('sync_foto') : true;
             if ($syncFoto && ! empty($preview['profile_picture'])) {
-                try {
-                    $photoUrl = $preview['profile_picture'];
-                    $imageResponse = Http::timeout(10)->get($photoUrl);
+                // Fixture mock tidak boleh memicu request jaringan saat approval.
+                if (config('services.linkedin.provider') === 'mock_apify') {
+                    $updates['foto'] = $preview['profile_picture'];
+                    $changesSummary[] = 'Foto profil mock ditautkan tanpa mengunduh aset eksternal';
+                } else {
+                    try {
+                        $photoUrl = $preview['profile_picture'];
+                        $imageResponse = Http::timeout(10)->get($photoUrl);
 
-                    if ($imageResponse->successful() && ! empty($imageResponse->body())) {
-                        $dir = public_path('uploads/profile');
-                        if (! file_exists($dir)) {
-                            mkdir($dir, 0755, true);
+                        if ($imageResponse->successful() && ! empty($imageResponse->body())) {
+                            $dir = public_path('uploads/profile');
+                            if (! file_exists($dir)) {
+                                mkdir($dir, 0755, true);
+                            }
+                            $safeNim = preg_replace('/[^a-zA-Z0-9_-]/', '', $biodata->nim ?: 'alumni');
+                            $filename = "profile_{$safeNim}_".time().'.jpg';
+                            file_put_contents("{$dir}/{$filename}", $imageResponse->body());
+                            $updates['foto'] = "/uploads/profile/{$filename}";
+                            $changesSummary[] = "Foto profil diunduh dan disimpan ke /uploads/profile/{$filename}";
+                        } else {
+                            $updates['foto'] = $photoUrl;
+                            $changesSummary[] = 'Foto profil ditautkan dari URL LinkedIn';
                         }
-                        $safeNim = preg_replace('/[^a-zA-Z0-9_-]/', '', $biodata->nim ?: 'alumni');
-                        $filename = "profile_{$safeNim}_".time().'.jpg';
-                        file_put_contents("{$dir}/{$filename}", $imageResponse->body());
-                        $updates['foto'] = "/uploads/profile/{$filename}";
-                        $changesSummary[] = "Foto profil diunduh dan disimpan ke /uploads/profile/{$filename}";
-                    } else {
-                        $updates['foto'] = $photoUrl;
+                    } catch (\Throwable $e) {
+                        $updates['foto'] = $preview['profile_picture'];
                         $changesSummary[] = 'Foto profil ditautkan dari URL LinkedIn';
                     }
-                } catch (\Throwable $e) {
-                    $updates['foto'] = $preview['profile_picture'];
-                    $changesSummary[] = 'Foto profil ditautkan dari URL LinkedIn';
                 }
             }
 
@@ -852,20 +962,39 @@ class LinkedInSyncController extends Controller
                 $changesSummary[] = "Username LinkedIn diselaraskan: {$preview['handle']}";
             }
 
-            // 5. Pemetaan Pendidikan Lanjutan (hanya jika tersedia dan di biodata masih kosong)
-            if (! empty($preview['education'][0])) {
-                $edu = $preview['education'][0];
-                if (empty($biodata->pendidikan_tingkat) && ! empty($edu['degree'])) {
-                    $updates['pendidikan_tingkat'] = $edu['degree'];
-                    $changesSummary[] = "Pendidikan tingkat disimpan: {$edu['degree']}";
+            // 5. Pemetaan Pendidikan Lanjutan (Studi Lanjut)
+            $syncStudi = $request->has('sync_studi_lanjut') ? $request->boolean('sync_studi_lanjut') : true;
+            $customTingkat = $request->filled('pendidikan_tingkat') ? trim($request->input('pendidikan_tingkat')) : null;
+            $customKampus = $request->filled('perguruan_tinggi') ? trim($request->input('perguruan_tinggi')) : null;
+            $customProdi = $request->filled('pendidikan_prodi') ? trim($request->input('pendidikan_prodi')) : null;
+
+            if ($syncStudi) {
+                $studyCandidate = $preview['further_study'] ?? null;
+                $tingkatToSet = $customTingkat ?: ($studyCandidate['pendidikan_tingkat'] ?? null);
+                $kampusToSet = $customKampus ?: ($studyCandidate['perguruan_tinggi'] ?? null);
+                $prodiToSet = $customProdi ?: ($studyCandidate['pendidikan_prodi'] ?? null);
+
+                // Fallback ke entri pendidikan pertama jika studyCandidate belum terisi
+                if (empty($kampusToSet) && ! empty($preview['education'][0])) {
+                    $edu = $preview['education'][0];
+                    $tingkatToSet = $tingkatToSet ?: ($edu['degree'] ?? null);
+                    $kampusToSet = $edu['school'] ?? null;
+                    $prodiToSet = $prodiToSet ?: ($edu['field_of_study'] ?? null);
                 }
-                if (empty($biodata->perguruan_tinggi) && ! empty($edu['school'])) {
-                    $updates['perguruan_tinggi'] = $edu['school'];
-                    $changesSummary[] = "Perguruan tinggi studi lanjut: {$edu['school']}";
-                }
-                if (empty($biodata->pendidikan_prodi) && ! empty($edu['field_of_study'])) {
-                    $updates['pendidikan_prodi'] = $edu['field_of_study'];
-                    $changesSummary[] = "Program studi studi lanjut: {$edu['field_of_study']}";
+
+                if (! empty($kampusToSet) || ! empty($prodiToSet) || ! empty($tingkatToSet)) {
+                    if (! empty($tingkatToSet) && $biodata->pendidikan_tingkat !== $tingkatToSet) {
+                        $updates['pendidikan_tingkat'] = $tingkatToSet;
+                        $changesSummary[] = "Jenjang studi lanjut diperbarui: {$tingkatToSet}";
+                    }
+                    if (! empty($kampusToSet) && $biodata->perguruan_tinggi !== $kampusToSet) {
+                        $updates['perguruan_tinggi'] = $kampusToSet;
+                        $changesSummary[] = "Perguruan tinggi studi lanjut: {$kampusToSet}";
+                    }
+                    if (! empty($prodiToSet) && $biodata->pendidikan_prodi !== $prodiToSet) {
+                        $updates['pendidikan_prodi'] = $prodiToSet;
+                        $changesSummary[] = "Program studi studi lanjut: {$prodiToSet}";
+                    }
                 }
             }
 
@@ -936,6 +1065,9 @@ class LinkedInSyncController extends Controller
 
             $plotRecord = AlumniLinkedinPlot::where('biodata_id', $fresh->id)->first();
 
+            // Cadangkan pembaruan status approved ke snapshot disk
+            LinkedinSyncResultSeeder::backupSyncResults();
+
             return $this->respondToMutation($request, [
                 'success' => true,
                 'message' => $isReplot
@@ -954,6 +1086,7 @@ class LinkedInSyncController extends Controller
                         'status' => 'approved',
                         'reviewed_at' => $result->reviewed_at?->format('d/m/Y H:i'),
                     ],
+                    'company_resolution' => $this->formatCompanyResolution($companyResolution),
                     'nama_linkedin' => $plotRecord?->nama_linkedin,
                     'posisi_linkedin' => $plotRecord?->posisi_linkedin,
                     'perusahaan_linkedin' => $plotRecord?->perusahaan_linkedin,
@@ -968,13 +1101,88 @@ class LinkedInSyncController extends Controller
     }
 
     /**
-     * Menerapkan ulang snapshot LinkedIn yang sudah pernah disetujui.
+     * Menerapkan ulang snapshot LinkedIn yang sudah pernah disetujui (Approved).
+     * Mempertahankan snapshot staging dan status audit yang sudah ada, sambil
+     * memperbarui data biodata, bidang pekerjaan, dan riwayat studi lanjut.
+     *
+     * @param  Request  $request  HTTP request
+     * @param  int  $id  ID hasil sinkronisasi yang disetujui
+     * @param  LinkedInProfileMapper  $mapper  Mapper master perusahaan
      */
     public function plotAgain(Request $request, int $id, LinkedInProfileMapper $mapper): JsonResponse|RedirectResponse
     {
         $request->merge(['plot_ulang' => true]);
 
         return $this->approveResult($request, $id, $mapper);
+    }
+
+    /**
+     * Menyederhanakan hasil resolusi perusahaan untuk payload frontend.
+     *
+     * @param  array<string, mixed>|null  $resolution  Hasil resolver perusahaan.
+     * @return array<string, mixed>|null Data status mapping yang aman dikirim ke Vue.
+     */
+    private function formatCompanyResolution(?array $resolution): ?array
+    {
+        if (! $resolution || ! isset($resolution['company'])) {
+            return null;
+        }
+
+        return [
+            'company_id' => $resolution['company']->id,
+            'company_name' => $resolution['company']->nama_perusahaan,
+            'company_status' => $resolution['company']->status_verifikasi,
+            'status' => $resolution['status'],
+            'match_type' => $resolution['match_type'],
+            'similarity_score' => $resolution['similarity_score'],
+            'recommendation' => isset($resolution['recommendation']) && is_array($resolution['recommendation'])
+                ? [
+                    'company_id' => $resolution['recommendation']['id'] ?? null,
+                    'company_name' => $resolution['recommendation']['nama_perusahaan'] ?? null,
+                    'similarity_score' => $resolution['recommendation']['similarity_score'] ?? null,
+                    'match_reasons' => $resolution['recommendation']['match_reasons'] ?? [],
+                ]
+                : null,
+        ];
+    }
+
+    /**
+     * Menyusun status mapping perusahaan untuk tabel direktori tanpa membuat record baru.
+     *
+     * @param  AlumniLinkedinPlot  $plot  Read-model alumni dan hasil scraping terbaru.
+     * @return array<string, mixed>|null Status mapping untuk kebutuhan UI review cepat.
+     */
+    private function formatDirectoryCompanyMapping(AlumniLinkedinPlot $plot): ?array
+    {
+        $scrapedCompany = trim((string) ($plot->perusahaan_linkedin ?? ''));
+        $currentCompany = trim((string) ($plot->perusahaan_biodata ?? ''));
+
+        if ($scrapedCompany === '') {
+            return null;
+        }
+
+        $normalize = static function (string $value): string {
+            $value = strtolower($value);
+            $value = (string) preg_replace('/\b(pt|cv|tbk|persero|corp|corporation|inc|ltd|company|indonesia|official)\b/i', ' ', $value);
+            $value = (string) preg_replace('/[^a-z0-9]+/i', ' ', $value);
+
+            return trim((string) preg_replace('/\s+/', ' ', $value));
+        };
+
+        $sameCompany = $currentCompany !== '' && $normalize($currentCompany) === $normalize($scrapedCompany);
+        $masterStatus = $plot->perusahaan?->status_verifikasi;
+
+        return [
+            'scraped_name' => $scrapedCompany,
+            'master_name' => $currentCompany !== '' ? $currentCompany : null,
+            'master_status' => $masterStatus,
+            'status' => $sameCompany
+                ? ($masterStatus === 'Terverifikasi' ? 'auto_mapped' : 'pending_verification')
+                : ($currentCompany !== '' ? 'needs_review' : 'pending_verification'),
+            'label' => $sameCompany
+                ? ($masterStatus === 'Terverifikasi' ? 'Terpetakan otomatis' : 'Menunggu verifikasi perusahaan')
+                : ($currentCompany !== '' ? 'Perlu review perusahaan' : 'Perusahaan baru menunggu verifikasi'),
+        ];
     }
 
     /**
@@ -1080,6 +1288,9 @@ class LinkedInSyncController extends Controller
                 ]
             );
 
+            // Cadangkan pembaruan status rejected ke snapshot disk
+            LinkedinSyncResultSeeder::backupSyncResults();
+
             return $this->respondToMutation($request, [
                 'success' => true,
                 'message' => "Hasil sinkronisasi LinkedIn untuk {$result->biodata->nama} telah ditolak. Data utama tidak diubah.",
@@ -1145,11 +1356,11 @@ class LinkedInSyncController extends Controller
         $scope = $this->getUserScope($request);
         $provider = config('services.linkedin.provider', 'official');
 
-        // Untuk provider Apify, bulk scraping dinonaktifkan demi Cost Safety
-        if ($provider === 'apify') {
+        // Alur Apify, termasuk mock lokalnya, hanya mendukung staging per alumni.
+        if (in_array($provider, ['apify', 'mock_apify'], true)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bulk sync dinonaktifkan untuk provider Apify demi keamanan biaya (Cost Safety). Silakan lakukan sinkronisasi per alumni.',
+                'message' => 'Bulk sync dinonaktifkan untuk alur Apify demi keamanan biaya dan konsistensi staging. Silakan lakukan sinkronisasi per alumni.',
             ], 400);
         }
 

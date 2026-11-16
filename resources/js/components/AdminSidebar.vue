@@ -1,4 +1,5 @@
 <script setup>
+// Sidebar terpadu: menu, hak akses, dan penanda aktif mengikuti URL Inertia saat ini.
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import Swal from 'sweetalert2';
@@ -21,7 +22,7 @@ const roleDefinitions = {
         fallbackName: 'Super Administrator',
         fallbackEmail: 'admin@ukdw.ac.id',
         alumniLabel: 'Data Alumni',
-        capabilities: { universityQuestionnaire: true, prodiQuestionnaire: true, supervisorEvaluation: true, wilayah: true, linkedin: true, company: true, accounts: true, logs: true, analytics: true },
+        capabilities: { universityQuestionnaire: true, prodiQuestionnaire: true, supervisorEvaluation: true, wilayah: true, linkedin: true, company: true, accounts: true, logs: true, analytics: true, dataAtasan: true },
     },
     admin_prodi: {
         dashboard: '/prodi/dashboard',
@@ -29,7 +30,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Program Studi',
         fallbackEmail: 'prodi@ukdw.ac.id',
         alumniLabel: 'Data Alumni Prodi',
-        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: true },
+        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false, analytics: true, supervisorEvaluation: false, dataAtasan: true },
     },
     admin_fakultas: {
         dashboard: '/fakultas/dashboard',
@@ -37,7 +38,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Fakultas',
         fallbackEmail: 'fakultas@ukdw.ac.id',
         alumniLabel: 'Data Alumni Fakultas',
-        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: true },
+        capabilities: { prodiQuestionnaire: true, linkedin: true, company: true, accounts: false, analytics: true, supervisorEvaluation: false, dataAtasan: true },
     },
     admin_biro3: {
         dashboard: '/biro3/dashboard',
@@ -45,7 +46,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Biro 3 UKDW',
         fallbackEmail: 'biro3@ukdw.ac.id',
         alumniLabel: 'Data Alumni Universitas',
-        capabilities: {},
+        capabilities: { linkedin: false, company: false, accounts: false, analytics: true, supervisorEvaluation: false, dataAtasan: true },
     },
 };
 
@@ -72,11 +73,17 @@ const createSections = (role) => {
             items: [
                 createMenuItem('dashboard', definition.dashboard, 'Dashboard Utama', 'home'),
                 ...(capabilities.analytics ? [
-                    createMenuItem('analytics', '/superadmin/analitik', 'Grafik Universitas', 'chart', ['/superadmin/analitik']),
-                    createMenuItem('analytics-prodi', '/superadmin/analitik-prodi', 'Grafik Prodi', 'chart', ['/superadmin/analitik-prodi']),
+                    createMenuItem('analytics', `/${prefix}/analitik`, 'Grafik Universitas', 'chart', [`/${prefix}/analitik`]),
+                    createMenuItem('analytics-prodi', `/${prefix}/analitik-prodi`, 'Grafik Prodi', 'chart', [`/${prefix}/analitik-prodi`]),
+                    createMenuItem('analytics-atasan', `/${prefix}/analitik-atasan`, 'Grafik Evaluasi Atasan', 'chart', [`/${prefix}/analitik-atasan`]),
                 ] : []),
+            ],
+        },
+        {
+            label: 'Data Alumni & Atasan',
+            items: [
                 createMenuItem('alumni', `/${prefix}/alumni`, definition.alumniLabel, 'users'),
-                ...(capabilities.linkedin ? [createMenuItem('linkedin-sync', `/${prefix}/linkedin-sync`, 'Sinkronisasi LinkedIn', 'linkedin')] : []),
+                ...(capabilities.dataAtasan ? [createMenuItem('atasan', `/${prefix}/atasan`, 'Data Atasan', 'users', [`/${prefix}/atasan`])] : []),
             ],
         },
         {
@@ -88,7 +95,7 @@ const createSections = (role) => {
                     prodiQuestionnaireHref,
                     'Kuesioner Per Prodi',
                     'book',
-                    role === 'admin_prodi' ? ['/prodi/kuesioner', '/prodi/sections', '/prodi/section', '/prodi/pertanyaan'] : [],
+                    role === 'admin_prodi' ? ['/prodi/kuesioner', '/prodi/sections', '/prodi/section'] : [],
                 )] : []),
                 ...(capabilities.supervisorEvaluation ? [createMenuItem('evaluasi-atasan', '/superadmin/evaluasi-atasan', 'Kuesioner Evaluasi Atasan', 'checklist')] : []),
             ],
@@ -121,6 +128,20 @@ const currentUser = computed(() => props.user?.name ? props.user : (page.props.a
     email: roleConfig.value.fallbackEmail,
 }));
 
+// Menghapus query string dan slash terakhir agar menu tetap aktif setelah filter berubah.
+const currentPath = computed(() => {
+    const path = String(page.url || '').split(/[?#]/)[0].replace(/\/+$/, '');
+
+    return path || '/';
+});
+
+// Menyamakan format prefix menu dengan format path halaman Inertia.
+const normalizePath = (path) => {
+    const normalized = String(path || '').split(/[?#]/)[0].replace(/\/+$/, '');
+
+    return normalized || '/';
+};
+
 const currentScope = computed(() => {
     if (props.role === 'admin_prodi') {
         return props.prodi?.nama_prodi || page.props.auth?.user?.prodi?.nama_prodi || 'Program Studi';
@@ -141,7 +162,11 @@ const isActive = (item) => {
         return true;
     }
 
-    return (item.prefixes || [item.href]).some((prefix) => page.url === prefix || page.url.startsWith(`${prefix}/`));
+    return (item.prefixes || [item.href]).some((prefix) => {
+        const normalizedPrefix = normalizePath(prefix);
+
+        return currentPath.value === normalizedPrefix || currentPath.value.startsWith(`${normalizedPrefix}/`);
+    });
 };
 
 const toggleMobileMenu = () => { isMobileOpen.value = !isMobileOpen.value; };
