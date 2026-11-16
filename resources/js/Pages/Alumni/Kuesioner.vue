@@ -736,6 +736,9 @@ const isQuestionAnswered = (q) => {
 
 /**
  * Memeriksa apakah seluruh pertanyaan wajib di suatu section sudah terjawab lengkap.
+ * Untuk section yang hanya berisi butir opsional, section dianggap selesai hanya jika
+ * alumni telah mengisi setidaknya satu pertanyaan, atau jika section tersebut memang
+ * secara sah dilewati (tidak ada pertanyaan terlihat).
  * 
  * @param {Object} section Objek seksi kuesioner
  * @returns {Boolean} true jika seksi kuesioner sudah lengkap terisi
@@ -746,7 +749,7 @@ const isSectionAnswered = (section) => {
 
     // Ambil pertanyaan non-header yang terlihat
     const visibleQuestions = questions.filter(q => q.type !== 'header' && isQuestionVisible(q.id));
-    if (visibleQuestions.length === 0) return true;
+    if (visibleQuestions.length === 0) return false;
 
     // Seluruh pertanyaan terlihat yang tidak secara eksplisit bertanda opsional wajib terisi
     const mandatoryQuestions = visibleQuestions.filter(q => {
@@ -760,8 +763,9 @@ const isSectionAnswered = (section) => {
         return mandatoryQuestions.every(q => isQuestionAnswered(q));
     }
 
-    // Seksi yang hanya berisi butir opsional tidak menghalangi perpindahan tahap.
-    return true;
+    // Jika seksi seluruhnya terdiri dari butir opsional:
+    // Jangan tandai centang hijau secara prematur jika belum ada satu pun jawaban yang terisi.
+    return visibleQuestions.some(q => isQuestionAnswered(q));
 };
 
 /**
@@ -776,7 +780,8 @@ const isSectionCompleted = (index) => {
     return isSectionAnswered(sec);
 };
 
-// Menentukan apakah section boleh dibuka setelah semua section sebelumnya selesai.
+// Menentukan apakah section boleh dibuka setelah semua section sebelumnya selesai atau dapat diakses.
+// Catatan: Section opsional yang dilewati tanpa pengisian tetap memperbolehkan langkah berikutnya dibuka.
 const canSelectSection = (originalIndex) => {
     const targetIndex = visibleSections.value.findIndex((section) => section.originalIndex === originalIndex);
 
@@ -786,7 +791,36 @@ const canSelectSection = (originalIndex) => {
 
     return visibleSections.value
         .slice(0, targetIndex)
-        .every((section) => isSectionCompleted(section.originalIndex));
+        .every((section) => isSectionPassable(section));
+};
+
+/**
+ * Menentukan apakah suatu seksi telah memenuhi syarat untuk dilewati / lanjut ke seksi berikutnya.
+ * Suatu seksi dapat dilewati jika:
+ * 1. Seluruh butir wajibnya telah terjawab lengkap, ATAU
+ * 2. Seksi tersebut hanya berisi pertanyaan opsional.
+ *
+ * @param {Object} section Objek seksi kuesioner
+ * @returns {Boolean} true jika seksi memenuhi syarat untuk dilewati
+ */
+const isSectionPassable = (section) => {
+    const questions = section?.subpertanyaans || section?.questions;
+    if (!section || !questions || questions.length === 0) return true;
+
+    const visibleQuestions = questions.filter(q => q.type !== 'header' && isQuestionVisible(q.id));
+    if (visibleQuestions.length === 0) return true;
+
+    const mandatoryQuestions = visibleQuestions.filter(q => {
+        if (q.is_mandatory === false) return false;
+        if (q.is_optional || q.optional) return false;
+        return true;
+    });
+
+    if (mandatoryQuestions.length > 0) {
+        return mandatoryQuestions.every(q => isQuestionAnswered(q));
+    }
+
+    return true;
 };
 
 // Menampilkan alasan ketika alumni mencoba melewati section yang belum lengkap.
@@ -866,14 +900,14 @@ const prevSection = () => {
 
 // Navigasi Section: Lanjut atau Simpan Form
 const handleNextOrSubmit = () => {
-    if (!isSectionCompleted(activeSectionIndex.value)) {
+    if (!isSectionPassable(currentSection.value)) {
         notifyIncompleteSection(currentSection.value);
 
         return;
     }
 
     if (isLastVisibleSection.value) {
-        const firstIncompleteSection = visibleSections.value.find((section) => !isSectionCompleted(section.originalIndex));
+        const firstIncompleteSection = visibleSections.value.find((section) => !isSectionPassable(section));
 
         if (firstIncompleteSection) {
             activeSectionIndex.value = firstIncompleteSection.originalIndex;
@@ -929,7 +963,7 @@ onMounted(() => {
         }
         syncSectionCompletion();
 
-        const firstIncompleteSection = visibleSections.value.find((section) => !isSectionCompleted(section.originalIndex));
+        const firstIncompleteSection = visibleSections.value.find((section) => !isSectionPassable(section));
         if (!canSelectSection(activeSectionIndex.value) && firstIncompleteSection) {
             activeSectionIndex.value = firstIncompleteSection.originalIndex;
         }

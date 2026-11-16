@@ -33,6 +33,17 @@ router.on('finish', () => {
     isNavigating.value = false;
 });
 
+// Tangani otomatis error chunk modul gagal dimuat akibat hash aset berubah setelah build baru
+window.addEventListener('vite:preloadError', (event) => {
+    event.preventDefault();
+    const lastReload = sessionStorage.getItem('vite_last_preload_reload');
+    const now = Date.now();
+    if (!lastReload || now - parseInt(lastReload, 10) > 8000) {
+        sessionStorage.setItem('vite_last_preload_reload', String(now));
+        window.location.reload();
+    }
+});
+
 createInertiaApp({
     title: (title) => `${title} - Tracer Study`,
     resolve: (name) => {

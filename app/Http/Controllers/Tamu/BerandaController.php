@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Biodata;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
@@ -22,6 +23,20 @@ class BerandaController extends Controller
      */
     public function tampilkanBeranda()
     {
+        // Jika pengguna sudah terotentikasi (login), langsung arahkan ke dashboard kerja sesuai role
+        if (Auth::check()) {
+            $user = Auth::user();
+
+            return match ($user->role) {
+                'superadmin' => redirect()->route('superadmin.dashboard'),
+                'admin_biro3' => redirect()->route('biro3.dashboard'),
+                'admin_fakultas' => redirect()->route('fakultas.dashboard'),
+                'admin_prodi' => redirect()->route('prodi.dashboard'),
+                'alumni' => redirect()->route('alumni.dashboard'),
+                default => redirect('/login'),
+            };
+        }
+
         // 1. Data Statistik Riil dari Database
         $totalAlumni = Biodata::count();
         $totalPerusahaan = Perusahaan::where('status_verifikasi', 'Terverifikasi')->count();

@@ -66,6 +66,7 @@ class DatabaseSeeder extends Seeder
             JoshuaAndreanSeeder::class,
             JovanMarllenSeeder::class,
             KenazManuelSeeder::class,
+            AnjelitaSeeder::class,
         ]);
 
         // 6. Seed satu kohort kanonik 2026 lintas 12 prodi dengan maksimal

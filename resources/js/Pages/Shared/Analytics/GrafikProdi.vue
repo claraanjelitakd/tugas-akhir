@@ -298,6 +298,11 @@ const paginatedRecords = computed(() => {
     return filteredRecords.value.slice(start, start + rowsPerPage.value);
 });
 
+// Mengunduh / mencetak laporan analisis kategori program studi dalam format PDF
+const printProdiReport = () => {
+    window.print();
+};
+
 // Menyesuaikan halaman ketika hasil pencarian menjadi lebih pendek.
 watch([tableSearch, rowsPerPage], () => { currentPage.value = 1; });
 watch(totalPages, () => {
@@ -384,6 +389,19 @@ watch(() => props.analytics, (newAnalytics) => {
                             <div class="min-w-0">
                                 <h2 class="text-xl font-extrabold text-slate-900 sm:text-2xl">{{ chart.title }}</h2>
                                 <p class="mt-1 max-w-3xl text-xs leading-relaxed text-slate-500 sm:text-sm">{{ chart.subtitle }}</p>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0 no-print">
+                                <button
+                                    type="button"
+                                    @click="printProdiReport"
+                                    class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs hover:border-[#0D542B] hover:text-[#0D542B] cursor-pointer transition-colors"
+                                    title="Unduh laporan analisis kategori prodi ini dalam format PDF"
+                                >
+                                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                                    </svg>
+                                    <span>Unduh Laporan (PDF)</span>
+                                </button>
                             </div>
                         </div>
                         <div class="mt-5 grid w-full grid-cols-2 gap-3.5 lg:grid-cols-4">
@@ -546,3 +564,37 @@ watch(() => props.analytics, (newAnalytics) => {
         </main>
     </div>
 </template>
+
+<style>
+@media print {
+    header,
+    nav,
+    aside,
+    button,
+    .no-print,
+    .lg\:pl-72 {
+        padding-left: 0 !important;
+    }
+    aside,
+    nav[role="tablist"],
+    .no-print {
+        display: none !important;
+    }
+    body, main {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        font-size: 11pt !important;
+    }
+    .min-w-\[1280px\] {
+        min-width: 100% !important;
+    }
+    .shadow-lg, .shadow-md, .shadow-sm, .shadow-2xs, .border {
+        box-shadow: none !important;
+        border-color: #e2e8f0 !important;
+    }
+    figure, table, section {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+}
+</style>

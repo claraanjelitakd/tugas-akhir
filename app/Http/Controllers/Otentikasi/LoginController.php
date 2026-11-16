@@ -52,7 +52,7 @@ class LoginController extends Controller
             $pengguna = Auth::user();
 
             if ($pengguna->role === 'alumni' && $pengguna->must_change_password) {
-                return redirect()->intended('/change-password');
+                return redirect('/change-password');
             }
 
             return self::arahkanBerdasarkanPeran($pengguna->role);
@@ -94,7 +94,7 @@ class LoginController extends Controller
                     Auth::login($alumniUser);
                     $request->session()->regenerate();
 
-                    return redirect()->intended('/change-password');
+                    return redirect('/change-password');
                 }
             }
         }

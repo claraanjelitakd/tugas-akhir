@@ -918,6 +918,11 @@ const resetFilters = () => {
     scheduleLoad();
 };
 
+// Mengunduh / mencetak laporan analisis lengkap kategori dalam format PDF
+const printCategoryReport = () => {
+    window.print();
+};
+
 // Menjaga state lokal tetap mengikuti props ketika halaman Inertia dinavigasi ulang.
 watch(() => props.analytics, (value) => {
     currentAnalytics.value = value;
@@ -1093,24 +1098,38 @@ onBeforeUnmount(() => {
                                         </p>
                                     </div>
 
-                                    <!-- Toggle Grafik vs Data Ringkasan Tabulasi (Gaya Segmented Pill Netral Slate) -->
-                                    <div class="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1">
+                                    <!-- Toggle Grafik vs Data Ringkasan Tabulasi & Tombol Unduh Laporan PDF -->
+                                    <div class="flex flex-wrap items-center gap-2">
                                         <button
                                             type="button"
-                                            class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                                            :class="activeViewMode === 'chart' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
-                                            @click="activeViewMode = 'chart'"
+                                            @click="printCategoryReport"
+                                            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs hover:border-[#0D542B] hover:text-[#0D542B] cursor-pointer transition-colors no-print"
+                                            title="Unduh laporan analisis kategori ini dalam format PDF"
                                         >
-                                            Grafik
+                                            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                                            </svg>
+                                            <span>Unduh Laporan (PDF)</span>
                                         </button>
-                                        <button
-                                            type="button"
-                                            class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
-                                            :class="activeViewMode === 'table' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
-                                            @click="activeViewMode = 'table'"
-                                        >
-                                            Data Ringkasan
-                                        </button>
+
+                                        <div class="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1 no-print">
+                                            <button
+                                                type="button"
+                                                class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
+                                                :class="activeViewMode === 'chart' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                                                @click="activeViewMode = 'chart'"
+                                            >
+                                                Grafik
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
+                                                :class="activeViewMode === 'table' ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                                                @click="activeViewMode = 'table'"
+                                            >
+                                                Data Ringkasan
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1563,3 +1582,50 @@ onBeforeUnmount(() => {
         </main>
     </div>
 </template>
+
+<style>
+@media print {
+    /* Sembunyikan elemen navigasi, sidebar, dan kontrol UI interaktif */
+    aside,
+    nav,
+    header,
+    .no-print,
+    button,
+    select,
+    input {
+        display: none !important;
+    }
+
+    body,
+    html {
+        background: #FFFFFF !important;
+        color: #0F172A !important;
+        font-size: 11pt !important;
+    }
+
+    main {
+        padding-left: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Hilangkan shadow berlebih dan pastikan border tercetak rapi */
+    .shadow-sm,
+    .shadow-md,
+    .shadow-lg {
+        box-shadow: none !important;
+    }
+
+    .border,
+    .border-slate-200 {
+        border-color: #CBD5E1 !important;
+    }
+
+    /* Pastikan pemotongan halaman proporsional */
+    section {
+        page-break-inside: avoid;
+        margin-bottom: 1.5rem !important;
+    }
+}
+</style>

@@ -9,6 +9,7 @@ use App\Models\KuesionerSection;
 use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
+use App\Services\Dashboard\RoleDashboardDataService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -34,7 +35,7 @@ class DashboardController extends Controller
     /**
      * Tampilkan Dashboard Superadmin beserta metrik ringkasan sistem.
      */
-    public function tampilkanDashboard(Request $request): Response
+    public function tampilkanDashboard(Request $request, RoleDashboardDataService $dashboardData): Response
     {
         $user = $request->user();
         $defaultYear = (string) now()->year;
@@ -53,6 +54,9 @@ class DashboardController extends Controller
         if (! in_array($selectedYear, $availableYears, true)) {
             $selectedYear = $defaultYear;
         }
+
+        // Ambil data konsisten universitas dari RoleDashboardDataService
+        $dashboardRoleData = $dashboardData->build('universitas', null, $selectedYear);
 
         // 1. Menghitung ringkasan statistik kuesioner dan partisipasi via v_alumni_audit_rekap
         $totalPertanyaan = KuesionerPertanyaan::where('is_active', true)->count();
@@ -188,11 +192,24 @@ class DashboardController extends Controller
         $supervisorDirectory = $this->buildSupervisorDirectory($selectedYear);
         $companyDistribution = $this->buildCompanyDistribution();
 
-        // 6. Mengembalikan view dasbor Superadmin
+        // 6. Mengembalikan view dasbor Superadmin dengan keselarasan kontrak bersama RoleDashboard
         return Inertia::render('SuperAdmin/Dashboard', [
             'user' => $user,
             'availableYears' => $availableYears,
             'selectedYear' => $selectedYear,
+            'dashboardStats' => [
+                'total_pertanyaan' => $totalPertanyaan,
+                'total_sections' => $totalSections,
+                'total_alumni' => $totalAlumni,
+                'total_responden' => $totalResponden,
+                'total_prodi' => $totalProdi,
+                'total_pending_perusahaan' => $totalPendingPerusahaan,
+                'response_rate' => $responseRate,
+                'total_linkedin' => $totalLinkedIn,
+                'response_rate_status' => $this->getResponseRateStatus($responseRate),
+            ],
+            'companySummary' => $dashboardRoleData['companySummary'],
+            'sectionsList' => $dashboardRoleData['sectionsList'],
             'stats' => [
                 'total_pertanyaan' => $totalPertanyaan,
                 'total_sections' => $totalSections,

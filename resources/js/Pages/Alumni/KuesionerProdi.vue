@@ -376,9 +376,26 @@ const isQuestionAnswered = (q) => {
 const isSectionAnswered = (section) => {
     if (!section || !section.questions || section.questions.length === 0) return false;
     const validQuestions = section.questions.filter(q => q.type !== 'header' && isQuestionVisible(q.id));
+    if (validQuestions.length === 0) return false;
+    const requiredQuestions = validQuestions.filter(q => q.is_required);
+    if (requiredQuestions.length > 0) {
+        return requiredQuestions.every(q => isQuestionAnswered(q));
+    }
+
+    // Jika seluruh butir opsional, hanya tandai centang jika ada yang diisi
+    return validQuestions.some(q => isQuestionAnswered(q));
+};
+
+// Menentukan apakah seksi memenuhi syarat untuk dilewati
+const isSectionPassable = (section) => {
+    if (!section || !section.questions || section.questions.length === 0) return true;
+    const validQuestions = section.questions.filter(q => q.type !== 'header' && isQuestionVisible(q.id));
     if (validQuestions.length === 0) return true;
     const requiredQuestions = validQuestions.filter(q => q.is_required);
-    return requiredQuestions.every(q => isQuestionAnswered(q));
+    if (requiredQuestions.length > 0) {
+        return requiredQuestions.every(q => isQuestionAnswered(q));
+    }
+    return true;
 };
 
 // Status kelengkapan seksi untuk stepper (hanya ceklist jika seluruh soal wajib di seksi tersebut benar-benar terjawab)
@@ -396,7 +413,7 @@ const canSelectSection = (index) => {
 
     return visibleSections.value
         .slice(0, index)
-        .every((section, sectionIndex) => isSectionCompleted(sectionIndex));
+        .every((section) => isSectionPassable(section));
 };
 
 // Menampilkan alasan ketika alumni mencoba melewati section yang belum lengkap.
@@ -498,14 +515,14 @@ const isLastSection = computed(() => {
 });
 
 const handleNextOrSubmit = () => {
-    if (!isSectionCompleted(activeSectionIndex.value)) {
+    if (!isSectionPassable(currentSection.value)) {
         notifyIncompleteSection(currentSection.value);
 
         return;
     }
 
     if (isLastSection.value) {
-        const firstIncompleteSection = visibleSections.value.find((section, sectionIndex) => !isSectionCompleted(sectionIndex));
+        const firstIncompleteSection = visibleSections.value.find((section) => !isSectionPassable(section));
 
         if (firstIncompleteSection) {
             activeSectionIndex.value = visibleSections.value.indexOf(firstIncompleteSection);

@@ -49,9 +49,25 @@ const selectedLabel = ref(props.selectedLabel || '');
 const heatmapMode = ref('count');
 const componentError = ref('');
 
+// Memuat ulang halaman jika terjadi perubahan build aset pada peramban
+const reloadPage = () => {
+    window.location.reload();
+};
+
 // Menampilkan error setup komponen agar kegagalan grafik tidak berubah menjadi ruang kosong.
 onErrorCaptured((error, _instance, info) => {
-    componentError.value = `${error?.message || 'Kesalahan tidak diketahui'} (${info})`;
+    const msg = String(error?.message || '');
+    if (msg.includes('Failed to fetch dynamically imported module') || msg.includes('dynamically imported module') || msg.includes('Importing a module script failed')) {
+        const lastReload = sessionStorage.getItem('vite_chunk_panel_reload');
+        const now = Date.now();
+        if (!lastReload || now - parseInt(lastReload, 10) > 8000) {
+            sessionStorage.setItem('vite_chunk_panel_reload', String(now));
+            window.location.reload();
+            return false;
+        }
+    }
+
+    componentError.value = `${msg || 'Kesalahan tidak diketahui'} (${info})`;
     console.error('[AnalyticsChartsPanel] Gagal merender kategori grafik.', error);
     return false;
 });
@@ -139,10 +155,24 @@ watch(() => props.selectedChart, () => {
 
 <template>
     <div class="relative space-y-6">
-        <!-- Error runtime ditampilkan inline agar diagnosis grafik dapat dilakukan tanpa console. -->
-        <div v-if="componentError" class="rounded-xl border border-red-200 bg-red-50 p-6" role="alert">
-            <p class="text-sm font-semibold text-red-800">Grafik gagal dirender.</p>
-            <p class="mt-1 text-xs leading-relaxed text-red-700">{{ componentError }}</p>
+        <!-- Error runtime atau peringatan pembaruan aset ditampilkan secara jelas dengan tombol pemulihan. -->
+        <div v-if="componentError" class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm" role="alert">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="min-w-0">
+                    <h3 class="text-sm font-bold text-slate-900">Pembaruan aset sistem terdeteksi</h3>
+                    <p class="mt-1 text-xs leading-relaxed text-slate-600">
+                        Modul grafik baru telah diperbarui. Peramban memerlukan pemuatan ulang (refresh) untuk menampilkan visualisasi terbaru.
+                    </p>
+                    <p class="mt-2 text-[11px] font-mono text-slate-500 bg-slate-50 p-2 rounded border border-slate-100 max-w-2xl overflow-x-auto">{{ componentError }}</p>
+                </div>
+                <button
+                    type="button"
+                    @click="reloadPage"
+                    class="shrink-0 rounded-lg bg-[#0D542B] px-4 py-2 text-xs font-bold text-white hover:bg-[#08381c] transition-colors cursor-pointer"
+                >
+                    Muat Ulang Halaman
+                </button>
+            </div>
         </div>
 
         <div v-else :class="{ 'opacity-60 pointer-events-none transition-opacity duration-200': loading }">

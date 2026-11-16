@@ -94,6 +94,15 @@ const roleConfig = computed(() => {
             prefix: '/biro3',
             links: { alumni: '/biro3/alumni' },
         },
+        superadmin: {
+            label: 'Super Administrator',
+            title: 'Dashboard Super Administrator',
+            description: 'Pusat pemantauan data kuesioner, master perusahaan, kontak atasan, dan pengajuan baru tingkat universitas.',
+            contextLabel: 'Lingkup',
+            contextValue: 'Universitas',
+            prefix: '/superadmin',
+            links: { alumni: '/superadmin/alumni', company: '/superadmin/perusahaan', linkedin: '/superadmin/linkedin-sync', questionnaire: '/superadmin/prodi-kuesioner', accounts: '/superadmin/manajemen-akun' },
+        },
     };
 
     return configs[props.role] || configs.admin_biro3;
@@ -243,9 +252,12 @@ const scopeLabel = computed(() => roleConfig.value.contextValue);
                     </button>
                 </section>
 
-                <!-- Pintasan hanya menampilkan route yang benar-benar tersedia untuk role. -->
-                <section class="rounded-2xl bg-white p-5 shadow-sm">
-                    <div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-center"><h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Akses cepat</h2><span class="text-xs text-slate-400">{{ dashboardStats.total_pending_perusahaan || 0 }} perusahaan menunggu verifikasi</span></div>
+                <!-- Pintasan hanya menampilkan route yang benar-benar tersedia untuk role (disembunyikan pada Biro 3 jika tidak relevan). -->
+                <section v-if="role !== 'admin_biro3'" class="rounded-2xl bg-white p-5 shadow-sm">
+                    <div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+                        <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Akses cepat</h2>
+                        <span v-if="role !== 'admin_biro3'" class="text-xs text-slate-400">{{ dashboardStats.total_pending_perusahaan || 0 }} perusahaan menunggu verifikasi</span>
+                    </div>
                     <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                         <Link :href="roleConfig.links.alumni" class="rounded-xl bg-slate-50 px-3 py-3 text-center text-xs font-bold text-slate-700 transition-colors hover:bg-[#0D542B] hover:text-white">Direktori Alumni</Link>
                         <Link v-if="roleConfig.links.company" :href="roleConfig.links.company" class="rounded-xl bg-slate-50 px-3 py-3 text-center text-xs font-bold text-slate-700 transition-colors hover:bg-[#0D542B] hover:text-white">Master Perusahaan</Link>
