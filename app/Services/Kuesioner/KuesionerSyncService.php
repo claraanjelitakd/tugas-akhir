@@ -249,11 +249,24 @@ class KuesionerSyncService
         $univSection = KuesionerSection::where('target', 'univ')->first();
         $univSectionId = $univSection?->id ?: 1;
 
+        $isNonWorking = in_array($biodata->kategori_pekerjaan, ['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'], true);
+        $jobRelatedCodes = [
+            'F505', 'F11', 'BIO_INST_BENTUK', 'BIO_BIDANG_DIVISI',
+            'F2E', 'F2E1', 'F2E2', 'F2E3', 'F2F', 'F2G', 'F2H',
+            'F5A1', 'F5A2', 'F510', 'F5B', 'F5C', 'F5D',
+            'BIO_ATASAN_NAMA', 'BIO_ATASAN_HP', 'BIO_ATASAN_EMAIL',
+        ];
+
         foreach ($profileMap as $code => $val) {
             $codeUpper = strtoupper($code);
 
+            // Jika alumni berstatus non-bekerja, bersihkan semua nilai terkait pekerjaan & penghasilan
+            if ($isNonWorking && in_array($codeUpper, $jobRelatedCodes, true)) {
+                $val = null;
+            }
+
             if ($codeUpper === 'F505') {
-                $val = $biodata->gaji;
+                $val = $isNonWorking ? null : $biodata->gaji;
             }
 
             $question = KuesionerPertanyaan::whereRaw('UPPER(kode_pertanyaan) = ?', [$codeUpper])
@@ -262,6 +275,26 @@ class KuesionerSyncService
 
             if (! $question) {
                 continue;
+            }
+
+            // Untuk F505 (penghasilan): HANYA jika alumni memang berstatus Pekerja/Wiraswasta dan biodata->gaji belum terisi,
+            // cek apakah ada jawaban tersimpan di kuesioner_jawaban untuk dipulihkan
+            if (! $isNonWorking && in_array($biodata->kategori_pekerjaan, ['Pekerja', 'Wiraswasta'], true) && $codeUpper === 'F505' && ($val === null || trim((string) $val) === '')) {
+                $existingJawaban = KuesionerJawaban::where('biodata_id', $biodata->id)
+                    ->where('pertanyaan_id', $question->id)
+                    ->first();
+                if ($existingJawaban) {
+                    $json = $existingJawaban->jawaban_json;
+                    $gajiFromKuesioner = is_array($json) ? ($json['total'] ?? ($json['value'] ?? ($json['F5051'] ?? null))) : null;
+                    if (! $gajiFromKuesioner && is_numeric($existingJawaban->jawaban_teks)) {
+                        $gajiFromKuesioner = (int) $existingJawaban->jawaban_teks;
+                    }
+                    if ($gajiFromKuesioner && (int) $gajiFromKuesioner >= 1000) {
+                        $val = (int) $gajiFromKuesioner;
+                        $biodata->update(['gaji' => $val]);
+                        $biodata->gaji = $val;
+                    }
+                }
             }
 
             if ($val === null || trim((string) $val) === '') {

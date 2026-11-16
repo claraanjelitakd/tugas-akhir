@@ -437,6 +437,29 @@ const canEditCompanyDetails = computed(() => {
     return !props.readonly;
 });
 
+// Inisialisasi status non-bekerja
+const isNonWorkingInitial = ['Mencari Kerja', 'Belum Memungkinkan Bekerja', 'Tidak Bekerja', 'Belum Bekerja'].includes(props.form.kategori_pekerjaan);
+
+if (isNonWorkingInitial) {
+    props.form.gaji = null;
+    props.form.nama_perusahaan = '';
+    props.form.perusahaan_id = null;
+    props.form.atasan_id = null;
+    props.form.nama_atasan = '';
+    props.form.email_atasan = '';
+    props.form.telepon_atasan = '';
+    props.form.divisi = null;
+    props.form.posisi_jabatan = null;
+    props.form.posisi_wiraswasta = null;
+    props.form.bidang_pekerjaan = null;
+}
+
+// Cache field pekerjaan agar tidak hilang hanya saat alumni berpindah antar kategori kerja (Pekerja <-> Wiraswasta)
+const cachedGaji = ref(isNonWorkingInitial ? null : (props.form.gaji || null));
+const cachedDivisi = ref(isNonWorkingInitial ? '' : (props.form.divisi || ''));
+const cachedBidang = ref(isNonWorkingInitial ? '' : (props.form.bidang_pekerjaan || ''));
+const cachedJabatan = ref(isNonWorkingInitial ? '' : (props.form.posisi_jabatan || ''));
+
 // Mengisi data atasan otomatis dengan kontak alumni jika pemilik usaha
 const autoFillAtasanOwner = () => {
     props.form.nama_atasan = props.form.nama || '';
@@ -448,20 +471,42 @@ const autoFillAtasanOwner = () => {
 const selectRole = (newRole) => {
     if (props.readonly) return;
 
+    // Jika mengklik tombol yang sudah aktif, pertahankan pilihan (tidak unselect)
     if (props.form.kategori_pekerjaan === newRole) {
-        props.form.kategori_pekerjaan = '';
-        props.form.posisi_jabatan = null;
-        props.form.posisi_wiraswasta = null;
-        props.form.posisi_wiraswasta_lainnya = null;
-        props.form.bidang_pekerjaan = null;
-        props.form.bidang_pekerjaan_lainnya = null;
-        props.form.divisi = null;
         return;
+    }
+
+    const previousRole = props.form.kategori_pekerjaan;
+    const isPreviousNonWorking = ['Mencari Kerja', 'Belum Memungkinkan Bekerja', 'Tidak Bekerja', 'Belum Bekerja'].includes(previousRole);
+
+    // Hanya simpan ke cache jika role sebelumnya adalah Pekerja atau Wiraswasta
+    if (!isPreviousNonWorking) {
+        if (props.form.gaji) cachedGaji.value = props.form.gaji;
+        if (props.form.divisi) cachedDivisi.value = props.form.divisi;
+        if (props.form.bidang_pekerjaan) cachedBidang.value = props.form.bidang_pekerjaan;
+        if (props.form.posisi_jabatan) cachedJabatan.value = props.form.posisi_jabatan;
     }
 
     props.form.kategori_pekerjaan = newRole;
 
     if (newRole === 'Pekerja') {
+        // Jika sebelumnya dari status mencari kerja/belum bekerja, pastikan gaji bersih
+        if (isPreviousNonWorking) {
+            props.form.gaji = null;
+            cachedGaji.value = null;
+        } else if (!props.form.gaji && cachedGaji.value) {
+            props.form.gaji = cachedGaji.value;
+        }
+
+        if (!props.form.divisi && cachedDivisi.value) {
+            props.form.divisi = cachedDivisi.value;
+        }
+        if (!props.form.bidang_pekerjaan && cachedBidang.value) {
+            props.form.bidang_pekerjaan = cachedBidang.value;
+        }
+        if (!props.form.posisi_jabatan && cachedJabatan.value) {
+            props.form.posisi_jabatan = cachedJabatan.value;
+        }
         props.form.posisi_wiraswasta = null;
         props.form.posisi_wiraswasta_lainnya = null;
 
@@ -471,49 +516,59 @@ const selectRole = (newRole) => {
             props.form.telepon_atasan = '';
         }
     } else if (newRole === 'Wiraswasta') {
+        // Jika sebelumnya dari status mencari kerja/belum bekerja, pastikan gaji bersih
+        if (isPreviousNonWorking) {
+            props.form.gaji = null;
+            cachedGaji.value = null;
+        } else if (!props.form.gaji && cachedGaji.value) {
+            props.form.gaji = cachedGaji.value;
+        }
+
+        if (!props.form.divisi && cachedDivisi.value) {
+            props.form.divisi = cachedDivisi.value;
+        }
+        if (!props.form.bidang_pekerjaan && cachedBidang.value) {
+            props.form.bidang_pekerjaan = cachedBidang.value;
+        }
         props.form.posisi_jabatan = null;
         if (!props.form.posisi_wiraswasta) {
             props.form.posisi_wiraswasta = '';
         }
         autoFillAtasanOwner();
-    } else if (newRole === 'Melanjutkan Pendidikan') {
-        isMelanjutkanStudi.value = true;
-        props.form.posisi_jabatan = null;
-        props.form.posisi_wiraswasta = null;
-        props.form.posisi_wiraswasta_lainnya = null;
-        props.form.bidang_pekerjaan = null;
-        props.form.bidang_pekerjaan_lainnya = null;
-        props.form.divisi = null;
-        props.form.gaji = null;
-        if (props.form.nama_atasan === props.form.nama || props.form.email_atasan === (props.form.email_pribadi || props.form.email)) {
-            props.form.nama_atasan = '';
-            props.form.email_atasan = '';
-            props.form.telepon_atasan = '';
-        }
     } else if (['Mencari Kerja', 'Belum Memungkinkan Bekerja', 'Tidak Bekerja', 'Belum Bekerja'].includes(newRole)) {
+        props.form.nama_perusahaan = '';
+        props.form.company_alamat = '';
+        props.form.perusahaan_alamat = '';
+        props.form.company_kode_provinsi = '';
+        props.form.perusahaan_kode_provinsi = '';
+        props.form.company_kode_kabupaten = '';
+        props.form.perusahaan_kode_kabupaten = '';
+        props.form.company_skala = '';
+        props.form.perusahaan_skala = '';
+        props.form.company_bentuk = '';
+        props.form.perusahaan_bentuk = '';
+        props.form.company_jenis_perusahaan = '';
+        props.form.perusahaan_jenis_perusahaan = '';
+        props.form.perusahaan_id = null;
+        props.form.atasan_id = null;
+        props.form.nama_atasan = '';
+        props.form.email_atasan = '';
+        props.form.telepon_atasan = '';
+        props.form.gaji = null;
         props.form.posisi_jabatan = null;
         props.form.posisi_wiraswasta = null;
         props.form.posisi_wiraswasta_lainnya = null;
         props.form.bidang_pekerjaan = null;
         props.form.bidang_pekerjaan_lainnya = null;
         props.form.divisi = null;
-        props.form.gaji = null;
-        if (props.form.nama_atasan === props.form.nama || props.form.email_atasan === (props.form.email_pribadi || props.form.email)) {
-            props.form.nama_atasan = '';
-            props.form.email_atasan = '';
-            props.form.telepon_atasan = '';
-        }
+
+        // Reset cache agar data pekerjaan lama bersih dan tidak kembali
+        cachedGaji.value = null;
+        cachedDivisi.value = '';
+        cachedBidang.value = '';
+        cachedJabatan.value = '';
     }
 };
-
-// Bidang dan divisi hanya merupakan data pekerjaan/usaha; bersihkan pada status non-karier.
-watch(() => props.form.kategori_pekerjaan, (newRole) => {
-    if (!['Pekerja', 'Wiraswasta'].includes(newRole)) {
-        props.form.bidang_pekerjaan = null;
-        props.form.bidang_pekerjaan_lainnya = null;
-        props.form.divisi = null;
-    }
-}, { immediate: true });
 
 // ============================================================================
 // 3. PENGIRIMAN MANUAL EMAIL KUESIONER EVALUASI ATASAN
@@ -1445,7 +1500,7 @@ onUnmounted(() => {
                         </label>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 mb-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
                         <!-- Opsi 1: Bekerja (Karyawan / Pegawai) -->
                         <div
                             @click="selectRole('Pekerja')"
@@ -1474,21 +1529,7 @@ onUnmounted(() => {
                             <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Mendirikan bisnis sendiri, UMKM, startup, atau freelance</div>
                         </div>
 
-                        <!-- Opsi 3: Melanjutkan Pendidikan -->
-                        <div
-                            @click="selectRole('Melanjutkan Pendidikan')"
-                            class="p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between relative group"
-                            :class="form.kategori_pekerjaan === 'Melanjutkan Pendidikan' ? 'border-[#0D542B] bg-slate-50 text-gray-900 shadow-xs ring-1 ring-[#0D542B]' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'"
-                        >
-                            <div class="flex items-center justify-between">
-                                <div class="font-bold text-sm" :class="form.kategori_pekerjaan === 'Melanjutkan Pendidikan' ? 'text-[#0D542B]' : 'text-gray-800'">
-                                    Melanjutkan Pendidikan
-                                </div>
-                            </div>
-                            <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Sedang menempuh studi lanjut (S2, S3, spesialis, profesi)</div>
-                        </div>
-
-                        <!-- Opsi 4: Sedang Mencari Kerja -->
+                        <!-- Opsi 3: Sedang Mencari Kerja -->
                         <div
                             @click="selectRole('Mencari Kerja')"
                             class="p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between relative group"
@@ -1502,7 +1543,7 @@ onUnmounted(() => {
                             <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Belum bekerja dan aktif mencari lowongan pekerjaan</div>
                         </div>
 
-                        <!-- Opsi 5: Belum Memungkinkan Bekerja -->
+                        <!-- Opsi 4: Belum Memungkinkan Bekerja -->
                         <div
                             @click="selectRole('Belum Memungkinkan Bekerja')"
                             class="p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between relative group"
@@ -1528,14 +1569,14 @@ onUnmounted(() => {
 
                 <div v-if="['Pekerja', 'Wiraswasta'].includes(form.kategori_pekerjaan)" class="md:col-span-2 space-y-2">
                     <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                        {{ getQuestionLabel('BIO_BIDANG_DIVISI', 'Bidang Pekerjaan') }} <span v-if="isQuestionRequired('BIO_BIDANG_DIVISI', false)" class="text-rose-500 font-bold">*</span>
+                        {{ getQuestionLabel('BIO_BIDANG_DIVISI', 'Bidang Pekerjaan / Sektor Industri') }} <span v-if="isQuestionRequired('BIO_BIDANG_DIVISI', false)" class="text-rose-500 font-bold">*</span>
                     </label>
                     <select
                         v-model="bidangPekerjaanSelection"
                         @change="syncBidangPekerjaan"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                     >
-                        <option value="">-- Pilih Bidang Pekerjaan / Divisi --</option>
+                        <option value="">-- Pilih Sektor / Bidang Industri --</option>
                         <option v-for="opt in bidangPekerjaanOptions" :key="opt.value" :value="opt.value">
                             {{ opt.label }}
                         </option>
@@ -1545,18 +1586,18 @@ onUnmounted(() => {
                         v-model="form.bidang_pekerjaan_lainnya"
                         @input="syncBidangPekerjaan"
                         type="text"
-                        placeholder="Tuliskan bidang pekerjaan atau divisi"
+                        placeholder="Tuliskan sektor atau bidang industri pekerjaan Anda"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                     />
                     <p class="text-[11px] text-gray-400">
-                        {{ getQuestionHint('BIO_BIDANG_DIVISI', 'Pilih rumpun bidang pekerjaan. Jika belum tersedia, pilih Lainnya dan tuliskan sendiri.') }}
+                        {{ getQuestionHint('BIO_BIDANG_DIVISI', 'Pilih sektor atau rumpun industri tempat Anda bekerja (misal: Teknologi Informasi, Keuangan, Kesehatan).') }}
                     </p>
                 </div>
 
                 <!-- Input divisi terpisah dari rumpun bidang pekerjaan untuk kebutuhan direktori dan analitik. -->
                 <div v-if="['Pekerja', 'Wiraswasta'].includes(form.kategori_pekerjaan)" class="md:col-span-2 space-y-2">
                     <label for="divisi" class="block text-xs sm:text-sm font-bold text-gray-700">
-                        Divisi / Unit Kerja
+                        Divisi / Departemen Kantor
                     </label>
                     <input
                         id="divisi"
@@ -1564,11 +1605,11 @@ onUnmounted(() => {
                         type="text"
                         autocomplete="organization"
                         maxlength="150"
-                        placeholder="Contoh: Divisi Keuangan, Human Capital, Product Development"
+                        placeholder="Contoh: Divisi IT Support, Human Capital (HR), Accounting, Marketing"
                         class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
                     />
                     <p class="text-[11px] text-gray-400">
-                        Isi unit atau divisi tempat bekerja saat ini. Lokasi cabang tetap dicatat pada domisili alumni.
+                        Tuliskan nama divisi, seksi, atau unit departemen tempat Anda bertugas di kantor saat ini.
                     </p>
                 </div>
 
@@ -1738,8 +1779,8 @@ onUnmounted(() => {
                     </div>
                 </div>
 
-                <!-- Input Penghasilan / Take Home Pay (Format Nominal Bersih Tanpa Pengali Otomatis) -->
-                <div v-if="isQuestionVisible('F505')" class="md:col-span-2">
+                <!-- Input Penghasilan / Take Home Pay (Hanya muncul jika bekerja atau wirausaha) -->
+                <div v-if="['Pekerja', 'Wiraswasta'].includes(form.kategori_pekerjaan) && isQuestionVisible('F505')" class="md:col-span-2">
                     <div class="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                         <label class="block text-xs sm:text-sm font-bold text-gray-700 !mb-0">
                             {{ getQuestionLabel('F505', 'Rata-rata Pendapatan per Bulan (Take Home Pay)') }} <span v-if="isQuestionRequired('F505')" class="text-rose-500 font-bold">*</span>

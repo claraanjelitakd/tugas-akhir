@@ -308,7 +308,7 @@ const currentTabIndex = computed(() => tabs.findIndex(t => t.id === activeTab.va
 const prevTab = computed(() => currentTabIndex.value > 0 ? tabs[currentTabIndex.value - 1] : null);
 const nextTab = computed(() => currentTabIndex.value < tabs.length - 1 ? tabs[currentTabIndex.value + 1] : null);
 
-const switchTab = (tabName) => {
+const switchTab = (tabName, shouldScroll = true) => {
     if (!PROFILE_TAB_IDS.includes(tabName)) {
         return;
     }
@@ -322,8 +322,9 @@ const switchTab = (tabName) => {
         return;
     }
 
+    const isDifferentTab = activeTab.value !== tabName;
     activeTab.value = tabName;
-    if (typeof window !== 'undefined') {
+    if (shouldScroll && isDifferentTab && typeof window !== 'undefined') {
         const container = document.getElementById('profile-form-container');
         if (container) {
             const topOffset = -90;
@@ -414,11 +415,13 @@ const submit = (nextTabId = null, redirectTo = null) => {
                 return;
             }
 
-            const targetTab = nextTabId && PROFILE_TAB_IDS.includes(nextTabId)
-                ? nextTabId
-                : normalizeProfileTab(activeTab.value);
-
-            switchTab(targetTab);
+            if (nextTabId && PROFILE_TAB_IDS.includes(nextTabId)) {
+                switchTab(nextTabId, true);
+            } else {
+                // Jika menyimpan tanpa pindah tab (misal dari floating bar), tetap di tab yang sama
+                // dan pertahankan posisi scroll (shouldScroll = false agar tidak melompat ke atas)
+                switchTab(activeTab.value, false);
+            }
         },
         onError: (errors) => {
             const firstErr = Object.values(errors)[0] || 'Ada data yang belum lengkap atau salah';
@@ -589,14 +592,15 @@ onBeforeUnmount(() => {
                             Batalkan Perubahan
                         </button>
 
-                        <!-- Tombol Lanjut ke Langkah Berikutnya -->
+                        <!-- Tombol Lanjut ke Langkah Berikutnya (Otomatis simpan jika ada isian yang diubah) -->
                         <button
                             v-if="nextTab"
                             type="button"
-                            @click="switchTab(nextTab.id)"
-                            class="px-6 py-3 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                            @click="form.isDirty ? submit(nextTab.id) : switchTab(nextTab.id, true)"
+                            :disabled="form.processing"
+                            class="px-6 py-3 bg-[#0D542B] hover:bg-[#08381c] text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                         >
-                            <span>Lanjut: {{ nextTab.name }}</span>
+                            <span>{{ form.isDirty && form.processing ? 'Menyimpan...' : `Lanjut: ${nextTab.name}` }}</span>
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </button>
 

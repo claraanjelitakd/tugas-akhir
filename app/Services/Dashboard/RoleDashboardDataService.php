@@ -89,13 +89,15 @@ class RoleDashboardDataService
 
     /**
      * Mengambil tahun lulusan yang tersedia dan selalu menyertakan tahun berjalan.
+     * Menggunakan tabel canonical data_akademik untuk performa instan tanpa membebani kalkulasi view audit.
      *
      * @return array<int, string>
      */
     private function availableYears(): array
     {
-        return DB::table('v_alumni_audit_rekap')
+        return DB::table('data_akademik')
             ->whereNotNull('tahun_lulus')
+            ->distinct()
             ->pluck('tahun_lulus')
             ->filter()
             ->map(fn (mixed $year): string => (string) $year)

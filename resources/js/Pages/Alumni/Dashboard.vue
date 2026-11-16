@@ -1,7 +1,14 @@
+<!--
+    Dokumentasi Komponen:
+    - Menampilkan ringkasan progres kelengkapan data biodata dan kuesioner tracer alumni.
+    - Menampilkan kartu tahapan pelacakan (profil, kuesioner universitas, kuesioner program studi).
+    - Memakai latar belakang teroptimasi webp untuk meminimalkan beban transfer aset.
+-->
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
 import Navbar from './Components/Navbar.vue';
 
+// Properti status kelengkapan akun dan evaluasi tracer study alumni.
 defineProps({
     user: { type: Object, default: () => ({}) },
     alumni: { type: Object, default: () => ({}) },
@@ -27,9 +34,9 @@ defineProps({
     <Head title="Dashboard Alumni - Tracer Study UKDW" />
 
     <div class="relative flex min-h-screen w-full min-w-0 max-w-full flex-col overflow-x-hidden bg-[#f7f8f6] font-sans text-slate-900">
-        <!-- Dekorasi visual dashboard: foto wisuda dibuat blur dan diberi overlay terang agar tidak mengganggu data. -->
+        <!-- Dekorasi visual dashboard: foto wisuda dibuat blur dan diberi overlay terang agar tidak mengganggu data (format webp). -->
         <div class="pointer-events-none absolute inset-x-0 top-[82px] z-0 h-[570px] overflow-hidden" aria-hidden="true">
-            <div class="absolute inset-0 bg-cover bg-center opacity-[0.32]" style="background-image: url('/uploads/auth/ukdw-wisuda.png');"></div>
+            <div class="absolute inset-0 bg-cover bg-center opacity-[0.32]" style="background-image: url('/uploads/auth/ukdw-wisuda.webp');"></div>
             <div class="absolute inset-0 bg-[#f7f8f6]/45"></div>
         </div>
 

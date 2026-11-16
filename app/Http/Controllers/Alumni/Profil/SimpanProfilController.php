@@ -54,13 +54,16 @@ class SimpanProfilController extends Controller
 
         $dataTervalidasi = $request->all();
 
+        $kategoriPekerjaan = ! empty($dataTervalidasi['kategori_pekerjaan']) ? $dataTervalidasi['kategori_pekerjaan'] : null;
+        $isNonWorkingCategory = in_array($kategoriPekerjaan, ['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'], true);
+
         // =========================================================================================
         // 2. TANGANI PERUSAHAAN (DALAM NEGERI VS LUAR NEGERI)
         // =========================================================================================
         $idPerusahaan = null;
 
-        // Cek apakah alumni mengisi nama perusahaan pada FormKarier
-        if (! empty($dataTervalidasi['nama_perusahaan'])) {
+        // Cek apakah alumni mengisi nama perusahaan pada FormKarier (hanya diproses jika status bekerja/wiraswasta)
+        if (! $isNonWorkingCategory && ! empty($dataTervalidasi['nama_perusahaan'])) {
             $jenisLokasi = ! empty($dataTervalidasi['perusahaan_jenis_lokasi']) ? $dataTervalidasi['perusahaan_jenis_lokasi'] : (! empty($dataTervalidasi['company_jenis_lokasi']) ? $dataTervalidasi['company_jenis_lokasi'] : 'Dalam Negeri');
             $rawKodeNegara = ! empty($dataTervalidasi['perusahaan_kode_negara']) ? $dataTervalidasi['perusahaan_kode_negara'] : (! empty($dataTervalidasi['company_kode_negara']) ? $dataTervalidasi['company_kode_negara'] : null);
             $kodeNegara = 'ID';
@@ -137,11 +140,8 @@ class SimpanProfilController extends Controller
         // =========================================================================================
         // 3. TANGANI DATA ATASAN (SUPERVISOR / AUTO-FILL OWNER)
         // =========================================================================================
-        // 3. TANGANI DATA ATASAN & KATEGORI PEKERJAAN
-        // =========================================================================================
         // Jangan menghapus relasi atasan hanya karena form parsial tidak membawa field atasan.
-        $idAtasan = $biodata->atasan_id;
-        $kategoriPekerjaan = ! empty($dataTervalidasi['kategori_pekerjaan']) ? $dataTervalidasi['kategori_pekerjaan'] : null;
+        $idAtasan = $isNonWorkingCategory ? null : $biodata->atasan_id;
         $posisiJabatan = ! empty($dataTervalidasi['posisi_jabatan']) ? $dataTervalidasi['posisi_jabatan'] : null;
         $posisiWiraswasta = ! empty($dataTervalidasi['posisi_wiraswasta']) ? $dataTervalidasi['posisi_wiraswasta'] : null;
         if ($posisiWiraswasta && str_contains(strtolower($posisiWiraswasta), 'lainnya') && ! empty($dataTervalidasi['posisi_wiraswasta_lainnya'])) {
@@ -159,15 +159,14 @@ class SimpanProfilController extends Controller
             $posisiWiraswasta = null;
         } elseif ($kategoriPekerjaan === 'Wiraswasta') {
             $posisiJabatan = null;
-        } elseif ($kategoriPekerjaan === 'Melanjutkan Pendidikan') {
-            $posisiJabatan = null;
-            $posisiWiraswasta = null;
         }
 
-        $isNonWorkingCategory = in_array($kategoriPekerjaan, ['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'], true);
         if ($isNonWorkingCategory) {
             $posisiJabatan = null;
             $posisiWiraswasta = null;
+            $bidangPekerjaan = null;
+            $idPerusahaan = null;
+            $idAtasan = null;
         }
 
         $isOwnerOrFounder = ($kategoriPekerjaan === 'Wiraswasta') || ($posisiJabatan && in_array(strtolower((string) $posisiJabatan), [
@@ -190,7 +189,7 @@ class SimpanProfilController extends Controller
             $teleponAtasan = $teleponAtasan ?: ($dataTervalidasi['nomor_telepon'] ?? $biodata->nomor_telepon);
         }
 
-        if (! empty($namaAtasan) || ! empty($emailAtasan) || ! empty($teleponAtasan)) {
+        if (! $isNonWorkingCategory && (! empty($namaAtasan) || ! empty($emailAtasan) || ! empty($teleponAtasan))) {
             if ($biodata->atasan_id && $biodata->atasan) {
                 $biodata->atasan->update([
                     'perusahaan_id' => $idPerusahaan ?: $biodata->atasan->perusahaan_id,
@@ -264,7 +263,7 @@ class SimpanProfilController extends Controller
             'pendidikan_tingkat' => ! empty($dataTervalidasi['pendidikan_tingkat']) ? $dataTervalidasi['pendidikan_tingkat'] : null,
             'perguruan_tinggi' => ! empty($dataTervalidasi['perguruan_tinggi']) ? $dataTervalidasi['perguruan_tinggi'] : null,
             'pendidikan_prodi' => ! empty($dataTervalidasi['pendidikan_prodi']) ? $dataTervalidasi['pendidikan_prodi'] : null,
-            'gaji' => $gajiNominal !== null ? $gajiNominal : null,
+            'gaji' => $isNonWorkingCategory ? null : ($gajiNominal !== null ? $gajiNominal : null),
             'jenis_pekerjaan' => ! empty($dataTervalidasi['jenis_pekerjaan']) ? $dataTervalidasi['jenis_pekerjaan'] : (! empty($dataTervalidasi['company_jenis_perusahaan']) ? $dataTervalidasi['company_jenis_perusahaan'] : (! empty($dataTervalidasi['perusahaan_jenis_perusahaan']) ? $dataTervalidasi['perusahaan_jenis_perusahaan'] : null)),
             'perusahaan_id' => $idPerusahaan,
             'atasan_id' => $idAtasan,

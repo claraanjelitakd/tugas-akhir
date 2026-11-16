@@ -353,6 +353,22 @@ class SimpanJawabanController extends Controller
                 }
             }
 
+            // Jika pertanyaan adalah F505 (penghasilan / take home pay), sinkronkan langsung ke biodata.gaji
+            if ($kodeUpper === 'F505') {
+                $nominalGaji = null;
+                if (is_array($answerJson) && isset($answerJson['total']) && is_numeric($answerJson['total'])) {
+                    $nominalGaji = (int) $answerJson['total'];
+                } elseif (is_array($answerJson) && isset($answerJson['value']) && is_numeric($answerJson['value'])) {
+                    $nominalGaji = (int) $answerJson['value'];
+                } elseif (is_numeric($answerText)) {
+                    $nominalGaji = (int) $answerText;
+                }
+
+                if ($nominalGaji !== null && $nominalGaji >= 1000) {
+                    $dataUpdateBiodata['gaji'] = $nominalGaji;
+                }
+            }
+
             // Sinkronisasi pemetaan kolom tabel lain
             if (isset($pemetaan[$idPertanyaan]) && $answerText !== null) {
                 $kolom = $pemetaan[$idPertanyaan]->column_name;

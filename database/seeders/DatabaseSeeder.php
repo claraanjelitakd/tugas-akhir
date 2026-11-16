@@ -61,9 +61,10 @@ class DatabaseSeeder extends Seeder
             UnifiedKuesionerSeeder::class,
         ]);
 
-        // 5. Seed satu akun pengujian pengisian mandiri.
+        // 5. Seed akun pengujian pengisian mandiri.
         $this->call([
             JoshuaAndreanSeeder::class,
+            JovanMarllenSeeder::class,
         ]);
 
         // 6. Seed satu kohort kanonik 2026 lintas 12 prodi dengan maksimal

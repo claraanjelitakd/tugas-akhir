@@ -6,8 +6,8 @@
 -->
 <template>
     <div class="relative min-h-screen overflow-hidden bg-[#123D2B] font-sans selection:bg-[#FDC700] selection:text-[#123D2B]">
-        <!-- Layer foto wisuda UKDW sebagai latar utama. -->
-        <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('/uploads/auth/ukdw-wisuda.png');"></div>
+        <!-- Layer foto wisuda UKDW sebagai latar utama (format webp terkompresi untuk performa optimal). -->
+        <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('/uploads/auth/ukdw-wisuda.webp');"></div>
         <!-- Overlay hijau menjaga teks dan kartu tetap terbaca. -->
         <div class="absolute inset-0 bg-[#0D542B]/45"></div>
         <!-- Slot halaman autentikasi berada di atas seluruh layer visual. -->
