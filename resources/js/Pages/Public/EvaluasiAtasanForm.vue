@@ -339,8 +339,21 @@ const prevStep = () => {
 };
 
 const submitForm = () => {
+    // Pastikan langkah karakteristik telah diisi sebelum mengirim
+    if (!isStepCompleted('karakteristik')) {
+        goToStep('karakteristik');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Karakteristik Belum Lengkap',
+            text: 'Mohon lengkapi seluruh karakteristik instansi dan keberadaan alumni pada langkah 1 sebelum mengirim respon.',
+            confirmButtonColor: '#0D542B',
+        });
+        return;
+    }
+
     const missingKeys = evaluationQuestions.value.filter((q) => !form.jawaban[q.kode]);
     if (missingKeys.length > 0) {
+        goToStep('penilaian');
         Swal.fire({
             icon: 'warning',
             title: 'Penilaian Belum Lengkap',
@@ -358,6 +371,16 @@ const submitForm = () => {
                 icon: 'success',
                 title: 'Evaluasi Berhasil Disimpan',
                 text: 'Terima kasih atas waktu dan evaluasi obyektif yang telah diberikan untuk peningkatan mutu lulusan Universitas Kristen Duta Wacana.',
+                confirmButtonColor: '#0D542B',
+            });
+        },
+        onError: (errors) => {
+            const errorList = Object.values(errors).flat();
+            const message = errorList.length ? errorList.join('<br>') : 'Terjadi kendala saat menyimpan evaluasi. Mohon periksa kembali kelengkapan isian.';
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal Mengirim Respon',
+                html: message,
                 confirmButtonColor: '#0D542B',
             });
         },
@@ -529,7 +552,7 @@ const submitForm = () => {
             </div>
 
             <!-- TAMPILAN JIKA FORMULIR SUDAH SELESAI / SUBMITTED -->
-            <div v-if="submitSuccess && isSubmitted" class="w-full bg-white rounded-xl border border-slate-200 p-8 sm:p-12 text-center space-y-4 shadow-2xs">
+            <div v-if="submitSuccess || isSubmitted" class="w-full bg-white rounded-xl border border-slate-200 p-8 sm:p-12 text-center space-y-4 shadow-2xs">
                 <div class="w-12 h-12 bg-emerald-50 text-[#0D542B] rounded-full flex items-center justify-center mx-auto text-xl font-bold border border-emerald-200">
                     &check;
                 </div>

@@ -585,30 +585,50 @@ const heatmapTable = computed(() => {
 
 // -----------------------------------------------------------------------------
 // 2. GRAFIK GARIS: Horizontal Match (Persentase Selaras) per Program Studi
+// Menampilkan rumus dan rincian alumni Sangat Erat + Erat terhadap total responden
 // -----------------------------------------------------------------------------
 const prodiMatchLineData = computed(() => {
     if (props.chart?.prodi_series) {
-        return props.chart.prodi_series.map((item) => ({
-            prodi: item.prodi,
-            count: Number(item.match_count || 0),
-            total: Number(item.total || 0),
-            percentage: Number(item.match_percentage || 0),
-        }));
+        return props.chart.prodi_series.map((item) => {
+            const sangatErat = item.items?.find((i) => String(i.label).toLowerCase().includes('sangat erat'))?.count || 0;
+            const erat = item.items?.find((i) => {
+                const l = String(i.label).toLowerCase();
+                return l === 'erat' || (l.includes('erat') && !l.includes('kurang') && !l.includes('cukup') && !l.includes('tidak') && !l.includes('sangat'));
+            })?.count || 0;
+            const matchCount = Number(item.match_count ?? (sangatErat + erat));
+            const total = Number(item.total || 0);
+            const percentage = Number(item.match_percentage ?? (total > 0 ? Number(((matchCount / total) * 100).toFixed(1)) : 0));
+
+            return {
+                prodi: item.prodi,
+                sangatErat,
+                erat,
+                count: matchCount,
+                total,
+                percentage,
+                formula: `(${matchCount} ÷ ${total}) × 100%`,
+            };
+        });
     }
 
     return prodis.value.map((prodi) => {
         const rows = records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi);
         const total = rows.length;
-        const matches = rows.filter((r) => {
+        const sangatErat = rows.filter((r) => String(recordCategory(r) || '').toLowerCase().includes('sangat erat')).length;
+        const erat = rows.filter((r) => {
             const ans = String(recordCategory(r) || '').toLowerCase();
-            return ans.includes('sangat erat') || ans === 'erat';
+            return ans === 'erat' || (ans.includes('erat') && !ans.includes('kurang') && !ans.includes('cukup') && !ans.includes('tidak') && !ans.includes('sangat'));
         }).length;
+        const matches = sangatErat + erat;
         const percentage = total > 0 ? Number(((matches / total) * 100).toFixed(1)) : 0;
         return {
             prodi,
+            sangatErat,
+            erat,
             count: matches,
             total,
             percentage,
+            formula: `(${matches} ÷ ${total}) × 100%`,
         };
     }).sort((a, b) => b.percentage - a.percentage);
 });
@@ -638,7 +658,16 @@ const lineMatchOption = computed(() => {
             trigger: 'axis',
             formatter: (params) => {
                 const item = list[params[0]?.dataIndex ?? 0] || {};
-                return `<strong>${escapeHtml(item.prodi)}</strong><br>Tingkat Keselarasan Horizontal: <strong>${item.percentage}%</strong><br>Jumlah alumni selaras: <strong>${item.count} dari ${item.total} alumni</strong>`;
+                return `
+                    <div class="font-sans text-xs">
+                        <div class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5">${escapeHtml(item.prodi)}</div>
+                        <div class="text-slate-700 mb-0.5">Tingkat Keselarasan: <strong class="text-emerald-700">${item.percentage}%</strong></div>
+                        <div class="text-slate-600 mb-0.5">Alumni Selaras: <strong>${item.count} dari ${item.total} responden</strong></div>
+                        <div class="text-[11px] text-slate-500 border-t border-slate-100 pt-1 mt-1">
+                            Rumus: (${item.sangatErat} Sangat Erat + ${item.erat} Erat) ÷ ${item.total} alumni = <strong>${item.percentage}%</strong>
+                        </div>
+                    </div>
+                `;
             },
         },
         series: [{
@@ -665,13 +694,21 @@ const lineMatchOption = computed(() => {
 const lineMatchTable = computed(() => ({
     columns: [
         { key: 'prodi', label: 'Program Studi' },
-        { key: 'percentageDisplay', label: 'Tingkat Keselarasan (%)', align: 'right' },
-        { key: 'countDisplay', label: 'Alumni Selaras / Total', align: 'right' },
+        { key: 'sangatEratDisplay', label: 'Sangat Erat (n)', align: 'right' },
+        { key: 'eratDisplay', label: 'Erat (n)', align: 'right' },
+        { key: 'countDisplay', label: 'Total Selaras (n)', align: 'right' },
+        { key: 'totalDisplay', label: 'Responden (N)', align: 'right' },
+        { key: 'formula', label: 'Rumus Kalkulasi', align: 'center' },
+        { key: 'percentageDisplay', label: 'Keselarasan (%)', align: 'right' },
     ],
     rows: prodiMatchLineData.value.map((i) => ({
         prodi: i.prodi,
+        sangatEratDisplay: formatNumber(i.sangatErat, 0),
+        eratDisplay: formatNumber(i.erat, 0),
+        countDisplay: formatNumber(i.count, 0),
+        totalDisplay: formatNumber(i.total, 0),
+        formula: i.formula,
         percentageDisplay: `${i.percentage}%`,
-        countDisplay: `${i.count} / ${i.total} alumni`,
     })),
 }));
 
@@ -791,49 +828,15 @@ const views = computed(() => [
         },
     },
     {
-        key: 'by_prodi_heatmap',
-        chartType: 'matrix_heatmap',
-        tabLabel: 'Sebaran per Prodi',
-        title: 'Matriks sebaran keselarasan bidang per program studi',
-        description: 'Sebaran persentase keselarasan bidang kerja alumni di setiap program studi dalam format matriks heatmap.',
-        option: heatmapOption.value,
-        tableData: heatmapTable.value,
-        height: Math.max(380, prodis.value.length * 36 + 120),
-        analysis: {
-            title: 'Kilas Matriks Sebaran per Prodi',
-            statusBadge: 'Matriks Sebaran',
-            badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-            lead: 'Visualisasi intensitas pilihan keselarasan bidang kerja per program studi untuk memetakan konsentrasi tingkat relevansi kurikulum.',
-            detail: 'Warna hijau yang lebih pekat mencerminkan konsentrasi alumni yang lebih tinggi pada kategori keselarasan terkait.',
-        },
-    },
-    {
         key: 'line_match',
         chartType: 'percentage_line',
         tabLabel: 'Horizontal Match Garis',
-        title: 'Tren horizontal match (persentase selaras) per program studi',
-        description: 'Grafik garis persentase alumni yang menyatakan bidang pekerjaannya selaras (Sangat Erat dan Erat) dengan disiplin ilmu kuliah.',
+        title: 'Tren Horizontal Match (Persentase Selaras) per Program Studi',
+        description: 'Persentase keselarasan dihitung dari akumulasi alumni yang menjawab "Sangat Erat" dan "Erat" dibagi total responden di masing-masing program studi × 100% (standar baku IKU 1).',
         option: lineMatchOption.value,
         tableData: lineMatchTable.value,
         height: 400,
         analysis: dynamicHorizontalAnalysis.value,
-    },
-    {
-        key: 'univ_distribution',
-        chartType: 'donut',
-        tabLabel: 'Distribusi Universitas',
-        title: 'Hubungan bidang studi dengan pekerjaan tingkat universitas',
-        description: 'Distribusi jawaban kuesioner resmi instrumen F14 seluruh universitas beserta tabulasi data alumni per kategori.',
-        option: univDonutOption.value,
-        tableData: univDonutTable.value,
-        height: 380,
-        analysis: {
-            title: 'Kilas Kuesioner F14 Universitas',
-            statusBadge: 'Instrumen F14',
-            badgeClass: 'bg-slate-100 text-slate-700',
-            lead: 'Distribusi menyeluruh mencerminkan keselarasan horisontal lulusan UKDW secara agregat.',
-            detail: 'Alumni pada kategori erat dan sangat erat menjadi bukti keberhasilan transfer kompetensi program sarjana ke lingkungan kerja nyata.',
-        },
     },
 ]);
 </script>

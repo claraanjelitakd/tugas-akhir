@@ -16,9 +16,11 @@ use App\Models\RefFakultas;
 use App\Models\User;
 use App\Models\Yudisium;
 use App\Services\Alumni\AdminAlumniProfileService;
+use App\Services\Kuesioner\KelengkapanTracerService;
 use App\Services\Kuesioner\KuesionerSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -760,5 +762,64 @@ class AlumniProfileEnhancementTest extends TestCase
         $tracerF18c = KuesionerJawaban::where('biodata_id', $this->biodata->id)->where('kode_pertanyaan', 'F18c')->first();
         $this->assertNotNull($tracerF18c);
         $this->assertEquals('Magister Ilmu Komputer', $tracerF18c->jawaban_teks);
+    }
+
+    public function test_wiraswasta_profile_completes_100_percent_with_posisi_wiraswasta(): void
+    {
+        DB::table('propinsi')->insertOrIgnore([
+            'kode_provinsi' => '34',
+            'nama_provinsi' => 'DI Yogyakarta',
+        ]);
+        DB::table('kabupaten')->insertOrIgnore([
+            'kode_kabupaten' => '3404',
+            'kode_provinsi' => '34',
+            'nama_kabupaten' => 'Kabupaten Sleman',
+        ]);
+
+        DataAkademik::where('nim', '71200001')->update([
+            'ip_kumulatif' => 3.75,
+            'tahun_lulus' => 2024,
+        ]);
+
+        $perusahaan = Perusahaan::create([
+            'nama_perusahaan' => 'PT Studio Kreatif Mandiri',
+            'alamat' => 'Jl. Solo KM 10, Sleman',
+            'skala' => 'Nasional',
+            'kode_provinsi' => '34',
+            'kode_kabupaten' => '3404',
+            'kode_pos' => '55281',
+        ]);
+
+        $atasan = Atasan::create([
+            'nama' => 'Clara Anjelita (Owner)',
+            'email' => 'clara.owner@studiokreatif.com',
+            'telepon' => '081234567890',
+            'perusahaan_id' => $perusahaan->id,
+        ]);
+
+        $this->biodata->update([
+            'alamat_saat_ini' => 'Jl. Timoho No. 45, Yogyakarta',
+            'nomor_telepon' => '081234567890',
+            'email_pribadi' => 'clara@studiokreatif.com',
+            'kategori_pekerjaan' => 'Wiraswasta',
+            'posisi_jabatan' => null, // Posisi jabatan karyawan sengaja null
+            'posisi_wiraswasta' => 'Pendiri / Pemilik Usaha',
+            'perusahaan_id' => $perusahaan->id,
+            'atasan_id' => $atasan->id,
+            'skills' => 'Graphic Design, UI/UX, Brand Identity',
+            'experience' => '3 tahun menjalankan studio kreatif',
+            'linkedin_url' => 'https://linkedin.com/in/clara-anjelita',
+            'linkedin_username' => 'clara-anjelita',
+            'instagram_url' => 'https://instagram.com/clara.studio',
+            'facebook_url' => 'https://facebook.com/clara.studio',
+            'zipcode' => '55281',
+        ]);
+
+        $eval = KelengkapanTracerService::evaluasiProfil($this->biodata);
+
+        $this->assertTrue($eval['is_complete']);
+        $this->assertEquals(100, $eval['percentage']);
+        $this->assertEmpty($eval['missing_fields']);
+        $this->assertEquals($eval['total_fields'], $eval['filled_count']);
     }
 }

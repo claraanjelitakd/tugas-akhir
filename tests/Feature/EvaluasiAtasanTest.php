@@ -487,4 +487,89 @@ class EvaluasiAtasanTest extends TestCase
 
         $response->assertStatus(403);
     }
+
+    public function test_atasan_can_submit_evaluasi_even_when_company_metadata_is_incomplete(): void
+    {
+        Mail::fake();
+
+        $prodi = Prodi::firstOrCreate(['kode_prodi' => '72'], ['nama_prodi' => 'Sistem Informasi']);
+        $user = User::create([
+            'username' => '72200099',
+            'name' => 'Alumni With Incomplete Company',
+            'email' => 'alumni_inc@example.com',
+            'password' => bcrypt('password'),
+            'role' => 'alumni',
+        ]);
+        DataAkademik::create(['nim' => '72200099', 'nama' => 'Alumni With Incomplete Company']);
+        $biodata = Biodata::firstOrCreate(
+            ['nim' => '72200099'],
+            ['user_id' => $user->id, 'prodi_id' => $prodi->id]
+        );
+
+        // Perusahaan dengan metadata kantor pusat belum lengkap (kode_pos null, alamat null)
+        $perusahaan = Perusahaan::create([
+            'nama_perusahaan' => 'PT Rintisan Tanpa Kode Pos',
+            'alamat' => null,
+            'kode_pos' => null,
+            'jenis_perusahaan' => null,
+        ]);
+
+        $evaluasi = EvaluasiAtasan::create([
+            'biodata_id' => $biodata->id,
+            'perusahaan_id' => $perusahaan->id,
+            'token' => Str::random(40),
+        ]);
+
+        $sec = KuesionerSection::firstOrCreate(
+            ['kode_section' => 'SEC_EVA_PENILAIAN'],
+            ['target' => 'atasan', 'judul' => 'Penilaian Kinerja', 'order' => 3, 'is_active' => true]
+        );
+
+        $qIntegritas = KuesionerPertanyaan::firstOrCreate(
+            ['kode_pertanyaan' => 'EVA_integritas'],
+            ['teks_pertanyaan' => 'Integritas', 'tipe' => 'likert_5', 'is_active' => true]
+        );
+
+        KuesionerSectionPertanyaan::firstOrCreate(
+            ['section_id' => $sec->id, 'pertanyaan_id' => $qIntegritas->id],
+            ['order' => 1, 'wajib' => true]
+        );
+
+        $activeEvaluationQuestions = KuesionerPertanyaan::where('is_active', true)
+            ->whereHas('sections', function ($query) {
+                $query->where('target', 'atasan')
+                    ->where('kuesioner_section_pertanyaan.is_active', true);
+            })
+            ->get()
+            ->reject->is_company_field;
+
+        $jawaban = [];
+        foreach ($activeEvaluationQuestions as $q) {
+            $jawaban[$q->kode] = 'Sangat Baik';
+        }
+
+        $postData = [
+            'nama_perusahaan' => null,
+            'alamat_lengkap' => null,
+            'kode_pos' => null,
+            'jenis_perusahaan' => null,
+            'nama_atasan' => 'Bapak Penilai',
+            'email_atasan' => 'penilai@rintisan.com',
+            'jumlah_pegawai' => '1 - 50 Orang',
+            'jumlah_alumni_ukdw' => '1 Orang',
+            'standar_gaji_pertama' => '4.000.000 – 6.000.000',
+            'jawaban' => $jawaban,
+            'catatan_lainnya' => 'Lulusan memiliki etika kerja yang sangat baik.',
+        ];
+
+        $response = $this->post("/evaluasi-atasan/{$evaluasi->token}", $postData);
+
+        $response->assertStatus(302);
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('evaluasi_atasan', [
+            'id' => $evaluasi->id,
+            'is_submitted' => true,
+        ]);
+    }
 }

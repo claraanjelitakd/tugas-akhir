@@ -155,6 +155,63 @@ const handleDownloadPdf = () => {
     });
 };
 
+// Menghasilkan dan mengunduh berkas CSV dengan BOM UTF-8 yang langsung kompatibel dengan Microsoft Excel
+const exportToCsv = (columns, rows, filename) => {
+    if (!columns?.length || !rows?.length) return;
+    const headerRow = columns.map((col) => `"${String(col.label || col.key || '').replace(/"/g, '""')}"`).join(',');
+    const dataRows = rows.map((row) => {
+        return columns.map((col) => {
+            let val = row[col.key];
+            if (val === null || val === undefined) val = '';
+            if (typeof val === 'object') val = JSON.stringify(val);
+            return `"${String(val).replace(/"/g, '""')}"`;
+        }).join(',');
+    });
+    const csvContent = '\uFEFF' + [headerRow, ...dataRows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename.endsWith('.csv') ? filename : `${filename}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+};
+
+// Mengunduh data tabel ringkasan aktif ke berkas Excel (CSV)
+const handleDownloadSummaryCsv = () => {
+    const rawTitle = currentView.value.title || currentView.value.tabLabel || 'data-ringkasan';
+    const safeTitle = String(rawTitle).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    exportToCsv(activeColumns.value, activeRows.value, `${safeTitle}-ringkasan.csv`);
+};
+
+// Mengunduh rincian data individu (mengikuti filter aktif) ke berkas Excel (CSV)
+const handleDownloadDetailCsv = () => {
+    const rawTitle = currentView.value.title || currentView.value.tabLabel || 'data-analitik';
+    const safeTitle = String(rawTitle).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const filterTag = activeSelectionLabel.value ? `-${activeSelectionLabel.value.toLowerCase().replace(/[^a-z0-9]+/g, '-')}` : '';
+
+    const rowsToExport = filteredDetailRows.value.map((row) => {
+        const mapped = {};
+        for (const col of detailColumns.value) {
+            mapped[col.key] = formatDetailValue(row[col.key], col.key);
+        }
+        return mapped;
+    });
+
+    exportToCsv(detailColumns.value, rowsToExport, `${safeTitle}${filterTag}-rincian.csv`);
+};
+
+// Unduh Excel terpadu dari toolbar atas
+const handleDownloadExcel = () => {
+    if (detailColumns.value.length > 0) {
+        handleDownloadDetailCsv();
+    } else if (activeColumns.value.length > 0) {
+        handleDownloadSummaryCsv();
+    }
+};
+
 // State elemen grafik yang sedang diarahkan oleh kursor mouse (hover dinamis)
 const hoveredPoint = ref(null);
 
@@ -226,6 +283,10 @@ watch(() => props.selectedLabel, (newVal) => {
 // Reset seleksi grafik untuk kembali ke analisis keseluruhan ("All")
 const resetSelection = () => {
     selectedPoint.value = null;
+    globalQualFilter.value = 'all';
+    globalCareerFilter.value = 'all';
+    drillDownSearch.value = '';
+    detailSearch.value = '';
     emit('reset');
 };
 
@@ -320,30 +381,34 @@ const detailFieldLabels = Object.freeze({
     salary: 'Pendapatan/Gaji',
     ump: 'UMP',
     meets_ump: 'Status 1,2× UMP',
-    weight: 'Bobot',
-    role: 'Peran/Kategori Karier',
-    career_category: 'Role Karier',
-    career_role: 'Peran Wirausaha',
+    weight: 'Bobot IKU',
     career_status_label: 'Status Karier',
-    status_karier: 'Status Aktivitas',
-    employment_status: 'Status Aktivitas',
+    nama_perusahaan: 'Perusahaan / Kampus S2',
+    posisi_jabatan: 'Jabatan / Posisi',
     lokasi_kerja: 'Lokasi Cabang / Kerja',
     nama_atasan: 'Atasan',
     skills: 'Skills',
-    posisi_jabatan: 'Jabatan',
     bidang_pekerjaan: 'Bidang Pekerjaan',
     divisi: 'Divisi',
     study_detail: 'Studi Lanjut',
     before_graduation: 'Sebelum Lulus',
     after_graduation: 'Setelah Lulus',
     threshold: 'Ambang 1,2× UMP',
-    salary_above_threshold: 'Memenuhi Ambang UMP',
-    qualifies: 'Memenuhi Kriteria IKU',
+    salary_comparison: 'Status Gaji vs 1,2× UMP',
+    qualifies: 'Memenuhi IKU',
+    ipk: 'IPK',
+    f6: 'Perusahaan Dilamar (F6)',
+    f7: 'Perusahaan Merespons (F7)',
+    f7a: 'Undangan Wawancara (F7a)',
+    dilamar: 'Perusahaan Dilamar (F6)',
+    merespon: 'Perusahaan Merespons (F7)',
+    wawancara: 'Undangan Wawancara (F7a)',
 });
 
-// Field teknis atau kontak pribadi tidak ditampilkan pada tabel analitik read-only.
+// Field teknis, kontak pribadi, atau field status duplikasi tidak ditampilkan pada tabel analitik.
 const hiddenDetailFields = new Set([
     'id',
+    'academic_id',
     'biodata_id',
     'user_id',
     'prodi_id',
@@ -355,6 +420,12 @@ const hiddenDetailFields = new Set([
     'user_email',
     'created_at',
     'updated_at',
+    'salary_above_threshold',
+    'career_category',
+    'career_role',
+    'status_karier',
+    'employment_status',
+    'role',
 ]);
 
 // Menemukan seluruh kolom yang benar-benar tersedia pada records indikator aktif.
@@ -384,10 +455,15 @@ const formatDetailValue = (value, key = '') => {
         if (value === null || value === undefined) return 'Belum dapat dibandingkan';
         return value ? 'Memenuhi (≥ 1,2× UMP)' : 'Di bawah 1,2× UMP';
     }
-    if (key === 'salary_comparison') {
-        if (value === 'above') return 'Di atas 1,2× UMP';
+    if (key === 'salary_comparison' || value === 'above' || value === 'below' || value === 'unavailable') {
+        if (value === 'above') return 'Di atas 1,2× UMP (Memenuhi)';
         if (value === 'below') return 'Di bawah 1,2× UMP';
         return 'Belum dapat dibandingkan';
+    }
+    if (key === 'qualifies' || key === 'before_graduation' || typeof value === 'boolean') {
+        if (typeof value === 'boolean') return value ? 'Ya' : 'Tidak';
+        if (value === 'true' || value === '1' || value === 1) return 'Ya';
+        if (value === 'false' || value === '0' || value === 0) return 'Tidak';
     }
     if (key === 'months') {
         const num = Number(value);
@@ -397,11 +473,104 @@ const formatDetailValue = (value, key = '') => {
         const num = Number(value);
         return isNaN(num) ? String(value) : formatNumber(num, 2);
     }
-    if (typeof value === 'boolean') return value ? 'Ya' : 'Tidak';
     if (Array.isArray(value)) return value.join(', ');
     if (typeof value === 'object') return JSON.stringify(value);
     return String(value);
 };
+
+// Filter terpadu kelayakan IKU dan aktivitas/karier
+const globalQualFilter = ref('all');
+const globalCareerFilter = ref('all');
+
+// Helper penentuan apakah satu record berstatus kombinasi (bekerja/wirausaha + studi lanjut)
+const recordIsCombination = (record) => {
+    const statusLabel = String(record?.career_status_label || record?.status_karier || '').toLowerCase();
+    const hasStudy = Boolean(record?.study_detail) || statusLabel.includes('studi') || statusLabel.includes('pendidikan');
+    const hasWork = Boolean(record?.nama_perusahaan) || Boolean(record?.posisi_jabatan) || statusLabel.includes('bekerja') || statusLabel.includes('karyawan') || statusLabel.includes('founder') || statusLabel.includes('freelance');
+    return statusLabel.includes('+') || statusLabel.includes('kombinasi') || (hasStudy && hasWork);
+};
+
+// Evaluasi apakah record memenuhi kriteria filter aktif
+const matchCriteria = (record) => {
+    // 1. Filter Kelayakan IKU (Sudah Memenuhi vs Belum Memenuhi)
+    if (globalQualFilter.value === 'qualified') {
+        const isQualified = Number(record.weight || 0) > 0 || record.qualifies === true || record.qualifies === 'Ya';
+        if (!isQualified) return false;
+    } else if (globalQualFilter.value === 'unqualified') {
+        const isUnqualified = Number(record.weight || 0) === 0 || record.qualifies === false || record.qualifies === 'Tidak';
+        if (!isUnqualified) return false;
+    }
+
+    // 2. Filter Kategori Aktivitas
+    if (globalCareerFilter.value !== 'all') {
+        const cat = String(record.career_category || '').toLowerCase();
+        const statusLabel = String(record.career_status_label || record.status_karier || '').toLowerCase();
+        const isComb = recordIsCombination(record);
+
+        if (globalCareerFilter.value === 'kombinasi') {
+            if (!isComb) return false;
+        } else if (globalCareerFilter.value === 'karyawan') {
+            if (!cat.includes('karyawan') && !statusLabel.includes('karyawan') && !statusLabel.includes('bekerja')) return false;
+        } else if (globalCareerFilter.value === 'founder') {
+            if (!cat.includes('founder') && !statusLabel.includes('founder') && !statusLabel.includes('wirausaha') && !statusLabel.includes('wiraswasta')) return false;
+        } else if (globalCareerFilter.value === 'freelancer') {
+            if (!cat.includes('freelance') && !statusLabel.includes('freelance')) return false;
+        } else if (globalCareerFilter.value === 'pendidikan') {
+            if (!cat.includes('pendidikan') && !statusLabel.includes('studi') && !Boolean(record.study_detail)) return false;
+        }
+    }
+
+    return true;
+};
+
+const hasIkuOutcomeFields = computed(() => {
+    return props.rows.some((r) => r.career_category !== undefined || r.weight !== undefined || r.career_status_label !== undefined);
+});
+
+const qualFilterOptions = computed(() => {
+    const base = (selectedPoint.value?.label || props.selectedLabel) ? drillDownRecords.value : props.rows;
+    const meetCount = base.filter((r) => Number(r.weight || 0) > 0 || r.qualifies === true || r.qualifies === 'Ya').length;
+    const failCount = base.filter((r) => Number(r.weight || 0) === 0 || r.qualifies === false || r.qualifies === 'Tidak').length;
+    return [
+        { value: 'all', label: `Semua Kelayakan (${base.length})` },
+        { value: 'qualified', label: `Sudah Memenuhi (${meetCount})` },
+        { value: 'unqualified', label: `Belum Memenuhi (${failCount})` },
+    ];
+});
+
+const careerFilterOptions = computed(() => {
+    const base = (selectedPoint.value?.label || props.selectedLabel) ? drillDownRecords.value : props.rows;
+    const countKombinasi = base.filter((r) => recordIsCombination(r)).length;
+    const countKaryawan = base.filter((r) => {
+        const c = String(r.career_category || '').toLowerCase();
+        const s = String(r.career_status_label || r.status_karier || '').toLowerCase();
+        return c.includes('karyawan') || s.includes('karyawan') || s.includes('bekerja');
+    }).length;
+    const countFounder = base.filter((r) => {
+        const c = String(r.career_category || '').toLowerCase();
+        const s = String(r.career_status_label || r.status_karier || '').toLowerCase();
+        return c.includes('founder') || s.includes('founder') || s.includes('wirausaha');
+    }).length;
+    const countFreelance = base.filter((r) => {
+        const c = String(r.career_category || '').toLowerCase();
+        const s = String(r.career_status_label || r.status_karier || '').toLowerCase();
+        return c.includes('freelance') || s.includes('freelance');
+    }).length;
+    const countStudi = base.filter((r) => {
+        const c = String(r.career_category || '').toLowerCase();
+        const s = String(r.career_status_label || r.status_karier || '').toLowerCase();
+        return c.includes('pendidikan') || s.includes('studi') || Boolean(r.study_detail);
+    }).length;
+
+    return [
+        { value: 'all', label: `Semua Aktivitas (${base.length})` },
+        { value: 'karyawan', label: `Karyawan (${countKaryawan})` },
+        { value: 'founder', label: `Founder / Wirausaha (${countFounder})` },
+        { value: 'freelancer', label: `Freelancer (${countFreelance})` },
+        { value: 'pendidikan', label: `Melanjutkan Studi (${countStudi})` },
+        { value: 'kombinasi', label: `Kombinasi (Bekerja + Studi) (${countKombinasi})` },
+    ];
+});
 
 // Kontrol pencarian dan paginasi tabel detail individu.
 const detailSearch = ref('');
@@ -410,13 +579,19 @@ const detailPageSize = 15;
 const detailSortKey = ref('nim');
 const detailSortDirection = ref('asc');
 
-// Menyaring records nyata berdasarkan seluruh field detail yang aman ditampilkan.
+// Menyaring records nyata berdasarkan seleksi grafik aktif, kriteria terpadu, dan kata kunci pencarian.
 const filteredDetailRows = computed(() => {
     const query = detailSearch.value.trim().toLowerCase();
-    if (!query) return props.rows;
+    const baseRows = (selectedPoint.value?.label || props.selectedLabel)
+        ? drillDownRecords.value
+        : props.rows;
 
-    return props.rows.filter((row) => detailColumns.value.some((column) => (
-        formatDetailValue(row[column.key]).toLowerCase().includes(query)
+    const criteriaFiltered = baseRows.filter((record) => matchCriteria(record));
+
+    if (!query) return criteriaFiltered;
+
+    return criteriaFiltered.filter((row) => detailColumns.value.some((column) => (
+        formatDetailValue(row[column.key], column.key).toLowerCase().includes(query)
     )));
 });
 
@@ -427,8 +602,8 @@ const sortedDetailRows = computed(() => {
     if (!fallbackKey) return filteredDetailRows.value;
 
     return [...filteredDetailRows.value].sort((left, right) => {
-        const leftValue = formatDetailValue(left[fallbackKey]);
-        const rightValue = formatDetailValue(right[fallbackKey]);
+        const leftValue = formatDetailValue(left[fallbackKey], fallbackKey);
+        const rightValue = formatDetailValue(right[fallbackKey], fallbackKey);
         const comparison = leftValue.localeCompare(rightValue, 'id', { numeric: true, sensitivity: 'base' });
         return detailSortDirection.value === 'asc' ? comparison : -comparison;
     });
@@ -573,14 +748,51 @@ const drillDownRecords = computed(() => {
     const ptCat = cleanChartLabel(selectedPoint.value?.category || '').toLowerCase();
     const target = rawTarget.toLowerCase();
 
-    // 1. Filter khusus IKU S1 UMP & Bobot (Audit Pendapatan, Masa Tunggu, Total Bobot per Role)
+    // 1. Filter khusus IKU S1 UMP & Bobot (Audit Pendapatan, Masa Tunggu, Total Bobot per Role, Rasio Kelulusan)
     const hasIkuUmpFields = props.rows.some((r) => r.career_category !== undefined && (r.salary_comparison !== undefined || r.weight !== undefined));
     if (hasIkuUmpFields) {
-        const roleCandidate = cleanChartLabel(ptData.role || ptData.name || ptProdi || '').toLowerCase();
-        const catCandidate = cleanChartLabel(ptCat || ptData.category || target || '').toLowerCase();
+        const prodiList = [...new Set(props.rows.map((r) => String(r.nama_prodi || '').toLowerCase()))];
+        const isProdiMatch = (str) => Boolean(str) && prodiList.some((p) => p && (p === str || p.includes(str) || str.includes(p)));
+
+        let prodiCandidate = '';
+        let roleCandidate = '';
+        let catCandidate = cleanChartLabel(ptCat || ptData.category || '').toLowerCase();
+
+        // Uraikan jika label terpilih berformat gabungan role dan kategori, misal "Karyawan · Di atas 1,2× UMP"
+        let baseName = cleanChartLabel(ptData.name || target || '').toLowerCase();
+        if (baseName.includes(' · ') || baseName.includes(' - ')) {
+            const separator = baseName.includes(' · ') ? ' · ' : ' - ';
+            const parts = baseName.split(separator);
+            const firstPart = parts[0]?.trim() || '';
+            const secondPart = parts.slice(1).join(' ').trim();
+            if (!catCandidate && secondPart) {
+                catCandidate = secondPart;
+            }
+            baseName = firstPart;
+        }
+
+        if (ptProdi && isProdiMatch(ptProdi)) {
+            prodiCandidate = ptProdi;
+        } else if (isProdiMatch(baseName)) {
+            prodiCandidate = baseName;
+        }
+
+        if (ptData.role) {
+            roleCandidate = cleanChartLabel(ptData.role).toLowerCase();
+        } else if (!prodiCandidate && baseName && !isProdiMatch(baseName)) {
+            roleCandidate = baseName;
+        }
 
         return props.rows.filter((r) => {
             const rRole = String(r.career_category || '').toLowerCase();
+            const rProdi = String(r.nama_prodi || '').toLowerCase();
+
+            // Cek kesesuaian prodi jika klik pada grafik per program studi
+            if (prodiCandidate) {
+                const matchProdi = rProdi.includes(prodiCandidate) || prodiCandidate.includes(rProdi);
+                if (!matchProdi) return false;
+            }
+
             // Cek kesesuaian role karier jika ada role yang diklik
             if (roleCandidate) {
                 const matchRole = rRole.includes(roleCandidate)
@@ -590,21 +802,31 @@ const drillDownRecords = computed(() => {
                 if (!matchRole) return false;
             }
 
-            // 1.1 Status UMP / Pendapatan
-            if (catCandidate.includes('di atas') || (catCandidate.includes('memenuhi') && !catCandidate.includes('belum') && !catCandidate.includes('tidak'))) {
+            // 1.1 Status Bobot IKU (> 0 vs = 0)
+            if (catCandidate.includes('bobot')) {
+                if (catCandidate.includes('tidak') || catCandidate.includes('= 0') || catCandidate.includes('tanpa')) {
+                    return Number(r.weight || 0) === 0 || r.qualifies === false;
+                }
+                if (catCandidate.includes('memenuhi') || catCandidate.includes('> 0')) {
+                    return Number(r.weight || 0) > 0 || r.qualifies === true;
+                }
+            }
+
+            // 1.2 Status UMP / Pendapatan
+            if (catCandidate.includes('di atas') || catCandidate.includes('≥ 1,2') || catCandidate.includes('>= 1,2') || (catCandidate.includes('memenuhi') && !catCandidate.includes('belum') && !catCandidate.includes('tidak'))) {
                 return r.salary_comparison === 'above' || r.salary_above_threshold === true;
             }
             if (catCandidate.includes('di bawah')) {
                 return r.salary_comparison === 'below' || r.salary_above_threshold === false;
             }
-            if (catCandidate.includes('belum dapat dibandingkan') || catCandidate.includes('unavailable') || catCandidate.includes('tidak tersedia')) {
+            if (catCandidate.includes('belum dapat dibandingkan') || catCandidate.includes('belum terbandingkan') || catCandidate.includes('unavailable') || catCandidate.includes('tidak tersedia')) {
                 if (currentView.value.key === 'wait-time') {
                     return (r.months === null || r.months === undefined) && !r.before_graduation;
                 }
                 return r.salary_comparison === 'unavailable' || r.salary_above_threshold === null;
             }
 
-            // 1.2 Masa Tunggu
+            // 1.3 Masa Tunggu
             if (catCandidate.includes('sebelum lulus')) {
                 return Boolean(r.before_graduation);
             }
@@ -621,7 +843,6 @@ const drillDownRecords = computed(() => {
                 return rRole.includes('melanjutkan pendidikan');
             }
 
-            // 1.3 Total Bobot (Role diklik)
             return true;
         });
     }
@@ -708,6 +929,26 @@ const drillDownRecords = computed(() => {
     }
 
     // Filter khusus tahapan pipeline lamaran F6 / F7 / F7A (Indikator 06)
+    const hasPipelineFields = props.rows.some((r) => r.f6 !== undefined || r.dilamar !== undefined);
+    if (hasPipelineFields) {
+        const targetProdi = (ptProdi || (props.rows.some((r) => String(r.nama_prodi || r.prodi || '').toLowerCase() === target) ? target : '')).toLowerCase();
+        const isDilamar = ptCat.includes('dilamar') || target.includes('dilamar') || ptCat.includes('f6') || target.includes('f6');
+        const isMerespon = ptCat.includes('respon') || target.includes('respon') || ptCat.includes('f7') || target.includes('f7');
+        const isWawancara = ptCat.includes('wawancara') || target.includes('wawancara') || ptCat.includes('f7a') || target.includes('f7a');
+
+        const pipelineMatched = props.rows.filter((r) => {
+            const rProdi = String(r.nama_prodi || r.prodi || '').toLowerCase();
+            if (targetProdi && !rProdi.includes(targetProdi) && !targetProdi.includes(rProdi)) {
+                return false;
+            }
+            if (isDilamar) return Number(r.f6 ?? r.dilamar ?? 0) > 0;
+            if (isMerespon) return Number(r.f7 ?? r.merespon ?? 0) > 0;
+            if (isWawancara) return Number(r.f7a ?? r.wawancara ?? 0) > 0;
+            return true;
+        });
+        if (pipelineMatched.length > 0) return pipelineMatched;
+    }
+
     const stageCodeMatch = rawTarget.match(/\((F6|F7A|F7)\)/i);
     if (stageCodeMatch && props.rows.some((r) => r.kode_pertanyaan)) {
         const code = stageCodeMatch[1].toUpperCase();
@@ -1000,6 +1241,18 @@ const drillDownCareerFilterOptions = computed(() => {
     const count = (predicate) => records.filter(predicate).length;
     const working = (record) => recordHasWork(record);
     const studying = (record) => recordHasFurtherStudy(record);
+    const hasWeight = records.some((r) => r.weight !== undefined);
+
+    // Jika dataset memiliki kolom bobot (IKU S1 Outcomes / UMP), sediakan filter berbasis bobot
+    if (hasWeight) {
+        return [
+            { value: 'all', label: 'Semua data', count: records.length },
+            { value: 'weighted', label: 'Memenuhi IKU (Bobot > 0)', count: count((r) => Number(r.weight || 0) > 0) },
+            { value: 'full_weight', label: 'Bobot Penuh (>= 1.0)', count: count((r) => Number(r.weight || 0) >= 1.0) },
+            { value: 'partial_weight', label: 'Bobot Parsial (0.2-0.8)', count: count((r) => Number(r.weight || 0) > 0 && Number(r.weight || 0) < 1.0) },
+            { value: 'unweighted', label: 'Belum Berbobot (Bobot 0)', count: count((r) => Number(r.weight || 0) === 0) },
+        ];
+    }
 
     return [
         { value: 'all', label: 'Semua status', count: records.length },
@@ -1009,26 +1262,14 @@ const drillDownCareerFilterOptions = computed(() => {
     ];
 });
 
-// Menerapkan filter status dan pencarian teks pada data drill-down secara berurutan.
+// Menerapkan filter kriteria terpadu dan pencarian teks pada data drill-down secara berurutan.
 const filteredDrillDownRecords = computed(() => {
     const q = drillDownSearch.value.trim().toLowerCase();
-    const statusFilter = drillDownCareerFilter.value;
-    const statusFiltered = drillDownRecords.value.filter((record) => {
-        const working = recordHasWork(record);
-        const studying = recordHasFurtherStudy(record);
+    const criteriaFiltered = drillDownRecords.value.filter((record) => matchCriteria(record));
 
-        return statusFilter === 'working'
-            ? working && !studying
-            : statusFilter === 'working_study'
-                ? working && studying
-                : statusFilter === 'study_only'
-                    ? !working && studying
-                    : true;
-    });
+    if (!q) return criteriaFiltered;
 
-    if (!q) return statusFiltered;
-
-    return statusFiltered.filter((r) => {
+    return criteriaFiltered.filter((r) => {
         return String(r.nama || '').toLowerCase().includes(q)
             || String(r.nim || '').toLowerCase().includes(q)
             || String(r.nama_prodi || '').toLowerCase().includes(q)
@@ -1081,7 +1322,7 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                         {{ indicatorBadge }}
                     </span>
                     <h3 class="text-base font-extrabold text-slate-900">
-                        <template v-if="activeViewMode === 'table'">Tabel Data Ringkasan: {{ currentView.tabLabel || currentView.title }}</template>
+                        <template v-if="activeViewMode === 'table'">Ringkasan: {{ currentView.tabLabel || currentView.title }}</template>
                         <template v-else>{{ currentView.title }}</template>
                     </h3>
                     <!-- Pill Seleksi Aktif di Header (Bebas dari Layout Shift / Getar) -->
@@ -1100,7 +1341,7 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                 </div>
                 <p class="mt-1 text-xs text-slate-500 leading-relaxed max-w-3xl">
                     <template v-if="activeViewMode === 'table'">
-                        Tabel ringkasan tabulasi data indikator yang dapat diurutkan dan dicari.
+                        Tabulasi data indikator.
                     </template>
                     <template v-else>
                         {{ currentView.description }}
@@ -1152,6 +1393,15 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                         title="Unduh gambar grafik saat ini (PNG)"
                     >
                         Unduh Grafik
+                    </button>
+                    <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
+                    <button
+                        type="button"
+                        class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
+                        @click="handleDownloadExcel"
+                        title="Unduh seluruh data indikator ke format Excel (CSV)"
+                    >
+                        Unduh Excel
                     </button>
                     <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
                     <button
@@ -1291,7 +1541,7 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
 
             <!-- Drill-Down Rincian Data Inline Saat Kategori Diklik -->
             <div v-if="activeSelectionLabel && drillDownRecords.length > 0" class="rounded-xl border border-emerald-200 bg-emerald-50/20 p-4 transition-all">
-                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-emerald-200/60 pb-3">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-emerald-200/60 pb-3">
                     <div>
                         <div class="flex items-center gap-2">
                             <span class="rounded bg-[#0D542B] px-2 py-0.5 text-[11px] font-bold text-white">Rincian Data Terpilih</span>
@@ -1301,25 +1551,45 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                             Menampilkan {{ filteredDrillDownRecords.length }} dari {{ drillDownRecords.length }} alumni yang berkaitan dengan pilihan ini.
                         </p>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <select
-                            v-model="drillDownCareerFilter"
-                            class="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 outline-none focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B]"
-                            aria-label="Filter status karier"
-                        >
-                            <option v-for="option in drillDownCareerFilterOptions" :key="option.value" :value="option.value">
-                                {{ option.label }} ({{ option.count }})
-                            </option>
-                        </select>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- Filter Terpadu Kelayakan & Kategori Karier -->
+                        <template v-if="hasIkuOutcomeFields">
+                            <select
+                                v-model="globalQualFilter"
+                                class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 outline-none focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B]"
+                                aria-label="Filter status kelayakan IKU"
+                            >
+                                <option v-for="option in qualFilterOptions" :key="option.value" :value="option.value">
+                                    {{ option.label }}
+                                </option>
+                            </select>
+                            <select
+                                v-model="globalCareerFilter"
+                                class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 outline-none focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B]"
+                                aria-label="Filter kategori aktivitas"
+                            >
+                                <option v-for="option in careerFilterOptions" :key="option.value" :value="option.value">
+                                    {{ option.label }}
+                                </option>
+                            </select>
+                        </template>
                         <input
                             v-model="drillDownSearch"
                             type="text"
-                            placeholder="Cari nama, NIM, studi, perusahaan..."
-                            class="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B]"
+                            placeholder="Cari nama, NIM, prodi, instansi..."
+                            class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] sm:w-48"
                         />
                         <button
                             type="button"
-                            class="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                            class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-[#0D542B] hover:border-[#0D542B]/40 transition-colors shadow-2xs cursor-pointer whitespace-nowrap"
+                            @click="handleDownloadDetailCsv"
+                            title="Unduh seluruh data yang sedang ditampilkan ke berkas Excel (CSV)"
+                        >
+                            Unduh Excel (CSV)
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer whitespace-nowrap"
                             @click="resetSelection"
                         >
                             Kembali ke Analisis Keseluruhan
@@ -1332,17 +1602,89 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                     <table v-if="customDrillDownColumns.length > 0" class="w-full min-w-max text-left text-xs">
                         <thead>
                             <tr class="border-b border-slate-200 bg-white/60 text-slate-600">
-                                <th v-for="column in customDrillDownColumns" :key="column.key" class="p-2 font-bold">
+                                <th v-for="column in customDrillDownColumns" :key="column.key" class="p-2 font-bold whitespace-nowrap">
                                     {{ column.label }}
                                 </th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             <tr v-for="(rec, idx) in paginatedDrillDownRecords" :key="`custom-${idx}`" class="hover:bg-white/80">
-                                <td v-for="column in customDrillDownColumns" :key="column.key" class="max-w-xs whitespace-normal p-2 text-slate-700">
-                                    <span :class="column.key === 'nama' ? 'font-semibold text-slate-900' : ''">
-                                        {{ formatDetailValue(rec[column.key], column.key) }}
-                                    </span>
+                                <td v-for="column in customDrillDownColumns" :key="column.key" class="max-w-xs whitespace-normal p-2 text-slate-700 align-top">
+                                    <!-- Status Aktivitas / Karier -->
+                                    <template v-if="column.key === 'career_status_label' || column.key === 'status_karier'">
+                                        <span
+                                            v-if="recordIsCombination(rec)"
+                                            class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200"
+                                            title="Alumni memiliki rekam jejak bekerja/wirausaha sekaligus studi lanjut"
+                                        >
+                                            Kombinasi: {{ rec[column.key] || 'Bekerja + Studi' }}
+                                        </span>
+                                        <span
+                                            v-else-if="String(rec[column.key] || '').toLowerCase().includes('pendidikan') || String(rec[column.key] || '').toLowerCase().includes('studi')"
+                                            class="inline-flex items-center rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700 border border-sky-200"
+                                        >
+                                            Melanjutkan Studi
+                                        </span>
+                                        <span
+                                            v-else-if="String(rec[column.key] || '').toLowerCase().includes('founder') || String(rec[column.key] || '').toLowerCase().includes('wirausaha')"
+                                            class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-[#0D542B] border border-emerald-200"
+                                        >
+                                            Founder / Wirausaha
+                                        </span>
+                                        <span
+                                            v-else-if="String(rec[column.key] || '').toLowerCase().includes('freelance')"
+                                            class="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 border border-amber-200"
+                                        >
+                                            Freelancer
+                                        </span>
+                                        <span
+                                            v-else
+                                            class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 border border-slate-200"
+                                        >
+                                            {{ rec[column.key] || 'Karyawan' }}
+                                        </span>
+                                    </template>
+                                    <!-- Status Gaji vs 1,2x UMP -->
+                                    <template v-else-if="column.key === 'salary_comparison'">
+                                        <span
+                                            v-if="rec[column.key] === 'above'"
+                                            class="inline-flex items-center rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-[#0D542B] border border-emerald-200"
+                                        >
+                                            Di atas 1,2× UMP (Memenuhi)
+                                        </span>
+                                        <span
+                                            v-else-if="rec[column.key] === 'below'"
+                                            class="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 border border-slate-200"
+                                        >
+                                            Di bawah 1,2× UMP
+                                        </span>
+                                        <span
+                                            v-else
+                                            class="inline-flex items-center rounded bg-slate-50 px-2 py-0.5 text-[11px] font-normal text-slate-500 border border-slate-200/60"
+                                        >
+                                            Belum dapat dibandingkan
+                                        </span>
+                                    </template>
+                                    <!-- Memenuhi IKU -->
+                                    <template v-else-if="column.key === 'qualifies'">
+                                        <span
+                                            v-if="rec[column.key] === true || rec[column.key] === 'Ya'"
+                                            class="inline-flex items-center rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-[#0D542B] border border-emerald-200"
+                                        >
+                                            Ya
+                                        </span>
+                                        <span
+                                            v-else
+                                            class="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 border border-slate-200"
+                                        >
+                                            Tidak
+                                        </span>
+                                    </template>
+                                    <template v-else>
+                                        <span :class="column.key === 'nama' ? 'font-semibold text-slate-900' : ''">
+                                            {{ formatDetailValue(rec[column.key], column.key) }}
+                                        </span>
+                                    </template>
                                 </td>
                             </tr>
                         </tbody>
@@ -1448,12 +1790,23 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
             </div>
 
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <input
-                    v-model="tableSearch"
-                    type="text"
-                    placeholder="Saring data ringkasan..."
-                    class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:bg-white focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] sm:w-64"
-                />
+                <div class="flex items-center gap-2">
+                    <input
+                        v-model="tableSearch"
+                        type="text"
+                        placeholder="Saring data ringkasan..."
+                        class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:bg-white focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] sm:w-64"
+                    />
+                    <button
+                        v-if="activeRows.length > 0"
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-[#0D542B] hover:border-[#0D542B]/40 transition-colors shadow-2xs cursor-pointer whitespace-nowrap"
+                        @click="handleDownloadSummaryCsv"
+                        title="Unduh tabel ringkasan ke format Excel (CSV)"
+                    >
+                        Unduh Excel Ringkasan
+                    </button>
+                </div>
                 <span class="text-xs text-slate-500">
                     Menampilkan {{ activeRows.length }} baris data
                 </span>
@@ -1512,22 +1865,67 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
             <section v-if="detailColumns.length" class="mt-6 border-t border-slate-200 pt-4">
                 <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h4 class="text-sm font-extrabold text-slate-900">Rincian Data Individu</h4>
-                        <p class="mt-0.5 text-xs text-slate-500">{{ filteredDetailRows.length }} catatan dari payload data indikator aktif.</p>
+                        <div class="flex items-center gap-2">
+                            <h4 class="text-sm font-extrabold text-slate-900">Rincian Data Individu</h4>
+                            <span v-if="activeSelectionLabel" class="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-[#0D542B] border border-emerald-200">
+                                Tersaring: {{ activeSelectionLabel }}
+                                <button type="button" class="ml-1 text-slate-400 hover:text-slate-700 cursor-pointer" title="Reset filter" @click="resetSelection">×</button>
+                            </span>
+                        </div>
+                        <p class="mt-0.5 text-xs text-slate-500">
+                            <span v-if="activeSelectionLabel">Menampilkan {{ filteredDetailRows.length }} alumni yang berkaitan dengan "{{ activeSelectionLabel }}".</span>
+                            <span v-else>Menampilkan {{ filteredDetailRows.length }} alumni dari seluruh responden indikator ini.</span>
+                        </p>
                     </div>
-                    <input
-                        v-model="detailSearch"
-                        type="text"
-                        placeholder="Cari nama, prodi, perusahaan, atau jawaban..."
-                        class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-[#0D542B] focus:bg-white focus:ring-1 focus:ring-[#0D542B] sm:w-80"
-                    />
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- Filter Terpadu Kelayakan & Kategori Karier -->
+                        <template v-if="hasIkuOutcomeFields">
+                            <select
+                                v-model="globalQualFilter"
+                                class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B]"
+                                aria-label="Filter status kelayakan IKU"
+                            >
+                                <option v-for="option in qualFilterOptions" :key="option.value" :value="option.value">
+                                    {{ option.label }}
+                                </option>
+                            </select>
+                            <select
+                                v-model="globalCareerFilter"
+                                class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B]"
+                                aria-label="Filter kategori aktivitas"
+                            >
+                                <option v-for="option in careerFilterOptions" :key="option.value" :value="option.value">
+                                    {{ option.label }}
+                                </option>
+                            </select>
+                        </template>
+                        <input
+                            v-model="detailSearch"
+                            type="text"
+                            placeholder="Cari nama, prodi, status..."
+                            class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-[#0D542B] focus:bg-white focus:ring-1 focus:ring-[#0D542B] sm:w-56"
+                        />
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-[#0D542B] hover:border-[#0D542B]/40 transition-colors shadow-2xs cursor-pointer whitespace-nowrap"
+                            @click="handleDownloadDetailCsv"
+                            title="Unduh seluruh rincian individu yang sedang ditampilkan ke berkas Excel (CSV)"
+                        >
+                            Unduh Excel (CSV)
+                        </button>
+                    </div>
                 </div>
 
                 <div class="overflow-x-auto rounded-lg border border-slate-200">
                     <table class="min-w-full text-left text-xs">
                         <thead>
                             <tr class="border-b border-slate-200 bg-slate-50 text-slate-700">
-                                <th v-for="column in detailColumns" :key="column.key" class="whitespace-nowrap border-r border-slate-200 px-3 py-2.5 font-bold last:border-r-0">
+                                <th
+                                    v-for="column in detailColumns"
+                                    :key="column.key"
+                                    class="whitespace-nowrap border-r border-slate-200 px-3 py-2.5 font-bold last:border-r-0"
+                                    :title="column.key === 'salary_comparison' ? 'Kategori perbandingan pendapatan terhadap ambang batas 1,2× UMP provinsi tempat bekerja' : column.label"
+                                >
                                     <button type="button" class="inline-flex items-center gap-1 cursor-pointer hover:text-[#0D542B]" @click="toggleDetailSort(column.key)">
                                         <span>{{ column.label }}</span>
                                         <span v-if="detailSortKey === column.key" class="text-[10px] text-[#0D542B]">
@@ -1540,7 +1938,78 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                         <tbody class="divide-y divide-slate-100 bg-white">
                             <tr v-for="(row, rowIndex) in paginatedDetailRows" :key="rowIndex" class="hover:bg-slate-50/70">
                                 <td v-for="column in detailColumns" :key="column.key" class="max-w-72 border-r border-slate-100 px-3 py-2.5 align-top text-slate-700 last:border-r-0">
-                                    <span class="whitespace-normal break-words">{{ formatDetailValue(row[column.key]) }}</span>
+                                    <!-- Status Aktivitas / Karier -->
+                                    <template v-if="column.key === 'career_status_label' || column.key === 'status_karier'">
+                                        <span
+                                            v-if="recordIsCombination(row)"
+                                            class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 border border-indigo-200"
+                                            title="Alumni memiliki rekam jejak bekerja/wirausaha sekaligus studi lanjut"
+                                        >
+                                            Kombinasi: {{ row[column.key] || 'Bekerja + Studi' }}
+                                        </span>
+                                        <span
+                                            v-else-if="String(row[column.key] || '').toLowerCase().includes('pendidikan') || String(row[column.key] || '').toLowerCase().includes('studi')"
+                                            class="inline-flex items-center rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700 border border-sky-200"
+                                        >
+                                            Melanjutkan Studi
+                                        </span>
+                                        <span
+                                            v-else-if="String(row[column.key] || '').toLowerCase().includes('founder') || String(row[column.key] || '').toLowerCase().includes('wirausaha')"
+                                            class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-[#0D542B] border border-emerald-200"
+                                        >
+                                            Founder / Wirausaha
+                                        </span>
+                                        <span
+                                            v-else-if="String(row[column.key] || '').toLowerCase().includes('freelance')"
+                                            class="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 border border-amber-200"
+                                        >
+                                            Freelancer
+                                        </span>
+                                        <span
+                                            v-else
+                                            class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 border border-slate-200"
+                                        >
+                                            {{ row[column.key] || 'Karyawan' }}
+                                        </span>
+                                    </template>
+                                    <!-- Status Gaji vs 1,2x UMP -->
+                                    <template v-else-if="column.key === 'salary_comparison'">
+                                        <span
+                                            v-if="row[column.key] === 'above'"
+                                            class="inline-flex items-center rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-[#0D542B] border border-emerald-200"
+                                        >
+                                            Di atas 1,2× UMP (Memenuhi)
+                                        </span>
+                                        <span
+                                            v-else-if="row[column.key] === 'below'"
+                                            class="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 border border-slate-200"
+                                        >
+                                            Di bawah 1,2× UMP
+                                        </span>
+                                        <span
+                                            v-else
+                                            class="inline-flex items-center rounded bg-slate-50 px-2 py-0.5 text-[11px] font-normal text-slate-500 border border-slate-200/60"
+                                        >
+                                            Belum dapat dibandingkan
+                                        </span>
+                                    </template>
+                                    <template v-else-if="column.key === 'qualifies'">
+                                        <span
+                                            v-if="row[column.key] === true || row[column.key] === 'Ya'"
+                                            class="inline-flex items-center rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-[#0D542B] border border-emerald-200"
+                                        >
+                                            Ya
+                                        </span>
+                                        <span
+                                            v-else
+                                            class="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 border border-slate-200"
+                                        >
+                                            Tidak
+                                        </span>
+                                    </template>
+                                    <template v-else>
+                                        <span class="whitespace-normal break-words">{{ formatDetailValue(row[column.key], column.key) }}</span>
+                                    </template>
                                 </td>
                             </tr>
                             <tr v-if="paginatedDetailRows.length === 0">

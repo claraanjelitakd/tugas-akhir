@@ -301,19 +301,19 @@ class EvaluasiAtasanController extends Controller
 
         $companyFieldRules = [];
         foreach ($activeCompanyQuestions as $question) {
-            $companyFieldRules[$question->kode] = 'required|string|max:150';
+            $companyFieldRules[$question->kode] = 'nullable|string|max:150';
         }
 
         $validated = $request->validate(array_merge([
             // Bagian I: Informasi Perusahaan (dibaca dari master Perusahaan)
-            'nama_perusahaan' => 'required|string|max:255',
-            'alamat_lengkap' => 'required|string',
+            'nama_perusahaan' => 'nullable|string|max:255',
+            'alamat_lengkap' => 'nullable|string',
             'jenis_lokasi' => 'nullable|string|in:Dalam Negeri,Luar Negeri',
             'kode_negara' => 'nullable|string|size:2|exists:ref_negara,kode_negara',
             'kode_provinsi' => 'nullable|exists:propinsi,kode_provinsi',
             'kode_kabupaten' => 'nullable|exists:kabupaten,kode_kabupaten',
-            'kode_pos' => 'required|string|max:15',
-            'jenis_perusahaan' => 'required|string|max:100',
+            'kode_pos' => 'nullable|string|max:15',
+            'jenis_perusahaan' => 'nullable|string|max:100',
             'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
             'no_telp_fax' => 'nullable|string|max:100',
             'homepage' => ['nullable', 'string', 'max:150'],
@@ -406,9 +406,10 @@ class EvaluasiAtasanController extends Controller
             }
 
             if (! $perusahaan) {
+                $namaPerusahaan = trim($validated['nama_perusahaan'] ?? '') ?: ($lockedEvaluation->biodata?->nama_perusahaan ?: 'Perusahaan Mitra');
                 $perusahaan = Perusahaan::create([
                     ...$perusahaanData,
-                    'nama_perusahaan' => trim($validated['nama_perusahaan']),
+                    'nama_perusahaan' => $namaPerusahaan,
                     'skala' => $validated['skala_perusahaan'] ?? 'Nasional',
                     'status_verifikasi' => 'Menunggu Verifikasi',
                     'created_by_user_id' => $lockedEvaluation->biodata?->user_id,

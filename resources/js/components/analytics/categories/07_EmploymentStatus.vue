@@ -190,10 +190,18 @@ const statusMeaningMap = {
 const getStatusMeaning = (label) => statusMeaningMap[label] || `Proporsi alumni dengan kategori aktivitas ${label}.`;
 
 // -----------------------------------------------------------------------------
-// 1. DONUT CHART: Proporsi Status Pekerjaan Universitas
+// 1. BAR CHART: Proporsi Status Pekerjaan Universitas (Horizontal Bar)
+// Hanya menampilkan kategori yang memiliki isi (>0 responden) sesuai arahan pengguna.
 // -----------------------------------------------------------------------------
-const donutOption = computed(() => {
-    const data = series.value.map((item) => {
+const activeSeries = computed(() => {
+    return series.value
+        .filter((item) => seriesMetric(item) > 0)
+        .sort((a, b) => seriesMetric(a) - seriesMetric(b)); // Urutkan naik agar kategori terbanyak berada di paling atas horizontal bar
+});
+
+const barOption = computed(() => {
+    const list = activeSeries.value;
+    const data = list.map((item) => {
         const label = seriesLabel(item);
         const count = seriesMetric(item);
         const selected = !props.selectedLabel || props.selectedLabel === label;
@@ -204,69 +212,94 @@ const donutOption = computed(() => {
             itemStyle: {
                 color: getStatusColor(label),
                 opacity: selected ? 1 : 0.22,
+                borderRadius: [0, 4, 4, 0],
             },
         };
     });
 
+    const chartHeight = Math.max(300, data.length * 48 + 60);
+
     return {
         ...baseOption(validResponses.value),
-        legend: {
-            orient: 'horizontal',
-            bottom: 0,
-            icon: 'circle',
-            textStyle: { color: '#334155', fontSize: 12, fontWeight: 600 },
+        grid: {
+            left: 20,
+            right: 110,
+            top: 24,
+            bottom: 36,
+            containLabel: true,
+        },
+        xAxis: {
+            type: 'value',
+            name: 'Jumlah Alumni',
+            nameLocation: 'middle',
+            nameGap: 24,
+            axisLabel: { color: '#64748B', fontSize: 11 },
+            splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
+        },
+        yAxis: {
+            type: 'category',
+            data: data.map((d) => d.name),
+            axisLabel: {
+                width: 220,
+                overflow: 'break',
+                fontSize: 11,
+                lineHeight: 14,
+                color: '#334155',
+                fontWeight: 500,
+            },
+            axisTick: { show: false },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
         },
         tooltip: {
             ...baseOption().tooltip,
-            trigger: 'item',
-            formatter: ({ data }) => {
-                const meaning = getStatusMeaning(data.name);
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: (params) => {
+                const item = data[params[0]?.dataIndex];
+                if (!item) return '';
+                const meaning = getStatusMeaning(item.name);
                 return `
                     <div style="font-family: inherit; font-size: 12px; line-height: 1.5; min-width: 220px; max-width: 320px;">
                         <div style="font-weight: 700; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 6px; color: #0F172A; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                            <span>${escapeHtml(data.name)}</span>
-                            <span style="font-size: 13px; font-weight: 800; color: #0D542B;">${formatPercentage(data.percentage)}</span>
+                            <span>${escapeHtml(item.name)}</span>
+                            <span style="font-size: 13px; font-weight: 800; color: #0D542B;">${formatPercentage(item.percentage)}</span>
                         </div>
                         <div style="color: #334155; margin-bottom: 2px;">
-                            Jumlah: <strong>${formatNumber(data.value, 0)} alumni</strong> (dari total ${formatNumber(validResponses.value, 0)} responden valid)
+                            Jumlah: <strong>${formatNumber(item.value, 0)} alumni</strong> (dari total ${formatNumber(validResponses.value, 0)} responden valid)
                         </div>
                         <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0; font-size: 11px; color: #475569; line-height: 1.45;">
-                            <strong style="color: #0D542B;">Keterangan Persentase:</strong> ${escapeHtml(meaning)}
+                            <strong style="color: #0D542B;">Keterangan:</strong> ${escapeHtml(meaning)}
                         </div>
                     </div>
                 `;
             },
         },
         series: [{
-            name: 'Status Pekerjaan',
-            type: 'pie',
-            radius: ['44%', '70%'],
-            center: ['50%', '46%'],
-            avoidLabelOverlap: true,
-            itemStyle: {
-                borderRadius: 4,
-                borderColor: '#FFFFFF',
-                borderWidth: 2,
-            },
+            name: 'Jumlah Alumni',
+            type: 'bar',
+            barMaxWidth: 24,
+            data,
             label: {
                 show: true,
-                formatter: ({ data }) => `${formatPercentage(data.percentage)} ${data.name}`,
+                position: 'right',
+                distance: 8,
+                formatter: ({ data }) => `${formatNumber(data.value, 0)} (${formatPercentage(data.percentage)})`,
                 fontSize: 11,
-                fontWeight: 'bold',
-                color: '#1E293B',
+                fontWeight: 700,
+                color: '#0F172A',
             },
-            data,
         }],
+        _dynamicHeight: chartHeight,
     };
 });
 
-const donutTable = computed(() => ({
+const barTable = computed(() => ({
     columns: [
         { key: 'status', label: 'Status Aktivitas Alumni' },
         { key: 'count', label: 'Jumlah Alumni (n)', align: 'right' },
         { key: 'percentage', label: 'Persentase', align: 'right' },
     ],
-    rows: series.value.map((item) => ({
+    rows: activeSeries.value.map((item) => ({
         status: seriesLabel(item),
         count: formatNumber(seriesMetric(item), 0),
         percentage: formatPercentage(item.percentage || 0),
@@ -542,20 +575,20 @@ const donutAnalysisMap = computed(() => {
 // Konfigurasi views untuk kontainer terpadu
 const views = computed(() => [
     {
-        key: 'donut',
-        chartType: 'donut',
+        key: 'proportion',
+        chartType: 'horizontal_bar',
         tabLabel: 'Proporsi Universitas',
         title: 'Proporsi status pekerjaan universitas',
         description: 'Distribusi status alumni (Bekerja, Melanjutkan Pendidikan, Wiraswasta, dan Mencari Kerja) tingkat universitas.',
-        option: donutOption.value,
-        tableData: donutTable.value,
-        height: 390,
+        option: barOption.value,
+        tableData: barTable.value,
+        height: Math.max(300, activeSeries.value.length * 48 + 60),
         analysis: {
             title: 'Kilas Capaian Keterserapan Alumni (IKU 1)',
             statusBadge: 'Keterserapan Utama',
             badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-            lead: series.value[0]?.label
-                ? `Sebagian besar lulusan UKDW telah terserap di dunia kerja dengan status ${series.value[0].label} sebesar ${formatPercentage(series.value[0].percentage)} (${series.value[0].count} alumni). Arahkan kursor ke segmen grafik untuk melihat keterangan detail persentase.`
+            lead: activeSeries.value[activeSeries.value.length - 1]?.label
+                ? `Sebagian besar lulusan UKDW telah terserap di dunia kerja dengan status ${activeSeries.value[activeSeries.value.length - 1].label} sebesar ${formatPercentage(activeSeries.value[activeSeries.value.length - 1].percentage)} (${activeSeries.value[activeSeries.value.length - 1].count} alumni).`
                 : 'Data status pekerjaan terdata lengkap.',
             detail: 'Kombinasi alumni yang berstatus bekerja, wiraswasta, dan melanjutkan studi pascasarjana menjadi pilar utama pemenuhan Indikator Kinerja Utama (IKU 1) Universitas Kristen Duta Wacana.',
         },
@@ -576,24 +609,6 @@ const views = computed(() => [
             badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
             lead: `Tercatat variasi komposisi serapan alumni pada ${prodis.value.length} program studi yang berpartisipasi.`,
             detail: 'Setiap program studi menampilkan karakteristik transisi karir yang unik, di mana prodi vokasi/teknik menunjukkan tingkat kerja langsung yang tinggi dan prodi humaniora/sains mengombinasikan studi lanjut dan wirausaha.',
-        },
-    },
-    {
-        key: 'sankey',
-        chartType: 'sankey',
-        tabLabel: 'Alur Keterserapan',
-        title: 'Sankey Diagram: Aliran Program Studi ke Status Pekerjaan',
-        description: 'Ketebalan setiap pita menunjukkan jumlah alumni yang mengalir dari program studi asal menuju status pekerjaan atau studi lanjut.',
-        option: sankeyOption.value,
-        tableData: sankeyTable.value,
-        height: Math.max(420, prodis.value.length * 28 + 100),
-        analysis: {
-            title: 'Kilas Aliran Kontribusi Karir',
-            statusBadge: 'Aliran Proporsional',
-            badgeClass: 'bg-slate-100 text-slate-700',
-            lead: 'Diagram aliran menunjukkan kontribusi tiap program studi dalam menyuplai talenta ke pasar tenaga kerja dan studi lanjutan.',
-            detail: 'Ketebalan pita aliran sebanding dengan kuantitas alumni yang diserap oleh masing-masing status karir.',
-            reason: 'Dipilih untuk membaca hubungan asal program studi dan tujuan status karir secara simultan; pita yang lebih tebal berarti jumlah alumni yang lebih besar.',
         },
     },
 ]);

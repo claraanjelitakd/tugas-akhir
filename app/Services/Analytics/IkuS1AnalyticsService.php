@@ -246,11 +246,11 @@ class IkuS1AnalyticsService
         $valid = $classified
             ->whereIn('career_category', self::VALID_CAREER_CATEGORIES)
             ->filter(fn (array $row): bool => $row['weight'] > 0);
-        $comparable = $valid->filter(fn (array $row): bool => $row['salary'] !== null && $row['threshold'] !== null);
-        $above = $comparable->filter(fn (array $row): bool => $row['salary_above_threshold'])->count();
+        $comparable = $valid->filter(fn (array $row): bool => $row['salary_above_threshold'] !== null);
+        $above = $comparable->filter(fn (array $row): bool => $row['salary_above_threshold'] === true)->count();
         $roleStats = $classified->groupBy(fn (array $row): string => $row['career_category'] ?: 'Tidak memenuhi klasifikasi')
             ->map(function (Collection $categoryRows, string $label): array {
-                $comparableRows = $categoryRows->filter(fn (array $row): bool => $row['salary'] !== null && $row['threshold'] !== null);
+                $comparableRows = $categoryRows->filter(fn (array $row): bool => $row['salary_above_threshold'] !== null);
                 $aboveRows = $comparableRows->filter(fn (array $row): bool => $row['salary_above_threshold'] === true);
                 $weightedScore = round($categoryRows->sum('weight'), 4);
                 $weightedCount = $categoryRows->filter(fn (array $row): bool => $row['weight'] > 0)->count();
@@ -270,18 +270,16 @@ class IkuS1AnalyticsService
                     'average_weight' => $weightedCount > 0 ? round($weightedScore / $weightedCount, 4) : 0.0,
                 ];
             });
-        $waitCategories = ['Sebelum Lulus', '<6 bulan', '6–<12 bulan', '≥12 bulan', 'Melanjutkan Pendidikan', 'Masa Tunggu Tidak Tersedia'];
+        $waitCategories = ['Sebelum Lulus', '<6 bulan', '6–<12 bulan', '≥12 bulan', 'Masa Tunggu Tidak Tersedia'];
         $waitStats = $classified->groupBy(fn (array $row): string => $row['career_category'] ?: 'Tidak memenuhi klasifikasi')
             ->map(function (Collection $roleRows, string $role) use ($waitCategories): array {
                 $counts = array_fill_keys($waitCategories, 0);
                 foreach ($roleRows as $row) {
-                    $category = $row['career_category'] === 'Melanjutkan Pendidikan'
-                        ? 'Melanjutkan Pendidikan'
-                        : ($row['before_graduation'] === true
-                            ? 'Sebelum Lulus'
-                            : ($row['months'] === null
-                                ? 'Masa Tunggu Tidak Tersedia'
-                                : ($row['months'] < 6 ? '<6 bulan' : ($row['months'] < 12 ? '6–<12 bulan' : '≥12 bulan'))));
+                    $category = $row['before_graduation'] === true
+                        ? 'Sebelum Lulus'
+                        : ($row['months'] === null
+                            ? 'Masa Tunggu Tidak Tersedia'
+                            : ($row['months'] < 6 ? '<6 bulan' : ($row['months'] < 12 ? '6–<12 bulan' : '≥12 bulan')));
                     $counts[$category]++;
                 }
 
@@ -295,8 +293,8 @@ class IkuS1AnalyticsService
                 ];
             })->values()->all();
         $series = $valid->groupBy('career_category')->map(function (Collection $categoryRows, string $label) use ($valid): array {
-            $comparableRows = $categoryRows->filter(fn (array $row): bool => $row['salary'] !== null && $row['threshold'] !== null);
-            $aboveRows = $comparableRows->filter(fn (array $row): bool => $row['salary_above_threshold']);
+            $comparableRows = $categoryRows->filter(fn (array $row): bool => $row['salary_above_threshold'] !== null);
+            $aboveRows = $comparableRows->filter(fn (array $row): bool => $row['salary_above_threshold'] === true);
 
             return [
                 'label' => $label,
@@ -312,8 +310,8 @@ class IkuS1AnalyticsService
         return [
             'key' => 'iku_s1_ump_weighted',
             'type' => 'iku_s1_ump_weighted',
-            'title' => 'Audit Pendapatan, Masa Tunggu, dan Bobot IKU S1',
-            'subtitle' => 'Tiga sudut audit untuk responden yang sama: status gaji terhadap 1,2× UMP, masa tunggu, dan akumulasi bobot IKU.',
+            'title' => 'Audit Pendapatan dan Masa Tunggu Lulusan S1',
+            'subtitle' => 'Dua sudut audit untuk responden yang sama: status gaji terhadap 1,2× UMP dan masa tunggu kelulusan.',
             'summary' => [
                 'population' => $classified->count(),
                 'valid_respondents' => $valid->count(),
@@ -435,7 +433,8 @@ class IkuS1AnalyticsService
         $ump = $umpRows->get($row->kode_provinsi);
         $threshold = $ump === null ? null : $ump * (float) config('iku.s1.ump_multiplier', 1.2);
         $salary = $row->gaji === null ? null : (float) $row->gaji;
-        $salaryAboveThreshold = $salary !== null && $threshold !== null
+        $isFurtherStudy = $category === 'Melanjutkan Pendidikan';
+        $salaryAboveThreshold = ($salary !== null && $threshold !== null)
             ? $salary > $threshold
             : null;
         $beforeGraduation = match (mb_strtolower(trim((string) $row->bekerja_sebelum_lulus))) {
@@ -443,6 +442,18 @@ class IkuS1AnalyticsService
             'tidak' => false,
             default => null,
         };
+        if ($beforeGraduation === null && $isFurtherStudy) {
+            $studyStart = $this->validStudyStart($row->tanggal_mulai_studi);
+            if ($studyStart && $row->tanggal_lulus) {
+                try {
+                    $start = Carbon::parse($studyStart);
+                    $graduated = Carbon::parse($row->tanggal_lulus);
+                    $beforeGraduation = $start->lessThan($graduated);
+                } catch (\Throwable) {
+                    $beforeGraduation = null;
+                }
+            }
+        }
         $months = $this->resolveWaitMonths($row, $beforeGraduation);
         $weight = $this->resolveWeight($category, $beforeGraduation, $months, $salaryAboveThreshold, $row);
 
@@ -469,7 +480,7 @@ class IkuS1AnalyticsService
                 : ($salaryAboveThreshold === false ? 'below' : 'unavailable'),
             'career_role' => $this->careerRole($category, $row),
             'career_status_label' => $this->careerStatusLabel($category, $row),
-            'nama_perusahaan' => $row->profile_company_name,
+            'nama_perusahaan' => $row->profile_company_name ?: ($row->perguruan_tinggi ?: '-'),
             'lokasi_kerja' => $this->workplaceLocation($row),
             'nama_atasan' => $row->supervisor_name,
             'email_atasan' => $row->supervisor_email,
@@ -516,13 +527,17 @@ class IkuS1AnalyticsService
             || filled($row->pendidikan_tingkat)
             || filled($row->perguruan_tinggi)
             || filled($row->pendidikan_prodi);
-        $hasWorkProfile = filled($row->profile_company_name)
-            || filled($row->posisi_jabatan)
-            || filled($row->bidang_pekerjaan)
-            || filled($row->divisi);
 
-        if ($hasFurtherStudy && $category === 'Melanjutkan Pendidikan' && $hasWorkProfile) {
-            return 'Bekerja + Studi Lanjut';
+        // Jika kategori utama Melanjutkan Pendidikan, periksa apakah ada pekerjaan nyata di luar studi lanjut
+        if ($category === 'Melanjutkan Pendidikan') {
+            $position = mb_strtolower((string) $row->posisi_jabatan);
+            $isStudentRole = str_contains($position, 'mahasiswa') || str_contains($position, 'pascasarjana') || str_contains($position, 'awardee') || str_contains($position, 'beasiswa');
+            $company = mb_strtolower((string) $row->profile_company_name);
+            $isCampus = str_contains($company, 'universitas') || str_contains($company, 'pascasarjana') || str_contains($company, 'sekolah') || str_contains($company, 'fakultas');
+            $status = mb_strtolower((string) ($row->profile_career_status ?: $row->status_karier));
+            $hasExplicitWork = (str_contains($status, 'bekerja') || str_contains($status, 'karyawan') || str_contains($status, 'wirausaha')) && ! $isStudentRole && ! $isCampus;
+
+            return $hasExplicitWork ? 'Bekerja + Studi Lanjut' : 'Melanjutkan Pendidikan';
         }
 
         if ($hasFurtherStudy && $category !== 'Melanjutkan Pendidikan') {
@@ -582,7 +597,11 @@ class IkuS1AnalyticsService
             return (string) $row->posisi_jabatan;
         }
 
-        return $category;
+        if (in_array($category, ['Founder / Co-Founder', 'Wirausaha Lainnya'], true)) {
+            return $category;
+        }
+
+        return '-';
     }
 
     /**
@@ -641,11 +660,29 @@ class IkuS1AnalyticsService
             return 'Karyawan';
         }
 
-        if (str_contains($status, 'pendidikan') && $hasWorkProfile) {
-            return 'Karyawan';
-        }
-
         if (str_contains($status, 'pendidikan')) {
+            $posisiJabatan = mb_strtolower((string) $row->posisi_jabatan);
+            $isStudyRole = str_contains($posisiJabatan, 'mahasiswa')
+                || str_contains($posisiJabatan, 'pascasarjana')
+                || str_contains($posisiJabatan, 'awardee')
+                || str_contains($posisiJabatan, 'beasiswa');
+            $compName = mb_strtolower((string) $row->profile_company_name);
+            $isCampus = str_contains($compName, 'universitas')
+                || str_contains($compName, 'sekolah pascasarjana')
+                || str_contains($compName, 'institut')
+                || str_contains($compName, 'politeknik');
+
+            $hasRealWorkProfile = (! $isStudyRole && ! $isCampus) && (
+                filled($row->profile_company_name)
+                || filled($row->posisi_jabatan)
+                || filled($row->bidang_pekerjaan)
+                || filled($row->divisi)
+            );
+
+            if ($hasRealWorkProfile) {
+                return 'Karyawan';
+            }
+
             return 'Melanjutkan Pendidikan';
         }
 
@@ -653,7 +690,7 @@ class IkuS1AnalyticsService
     }
 
     /**
-     * Mengambil masa tunggu dari kolom sebelum atau sesudah lulus.
+     * Mengambil masa tunggu dari kolom sebelum atau sesudah lulus atau tanggal mulai studi lanjut.
      *
      * @param  object  $row  Baris view lulusan.
      * @param  bool|null  $beforeGraduation  Apakah pekerjaan diperoleh sebelum lulus.
@@ -661,13 +698,31 @@ class IkuS1AnalyticsService
      */
     private function resolveWaitMonths(object $row, ?bool $beforeGraduation): ?float
     {
-        if ($beforeGraduation === null) {
-            return null;
+        if ($beforeGraduation !== null) {
+            $value = $beforeGraduation ? $row->bulan_sebelum_lulus : $row->bulan_setelah_lulus;
+            if (is_numeric($value)) {
+                return (float) $value;
+            }
         }
 
-        $value = $beforeGraduation ? $row->bulan_sebelum_lulus : $row->bulan_setelah_lulus;
+        // Jika belum ada nilai bulan dari kuesioner bekerja, hitung dari tanggal studi lanjut vs kelulusan
+        $studyStart = $this->validStudyStart($row->tanggal_mulai_studi);
+        if ($studyStart && $row->tanggal_lulus) {
+            try {
+                $start = Carbon::parse($studyStart);
+                $graduated = Carbon::parse($row->tanggal_lulus);
+                $diffDays = $graduated->diffInDays($start, false);
+                if ($diffDays < 0) {
+                    return 0.0;
+                }
 
-        return is_numeric($value) ? (float) $value : null;
+                return round($diffDays / 30.4375, 1);
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -682,76 +737,70 @@ class IkuS1AnalyticsService
      */
     private function resolveWeight(string $category, ?bool $beforeGraduation, ?float $months, ?bool $salaryAboveThreshold, object $row): float
     {
-        if ($category === 'Melanjutkan Pendidikan') {
-            $studyStart = $this->validStudyStart($row->tanggal_mulai_studi);
-            if (! $studyStart || ! $row->tanggal_lulus) {
-                return 0.0;
-            }
-
+        // Hitung kelayakan bobot studi lanjut jika ada data tanggal mulai studi
+        $studyWeight = 0.0;
+        $studyStart = $this->validStudyStart($row->tanggal_mulai_studi);
+        if ($studyStart && $row->tanggal_lulus) {
             try {
                 $start = Carbon::parse($studyStart);
                 $graduated = Carbon::parse($row->tanggal_lulus);
+                if ($start->greaterThanOrEqualTo($graduated) && $start->lessThan($graduated->copy()->addYear())) {
+                    $studyWeight = (float) config('iku.s1.weights.study_continuation', 0.6);
+                }
             } catch (\Throwable) {
-                return 0.0;
+                $studyWeight = 0.0;
             }
-
-            return $start->greaterThanOrEqualTo($graduated) && $start->lessThan($graduated->copy()->addYear())
-                ? (float) config('iku.s1.weights.study_continuation', 0.6)
-                : 0.0;
         }
 
-        if ($beforeGraduation === null || $months === null || $months < 0) {
-            return 0.0;
+        if ($category === 'Melanjutkan Pendidikan') {
+            return $studyWeight;
         }
 
-        if ($salaryAboveThreshold === null || $months >= 12) {
-            return 0.0;
+        $workWeight = 0.0;
+        if ($beforeGraduation !== null && $months !== null && $months >= 0 && $salaryAboveThreshold !== null && $months < 12) {
+            $weights = config('iku.s1.weights', []);
+
+            if ($beforeGraduation) {
+                $workWeight = $salaryAboveThreshold
+                    ? (float) ($weights['before_graduation_above_ump'] ?? 1.0)
+                    : (float) ($weights['before_graduation_below_ump'] ?? 0.6);
+            } else {
+                $short = $months < 6;
+                $high = $salaryAboveThreshold;
+
+                if ($category === 'Founder / Co-Founder') {
+                    $workWeight = $short && $high
+                        ? (float) ($weights['founder_after_under_6_above_ump'] ?? 1.2)
+                        : (! $short && $high
+                            ? (float) ($weights['founder_after_6_plus_above_ump'] ?? 1.0)
+                            : ($short
+                                ? (float) ($weights['founder_after_under_6_below_ump'] ?? 0.8)
+                                : (float) ($weights['founder_after_6_plus_below_ump'] ?? 0.6)));
+                } elseif ($category === 'Freelancer') {
+                    $workWeight = $short && $high
+                        ? (float) ($weights['freelancer_after_under_6_above_ump'] ?? 0.5)
+                        : (! $short && $high
+                            ? (float) ($weights['freelancer_after_6_plus_above_ump'] ?? 0.4)
+                            : ($short
+                                ? (float) ($weights['freelancer_after_under_6_below_ump'] ?? 0.3)
+                                : (float) ($weights['freelancer_after_6_plus_below_ump'] ?? 0.2)));
+                } elseif ($category === 'Wirausaha Lainnya') {
+                    $workWeight = 0.0;
+                } else {
+                    // Kategori Karyawan
+                    if ($short && $high) {
+                        $workWeight = (float) ($weights['employee_after_under_6_above_ump'] ?? 1.0);
+                    } elseif ($high) {
+                        $workWeight = (float) ($weights['employee_after_6_under_12_above_ump'] ?? 0.8);
+                    } else {
+                        $workWeight = (float) ($weights['employee_after_under_12_below_ump'] ?? 0.6);
+                    }
+                }
+            }
         }
 
-        $weights = config('iku.s1.weights', []);
-
-        if ($beforeGraduation) {
-            return $salaryAboveThreshold
-                ? (float) ($weights['before_graduation_above_ump'] ?? 1.0)
-                : (float) ($weights['before_graduation_below_ump'] ?? 0.6);
-        }
-
-        $short = $months < 6;
-        $high = $salaryAboveThreshold;
-
-        if ($category === 'Founder / Co-Founder') {
-            return $short && $high
-                ? (float) ($weights['founder_after_under_6_above_ump'] ?? 1.2)
-                : (! $short && $high
-                    ? (float) ($weights['founder_after_6_plus_above_ump'] ?? 1.0)
-                    : ($short
-                        ? (float) ($weights['founder_after_under_6_below_ump'] ?? 0.8)
-                        : (float) ($weights['founder_after_6_plus_below_ump'] ?? 0.6)));
-        }
-
-        if ($category === 'Freelancer') {
-            return $short && $high
-                ? (float) ($weights['freelancer_after_under_6_above_ump'] ?? 0.5)
-                : (! $short && $high
-                    ? (float) ($weights['freelancer_after_6_plus_above_ump'] ?? 0.4)
-                    : ($short
-                        ? (float) ($weights['freelancer_after_under_6_below_ump'] ?? 0.3)
-                        : (float) ($weights['freelancer_after_6_plus_below_ump'] ?? 0.2)));
-        }
-
-        if ($category === 'Wirausaha Lainnya') {
-            return 0.0;
-        }
-
-        if ($months < 6 && $salaryAboveThreshold) {
-            return (float) ($weights['employee_after_under_6_above_ump'] ?? 1.0);
-        }
-
-        if ($months < 12 && $salaryAboveThreshold) {
-            return (float) ($weights['employee_after_6_under_12_above_ump'] ?? 0.8);
-        }
-
-        return $months < 12 ? (float) ($weights['employee_after_under_12_below_ump'] ?? 0.6) : 0.0;
+        // Ambil bobot tertinggi yang memenuhi syarat (prinsip highest valid weight)
+        return max($workWeight, $studyWeight);
     }
 
     /**

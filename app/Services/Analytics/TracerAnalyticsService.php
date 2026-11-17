@@ -91,9 +91,9 @@ class TracerAnalyticsService
         ],
         [
             'key' => 'iku_s1_aee',
-            'label' => 'AEE S1: kelulusan tepat waktu',
-            'description' => 'Populasi seluruh mahasiswa S1 dibandingkan dengan lulusan tepat waktu per program studi.',
-            'visual_plan' => 'Stacked bar horizontal AEE per prodi, segmen tepat waktu dibanding sisa denominator, dan tabel status akademik.',
+            'label' => 'AEE S1: Rasio kelulusan tepat waktu (maks. 4 tahun)',
+            'description' => 'Populasi seluruh mahasiswa S1 dibandingkan dengan kelulusan tepat waktu (AEE maks. 4 tahun) per program studi.',
+            'visual_plan' => 'Stacked bar horizontal AEE rasio kelulusan tepat waktu per prodi, segmen tepat waktu dibanding sisa denominator, dan tabel data.',
         ],
         [
             'key' => 'iku_s1_outcomes',
@@ -1432,16 +1432,19 @@ class TracerAnalyticsService
             $ipkValues = $rows->pluck('ipk')->filter(fn (mixed $value): bool => $value !== null)->all();
             $top = $rows->firstWhere('persentase', $rows->max('persentase'));
 
+            $avgAwal = $this->average($rows->pluck('tahap_awal')->all());
+            $avgAkhir = $this->average($rows->pluck('tahap_akhir')->all());
+
             return [
                 'prodi' => $prodi,
                 'alumni_valid' => $rows->count(),
-                'rata_ipk' => $this->average($ipkValues),
-                'rata_awal' => $this->average($rows->pluck('tahap_awal')->all()),
-                'rata_akhir' => $this->average($rows->pluck('tahap_akhir')->all()),
-                'rata_persentase' => $this->average($validPercentages),
+                'rata_ipk' => $this->average($ipkValues) !== null ? round($this->average($ipkValues), 2) : null,
+                'rata_awal' => $avgAwal !== null ? (int) round($avgAwal) : null,
+                'rata_akhir' => $avgAkhir !== null ? (int) round($avgAkhir) : null,
+                'rata_persentase' => $this->average($validPercentages) !== null ? round($this->average($validPercentages), 1) : null,
                 'alumni_tertinggi' => $top['nama_alumni'] ?? null,
-                'persentase_tertinggi' => $top['persentase'] ?? null,
-                'ipk_tertinggi' => $top['ipk'] ?? null,
+                'persentase_tertinggi' => $top['persentase'] !== null ? round($top['persentase'], 1) : null,
+                'ipk_tertinggi' => $top['ipk'] !== null ? round($top['ipk'], 2) : null,
             ];
         })->sortByDesc('persentase_tertinggi')->values()->all();
 
@@ -2790,9 +2793,9 @@ class TracerAnalyticsService
     {
         return $rows->groupBy($groupKey)->map(function (Collection $group) use ($groupKey, $labelKey): array {
             $total = $group->count();
-            $meets = $group->where('meets_ump', true)->count();
-            $below = $group->where('meets_ump', false)->count();
-            $unavailable = $total - $meets - $below;
+            $meets = $group->whereStrict('meets_ump', true)->count();
+            $below = $group->whereStrict('meets_ump', false)->count();
+            $unavailable = $group->filter(fn (mixed $r): bool => data_get($r, 'meets_ump') === null)->count();
             $salaries = $group->pluck('salary')->filter(fn (mixed $salary): bool => $salary !== null && $salary > 0)->all();
             $first = $group->first();
 

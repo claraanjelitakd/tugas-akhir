@@ -34,6 +34,25 @@ const records = computed(() => props.chart?.records || []);
 const alumniList = computed(() => props.chart?.alumni_list || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || props.chart?.summary?.response_count || records.value.length);
 
+// Menghubungkan daftar alumni terpadu agar memiliki field prodi dan nilai tahapan individual untuk drill-down klik
+const enrichedRows = computed(() => {
+    const list = alumniList.value;
+    if (list && list.length > 0) {
+        return list.map((a) => ({
+            ...a,
+            nama_alumni: a.nama,
+            prodi: a.nama_prodi,
+            dilamar: a.f6,
+            merespon: a.f7,
+            wawancara: a.f7a,
+            category: a.nama_prodi,
+            target: a.nama_prodi,
+        }));
+    }
+
+    return records.value;
+});
+
 // Palet warna Viridis kontinu untuk skala IPK 0.0 - 4.0
 const viridisColors = ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'];
 
@@ -134,10 +153,11 @@ const prodiPipelineData = computed(() => {
 });
 
 // Opsi stacked bar 100% horizontal untuk membandingkan proporsi tahapan pipeline per prodi.
+// Menggunakan batang bertumpuk (stacked bar) dengan legend diletakkan di bagian atas.
 const pipelineStackedBarOption = computed(() => {
     const list = prodiPipelineData.value;
     const categories = ['Perusahaan Dilamar', 'Merespon', 'Mewawancara'];
-    const colors = ['#B91C1C', '#FACC15', '#0D542B'];
+    const colors = ['#B91C1C', '#EAB308', '#0D542B'];
     const labelColors = ['#FFFFFF', '#334155', '#FFFFFF'];
     const rows = list.map((item) => {
         const total = item.dilamar + item.merespon + item.wawancara;
@@ -149,15 +169,15 @@ const pipelineStackedBarOption = computed(() => {
         ...baseOption(records.value.length),
         legend: {
             data: categories,
-            bottom: 0,
+            top: 0,
+            left: 'center',
             textStyle: { color: '#334155', fontWeight: 600, fontSize: 12 },
         },
-        grid: { left: 24, right: 36, top: 28, bottom: 64, containLabel: true },
+        grid: { left: 16, right: 48, top: 40, bottom: 24, containLabel: true },
         xAxis: {
             type: 'value',
             min: 0,
             max: 100,
-            name: 'Proporsi median tahapan',
             axisLabel: { formatter: '{value}%', color: '#64748B' },
             splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
         },
@@ -165,23 +185,25 @@ const pipelineStackedBarOption = computed(() => {
             type: 'category',
             inverse: true,
             data: rows.map((item) => `${item.prodi} (n=${item.count})`),
-            axisLabel: { color: '#334155', width: 220, overflow: 'truncate' },
+            axisLabel: { color: '#334155', width: 180, overflow: 'truncate', fontWeight: 500 },
         },
         tooltip: {
             ...baseOption().tooltip,
             trigger: 'axis',
+            axisPointer: { type: 'shadow' },
             formatter: (params) => {
                 const item = rows[params[0]?.dataIndex ?? 0] || {};
+
                 return `
                     <div class="font-sans text-xs">
-                        <div class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5">${escapeHtml(item.prodi)} (n=${item.count})</div>
+                        <div class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5">${escapeHtml(item.prodi)} (n=${item.count} alumni)</div>
                         ${categories.map((category, index) => {
-        const value = [item.dilamar, item.merespon, item.wawancara][index];
-        const percentage = item.total > 0 ? (value / item.total) * 100 : 0;
+                            const value = [item.dilamar, item.merespon, item.wawancara][index];
+                            const percentage = item.total > 0 ? (value / item.total) * 100 : 0;
 
-        return `<div class="text-slate-600 mb-0.5">${category}: <strong>${formatNumber(value, 1)} (${formatNumber(percentage, 1)}%)</strong></div>`;
-    }).join('')}
-                        <div class="text-slate-600">Total median tahapan: <strong>${formatNumber(item.total, 1)}</strong></div>
+                            return `<div class="text-slate-600 mb-0.5">${category}: <strong>${formatNumber(value, 1)} perusahaan (${formatNumber(percentage, 1)}%)</strong></div>`;
+                        }).join('')}
+                        <div class="text-[11px] text-slate-500 border-t border-slate-100 pt-1 mt-1">Klik batang untuk memfilter rincian alumni prodi ini.</div>
                     </div>
                 `;
             },
@@ -190,27 +212,31 @@ const pipelineStackedBarOption = computed(() => {
             name: category,
             type: 'bar',
             stack: 'pipeline',
-            stackOrder: index,
-            barMaxWidth: 28,
+            barMaxWidth: 18,
             itemStyle: { color: colors[index] },
             label: {
                 show: true,
                 position: 'inside',
-                formatter: ({ data }) => data?.value >= 10 ? `${formatNumber(data.value, 1)}%` : '',
+                formatter: ({ data }) => {
+                    const pct = data?.percentage;
+                    return pct && pct >= 10 ? `${formatNumber(pct, 1)}%` : '';
+                },
                 color: labelColors[index],
                 fontWeight: 600,
                 fontSize: 10,
             },
             data: rows.map((item) => {
                 const value = [item.dilamar, item.merespon, item.wawancara][index];
+                const percentage = item.total > 0 ? (value / item.total) * 100 : 0;
 
                 return {
                     name: item.prodi,
-                    category,
-                    value: item.total > 0 ? Number(((value / item.total) * 100).toFixed(1)) : 0,
-                    count: value,
-                    total: item.total,
                     prodi: item.prodi,
+                    category,
+                    stageKey: ['f6', 'f7', 'f7a'][index],
+                    value: Number(percentage.toFixed(2)),
+                    percentage,
+                    count: value,
                 };
             }),
         })),
@@ -225,13 +251,20 @@ const pipelineLineTable = computed(() => ({
         { key: 'wawancara', label: 'Median Wawancara (F7a)', align: 'right' },
         { key: 'count', label: 'Responden (n)', align: 'right' },
     ],
-    rows: prodiPipelineData.value.map((item) => ({
-        prodi: item.prodi,
-        dilamar: formatNumber(item.dilamar, 1),
-        merespon: formatNumber(item.merespon, 1),
-        wawancara: formatNumber(item.wawancara, 1),
-        count: formatNumber(item.count, 0),
-    })),
+    rows: prodiPipelineData.value.map((item) => {
+        const fmt = (val) => {
+            if (val === null || val === undefined) return '-';
+            return val % 1 === 0 ? formatNumber(val, 0) : formatNumber(val, 1);
+        };
+
+        return {
+            prodi: item.prodi,
+            dilamar: fmt(item.dilamar),
+            merespon: fmt(item.merespon),
+            wawancara: fmt(item.wawancara),
+            count: formatNumber(item.count, 0),
+        };
+    }),
 }));
 
 // -----------------------------------------------------------------------------
@@ -705,20 +738,29 @@ const conversionBarTable = computed(() => {
             { key: 'tahap_awal', label: 'Jumlah Awal (Penyebut)', align: 'right' },
             { key: 'tahap_berikutnya', label: 'Jumlah Lanjutan (Pembilang)', align: 'right' },
             { key: 'persentase', label: 'Persentase Konversi', align: 'right' },
-            ...conversionIpkBands.map((band) => ({ key: band.key, label: band.label, align: 'right' })),
+            { key: 'rumus', label: 'Alur & Rumus Perhitungan' },
+            { key: 'keterangan', label: 'Interpretasi Hasil' },
         ],
-        rows: rows.map((row) => ({
-            tahapan: row.label,
-            tahap_awal: formatNumber(row.fromCount, 0),
-            tahap_berikutnya: formatNumber(row.toCount, 0),
-            persentase: `${formatNumber(row.conversionPercentage, 1)}%`,
-            ...Object.fromEntries(conversionIpkBands.map((band) => {
-                const count = row.counts[band.key] || 0;
-                const percentage = row.toCount > 0 ? (count / row.toCount) * 100 : 0;
+        rows: rows.map((row) => {
+            const pct = `${formatNumber(row.conversionPercentage, 1)}%`;
+            const from = formatNumber(row.fromCount, 0);
+            const to = formatNumber(row.toCount, 0);
+            const rumus = `(${to} / ${from}) × 100% = ${pct}`;
+            const keterangan = row.key === 'app_to_resp'
+                ? `${pct} dari lamaran terkirim berhasil direspons perusahaan.`
+                : (row.key === 'resp_to_intv'
+                    ? `${pct} dari respons perusahaan berlanjut ke undangan wawancara.`
+                    : `${pct} rasio end-to-end dari lamaran terkirim hingga meraih wawancara.`);
 
-                return [band.key, `${formatNumber(count, 0)} (${formatNumber(percentage, 1)}%)`];
-            })),
-        })),
+            return {
+                tahapan: row.label,
+                tahap_awal: from,
+                tahap_berikutnya: to,
+                persentase: pct,
+                rumus,
+                keterangan,
+            };
+        }),
     };
 });
 
@@ -793,28 +835,28 @@ const views = computed(() => {
 
     return [
         {
-            key: 'pipeline_line',
-            chartType: 'stacked_horizontal_100',
+            key: 'pipeline_prodi',
+            chartType: 'stacked_horizontal',
             tabLabel: 'Pipeline per Prodi',
-            title: 'Perusahaan dilamar, merespon, dan wawancara per program studi',
-            description: 'Distribusi 100% median tiga tahapan pipeline per prodi. Merah = dilamar, kuning = merespon, hijau = wawancara.',
+            title: 'Pipeline Rekrutmen per Prodi',
+            description: 'Proporsi median perusahaan dilamar, direspons, dan wawancara.',
             option: pipelineStackedBarOption.value,
             tableData: pipelineLineTable.value,
-            height: 440,
+            height: 480,
             analysis: {
                 title: 'Kilas Efisiensi Rekrutmen Prodi',
                 statusBadge: 'Pipeline Antarjurusan',
                 badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-                lead: 'Gambar 4.7 memperlihatkan konversi dari jumlah lamaran yang diajukan hingga perolehan panggilan wawancara kerja per program studi.',
-                detail: 'Selisih antara jumlah perusahaan yang dilamar dan yang merespon mencerminkan tingginya daya saing portofolio alumni UKDW, di mana sebagian besar lulusan tidak memerlukan banyak lamaran untuk segera dipanggil wawancara.',
+                lead: 'Komparasi proporsi proses seleksi kerja dari tahap lamaran, respons perusahaan, hingga wawancara di masing-masing prodi.',
+                detail: 'Proporsi bertumpuk memudahkan identifikasi disparitas efisiensi lamaran antarprogram studi.',
             },
         },
         {
             key: 'scatter_applications_responses',
             chartType: 'table',
             tabLabel: 'Lamaran vs Respons',
-            title: 'Hubungan Jumlah Lamaran dengan Jumlah Respons Perusahaan',
-            description: 'Tabel detail per alumni menampilkan persentase respons terhadap lamaran, IPK, serta pivot per program studi dengan alumni berpersentase tertinggi.',
+            title: 'Lamaran vs Respons',
+            description: 'Tabel perbandingan lamaran (F6) dan respons (F7).',
             tableOnly: true,
             option: null,
             tableData: scatter1Table.value,
@@ -822,16 +864,16 @@ const views = computed(() => {
                 title: 'Kilas Lamaran dan Respons',
                 statusBadge: `N = ${formatNumber(s1.summary?.valid_n || 0, 0)}`,
                 badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-                lead: 'Detail individu diurutkan dari persentase respons tertinggi dan menyertakan IPK untuk perbandingan langsung.',
-                detail: 'Pivot program studi menampilkan rata-rata IPK, rata-rata tahap, persentase rata-rata, dan alumni dengan persentase respons tertinggi.',
+                lead: 'Detail individu diurutkan dari persentase respons tertinggi.',
+                detail: 'Pivot program studi menampilkan rata-rata IPK, tahapan, dan persentase respons tertinggi.',
             },
         },
         {
             key: 'scatter_responses_interviews',
             chartType: 'table',
             tabLabel: 'Respons vs Wawancara',
-            title: 'Hubungan Jumlah Respons Perusahaan dengan Undangan Wawancara',
-            description: 'Tabel detail per alumni menampilkan persentase undangan wawancara terhadap respons, IPK, serta pivot per program studi dengan alumni berpersentase tertinggi.',
+            title: 'Respons vs Wawancara',
+            description: 'Tabel perbandingan respons (F7) dan wawancara (F7a).',
             tableOnly: true,
             option: null,
             tableData: scatter2Table.value,
@@ -839,16 +881,16 @@ const views = computed(() => {
                 title: 'Kilas Respons dan Wawancara',
                 statusBadge: `N = ${formatNumber(s2.summary?.valid_n || 0, 0)}`,
                 badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-                lead: 'Detail individu diurutkan dari persentase undangan wawancara tertinggi dan menyertakan IPK untuk perbandingan langsung.',
-                detail: 'Pivot program studi menampilkan rata-rata IPK, rata-rata tahap, persentase rata-rata, dan alumni dengan persentase wawancara tertinggi.',
+                lead: 'Detail individu diurutkan dari persentase undangan wawancara tertinggi.',
+                detail: 'Pivot program studi menampilkan rata-rata IPK, tahapan, dan persentase wawancara tertinggi.',
             },
         },
         {
             key: 'conversion_stages',
             chartType: 'stacked_horizontal',
             tabLabel: 'Konversi Tahapan',
-            title: 'Persentase Konversi Lamaran hingga Wawancara',
-            description: 'Panjang batang menunjukkan jumlah tahap lanjutan. Warna menunjukkan rentang IPK: abu-abu tidak tersedia, merah 0–<1, oranye 1–<2, kuning 2–<3, dan hijau 3–4. Label segmen menunjukkan persentasenya.',
+            title: 'Konversi Tahapan Rekrutmen',
+            description: 'Rasio keberhasilan lamaran hingga wawancara per kelompok IPK.',
             option: conversionBarOption.value,
             tableData: conversionBarTable.value,
             height: 360,
@@ -856,16 +898,16 @@ const views = computed(() => {
                 title: 'Kilas Efisiensi Konversi Rekrutmen',
                 statusBadge: 'Konversi Berbobot',
                 badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-                lead: `Dari seluruh proses pencarian kerja, sebanyak ${formatNumber(st0.percentage, 1)}% lamaran berhasil memperoleh respons (${formatNumber(st0.to_count, 0)} dari ${formatNumber(st0.from_count, 0)} lamaran), dan ${formatNumber(st1.percentage, 1)}% dari respons tersebut berhasil dikonversi menjadi undangan wawancara (${formatNumber(st1.to_count, 0)} dari ${formatNumber(st1.from_count, 0)} respons).`,
-                detail: `Secara menyeluruh (end-to-end), rasio konversi lamaran langsung hingga undangan wawancara berada pada angka ${formatNumber(st2.percentage, 1)}% (${formatNumber(st2.to_count, 0)} dari ${formatNumber(st2.from_count, 0)} total lamaran).`,
+                lead: `Sebanyak ${formatNumber(st0.percentage, 1)}% lamaran berhasil memperoleh respons (${formatNumber(st0.to_count, 0)} dari ${formatNumber(st0.from_count, 0)} lamaran), dan ${formatNumber(st1.percentage, 1)}% dari respons tersebut berlanjut ke wawancara (${formatNumber(st1.to_count, 0)} dari ${formatNumber(st1.from_count, 0)} respons).`,
+                detail: `Secara menyeluruh, rasio konversi lamaran langsung hingga wawancara adalah ${formatNumber(st2.percentage, 1)}% (${formatNumber(st2.to_count, 0)} dari ${formatNumber(st2.from_count, 0)} total lamaran).`,
             },
         },
         {
             key: 'stages',
             chartType: 'horizontal_bar',
             tabLabel: 'Median Universitas',
-            title: 'Median tahapan proses lamaran universitas',
-            description: 'Perbandingan agregat median perusahaan yang dilamar, merespon, dan mewawancara di tingkat perguruan tinggi.',
+            title: 'Median Pipeline Universitas',
+            description: 'Agregat median lamaran, respons, dan wawancara universitas.',
             option: stagesBarOption.value,
             tableData: stagesBarTable.value,
             height: 320,
@@ -873,8 +915,8 @@ const views = computed(() => {
                 title: 'Kilas Rerata Universitas',
                 statusBadge: 'Median Agregat',
                 badgeClass: 'bg-slate-100 text-slate-700',
-                lead: 'Rerata median universitas menunjukkan efisiensi proses pencarian kerja yang relatif terarah.',
-                detail: 'Angka median wawancara yang mendekati angka respons membuktikan bahwa berkas lamaran alumni yang direspons memiliki probabilitas sangat tinggi untuk berlanjut ke tahap wawancara kerja.',
+                lead: 'Rerata median universitas menunjukkan efisiensi pencarian kerja.',
+                detail: 'Median wawancara yang mendekati respons menunjukkan probabilitas tinggi berlanjut ke tahap wawancara.',
             },
         },
     ];
@@ -884,7 +926,7 @@ const views = computed(() => {
 <template>
     <AnalyticsTabbedContainer
         :views="views"
-        :rows="records"
+        :rows="enrichedRows"
         :selected-label="selectedLabel"
         :loading="loading"
         indicator-badge="Indikator 09"

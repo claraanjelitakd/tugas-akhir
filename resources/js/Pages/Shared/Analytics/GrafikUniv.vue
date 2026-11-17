@@ -350,7 +350,7 @@ const kpiCards = computed(() => {
                 action: 'data',
                 label: 'Lulusan valid',
                 value: formatNumber(summary.eligible_count, 0),
-                note: 'Lulusan S1 yang masuk denominator AEE',
+                note: 'Lulusan S1 denominator AEE',
                 hint: 'Klik untuk melihat daftar lulusan',
             },
             {
@@ -359,7 +359,7 @@ const kpiCards = computed(() => {
                 target: summary.top_program_label || '',
                 label: 'Prodi capaian tertinggi',
                 value: summary.top_program_label || '-',
-                note: 'Diurutkan berdasarkan realisasi AEE',
+                note: 'Berdasarkan realisasi AEE / kelulusan tepat waktu',
                 hint: summary.top_program_label ? `Klik untuk menyorot ${summary.top_program_label}` : 'Belum ada capaian yang dapat dibandingkan',
             },
             {

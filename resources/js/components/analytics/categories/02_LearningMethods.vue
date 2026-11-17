@@ -67,10 +67,11 @@ const handleDownloadChart = () => {
 const handleDownloadPdf = () => {
     const chartBase64 = echartRef.value?.getImageDataUrl ? echartRef.value.getImageDataUrl() : null;
 
-    const headers = ['Kode', 'Metode Pembelajaran', 'Skor INT', 'Kategori Penilaian', 'Responden (N)'];
+    const headers = ['Kode', 'Metode Pembelajaran', 'Rata-rata', 'Skor INT', 'Kategori Penilaian', 'Responden (N)'];
     const rows = (summaryTableData.value || []).map((row) => [
         row.key,
         row.name,
+        formatNumber(row.average, 2),
         row.score,
         row.score_label,
         formatNumber(row.count, 0),
@@ -355,14 +356,14 @@ const methodsRadarOption = computed(() => {
         min: 1,
     }));
 
-    // Skor 5 langsung menjadi radius terluar karena menunjukkan penekanan tertinggi.
+    // Memetakan nilai desimal aktual (average) agar bentuk radar berlekuk dinamis dan tidak flat di angka 3 bulat.
     const visualValues = list.map((item) => {
-        const rawScore = Number(item.score ?? 3);
-        return Math.max(1, Math.min(5, rawScore));
+        const rawVal = Number(item.average ?? item.score ?? 3);
+        return Math.max(1, Math.min(5, Number(rawVal.toFixed(2))));
     });
 
-    const rawAverages = list.map((item) => item.average ?? item.score ?? 3);
-    const rawScores = list.map((item) => item.score ?? 3);
+    const rawAverages = list.map((item) => Number(item.average ?? item.score ?? 3));
+    const rawScores = list.map((item) => Number(item.score ?? 3));
 
     return {
         ...baseOption(validResponses.value),
@@ -406,7 +407,7 @@ const methodsRadarOption = computed(() => {
                         <div style="font-size: 11px; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
                             <span style="color: #475569;">${escapeHtml(label)}</span>
                             <span style="font-weight: 700; color: #0D542B; font-family: monospace;">
-                                ${sc} <span style="font-weight: 500; color: #64748B; font-family: sans-serif;">(${escapeHtml(scaleDescriptions[sc] || '-')})</span>
+                                ${formatNumber(avg, 2)} <span style="font-weight: 500; color: #64748B; font-family: sans-serif;">(INT: ${sc} · ${escapeHtml(scaleDescriptions[sc] || '-')})</span>
                             </span>
                         </div>
                     `;
@@ -445,7 +446,10 @@ const methodsRadarOption = computed(() => {
                     fontSize: 12,
                     position: 'top',
                     distance: 6,
-                    formatter: (param) => String(Math.round(param.value)),
+                    formatter: (param) => {
+                        const val = Number(param.value);
+                        return Number.isFinite(val) ? String(Math.round(val)) : '';
+                    },
                 },
             }],
         }],
@@ -989,6 +993,40 @@ const summaryTableData = computed(() => {
     });
 });
 
+// Kontrol pencarian dan paginasi tabel rincian responden per metode
+const respondentSearch = ref('');
+const respondentPage = ref(1);
+const respondentPageSize = 10;
+
+watch(selectedMethodKey, () => {
+    respondentSearch.value = '';
+    respondentPage.value = 1;
+});
+
+const methodRecords = computed(() => {
+    if (!selectedMethodKey.value) return [];
+    return records.value.filter((r) => r.kode_pertanyaan === selectedMethodKey.value);
+});
+
+const filteredMethodRecords = computed(() => {
+    const q = respondentSearch.value.trim().toLowerCase();
+    if (!q) return methodRecords.value;
+    return methodRecords.value.filter((r) => {
+        return String(r.nim || '').toLowerCase().includes(q)
+            || String(r.nama || '').toLowerCase().includes(q)
+            || String(r.nama_prodi || '').toLowerCase().includes(q)
+            || String(r.score_label || '').toLowerCase().includes(q);
+    });
+});
+
+const totalRespondentPages = computed(() => Math.max(1, Math.ceil(filteredMethodRecords.value.length / respondentPageSize)));
+
+const paginatedMethodRecords = computed(() => {
+    const start = (respondentPage.value - 1) * respondentPageSize;
+    return filteredMethodRecords.value.slice(start, start + respondentPageSize);
+});
+
+
 </script>
 
 <template>
@@ -1340,6 +1378,7 @@ const summaryTableData = computed(() => {
                         <tr>
                             <th class="px-4 py-3">Kode</th>
                             <th class="px-4 py-3">Metode Pembelajaran</th>
+                            <th class="px-4 py-3 text-center">Rata-rata Skor</th>
                             <th class="px-4 py-3 text-center">Skor INT</th>
                             <th class="px-4 py-3">Kategori Penilaian</th>
                             <th class="px-4 py-3 text-right">Responden (N)</th>
@@ -1355,6 +1394,9 @@ const summaryTableData = computed(() => {
                         >
                             <td class="px-4 py-2.5 font-mono text-slate-500">{{ row.key }}</td>
                             <td class="px-4 py-2.5 font-medium text-slate-900">{{ row.name }}</td>
+                            <td class="px-4 py-2.5 text-center font-mono font-semibold text-slate-700">
+                                {{ formatNumber(row.average, 2) }}
+                            </td>
                             <td class="px-4 py-2.5 text-center">
                                 <span class="inline-flex items-center justify-center rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-bold text-[#0D542B]">
                                     {{ row.score }}
@@ -1471,6 +1513,7 @@ const summaryTableData = computed(() => {
                             <thead class="bg-slate-50 text-slate-600 sticky top-0 font-bold border-b border-slate-200">
                                 <tr>
                                     <th class="px-3 py-2">Program Studi</th>
+                                    <th class="px-3 py-2 text-center">Rata-rata</th>
                                     <th class="px-3 py-2 text-center">Skor INT</th>
                                     <th class="px-3 py-2 text-center">Kategori</th>
                                     <th class="px-3 py-2 text-right">Alumni</th>
@@ -1483,6 +1526,9 @@ const summaryTableData = computed(() => {
                                     class="hover:bg-slate-50 transition-colors"
                                 >
                                     <td class="px-3 py-2 font-medium">{{ p.prodi }}</td>
+                                    <td class="px-3 py-2 text-center font-mono font-semibold text-slate-700">
+                                        {{ formatNumber(p.average, 2) }}
+                                    </td>
                                     <td class="px-3 py-2 text-center">
                                         <span class="inline-flex rounded px-1.5 py-0.5 text-[11px] font-bold bg-emerald-50 text-[#0D542B]">
                                             {{ p.score_int }}
@@ -1497,6 +1543,90 @@ const summaryTableData = computed(() => {
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Rincian Data Responden Alumni Individu -->
+            <div class="rounded-lg border border-slate-200 bg-white p-4">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3 mb-3">
+                    <div>
+                        <h5 class="text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                            Daftar Jawaban Responden Alumni: {{ selectedMethodItem.label }}
+                        </h5>
+                        <p class="text-[11px] text-slate-500">
+                            Menampilkan {{ filteredMethodRecords.length }} dari {{ methodRecords.length }} alumni yang telah mengisi instrumen ini.
+                        </p>
+                    </div>
+
+                    <div class="w-full sm:w-64">
+                        <input
+                            v-model="respondentSearch"
+                            type="text"
+                            placeholder="Cari NIM, nama, prodi..."
+                            class="w-full rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-[#0D542B] focus:outline-hidden focus:ring-1 focus:ring-[#0D542B]"
+                        />
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border border-slate-100">
+                        <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                            <tr>
+                                <th class="px-3 py-2 font-mono">NIM</th>
+                                <th class="px-3 py-2">Nama Alumni</th>
+                                <th class="px-3 py-2">Program Studi</th>
+                                <th class="px-3 py-2 text-center">Skor Respon</th>
+                                <th class="px-3 py-2">Kategori Jawaban</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-slate-800">
+                            <tr
+                                v-for="rec in paginatedMethodRecords"
+                                :key="`${rec.nim}-${rec.kode_pertanyaan}`"
+                                class="hover:bg-slate-50/75 transition-colors"
+                            >
+                                <td class="px-3 py-2 font-mono font-medium text-slate-700">{{ rec.nim }}</td>
+                                <td class="px-3 py-2 font-medium text-slate-900">{{ rec.nama }}</td>
+                                <td class="px-3 py-2 text-slate-600">{{ rec.nama_prodi }}</td>
+                                <td class="px-3 py-2 text-center font-bold font-mono text-[#0D542B]">
+                                    {{ rec.score }}
+                                </td>
+                                <td class="px-3 py-2">
+                                    <span class="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                                        {{ rec.score_label || scaleDescriptions[rec.score] }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr v-if="paginatedMethodRecords.length === 0">
+                                <td colspan="5" class="px-3 py-6 text-center text-slate-400 text-xs">
+                                    Tidak ada data responden yang cocok dengan pencarian.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Paginasi Responden Sederhana -->
+                <div v-if="totalRespondentPages > 1" class="mt-3 flex items-center justify-between text-xs text-slate-600 pt-2 border-t border-slate-100">
+                    <span>Halaman {{ respondentPage }} dari {{ totalRespondentPages }}</span>
+                    <div class="flex gap-1">
+                        <button
+                            type="button"
+                            :disabled="respondentPage <= 1"
+                            class="rounded border border-slate-200 px-2.5 py-1 text-xs font-semibold hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                            @click="respondentPage--"
+                        >
+                            Sebelumnya
+                        </button>
+                        <button
+                            type="button"
+                            :disabled="respondentPage >= totalRespondentPages"
+                            class="rounded border border-slate-200 px-2.5 py-1 text-xs font-semibold hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                            @click="respondentPage++"
+                        >
+                            Berikutnya
+                        </button>
                     </div>
                 </div>
             </div>

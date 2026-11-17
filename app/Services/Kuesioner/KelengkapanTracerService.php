@@ -132,7 +132,9 @@ class KelengkapanTracerService
             'Nama Atasan' => $summary?->nama_atasan ?? $atasan?->nama,
             'Email Atasan' => $summary?->email_atasan ?? $atasan?->email,
             'Nomor Telepon Atasan' => $summary?->telepon_atasan ?? $atasan?->telepon,
-            'Posisi Jabatan' => $summary?->posisi_jabatan ?? $biodata->posisi_jabatan,
+            'Posisi Jabatan' => $biodata->kategori_pekerjaan === 'Wiraswasta'
+                ? ($summary?->posisi_wiraswasta ?? ($biodata->posisi_wiraswasta ?? $biodata->posisi_jabatan))
+                : ($summary?->posisi_jabatan ?? ($biodata->posisi_jabatan ?? $biodata->posisi_wiraswasta)),
 
             // Data Media Sosial & Profesional Alumni (Tabel biodata)
             'Keahlian (Skills)' => $summary?->skills ?? $biodata->skills,
@@ -160,7 +162,7 @@ class KelengkapanTracerService
             'Nama Atasan' => 'F2E1',
             'Email Atasan' => 'F2E3',
             'Nomor Telepon Atasan' => 'F2E2',
-            'Posisi Jabatan' => 'F2G',
+            'Posisi Jabatan' => $biodata->kategori_pekerjaan === 'Wiraswasta' ? 'F5C' : 'F2G',
             'Keahlian (Skills)' => 'BIO_SKILLS',
             'Pengalaman Kerja (Experience)' => 'BIO_EXPERIENCE',
             'LinkedIn Profil URL' => 'BIO_LINKEDIN_URL',

@@ -83,9 +83,9 @@ const umpCompositionOption = computed(() => {
     return {
         ...baseOption(records.value.length),
         themePalette: colors,
-        legend: { data: categories, bottom: 0, textStyle: { color: '#475569', fontSize: 11 } },
-        grid: { left: 24, right: 36, top: 28, bottom: 56, containLabel: true },
-        xAxis: { type: 'value', min: 0, max: maxTotal, name: 'Jumlah alumni', nameTextStyle: { color: '#64748B' }, axisLabel: { formatter: (value) => formatNumber(value, 0), color: '#64748B' }, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
+        legend: { show: false },
+        grid: { left: 24, right: 90, top: 20, bottom: 35, containLabel: true },
+        xAxis: { type: 'value', min: 0, max: maxTotal, name: 'Jumlah alumni', nameTextStyle: { color: '#64748B', padding: [0, 0, 0, 8] }, axisLabel: { formatter: (value) => formatNumber(value, 0), color: '#64748B' }, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
         yAxis: { type: 'category', inverse: true, data: rows.map((item) => `${item.role} (n=${item.count})`), axisLabel: { color: '#334155', width: 210, overflow: 'truncate' } },
         tooltip: {
             ...baseOption().tooltip,
@@ -112,7 +112,7 @@ const umpCompositionOption = computed(() => {
                 value: category === categories[0] ? item.unavailable : category === categories[1] ? item.below : item.above,
                 count: category === categories[0] ? item.unavailable : category === categories[1] ? item.below : item.above,
                 percentage: category === categories[0] ? item.unavailablePercentage : category === categories[1] ? item.belowPercentage : item.abovePercentage,
-                prodi: item.role,
+                role: item.role,
             })),
         })),
     };
@@ -124,17 +124,17 @@ const waitStats = computed(() => props.chart?.wait_stats || []);
 // Opsi stacked bar masa tunggu menggunakan jumlah dan persentase backend.
 const waitTimeOption = computed(() => {
     const rows = waitStats.value;
-    const categories = ['Sebelum Lulus', '<6 bulan', '6–<12 bulan', '≥12 bulan', 'Melanjutkan Pendidikan', 'Masa Tunggu Tidak Tersedia'];
-    const colors = ['#0D542B', '#FACC15', '#F97316', '#B91C1C', '#64748B', '#CBD5E1'];
-    const labelColors = ['#FFFFFF', '#334155', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#334155'];
+    const categories = ['Sebelum Lulus', '<6 bulan', '6–<12 bulan', '≥12 bulan', 'Masa Tunggu Tidak Tersedia'];
+    const colors = ['#0D542B', '#0284C7', '#F59E0B', '#DC2626', '#CBD5E1'];
+    const labelColors = ['#FFFFFF', '#FFFFFF', '#334155', '#FFFFFF', '#334155'];
     const maxTotal = Math.max(1, ...rows.map((item) => item.total));
 
     return {
         ...baseOption(records.value.length),
         themePalette: colors,
-        legend: { data: categories, bottom: 0, type: 'scroll', textStyle: { color: '#475569', fontSize: 11 } },
-        grid: { left: 24, right: 36, top: 28, bottom: 66, containLabel: true },
-        xAxis: { type: 'value', min: 0, max: maxTotal, name: 'Jumlah alumni', nameTextStyle: { color: '#64748B' }, axisLabel: { formatter: (value) => formatNumber(value, 0), color: '#64748B' }, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
+        legend: { show: false },
+        grid: { left: 24, right: 90, top: 20, bottom: 35, containLabel: true },
+        xAxis: { type: 'value', min: 0, max: maxTotal, name: 'Jumlah alumni', nameTextStyle: { color: '#64748B', padding: [0, 0, 0, 8] }, axisLabel: { formatter: (value) => formatNumber(value, 0), color: '#64748B' }, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
         yAxis: { type: 'category', inverse: true, data: rows.map((item) => `${item.role} (n=${item.total})`), axisLabel: { color: '#334155', width: 210, overflow: 'truncate' } },
         tooltip: { ...baseOption().tooltip, trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (params) => {
             const item = rows[params?.[0]?.dataIndex];
@@ -156,46 +156,11 @@ const waitTimeOption = computed(() => {
                 value: item.counts[category],
                 count: item.counts[category],
                 percentage: Number(item.percentages?.[category] || 0),
-                prodi: item.role,
+                role: item.role,
             })),
         })),
     };
 });
-
-// Opsi grafik total bobot hanya memvisualisasikan agregasi backend.
-const weightOption = computed(() => ({
-    ...baseOption(records.value.length),
-    legend: {
-        data: roleStats.value.map((item) => ({ name: item.role, icon: 'roundRect', itemStyle: { color: roleColor(item.role) } })),
-        selectedMode: false,
-        bottom: 0,
-        type: 'scroll',
-        textStyle: { color: '#475569', fontSize: 11 },
-    },
-    grid: { left: 24, right: 90, top: 22, bottom: 56, containLabel: true },
-    xAxis: { type: 'value', min: 0, axisLabel: { color: '#64748B' }, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-    yAxis: { type: 'category', inverse: true, data: roleStats.value.map((item) => `${item.role} (N=${item.count})`), axisLabel: { color: '#334155', width: 240, overflow: 'truncate' } },
-    tooltip: { ...baseOption().tooltip, trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (params) => {
-        const item = roleStats.value[params?.[0]?.dataIndex];
-        return item ? `${item.role}<br/>Σ bobot: ${formatNumber(item.weightedScore, 2)}<br/>Jumlah responden: ${item.count}<br/>Rata-rata bobot valid: ${formatNumber(item.averageWeight, 2)}<br/>Responden valid berbobot: ${item.weightedCount}` : '';
-    } },
-    series: [{
-        name: 'Σ Bobot',
-        type: 'bar',
-        barMaxWidth: 28,
-        itemStyle: { color: analyticsColors.green, borderRadius: [0, 4, 4, 0] },
-        label: { show: true, position: 'right', color: '#334155', formatter: ({ value, data }) => `${formatNumber(value, 2)} (N=${data?.respondentCount || 0})` },
-        data: roleStats.value.map((item) => ({
-            name: item.role,
-            category: item.role,
-            value: item.weightedScore,
-            count: item.weightedCount,
-            respondentCount: item.count,
-            prodi: item.role,
-            itemStyle: { color: roleColor(item.role), borderRadius: [0, 4, 4, 0] },
-        })),
-    }],
-}));
 
 // Tabel ringkasan role menampilkan nilai agregat yang dikirim backend.
 const tableData = computed(() => ({
@@ -228,27 +193,29 @@ const analysis = computed(() => ({
     detail: `Total skor bobot ${formatNumber(summary.value.weighted_score, 2)} dari ${formatNumber(summary.value.valid_respondents, 0)} responden valid. Baris tanpa bobot tetap ditampilkan agar alasan tidak memenuhi dapat ditelusuri.`,
 }));
 
-// Tiga view audit memisahkan pembanding gaji, masa tunggu, dan akumulasi bobot.
+// Dua view audit memisahkan pembanding gaji dan masa tunggu terhadap standar IKU.
 const views = computed(() => [
     {
         key: 'ump-composition',
         chartType: 'stacked_horizontal',
         tabLabel: 'Status UMP',
         title: 'Komposisi Status Pendapatan terhadap 1,2× UMP',
-        description: 'Panjang bar menunjukkan jumlah alumni; label segmen menunjukkan persentase. Hijau = memenuhi, merah = di bawah, abu-abu = gaji atau UMP belum tersedia.',
+        description: 'Panjang bar menunjukkan jumlah alumni; label segmen menunjukkan persentase dalam role karier.',
         option: umpCompositionOption.value,
         tableData: tableData.value,
-        height: Math.max(360, Math.min(roleStats.value.length * 54 + 130, 650)),
+        height: Math.max(340, Math.min(roleStats.value.length * 54 + 110, 620)),
         analysis: analysis.value,
         drillDownColumns: [
-            { key: 'nama', label: 'Nama Alumni' },
             { key: 'nim', label: 'NIM' },
+            { key: 'nama', label: 'Nama Alumni' },
             { key: 'nama_prodi', label: 'Program Studi' },
             { key: 'career_category', label: 'Role Karier' },
-            { key: 'salary', label: 'Gaji/Pendapatan' },
-            { key: 'ump', label: 'UMP Acuan' },
+            { key: 'nama_perusahaan', label: 'Perusahaan / Kampus S2' },
+            { key: 'months', label: 'Masa Tunggu' },
+            { key: 'salary', label: 'Pendapatan/Gaji' },
+            { key: 'ump', label: 'UMP' },
             { key: 'salary_comparison', label: 'Status UMP' },
-            { key: 'weight', label: 'Bobot' },
+            { key: 'weight', label: 'Bobot IKU' },
         ],
     },
     {
@@ -256,38 +223,22 @@ const views = computed(() => [
         chartType: 'stacked_horizontal',
         tabLabel: 'Masa Tunggu',
         title: 'Distribusi Masa Tunggu per Role Karier',
-        description: 'Panjang bar menunjukkan jumlah alumni; label segmen menunjukkan persentase. Hijau = sebelum lulus, kuning = <6 bulan, oranye = 6–<12 bulan, merah = ≥12 bulan, abu-abu = belum tersedia.',
+        description: 'Panjang bar menunjukkan jumlah alumni; label segmen menunjukkan persentase dalam role karier.',
         option: waitTimeOption.value,
         tableData: tableData.value,
-        height: Math.max(380, Math.min(waitStats.value.length * 54 + 150, 680)),
+        height: Math.max(360, Math.min(waitStats.value.length * 54 + 120, 650)),
         analysis: analysis.value,
         drillDownColumns: [
-            { key: 'nama', label: 'Nama Alumni' },
             { key: 'nim', label: 'NIM' },
+            { key: 'nama', label: 'Nama Alumni' },
             { key: 'nama_prodi', label: 'Program Studi' },
             { key: 'career_category', label: 'Role Karier' },
-            { key: 'months', label: 'Masa Tunggu (Bulan)' },
-            { key: 'weight', label: 'Bobot' },
-        ],
-    },
-    {
-        key: 'weighted-score',
-        chartType: 'bar',
-        tabLabel: 'Total Bobot',
-        title: 'Rincian Total Bobot IKU per Role Karier',
-        description: 'Panjang batang menunjukkan akumulasi total bobot capaian IKU S1 per role karier.',
-        option: weightOption.value,
-        tableData: tableData.value,
-        height: Math.max(360, Math.min(roleStats.value.length * 54 + 130, 650)),
-        analysis: analysis.value,
-        drillDownColumns: [
-            { key: 'nama', label: 'Nama Alumni' },
-            { key: 'nim', label: 'NIM' },
-            { key: 'nama_prodi', label: 'Program Studi' },
-            { key: 'career_category', label: 'Role Karier' },
-            { key: 'salary', label: 'Gaji/Pendapatan' },
+            { key: 'nama_perusahaan', label: 'Perusahaan / Kampus S2' },
+            { key: 'months', label: 'Masa Tunggu' },
+            { key: 'salary', label: 'Pendapatan/Gaji' },
+            { key: 'ump', label: 'UMP' },
             { key: 'salary_comparison', label: 'Status UMP' },
-            { key: 'weight', label: 'Bobot' },
+            { key: 'weight', label: 'Bobot IKU' },
         ],
     },
 ]);
@@ -302,5 +253,57 @@ const views = computed(() => [
         indicator-badge="IKU S1"
         @select="emit('select', $event)"
         @reset="emit('reset')"
-    />
+    >
+        <template #before-chart="{ view }">
+            <div class="mb-3">
+                <!-- Legenda Status UMP jika tab aktif adalah Status UMP -->
+                <div
+                    v-if="view?.key === 'ump-composition'"
+                    class="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 px-3 py-2 text-[11px] text-slate-600"
+                >
+                    <span class="font-bold text-slate-800">Status Pendapatan vs 1,2× UMP:</span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 rounded-xs bg-[#0D542B]"></span>
+                        <strong>Di atas 1,2× UMP (Memenuhi)</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 rounded-xs bg-[#B91C1C]"></span>
+                        <strong>Di bawah 1,2× UMP</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 rounded-xs bg-[#CBD5E1]"></span>
+                        <strong>Belum dapat dibandingkan (Gaji atau UMP kosong)</strong>
+                    </span>
+                </div>
+
+                <!-- Legenda Masa Tunggu jika tab aktif adalah Masa Tunggu -->
+                <div
+                    v-else-if="view?.key === 'wait-time'"
+                    class="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 px-3 py-2 text-[11px] text-slate-600"
+                >
+                    <span class="font-bold text-slate-800">Kategori Masa Tunggu:</span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 rounded-xs bg-[#0D542B]"></span>
+                        <strong>Sebelum Lulus</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 rounded-xs bg-[#0284C7]"></span>
+                        <strong>&lt;6 bulan</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 rounded-xs bg-[#F59E0B]"></span>
+                        <strong>6–&lt;12 bulan</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 rounded-xs bg-[#DC2626]"></span>
+                        <strong>&ge;12 bulan</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="h-2.5 w-2.5 rounded-xs bg-[#CBD5E1]"></span>
+                        <strong>Belum Tersedia</strong>
+                    </span>
+                </div>
+            </div>
+        </template>
+    </AnalyticsTabbedContainer>
 </template>

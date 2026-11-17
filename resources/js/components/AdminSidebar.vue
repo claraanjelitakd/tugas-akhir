@@ -46,7 +46,7 @@ const roleDefinitions = {
         fallbackName: 'Admin Biro 3 UKDW',
         fallbackEmail: 'biro3@ukdw.ac.id',
         alumniLabel: 'Data Alumni Universitas',
-        capabilities: { linkedin: false, company: false, accounts: false, analytics: true, supervisorEvaluation: false, dataAtasan: true },
+        capabilities: { linkedin: false, company: false, accounts: false, analytics: true, analyticsProdi: false, supervisorEvaluation: false, dataAtasan: false },
     },
 };
 
@@ -74,13 +74,13 @@ const createSections = (role) => {
                 createMenuItem('dashboard', definition.dashboard, 'Dashboard Utama', 'home'),
                 ...(capabilities.analytics ? [
                     createMenuItem('analytics', `/${prefix}/analitik`, 'Grafik Universitas', 'chart', [`/${prefix}/analitik`]),
-                    createMenuItem('analytics-prodi', `/${prefix}/analitik-prodi`, 'Grafik Prodi', 'chart', [`/${prefix}/analitik-prodi`]),
+                    ...(capabilities.analyticsProdi !== false ? [createMenuItem('analytics-prodi', `/${prefix}/analitik-prodi`, 'Grafik Prodi', 'chart', [`/${prefix}/analitik-prodi`])] : []),
                     createMenuItem('analytics-atasan', `/${prefix}/analitik-atasan`, 'Grafik Evaluasi Atasan', 'chart', [`/${prefix}/analitik-atasan`]),
                 ] : []),
             ],
         },
         {
-            label: 'Data Alumni & Atasan',
+            label: capabilities.dataAtasan ? 'Data Alumni & Atasan' : 'Data Alumni',
             items: [
                 createMenuItem('alumni', `/${prefix}/alumni`, definition.alumniLabel, 'users'),
                 ...(capabilities.dataAtasan ? [createMenuItem('atasan', `/${prefix}/atasan`, 'Data Atasan', 'users', [`/${prefix}/atasan`])] : []),

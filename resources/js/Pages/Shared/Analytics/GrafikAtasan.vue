@@ -6,7 +6,6 @@
  * 1. Fokus Indikator Tunggal (One Focused Indicator at a Time) melalui selektor terpadu:
  *    - Indikator 01: Evaluasi Aspek Kinerja Lulusan (Horizontal Stacked Bar 100% Skala Likert 1-5)
  *    - Indikator 02: Tingkat Kesiapan Kerja Alumni (Horizontal Stacked Bar Distribusi Kesiapan)
- *    - Indikator 03: Komparasi Mutu Antar Program Studi (Ranking Rata-rata Skor per Prodi)
  * 2. Interaktivitas Klik & Cross-Filtering Dinamis ("Don't Make Me Think"):
  *    - Saat batang atau segmen pilihan jawaban diklik, tabel responden di bawahnya langsung
  *      menyaring alumni, atasan langsung, dan perusahaan pembentuk data tersebut secara instan.
@@ -69,22 +68,19 @@ const indicatorOptions = [
         key: 'kinerja',
         code: 'Indikator 01',
         title: 'Evaluasi Aspek Kinerja Lulusan',
+        label: 'Evaluasi Aspek Kinerja Lulusan',
         badge: '7 Butir Kompetensi',
+        shortLabel: 'Kinerja Lulusan',
         description: 'Distribusi penilaian atasan langsung terhadap 7 butir aspek kompetensi alumni pada skala Likert 1-5.',
     },
     {
         key: 'kesiapan',
         code: 'Indikator 02',
         title: 'Tingkat Kesiapan Kerja Alumni',
+        label: 'Tingkat Kesiapan Kerja Alumni',
         badge: 'Adaptasi Kerja',
+        shortLabel: 'Kesiapan Kerja',
         description: 'Distribusi kesiapan alumni saat pertama kali mulai bekerja dan beradaptasi di lingkungan profesional.',
-    },
-    {
-        key: 'prodi',
-        code: 'Indikator 03',
-        title: 'Perbandingan Antar Program Studi',
-        badge: 'Benchmark Prodi',
-        description: 'Matriks heatmap pemeringkatan skor rata-rata evaluasi kinerja alumni per aspek kompetensi berdasarkan program studi asal.',
     },
 ];
 
@@ -108,7 +104,6 @@ const filters = computed(() => currentAnalytics.value?.filters || {});
 const summary = computed(() => currentAnalytics.value?.summary || {});
 const questionStats = computed(() => currentAnalytics.value?.question_stats || []);
 const readiness = computed(() => currentAnalytics.value?.readiness || {});
-const prodiSummary = computed(() => currentAnalytics.value?.prodi_summary || []);
 const records = computed(() => currentAnalytics.value?.records || []);
 
 // Daftar butir pertanyaan berjenis Likert 5 poin yang memiliki jawaban valid.
@@ -533,180 +528,6 @@ const readinessSummaryTable = computed(() => {
 });
 
 // -----------------------------------------------------------------------------
-// 3. GRAFIK INDIKATOR 03: BENCHMARK PROGRAM STUDI (HEATMAP MATRIKS PER PRODI & ASPEK)
-// Sumbu Y = Program Studi, Sumbu X = Aspek Kompetensi, Nilai = Skor (1 - 5)
-// -----------------------------------------------------------------------------
-const prodiSeries = computed(() => currentAnalytics.value?.prodi_series || currentAnalytics.value?.prodi_summary || []);
-const prodis = computed(() => prodiSeries.value.map((item) => item.prodi));
-
-const prodiHeatmapData = computed(() => {
-    const listProdis = prodiSeries.value;
-    const questions = likertItems.value.length > 0 ? likertItems.value : questionStats.value.filter((item) => item.type === 'likert_5');
-    const values = [];
-
-    listProdis.forEach((prodiItem, yIndex) => {
-        questions.forEach((q, xIndex) => {
-            const aspect = prodiItem.aspects?.find((item) => item.key === q.kode || item.label === q.label) || {};
-            const scoreInt = Number(aspect.score_int || 0);
-            values.push({
-                value: [xIndex, yIndex, scoreInt],
-                rawAvg: Number(aspect.average || 0),
-                scoreInt,
-                count: Number(aspect.count || 0),
-                prodi: prodiItem.prodi,
-                aspectKey: q.kode,
-                aspectLabel: q.label || q.aspek,
-            });
-        });
-    });
-
-    return { values, questions };
-});
-
-const prodiOption = computed(() => {
-    const { values, questions } = prodiHeatmapData.value;
-    const aspectLabels = questions.map((q) => q.label || q.aspek);
-    const prodiNames = prodis.value;
-
-    return {
-        ...baseOption(summary.value.submitted || 0),
-        grid: { left: 20, right: 150, top: 80, bottom: 20, containLabel: true },
-        xAxis: {
-            type: 'category',
-            position: 'top',
-            data: aspectLabels,
-            axisLabel: {
-                rotate: -35,
-                color: '#1E293B',
-                fontSize: 11,
-                fontWeight: 600,
-                interval: 0,
-                formatter: (val) => {
-                    const clean = String(val || '');
-                    if (clean.length > 28) {
-                        return clean.slice(0, 25) + '...';
-                    }
-                    return clean;
-                },
-            },
-            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
-            axisLine: { lineStyle: { color: '#CBD5E1' } },
-            splitArea: { show: false },
-        },
-        yAxis: {
-            type: 'category',
-            inverse: true,
-            data: prodiNames,
-            axisLabel: { color: '#1E293B', width: 170, fontSize: 11, fontWeight: 500 },
-            axisTick: { show: true, alignWithLabel: true, lineStyle: { color: '#CBD5E1' } },
-            axisLine: { lineStyle: { color: '#CBD5E1' } },
-            splitArea: { show: false },
-        },
-        visualMap: {
-            type: 'continuous',
-            min: 1,
-            max: 5,
-            precision: 0,
-            orient: 'vertical',
-            right: 18,
-            top: 'middle',
-            itemWidth: 18,
-            itemHeight: 240,
-            inRange: {
-                color: [
-                    '#B91C1C', // 1: Merah pekat (Highlight)
-                    '#EF4444', // 2: Merah terang (Highlight)
-                    '#E2F3E7', // 3: Hijau pucat netral
-                    '#2F7D4A', // 4: Hijau sedang
-                    '#0D542B', // 5: Hijau tua institusi UKDW
-                ],
-            },
-            text: ['5 (Sangat Baik)', '1 (Sangat Kurang)'],
-            textGap: 10,
-            textStyle: {
-                color: '#1E293B',
-                fontSize: 11,
-                fontWeight: 600,
-            },
-        },
-        tooltip: {
-            ...lightTooltipConfig,
-            formatter: ({ data }) => {
-                if (!data) return '';
-                const score = data.value?.[2] || data.scoreInt || 0;
-                return `
-                    <div style="min-width: 190px; font-family: inherit;">
-                        <div style="font-weight: 700; color: #0F172A; font-size: 13px; border-bottom: 1px solid #F1F5F9; padding-bottom: 4px; margin-bottom: 6px;">
-                            ${escapeHtml(data.prodi)}
-                        </div>
-                        <div style="font-size: 12px; color: #475569; margin-bottom: 3px;">
-                            Aspek: <strong style="color: #0F172A;">${escapeHtml(data.aspectLabel)}</strong>
-                        </div>
-                        <div style="font-size: 12px; color: #475569; margin-bottom: 3px;">
-                            Skor Rerata: <strong style="color: ${score <= 2 ? '#B91C1C' : '#0D542B'}; font-size: 13px;">${data.rawAvg || score} / 5</strong> (${escapeHtml(scaleDescriptions[score] || '-')})
-                        </div>
-                        <div style="font-size: 11px; color: #64748B;">
-                            Total Responden: <strong style="color: #334155;">${formatNumber(data.count, 0)} atasan</strong>
-                        </div>
-                        <div style="margin-top: 5px; font-size: 10px; color: #0D542B; font-weight: 600; border-top: 1px dashed #E2E8F0; padding-top: 4px;">
-                            Klik sel untuk menyaring responden alumni
-                        </div>
-                    </div>
-                `;
-            },
-        },
-        series: [{
-            name: 'Rata-rata Skor per Prodi',
-            type: 'heatmap',
-            data: values,
-            itemStyle: {
-                borderColor: '#FFFFFF',
-                borderWidth: 1.5,
-            },
-            label: {
-                show: false,
-            },
-            emphasis: {
-                focus: 'none',
-                itemStyle: {
-                    borderColor: '#FFFFFF',
-                    borderWidth: 1.5,
-                    shadowBlur: 0,
-                    shadowColor: 'transparent',
-                },
-                label: {
-                    show: true,
-                    formatter: ({ data }) => {
-                        const score = data?.value?.[2] || data?.scoreInt || 0;
-                        return score > 0 ? String(score) : '';
-                    },
-                    color: ({ data }) => {
-                        const score = data?.value?.[2] || data?.scoreInt || 0;
-                        return score === 3 ? '#0F172A' : '#FFFFFF';
-                    },
-                    fontWeight: 'bold',
-                    fontSize: 12,
-                },
-            },
-        }],
-    };
-});
-
-// Tabel Ringkasan Program Studi untuk Tab Data Ringkasan.
-const prodiSummaryTable = computed(() => ({
-    columns: [
-        { key: 'prodi', label: 'Program Studi' },
-        { key: 'respondents', label: 'Jumlah Responden Atasan (n)', align: 'right' },
-        { key: 'average', label: 'Rata-rata Skor Evaluasi (1-5)', align: 'center' },
-    ],
-    rows: prodiSummary.value.map((item) => ({
-        prodi: item.prodi,
-        respondents: formatNumber(item.respondents, 0),
-        average: item.average ? `${item.raw_average || item.average} / 5` : '-',
-    })),
-}));
-
-// -----------------------------------------------------------------------------
 // EVENT HANDLER KLIK GRAFIK & CROSS-FILTERING REAKTIF
 // -----------------------------------------------------------------------------
 const handleChartSelect = (params) => {
@@ -741,24 +562,6 @@ const handleChartSelect = (params) => {
                 };
             }
         }
-    } else if (selectedIndicatorKey.value === 'prodi') {
-        const d = params.data;
-        const prodiName = d?.prodi || params.data?.name || String(params.name || '').split(' (n=')[0].trim();
-        if (prodiName) {
-            if (selectedItem.value?.type === 'prodi'
-                && selectedItem.value.name === prodiName
-                && (!d?.aspectLabel || selectedItem.value.aspect === d.aspectLabel)) {
-                selectedItem.value = null;
-            } else {
-                selectedItem.value = {
-                    type: 'prodi',
-                    name: prodiName,
-                    aspect: d?.aspectLabel || null,
-                    aspectKey: d?.aspectKey || null,
-                    score: d?.scoreInt || null,
-                };
-            }
-        }
     }
 
     currentPage.value = 1;
@@ -776,12 +579,6 @@ const selectedFilterLabel = computed(() => {
     if (!sel) return '';
     if (sel.type === 'aspek_opsi') return `${sel.aspek} · Nilai: ${sel.opsi}`;
     if (sel.type === 'kesiapan') return `Kesiapan Kerja: ${sel.label}`;
-    if (sel.type === 'prodi') {
-        if (sel.aspect) {
-            return `${sel.name} · Aspek: ${sel.aspect}${sel.score ? ` (Skor: ${sel.score})` : ''}`;
-        }
-        return `Program Studi: ${sel.name}`;
-    }
     return '';
 });
 
@@ -815,10 +612,6 @@ const selectedRecords = computed(() => {
             const rawAns = getRecordAnswer(r, 'tingkat_kesiapan_kerja');
             return String(rawAns).trim().toLowerCase() === String(sel.label).trim().toLowerCase();
         });
-    }
-
-    if (sel.type === 'prodi') {
-        return list.filter((r) => r.nama_prodi === sel.name);
     }
 
     return list;
@@ -938,19 +731,12 @@ const printCategoryReport = () => {
             String(r.kurang ?? 0),
             String(r.sangat_kurang ?? 0),
         ]);
-    } else if (selectedIndicatorKey.value === 'kesiapan') {
+    } else {
         headers = (readinessSummaryTable.value?.columns || []).map((c) => c.label);
         rows = (readinessSummaryTable.value?.rows || []).map((r) => [
             r.label || '-',
             formatNumber(r.count || 0, 0),
             String(r.percentage ?? '-'),
-        ]);
-    } else {
-        headers = (prodiSummaryTable.value?.columns || []).map((c) => c.label);
-        rows = (prodiSummaryTable.value?.rows || []).map((r) => [
-            r.prodi || '-',
-            formatNumber(r.respondents || 0, 0),
-            String(r.average ?? '-'),
         ]);
     }
 
@@ -960,7 +746,7 @@ const printCategoryReport = () => {
         : `Ringkasan evaluasi pengguna lulusan berdasarkan ${formatNumber(summary.value?.submitted || 0, 0)} respon atasan.`;
 
     const prodiText = selectedProdiId.value
-        ? (prodis.value.find((p) => String(p.id) === String(selectedProdiId.value))?.nama_prodi || 'Program Studi Terpilih')
+        ? ((filters.value.prodis || []).find((p) => String(p.id) === String(selectedProdiId.value))?.nama_prodi || 'Program Studi Terpilih')
         : 'Semua Program Studi';
 
     generateAnalyticsPdf({
@@ -1246,60 +1032,6 @@ onBeforeUnmount(() => {
                                     />
                                 </div>
 
-                                <!-- Indikator 03: Perbandingan Program Studi (Heatmap Matriks Antar Prodi & Aspek) -->
-                                <div v-else-if="selectedIndicatorKey === 'prodi'" class="min-h-[480px]">
-                                    <div v-if="prodis.length === 0" class="flex h-64 items-center justify-center rounded-lg border border-dashed border-slate-200 text-xs text-slate-500">
-                                        Belum ada data evaluasi atasan yang sesuai dengan filter tahun terpilih.
-                                    </div>
-                                    <div v-else class="space-y-4">
-                                        <AnalyticsEChart
-                                            :ref="el => { if (el) echartRef = el; }"
-                                            :option="prodiOption"
-                                            :loading="isLoading"
-                                            :height="Math.max(480, prodis.length * 36 + 120)"
-                                            aria-label="Grafik matriks perbandingan skor evaluasi atasan antarprogram studi"
-                                            @select="handleChartSelect"
-                                        />
-                                        <div class="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-slate-500">
-                                            <p class="leading-relaxed">
-                                                <span class="font-semibold text-slate-700">Caption:</span>
-                                                Intensitas skor rata-rata evaluasi kinerja alumni per aspek kompetensi pada setiap program studi dengan gradasi hijau UKDW dan sorotan merah untuk skor rendah (1–2).
-                                            </p>
-                                            <p class="font-semibold text-slate-400">N valid: {{ summary.submitted || 0 }}</p>
-                                        </div>
-
-                                        <!-- Legenda Skala Penilaian Jelas & Kontras -->
-                                        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 text-xs">
-                                            <div class="text-slate-600">
-                                                Responden Evaluasi Masuk: <strong class="text-slate-900 font-semibold">{{ formatNumber(summary.submitted || 0, 0) }} atasan</strong>
-                                            </div>
-                                            <div class="flex flex-wrap items-center gap-2">
-                                                <span class="font-bold text-slate-500 mr-0.5">Skala Penilaian:</span>
-                                                <div class="flex items-center gap-1.5">
-                                                    <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#B91C1C]"></span>
-                                                    <span class="text-slate-700">1 (Sangat Kurang)</span>
-                                                </div>
-                                                <div class="flex items-center gap-1.5">
-                                                    <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#EF4444]"></span>
-                                                    <span class="text-slate-700">2 (Kurang)</span>
-                                                </div>
-                                                <div class="flex items-center gap-1.5">
-                                                    <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#E2F3E7] border border-slate-200"></span>
-                                                    <span class="text-slate-700">3 (Cukup)</span>
-                                                </div>
-                                                <div class="flex items-center gap-1.5">
-                                                    <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#2F7D4A]"></span>
-                                                    <span class="text-slate-700">4 (Baik)</span>
-                                                </div>
-                                                <div class="flex items-center gap-1.5">
-                                                    <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#0D542B]"></span>
-                                                    <span class="text-slate-700">5 (Sangat Baik)</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <!-- KILAS INDIKATOR (APPLE WEATHER STYLE - BEBAS AI SLOP) -->
                                 <div class="mt-6 rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
                                     <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">
@@ -1332,7 +1064,7 @@ onBeforeUnmount(() => {
                                     </div>
 
                                     <!-- Kilas Kesiapan -->
-                                    <div v-else-if="selectedIndicatorKey === 'kesiapan'" class="mt-3 grid gap-4 sm:grid-cols-3">
+                                    <div v-else class="mt-3 grid gap-4 sm:grid-cols-3">
                                         <div class="rounded-lg border border-slate-200 bg-white p-3.5">
                                             <p class="text-[11px] font-bold uppercase tracking-wide text-slate-500">Tingkat Kesiapan Positif</p>
                                             <p class="mt-1 text-2xl font-extrabold text-[#0D542B]">{{ readinessHighlights.readyRate }}%</p>
@@ -1349,87 +1081,50 @@ onBeforeUnmount(() => {
                                             <p class="mt-1 text-xs text-slate-500">Respon valid yang tercatat.</p>
                                         </div>
                                     </div>
-
-                                    <!-- Kilas Prodi -->
-                                    <div v-else class="mt-3 grid gap-4 sm:grid-cols-3">
-                                        <div class="rounded-lg border border-slate-200 bg-white p-3.5">
-                                            <p class="text-[11px] font-bold uppercase tracking-wide text-slate-500">Total Program Studi</p>
-                                            <p class="mt-1 text-2xl font-extrabold text-[#0D542B]">{{ prodiSummary.length }}</p>
-                                            <p class="mt-1 text-xs text-slate-500">Jurusan dengan evaluasi atasan masuk.</p>
-                                        </div>
-                                        <div class="rounded-lg border border-slate-200 bg-white p-3.5">
-                                            <p class="text-[11px] font-bold uppercase tracking-wide text-slate-500">Skor Prodi Tertinggi</p>
-                                            <p class="mt-1 truncate text-sm font-extrabold text-slate-900">{{ prodiSummary[0]?.prodi || '-' }}</p>
-                                            <p class="mt-1 text-xs font-bold text-emerald-800">Skor {{ prodiSummary[0]?.average ?? '-' }} / 5 ({{ prodiSummary[0]?.respondents || 0 }} atasan)</p>
-                                        </div>
-                                        <div class="rounded-lg border border-slate-200 bg-white p-3.5">
-                                            <p class="text-[11px] font-bold uppercase tracking-wide text-slate-500">Respon Terbanyak</p>
-                                            <p class="mt-1 truncate text-sm font-extrabold text-slate-900">
-                                                {{ [...prodiSummary].sort((a,b) => b.respondents - a.respondents)[0]?.prodi || '-' }}
-                                            </p>
-                                            <p class="mt-1 text-xs font-bold text-slate-700">
-                                                {{ [...prodiSummary].sort((a,b) => b.respondents - a.respondents)[0]?.respondents || 0 }} evaluasi masuk
-                                            </p>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 
-                            <!-- TAMPILAN DATA RINGKASAN TABULASI (ACTIVE VIEW MODE = 'TABLE') -->
-                            <div v-else class="mt-5 overflow-x-auto rounded-lg border border-slate-200">
-                                <table class="w-full min-w-[720px] text-left text-xs">
-                                    <thead class="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
-                                        <tr v-if="selectedIndicatorKey === 'kinerja'">
-                                            <th v-for="col in kinerjaSummaryTable.columns" :key="col.key" class="px-3.5 py-3" :class="col.align === 'right' ? 'text-right' : (col.align === 'center' ? 'text-center' : 'text-left')">
-                                                {{ col.label }}
-                                            </th>
+                        <!-- TAMPILAN DATA RINGKASAN TABULASI (ACTIVE VIEW MODE = 'TABLE') -->
+                        <div v-else class="mt-5 overflow-x-auto rounded-lg border border-slate-200">
+                            <table class="w-full min-w-[720px] text-left text-xs">
+                                <thead class="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                                    <tr v-if="selectedIndicatorKey === 'kinerja'">
+                                        <th v-for="col in kinerjaSummaryTable.columns" :key="col.key" class="px-3.5 py-3" :class="col.align === 'right' ? 'text-right' : (col.align === 'center' ? 'text-center' : 'text-left')">
+                                            {{ col.label }}
+                                        </th>
+                                    </tr>
+                                    <tr v-else>
+                                        <th v-for="col in readinessSummaryTable.columns" :key="col.key" class="px-3.5 py-3" :class="col.align === 'right' ? 'text-right' : 'text-left'">
+                                            {{ col.label }}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <!-- Baris Kinerja -->
+                                    <template v-if="selectedIndicatorKey === 'kinerja'">
+                                        <tr v-for="row in kinerjaSummaryTable.rows" :key="row.aspek" class="hover:bg-slate-50">
+                                            <td class="px-3.5 py-2.5 font-bold text-slate-800">{{ row.aspek }}</td>
+                                            <td class="px-3.5 py-2.5 text-right font-semibold text-slate-600">{{ row.valid_count }}</td>
+                                            <td class="px-3.5 py-2.5 text-center font-extrabold text-[#0D542B]">{{ row.average }}</td>
+                                            <td class="px-3.5 py-2.5 text-right text-slate-700">{{ row.sangat_baik }}</td>
+                                            <td class="px-3.5 py-2.5 text-right text-slate-700">{{ row.baik }}</td>
+                                            <td class="px-3.5 py-2.5 text-right text-slate-700">{{ row.cukup }}</td>
+                                            <td class="px-3.5 py-2.5 text-right text-slate-700">{{ row.kurang }}</td>
+                                            <td class="px-3.5 py-2.5 text-right text-slate-700">{{ row.sangat_kurang }}</td>
                                         </tr>
-                                        <tr v-else-if="selectedIndicatorKey === 'kesiapan'">
-                                            <th v-for="col in readinessSummaryTable.columns" :key="col.key" class="px-3.5 py-3" :class="col.align === 'right' ? 'text-right' : 'text-left'">
-                                                {{ col.label }}
-                                            </th>
-                                        </tr>
-                                        <tr v-else>
-                                            <th v-for="col in prodiSummaryTable.columns" :key="col.key" class="px-3.5 py-3" :class="col.align === 'right' ? 'text-right' : (col.align === 'center' ? 'text-center' : 'text-left')">
-                                                {{ col.label }}
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-100">
-                                        <!-- Baris Kinerja -->
-                                        <template v-if="selectedIndicatorKey === 'kinerja'">
-                                            <tr v-for="row in kinerjaSummaryTable.rows" :key="row.aspek" class="hover:bg-slate-50">
-                                                <td class="px-3.5 py-2.5 font-bold text-slate-800">{{ row.aspek }}</td>
-                                                <td class="px-3.5 py-2.5 text-right font-semibold text-slate-600">{{ row.valid_count }}</td>
-                                                <td class="px-3.5 py-2.5 text-center font-extrabold text-[#0D542B]">{{ row.average }}</td>
-                                                <td class="px-3.5 py-2.5 text-right text-slate-700">{{ row.sangat_baik }}</td>
-                                                <td class="px-3.5 py-2.5 text-right text-slate-700">{{ row.baik }}</td>
-                                                <td class="px-3.5 py-2.5 text-right text-slate-700">{{ row.cukup }}</td>
-                                                <td class="px-3.5 py-2.5 text-right text-slate-700">{{ row.kurang }}</td>
-                                                <td class="px-3.5 py-2.5 text-right text-slate-700">{{ row.sangat_kurang }}</td>
-                                            </tr>
-                                        </template>
+                                    </template>
 
-                                        <!-- Baris Kesiapan -->
-                                        <template v-else-if="selectedIndicatorKey === 'kesiapan'">
-                                            <tr v-for="row in readinessSummaryTable.rows" :key="row.label" class="hover:bg-slate-50">
-                                                <td class="px-3.5 py-2.5 font-bold text-slate-800">{{ row.label }}</td>
-                                                <td class="px-3.5 py-2.5 text-right font-semibold text-slate-600">{{ row.count }}</td>
-                                                <td class="px-3.5 py-2.5 text-right font-extrabold text-[#0D542B]">{{ row.percentage }}</td>
-                                            </tr>
-                                        </template>
-
-                                        <!-- Baris Prodi -->
-                                        <template v-else>
-                                            <tr v-for="row in prodiSummaryTable.rows" :key="row.prodi" class="hover:bg-slate-50">
-                                                <td class="px-3.5 py-2.5 font-bold text-slate-800">{{ row.prodi }}</td>
-                                                <td class="px-3.5 py-2.5 text-right font-semibold text-slate-600">{{ row.respondents }}</td>
-                                                <td class="px-3.5 py-2.5 text-center font-extrabold text-[#0D542B]">{{ row.average }}</td>
-                                            </tr>
-                                        </template>
-                                    </tbody>
-                                </table>
-                            </div>
+                                    <!-- Baris Kesiapan -->
+                                    <template v-else>
+                                        <tr v-for="row in readinessSummaryTable.rows" :key="row.label" class="hover:bg-slate-50">
+                                            <td class="px-3.5 py-2.5 font-bold text-slate-800">{{ row.label }}</td>
+                                            <td class="px-3.5 py-2.5 text-right font-semibold text-slate-600">{{ row.count }}</td>
+                                            <td class="px-3.5 py-2.5 text-right font-extrabold text-[#0D542B]">{{ row.percentage }}</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
 
                             <!-- SEAMLESS INLINE CONTEXT TABLE (DON'T MAKE ME THINK) -->
                             <!-- Muncul mulus tepat di bawah grafik untuk menampilkan responden pembentuk elemen grafik -->

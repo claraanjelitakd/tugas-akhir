@@ -39,6 +39,17 @@ const prodiSeries = computed(() => props.chart?.prodi_series || []);
 const records = computed(() => props.chart?.records || []);
 const validResponses = computed(() => props.chart?.summary?.answered_count || records.value.length);
 
+// Palet warna stabil per sektor tempat bekerja (termasuk abu-abu netral untuk 'Lainnya')
+const workplaceColorMap = {
+    'Wiraswasta/perusahaan sendiri': '#B91C1C', // Merah
+    'Perusahaan swasta': '#EA580C', // Oranye
+    'BUMN/BUMD': '#FACC15', // Kuning Emas
+    'Organisasi non-profit/LSM': '#5EBA7D', // Hijau Muda
+    'Instansi pemerintah': '#1E6B37', // Hijau Tua
+    'Lainnya': '#94A3B8', // Slate / Abu-abu netral
+};
+const getWorkplaceColor = (cat) => workplaceColorMap[cat] || '#64748B';
+
 // Label ringkas mencegah legenda skala bertabrakan dengan area batang.
 const workplaceLegendLabel = (label) => ({
     'Perusahaan swasta': 'Perusahaan swasta',
@@ -47,6 +58,7 @@ const workplaceLegendLabel = (label) => ({
     'BUMN/BUMD': 'BUMN/BUMD',
     'Wiraswasta/perusahaan sendiri': 'Wiraswasta',
     'Institusi/Organisasi Multilateral': 'Multilateral',
+    'Lainnya': 'Lainnya',
 }[label] || label);
 
 // Legenda kategori vertikal mengikuti tata letak Indikator 02 tanpa memberi makna nilai pada kategori nominal F11.
@@ -68,7 +80,7 @@ const workplaceStackLegend = (categories) => {
     }];
 
     reversedCategories.forEach((category, index) => {
-        const paletteIndex = categories.indexOf(category) % analyticsScalePalette.length;
+        const color = getWorkplaceColor(category);
         const top = index * rowHeight;
         children.push(
             {
@@ -76,7 +88,7 @@ const workplaceStackLegend = (categories) => {
                 left: 28,
                 top,
                 shape: { width: 22, height: rowHeight },
-                style: { fill: analyticsScalePalette[paletteIndex], stroke: '#1E293B', lineWidth: 1 },
+                style: { fill: color, stroke: '#1E293B', lineWidth: 1 },
             },
             {
                 type: 'text',
@@ -239,9 +251,11 @@ const prodis = computed(() => prodiSeries.value.length > 0
 // Palet diskret sama dengan matriks Perbandingan Prodi Indikator 02: rendah merah, tinggi hijau tua.
 const workplaceHeatmapPalette = ['#B91C1C', '#EF4444', '#E2F3E7', '#2F7D4A', '#0D542B'];
 const categories = computed(() => {
-    // Ambil hanya kategori yang aktif di dataset
-    const activeCats = series.value.filter((s) => seriesMetric(s) > 0).map((s) => s.label);
-    return activeCats.length > 0 ? activeCats : [...new Set(series.value.map((s) => s.label))];
+    // Ambil seluruh kategori aktif di dataset prodi atau universitas agar komposisi genap 100%
+    const fromProdi = prodiSeries.value.flatMap((p) => (p.items || []).filter((i) => i.count > 0).map((i) => i.label));
+    const fromUniv = series.value.filter((s) => seriesMetric(s) > 0).map((s) => s.label);
+    const combined = [...new Set([...fromUniv, ...fromProdi])];
+    return combined.length > 0 ? combined : [...new Set(series.value.map((s) => s.label))];
 });
 
 const heatmapData = computed(() => {
@@ -453,8 +467,8 @@ const stackedOption = computed(() => {
         ? prodiSeries.value.map((item) => [item.prodi, item.total])
         : listProdis.map((p) => [p, records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === p).length]));
 
-    const seriesList = cats.map((cat) => {
-        const paletteIndex = cats.indexOf(cat) % analyticsScalePalette.length;
+    const seriesList = cats.map((cat, index) => {
+        const color = getWorkplaceColor(cat);
         const catData = listProdis.map((prodi) => {
             const backendItem = prodiSeries.value.find((item) => item.prodi === prodi)?.items?.find((item) => item.label === cat);
             const count = backendItem?.count ?? records.value.filter((r) => (r.nama_prodi || 'Tanpa prodi') === prodi && recordCategory(r) === cat).length;
@@ -475,18 +489,18 @@ const stackedOption = computed(() => {
             name: cat,
             type: 'bar',
             stack: 'total',
-            stackOrder: paletteIndex + 1,
+            stackOrder: index + 1,
             barMaxWidth: 26,
             label: {
                 show: true,
                 position: 'inside',
                 formatter: (params) => params.value >= 2 ? `${formatNumber(params.value, 1)}%` : '',
                 fontSize: 10,
-                color: paletteIndex === 2 ? '#1E293B' : '#FFFFFF',
+                color: cat === 'BUMN/BUMD' ? '#1E293B' : '#FFFFFF',
                 fontWeight: 'bold',
             },
             itemStyle: {
-                color: analyticsScalePalette[paletteIndex],
+                color,
                 opacity: selected ? 1 : 0.22,
                 borderColor: '#FFFFFF',
                 borderWidth: 1,
@@ -500,7 +514,7 @@ const stackedOption = computed(() => {
     return {
         ...baseOption(records.value.length),
         // Palet dipasangkan langsung dengan urutan stack agar konsisten ketika salah satu kategori tersaring.
-        themePalette: cats.map((_, index) => analyticsScalePalette[index % analyticsScalePalette.length]),
+        themePalette: cats.map((cat) => getWorkplaceColor(cat)),
         legend: {
             show: false,
         },
@@ -582,23 +596,6 @@ const views = computed(() => {
                     ? `Sektor dengan penyerapan alumni terbesar adalah "${topSector.label}" dengan jumlah ${topSector.count} alumni (${formatPercentage(topSector.percentage)}).`
                     : 'Data jenis tempat bekerja tersaji lengkap.',
                 detail: 'Karakteristik serapan kerja alumni UKDW terdistribusi aktif di berbagai sektor strategis: perusahaan swasta korporasi nasional/multinasional, instansi pemerintah (ASN/kementerian), badan usaha milik negara (BUMN/BUMD), serta organisasi non-profit/LSM dan kewirausahaan mandiri.',
-            },
-        },
-        {
-            key: 'by_prodi_heatmap',
-            chartType: 'heatmap',
-            tabLabel: 'Sebaran per Prodi',
-            title: 'Sebaran jenis tempat bekerja per program studi',
-            description: 'Matriks intensitas dan proporsi penyerapan alumni pada masing-masing sektor instansi di setiap program studi UKDW (mengadopsi matriks perbandingan prodi Indikator 02).',
-            option: heatmapOption.value,
-            tableData: heatmapTable.value,
-            height: Math.max(460, prodis.value.length * 36 + 120),
-            analysis: {
-                title: 'Kilas Sebaran Sektor Kerja Antarjurusan',
-                statusBadge: `${prodis.value.length} Program Studi`,
-                badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-                lead: `Matriks sebaran memperlihatkan konsentrasi penyerapan alumni pada 5 sektor utama di ${prodis.value.length} program studi.`,
-                detail: 'Sektor perusahaan swasta mendominasi serapan di hampir seluruh prodi teknologi dan bisnis, sementara lulusan kedokteran dan pendidikan terserap kuat pada instansi pemerintah dan yayasan sosial/pendidikan.',
             },
         },
         {

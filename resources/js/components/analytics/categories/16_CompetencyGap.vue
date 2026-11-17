@@ -396,20 +396,20 @@ const unifiedOption = computed(() => {
         ...baseOption(validResponses.value),
         title: {
             text: 'Peta Komparasi Seluruh Dimensi Kompetensi (7 Aspek F17)',
-            subtext: `Perbandingan bekal saat lulus, tuntutan kerja, dan gap selisih seluruh aspek • N valid: ${formatNumber(validResponses.value, 0)}`,
+            subtext: `Perbandingan bekal saat lulus dan tuntutan kerja seluruh aspek • N valid: ${formatNumber(validResponses.value, 0)}`,
             left: 20,
             top: 10,
             textStyle: { fontSize: 16, fontWeight: 'bold', color: '#0F172A' },
             subtextStyle: { fontSize: 11, color: '#64748B' },
         },
         legend: {
-            data: ['Kompetensi Saat Lulus (Batang)', 'Kompetensi Diperlukan Kerja (Batang)', 'Gap Selisih Surplus/Defisit (Garis)'],
+            data: ['Kompetensi Saat Lulus', 'Kompetensi Diperlukan Kerja'],
             bottom: 8,
             itemGap: 16,
             icon: 'circle',
             textStyle: { color: '#334155', fontWeight: 600, fontSize: 11 },
         },
-        grid: { left: 92, right: 92, top: 64, bottom: 88, containLabel: true },
+        grid: { left: 40, right: 30, top: 64, bottom: 48, containLabel: true },
         xAxis: {
             type: 'category',
             data: labels,
@@ -423,33 +423,17 @@ const unifiedOption = computed(() => {
             },
             axisLine: { lineStyle: { color: '#CBD5E1', width: 1 } },
         },
-        yAxis: [
-            {
-                type: 'value',
-                min: 0,
-                max: 5,
-                interval: 1,
-                name: 'Skor Likert (1 - 5)',
-                nameGap: 24,
-                nameTextStyle: { color: '#475569', fontWeight: 600 },
-                axisLabel: { color: chartColors.axis },
-                splitLine: { show: false },
-            },
-            {
-                type: 'value',
-                min: -3,
-                max: 3,
-                interval: 1,
-                name: 'Gap Selisih',
-                nameGap: 24,
-                nameTextStyle: { color: chartColors.potential, fontWeight: 600 },
-                axisLabel: {
-                    color: chartColors.potential,
-                    formatter: (v) => (v > 0 ? `+${v}` : `${v}`),
-                },
-                splitLine: { show: false },
-            },
-        ],
+        yAxis: {
+            type: 'value',
+            min: 0,
+            max: 5,
+            interval: 1,
+            name: 'Skor Likert (1 - 5)',
+            nameGap: 16,
+            nameTextStyle: { color: '#475569', fontWeight: 600, fontSize: 11 },
+            axisLabel: { color: chartColors.axis },
+            splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
+        },
         tooltip: {
             ...baseOption().tooltip,
             trigger: 'axis',
@@ -458,27 +442,20 @@ const unifiedOption = computed(() => {
                 const titleText = escapeHtml(params[0]?.name || '');
                 const grad = Number(params.find((p) => p.seriesName.includes('Saat Lulus'))?.value || 0);
                 const need = Number(params.find((p) => p.seriesName.includes('Diperlukan'))?.value || 0);
-                const gap = Number(params.find((p) => p.seriesName.includes('Gap Selisih'))?.value || 0);
-                const gapSign = gap > 0 ? `+${gap}` : `${gap}`;
-                const gapStatus = gap >= 0
-                    ? '<span style="color:#0D542B;font-weight:700">Surplus (Bekal Terpenuhi)</span>'
-                    : '<span style="color:#C2410C;font-weight:700">Defisit (Perlu Penguatan)</span>';
 
                 return `
                     <div class="space-y-1">
                         <p class="font-extrabold text-sm border-b border-emerald-100 pb-1 text-[#0D542B]">${titleText}</p>
-                        <p class="text-xs text-slate-600">Saat Lulus (A): <strong class="text-[#0D542B]">${formatNumber(grad, 0)}</strong></p>
-                        <p class="text-xs text-slate-600">Diperlukan Kerja (B): <strong class="text-[#0D542B]">${formatNumber(need, 0)}</strong></p>
-                        <p class="text-xs text-slate-600">Gap Selisih (A - B): <strong class="text-[#0D542B]">${gapSign}</strong> (${gapStatus})</p>
+                        <p class="text-xs text-slate-600">Saat Lulus: <strong class="text-[#0D542B]">${formatNumber(grad, 0)}</strong></p>
+                        <p class="text-xs text-slate-600">Diperlukan Kerja: <strong class="text-slate-800">${formatNumber(need, 0)}</strong></p>
                     </div>
                 `;
             },
         },
         series: [
             {
-                name: 'Kompetensi Saat Lulus (Batang)',
+                name: 'Kompetensi Saat Lulus',
                 type: 'bar',
-                yAxisIndex: 0,
                 barMaxWidth: 22,
                 barGap: '18%',
                 data: gradScores,
@@ -493,9 +470,8 @@ const unifiedOption = computed(() => {
                 },
             },
             {
-                name: 'Kompetensi Diperlukan Kerja (Batang)',
+                name: 'Kompetensi Diperlukan Kerja',
                 type: 'bar',
-                yAxisIndex: 0,
                 barMaxWidth: 22,
                 barGap: '18%',
                 data: needScores,
@@ -507,30 +483,6 @@ const unifiedOption = computed(() => {
                     fontSize: 10,
                     fontWeight: 'bold',
                     color: '#475569',
-                },
-            },
-            {
-                name: 'Gap Selisih Surplus/Defisit (Garis)',
-                type: 'line',
-                yAxisIndex: 1,
-                z: 10,
-                data: gapScores,
-                itemStyle: { color: chartColors.performance },
-                lineStyle: { width: 3, color: chartColors.performance },
-                symbol: 'circle',
-                symbolSize: 8,
-                label: {
-                    show: true,
-                    position: 'top',
-                    distance: 6,
-                    formatter: ({ value, dataIndex }) => {
-                        const firstIndex = gapScores.findIndex((score) => score === value);
-                        if (dataIndex !== firstIndex) return '';
-                        return value > 0 ? `+${formatNumber(value, 0)}` : formatNumber(value, 0);
-                    },
-                    fontSize: 10,
-                    fontWeight: 'bold',
-                    color: chartColors.performance,
                 },
             },
         ],

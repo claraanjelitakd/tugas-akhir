@@ -70,10 +70,12 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 6. Seed satu kohort kanonik 2026 lintas 12 prodi dengan maksimal
-        //    100 lulusan yang menghubungkan seluruh data induk dan turunannya.
+        //    100 lulusan yang menghubungkan seluruh data induk dan turunannya,
+        //    serta dataset variasi analitik nama aktual untuk pengujian grafik.
         $this->call([
             AlumniSimulationSeeder::class,
             KuesionerAnswerConsistencySeeder::class,
+            AlumniVariasiAnalitikSeeder::class,
         ]);
 
         // 7. Preservasi staging hasil scraping LinkedIn sesuai kontrak backup.

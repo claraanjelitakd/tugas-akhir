@@ -204,10 +204,30 @@ const resize = () => {
     chartInstance?.resize();
 };
 
+let resizeTimer = null;
+let lastWidth = 0;
+let lastHeight = 0;
+
+// Menangani perubahan ukuran container dengan debounce untuk mencegah resize loop / getaran grafik.
+const handleResize = () => {
+    if (!chartElement.value) return;
+    const { clientWidth, clientHeight } = chartElement.value;
+    if (Math.abs(clientWidth - lastWidth) < 2 && Math.abs(clientHeight - lastHeight) < 2) {
+        return;
+    }
+    lastWidth = clientWidth;
+    lastHeight = clientHeight;
+
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+        resize();
+    }, 80);
+};
+
 // Lifecycle membuat ResizeObserver dan membuang instance ketika komponen hilang.
 onMounted(() => {
     renderChart();
-    resizeObserver = new ResizeObserver(() => resize());
+    resizeObserver = new ResizeObserver(handleResize);
     if (chartElement.value) resizeObserver.observe(chartElement.value);
 });
 
@@ -215,6 +235,7 @@ watch(() => props.option, renderChart, { deep: true });
 watch(() => props.loading, syncLoading, { immediate: true });
 
 onBeforeUnmount(() => {
+    if (resizeTimer) clearTimeout(resizeTimer);
     resizeObserver?.disconnect();
     chartInstance?.dispose();
     chartInstance = null;
@@ -224,11 +245,11 @@ defineExpose({ downloadPng, getImageDataUrl, reset, resize, toggleLegend });
 </script>
 
 <template>
-    <!-- Container chart memiliki tinggi eksplisit agar ECharts dapat menghitung canvas secara stabil. -->
+    <!-- Container chart memiliki tinggi eksplisit dan overflow-hidden agar ECharts stabil tanpa osilasi scrollbar. -->
     <div
         ref="chartElement"
-        class="w-full"
-        :style="{ height: typeof height === 'number' ? `${height}px` : height }"
+        class="w-full overflow-hidden"
+        :style="{ height: typeof height === 'number' ? `${height}px` : height, minHeight: typeof height === 'number' ? `${height}px` : height }"
         role="img"
         :aria-label="ariaLabel"
     ></div>
