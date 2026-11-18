@@ -106,6 +106,7 @@ const target = ref(props.filters.target || 'all');
 const status = ref(props.filters.status || 'all');
 const prodiId = ref(props.filters.prodi_id || 'all');
 const linkedinStatus = ref(props.filters.linkedin_status || 'all');
+const negara = ref(props.filters.kode_negara || 'all');
 const provinsi = ref(props.filters.kode_provinsi || 'all');
 const kabupaten = ref(props.filters.kode_kabupaten || 'all');
 const provinsiSearch = ref('');
@@ -137,6 +138,9 @@ watch(() => props.filters, (newFilters) => {
         }
         if (newFilters.linkedin_status !== undefined) {
             linkedinStatus.value = newFilters.linkedin_status || 'all';
+        }
+        if (newFilters.kode_negara !== undefined) {
+            negara.value = newFilters.kode_negara || 'all';
         }
         if (newFilters.kode_provinsi !== undefined) {
             provinsi.value = newFilters.kode_provinsi || 'all';
@@ -185,6 +189,21 @@ const totalPages = computed(() => {
     return props.pagination?.last_page || 1;
 });
 
+// Daftar opsi negara untuk filter wilayah
+const negaraOptions = computed(() => {
+    return props.filterOptions?.wilayah?.negara || [];
+});
+
+const handleNegaraChange = () => {
+    if (negara.value && negara.value !== 'ID' && negara.value !== 'all') {
+        provinsi.value = 'all';
+        kabupaten.value = 'all';
+        provinsiSearch.value = '';
+        kabupatenSearch.value = '';
+    }
+    applyFilters(1);
+};
+
 // Batasi pilihan provinsi berdasarkan kata pencarian.
 const filteredProvinsiOptions = computed(() => {
     const options = props.filterOptions?.wilayah?.provinsi || [];
@@ -201,8 +220,8 @@ const filteredProvinsiOptions = computed(() => {
 const filteredKabupatenOptions = computed(() => {
     const options = props.filterOptions?.wilayah?.kabupaten || [];
     const keyword = kabupatenSearch.value.trim().toLowerCase();
-    const scopedOptions = provinsi.value === 'all'
-        ? options
+    const scopedOptions = (provinsi.value === 'all' || provinsi.value === 'LUAR_NEGERI')
+        ? (provinsi.value === 'LUAR_NEGERI' ? [] : options)
         : options.filter((option) => option.provinsi === provinsi.value);
 
     if (!keyword) {
@@ -324,6 +343,7 @@ const applyFilters = (page = 1) => {
         status: status.value !== 'all' ? status.value : undefined,
         prodi_id: prodiId.value !== 'all' ? prodiId.value : undefined,
         linkedin_status: linkedinStatus.value !== 'all' ? linkedinStatus.value : undefined,
+        kode_negara: negara.value !== 'all' ? negara.value : undefined,
         kode_provinsi: provinsi.value !== 'all' ? provinsi.value : undefined,
         kode_kabupaten: kabupaten.value !== 'all' ? kabupaten.value : undefined,
         head_office: headOffice.value !== 'all' ? headOffice.value : undefined,
@@ -376,6 +396,7 @@ const resetFilters = () => {
     status.value = 'all';
     prodiId.value = 'all';
     linkedinStatus.value = 'all';
+    negara.value = 'all';
     provinsi.value = 'all';
     kabupaten.value = 'all';
     provinsiSearch.value = '';
@@ -418,6 +439,7 @@ const hasActiveSecondaryFilters = computed(() => {
         target.value !== 'all' ||
         status.value !== 'all' ||
         linkedinStatus.value !== 'all' ||
+        negara.value !== 'all' ||
         provinsi.value !== 'all' ||
         kabupaten.value !== 'all' ||
         headOffice.value !== 'all' ||
@@ -436,6 +458,7 @@ const resetSecondaryFilters = () => {
     status.value = 'all';
     prodiId.value = 'all';
     linkedinStatus.value = 'all';
+    negara.value = 'all';
     provinsi.value = 'all';
     kabupaten.value = 'all';
     provinsiSearch.value = '';
@@ -718,20 +741,44 @@ const handleSyncLinkedIn = async (alumni) => {
             throw new Error(saveData.message || 'URL LinkedIn gagal diperbarui.');
         }
 
-        const syncResponse = await fetch(`/${props.prefix}/linkedin-sync/${alumni.id}`, {
-            method: 'POST',
-            headers,
+        // Tampilkan modal status proses penarikan data profil LinkedIn
+        Swal.fire({
+            title: 'Menyinkronkan Data LinkedIn...',
+            html: `
+                <div class="py-2 text-center text-xs text-slate-600 space-y-2">
+                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-[#0D542B] mb-2">
+                        <svg class="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <div class="font-semibold text-slate-800">Menghubungkan ke profil ${alumni.nama}...</div>
+                    <div class="text-[11px] text-slate-500">Mengekstrak riwayat karier dan keterampilan ke area peninjauan staging.</div>
+                </div>
+            `,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
         });
+
+        const [syncResponse] = await Promise.all([
+            fetch(`/${props.prefix}/linkedin-sync/${alumni.id}`, {
+                method: 'POST',
+                headers,
+            }),
+            new Promise((resolve) => setTimeout(resolve, 1400)), // Efek loading realistis
+        ]);
+
         const syncData = await syncResponse.json();
 
         if (!syncResponse.ok || !syncData.success) {
             throw new Error(syncData.message || 'Sinkronisasi LinkedIn gagal dijalankan.');
         }
 
-        Swal.fire({
+        await Swal.fire({
             icon: 'success',
-            title: 'Sinkronisasi Dimulai',
-            text: 'Profil LinkedIn masuk ke proses review.',
+            title: 'Sinkronisasi Berhasil!',
+            text: 'Data profil LinkedIn berhasil ditarik dan siap ditinjau pada area staging.',
             confirmButtonColor: '#0D542B',
         });
         router.reload({ preserveScroll: true });
@@ -842,7 +889,12 @@ const openLinkedInReviewModal = async (alumni) => {
             throw new Error(data.message || 'Preview hasil sinkronisasi tidak dapat dimuat.');
         }
 
-        activeLinkedInReview.value = data.result;
+        activeLinkedInReview.value = {
+            ...data.result,
+            alumni_id: alumni.id,
+            alumni_nama: alumni.nama,
+            alumni_nim: alumni.nim,
+        };
         initializeLinkedInReviewForm(data.result);
     } catch (error) {
         showLinkedInReviewModal.value = false;
@@ -1228,6 +1280,27 @@ const formatTanggal = (dateStr) => {
                             </select>
                         </div>
 
+                        <!-- Filter Negara sebagai tingkat utama wilayah internasional vs domestik -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">Negara</label>
+                            <select
+                                v-model="negara"
+                                @change="handleNegaraChange"
+                                class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all cursor-pointer"
+                            >
+                                <option value="all">Semua Negara</option>
+                                <option value="ID">Indonesia</option>
+                                <option value="Luar Negeri">Luar Negeri (Semua)</option>
+                                <option
+                                    v-for="neg in negaraOptions.filter(n => n.value !== 'ID')"
+                                    :key="neg.value"
+                                    :value="neg.value"
+                                >
+                                    {{ neg.label }}
+                                </option>
+                            </select>
+                        </div>
+
                         <!-- Filter provinsi searchable sebagai tingkat pertama wilayah berbasis kode master. -->
                         <div>
                             <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">Provinsi</label>
@@ -1235,20 +1308,22 @@ const formatTanggal = (dateStr) => {
                                 <input
                                     v-model="provinsiSearch"
                                     type="search"
-                                    :placeholder="selectedProvinsiLabel || 'Cari provinsi...'"
+                                    :placeholder="negara !== 'all' && negara !== 'ID' ? 'Hanya untuk Indonesia' : (selectedProvinsiLabel || 'Cari provinsi...')"
+                                    :disabled="negara !== 'all' && negara !== 'ID'"
                                     @focus="showProvinsiDropdown = true"
                                     @blur="setTimeout(() => { showProvinsiDropdown = false; }, 150)"
-                                    class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 pr-8 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B]"
+                                    class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 pr-8 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] disabled:cursor-not-allowed disabled:bg-slate-100"
                                 />
                                 <button
                                     type="button"
-                                    class="absolute inset-y-0 right-0 px-2 text-slate-500"
+                                    :disabled="negara !== 'all' && negara !== 'ID'"
+                                    class="absolute inset-y-0 right-0 px-2 text-slate-500 disabled:cursor-not-allowed"
                                     aria-label="Buka pilihan provinsi"
                                     @click="showProvinsiDropdown = !showProvinsiDropdown"
                                 >
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
                                 </button>
-                                <div v-if="showProvinsiDropdown" class="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                                <div v-if="showProvinsiDropdown && (negara === 'all' || negara === 'ID')" class="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
                                     <button
                                         type="button"
                                         class="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
@@ -1277,22 +1352,22 @@ const formatTanggal = (dateStr) => {
                                 <input
                                     v-model="kabupatenSearch"
                                     type="search"
-                                    :placeholder="provinsi === 'all' ? 'Pilih provinsi dahulu' : (selectedKabupatenLabel || 'Cari kabupaten/kota...')"
-                                    :disabled="provinsi === 'all'"
+                                    :placeholder="(negara !== 'all' && negara !== 'ID') ? 'Hanya untuk Indonesia' : (provinsi === 'LUAR_NEGERI' ? 'Tidak ada kabupaten untuk Luar Negeri' : (provinsi === 'all' ? 'Pilih provinsi dahulu' : (selectedKabupatenLabel || 'Cari kabupaten/kota...')))"
+                                    :disabled="(negara !== 'all' && negara !== 'ID') || provinsi === 'all' || provinsi === 'LUAR_NEGERI'"
                                     @focus="showKabupatenDropdown = true"
                                     @blur="setTimeout(() => { showKabupatenDropdown = false; }, 150)"
                                     class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 pr-8 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] disabled:cursor-not-allowed disabled:bg-slate-100"
                                 />
                                 <button
                                     type="button"
-                                    :disabled="provinsi === 'all'"
+                                    :disabled="(negara !== 'all' && negara !== 'ID') || provinsi === 'all' || provinsi === 'LUAR_NEGERI'"
                                     class="absolute inset-y-0 right-0 px-2 text-slate-500 disabled:cursor-not-allowed"
                                     aria-label="Buka pilihan kabupaten atau kota"
                                     @click="showKabupatenDropdown = !showKabupatenDropdown"
                                 >
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
                                 </button>
-                                <div v-if="showKabupatenDropdown && provinsi !== 'all'" class="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                                <div v-if="showKabupatenDropdown && (negara === 'all' || negara === 'ID') && provinsi !== 'all' && provinsi !== 'LUAR_NEGERI'" class="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
                                     <button
                                         type="button"
                                         class="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
@@ -1552,16 +1627,39 @@ const formatTanggal = (dateStr) => {
                                                 <span v-if="item.linkedin_username || item.linkedin_url" class="font-mono">{{ item.linkedin_username || item.linkedin_url }}</span>
                                                 <span v-else>Belum ada riwayat</span>
                                             </div>
-                                            <!-- Preview menjadi akses utama review tanpa menambah tombol besar di kolom tabel. -->
-                                            <button
+                                            <!-- Aksi peninjauan hasil LinkedIn: Preview cepat modal atau Detail ke Tab Sinkronisasi Alumni -->
+                                            <div
                                                 v-if="prefix !== 'biro3' && item.linkedin_sync_status === 'pending' && item.linkedin_sync?.sync_id"
-                                                type="button"
-                                                class="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-center text-[10px] font-bold text-slate-700 transition hover:border-[#0D542B] hover:text-[#0D542B]"
-                                                title="Lihat preview dan koreksi hasil LinkedIn"
-                                                @click="openLinkedInReviewModal(item)"
+                                                class="mt-1 flex items-center gap-1.5"
                                             >
-                                                Preview
-                                            </button>
+                                                <button
+                                                    type="button"
+                                                    class="flex-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-center text-[10px] font-bold text-slate-700 shadow-2xs transition hover:border-[#0D542B] hover:text-[#0D542B]"
+                                                    title="Lihat preview ringkas dan setujui usulan data"
+                                                    @click="openLinkedInReviewModal(item)"
+                                                >
+                                                    Preview
+                                                </button>
+                                                <Link
+                                                    :href="`/${prefix}/alumni/${item.id}?tab=linkedin`"
+                                                    class="flex-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-center text-[10px] font-bold text-slate-600 shadow-2xs transition hover:border-[#0D542B] hover:bg-emerald-50 hover:text-[#0D542B]"
+                                                    title="Buka tab audit sinkronisasi alumni lengkap"
+                                                >
+                                                    Detail
+                                                </Link>
+                                            </div>
+                                            <div
+                                                v-else-if="prefix !== 'biro3' && (item.linkedin_sync_status || item.linkedin_sync?.status) === 'approved'"
+                                                class="mt-1"
+                                            >
+                                                <Link
+                                                    :href="`/${prefix}/alumni/${item.id}?tab=linkedin`"
+                                                    class="block w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-center text-[10px] font-bold text-slate-600 transition hover:border-[#0D542B] hover:bg-emerald-50 hover:text-[#0D542B]"
+                                                    title="Buka tab riwayat sinkronisasi alumni"
+                                                >
+                                                    Detail
+                                                </Link>
+                                            </div>
 
                                             <!-- Approval cepat memakai ikon ringkas agar kolom tetap bersih. -->
                                             <div
@@ -1834,14 +1932,24 @@ const formatTanggal = (dateStr) => {
                             </a>
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        class="shrink-0 rounded-lg p-1 text-lg leading-none text-slate-400 hover:bg-white hover:text-slate-700"
-                        title="Tutup preview"
-                        @click="showLinkedInReviewModal = false"
-                    >
-                        &times;
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <Link
+                            v-if="activeLinkedInReview?.alumni_id"
+                            :href="`/${prefix}/alumni/${activeLinkedInReview.alumni_id}?tab=linkedin`"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-[#0D542B]/30 bg-white px-3 py-1.5 text-xs font-bold text-[#0D542B] shadow-2xs transition hover:bg-emerald-50"
+                            title="Buka tab sinkronisasi alumni lengkap untuk analisis dan kelola detail"
+                        >
+                            <span>Buka Tab Sinkronisasi Alumni</span>
+                        </Link>
+                        <button
+                            type="button"
+                            class="shrink-0 rounded-lg p-1 text-lg leading-none text-slate-400 hover:bg-white hover:text-slate-700"
+                            title="Tutup preview"
+                            @click="showLinkedInReviewModal = false"
+                        >
+                            &times;
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Preview dan field approval memakai staging sebagai usulan, lalu profil aktif sebagai pembanding. -->

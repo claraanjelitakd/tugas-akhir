@@ -85,9 +85,9 @@ class LinkedInProfileMapper
      * Master terverifikasi dipertahankan; kandidat baru selalu berstatus
      * 'Menunggu Verifikasi'.
      */
-    public function findOrCreateCompany(string $companyName, ?string $locationName = null): Perusahaan
+    public function findOrCreateCompany(string $companyName, ?string $locationName = null, ?Biodata $biodata = null): Perusahaan
     {
-        return $this->resolveCompany($companyName, $locationName)['company'];
+        return $this->resolveCompany($companyName, $locationName, $biodata)['company'];
     }
 
     /**
@@ -100,7 +100,7 @@ class LinkedInProfileMapper
      *
      * @return array{company: Perusahaan, status: string, match_type: string, similarity_score: int|null, created: bool, recommendation: array<string, mixed>|null}
      */
-    public function resolveCompany(string $companyName, ?string $locationName = null): array
+    public function resolveCompany(string $companyName, ?string $locationName = null, ?Biodata $biodata = null): array
     {
         $cleanName = trim($companyName);
 
@@ -121,7 +121,7 @@ class LinkedInProfileMapper
             ];
         }
 
-        $candidate = $this->createPendingCompany($cleanName, $locationName);
+        $candidate = $this->createPendingCompany($cleanName, $locationName, $biodata);
         $recommendation = $this->verificationService()->getSimilarRecommendations($candidate, 1)[0] ?? null;
 
         // Skor 90 mengakomodasi variasi kecil dari provider seperti suffix "Official".
@@ -160,7 +160,7 @@ class LinkedInProfileMapper
     /**
      * Membuat kandidat master perusahaan berstatus menunggu verifikasi.
      */
-    private function createPendingCompany(string $cleanName, ?string $locationName = null): Perusahaan
+    private function createPendingCompany(string $cleanName, ?string $locationName = null, ?Biodata $biodata = null): Perusahaan
     {
         // Lokasi LinkedIn adalah lokasi kerja/cabang, bukan head office master.
         // Lokasi tersebut tetap tersedia di payload staging dan tidak ditulis ke perusahaan.
@@ -168,6 +168,9 @@ class LinkedInProfileMapper
         $kodeNegara = 'ID';
 
         unset($locationName);
+
+        $createdByUserId = $biodata?->user_id ?? Auth::id();
+        $createdByProdiId = $biodata?->prodi_id ?? (Auth::user()?->role === 'admin_prodi' ? Auth::user()?->prodi_id : null);
 
         // Kandidat baru tidak langsung dianggap sebagai master resmi.
         return Perusahaan::create([
@@ -178,7 +181,8 @@ class LinkedInProfileMapper
             'kode_negara' => $kodeNegara,
             'sektor' => 'Teknologi Informasi & Jasa Profesional',
             'skala' => 'Nasional',
-            'created_by_user_id' => Auth::id(),
+            'created_by_user_id' => $createdByUserId,
+            'created_by_prodi_id' => $createdByProdiId,
         ]);
     }
 
@@ -216,7 +220,7 @@ class LinkedInProfileMapper
             $companyName = trim($currentPosition->localizedCompanyName);
             $locationName = $currentPosition->localizedDisplayLocationName;
 
-            $perusahaan = $this->findOrCreateCompany($companyName, $locationName);
+            $perusahaan = $this->findOrCreateCompany($companyName, $locationName, $biodata);
 
             if ($biodata->perusahaan_id !== $perusahaan->id) {
                 $oldCompanyName = $biodata->perusahaan?->nama_perusahaan ?? '-';

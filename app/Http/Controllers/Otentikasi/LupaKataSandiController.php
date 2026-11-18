@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
@@ -60,12 +61,16 @@ class LupaKataSandiController extends Controller
         $genericStatus = 'Jika akun dan email terdaftar valid, tautan reset kata sandi akan dikirim.';
 
         if (! $user) {
+            Log::info("Permintaan reset kata sandi diabaikan: input '{$input}' tidak ditemukan di database.");
+
             return back()->with('status', $genericStatus);
         }
 
         $email = $user->email;
 
         if (! $email || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            Log::warning("Permintaan reset kata sandi diabaikan: pengguna {$user->username} tidak memiliki email valid.");
+
             return back()->with('status', $genericStatus);
         }
 

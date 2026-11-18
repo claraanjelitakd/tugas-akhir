@@ -91,7 +91,19 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
 
         if (! empty($filters['kode_negara']) && $filters['kode_negara'] !== 'all') {
             if ($filters['kode_negara'] === 'Luar Negeri') {
-                $query->where('jenis_lokasi', 'Luar Negeri');
+                $query->where(function ($nq) {
+                    $nq->where('jenis_lokasi', 'Luar Negeri')
+                        ->orWhere(function ($sub) {
+                            $sub->whereNotNull('kode_negara')
+                                ->where('kode_negara', '!=', 'ID');
+                        });
+                });
+            } elseif ($filters['kode_negara'] === 'ID') {
+                $query->where(function ($nq) {
+                    $nq->where('jenis_lokasi', 'Dalam Negeri')
+                        ->orWhere('kode_negara', 'ID')
+                        ->orWhereNull('kode_negara');
+                });
             } else {
                 $query->where('kode_negara', $filters['kode_negara']);
             }

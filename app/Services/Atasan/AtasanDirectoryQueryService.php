@@ -101,7 +101,21 @@ class AtasanDirectoryQueryService
             });
         }
 
-        if ($provinsiDomisili !== '' && $provinsiDomisili !== 'all') {
+        if ($provinsiDomisili === 'LUAR_NEGERI' || $provinsiDomisili === 'Luar Negeri') {
+            $query->where(function (Builder $q): void {
+                $q->whereHas('perusahaan', function (Builder $cq): void {
+                    $cq->where('jenis_lokasi', 'Luar Negeri')
+                        ->orWhere(function (Builder $sq): void {
+                            $sq->whereNotNull('kode_negara')->where('kode_negara', '!=', 'ID');
+                        });
+                })->orWhereHas('atasan.perusahaan', function (Builder $cq): void {
+                    $cq->where('jenis_lokasi', 'Luar Negeri')
+                        ->orWhere(function (Builder $sq): void {
+                            $sq->whereNotNull('kode_negara')->where('kode_negara', '!=', 'ID');
+                        });
+                });
+            });
+        } elseif ($provinsiDomisili !== '' && $provinsiDomisili !== 'all') {
             $query->where('kode_provinsi', $provinsiDomisili);
         }
 
@@ -152,8 +166,8 @@ class AtasanDirectoryQueryService
     {
         return [
             'atasan:id,nama,email,telepon,perusahaan_id',
-            'atasan.perusahaan:id,nama_perusahaan',
-            'perusahaan:id,nama_perusahaan',
+            'atasan.perusahaan:id,nama_perusahaan,bentuk_perusahaan,skala,jumlah_pegawai',
+            'perusahaan:id,nama_perusahaan,bentuk_perusahaan,skala,jumlah_pegawai',
             'dataAkademik:nim,nama,tahun_lulus',
             'prodi:id,nama_prodi',
             'propinsi:kode_provinsi,nama_provinsi',
@@ -177,9 +191,14 @@ class AtasanDirectoryQueryService
         $profilKarakteristik = [];
         $kinerjaKompetensi = [];
         $kesiapanKerja = null;
+        $saranCatatan = null;
 
         if ($evaluation && $evaluation->is_submitted) {
             foreach ($evaluation->respons as $resp) {
+                if (! empty($resp->catatan) && ! $saranCatatan) {
+                    $saranCatatan = trim((string) $resp->catatan);
+                }
+
                 $p = $resp->pertanyaan;
                 if (! $p) {
                     continue;
@@ -222,7 +241,7 @@ class AtasanDirectoryQueryService
                 'tahun_lulus' => $biodata->dataAkademik?->tahun_lulus,
                 'domisili' => $biodata->kabupaten
                     ? "{$biodata->kabupaten->nama_kabupaten}, {$biodata->propinsi?->nama_provinsi}"
-                    : ($biodata->propinsi?->nama_provinsi ?? null),
+                    : ($biodata->propinsi?->nama_provinsi ?? (($company?->jenis_lokasi === 'Luar Negeri' || ($company?->kode_negara && $company?->kode_negara !== 'ID')) ? 'Luar Negeri' : null)),
                 'kode_provinsi' => $biodata->kode_provinsi,
             ],
             'atasan' => $biodata->atasan ? [
@@ -235,6 +254,8 @@ class AtasanDirectoryQueryService
             'perusahaan' => $company ? [
                 'id' => $company->id,
                 'nama' => $company->nama_perusahaan,
+                'bentuk_perusahaan' => $company->bentuk_perusahaan,
+                'skala' => $company->skala,
             ] : null,
             'diisi_oleh' => 'Alumni',
             'sumber_data' => 'Profil alumni',
@@ -244,12 +265,13 @@ class AtasanDirectoryQueryService
                     : ($evaluation->is_submitted ? 'Selesai' : 'Menunggu'),
                 'submitted_at' => $evaluation?->submitted_at?->toIso8601String(),
                 'is_submitted' => (bool) ($evaluation?->is_submitted),
-                'bentuk_perusahaan' => $profilKarakteristik['bentuk_perusahaan']['jawaban'] ?? null,
-                'skala_perusahaan' => $profilKarakteristik['skala_perusahaan']['jawaban'] ?? null,
-                'jumlah_pegawai' => $profilKarakteristik['jumlah_pegawai']['jawaban'] ?? null,
+                'bentuk_perusahaan' => $profilKarakteristik['bentuk_perusahaan']['jawaban'] ?? $company?->bentuk_perusahaan ?? null,
+                'skala_perusahaan' => $profilKarakteristik['skala_perusahaan']['jawaban'] ?? $company?->skala ?? null,
+                'jumlah_pegawai' => $profilKarakteristik['jumlah_pegawai']['jawaban'] ?? $company?->jumlah_pegawai ?? null,
                 'jumlah_alumni_ukdw' => $profilKarakteristik['jumlah_alumni_ukdw']['jawaban'] ?? null,
                 'standar_gaji_pertama' => $profilKarakteristik['standar_gaji_pertama']['jawaban'] ?? null,
                 'kesiapan_kerja' => $kesiapanKerja['jawaban'] ?? null,
+                'saran' => $saranCatatan,
                 'karakteristik' => array_values($profilKarakteristik),
                 'kompetensi' => $kinerjaKompetensi,
             ],

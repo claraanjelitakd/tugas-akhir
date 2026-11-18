@@ -40,6 +40,7 @@ class AlumniDirectoryQueryService
         $statusTerpilih = $request->input('status');
         $targetTerpilih = $request->input('target');
         $linkedinStatusTerpilih = $request->input('linkedin_status', 'all');
+        $kodeNegaraTerpilih = $request->input('kode_negara');
         $kodeProvinsiTerpilih = $request->input('kode_provinsi');
         $kodeKabupatenTerpilih = $request->input('kode_kabupaten');
         $headOfficeTerpilih = $request->input('head_office');
@@ -170,6 +171,16 @@ class AlumniDirectoryQueryService
             $unitTerpilih = null;
         }
 
+        $wilayahNegaraOptions = DB::table('ref_negara')
+            ->select(['kode_negara', 'nama_negara'])
+            ->orderBy('nama_negara')
+            ->get()
+            ->map(fn (object $row): array => [
+                'value' => (string) $row->kode_negara,
+                'label' => (string) $row->nama_negara,
+            ])
+            ->all();
+
         $wilayahProvinsiOptions = DB::table('propinsi')
             ->select(['kode_provinsi', 'nama_provinsi'])
             ->orderBy('nama_provinsi')
@@ -179,6 +190,12 @@ class AlumniDirectoryQueryService
                 'label' => (string) $row->nama_provinsi,
             ])
             ->all();
+
+        // Tambahkan opsi wilayah Luar Negeri untuk alumni yang berdomisili/bekerja di instansi mancanegara
+        $wilayahProvinsiOptions[] = [
+            'value' => 'LUAR_NEGERI',
+            'label' => 'Luar Negeri',
+        ];
         $wilayahKabupatenOptions = DB::table('kabupaten')
             ->select(['kode_kabupaten', 'kode_provinsi', 'nama_kabupaten'])
             ->orderBy('nama_kabupaten')
@@ -227,7 +244,36 @@ class AlumniDirectoryQueryService
             $query->where('tahun_akademik_lulus', 'like', "%{$semesterTerpilih}%");
         }
 
-        if ($kodeProvinsiTerpilih && $kodeProvinsiTerpilih !== 'all') {
+        // Filter Wilayah: Negara
+        if ($kodeNegaraTerpilih && $kodeNegaraTerpilih !== 'all') {
+            if ($kodeNegaraTerpilih === 'Luar Negeri' || $kodeNegaraTerpilih === 'LUAR_NEGERI') {
+                $query->where(function ($w): void {
+                    $w->where('jenis_lokasi_perusahaan', 'Luar Negeri')
+                        ->orWhere(function ($sub): void {
+                            $sub->whereNotNull('kode_negara_perusahaan')
+                                ->where('kode_negara_perusahaan', '!=', 'ID');
+                        });
+                });
+            } elseif ($kodeNegaraTerpilih === 'ID') {
+                $query->where(function ($w): void {
+                    $w->where('jenis_lokasi_perusahaan', 'Dalam Negeri')
+                        ->orWhere('kode_negara_perusahaan', 'ID')
+                        ->orWhereNull('kode_negara_perusahaan');
+                });
+            } else {
+                $query->where('kode_negara_perusahaan', $kodeNegaraTerpilih);
+            }
+        }
+
+        if ($kodeProvinsiTerpilih === 'LUAR_NEGERI' || $kodeProvinsiTerpilih === 'Luar Negeri') {
+            $query->where(function ($w): void {
+                $w->where('jenis_lokasi_perusahaan', 'Luar Negeri')
+                    ->orWhere(function ($sub): void {
+                        $sub->whereNotNull('kode_negara_perusahaan')
+                            ->where('kode_negara_perusahaan', '!=', 'ID');
+                    });
+            });
+        } elseif ($kodeProvinsiTerpilih && $kodeProvinsiTerpilih !== 'all') {
             $query->where('kode_provinsi', $kodeProvinsiTerpilih);
         }
 
@@ -559,6 +605,7 @@ class AlumniDirectoryQueryService
                 'status' => $statusTerpilih,
                 'prodi_id' => $prodiIdTerpilih,
                 'linkedin_status' => $linkedinStatusTerpilih,
+                'kode_negara' => $kodeNegaraTerpilih ?? 'all',
                 'kode_provinsi' => $kodeProvinsiTerpilih ?? 'all',
                 'kode_kabupaten' => $kodeKabupatenTerpilih ?? 'all',
                 'head_office' => $headOfficeTerpilih ?? 'all',
@@ -568,6 +615,7 @@ class AlumniDirectoryQueryService
             ],
             'filterOptions' => [
                 'wilayah' => [
+                    'negara' => $wilayahNegaraOptions,
                     'provinsi' => $wilayahProvinsiOptions,
                     'kabupaten' => $wilayahKabupatenOptions,
                 ],

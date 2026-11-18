@@ -122,10 +122,9 @@ const processedWords = computed(() => {
     const allTexts = [];
     if (props.texts && props.texts.length > 0) {
         allTexts.push(...props.texts);
-    }
-    if (props.records && props.records.length > 0) {
+    } else if (props.records && props.records.length > 0) {
         props.records.forEach((r) => {
-            const val = r.answer || r.jawaban_label || r.jawaban_teks || r.text || r.catatan;
+            const val = r.jawaban_lainnya || r.jawaban_teks || r.answer || r.text || r.catatan || r.jawaban_label;
             if (typeof val === 'string' && val.trim() !== '') {
                 allTexts.push(val);
             }

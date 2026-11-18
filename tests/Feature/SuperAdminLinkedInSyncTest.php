@@ -202,6 +202,21 @@ class SuperAdminLinkedInSyncTest extends TestCase
         $this->assertEquals('Menunggu Verifikasi', $company->status_verifikasi);
     }
 
+    /** Memastikan perusahaan kandidat baru LinkedIn mencatat alumni dan prodi pengaju. */
+    public function test_resolve_company_creates_pending_with_alumni_user_and_prodi(): void
+    {
+        $alumni = $this->createAlumni('72210001', 'Alumni LinkedIn Tester');
+
+        $mapper = new LinkedInProfileMapper;
+        $resolution = $mapper->resolveCompany('PT Solusi Data Modern', 'Yogyakarta', $alumni);
+
+        $this->assertInstanceOf(Perusahaan::class, $resolution['company']);
+        $this->assertEquals('PT Solusi Data Modern', $resolution['company']->nama_perusahaan);
+        $this->assertEquals('Menunggu Verifikasi', $resolution['company']->status_verifikasi);
+        $this->assertEquals($alumni->user_id, $resolution['company']->created_by_user_id);
+        $this->assertEquals($alumni->prodi_id, $resolution['company']->created_by_prodi_id);
+    }
+
     /** Memastikan variasi kecil nama LinkedIn memakai master head office terverifikasi. */
     public function test_similar_linkedin_company_uses_verified_head_office_without_copying_location(): void
     {

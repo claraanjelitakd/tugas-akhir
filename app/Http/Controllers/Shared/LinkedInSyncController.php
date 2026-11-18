@@ -601,6 +601,7 @@ class LinkedInSyncController extends Controller
                     $companyResolution = $mapper->resolveCompany(
                         (string) $preview['current_company'],
                         $preview['current_company_location'] ?? null,
+                        $biodata,
                     );
 
                     // Sinkronisasi hanya menyiapkan rekomendasi. Relasi biodata baru
@@ -910,7 +911,7 @@ class LinkedInSyncController extends Controller
                 // umum tidak cukup spesifik untuk dipetakan ke perusahaan.
                 $locationName = $preview['current_company_location'] ?? null;
 
-                $companyResolution = $mapper->resolveCompany($companyName, $locationName);
+                $companyResolution = $mapper->resolveCompany($companyName, $locationName, $biodata);
                 $perusahaan = $companyResolution['company'];
 
                 if ($biodata->perusahaan_id !== $perusahaan->id) {

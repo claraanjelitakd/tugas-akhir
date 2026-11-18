@@ -197,14 +197,39 @@ const postJson = async (url, payload = {}) => {
 };
 
 const handleDirectLinkedInSync = async () => {
-    if (!props.alumni?.id) return;
+    if (!props.alumni?.id || isDirectSyncing.value) return;
     isDirectSyncing.value = true;
+
+    // Tampilkan notifikasi proses scraping interaktif
+    Swal.fire({
+        title: 'Menyinkronkan Data LinkedIn...',
+        html: `
+            <div class="py-2 text-center text-xs text-slate-600 space-y-2">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-[#0D542B] mb-2">
+                    <svg class="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+                <div class="font-semibold text-slate-800">Menghubungkan ke layanan scraping profil LinkedIn...</div>
+                <div class="text-[11px] text-slate-500">Mengekstrak profil publik, pengalaman kerja, dan keahlian alumni.</div>
+            </div>
+        `,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+    });
+
     try {
-        await postJson(`${syncBasePath.value}/${props.alumni.id}`);
+        const [data] = await Promise.all([
+            postJson(`${syncBasePath.value}/${props.alumni.id}`),
+            new Promise((resolve) => setTimeout(resolve, 1400)), // Memberikan jeda proses visual yang jelas dan realistis
+        ]);
+
         await Swal.fire({
             icon: 'success',
             title: 'Sinkronisasi Berhasil!',
-            text: 'Data profil publik LinkedIn terbaru telah berhasil diambil.',
+            text: 'Data profil publik LinkedIn terbaru telah berhasil diambil ke area peninjauan.',
             confirmButtonColor: '#0D542B',
         });
         router.reload({ preserveScroll: true });
@@ -415,7 +440,8 @@ const filteredTraceMapping = computed(() => {
                     <span>{{ showRawJson ? 'Tutup JSON' : 'Lihat JSON' }}</span>
                 </button>
 
-                <!-- Tombol Buka LinkedIn Sync Menu -->
+                <!-- Tombol Buka LinkedIn Sync Menu (dinonaktifkan sementara) -->
+                <!--
                 <Link 
                     v-if="!readonly"
                     :href="syncBasePath + '?alumni_id=' + alumni.id + '&search=' + encodeURIComponent(alumni.nim || alumni.nama || '')"
@@ -424,6 +450,7 @@ const filteredTraceMapping = computed(() => {
                 >
                     <span>Menu LinkedIn Sync &rarr;</span>
                 </Link>
+                -->
             </div>
         </div>
 
@@ -1112,12 +1139,14 @@ const filteredTraceMapping = computed(() => {
                     <svg v-if="!isDirectSyncing" class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
                     <span>{{ isDirectSyncing ? 'Mengambil Data...' : 'Ambil Data LinkedIn Sekarang' }}</span>
                 </button>
+                <!--
                 <Link
                     :href="syncBasePath + '?alumni_id=' + alumni.id"
                     class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition cursor-pointer border border-slate-200"
                 >
                     Buka Menu LinkedIn Sync
                 </Link>
+                -->
             </div>
         </div>
     </div>

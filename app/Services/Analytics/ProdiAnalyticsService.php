@@ -6,7 +6,6 @@ use App\Models\KuesionerSection;
 use App\Models\Prodi;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Menyediakan data analitik kuesioner yang dimiliki setiap program studi.
@@ -96,7 +95,11 @@ class ProdiAnalyticsService
         $sections = KuesionerSection::query()
             ->where('target', 'prodi')
             ->where('prodi_id', $selectedProdi->id)
-            ->withCount('pertanyaan as questions_count')
+            ->where('is_active', true)
+            ->withCount(['pertanyaan as questions_count' => function ($q) {
+                $q->where('kuesioner_pertanyaan.is_active', true)
+                    ->where('kuesioner_section_pertanyaan.is_active', true);
+            }])
             ->orderBy('order')
             ->get()
             ->map(function ($sec) {
@@ -116,14 +119,16 @@ class ProdiAnalyticsService
         $selectedSection = $this->resolveSection($sections, $sectionKey);
 
         // ALUR 2: pertanyaan dan opsi pada section aktif diambil dari metadata
-        // database. Karena itu frontend tidak perlu menulis nama pertanyaan.
+        // database, dengan menyaring hanya pertanyaan yang aktif (baik di master maupun pivot section).
         $questions = $selectedSection->pertanyaan()
+            ->where('kuesioner_pertanyaan.is_active', true)
+            ->wherePivot('is_active', true)
             ->with('opsi')
             ->orderBy('kuesioner_section_pertanyaan.order')
             ->get()
             ->map(function ($q) {
                 $q->question_text = $q->teks_pertanyaan;
-                $q->question_label = $q->label_pertanyaan ?: Str::limit($q->teks_pertanyaan, 72);
+                $q->question_label = $q->label_pertanyaan ?: $q->teks_pertanyaan;
                 $q->code = $q->kode_pertanyaan;
                 $q->type = $q->tipe;
                 $q->is_required = (bool) ($q->pivot->wajib ?? true);
@@ -504,7 +509,7 @@ class ProdiAnalyticsService
             $records[] = $record;
             if (in_array('Lainnya', $labels, true)) {
                 $otherRecords[] = $record;
-                if ($record['jawaban_lainnya'] !== '') {
+                if (! empty($record['jawaban_lainnya'])) {
                     $otherTexts[] = $record['jawaban_lainnya'];
                 }
             }

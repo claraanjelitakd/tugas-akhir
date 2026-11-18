@@ -6,6 +6,7 @@ use App\Models\Biodata;
 use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -81,23 +82,19 @@ class PerusahaanVerificationService
 
         if (! empty($filters['kode_negara']) && $filters['kode_negara'] !== 'all') {
             if ($filters['kode_negara'] === 'Luar Negeri') {
-                $query->where('jenis_lokasi', 'Luar Negeri');
-            } else {
-                $query->where('kode_negara', $filters['kode_negara']);
-            }
-        }
-
-        if (! empty($filters['kode_provinsi'])) {
-            $query->where('kode_provinsi', $filters['kode_provinsi']);
-        }
-
-        if (! empty($filters['kode_kabupaten'])) {
-            $query->where('kode_kabupaten', $filters['kode_kabupaten']);
-        }
-
-        if (! empty($filters['kode_negara']) && $filters['kode_negara'] !== 'all') {
-            if ($filters['kode_negara'] === 'Luar Negeri') {
-                $query->where('jenis_lokasi', 'Luar Negeri');
+                $query->where(function (Builder $nq): void {
+                    $nq->where('jenis_lokasi', 'Luar Negeri')
+                        ->orWhere(function (Builder $sub): void {
+                            $sub->whereNotNull('kode_negara')
+                                ->where('kode_negara', '!=', 'ID');
+                        });
+                });
+            } elseif ($filters['kode_negara'] === 'ID') {
+                $query->where(function (Builder $nq): void {
+                    $nq->where('jenis_lokasi', 'Dalam Negeri')
+                        ->orWhere('kode_negara', 'ID')
+                        ->orWhereNull('kode_negara');
+                });
             } else {
                 $query->where('kode_negara', $filters['kode_negara']);
             }
@@ -135,7 +132,20 @@ class PerusahaanVerificationService
 
         $perPage = (int) ($filters['per_page'] ?? 10);
 
-        return $query->latest('updated_at')->paginate($perPage)->withQueryString();
+        $companies = $query->latest('updated_at')->paginate($perPage)->withQueryString();
+
+        $companies->getCollection()->transform(function ($company) {
+            if ($company->biodata->isEmpty() && $company->creator && $company->creator->biodata) {
+                $company->setRelation('biodata', collect([$company->creator->biodata]));
+                if (($company->biodata_count ?? 0) === 0) {
+                    $company->biodata_count = 1;
+                }
+            }
+
+            return $company;
+        });
+
+        return $companies;
     }
 
     /**
@@ -168,7 +178,19 @@ class PerusahaanVerificationService
 
         if (! empty($filters['kode_negara']) && $filters['kode_negara'] !== 'all') {
             if ($filters['kode_negara'] === 'Luar Negeri') {
-                $query->where('jenis_lokasi', 'Luar Negeri');
+                $query->where(function (Builder $nq): void {
+                    $nq->where('jenis_lokasi', 'Luar Negeri')
+                        ->orWhere(function (Builder $sub): void {
+                            $sub->whereNotNull('kode_negara')
+                                ->where('kode_negara', '!=', 'ID');
+                        });
+                });
+            } elseif ($filters['kode_negara'] === 'ID') {
+                $query->where(function (Builder $nq): void {
+                    $nq->where('jenis_lokasi', 'Dalam Negeri')
+                        ->orWhere('kode_negara', 'ID')
+                        ->orWhereNull('kode_negara');
+                });
             } else {
                 $query->where('kode_negara', $filters['kode_negara']);
             }
@@ -211,7 +233,20 @@ class PerusahaanVerificationService
 
         $perPage = (int) ($filters['per_page'] ?? 10);
 
-        return $query->latest('updated_at')->paginate($perPage)->withQueryString();
+        $companies = $query->latest('updated_at')->paginate($perPage)->withQueryString();
+
+        $companies->getCollection()->transform(function ($company) {
+            if ($company->biodata->isEmpty() && $company->creator && $company->creator->biodata) {
+                $company->setRelation('biodata', collect([$company->creator->biodata]));
+                if (($company->biodata_count ?? 0) === 0) {
+                    $company->biodata_count = 1;
+                }
+            }
+
+            return $company;
+        });
+
+        return $companies;
     }
 
     /**

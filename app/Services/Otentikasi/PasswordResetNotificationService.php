@@ -6,6 +6,7 @@ use App\Mail\ResetPasswordMail;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -51,6 +52,8 @@ class PasswordResetNotificationService
         ]);
 
         Mail::to($email)->send(new ResetPasswordMail($user, $resetUrl));
+
+        Log::info("Email tautan reset kata sandi terkirim ke: {$email} | Pengguna: {$user->username}");
 
         return $email;
     }

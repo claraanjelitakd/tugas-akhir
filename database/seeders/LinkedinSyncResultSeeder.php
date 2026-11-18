@@ -162,6 +162,37 @@ class LinkedinSyncResultSeeder extends Seeder
                 );
             }
         }
+
+        // C. Zela Poiema Christy Mantohana Napitupulu (Sistem Informasi - NIM 72210501)
+        $zelaBiodata = Biodata::where('nim', '72210501')->first();
+
+        if ($zelaBiodata) {
+            $zelaMockFile = storage_path('app/mock/apify/zela-poiema-christy-mantohana-napitupulu.json');
+            if (! File::exists($zelaMockFile)) {
+                $zelaMockFile = storage_path('app/mock/apify/zela.json');
+            }
+
+            if (File::exists($zelaMockFile)) {
+                $rawZela = json_decode(File::get($zelaMockFile), true);
+
+                $zelaBiodata->linkedin_url = 'https://www.linkedin.com/in/zela-poiema-christy-mantohana-napitupulu';
+                $zelaBiodata->linkedin_username = 'zela-poiema-christy-mantohana-napitupulu';
+                $zelaBiodata->saveQuietly();
+
+                LinkedinSyncResult::updateOrCreate(
+                    [
+                        'biodata_id' => $zelaBiodata->id,
+                        'linkedin_url' => 'https://www.linkedin.com/in/zela-poiema-christy-mantohana-napitupulu',
+                    ],
+                    [
+                        'linkedin_username' => 'zela-poiema-christy-mantohana-napitupulu',
+                        'scraped_data' => $rawZela,
+                        'status' => 'pending',
+                        'scraped_at' => now(),
+                    ]
+                );
+            }
+        }
     }
 
     /**

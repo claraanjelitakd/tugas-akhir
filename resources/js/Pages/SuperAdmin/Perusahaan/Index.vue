@@ -116,6 +116,19 @@ watch(() => props.kabupatens, (newKabupatens) => {
     isLoadingKabupatenFilter.value = false;
 }, { immediate: true });
 
+// Sinkronisasi filter saat menerima props baru dari server
+watch(() => props.filters, (newFilters) => {
+    if (!newFilters) return;
+    search.value = newFilters.search || '';
+    selectedProdiId.value = newFilters.prodi_id || '';
+    scope.value = newFilters.scope || 'all';
+    statusFilter.value = newFilters.status || 'all';
+    selectedKodeNegara.value = newFilters.kode_negara || '';
+    selectedPropinsiId.value = newFilters.kode_provinsi || '';
+    selectedKabupatenId.value = newFilters.kode_kabupaten || '';
+    perPage.value = Number(newFilters.per_page || 10);
+}, { deep: true });
+
 const negaraOptions = computed(() => {
     return (props.negaras || []).map((negara) => ({
         kode_negara: negara.kode_negara,
@@ -243,8 +256,11 @@ const getCompanyAlumniList = (company) => {
     return [];
 };
 
-// Menyajikan jumlah alumni yang terlihat pengguna, termasuk fallback relasi pengaju.
-const getCompanyAlumniCount = (company) => company?.biodata_count ?? getCompanyAlumniList(company).length;
+// Menyajikan jumlah alumni yang terlihat pengguna, termasuk fallback relasi pengaju usulan alumni.
+const getCompanyAlumniCount = (company) => {
+    const list = getCompanyAlumniList(company);
+    return Math.max(company?.biodata_count ?? 0, list.length);
+};
 
 const getAlumniDisplayName = (alumni) => {
     return alumni.data_akademik?.nama || alumni.user?.name || alumni.nama || 'Nama Alumni';
@@ -423,6 +439,17 @@ const displayValue = (value) => {
 const getCompanyDetailFields = (company) => {
     if (!company) return [];
 
+    let createdBy = company.creator?.name || company.creator_name || company.created_by_user_id;
+    let creatorRole = company.creator?.role || company.creator_role ? getRoleLabel(company.creator?.role || company.creator_role) : '-';
+
+    if (company.creator?.biodata) {
+        createdBy = `${getAlumniDisplayName(company.creator.biodata)} (${company.creator.biodata.nim || '-'})`;
+        creatorRole = `Alumni - ${getAlumniProdi(company.creator.biodata)}`;
+    } else if (company.biodata && company.biodata.length > 0) {
+        createdBy = `${getAlumniDisplayName(company.biodata[0])} (${company.biodata[0].nim || '-'}) [Sinkronisasi LinkedIn]`;
+        creatorRole = `Alumni - ${getAlumniProdi(company.biodata[0])}`;
+    }
+
     return [
         ['ID Master', company.id],
         ['Nama Perusahaan / Instansi', company.nama_perusahaan],
@@ -441,8 +468,8 @@ const getCompanyDetailFields = (company) => {
         ['Jenis Lokasi', company.jenis_lokasi],
         ['Kode negara', company.kode_negara],
         ['Status Verifikasi', company.status_verifikasi],
-        ['Dibuat Oleh', company.creator?.name || company.creator_name || company.created_by_user_id],
-        ['Role Pembuat', company.creator?.role || company.creator_role ? getRoleLabel(company.creator?.role || company.creator_role) : '-'],
+        ['Dibuat Oleh', createdBy],
+        ['Role Pembuat', creatorRole],
         ['Prodi Pengusul', company.createdProdi?.nama_prodi || company.created_prodi_name || company.created_by_prodi_id],
         ['Dibuat Pada', formatDate(company.created_at)],
         ['Diperbarui Pada', formatDate(company.updated_at)],
@@ -1324,6 +1351,25 @@ const handleVerificationAction = (company, event) => {
                                             Diajukan: {{ formatDate(company.created_at) }}
                                         </div>
                                     </div>
+                                    <div v-else-if="company.biodata && company.biodata.length > 0">
+                                        <div class="font-semibold text-slate-900 leading-tight">
+                                            {{ getAlumniDisplayName(company.biodata[0]) }}
+                                        </div>
+                                        <div class="text-slate-500 text-[11px] font-mono mt-0.5">
+                                            {{ company.biodata[0].nim || '-' }} - {{ getAlumniProdi(company.biodata[0]) }}
+                                        </div>
+                                        <div class="mt-1 flex flex-wrap items-center gap-1">
+                                            <span class="inline-block text-[10px] font-semibold text-sky-800 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded leading-tight">
+                                                Sinkronisasi LinkedIn Alumni
+                                            </span>
+                                            <span v-if="company.biodata.length > 1" class="inline-block text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                                                +{{ company.biodata.length - 1 }} alumni lain
+                                            </span>
+                                        </div>
+                                        <div class="text-[10px] text-slate-400 mt-0.5">
+                                            Tercatat: {{ formatDate(company.created_at) }}
+                                        </div>
+                                    </div>
                                     <div v-else-if="company.creator">
                                         <div class="font-semibold text-slate-900 leading-tight">
                                             {{ company.creator.name }}
@@ -1332,18 +1378,7 @@ const handleVerificationAction = (company, event) => {
                                             Role: {{ getRoleLabel(company.creator.role) }}
                                         </div>
                                         <div class="text-[10px] text-slate-400 mt-0.5">
-                                            Dibuat: {{ formatDate(company.created_at) }}
-                                        </div>
-                                    </div>
-                                    <div v-else-if="company.biodata && company.biodata.length > 0">
-                                        <div class="font-semibold text-slate-900 leading-tight">
-                                            {{ getAlumniDisplayName(company.biodata[0]) }}
-                                        </div>
-                                        <div class="text-slate-500 text-[11px] font-mono mt-0.5">
-                                            {{ company.biodata[0].nim || '-' }} - {{ getAlumniProdi(company.biodata[0]) }}
-                                        </div>
-                                        <div class="text-[10px] text-slate-400 mt-0.5">
-                                            Tercatat: {{ formatDate(company.created_at) }}
+                                            Dibuat Manual: {{ formatDate(company.created_at) }}
                                         </div>
                                     </div>
                                     <span v-else class="text-slate-400 italic text-[11px]">Master Internal Sistem</span>

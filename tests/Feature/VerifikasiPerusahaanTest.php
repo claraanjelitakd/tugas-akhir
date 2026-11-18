@@ -83,7 +83,7 @@ class VerifikasiPerusahaanTest extends TestCase
             ->component('SuperAdmin/Perusahaan/Index')
             ->where('role', 'admin_prodi')
             ->where('basePath', '/prodi/perusahaan')
-            ->where('canCreate', false)
+            ->where('canCreate', true)
         );
 
         $responseFakultas = $this->actingAs($this->adminFakultas)->get('/fakultas/perusahaan');
@@ -91,7 +91,7 @@ class VerifikasiPerusahaanTest extends TestCase
             ->component('SuperAdmin/Perusahaan/Index')
             ->where('role', 'admin_fakultas')
             ->where('basePath', '/fakultas/perusahaan')
-            ->where('canCreate', false)
+            ->where('canCreate', true)
         );
     }
 
@@ -449,5 +449,52 @@ class VerifikasiPerusahaanTest extends TestCase
         ]);
         $this->assertCount(1, $response->json());
         $this->assertEquals($this->kabupaten->nama_kabupaten, $response->json()[0]['nama_kabupaten']);
+    }
+
+    public function test_admin_prodi_dapat_menambahkan_perusahaan_baru(): void
+    {
+        $payload = [
+            'nama_perusahaan' => 'PT Teknologi Mitra Mandiri',
+            'jenis_lokasi' => 'Dalam Negeri',
+            'kode_provinsi' => $this->propinsi->kode_provinsi,
+            'kode_kabupaten' => $this->kabupaten->kode_kabupaten,
+            'alamat' => 'Jl. Solo Km 10',
+            'skala' => 'Nasional',
+        ];
+
+        $response = $this->actingAs($this->adminProdi)->post('/prodi/perusahaan', $payload);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('perusahaan', [
+            'nama_perusahaan' => 'PT Teknologi Mitra Mandiri',
+            'status_verifikasi' => 'Terverifikasi',
+            'created_by_user_id' => $this->adminProdi->id,
+            'created_by_prodi_id' => $this->adminProdi->prodi_id,
+        ]);
+    }
+
+    public function test_admin_fakultas_dapat_menambahkan_perusahaan_baru(): void
+    {
+        $payload = [
+            'nama_perusahaan' => 'PT Rekayasa Perangkat Solusi',
+            'jenis_lokasi' => 'Dalam Negeri',
+            'kode_provinsi' => $this->propinsi->kode_provinsi,
+            'kode_kabupaten' => $this->kabupaten->kode_kabupaten,
+            'alamat' => 'Jl. Magelang No 50',
+            'skala' => 'Nasional',
+        ];
+
+        $response = $this->actingAs($this->adminFakultas)->post('/fakultas/perusahaan', $payload);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('perusahaan', [
+            'nama_perusahaan' => 'PT Rekayasa Perangkat Solusi',
+            'status_verifikasi' => 'Terverifikasi',
+            'created_by_user_id' => $this->adminFakultas->id,
+        ]);
     }
 }

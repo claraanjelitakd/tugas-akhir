@@ -6,8 +6,8 @@
  * `categories/*.vue` agar mudah dibaca saat live coding.
  */
 
-// Memecah label panjang agar sumbu Y tidak bertumpuk pada grafik horizontal.
-export const wrapChartLabel = (label, maxLength = 48) => {
+// Memecah label panjang agar sumbu Y tidak bertumpuk pada grafik horizontal dan tidak terpotong (...).
+export const wrapChartLabel = (label, maxLength = 38) => {
     const lines = [];
     let current = '';
 
@@ -29,7 +29,7 @@ export const wrapChartLabel = (label, maxLength = 48) => {
 
 // Menghitung tinggi grafik Likert dari jumlah baris label setiap pernyataan.
 export const likertChartHeight = (items) => Math.max(460, items.reduce((total, item) => {
-    const labelLines = wrapChartLabel(item.title).split('\n').length;
+    const labelLines = wrapChartLabel(item.title, 38).split('\n').length;
     return total + Math.max(76, labelLines * 18 + 28);
 }, 72));
 
@@ -67,8 +67,8 @@ export const buildLikertOption = (items) => ({
     yAxis: {
         type: 'category',
         inverse: true,
-        data: items.map((item) => wrapChartLabel(item.title)),
-        axisLabel: { color: '#334155', fontSize: 11, lineHeight: 16, width: 260, overflow: 'break' },
+        data: items.map((item) => wrapChartLabel(item.title, 38)),
+        axisLabel: { color: '#334155', fontSize: 11, lineHeight: 16, width: 340, overflow: 'break' },
         axisLine: { lineStyle: { color: '#CBD5E1' } },
     },
     series: [{

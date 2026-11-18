@@ -8,6 +8,7 @@ use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\Propinsi;
+use App\Models\RefNegara;
 use App\Models\User;
 use App\Services\Perusahaan\PerusahaanVerificationService;
 use Illuminate\Database\Eloquent\Builder;
@@ -73,14 +74,19 @@ class VerifikasiPerusahaanFakultasController extends Controller
             'search' => $request->query('search', ''),
             'prodi_id' => $request->query('prodi_id', ''),
             'status' => $request->query('status', 'all'),
-            'per_page' => $request->query('per_page', 10),
+            'kode_negara' => $request->query('kode_negara', ''),
+            'kode_provinsi' => $request->query('kode_provinsi', ''),
+            'kode_kabupaten' => $request->query('kode_kabupaten', ''),
+            'per_page' => (int) $request->query('per_page', 10),
         ];
 
         $companies = $this->verificationService->getPendingForFakultas($fakultasId, $filters);
 
         $propinsis = Propinsi::select('kode_provinsi', 'nama_provinsi')->orderBy('nama_provinsi')->get();
-        // Optimasi: Kabupaten tidak dimuat 514 baris sekaligus, melainkan via cascading dropdown asinkron berdasarkan provinsi
-        $kabupatens = [];
+        $kabupatens = ! empty($filters['kode_provinsi'])
+            ? Kabupaten::where('kode_provinsi', $filters['kode_provinsi'])->select('kode_kabupaten', 'kode_provinsi', 'nama_kabupaten')->orderBy('nama_kabupaten')->get()
+            : [];
+        $negaras = RefNegara::select('kode_negara', 'nama_negara')->orderBy('nama_negara')->get();
 
         $prodiIds = $prodisFakultas->pluck('id')->all();
 
@@ -89,13 +95,13 @@ class VerifikasiPerusahaanFakultasController extends Controller
             'role' => 'admin_fakultas',
             'basePath' => '/fakultas/perusahaan',
             'dashboardPath' => '/fakultas/dashboard',
-            'canCreate' => false,
+            'canCreate' => true,
             'fakultas' => $fakultas,
             'prodis' => $prodisFakultas,
             'companies' => $companies,
             'propinsis' => $propinsis,
             'kabupatens' => $kabupatens,
-            'negaras' => [],
+            'negaras' => $negaras,
             'filters' => $filters,
             'stats' => [
                 'total_all' => $this->companiesInScopeQuery($prodiIds)->count(),
@@ -104,6 +110,77 @@ class VerifikasiPerusahaanFakultasController extends Controller
                 'total_rejected' => $this->companiesInScopeQuery($prodiIds)->where('status_verifikasi', 'Ditolak')->count(),
             ],
         ]);
+    }
+
+    /**
+     * Menambahkan institusi / perusahaan baru langsung ke master data terverifikasi lingkup fakultas.
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $fakultasId = $user->fakultas_id;
+
+        if (! $fakultasId) {
+            abort(403, 'Akun Anda belum terhubung dengan fakultas.');
+        }
+
+        $jenisLokasi = $request->input('jenis_lokasi', 'Dalam Negeri');
+
+        $rules = [
+            'nama_perusahaan' => 'required|string|max:255',
+            'jenis_lokasi' => 'required|string|in:Dalam Negeri,Luar Negeri',
+            'kode_negara' => $jenisLokasi === 'Luar Negeri' ? 'required|string|size:2|not_in:ID|exists:ref_negara,kode_negara' : 'nullable|size:2|exists:ref_negara,kode_negara',
+            'kode_provinsi' => $jenisLokasi === 'Dalam Negeri' ? 'nullable|exists:propinsi,kode_provinsi' : 'nullable',
+            'kode_kabupaten' => $jenisLokasi === 'Dalam Negeri' ? 'nullable|exists:kabupaten,kode_kabupaten' : 'nullable',
+            'alamat' => 'nullable|string|max:500',
+            'kode_pos' => 'nullable|string|max:15',
+            'skala' => 'nullable|string|in:Lokal,Nasional,Internasional',
+            'jenis_perusahaan' => 'nullable|string|max:100',
+            'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
+            'sektor' => 'nullable|string|max:100',
+            'bentuk_perusahaan' => 'nullable|string|max:60',
+            'jumlah_pegawai' => 'nullable|string|max:60',
+            'homepage' => 'nullable|string|max:255',
+            'no_telp_fax' => 'nullable|string|max:100',
+        ];
+
+        $messages = [
+            'nama_perusahaan.required' => 'Nama perusahaan / institusi wajib diisi.',
+            'kode_negara.required' => 'Kode negara wajib dipilih untuk instansi luar negeri.',
+        ];
+
+        $validated = $request->validate($rules, $messages);
+
+        $perusahaan = Perusahaan::create([
+            'nama_perusahaan' => $validated['nama_perusahaan'],
+            'jenis_lokasi' => $jenisLokasi,
+            'kode_negara' => $jenisLokasi === 'Luar Negeri' ? strtoupper($validated['kode_negara']) : 'ID',
+            'kode_provinsi' => $jenisLokasi === 'Dalam Negeri' ? ($validated['kode_provinsi'] ?? null) : null,
+            'kode_kabupaten' => $jenisLokasi === 'Dalam Negeri' ? ($validated['kode_kabupaten'] ?? null) : null,
+            'alamat' => $validated['alamat'] ?? null,
+            'kode_pos' => $validated['kode_pos'] ?? null,
+            'skala' => $validated['skala'] ?? ($jenisLokasi === 'Luar Negeri' ? 'Internasional' : 'Nasional'),
+            'jenis_perusahaan' => $validated['jenis_perusahaan'] ?? null,
+            'jenis_perusahaan_lainnya' => $validated['jenis_perusahaan_lainnya'] ?? null,
+            'sektor' => $validated['sektor'] ?? null,
+            'bentuk_perusahaan' => $validated['bentuk_perusahaan'] ?? null,
+            'jumlah_pegawai' => $validated['jumlah_pegawai'] ?? null,
+            'homepage' => $validated['homepage'] ?? null,
+            'no_telp_fax' => $validated['no_telp_fax'] ?? null,
+            'status_verifikasi' => 'Terverifikasi',
+            'created_by_user_id' => $user->id,
+        ]);
+
+        LogActivity::record(
+            'CREATE_PERUSAHAAN_FAKULTAS',
+            "Admin Fakultas menambahkan perusahaan terverifikasi: {$perusahaan->nama_perusahaan} (ID: {$perusahaan->id})",
+            null,
+            null,
+            $perusahaan->toArray()
+        );
+
+        return redirect()->back()->with('success', "Institusi \"{$perusahaan->nama_perusahaan}\" berhasil ditambahkan ke master data terverifikasi.");
     }
 
     /**

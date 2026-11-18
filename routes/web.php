@@ -190,6 +190,7 @@ Route::middleware('auth')->group(function () {
 
             // Verifikasi & Approval Perusahaan Pengajuan Alumni (Khusus Prodi)
             Route::get('/prodi/perusahaan', [VerifikasiPerusahaanProdiController::class, 'index'])->name('prodi.perusahaan.index');
+            Route::post('/prodi/perusahaan', [VerifikasiPerusahaanProdiController::class, 'store'])->name('prodi.perusahaan.store');
             Route::post('/prodi/perusahaan/{id}/verify', [VerifikasiPerusahaanProdiController::class, 'verify'])->name('prodi.perusahaan.verify');
             Route::post('/prodi/perusahaan/{id}/replace', [VerifikasiPerusahaanProdiController::class, 'replace'])->name('prodi.perusahaan.replace');
             Route::put('/prodi/perusahaan/{id}', [VerifikasiPerusahaanProdiController::class, 'updateAndVerify'])->name('prodi.perusahaan.update');
@@ -258,6 +259,7 @@ Route::middleware('auth')->group(function () {
 
             // Verifikasi & Approval Perusahaan Pengajuan Alumni (Lingkup Fakultas)
             Route::get('/fakultas/perusahaan', [VerifikasiPerusahaanFakultasController::class, 'index'])->name('fakultas.perusahaan.index');
+            Route::post('/fakultas/perusahaan', [VerifikasiPerusahaanFakultasController::class, 'store'])->name('fakultas.perusahaan.store');
             Route::post('/fakultas/perusahaan/{id}/verify', [VerifikasiPerusahaanFakultasController::class, 'verify'])->name('fakultas.perusahaan.verify');
             Route::post('/fakultas/perusahaan/{id}/replace', [VerifikasiPerusahaanFakultasController::class, 'replace'])->name('fakultas.perusahaan.replace');
             Route::put('/fakultas/perusahaan/{id}', [VerifikasiPerusahaanFakultasController::class, 'updateAndVerify'])->name('fakultas.perusahaan.update');

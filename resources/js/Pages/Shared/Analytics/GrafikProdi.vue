@@ -314,12 +314,14 @@ const printProdiReport = () => {
     ]);
 
     const titleText = chart.value?.title || 'Analisis Kuesioner Khusus Program Studi';
-    const prodiText = selectedProdi.value?.nama_prodi || 'Program Studi';
-    const summaryNarrative = summary.value?.narrative || summary.value?.keterangan || '';
+    const prodiText = currentProdi.value?.nama_prodi || 'Program Studi';
+    const cohortYearText = selectedYear.value === 'ALL' ? 'Semua Angkatan' : selectedYear.value;
+    const summaryNarrative = summary.value?.narrative || summary.value?.keterangan || chart.value?.insights?.headline || '';
 
     generateAnalyticsPdf({
         title: titleText,
         subtitle: `Hasil Analisis Kuesioner Program Studi ${prodiText}`,
+        cohortYear: cohortYearText,
         scopeName: prodiText,
         summaryText: summaryNarrative,
         chartImageBase64: chartBase64,
@@ -446,118 +448,140 @@ watch(() => props.analytics, (newAnalytics) => {
                         </div>
                     </section>
 
-                    <!-- Bilah Aksi Terpadu: Grafik | Data | Unduh Grafik | Laporan PDF -->
-                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-2 no-print">
-                        <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs">
-                            <button
-                                type="button"
-                                class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
-                                :class="activePanel === 'charts' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
-                                @click="activePanel = 'charts'"
-                            >
-                                Grafik
-                            </button>
-                            <button
-                                type="button"
-                                class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
-                                :class="activePanel === 'data' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
-                                @click="activePanel = 'data'"
-                            >
-                                Data
-                            </button>
-                            <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
-                            <button
-                                type="button"
-                                class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
-                                @click="handleDownloadProdiChart"
-                                title="Unduh gambar grafik saat ini (PNG)"
-                            >
-                                Unduh Grafik
-                            </button>
-                            <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
-                            <button
-                                type="button"
-                                class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
-                                @click="printProdiReport"
-                                title="Unduh laporan analisis lengkap prodi ini (PDF)"
-                            >
-                                Laporan PDF
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Panel grafik menampilkan drill-down analisis dan jumlah responden pembentuk. -->
-                    <section v-if="activePanel === 'charts'" class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
-                        <div class="border-b border-slate-100 pb-4">
-                            <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Visualisasi Grafik</p>
-                            <h2 class="mt-1 text-xl font-extrabold text-slate-900">{{ chart.title }}</h2>
-                            <p class="mt-1 text-xs leading-5 text-slate-500">{{ chart.caption }}</p>
-                            <!-- Skala Likert dijelaskan di dekat grafik agar tidak hilang di kartu header. -->
-                            <p v-if="chart.type === 'likert'" class="mt-2 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
-                                Skala Penilaian: 1 = Sangat Tidak Setuju, 2 = Tidak Setuju, 3 = Netral, 4 = Setuju, 5 = Sangat Setuju.
-                            </p>
-                        </div>
-
-                        <div class="mt-5 min-w-0">
-                            <ProdiAnalyticsChartsPanel :items="visualizations" :section-order="selectedSectionOrder" :chart-type="chart.type" @select="handleChartSelect" @context-change="handleQuestionContext" />
-                            <p class="mt-3 border-t border-slate-100 pt-3 text-xs leading-5 text-slate-500">
-                                <span class="font-semibold text-[#0D542B]">Petunjuk:</span>
-                                Klik batang, titik, atau kategori grafik untuk melihat responden pembentuknya. Rincian lengkap tersedia pada tab Data.
-                            </p>
-                        </div>
-
-                        <!-- Pilihan sudah memiliki analisis di bawah grafik; tipe lain memakai Kilas global. -->
-                        <section v-if="chart.type !== 'choice'" class="mt-6 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                            <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Kilas Analisis</p>
-                            <p class="mt-2 text-sm font-semibold leading-6 text-slate-900">{{ chart.insights?.headline }}</p>
-                            <ul class="mt-3 space-y-1.5 text-xs leading-5 text-slate-600">
-                                <li v-for="(point, index) in chart.insights?.points || []" :key="index">{{ point }}</li>
-                            </ul>
-                        </section>
-
-                        <section v-if="selectedItem" class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
-                            <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                                <div class="min-w-0">
-                                    <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Analisis terpilih</p>
-                                    <!-- Pertanyaan lengkap dipindahkan ke kartu inline agar tidak terpotong di header. -->
-                                    <h3 class="mt-1 break-words text-base font-extrabold leading-6 text-slate-900">{{ selectedItem.item?.type === 'choice' ? selectedItem.label : selectedItem.item?.title }}</h3>
-                                    <p class="mt-1 text-xs leading-5 text-slate-600">
-                                        <span v-if="selectedItem.item?.type === 'choice'">Pertanyaan: {{ selectedItem.item?.title }}</span>
-                                        <span v-else>Skor yang dipilih: {{ selectedItem.value ?? '-' }} / 5</span>
+                    <!-- Kontainer Terpadu: Header, Bilah Aksi, Grafik & Data Responden -->
+                    <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+                        <!-- Header Terpadu: Judul di Kiri, Bilah Aksi Terpadu di Kanan (Tepat di Dalam Kartu) -->
+                        <div class="border-b border-slate-100 pb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div class="min-w-0 flex-1">
+                                <template v-if="activePanel === 'charts'">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Visualisasi Grafik</p>
+                                    <h2 class="mt-1 text-xl font-extrabold text-slate-900">{{ chart.title }}</h2>
+                                    <p class="mt-1 text-xs leading-5 text-slate-500">{{ chart.caption }}</p>
+                                    <!-- Skala Likert dijelaskan di dekat grafik agar tidak hilang di kartu header. -->
+                                    <p v-if="chart.type === 'likert'" class="mt-2 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+                                        Skala Penilaian: 1 = Sangat Tidak Setuju, 2 = Tidak Setuju, 3 = Netral, 4 = Setuju, 5 = Sangat Setuju.
                                     </p>
-                                </div>
-                                <button type="button" class="shrink-0 rounded-lg bg-[#0D542B] px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0A4322]" @click="activePanel = 'data'; dataView = 'records'">Lihat data pembentuk ({{ selectedRecords.length }})</button>
+                                </template>
+                                <template v-else>
+                                    <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Detail Data Responden</p>
+                                    <h2 class="mt-1 text-xl font-extrabold text-slate-900">{{ formatNumber(filteredRecords.length, 0) }} baris data sesuai filter</h2>
+                                    <p class="mt-1 text-xs text-slate-500">Data individual terhubung langsung dengan jawaban yang membentuk grafik.</p>
+                                </template>
                             </div>
-                            <p class="mt-3 border-t border-emerald-200 pt-3 text-sm leading-6 text-slate-700">Klik grafik menyaring responden yang membentuk nilai atau kategori tersebut. Data lengkap tetap tersedia pada tab Data.</p>
-                            <!-- Tabel ringkas mempertahankan konteks klik sekaligus memberi aksi tindak lanjut alumni. -->
-                            <div class="mt-4 overflow-x-auto rounded-lg border border-emerald-200 bg-white">
-                                <table class="min-w-[760px] w-full divide-y divide-slate-200 text-left text-xs">
-                                    <thead class="bg-emerald-50/60 font-semibold text-slate-700"><tr><th class="px-3 py-2.5">Alumni</th><th class="px-3 py-2.5">NIM</th><th class="px-3 py-2.5">Jawaban</th><th class="px-3 py-2.5">Isian Lainnya</th><th class="px-3 py-2.5 text-center">Aksi</th></tr></thead>
-                                    <tbody class="divide-y divide-slate-100">
-                                        <tr v-for="record in selectedRecords.slice(0, 6)" :key="record.response_id" class="hover:bg-slate-50">
-                                            <td class="px-3 py-2.5 font-semibold text-slate-800">{{ record.nama }}</td><td class="px-3 py-2.5 font-mono text-slate-600">{{ record.nim }}</td><td class="px-3 py-2.5 text-slate-700">{{ record.jawaban_label || '-' }}</td><td class="px-3 py-2.5 text-slate-700">{{ record.jawaban_lainnya || '-' }}</td>
-                                            <td class="px-3 py-2.5"><div class="flex items-center justify-center gap-1.5"><Link :href="detailUrl(record)" class="p-1.5 text-slate-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Lihat Detail Alumni & Audit Kuesioner"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></Link><a v-if="record.nomor_telepon" :href="formatWhatsAppUrl(record)" target="_blank" class="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Hubungi via WhatsApp"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" /></svg></a><a v-if="record.email" :href="formatEmailUrl(record)" class="p-1.5 text-slate-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Kirim email"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 00-2 2z" /></svg></a><a v-if="isValidLinkedInProfileUrl(record.linkedin_url)" :href="record.linkedin_url" target="_blank" rel="noopener noreferrer" class="p-1.5 text-slate-600 hover:text-[#0077B5] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Buka profil LinkedIn"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.58c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.68H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.32 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM3.54 9h3.56v11.45H3.54V9z" /></svg></a></div></td>
-                                        </tr>
-                                        <tr v-if="selectedRecords.length === 0"><td colspan="5" class="px-3 py-6 text-center text-slate-500">Tidak ada responden yang membentuk pilihan ini.</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <p v-if="selectedRecords.length > 6" class="mt-2 text-[11px] text-slate-500">Menampilkan 6 nama pertama dari {{ selectedRecords.length }} responden. Buka Data untuk melihat semuanya.</p>
-                        </section>
-                    </section>
 
-                    <!-- Panel data memiliki records dan pivot dinamis agar struktur universitas tetap ringkas. -->
-                    <section v-else class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
-                        <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
-                            <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Detail Data Responden</p>
-                                <h2 class="mt-1 text-xl font-extrabold text-slate-900">{{ formatNumber(filteredRecords.length, 0) }} baris data sesuai filter</h2>
-                                <p class="mt-1 text-xs text-slate-500">Data individual terhubung langsung dengan jawaban yang membentuk grafik.</p>
+                            <!-- Bilah Aksi Terpadu: Grafik | Data | Unduh Grafik | Laporan PDF -->
+                            <div class="flex flex-wrap items-center gap-2 self-start lg:self-center shrink-0">
+                                <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs no-print">
+                                    <button
+                                        type="button"
+                                        class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                                        :class="activePanel === 'charts' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                                        @click="activePanel = 'charts'"
+                                    >
+                                        Grafik
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                                        :class="activePanel === 'data' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                                        @click="activePanel = 'data'"
+                                    >
+                                        Data
+                                    </button>
+                                    <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
+                                    <button
+                                        type="button"
+                                        class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
+                                        @click="handleDownloadProdiChart"
+                                        title="Unduh gambar grafik saat ini (PNG)"
+                                    >
+                                        Unduh Grafik
+                                    </button>
+                                    <span class="mx-0.5 h-3.5 w-px bg-slate-300"></span>
+                                    <button
+                                        type="button"
+                                        class="rounded-md px-3 py-1.5 font-medium text-slate-700 hover:bg-white hover:text-[#0D542B] transition-all cursor-pointer whitespace-nowrap"
+                                        @click="printProdiReport"
+                                        title="Unduh laporan analisis lengkap prodi ini (PDF)"
+                                    >
+                                        Laporan PDF
+                                    </button>
+                                </div>
+
+                                <!-- Toggle Tampilan Records / Pivot ketika berada di Panel Data -->
+                                <div v-if="activePanel === 'data'" class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs no-print">
+                                    <button
+                                        type="button"
+                                        class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                                        :class="dataView === 'records' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                        @click="dataView = 'records'"
+                                    >
+                                        Data responden
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                                        :class="dataView === 'pivot' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                        @click="dataView = 'pivot'"
+                                    >
+                                        Pivot pertanyaan
+                                    </button>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <button type="button" class="rounded-lg px-3.5 py-2 text-xs font-bold transition-colors" :class="dataView === 'records' ? 'bg-[#0D542B] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" @click="dataView = 'records'">Data responden</button>
-                                <button type="button" class="rounded-lg px-3.5 py-2 text-xs font-bold transition-colors" :class="dataView === 'pivot' ? 'bg-[#0D542B] text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'" @click="dataView = 'pivot'">Pivot pertanyaan</button>
+                        </div>
+
+                        <!-- Panel grafik menampilkan visualisasi, analisis, dan drill-down inline. -->
+                        <div v-if="activePanel === 'charts'" class="mt-5 space-y-6">
+                            <div class="min-w-0">
+                                <ProdiAnalyticsChartsPanel :items="visualizations" :section-order="selectedSectionOrder" :chart-type="chart.type" @select="handleChartSelect" @context-change="handleQuestionContext" />
+                                <p class="mt-3 border-t border-slate-100 pt-3 text-xs leading-5 text-slate-500">
+                                    <span class="font-semibold text-[#0D542B]">Petunjuk:</span>
+                                    Klik batang, titik, atau kategori grafik untuk melihat responden pembentuknya. Rincian lengkap tersedia pada tab Data.
+                                </p>
                             </div>
+
+                            <!-- Pilihan sudah memiliki analisis di bawah grafik; tipe lain memakai Kilas global. -->
+                            <section v-if="chart.type !== 'choice'" class="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                                <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Kilas Analisis</p>
+                                <p class="mt-2 text-sm font-semibold leading-6 text-slate-900">{{ chart.insights?.headline }}</p>
+                                <ul class="mt-3 space-y-1.5 text-xs leading-5 text-slate-600">
+                                    <li v-for="(point, index) in chart.insights?.points || []" :key="index">{{ point }}</li>
+                                </ul>
+                            </section>
+
+                            <section v-if="selectedItem" class="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+                                <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Analisis terpilih</p>
+                                        <!-- Pertanyaan lengkap dipindahkan ke kartu inline agar tidak terpotong di header. -->
+                                        <h3 class="mt-1 break-words text-base font-extrabold leading-6 text-slate-900">{{ selectedItem.item?.type === 'choice' ? selectedItem.label : selectedItem.item?.title }}</h3>
+                                        <p class="mt-1 text-xs leading-5 text-slate-600">
+                                            <span v-if="selectedItem.item?.type === 'choice'">Pertanyaan: {{ selectedItem.item?.title }}</span>
+                                            <span v-else>Skor yang dipilih: {{ selectedItem.value ?? '-' }} / 5</span>
+                                        </p>
+                                    </div>
+                                    <button type="button" class="shrink-0 rounded-lg bg-[#0D542B] px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0A4322]" @click="activePanel = 'data'; dataView = 'records'">Lihat data pembentuk ({{ selectedRecords.length }})</button>
+                                </div>
+                                <p class="mt-3 border-t border-emerald-200 pt-3 text-sm leading-6 text-slate-700">Klik grafik menyaring responden yang membentuk nilai atau kategori tersebut. Data lengkap tetap tersedia pada tab Data.</p>
+                                <!-- Tabel ringkas mempertahankan konteks klik sekaligus memberi aksi tindak lanjut alumni. -->
+                                <div class="mt-4 overflow-x-auto rounded-lg border border-emerald-200 bg-white">
+                                    <table class="min-w-[760px] w-full divide-y divide-slate-200 text-left text-xs">
+                                        <thead class="bg-emerald-50/60 font-semibold text-slate-700"><tr><th class="px-3 py-2.5">Alumni</th><th class="px-3 py-2.5">NIM</th><th class="px-3 py-2.5">Jawaban</th><th class="px-3 py-2.5">Isian Lainnya</th><th class="px-3 py-2.5 text-center">Aksi</th></tr></thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            <tr v-for="record in selectedRecords.slice(0, 6)" :key="record.response_id" class="hover:bg-slate-50">
+                                                <td class="px-3 py-2.5 font-semibold text-slate-800">{{ record.nama }}</td><td class="px-3 py-2.5 font-mono text-slate-600">{{ record.nim }}</td><td class="px-3 py-2.5 text-slate-700">{{ record.jawaban_label || '-' }}</td><td class="px-3 py-2.5 text-slate-700">{{ record.jawaban_lainnya || '-' }}</td>
+                                                <td class="px-3 py-2.5"><div class="flex items-center justify-center gap-1.5"><Link :href="detailUrl(record)" class="p-1.5 text-slate-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Lihat Detail Alumni & Audit Kuesioner"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></Link><a v-if="record.nomor_telepon" :href="formatWhatsAppUrl(record)" target="_blank" class="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Hubungi via WhatsApp"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" /></svg></a><a v-if="record.email" :href="formatEmailUrl(record)" class="p-1.5 text-slate-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Kirim email"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 00-2 2z" /></svg></a><a v-if="isValidLinkedInProfileUrl(record.linkedin_url)" :href="record.linkedin_url" target="_blank" rel="noopener noreferrer" class="p-1.5 text-slate-600 hover:text-[#0077B5] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Buka profil LinkedIn"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.58c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.68H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.32 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM3.54 9h3.56v11.45H3.54V9z" /></svg></a></div></td>
+                                            </tr>
+                                            <tr v-if="selectedRecords.length === 0"><td colspan="5" class="px-3 py-6 text-center text-slate-500">Tidak ada responden yang membentuk pilihan ini.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p v-if="selectedRecords.length > 6" class="mt-2 text-[11px] text-slate-500">Menampilkan 6 nama pertama dari {{ selectedRecords.length }} responden. Buka Data untuk melihat semuanya.</p>
+                            </section>
+                        </div>
+
+                        <!-- Panel data memiliki records dan pivot dinamis agar struktur universitas tetap ringkas. -->
+                        <div v-else class="mt-5 space-y-4">
                         </div>
 
                         <template v-if="dataView === 'records'">

@@ -43,6 +43,33 @@ const selectedProvinsi = ref(props.filters.provinsi || '');
 const selectedProdiId = ref(props.filters.prodi_id || '');
 const perPage = ref(Number(props.filters.per_page || 10));
 
+// State searchable dropdown filter perusahaan head office
+const showCompanyFilterDropdown = ref(false);
+
+const filteredCompanyFilterOptions = computed(() => {
+    const query = companySearch.value.trim().toLowerCase();
+    const list = props.masterOptions?.perusahaan || [];
+    if (!query) {
+        return list.slice(0, 30);
+    }
+    return list.filter((c) => {
+        return (c.nama_perusahaan && c.nama_perusahaan.toLowerCase().includes(query))
+            || (c.alamat && c.alamat.toLowerCase().includes(query));
+    }).slice(0, 30);
+});
+
+const selectCompanyFilter = (companyName) => {
+    companySearch.value = companyName;
+    showCompanyFilterDropdown.value = false;
+    applyFilters();
+};
+
+const clearCompanyFilter = () => {
+    companySearch.value = '';
+    showCompanyFilterDropdown.value = false;
+    applyFilters();
+};
+
 // State modal detail satu relasi alumni-atasan.
 const showDetailModal = ref(false);
 const activeRecord = ref(null);
@@ -371,6 +398,7 @@ const handleSearch = () => {
 const resetFilters = () => {
     search.value = '';
     companySearch.value = '';
+    showCompanyFilterDropdown.value = false;
     selectedProvinsi.value = '';
     selectedProdiId.value = '';
     perPage.value = 10;
@@ -456,12 +484,54 @@ const resetFilters = () => {
                         </div>
                         <div>
                             <label class="mb-1 block text-[11px] font-bold uppercase text-slate-600">Perusahaan (Head Office)</label>
-                            <input v-model="companySearch" type="search" placeholder="Cari nama kantor pusat / instansi..." class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]" @input="handleSearch" />
+                            <div class="relative">
+                                <input
+                                    v-model="companySearch"
+                                    type="search"
+                                    placeholder="Cari & pilih kantor pusat..."
+                                    class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 pr-7 text-xs font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                    @focus="showCompanyFilterDropdown = true"
+                                    @blur="setTimeout(() => { showCompanyFilterDropdown = false; }, 180)"
+                                    @input="handleSearch"
+                                />
+                                <button
+                                    type="button"
+                                    class="absolute inset-y-0 right-0 px-2 text-slate-400 hover:text-slate-600"
+                                    aria-label="Buka pilihan instansi kantor pusat"
+                                    @click="showCompanyFilterDropdown = !showCompanyFilterDropdown"
+                                >
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
+                                </button>
+                                <div
+                                    v-if="showCompanyFilterDropdown"
+                                    class="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg text-xs"
+                                >
+                                    <button
+                                        type="button"
+                                        class="block w-full rounded-lg px-3 py-2 text-left font-bold text-slate-700 hover:bg-slate-50"
+                                        @mousedown.prevent="clearCompanyFilter"
+                                    >
+                                        Semua Perusahaan / Head Office
+                                    </button>
+                                    <button
+                                        v-for="comp in filteredCompanyFilterOptions"
+                                        :key="comp.id"
+                                        type="button"
+                                        class="block w-full rounded-lg px-3 py-2 text-left text-slate-700 hover:bg-emerald-50 hover:text-[#0D542B]"
+                                        @mousedown.prevent="selectCompanyFilter(comp.nama_perusahaan)"
+                                    >
+                                        <div class="font-semibold">{{ comp.nama_perusahaan }}</div>
+                                        <div v-if="comp.lokasi || comp.alamat" class="text-[10px] text-slate-500 truncate">{{ comp.lokasi || comp.alamat }}</div>
+                                    </button>
+                                    <p v-if="filteredCompanyFilterOptions.length === 0" class="px-3 py-2 text-xs text-slate-500 italic">Perusahaan tidak ditemukan.</p>
+                                </div>
+                            </div>
                         </div>
                         <div>
                             <label class="mb-1 block text-[11px] font-bold uppercase text-slate-600">Lokasi Kerja (Domisili Alumni)</label>
                             <select v-model="selectedProvinsi" class="w-full cursor-pointer rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]" @change="applyFilters">
                                 <option value="">Semua Wilayah Domisili</option>
+                                <option value="LUAR_NEGERI">Luar Negeri (Semua)</option>
                                 <option v-for="prov in (provinces.length > 0 ? provinces : (masterOptions.propinsi || []))" :key="prov.kode_provinsi" :value="prov.kode_provinsi">
                                     {{ prov.nama_provinsi }}
                                 </option>
@@ -871,11 +941,11 @@ const resetFilters = () => {
                             <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                 <div class="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
                                     <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bentuk Perusahaan</p>
-                                    <p class="mt-1 font-bold text-slate-900">{{ activeRecord.evaluasi.bentuk_perusahaan || '-' }}</p>
+                                    <p class="mt-1 font-bold text-slate-900">{{ activeRecord.evaluasi.bentuk_perusahaan || activeRecord.perusahaan?.bentuk_perusahaan || '-' }}</p>
                                 </div>
                                 <div class="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
                                     <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Skala Organisasi</p>
-                                    <p class="mt-1 font-bold text-slate-900">{{ activeRecord.evaluasi.skala_perusahaan || '-' }}</p>
+                                    <p class="mt-1 font-bold text-slate-900">{{ activeRecord.evaluasi.skala_perusahaan || activeRecord.perusahaan?.skala || '-' }}</p>
                                 </div>
                                 <div class="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
                                     <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Jumlah Pegawai / Karyawan</p>
@@ -944,6 +1014,30 @@ const resetFilters = () => {
                                         </tr>
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+
+                        <!-- Section 5: Catatan Tambahan & Saran Pengguna Lulusan -->
+                        <div class="rounded-xl border border-slate-200 bg-white p-5">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                                <div>
+                                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                        Catatan Tambahan & Saran Pengguna Lulusan
+                                    </h3>
+                                    <p class="mt-0.5 text-xs text-slate-400">Masukan kualitatif atasan untuk peningkatan kompetensi alumni UKDW</p>
+                                </div>
+                                <span class="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                                    Kritik & Saran
+                                </span>
+                            </div>
+
+                            <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+                                <p v-if="activeRecord.evaluasi?.saran" class="text-xs text-slate-800 leading-relaxed font-medium">
+                                    "{{ activeRecord.evaluasi.saran }}"
+                                </p>
+                                <p v-else class="text-xs text-slate-400 italic">
+                                    Tidak ada catatan tambahan atau saran khusus yang dituliskan oleh atasan.
+                                </p>
                             </div>
                         </div>
                     </template>
