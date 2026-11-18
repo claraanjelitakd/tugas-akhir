@@ -5,6 +5,7 @@ namespace App\Mail;
 use App\Models\Biodata;
 use App\Models\EvaluasiAtasan;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -16,7 +17,7 @@ use Illuminate\Queue\SerializesModels;
  * Mengirim email otomatis berisi tautan publik khusus (tanpa login)
  * bagi Atasan / Pengguna Lulusan untuk menguji evaluasi kinerja alumni UKDW.
  */
-class UndanganEvaluasiAtasanMail extends Mailable
+class UndanganEvaluasiAtasanMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 

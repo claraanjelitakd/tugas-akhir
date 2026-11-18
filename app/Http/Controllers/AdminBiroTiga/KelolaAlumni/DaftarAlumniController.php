@@ -146,7 +146,7 @@ class DaftarAlumniController extends Controller
         }
 
         try {
-            Mail::to($targetEmail)->send(new PengingatKuesionerAlumniMail($alumni));
+            Mail::to($targetEmail)->queue(new PengingatKuesionerAlumniMail($alumni));
         } catch (\Throwable $e) {
             // Tangani kegagalan SMTP jika offline/sandbox
         }
@@ -181,7 +181,7 @@ class DaftarAlumniController extends Controller
                 $biodata = Biodata::find($item->biodata_id);
                 if ($biodata) {
                     try {
-                        Mail::to($email)->send(new PengingatKuesionerAlumniMail($biodata));
+                        Mail::to($email)->queue(new PengingatKuesionerAlumniMail($biodata));
                         $sentCount++;
                     } catch (\Throwable $e) {
                         // Lanjutkan jika satu email gagal

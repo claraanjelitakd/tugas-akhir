@@ -438,7 +438,7 @@ class EvaluasiAtasanTest extends TestCase
             'is_submitted' => false,
         ]);
 
-        Mail::assertSent(UndanganEvaluasiAtasanMail::class, function ($mail) {
+        Mail::assertQueued(UndanganEvaluasiAtasanMail::class, function ($mail) {
             return $mail->hasTo('boss@company.com');
         });
     }

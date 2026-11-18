@@ -626,6 +626,14 @@ const handleSendEmail = (alumni) => {
 const showPhotoPreview = ref(false);
 const activePhotoAlumni = ref(null);
 
+// Melacak URL foto yang gagal dimuat agar langsung fallback ke inisial nama tanpa membebani browser
+const brokenImages = ref({});
+const handleImageError = (id) => {
+    if (id) {
+        brokenImages.value = { ...brokenImages.value, [id]: true };
+    }
+};
+
 const openPhotoPreview = (alumni) => {
     if (!alumni?.foto) {
         return;
@@ -1510,7 +1518,15 @@ const formatTanggal = (dateStr) => {
                                                 :title="item.foto ? 'Lihat foto profil' : 'Belum ada foto profil'"
                                                 @click="openPhotoPreview(item)"
                                             >
-                                                <img v-if="item.foto" :src="item.foto" :alt="`Foto ${item.nama || 'alumni'}`" class="h-full w-full object-contain" />
+                                                <img
+                                                    v-if="item.foto && !brokenImages[item.id]"
+                                                    :src="item.foto"
+                                                    :alt="`Foto ${item.nama || 'alumni'}`"
+                                                    class="h-full w-full object-contain"
+                                                    loading="lazy"
+                                                    decoding="async"
+                                                    @error="handleImageError(item.id)"
+                                                />
                                                 <span v-else>{{ getInitials(item.nama) }}</span>
                                             </button>
                                             <div class="min-w-0">

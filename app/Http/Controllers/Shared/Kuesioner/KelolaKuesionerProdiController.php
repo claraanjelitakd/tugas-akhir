@@ -154,6 +154,10 @@ class KelolaKuesionerProdiController extends Controller
         $selectedProdi = $prodis->firstWhere('id', $selectedProdiId) ?? $prodis->first();
         $selectedProdiId = (int) ($selectedProdi?->id ?? 0);
 
+        if ($selectedProdiId) {
+            $this->normalizeSectionOrders($selectedProdiId);
+        }
+
         // Ambil Section dari tabel terpadu kuesioner_section
         $rawSections = $selectedProdiId
             ? KuesionerSection::where('target', 'prodi')
@@ -257,10 +261,13 @@ class KelolaKuesionerProdiController extends Controller
             'questions_count' => $questions->where('section_id', $s->id)->count(),
         ])->values();
 
-        // Seluruh section yang ada (Univ, Prodi, dsb) untuk fitur Multi-Placement (Penempatan Lintas Section)
+        // Seluruh section yang relevan untuk penempatan tambahan (Multi-Placement) dalam lingkup prodi yang dikelola
         $allSections = KuesionerSection::select('id', 'target', 'prodi_id', 'judul', 'kode_section')
+            ->where('target', 'prodi')
+            ->when($user->role === 'admin_prodi', fn ($q) => $q->where('prodi_id', $selectedProdiId))
+            ->when($user->role === 'admin_fakultas', fn ($q) => $q->whereIn('prodi_id', $prodis->pluck('id')))
+            ->when($user->role === 'superadmin', fn ($q) => $q->where('prodi_id', $selectedProdiId))
             ->with('prodi:id,nama_prodi')
-            ->orderBy('target')
             ->orderBy('order')
             ->get()
             ->map(fn (KuesionerSection $s) => [
@@ -268,7 +275,7 @@ class KelolaKuesionerProdiController extends Controller
                 'judul' => $s->judul,
                 'target' => $s->target,
                 'prodi_id' => $s->prodi_id,
-                'label' => ($s->target === 'univ' ? '[Universitas] ' : ($s->prodi ? '['.$s->prodi->nama_prodi.'] ' : '[Prodi] ')).$s->judul,
+                'label' => $s->judul,
             ])
             ->values()
             ->all();
@@ -353,6 +360,29 @@ class KelolaKuesionerProdiController extends Controller
     // =========================================================================
 
     /**
+     * Menormalkan urutan section program studi secara berurutan (1..N).
+     */
+    private function normalizeSectionOrders(int $prodiId): void
+    {
+        if ($prodiId <= 0) {
+            return;
+        }
+
+        $sections = KuesionerSection::where('target', 'prodi')
+            ->where('prodi_id', $prodiId)
+            ->orderBy('order', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        foreach ($sections as $index => $section) {
+            $expectedOrder = $index + 1;
+            if ($section->order !== $expectedOrder) {
+                $section->update(['order' => $expectedOrder]);
+            }
+        }
+    }
+
+    /**
      * Menyimpan section kuesioner prodi baru.
      */
     public function storeSection(Request $request): RedirectResponse
@@ -368,10 +398,8 @@ class KelolaKuesionerProdiController extends Controller
         $prodiId = (int) $validated['prodi_id'];
         $this->ensureProdiAccess($user, $prodiId);
 
-        if (empty($validated['order'])) {
-            $maxOrder = KuesionerSection::where('target', 'prodi')->where('prodi_id', $prodiId)->max('order') ?? 0;
-            $validated['order'] = $maxOrder + 1;
-        }
+        $maxOrder = KuesionerSection::where('target', 'prodi')->where('prodi_id', $prodiId)->max('order') ?? 0;
+        $order = ! empty($validated['order']) ? (int) $validated['order'] : ($maxOrder + 1);
 
         // Simpan ke skema terpadu kuesioner_section
         $code = 'PRODI_'.$prodiId.'_'.Str::upper(Str::slug(Str::limit($validated['title'], 15, ''))).'_'.time();
@@ -381,9 +409,11 @@ class KelolaKuesionerProdiController extends Controller
             'kode_section' => $code,
             'judul' => $validated['title'],
             'deskripsi' => $validated['description'] ?? null,
-            'order' => $validated['order'],
+            'order' => $order,
             'is_active' => true,
         ]);
+
+        $this->normalizeSectionOrders($prodiId);
 
         LogActivity::record('KUESIONER_PRODI_SECTION_CREATED', 'Membuat section kuesioner prodi: '.$section->judul.'.', $section, null, $section->toArray());
 
@@ -412,6 +442,8 @@ class KelolaKuesionerProdiController extends Controller
             'order' => $validated['order'] ?? $section->order,
         ]);
 
+        $this->normalizeSectionOrders((int) $section->prodi_id);
+
         LogActivity::record('KUESIONER_PRODI_SECTION_UPDATED', 'Memperbarui section kuesioner prodi: '.$section->judul.'.', $section, null, $validated);
 
         return redirect()->back()->with('success', 'Bagian (section) kuesioner prodi berhasil diperbarui.');
@@ -425,11 +457,14 @@ class KelolaKuesionerProdiController extends Controller
         $user = $this->authenticatedUser();
 
         $section = KuesionerSection::with('sectionPertanyaan')->findOrFail($id);
-        $this->ensureProdiAccess($user, (int) $section->prodi_id);
+        $prodiId = (int) $section->prodi_id;
+        $this->ensureProdiAccess($user, $prodiId);
 
         // Hapus relasi penempatan di section ini
         $section->sectionPertanyaan()->delete();
         $section->delete();
+
+        $this->normalizeSectionOrders($prodiId);
 
         LogActivity::record('KUESIONER_PRODI_SECTION_DELETED', 'Menghapus section kuesioner prodi: '.$section->judul.'.', null, $section->toArray());
 
@@ -450,7 +485,10 @@ class KelolaKuesionerProdiController extends Controller
             $user = $this->authenticatedUser();
             $currentSection = KuesionerSection::findOrFail($validated['id']);
             $this->ensureProdiAccess($user, (int) $currentSection->prodi_id);
-            $prodiId = $currentSection->prodi_id;
+            $prodiId = (int) $currentSection->prodi_id;
+
+            $this->normalizeSectionOrders($prodiId);
+            $currentSection->refresh();
 
             $operator = $validated['direction'] === 'up' ? '<' : '>';
             $sortOrder = $validated['direction'] === 'up' ? 'desc' : 'asc';
@@ -465,6 +503,7 @@ class KelolaKuesionerProdiController extends Controller
                 $tempOrder = $currentSection->order;
                 $currentSection->update(['order' => $adjacentSection->order]);
                 $adjacentSection->update(['order' => $tempOrder]);
+                $this->normalizeSectionOrders($prodiId);
             }
 
             return redirect()->back()->with('success', 'Urutan bagian prodi berhasil dipindahkan.');
@@ -552,6 +591,13 @@ class KelolaKuesionerProdiController extends Controller
         $prodiId = (int) $validated['prodi_id'];
         $this->ensureProdiAccess($user, $prodiId);
 
+        // Batasi ruang lingkup tampil_di: admin_prodi hanya boleh mengelola pertanyaan untuk kuesioner prodi
+        if ($user->role === 'admin_prodi') {
+            $validated['tampil_di'] = in_array($validated['tampil_di'] ?? '', ['kuesioner', 'hidden'], true)
+                ? $validated['tampil_di']
+                : 'kuesioner';
+        }
+
         if ($validated['type'] === 'radio') {
             $validated['type'] = 'single_choice';
         }
@@ -638,10 +684,16 @@ class KelolaKuesionerProdiController extends Controller
         if (! empty($validated['target_section_ids'])) {
             foreach ($validated['target_section_ids'] as $extraSecId) {
                 if ((int) $extraSecId !== $sectionId) {
-                    $extraSection = $user->role === 'superadmin'
-                        ? KuesionerSection::whereKey((int) $extraSecId)->where('target', 'prodi')->firstOrFail()
-                        : $this->findAccessibleProdiSection($user, $prodiId, (int) $extraSecId);
-                    $extraOrder = (KuesionerSectionPertanyaan::where('section_id', $extraSecId)->max('order') ?? 0) + 1;
+                    $extraSection = KuesionerSection::whereKey((int) $extraSecId)
+                        ->where('target', 'prodi')
+                        ->when($user->role !== 'superadmin', fn ($q) => $q->where('prodi_id', $prodiId))
+                        ->first();
+
+                    if (! $extraSection) {
+                        continue;
+                    }
+
+                    $extraOrder = (KuesionerSectionPertanyaan::where('section_id', $extraSection->id)->max('order') ?? 0) + 1;
                     KuesionerSectionPertanyaan::firstOrCreate(
                         [
                             'section_id' => $extraSection->id,
@@ -725,6 +777,13 @@ class KelolaKuesionerProdiController extends Controller
         $this->ensureQuestionOwner($user, $master, $prodiId);
         $this->findAccessibleProdiSection($user, $prodiId, $sectionId);
 
+        // Batasi ruang lingkup tampil_di: admin_prodi hanya boleh mengelola pertanyaan untuk kuesioner prodi
+        if ($user->role === 'admin_prodi') {
+            $validated['tampil_di'] = in_array($validated['tampil_di'] ?? '', ['kuesioner', 'hidden'], true)
+                ? $validated['tampil_di']
+                : 'kuesioner';
+        }
+
         $master->update([
             'kode_pertanyaan' => $code,
             'label_pertanyaan' => filled($validated['label'] ?? null) ? trim($validated['label']) : null,
@@ -757,13 +816,16 @@ class KelolaKuesionerProdiController extends Controller
 
         // Perbarui multi-placement section jika disediakan
         if ($request->has('target_section_ids')) {
-            $targetIds = array_filter(array_map('intval', (array) $request->target_section_ids));
-            $targetIds[] = $sectionId;
-            $targetIds = array_unique($targetIds);
+            $rawTargetIds = array_filter(array_map('intval', (array) $request->target_section_ids));
+            $rawTargetIds[] = $sectionId;
+            $rawTargetIds = array_unique($rawTargetIds);
 
-            foreach ($targetIds as $tid) {
-                $this->findAccessibleProdiSection($user, $prodiId, $tid);
-            }
+            // Filter hanya section yang sah dalam lingkup program studi ini
+            $targetIds = KuesionerSection::whereIn('id', $rawTargetIds)
+                ->where('target', 'prodi')
+                ->when($user->role !== 'superadmin', fn ($q) => $q->where('prodi_id', $prodiId))
+                ->pluck('id')
+                ->all();
 
             $ownedSectionIds = KuesionerSection::where('target', 'prodi')
                 ->where('prodi_id', $prodiId)
@@ -776,10 +838,11 @@ class KelolaKuesionerProdiController extends Controller
 
             // Tambahkan relasi penempatan yang belum ada
             foreach ($targetIds as $tid) {
+                $extraOrder = (KuesionerSectionPertanyaan::where('section_id', $tid)->max('order') ?? 0) + 1;
                 KuesionerSectionPertanyaan::firstOrCreate(
                     ['section_id' => $tid, 'pertanyaan_id' => $master->id],
                     [
-                        'order' => 99,
+                        'order' => $extraOrder,
                         'wajib' => $request->boolean('is_required', true),
                         'is_active' => true,
                         'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
@@ -805,6 +868,13 @@ class KelolaKuesionerProdiController extends Controller
         $user = $this->authenticatedUser();
         $prodiId = (int) $validated['prodi_id'];
         $this->ensureProdiAccess($user, $prodiId);
+
+        // Batasi ruang lingkup tampil_di: admin_prodi hanya boleh mengelola pertanyaan untuk kuesioner prodi
+        if ($user->role === 'admin_prodi') {
+            $validated['tampil_di'] = in_array($validated['tampil_di'] ?? '', ['kuesioner', 'hidden'], true)
+                ? $validated['tampil_di']
+                : 'kuesioner';
+        }
         $placement = KuesionerSectionPertanyaan::with('pertanyaan')->findOrFail($placementId);
         abort_unless(
             (int) $placement->section()->value('prodi_id') === $prodiId,

@@ -52,14 +52,19 @@ const categoryComponents = {
     9: HopesAndFeedback,
 };
 
-// Grafik tidak memilih file dari nama grafik. File kategori dipilih dari urutan
-// bagian kuesioner, lalu file tersebut membaca items pertanyaan yang aktif.
+// Grafik tidak memilih file dari nama grafik. File kategori dipilih dari tipe
+// pertanyaan backend (text -> Word Cloud, choice -> ChoiceQuestionsChart), dan urutan
+// bagian kuesioner dengan fallback universal ke StudyProgramValues untuk Likert.
 const activeComponent = computed(() => {
+    if (props.chartType === 'text') {
+        return HopesAndFeedback;
+    }
+
     if (props.chartType === 'choice') {
         return ChoiceQuestionsChart;
     }
 
-    return categoryComponents[props.sectionOrder] || InterestAndContribution;
+    return categoryComponents[props.sectionOrder] || StudyProgramValues;
 });
 
 // Pemancar tunggal menjaga kontrak event semua kategori tetap sama.

@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use App\Models\Biodata;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -15,7 +16,7 @@ use Illuminate\Queue\SerializesModels;
  * Mengirim email pengingat resmi dari Biro 3 UKDW kepada alumni
  * berisi tautan login ke portal Tracer Study UKDW dan petunjuk login.
  */
-class PengingatKuesionerAlumniMail extends Mailable
+class PengingatKuesionerAlumniMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 

@@ -211,7 +211,7 @@ class DaftarAlumniProdiController extends Controller
         }
 
         try {
-            Mail::to($targetEmail)->send(new PengingatKuesionerAlumniMail($alumni));
+            Mail::to($targetEmail)->queue(new PengingatKuesionerAlumniMail($alumni));
         } catch (\Throwable $e) {
             // Tangani kegagalan SMTP jika offline/sandbox
         }

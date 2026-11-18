@@ -257,6 +257,16 @@ class KuesionerSyncService
             'BIO_ATASAN_NAMA', 'BIO_ATASAN_HP', 'BIO_ATASAN_EMAIL',
         ];
 
+        // Optimasi: Ambil seluruh instrumen pertanyaan dan jawaban tersimpan secara eager
+        // agar tidak memicu ratusan kueri individual (N+1 query) di dalam perulangan.
+        $allQuestions = KuesionerPertanyaan::with('opsi')
+            ->get()
+            ->keyBy(fn ($q) => strtoupper(trim((string) $q->kode_pertanyaan)));
+
+        $existingAnswers = KuesionerJawaban::where('biodata_id', $biodata->id)
+            ->get()
+            ->keyBy('pertanyaan_id');
+
         foreach ($profileMap as $code => $val) {
             $codeUpper = strtoupper($code);
 
@@ -269,9 +279,7 @@ class KuesionerSyncService
                 $val = $isNonWorking ? null : $biodata->gaji;
             }
 
-            $question = KuesionerPertanyaan::whereRaw('UPPER(kode_pertanyaan) = ?', [$codeUpper])
-                ->with('opsi')
-                ->first();
+            $question = $allQuestions->get($codeUpper);
 
             if (! $question) {
                 continue;
@@ -280,9 +288,7 @@ class KuesionerSyncService
             // Untuk F505 (penghasilan): HANYA jika alumni memang berstatus Pekerja/Wiraswasta dan biodata->gaji belum terisi,
             // cek apakah ada jawaban tersimpan di kuesioner_jawaban untuk dipulihkan
             if (! $isNonWorking && in_array($biodata->kategori_pekerjaan, ['Pekerja', 'Wiraswasta'], true) && $codeUpper === 'F505' && ($val === null || trim((string) $val) === '')) {
-                $existingJawaban = KuesionerJawaban::where('biodata_id', $biodata->id)
-                    ->where('pertanyaan_id', $question->id)
-                    ->first();
+                $existingJawaban = $existingAnswers->get($question->id);
                 if ($existingJawaban) {
                     $json = $existingJawaban->jawaban_json;
                     $gajiFromKuesioner = is_array($json) ? ($json['total'] ?? ($json['value'] ?? ($json['F5051'] ?? null))) : null;
@@ -297,11 +303,12 @@ class KuesionerSyncService
                 }
             }
 
+            $existing = $existingAnswers->get($question->id);
+
             if ($val === null || trim((string) $val) === '') {
-                if (in_array($codeUpper, $profileCodesUpper)) {
-                    KuesionerJawaban::where('biodata_id', $biodata->id)
-                        ->where('pertanyaan_id', $question->id)
-                        ->delete();
+                if (in_array($codeUpper, $profileCodesUpper) && $existing) {
+                    $existing->delete();
+                    $existingAnswers->forget($question->id);
                 }
             } else {
                 $answerJson = null;
@@ -336,22 +343,28 @@ class KuesionerSyncService
                     $opsi = $question->opsi->first(fn ($o) => $o->label === $answerString || $o->kode_opsi === $answerString);
                 }
 
-                KuesionerJawaban::updateOrCreate(
-                    [
-                        'responden_type' => 'alumni',
-                        'biodata_id' => $biodata->id,
-                        'pertanyaan_id' => $question->id,
-                    ],
-                    [
-                        'evaluasi_atasan_id' => null,
-                        'section_id' => $univSectionId,
-                        'kode_pertanyaan' => $question->kode_pertanyaan,
-                        'opsi_id' => $opsi?->id,
-                        'kode_opsi' => $opsi?->kode_opsi,
-                        'jawaban_teks' => $answerString,
-                        'jawaban_json' => $answerJson,
-                    ]
-                );
+                // Hindari query update jika isi jawaban di database sudah persis sama
+                $isIdentical = $existing
+                    && (string) $existing->jawaban_teks === $answerString
+                    && (string) ($existing->opsi_id ?? '') === (string) ($opsi?->id ?? '')
+                    && json_encode($existing->jawaban_json) === json_encode($answerJson);
+
+                if (! $isIdentical) {
+                    $record = $existing ?: new KuesionerJawaban;
+                    $record->responden_type = 'alumni';
+                    $record->biodata_id = $biodata->id;
+                    $record->pertanyaan_id = $question->id;
+                    $record->evaluasi_atasan_id = null;
+                    $record->section_id = $univSectionId;
+                    $record->kode_pertanyaan = $question->kode_pertanyaan;
+                    $record->opsi_id = $opsi?->id;
+                    $record->kode_opsi = $opsi?->kode_opsi;
+                    $record->jawaban_teks = $answerString;
+                    $record->jawaban_json = $answerJson;
+                    $record->setRelation('pertanyaan', $question);
+                    $record->save();
+                    $existingAnswers->put($question->id, $record);
+                }
             }
         }
 

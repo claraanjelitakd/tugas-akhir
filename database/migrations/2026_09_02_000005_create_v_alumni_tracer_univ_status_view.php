@@ -22,94 +22,77 @@ return new class extends Migration
             DB::statement(<<<'SQL'
 CREATE VIEW v_alumni_tracer_univ_status AS
 SELECT b.id AS biodata_id,
-    ((SELECT COUNT(DISTINCT sp2.pertanyaan_id)
-      FROM kuesioner_section_pertanyaan sp2
-      INNER JOIN kuesioner_section s2 ON s2.id = sp2.section_id
-      INNER JOIN kuesioner_pertanyaan q2 ON q2.id = sp2.pertanyaan_id
-      WHERE s2.target = 'univ'
-        AND sp2.wajib = 1
-        AND q2.tipe != 'header'
-        AND q2.is_active = 1
-        AND UPPER(q2.kode_pertanyaan) NOT LIKE 'BIO_%'
-        AND (sp2.tampil_di IS NULL OR LOWER(sp2.tampil_di) NOT IN ('profil', 'profile'))
-        AND UPPER(q2.kode_pertanyaan) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
-        AND CASE
-            WHEN (b.kategori_pekerjaan LIKE '%Melanjutkan Pendidikan%' OR EXISTS (
-                SELECT 1 FROM kuesioner_jawaban kj8 WHERE kj8.biodata_id = b.id AND UPPER(kj8.kode_pertanyaan) = 'F8' AND LOWER(kj8.jawaban_teks) LIKE '%melanjutkan pendidikan%'
-            )) THEN UPPER(q2.kode_pertanyaan) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16')
-
-            WHEN (b.kategori_pekerjaan LIKE '%Belum Memungkinkan%' OR b.kategori_pekerjaan = 'Tidak Bekerja' OR EXISTS (
-                SELECT 1 FROM kuesioner_jawaban kj8 WHERE kj8.biodata_id = b.id AND UPPER(kj8.kode_pertanyaan) = 'F8' AND LOWER(kj8.jawaban_teks) LIKE '%belum memungkinkan%'
-            )) THEN UPPER(q2.kode_pertanyaan) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
-
-            WHEN (b.kategori_pekerjaan LIKE '%Mencari Kerja%' OR EXISTS (
-                SELECT 1 FROM kuesioner_jawaban kj8 WHERE kj8.biodata_id = b.id AND UPPER(kj8.kode_pertanyaan) = 'F8' AND LOWER(kj8.jawaban_teks) LIKE '%mencari kerja%'
-            )) THEN UPPER(q2.kode_pertanyaan) NOT IN ('F504','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
-
-            ELSE
-                UPPER(q2.kode_pertanyaan) NOT IN ('F10','F18','F12','F18A','F18B','F18C','F18D')
-        END
-     )
-     + CASE WHEN (
-         COALESCE(b.kategori_pekerjaan, '') NOT LIKE '%Melanjutkan Pendidikan%'
-         AND COALESCE(b.kategori_pekerjaan, '') NOT LIKE '%Belum Memungkinkan%'
-         AND COALESCE(b.kategori_pekerjaan, '') != 'Tidak Bekerja'
-         AND COALESCE(b.kategori_pekerjaan, '') NOT LIKE '%Mencari Kerja%'
-         AND NOT EXISTS (
-             SELECT 1 FROM kuesioner_jawaban kj8
-             WHERE kj8.biodata_id = b.id AND UPPER(kj8.kode_pertanyaan) = 'F8'
-               AND (LOWER(kj8.jawaban_teks) LIKE '%melanjutkan pendidikan%'
-                    OR LOWER(kj8.jawaban_teks) LIKE '%belum memungkinkan%'
-                    OR LOWER(kj8.jawaban_teks) LIKE '%mencari kerja%')
-         )
-         AND EXISTS (
-             SELECT 1
-             FROM kuesioner_section_pertanyaan sp3
-             INNER JOIN kuesioner_section s3 ON s3.id = sp3.section_id
-             INNER JOIN kuesioner_pertanyaan q3 ON q3.id = sp3.pertanyaan_id
-             WHERE s3.target = 'univ' AND sp3.wajib = 1 AND UPPER(q3.kode_pertanyaan) IN ('F502','F506')
-         )
-       ) THEN 1 ELSE 0 END
-    ) AS total_mandatory_univ,
+    CASE
+        WHEN status_info.status_karier = 'bekerja' THEN
+            (SELECT COUNT(DISTINCT sp.pertanyaan_id)
+             FROM kuesioner_section_pertanyaan sp
+             INNER JOIN kuesioner_section s ON s.id = sp.section_id
+             INNER JOIN kuesioner_pertanyaan q ON q.id = sp.pertanyaan_id
+             WHERE s.target = 'univ' AND sp.wajib = 1 AND q.tipe != 'header' AND q.is_active = 1
+               AND UPPER(q.kode_pertanyaan) NOT LIKE 'BIO_%'
+               AND (sp.tampil_di IS NULL OR LOWER(sp.tampil_di) NOT IN ('profil', 'profile'))
+               AND UPPER(q.kode_pertanyaan) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
+               AND UPPER(q.kode_pertanyaan) NOT IN ('F10','F18','F12','F18A','F18B','F18C','F18D')
+            ) + CASE WHEN EXISTS (
+                SELECT 1
+                FROM kuesioner_section_pertanyaan sp3
+                INNER JOIN kuesioner_section s3 ON s3.id = sp3.section_id
+                INNER JOIN kuesioner_pertanyaan q3 ON q3.id = sp3.pertanyaan_id
+                WHERE s3.target = 'univ' AND sp3.wajib = 1 AND UPPER(q3.kode_pertanyaan) IN ('F502','F506')
+            ) THEN 1 ELSE 0 END
+        WHEN status_info.status_karier = 'pendidikan' THEN
+            (SELECT COUNT(DISTINCT sp.pertanyaan_id)
+             FROM kuesioner_section_pertanyaan sp
+             INNER JOIN kuesioner_section s ON s.id = sp.section_id
+             INNER JOIN kuesioner_pertanyaan q ON q.id = sp.pertanyaan_id
+             WHERE s.target = 'univ' AND sp.wajib = 1 AND q.tipe != 'header' AND q.is_active = 1
+               AND UPPER(q.kode_pertanyaan) NOT LIKE 'BIO_%'
+               AND (sp.tampil_di IS NULL OR LOWER(sp.tampil_di) NOT IN ('profil', 'profile'))
+               AND UPPER(q.kode_pertanyaan) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
+               AND UPPER(q.kode_pertanyaan) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16')
+            )
+        WHEN status_info.status_karier = 'belum_memungkinkan' THEN
+            (SELECT COUNT(DISTINCT sp.pertanyaan_id)
+             FROM kuesioner_section_pertanyaan sp
+             INNER JOIN kuesioner_section s ON s.id = sp.section_id
+             INNER JOIN kuesioner_pertanyaan q ON q.id = sp.pertanyaan_id
+             WHERE s.target = 'univ' AND sp.wajib = 1 AND q.tipe != 'header' AND q.is_active = 1
+               AND UPPER(q.kode_pertanyaan) NOT LIKE 'BIO_%'
+               AND (sp.tampil_di IS NULL OR LOWER(sp.tampil_di) NOT IN ('profil', 'profile'))
+               AND UPPER(q.kode_pertanyaan) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
+               AND UPPER(q.kode_pertanyaan) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
+            )
+        ELSE
+            (SELECT COUNT(DISTINCT sp.pertanyaan_id)
+             FROM kuesioner_section_pertanyaan sp
+             INNER JOIN kuesioner_section s ON s.id = sp.section_id
+             INNER JOIN kuesioner_pertanyaan q ON q.id = sp.pertanyaan_id
+             WHERE s.target = 'univ' AND sp.wajib = 1 AND q.tipe != 'header' AND q.is_active = 1
+               AND UPPER(q.kode_pertanyaan) NOT LIKE 'BIO_%'
+               AND (sp.tampil_di IS NULL OR LOWER(sp.tampil_di) NOT IN ('profil', 'profile'))
+               AND UPPER(q.kode_pertanyaan) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
+               AND UPPER(q.kode_pertanyaan) NOT IN ('F504','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
+            )
+    END AS total_mandatory_univ,
     COUNT(DISTINCT CASE
         WHEN sp.wajib = 1 AND q.tipe != 'header'
          AND UPPER(q.kode_pertanyaan) NOT LIKE 'BIO_%'
          AND (sp.tampil_di IS NULL OR LOWER(sp.tampil_di) NOT IN ('profil', 'profile'))
          AND UPPER(q.kode_pertanyaan) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
-         AND (CASE
-            WHEN (b.kategori_pekerjaan LIKE '%Melanjutkan Pendidikan%' OR EXISTS (
-                SELECT 1 FROM kuesioner_jawaban kj8 WHERE kj8.biodata_id = b.id AND UPPER(kj8.kode_pertanyaan) = 'F8' AND LOWER(kj8.jawaban_teks) LIKE '%melanjutkan pendidikan%'
-            )) THEN UPPER(q.kode_pertanyaan) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16')
-
-            WHEN (b.kategori_pekerjaan LIKE '%Belum Memungkinkan%' OR b.kategori_pekerjaan = 'Tidak Bekerja' OR EXISTS (
-                SELECT 1 FROM kuesioner_jawaban kj8 WHERE kj8.biodata_id = b.id AND UPPER(kj8.kode_pertanyaan) = 'F8' AND LOWER(kj8.jawaban_teks) LIKE '%belum memungkinkan%'
-            )) THEN UPPER(q.kode_pertanyaan) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
-
-            WHEN (b.kategori_pekerjaan LIKE '%Mencari Kerja%' OR EXISTS (
-                SELECT 1 FROM kuesioner_jawaban kj8 WHERE kj8.biodata_id = b.id AND UPPER(kj8.kode_pertanyaan) = 'F8' AND LOWER(kj8.jawaban_teks) LIKE '%mencari kerja%'
-            )) THEN UPPER(q.kode_pertanyaan) NOT IN ('F504','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
-
-            ELSE
-                UPPER(q.kode_pertanyaan) NOT IN ('F10','F18','F12','F18A','F18B','F18C','F18D')
-         END)
+         AND (
+            CASE
+                WHEN status_info.status_karier = 'pendidikan' THEN UPPER(q.kode_pertanyaan) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16')
+                WHEN status_info.status_karier = 'belum_memungkinkan' THEN UPPER(q.kode_pertanyaan) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
+                WHEN status_info.status_karier = 'mencari_kerja' THEN UPPER(q.kode_pertanyaan) NOT IN ('F504','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
+                ELSE UPPER(q.kode_pertanyaan) NOT IN ('F10','F18','F12','F18A','F18B','F18C','F18D')
+            END
+         )
          AND ((j.jawaban_teks IS NOT NULL AND TRIM(j.jawaban_teks) != '') OR (j.jawaban_json IS NOT NULL AND j.jawaban_json NOT IN ('','[]','{}')))
         THEN q.id
         ELSE NULL
     END)
     + MAX(CASE
-        WHEN (
-            COALESCE(b.kategori_pekerjaan, '') NOT LIKE '%Melanjutkan Pendidikan%'
-            AND COALESCE(b.kategori_pekerjaan, '') NOT LIKE '%Belum Memungkinkan%'
-            AND COALESCE(b.kategori_pekerjaan, '') != 'Tidak Bekerja'
-            AND COALESCE(b.kategori_pekerjaan, '') NOT LIKE '%Mencari Kerja%'
-            AND NOT EXISTS (
-                SELECT 1 FROM kuesioner_jawaban kj8
-                WHERE kj8.biodata_id = b.id AND UPPER(kj8.kode_pertanyaan) = 'F8'
-                  AND (LOWER(kj8.jawaban_teks) LIKE '%melanjutkan pendidikan%'
-                       OR LOWER(kj8.jawaban_teks) LIKE '%belum memungkinkan%'
-                       OR LOWER(kj8.jawaban_teks) LIKE '%mencari kerja%')
-            )
-        )
+        WHEN status_info.status_karier = 'bekerja'
          AND UPPER(q.kode_pertanyaan) IN ('F502','F506')
          AND ((j.jawaban_teks IS NOT NULL AND TRIM(j.jawaban_teks) != '') OR (j.jawaban_json IS NOT NULL AND j.jawaban_json NOT IN ('','[]','{}')))
         THEN 1
@@ -122,6 +105,23 @@ SELECT b.id AS biodata_id,
     END) AS total_answered_univ
 FROM biodata b
 LEFT JOIN (
+    SELECT
+        b_sub.id AS biodata_id,
+        CASE
+            WHEN b_sub.kategori_pekerjaan LIKE '%Melanjutkan Pendidikan%' OR LOWER(kj8.jawaban_teks) LIKE '%melanjutkan pendidikan%' THEN 'pendidikan'
+            WHEN b_sub.kategori_pekerjaan LIKE '%Belum Memungkinkan%' OR b_sub.kategori_pekerjaan = 'Tidak Bekerja' OR LOWER(kj8.jawaban_teks) LIKE '%belum memungkinkan%' THEN 'belum_memungkinkan'
+            WHEN b_sub.kategori_pekerjaan LIKE '%Mencari Kerja%' OR LOWER(kj8.jawaban_teks) LIKE '%mencari kerja%' THEN 'mencari_kerja'
+            ELSE 'bekerja'
+        END AS status_karier
+    FROM biodata b_sub
+    LEFT JOIN (
+        SELECT biodata_id, MAX(jawaban_teks) AS jawaban_teks
+        FROM kuesioner_jawaban
+        WHERE UPPER(kode_pertanyaan) = 'F8'
+        GROUP BY biodata_id
+    ) kj8 ON kj8.biodata_id = b_sub.id
+) status_info ON status_info.biodata_id = b.id
+LEFT JOIN (
     SELECT kj.biodata_id, kj.pertanyaan_id, kj.section_id, kj.jawaban_teks, kj.jawaban_json
     FROM kuesioner_jawaban kj
     INNER JOIN kuesioner_section ks ON ks.id = kj.section_id
@@ -129,101 +129,84 @@ LEFT JOIN (
 ) j ON j.biodata_id = b.id
 LEFT JOIN kuesioner_pertanyaan q ON j.pertanyaan_id = q.id
 LEFT JOIN kuesioner_section_pertanyaan sp ON sp.pertanyaan_id = q.id
-GROUP BY b.id;
+GROUP BY b.id, status_info.status_karier;
 SQL
             );
         } else {
             DB::statement(<<<'SQL'
 CREATE VIEW `v_alumni_tracer_univ_status` AS
 SELECT `b`.`id` AS `biodata_id`,
-    ((SELECT COUNT(DISTINCT `sp2`.`pertanyaan_id`)
-      FROM `kuesioner_section_pertanyaan` `sp2`
-      INNER JOIN `kuesioner_section` `s2` ON `s2`.`id` = `sp2`.`section_id`
-      INNER JOIN `kuesioner_pertanyaan` `q2` ON `q2`.`id` = `sp2`.`pertanyaan_id`
-      WHERE `s2`.`target` = 'univ'
-        AND `sp2`.`wajib` = 1
-        AND `q2`.`tipe` <> 'header'
-        AND `q2`.`is_active` = 1
-        AND UPPER(`q2`.`kode_pertanyaan`) NOT LIKE 'BIO_%'
-        AND (`sp2`.`tampil_di` IS NULL OR LOWER(`sp2`.`tampil_di`) NOT IN ('profil', 'profile'))
-        AND UPPER(`q2`.`kode_pertanyaan`) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
-        AND CASE
-            WHEN (`b`.`kategori_pekerjaan` LIKE '%Melanjutkan Pendidikan%' OR EXISTS (
-                SELECT 1 FROM `kuesioner_jawaban` `kj8` WHERE `kj8`.`biodata_id` = `b`.`id` AND UPPER(`kj8`.`kode_pertanyaan`) = 'F8' AND LOWER(`kj8`.`jawaban_teks`) LIKE '%melanjutkan pendidikan%'
-            )) THEN UPPER(`q2`.`kode_pertanyaan`) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16')
-
-            WHEN (`b`.`kategori_pekerjaan` LIKE '%Belum Memungkinkan%' OR `b`.`kategori_pekerjaan` = 'Tidak Bekerja' OR EXISTS (
-                SELECT 1 FROM `kuesioner_jawaban` `kj8` WHERE `kj8`.`biodata_id` = `b`.`id` AND UPPER(`kj8`.`kode_pertanyaan`) = 'F8' AND LOWER(`kj8`.`jawaban_teks`) LIKE '%belum memungkinkan%'
-            )) THEN UPPER(`q2`.`kode_pertanyaan`) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
-
-            WHEN (`b`.`kategori_pekerjaan` LIKE '%Mencari Kerja%' OR EXISTS (
-                SELECT 1 FROM `kuesioner_jawaban` `kj8` WHERE `kj8`.`biodata_id` = `b`.`id` AND UPPER(`kj8`.`kode_pertanyaan`) = 'F8' AND LOWER(`kj8`.`jawaban_teks`) LIKE '%mencari kerja%'
-            )) THEN UPPER(`q2`.`kode_pertanyaan`) NOT IN ('F504','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
-
-            ELSE
-                UPPER(`q2`.`kode_pertanyaan`) NOT IN ('F10','F18','F12','F18A','F18B','F18C','F18D')
-        END
-     )
-     + CASE WHEN (
-         COALESCE(`b`.`kategori_pekerjaan`, '') NOT LIKE '%Melanjutkan Pendidikan%'
-         AND COALESCE(`b`.`kategori_pekerjaan`, '') NOT LIKE '%Belum Memungkinkan%'
-         AND COALESCE(`b`.`kategori_pekerjaan`, '') != 'Tidak Bekerja'
-         AND COALESCE(`b`.`kategori_pekerjaan`, '') NOT LIKE '%Mencari Kerja%'
-         AND NOT EXISTS (
-             SELECT 1 FROM `kuesioner_jawaban` `kj8`
-             WHERE `kj8`.`biodata_id` = `b`.`id` AND UPPER(`kj8`.`kode_pertanyaan`) = 'F8'
-               AND (LOWER(`kj8`.`jawaban_teks`) LIKE '%melanjutkan pendidikan%'
-                    OR LOWER(`kj8`.`jawaban_teks`) LIKE '%belum memungkinkan%'
-                    OR LOWER(`kj8`.`jawaban_teks`) LIKE '%mencari kerja%')
-         )
-         AND EXISTS (
-             SELECT 1
-             FROM `kuesioner_section_pertanyaan` `sp3`
-             INNER JOIN `kuesioner_section` `s3` ON `s3`.`id` = `sp3`.`section_id`
-             INNER JOIN `kuesioner_pertanyaan` `q3` ON `q3`.`id` = `sp3`.`pertanyaan_id`
-             WHERE `s3`.`target` = 'univ' AND `sp3`.`wajib` = 1 AND UPPER(`q3`.`kode_pertanyaan`) IN ('F502','F506')
-         )
-       ) THEN 1 ELSE 0 END
-    ) AS `total_mandatory_univ`,
+    CASE
+        WHEN `status_info`.`status_karier` = 'bekerja' THEN
+            (SELECT COUNT(DISTINCT `sp`.`pertanyaan_id`)
+             FROM `kuesioner_section_pertanyaan` `sp`
+             INNER JOIN `kuesioner_section` `s` ON `s`.`id` = `sp`.`section_id`
+             INNER JOIN `kuesioner_pertanyaan` `q` ON `q`.`id` = `sp`.`pertanyaan_id`
+             WHERE `s`.`target` = 'univ' AND `sp`.`wajib` = 1 AND `q`.`tipe` <> 'header' AND `q`.`is_active` = 1
+               AND UPPER(`q`.`kode_pertanyaan`) NOT LIKE 'BIO_%'
+               AND (`sp`.`tampil_di` IS NULL OR LOWER(`sp`.`tampil_di`) NOT IN ('profil', 'profile'))
+               AND UPPER(`q`.`kode_pertanyaan`) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
+               AND UPPER(`q`.`kode_pertanyaan`) NOT IN ('F10','F18','F12','F18A','F18B','F18C','F18D')
+                        ) + CASE WHEN EXISTS (
+                SELECT 1
+                FROM `kuesioner_section_pertanyaan` `sp3`
+                INNER JOIN `kuesioner_section` `s3` ON `s3`.`id` = `sp3`.`section_id`
+                INNER JOIN `kuesioner_pertanyaan` `q3` ON `q3`.`id` = `sp3`.`pertanyaan_id`
+                WHERE `s3`.`target` = 'univ' AND `sp3`.`wajib` = 1 AND UPPER(`q3`.`kode_pertanyaan`) IN ('F502','F506')
+            ) THEN 1 ELSE 0 END
+        WHEN `status_info`.`status_karier` = 'pendidikan' THEN
+            (SELECT COUNT(DISTINCT `sp`.`pertanyaan_id`)
+             FROM `kuesioner_section_pertanyaan` `sp`
+             INNER JOIN `kuesioner_section` `s` ON `s`.`id` = `sp`.`section_id`
+             INNER JOIN `kuesioner_pertanyaan` `q` ON `q`.`id` = `sp`.`pertanyaan_id`
+             WHERE `s`.`target` = 'univ' AND `sp`.`wajib` = 1 AND `q`.`tipe` <> 'header' AND `q`.`is_active` = 1
+               AND UPPER(`q`.`kode_pertanyaan`) NOT LIKE 'BIO_%'
+               AND (`sp`.`tampil_di` IS NULL OR LOWER(`sp`.`tampil_di`) NOT IN ('profil', 'profile'))
+               AND UPPER(`q`.`kode_pertanyaan`) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
+               AND UPPER(`q`.`kode_pertanyaan`) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16')
+            )
+        WHEN `status_info`.`status_karier` = 'belum_memungkinkan' THEN
+            (SELECT COUNT(DISTINCT `sp`.`pertanyaan_id`)
+             FROM `kuesioner_section_pertanyaan` `sp`
+             INNER JOIN `kuesioner_section` `s` ON `s`.`id` = `sp`.`section_id`
+             INNER JOIN `kuesioner_pertanyaan` `q` ON `q`.`id` = `sp`.`pertanyaan_id`
+             WHERE `s`.`target` = 'univ' AND `sp`.`wajib` = 1 AND `q`.`tipe` <> 'header' AND `q`.`is_active` = 1
+               AND UPPER(`q`.`kode_pertanyaan`) NOT LIKE 'BIO_%'
+               AND (`sp`.`tampil_di` IS NULL OR LOWER(`sp`.`tampil_di`) NOT IN ('profil', 'profile'))
+               AND UPPER(`q`.`kode_pertanyaan`) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
+               AND UPPER(`q`.`kode_pertanyaan`) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
+            )
+        ELSE
+            (SELECT COUNT(DISTINCT `sp`.`pertanyaan_id`)
+             FROM `kuesioner_section_pertanyaan` `sp`
+             INNER JOIN `kuesioner_section` `s` ON `s`.`id` = `sp`.`section_id`
+             INNER JOIN `kuesioner_pertanyaan` `q` ON `q`.`id` = `sp`.`pertanyaan_id`
+             WHERE `s`.`target` = 'univ' AND `sp`.`wajib` = 1 AND `q`.`tipe` <> 'header' AND `q`.`is_active` = 1
+               AND UPPER(`q`.`kode_pertanyaan`) NOT LIKE 'BIO_%'
+               AND (`sp`.`tampil_di` IS NULL OR LOWER(`sp`.`tampil_di`) NOT IN ('profil', 'profile'))
+               AND UPPER(`q`.`kode_pertanyaan`) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
+               AND UPPER(`q`.`kode_pertanyaan`) NOT IN ('F504','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
+            )
+    END AS `total_mandatory_univ`,
     COUNT(DISTINCT CASE
         WHEN `sp`.`wajib` = 1 AND `q`.`tipe` <> 'header'
          AND UPPER(`q`.`kode_pertanyaan`) NOT LIKE 'BIO_%'
          AND (`sp`.`tampil_di` IS NULL OR LOWER(`sp`.`tampil_di`) NOT IN ('profil', 'profile'))
          AND UPPER(`q`.`kode_pertanyaan`) NOT IN ('F1','F2A','F2B','F2C','F2D','F5A1','F5A2','F5B','F5C','F5D','F510','F2E','F2E1','F2E2','F2E3','F2F','F2G','F2H','F11','F505','F502','F506')
-         AND (CASE
-            WHEN (`b`.`kategori_pekerjaan` LIKE '%Melanjutkan Pendidikan%' OR EXISTS (
-                SELECT 1 FROM `kuesioner_jawaban` `kj8` WHERE `kj8`.`biodata_id` = `b`.`id` AND UPPER(`kj8`.`kode_pertanyaan`) = 'F8' AND LOWER(`kj8`.`jawaban_teks`) LIKE '%melanjutkan pendidikan%'
-            )) THEN UPPER(`q`.`kode_pertanyaan`) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16')
-
-            WHEN (`b`.`kategori_pekerjaan` LIKE '%Belum Memungkinkan%' OR `b`.`kategori_pekerjaan` = 'Tidak Bekerja' OR EXISTS (
-                SELECT 1 FROM `kuesioner_jawaban` `kj8` WHERE `kj8`.`biodata_id` = `b`.`id` AND UPPER(`kj8`.`kode_pertanyaan`) = 'F8' AND LOWER(`kj8`.`jawaban_teks`) LIKE '%belum memungkinkan%'
-            )) THEN UPPER(`q`.`kode_pertanyaan`) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
-
-            WHEN (`b`.`kategori_pekerjaan` LIKE '%Mencari Kerja%' OR EXISTS (
-                SELECT 1 FROM `kuesioner_jawaban` `kj8` WHERE `kj8`.`biodata_id` = `b`.`id` AND UPPER(`kj8`.`kode_pertanyaan`) = 'F8' AND LOWER(`kj8`.`jawaban_teks`) LIKE '%mencari kerja%'
-            )) THEN UPPER(`q`.`kode_pertanyaan`) NOT IN ('F504','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
-
-            ELSE
-                UPPER(`q`.`kode_pertanyaan`) NOT IN ('F10','F18','F12','F18A','F18B','F18C','F18D')
-         END)
+         AND (
+            CASE
+                WHEN `status_info`.`status_karier` = 'pendidikan' THEN UPPER(`q`.`kode_pertanyaan`) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16')
+                WHEN `status_info`.`status_karier` = 'belum_memungkinkan' THEN UPPER(`q`.`kode_pertanyaan`) NOT IN ('F10','F3','F4','F504','F6','F7','F7A','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
+                WHEN `status_info`.`status_karier` = 'mencari_kerja' THEN UPPER(`q`.`kode_pertanyaan`) NOT IN ('F504','F14','F15','F16','F18','F12','F18A','F18B','F18C','F18D')
+                ELSE UPPER(`q`.`kode_pertanyaan`) NOT IN ('F10','F18','F12','F18A','F18B','F18C','F18D')
+            END
+         )
          AND ((`j`.`jawaban_teks` IS NOT NULL AND TRIM(`j`.`jawaban_teks`) <> '') OR (`j`.`jawaban_json` IS NOT NULL AND `j`.`jawaban_json` NOT IN ('','[]','{}')))
         THEN `q`.`id`
         ELSE NULL
     END)
     + MAX(CASE
-        WHEN (
-            COALESCE(`b`.`kategori_pekerjaan`, '') NOT LIKE '%Melanjutkan Pendidikan%'
-            AND COALESCE(`b`.`kategori_pekerjaan`, '') NOT LIKE '%Belum Memungkinkan%'
-            AND COALESCE(`b`.`kategori_pekerjaan`, '') != 'Tidak Bekerja'
-            AND COALESCE(`b`.`kategori_pekerjaan`, '') NOT LIKE '%Mencari Kerja%'
-            AND NOT EXISTS (
-                SELECT 1 FROM `kuesioner_jawaban` `kj8`
-                WHERE `kj8`.`biodata_id` = `b`.`id` AND UPPER(`kj8`.`kode_pertanyaan`) = 'F8'
-                  AND (LOWER(`kj8`.`jawaban_teks`) LIKE '%melanjutkan pendidikan%'
-                       OR LOWER(`kj8`.`jawaban_teks`) LIKE '%belum memungkinkan%'
-                       OR LOWER(`kj8`.`jawaban_teks`) LIKE '%mencari kerja%')
-            )
-        )
+        WHEN `status_info`.`status_karier` = 'bekerja'
          AND UPPER(`q`.`kode_pertanyaan`) IN ('F502','F506')
          AND ((`j`.`jawaban_teks` IS NOT NULL AND TRIM(`j`.`jawaban_teks`) <> '') OR (`j`.`jawaban_json` IS NOT NULL AND `j`.`jawaban_json` NOT IN ('','[]','{}')))
         THEN 1
@@ -236,6 +219,23 @@ SELECT `b`.`id` AS `biodata_id`,
     END) AS `total_answered_univ`
 FROM `biodata` `b`
 LEFT JOIN (
+    SELECT
+        `b_sub`.`id` AS `biodata_id`,
+        CASE
+            WHEN `b_sub`.`kategori_pekerjaan` LIKE '%Melanjutkan Pendidikan%' OR LOWER(`kj8`.`jawaban_teks`) LIKE '%melanjutkan pendidikan%' THEN 'pendidikan'
+            WHEN `b_sub`.`kategori_pekerjaan` LIKE '%Belum Memungkinkan%' OR `b_sub`.`kategori_pekerjaan` = 'Tidak Bekerja' OR LOWER(`kj8`.`jawaban_teks`) LIKE '%belum memungkinkan%' THEN 'belum_memungkinkan'
+            WHEN `b_sub`.`kategori_pekerjaan` LIKE '%Mencari Kerja%' OR LOWER(`kj8`.`jawaban_teks`) LIKE '%mencari kerja%' THEN 'mencari_kerja'
+            ELSE 'bekerja'
+        END AS `status_karier`
+    FROM `biodata` `b_sub`
+    LEFT JOIN (
+        SELECT `biodata_id`, MAX(`jawaban_teks`) AS `jawaban_teks`
+        FROM `kuesioner_jawaban`
+        WHERE UPPER(`kode_pertanyaan`) = 'F8'
+        GROUP BY `biodata_id`
+    ) `kj8` ON `kj8`.`biodata_id` = `b_sub`.`id`
+) `status_info` ON `status_info`.`biodata_id` = `b`.`id`
+LEFT JOIN (
     SELECT `kj`.`biodata_id`, `kj`.`pertanyaan_id`, `kj`.`section_id`, `kj`.`jawaban_teks`, `kj`.`jawaban_json`
     FROM `kuesioner_jawaban` `kj`
     INNER JOIN `kuesioner_section` `ks` ON `ks`.`id` = `kj`.`section_id`
@@ -243,7 +243,7 @@ LEFT JOIN (
 ) `j` ON `j`.`biodata_id` = `b`.`id`
 LEFT JOIN `kuesioner_pertanyaan` `q` ON `j`.`pertanyaan_id` = `q`.`id`
 LEFT JOIN `kuesioner_section_pertanyaan` `sp` ON `sp`.`pertanyaan_id` = `q`.`id`
-GROUP BY `b`.`id`;
+GROUP BY `b`.`id`, `status_info`.`status_karier`;
 SQL
             );
         }

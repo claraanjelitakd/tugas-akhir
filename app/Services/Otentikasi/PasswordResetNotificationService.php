@@ -51,7 +51,7 @@ class PasswordResetNotificationService
             'email' => $email,
         ]);
 
-        Mail::to($email)->send(new ResetPasswordMail($user, $resetUrl));
+        Mail::to($email)->queue(new ResetPasswordMail($user, $resetUrl));
 
         Log::info("Email tautan reset kata sandi terkirim ke: {$email} | Pengguna: {$user->username}");
 

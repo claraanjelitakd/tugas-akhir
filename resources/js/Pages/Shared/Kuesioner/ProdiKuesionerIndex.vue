@@ -1591,18 +1591,9 @@ const handleDeleteOption = (opt) => {
                             placeholder="Ketikkan petunjuk pengisian bagi responden alumni..."
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B] leading-relaxed"
                         ></textarea>
-                    </div>
-
-                    <div>
-                        <label class="block font-semibold text-gray-700 text-xs mb-1">
-                            Nomor Urut Posisi
-                        </label>
-                        <input
-                            v-model.number="sectionForm.order"
-                            type="number"
-                            min="1"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
-                        />
+                        <p class="mt-1 text-[11px] text-gray-500">
+                            Urutan bagian kuesioner akan ditempatkan otomatis di akhir. Anda dapat memindahkan posisi naik/turun kapan saja melalui tombol panah pada daftar bagian.
+                        </p>
                     </div>
 
                     <div class="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
@@ -1724,8 +1715,8 @@ const handleDeleteOption = (opt) => {
                         </p>
                     </div>
 
-                    <!-- Lokasi tampil placement menentukan apakah butir hanya muncul di kuesioner atau juga profil. -->
-                    <div>
+                    <!-- Lokasi tampil placement menentukan apakah butir hanya muncul di kuesioner atau juga profil (khusus SuperAdmin). -->
+                    <div v-if="props.role === 'superadmin'">
                         <label class="mb-1 block font-bold text-gray-700">Tampil di</label>
                         <select
                             v-model="questionForm.tampil_di"
@@ -1739,35 +1730,25 @@ const handleDeleteOption = (opt) => {
                         <p class="mt-1 text-[11px] text-gray-500">Pilihan ini mengatur lokasi tampil placement; master pertanyaan tetap satu di Bank Soal.</p>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="mb-1 block font-bold text-gray-700">
-                                Tipe Pertanyaan <span class="text-red-500">*</span>
-                            </label>
-                            <select
-                                v-model="questionForm.type"
-                                class="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                    <div>
+                        <label class="mb-1 block font-bold text-gray-700">
+                            Tipe Pertanyaan <span class="text-red-500">*</span>
+                        </label>
+                        <select
+                            v-model="questionForm.type"
+                            class="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                        >
+                            <option
+                                v-for="(label, val) in prodiSelectableTypes"
+                                :key="val"
+                                :value="val"
                             >
-                                <option
-                                    v-for="(label, val) in prodiSelectableTypes"
-                                    :key="val"
-                                    :value="val"
-                                >
-                                    {{ label }}
-                                </option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="mb-1 block font-bold text-gray-700">
-                                Nomor Urut
-                            </label>
-                            <input
-                                v-model.number="questionForm.order"
-                                type="number"
-                                min="1"
-                                class="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
-                            />
-                        </div>
+                                {{ label }}
+                            </option>
+                        </select>
+                        <p class="mt-1 text-[11px] text-gray-500">
+                            Urutan soal bertambah otomatis di akhir bagian. Anda dapat memindahkan posisi naik/turun kapan saja melalui tombol panah di tabel kuesioner.
+                        </p>
                     </div>
 
                     <!-- Penempatan Lintas Bagian (Multi-Placement) -->

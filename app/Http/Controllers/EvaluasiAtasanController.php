@@ -529,8 +529,8 @@ class EvaluasiAtasanController extends Controller
                     $biodataFresh = $lockedEvaluation->biodata?->fresh(['perusahaan', 'atasan', 'dataAkademik', 'prodi']);
                     $evaluasiFresh = $lockedEvaluation->fresh(['perusahaan', 'atasan']);
                     if ($biodataFresh && $evaluasiFresh) {
-                        Mail::to($targetEmail)->send(new KonfirmasiEvaluasiAtasanTerkirimMail($biodataFresh, $evaluasiFresh));
-                        Log::info("Email bukti penerimaan evaluasi terkirim ke atasan: {$targetEmail} | Token: {$token}");
+                        Mail::to($targetEmail)->queue(new KonfirmasiEvaluasiAtasanTerkirimMail($biodataFresh, $evaluasiFresh));
+                        Log::info("Email bukti penerimaan evaluasi diantrekan ke latar belakang untuk atasan: {$targetEmail} | Token: {$token}");
                     }
                 } catch (\Throwable $e) {
                     Log::error("Gagal mengirim email tanda terima evaluasi ke atasan ({$targetEmail}): ".$e->getMessage());

@@ -27,6 +27,7 @@ class UnifiedDetailAlumniService
             ->where('is_active', true)
             ->with(['pertanyaan' => function ($query) {
                 $query->where('kuesioner_pertanyaan.is_active', true)
+                    ->wherePivot('is_active', true)
                     ->with('opsi');
             }])
             ->orderBy('order', 'asc')
@@ -139,6 +140,7 @@ class UnifiedDetailAlumniService
             ->where('is_active', true)
             ->with(['pertanyaan' => function ($query) {
                 $query->where('kuesioner_pertanyaan.is_active', true)
+                    ->wherePivot('is_active', true)
                     ->with('opsi');
             }])
             ->orderBy('order', 'asc')
@@ -149,8 +151,8 @@ class UnifiedDetailAlumniService
             ->keyBy('pertanyaan_id');
 
         $prodiSectionsWithAnswers = [];
-        $totalProdiQuestions = 0;
-        $totalProdiAnswered = 0;
+        $distinctQuestionIds = [];
+        $distinctAnsweredIds = [];
 
         foreach ($prodiSections as $pSection) {
             $pQuestionsList = [];
@@ -173,9 +175,9 @@ class UnifiedDetailAlumniService
                 }
 
                 if (! $isHeader) {
-                    $totalProdiQuestions++;
+                    $distinctQuestionIds[$pQuestion->id] = true;
                     if ($hasAnswer) {
-                        $totalProdiAnswered++;
+                        $distinctAnsweredIds[$pQuestion->id] = true;
                     }
                 }
 
@@ -213,6 +215,9 @@ class UnifiedDetailAlumniService
                 'total_questions_count' => $totalProdiCountInSec,
             ];
         }
+
+        $totalProdiQuestions = count($distinctQuestionIds);
+        $totalProdiAnswered = count($distinctAnsweredIds);
 
         $prodiPercentage = $totalProdiQuestions > 0
             ? (int) round(($totalProdiAnswered / $totalProdiQuestions) * 100)

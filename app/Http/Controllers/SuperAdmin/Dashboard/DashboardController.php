@@ -4,11 +4,8 @@ namespace App\Http\Controllers\SuperAdmin\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\Biodata;
-use App\Models\KuesionerPertanyaan;
-use App\Models\KuesionerSection;
 use App\Models\LogActivity;
 use App\Models\Perusahaan;
-use App\Models\Prodi;
 use App\Services\Dashboard\RoleDashboardDataService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -38,121 +35,30 @@ class DashboardController extends Controller
     public function tampilkanDashboard(Request $request, RoleDashboardDataService $dashboardData): Response
     {
         $user = $request->user();
-        $defaultYear = (string) now()->year;
-        $availableYears = DB::table('v_alumni_audit_rekap')
-            ->whereNotNull('tahun_lulus')
-            ->pluck('tahun_lulus')
-            ->filter()
-            ->map(fn ($year): string => (string) $year)
-            ->unique()
-            ->push($defaultYear)
-            ->sortDesc()
-            ->values()
-            ->all();
-        $selectedYear = (string) $request->input('tahun', $defaultYear);
+        $requestedYear = $request->input('tahun') ? (string) $request->input('tahun') : null;
+        $dashboardRoleData = $dashboardData->build('universitas', null, $requestedYear);
+        $availableYears = $dashboardRoleData['availableYears'];
+        $selectedYear = $dashboardRoleData['selectedYear'];
+        $stats = $dashboardRoleData['stats'];
 
-        if (! in_array($selectedYear, $availableYears, true)) {
-            $selectedYear = $defaultYear;
-        }
-
-        // Ambil data konsisten universitas dari RoleDashboardDataService
-        $dashboardRoleData = $dashboardData->build('universitas', null, $selectedYear);
-
-        // 1. Menghitung ringkasan statistik kuesioner dan partisipasi via v_alumni_audit_rekap
-        $totalPertanyaan = KuesionerPertanyaan::where('is_active', true)->count();
-        $totalSections = KuesionerSection::where('is_active', true)->count();
-        $dashboardAggregate = DB::table('v_alumni_audit_rekap')
-            ->where('tahun_lulus', $selectedYear)
-            ->selectRaw('COUNT(*) AS total_alumni')
-            ->selectRaw('SUM(CASE WHEN is_complete_univ = 1 THEN 1 ELSE 0 END) AS total_responden')
-            ->selectRaw('SUM(CASE WHEN is_profile_complete = 1 THEN 1 ELSE 0 END) AS profile_complete_count')
-            ->selectRaw('SUM(CASE WHEN is_complete_univ = 1 THEN 1 ELSE 0 END) AS university_complete_count')
-            ->selectRaw('SUM(CASE WHEN is_profile_complete = 1 AND is_complete_univ = 1 THEN 1 ELSE 0 END) AS overall_complete_count')
-            ->selectRaw("SUM(CASE WHEN (linkedin_url IS NOT NULL AND linkedin_url != '') OR (linkedin_username IS NOT NULL AND linkedin_username != '') THEN 1 ELSE 0 END) AS total_linkedin")
-            ->first();
-
-        $totalAlumni = (int) ($dashboardAggregate->total_alumni ?? 0);
-        $totalResponden = (int) ($dashboardAggregate->total_responden ?? 0);
-        $totalProdi = Prodi::count();
-        $totalPendingPerusahaan = Perusahaan::where('status_verifikasi', 'Menunggu Verifikasi')->count();
+        $totalPertanyaan = (int) $stats['total_pertanyaan'];
+        $totalSections = (int) $stats['total_sections'];
+        $totalAlumni = (int) $stats['total_alumni'];
+        $totalResponden = (int) $stats['total_responden'];
+        $totalProdi = (int) $stats['total_prodi'];
+        $totalPendingPerusahaan = (int) $stats['total_pending_perusahaan'];
         $totalPerusahaan = Perusahaan::count();
         $totalPerusahaanTerverifikasi = Perusahaan::where('status_verifikasi', 'Terverifikasi')->count();
         $totalAtasan = Biodata::query()
             ->whereNotNull('atasan_id')
             ->whereHas('dataAkademik', fn (Builder $query): Builder => $query->where('tahun_lulus', $selectedYear))
             ->count();
-        $responseRate = $totalAlumni > 0 ? round(($totalResponden / $totalAlumni) * 100, 1) : 0;
+        $responseRate = (float) $stats['response_rate'];
+        $totalLinkedIn = (int) $stats['total_linkedin'];
 
-        $totalLinkedIn = (int) ($dashboardAggregate->total_linkedin ?? 0);
-
-        $completionMetrics = [
-            'population' => $totalAlumni,
-            'profile' => $this->buildCompletionMetric(
-                'Profil Alumni',
-                (int) ($dashboardAggregate->profile_complete_count ?? 0),
-                $totalAlumni,
-            ),
-            'university_questionnaire' => $this->buildCompletionMetric(
-                'Kuesioner Universitas',
-                (int) ($dashboardAggregate->university_complete_count ?? 0),
-                $totalAlumni,
-            ),
-            'profile_and_university' => $this->buildCompletionMetric(
-                'Profil dan Kuesioner Universitas',
-                (int) ($dashboardAggregate->overall_complete_count ?? 0),
-                $totalAlumni,
-            ),
-        ];
-
-        // 2. Ringkasan Partisipasi per Program Studi se-Universitas (Single Aggregated Query)
-        $statsPerProdi = DB::table('v_alumni_audit_rekap')
-            ->where('tahun_lulus', $selectedYear)
-            ->select(
-                'prodi_id',
-                DB::raw('COUNT(*) as total_alumni'),
-                DB::raw('SUM(CASE WHEN is_complete_univ = 1 THEN 1 ELSE 0 END) as total_responden')
-            )
-            ->whereNotNull('prodi_id')
-            ->groupBy('prodi_id')
-            ->get()
-            ->keyBy('prodi_id');
-
-        $prodiSummaries = Prodi::orderBy('kode_prodi', 'asc')
-            ->get()
-            ->map(function ($p) use ($statsPerProdi) {
-                $stat = $statsPerProdi->get($p->id);
-                $totalBio = (int) ($stat->total_alumni ?? 0);
-                $respondenCount = (int) ($stat->total_responden ?? 0);
-                $rate = $totalBio > 0 ? round(($respondenCount / $totalBio) * 100, 1) : 0;
-
-                return [
-                    'id' => $p->id,
-                    'kode_prodi' => $p->kode_prodi,
-                    'nama_prodi' => $p->nama_prodi,
-                    'total_alumni' => $totalBio,
-                    'total_responden' => $respondenCount,
-                    'response_rate' => $rate,
-                    'response_rate_status' => $this->getResponseRateStatus($rate),
-                ];
-            });
-
-        // 3. Pratinjau 8 Alumni Terbaru Terdaftar via v_alumni_audit_rekap
-        $recentAlumni = DB::table('v_alumni_audit_rekap')
-            ->where('tahun_lulus', $selectedYear)
-            ->orderByDesc('biodata_id')
-            ->take(8)
-            ->get()
-            ->map(function ($alumni) {
-                return [
-                    'id' => $alumni->biodata_id,
-                    'nim' => $alumni->nim ?? '-',
-                    'nama' => $alumni->nama ?? 'Mahasiswa',
-                    'prodi' => $alumni->nama_prodi ?? '-',
-                    'tahun_lulus' => $alumni->tahun_lulus ?? $alumni->tahun_akademik_lulus ?? '-',
-                    'has_responded' => ((int) $alumni->answered_mandatory_univ) > 0,
-                    'has_linkedin' => ! empty($alumni->linkedin_url) || ! empty($alumni->linkedin_username),
-                ];
-            });
+        $completionMetrics = $dashboardRoleData['completionMetrics'];
+        $prodiSummaries = $dashboardRoleData['prodiSummaries'];
+        $recentAlumni = $dashboardRoleData['recentAlumni'];
 
         // 4. Pratinjau 6 Log Aktivitas Audit Terbaru
         $recentLogs = LogActivity::with('user')

@@ -148,7 +148,7 @@ class SuperAdminManajemenAkunTest extends TestCase
 
         $response->assertRedirect();
         $response->assertSessionHas('success');
-        Mail::assertSent(ResetPasswordMail::class, function (ResetPasswordMail $mail) use ($admin): bool {
+        Mail::assertQueued(ResetPasswordMail::class, function (ResetPasswordMail $mail) use ($admin): bool {
             return $mail->hasTo($admin->email) && $mail->user->is($admin);
         });
         $this->assertDatabaseHas('password_reset_tokens', [

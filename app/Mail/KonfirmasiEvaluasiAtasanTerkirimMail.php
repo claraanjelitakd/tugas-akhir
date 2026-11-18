@@ -5,6 +5,7 @@ namespace App\Mail;
 use App\Models\Biodata;
 use App\Models\EvaluasiAtasan;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
@@ -17,7 +18,7 @@ use Illuminate\Queue\SerializesModels;
  * Mengirim email bukti dan ucapan terima kasih kepada atasan / pengguna lulusan
  * segera setelah formulir evaluasi kinerja alumni UKDW berhasil diserahkan (submitted).
  */
-class KonfirmasiEvaluasiAtasanTerkirimMail extends Mailable
+class KonfirmasiEvaluasiAtasanTerkirimMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 

@@ -29,6 +29,8 @@ SELECT b.id AS biodata_id, b.prodi_id,
         INNER JOIN kuesioner_pertanyaan kp ON kp.id = ksp.pertanyaan_id
         WHERE ks.target = 'prodi'
           AND ks.prodi_id = b.prodi_id
+          AND ks.is_active = 1
+          AND ksp.is_active = 1
           AND kp.tipe != 'header'
           AND kp.is_active = 1
     ), 0) AS total_prodi_questions,
@@ -42,7 +44,13 @@ LEFT JOIN (
     SELECT kj.biodata_id, kj.pertanyaan_id, kj.jawaban_teks, kj.jawaban_json
     FROM kuesioner_jawaban kj
     INNER JOIN kuesioner_section ks ON ks.id = kj.section_id
+    INNER JOIN kuesioner_section_pertanyaan ksp ON ksp.section_id = ks.id AND ksp.pertanyaan_id = kj.pertanyaan_id
+    INNER JOIN kuesioner_pertanyaan kp ON kp.id = kj.pertanyaan_id
     WHERE ks.target = 'prodi'
+      AND ks.is_active = 1
+      AND ksp.is_active = 1
+      AND kp.is_active = 1
+      AND kp.tipe != 'header'
 ) j ON j.biodata_id = b.id
 GROUP BY b.id, b.prodi_id;
 SQL
@@ -58,6 +66,8 @@ SELECT `b`.`id` AS `biodata_id`, `b`.`prodi_id` AS `prodi_id`,
         INNER JOIN `kuesioner_pertanyaan` `kp` ON `kp`.`id` = `ksp`.`pertanyaan_id`
         WHERE `ks`.`target` = 'prodi'
           AND `ks`.`prodi_id` = `b`.`prodi_id`
+          AND `ks`.`is_active` = 1
+          AND `ksp`.`is_active` = 1
           AND `kp`.`tipe` <> 'header'
           AND `kp`.`is_active` = 1
     ), 0) AS `total_prodi_questions`,
@@ -71,7 +81,13 @@ LEFT JOIN (
     SELECT `kj`.`biodata_id`, `kj`.`pertanyaan_id`, `kj`.`jawaban_teks`, `kj`.`jawaban_json`
     FROM `kuesioner_jawaban` `kj`
     INNER JOIN `kuesioner_section` `ks` ON `ks`.`id` = `kj`.`section_id`
+    INNER JOIN `kuesioner_section_pertanyaan` `ksp` ON `ksp`.`section_id` = `ks`.`id` AND `ksp`.`pertanyaan_id` = `kj`.`pertanyaan_id`
+    INNER JOIN `kuesioner_pertanyaan` `kp` ON `kp`.`id` = `kj`.`pertanyaan_id`
     WHERE `ks`.`target` = 'prodi'
+      AND `ks`.`is_active` = 1
+      AND `ksp`.`is_active` = 1
+      AND `kp`.`is_active` = 1
+      AND `kp`.`tipe` <> 'header'
 ) `j` ON `j`.`biodata_id` = `b`.`id`
 GROUP BY `b`.`id`, `b`.`prodi_id`;
 SQL

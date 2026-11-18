@@ -428,7 +428,7 @@ class SuperAdminDaftarAlumniTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHas('success');
 
-        Mail::assertSent(PengingatKuesionerAlumniMail::class);
+        Mail::assertQueued(PengingatKuesionerAlumniMail::class);
     }
 
     /**

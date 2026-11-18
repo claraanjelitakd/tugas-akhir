@@ -88,7 +88,7 @@ class AdminAlumniScopeEmailTest extends TestCase
 
         $response->assertRedirect();
         $response->assertSessionHas('success');
-        Mail::assertSent(PengingatKuesionerAlumniMail::class, function (PengingatKuesionerAlumniMail $mail) use ($alumni): bool {
+        Mail::assertQueued(PengingatKuesionerAlumniMail::class, function (PengingatKuesionerAlumniMail $mail) use ($alumni): bool {
             return $mail->biodata->is($alumni);
         });
     }

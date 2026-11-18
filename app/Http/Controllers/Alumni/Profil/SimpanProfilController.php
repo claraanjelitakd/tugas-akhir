@@ -402,10 +402,10 @@ class SimpanProfilController extends Controller
         });
 
         try {
-            Mail::to($emailAtasan)->send(new UndanganEvaluasiAtasanMail($biodata, $evaluasi));
-            Log::info("Email evaluasi atasan terkirim ke: {$emailAtasan} | Alumni: {$biodata->nama} (NIM: {$biodata->nim}) | Evaluasi ID: {$evaluasi->id}");
+            Mail::to($emailAtasan)->queue(new UndanganEvaluasiAtasanMail($biodata, $evaluasi));
+            Log::info("Email evaluasi atasan diantrekan ke antrean latar belakang: {$emailAtasan} | Alumni: {$biodata->nama} (NIM: {$biodata->nim}) | Evaluasi ID: {$evaluasi->id}");
 
-            return redirect()->back()->with('success', "Email undangan evaluasi berhasil dikirimkan ke atasan ({$emailAtasan}).");
+            return redirect()->back()->with('success', "Email undangan evaluasi berhasil diproses dan dikirimkan ke atasan ({$emailAtasan}).");
         } catch (\Throwable $e) {
             Log::error('Gagal mengirim email evaluasi ke atasan: '.$e->getMessage());
 

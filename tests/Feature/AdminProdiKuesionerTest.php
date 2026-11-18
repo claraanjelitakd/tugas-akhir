@@ -749,7 +749,7 @@ class AdminProdiKuesionerTest extends TestCase
     }
 
     /**
-     * Memastikan placement pertanyaan prodi dapat menentukan lokasi tampil profil dan kuesioner.
+     * Memastikan placement pertanyaan prodi dibatasi untuk kuesioner prodi (bukan profil).
      */
     public function test_admin_prodi_can_configure_question_display_location(): void
     {
@@ -769,11 +769,12 @@ class AdminProdiKuesionerTest extends TestCase
 
         $question = KuesionerPertanyaan::where('kode_pertanyaan', 'PSI-TEST-DISPLAY-BOTH')->firstOrFail();
 
+        // Admin prodi dibatasi hanya tampil di kuesioner prodi
         $this->assertDatabaseHas('kuesioner_section_pertanyaan', [
             'section_id' => $this->sectionSI->id,
             'pertanyaan_id' => $question->id,
             'wajib' => false,
-            'tampil_di' => 'both',
+            'tampil_di' => 'kuesioner',
         ]);
         $this->assertDatabaseHas('log_activities', [
             'action' => 'KUESIONER_PRODI_QUESTION_CREATED',
