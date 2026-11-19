@@ -568,7 +568,7 @@ Menyimpan rekam jejak audit (*audit trail*) atas aksi perubahan data penting yan
 | `user_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `users.id` pelaku aktivitas (`ON DELETE SET NULL`). |
 | `action` | `varchar(100)` | `INDEX` | `NOT NULL` | Kode jenis aktivitas (misal: `GANTI_PERUSAHAAN_MASTER`, `UPDATE_PROFIL`). |
 | `model_type` | `varchar(100)` | `INDEX` | `NULL` | Nama kelas model Eloquent target aktivitas. |
-| `model_id` | `bigint unsigned` | `INDEX` | `NULL` | ID rekaman pada model target aktivitas. |
+| `model_id` | `varchar(100)` | `INDEX` | `NULL` | Identifier rekaman pada model target aktivitas (mendukung ID numerik maupun kode unik string seperti kode kabupaten/wilayah/NIM). |
 | `description` | `text` | - | `NULL` | Deskripsi naratif rincian aktivitas yang dijalankan. |
 | `old_values` | `json` | - | `NULL` | Snapshot nilai atribut lama sebelum dilakukan perubahan dalam format JSON. |
 | `new_values` | `json` | - | `NULL` | Snapshot nilai atribut baru setelah dilakukan perubahan dalam format JSON. |

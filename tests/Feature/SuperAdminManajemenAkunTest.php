@@ -8,6 +8,7 @@ use App\Models\DataAkademik;
 use App\Models\Prodi;
 use App\Models\RefFakultas;
 use App\Models\User;
+use Database\Seeders\CalonAlumniYudisiumSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -303,5 +304,65 @@ class SuperAdminManajemenAkunTest extends TestCase
         // 72230011 TIDAK dibuatkan akun karena tidak dicentang
         $this->assertDatabaseMissing('users', ['username' => '72230011']);
         $this->assertDatabaseMissing('biodata', ['nim' => '72230011']);
+    }
+
+    /**
+     * Memastikan seeder CalonAlumniYudisiumSeeder menambahkan 3 calon akun
+     * dan proses sinkronisasi akun alumni berjalan tanpa error (zero-error).
+     */
+    public function test_calon_alumni_yudisium_seeder_populates_three_unsynced_candidates_and_syncs_smoothly(): void
+    {
+        // 1. Jalankan seeder calon alumni yudisium
+        $this->seed(CalonAlumniYudisiumSeeder::class);
+
+        // 2. Kunjungi halaman Manajemen Akun sebagai Super Admin
+        $response = $this->actingAs($this->superadmin)
+            ->get('/superadmin/manajemen-akun');
+
+        $response->assertOk();
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('SuperAdmin/ManajemenAkun/Index')
+            ->where('stats.unsynced_alumni_count', 3)
+            ->has('unsynced_candidates', 3)
+        );
+
+        // 3. Eksekusi sinkronisasi akun untuk ketiga calon alumni
+        $syncResponse = $this->actingAs($this->superadmin)
+            ->post('/superadmin/manajemen-akun/sync-alumni', [
+                'selected_nims' => ['71220101', '72220601', '11220101'],
+            ]);
+
+        $syncResponse->assertRedirect();
+        $syncResponse->assertSessionHas('success');
+
+        // 4. Verifikasi akun User & Biodata untuk ketiga lulusan
+        foreach (['71220101', '72220601', '11220101'] as $nim) {
+            $this->assertDatabaseHas('users', [
+                'username' => $nim,
+                'role' => 'alumni',
+                'must_change_password' => true,
+            ]);
+
+            $this->assertDatabaseHas('biodata', [
+                'nim' => $nim,
+            ]);
+
+            $biodata = Biodata::where('nim', $nim)->first();
+            $this->assertNotNull($biodata->yudisium_id, "Biodata {$nim} harus terhubung ke yudisium_id.");
+        }
+
+        // 5. Verifikasi LogActivity tercatat
+        $this->assertDatabaseHas('log_activities', [
+            'action' => 'SYNC_ALUMNI_ACCOUNTS',
+        ]);
+
+        // 6. Verifikasi antrean kini telah kosong
+        $afterResponse = $this->actingAs($this->superadmin)
+            ->get('/superadmin/manajemen-akun');
+
+        $afterResponse->assertInertia(fn (Assert $page) => $page
+            ->where('stats.unsynced_alumni_count', 0)
+            ->has('unsynced_candidates', 0)
+        );
     }
 }

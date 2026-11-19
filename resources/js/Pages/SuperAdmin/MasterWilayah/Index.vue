@@ -136,28 +136,58 @@ const isSubmitting = ref(false);
 // Filter Handler
 let searchDebounce = null;
 const handleSearch = () => {
+    // Pada tab provinsi dan UMP, penyaringan berjalan 100% instan di browser
+    if (currentTab.value === 'provinsi' || currentTab.value === 'ump') {
+        return;
+    }
     clearTimeout(searchDebounce);
     searchDebounce = setTimeout(() => {
         applyFilters();
-    }, 400);
+    }, 350);
 };
 
 const switchTab = (tab) => {
     currentTab.value = tab;
     search.value = '';
-    applyFilters();
+
+    // Perbarui URL secara mulus di browser tanpa memblokir atau me-reload halaman
+    try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', tab);
+        url.searchParams.delete('search');
+        window.history.replaceState({}, '', url);
+    } catch (e) {}
+
+    // Jika beralih ke tab negara dan datanya belum ada, ambil parsial
+    if (tab === 'negara' && (!props.negaras?.data || props.negaras.data.length === 0)) {
+        router.get('/superadmin/master-wilayah', { tab: 'negara' }, {
+            only: ['negaras', 'filters'],
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
+    }
 };
 
 const applyFilters = () => {
+    // Tentukan partial reload prop yang relevan agar server tidak mengirim ulang data yang tidak berubah
+    const onlyProps = ['filters'];
+    if (currentTab.value === 'kabupaten') onlyProps.push('kabupatens');
+    if (currentTab.value === 'negara') onlyProps.push('negaras');
+    if (currentTab.value === 'ump') onlyProps.push('umps', 'stats');
+    if (currentTab.value === 'provinsi') onlyProps.push('provinces');
+
     router.get('/superadmin/master-wilayah', {
         tab: currentTab.value,
-        search: search.value || undefined,
+        search: (currentTab.value === 'kabupaten' || currentTab.value === 'negara') ? (search.value || undefined) : undefined,
         tahun: selectedYear.value != currentYear ? selectedYear.value : undefined,
         kode_provinsi: currentTab.value === 'kabupaten' && selectedProvinsiId.value ? selectedProvinsiId.value : undefined,
         benua: currentTab.value === 'negara' && selectedBenua.value ? selectedBenua.value : undefined,
         per_page: (currentTab.value === 'kabupaten' || currentTab.value === 'negara') && perPage.value != 15 ? perPage.value : undefined,
     }, {
+        only: onlyProps,
         preserveState: true,
+        preserveScroll: true,
         replace: true,
     });
 };
@@ -172,16 +202,35 @@ const resetFilters = () => {
     router.get('/superadmin/master-wilayah', { tab: currentTab.value }, { preserveState: true });
 };
 
-// Filtered UMP pada sisi klien berdasarkan status_ump
+// Filtered Provinsi pada sisi klien (instan tanpa delay network)
+const filteredProvinces = computed(() => {
+    if (!props.provinces || !Array.isArray(props.provinces)) return [];
+    const q = search.value.trim().toLowerCase();
+    if (!q) return props.provinces;
+    return props.provinces.filter(p =>
+        (p.nama_provinsi || '').toLowerCase().includes(q) ||
+        String(p.kode_provinsi || '').toLowerCase().includes(q)
+    );
+});
+
+// Filtered UMP pada sisi klien berdasarkan status_ump dan pencarian (instan tanpa delay network)
 const filteredUmps = computed(() => {
     if (!props.umps || !Array.isArray(props.umps)) return [];
+    let list = props.umps;
     if (filterStatusUmp.value === 'configured') {
-        return props.umps.filter(item => item.has_ump);
+        list = list.filter(item => item.has_ump);
+    } else if (filterStatusUmp.value === 'unconfigured') {
+        list = list.filter(item => !item.has_ump);
     }
-    if (filterStatusUmp.value === 'unconfigured') {
-        return props.umps.filter(item => !item.has_ump);
+    const q = search.value.trim().toLowerCase();
+    if (q) {
+        list = list.filter(u =>
+            (u.nama_provinsi || '').toLowerCase().includes(q) ||
+            String(u.kode_provinsi || '').toLowerCase().includes(q) ||
+            (u.catatan || '').toLowerCase().includes(q)
+        );
     }
-    return props.umps;
+    return list;
 });
 
 const totalUmpConfiguredCount = computed(() => {
@@ -514,6 +563,40 @@ const confirmDeleteUmp = (umpItem) => {
     });
 };
 
+// Reset / Hapus Seluruh Ketetapan UMP pada Tahun Terpilih (Membatalkan Salin UMP)
+const confirmResetYearUmp = () => {
+    const configuredCount = props.stats.total_ump_configured || 0;
+    Swal.fire({
+        title: `Hapus Seluruh UMP Tahun ${selectedYear.value}?`,
+        html: `Apakah Anda yakin ingin menghapus <b>semua ketetapan UMP (${configuredCount} provinsi)</b> untuk tahun <b>${selectedYear.value}</b>?<br><br><span class="text-xs text-slate-500">Tindakan ini akan mengosongkan seluruh penetapan UMP pada tahun ${selectedYear.value}. Anda dapat menyalin atau mengaturnya kembali kapan saja.</span>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#DC2626',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: 'Ya, Hapus Semua',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.delete(`/superadmin/master-wilayah/ump/reset-year/${selectedYear.value}`, {
+                onSuccess: () => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil Dihapus',
+                        text: `Seluruh ketetapan UMP tahun ${selectedYear.value} berhasil dihapus.`,
+                        timer: 2000,
+                        showConfirmButton: false,
+                    });
+                },
+                onError: (err) => {
+                    const msg = Object.values(err)[0] || 'Gagal mereset UMP tahun ini.';
+                    Swal.fire({ icon: 'error', title: 'Kesalahan', text: msg, confirmButtonColor: '#0D542B' });
+                },
+            });
+        }
+    });
+};
+
 // Salin Antar Tahun
 const openCopyYearModal = () => {
     formCopyYear.value = {
@@ -788,6 +871,19 @@ const confirmDeleteNegara = (item) => {
                                 </svg>
                                 <span>Salin UMP Tahun</span>
                             </button>
+
+                            <button
+                                v-if="stats.total_ump_configured > 0"
+                                type="button"
+                                @click="confirmResetYearUmp"
+                                class="px-3.5 py-2 bg-red-600/80 hover:bg-red-600 text-white border border-red-500/40 rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                                :title="`Kosongkan seluruh penetapan UMP tahun ${selectedYear}`"
+                            >
+                                <svg class="w-4 h-4 text-red-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                <span>Reset UMP {{ selectedYear }}</span>
+                            </button>
                         </template>
                     </div>
                 </div>
@@ -1008,13 +1104,13 @@ const confirmDeleteNegara = (item) => {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-if="provinces.length === 0">
+                            <tr v-if="filteredProvinces.length === 0">
                                 <td colspan="5" class="border border-gray-300 p-8 text-center text-gray-400 italic">
                                     Tidak ada data provinsi yang cocok dengan pencarian.
                                 </td>
                             </tr>
                             <tr
-                                v-for="(prov, idx) in provinces"
+                                v-for="(prov, idx) in filteredProvinces"
                                 :key="prov.kode_provinsi"
                                 class="hover:bg-gray-50/80 transition-colors"
                             >

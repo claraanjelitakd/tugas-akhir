@@ -11,6 +11,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
@@ -50,7 +52,19 @@ class LupaKataSandiController extends Controller
 
         $input = trim($request->input('username_atau_email'));
 
-        // Cari pengguna berdasarkan username (NIM) atau email di tabel users & biodata saja
+        $throttleKey = 'forgot-password|'.Str::lower($input).'|'.$request->ip();
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+
+            return back()->withErrors([
+                'username_atau_email' => "Terlalu banyak permintaan reset kata sandi. Silakan tunggu {$seconds} detik lagi sebelum mencoba kembali.",
+            ])->with('error', "Terlalu banyak permintaan reset kata sandi. Silakan tunggu {$seconds} detik lagi sebelum mencoba kembali.");
+        }
+
+        RateLimiter::hit($throttleKey, 60);
+
+        // Cari pengguna berdasarkan username (NIM) atau email di tabel users & biodata
         $user = User::where('username', $input)
             ->orWhere('email', $input)
             ->orWhereHas('biodata', function ($q) use ($input) {
@@ -58,32 +72,65 @@ class LupaKataSandiController extends Controller
             })
             ->first();
 
-        $genericStatus = 'Jika akun dan email terdaftar valid, tautan reset kata sandi akan dikirim.';
-
         if (! $user) {
             Log::info("Permintaan reset kata sandi diabaikan: input '{$input}' tidak ditemukan di database.");
 
-            return back()->with('status', $genericStatus);
+            return back()->withErrors([
+                'username_atau_email' => "Akun dengan NIM/Username atau Email '{$input}' tidak ditemukan di sistem Tracer Study.",
+            ])->with('error', "Akun dengan identitas '{$input}' tidak ditemukan di sistem Tracer Study.");
         }
 
         $email = $user->email;
+        if (! $email || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $email = $user->biodata?->email_pribadi;
+        }
 
         if (! $email || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             Log::warning("Permintaan reset kata sandi diabaikan: pengguna {$user->username} tidak memiliki email valid.");
 
-            return back()->with('status', $genericStatus);
+            return back()->withErrors([
+                'username_atau_email' => 'Akun Anda belum memiliki alamat email aktif yang terdaftar. Silakan hubungi admin Biro 3 UKDW.',
+            ])->with('error', 'Akun Anda belum memiliki alamat email aktif yang terdaftar.');
         }
 
         try {
             $this->passwordResetNotificationService->send($user);
+            $maskedEmail = $this->maskEmail($email);
 
-            return back()->with('status', $genericStatus);
+            return back()
+                ->with('status', "Tautan reset kata sandi berhasil dikirim ke email {$maskedEmail}. Silakan periksa kotak masuk atau folder spam Anda.")
+                ->with('success', "Tautan reset kata sandi berhasil dikirim ke email {$maskedEmail}. Silakan periksa kotak masuk atau folder spam Anda.");
 
         } catch (Throwable $exception) {
             report($exception);
 
-            return back()->with('status', $genericStatus);
+            return back()->withErrors([
+                'username_atau_email' => 'Gagal mengirim email reset kata sandi. Pastikan mail server aktif atau coba beberapa saat lagi.',
+            ])->with('error', 'Gagal mengirim email reset kata sandi. Silakan coba beberapa saat lagi.');
         }
+    }
+
+    /**
+     * Menyamarkan sebagian alamat email untuk keamanan tampilan (contoh: a***s@students.ukdw.ac.id).
+     */
+    private function maskEmail(string $email): string
+    {
+        $parts = explode('@', $email);
+        if (count($parts) !== 2) {
+            return $email;
+        }
+
+        $name = $parts[0];
+        $domain = $parts[1];
+        $len = strlen($name);
+
+        if ($len <= 2) {
+            $maskedName = substr($name, 0, 1).'*';
+        } else {
+            $maskedName = substr($name, 0, 2).str_repeat('*', min(4, max(1, $len - 3))).substr($name, -1);
+        }
+
+        return $maskedName.'@'.$domain;
     }
 
     /**

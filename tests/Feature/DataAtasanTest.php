@@ -224,6 +224,19 @@ class DataAtasanTest extends TestCase
     }
 
     /**
+     * Memastikan Superadmin dapat mengunduh berkas Excel rekapitulasi data atasan.
+     */
+    public function test_superadmin_can_export_atasan_excel(): void
+    {
+        $admin = $this->createUser('superadmin-export', 'superadmin-export@example.test', 'superadmin');
+        $response = $this->actingAs($admin)->get(route('superadmin.atasan.export-excel'));
+
+        $response->assertOk();
+        $this->assertStringContainsString('application/vnd.ms-excel', (string) $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('Rekap_Evaluasi_Atasan_', (string) $response->headers->get('Content-Disposition'));
+    }
+
+    /**
      * Buat akun dengan atribut minimal yang sesuai schema users aktif.
      *
      * @param  string  $username  Username unik akun.

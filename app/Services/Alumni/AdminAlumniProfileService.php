@@ -215,6 +215,41 @@ class AdminAlumniProfileService
     }
 
     /**
+     * Daftar field yang diizinkan untuk updateProfile agar mencegah mass assignment.
+     *
+     * @return array<int, string>
+     */
+    public static function allowedProfileFields(): array
+    {
+        return [
+            'nama', 'nomor_telepon', 'email_pribadi', 'email',
+            'alamat_saat_ini', 'kelurahan', 'kecamatan',
+            'kode_kabupaten', 'kode_provinsi', 'kode_pos',
+            'instagram_url', 'facebook_url', 'linkedin_url', 'linkedin_username',
+            'skills', 'experience',
+            'kategori_pekerjaan', 'posisi_jabatan', 'posisi_wiraswasta', 'posisi_wiraswasta_lainnya',
+            'bidang_pekerjaan', 'bidang_pekerjaan_lainnya', 'divisi',
+            'pendidikan_tingkat', 'perguruan_tinggi', 'pendidikan_prodi',
+            'gaji', 'jenis_pekerjaan',
+            'nama_perusahaan',
+            'company_jenis_lokasi', 'perusahaan_jenis_lokasi',
+            'company_kode_negara', 'perusahaan_kode_negara',
+            'company_kode_provinsi', 'perusahaan_kode_provinsi',
+            'company_kode_kabupaten', 'perusahaan_kode_kabupaten',
+            'company_alamat', 'perusahaan_alamat',
+            'company_kode_pos', 'perusahaan_kode_pos', 'zipcode',
+            'company_skala', 'perusahaan_skala',
+            'company_jenis_perusahaan', 'perusahaan_jenis_perusahaan',
+            'company_jenis_perusahaan_lainnya', 'perusahaan_jenis_perusahaan_lainnya',
+            'company_bentuk', 'perusahaan_bentuk',
+            'company_homepage', 'perusahaan_homepage',
+            'company_no_telp_fax', 'perusahaan_no_telp_fax',
+            'nama_atasan', 'email_atasan', 'telepon_atasan',
+            'foto',
+        ];
+    }
+
+    /**
      * Simpan seluruh pembaruan profil alumni oleh Admin secara atomik.
      *
      * Data akademik dan yudisium hanya digunakan sebagai referensi.

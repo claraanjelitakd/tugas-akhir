@@ -118,7 +118,8 @@ class DetailAlumniSuperAdminController extends Controller
     public function updateProfile(Request $request, int|string $id): RedirectResponse
     {
         $biodata = Biodata::findOrFail($id);
-        AdminAlumniProfileService::updateProfile($biodata, $request->all());
+        // Fix: gunakan only() dengan allowlist agar mencegah mass assignment
+        AdminAlumniProfileService::updateProfile($biodata, $request->only(AdminAlumniProfileService::allowedProfileFields()));
 
         return redirect()->back()->with('success', 'Data profil mahasiswa berhasil diperbarui oleh Super Admin.');
     }

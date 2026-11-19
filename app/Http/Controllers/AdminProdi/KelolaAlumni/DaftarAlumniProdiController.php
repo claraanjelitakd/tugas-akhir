@@ -173,7 +173,8 @@ class DaftarAlumniProdiController extends Controller
 
         $biodata = Biodata::where('prodi_id', $prodiId)->findOrFail($id);
 
-        AdminAlumniProfileService::updateProfile($biodata, $request->all());
+        // Fix: gunakan only() dengan allowlist agar mencegah mass assignment
+        AdminAlumniProfileService::updateProfile($biodata, $request->only(AdminAlumniProfileService::allowedProfileFields()));
 
         return redirect()->back()->with('success', 'Data profil mahasiswa berhasil diperbarui oleh Admin Program Studi.');
     }

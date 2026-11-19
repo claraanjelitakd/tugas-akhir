@@ -18,6 +18,9 @@ defineProps({
     prodiSummaries: { type: Array, default: () => [] },
     recentAlumni: { type: Array, default: () => [] },
     sectionsList: { type: Array, default: () => [] },
+    recentLogs: { type: Array, default: () => [] },
+    companyRequests: { type: Array, default: () => [] },
+    recentSubmissions: { type: Array, default: () => [] },
 });
 </script>
 

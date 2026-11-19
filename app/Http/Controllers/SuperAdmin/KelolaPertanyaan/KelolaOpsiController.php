@@ -36,13 +36,18 @@ class KelolaOpsiController extends Controller
 
         $order = $validated['order'] ?? (($pertanyaan->opsi()->max('order') ?? 0) + 1);
 
-        $option = $pertanyaan->opsi()->create([
-            'kode_opsi' => trim($validated['code']),
-            'label' => trim($validated['option_text']),
-            'nilai_skor' => $pertanyaan->tipe === 'rating_5' ? (int) $order : null,
-            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
-            'order' => (int) $order,
-        ]);
+        $option = KuesionerOpsi::updateOrCreate(
+            [
+                'pertanyaan_id' => $pertanyaan->id,
+                'kode_opsi' => trim($validated['code']),
+            ],
+            [
+                'label' => trim($validated['option_text']),
+                'nilai_skor' => $pertanyaan->tipe === 'rating_5' ? (int) $order : null,
+                'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
+                'order' => (int) $order,
+            ]
+        );
 
         LogActivity::record('KUESIONER_UNIV_OPTION_CREATED', 'Menambahkan opsi jawaban pada pertanyaan '.$pertanyaan->kode_pertanyaan.'.', $option, null, $validated);
 

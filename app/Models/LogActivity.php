@@ -69,6 +69,10 @@ class LogActivity extends Model
             $resolvedModelId = $subject->getKey();
         }
 
+        if ($resolvedModelId !== null) {
+            $resolvedModelId = (string) $resolvedModelId;
+        }
+
         $recordedNewValues = $newValues ?? $details;
 
         return static::create([

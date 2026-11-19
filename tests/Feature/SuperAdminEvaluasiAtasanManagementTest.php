@@ -296,4 +296,62 @@ class SuperAdminEvaluasiAtasanManagementTest extends TestCase
         $deleteResponse->assertSessionHasNoErrors();
         $this->assertDatabaseMissing('kuesioner_opsi', ['id' => $option->id]);
     }
+
+    /**
+     * Memastikan Super Admin dapat mengunduh berkas Excel rekapitulasi Evaluasi Atasan lengkap.
+     */
+    public function test_superadmin_can_export_evaluasi_atasan_excel(): void
+    {
+        $response = $this->actingAs($this->admin)->get('/superadmin/evaluasi-atasan/export-excel');
+
+        $response->assertOk();
+        $this->assertStringContainsString('application/vnd.ms-excel', (string) $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('Rekap_Evaluasi_Atasan_', (string) $response->headers->get('Content-Disposition'));
+    }
+
+    /**
+     * Memastikan Super Admin dapat memperbarui pertanyaan evaluasi atasan dengan opsi dan jump to tanpa error.
+     */
+    public function test_superadmin_can_update_evaluasi_atasan_question_with_options_and_jump_to(): void
+    {
+        $section = KuesionerSection::where('target', 'atasan')->where('order', 3)->firstOrFail();
+        $pertanyaan = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'EVA_TEST_UPDATE',
+            'teks_pertanyaan' => 'Sebelum diubah',
+            'tipe' => 'likert_5',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($this->admin)->put("/superadmin/evaluasi-atasan/pertanyaan/{$pertanyaan->id}", [
+            'section_id' => $section->id,
+            'kode' => 'TEST_UPDATE',
+            'label' => 'hebat',
+            'aspek' => 'menjadi hebat',
+            'deskripsi' => null,
+            'tipe' => 'likert_5',
+            'pilihan_jawaban' => [
+                '1 - Sangat Rendah',
+                '2 - Rendah',
+                '3 - Cukup',
+                '4 - Tinggi',
+                '5 - Sangat Tinggi',
+            ],
+            'option_jump_to' => [
+                null,
+                null,
+                null,
+                null,
+                'EVA_kreativitas',
+            ],
+            'order' => 20,
+            'is_required' => true,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $pertanyaan->refresh();
+        $this->assertSame('menjadi hebat', $pertanyaan->teks_pertanyaan);
+        $this->assertSame('hebat', $pertanyaan->label_pertanyaan);
+        $this->assertCount(5, $pertanyaan->opsi);
+        $this->assertSame('EVA_kreativitas', $pertanyaan->opsi()->reorder('order', 'desc')->first()->lompat_ke_pertanyaan_id);
+    }
 }

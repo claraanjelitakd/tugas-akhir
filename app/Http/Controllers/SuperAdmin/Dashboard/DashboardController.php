@@ -4,6 +4,7 @@ namespace App\Http\Controllers\SuperAdmin\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\Biodata;
+use App\Models\KuesionerJawaban;
 use App\Models\LogActivity;
 use App\Models\Perusahaan;
 use App\Services\Dashboard\RoleDashboardDataService;
@@ -47,12 +48,8 @@ class DashboardController extends Controller
         $totalResponden = (int) $stats['total_responden'];
         $totalProdi = (int) $stats['total_prodi'];
         $totalPendingPerusahaan = (int) $stats['total_pending_perusahaan'];
-        $totalPerusahaan = Perusahaan::count();
-        $totalPerusahaanTerverifikasi = Perusahaan::where('status_verifikasi', 'Terverifikasi')->count();
-        $totalAtasan = Biodata::query()
-            ->whereNotNull('atasan_id')
-            ->whereHas('dataAkademik', fn (Builder $query): Builder => $query->where('tahun_lulus', $selectedYear))
-            ->count();
+        // Cleanup: query Perusahaan::count(), Perusahaan::where()->count(), dan Biodata atasan count
+        // dihapus karena hanya dipakai oleh prop 'dashboardSummary' yang sudah dihapus
         $responseRate = (float) $stats['response_rate'];
         $totalLinkedIn = (int) $stats['total_linkedin'];
 
@@ -60,15 +57,28 @@ class DashboardController extends Controller
         $prodiSummaries = $dashboardRoleData['prodiSummaries'];
         $recentAlumni = $dashboardRoleData['recentAlumni'];
 
-        // 4. Pratinjau 6 Log Aktivitas Audit Terbaru
-        $recentLogs = LogActivity::with('user')
-            ->latest()
-            ->take(6)
+        // 4. Pratinjau Log Aktivitas Audit Terbaru dengan Identitas Unit/Prodi
+        $recentLogs = LogActivity::with([
+            'user.prodi:id,nama_prodi,kode_prodi',
+            'user.fakultas:id,nama_fakultas',
+        ])
+            ->latest('id')
+            ->take(8)
             ->get()
             ->map(function ($log) {
+                $prodiName = $log->user?->prodi?->nama_prodi;
+                $fakultasName = $log->user?->fakultas?->nama_fakultas;
+                $unit = $prodiName
+                    ? 'Prodi '.$prodiName
+                    : ($fakultasName
+                        ? 'Fakultas '.$fakultasName
+                        : ($log->user?->role === 'superadmin' ? 'Biro ITC / Pusat' : ($log->user?->role === 'alumni' ? 'Alumni' : 'Sistem')));
+
                 return [
                     'id' => $log->id,
                     'user_name' => $log->user?->name ?? 'Sistem',
+                    'user_role' => $log->user?->role ?? 'system',
+                    'unit' => $unit,
                     'action' => $log->action,
                     'description' => $log->description,
                     'ip_address' => $log->ip_address,
@@ -76,22 +86,45 @@ class DashboardController extends Controller
                 ];
             });
 
-        // 5. Antrean Perusahaan Menunggu Verifikasi
-        $pendingPerusahaanList = Perusahaan::with('createdProdi')
-            ->where('status_verifikasi', 'Menunggu Verifikasi')
-            ->latest()
-            ->take(5)
+        // 5. Alumni yang Baru Saja Mengisi Kuesioner (Respon Masuk Terkini)
+        $recentSubmissions = KuesionerJawaban::query()
+            ->where('responden_type', 'alumni')
+            ->whereNotNull('biodata_id')
+            ->latest('id')
+            ->take(30)
+            ->with(['biodata.prodi:id,nama_prodi', 'biodata.dataAkademik'])
             ->get()
-            ->map(function ($c) {
+            ->unique('biodata_id')
+            ->take(6)
+            ->values()
+            ->map(function ($answer) {
+                $biodata = $answer->biodata;
+                $prodiName = $biodata?->prodi?->nama_prodi ?? '-';
+
                 return [
-                    'id' => $c->id,
-                    'nama' => $c->nama_perusahaan,
-                    'sektor' => $c->sektor_industri ?? $c->bentuk_lembaga ?? '-',
-                    'kota' => $c->kota ?? $c->wilayah ?? '-',
-                    'prodi' => $c->createdProdi?->nama_prodi ?? 'Umum',
-                    'created_at' => $c->created_at ? $c->created_at->diffForHumans() : '-',
+                    'id' => $biodata?->id,
+                    'nama' => $biodata?->nama ?? 'Alumni',
+                    'nim' => $biodata?->nim ?? '-',
+                    'prodi' => $prodiName,
+                    'submitted_at' => $answer->updated_at ? $answer->updated_at->diffForHumans() : ($answer->created_at ? $answer->created_at->diffForHumans() : '-'),
                 ];
-            });
+            })
+            ->all();
+
+        if (empty($recentSubmissions) && ! empty($recentAlumni)) {
+            $recentSubmissions = collect($recentAlumni)
+                ->filter(fn ($a) => ! empty($a['has_responded']))
+                ->take(6)
+                ->map(fn ($a) => [
+                    'id' => $a['id'],
+                    'nama' => $a['nama'],
+                    'nim' => $a['nim'],
+                    'prodi' => $a['prodi'],
+                    'submitted_at' => 'Tercatat mengisi',
+                ])
+                ->values()
+                ->all();
+        }
 
         $companyRequests = $this->buildCompanyRequests();
         $companyDirectory = $this->buildCompanyDirectory();
@@ -116,30 +149,13 @@ class DashboardController extends Controller
             ],
             'companySummary' => $dashboardRoleData['companySummary'],
             'sectionsList' => $dashboardRoleData['sectionsList'],
-            'stats' => [
-                'total_pertanyaan' => $totalPertanyaan,
-                'total_sections' => $totalSections,
-                'total_alumni' => $totalAlumni,
-                'total_responden' => $totalResponden,
-                'total_prodi' => $totalProdi,
-                'total_pending_perusahaan' => $totalPendingPerusahaan,
-                'response_rate' => $responseRate,
-                'total_linkedin' => $totalLinkedIn,
-                'response_rate_status' => $this->getResponseRateStatus($responseRate),
-            ],
+            // Cleanup: 'stats' dan 'dashboardSummary' dihapus karena duplikat dari 'dashboardStats'
+            // Cleanup: 'pendingPerusahaanList' dihapus karena redundan dengan 'companyRequests' yang lebih lengkap
             'completionMetrics' => $completionMetrics,
             'prodiSummaries' => $prodiSummaries,
             'recentAlumni' => $recentAlumni,
             'recentLogs' => $recentLogs,
-            'pendingPerusahaanList' => $pendingPerusahaanList,
-            'dashboardSummary' => [
-                'total_alumni' => $totalAlumni,
-                'total_perusahaan' => $totalPerusahaan,
-                'total_perusahaan_terverifikasi' => $totalPerusahaanTerverifikasi,
-                'total_atasan' => $totalAtasan,
-                'total_prodi' => $totalProdi,
-                'pending_perusahaan' => $totalPendingPerusahaan,
-            ],
+            'recentSubmissions' => $recentSubmissions,
             'companyRequests' => $companyRequests,
             'companyDirectory' => $companyDirectory,
             'supervisorDirectory' => $supervisorDirectory,
@@ -308,19 +324,6 @@ class DashboardController extends Controller
         return [
             'code' => 'green',
             'label' => '75% atau lebih',
-        ];
-    }
-
-    /**
-     * @return array{label: string, completed_count: int, population: int, percentage: float}
-     */
-    private function buildCompletionMetric(string $label, int $completedCount, int $population): array
-    {
-        return [
-            'label' => $label,
-            'completed_count' => $completedCount,
-            'population' => $population,
-            'percentage' => $population > 0 ? round(($completedCount / $population) * 100, 1) : 0,
         ];
     }
 }

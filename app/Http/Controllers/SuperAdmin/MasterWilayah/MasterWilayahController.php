@@ -9,10 +9,12 @@ use App\Models\Perusahaan;
 use App\Models\Propinsi;
 use App\Models\RefNegara;
 use App\Models\Ump;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,148 +39,212 @@ class MasterWilayahController extends Controller
         $benuaFilter = $request->input('benua');
         $perPage = (int) $request->input('per_page', 15);
 
-        // Ambil daftar tahun unik yang tersedia di tabel UMP
-        $availableYears = Ump::select('tahun')
-            ->distinct()
-            ->orderBy('tahun', 'desc')
-            ->pluck('tahun')
-            ->toArray();
+        // 1. Ambil daftar tahun unik UMP dengan cache ringan
+        $availableYears = Cache::remember('ump_available_years', 300, function () use ($currentYear): array {
+            $years = Ump::select('tahun')
+                ->distinct()
+                ->orderBy('tahun', 'desc')
+                ->pluck('tahun')
+                ->toArray();
 
-        if (empty($availableYears)) {
-            $availableYears = [$currentYear];
-        }
+            return ! empty($years) ? $years : [$currentYear];
+        });
 
         if (! in_array($selectedYear, $availableYears, true)) {
             $availableYears[] = $selectedYear;
             rsort($availableYears);
         }
 
-        // Data Ringkasan (Statistik)
-        $totalProvinsi = Propinsi::count();
-        $totalKabupaten = Kabupaten::count();
-        $umpByYear = Ump::where('tahun', $selectedYear)->get();
-        $totalUmpConfigured = $umpByYear->count();
-        $avgUmp = $umpByYear->avg('besaran') ?: 0;
+        // 2. Data Ringkasan (Statistik) dioptimalkan dengan agregasi tunggal & cache
+        $stats = Cache::remember("master_wilayah_stats_{$selectedYear}", 60, function () use ($selectedYear): array {
+            $totalProvinsi = DB::table('propinsi')->count();
+            $totalKabupaten = DB::table('kabupaten')->count();
+            $totalNegara = DB::table('ref_negara')->count();
 
-        $minUmpRecord = $umpByYear->sortBy('besaran')->first();
-        $maxUmpRecord = $umpByYear->sortByDesc('besaran')->first();
+            $umpStats = DB::table('ump')
+                ->where('tahun', $selectedYear)
+                ->whereNotNull('besaran')
+                ->selectRaw('COUNT(*) as total_configured, AVG(besaran) as avg_besaran, MIN(besaran) as min_besaran, MAX(besaran) as max_besaran')
+                ->first();
 
-        $minUmpProvince = $minUmpRecord ? Propinsi::where('kode_provinsi', $minUmpRecord->kode_provinsi)->value('nama_provinsi') : '-';
-        $maxUmpProvince = $maxUmpRecord ? Propinsi::where('kode_provinsi', $maxUmpRecord->kode_provinsi)->value('nama_provinsi') : '-';
+            $minUmpProvince = '-';
+            $maxUmpProvince = '-';
+            $minBesaran = 0.0;
+            $maxBesaran = 0.0;
+            $totalUmpConfigured = 0;
+            $avgUmp = 0.0;
 
-        $stats = [
-            'total_provinsi' => $totalProvinsi,
-            'total_kabupaten' => $totalKabupaten,
-            'total_negara' => RefNegara::count(),
-            'total_ump_configured' => $totalUmpConfigured,
-            'avg_ump' => round($avgUmp, 2),
-            'min_ump' => [
-                'besaran' => $minUmpRecord ? (float) $minUmpRecord->besaran : 0,
-                'provinsi' => $minUmpProvince,
-            ],
-            'max_ump' => [
-                'besaran' => $maxUmpRecord ? (float) $maxUmpRecord->besaran : 0,
-                'provinsi' => $maxUmpProvince,
-            ],
-            'selected_year' => $selectedYear,
-        ];
+            if ($umpStats && $umpStats->total_configured > 0) {
+                $totalUmpConfigured = (int) $umpStats->total_configured;
+                $avgUmp = round((float) $umpStats->avg_besaran, 2);
+                $minBesaran = (float) $umpStats->min_besaran;
+                $maxBesaran = (float) $umpStats->max_besaran;
 
-        // Daftar seluruh provinsi untuk dropdown modal/filter
-        $allProvinces = Propinsi::select('kode_provinsi', 'nama_provinsi')
-            ->orderBy('nama_provinsi', 'asc')
-            ->get();
+                $minUmpProvince = DB::table('ump as u')
+                    ->join('propinsi as p', 'p.kode_provinsi', '=', 'u.kode_provinsi')
+                    ->where('u.tahun', $selectedYear)
+                    ->where('u.besaran', $umpStats->min_besaran)
+                    ->value('p.nama_provinsi') ?? '-';
 
-        // Query Provinsi murni untuk master data & jumlah kabupaten
-        $provinsiQuery = Propinsi::withCount('kabupaten');
+                $maxUmpProvince = DB::table('ump as u')
+                    ->join('propinsi as p', 'p.kode_provinsi', '=', 'u.kode_provinsi')
+                    ->where('u.tahun', $selectedYear)
+                    ->where('u.besaran', $umpStats->max_besaran)
+                    ->value('p.nama_provinsi') ?? '-';
+            }
 
+            return [
+                'total_provinsi' => $totalProvinsi,
+                'total_kabupaten' => $totalKabupaten,
+                'total_negara' => $totalNegara,
+                'total_ump_configured' => $totalUmpConfigured,
+                'avg_ump' => $avgUmp,
+                'min_ump' => [
+                    'besaran' => $minBesaran,
+                    'provinsi' => $minUmpProvince,
+                ],
+                'max_ump' => [
+                    'besaran' => $maxBesaran,
+                    'provinsi' => $maxUmpProvince,
+                ],
+                'selected_year' => $selectedYear,
+            ];
+        });
+
+        // 3. Lookup daftar provinsi dan benua dengan cache (jarang berubah)
+        $allProvinces = Cache::remember('all_provinces_lookup', 3600, function (): array {
+            return Propinsi::select('kode_provinsi', 'nama_provinsi')
+                ->orderBy('nama_provinsi', 'asc')
+                ->get()
+                ->toArray();
+        });
+
+        if (! is_iterable($allProvinces) || is_a($allProvinces, '__PHP_Incomplete_Class')) {
+            Cache::forget('all_provinces_lookup');
+            $allProvinces = Propinsi::select('kode_provinsi', 'nama_provinsi')
+                ->orderBy('nama_provinsi', 'asc')
+                ->get()
+                ->toArray();
+        }
+
+        $allContinents = Cache::remember('all_continents_lookup', 86400, function (): array {
+            return RefNegara::whereNotNull('benua')
+                ->where('benua', '!=', '')
+                ->distinct()
+                ->orderBy('benua', 'asc')
+                ->pluck('benua')
+                ->toArray();
+        });
+
+        if (! is_array($allContinents) || is_a($allContinents, '__PHP_Incomplete_Class')) {
+            Cache::forget('all_continents_lookup');
+            $allContinents = RefNegara::whereNotNull('benua')
+                ->where('benua', '!=', '')
+                ->distinct()
+                ->orderBy('benua', 'asc')
+                ->pluck('benua')
+                ->toArray();
+        }
+
+        // 4. Pemuatan Data Cepat (Provinsi & UMP selalu siap di memori klien untuk transisi tab instan)
+        $kabCounts = Cache::remember('kabupaten_counts_by_provinsi', 3600, function (): array {
+            return DB::table('kabupaten')
+                ->select('kode_provinsi', DB::raw('COUNT(*) as total'))
+                ->groupBy('kode_provinsi')
+                ->pluck('total', 'kode_provinsi')
+                ->toArray();
+        });
+
+        if (! is_array($kabCounts) || is_a($kabCounts, '__PHP_Incomplete_Class')) {
+            Cache::forget('kabupaten_counts_by_provinsi');
+            $kabCounts = DB::table('kabupaten')
+                ->select('kode_provinsi', DB::raw('COUNT(*) as total'))
+                ->groupBy('kode_provinsi')
+                ->pluck('total', 'kode_provinsi')
+                ->toArray();
+        }
+
+        $provQuery = Propinsi::query();
         if ($search && $activeTab === 'provinsi') {
-            $provinsiQuery->where(function ($q) use ($search) {
+            $provQuery->where(function ($q) use ($search): void {
                 $q->where('nama_provinsi', 'like', "%{$search}%")
                     ->orWhere('kode_provinsi', 'like', "%{$search}%");
             });
         }
 
-        $provinces = $provinsiQuery->orderBy('kode_provinsi', 'asc')->get()->map(function ($prov) {
-            return [
+        $provinces = $provQuery->orderBy('kode_provinsi', 'asc')
+            ->get(['kode_provinsi', 'nama_provinsi'])
+            ->map(fn ($prov): array => [
                 'kode_provinsi' => $prov->kode_provinsi,
                 'nama_provinsi' => $prov->nama_provinsi,
-                'total_kabupaten' => $prov->kabupaten_count,
-            ];
-        });
+                'total_kabupaten' => (int) ($kabCounts[$prov->kode_provinsi] ?? 0),
+            ])
+            ->all();
 
-        // Query Kabupaten murni untuk master data dengan relasi Provinsi Induk
-        $kabupatenQuery = Kabupaten::with('propinsi');
+        $allUmps = DB::table('propinsi as p')
+            ->leftJoin('ump as u', function ($join) use ($selectedYear): void {
+                $join->on('u.kode_provinsi', '=', 'p.kode_provinsi')
+                    ->where('u.tahun', '=', $selectedYear);
+            })
+            ->select([
+                'u.id',
+                'p.kode_provinsi',
+                'p.nama_provinsi',
+                'u.besaran',
+                'u.catatan',
+                'u.updated_at',
+            ])
+            ->when($search && $activeTab === 'ump', function ($q) use ($search): void {
+                $q->where(function ($sub) use ($search): void {
+                    $sub->where('p.nama_provinsi', 'like', "%{$search}%")
+                        ->orWhere('p.kode_provinsi', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('p.kode_provinsi', 'asc')
+            ->get()
+            ->map(fn ($item): array => [
+                'id' => $item->id,
+                'kode_provinsi' => $item->kode_provinsi,
+                'nama_provinsi' => $item->nama_provinsi,
+                'tahun' => $selectedYear,
+                'besaran' => $item->besaran !== null ? (float) $item->besaran : null,
+                'catatan' => $item->catatan,
+                'has_ump' => $item->besaran !== null,
+                'updated_at' => $item->updated_at ? Carbon::parse($item->updated_at)->format('d/m/Y H:i') : '-',
+            ])
+            ->all();
 
+        $kabupatenQuery = Kabupaten::with('propinsi:kode_provinsi,nama_provinsi');
         if ($kodeProvinsiFilter) {
             $kabupatenQuery->where('kode_provinsi', $kodeProvinsiFilter);
         }
-
         if ($search && $activeTab === 'kabupaten') {
-            $kabupatenQuery->where(function ($q) use ($search) {
+            $kabupatenQuery->where(function ($q) use ($search): void {
                 $q->where('nama_kabupaten', 'like', "%{$search}%")
                     ->orWhere('kode_kabupaten', 'like', "%{$search}%")
-                    ->orWhereHas('propinsi', function ($pq) use ($search) {
+                    ->orWhereHas('propinsi', function ($pq) use ($search): void {
                         $pq->where('nama_provinsi', 'like', "%{$search}%");
                     });
             });
         }
-
         $kabupatens = $kabupatenQuery->orderBy('kode_kabupaten', 'asc')
             ->paginate($perPage)
             ->withQueryString()
-            ->through(function ($kab) {
-                return [
-                    'kode_kabupaten' => $kab->kode_kabupaten,
-                    'kode_provinsi' => $kab->kode_provinsi,
-                    'nama_kabupaten' => $kab->nama_kabupaten,
-                    'nama_provinsi' => $kab->propinsi?->nama_provinsi ?? '-',
-                ];
-            });
+            ->through(fn ($kab): array => [
+                'kode_kabupaten' => $kab->kode_kabupaten,
+                'kode_provinsi' => $kab->kode_provinsi,
+                'nama_kabupaten' => $kab->nama_kabupaten,
+                'nama_provinsi' => $kab->propinsi?->nama_provinsi ?? '-',
+            ]);
 
-        // Pengelolaan UMP khusus per Provinsi untuk tab 'ump'
-        $allUmps = [];
-        if ($activeTab === 'ump') {
-            $propinsiUmpQuery = Propinsi::with(['umps' => function ($q) use ($selectedYear) {
-                $q->where('tahun', $selectedYear);
-            }]);
-
-            if ($search) {
-                $propinsiUmpQuery->where(function ($q) use ($search) {
-                    $q->where('nama_provinsi', 'like', "%{$search}%")
-                        ->orWhere('kode_provinsi', 'like', "%{$search}%");
-                });
-            }
-
-            $allUmps = $propinsiUmpQuery->orderBy('kode_provinsi', 'asc')
-                ->get()
-                ->map(function ($item) use ($selectedYear) {
-                    $activeUmp = $item->umps->first();
-
-                    return [
-                        'id' => $activeUmp?->id,
-                        'kode_provinsi' => $item->kode_provinsi,
-                        'kode_provinsi' => $item->kode_provinsi,
-                        'nama_provinsi' => $item->nama_provinsi,
-                        'tahun' => $activeUmp ? $activeUmp->tahun : $selectedYear,
-                        'besaran' => $activeUmp ? (float) $activeUmp->besaran : null,
-                        'catatan' => $activeUmp?->catatan,
-                        'has_ump' => (bool) $activeUmp,
-                        'updated_at' => $activeUmp?->updated_at ? $activeUmp->updated_at->format('d/m/Y H:i') : '-',
-                    ];
-                });
-        }
-
-        // Query Master Negara untuk tab 'negara'
-        $negaras = null;
+        $negaras = ['data' => [], 'links' => [], 'total' => (int) $stats['total_negara']];
         if ($activeTab === 'negara') {
             $negaraQuery = RefNegara::query();
-
             if ($benuaFilter) {
                 $negaraQuery->where('benua', $benuaFilter);
             }
-
             if ($search) {
-                $negaraQuery->where(function ($q) use ($search) {
+                $negaraQuery->where(function ($q) use ($search): void {
                     $q->where('nama_negara', 'like', "%{$search}%")
                         ->orWhere('kode_negara', 'like', "%{$search}%")
                         ->orWhere('kode_iso3', 'like', "%{$search}%")
@@ -187,19 +253,10 @@ class MasterWilayahController extends Controller
                         ->orWhere('benua', 'like', "%{$search}%");
                 });
             }
-
             $negaras = $negaraQuery->orderBy('nama_negara', 'asc')
                 ->paginate($perPage)
                 ->withQueryString();
         }
-
-        // Daftar unik benua untuk opsi filter dropdown
-        $allContinents = RefNegara::whereNotNull('benua')
-            ->where('benua', '!=', '')
-            ->distinct()
-            ->orderBy('benua', 'asc')
-            ->pluck('benua')
-            ->toArray();
 
         return Inertia::render('SuperAdmin/MasterWilayah/Index', [
             'active_tab' => $activeTab,
@@ -257,6 +314,8 @@ class MasterWilayahController extends Controller
             $provinsi->toArray()
         );
 
+        $this->clearWilayahCache();
+
         return back()->with('success', "Provinsi {$provinsi->nama_provinsi} berhasil ditambahkan.");
     }
 
@@ -293,6 +352,8 @@ class MasterWilayahController extends Controller
             $oldValues,
             $provinsi->only(['kode_provinsi', 'nama_provinsi'])
         );
+
+        $this->clearWilayahCache();
 
         return back()->with('success', "Data provinsi {$provinsi->nama_provinsi} berhasil diperbarui.");
     }
@@ -333,6 +394,8 @@ class MasterWilayahController extends Controller
             null
         );
 
+        $this->clearWilayahCache();
+
         return back()->with('success', "Provinsi {$provinsi->nama_provinsi} berhasil dihapus.");
     }
 
@@ -363,6 +426,8 @@ class MasterWilayahController extends Controller
             null,
             $kabupaten->toArray()
         );
+
+        $this->clearWilayahCache();
 
         return back()->with('success', "Kabupaten/Kota {$kabupaten->nama_kabupaten} berhasil ditambahkan.");
     }
@@ -400,6 +465,8 @@ class MasterWilayahController extends Controller
             $kabupaten->only(['kode_provinsi', 'kode_kabupaten', 'nama_kabupaten'])
         );
 
+        $this->clearWilayahCache();
+
         return back()->with('success', "Data kabupaten/kota {$kabupaten->nama_kabupaten} berhasil diperbarui.");
     }
 
@@ -430,6 +497,8 @@ class MasterWilayahController extends Controller
             $oldData,
             null
         );
+
+        $this->clearWilayahCache();
 
         return back()->with('success', "Kabupaten/Kota {$kabupaten->nama_kabupaten} berhasil dihapus.");
     }
@@ -500,6 +569,8 @@ class MasterWilayahController extends Controller
             $ump->toArray()
         );
 
+        $this->clearWilayahCache((int) $validated['tahun']);
+
         return back()->with('success', "Besaran UMP {$provNama} tahun {$validated['tahun']} berhasil disimpan: Rp {$besaranFormatted}.");
     }
 
@@ -523,7 +594,26 @@ class MasterWilayahController extends Controller
             null
         );
 
+        $this->clearWilayahCache((int) $tahun);
+
         return back()->with('success', "Ketetapan UMP {$provNama} tahun {$tahun} berhasil dihapus.");
+    }
+
+    /**
+     * Hapus / Reset Seluruh Ketetapan UMP pada Tahun Tertentu (Rollback Salin UMP).
+     */
+    public function resetYearUmp(int $year): RedirectResponse
+    {
+        $deletedCount = Ump::where('tahun', $year)->delete();
+
+        LogActivity::record(
+            'RESET_YEAR_UMP',
+            "Super Admin menghapus seluruh ({$deletedCount}) ketetapan UMP untuk tahun {$year}"
+        );
+
+        $this->clearWilayahCache($year);
+
+        return back()->with('success', "Seluruh data UMP tahun {$year} ({$deletedCount} provinsi) berhasil dihapus.");
     }
 
     /**
@@ -573,6 +663,8 @@ class MasterWilayahController extends Controller
             'COPY_YEAR_UMP',
             "Super Admin menyalin {$copiedCount} data UMP dari tahun {$sourceYear} ke tahun {$targetYear} (Penyesuaian: {$percentage}%)"
         );
+
+        $this->clearWilayahCache((int) $targetYear);
 
         return back()->with('success', "Berhasil menyalin {$copiedCount} data UMP ke tahun {$targetYear}.");
     }
@@ -675,6 +767,23 @@ class MasterWilayahController extends Controller
             null
         );
 
+        $this->clearWilayahCache();
+
         return back()->with('success', "Negara {$negara->nama_negara} berhasil dihapus.");
+    }
+
+    /**
+     * Bersihkan cache referensi wilayah & UMP setelah aksi mutasi data.
+     */
+    private function clearWilayahCache(?int $year = null): void
+    {
+        Cache::forget('all_provinces_lookup');
+        Cache::forget('ump_available_years');
+        Cache::forget('all_continents_lookup');
+        Cache::forget('kabupaten_counts_by_provinsi');
+        if ($year) {
+            Cache::forget("master_wilayah_stats_{$year}");
+        }
+        Cache::forget('master_wilayah_stats_'.now()->year);
     }
 }

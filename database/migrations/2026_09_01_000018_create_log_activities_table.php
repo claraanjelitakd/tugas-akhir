@@ -19,7 +19,7 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "log_activities" ("id" integer primary key autoincrement not null, "user_id" integer, "action" varchar not null, "model_type" varchar, "model_id" integer, "description" text not null, "old_values" text, "new_values" text, "ip_address" varchar, "user_agent" text, "created_at" datetime, "updated_at" datetime, foreign key("user_id") references "users"("id") on delete set null);
+CREATE TABLE "log_activities" ("id" integer primary key autoincrement not null, "user_id" integer, "action" varchar not null, "model_type" varchar, "model_id" varchar, "description" text not null, "old_values" text, "new_values" text, "ip_address" varchar, "user_agent" text, "created_at" datetime, "updated_at" datetime, foreign key("user_id") references "users"("id") on delete set null);
 SQL
             );
 
@@ -40,7 +40,7 @@ CREATE TABLE `log_activities` (
   `user_id` bigint unsigned DEFAULT NULL,
   `action` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Kode jenis aktivitas (e.g. GANTI_PERUSAHAAN_MASTER)',
   `model_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Nama kelas model target aktivitas',
-  `model_id` bigint unsigned DEFAULT NULL COMMENT 'ID record model target aktivitas',
+  `model_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ID record model target aktivitas (integer atau string code)',
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Uraian naratif lengkap aktivitas sistem',
   `old_values` json DEFAULT NULL COMMENT 'Nilai atribut sebelum perubahan (JSON)',
   `new_values` json DEFAULT NULL COMMENT 'Nilai atribut sesudah perubahan (JSON)',

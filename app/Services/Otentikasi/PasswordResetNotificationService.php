@@ -30,6 +30,9 @@ class PasswordResetNotificationService
     public function send(User $user): string
     {
         $email = $user->email;
+        if (! is_string($email) || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $email = $user->biodata?->email_pribadi;
+        }
 
         if (! is_string($email) || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             throw new InvalidArgumentException('Pengguna belum memiliki alamat email yang valid.');

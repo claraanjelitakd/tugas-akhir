@@ -763,9 +763,20 @@ const openQuestionModal = (questionToEdit = null) => {
         };
     } else {
         const defaultSecId = props.sections.length > 0 ? props.sections[0].id : '';
+        // Cari kode pertanyaan default yang belum terdaftar di instrumen aktif maupun Bank Soal
+        const existingCodes = new Set([
+            ...props.questions.map(q => (q.code || '').trim().toUpperCase()),
+            ...props.bankQuestions.map(b => (b.kode || '').trim().toUpperCase()),
+        ]);
+        let nextNum = props.questions.length + 1;
+        while (existingCodes.has(`P${nextNum}`)) {
+            nextNum++;
+        }
+        const defaultCode = `P${nextNum}`;
+
         questionForm.value = {
             prodi_id: props.selectedProdi?.id || null,
-            code: `P${props.questions.length + 1}`,
+            code: defaultCode,
             label: '',
             question_text: '',
             type: 'single_choice',

@@ -404,6 +404,17 @@ const resetFilters = () => {
     perPage.value = 10;
     router.get(`/${props.prefix}/atasan`, {}, { preserveState: true, preserveScroll: true });
 };
+
+// URL unduh data atasan Excel dengan meneruskan parameter filter aktif
+const exportUrl = computed(() => {
+    const params = new URLSearchParams();
+    if (search.value) params.append('search', search.value);
+    if (companySearch.value) params.append('company', companySearch.value);
+    if (selectedProvinsi.value) params.append('provinsi', selectedProvinsi.value);
+    if (selectedProdiId.value) params.append('prodi_id', selectedProdiId.value);
+    const qs = params.toString();
+    return `/${props.prefix}/atasan/export-excel${qs ? `?${qs}` : ''}`;
+});
 </script>
 
 <template>
@@ -427,7 +438,7 @@ const resetFilters = () => {
                             Daftar relasi atasan yang diisi alumni melalui profil kerja. Satu baris mewakili satu alumni, sehingga atasan yang sama dapat tampil berulang.
                         </p>
                     </div>
-                    <div class="flex flex-wrap gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                         <button
                             v-if="['superadmin', 'admin_biro3', 'admin_fakultas', 'admin_prodi'].includes(role)"
                             type="button"
@@ -436,12 +447,16 @@ const resetFilters = () => {
                         >
                             Tambah Data Atasan
                         </button>
-                        <Link
-                            :href="`/${prefix}/analitik-atasan`"
-                            class="inline-flex w-fit items-center rounded-lg bg-white px-4 py-2 text-xs font-bold text-[#0D542B] transition-colors hover:bg-emerald-50"
+                        <a
+                            :href="exportUrl"
+                            class="inline-flex w-fit items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-xs font-bold text-[#0D542B] shadow-xs transition-colors hover:bg-emerald-50 cursor-pointer"
+                            title="Unduh Rekap Data Atasan (.xls / .xlsx)"
                         >
-                            Lihat Grafik Evaluasi Atasan
-                        </Link>
+                            <svg class="w-4 h-4 text-[#0D542B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            <span>Download Data Atasan</span>
+                        </a>
                     </div>
                 </div>
             </header>

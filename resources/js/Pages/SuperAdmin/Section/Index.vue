@@ -826,19 +826,9 @@ const handleDeleteKuesioner = (k) => {
                                 placeholder="Ketikkan petunjuk pengisian bagi responden..."
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700 leading-relaxed"
                             ></textarea>
-                        </div>
-
-                        <!-- Nomor Urut Posisi -->
-                        <div>
-                            <label class="block font-bold text-gray-700 mb-1">
-                                Nomor Urut Posisi
-                            </label>
-                            <input
-                                type="number"
-                                v-model.number="sectionFormData.order"
-                                min="1"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700"
-                            />
+                            <p class="mt-1 text-[11px] text-gray-500">
+                                Urutan bagian kuesioner akan ditempatkan otomatis di akhir. Anda dapat memindahkan posisi naik/turun kapan saja melalui tombol panah pada daftar bagian.
+                            </p>
                         </div>
 
                         <!-- Tombol Aksi Bawah -->

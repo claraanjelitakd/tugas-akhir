@@ -90,23 +90,22 @@ class SuperAdminDashboardTest extends TestCase
         $response = $this->actingAs($superadmin)->get('/superadmin/dashboard');
 
         $response->assertStatus(200);
+        // Fix: prop 'stats' dan 'dashboardSummary' sudah dikonsolidasi ke 'dashboardStats'
         $response->assertInertia(fn ($page) => $page
             ->component('SuperAdmin/Dashboard')
-            ->has('stats')
+            ->has('dashboardStats')
             ->has('completionMetrics')
             ->has('prodiSummaries')
             ->has('recentAlumni')
             ->has('recentLogs')
-            ->where('stats.total_alumni', 1)
-            ->where('stats.total_prodi', 1)
+            ->has('recentSubmissions')
+            ->where('dashboardStats.total_alumni', 1)
+            ->where('dashboardStats.total_prodi', 1)
             ->where('selectedYear', (string) now()->year)
-            ->where('stats.response_rate_status.code', 'red')
+            ->where('dashboardStats.response_rate_status.code', 'red')
             ->where('completionMetrics.population', 1)
             ->where('completionMetrics.profile.percentage', 0)
             ->where('completionMetrics.university_questionnaire.percentage', 0)
-            ->where('dashboardSummary.pending_perusahaan', 1)
-            ->where('dashboardSummary.total_perusahaan', 1)
-            ->where('dashboardSummary.total_atasan', 1)
             ->where('companyRequests.0.applicant', 'Alumni SI 1')
             ->where('companyRequests.0.name', 'PT Dashboard Operasional')
             ->where('supervisorDirectory.0.name', 'Atasan Dashboard')
@@ -167,8 +166,8 @@ class SuperAdminDashboardTest extends TestCase
 
         $response = $this->actingAs($superadmin)->get('/superadmin/dashboard');
 
+        // Fix: 'dashboardSummary' sudah dihapus, cek supervisorDirectory langsung
         $response->assertInertia(fn ($page) => $page
-            ->where('dashboardSummary.total_atasan', 2)
             ->where('supervisorDirectory', function ($supervisors): bool {
                 $records = collect($supervisors);
 
@@ -243,7 +242,7 @@ class SuperAdminDashboardTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->where('selectedYear', $previousYear)
             ->where('availableYears', fn ($years) => collect($years)->contains($previousYear) && collect($years)->contains($currentYear))
-            ->where('stats.total_alumni', 1)
+            ->where('dashboardStats.total_alumni', 1)
             ->where('completionMetrics.population', 1)
             ->where('prodiSummaries.0.total_alumni', 1)
             ->where('recentAlumni.0.tahun_lulus', (int) $previousYear)
@@ -335,8 +334,8 @@ class SuperAdminDashboardTest extends TestCase
         $response = $this->actingAs($superadmin)->get('/superadmin/dashboard');
 
         $response->assertInertia(fn ($page) => $page
-            ->where('stats.response_rate', 55.6)
-            ->where('stats.response_rate_status.code', 'yellow')
+            ->where('dashboardStats.response_rate', 55.6)
+            ->where('dashboardStats.response_rate_status.code', 'yellow')
             ->where('prodiSummaries', function ($summaries): bool {
                 $byCode = collect($summaries)->keyBy('kode_prodi');
 

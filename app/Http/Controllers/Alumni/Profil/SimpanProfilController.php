@@ -52,7 +52,33 @@ class SimpanProfilController extends Controller
         $pengguna = $request->user();
         $biodata = $pengguna->biodata;
 
-        $dataTervalidasi = $request->all();
+        // Fix: batasi field yang diterima agar mencegah mass assignment
+        $dataTervalidasi = $request->only([
+            'profile_answers', 'profile_answer_custom',
+            'nomor_telepon', 'email_pribadi', 'alamat_saat_ini',
+            'kelurahan', 'kecamatan', 'kode_kabupaten', 'kode_provinsi', 'kode_pos',
+            'instagram_url', 'facebook_url', 'linkedin_url', 'linkedin_username',
+            'skills', 'experience',
+            'kategori_pekerjaan', 'posisi_jabatan', 'posisi_wiraswasta', 'posisi_wiraswasta_lainnya',
+            'bidang_pekerjaan', 'bidang_pekerjaan_lainnya', 'divisi',
+            'pendidikan_tingkat', 'perguruan_tinggi', 'pendidikan_prodi',
+            'gaji', 'jenis_pekerjaan',
+            'nama', 'nama_perusahaan',
+            'perusahaan_jenis_lokasi', 'company_jenis_lokasi',
+            'perusahaan_kode_negara', 'company_kode_negara',
+            'perusahaan_kode_provinsi', 'company_kode_provinsi',
+            'perusahaan_kode_kabupaten', 'company_kode_kabupaten',
+            'perusahaan_alamat', 'company_alamat',
+            'perusahaan_kode_pos', 'company_kode_pos', 'zipcode',
+            'perusahaan_skala', 'company_skala',
+            'perusahaan_jenis_perusahaan', 'company_jenis_perusahaan',
+            'perusahaan_jenis_perusahaan_lainnya', 'company_jenis_perusahaan_lainnya',
+            'perusahaan_bentuk', 'company_bentuk',
+            'perusahaan_homepage', 'company_homepage',
+            'perusahaan_no_telp_fax', 'company_no_telp_fax',
+            'nama_atasan', 'email_atasan', 'telepon_atasan',
+            'foto',
+        ]);
 
         $kategoriPekerjaan = ! empty($dataTervalidasi['kategori_pekerjaan']) ? $dataTervalidasi['kategori_pekerjaan'] : null;
         $isNonWorkingCategory = in_array($kategoriPekerjaan, ['Tidak Bekerja', 'Mencari Kerja', 'Belum Bekerja', 'Belum Memungkinkan Bekerja'], true);
@@ -270,6 +296,7 @@ class SimpanProfilController extends Controller
         ]);
 
         // Tangani unggah foto profil mandiri (jika ada file diunggah)
+        // TODO: Migrasi penyimpanan foto dari public_path ke storage disk agar bisa dikontrol aksesnya
         if ($request->hasFile('foto')) {
             $fotoFile = $request->file('foto');
             if ($fotoFile->isValid()) {

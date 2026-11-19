@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -632,109 +633,127 @@ class KelolaKuesionerProdiController extends Controller
 
         $sectionId = $unifiedSection->id;
 
-        // Cek apakah pertanyaan dengan kode ini sudah ada di Bank Soal (Pencegahan Pertanyaan Double)
-        $master = KuesionerPertanyaan::where('kode_pertanyaan', $code)->first();
-        $canManageMaster = false;
+        $master = DB::transaction(function () use ($validated, $code, $prodiId, $sectionId, $user, $request) {
+            // Cek apakah pertanyaan dengan kode ini sudah ada di Bank Soal (Pencegahan Pertanyaan Double)
+            $master = KuesionerPertanyaan::where('kode_pertanyaan', $code)->first();
+            $canManageMaster = false;
 
-        if (! $master) {
-            $master = KuesionerPertanyaan::create([
-                'kode_pertanyaan' => $code,
-                'label_pertanyaan' => filled($validated['label'] ?? null) ? trim($validated['label']) : null,
-                'teks_pertanyaan' => trim($validated['question_text']),
-                'tipe' => $validated['type'],
-                'pemilik_prodi_id' => $prodiId,
-                'is_reusable' => $request->boolean('is_reusable', true),
-                'is_active' => true,
-            ]);
-            $canManageMaster = true;
-        } elseif ((int) $master->pemilik_prodi_id === $prodiId) {
-            // Pemilik boleh memperbarui master miliknya saat memakai kembali kode yang sama.
-            $master->update([
-                'teks_pertanyaan' => trim($validated['question_text']),
-                'label_pertanyaan' => filled($validated['label'] ?? null) ? trim($validated['label']) : null,
-                'tipe' => $validated['type'],
-                'is_reusable' => $request->boolean('is_reusable', true),
-            ]);
-            $canManageMaster = true;
-        } elseif (! $master->is_reusable || ! $master->is_active) {
-            abort(403, 'Pertanyaan dari sumber lain tidak tersedia untuk digunakan kembali.');
-        }
-
-        $order = $validated['order'] ?? null;
-        if (empty($order)) {
-            $maxOrder = KuesionerSectionPertanyaan::where('section_id', $sectionId)->max('order') ?? 0;
-            $order = $maxOrder + 1;
-        }
-
-        // Pasang relasi penempatan di section utama
-        KuesionerSectionPertanyaan::updateOrCreate(
-            [
-                'section_id' => $sectionId,
-                'pertanyaan_id' => $master->id,
-            ],
-            [
-                'order' => $order,
-                'wajib' => $request->boolean('is_required', true),
-                'is_active' => true,
-                'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
-            ]
-        );
-
-        // Pasang relasi penempatan di section lain jika dipilih (multi-placement)
-        if (! empty($validated['target_section_ids'])) {
-            foreach ($validated['target_section_ids'] as $extraSecId) {
-                if ((int) $extraSecId !== $sectionId) {
-                    $extraSection = KuesionerSection::whereKey((int) $extraSecId)
-                        ->where('target', 'prodi')
-                        ->when($user->role !== 'superadmin', fn ($q) => $q->where('prodi_id', $prodiId))
-                        ->first();
-
-                    if (! $extraSection) {
-                        continue;
-                    }
-
-                    $extraOrder = (KuesionerSectionPertanyaan::where('section_id', $extraSection->id)->max('order') ?? 0) + 1;
-                    KuesionerSectionPertanyaan::firstOrCreate(
-                        [
-                            'section_id' => $extraSection->id,
-                            'pertanyaan_id' => $master->id,
-                        ],
-                        [
-                            'order' => $extraOrder,
-                            'wajib' => $request->boolean('is_required', true),
-                            'is_active' => true,
-                            'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
-                        ]
-                    );
-                }
+            if (! $master) {
+                $master = KuesionerPertanyaan::create([
+                    'kode_pertanyaan' => $code,
+                    'label_pertanyaan' => filled($validated['label'] ?? null) ? trim($validated['label']) : null,
+                    'teks_pertanyaan' => trim($validated['question_text']),
+                    'tipe' => $validated['type'],
+                    'pemilik_prodi_id' => $prodiId,
+                    'is_reusable' => $request->boolean('is_reusable', true),
+                    'is_active' => true,
+                ]);
+                $canManageMaster = true;
+            } elseif ((int) $master->pemilik_prodi_id === $prodiId) {
+                // Pemilik boleh memperbarui master miliknya saat memakai kembali kode yang sama.
+                $master->update([
+                    'teks_pertanyaan' => trim($validated['question_text']),
+                    'label_pertanyaan' => filled($validated['label'] ?? null) ? trim($validated['label']) : null,
+                    'tipe' => $validated['type'],
+                    'is_reusable' => $request->boolean('is_reusable', true),
+                ]);
+                $canManageMaster = true;
+            } elseif (! $master->is_reusable || ! $master->is_active) {
+                abort(403, 'Pertanyaan dari sumber lain tidak tersedia untuk digunakan kembali.');
             }
-        }
 
-        // Opsi hanya boleh dikelola saat master baru dibuat atau milik prodi tujuan.
-        if ($canManageMaster) {
-            if ($request->has('options') && is_array($request->options) && count($request->options) > 0) {
-                $orderCounter = 1;
-                foreach ($request->options as $opt) {
-                    $labelText = is_array($opt) ? ($opt['option_text'] ?? $opt['label'] ?? '') : (string) $opt;
-                    $optionCode = is_array($opt) ? trim((string) ($opt['code'] ?? $opt['kode_opsi'] ?? '')) : '';
-                    $trimmed = trim((string) $labelText);
+            $order = $validated['order'] ?? null;
+            if (empty($order)) {
+                $maxOrder = KuesionerSectionPertanyaan::where('section_id', $sectionId)->max('order') ?? 0;
+                $order = $maxOrder + 1;
+            }
 
-                    if ($trimmed !== '') {
-                        $optionOrder = $orderCounter++;
-                        KuesionerOpsi::create([
-                            'pertanyaan_id' => $master->id,
-                            'kode_opsi' => $optionCode !== '' ? $optionCode : $master->kode_pertanyaan.'-'.str_pad((string) $optionOrder, 2, '0', STR_PAD_LEFT),
-                            'label' => $trimmed,
-                            'nilai_skor' => $master->tipe === 'rating_5' ? $optionOrder : null,
-                            'lompat_ke_pertanyaan_id' => is_array($opt) && filled($opt['jump_to'] ?? null) ? trim((string) $opt['jump_to']) : null,
-                            'order' => $optionOrder,
-                        ]);
+            // Pasang relasi penempatan di section utama
+            KuesionerSectionPertanyaan::updateOrCreate(
+                [
+                    'section_id' => $sectionId,
+                    'pertanyaan_id' => $master->id,
+                ],
+                [
+                    'order' => $order,
+                    'wajib' => $request->boolean('is_required', true),
+                    'is_active' => true,
+                    'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
+                ]
+            );
+
+            // Pasang relasi penempatan di section lain jika dipilih (multi-placement)
+            if (! empty($validated['target_section_ids'])) {
+                foreach ($validated['target_section_ids'] as $extraSecId) {
+                    if ((int) $extraSecId !== $sectionId) {
+                        $extraSection = KuesionerSection::whereKey((int) $extraSecId)
+                            ->where('target', 'prodi')
+                            ->when($user->role !== 'superadmin', fn ($q) => $q->where('prodi_id', $prodiId))
+                            ->first();
+
+                        if (! $extraSection) {
+                            continue;
+                        }
+
+                        $extraOrder = (KuesionerSectionPertanyaan::where('section_id', $extraSection->id)->max('order') ?? 0) + 1;
+                        KuesionerSectionPertanyaan::firstOrCreate(
+                            [
+                                'section_id' => $extraSection->id,
+                                'pertanyaan_id' => $master->id,
+                            ],
+                            [
+                                'order' => $extraOrder,
+                                'wajib' => $request->boolean('is_required', true),
+                                'is_active' => true,
+                                'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
+                            ]
+                        );
                     }
                 }
-            } else {
-                QuestionDefaultOptionsService::generateForUnifiedQuestion($master);
             }
-        }
+
+            // Opsi hanya boleh dikelola saat master baru dibuat atau milik prodi tujuan.
+            if ($canManageMaster) {
+                if ($request->has('options') && is_array($request->options) && count($request->options) > 0) {
+                    $orderCounter = 1;
+                    $processedOptionIds = [];
+                    foreach ($request->options as $opt) {
+                        $labelText = is_array($opt) ? ($opt['option_text'] ?? $opt['label'] ?? '') : (string) $opt;
+                        $optionCode = is_array($opt) ? trim((string) ($opt['code'] ?? $opt['kode_opsi'] ?? '')) : '';
+                        $trimmed = trim((string) $labelText);
+
+                        if ($trimmed !== '') {
+                            $optionOrder = $orderCounter++;
+                            $resolvedCode = $optionCode !== '' ? $optionCode : $master->kode_pertanyaan.'-'.str_pad((string) $optionOrder, 2, '0', STR_PAD_LEFT);
+                            $optionRecord = KuesionerOpsi::updateOrCreate(
+                                [
+                                    'pertanyaan_id' => $master->id,
+                                    'kode_opsi' => $resolvedCode,
+                                ],
+                                [
+                                    'label' => $trimmed,
+                                    'nilai_skor' => $master->tipe === 'rating_5' ? $optionOrder : null,
+                                    'lompat_ke_pertanyaan_id' => is_array($opt) && filled($opt['jump_to'] ?? null) ? trim((string) $opt['jump_to']) : null,
+                                    'order' => $optionOrder,
+                                ]
+                            );
+                            $processedOptionIds[] = $optionRecord->id;
+                        }
+                    }
+
+                    // Sinkronkan opsi: hapus opsi usang jika pertanyaan belum memiliki responden jawaban
+                    if (! empty($processedOptionIds) && $master->jawaban()->doesntExist()) {
+                        KuesionerOpsi::where('pertanyaan_id', $master->id)
+                            ->whereNotIn('id', $processedOptionIds)
+                            ->delete();
+                    }
+                } else {
+                    QuestionDefaultOptionsService::generateForUnifiedQuestion($master);
+                }
+            }
+
+            return $master;
+        });
 
         LogActivity::record('KUESIONER_PRODI_QUESTION_CREATED', 'Membuat dan menempatkan pertanyaan kuesioner prodi: '.$master->kode_pertanyaan.'.', $master, null, $validated);
 
@@ -762,6 +781,10 @@ class KelolaKuesionerProdiController extends Controller
             'target_section_ids' => 'nullable|array',
             'target_section_ids.*' => 'exists:kuesioner_section,id',
             'order' => 'nullable|integer',
+            'options' => 'nullable|array',
+            'options.*.code' => 'nullable|string|max:50',
+            'options.*.label' => 'nullable|string',
+            'options.*.jump_to' => 'nullable|string|max:50',
         ]);
 
         if ($validated['type'] === 'radio') {
@@ -784,72 +807,109 @@ class KelolaKuesionerProdiController extends Controller
                 : 'kuesioner';
         }
 
-        $master->update([
-            'kode_pertanyaan' => $code,
-            'label_pertanyaan' => filled($validated['label'] ?? null) ? trim($validated['label']) : null,
-            'teks_pertanyaan' => trim($validated['question_text']),
-            'tipe' => $validated['type'],
-            'is_reusable' => $request->boolean('is_reusable', true),
-        ]);
-
-        // Perbarui relasi penempatan di section bersangkutan
-        $placement = KuesionerSectionPertanyaan::where('pertanyaan_id', $master->id)
-            ->where('section_id', $sectionId)
-            ->first();
-
-        if ($placement) {
-            $placement->update([
-                'order' => $validated['order'] ?? $placement->order,
-                'wajib' => $request->boolean('is_required', true),
-                'tampil_di' => $validated['tampil_di'] ?? $placement->tampil_di ?? 'kuesioner',
+        DB::transaction(function () use ($request, $master, $code, $validated, $sectionId, $prodiId, $user) {
+            $master->update([
+                'kode_pertanyaan' => $code,
+                'label_pertanyaan' => filled($validated['label'] ?? null) ? trim($validated['label']) : null,
+                'teks_pertanyaan' => trim($validated['question_text']),
+                'tipe' => $validated['type'],
+                'is_reusable' => $request->boolean('is_reusable', true),
             ]);
-        } else {
-            KuesionerSectionPertanyaan::create([
-                'section_id' => $sectionId,
-                'pertanyaan_id' => $master->id,
-                'order' => $validated['order'] ?? 1,
-                'wajib' => $request->boolean('is_required', true),
-                'is_active' => true,
-                'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
-            ]);
-        }
 
-        // Perbarui multi-placement section jika disediakan
-        if ($request->has('target_section_ids')) {
-            $rawTargetIds = array_filter(array_map('intval', (array) $request->target_section_ids));
-            $rawTargetIds[] = $sectionId;
-            $rawTargetIds = array_unique($rawTargetIds);
+            // Perbarui relasi penempatan di section bersangkutan
+            $placement = KuesionerSectionPertanyaan::where('pertanyaan_id', $master->id)
+                ->where('section_id', $sectionId)
+                ->first();
 
-            // Filter hanya section yang sah dalam lingkup program studi ini
-            $targetIds = KuesionerSection::whereIn('id', $rawTargetIds)
-                ->where('target', 'prodi')
-                ->when($user->role !== 'superadmin', fn ($q) => $q->where('prodi_id', $prodiId))
-                ->pluck('id')
-                ->all();
-
-            $ownedSectionIds = KuesionerSection::where('target', 'prodi')
-                ->where('prodi_id', $prodiId)
-                ->pluck('id');
-
-            KuesionerSectionPertanyaan::where('pertanyaan_id', $master->id)
-                ->whereIn('section_id', $ownedSectionIds)
-                ->whereNotIn('section_id', $targetIds)
-                ->delete();
-
-            // Tambahkan relasi penempatan yang belum ada
-            foreach ($targetIds as $tid) {
-                $extraOrder = (KuesionerSectionPertanyaan::where('section_id', $tid)->max('order') ?? 0) + 1;
-                KuesionerSectionPertanyaan::firstOrCreate(
-                    ['section_id' => $tid, 'pertanyaan_id' => $master->id],
-                    [
-                        'order' => $extraOrder,
-                        'wajib' => $request->boolean('is_required', true),
-                        'is_active' => true,
-                        'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
-                    ]
-                );
+            if ($placement) {
+                $placement->update([
+                    'order' => $validated['order'] ?? $placement->order,
+                    'wajib' => $request->boolean('is_required', true),
+                    'tampil_di' => $validated['tampil_di'] ?? $placement->tampil_di ?? 'kuesioner',
+                ]);
+            } else {
+                KuesionerSectionPertanyaan::create([
+                    'section_id' => $sectionId,
+                    'pertanyaan_id' => $master->id,
+                    'order' => $validated['order'] ?? 1,
+                    'wajib' => $request->boolean('is_required', true),
+                    'is_active' => true,
+                    'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
+                ]);
             }
-        }
+
+            // Perbarui multi-placement section jika disediakan
+            if ($request->has('target_section_ids')) {
+                $rawTargetIds = array_filter(array_map('intval', (array) $request->target_section_ids));
+                $rawTargetIds[] = $sectionId;
+                $rawTargetIds = array_unique($rawTargetIds);
+
+                // Filter hanya section yang sah dalam lingkup program studi ini
+                $targetIds = KuesionerSection::whereIn('id', $rawTargetIds)
+                    ->where('target', 'prodi')
+                    ->when($user->role !== 'superadmin', fn ($q) => $q->where('prodi_id', $prodiId))
+                    ->pluck('id')
+                    ->all();
+
+                $ownedSectionIds = KuesionerSection::where('target', 'prodi')
+                    ->where('prodi_id', $prodiId)
+                    ->pluck('id');
+
+                KuesionerSectionPertanyaan::where('pertanyaan_id', $master->id)
+                    ->whereIn('section_id', $ownedSectionIds)
+                    ->whereNotIn('section_id', $targetIds)
+                    ->delete();
+
+                // Tambahkan relasi penempatan yang belum ada
+                foreach ($targetIds as $tid) {
+                    $extraOrder = (KuesionerSectionPertanyaan::where('section_id', $tid)->max('order') ?? 0) + 1;
+                    KuesionerSectionPertanyaan::firstOrCreate(
+                        ['section_id' => $tid, 'pertanyaan_id' => $master->id],
+                        [
+                            'order' => $extraOrder,
+                            'wajib' => $request->boolean('is_required', true),
+                            'is_active' => true,
+                            'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
+                        ]
+                    );
+                }
+            }
+
+            // Sinkronkan opsi pilihan jika form mengirim daftar opsi
+            if ($request->has('options') && is_array($request->options) && count($request->options) > 0) {
+                $orderCounter = 1;
+                $processedOptionIds = [];
+                foreach ($request->options as $opt) {
+                    $labelText = is_array($opt) ? ($opt['option_text'] ?? $opt['label'] ?? '') : (string) $opt;
+                    $optionCode = is_array($opt) ? trim((string) ($opt['code'] ?? $opt['kode_opsi'] ?? '')) : '';
+                    $trimmed = trim((string) $labelText);
+
+                    if ($trimmed !== '') {
+                        $optionOrder = $orderCounter++;
+                        $resolvedCode = $optionCode !== '' ? $optionCode : $master->kode_pertanyaan.'-'.str_pad((string) $optionOrder, 2, '0', STR_PAD_LEFT);
+                        $optionRecord = KuesionerOpsi::updateOrCreate(
+                            [
+                                'pertanyaan_id' => $master->id,
+                                'kode_opsi' => $resolvedCode,
+                            ],
+                            [
+                                'label' => $trimmed,
+                                'nilai_skor' => $master->tipe === 'rating_5' ? $optionOrder : null,
+                                'lompat_ke_pertanyaan_id' => is_array($opt) && filled($opt['jump_to'] ?? null) ? trim((string) $opt['jump_to']) : null,
+                                'order' => $optionOrder,
+                            ]
+                        );
+                        $processedOptionIds[] = $optionRecord->id;
+                    }
+                }
+
+                if (! empty($processedOptionIds) && $master->jawaban()->doesntExist()) {
+                    KuesionerOpsi::where('pertanyaan_id', $master->id)
+                        ->whereNotIn('id', $processedOptionIds)
+                        ->delete();
+                }
+            }
+        });
 
         LogActivity::record('KUESIONER_PRODI_QUESTION_UPDATED', 'Memperbarui pertanyaan kuesioner prodi: '.$master->kode_pertanyaan.'.', $master, null, $validated);
 
@@ -971,14 +1031,27 @@ class KelolaKuesionerProdiController extends Controller
             $validated['order'] = $maxOrder + 1;
         }
 
-        $opt = KuesionerOpsi::create([
-            'pertanyaan_id' => $master->id,
-            'kode_opsi' => trim((string) ($validated['code'] ?? '')) ?: $master->kode_pertanyaan.'-'.str_pad((string) $validated['order'], 2, '0', STR_PAD_LEFT),
-            'label' => trim($validated['option_text']),
-            'nilai_skor' => $master->tipe === 'rating_5' ? (int) $validated['order'] : null,
-            'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
-            'order' => $validated['order'],
-        ]);
+        $targetCode = trim((string) ($validated['code'] ?? ''));
+        if ($targetCode === '') {
+            $num = (int) $validated['order'];
+            do {
+                $targetCode = $master->kode_pertanyaan.'-'.str_pad((string) $num, 2, '0', STR_PAD_LEFT);
+                $num++;
+            } while (KuesionerOpsi::where('pertanyaan_id', $master->id)->where('kode_opsi', $targetCode)->exists());
+        }
+
+        $opt = KuesionerOpsi::updateOrCreate(
+            [
+                'pertanyaan_id' => $master->id,
+                'kode_opsi' => $targetCode,
+            ],
+            [
+                'label' => trim($validated['option_text']),
+                'nilai_skor' => $master->tipe === 'rating_5' ? (int) $validated['order'] : null,
+                'lompat_ke_pertanyaan_id' => $validated['jump_to'] ?? null,
+                'order' => $validated['order'],
+            ]
+        );
 
         LogActivity::record('KUESIONER_PRODI_OPTION_CREATED', 'Menambahkan opsi jawaban pada pertanyaan '.$master->kode_pertanyaan.'.', $opt, null, $validated);
 

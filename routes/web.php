@@ -56,7 +56,7 @@ Route::middleware('guest')->group(function () {
 
     // Lupa & Reset Kata Sandi via Email
     Route::get('/forgot-password', [LupaKataSandiController::class, 'tampilkanHalamanLupaKataSandi'])->name('password.request');
-    Route::post('/forgot-password', [LupaKataSandiController::class, 'prosesKirimLinkReset'])->middleware('throttle:3,1')->name('password.email');
+    Route::post('/forgot-password', [LupaKataSandiController::class, 'prosesKirimLinkReset'])->middleware('throttle:10,1')->name('password.email');
     Route::get('/reset-password/{token}', [LupaKataSandiController::class, 'tampilkanHalamanResetKataSandi'])->name('password.reset');
     Route::post('/reset-password', [LupaKataSandiController::class, 'prosesResetKataSandi'])->middleware('throttle:5,1')->name('password.update');
 });
@@ -145,6 +145,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/biro3/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('biro3.analytics-atasan.index');
             Route::get('/biro3/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('biro3.analytics-atasan.data');
             Route::get('/biro3/atasan', [DaftarAtasanController::class, 'index'])->name('biro3.atasan.index');
+            Route::get('/biro3/atasan/export-excel', [DaftarAtasanController::class, 'exportExcel'])->name('biro3.atasan.export-excel');
             Route::post('/biro3/atasan', [DaftarAtasanController::class, 'store'])->name('biro3.atasan.store');
             Route::put('/biro3/atasan/{id}', [DaftarAtasanController::class, 'update'])->name('biro3.atasan.update');
             Route::post('/biro3/atasan/perusahaan', [DaftarAtasanController::class, 'storePerusahaan'])->name('biro3.atasan.perusahaan.store');
@@ -223,6 +224,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/prodi/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('prodi.analytics-atasan.index');
             Route::get('/prodi/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('prodi.analytics-atasan.data');
             Route::get('/prodi/atasan', [DaftarAtasanController::class, 'index'])->name('prodi.atasan.index');
+            Route::get('/prodi/atasan/export-excel', [DaftarAtasanController::class, 'exportExcel'])->name('prodi.atasan.export-excel');
             Route::post('/prodi/atasan', [DaftarAtasanController::class, 'store'])->name('prodi.atasan.store');
             Route::put('/prodi/atasan/{id}', [DaftarAtasanController::class, 'update'])->name('prodi.atasan.update');
             Route::post('/prodi/atasan/perusahaan', [DaftarAtasanController::class, 'storePerusahaan'])->name('prodi.atasan.perusahaan.store');
@@ -293,6 +295,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/fakultas/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('fakultas.analytics-atasan.index');
             Route::get('/fakultas/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('fakultas.analytics-atasan.data');
             Route::get('/fakultas/atasan', [DaftarAtasanController::class, 'index'])->name('fakultas.atasan.index');
+            Route::get('/fakultas/atasan/export-excel', [DaftarAtasanController::class, 'exportExcel'])->name('fakultas.atasan.export-excel');
             Route::post('/fakultas/atasan', [DaftarAtasanController::class, 'store'])->name('fakultas.atasan.store');
             Route::put('/fakultas/atasan/{id}', [DaftarAtasanController::class, 'update'])->name('fakultas.atasan.update');
             Route::post('/fakultas/atasan/perusahaan', [DaftarAtasanController::class, 'storePerusahaan'])->name('fakultas.atasan.perusahaan.store');
@@ -325,6 +328,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/superadmin/analitik-atasan', [AtasanAnalyticsController::class, 'index'])->name('superadmin.analytics-atasan.index');
             Route::get('/superadmin/analitik-atasan/data', [AtasanAnalyticsController::class, 'data'])->name('superadmin.analytics-atasan.data');
             Route::get('/superadmin/atasan', [DaftarAtasanController::class, 'index'])->name('superadmin.atasan.index');
+            Route::get('/superadmin/atasan/export-excel', [DaftarAtasanController::class, 'exportExcel'])->name('superadmin.atasan.export-excel');
             Route::post('/superadmin/atasan', [DaftarAtasanController::class, 'store'])->name('superadmin.atasan.store');
             Route::put('/superadmin/atasan/{id}', [DaftarAtasanController::class, 'update'])->name('superadmin.atasan.update');
             Route::post('/superadmin/atasan/perusahaan', [DaftarAtasanController::class, 'storePerusahaan'])->name('superadmin.atasan.perusahaan.store');
@@ -377,6 +381,7 @@ Route::middleware('auth')->group(function () {
             Route::delete('/superadmin/master-wilayah/kabupaten/{kodeKabupaten}', [MasterWilayahController::class, 'destroyKabupaten'])->name('superadmin.master-wilayah.kabupaten.destroy');
 
             Route::post('/superadmin/master-wilayah/ump', [MasterWilayahController::class, 'storeOrUpdateUmp'])->name('superadmin.master-wilayah.ump.store');
+            Route::delete('/superadmin/master-wilayah/ump/reset-year/{year}', [MasterWilayahController::class, 'resetYearUmp'])->name('superadmin.master-wilayah.ump.reset-year');
             Route::delete('/superadmin/master-wilayah/ump/{id}', [MasterWilayahController::class, 'destroyUmp'])->name('superadmin.master-wilayah.ump.destroy');
             Route::post('/superadmin/master-wilayah/ump/copy-year', [MasterWilayahController::class, 'copyYearUmp'])->name('superadmin.master-wilayah.ump.copy-year');
 
@@ -411,6 +416,7 @@ Route::middleware('auth')->group(function () {
 
             // Pengaturan Kuesioner Evaluasi Atasan (SuperAdmin)
             Route::get('/superadmin/evaluasi-atasan', [KelolaEvaluasiAtasanController::class, 'index'])->name('superadmin.evaluasi-atasan.index');
+            Route::get('/superadmin/evaluasi-atasan/export-excel', [KelolaEvaluasiAtasanController::class, 'exportExcel'])->name('superadmin.evaluasi-atasan.export-excel');
             Route::post('/superadmin/evaluasi-atasan/sections', [KelolaEvaluasiAtasanController::class, 'storeSection'])->name('superadmin.evaluasi-atasan.sections.store');
             Route::put('/superadmin/evaluasi-atasan/sections/{id}', [KelolaEvaluasiAtasanController::class, 'updateSection'])->name('superadmin.evaluasi-atasan.sections.update');
             Route::delete('/superadmin/evaluasi-atasan/sections/{id}', [KelolaEvaluasiAtasanController::class, 'destroySection'])->name('superadmin.evaluasi-atasan.sections.destroy');

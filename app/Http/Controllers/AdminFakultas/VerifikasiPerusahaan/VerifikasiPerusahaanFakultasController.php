@@ -89,6 +89,15 @@ class VerifikasiPerusahaanFakultasController extends Controller
         $negaras = RefNegara::select('kode_negara', 'nama_negara')->orderBy('nama_negara')->get();
 
         $prodiIds = $prodisFakultas->pluck('id')->all();
+        // Fix: filterNegaras sebelumnya tidak dikirim, menyebabkan dropdown filter negara kosong
+        $distinctNegaras = $this->companiesInScopeQuery($prodiIds)
+            ->whereNotNull('kode_negara')
+            ->where('kode_negara', '!=', '')
+            ->distinct()
+            ->pluck('kode_negara')
+            ->filter()
+            ->sort()
+            ->values();
 
         return Inertia::render('SuperAdmin/Perusahaan/Index', [
             'user' => $user,
@@ -102,6 +111,7 @@ class VerifikasiPerusahaanFakultasController extends Controller
             'propinsis' => $propinsis,
             'kabupatens' => $kabupatens,
             'negaras' => $negaras,
+            'filterNegaras' => $distinctNegaras,
             'filters' => $filters,
             'stats' => $this->buildScopedStats($prodiIds),
         ]);
@@ -165,6 +175,7 @@ class VerifikasiPerusahaanFakultasController extends Controller
             'no_telp_fax' => $validated['no_telp_fax'] ?? null,
             'status_verifikasi' => 'Terverifikasi',
             'created_by_user_id' => $user->id,
+            // Note: created_by_prodi_id tidak diisi karena admin fakultas mencakup beberapa prodi
         ]);
 
         LogActivity::record(

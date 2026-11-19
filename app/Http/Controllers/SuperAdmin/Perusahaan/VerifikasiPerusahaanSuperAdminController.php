@@ -225,6 +225,15 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             'created_by_user_id' => Auth::id(),
         ]);
 
+        // Fix: tambahkan LogActivity yang sebelumnya tidak ada (konsistensi dengan Admin Prodi & Fakultas)
+        LogActivity::record(
+            'CREATE_PERUSAHAAN_SUPERADMIN',
+            "Super Admin menambahkan perusahaan terverifikasi: {$perusahaan->nama_perusahaan} (ID: {$perusahaan->id})",
+            null,
+            null,
+            $perusahaan->toArray()
+        );
+
         return redirect()->back()->with('success', "Institusi \"{$perusahaan->nama_perusahaan}\" berhasil ditambahkan ke master data resmi universitas.");
     }
 

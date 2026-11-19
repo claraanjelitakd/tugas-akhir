@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Biodata;
 use App\Models\DataAkademik;
 use App\Models\KuesionerJawaban;
+use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
 use App\Models\KuesionerSectionPertanyaan;
@@ -872,6 +873,79 @@ class AdminProdiKuesionerTest extends TestCase
             'biodata_id' => $this->alumni->id,
             'pertanyaan_id' => $qRadioInput->id,
             'jawaban_teks' => 'Bulan sebelum lulus: 6',
+        ]);
+    }
+
+    /**
+     * Memastikan pembuatan pertanyaan dengan kode yang sudah ada dan memiliki opsi tidak menyebabkan error duplikasi constraint kuesioner_opsi.
+     */
+    public function test_admin_prodi_can_store_question_when_code_and_options_already_exist_without_duplicate_entry_error(): void
+    {
+        // 1. Buat master pertanyaan awal yang sudah memiliki opsi
+        $master = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'PSI-DUP-01',
+            'label_pertanyaan' => 'Label Lama',
+            'teks_pertanyaan' => 'Pertanyaan awal lama',
+            'tipe' => 'rating_5',
+            'pemilik_prodi_id' => $this->prodiSI->id,
+            'is_reusable' => true,
+            'is_active' => true,
+        ]);
+
+        KuesionerOpsi::create([
+            'pertanyaan_id' => $master->id,
+            'kode_opsi' => 'PSI-DUP-01-01',
+            'label' => '1 - Sangat Rendah',
+            'nilai_skor' => 1,
+            'order' => 1,
+        ]);
+        KuesionerOpsi::create([
+            'pertanyaan_id' => $master->id,
+            'kode_opsi' => 'PSI-DUP-01-02',
+            'label' => '2 - Rendah',
+            'nilai_skor' => 2,
+            'order' => 2,
+        ]);
+
+        // 2. Admin prodi melakukan submit penambahan pertanyaan dengan kode sama dan opsi sama
+        $response = $this->actingAs($this->adminSI)->post('/prodi/kuesioner/pertanyaan', [
+            'prodi_id' => $this->prodiSI->id,
+            'code' => 'PSI-DUP-01',
+            'label' => 'Label Baru',
+            'question_text' => 'Pertanyaan terbarukan',
+            'type' => 'rating_5',
+            'section_id' => $this->sectionSI->id,
+            'target_section_ids' => [],
+            'order' => 1,
+            'is_required' => true,
+            'is_reusable' => true,
+            'tampil_di' => 'kuesioner',
+            'options' => [
+                ['code' => 'PSI-DUP-01-01', 'label' => '1 - Sangat Rendah Diperbarui'],
+                ['code' => 'PSI-DUP-01-02', 'label' => '2 - Rendah Diperbarui'],
+                ['code' => 'PSI-DUP-01-03', 'label' => '3 - Cukup Baru'],
+            ],
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('kuesioner_pertanyaan', [
+            'id' => $master->id,
+            'kode_pertanyaan' => 'PSI-DUP-01',
+            'teks_pertanyaan' => 'Pertanyaan terbarukan',
+        ]);
+
+        $this->assertDatabaseHas('kuesioner_opsi', [
+            'pertanyaan_id' => $master->id,
+            'kode_opsi' => 'PSI-DUP-01-01',
+            'label' => '1 - Sangat Rendah Diperbarui',
+        ]);
+
+        $this->assertDatabaseHas('kuesioner_opsi', [
+            'pertanyaan_id' => $master->id,
+            'kode_opsi' => 'PSI-DUP-01-03',
+            'label' => '3 - Cukup Baru',
         ]);
     }
 }

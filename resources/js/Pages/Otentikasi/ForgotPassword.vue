@@ -15,6 +15,7 @@ const form = useForm({ username_atau_email: '' });
 // Mengirim permintaan reset dan membersihkan input jika request berhasil.
 const submit = () => {
     form.post('/forgot-password', {
+        preserveScroll: true,
         onSuccess: () => form.reset('username_atau_email'),
     });
 };
@@ -60,13 +61,16 @@ const submit = () => {
                             <p class="mt-2 text-sm leading-6 text-slate-500">Masukkan NIM, username, atau email yang terdaftar di Tracer Study UKDW.</p>
                         </div>
 
-                        <div v-if="$page.props.flash?.status" class="mb-5 rounded-2xl bg-[#EAF5ED] px-4 py-3 text-sm leading-6 text-[#0D542B]">
-                            {{ $page.props.flash.status }}
+                        <div v-if="$page.props.flash?.success || $page.props.flash?.status" class="mb-5 rounded-2xl border border-[#0D542B]/20 bg-[#EAF5ED] px-4 py-3 text-sm leading-6 text-[#0D542B]">
+                            {{ $page.props.flash.success || $page.props.flash.status }}
                         </div>
-                        <div v-if="form.errors.username_atau_email" class="mb-5 rounded-2xl bg-[#FFF1F0] px-4 py-3 text-sm leading-6 text-[#B42318]">
+                        <div v-if="$page.props.flash?.error" class="mb-5 rounded-2xl border border-[#B42318]/20 bg-[#FFF1F0] px-4 py-3 text-sm leading-6 text-[#B42318]">
+                            {{ $page.props.flash.error }}
+                        </div>
+                        <div v-if="form.errors.username_atau_email" class="mb-5 rounded-2xl border border-[#B42318]/20 bg-[#FFF1F0] px-4 py-3 text-sm leading-6 text-[#B42318]">
                             {{ form.errors.username_atau_email }}
                         </div>
-                        <div v-if="$page.props.errors?.email" class="mb-5 rounded-2xl bg-[#FFF1F0] px-4 py-3 text-sm leading-6 text-[#B42318]">
+                        <div v-if="$page.props.errors?.email" class="mb-5 rounded-2xl border border-[#B42318]/20 bg-[#FFF1F0] px-4 py-3 text-sm leading-6 text-[#B42318]">
                             {{ $page.props.errors.email }}
                         </div>
 

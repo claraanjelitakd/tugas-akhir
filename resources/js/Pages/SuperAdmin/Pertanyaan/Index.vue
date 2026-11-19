@@ -764,6 +764,41 @@ const removeQuestionOption = (index) => {
 };
 
 /**
+ * Deteksi jika kode pertanyaan yang diketik sudah terdaftar di kuesioner aktif maupun Bank Soal
+ */
+const duplicateMasterWarning = computed(() => {
+    if (!questionFormData.value.kode_pertanyaan) return null;
+    const inputCode = questionFormData.value.kode_pertanyaan.trim().toUpperCase();
+    if (!inputCode) return null;
+
+    const foundInSub = props.subpertanyaans.find((q) =>
+        (q.kode_pertanyaan || '').toUpperCase() === inputCode &&
+        (!isEditingQuestion.value || q.id !== editingQuestionId.value)
+    );
+    if (foundInSub) {
+        return {
+            kode: foundInSub.kode_pertanyaan,
+            teks: foundInSub.subpertanyaan,
+            asal: 'Kuesioner Universitas',
+        };
+    }
+
+    const foundInBank = props.bankQuestions.find((b) =>
+        (b.kode || '').toUpperCase() === inputCode &&
+        (!isEditingQuestion.value || b.id !== editingQuestionId.value)
+    );
+    if (foundInBank) {
+        return {
+            kode: foundInBank.kode,
+            teks: foundInBank.teks,
+            asal: foundInBank.asal || 'Bank Soal',
+        };
+    }
+
+    return null;
+});
+
+/**
  * Membuka modal form butir pertanyaan
  */
 const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') => {
@@ -803,9 +838,20 @@ const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') =
             ? 'Tambah Pertanyaan Profil Alumni'
             : 'Tambah Pertanyaan Kuesioner Tracer';
 
+        // Cari kode pertanyaan default yang belum terdaftar di instrumen aktif maupun Bank Soal
+        const existingCodes = new Set([
+            ...props.subpertanyaans.map((q) => (q.kode_pertanyaan || '').trim().toUpperCase()),
+            ...props.bankQuestions.map((b) => (b.kode || '').trim().toUpperCase()),
+        ]);
+        let nextNum = props.subpertanyaans.length + 1;
+        while (existingCodes.has(`P${nextNum}`)) {
+            nextNum++;
+        }
+        const defaultCode = `P${nextNum}`;
+
         const defaultType = 'radio';
         questionFormData.value = {
-            kode_pertanyaan: '',
+            kode_pertanyaan: defaultCode,
             label_pertanyaan: '',
             subpertanyaan: '',
             type: defaultType,
@@ -838,6 +884,8 @@ const submitQuestionForm = () => {
 
     if (!questionFormData.value.kode_pertanyaan.trim()) {
         questionFormErrors.value.kode_pertanyaan = 'Kode pertanyaan wajib diisi.';
+    } else if (!isEditingQuestion.value && duplicateMasterWarning.value) {
+        questionFormErrors.value.kode_pertanyaan = 'Kode pertanyaan sudah terdaftar. Silakan gunakan kode unik lain.';
     }
     if (!questionFormData.value.subpertanyaan.trim()) {
         questionFormErrors.value.subpertanyaan = 'Teks pertanyaan wajib diisi.';
@@ -2198,18 +2246,9 @@ const handleDeleteKuesioner = (k) => {
                                 placeholder="Ketikkan petunjuk pengisian bagi responden..."
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B] leading-relaxed"
                             ></textarea>
-                        </div>
-
-                        <div>
-                            <label class="block font-bold text-gray-700 mb-1">
-                                Nomor Urut Posisi
-                            </label>
-                            <input
-                                type="number"
-                                v-model.number="sectionFormData.order"
-                                min="1"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
-                            />
+                            <p class="mt-1 text-[11px] text-gray-500">
+                                Urutan bagian kuesioner akan ditempatkan otomatis di akhir. Anda dapat memindahkan posisi naik/turun kapan saja melalui tombol panah pada daftar bagian.
+                            </p>
                         </div>
 
                         <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
@@ -2265,6 +2304,16 @@ const handleDeleteKuesioner = (k) => {
                     </div>
 
                     <form @submit.prevent="submitQuestionForm" class="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 text-xs">
+                        <!-- Banner Anti-Double Detection -->
+                        <div v-if="duplicateMasterWarning && !isEditingQuestion" class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
+                            <div class="font-bold flex items-center gap-1.5">
+                                <span>Kode Pertanyaan Sudah Digunakan</span>
+                            </div>
+                            <p class="mt-1 text-amber-800 leading-snug">
+                                Kode <strong>[{{ duplicateMasterWarning.kode }}]</strong> sudah terdaftar pada: "<em>{{ duplicateMasterWarning.teks }}</em>" ({{ duplicateMasterWarning.asal }}). Silakan gunakan kode unik lain agar tidak terjadi konflik data.
+                            </p>
+                        </div>
+
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
                                 <label class="block font-bold text-gray-700 mb-1">
@@ -2347,34 +2396,22 @@ const handleDeleteKuesioner = (k) => {
                             </p>
                         </div>
 
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div>
-                                <label class="block font-bold text-gray-700 mb-1">
-                                    Tipe Pertanyaan <span class="text-rose-600">*</span>
-                                </label>
-                                <select
-                                    v-model="questionFormData.type"
-                                    @change="handleQuestionTypeChange"
-                                    class="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
-                                >
-                                    <option v-for="(lbl, val) in univSelectableTypes" :key="val" :value="val">
-                                        {{ lbl }}
-                                    </option>
-                                </select>
-                                <p class="mt-1 text-[10px] text-gray-500">
-                                    Opsi dan percabangan dapat diatur sejak pertanyaan dibuat.
-                                </p>
-                            </div>
-
-                            <div>
-                                <label class="block font-bold text-gray-700 mb-1">Nomor Urut</label>
-                                <input
-                                    type="number"
-                                    v-model.number="questionFormData.order"
-                                    min="1"
-                                    class="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
-                                />
-                            </div>
+                        <div>
+                            <label class="block font-bold text-gray-700 mb-1">
+                                Tipe Pertanyaan <span class="text-rose-600">*</span>
+                            </label>
+                            <select
+                                v-model="questionFormData.type"
+                                @change="handleQuestionTypeChange"
+                                class="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                            >
+                                <option v-for="(lbl, val) in univSelectableTypes" :key="val" :value="val">
+                                    {{ lbl }}
+                                </option>
+                            </select>
+                            <p class="mt-1 text-[11px] text-gray-500">
+                                Urutan soal bertambah otomatis di akhir bagian. Anda dapat memindahkan posisi naik/turun kapan saja melalui tombol panah di tabel kuesioner.
+                            </p>
                         </div>
 
                         <div v-if="canHaveOptions(questionFormData.type) && !isEditingQuestion" class="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">

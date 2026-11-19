@@ -12,12 +12,14 @@ use App\Models\Propinsi;
 use App\Models\RefNegara;
 use App\Models\User;
 use App\Services\Atasan\AtasanDirectoryQueryService;
+use App\Services\Export\EvaluasiAtasanExcelExporter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * DaftarAtasanController
@@ -90,6 +92,17 @@ class DaftarAtasanController extends Controller
             'masterOptions' => $masterOptions,
             ...$directoryData,
         ]);
+    }
+
+    /**
+     * Mengunduh berkas Excel rekapitulasi Data Atasan lengkap.
+     *
+     * @param  Request  $request  Request HTTP terautentikasi.
+     * @return StreamedResponse Berkas Excel hasil streaming.
+     */
+    public function exportExcel(Request $request): StreamedResponse
+    {
+        return EvaluasiAtasanExcelExporter::download($request->user(), $request);
     }
 
     /**

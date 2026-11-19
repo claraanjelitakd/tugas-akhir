@@ -68,6 +68,7 @@ class DatabaseSeeder extends Seeder
             KenazManuelSeeder::class,
             AnjelitaSeeder::class,
             ZelaPoiemaSeeder::class,
+            AlumniBatch2022Seeder::class,
         ]);
 
         // 6. Seed satu kohort kanonik 2026 lintas 12 prodi dengan maksimal
@@ -79,7 +80,12 @@ class DatabaseSeeder extends Seeder
             AlumniVariasiAnalitikSeeder::class,
         ]);
 
-        // 7. Preservasi staging hasil scraping LinkedIn sesuai kontrak backup.
+        // 7. Seed calon akun alumni lulusan yudisium untuk pengujian modul sinkronisasi akun.
+        $this->call([
+            CalonAlumniYudisiumSeeder::class,
+        ]);
+
+        // 8. Preservasi staging hasil scraping LinkedIn sesuai kontrak backup.
         $this->call([
             LinkedinSyncResultSeeder::class,
         ]);

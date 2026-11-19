@@ -78,6 +78,15 @@ class VerifikasiPerusahaanProdiController extends Controller
             ? Kabupaten::where('kode_provinsi', $filters['kode_provinsi'])->select('kode_kabupaten', 'kode_provinsi', 'nama_kabupaten')->orderBy('nama_kabupaten')->get()
             : [];
         $negaras = RefNegara::select('kode_negara', 'nama_negara')->orderBy('nama_negara')->get();
+        // Fix: filterNegaras sebelumnya tidak dikirim, menyebabkan dropdown filter negara kosong
+        $distinctNegaras = $this->companiesInScopeQuery($prodiId)
+            ->whereNotNull('kode_negara')
+            ->where('kode_negara', '!=', '')
+            ->distinct()
+            ->pluck('kode_negara')
+            ->filter()
+            ->sort()
+            ->values();
 
         return Inertia::render('SuperAdmin/Perusahaan/Index', [
             'user' => $user,
@@ -91,6 +100,7 @@ class VerifikasiPerusahaanProdiController extends Controller
             'propinsis' => $propinsis,
             'kabupatens' => $kabupatens,
             'negaras' => $negaras,
+            'filterNegaras' => $distinctNegaras,
             'filters' => $filters,
             'stats' => $this->buildScopedStats($prodiId),
         ]);

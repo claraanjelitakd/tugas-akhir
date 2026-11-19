@@ -48,6 +48,9 @@ const props = defineProps({
     prodiSummaries: { type: Array, default: () => [] },
     recentAlumni: { type: Array, default: () => [] },
     sectionsList: { type: Array, default: () => [] },
+    recentLogs: { type: Array, default: () => [] },
+    companyRequests: { type: Array, default: () => [] },
+    recentSubmissions: { type: Array, default: () => [] },
 });
 
 // State tab, filter, pencarian, dan tahun yang sedang ditampilkan.
@@ -264,6 +267,174 @@ const scopeLabel = computed(() => roleConfig.value.contextValue);
                         <Link v-if="roleConfig.links.linkedin" :href="roleConfig.links.linkedin" class="rounded-xl bg-slate-50 px-3 py-3 text-center text-xs font-bold text-slate-700 transition-colors hover:bg-[#0D542B] hover:text-white">Sinkronisasi LinkedIn</Link>
                         <Link v-if="roleConfig.links.questionnaire" :href="roleConfig.links.questionnaire" class="rounded-xl bg-slate-50 px-3 py-3 text-center text-xs font-bold text-slate-700 transition-colors hover:bg-[#0D542B] hover:text-white">Kuesioner</Link>
                         <Link v-if="roleConfig.links.accounts" :href="roleConfig.links.accounts" class="rounded-xl bg-slate-50 px-3 py-3 text-center text-xs font-bold text-slate-700 transition-colors hover:bg-[#0D542B] hover:text-white">Manajemen Akun</Link>
+                    </div>
+                </section>
+
+                <!-- Panel Khusus Help Desk & Notifikasi Permintaan Operasional ITC (Superadmin) -->
+                <section v-if="role === 'superadmin'" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                    <div class="flex flex-col justify-between gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-center">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="rounded bg-[#0D542B] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">Help Desk ITC</span>
+                                <span class="rounded bg-[#FDC700] px-2 py-0.5 text-[10px] font-bold text-[#0D542B]">Pusat Request & Notifikasi</span>
+                            </div>
+                            <h2 class="mt-2 text-base font-extrabold text-slate-900 sm:text-lg">Antrean Permintaan & Aktivitas Sistem Terkini</h2>
+                            <p class="mt-1 text-xs text-slate-500">Pantau usulan master perusahaan baru, alumni yang baru saja mengisi kuesioner, dan audit mutasi data program studi.</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <Link href="/superadmin/manajemen-akun" class="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-[#0D542B] hover:text-white">
+                                Permintaan Reset Kata Sandi
+                            </Link>
+                            <Link href="/superadmin/perusahaan" class="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-[#0D542B] hover:text-white">
+                                Verifikasi Perusahaan ({{ (companyRequests && companyRequests.length) || dashboardStats.total_pending_perusahaan || 0 }})
+                            </Link>
+                            <Link href="/superadmin/logs" class="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-[#0D542B] hover:text-white">
+                                Log Aktivitas Audit
+                            </Link>
+                        </div>
+                    </div>
+
+                    <!-- 3 Kolom Responsif Ringan untuk Notifikasi Operasional -->
+                    <div class="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+                        <!-- Kolom 1: Usulan Master Perusahaan Baru -->
+                        <div class="flex flex-col rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Usulan Perusahaan Baru</h3>
+                                <span class="rounded-full bg-[#FDC700] px-2 py-0.5 text-[10px] font-extrabold text-[#0D542B]">
+                                    {{ (companyRequests && companyRequests.length) || 0 }} Usulan
+                                </span>
+                            </div>
+                            <p class="mt-1 text-[11px] text-slate-500">Menunggu verifikasi dan cek similarity oleh ITC.</p>
+
+                            <div class="mt-3 flex-1 space-y-2.5">
+                                <template v-if="companyRequests && companyRequests.length > 0">
+                                    <div
+                                        v-for="company in companyRequests.slice(0, 5)"
+                                        :key="company.id"
+                                        class="rounded-lg border border-slate-200/80 bg-white p-3 text-xs shadow-2xs"
+                                    >
+                                        <div class="flex items-start justify-between gap-2">
+                                            <p class="font-extrabold text-slate-900 truncate" :title="company.name || company.nama">
+                                                {{ company.name || company.nama }}
+                                            </p>
+                                            <span class="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">Menunggu</span>
+                                        </div>
+                                        <div class="mt-1 text-[11px] text-slate-500">
+                                            <span>Pengusul: <strong class="font-semibold text-slate-700">{{ company.applicant || company.prodi || 'Alumni' }}</strong></span>
+                                        </div>
+                                        <div class="mt-1 flex items-center justify-between text-[10px] text-slate-400">
+                                            <span>{{ company.location || company.kota || '-' }}</span>
+                                            <span>{{ company.created_at }}</span>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div v-else class="flex flex-col items-center justify-center py-8 text-center text-xs text-slate-400">
+                                    <p class="font-medium">Tidak ada usulan baru</p>
+                                    <p class="mt-0.5 text-[11px] text-slate-400">Semua pengajuan perusahaan sudah terverifikasi.</p>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 border-t border-slate-200/60 pt-3">
+                                <Link href="/superadmin/perusahaan" class="block text-center text-xs font-bold text-[#0D542B] hover:underline">
+                                    Kelola & Verifikasi Perusahaan &rarr;
+                                </Link>
+                            </div>
+                        </div>
+
+                        <!-- Kolom 2: Alumni Baru Saja Mengisi Kuesioner -->
+                        <div class="flex flex-col rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Respon Alumni Terkini</h3>
+                                <span class="rounded-full bg-[#0D542B] px-2 py-0.5 text-[10px] font-extrabold text-white">
+                                    {{ (recentSubmissions && recentSubmissions.length) || 0 }} Respon
+                                </span>
+                            </div>
+                            <p class="mt-1 text-[11px] text-slate-500">Alumni yang baru saja mengisi atau memperbarui tracer.</p>
+
+                            <div class="mt-3 flex-1 space-y-2.5">
+                                <template v-if="recentSubmissions && recentSubmissions.length > 0">
+                                    <div
+                                        v-for="sub in recentSubmissions.slice(0, 5)"
+                                        :key="sub.id || sub.nim"
+                                        class="rounded-lg border border-slate-200/80 bg-white p-3 text-xs shadow-2xs"
+                                    >
+                                        <div class="flex items-start justify-between gap-2">
+                                            <p class="font-extrabold text-slate-900 truncate" :title="sub.nama">
+                                                {{ sub.nama }}
+                                            </p>
+                                            <span class="shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-[#0D542B]">Mengisi</span>
+                                        </div>
+                                        <div class="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+                                            <span class="font-mono text-slate-600">{{ sub.nim }}</span>
+                                            <span class="truncate max-w-[140px] text-slate-700 font-medium" :title="sub.prodi">{{ sub.prodi }}</span>
+                                        </div>
+                                        <div class="mt-1.5 flex items-center justify-between text-[10px]">
+                                            <span class="text-slate-400">{{ sub.submitted_at }}</span>
+                                            <Link v-if="sub.id" :href="`/superadmin/alumni/${sub.id}`" class="font-bold text-[#0D542B] hover:underline">
+                                                Lihat Data
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div v-else class="flex flex-col items-center justify-center py-8 text-center text-xs text-slate-400">
+                                    <p class="font-medium">Belum ada respon baru</p>
+                                    <p class="mt-0.5 text-[11px] text-slate-400">Respon alumni yang masuk akan terdeteksi di sini.</p>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 border-t border-slate-200/60 pt-3">
+                                <Link href="/superadmin/alumni" class="block text-center text-xs font-bold text-[#0D542B] hover:underline">
+                                    Buka Direktori Alumni &rarr;
+                                </Link>
+                            </div>
+                        </div>
+
+                        <!-- Kolom 3: Log Aktivitas Terdeteksi & Update Data Prodi -->
+                        <div class="flex flex-col rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Aktivitas & Update Prodi</h3>
+                                <span class="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-extrabold text-slate-700">
+                                    {{ (recentLogs && recentLogs.length) || 0 }} Audit
+                                </span>
+                            </div>
+                            <p class="mt-1 text-[11px] text-slate-500">Deteksi perubahan data oleh admin prodi, fakultas, atau user.</p>
+
+                            <div class="mt-3 flex-1 space-y-2.5">
+                                <template v-if="recentLogs && recentLogs.length > 0">
+                                    <div
+                                        v-for="log in recentLogs.slice(0, 5)"
+                                        :key="log.id"
+                                        class="rounded-lg border border-slate-200/80 bg-white p-3 text-xs shadow-2xs"
+                                    >
+                                        <div class="flex items-start justify-between gap-2">
+                                            <div class="truncate">
+                                                <span class="font-bold text-slate-900">{{ log.user_name }}</span>
+                                                <span v-if="log.unit" class="ml-1.5 inline-block rounded bg-slate-100 px-1 py-0.2 text-[9px] font-bold text-slate-600">
+                                                    {{ log.unit }}
+                                                </span>
+                                            </div>
+                                            <span class="shrink-0 font-mono text-[9px] text-slate-400">{{ log.created_at }}</span>
+                                        </div>
+                                        <p class="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-600" :title="log.description || log.action">
+                                            {{ log.description || log.action }}
+                                        </p>
+                                        <div class="mt-1 text-[10px] text-slate-400">
+                                            <span>IP: {{ log.ip_address || '-' }}</span>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div v-else class="flex flex-col items-center justify-center py-8 text-center text-xs text-slate-400">
+                                    <p class="font-medium">Tidak ada log terbaru</p>
+                                    <p class="mt-0.5 text-[11px] text-slate-400">Setiap mutasi data akan dicatat oleh audit trail.</p>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 border-t border-slate-200/60 pt-3">
+                                <Link href="/superadmin/logs" class="block text-center text-xs font-bold text-[#0D542B] hover:underline">
+                                    Buka Seluruh Log Aktivitas &rarr;
+                                </Link>
+                            </div>
+                        </div>
                     </div>
                 </section>
 

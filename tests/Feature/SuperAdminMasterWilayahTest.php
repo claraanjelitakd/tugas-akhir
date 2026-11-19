@@ -88,6 +88,16 @@ class SuperAdminMasterWilayahTest extends TestCase
         );
     }
 
+    public function test_superadmin_can_view_ump_tab(): void
+    {
+        $response = $this->actingAs($this->superadmin)->get('/superadmin/master-wilayah?tab=ump');
+        $response->assertStatus(200);
+        $response->assertInertia(fn (Assert $page) => $page
+            ->where('active_tab', 'ump')
+            ->has('umps')
+        );
+    }
+
     /**
      * Test superadmin dapat menambahkan provinsi baru beserta ketetapan UMP awal.
      */
@@ -206,6 +216,10 @@ class SuperAdminMasterWilayahTest extends TestCase
             'kode_kabupaten' => '33.74',
             'nama_kabupaten' => 'KOTA SEMARANG',
         ]);
+        $this->assertDatabaseHas('log_activities', [
+            'action' => 'CREATE_KABUPATEN',
+            'model_id' => '33.74',
+        ]);
 
         $kabupaten = Kabupaten::where('kode_kabupaten', '33.74')->first();
 
@@ -269,6 +283,19 @@ class SuperAdminMasterWilayahTest extends TestCase
             'kode_provinsi' => '51',
             'tahun' => 2027,
             'besaran' => number_format($expected2027, 2, '.', ''),
+        ]);
+
+        // Reset seluruh UMP tahun 2027 (rollback salinan)
+        $resetResponse = $this->actingAs($this->superadmin)->delete(route('superadmin.master-wilayah.ump.reset-year', ['year' => 2027]));
+        $resetResponse->assertRedirect();
+
+        $this->assertDatabaseMissing('ump', [
+            'tahun' => 2027,
+        ]);
+        // Data tahun 2026 tetap aman
+        $this->assertDatabaseHas('ump', [
+            'tahun' => 2026,
+            'kode_provinsi' => '51',
         ]);
     }
 }

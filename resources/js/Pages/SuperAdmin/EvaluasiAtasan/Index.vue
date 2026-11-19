@@ -13,7 +13,6 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import Sidebar from '../Components/Sidebar.vue';
-import PaginationControls from '@/components/PaginationControls.vue';
 
 const props = defineProps({
     user: Object,
@@ -28,10 +27,6 @@ const props = defineProps({
     sections: {
         type: Array,
         default: () => [],
-    },
-    evaluasis: {
-        type: Object,
-        default: () => ({ data: [] }),
     },
     stats: {
         type: Object,
@@ -48,17 +43,52 @@ const props = defineProps({
 // Menyimpan daftar pertanyaan reusable yang dapat ditempatkan ke instrumen atasan.
 const bankQuestions = computed(() => props.bankQuestions || []);
 
+/**
+ * Deteksi jika kode pertanyaan yang diketik sudah terdaftar agar tidak terjadi duplikasi ganda.
+ */
+const duplicateMasterWarning = computed(() => {
+    if (!questionForm.value.kode) return null;
+    const inputCode = questionForm.value.kode.trim().toUpperCase();
+    if (!inputCode) return null;
+
+    const foundInQuestions = props.questions.find((q) =>
+        ((q.kode || '').toUpperCase() === inputCode || (q.full_kode || '').toUpperCase() === inputCode || (q.full_kode || '').toUpperCase() === `EVA_${inputCode}`) &&
+        (!isEditingQuestion.value || q.id !== editingQuestionId.value)
+    );
+    if (foundInQuestions) {
+        return {
+            kode: foundInQuestions.full_kode || foundInQuestions.kode,
+            teks: foundInQuestions.aspek,
+            asal: 'Kuesioner Evaluasi Atasan',
+        };
+    }
+
+    const foundInBank = bankQuestions.value.find((b) =>
+        ((b.kode || '').toUpperCase() === inputCode || (b.kode || '').toUpperCase() === `EVA_${inputCode}`) &&
+        (!isEditingQuestion.value || b.id !== editingQuestionId.value)
+    );
+    if (foundInBank) {
+        return {
+            kode: foundInBank.kode,
+            teks: foundInBank.teks,
+            asal: foundInBank.asal || 'Bank Soal',
+        };
+    }
+
+    return null;
+});
+
 // Menentukan tab aktif dari URL agar CRUD tidak mengembalikan halaman ke section awal.
 const getInitialTab = () => {
     if (typeof window !== 'undefined') {
         const tab = new URLSearchParams(window.location.search).get('tab');
-        if (['sections', 'questions', 'responses'].includes(tab)) return tab;
+        if (['sections', 'questions'].includes(tab)) return tab;
     }
 
     return 'sections';
 };
 
-// Tab aktif: 'sections', 'questions', atau 'responses'.
+// Tab aktif: 'sections' atau 'questions'.
 const activeTab = ref(getInitialTab());
 
 // Mengubah tab sekaligus mempertahankan konteks pada URL.
@@ -86,6 +116,7 @@ const canHaveOptions = (type) => ['likert_5', 'pilihan_ganda', 'radio_input', 'm
 const sectionSearchQuery = ref('');
 const isSectionModalOpen = ref(false);
 const isEditingSection = ref(false);
+const isSubmittingSection = ref(false);
 const editingSectionId = ref(null);
 const sectionFormErrors = ref({});
 const sectionForm = ref({
@@ -126,6 +157,7 @@ const openSectionModal = (secToEdit = null) => {
 
 const closeSectionModal = () => {
     isSectionModalOpen.value = false;
+    isSubmittingSection.value = false;
     sectionFormErrors.value = {};
 };
 
@@ -136,12 +168,17 @@ const submitSectionForm = () => {
         return;
     }
 
+    isSubmittingSection.value = true;
+
     if (isEditingSection.value) {
         router.put(`/superadmin/evaluasi-atasan/sections/${editingSectionId.value}`, sectionForm.value, {
             preserveScroll: true,
             onSuccess: () => {
                 closeSectionModal();
                 Swal.fire('Berhasil', 'Bagian kuesioner berhasil diperbarui.', 'success');
+            },
+            onFinish: () => {
+                isSubmittingSection.value = false;
             },
         });
     } else {
@@ -150,6 +187,9 @@ const submitSectionForm = () => {
             onSuccess: () => {
                 closeSectionModal();
                 Swal.fire('Berhasil', 'Bagian kuesioner baru berhasil ditambahkan.', 'success');
+            },
+            onFinish: () => {
+                isSubmittingSection.value = false;
             },
         });
     }
@@ -235,6 +275,7 @@ const syncPageContext = () => {
 };
 const isQuestionModalOpen = ref(false);
 const isEditingQuestion = ref(false);
+const isSubmittingQuestion = ref(false);
 const editingQuestionId = ref(null);
 const questionFormErrors = ref({});
 const newOptionInput = ref('');
@@ -399,9 +440,22 @@ const openQuestionModal = (questionToEdit = null) => {
         };
     } else {
         const defaultSec = props.sections.length > 0 ? props.sections[props.sections.length - 1] : null;
+        // Cari kode pertanyaan default yang belum terdaftar di instrumen aktif maupun Bank Soal
+        const existingCodes = new Set([
+            ...props.questions.map((q) => (q.kode || '').trim().toUpperCase()),
+            ...props.questions.map((q) => (q.full_kode || '').trim().toUpperCase()),
+            ...bankQuestions.value.map((b) => (b.kode || '').trim().toUpperCase()),
+            ...bankQuestions.value.map((b) => (b.kode || '').replace(/^EVA_/, '').trim().toUpperCase()),
+        ]);
+        let nextNum = props.questions.length + 1;
+        while (existingCodes.has(`P${nextNum}`) || existingCodes.has(`EVA_P${nextNum}`)) {
+            nextNum++;
+        }
+        const defaultCode = `P${nextNum}`;
+
         questionForm.value = {
             section_id: defaultSec?.id || (props.sections[0]?.id || ''),
-            kode: `P${props.questions.length + 1}`,
+            kode: defaultCode,
             label: '',
             aspek: '',
             deskripsi: '',
@@ -419,6 +473,7 @@ const openQuestionModal = (questionToEdit = null) => {
 
 const closeQuestionModal = () => {
     isQuestionModalOpen.value = false;
+    isSubmittingQuestion.value = false;
     questionFormErrors.value = {};
 };
 
@@ -464,8 +519,15 @@ const submitQuestionForm = () => {
     if (!questionForm.value.aspek?.trim()) {
         questionFormErrors.value.aspek = 'Teks pertanyaan / aspek evaluasi wajib diisi.';
     }
+    if (!questionForm.value.kode?.trim()) {
+        questionFormErrors.value.kode = 'Kode pertanyaan wajib diisi.';
+    } else if (!isEditingQuestion.value && duplicateMasterWarning.value) {
+        questionFormErrors.value.kode = 'Kode pertanyaan sudah terdaftar. Silakan gunakan kode unik lain.';
+    }
 
     if (Object.keys(questionFormErrors.value).length > 0) return;
+
+    isSubmittingQuestion.value = true;
 
     if (isEditingQuestion.value) {
         router.put(`/superadmin/evaluasi-atasan/pertanyaan/${editingQuestionId.value}`, questionForm.value, {
@@ -474,6 +536,9 @@ const submitQuestionForm = () => {
                 closeQuestionModal();
                 Swal.fire('Berhasil', 'Pertanyaan evaluasi berhasil diperbarui.', 'success');
             },
+            onFinish: () => {
+                isSubmittingQuestion.value = false;
+            },
         });
     } else {
         router.post('/superadmin/evaluasi-atasan/pertanyaan', questionForm.value, {
@@ -481,6 +546,9 @@ const submitQuestionForm = () => {
             onSuccess: () => {
                 closeQuestionModal();
                 Swal.fire('Berhasil', 'Pertanyaan evaluasi baru berhasil ditambahkan.', 'success');
+            },
+            onFinish: () => {
+                isSubmittingQuestion.value = false;
             },
         });
     }
@@ -619,22 +687,6 @@ const handleDeleteQuestion = (question) => {
         }
     });
 };
-
-// ========================================================
-// RESPONS DETAIL STATE & MODAL
-// ========================================================
-const showDetailModal = ref(false);
-const selectedEvaluasi = ref(null);
-
-const viewDetailEvaluasi = (evaluasi) => {
-    selectedEvaluasi.value = evaluasi;
-    showDetailModal.value = true;
-};
-
-const closeDetailModal = () => {
-    showDetailModal.value = false;
-    selectedEvaluasi.value = null;
-};
 </script>
 
 <template>
@@ -693,17 +745,17 @@ const closeDetailModal = () => {
                             <div class="h-8 w-px bg-gray-200"></div>
                             <div class="text-center px-2">
                                 <span class="block text-lg font-extrabold text-[#0D542B]">{{ stats.total_questions }}</span>
-                                <span class="text-[10px] text-gray-500 font-semibold uppercase">Soal Evaluasi</span>
+                                <span class="text-[10px] text-gray-500 font-semibold uppercase">Total Soal</span>
                             </div>
                             <div class="h-8 w-px bg-gray-200"></div>
                             <div class="text-center px-2">
-                                <span class="block text-lg font-extrabold text-slate-700">{{ stats.submitted_evaluasi }}</span>
-                                <span class="text-[10px] text-gray-500 font-semibold uppercase">Respon Masuk</span>
+                                <span class="block text-lg font-extrabold text-slate-700">{{ stats.active_questions }}</span>
+                                <span class="text-[10px] text-gray-500 font-semibold uppercase">Soal Aktif</span>
                             </div>
                             <div class="h-8 w-px bg-gray-200"></div>
                             <div class="text-center px-2">
-                                <span class="block text-lg font-extrabold text-slate-900">{{ stats.total_evaluasi }}</span>
-                                <span class="text-[10px] text-gray-500 font-semibold uppercase">Total Undangan</span>
+                                <span class="block text-lg font-extrabold text-slate-900">{{ bankQuestions.length }}</span>
+                                <span class="text-[10px] text-gray-500 font-semibold uppercase">Bank Soal</span>
                             </div>
                         </div>
                     </div>
@@ -743,25 +795,6 @@ const closeDetailModal = () => {
                         <span>Pertanyaan Kuesioner (Evaluasi)</span>
                         <span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full" :class="activeTab === 'questions' ? 'bg-[#0D542B]/10 text-[#0D542B]' : 'bg-slate-100 text-gray-600'">
                             {{ stats.total_questions }}
-                        </span>
-                    </button>
-
-                    <!-- Tab 3: Riwayat Respon Atasan -->
-                    <button
-                        @click="switchTab('responses')"
-                        class="pb-3 px-3 text-sm font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2 shrink-0"
-                        :class="[
-                            activeTab === 'responses'
-                                ? 'border-[#0D542B] text-[#0D542B]'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                        ]"
-                    >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                        <span>Riwayat Respon Atasan</span>
-                        <span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full" :class="activeTab === 'responses' ? 'bg-[#0D542B]/10 text-[#0D542B]' : 'bg-slate-100 text-gray-600'">
-                            {{ stats.submitted_evaluasi }}
                         </span>
                     </button>
                 </div>
@@ -1103,79 +1136,6 @@ const closeDetailModal = () => {
                         </table>
                     </div>
                 </div>
-
-                <!-- ======================================================== -->
-                <!-- TAB 3: RIWAYAT RESPON EVALUASI ATASAN                    -->
-                <!-- ======================================================== -->
-                <div v-else-if="activeTab === 'responses'" class="space-y-4">
-                    <div class="bg-white p-3.5 rounded-xl border border-gray-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs shadow-2xs">
-                        <span class="text-gray-600 font-medium">
-                            Menampilkan <strong class="text-gray-900">{{ evaluasis.data.length }}</strong> dari total <strong class="text-gray-900">{{ stats.total_evaluasi }}</strong> evaluasi atasan
-                        </span>
-                    </div>
-
-                    <div class="bg-white rounded-xl border border-gray-300 overflow-x-auto shadow-2xs">
-                        <table class="w-full min-w-full text-left border-collapse border border-gray-300 text-xs bg-white">
-                            <thead class="bg-gray-100 text-gray-800 font-semibold border-b border-gray-300 text-[11px] whitespace-nowrap">
-                                <tr>
-                                    <th class="border border-gray-300 px-3 py-2 text-center w-12">No</th>
-                                    <th class="border border-gray-300 px-3 py-2 min-w-[180px]">Nama Alumni</th>
-                                    <th class="border border-gray-300 px-3 py-2 min-w-[160px]">Program Studi</th>
-                                    <th class="border border-gray-300 px-3 py-2 min-w-[180px]">Perusahaan & Atasan</th>
-                                    <th class="border border-gray-300 px-3 py-2 w-32 text-center">Status Respon</th>
-                                    <th class="border border-gray-300 px-3 py-2 w-36">Waktu Pengisian</th>
-                                    <th class="border border-gray-300 px-2.5 py-2 text-center w-24">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-200">
-                                <tr v-for="(ev, idx) in evaluasis.data" :key="ev.id" class="hover:bg-gray-50/80 transition-colors">
-                                    <td class="border border-gray-300 px-3 py-2 text-center font-medium text-gray-600">{{ idx + 1 }}</td>
-                                    <td class="border border-gray-300 px-3 py-2 font-bold text-gray-900">
-                                        {{ ev.biodata?.user?.name || ev.biodata?.data_akademik?.nama || ev.biodata?.nim || '-' }}
-                                        <div class="text-[11px] text-gray-500 font-mono font-normal">NIM: {{ ev.biodata?.nim || '-' }}</div>
-                                    </td>
-                                    <td class="border border-gray-300 px-3 py-2 text-gray-700">
-                                        {{ ev.biodata?.prodi?.nama_prodi || '-' }}
-                                    </td>
-                                    <td class="border border-gray-300 px-3 py-2 text-gray-700">
-                                        <div class="font-bold text-gray-900">{{ ev.perusahaan?.nama_perusahaan || '-' }}</div>
-                                        <div class="text-[11px] text-gray-500">Penilai: {{ ev.atasan?.nama || '-' }}</div>
-                                    </td>
-                                    <td class="border border-gray-300 px-3 py-2 text-center">
-                                        <span
-                                            class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold border"
-                                            :class="ev.is_submitted ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'"
-                                        >
-                                            {{ ev.is_submitted ? 'Sudah Mengisi' : 'Belum Mengisi' }}
-                                        </span>
-                                    </td>
-                                    <td class="border border-gray-300 px-3 py-2 text-gray-600 text-[11px]">
-                                        {{ ev.submitted_at || '-' }}
-                                    </td>
-                                    <td class="border border-gray-300 px-2.5 py-2 text-center">
-                                        <button
-                                            v-if="ev.is_submitted"
-                                            type="button"
-                                            @click="viewDetailEvaluasi(ev)"
-                                            class="px-2.5 py-1 bg-white hover:bg-emerald-50 text-[#0D542B] border border-emerald-700/30 rounded text-[11px] font-bold cursor-pointer"
-                                        >
-                                            Lihat Respon
-                                        </button>
-                                        <span v-else class="text-gray-400 text-[11px] italic">Menunggu</span>
-                                    </td>
-                                </tr>
-                                <tr v-if="evaluasis.data.length === 0">
-                                    <td colspan="7" class="border border-gray-300 p-8 text-center text-gray-400 italic">
-                                        Belum ada riwayat evaluasi atasan yang masuk.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Pagination riwayat evaluasi memakai pola yang sama dengan seluruh master data. -->
-                    <PaginationControls :pagination="evaluasis" summary-label="evaluasi atasan" />
-                </div>
             </main>
         </div>
 
@@ -1216,16 +1176,9 @@ const closeDetailModal = () => {
                             placeholder="Ketikkan petunjuk pengisian bagi responden..."
                             class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D542B] text-xs text-gray-900"
                         ></textarea>
-                    </div>
-
-                    <div>
-                        <label class="block font-bold text-gray-800 text-xs mb-1.5">Nomor Urut Posisi</label>
-                        <input
-                            type="number"
-                            min="1"
-                            v-model.number="sectionForm.order"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0D542B] text-xs text-gray-900"
-                        />
+                        <p class="mt-1 text-[11px] text-gray-500">
+                            Urutan bagian kuesioner akan ditempatkan otomatis di akhir. Anda dapat memindahkan posisi naik/turun kapan saja melalui tombol panah pada daftar bagian.
+                        </p>
                     </div>
                 </div>
 
@@ -1233,16 +1186,22 @@ const closeDetailModal = () => {
                     <button
                         type="button"
                         @click="closeSectionModal"
-                        class="px-5 py-2.5 border border-gray-200 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold cursor-pointer"
+                        :disabled="isSubmittingSection"
+                        class="px-5 py-2.5 border border-gray-200 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold cursor-pointer disabled:opacity-50"
                     >
                         Batal
                     </button>
                     <button
                         type="button"
                         @click="submitSectionForm"
-                        class="px-5 py-2.5 bg-[#0D542B] hover:bg-[#08381c] text-white rounded-lg font-bold cursor-pointer"
+                        :disabled="isSubmittingSection"
+                        class="px-5 py-2.5 bg-[#0D542B] hover:bg-[#08381c] text-white rounded-lg font-bold cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                     >
-                        {{ isEditingSection ? 'Simpan Perubahan' : 'Tambah Bagian' }}
+                        <svg v-if="isSubmittingSection" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        <span>{{ isSubmittingSection ? 'Menyimpan...' : (isEditingSection ? 'Simpan Perubahan' : 'Tambah Bagian') }}</span>
                     </button>
                 </div>
             </div>
@@ -1337,8 +1296,9 @@ const closeDetailModal = () => {
                                 :disabled="isEditingQuestion"
                                 placeholder="Misal: P43"
                                 class="w-full rounded-lg border px-3 py-2 font-mono text-xs font-bold uppercase focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
-                                :class="isEditingQuestion ? 'bg-gray-100 text-gray-500' : 'border-gray-300'"
+                                :class="questionFormErrors.kode ? 'border-red-500 bg-red-50/30' : (isEditingQuestion ? 'bg-gray-100 text-gray-500' : 'border-gray-300')"
                             />
+                            <p v-if="questionFormErrors.kode" class="text-[11px] text-red-600 mt-1">{{ questionFormErrors.kode }}</p>
                         </div>
                         <div>
                             <label class="mb-1 block font-bold text-gray-700">Bagian / Section <span class="text-rose-600">*</span></label>
@@ -1354,6 +1314,16 @@ const closeDetailModal = () => {
                             </select>
                             <p v-if="questionFormErrors.section_id" class="text-[11px] text-red-600 mt-1">{{ questionFormErrors.section_id }}</p>
                         </div>
+                    </div>
+
+                    <!-- Banner Deteksi Kode Ganda -->
+                    <div v-if="duplicateMasterWarning && !isEditingQuestion" class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
+                        <div class="font-bold flex items-center gap-1.5">
+                            <span>Kode Pertanyaan Sudah Digunakan</span>
+                        </div>
+                        <p class="mt-1 text-amber-800 leading-snug">
+                            Kode <strong>[{{ duplicateMasterWarning.kode }}]</strong> sudah terdaftar pada: "<em>{{ duplicateMasterWarning.teks }}</em>" ({{ duplicateMasterWarning.asal }}). Silakan gunakan kode unik lain agar tidak terjadi konflik data.
+                        </p>
                     </div>
 
                     <div>
@@ -1386,33 +1356,24 @@ const closeDetailModal = () => {
                         <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">Kuesioner Evaluasi Atasan</div>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div>
-                            <label class="mb-1 block font-bold text-gray-700">Tipe Pertanyaan <span class="text-rose-600">*</span></label>
-                            <select
-                                v-model="questionForm.tipe"
-                                @change="handleTypeChange"
-                                :disabled="questionForm.is_company_field"
-                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
-                            >
-                                <option value="likert_5">Skala Likert (1-5)</option>
-                                <option value="pilihan_ganda">Pilihan Ganda (Radio)</option>
-                                <option value="radio_input">Radio + Angka (Bulan)</option>
-                                <option value="multiple_choice">Kotak Centang (Checkbox)</option>
-                                <option value="text">Jawaban Singkat (Text)</option>
-                                <option value="textarea">Paragraf (Textarea)</option>
-                            </select>
-                            <p class="text-[11px] text-gray-400 mt-1">Opsi default otomatis dibuat & dapat disesuaikan.</p>
-                        </div>
-                        <div>
-                            <label class="mb-1 block font-bold text-gray-700">Nomor Urut</label>
-                            <input
-                                type="number"
-                                min="1"
-                                v-model.number="questionForm.order"
-                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
-                            />
-                        </div>
+                    <div>
+                        <label class="mb-1 block font-bold text-gray-700">Tipe Pertanyaan <span class="text-rose-600">*</span></label>
+                        <select
+                            v-model="questionForm.tipe"
+                            @change="handleTypeChange"
+                            :disabled="questionForm.is_company_field"
+                            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                        >
+                            <option value="likert_5">Skala Likert (1-5)</option>
+                            <option value="pilihan_ganda">Pilihan Ganda (Radio)</option>
+                            <option value="radio_input">Radio + Angka (Bulan)</option>
+                            <option value="multiple_choice">Kotak Centang (Checkbox)</option>
+                            <option value="text">Jawaban Singkat (Text)</option>
+                            <option value="textarea">Paragraf (Textarea)</option>
+                        </select>
+                        <p class="mt-1 text-[11px] text-gray-500">
+                            Urutan soal bertambah otomatis di akhir bagian. Anda dapat memindahkan posisi naik/turun kapan saja melalui tombol panah di tabel kuesioner.
+                        </p>
                     </div>
 
                     <!-- Kontrak pengisian pertanyaan atasan: wajib atau opsional. -->
@@ -1501,16 +1462,22 @@ const closeDetailModal = () => {
                     <button
                         type="button"
                         @click="closeQuestionModal"
-                        class="rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-100"
+                        :disabled="isSubmittingQuestion"
+                        class="rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                     >
                         Batal
                     </button>
                     <button
                         type="button"
                         @click="submitQuestionForm"
-                        class="rounded-lg bg-[#0D542B] px-4 py-2 font-semibold text-white hover:bg-[#08381c]"
+                        :disabled="isSubmittingQuestion"
+                        class="rounded-lg bg-[#0D542B] px-4 py-2 font-semibold text-white hover:bg-[#08381c] disabled:opacity-50 flex items-center gap-1.5"
                     >
-                        {{ isEditingQuestion ? 'Simpan Perubahan' : 'Tambah Pertanyaan' }}
+                        <svg v-if="isSubmittingQuestion" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        <span>{{ isSubmittingQuestion ? 'Menyimpan...' : (isEditingQuestion ? 'Simpan Perubahan' : 'Tambah Pertanyaan') }}</span>
                     </button>
                 </div>
             </div>
@@ -1569,88 +1536,6 @@ const closeDetailModal = () => {
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
-
-        <!-- ======================================================== -->
-        <!-- MODAL 4: LIHAT DETAIL RESPON EVALUASI ATASAN             -->
-        <!-- ======================================================== -->
-        <div v-if="showDetailModal && selectedEvaluasi" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full border border-gray-300 overflow-hidden max-h-[85vh] flex flex-col">
-                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between shrink-0">
-                    <div>
-                        <h3 class="font-bold text-sm text-gray-900">Rincian Jawaban Evaluasi Pengguna Lulusan</h3>
-                        <p class="text-[11px] text-gray-500 mt-0.5">
-                            Alumni: {{ selectedEvaluasi.biodata?.user?.name || selectedEvaluasi.biodata?.data_akademik?.nama || selectedEvaluasi.biodata?.nim || '-' }} ({{ selectedEvaluasi.biodata?.nim || '-' }})
-                        </p>
-                    </div>
-                    <button type="button" @click="closeDetailModal" class="text-gray-400 hover:text-gray-600 cursor-pointer">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-
-                <div class="p-6 space-y-4 text-xs overflow-y-auto flex-1">
-                    <div class="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                        <div>
-                            <span class="text-gray-500 block">Nama Perusahaan</span>
-                            <strong class="text-gray-900">{{ selectedEvaluasi.perusahaan?.nama_perusahaan || '-' }}</strong>
-                        </div>
-                        <div>
-                            <span class="text-gray-500 block">Penilai / Atasan</span>
-                            <strong class="text-gray-900">{{ selectedEvaluasi.atasan?.nama || '-' }} ({{ selectedEvaluasi.atasan?.telepon || '-' }})</strong>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h4 class="font-bold text-gray-800 mb-2">Jawaban Aspek Penilaian Kinerja</h4>
-                        <div class="border border-gray-200 rounded-lg overflow-hidden">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="bg-gray-100 text-gray-700 font-semibold border-b border-gray-200 text-[11px]">
-                                        <th class="p-2.5 w-12 text-center">No</th>
-                                        <th class="p-2.5">Aspek / Pertanyaan</th>
-                                        <th class="p-2.5 w-36 text-center">Nilai Respon</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="(resp, rIdx) in selectedEvaluasi.respons" :key="resp.id" class="border-b border-gray-100 hover:bg-gray-50">
-                                        <td class="p-2.5 text-center text-gray-500">{{ rIdx + 1 }}</td>
-                                        <td class="p-2.5">
-                                            <div class="font-medium text-gray-900">
-                                                {{ resp.pertanyaan?.teks_pertanyaan || resp.pertanyaan?.label_pertanyaan || resp.pertanyaan?.aspek || '-' }}
-                                            </div>
-                                            <div v-if="resp.pertanyaan?.keterangan" class="mt-0.5 text-[11px] text-gray-500">
-                                                {{ resp.pertanyaan.keterangan }}
-                                            </div>
-                                            <div v-if="resp.catatan" class="text-[11px] text-emerald-800 italic mt-0.5">Catatan: {{ resp.catatan }}</div>
-                                        </td>
-                                        <td class="p-2.5 text-center font-bold text-[#0D542B]">
-                                            {{ resp.jawaban_teks || resp.nilai || '-' }}
-                                            <span v-if="resp.opsi?.nilai_skor !== null && resp.opsi?.nilai_skor !== undefined" class="block text-[10px] font-medium text-slate-500">
-                                                Skor: {{ resp.opsi.nilai_skor }}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                    <tr v-if="!selectedEvaluasi.respons || selectedEvaluasi.respons.length === 0">
-                                        <td colspan="3" class="p-4 text-center text-gray-400 italic">Tidak ada respon butir terekam.</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="px-6 py-3.5 border-t border-gray-200 bg-gray-50 flex items-center justify-end text-xs shrink-0">
-                    <button
-                        type="button"
-                        @click="closeDetailModal"
-                        class="px-5 py-2.5 bg-gray-700 hover:bg-gray-800 text-white font-bold rounded-lg cursor-pointer"
-                    >
-                        Tutup
-                    </button>
-                </div>
             </div>
         </div>
     </div>

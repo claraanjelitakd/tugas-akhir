@@ -10,6 +10,7 @@ use App\Models\LogActivity;
 use App\Services\Kuesioner\QuestionDefaultOptionsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Class SimpanPertanyaanController
@@ -59,45 +60,54 @@ class SimpanPertanyaanController extends Controller
             $validated['keterangan'] = QuestionDefaultOptionsService::getDefaultInstruction($validated['type']);
         }
 
-        $pertanyaan = KuesionerPertanyaan::create([
-            'kode_pertanyaan' => trim($validated['kode_pertanyaan']),
-            'label_pertanyaan' => filled($validated['label_pertanyaan'] ?? null) ? trim($validated['label_pertanyaan']) : null,
-            'teks_pertanyaan' => trim($validated['subpertanyaan']),
-            'tipe' => $validated['type'],
-            'keterangan' => $validated['keterangan'],
-            'pemilik_prodi_id' => null,
-            'is_reusable' => true,
-            'is_active' => true,
-        ]);
+        $pertanyaan = DB::transaction(function () use ($validated, $sectionId, $request) {
+            $pertanyaan = KuesionerPertanyaan::create([
+                'kode_pertanyaan' => trim($validated['kode_pertanyaan']),
+                'label_pertanyaan' => filled($validated['label_pertanyaan'] ?? null) ? trim($validated['label_pertanyaan']) : null,
+                'teks_pertanyaan' => trim($validated['subpertanyaan']),
+                'tipe' => $validated['type'],
+                'keterangan' => $validated['keterangan'],
+                'pemilik_prodi_id' => null,
+                'is_reusable' => true,
+                'is_active' => true,
+            ]);
 
-        KuesionerSectionPertanyaan::create([
-            'section_id' => $sectionId,
-            'pertanyaan_id' => $pertanyaan->id,
-            'order' => (int) $validated['order'],
-            'wajib' => (bool) $validated['wajib'],
-            'tampil_di' => $validated['tampil_di'],
-        ]);
+            KuesionerSectionPertanyaan::create([
+                'section_id' => $sectionId,
+                'pertanyaan_id' => $pertanyaan->id,
+                'order' => (int) $validated['order'],
+                'wajib' => (bool) $validated['wajib'],
+                'tampil_di' => $validated['tampil_di'],
+            ]);
 
-        if ($request->has('options') && is_array($validated['options'] ?? null) && count($validated['options']) > 0) {
-            foreach ($validated['options'] as $index => $option) {
-                $label = trim((string) ($option['label'] ?? ''));
-                if ($label === '') {
-                    continue;
+            if ($request->has('options') && is_array($validated['options'] ?? null) && count($validated['options']) > 0) {
+                foreach ($validated['options'] as $index => $option) {
+                    $label = trim((string) ($option['label'] ?? ''));
+                    if ($label === '') {
+                        continue;
+                    }
+
+                    $optionOrder = $index + 1;
+                    $optionCode = trim((string) ($option['code'] ?? '')) ?: $pertanyaan->kode_pertanyaan.'-'.str_pad((string) $optionOrder, 2, '0', STR_PAD_LEFT);
+                    KuesionerOpsi::updateOrCreate(
+                        [
+                            'pertanyaan_id' => $pertanyaan->id,
+                            'kode_opsi' => $optionCode,
+                        ],
+                        [
+                            'label' => $label,
+                            'nilai_skor' => $pertanyaan->tipe === 'rating_5' ? $optionOrder : null,
+                            'lompat_ke_pertanyaan_id' => filled($option['jump_to'] ?? null) ? trim((string) $option['jump_to']) : null,
+                            'order' => $optionOrder,
+                        ]
+                    );
                 }
-
-                $optionOrder = $index + 1;
-                KuesionerOpsi::create([
-                    'pertanyaan_id' => $pertanyaan->id,
-                    'kode_opsi' => trim((string) ($option['code'] ?? '')) ?: $pertanyaan->kode_pertanyaan.'-'.str_pad((string) $optionOrder, 2, '0', STR_PAD_LEFT),
-                    'label' => $label,
-                    'nilai_skor' => $pertanyaan->tipe === 'rating_5' ? $optionOrder : null,
-                    'lompat_ke_pertanyaan_id' => filled($option['jump_to'] ?? null) ? trim((string) $option['jump_to']) : null,
-                    'order' => $optionOrder,
-                ]);
+            } else {
+                QuestionDefaultOptionsService::generateForUnifiedQuestion($pertanyaan);
             }
-        } else {
-            QuestionDefaultOptionsService::generateForUnifiedQuestion($pertanyaan);
-        }
+
+            return $pertanyaan;
+        });
 
         LogActivity::record('KUESIONER_UNIV_QUESTION_CREATED', 'Membuat pertanyaan kuesioner universitas: '.$pertanyaan->kode_pertanyaan.'.', $pertanyaan, null, $validated);
 
@@ -125,31 +135,33 @@ class SimpanPertanyaanController extends Controller
 
         $sectionId = (int) $validated['section_id'];
 
-        $pertanyaan->update([
-            'kode_pertanyaan' => trim($validated['kode_pertanyaan']),
-            'label_pertanyaan' => filled($validated['label_pertanyaan'] ?? null) ? trim($validated['label_pertanyaan']) : null,
-            'teks_pertanyaan' => trim($validated['subpertanyaan']),
-            'tipe' => $validated['type'],
-            'keterangan' => $validated['keterangan'] ?? $pertanyaan->keterangan,
-        ]);
+        DB::transaction(function () use ($pertanyaan, $validated, $sectionId) {
+            $pertanyaan->update([
+                'kode_pertanyaan' => trim($validated['kode_pertanyaan']),
+                'label_pertanyaan' => filled($validated['label_pertanyaan'] ?? null) ? trim($validated['label_pertanyaan']) : null,
+                'teks_pertanyaan' => trim($validated['subpertanyaan']),
+                'tipe' => $validated['type'],
+                'keterangan' => $validated['keterangan'] ?? $pertanyaan->keterangan,
+            ]);
 
-        $sp = KuesionerSectionPertanyaan::where('pertanyaan_id', $pertanyaan->id)->first();
-        if ($sp) {
-            $sp->update([
-                'section_id' => $sectionId,
-                'order' => $validated['order'] ?? $sp->order,
-                'wajib' => (bool) $validated['wajib'],
-                'tampil_di' => $validated['tampil_di'] ?? $sp->tampil_di,
-            ]);
-        } else {
-            KuesionerSectionPertanyaan::create([
-                'section_id' => $sectionId,
-                'pertanyaan_id' => $pertanyaan->id,
-                'order' => $validated['order'] ?? 1,
-                'wajib' => (bool) $validated['wajib'],
-                'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
-            ]);
-        }
+            $sp = KuesionerSectionPertanyaan::where('pertanyaan_id', $pertanyaan->id)->first();
+            if ($sp) {
+                $sp->update([
+                    'section_id' => $sectionId,
+                    'order' => $validated['order'] ?? $sp->order,
+                    'wajib' => (bool) $validated['wajib'],
+                    'tampil_di' => $validated['tampil_di'] ?? $sp->tampil_di,
+                ]);
+            } else {
+                KuesionerSectionPertanyaan::create([
+                    'section_id' => $sectionId,
+                    'pertanyaan_id' => $pertanyaan->id,
+                    'order' => $validated['order'] ?? 1,
+                    'wajib' => (bool) $validated['wajib'],
+                    'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
+                ]);
+            }
+        });
 
         LogActivity::record('KUESIONER_UNIV_QUESTION_UPDATED', 'Memperbarui pertanyaan kuesioner universitas: '.$pertanyaan->kode_pertanyaan.'.', $pertanyaan, null, $validated);
 

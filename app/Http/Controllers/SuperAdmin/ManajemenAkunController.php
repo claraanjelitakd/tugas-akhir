@@ -9,6 +9,7 @@ use App\Models\LogActivity;
 use App\Models\Prodi;
 use App\Models\RefFakultas;
 use App\Models\User;
+use App\Models\Yudisium;
 use App\Services\Otentikasi\PasswordResetNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -113,13 +114,23 @@ class ManajemenAkunController extends Controller
                 ];
             });
 
+        // Optimisasi: gabungkan 6 query COUNT terpisah menjadi 1 aggregate
+        $roleCounts = User::query()
+            ->selectRaw('COUNT(*) as total_users')
+            ->selectRaw("SUM(CASE WHEN role = 'superadmin' THEN 1 ELSE 0 END) as total_superadmin")
+            ->selectRaw("SUM(CASE WHEN role = 'admin_biro3' THEN 1 ELSE 0 END) as total_admin_biro3")
+            ->selectRaw("SUM(CASE WHEN role = 'admin_fakultas' THEN 1 ELSE 0 END) as total_admin_fakultas")
+            ->selectRaw("SUM(CASE WHEN role = 'admin_prodi' THEN 1 ELSE 0 END) as total_admin_prodi")
+            ->selectRaw("SUM(CASE WHEN role = 'alumni' THEN 1 ELSE 0 END) as total_alumni")
+            ->first();
+
         $stats = [
-            'total_users' => User::count(),
-            'total_superadmin' => User::where('role', 'superadmin')->count(),
-            'total_admin_biro3' => User::where('role', 'admin_biro3')->count(),
-            'total_admin_fakultas' => User::where('role', 'admin_fakultas')->count(),
-            'total_admin_prodi' => User::where('role', 'admin_prodi')->count(),
-            'total_alumni' => User::where('role', 'alumni')->count(),
+            'total_users' => (int) $roleCounts->total_users,
+            'total_superadmin' => (int) $roleCounts->total_superadmin,
+            'total_admin_biro3' => (int) $roleCounts->total_admin_biro3,
+            'total_admin_fakultas' => (int) $roleCounts->total_admin_fakultas,
+            'total_admin_prodi' => (int) $roleCounts->total_admin_prodi,
+            'total_alumni' => (int) $roleCounts->total_alumni,
             'unsynced_alumni_count' => $unsyncedCandidates->count(),
         ];
 
@@ -364,11 +375,15 @@ class ManajemenAkunController extends Controller
                     ]);
                 }
 
+                // Cari data yudisium jika ada untuk dihubungkan ke profil biodata
+                $yudisium = Yudisium::where('nim', $nim)->first();
+
                 // Buat profil di Biodata
                 Biodata::updateOrCreate(
                     ['nim' => $nim],
                     [
                         'user_id' => $user->id,
+                        'yudisium_id' => $yudisium?->id,
                         'prodi_id' => $prodiId,
                         'email_pribadi' => $email,
                     ]
