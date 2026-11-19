@@ -1,5 +1,12 @@
 # UPDATE LOG - SERU (Sistem Ekosistem Rekam Jejak Alumni)
 
+## [2026-11-19] Audit Kritis: Perbaikan Data Loss & Optimisasi Performa Query
+
+- **Fix Data Loss pada Edit Perusahaan (Admin Prodi & Fakultas)**: Controller `updateAndVerify()` di Admin Prodi dan Admin Fakultas sebelumnya tidak memvalidasi 4 field (`bentuk_perusahaan`, `jumlah_pegawai`, `homepage`, `no_telp_fax`), sehingga field tersebut hilang saat admin mengedit dan memverifikasi perusahaan melalui `PerusahaanVerificationService::updateAndVerify()`. SuperAdmin sudah memiliki validasi lengkap sejak awal.
+- **Optimisasi Query Statistik Perusahaan**: Ketiga controller verifikasi perusahaan (SuperAdmin, Admin Prodi, Admin Fakultas) sebelumnya menjalankan 4 query `COUNT()` terpisah ke database untuk menghitung statistik per status verifikasi. Digabungkan menjadi 1 query aggregate dengan `CASE WHEN`, mengurangi round-trip database dari 4 menjadi 1 per request halaman index.
+- **Optimisasi Query Profil Alumni**: `ProfilController` sebelumnya memuat seluruh kolom tabel `propinsi` dan `kabupaten`. Diubah menjadi hanya memuat kolom yang dibutuhkan frontend (`kode_*`, `nama_*`).
+- **Optimisasi Eager Loading Middleware**: `HandleInertiaRequests` sebelumnya eager-load data biodata alumni beserta relasi (`prodi`, `perusahaan`, `dataAkademik`) untuk semua role pada setiap request Inertia. Diubah agar hanya memuat data tersebut untuk user dengan role `alumni`.
+
 ## [2026-11-12] Penyelarasan Relasi Alumni dan Atasan pada Dashboard
 
 - Dashboard Superadmin tidak lagi menampilkan tombol `Kelola perusahaan` sebagai aksi utama pada header.

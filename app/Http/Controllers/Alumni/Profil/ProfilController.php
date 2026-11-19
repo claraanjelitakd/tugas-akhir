@@ -27,8 +27,9 @@ class ProfilController extends Controller
         $pengguna = $request->user();
         $biodata = $pengguna->biodata()->with(['prodi.fakultas', 'perusahaan', 'perusahaan.propinsi', 'perusahaan.kabupaten', 'dataAkademik', 'yudisium', 'atasan', 'evaluasiAtasan'])->first();
 
-        $propinsi = Propinsi::all();
-        $kabupaten = Kabupaten::all();
+        // Optimisasi: hanya ambil kolom yang dibutuhkan frontend, bukan seluruh kolom tabel wilayah
+        $propinsi = Propinsi::select('kode_provinsi', 'nama_provinsi')->orderBy('nama_provinsi')->get();
+        $kabupaten = Kabupaten::select('kode_kabupaten', 'kode_provinsi', 'nama_kabupaten')->orderBy('nama_kabupaten')->get();
         $negaras = RefNegara::orderBy('nama_negara')->get(['kode_negara', 'nama_negara', 'kode_iso3', 'benua']);
         $dataAkademik = $biodata?->dataAkademik;
         $yudisium = $biodata?->yudisium ?? $dataAkademik?->yudisium;

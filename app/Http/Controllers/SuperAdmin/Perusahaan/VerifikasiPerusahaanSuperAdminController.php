@@ -169,12 +169,7 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             'negaras' => $negaras,
             'filterNegaras' => $distinctNegaras,
             'filters' => $filters,
-            'stats' => [
-                'total_all' => Perusahaan::count(),
-                'total_pending_all' => Perusahaan::where('status_verifikasi', 'Menunggu Verifikasi')->count(),
-                'total_verified' => Perusahaan::where('status_verifikasi', 'Terverifikasi')->count(),
-                'total_rejected' => Perusahaan::where('status_verifikasi', 'Ditolak')->count(),
-            ],
+            'stats' => $this->buildStats(),
         ]);
     }
 
@@ -364,5 +359,27 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
         );
 
         return redirect()->back()->with('success', "Perusahaan \"{$namaPerusahaan}\" berhasil dihapus dari sistem.");
+    }
+
+    /**
+     * Optimisasi: menggabungkan 4 query COUNT terpisah menjadi 1 query aggregate dengan CASE WHEN.
+     *
+     * @return array{total_all: int, total_pending_all: int, total_verified: int, total_rejected: int}
+     */
+    private function buildStats(): array
+    {
+        $counts = Perusahaan::query()
+            ->selectRaw('COUNT(*) as total_all')
+            ->selectRaw("SUM(CASE WHEN status_verifikasi = 'Menunggu Verifikasi' THEN 1 ELSE 0 END) as total_pending_all")
+            ->selectRaw("SUM(CASE WHEN status_verifikasi = 'Terverifikasi' THEN 1 ELSE 0 END) as total_verified")
+            ->selectRaw("SUM(CASE WHEN status_verifikasi = 'Ditolak' THEN 1 ELSE 0 END) as total_rejected")
+            ->first();
+
+        return [
+            'total_all' => (int) $counts->total_all,
+            'total_pending_all' => (int) $counts->total_pending_all,
+            'total_verified' => (int) $counts->total_verified,
+            'total_rejected' => (int) $counts->total_rejected,
+        ];
     }
 }

@@ -2,6 +2,11 @@
 
 > Arsip perubahan historis. Keterangan fitur/angka pengujian berlaku pada waktu pencatatan, bukan jaminan kondisi terkini. Rujukan revisi 21 Oktober 2026: [DFD](dfd.md) dan [user flow](user-flow.md).
 
+## 19 November 2026
+
+- **Audit Kritis: Fix Data Loss Verifikasi Perusahaan**: Admin Prodi dan Admin Fakultas kini memvalidasi 4 field tambahan (`bentuk_perusahaan`, `jumlah_pegawai`, `homepage`, `no_telp_fax`) pada `updateAndVerify()`, mencegah kehilangan data saat edit perusahaan.
+- **Optimisasi Performa Query**: Statistik perusahaan di halaman index ketiga controller verifikasi digabungkan dari 4 query `COUNT()` terpisah menjadi 1 query aggregate `CASE WHEN`. Query profil alumni hanya memuat kolom yang dibutuhkan. Eager-load biodata middleware dibatasi hanya untuk role alumni.
+
 ## 17 November 2026
 
 - **Ekspor Laporan Analisis PDF Utuh & Standarisasi Bilah Aksi Grafik**:

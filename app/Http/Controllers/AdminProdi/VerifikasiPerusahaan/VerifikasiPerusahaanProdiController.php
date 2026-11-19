@@ -92,12 +92,7 @@ class VerifikasiPerusahaanProdiController extends Controller
             'kabupatens' => $kabupatens,
             'negaras' => $negaras,
             'filters' => $filters,
-            'stats' => [
-                'total_all' => $this->companiesInScopeQuery($prodiId)->count(),
-                'total_pending_all' => $this->companiesInScopeQuery($prodiId)->where('status_verifikasi', 'Menunggu Verifikasi')->count(),
-                'total_verified' => $this->companiesInScopeQuery($prodiId)->where('status_verifikasi', 'Terverifikasi')->count(),
-                'total_rejected' => $this->companiesInScopeQuery($prodiId)->where('status_verifikasi', 'Ditolak')->count(),
-            ],
+            'stats' => $this->buildScopedStats($prodiId),
         ]);
     }
 
@@ -222,6 +217,11 @@ class VerifikasiPerusahaanProdiController extends Controller
             'skala' => 'nullable|string|in:Lokal,Nasional,Internasional',
             'jenis_perusahaan' => 'nullable|string|max:100',
             'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
+            // Fix: 4 field berikut sebelumnya tidak divalidasi, menyebabkan data hilang saat edit perusahaan
+            'bentuk_perusahaan' => 'nullable|string|max:60',
+            'jumlah_pegawai' => 'nullable|string|max:60',
+            'homepage' => 'nullable|string|max:255',
+            'no_telp_fax' => 'nullable|string|max:100',
             'jenis_lokasi' => 'required|string|in:Dalam Negeri,Luar Negeri',
             'kode_negara' => 'nullable|string|size:2|exists:ref_negara,kode_negara',
         ]);
@@ -298,5 +298,27 @@ class VerifikasiPerusahaanProdiController extends Controller
         );
 
         return redirect()->back()->with('success', "Perusahaan \"{$nama}\" berhasil dihapus.");
+    }
+
+    /**
+     * Optimisasi: menggabungkan 4 query COUNT terpisah menjadi 1 query aggregate dengan CASE WHEN.
+     *
+     * @return array{total_all: int, total_pending_all: int, total_verified: int, total_rejected: int}
+     */
+    private function buildScopedStats(int $prodiId): array
+    {
+        $counts = $this->companiesInScopeQuery($prodiId)
+            ->selectRaw('COUNT(*) as total_all')
+            ->selectRaw("SUM(CASE WHEN status_verifikasi = 'Menunggu Verifikasi' THEN 1 ELSE 0 END) as total_pending_all")
+            ->selectRaw("SUM(CASE WHEN status_verifikasi = 'Terverifikasi' THEN 1 ELSE 0 END) as total_verified")
+            ->selectRaw("SUM(CASE WHEN status_verifikasi = 'Ditolak' THEN 1 ELSE 0 END) as total_rejected")
+            ->first();
+
+        return [
+            'total_all' => (int) ($counts->total_all ?? 0),
+            'total_pending_all' => (int) ($counts->total_pending_all ?? 0),
+            'total_verified' => (int) ($counts->total_verified ?? 0),
+            'total_rejected' => (int) ($counts->total_rejected ?? 0),
+        ];
     }
 }
