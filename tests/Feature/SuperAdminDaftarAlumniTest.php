@@ -342,7 +342,7 @@ class SuperAdminDaftarAlumniTest extends TestCase
     }
 
     /**
-     * Test superadmin dapat mengunduh arsip ZIP berisi Excel per alumni untuk program studi dan tahun tertentu.
+     * Test superadmin dapat mengunduh berkas Excel per prodi dan tahun tertentu.
      */
     public function test_superadmin_can_export_zip_per_prodi_and_tahun(): void
     {
@@ -353,7 +353,7 @@ class SuperAdminDaftarAlumniTest extends TestCase
             ]));
 
         $response->assertStatus(200);
-        $response->assertHeader('content-type', 'application/zip');
+        $response->assertHeader('content-type', 'application/vnd.ms-excel; charset=UTF-8');
     }
 
     /**

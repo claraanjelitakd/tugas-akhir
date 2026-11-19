@@ -3,18 +3,22 @@
 namespace App\Http\Controllers\AdminFakultas\KelolaAlumni;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendBlastReminderEmailJob;
 use App\Mail\PengingatKuesionerAlumniMail;
 use App\Models\Biodata;
 use App\Models\Prodi;
 use App\Models\RefFakultas;
 use App\Models\User;
 use App\Services\Alumni\AlumniDirectoryQueryService;
+use App\Services\Export\AlumniProdiMultiSheetExcelExporter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * DaftarAlumniFakultasController
@@ -51,6 +55,7 @@ class DaftarAlumniFakultasController extends Controller
         $data = $directoryService->getDirectoryData($request, [
             'prodi_ids' => $prodiIdsFakultas,
             'fakultas_id' => $fakultasId,
+            'server_pagination' => true,
         ]);
 
         $data['user'] = $user;
@@ -91,5 +96,102 @@ class DaftarAlumniFakultasController extends Controller
         }
 
         return back()->with('success', "Email pengingat kuesioner berhasil dikirim ke {$alumni->nama} ({$targetEmail}).");
+    }
+
+    /**
+     * Unduh Berkas Excel Multi-Sheet Komprehensif per Program Studi dalam Fakultas
+     */
+    public function exportExcelProdi(Request $request): StreamedResponse|RedirectResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $fakultasId = (int) $user->fakultas_id;
+        $prodiId = (int) $request->input('prodi_id');
+
+        if (! $fakultasId) {
+            abort(403, 'Akun Anda belum dikaitkan dengan Fakultas.');
+        }
+
+        if (! $prodiId) {
+            return back()->with('error', 'Silakan pilih Program Studi terlebih dahulu untuk mengunduh berkas Excel.');
+        }
+
+        $prodisFakultas = Prodi::where('fakultas_id', $fakultasId)->pluck('id')->all();
+        if (! in_array($prodiId, $prodisFakultas, true)) {
+            abort(403, 'Program studi tidak berada di bawah naungan Fakultas Anda.');
+        }
+
+        $tahun = $request->input('tahun');
+        $semester = $request->input('semester');
+
+        return AlumniProdiMultiSheetExcelExporter::download($prodiId, $tahun, $semester);
+    }
+
+    /**
+     * Kirim Email Pengingat Massal ke Alumni Fakultas yang Belum Selesai (Berdasarkan Filter Aktif via Antrean)
+     */
+    public function blastEmail(Request $request): RedirectResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $fakultasId = (int) $user->fakultas_id;
+
+        if (! $fakultasId) {
+            abort(403, 'Akun Anda belum dikaitkan dengan Fakultas.');
+        }
+
+        $prodiIdsFakultas = Prodi::where('fakultas_id', $fakultasId)->pluck('id')->all();
+        $prodiIdInput = $request->input('prodi_id');
+        $tahun = $request->input('tahun');
+        $semester = $request->input('semester');
+        $search = $request->input('search');
+
+        $query = DB::table('v_alumni_audit_rekap')
+            ->where('is_complete_total', 0);
+
+        if ($prodiIdInput && $prodiIdInput !== 'all') {
+            $selectedProdiId = (int) $prodiIdInput;
+            if (! in_array($selectedProdiId, $prodiIdsFakultas, true)) {
+                abort(403, 'Program studi tidak valid.');
+            }
+            $query->where('prodi_id', $selectedProdiId);
+        } else {
+            $query->whereIn('prodi_id', $prodiIdsFakultas);
+        }
+
+        if ($tahun && $tahun !== 'all') {
+            $tahunNormalized = preg_match('/(\d{4})/', (string) $tahun, $matches) ? $matches[1] : $tahun;
+            $query->where(function ($q) use ($tahun, $tahunNormalized) {
+                $q->where('tahun_lulus', $tahunNormalized)
+                    ->orWhere('tahun_lulus', $tahun);
+            });
+        }
+
+        if ($semester && $semester !== 'all') {
+            $query->where('tahun_akademik_lulus', 'like', "%{$semester}%");
+        }
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('nama', 'like', "%{$search}%")
+                    ->orWhere('nim', 'like', "%{$search}%");
+            });
+        }
+
+        $biodataIds = $query->pluck('biodata_id')->filter()->all();
+
+        if (empty($biodataIds)) {
+            return back()->with('info', 'Tidak ditemukan alumni di fakultas yang belum menyelesaikan kuesioner pada filter aktif terpilih.');
+        }
+
+        SendBlastReminderEmailJob::dispatch($biodataIds, Auth::id(), [
+            'tahun' => $tahun ?: 'Semua',
+            'semester' => $semester ?: 'Semua',
+            'prodi_id' => $prodiIdInput ?: 'Semua Prodi Fakultas',
+            'fakultas_id' => $fakultasId,
+            'search' => $search ?: null,
+        ]);
+
+        return back()->with('success', 'Email pengingat tracer study untuk '.count($biodataIds).' alumni fakultas berhasil dijadwalkan ke dalam antrean sistem.');
     }
 }

@@ -57,10 +57,10 @@ const storedAnalyticsPanel = () => {
     if (typeof window === 'undefined') return 'charts';
 
     const storedPanel = window.localStorage.getItem(ANALYTICS_PANEL_STORAGE_KEY);
-    return ['charts', 'data'].includes(storedPanel) ? storedPanel : 'charts';
+    return ['charts', 'pivot', 'data'].includes(storedPanel) ? storedPanel : 'charts';
 };
 
-// Panel utama mengikuti Grafik Universitas: Grafik atau Data.
+// Panel utama mengikuti Grafik Universitas: Grafik, Pivot, atau Data.
 const activePanel = ref(storedAnalyticsPanel());
 
 // Menyimpan tab aktif agar pergantian bagian dan program studi tidak mengubah konteks pengguna.
@@ -69,8 +69,6 @@ watch(activePanel, (panel) => {
         window.localStorage.setItem(ANALYTICS_PANEL_STORAGE_KEY, panel);
     }
 });
-// Subtampilan Data menyediakan rincian records dan pivot instrumen.
-const dataView = ref('records');
 // Elemen grafik yang dipilih untuk drill-down responden inline.
 const selectedItem = ref(null);
 // Pertanyaan choice yang sedang aktif; dipakai agar KPI tidak selalu membaca item pertama.
@@ -84,6 +82,13 @@ const tableSearch = ref('');
 const currentPage = ref(1);
 // Batas jumlah records per halaman.
 const rowsPerPage = ref(20);
+
+// State pencarian dan paginasi untuk tabel drill-down responden inline di bawah grafik.
+const drillSearch = ref('');
+// Nomor halaman aktif untuk drill-down inline.
+const drillCurrentPage = ref(1);
+// Batas baris per halaman untuk drill-down inline (default: 10).
+const drillRowsPerPage = ref(10);
 
 // Menentukan apakah payload memiliki data yang dapat divisualisasikan.
 const hasData = computed(() => Boolean(currentAnalytics.value?.has_data));
@@ -167,8 +172,8 @@ const kpiCards = computed(() => {
         return [
             { label: 'Responden Evaluasi', value: formatNumber(summary.value.total_respondents, 0), note: `Dari ${formatNumber(summary.value.population_count, 0)} alumni terdata` },
             { label: 'Jawaban Valid', value: formatNumber(summary.value.valid_answers, 0), note: `${summary.value.total_questions || 0} butir pada bagian aktif` },
-            { label: 'Rata-rata Skor', value: `${summary.value.average_score || 0} / 5`, note: 'Rata-rata seluruh skor valid' },
-            { label: 'Median Skor', value: summary.value.median_score || 0, note: 'Nilai tengah seluruh skor valid' },
+            { label: 'Rata-rata Skor (Mean)', value: `${summary.value.average_score || 0} / 5`, note: 'Rata-rata seluruh skor valid (skala 1-5)' },
+            { label: 'Tingkat Kepuasan', value: `${summary.value.satisfaction_rate || 0}%`, note: 'Persentase skor 4 (Setuju) dan 5 (Sangat Setuju)' },
         ];
     }
 
@@ -248,15 +253,32 @@ const resetFilters = () => {
     selectedYear.value = defaultYear();
     selectedItem.value = null;
     activeQuestionContext.value = null;
-    dataView.value = 'records';
     tableSearch.value = '';
+    drillSearch.value = '';
     scheduleLoad();
 };
 
 // Menangani klik grafik dan menyimpan konteks pertanyaan/kategori yang dipilih.
 const handleChartSelect = (selection) => {
     selectedItem.value = selection;
-    currentPage.value = 1;
+    drillCurrentPage.value = 1;
+    drillSearch.value = '';
+};
+
+// Menangani klik filter kategori dari tabel pivot interaktif
+const handlePivotSelectCategory = (selection) => {
+    selectedItem.value = {
+        ...selection,
+        fromPivot: true,
+        item: {
+            key: selection.code,
+            title: selection.questionText,
+            type: selection.type,
+        },
+    };
+    activePanel.value = 'charts';
+    drillCurrentPage.value = 1;
+    drillSearch.value = '';
 };
 
 // Menyimpan tab pertanyaan aktif agar kartu ringkasan selalu ikut berganti.
@@ -267,32 +289,141 @@ const handleQuestionContext = (item) => {
 // Menghapus filter drill-down agar grafik kembali ke ringkasan seluruh bagian.
 const clearSelection = () => {
     selectedItem.value = null;
-    currentPage.value = 1;
+    drillCurrentPage.value = 1;
+    drillSearch.value = '';
 };
 
-// Membatasi rows pada pertanyaan/kategori yang diklik pada grafik.
-const selectedRecords = computed(() => {
-    const selection = selectedItem.value;
-    if (!selection?.item?.key) return [];
+// Teks ringkasan fokus analisis yang sedang dipilih
+const selectedItemHeadline = computed(() => {
+    if (!selectedItem.value) return '';
+    const sel = selectedItem.value;
+    const isChoice = sel.item?.type === 'choice'
+        || ['choice', 'single_choice', 'multiple_choice', 'select'].includes(sel.type);
 
-    const questionRecords = records.value.filter((record) => record.kode === selection.item.key);
-    if (selection.item.type !== 'choice' || !selection.label) return questionRecords;
-
-    const label = String(selection.label).toLowerCase();
-    return questionRecords.filter((record) => String(record.jawaban_label || '').toLowerCase().split(',').some((value) => value.trim() === label));
+    if (isChoice) {
+        return `Pilihan: "${sel.label}" pada butir "${sel.item?.title || sel.questionText || ''}"`;
+    }
+    if (sel.fromPivot && sel.type === 'rating_5') {
+        return `Butir: "${sel.questionText || sel.item?.title || ''}" (Skor ${sel.value} · ${sel.label})`;
+    }
+    return `Butir: "${sel.item?.title || sel.label}" (Rata-rata: ${sel.value ? Number(sel.value).toFixed(2) : '-'} / 5)`;
 });
 
-// Menyaring tabel berdasarkan drill-down grafik dan kata kunci pencarian.
+// Memberikan styling badge highlight yang sangat jelas dan kontras tinggi sesuai nilai skor atau opsi pilihan
+const getAnswerBadge = (record) => {
+    if (record.skor !== null && record.skor !== undefined && !isNaN(Number(record.skor))) {
+        const score = Number(record.skor);
+        if (score >= 4) {
+            return {
+                class: 'bg-[#DCFCE7] text-[#065F46] border border-[#86EFAC] font-bold',
+                label: `Skor ${score} · ${record.jawaban_label || (score === 5 ? 'Sangat Setuju' : 'Setuju')}`,
+            };
+        }
+        if (score === 3) {
+            return {
+                class: 'bg-slate-100 text-slate-700 border border-slate-300 font-semibold',
+                label: `Skor 3 · ${record.jawaban_label || 'Netral'}`,
+            };
+        }
+        return {
+            class: 'bg-[#FFE4E6] text-[#9F1239] border border-[#FECDD3] font-bold',
+            label: `Skor ${score} · ${record.jawaban_label || (score === 1 ? 'Sangat Tidak Setuju' : 'Tidak Setuju')}`,
+        };
+    }
+
+    return {
+        class: 'bg-[#F0FDF4] text-[#0D542B] border border-[#A7F3D0] font-bold',
+        label: record.jawaban_label || '-',
+    };
+};
+
+// Membatasi rows pada pertanyaan/kategori yang diklik pada grafik atau pivot.
+const selectedRecords = computed(() => {
+    const selection = selectedItem.value;
+    if (!selection) return records.value;
+
+    const code = selection.item?.key || selection.code;
+    if (!code) return records.value;
+
+    let questionRecords = records.value.filter((record) => String(record.kode) === String(code));
+
+    // Jika filter spesifik dari pivot table Likert (klik baris skor 1-5):
+    if (selection.fromPivot && selection.type === 'rating_5' && selection.value !== undefined && selection.value !== null) {
+        const targetScore = Number(selection.value);
+        return questionRecords.filter((record) => Number(record.skor) === targetScore);
+    }
+
+    const isChoice = selection.item?.type === 'choice'
+        || ['choice', 'single_choice', 'multiple_choice', 'select'].includes(selection.type);
+
+    if (isChoice && selection.label) {
+        const targetLabel = String(selection.label).toLowerCase().trim();
+        return questionRecords.filter((record) => {
+            const answer = String(record.jawaban_label || '').toLowerCase();
+            return answer.split(',').some((val) => val.trim() === targetLabel);
+        });
+    }
+
+    return questionRecords;
+});
+
+// Responden drill-down untuk tampilan panel grafik inline
+const drillRecords = computed(() => {
+    return selectedItem.value ? selectedRecords.value : records.value;
+});
+
+// Menyaring data responden drill-down berdasarkan kata kunci pencarian inline
+const filteredDrillRecords = computed(() => {
+    const source = drillRecords.value;
+    const query = drillSearch.value.trim().toLowerCase();
+    if (!query) return source;
+
+    return source.filter((record) => [
+        record.nama,
+        record.nim,
+        record.tahun_lulus,
+        record.aspek,
+        record.jawaban_label,
+        record.jawaban_lainnya,
+        record.nama_perusahaan,
+        record.posisi_jabatan,
+        record.divisi,
+        record.bidang_pekerjaan,
+        record.skills,
+        record.kode,
+    ].some((value) => String(value || '').toLowerCase().includes(query)));
+});
+
+// Paginasi tabel drill-down inline di bawah grafik
+const drillTotalPages = computed(() => Math.max(1, Math.ceil(filteredDrillRecords.value.length / drillRowsPerPage.value)));
+const paginatedDrillRecords = computed(() => {
+    const start = (drillCurrentPage.value - 1) * drillRowsPerPage.value;
+    return filteredDrillRecords.value.slice(start, start + drillRowsPerPage.value);
+});
+
+// Menyaring tabel tab Data berdasarkan kata kunci pencarian.
 const filteredRecords = computed(() => {
     const source = selectedItem.value ? selectedRecords.value : records.value;
     const query = tableSearch.value.trim().toLowerCase();
     if (!query) return source;
 
-    return source.filter((record) => [record.nama, record.nim, record.aspek, record.jawaban_label, record.kode]
-        .some((value) => String(value || '').toLowerCase().includes(query)));
+    return source.filter((record) => [
+        record.nama,
+        record.nim,
+        record.tahun_lulus,
+        record.aspek,
+        record.jawaban_label,
+        record.jawaban_lainnya,
+        record.nama_perusahaan,
+        record.posisi_jabatan,
+        record.divisi,
+        record.bidang_pekerjaan,
+        record.skills,
+        record.kode,
+    ].some((value) => String(value || '').toLowerCase().includes(query)));
 });
 
-// Membuat halaman tabel lokal tanpa mengubah jumlah data yang dihitung backend.
+// Membuat halaman tabel tab Data lokal tanpa mengubah jumlah data yang dihitung backend.
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredRecords.value.length / rowsPerPage.value)));
 const paginatedRecords = computed(() => {
     const start = (currentPage.value - 1) * rowsPerPage.value;
@@ -347,6 +478,12 @@ const handleDownloadProdiChart = () => {
 watch([tableSearch, rowsPerPage], () => { currentPage.value = 1; });
 watch(totalPages, () => {
     if (currentPage.value > totalPages.value) currentPage.value = totalPages.value;
+});
+
+// Menyesuaikan halaman drill-down ketika kata kunci atau ukuran baris berubah.
+watch([drillSearch, drillRowsPerPage], () => { drillCurrentPage.value = 1; });
+watch(drillTotalPages, () => {
+    if (drillCurrentPage.value > drillTotalPages.value) drillCurrentPage.value = drillTotalPages.value;
 });
 
 // Menyelaraskan filter lokal setelah server mengembalikan payload baru.
@@ -462,6 +599,11 @@ watch(() => props.analytics, (newAnalytics) => {
                                         Skala Penilaian: 1 = Sangat Tidak Setuju, 2 = Tidak Setuju, 3 = Netral, 4 = Setuju, 5 = Sangat Setuju.
                                     </p>
                                 </template>
+                                <template v-else-if="activePanel === 'pivot'">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Pivot Tabulasi Pertanyaan</p>
+                                    <h2 class="mt-1 text-xl font-extrabold text-slate-900">Distribusi Jawaban per Butir Instrumen</h2>
+                                    <p class="mt-1 text-xs text-slate-500">Tabulasi distribusi frekuensi, persentase, dan rata-rata skor seluruh pertanyaan pada bagian aktif.</p>
+                                </template>
                                 <template v-else>
                                     <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Detail Data Responden</p>
                                     <h2 class="mt-1 text-xl font-extrabold text-slate-900">{{ formatNumber(filteredRecords.length, 0) }} baris data sesuai filter</h2>
@@ -469,7 +611,7 @@ watch(() => props.analytics, (newAnalytics) => {
                                 </template>
                             </div>
 
-                            <!-- Bilah Aksi Terpadu: Grafik | Data | Unduh Grafik | Laporan PDF -->
+                            <!-- Bilah Aksi Terpadu: Grafik | Pivot | Data | Unduh Grafik | Laporan PDF -->
                             <div class="flex flex-wrap items-center gap-2 self-start lg:self-center shrink-0">
                                 <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs no-print">
                                     <button
@@ -479,6 +621,14 @@ watch(() => props.analytics, (newAnalytics) => {
                                         @click="activePanel = 'charts'"
                                     >
                                         Grafik
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
+                                        :class="activePanel === 'pivot' ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                                        @click="activePanel = 'pivot'"
+                                    >
+                                        Pivot
                                     </button>
                                     <button
                                         type="button"
@@ -507,26 +657,6 @@ watch(() => props.analytics, (newAnalytics) => {
                                         Laporan PDF
                                     </button>
                                 </div>
-
-                                <!-- Toggle Tampilan Records / Pivot ketika berada di Panel Data -->
-                                <div v-if="activePanel === 'data'" class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs no-print">
-                                    <button
-                                        type="button"
-                                        class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
-                                        :class="dataView === 'records' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                                        @click="dataView = 'records'"
-                                    >
-                                        Data responden
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="rounded-md px-3 py-1.5 font-bold transition-all cursor-pointer whitespace-nowrap"
-                                        :class="dataView === 'pivot' ? 'bg-[#0D542B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                                        @click="dataView = 'pivot'"
-                                    >
-                                        Pivot pertanyaan
-                                    </button>
-                                </div>
                             </div>
                         </div>
 
@@ -536,7 +666,7 @@ watch(() => props.analytics, (newAnalytics) => {
                                 <ProdiAnalyticsChartsPanel :items="visualizations" :section-order="selectedSectionOrder" :chart-type="chart.type" @select="handleChartSelect" @context-change="handleQuestionContext" />
                                 <p class="mt-3 border-t border-slate-100 pt-3 text-xs leading-5 text-slate-500">
                                     <span class="font-semibold text-[#0D542B]">Petunjuk:</span>
-                                    Klik batang, titik, atau kategori grafik untuk melihat responden pembentuknya. Rincian lengkap tersedia pada tab Data.
+                                    Klik batang atau kategori grafik untuk memfilter rincian responden secara langsung di bawah ini.
                                 </p>
                             </div>
 
@@ -549,73 +679,266 @@ watch(() => props.analytics, (newAnalytics) => {
                                 </ul>
                             </section>
 
-                            <section v-if="selectedItem" class="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
-                                <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                            <!-- Seamless Inline Context: Rincian Data Responden Drill-Down Lengkap ala Response Rate -->
+                            <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+                                <!-- Header Banner Fokus Analisis / Status Drill-Down -->
+                                <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center border-b border-slate-100 pb-4">
                                     <div class="min-w-0">
-                                        <p class="text-xs font-bold uppercase tracking-wider text-[#0D542B]">Analisis terpilih</p>
-                                        <!-- Pertanyaan lengkap dipindahkan ke kartu inline agar tidak terpotong di header. -->
-                                        <h3 class="mt-1 break-words text-base font-extrabold leading-6 text-slate-900">{{ selectedItem.item?.type === 'choice' ? selectedItem.label : selectedItem.item?.title }}</h3>
-                                        <p class="mt-1 text-xs leading-5 text-slate-600">
-                                            <span v-if="selectedItem.item?.type === 'choice'">Pertanyaan: {{ selectedItem.item?.title }}</span>
-                                            <span v-else>Skor yang dipilih: {{ selectedItem.value ?? '-' }} / 5</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider" :class="selectedItem ? 'bg-emerald-100 text-[#0D542B]' : 'bg-slate-100 text-slate-700'">
+                                                {{ selectedItem ? 'Fokus Analisis Terpilih' : 'Seluruh Responden Bagian Aktif' }}
+                                            </span>
+                                            <span class="text-xs font-semibold text-slate-500">
+                                                {{ formatNumber(filteredDrillRecords.length, 0) }} responden
+                                            </span>
+                                        </div>
+                                        <h3 class="mt-1.5 text-base font-extrabold text-slate-900 break-words">
+                                            {{ selectedItem ? selectedItemHeadline : chart.title }}
+                                        </h3>
+                                        <p class="mt-1 text-xs text-slate-500">
+                                            {{ selectedItem ? 'Menampilkan alumni yang membentuk nilai/pilihan ini dengan highlight jawaban yang dipilih.' : 'Klik segmen grafik di atas atau butir pada pivot untuk memfokuskan data responden tertentu.' }}
                                         </p>
                                     </div>
-                                    <button type="button" class="shrink-0 rounded-lg bg-[#0D542B] px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0A4322]" @click="activePanel = 'data'; dataView = 'records'">Lihat data pembentuk ({{ selectedRecords.length }})</button>
+                                    <div v-if="selectedItem" class="shrink-0">
+                                        <button
+                                            type="button"
+                                            class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                                            @click="clearSelection"
+                                        >
+                                            Tampilkan Seluruh Responden
+                                        </button>
+                                    </div>
                                 </div>
-                                <p class="mt-3 border-t border-emerald-200 pt-3 text-sm leading-6 text-slate-700">Klik grafik menyaring responden yang membentuk nilai atau kategori tersebut. Data lengkap tetap tersedia pada tab Data.</p>
-                                <!-- Tabel ringkas mempertahankan konteks klik sekaligus memberi aksi tindak lanjut alumni. -->
-                                <div class="mt-4 overflow-x-auto rounded-lg border border-emerald-200 bg-white">
-                                    <table class="min-w-[760px] w-full divide-y divide-slate-200 text-left text-xs">
-                                        <thead class="bg-emerald-50/60 font-semibold text-slate-700"><tr><th class="px-3 py-2.5">Alumni</th><th class="px-3 py-2.5">NIM</th><th class="px-3 py-2.5">Jawaban</th><th class="px-3 py-2.5">Isian Lainnya</th><th class="px-3 py-2.5 text-center">Aksi</th></tr></thead>
-                                        <tbody class="divide-y divide-slate-100">
-                                            <tr v-for="record in selectedRecords.slice(0, 6)" :key="record.response_id" class="hover:bg-slate-50">
-                                                <td class="px-3 py-2.5 font-semibold text-slate-800">{{ record.nama }}</td><td class="px-3 py-2.5 font-mono text-slate-600">{{ record.nim }}</td><td class="px-3 py-2.5 text-slate-700">{{ record.jawaban_label || '-' }}</td><td class="px-3 py-2.5 text-slate-700">{{ record.jawaban_lainnya || '-' }}</td>
-                                                <td class="px-3 py-2.5"><div class="flex items-center justify-center gap-1.5"><Link :href="detailUrl(record)" class="p-1.5 text-slate-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Lihat Detail Alumni & Audit Kuesioner"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></Link><a v-if="record.nomor_telepon" :href="formatWhatsAppUrl(record)" target="_blank" class="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Hubungi via WhatsApp"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" /></svg></a><a v-if="record.email" :href="formatEmailUrl(record)" class="p-1.5 text-slate-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Kirim email"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 00-2 2z" /></svg></a><a v-if="isValidLinkedInProfileUrl(record.linkedin_url)" :href="record.linkedin_url" target="_blank" rel="noopener noreferrer" class="p-1.5 text-slate-600 hover:text-[#0077B5] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Buka profil LinkedIn"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.58c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.68H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.32 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM3.54 9h3.56v11.45H3.54V9z" /></svg></a></div></td>
+
+                                <!-- Toolbar Pencarian & Filter Per-Halaman Drill-Down -->
+                                <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div class="w-full max-w-md">
+                                        <input
+                                            v-model="drillSearch"
+                                            type="search"
+                                            class="block w-full rounded-lg border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-[#0D542B] focus:bg-white focus:ring-1 focus:ring-[#0D542B]"
+                                            placeholder="Cari nama, NIM, pekerjaan, atau jawaban..."
+                                        />
+                                    </div>
+                                    <label class="flex items-center gap-2 text-xs text-slate-500 self-end sm:self-auto">
+                                        Per halaman:
+                                        <select v-model="drillRowsPerPage" class="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold outline-none focus:border-[#0D542B]">
+                                            <option :value="10">10</option>
+                                            <option :value="20">20</option>
+                                            <option :value="50">50</option>
+                                        </select>
+                                    </label>
+                                </div>
+
+                                <!-- Tabel Responden Drill-Down Lengkap -->
+                                <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+                                    <table class="min-w-[1080px] w-full divide-y divide-slate-200 text-left text-xs">
+                                        <thead>
+                                            <tr class="bg-slate-100 font-semibold text-slate-700">
+                                                <th class="w-12 px-3 py-3 text-center">No</th>
+                                                <th class="px-3 py-3 whitespace-nowrap">NIM</th>
+                                                <th class="px-3 py-3 min-w-[160px]">Nama Alumni</th>
+                                                <th class="px-3 py-3 text-center whitespace-nowrap">Tahun Lulus</th>
+                                                <th class="px-3 py-3 min-w-[220px]">Pekerjaan &amp; Perusahaan</th>
+                                                <th class="px-3 py-3 min-w-[220px]">Pertanyaan / Aspek</th>
+                                                <th class="px-3 py-3 min-w-[200px]">Highlight Jawaban Terpilih</th>
+                                                <th class="px-3 py-3 min-w-[180px]">Isian Lainnya</th>
+                                                <th class="px-3 py-3 text-center w-28 whitespace-nowrap">Aksi</th>
                                             </tr>
-                                            <tr v-if="selectedRecords.length === 0"><td colspan="5" class="px-3 py-6 text-center text-slate-500">Tidak ada responden yang membentuk pilihan ini.</td></tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100 bg-white">
+                                            <tr v-if="paginatedDrillRecords.length === 0">
+                                                <td colspan="9" class="px-3 py-8 text-center text-slate-500">
+                                                    Tidak ada data responden yang sesuai dengan kriteria pencarian.
+                                                </td>
+                                            </tr>
+                                            <tr
+                                                v-for="(record, index) in paginatedDrillRecords"
+                                                :key="record.response_id || index"
+                                                class="transition-colors hover:bg-slate-50"
+                                            >
+                                                <td class="px-3 py-2.5 text-center font-mono text-slate-400">
+                                                    {{ (drillCurrentPage - 1) * drillRowsPerPage + index + 1 }}
+                                                </td>
+                                                <td class="px-3 py-2.5 font-mono text-slate-700 whitespace-nowrap">
+                                                    {{ record.nim }}
+                                                </td>
+                                                <td class="px-3 py-2.5 font-semibold text-slate-800 whitespace-nowrap">
+                                                    {{ record.nama }}
+                                                </td>
+                                                <td class="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">
+                                                    {{ record.tahun_lulus }}
+                                                </td>
+                                                <td class="px-3 py-2.5 align-top text-slate-700">
+                                                    <div class="space-y-0.5 leading-snug">
+                                                        <p class="font-bold text-slate-900">
+                                                            {{ record.nama_perusahaan !== '-' ? record.nama_perusahaan : 'Belum Bekerja / Terdata' }}
+                                                        </p>
+                                                        <p v-if="record.posisi_jabatan && record.posisi_jabatan !== '-'" class="text-slate-600 font-medium">
+                                                            {{ record.posisi_jabatan }}
+                                                            <span v-if="record.divisi && record.divisi !== '-'" class="text-slate-400">· {{ record.divisi }}</span>
+                                                        </p>
+                                                        <p v-if="record.bidang_pekerjaan && record.bidang_pekerjaan !== '-'" class="text-[11px] text-slate-500">
+                                                            Bidang: {{ record.bidang_pekerjaan }}
+                                                        </p>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-2.5 leading-5 text-slate-700">
+                                                    {{ record.aspek }}
+                                                </td>
+                                                <td class="px-3 py-2.5 align-middle">
+                                                    <!-- Highlight Jawaban Terpilih (High-Contrast Badge) -->
+                                                    <span
+                                                        class="inline-flex items-center px-2.5 py-1 rounded-md text-xs shadow-xs"
+                                                        :class="getAnswerBadge(record).class"
+                                                    >
+                                                        {{ getAnswerBadge(record).label }}
+                                                    </span>
+                                                </td>
+                                                <td class="px-3 py-2.5 leading-5 text-slate-700">
+                                                    {{ record.jawaban_lainnya || '-' }}
+                                                </td>
+                                                <td class="px-3 py-2.5 text-center whitespace-nowrap">
+                                                    <div class="inline-flex items-center justify-center gap-1">
+                                                        <!-- Detail Profil Alumni -->
+                                                        <Link
+                                                            :href="detailUrl(record)"
+                                                            class="p-1.5 text-slate-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                                                            title="Lihat Profil & Detail Kuesioner Alumni"
+                                                        >
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                        </Link>
+                                                        <!-- WhatsApp -->
+                                                        <a
+                                                            v-if="record.nomor_telepon"
+                                                            :href="formatWhatsAppUrl(record)"
+                                                            target="_blank"
+                                                            class="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                                                            title="Hubungi via WhatsApp"
+                                                        >
+                                                            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" /></svg>
+                                                        </a>
+                                                        <!-- Email -->
+                                                        <a
+                                                            v-if="record.email"
+                                                            :href="formatEmailUrl(record)"
+                                                            class="p-1.5 text-slate-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                                                            title="Kirim email"
+                                                        >
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 00-2 2z" /></svg>
+                                                        </a>
+                                                        <!-- LinkedIn -->
+                                                        <a
+                                                            v-if="isValidLinkedInProfileUrl(record.linkedin_url)"
+                                                            :href="record.linkedin_url"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            class="p-1.5 text-slate-600 hover:text-[#0077B5] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                                            title="Buka profil LinkedIn"
+                                                        >
+                                                            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.58c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.68H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.32 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM3.54 9h3.56v11.45H3.54V9z" /></svg>
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         </tbody>
                                     </table>
                                 </div>
-                                <p v-if="selectedRecords.length > 6" class="mt-2 text-[11px] text-slate-500">Menampilkan 6 nama pertama dari {{ selectedRecords.length }} responden. Buka Data untuk melihat semuanya.</p>
+
+                                <!-- Paginasi Drill-Down -->
+                                <PaginationControls
+                                    :total="filteredDrillRecords.length"
+                                    :current-page="drillCurrentPage"
+                                    :page-size="drillRowsPerPage"
+                                    summary-label="responden"
+                                    @update:current-page="drillCurrentPage = $event"
+                                />
                             </section>
                         </div>
 
-                        <!-- Panel data memiliki records dan pivot dinamis agar struktur universitas tetap ringkas. -->
-                        <div v-else class="mt-5 space-y-4">
+                        <!-- Panel Pivot: Tab Tabel Pivot Pertanyaan Dinamis & Interaktif -->
+                        <div v-else-if="activePanel === 'pivot'" class="mt-5 space-y-4">
+                            <ProdiPivotTable :pivot="pivotRows" @select-category="handlePivotSelectCategory" />
                         </div>
 
-                        <template v-if="dataView === 'records'">
-                            <div v-if="selectedItem" class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-900">
-                                <span>Filter grafik aktif: <strong>{{ selectedItem.label }}</strong></span>
-                                <button type="button" class="font-bold underline" @click="clearSelection">Hapus filter grafik</button>
+                        <!-- Panel Data: Tab Tabel Data Responden Lengkap -->
+                        <div v-else class="mt-5 space-y-4">
+                            <div v-if="selectedItem" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-900">
+                                <span>Filter aktif: <strong>{{ selectedItemHeadline }}</strong></span>
+                                <button type="button" class="font-bold underline cursor-pointer" @click="clearSelection">Hapus filter</button>
                             </div>
-                            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <input v-model="tableSearch" type="search" class="block w-full max-w-md rounded-lg border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-[#0D542B] focus:bg-white focus:ring-1 focus:ring-[#0D542B]" placeholder="Cari nama, NIM, pertanyaan, atau jawaban..." />
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <input v-model="tableSearch" type="search" class="block w-full max-w-md rounded-lg border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-[#0D542B] focus:bg-white focus:ring-1 focus:ring-[#0D542B]" placeholder="Cari nama, NIM, pertanyaan, pekerjaan, atau jawaban..." />
                                 <label class="flex items-center gap-2 text-xs text-slate-500">Per halaman:
                                     <select v-model="rowsPerPage" class="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold outline-none focus:border-[#0D542B]"><option :value="10">10</option><option :value="20">20</option><option :value="50">50</option></select>
                                 </label>
                             </div>
-                            <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+                            <div class="overflow-x-auto rounded-lg border border-slate-200">
                                 <table class="min-w-[1080px] w-full divide-y divide-slate-200 text-left text-xs">
-                                    <thead><tr class="bg-slate-100 font-semibold text-slate-700"><th class="w-12 px-3 py-3 text-center">No</th><th class="px-3 py-3">Nama Alumni</th><th class="px-3 py-3">NIM</th><th class="px-3 py-3">Tahun Lulus</th><th class="px-3 py-3 min-w-[300px]">Pertanyaan</th><th class="px-3 py-3 min-w-[190px]">Jawaban</th><th class="px-3 py-3 min-w-[190px]">Isian Lainnya</th><th class="px-3 py-3 text-center">Skor</th></tr></thead>
+                                    <thead>
+                                        <tr class="bg-slate-100 font-semibold text-slate-700">
+                                            <th class="w-12 px-3 py-3 text-center">No</th>
+                                            <th class="px-3 py-3 whitespace-nowrap">NIM</th>
+                                            <th class="px-3 py-3 min-w-[160px]">Nama Alumni</th>
+                                            <th class="px-3 py-3 text-center whitespace-nowrap">Tahun Lulus</th>
+                                            <th class="px-3 py-3 min-w-[220px]">Pekerjaan &amp; Perusahaan</th>
+                                            <th class="px-3 py-3 min-w-[220px]">Pertanyaan / Aspek</th>
+                                            <th class="px-3 py-3 min-w-[200px]">Highlight Jawaban</th>
+                                            <th class="px-3 py-3 min-w-[180px]">Isian Lainnya</th>
+                                            <th class="px-3 py-3 text-center w-28 whitespace-nowrap">Aksi</th>
+                                        </tr>
+                                    </thead>
                                     <tbody class="divide-y divide-slate-100 bg-white">
-                                        <tr v-if="paginatedRecords.length === 0"><td colspan="8" class="px-3 py-8 text-center text-slate-500">Tidak ada data responden yang sesuai.</td></tr>
+                                        <tr v-if="paginatedRecords.length === 0">
+                                            <td colspan="9" class="px-3 py-8 text-center text-slate-500">Tidak ada data responden yang sesuai.</td>
+                                        </tr>
                                         <tr v-for="(row, index) in paginatedRecords" :key="row.response_id || index" class="transition-colors hover:bg-slate-50">
-                                            <td class="px-3 py-2.5 text-center font-mono text-slate-400">{{ (currentPage - 1) * rowsPerPage + index + 1 }}</td><td class="px-3 py-2.5 font-semibold text-slate-800">{{ row.nama }}</td><td class="px-3 py-2.5 font-mono text-slate-700">{{ row.nim }}</td><td class="px-3 py-2.5 text-slate-600">{{ row.tahun_lulus }}</td><td class="px-3 py-2.5 leading-5 text-slate-700">{{ row.aspek }}</td><td class="px-3 py-2.5 font-medium leading-5 text-slate-800">{{ row.jawaban_label || '-' }}</td><td class="px-3 py-2.5 leading-5 text-slate-700">{{ row.jawaban_lainnya || '-' }}</td><td class="px-3 py-2.5 text-center font-bold text-slate-700">{{ row.skor ?? '-' }}</td>
+                                            <td class="px-3 py-2.5 text-center font-mono text-slate-400">{{ (currentPage - 1) * rowsPerPage + index + 1 }}</td>
+                                            <td class="px-3 py-2.5 font-mono text-slate-700 whitespace-nowrap">{{ row.nim }}</td>
+                                            <td class="px-3 py-2.5 font-semibold text-slate-800 whitespace-nowrap">{{ row.nama }}</td>
+                                            <td class="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">{{ row.tahun_lulus }}</td>
+                                            <td class="px-3 py-2.5 align-top text-slate-700">
+                                                <div class="space-y-0.5 leading-snug">
+                                                    <p class="font-bold text-slate-900">{{ row.nama_perusahaan !== '-' ? row.nama_perusahaan : 'Belum Bekerja / Terdata' }}</p>
+                                                    <p v-if="row.posisi_jabatan && row.posisi_jabatan !== '-'" class="text-slate-600 font-medium">{{ row.posisi_jabatan }} <span v-if="row.divisi && row.divisi !== '-'" class="text-slate-400">· {{ row.divisi }}</span></p>
+                                                    <p v-if="row.bidang_pekerjaan && row.bidang_pekerjaan !== '-'" class="text-[11px] text-slate-500">Bidang: {{ row.bidang_pekerjaan }}</p>
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-2.5 leading-5 text-slate-700">{{ row.aspek }}</td>
+                                            <td class="px-3 py-2.5 align-middle">
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs shadow-xs" :class="getAnswerBadge(row).class">
+                                                    {{ getAnswerBadge(row).label }}
+                                                </span>
+                                            </td>
+                                            <td class="px-3 py-2.5 leading-5 text-slate-700">{{ row.jawaban_lainnya || '-' }}</td>
+                                            <td class="px-3 py-2.5 text-center whitespace-nowrap">
+                                                <div class="inline-flex items-center justify-center gap-1">
+                                                    <Link :href="detailUrl(row)" class="p-1.5 text-slate-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Lihat Detail Alumni">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                    </Link>
+                                                    <a v-if="row.nomor_telepon" :href="formatWhatsAppUrl(row)" target="_blank" class="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Hubungi via WhatsApp">
+                                                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" /></svg>
+                                                    </a>
+                                                    <a v-if="row.email" :href="formatEmailUrl(row)" class="p-1.5 text-slate-600 hover:text-[#0D542B] hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" title="Kirim email">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 00-2 2z" /></svg>
+                                                    </a>
+                                                    <a v-if="isValidLinkedInProfileUrl(row.linkedin_url)" :href="row.linkedin_url" target="_blank" rel="noopener noreferrer" class="p-1.5 text-slate-600 hover:text-[#0077B5] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Buka LinkedIn">
+                                                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.58c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.68H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.32 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM3.54 9h3.56v11.45H3.54V9z" /></svg>
+                                                    </a>
+                                                </div>
+                                            </td>
                                         </tr>
                                     </tbody>
                                 </table>
                             </div>
-                            <!-- Pagination data responden mengikuti kontrol bersama. -->
                             <PaginationControls
                                 :total="filteredRecords.length"
                                 :current-page="currentPage"
                                 :page-size="rowsPerPage"
-                                summary-label="jawaban"
+                                summary-label="responden"
                                 @update:current-page="currentPage = $event"
                             />
-                        </template>
-                        <ProdiPivotTable v-else :pivot="pivotRows" />
+                        </div>
                     </section>
                 </template>
 

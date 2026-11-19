@@ -27,8 +27,8 @@ defineProps({
         role="admin_fakultas"
         role-title="Admin Fakultas"
         prefix="fakultas"
-        :can-export-zip="false"
-        :can-blast-email="false"
+        :can-export-zip="true"
+        :can-blast-email="true"
         :show-prodi-filter="true"
     />
 </template>

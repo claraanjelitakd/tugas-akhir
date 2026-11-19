@@ -242,6 +242,8 @@ class KuesionerSyncService
 
         $profileMap = (array) $autofill;
         $profileMap['BIO_PEND_TINGKAT'] = $biodata->pendidikan_tingkat;
+        $wargaNegara = $biodata->dataAkademik?->warga_negara ?: ($biodata->warga_negara ?: 'WNI');
+        $profileMap['BIO_WARGA_NEGARA'] = str_contains(strtoupper((string) $wargaNegara), 'WNA') ? 'WNA' : 'WNI';
 
         unset($profileMap['user_id'], $profileMap['biodata_id'], $profileMap['nim']);
 

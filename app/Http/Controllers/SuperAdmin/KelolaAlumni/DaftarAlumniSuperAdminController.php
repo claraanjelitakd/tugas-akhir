@@ -3,18 +3,20 @@
 namespace App\Http\Controllers\SuperAdmin\KelolaAlumni;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendBlastReminderEmailJob;
 use App\Mail\PengingatKuesionerAlumniMail;
 use App\Models\Biodata;
 use App\Models\Prodi;
 use App\Services\Alumni\AlumniDirectoryQueryService;
-use App\Services\Export\AlumniTracerExcelExporter;
+use App\Services\Export\AlumniProdiMultiSheetExcelExporter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * DaftarAlumniSuperAdminController
@@ -44,103 +46,12 @@ class DaftarAlumniSuperAdminController extends Controller
     }
 
     /**
-     * Download Berkas ZIP berisi Excel (.xls) per Lulusan untuk Prodi dan Tahun Tertentu.
-     *
-     * @param  Request  $request  HTTP request yang memuat prodi_id dan tahun
-     * @return BinaryFileResponse|RedirectResponse
+     * Unduh Berkas Excel Multi-Sheet Komprehensif per Program Studi
+     * (Dialihkan ke format 1 berkas Excel multi-sheet per prodi agar tidak lagi berupa arsip ZIP individual).
      */
-    public function exportZip(Request $request)
+    public function exportZip(Request $request): StreamedResponse|RedirectResponse
     {
-        $prodiId = $request->input('prodi_id');
-        $tahun = $request->input('tahun');
-
-        if (! $prodiId || $prodiId === 'all') {
-            return back()->with('error', 'Silakan pilih Program Studi terlebih dahulu untuk mengunduh arsip ZIP.');
-        }
-
-        $prodi = Prodi::findOrFail($prodiId);
-
-        // Ambil ID biodata yang cocok melalui view database v_alumni_audit_rekap
-        $auditQuery = DB::table('v_alumni_audit_rekap')
-            ->where('prodi_id', $prodiId);
-
-        if ($tahun && $tahun !== 'all') {
-            $auditQuery->where('tahun_lulus', $tahun);
-        }
-
-        $biodataIds = $auditQuery->pluck('biodata_id')->filter()->unique()->values()->all();
-
-        if (empty($biodataIds)) {
-            $fallbackQuery = Biodata::where('prodi_id', $prodiId);
-            if ($tahun && $tahun !== 'all') {
-                $fallbackQuery->whereHas('dataAkademik', function ($da) use ($tahun) {
-                    $da->where('tahun_lulus', $tahun);
-                });
-            }
-
-            $alumnis = $fallbackQuery->with([
-                'dataAkademik.yudisium',
-                'yudisium',
-                'propinsi',
-                'kabupaten',
-                'perusahaan.propinsi',
-                'perusahaan.kabupaten',
-                'atasan',
-                'user',
-                'prodi.fakultas',
-                'evaluasiAtasan.atasan',
-                'evaluasiAtasan.perusahaan',
-                'evaluasiAtasan.respons.pertanyaan',
-            ])->get();
-        } else {
-            $alumnis = Biodata::whereIn('id', $biodataIds)
-                ->with([
-                    'dataAkademik.yudisium',
-                    'yudisium',
-                    'propinsi',
-                    'kabupaten',
-                    'perusahaan.propinsi',
-                    'perusahaan.kabupaten',
-                    'atasan',
-                    'user',
-                    'prodi.fakultas',
-                    'evaluasiAtasan.atasan',
-                    'evaluasiAtasan.perusahaan',
-                    'evaluasiAtasan.respons.pertanyaan',
-                ])
-                ->get();
-        }
-
-        if ($alumnis->isEmpty()) {
-            return back()->with('error', 'Tidak ditemukan data alumni untuk Program Studi '.$prodi->nama_prodi.' pada tahun '.$tahun.'.');
-        }
-
-        $cleanProdiName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $prodi->nama_prodi);
-        $cleanTahun = $tahun ?: 'Terbaru';
-        $zipFileName = "Tracer_Study_{$cleanProdiName}_{$cleanTahun}.zip";
-
-        $zipPath = tempnam(sys_get_temp_dir(), 'tracer_zip_');
-        $zip = new \ZipArchive;
-
-        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
-            return back()->with('error', 'Gagal memproses arsip ZIP di server.');
-        }
-
-        foreach ($alumnis as $alumni) {
-            $excelContent = AlumniTracerExcelExporter::generateExcelContent($alumni);
-            $nim = preg_replace('/[^a-zA-Z0-9_-]/', '_', (string) $alumni->nim);
-            $nama = preg_replace('/[^a-zA-Z0-9_-]/', '_', (string) ($alumni->nama ?? 'Alumni'));
-            $excelFileName = "Tracer_Study_{$nim}_{$nama}.xls";
-
-            $zip->addFromString($excelFileName, $excelContent);
-        }
-
-        $zip->close();
-
-        return response()->download($zipPath, $zipFileName, [
-            'Content-Type' => 'application/zip',
-            'Cache-Control' => 'no-cache, no-store, must-revalidate',
-        ])->deleteFileAfterSend(true);
+        return $this->exportExcelProdi($request);
     }
 
     /**
@@ -166,5 +77,72 @@ class DaftarAlumniSuperAdminController extends Controller
         }
 
         return back()->with('success', "Email pengingat kuesioner berhasil dikirim ke {$alumni->nama} ({$targetEmail}).");
+    }
+
+    /**
+     * Unduh Berkas Excel Multi-Sheet Komprehensif per Program Studi
+     */
+    public function exportExcelProdi(Request $request): StreamedResponse|RedirectResponse
+    {
+        $prodiId = $request->input('prodi_id');
+        $tahun = $request->input('tahun');
+        $semester = $request->input('semester');
+
+        if (! $prodiId || $prodiId === 'all') {
+            return back()->with('error', 'Silakan pilih Program Studi terlebih dahulu untuk mengunduh berkas Excel.');
+        }
+
+        return AlumniProdiMultiSheetExcelExporter::download((int) $prodiId, $tahun, $semester);
+    }
+
+    /**
+     * Kirim Email Pengingat Massal ke Alumni yang Belum Selesai (Berdasarkan Filter Aktif via Antrean)
+     */
+    public function blastEmail(Request $request): RedirectResponse
+    {
+        $tahun = $request->input('tahun');
+        $semester = $request->input('semester');
+        $prodiId = $request->input('prodi_id');
+        $search = $request->input('search');
+
+        $query = DB::table('v_alumni_audit_rekap')->where('is_complete_total', 0);
+
+        if ($prodiId && $prodiId !== 'all') {
+            $query->where('prodi_id', $prodiId);
+        }
+
+        if ($tahun && $tahun !== 'all') {
+            $tahunNormalized = preg_match('/(\d{4})/', (string) $tahun, $matches) ? $matches[1] : $tahun;
+            $query->where(function ($q) use ($tahun, $tahunNormalized) {
+                $q->where('tahun_lulus', $tahunNormalized)
+                    ->orWhere('tahun_lulus', $tahun);
+            });
+        }
+
+        if ($semester && $semester !== 'all') {
+            $query->where('tahun_akademik_lulus', 'like', "%{$semester}%");
+        }
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('nama', 'like', "%{$search}%")
+                    ->orWhere('nim', 'like', "%{$search}%");
+            });
+        }
+
+        $biodataIds = $query->pluck('biodata_id')->filter()->all();
+
+        if (empty($biodataIds)) {
+            return back()->with('info', 'Tidak ditemukan alumni yang belum menyelesaikan kuesioner pada filter aktif terpilih.');
+        }
+
+        SendBlastReminderEmailJob::dispatch($biodataIds, Auth::id(), [
+            'tahun' => $tahun ?: 'Semua',
+            'semester' => $semester ?: 'Semua',
+            'prodi_id' => $prodiId ?: 'Semua',
+            'search' => $search ?: null,
+        ]);
+
+        return back()->with('success', 'Email pengingat tracer study untuk '.count($biodataIds).' alumni berhasil dijadwalkan ke dalam antrean sistem.');
     }
 }

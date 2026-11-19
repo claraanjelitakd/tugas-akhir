@@ -153,14 +153,15 @@ const prodiPipelineData = computed(() => {
 });
 
 // Opsi stacked bar 100% horizontal untuk membandingkan proporsi tahapan pipeline per prodi.
-// Menggunakan batang bertumpuk (stacked bar) dengan legend diletakkan di bagian atas.
+// Menggunakan batang bertumpuk (stacked bar) dengan urutan: Mengirim Lamaran -> Direspons -> Diwawancara.
 const pipelineStackedBarOption = computed(() => {
     const list = prodiPipelineData.value;
-    const categories = ['Perusahaan Dilamar', 'Merespon', 'Mewawancara'];
+    const categories = ['Mengirim Lamaran', 'Direspons', 'Diwawancara'];
+    const stageKeys = ['dilamar', 'merespon', 'wawancara'];
     const colors = ['#B91C1C', '#EAB308', '#0D542B'];
-    const labelColors = ['#FFFFFF', '#334155', '#FFFFFF'];
+    const labelColors = ['#FFFFFF', '#1E293B', '#FFFFFF'];
     const rows = list.map((item) => {
-        const total = item.dilamar + item.merespon + item.wawancara;
+        const total = Number(item.dilamar || 0) + Number(item.merespon || 0) + Number(item.wawancara || 0);
 
         return { ...item, total };
     });
@@ -169,11 +170,15 @@ const pipelineStackedBarOption = computed(() => {
         ...baseOption(records.value.length),
         legend: {
             data: categories,
-            top: 0,
+            top: 8,
             left: 'center',
+            icon: 'rect',
+            itemWidth: 14,
+            itemHeight: 12,
+            itemGap: 18,
             textStyle: { color: '#334155', fontWeight: 600, fontSize: 12 },
         },
-        grid: { left: 16, right: 48, top: 40, bottom: 24, containLabel: true },
+        grid: { left: 16, right: 48, top: 52, bottom: 28, containLabel: true },
         xAxis: {
             type: 'value',
             min: 0,
@@ -185,7 +190,7 @@ const pipelineStackedBarOption = computed(() => {
             type: 'category',
             inverse: true,
             data: rows.map((item) => `${item.prodi} (n=${item.count})`),
-            axisLabel: { color: '#334155', width: 180, overflow: 'truncate', fontWeight: 500 },
+            axisLabel: { color: '#334155', width: 190, overflow: 'truncate', fontWeight: 500 },
         },
         tooltip: {
             ...baseOption().tooltip,
@@ -198,7 +203,8 @@ const pipelineStackedBarOption = computed(() => {
                     <div class="font-sans text-xs">
                         <div class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5">${escapeHtml(item.prodi)} (n=${item.count} alumni)</div>
                         ${categories.map((category, index) => {
-                            const value = [item.dilamar, item.merespon, item.wawancara][index];
+                            const key = stageKeys[index];
+                            const value = Number(item[key] || 0);
                             const percentage = item.total > 0 ? (value / item.total) * 100 : 0;
 
                             return `<div class="text-slate-600 mb-0.5">${category}: <strong>${formatNumber(value, 1)} perusahaan (${formatNumber(percentage, 1)}%)</strong></div>`;
@@ -208,38 +214,43 @@ const pipelineStackedBarOption = computed(() => {
                 `;
             },
         },
-        series: categories.map((category, index) => ({
-            name: category,
-            type: 'bar',
-            stack: 'pipeline',
-            barMaxWidth: 18,
-            itemStyle: { color: colors[index] },
-            label: {
-                show: true,
-                position: 'inside',
-                formatter: ({ data }) => {
-                    const pct = data?.percentage;
-                    return pct && pct >= 10 ? `${formatNumber(pct, 1)}%` : '';
-                },
-                color: labelColors[index],
-                fontWeight: 600,
-                fontSize: 10,
-            },
-            data: rows.map((item) => {
-                const value = [item.dilamar, item.merespon, item.wawancara][index];
-                const percentage = item.total > 0 ? (value / item.total) * 100 : 0;
+        series: categories.map((category, index) => {
+            const key = stageKeys[index];
 
-                return {
-                    name: item.prodi,
-                    prodi: item.prodi,
-                    category,
-                    stageKey: ['f6', 'f7', 'f7a'][index],
-                    value: Number(percentage.toFixed(2)),
-                    percentage,
-                    count: value,
-                };
-            }),
-        })),
+            return {
+                name: category,
+                type: 'bar',
+                stack: 'pipeline',
+                stackOrder: index + 1,
+                barMaxWidth: 18,
+                itemStyle: { color: colors[index] },
+                label: {
+                    show: true,
+                    position: 'inside',
+                    formatter: ({ data }) => {
+                        const pct = data?.percentage;
+                        return pct && pct >= 10 ? `${formatNumber(pct, 1)}%` : '';
+                    },
+                    color: labelColors[index],
+                    fontWeight: 600,
+                    fontSize: 10,
+                },
+                data: rows.map((item) => {
+                    const value = Number(item[key] || 0);
+                    const percentage = item.total > 0 ? (value / item.total) * 100 : 0;
+
+                    return {
+                        name: item.prodi,
+                        prodi: item.prodi,
+                        category,
+                        stageKey: ['f6', 'f7', 'f7a'][index],
+                        value: Number(percentage.toFixed(2)),
+                        percentage,
+                        count: value,
+                    };
+                }),
+            };
+        }),
     };
 });
 
@@ -633,16 +644,33 @@ const scatter2Table = computed(() => props.chart?.relation_tables?.responses_int
     summary: { columns: [], rows: [] },
 });
 
+// Tabel audit individu untuk lamaran terhadap undangan wawancara / diterima dari backend.
+const scatter3Table = computed(() => props.chart?.relation_tables?.applications_interviews || {
+    columns: [],
+    rows: [],
+    summary: { columns: [], rows: [] },
+});
+
 // -----------------------------------------------------------------------------
-// 4. STACKED BAR: Distribusi Konversi berdasarkan Kelompok IPK
+// 4. GROUPED BAR: Komparasi Persentase Konversi berdasarkan Kategori IPK
 // -----------------------------------------------------------------------------
-const conversionIpkBands = [
-    { key: 'ipk_unavailable', label: 'IPK Tidak tersedia', color: '#CBD5E1', labelColor: '#334155' },
-    { key: 'ipk_0_1', label: 'IPK 0–<1', min: 0, max: 1, color: '#B91C1C', labelColor: '#FFFFFF' },
-    { key: 'ipk_1_2', label: 'IPK 1–<2', min: 1, max: 2, color: '#F97316', labelColor: '#FFFFFF' },
-    { key: 'ipk_2_3', label: 'IPK 2–<3', min: 2, max: 3, color: '#FACC15', labelColor: '#334155' },
-    { key: 'ipk_3_4', label: 'IPK 3–4', min: 3, max: 4, color: '#0D542B', labelColor: '#FFFFFF' },
-];
+// Kategori IPK aktif yang diperoleh dari backend untuk komparasi tingkat konversi
+const conversionIpkBands = computed(() => {
+    const firstStage = props.chart?.conversion_ipk_stats?.[0];
+    if (firstStage && Array.isArray(firstStage.bands) && firstStage.bands.length > 0) {
+        return firstStage.bands.map((b) => ({
+            key: b.key,
+            label: b.label,
+            shortLabel: b.short_label || b.label,
+            color: b.color || '#0D542B',
+        }));
+    }
+
+    return [
+        { key: 'ipk_cumlaude', label: 'IPK ≥ 3.50 (Dengan Pujian)', shortLabel: 'IPK ≥ 3.50', color: '#0D542B' },
+        { key: 'ipk_sangat_memuaskan', label: 'IPK 3.00 – 3.49 (Sangat Memuaskan)', shortLabel: 'IPK 3.00–3.49', color: '#2563EB' },
+    ];
+});
 
 // Mendefinisikan pembilang dan penyebut setiap tahap agar angka tetap audit-able.
 const conversionStageDefinitions = [
@@ -655,13 +683,22 @@ const conversionStageDefinitions = [
 const conversionIpkStats = computed(() => conversionStageDefinitions.map((stage) => {
     const backendStage = props.chart?.conversion_ipk_stats?.find((item) => item.key === stage.key);
     if (backendStage) {
+        const bandDetails = {};
+        if (Array.isArray(backendStage.bands)) {
+            backendStage.bands.forEach((b) => {
+                bandDetails[b.key] = b;
+            });
+        }
+
         return {
             ...stage,
             fromCount: backendStage.from_count,
             toCount: backendStage.to_count,
             conversionPercentage: backendStage.conversion_percentage,
-            counts: backendStage.counts,
-            segmentPercentages: backendStage.segment_percentages,
+            rates: backendStage.rates || {},
+            counts: backendStage.counts || {},
+            bandDetails,
+            segmentPercentages: backendStage.segment_percentages || {},
         };
     }
 
@@ -670,60 +707,124 @@ const conversionIpkStats = computed(() => conversionStageDefinitions.map((stage)
         fromCount: 0,
         toCount: 0,
         conversionPercentage: 0,
-        counts: Object.fromEntries(conversionIpkBands.map((band) => [band.key, 0])),
-        segmentPercentages: Object.fromEntries(conversionIpkBands.map((band) => [band.key, 0])),
+        rates: {},
+        counts: {},
+        bandDetails: {},
+        segmentPercentages: {},
     };
 }));
 
-// Format label segmen berdasarkan proporsi jumlah pembilang pada setiap tahap.
-const formatConversionIpkLabel = ({ data }) => data?.percentage >= 10 ? `${formatNumber(data.percentage, 1)}%` : '';
-
 const conversionBarOption = computed(() => {
     const rows = conversionIpkStats.value;
-    const maxTotal = Math.max(1, ...rows.map((row) => row.toCount));
+    const bands = conversionIpkBands.value;
 
     return {
         ...baseOption(alumniList.value.length),
-        themePalette: conversionIpkBands.map((band) => band.color),
-        legend: { data: conversionIpkBands.map((band) => band.label), bottom: 0, type: 'scroll', textStyle: { color: '#475569', fontSize: 11 } },
-        grid: { left: 24, right: 48, top: 28, bottom: 64, containLabel: true },
-        xAxis: { type: 'value', min: 0, max: maxTotal, name: 'Jumlah perusahaan', nameTextStyle: { color: '#64748B' }, axisLabel: { formatter: (value) => formatNumber(value, 0), color: '#64748B' }, splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } } },
-        yAxis: { type: 'category', inverse: true, data: rows.map((row) => row.label), axisLabel: { color: '#334155', fontWeight: 600, fontSize: 12 }, axisTick: { show: false }, axisLine: { lineStyle: { color: '#CBD5E1' } } },
+        legend: {
+            data: bands.map((band) => band.label),
+            top: 8,
+            type: 'scroll',
+            textStyle: { color: '#475569', fontSize: 11, fontWeight: 500 },
+        },
+        grid: {
+            left: 24,
+            right: 64,
+            top: 48,
+            bottom: 42,
+            containLabel: true,
+        },
+        xAxis: {
+            type: 'value',
+            min: 0,
+            max: 100,
+            name: 'Persentase Konversi (%)',
+            nameLocation: 'middle',
+            nameGap: 28,
+            nameTextStyle: { color: '#64748B', fontSize: 11, fontWeight: 500 },
+            axisLabel: {
+                formatter: '{value}%',
+                color: '#64748B',
+                fontSize: 11,
+            },
+            splitLine: {
+                lineStyle: { color: '#E2E8F0', type: 'dashed' },
+            },
+        },
+        yAxis: {
+            type: 'category',
+            inverse: true,
+            data: rows.map((row) => row.label),
+            axisLabel: {
+                color: '#334155',
+                fontWeight: 600,
+                fontSize: 12,
+            },
+            axisTick: { show: false },
+            axisLine: { lineStyle: { color: '#CBD5E1' } },
+        },
         tooltip: {
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
             formatter: (params) => {
-                const row = rows[params?.[0]?.dataIndex];
+                const stageIndex = params?.[0]?.dataIndex;
+                const row = rows[stageIndex];
                 if (!row) return '';
 
                 return `
                     <div class="font-sans text-xs">
                         <div class="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-1.5">${escapeHtml(row.label)}</div>
-                        <div class="text-slate-700 mb-1">Konversi: <strong class="text-emerald-700 font-mono">${formatNumber(row.conversionPercentage, 1)}%</strong></div>
-                        ${conversionIpkBands.map((band) => {
-                            const count = row.counts[band.key] || 0;
-                            const percentage = row.toCount > 0 ? (count / row.toCount) * 100 : 0;
+                        <div class="text-slate-700 mb-1.5">Konversi Rerata Total: <strong class="text-emerald-700 font-mono">${formatNumber(row.conversionPercentage, 1)}%</strong></div>
+                        ${params.map((item) => {
+                            const band = bands.find((b) => b.label === item.seriesName);
+                            const bandData = row.bandDetails?.[band?.key] || {};
+                            const val = item.value;
+                            const from = bandData.from_count ?? '-';
+                            const to = bandData.to_count ?? '-';
 
-                            return `<div class="text-slate-600 mb-0.5">${band.label}: <strong>${formatNumber(count, 0)} (${formatNumber(percentage, 1)}%)</strong></div>`;
+                            return `
+                                <div class="text-slate-600 mb-1 flex items-center justify-between gap-3">
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <span class="w-2.5 h-2.5 rounded-sm inline-block" style="background-color: ${item.color}"></span>
+                                        <span>${escapeHtml(item.seriesName)}:</span>
+                                    </span>
+                                    <strong class="font-mono text-slate-800">${formatNumber(val, 1)}% (${to}/${from})</strong>
+                                </div>
+                            `;
                         }).join('')}
-                        <div class="text-slate-600 mt-1">Total pembilang: <strong>${formatNumber(row.toCount, 0)}</strong></div>
-                        <div class="text-slate-600">Total penyebut: <strong>${formatNumber(row.fromCount, 0)}</strong></div>
+                        <div class="text-[11px] text-slate-500 border-t border-slate-100 pt-1 mt-1">Total keseluruhan: ${formatNumber(row.toCount, 0)} respons dari ${formatNumber(row.fromCount, 0)} lamaran</div>
                     </div>
                 `;
             },
         },
-        series: conversionIpkBands.map((band, index) => ({
+        series: bands.map((band) => ({
             name: band.label,
             type: 'bar',
-            stack: 'conversion',
-            stackOrder: index,
-            barMaxWidth: 34,
-            itemStyle: { color: band.color },
-            label: { show: true, position: 'inside', formatter: formatConversionIpkLabel, color: band.labelColor, fontWeight: 600, fontSize: 10 },
+            barMaxWidth: 20,
+            itemStyle: {
+                color: band.color,
+                borderRadius: [0, 4, 4, 0],
+            },
+            label: {
+                show: true,
+                position: 'right',
+                formatter: (p) => p.value > 0 ? `${formatNumber(p.value, 1)}%` : '',
+                color: '#334155',
+                fontWeight: 600,
+                fontSize: 10,
+            },
             data: rows.map((row) => {
-                const count = row.counts[band.key] || 0;
+                const bandDetail = row.bandDetails?.[band.key];
+                const rate = bandDetail?.conversion_percentage ?? (row.rates?.[band.key] || 0);
 
-                return { name: row.label, category: band.label, value: count, count, total: row.toCount, percentage: row.toCount > 0 ? (count / row.toCount) * 100 : 0, prodi: row.label };
+                return {
+                    name: row.label,
+                    value: Number(rate.toFixed(1)),
+                    stageKey: row.key,
+                    bandKey: band.key,
+                    alumniCount: bandDetail?.alumni_count ?? 0,
+                    fromCount: bandDetail?.from_count ?? 0,
+                    toCount: bandDetail?.to_count ?? 0,
+                };
             }),
         })),
     };
@@ -731,36 +832,46 @@ const conversionBarOption = computed(() => {
 
 const conversionBarTable = computed(() => {
     const rows = conversionIpkStats.value;
+    const bands = conversionIpkBands.value;
+
+    const columns = [
+        { key: 'tahapan', label: 'Tahapan Proses Lamaran' },
+        { key: 'tahap_awal', label: 'Total Awal (Penyebut)', align: 'right' },
+        { key: 'tahap_berikutnya', label: 'Total Lanjutan (Pembilang)', align: 'right' },
+        { key: 'persentase_total', label: 'Konversi Total (%)', align: 'right' },
+        ...bands.map((b) => ({
+            key: `rate_${b.key}`,
+            label: b.shortLabel || b.label,
+            align: 'right',
+        })),
+        { key: 'keterangan', label: 'Interpretasi Hasil' },
+    ];
+
+    const tableRows = rows.map((row) => {
+        const item = {
+            tahapan: row.label,
+            tahap_awal: formatNumber(row.fromCount, 0),
+            tahap_berikutnya: formatNumber(row.toCount, 0),
+            persentase_total: `${formatNumber(row.conversionPercentage, 1)}%`,
+            keterangan: row.key === 'app_to_resp'
+                ? 'Rasio keberhasilan lamaran mendapatkan respons balik dari institusi/perusahaan'
+                : (row.key === 'resp_to_intv'
+                    ? 'Rasio panggilan wawancara dari perusahaan yang merespons lamaran'
+                    : 'Rasio efisiensi langsung dari seluruh lamaran yang dikirim hingga tahap wawancara/diterima'),
+        };
+
+        bands.forEach((b) => {
+            const bandDetail = row.bandDetails?.[b.key];
+            const rate = bandDetail?.conversion_percentage ?? (row.rates?.[b.key] || 0);
+            item[`rate_${b.key}`] = `${formatNumber(rate, 1)}%`;
+        });
+
+        return item;
+    });
 
     return {
-        columns: [
-            { key: 'tahapan', label: 'Tahapan Proses Lamaran' },
-            { key: 'tahap_awal', label: 'Jumlah Awal (Penyebut)', align: 'right' },
-            { key: 'tahap_berikutnya', label: 'Jumlah Lanjutan (Pembilang)', align: 'right' },
-            { key: 'persentase', label: 'Persentase Konversi', align: 'right' },
-            { key: 'rumus', label: 'Alur & Rumus Perhitungan' },
-            { key: 'keterangan', label: 'Interpretasi Hasil' },
-        ],
-        rows: rows.map((row) => {
-            const pct = `${formatNumber(row.conversionPercentage, 1)}%`;
-            const from = formatNumber(row.fromCount, 0);
-            const to = formatNumber(row.toCount, 0);
-            const rumus = `(${to} / ${from}) × 100% = ${pct}`;
-            const keterangan = row.key === 'app_to_resp'
-                ? `${pct} dari lamaran terkirim berhasil direspons perusahaan.`
-                : (row.key === 'resp_to_intv'
-                    ? `${pct} dari respons perusahaan berlanjut ke undangan wawancara.`
-                    : `${pct} rasio end-to-end dari lamaran terkirim hingga meraih wawancara.`);
-
-            return {
-                tahapan: row.label,
-                tahap_awal: from,
-                tahap_berikutnya: to,
-                persentase: pct,
-                rumus,
-                keterangan,
-            };
-        }),
+        columns,
+        rows: tableRows,
     };
 });
 
@@ -836,7 +947,7 @@ const views = computed(() => {
     return [
         {
             key: 'pipeline_prodi',
-            chartType: 'stacked_horizontal',
+            chartType: 'grouped_horizontal_bar',
             tabLabel: 'Pipeline per Prodi',
             title: 'Pipeline Rekrutmen per Prodi',
             description: 'Proporsi median perusahaan dilamar, direspons, dan wawancara.',
@@ -852,45 +963,11 @@ const views = computed(() => {
             },
         },
         {
-            key: 'scatter_applications_responses',
-            chartType: 'table',
-            tabLabel: 'Lamaran vs Respons',
-            title: 'Lamaran vs Respons',
-            description: 'Tabel perbandingan lamaran (F6) dan respons (F7).',
-            tableOnly: true,
-            option: null,
-            tableData: scatter1Table.value,
-            analysis: {
-                title: 'Kilas Lamaran dan Respons',
-                statusBadge: `N = ${formatNumber(s1.summary?.valid_n || 0, 0)}`,
-                badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-                lead: 'Detail individu diurutkan dari persentase respons tertinggi.',
-                detail: 'Pivot program studi menampilkan rata-rata IPK, tahapan, dan persentase respons tertinggi.',
-            },
-        },
-        {
-            key: 'scatter_responses_interviews',
-            chartType: 'table',
-            tabLabel: 'Respons vs Wawancara',
-            title: 'Respons vs Wawancara',
-            description: 'Tabel perbandingan respons (F7) dan wawancara (F7a).',
-            tableOnly: true,
-            option: null,
-            tableData: scatter2Table.value,
-            analysis: {
-                title: 'Kilas Respons dan Wawancara',
-                statusBadge: `N = ${formatNumber(s2.summary?.valid_n || 0, 0)}`,
-                badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
-                lead: 'Detail individu diurutkan dari persentase undangan wawancara tertinggi.',
-                detail: 'Pivot program studi menampilkan rata-rata IPK, tahapan, dan persentase wawancara tertinggi.',
-            },
-        },
-        {
             key: 'conversion_stages',
-            chartType: 'stacked_horizontal',
+            chartType: 'grouped_horizontal_bar',
             tabLabel: 'Konversi Tahapan',
             title: 'Konversi Tahapan Rekrutmen',
-            description: 'Rasio keberhasilan lamaran hingga wawancara per kelompok IPK.',
+            description: 'Perbandingan rasio konversi tahapan lamaran hingga wawancara per kategori IPK.',
             option: conversionBarOption.value,
             tableData: conversionBarTable.value,
             height: 360,
@@ -917,6 +994,57 @@ const views = computed(() => {
                 badgeClass: 'bg-slate-100 text-slate-700',
                 lead: 'Rerata median universitas menunjukkan efisiensi pencarian kerja.',
                 detail: 'Median wawancara yang mendekati respons menunjukkan probabilitas tinggi berlanjut ke tahap wawancara.',
+            },
+        },
+        {
+            key: 'scatter_applications_responses',
+            chartType: 'table',
+            tabLabel: 'Pivot Lamaran vs Respons',
+            title: 'Pivot Lamaran vs Respons',
+            description: 'Tabel pivot perbandingan lamaran (F6) dan respons (F7) per program studi dan kategori IPK.',
+            tableOnly: true,
+            option: null,
+            tableData: scatter1Table.value,
+            analysis: {
+                title: 'Kilas Lamaran dan Respons',
+                statusBadge: `N = ${formatNumber(s1.summary?.valid_n || 0, 0)}`,
+                badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+                lead: 'Perbandingan agregat lamaran terkirim dan respons perusahaan yang diterima alumni.',
+                detail: 'Tabel pivot menyajikan distribusi rata-rata per program studi dan per kategori IPK.',
+            },
+        },
+        {
+            key: 'scatter_responses_interviews',
+            chartType: 'table',
+            tabLabel: 'Pivot Respons vs Wawancara',
+            title: 'Pivot Respons vs Wawancara',
+            description: 'Tabel pivot perbandingan respons (F7) dan wawancara (F7a) per program studi dan kategori IPK.',
+            tableOnly: true,
+            option: null,
+            tableData: scatter2Table.value,
+            analysis: {
+                title: 'Kilas Respons dan Wawancara',
+                statusBadge: `N = ${formatNumber(s2.summary?.valid_n || 0, 0)}`,
+                badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+                lead: 'Perbandingan agregat respons perusahaan terhadap undangan wawancara kerja yang diperoleh alumni.',
+                detail: 'Tabel pivot menyajikan distribusi rata-rata per program studi dan per kategori IPK.',
+            },
+        },
+        {
+            key: 'scatter_applications_interviews',
+            chartType: 'table',
+            tabLabel: 'Pivot Lamaran vs Diterima',
+            title: 'Pivot Lamaran vs Diterima',
+            description: 'Tabel pivot perbandingan lamaran (F6) dan undangan wawancara / diterima (F7a) per program studi dan kategori IPK.',
+            tableOnly: true,
+            option: null,
+            tableData: scatter3Table.value,
+            analysis: {
+                title: 'Kilas Lamaran dan Diterima',
+                statusBadge: `N = ${formatNumber(props.chart?.summary?.answered_count || 0, 0)}`,
+                badgeClass: 'bg-emerald-50 text-[#0D542B] border border-emerald-200',
+                lead: 'Rasio end-to-end dari seluruh berkas lamaran yang dikirim hingga panggilan wawancara kerja/diterima.',
+                detail: 'Tabel pivot menyajikan distribusi rata-rata per program studi dan per kategori IPK.',
             },
         },
     ];

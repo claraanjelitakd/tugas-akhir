@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\AdminProdi\KelolaAlumni;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendBlastReminderEmailJob;
 use App\Mail\PengingatKuesionerAlumniMail;
 use App\Models\Biodata;
 use App\Models\EvaluasiAtasan;
@@ -15,6 +16,7 @@ use App\Models\User;
 use App\Services\Alumni\AdminAlumniProfileService;
 use App\Services\Alumni\AlumniDirectoryQueryService;
 use App\Services\Alumni\LinkedinTraceHelper;
+use App\Services\Export\AlumniProdiMultiSheetExcelExporter;
 use App\Services\Export\AlumniTracerExcelExporter;
 use App\Services\Kuesioner\KelengkapanTracerService;
 use App\Services\Kuesioner\KuesionerSyncService;
@@ -22,6 +24,7 @@ use App\Services\Kuesioner\UnifiedDetailAlumniService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -52,6 +55,7 @@ class DaftarAlumniProdiController extends Controller
 
         $data = $directoryService->getDirectoryData($request, [
             'prodi_id' => $prodiId,
+            'server_pagination' => true,
         ]);
 
         $data['user'] = $user;
@@ -186,6 +190,81 @@ class DaftarAlumniProdiController extends Controller
         Biodata::where('prodi_id', $prodiId)->findOrFail($id);
 
         return AlumniTracerExcelExporter::download($id);
+    }
+
+    /**
+     * Unduh Berkas Excel Multi-Sheet Komprehensif Khusus Program Studi yang Login
+     */
+    public function exportExcelProdi(Request $request): StreamedResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $prodiId = (int) $user->prodi_id;
+
+        if (! $prodiId) {
+            abort(403, 'Akun Anda belum dikaitkan dengan Program Studi.');
+        }
+
+        $tahun = $request->input('tahun');
+        $semester = $request->input('semester');
+
+        return AlumniProdiMultiSheetExcelExporter::download($prodiId, $tahun, $semester);
+    }
+
+    /**
+     * Kirim Email Pengingat Massal ke Alumni Prodi yang Belum Selesai (Berdasarkan Filter Aktif via Antrean)
+     */
+    public function blastEmail(Request $request): RedirectResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $prodiId = (int) $user->prodi_id;
+
+        if (! $prodiId) {
+            abort(403, 'Akun Anda belum dikaitkan dengan Program Studi.');
+        }
+
+        $tahun = $request->input('tahun');
+        $semester = $request->input('semester');
+        $search = $request->input('search');
+
+        $query = DB::table('v_alumni_audit_rekap')
+            ->where('prodi_id', $prodiId)
+            ->where('is_complete_total', 0);
+
+        if ($tahun && $tahun !== 'all') {
+            $tahunNormalized = preg_match('/(\d{4})/', (string) $tahun, $matches) ? $matches[1] : $tahun;
+            $query->where(function ($q) use ($tahun, $tahunNormalized) {
+                $q->where('tahun_lulus', $tahunNormalized)
+                    ->orWhere('tahun_lulus', $tahun);
+            });
+        }
+
+        if ($semester && $semester !== 'all') {
+            $query->where('tahun_akademik_lulus', 'like', "%{$semester}%");
+        }
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('nama', 'like', "%{$search}%")
+                    ->orWhere('nim', 'like', "%{$search}%");
+            });
+        }
+
+        $biodataIds = $query->pluck('biodata_id')->filter()->all();
+
+        if (empty($biodataIds)) {
+            return back()->with('info', 'Tidak ditemukan alumni program studi yang belum menyelesaikan kuesioner pada filter aktif terpilih.');
+        }
+
+        SendBlastReminderEmailJob::dispatch($biodataIds, Auth::id(), [
+            'tahun' => $tahun ?: 'Semua',
+            'semester' => $semester ?: 'Semua',
+            'prodi_id' => $prodiId,
+            'search' => $search ?: null,
+        ]);
+
+        return back()->with('success', 'Email pengingat tracer study untuk '.count($biodataIds).' alumni program studi berhasil dijadwalkan ke dalam antrean sistem.');
     }
 
     /**

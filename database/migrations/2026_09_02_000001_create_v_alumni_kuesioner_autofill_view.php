@@ -39,7 +39,7 @@ SELECT u.id AS user_id, b.id AS biodata_id, b.nim AS F1,
     b.pendidikan_tingkat AS BIO_PENDIDIKAN_TINGKAT, b.perguruan_tinggi AS F18B,
     b.pendidikan_prodi AS F18C, da.tanggal_lahir AS BIO_TANGGAL_LAHIR,
     da.jenis_kelamin AS BIO_JK, da.tanggal_lulus AS BIO_TGL_LULUS,
-    y.judul_ta AS BIO_JUDUL_TA
+    y.judul_ta AS BIO_JUDUL_TA, COALESCE(da.warga_negara, 'WNI') AS BIO_WARGA_NEGARA
 FROM users u
 LEFT JOIN biodata b ON b.user_id = u.id
 LEFT JOIN data_akademik da ON da.nim = b.nim
@@ -70,7 +70,7 @@ SELECT u.id AS user_id, b.id AS biodata_id, b.nim AS F1,
     b.pendidikan_tingkat AS BIO_PENDIDIKAN_TINGKAT, b.perguruan_tinggi AS F18B,
     b.pendidikan_prodi AS F18C, da.tanggal_lahir AS BIO_TANGGAL_LAHIR,
     da.jenis_kelamin AS BIO_JK, da.tanggal_lulus AS BIO_TGL_LULUS,
-    y.judul_ta AS BIO_JUDUL_TA
+    y.judul_ta AS BIO_JUDUL_TA, COALESCE(da.warga_negara, 'WNI') AS BIO_WARGA_NEGARA
 FROM users u
 LEFT JOIN biodata b ON b.user_id = u.id
 LEFT JOIN data_akademik da ON da.nim = b.nim

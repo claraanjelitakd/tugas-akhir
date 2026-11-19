@@ -127,6 +127,7 @@ Route::middleware('auth')->group(function () {
 
             // Kelola Data Alumni, Verifikasi, & Sinkronisasi Profil LinkedIn
             Route::get('/biro3/alumni', [DaftarAlumniController::class, 'tampilkanDaftarAlumni'])->name('biro3.alumni.index');
+            Route::get('/biro3/alumni/export-excel-prodi', [DaftarAlumniController::class, 'exportExcelProdi'])->name('biro3.alumni.export-excel-prodi');
             Route::get('/biro3/alumni/export-zip', [DaftarAlumniController::class, 'exportZip'])->name('biro3.alumni.export-zip');
             Route::post('/biro3/alumni/blast-email', [DaftarAlumniController::class, 'blastEmail'])->name('biro3.alumni.blast-email');
             Route::post('/biro3/alumni/{id}/send-email', [DaftarAlumniController::class, 'sendReminderEmail'])->name('biro3.alumni.send-email');
@@ -176,6 +177,8 @@ Route::middleware('auth')->group(function () {
 
             // Direktori & Detail Alumni Khusus Program Studi
             Route::get('/prodi/alumni', [DaftarAlumniProdiController::class, 'index'])->name('prodi.alumni.index');
+            Route::get('/prodi/alumni/export-excel-prodi', [DaftarAlumniProdiController::class, 'exportExcelProdi'])->name('prodi.alumni.export-excel-prodi');
+            Route::post('/prodi/alumni/blast-email', [DaftarAlumniProdiController::class, 'blastEmail'])->name('prodi.alumni.blast-email');
             Route::post('/prodi/alumni/{id}/send-email', [DaftarAlumniProdiController::class, 'sendReminderEmail'])->name('prodi.alumni.send-email');
             Route::get('/prodi/alumni/{id}', [DaftarAlumniProdiController::class, 'show'])->name('prodi.alumni.show');
             Route::get('/prodi/alumni/{id}/export-excel', [DaftarAlumniProdiController::class, 'exportExcel'])->name('prodi.alumni.export-excel');
@@ -251,6 +254,8 @@ Route::middleware('auth')->group(function () {
 
             // Direktori & Detail Alumni dalam Lingkup Fakultas (Filter Prodi dalam Fakultas)
             Route::get('/fakultas/alumni', [DaftarAlumniFakultasController::class, 'index'])->name('fakultas.alumni.index');
+            Route::get('/fakultas/alumni/export-excel-prodi', [DaftarAlumniFakultasController::class, 'exportExcelProdi'])->name('fakultas.alumni.export-excel-prodi');
+            Route::post('/fakultas/alumni/blast-email', [DaftarAlumniFakultasController::class, 'blastEmail'])->name('fakultas.alumni.blast-email');
             Route::post('/fakultas/alumni/{id}/send-email', [DaftarAlumniFakultasController::class, 'sendReminderEmail'])->name('fakultas.alumni.send-email');
             Route::get('/fakultas/analitik/alumni/{id}', [DetailAlumniFakultasController::class, 'show'])->name('fakultas.analytics.alumni.show');
             Route::get('/fakultas/alumni/{id}', [DetailAlumniFakultasController::class, 'show'])->name('fakultas.alumni.show');
@@ -302,7 +307,9 @@ Route::middleware('auth')->group(function () {
 
             // Direktori Mahasiswa/Alumni & Audit Kuesioner Tracer
             Route::get('/superadmin/alumni', [DaftarAlumniSuperAdminController::class, 'index'])->name('superadmin.alumni.index');
+            Route::get('/superadmin/alumni/export-excel-prodi', [DaftarAlumniSuperAdminController::class, 'exportExcelProdi'])->name('superadmin.alumni.export-excel-prodi');
             Route::get('/superadmin/alumni/export-zip', [DaftarAlumniSuperAdminController::class, 'exportZip'])->name('superadmin.alumni.export-zip');
+            Route::post('/superadmin/alumni/blast-email', [DaftarAlumniSuperAdminController::class, 'blastEmail'])->name('superadmin.alumni.blast-email');
             Route::post('/superadmin/alumni/{id}/send-email', [DaftarAlumniSuperAdminController::class, 'sendReminderEmail'])->name('superadmin.alumni.send-email');
             Route::get('/superadmin/alumni/{id}', [DetailAlumniSuperAdminController::class, 'show'])->name('superadmin.alumni.show');
             Route::get('/superadmin/alumni/{id}/export-excel', [DetailAlumniSuperAdminController::class, 'exportExcel'])->name('superadmin.alumni.export-excel');

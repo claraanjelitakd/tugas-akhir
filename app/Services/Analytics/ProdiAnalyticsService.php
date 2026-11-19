@@ -217,6 +217,7 @@ class ProdiAnalyticsService
             ->join('biodata', 'biodata.id', '=', 'kuesioner_jawaban.biodata_id')
             ->leftJoin('data_akademik', 'data_akademik.nim', '=', 'biodata.nim')
             ->leftJoin('users', 'users.id', '=', 'biodata.user_id')
+            ->leftJoin('perusahaan', 'perusahaan.id', '=', 'biodata.perusahaan_id')
             ->where('kuesioner_jawaban.responden_type', 'alumni')
             ->where('biodata.prodi_id', $prodiId)
             ->whereIn('kuesioner_jawaban.pertanyaan_id', $questions->pluck('id'))
@@ -231,6 +232,12 @@ class ProdiAnalyticsService
                 'biodata.nomor_telepon',
                 'biodata.linkedin_url',
                 'biodata.email_pribadi',
+                'biodata.kategori_pekerjaan',
+                'biodata.posisi_jabatan',
+                'biodata.divisi',
+                'biodata.bidang_pekerjaan',
+                'biodata.skills',
+                'perusahaan.nama_perusahaan',
                 'users.name as nama_user',
                 'users.email as email_user',
                 'data_akademik.nama as nama_akademik',
@@ -324,6 +331,10 @@ class ProdiAnalyticsService
         $highest = $questionStats->filter(static fn (array $stat): bool => ($stat['valid_count'] ?? 0) > 0)->sortByDesc('average')->first();
         $lowest = $questionStats->filter(static fn (array $stat): bool => ($stat['valid_count'] ?? 0) > 0)->sortBy('average')->first();
 
+        $averageScore = $validScores !== [] ? (int) round(array_sum($validScores) / count($validScores)) : 0;
+        $satCount = collect($validScores)->filter(static fn (int $s): bool => $s >= 4)->count();
+        $satRate = $validScores !== [] ? round(($satCount / count($validScores)) * 100, 1) : 0;
+
         $summary = [
             'total_respondents' => $totalRespondents,
             'population_count' => $totalPopulation,
@@ -331,8 +342,10 @@ class ProdiAnalyticsService
             'total_questions' => $questions->count(),
             'total_aspects' => $questions->count(),
             'valid_answers' => $questionStats->sum('valid_count'),
-            'average_score' => $validScores !== [] ? (int) round(array_sum($validScores) / count($validScores)) : 0,
-            'median_score' => (int) round($this->median($validScores)),
+            'average_score' => $averageScore,
+            'mean_score' => $averageScore,
+            'median_score' => $averageScore,
+            'satisfaction_rate' => $satRate,
             'highest_aspect' => $highest['question_text'] ?? '-',
             'highest_score' => $highest['average'] ?? 0,
             'lowest_aspect' => $lowest['question_text'] ?? '-',
@@ -344,10 +357,10 @@ class ProdiAnalyticsService
         $methodology = [
             'valid_answers' => 'Jawaban kosong dan nilai di luar skala atau opsi tidak masuk perhitungan.',
             'formula' => $chartType === 'likert'
-                ? 'Skor tampilan = ROUND(Σ skor jawaban valid / n jawaban valid) | Median tampilan = ROUND(nilai tengah skor valid)'
+                ? 'Skor tampilan = ROUND(Σ skor jawaban valid / n jawaban valid) [Rata-rata / Mean Dibulatkan ke INT]'
                 : 'Frekuensi pilihan p = n_p | Proporsi pilihan p (%) = (n_p / N jawaban valid per pertanyaan) × 100%',
             'denominator' => $chartType === 'likert'
-                ? 'n jawaban valid = jumlah alumni yang memberi skor 1–5 pada setiap butir. Skor yang ditampilkan dibulatkan ke bilangan bulat pada skala 1–5.'
+                ? 'n jawaban valid = jumlah alumni yang memberi skor 1–5 pada setiap butir. Nilai rata-rata dibulatkan ke bilangan bulat (INT).'
                 : 'N jawaban valid = jumlah alumni yang memberi jawaban valid pada pertanyaan aktif. Pada pilihan ganda, satu alumni dapat menambah frekuensi lebih dari satu pilihan.',
             'source' => 'Tabel: kuesioner_jawaban, kuesioner_pertanyaan, kuesioner_opsi, kuesioner_section, biodata, data_akademik, users, prodi.',
             'tables' => [
@@ -363,12 +376,12 @@ class ProdiAnalyticsService
                     'key' => $item['key'],
                     'title' => $item['title'],
                     'formula' => $chartType === 'likert'
-                        ? 'Skor butir = ROUND(Σ skor valid / n jawaban valid pada butir).'
+                        ? 'Skor butir = ROUND(Σ skor valid / n jawaban valid, 2) [Rata-rata/Mean].'
                         : 'Frekuensi opsi = jumlah alumni yang memilih opsi pada butir.',
                     'source' => 'kuesioner_jawaban bergabung dengan kuesioner_pertanyaan dan kuesioner_opsi',
                 ];
             })->values()->all(),
-            'likert' => 'Rata-rata dan median dibulatkan ke bilangan bulat agar skor tetap konsisten pada skala 1-5.',
+            'likert' => 'Nilai yang ditampilkan adalah rata-rata (mean/average) dari skor valid pada skala 1 sampai 5.',
             'choice' => 'Jumlah dan persentase dihitung per pilihan; jawaban ganda dapat menyumbang lebih dari satu pilihan.',
             'text' => 'Jawaban terbuka ditampilkan apa adanya pada tab Data dan tidak dipaksakan menjadi angka.',
         ];
@@ -448,7 +461,6 @@ class ProdiAnalyticsService
             ];
         })->values()->all();
         $stat = $this->questionStat($question, $validCount, $average, $categories);
-        $stat['median'] = (int) round($this->median($scores));
         $stat['distribution'] = $distribution;
         $stat['satisfaction_rate'] = $validCount > 0 ? round((($distribution[4] + $distribution[5]) / $validCount) * 100, 1) : 0;
 
@@ -459,8 +471,8 @@ class ProdiAnalyticsService
             'title' => $question->question_label,
             'question_text' => $question->question_text,
             'question_label' => $question->question_label,
-            'subtitle' => 'Rata-rata dan median skor dari jawaban valid pada skala 1 sampai 5.',
-            'caption' => 'Diagram batang horizontal dipakai agar teks pernyataan panjang tetap terbaca dan perbandingan skor antarbutir mudah dilakukan.',
+            'subtitle' => 'Rata-rata (mean) skor bulat dari jawaban valid pada skala 1 sampai 5.',
+            'caption' => 'Diagram stacked bar horizontal memperlihatkan distribusi jawaban alumni pada skala 1-5.',
             'categories' => [$question->question_label],
             'values' => [$average],
             'scores' => $scores,
@@ -697,6 +709,12 @@ class ProdiAnalyticsService
             'nomor_telepon' => $response->nomor_telepon ?: null,
             'linkedin_url' => $response->linkedin_url ?: null,
             'email' => $response->email_pribadi ?: ($response->email_user ?: null),
+            'nama_perusahaan' => $response->nama_perusahaan ?: '-',
+            'posisi_jabatan' => $response->posisi_jabatan ?: '-',
+            'divisi' => $response->divisi ?: '-',
+            'bidang_pekerjaan' => $response->bidang_pekerjaan ?: '-',
+            'kategori_pekerjaan' => $response->kategori_pekerjaan ?: '-',
+            'skills' => $response->skills ?: '-',
             'aspek' => $question->question_text,
             'kode' => $question->code ?: 'Q'.$question->id,
             'type' => $question->type,
@@ -777,7 +795,7 @@ class ProdiAnalyticsService
             if ($highest['question_id'] !== $lowest['question_id']) {
                 $points[] = "Rata-rata terendah terdapat pada \"{$lowest['question_text']}\" sebesar {$lowest['average']} dengan {$lowest['valid_count']} jawaban valid.";
             }
-            $points[] = "Rata-rata keseluruhan bagian adalah {$summary['average_score']} dari 5, sedangkan median keseluruhan adalah {$summary['median_score']}.";
+            $points[] = "Rata-rata (mean) keseluruhan bagian adalah {$summary['average_score']} dari skala 5, dengan tingkat kepuasan alumni mencapai {$summary['satisfaction_rate']}%.";
         } elseif ($chartType === 'choice') {
             $choiceSummaries = collect($items)
                 ->map(function (array $item): ?array {

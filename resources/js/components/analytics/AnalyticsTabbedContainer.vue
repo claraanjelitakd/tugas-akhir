@@ -353,6 +353,11 @@ const activeColumns = computed(() => currentView.value.tableData?.columns || [])
 // Ringkasan pivot opsional ditampilkan sebelum tabel detail per alumni.
 const summaryColumns = computed(() => currentView.value.tableData?.summary?.columns || []);
 const summaryRows = computed(() => currentView.value.tableData?.summary?.rows || []);
+const summaryTotalRow = computed(() => currentView.value.tableData?.summary?.total_row || null);
+
+const summaryIpkColumns = computed(() => currentView.value.tableData?.summary?.ipk_columns || []);
+const summaryIpkRows = computed(() => currentView.value.tableData?.summary?.ipk_rows || []);
+const summaryIpkTotalRow = computed(() => currentView.value.tableData?.summary?.ipk_total_row || null);
 
 // Label field detail memakai metadata yang stabil; nilai selalu berasal dari rows backend.
 const detailFieldLabels = Object.freeze({
@@ -1313,60 +1318,45 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
             <div class="h-full bg-[#0D542B] animate-pulse w-full"></div>
         </div>
 
-        <!-- Header Kartu & Switcher Tab Visualisasi (Stay di Kanan Atas, Sejajar dan Bebas Layout Shift) -->
-        <div class="flex flex-col justify-between gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-center">
-            <!-- Kolom Kiri: Judul & Subjudul dengan min-height tetap agar tata letak tidak bergeser -->
-            <div class="min-h-[46px]">
-                <div class="flex flex-wrap items-center gap-2">
-                    <span v-if="indicatorBadge" class="rounded bg-white px-2 py-0.5 text-xs font-bold text-[#0D542B] border border-[#0D542B]/25">
-                        {{ indicatorBadge }}
-                    </span>
-                    <h3 class="text-base font-extrabold text-slate-900">
-                        <template v-if="activeViewMode === 'table'">Ringkasan: {{ currentView.tabLabel || currentView.title }}</template>
-                        <template v-else>{{ currentView.title }}</template>
-                    </h3>
-                    <!-- Pill Seleksi Aktif di Header (Bebas dari Layout Shift / Getar) -->
-                    <span v-if="activeSelectionLabel" class="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-xs">
-                        <span class="text-slate-500 font-medium">Terpilih:</span>
-                        <strong class="text-[#0D542B] font-bold">{{ activeSelectionLabel }}</strong>
-                        <button
-                            type="button"
-                            class="ml-1 text-slate-400 hover:text-slate-700 font-bold cursor-pointer"
-                            title="Reset seleksi pilihan"
-                            @click="resetSelection"
-                        >
-                            ×
-                        </button>
-                    </span>
-                </div>
-                <p class="mt-1 text-xs text-slate-500 leading-relaxed max-w-3xl">
-                    <template v-if="activeViewMode === 'table'">
-                        Tabulasi data indikator.
-                    </template>
-                    <template v-else>
-                        {{ currentView.description }}
-                    </template>
-                </p>
-            </div>
-
-            <!-- Kolom Kanan: Switcher Tab Tetap (Stay di Kanan Atas, Netral Tanpa Warna Legenda) -->
-            <div class="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-                <!-- Switcher Antar Visualisasi (Selalu terlihat jika indikator memiliki lebih dari 1 sub-view) -->
-                <div v-if="views.length > 1" class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200">
-                    <button
-                        v-for="view in views"
-                        :key="view.key"
-                        type="button"
-                        class="rounded-md px-3 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
-                        :class="activeTabKey === view.key ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
-                        @click="selectView(view)"
-                    >
-                        {{ view.tabLabel || view.title }}
-                    </button>
+        <!-- Header Kartu & Switcher Tab Visualisasi (Bebas dari Layout Shift & Tidak Terpotong) -->
+        <div class="flex flex-col gap-3 border-b border-slate-100 pb-3">
+            <!-- Baris Atas: Judul & Subjudul di Kiri, Bilah Aksi Toolbar di Kanan -->
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span v-if="indicatorBadge" class="rounded bg-white px-2 py-0.5 text-xs font-bold text-[#0D542B] border border-[#0D542B]/25">
+                            {{ indicatorBadge }}
+                        </span>
+                        <h3 class="text-base font-extrabold text-slate-900">
+                            <template v-if="activeViewMode === 'table'">Ringkasan: {{ currentView.tabLabel || currentView.title }}</template>
+                            <template v-else>{{ currentView.title }}</template>
+                        </h3>
+                        <!-- Pill Seleksi Aktif di Header (Bebas dari Layout Shift / Getar) -->
+                        <span v-if="activeSelectionLabel" class="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-xs">
+                            <span class="text-slate-500 font-medium">Terpilih:</span>
+                            <strong class="text-[#0D542B] font-bold">{{ activeSelectionLabel }}</strong>
+                            <button
+                                type="button"
+                                class="ml-1 text-slate-400 hover:text-slate-700 font-bold cursor-pointer"
+                                title="Reset seleksi pilihan"
+                                @click="resetSelection"
+                            >
+                                ×
+                            </button>
+                        </span>
+                    </div>
+                    <p class="mt-1 text-xs text-slate-500 leading-relaxed max-w-3xl">
+                        <template v-if="activeViewMode === 'table'">
+                            Tabulasi data indikator.
+                        </template>
+                        <template v-else>
+                            {{ currentView.description }}
+                        </template>
+                    </p>
                 </div>
 
-                <!-- Bilah Aksi Terpadu: Grafik | Data | Unduh Grafik | Laporan PDF -->
-                <div class="flex flex-wrap items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200 no-print text-xs">
+                <!-- Bilah Aksi Terpadu: Grafik | Data | Unduh Grafik | Unduh Excel | Laporan PDF (Selalu Utuh di Kanan) -->
+                <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200 no-print text-xs shrink-0 self-start sm:self-auto">
                     <button
                         v-if="!currentViewIsTableOnly"
                         type="button"
@@ -1411,6 +1401,22 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                         title="Unduh laporan analisis lengkap kategori ini (PDF)"
                     >
                         Laporan PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- Baris Bawah: Switcher Antar Visualisasi (Memiliki Ruang Penuh & Scroll Halus Jika Panjang) -->
+            <div v-if="views.length > 1" class="flex items-center overflow-x-auto pb-0.5 max-w-full">
+                <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1 border border-slate-200">
+                    <button
+                        v-for="view in views"
+                        :key="view.key"
+                        type="button"
+                        class="rounded-md px-3 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
+                        :class="activeTabKey === view.key ? 'bg-white font-bold text-slate-900 shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'"
+                        @click="selectView(view)"
+                    >
+                        {{ view.tabLabel || view.title }}
                     </button>
                 </div>
             </div>
@@ -1767,25 +1773,65 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
 
         <!-- TAMPILAN 2: MODE DATA RINGKASAN (TABEL) -->
         <div v-else class="mt-4 space-y-3">
-            <div v-if="summaryRows.length > 0" class="overflow-x-auto rounded-lg border border-emerald-200 bg-emerald-50/20">
-                <div class="border-b border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-[#0D542B]">
-                    Pivot per Program Studi
+            <!-- 1. Pivot per Program Studi -->
+            <div v-if="summaryRows.length > 0" class="overflow-x-auto rounded-lg border border-emerald-200 bg-white">
+                <div class="flex items-center justify-between border-b border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-[#0D542B]">
+                    <span>Pivot per Program Studi</span>
+                    <span class="text-[11px] font-normal text-emerald-800">Distribusi rata-rata seluruh prodi</span>
                 </div>
                 <table class="w-full min-w-max text-left text-xs">
                     <thead>
-                        <tr class="border-b border-emerald-200 bg-white/70 text-slate-700">
+                        <tr class="border-b border-emerald-100 bg-slate-50 text-slate-700">
                             <th v-for="column in summaryColumns" :key="column.key" class="p-2.5 font-bold" :class="column.align === 'right' ? 'text-right' : 'text-left'">
                                 {{ column.label }}
                             </th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-emerald-100 bg-white/60">
-                        <tr v-for="(row, index) in summaryRows" :key="index" class="hover:bg-emerald-50/50">
+                    <tbody class="divide-y divide-emerald-100/60 bg-white">
+                        <tr v-for="(row, index) in summaryRows" :key="index" class="hover:bg-emerald-50/40 transition-colors">
                             <td v-for="column in summaryColumns" :key="column.key" class="p-2.5" :class="column.align === 'right' ? 'text-right font-mono' : ''">
                                 {{ row[column.key] ?? '-' }}
                             </td>
                         </tr>
                     </tbody>
+                    <tfoot v-if="summaryTotalRow">
+                        <tr class="border-t-2 border-emerald-300 bg-emerald-50/80 font-bold text-slate-900">
+                            <td v-for="column in summaryColumns" :key="`total-${column.key}`" class="p-2.5" :class="column.align === 'right' ? 'text-right font-mono' : ''">
+                                {{ summaryTotalRow[column.key] ?? '-' }}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- 2. Pivot per Kategori IPK -->
+            <div v-if="summaryIpkRows.length > 0" class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                <div class="flex items-center justify-between border-b border-slate-200 bg-slate-100 px-3.5 py-2 text-xs font-bold text-slate-800">
+                    <span>Pivot per Kategori IPK</span>
+                    <span class="text-[11px] font-normal text-slate-500">Distribusi rata-rata berdasarkan rentang IPK kumulatif</span>
+                </div>
+                <table class="w-full min-w-max text-left text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-200 bg-slate-50 text-slate-700">
+                            <th v-for="column in summaryIpkColumns" :key="column.key" class="p-2.5 font-bold" :class="column.align === 'right' ? 'text-right' : 'text-left'">
+                                {{ column.label }}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 bg-white">
+                        <tr v-for="(row, index) in summaryIpkRows" :key="index" class="hover:bg-slate-50 transition-colors">
+                            <td v-for="column in summaryIpkColumns" :key="column.key" class="p-2.5" :class="column.align === 'right' ? 'text-right font-mono' : ''">
+                                {{ row[column.key] ?? '-' }}
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot v-if="summaryIpkTotalRow">
+                        <tr class="border-t-2 border-slate-300 bg-slate-100 font-bold text-slate-900">
+                            <td v-for="column in summaryIpkColumns" :key="`ipk-total-${column.key}`" class="p-2.5" :class="column.align === 'right' ? 'text-right font-mono' : ''">
+                                {{ summaryIpkTotalRow[column.key] ?? '-' }}
+                            </td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
 

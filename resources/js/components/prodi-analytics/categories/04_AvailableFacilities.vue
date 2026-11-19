@@ -13,10 +13,28 @@ const props = defineProps({ items: { type: Array, default: () => [] } });
 const emit = defineEmits(['select']);
 // Opsi ECharts fasilitas berasal dari items aktual.
 const chartOption = computed(() => buildLikertOption(props.items));
-// Mengubah indeks batang menjadi item pertanyaan.
+// Klik batang atau segmen skala Likert membawa butir dan skala yang dipilih.
 const handleSelect = (params) => {
     const item = props.items[params?.dataIndex];
-    if (item?.key) emit('select', { item, label: item.title, value: params?.value, dataIndex: params?.dataIndex });
+    const d = params?.data;
+    if (!item?.key) return;
+
+    if (d?.scaleLevel) {
+        emit('select', {
+            item,
+            label: `${d.scaleLevel} - ${d.scaleLabel}`,
+            value: d.scaleLevel,
+            scaleLevel: d.scaleLevel,
+            fromPivot: true,
+            fromChart: true,
+            type: 'rating_5',
+            code: item.key,
+            questionText: item.title,
+            dataIndex: params?.dataIndex,
+        });
+    } else {
+        emit('select', { item, label: item.title, value: params?.value, dataIndex: params?.dataIndex });
+    }
 };
 </script>
 

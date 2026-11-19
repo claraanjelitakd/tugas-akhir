@@ -473,12 +473,21 @@ const resetSecondaryFilters = () => {
     applyFilters(1);
 };
 
-// Fitur Unduh ZIP per Program Studi
-const handleDownloadZip = () => {
+// Fitur Unduh Berkas Excel Multi-Sheet Komprehensif per Program Studi
+const handleDownloadExcelProdi = () => {
     const selectedYear = tahun.value || props.daftarTahun[0] || '';
+    const selectedSemester = semester.value !== 'all' ? semester.value : '';
+
+    // Jika peran adalah Admin Prodi, langsung unduh menggunakan prodi terkait
+    if (props.role === 'admin_prodi' || (props.prodi && props.prodi.id)) {
+        const pId = props.prodi?.id || prodiId.value;
+        const url = `/${props.prefix}/alumni/export-excel-prodi?prodi_id=${pId}&tahun=${encodeURIComponent(selectedYear)}&semester=${encodeURIComponent(selectedSemester)}`;
+        window.location.href = url;
+        return;
+    }
 
     if (prodiId.value && prodiId.value !== 'all') {
-        const url = `/${props.prefix}/alumni/export-zip?prodi_id=${prodiId.value}&tahun=${encodeURIComponent(selectedYear)}`;
+        const url = `/${props.prefix}/alumni/export-excel-prodi?prodi_id=${prodiId.value}&tahun=${encodeURIComponent(selectedYear)}&semester=${encodeURIComponent(selectedSemester)}`;
         window.location.href = url;
     } else {
         const prodiOptions = {};
@@ -487,13 +496,13 @@ const handleDownloadZip = () => {
         });
 
         Swal.fire({
-            title: 'Unduh ZIP Rekap Excel',
-            text: `Pilih Program Studi untuk mengunduh arsip ZIP berisi berkas Excel (.xls) per alumni pada Tahun Kelulusan ${selectedYear}:`,
+            title: 'Unduh Excel Alumni Prodi',
+            text: `Pilih Program Studi untuk mengunduh 5 sheet komprehensif (Profil, Kuesioner Univ, Kuesioner Prodi, Evaluasi Atasan, Data LinkedIn) pada Tahun Kelulusan ${selectedYear || 'Semua'}:`,
             input: 'select',
             inputOptions: prodiOptions,
             inputPlaceholder: '-- Pilih Program Studi --',
             showCancelButton: true,
-            confirmButtonText: 'Unduh ZIP Sekarang',
+            confirmButtonText: 'Unduh Berkas Excel',
             cancelButtonText: 'Batal',
             confirmButtonColor: '#0D542B',
             cancelButtonColor: '#64748b',
@@ -504,11 +513,60 @@ const handleDownloadZip = () => {
             },
         }).then((result) => {
             if (result.isConfirmed && result.value) {
-                const url = `/${props.prefix}/alumni/export-zip?prodi_id=${result.value}&tahun=${encodeURIComponent(selectedYear)}`;
+                const url = `/${props.prefix}/alumni/export-excel-prodi?prodi_id=${result.value}&tahun=${encodeURIComponent(selectedYear)}&semester=${encodeURIComponent(selectedSemester)}`;
                 window.location.href = url;
             }
         });
     }
+};
+
+// Fitur Blast Email Pengingat Kuesioner Massal Berbasis Filter Aktif
+const handleBlastEmail = () => {
+    const selectedYear = tahun.value && tahun.value !== 'all' ? tahun.value : 'Semua Angkatan';
+    const selectedProdiName = (prodiId.value && prodiId.value !== 'all')
+        ? (props.prodis.find(p => String(p.id) === String(prodiId.value))?.nama_prodi || 'Prodi Terpilih')
+        : (props.prodi?.nama_prodi || 'Seluruh Program Studi Terkait');
+
+    const totalTarget = props.stats.total_belum_selesai || 0;
+
+    Swal.fire({
+        title: 'Kirim Pengingat Kuesioner',
+        html: `
+            <div class="text-left text-xs text-slate-700 space-y-2">
+                <p>Email pengingat tracer study resmi akan diantrekan untuk alumni yang <b>belum menyelesaikan kuesioner</b> berdasarkan kriteria filter aktif saat ini:</p>
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1 font-mono text-[11px]">
+                    <div><b>Tahun Lulus:</b> ${selectedYear}</div>
+                    <div><b>Program Studi:</b> ${selectedProdiName}</div>
+                    ${semester.value && semester.value !== 'all' ? `<div><b>Semester:</b> ${semester.value}</div>` : ''}
+                    ${search.value ? `<div><b>Pencarian:</b> ${search.value}</div>` : ''}
+                    <div><b>Estimasi Sasaran:</b> ${totalTarget} alumni belum selesai</div>
+                </div>
+                <p class="text-[11px] text-slate-500">Pengiriman diproses di antrean latar belakang sistem tanpa membebani browser Anda.</p>
+            </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Jadwalkan Pengiriman',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#0D542B',
+        cancelButtonColor: '#64748b',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.post(`/${props.prefix}/alumni/blast-email`, {
+                tahun: tahun.value,
+                semester: semester.value,
+                prodi_id: prodiId.value,
+                search: search.value,
+            }, {
+                preserveScroll: true,
+            });
+        }
+    });
+};
+
+// Fitur Unduh ZIP per Program Studi (Fallback)
+const handleDownloadZip = () => {
+    handleDownloadExcelProdi();
 };
 
 // WhatsApp Modal
@@ -1062,15 +1120,28 @@ const formatTanggal = (dateStr) => {
 
                     <!-- Tombol Aksi Header -->
                     <div class="flex items-center gap-3 shrink-0 flex-wrap">
-                        <button 
+                        <!-- Tombol Unduh Berkas Excel Multi-Sheet per Prodi -->
+                        <button
                             v-if="canExportZip"
-                            @click="handleDownloadZip" 
+                            @click="handleDownloadExcelProdi"
+                            type="button"
+                            class="px-4 py-2.5 bg-[#0D542B] hover:bg-[#0a4222] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer active:scale-95"
+                            title="Unduh berkas Excel komprehensif 5 sheet (Profil, Kuesioner Univ, Kuesioner Prodi, Evaluasi Atasan, Data LinkedIn) per Program Studi"
+                        >
+                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <span>Unduh Excel Prodi</span>
+                        </button>
+
+                        <!-- Tombol Kirim Email Pengingat Massal (Blast Email) -->
+                        <button
+                            v-if="canBlastEmail"
+                            @click="handleBlastEmail"
                             type="button"
                             class="px-4 py-2.5 bg-[#FDC700] hover:bg-[#e6b400] text-slate-900 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer active:scale-95"
-                            title="Unduh seluruh instrumen dan audit kuesioner alumni per Program Studi dalam format ZIP"
+                            title="Kirim email pengingat pengisian kuesioner tracer study secara massal berbasis filter aktif"
                         >
-                            <svg class="w-4 h-4 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                            <span>Unduh ZIP Excel Prodi</span>
+                            <svg class="w-4 h-4 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                            <span>Kirim Pengingat (Blast)</span>
                         </button>
                     </div>
                 </div>

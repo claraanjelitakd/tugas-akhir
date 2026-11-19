@@ -1282,6 +1282,7 @@ class TracerAnalyticsService
         $relationTables = [
             'applications_responses' => $this->pipelineRelationTable($alumniCollection, 'f6', 'f7', 'Lamaran (F6)', 'Respons (F7)'),
             'responses_interviews' => $this->pipelineRelationTable($alumniCollection, 'f7', 'f7a', 'Respons (F7)', 'Wawancara (F7a)'),
+            'applications_interviews' => $this->pipelineRelationTable($alumniCollection, 'f6', 'f7a', 'Lamaran (F6)', 'Wawancara / Diterima (F7a)'),
         ];
         $conversionIpkStats = $this->conversionIpkStats($alumniCollection);
 
@@ -1400,14 +1401,14 @@ class TracerAnalyticsService
      * @return array<string, mixed>
      */
     /**
-     * Menyusun tabel hubungan dua tahap pipeline per alumni dan pivot prodi.
+     * Menyusun tabel hubungan dua tahap pipeline per alumni, pivot prodi, dan pivot kategori IPK.
      *
      * @param  Collection<int, array<string, mixed>>  $alumniRows  Data numerik per alumni.
      * @param  string  $firstKey  Kolom tahap awal.
      * @param  string  $secondKey  Kolom tahap lanjutan.
      * @param  string  $firstLabel  Label tahap awal.
      * @param  string  $secondLabel  Label tahap lanjutan.
-     * @return array<string, mixed> Baris individu dan agregasi prodi yang siap dirender.
+     * @return array<string, mixed> Baris individu, pivot prodi, dan pivot IPK yang siap dirender.
      */
     private function pipelineRelationTable(Collection $alumniRows, string $firstKey, string $secondKey, string $firstLabel, string $secondLabel): array
     {
@@ -1427,10 +1428,11 @@ class TracerAnalyticsService
                     'persentase' => $firstValue > 0 ? round(($secondValue / $firstValue) * 100, 1) : null,
                 ];
             })->sortByDesc(fn (array $row): float => $row['persentase'] ?? -1)->values();
+
+        // 1. Pivot per Program Studi (Tanpa menyebutkan alumni/skor tertinggi)
         $pivot = $detail->groupBy('prodi')->map(function (Collection $rows, string $prodi): array {
             $validPercentages = $rows->pluck('persentase')->filter(fn (mixed $value): bool => $value !== null)->all();
             $ipkValues = $rows->pluck('ipk')->filter(fn (mixed $value): bool => $value !== null)->all();
-            $top = $rows->firstWhere('persentase', $rows->max('persentase'));
 
             $avgAwal = $this->average($rows->pluck('tahap_awal')->all());
             $avgAkhir = $this->average($rows->pluck('tahap_akhir')->all());
@@ -1442,11 +1444,64 @@ class TracerAnalyticsService
                 'rata_awal' => $avgAwal !== null ? (int) round($avgAwal) : null,
                 'rata_akhir' => $avgAkhir !== null ? (int) round($avgAkhir) : null,
                 'rata_persentase' => $this->average($validPercentages) !== null ? round($this->average($validPercentages), 1) : null,
-                'alumni_tertinggi' => $top['nama_alumni'] ?? null,
-                'persentase_tertinggi' => $top['persentase'] !== null ? round($top['persentase'], 1) : null,
-                'ipk_tertinggi' => $top['ipk'] !== null ? round($top['ipk'], 2) : null,
             ];
-        })->sortByDesc('persentase_tertinggi')->values()->all();
+        })->sortByDesc('alumni_valid')->values()->all();
+
+        // Baris Total Universitas untuk Pivot Program Studi
+        $allIpkValues = $detail->pluck('ipk')->filter(fn (mixed $value): bool => $value !== null)->all();
+        $allValidPercentages = $detail->pluck('persentase')->filter(fn (mixed $value): bool => $value !== null)->all();
+        $allAvgAwal = $this->average($detail->pluck('tahap_awal')->all());
+        $allAvgAkhir = $this->average($detail->pluck('tahap_akhir')->all());
+
+        $totalProdiRow = [
+            'prodi' => 'Semua Program Studi (Universitas)',
+            'alumni_valid' => $detail->count(),
+            'rata_ipk' => $this->average($allIpkValues) !== null ? round($this->average($allIpkValues), 2) : null,
+            'rata_awal' => $allAvgAwal !== null ? (int) round($allAvgAwal) : null,
+            'rata_akhir' => $allAvgAkhir !== null ? (int) round($allAvgAkhir) : null,
+            'rata_persentase' => $this->average($allValidPercentages) !== null ? round($this->average($allValidPercentages), 1) : null,
+            'is_total' => true,
+        ];
+
+        // 2. Pivot per Kategori IPK (Standard Akademik: >= 3.50, 3.00-3.49, 2.50-2.99, < 2.50, Tidak Tersedia)
+        $ipkBands = [
+            ['label' => 'IPK ≥ 3.50 (Dengan Pujian)', 'filter' => fn ($ipk): bool => $ipk !== null && $ipk >= 3.50],
+            ['label' => 'IPK 3.00 – 3.49 (Sangat Memuaskan)', 'filter' => fn ($ipk): bool => $ipk !== null && $ipk >= 3.00 && $ipk < 3.50],
+            ['label' => 'IPK 2.50 – 2.99 (Memuaskan)', 'filter' => fn ($ipk): bool => $ipk !== null && $ipk >= 2.50 && $ipk < 3.00],
+            ['label' => 'IPK < 2.50 (Cukup)', 'filter' => fn ($ipk): bool => $ipk !== null && $ipk < 2.50],
+            ['label' => 'IPK Tidak Tersedia', 'filter' => fn ($ipk): bool => $ipk === null],
+        ];
+
+        $ipkRows = [];
+        foreach ($ipkBands as $band) {
+            $bandRows = $detail->filter(fn (array $r): bool => ($band['filter'])($r['ipk']));
+            if ($bandRows->isEmpty()) {
+                continue;
+            }
+            $bandPercentages = $bandRows->pluck('persentase')->filter(fn ($v): bool => $v !== null)->all();
+            $bandIpkValues = $bandRows->pluck('ipk')->filter(fn ($v): bool => $v !== null)->all();
+            $bandAwal = $this->average($bandRows->pluck('tahap_awal')->all());
+            $bandAkhir = $this->average($bandRows->pluck('tahap_akhir')->all());
+
+            $ipkRows[] = [
+                'kategori_ipk' => $band['label'],
+                'alumni_valid' => $bandRows->count(),
+                'rata_ipk' => $this->average($bandIpkValues) !== null ? round($this->average($bandIpkValues), 2) : '-',
+                'rata_awal' => $bandAwal !== null ? (int) round($bandAwal) : null,
+                'rata_akhir' => $bandAkhir !== null ? (int) round($bandAkhir) : null,
+                'rata_persentase' => $this->average($bandPercentages) !== null ? round($this->average($bandPercentages), 1) : null,
+            ];
+        }
+
+        $totalIpkRow = [
+            'kategori_ipk' => 'Total Seluruh Kategori IPK',
+            'alumni_valid' => $detail->count(),
+            'rata_ipk' => $this->average($allIpkValues) !== null ? round($this->average($allIpkValues), 2) : null,
+            'rata_awal' => $allAvgAwal !== null ? (int) round($allAvgAwal) : null,
+            'rata_akhir' => $allAvgAkhir !== null ? (int) round($allAvgAkhir) : null,
+            'rata_persentase' => $this->average($allValidPercentages) !== null ? round($this->average($allValidPercentages), 1) : null,
+            'is_total' => true,
+        ];
 
         return [
             'columns' => [
@@ -1456,7 +1511,7 @@ class TracerAnalyticsService
                 ['key' => 'ipk', 'label' => 'IPK', 'align' => 'right'],
                 ['key' => 'tahap_awal', 'label' => $firstLabel, 'align' => 'right'],
                 ['key' => 'tahap_akhir', 'label' => $secondLabel, 'align' => 'right'],
-                ['key' => 'persentase', 'label' => 'Persentase', 'align' => 'right'],
+                ['key' => 'persentase', 'label' => 'Persentase (%)', 'align' => 'right'],
             ],
             'rows' => $detail->all(),
             'summary' => [
@@ -1464,61 +1519,136 @@ class TracerAnalyticsService
                     ['key' => 'prodi', 'label' => 'Program Studi'],
                     ['key' => 'alumni_valid', 'label' => 'Alumni Valid', 'align' => 'right'],
                     ['key' => 'rata_ipk', 'label' => 'Rata-rata IPK', 'align' => 'right'],
-                    ['key' => 'rata_awal', 'label' => 'Rata-rata Tahap Awal', 'align' => 'right'],
-                    ['key' => 'rata_akhir', 'label' => 'Rata-rata Tahap Lanjutan', 'align' => 'right'],
+                    ['key' => 'rata_awal', 'label' => 'Rata-rata '.$firstLabel, 'align' => 'right'],
+                    ['key' => 'rata_akhir', 'label' => 'Rata-rata '.$secondLabel, 'align' => 'right'],
                     ['key' => 'rata_persentase', 'label' => 'Rata-rata Persentase', 'align' => 'right'],
-                    ['key' => 'alumni_tertinggi', 'label' => 'Alumni Persentase Tertinggi'],
-                    ['key' => 'persentase_tertinggi', 'label' => 'Persentase Tertinggi', 'align' => 'right'],
-                    ['key' => 'ipk_tertinggi', 'label' => 'IPK Alumni Tertinggi', 'align' => 'right'],
                 ],
                 'rows' => $pivot,
+                'total_row' => $totalProdiRow,
+                'ipk_columns' => [
+                    ['key' => 'kategori_ipk', 'label' => 'Kategori IPK'],
+                    ['key' => 'alumni_valid', 'label' => 'Alumni Valid', 'align' => 'right'],
+                    ['key' => 'rata_ipk', 'label' => 'Rata-rata IPK', 'align' => 'right'],
+                    ['key' => 'rata_awal', 'label' => 'Rata-rata '.$firstLabel, 'align' => 'right'],
+                    ['key' => 'rata_akhir', 'label' => 'Rata-rata '.$secondLabel, 'align' => 'right'],
+                    ['key' => 'rata_persentase', 'label' => 'Rata-rata Persentase', 'align' => 'right'],
+                ],
+                'ipk_rows' => $ipkRows,
+                'ipk_total_row' => $totalIpkRow,
             ],
         ];
     }
 
     /**
-     * Mengelompokkan total tahap lanjutan berdasarkan rentang IPK.
+     * Menghitung statistik tiga tahap konversi rekrutmen per kelompok IPK akademik.
+     *
+     * Tahap 1: Lamaran -> Respons (F6 -> F7)
+     * Tahap 2: Respons -> Wawancara (F7 -> F7a)
+     * Tahap 3: Lamaran -> Wawancara (F6 -> F7a)
+     *
+     * Setiap tahapan menghitung rasio konversi aktual (to_count / from_count) untuk masing-masing
+     * kelompok IPK yang aktif sehingga dapat disajikan sebagai grouped horizontal comparison bar.
      *
      * @param  Collection<int, array<string, mixed>>  $alumniRows  Data numerik per alumni.
-     * @return array<int, array<string, mixed>> Statistik tiga tahap konversi per rentang IPK.
+     * @return array<int, array<string, mixed>> Statistik konversi komparatif per kategori IPK.
      */
     private function conversionIpkStats(Collection $alumniRows): array
     {
-        $bands = [
-            ['key' => 'ipk_unavailable', 'label' => 'IPK Tidak tersedia'],
-            ['key' => 'ipk_0_1', 'label' => 'IPK 0–<1', 'min' => 0.0, 'max' => 1.0],
-            ['key' => 'ipk_1_2', 'label' => 'IPK 1–<2', 'min' => 1.0, 'max' => 2.0],
-            ['key' => 'ipk_2_3', 'label' => 'IPK 2–<3', 'min' => 2.0, 'max' => 3.0],
-            ['key' => 'ipk_3_4', 'label' => 'IPK 3–4', 'min' => 3.0, 'max' => 4.0],
+        $allBands = [
+            [
+                'key' => 'ipk_cumlaude',
+                'label' => 'IPK ≥ 3.50 (Dengan Pujian)',
+                'short_label' => 'IPK ≥ 3.50',
+                'color' => '#0D542B',
+                'filter' => fn ($ipk): bool => $ipk !== null && $ipk >= 3.50,
+            ],
+            [
+                'key' => 'ipk_sangat_memuaskan',
+                'label' => 'IPK 3.00 – 3.49 (Sangat Memuaskan)',
+                'short_label' => 'IPK 3.00–3.49',
+                'color' => '#2563EB',
+                'filter' => fn ($ipk): bool => $ipk !== null && $ipk >= 3.00 && $ipk < 3.50,
+            ],
+            [
+                'key' => 'ipk_memuaskan',
+                'label' => 'IPK 2.50 – 2.99 (Memuaskan)',
+                'short_label' => 'IPK 2.50–2.99',
+                'color' => '#0D9488',
+                'filter' => fn ($ipk): bool => $ipk !== null && $ipk >= 2.50 && $ipk < 3.00,
+            ],
+            [
+                'key' => 'ipk_cukup',
+                'label' => 'IPK < 2.50 (Cukup)',
+                'short_label' => 'IPK < 2.50',
+                'color' => '#D97706',
+                'filter' => fn ($ipk): bool => $ipk !== null && $ipk < 2.50,
+            ],
+            [
+                'key' => 'ipk_unavailable',
+                'label' => 'IPK Tidak Tersedia',
+                'short_label' => 'IPK Tidak Tersedia',
+                'color' => '#64748B',
+                'filter' => fn ($ipk): bool => $ipk === null,
+            ],
         ];
+
+        // Saring kategori yang memiliki data responden pada populasi alumni
+        $activeBands = [];
+        foreach ($allBands as $band) {
+            $matchingCount = $alumniRows->filter(fn (array $r): bool => ($band['filter'])($r['ipk']))->count();
+            if ($matchingCount > 0) {
+                $band['total_alumni'] = $matchingCount;
+                $activeBands[] = $band;
+            }
+        }
+        if (empty($activeBands)) {
+            $activeBands = array_slice($allBands, 0, 2);
+        }
+
         $stages = [
             ['key' => 'app_to_resp', 'label' => 'Lamaran → Respons', 'from_key' => 'f6', 'to_key' => 'f7'],
             ['key' => 'resp_to_intv', 'label' => 'Respons → Wawancara', 'from_key' => 'f7', 'to_key' => 'f7a'],
             ['key' => 'app_to_intv', 'label' => 'Lamaran → Wawancara', 'from_key' => 'f6', 'to_key' => 'f7a'],
         ];
 
-        return collect($stages)->map(function (array $stage) use ($alumniRows, $bands): array {
+        return collect($stages)->map(function (array $stage) use ($alumniRows, $activeBands): array {
             $eligible = $alumniRows->filter(fn (array $row): bool => $row[$stage['from_key']] !== null && $row[$stage['from_key']] > 0 && $row[$stage['to_key']] !== null);
             $fromCount = (int) $eligible->sum($stage['from_key']);
             $toCount = (int) $eligible->sum($stage['to_key']);
-            $counts = array_fill_keys(array_column($bands, 'key'), 0);
-            foreach ($eligible as $row) {
-                $ipk = $row['ipk'];
-                $band = $bands[0];
-                foreach (array_slice($bands, 1) as $candidate) {
-                    if ($ipk !== null && $ipk >= $candidate['min'] && ($ipk < $candidate['max'] || ($candidate['max'] === 4.0 && $ipk <= 4.0))) {
-                        $band = $candidate;
-                        break;
-                    }
-                }
-                $counts[$band['key']] += (int) $row[$stage['to_key']];
+            $overallConversion = $fromCount > 0 ? round(($toCount / $fromCount) * 100, 1) : 0.0;
+
+            $bandList = [];
+            $rates = [];
+            $counts = [];
+
+            foreach ($activeBands as $band) {
+                $bandEligible = $eligible->filter(fn (array $r): bool => ($band['filter'])($r['ipk']));
+                $bandFrom = (int) $bandEligible->sum($stage['from_key']);
+                $bandTo = (int) $bandEligible->sum($stage['to_key']);
+                $bandRate = $bandFrom > 0 ? round(($bandTo / $bandFrom) * 100, 1) : 0.0;
+                $alumniCount = $bandEligible->count();
+
+                $bandList[] = [
+                    'key' => $band['key'],
+                    'label' => $band['label'],
+                    'short_label' => $band['short_label'],
+                    'color' => $band['color'],
+                    'alumni_count' => $alumniCount,
+                    'from_count' => $bandFrom,
+                    'to_count' => $bandTo,
+                    'conversion_percentage' => $bandRate,
+                ];
+                $rates[$band['key']] = $bandRate;
+                $counts[$band['key']] = $bandTo;
             }
 
             return [
                 ...$stage,
                 'from_count' => $fromCount,
                 'to_count' => $toCount,
-                'conversion_percentage' => $fromCount > 0 ? round(($toCount / $fromCount) * 100, 1) : 0.0,
+                'conversion_percentage' => $overallConversion,
+                'bands' => $bandList,
+                'rates' => $rates,
                 'counts' => $counts,
                 'segment_percentages' => collect($counts)->map(fn (int $count): float => $this->percentage($count, $toCount))->all(),
             ];

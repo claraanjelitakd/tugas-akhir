@@ -114,6 +114,23 @@ const handleSelect = (params) => {
         return;
     }
 
+    const d = params?.data;
+    if (item.type === 'likert' && d?.scaleLevel) {
+        emit('select', {
+            item,
+            label: `${d.scaleLevel} - ${d.scaleLabel}`,
+            value: d.scaleLevel,
+            scaleLevel: d.scaleLevel,
+            fromPivot: true,
+            fromChart: true,
+            type: 'rating_5',
+            code: item.key,
+            questionText: item.title,
+            dataIndex: params?.dataIndex,
+        });
+        return;
+    }
+
     const label = item.type === 'choice'
         ? item.categories?.[params?.dataIndex]
         : item.title;

@@ -26,8 +26,8 @@ defineProps({
         role="admin_prodi"
         role-title="Admin Program Studi"
         prefix="prodi"
-        :can-export-zip="false"
-        :can-blast-email="false"
+        :can-export-zip="true"
+        :can-blast-email="true"
         :show-prodi-filter="false"
     />
 </template>

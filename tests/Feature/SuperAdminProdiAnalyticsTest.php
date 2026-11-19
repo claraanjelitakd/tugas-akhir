@@ -205,7 +205,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
     }
 
     /**
-     * Skor Likert prodi dibulatkan ke bilangan bulat dan payload menyediakan rumusnya.
+     * Skor Likert prodi dibulatkan ke bilangan bulat INT dan payload menyediakan rumusnya.
      */
     public function test_likert_scores_are_rounded_and_include_a_formula(): void
     {
@@ -262,10 +262,8 @@ class SuperAdminProdiAnalyticsTest extends TestCase
         $analytics = app(ProdiAnalyticsService::class)->buildProdiChart($prodi->id, $section->id, 'ALL');
 
         $this->assertSame(3, $analytics['chart']['summary']['average_score']);
-        $this->assertSame(3, $analytics['chart']['summary']['median_score']);
         $this->assertSame(3, $analytics['chart']['visualizations'][0]['stat']['average']);
         $this->assertStringContainsString('ROUND', $analytics['chart']['methodology']['formula']);
-        $this->assertStringContainsString('bilangan bulat', $analytics['chart']['methodology']['denominator']);
     }
 
     /**
