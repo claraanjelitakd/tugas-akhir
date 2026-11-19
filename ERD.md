@@ -118,6 +118,7 @@ erDiagram
     users ||--o{ log_activities : "mencatat_audit"
     users ||--o{ linkedin_sync_results : "meninjau"
     users ||--o{ perusahaan : "mengajukan_perusahaan"
+    users ||--o| account_sync_settings : "mengubah_pengaturan"
     data_akademik ||--o| biodata : "referensi_nim"
     data_akademik ||--o| yudisium : "kelulusan_nim"
     yudisium ||--o| biodata : "kelulusan_yudisium"
@@ -159,6 +160,7 @@ erDiagram
     ref_fakultas ||--o{ users : "cakupan_fakultas (fakultas_id)"
     prodi ||--o{ users : "cakupan_admin (prodi_id)"
     users ||--o{ log_activities : "mencatat (user_id)"
+    users ||--o| account_sync_settings : "mengubah_pengaturan (updated_by)"
 
     ref_fakultas {
         bigint id PK
@@ -181,6 +183,11 @@ erDiagram
     log_activities {
         bigint id PK
         bigint user_id FK
+    }
+
+    account_sync_settings {
+        bigint id PK
+        bigint updated_by FK
     }
 ```
 
@@ -532,12 +539,13 @@ Tabel berikut merinci seluruh relasi kunci asing (*Foreign Key*) dan referensi l
 | 35 | `kuesioner_section` | `id` | `kuesioner_jawaban` | `section_id` | `1 : N` | `CASCADE` | Setiap jawaban terasosiasi ke bagian kuesioner tempat butir berada. |
 | 36 | `kuesioner_pertanyaan` | `id` | `kuesioner_jawaban` | `pertanyaan_id` | `1 : N` | `CASCADE` | Setiap jawaban merujuk ke master butir pertanyaan yang dijawab. |
 | 37 | `kuesioner_opsi` | `id` | `kuesioner_jawaban` | `opsi_id` | `1 : N` | `SET NULL` | Merujuk ke opsi pilihan jawaban terpilih (untuk pertanyaan pilihan tunggal/ganda). |
+| 38 | `users` | `id` | `account_sync_settings` | `updated_by` | `1 : 0..1` | `SET NULL` | Superadmin yang terakhir mengubah pengaturan buka/tutup sinkronisasi akun alumni. |
 
 ---
 
 ## Bagian 3: Kamus Data (Data Dictionary) Detail Per Tabel
 
-Bagian ini mendokumentasikan spesifikasi lengkap setiap kolom pada **21 tabel domain bisnis aktif** serta **7 tabel infrastruktur sistem**.
+Bagian ini mendokumentasikan spesifikasi lengkap setiap kolom pada **22 tabel domain bisnis aktif** serta **7 tabel infrastruktur sistem**.
 
 ### 3.1 Modul 1: Autentikasi, Pengguna, & Audit Log
 
@@ -576,6 +584,17 @@ Menyimpan rekam jejak audit (*audit trail*) atas aksi perubahan data penting yan
 | `user_agent` | `text` | - | `NULL` | Informasi peramban/klien HTTP perangkat pengguna. |
 | `created_at` | `timestamp` | - | `NULL` | Waktu pencatatan aktivitas audit. |
 | `updated_at` | `timestamp` | - | `NULL` | Waktu pembaruan rekaman audit. |
+
+#### 3. Tabel `account_sync_settings`
+Menyimpan pengaturan tunggal (singleton, `id = 1`) untuk membuka atau menutup proses sinkronisasi data akun alumni dari sistem Data Akademik UKDW.
+
+| Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
+| :--- | :--- | :---: | :---: | :--- |
+| `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID rekaman pengaturan (selalu bernilai `1`, singleton). |
+| `is_open` | `tinyint(1)` | - | `NOT NULL`, Default `1` | Status sinkronisasi: `1` = terbuka (sinkronisasi aktif), `0` = tertutup. |
+| `updated_by` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `users.id` Superadmin yang terakhir mengubah pengaturan (`ON DELETE SET NULL`). |
+| `created_at` | `timestamp` | - | `NULL` | Waktu pembuatan rekaman pengaturan. |
+| `updated_at` | `timestamp` | - | `NULL` | Waktu pembaruan terakhir pengaturan. |
 
 ---
 
@@ -930,7 +949,7 @@ Menyimpan sesi lembar transaksi survei kepuasan atasan terhadap alumni UKDW bese
 
 ### 3.6 Tabel Infrastruktur Framework Laravel
 
-Selain 21 tabel domain bisnis di atas, basis data menyertakan 7 tabel standar infrastruktur Laravel untuk manajemen sesi, antrean pekerjaan (*queue jobs*), dan *caching*:
+Selain 22 tabel domain bisnis di atas, basis data menyertakan 7 tabel standar infrastruktur Laravel untuk manajemen sesi, antrean pekerjaan (*queue jobs*), dan *caching*:
 
 | No | Nama Tabel | Primary Key (`PK`) | Fungsi Infrastruktur |
 | :--- | :--- | :--- | :--- |
