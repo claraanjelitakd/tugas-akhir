@@ -58,7 +58,7 @@ class KelengkapanTracerService
             ->where('q.is_active', true)
             ->where(function ($query) {
                 $query->whereNull('sp.tampil_di')
-                    ->orWhereNotIn('sp.tampil_di', ['profil', 'profile']);
+                    ->orWhereNotIn('sp.tampil_di', ['profil', 'profile', 'both']);
             })
             ->whereNotIn(DB::raw('UPPER(q.kode_pertanyaan)'), $profileCodesUpper)
             ->pluck('q.kode_pertanyaan')

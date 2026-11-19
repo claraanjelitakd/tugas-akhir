@@ -163,13 +163,12 @@ class AdminAlumniProfileService
      */
     public static function getRefOptions(): array
     {
+        // Ambil opsi secara dinamis berdasarkan tampil_di, bukan daftar kode hardcoded
         return KuesionerOpsi::join('kuesioner_pertanyaan', 'kuesioner_pertanyaan.id', '=', 'kuesioner_opsi.pertanyaan_id')
-            ->whereIn('kuesioner_pertanyaan.kode_pertanyaan', [
-                'F2G', 'F2H', 'F5D', 'F11', 'F8', 'F5C', 'BIO_BIDANG_DIVISI', 'BIO_PEND_TINGKAT',
-                'BIO_WARGA_NEGARA', 'BIO_INST_BENTUK', 'BIO_INST_LOKASI',
-                'f2g', 'f2h', 'f5d', 'f11', 'f8', 'f5c', 'bio_bidang_divisi', 'bio_pend_tingkat',
-                'bio_warga_negara', 'bio_inst_bentuk', 'bio_inst_lokasi',
-            ])
+            ->join('kuesioner_section_pertanyaan', 'kuesioner_section_pertanyaan.pertanyaan_id', '=', 'kuesioner_pertanyaan.id')
+            ->whereIn('kuesioner_section_pertanyaan.tampil_di', ['profil', 'profile', 'both'])
+            ->where('kuesioner_section_pertanyaan.is_active', true)
+            ->whereIn('kuesioner_pertanyaan.tipe', ['radio', 'dropdown', 'searchable_select', 'single_choice'])
             ->orderBy('kuesioner_opsi.order')
             ->select([
                 'kuesioner_opsi.id',
@@ -178,6 +177,7 @@ class AdminAlumniProfileService
                 'kuesioner_opsi.label as option_text',
                 'kuesioner_opsi.order',
             ])
+            ->distinct()
             ->get()
             ->groupBy(fn ($item) => strtoupper($item->kode_pertanyaan))
             ->toArray();
@@ -194,7 +194,6 @@ class AdminAlumniProfileService
             $q->whereIn('kuesioner_section_pertanyaan.tampil_di', ['profil', 'profile', 'both'])
                 ->where('kuesioner_section_pertanyaan.is_active', true);
         })
-            ->orWhereIn('kuesioner_pertanyaan.kode_pertanyaan', ['F8', 'F11', 'F5D', 'F2G', 'F2H'])
             ->with(['sections' => function ($query) {
                 $query->whereIn('kuesioner_section_pertanyaan.tampil_di', ['profil', 'profile', 'both'])
                     ->where('kuesioner_section_pertanyaan.is_active', true);
