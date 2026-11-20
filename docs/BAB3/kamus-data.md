@@ -158,7 +158,8 @@
 | :--- | :--- | :--- | :--- |
 | `kode_negara` | varchar(2) | PK | Kode negara ISO-3166-1 alpha-2 (contoh: ID, SG) |
 | `kode_iso3` | varchar(3) | NULL | Kode 3 huruf ISO-3166-1 alpha-3 (contoh: IDN) |
-| `nama_negara` | varchar(80) | AK, NOT NULL | Nama umum negara dalam Bahasa Indonesia |
+| `kode_iso3` | varchar(3) | AK, NULL | Kode 3 huruf ISO-3166-1 alpha-3 (contoh: IDN) |
+| `nama_negara` | varchar(80) | NOT NULL | Nama umum negara dalam Bahasa Indonesia |
 | `nama_resmi` | varchar(120) | NULL | Nama resmi kenegaraan lengkap |
 | `benua` | varchar(50) | NULL | Benua lokasi negara |
 | `ibu_kota` | varchar(80) | NULL | Nama ibu kota negara |

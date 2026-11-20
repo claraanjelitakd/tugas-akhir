@@ -77,8 +77,8 @@ erDiagram
 
     ref_negara {
         varchar kode_negara PK
-        varchar nama_negara "AK"
-        varchar kode_iso3
+        varchar nama_negara
+        varchar kode_iso3 "AK"
         varchar benua
     }
 
