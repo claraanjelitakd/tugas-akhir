@@ -11,6 +11,7 @@ Menunjukkan posisi Sistem Tracer Study UKDW di antara penggunanya dan sistem eks
 ```mermaid
 C4Context
     title System Context — Tracer Study UKDW
+    UpdateLayoutConfig($c4ShapeInRow: "3", $c4BoundaryInRow: "1")
 
     Person(alumni, "Alumni", "Lulusan UKDW yang mengisi data profil karier, menjawab kuesioner tracer study, dan memperbarui informasi pekerjaan secara mandiri.")
     Person(atasan, "Pengguna Lulusan", "Atasan atau pemberi kerja alumni yang menerima undangan melalui email dan mengisi formulir evaluasi kinerja alumni.")
@@ -44,6 +45,7 @@ Menunjukkan container teknis di dalam sistem Tracer Study UKDW.
 ```mermaid
 C4Container
     title Container Diagram — Tracer Study UKDW
+    UpdateLayoutConfig($c4ShapeInRow: "3", $c4BoundaryInRow: "1")
 
     Person(alumni, "Alumni", "Lulusan UKDW.")
     Person(atasan, "Pengguna Lulusan", "Atasan / pemberi kerja alumni.")
