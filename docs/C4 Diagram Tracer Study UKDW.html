@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C4 Diagram - Tracer Study UKDW</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --bg: #f8f7f4; --surface: #fff; --border: #e5e2da;
+  --text: #1a1917; --muted: #6b6860;
+  --nav: #1e2a3a; --nav-t: #c8d6e8; --nav-a: #fff; --nav-ac: #4a8fd4;
+  --accent: #2d5c8e;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111418; --surface: #1c2128; --border: #2d333b;
+    --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+    --nav: #0d1117; --nav-t: #8b949e; --nav-a: #e6edf3; --nav-ac: #58a6ff;
+  }
+}
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+.layout { display: flex; min-height: 100vh; }
+.sidebar { width: 220px; min-width: 220px; background: var(--nav); position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sh { padding: 1rem 1rem .6rem; border-bottom: 1px solid rgba(255,255,255,.08); }
+.st { font-size: .7rem; font-weight: 700; color: var(--nav-t); text-transform: uppercase; letter-spacing: .08em; margin: 0; }
+.ss { font-size: .62rem; color: rgba(200,214,232,.4); margin: .15rem 0 0; }
+.ng { padding: .3rem 0; }
+.ngl { font-size: .58rem; font-weight: 700; color: rgba(200,214,232,.35); text-transform: uppercase; letter-spacing: .1em; padding: .12rem 1rem; }
+.ni { display: flex; align-items: center; padding: .3rem 1rem; cursor: pointer; color: var(--nav-t); font-size: .75rem; border: none; background: none; width: 100%; text-align: left; border-left: 3px solid transparent; transition: background .1s; line-height: 1.4; }
+.ni:hover { background: rgba(255,255,255,.06); }
+.ni.active { background: rgba(74,143,212,.15); border-left-color: var(--nav-ac); color: var(--nav-a); font-weight: 600; }
+.main { flex: 1; padding: 1.5rem; overflow-x: auto; }
+.section { display: none; }
+.section.active { display: block; }
+.lvl-badge { display: inline-block; background: var(--accent); color: #fff; font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 4px; letter-spacing: .05em; margin-bottom: .4rem; }
+.diag-title { font-size: 1.2rem; font-weight: 700; margin: .1rem 0 .3rem; }
+.diag-desc { font-size: .82rem; color: var(--muted); margin-bottom: 1rem; line-height: 1.5; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; overflow-x: auto; margin-bottom: 1rem; }
+.legend { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1rem; }
+.leg-item { display: flex; align-items: center; gap: .4rem; font-size: .72rem; color: var(--muted); }
+.leg-box { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+svg { font-family: 'Inter', sans-serif; }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+  <div class="sh">
+    <p class="st">C4 Diagram</p>
+    <p class="ss">Tracer Study UKDW</p>
+  </div>
+  <div class="ng">
+    <div class="ngl">Level 1</div>
+    <button class="ni active" onclick="show('c4l1',this)">System Context</button>
+  </div>
+  <div class="ng">
+    <div class="ngl">Level 2</div>
+    <button class="ni" onclick="show('c4l2',this)">Container</button>
+  </div>
+</nav>
+<main class="main">
+
+<!-- ==================== C4 Level 1: System Context ==================== -->
+<div id="c4l1" class="section active">
+  <div class="lvl-badge">Level 1 — System Context</div>
+  <div class="diag-title">System Context Diagram — Tracer Study UKDW</div>
+  <div class="diag-desc">Menunjukkan posisi Sistem Tracer Study UKDW di antara penggunanya dan sistem eksternal yang berinteraksi dengannya.</div>
+  <div class="card">
+  <svg viewBox="0 0 920 640" xmlns="http://www.w3.org/2000/svg" width="100%" style="min-width:700px">
+    <defs>
+      <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" fill="#555"/>
+      </marker>
+      <marker id="arr2" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" fill="#aaa"/>
+      </marker>
+    </defs>
+
+    <!-- === PERSONS (top row) === -->
+    <!-- Alumni -->
+    <rect x="30" y="20" width="160" height="110" rx="6" fill="#08427b" stroke="#063162" stroke-width="1.5"/>
+    <text x="110" y="38" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="10">&lt;&lt;Person&gt;&gt;</text>
+    <circle cx="110" cy="62" r="12" fill="none" stroke="white" stroke-width="2"/>
+    <line x1="110" y1="74" x2="110" y2="93" stroke="white" stroke-width="2"/>
+    <line x1="93" y1="82" x2="127" y2="82" stroke="white" stroke-width="2"/>
+    <line x1="110" y1="93" x2="96" y2="108" stroke="white" stroke-width="2"/>
+    <line x1="110" y1="93" x2="124" y2="108" stroke="white" stroke-width="2"/>
+    <text x="110" y="102" text-anchor="middle" fill="white" font-size="12" font-weight="600">Alumni</text>
+    <text x="110" y="115" text-anchor="middle" fill="rgba(255,255,255,.75)" font-size="9">Lulusan UKDW</text>
+    <text x="110" y="126" text-anchor="middle" fill="rgba(255,255,255,.75)" font-size="9">yang mengisi kuesioner</text>
+
+    <!-- Pengguna Lulusan -->
+    <rect x="730" y="20" width="160" height="110" rx="6" fill="#08427b" stroke="#063162" stroke-width="1.5"/>
+    <text x="810" y="38" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="10">&lt;&lt;Person&gt;&gt;</text>
+    <circle cx="810" cy="62" r="12" fill="none" stroke="white" stroke-width="2"/>
+    <line x1="810" y1="74" x2="810" y2="93" stroke="white" stroke-width="2"/>
+    <line x1="793" y1="82" x2="827" y2="82" stroke="white" stroke-width="2"/>
+    <line x1="810" y1="93" x2="796" y2="108" stroke="white" stroke-width="2"/>
+    <line x1="810" y1="93" x2="824" y2="108" stroke="white" stroke-width="2"/>
+    <text x="810" y="102" text-anchor="middle" fill="white" font-size="11" font-weight="600">Pengguna Lulusan</text>
+    <text x="810" y="115" text-anchor="middle" fill="rgba(255,255,255,.75)" font-size="9">(Atasan / Pemberi Kerja)</text>
+    <text x="810" y="126" text-anchor="middle" fill="rgba(255,255,255,.75)" font-size="9">Mengisi evaluasi alumni</text>
+
+    <!-- Admin Prodi/Fakultas/Biro -->
+    <rect x="30" y="510" width="170" height="115" rx="6" fill="#08427b" stroke="#063162" stroke-width="1.5"/>
+    <text x="115" y="528" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="10">&lt;&lt;Person&gt;&gt;</text>
+    <circle cx="115" cy="552" r="12" fill="none" stroke="white" stroke-width="2"/>
+    <line x1="115" y1="564" x2="115" y2="583" stroke="white" stroke-width="2"/>
+    <line x1="98" y1="572" x2="132" y2="572" stroke="white" stroke-width="2"/>
+    <line x1="115" y1="583" x2="101" y2="598" stroke="white" stroke-width="2"/>
+    <line x1="115" y1="583" x2="129" y2="598" stroke="white" stroke-width="2"/>
+    <text x="115" y="596" text-anchor="middle" fill="white" font-size="11" font-weight="600">Admin</text>
+    <text x="115" y="609" text-anchor="middle" fill="rgba(255,255,255,.75)" font-size="9">Prodi / Fakultas / Biro</text>
+    <text x="115" y="621" text-anchor="middle" fill="rgba(255,255,255,.75)" font-size="9">Kelola alumni &amp; laporan</text>
+
+    <!-- Superadmin -->
+    <rect x="720" y="510" width="170" height="115" rx="6" fill="#08427b" stroke="#063162" stroke-width="1.5"/>
+    <text x="805" y="528" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="10">&lt;&lt;Person&gt;&gt;</text>
+    <circle cx="805" cy="552" r="12" fill="none" stroke="white" stroke-width="2"/>
+    <line x1="805" y1="564" x2="805" y2="583" stroke="white" stroke-width="2"/>
+    <line x1="788" y1="572" x2="822" y2="572" stroke="white" stroke-width="2"/>
+    <line x1="805" y1="583" x2="791" y2="598" stroke="white" stroke-width="2"/>
+    <line x1="805" y1="583" x2="819" y2="598" stroke="white" stroke-width="2"/>
+    <text x="805" y="596" text-anchor="middle" fill="white" font-size="11" font-weight="600">Superadmin (ITC)</text>
+    <text x="805" y="609" text-anchor="middle" fill="rgba(255,255,255,.75)" font-size="9">Kelola akun, kuesioner,</text>
+    <text x="805" y="621" text-anchor="middle" fill="rgba(255,255,255,.75)" font-size="9">master data, sinkronisasi</text>
+
+    <!-- === MAIN SYSTEM (center) === -->
+    <rect x="310" y="240" width="300" height="130" rx="6" fill="#1168bd" stroke="#0a4d8c" stroke-width="2"/>
+    <text x="460" y="263" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="10">&lt;&lt;Software System&gt;&gt;</text>
+    <text x="460" y="285" text-anchor="middle" fill="white" font-size="14" font-weight="700">Tracer Study UKDW</text>
+    <line x1="330" y1="292" x2="590" y2="292" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+    <text x="460" y="308" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="10">Aplikasi web pelacakan karier alumni,</text>
+    <text x="460" y="322" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="10">pengisian kuesioner, dan analisis data</text>
+    <text x="460" y="336" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="10">lulusan Universitas Kristen Duta Wacana</text>
+    <text x="460" y="354" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="9">[Laravel 11 / PHP 8.3 / Vue 3]</text>
+
+    <!-- === EXTERNAL SYSTEMS (bottom center) === -->
+    <!-- Apify -->
+    <rect x="200" y="490" width="155" height="90" rx="6" fill="#6b6b6b" stroke="#555" stroke-width="1.5"/>
+    <text x="277" y="508" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="10">&lt;&lt;External System&gt;&gt;</text>
+    <text x="277" y="526" text-anchor="middle" fill="white" font-size="12" font-weight="600">Apify API</text>
+    <line x1="215" y1="532" x2="338" y2="532" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+    <text x="277" y="547" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="9">Platform scraping LinkedIn</text>
+    <text x="277" y="560" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="9">untuk data karier alumni</text>
+    <text x="277" y="573" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="8">[Apify Platform / REST API]</text>
+
+    <!-- SMTP -->
+    <rect x="565" y="490" width="155" height="90" rx="6" fill="#6b6b6b" stroke="#555" stroke-width="1.5"/>
+    <text x="642" y="508" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="10">&lt;&lt;External System&gt;&gt;</text>
+    <text x="642" y="526" text-anchor="middle" fill="white" font-size="12" font-weight="600">Email Service</text>
+    <line x1="580" y1="532" x2="703" y2="532" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+    <text x="642" y="547" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="9">Layanan SMTP untuk notifikasi</text>
+    <text x="642" y="560" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="9">dan undangan kuesioner</text>
+    <text x="642" y="573" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="8">[SMTP / TLS]</text>
+
+    <!-- === ARROWS === -->
+    <!-- Alumni → Tracer Study -->
+    <line x1="190" y1="75" x2="308" y2="260" stroke="#555" stroke-width="1.5" marker-end="url(#arr)"/>
+    <rect x="195" y="140" width="90" height="30" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="240" y="153" text-anchor="middle" fill="#333" font-size="9">Mengisi profil dan</text>
+    <text x="240" y="164" text-anchor="middle" fill="#333" font-size="9">kuesioner [HTTPS]</text>
+
+    <!-- Pengguna Lulusan → Tracer Study -->
+    <line x1="730" y1="75" x2="612" y2="260" stroke="#555" stroke-width="1.5" marker-end="url(#arr)"/>
+    <rect x="635" y="140" width="96" height="30" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="683" y="153" text-anchor="middle" fill="#333" font-size="9">Mengisi evaluasi</text>
+    <text x="683" y="164" text-anchor="middle" fill="#333" font-size="9">kinerja [HTTPS]</text>
+
+    <!-- Admin → Tracer Study -->
+    <line x1="200" y1="568" x2="310" y2="370" stroke="#555" stroke-width="1.5" marker-end="url(#arr)"/>
+    <rect x="192" y="440" width="100" height="30" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="242" y="453" text-anchor="middle" fill="#333" font-size="9">Kelola alumni,</text>
+    <text x="242" y="464" text-anchor="middle" fill="#333" font-size="9">laporan [HTTPS]</text>
+
+    <!-- Superadmin → Tracer Study -->
+    <line x1="720" y1="568" x2="612" y2="370" stroke="#555" stroke-width="1.5" marker-end="url(#arr)"/>
+    <rect x="634" y="440" width="98" height="30" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="683" y="453" text-anchor="middle" fill="#333" font-size="9">Kelola akun &amp;</text>
+    <text x="683" y="464" text-anchor="middle" fill="#333" font-size="9">kuesioner [HTTPS]</text>
+
+    <!-- Tracer Study → Apify -->
+    <line x1="390" y1="370" x2="332" y2="490" stroke="#555" stroke-width="1.5" marker-end="url(#arr)"/>
+    <rect x="310" y="413" width="104" height="30" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="362" y="426" text-anchor="middle" fill="#333" font-size="9">Meminta sinkronisasi</text>
+    <text x="362" y="437" text-anchor="middle" fill="#333" font-size="9">LinkedIn [REST API]</text>
+
+    <!-- Apify → Tracer Study (return) -->
+    <line x1="310" y1="510" x2="400" y2="380" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr2)"/>
+    <rect x="232" y="453" width="90" height="22" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.9"/>
+    <text x="277" y="463" text-anchor="middle" fill="#888" font-size="8">Mengembalikan data</text>
+    <text x="277" y="473" text-anchor="middle" fill="#888" font-size="8">profil LinkedIn</text>
+
+    <!-- Tracer Study → SMTP -->
+    <line x1="530" y1="370" x2="588" y2="490" stroke="#555" stroke-width="1.5" marker-end="url(#arr)"/>
+    <rect x="508" y="413" width="104" height="30" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="560" y="426" text-anchor="middle" fill="#333" font-size="9">Kirim notifikasi &amp;</text>
+    <text x="560" y="437" text-anchor="middle" fill="#333" font-size="9">undangan [SMTP]</text>
+  </svg>
+  </div>
+  <div class="legend">
+    <div class="leg-item"><div class="leg-box" style="background:#1168bd"></div> Software System (Tracer Study UKDW)</div>
+    <div class="leg-item"><div class="leg-box" style="background:#08427b"></div> Person (Pengguna)</div>
+    <div class="leg-item"><div class="leg-box" style="background:#6b6b6b"></div> External System</div>
+    <div class="leg-item" style="gap:.6rem"><svg width="30" height="12"><line x1="0" y1="6" x2="22" y2="6" stroke="#555" stroke-width="2" marker-end="url(#arr)"/></svg> Relasi langsung</div>
+    <div class="leg-item" style="gap:.6rem"><svg width="30" height="12"><line x1="0" y1="6" x2="22" y2="6" stroke="#aaa" stroke-width="2" stroke-dasharray="4,2"/></svg> Respon / balikan</div>
+  </div>
+</div>
+
+<!-- ==================== C4 Level 2: Container ==================== -->
+<div id="c4l2" class="section">
+  <div class="lvl-badge">Level 2 — Container</div>
+  <div class="diag-title">Container Diagram — Tracer Study UKDW</div>
+  <div class="diag-desc">Menunjukkan container-container teknis di dalam sistem Tracer Study UKDW, teknologi yang digunakan, dan cara mereka berkomunikasi.</div>
+  <div class="card">
+  <svg viewBox="0 0 940 680" xmlns="http://www.w3.org/2000/svg" width="100%" style="min-width:720px">
+    <defs>
+      <marker id="arrc" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" fill="#555"/>
+      </marker>
+      <marker id="arrd" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" fill="#aaa"/>
+      </marker>
+    </defs>
+
+    <!-- === PERSONS (top) === -->
+    <!-- Alumni -->
+    <rect x="20" y="10" width="140" height="90" rx="6" fill="#08427b" stroke="#063162" stroke-width="1.5"/>
+    <text x="90" y="26" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="9">&lt;&lt;Person&gt;&gt;</text>
+    <circle cx="90" cy="46" r="10" fill="none" stroke="white" stroke-width="1.8"/>
+    <line x1="90" y1="56" x2="90" y2="72" stroke="white" stroke-width="1.8"/>
+    <line x1="76" y1="63" x2="104" y2="63" stroke="white" stroke-width="1.8"/>
+    <line x1="90" y1="72" x2="78" y2="84" stroke="white" stroke-width="1.8"/>
+    <line x1="90" y1="72" x2="102" y2="84" stroke="white" stroke-width="1.8"/>
+    <text x="90" y="82" text-anchor="middle" fill="white" font-size="11" font-weight="600">Alumni</text>
+    <text x="90" y="94" text-anchor="middle" fill="rgba(255,255,255,.7)" font-size="8">Lulusan UKDW</text>
+
+    <!-- Pengguna Lulusan -->
+    <rect x="390" y="10" width="160" height="90" rx="6" fill="#08427b" stroke="#063162" stroke-width="1.5"/>
+    <text x="470" y="26" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="9">&lt;&lt;Person&gt;&gt;</text>
+    <circle cx="470" cy="46" r="10" fill="none" stroke="white" stroke-width="1.8"/>
+    <line x1="470" y1="56" x2="470" y2="72" stroke="white" stroke-width="1.8"/>
+    <line x1="456" y1="63" x2="484" y2="63" stroke="white" stroke-width="1.8"/>
+    <line x1="470" y1="72" x2="458" y2="84" stroke="white" stroke-width="1.8"/>
+    <line x1="470" y1="72" x2="482" y2="84" stroke="white" stroke-width="1.8"/>
+    <text x="470" y="82" text-anchor="middle" fill="white" font-size="11" font-weight="600">Pengguna Lulusan</text>
+    <text x="470" y="94" text-anchor="middle" fill="rgba(255,255,255,.7)" font-size="8">Atasan / Pemberi Kerja</text>
+
+    <!-- Admin + Superadmin -->
+    <rect x="760" y="10" width="160" height="90" rx="6" fill="#08427b" stroke="#063162" stroke-width="1.5"/>
+    <text x="840" y="26" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="9">&lt;&lt;Person&gt;&gt;</text>
+    <circle cx="840" cy="46" r="10" fill="none" stroke="white" stroke-width="1.8"/>
+    <line x1="840" y1="56" x2="840" y2="72" stroke="white" stroke-width="1.8"/>
+    <line x1="826" y1="63" x2="854" y2="63" stroke="white" stroke-width="1.8"/>
+    <line x1="840" y1="72" x2="828" y2="84" stroke="white" stroke-width="1.8"/>
+    <line x1="840" y1="72" x2="852" y2="84" stroke="white" stroke-width="1.8"/>
+    <text x="840" y="80" text-anchor="middle" fill="white" font-size="11" font-weight="600">Admin / Superadmin</text>
+    <text x="840" y="92" text-anchor="middle" fill="rgba(255,255,255,.7)" font-size="8">Staf &amp; ITC UKDW</text>
+
+    <!-- === SYSTEM BOUNDARY === -->
+    <rect x="12" y="130" width="916" height="410" rx="8" fill="none" stroke="#2d5c8e" stroke-width="2" stroke-dasharray="8,4"/>
+    <text x="24" y="148" fill="#2d5c8e" font-size="10" font-weight="600">Tracer Study UKDW [System Boundary]</text>
+
+    <!-- === CONTAINERS === -->
+    <!-- SPA -->
+    <rect x="30" y="160" width="175" height="110" rx="6" fill="#1168bd" stroke="#0a4d8c" stroke-width="1.5"/>
+    <text x="117" y="177" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="9">&lt;&lt;Container: SPA&gt;&gt;</text>
+    <text x="117" y="197" text-anchor="middle" fill="white" font-size="12" font-weight="700">Web Browser</text>
+    <line x1="45" y1="203" x2="190" y2="203" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+    <text x="117" y="218" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="9">Antarmuka pengguna</text>
+    <text x="117" y="231" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="9">berbasis komponen Vue</text>
+    <text x="117" y="248" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="8">[Vue 3 + Inertia.js]</text>
+    <text x="117" y="261" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="8">[Berjalan di browser]</text>
+
+    <!-- Web App -->
+    <rect x="260" y="160" width="200" height="110" rx="6" fill="#1168bd" stroke="#0a4d8c" stroke-width="1.5"/>
+    <text x="360" y="177" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="9">&lt;&lt;Container: App&gt;&gt;</text>
+    <text x="360" y="197" text-anchor="middle" fill="white" font-size="12" font-weight="700">Web Application</text>
+    <line x1="275" y1="203" x2="445" y2="203" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+    <text x="360" y="218" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="9">Routing, autentikasi,</text>
+    <text x="360" y="231" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="9">logika bisnis &amp; API</text>
+    <text x="360" y="248" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="8">[Laravel 11 / PHP 8.3]</text>
+    <text x="360" y="261" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="8">[Render Inertia response]</text>
+
+    <!-- Database -->
+    <rect x="520" y="160" width="175" height="110" rx="6" fill="#1168bd" stroke="#0a4d8c" stroke-width="1.5"/>
+    <text x="607" y="177" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="9">&lt;&lt;Container: DB&gt;&gt;</text>
+    <text x="607" y="197" text-anchor="middle" fill="white" font-size="12" font-weight="700">Database</text>
+    <line x1="535" y1="203" x2="680" y2="203" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+    <text x="607" y="218" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="9">Menyimpan data alumni,</text>
+    <text x="607" y="231" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="9">kuesioner, perusahaan,</text>
+    <text x="607" y="244" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="9">jawaban, wilayah, UMP</text>
+    <text x="607" y="261" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="8">[MySQL / Eloquent ORM]</text>
+
+    <!-- Queue Worker -->
+    <rect x="30" y="330" width="175" height="110" rx="6" fill="#1168bd" stroke="#0a4d8c" stroke-width="1.5"/>
+    <text x="117" y="347" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="9">&lt;&lt;Container: Worker&gt;&gt;</text>
+    <text x="117" y="367" text-anchor="middle" fill="white" font-size="12" font-weight="700">Queue Worker</text>
+    <line x1="45" y1="373" x2="190" y2="373" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+    <text x="117" y="388" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="9">Memproses job async:</text>
+    <text x="117" y="401" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="9">email massal, sinkronisasi</text>
+    <text x="117" y="431" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="8">[Laravel Queue + Supervisor]</text>
+
+    <!-- File Storage -->
+    <rect x="750" y="160" width="160" height="110" rx="6" fill="#1168bd" stroke="#0a4d8c" stroke-width="1.5"/>
+    <text x="830" y="177" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="9">&lt;&lt;Container: Storage&gt;&gt;</text>
+    <text x="830" y="197" text-anchor="middle" fill="white" font-size="12" font-weight="700">File Storage</text>
+    <line x1="765" y1="203" x2="895" y2="203" stroke="rgba(255,255,255,.25)" stroke-width="1"/>
+    <text x="830" y="218" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="9">Menyimpan file ekspor</text>
+    <text x="830" y="231" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="9">Excel dan foto profil</text>
+    <text x="830" y="248" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="9">alumni</text>
+    <text x="830" y="261" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="8">[Laravel Storage / Disk]</text>
+
+    <!-- === EXTERNAL SYSTEMS (bottom, outside boundary) === -->
+    <!-- Apify -->
+    <rect x="150" y="590" width="175" height="80" rx="6" fill="#6b6b6b" stroke="#555" stroke-width="1.5"/>
+    <text x="237" y="607" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="9">&lt;&lt;External System&gt;&gt;</text>
+    <text x="237" y="625" text-anchor="middle" fill="white" font-size="12" font-weight="600">Apify API</text>
+    <line x1="165" y1="630" x2="308" y2="630" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+    <text x="237" y="645" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="9">Scraping LinkedIn</text>
+    <text x="237" y="658" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="8">[REST API / HTTPS]</text>
+
+    <!-- SMTP -->
+    <rect x="600" y="590" width="175" height="80" rx="6" fill="#6b6b6b" stroke="#555" stroke-width="1.5"/>
+    <text x="687" y="607" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="9">&lt;&lt;External System&gt;&gt;</text>
+    <text x="687" y="625" text-anchor="middle" fill="white" font-size="12" font-weight="600">Email Service (SMTP)</text>
+    <line x1="615" y1="630" x2="758" y2="630" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+    <text x="687" y="645" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="9">Notifikasi &amp; undangan</text>
+    <text x="687" y="658" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="8">[SMTP / TLS]</text>
+
+    <!-- === ARROWS === -->
+    <!-- Alumni → SPA (browser) -->
+    <line x1="90" y1="100" x2="100" y2="158" stroke="#555" stroke-width="1.5" marker-end="url(#arrc)"/>
+    <rect x="22" y="118" width="84" height="20" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="64" y="127" text-anchor="middle" fill="#333" font-size="8">Akses via browser</text>
+    <text x="64" y="137" text-anchor="middle" fill="#333" font-size="8">[HTTPS]</text>
+
+    <!-- Pengguna Lulusan → SPA -->
+    <line x1="470" y1="100" x2="300" y2="158" stroke="#555" stroke-width="1.5" marker-end="url(#arrc)"/>
+    <rect x="338" y="115" width="80" height="20" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="378" y="124" text-anchor="middle" fill="#333" font-size="8">Akses via browser</text>
+    <text x="378" y="134" text-anchor="middle" fill="#333" font-size="8">[HTTPS]</text>
+
+    <!-- Admin/Superadmin → SPA -->
+    <line x1="840" y1="100" x2="850" y2="158" stroke="#555" stroke-width="1.5" marker-end="url(#arrc)"/>
+    <rect x="790" y="118" width="84" height="20" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="832" y="127" text-anchor="middle" fill="#333" font-size="8">Akses via browser</text>
+    <text x="832" y="137" text-anchor="middle" fill="#333" font-size="8">[HTTPS]</text>
+
+    <!-- SPA ↔ Web App -->
+    <line x1="205" y1="210" x2="258" y2="210" stroke="#555" stroke-width="1.5" marker-end="url(#arrc)"/>
+    <line x1="258" y1="225" x2="205" y2="225" stroke="#aaa" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#arrd)"/>
+    <rect x="196" y="193" width="68" height="34" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="230" y="204" text-anchor="middle" fill="#333" font-size="8">Request form</text>
+    <text x="230" y="214" text-anchor="middle" fill="#888" font-size="8">Inertia response</text>
+    <text x="230" y="224" text-anchor="middle" fill="#aaa" font-size="7">[HTTP/JSON]</text>
+
+    <!-- Web App ↔ DB -->
+    <line x1="460" y1="215" x2="518" y2="215" stroke="#555" stroke-width="1.5" marker-end="url(#arrc)"/>
+    <line x1="518" y1="228" x2="460" y2="228" stroke="#aaa" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#arrd)"/>
+    <rect x="460" y="197" width="62" height="34" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="491" y="208" text-anchor="middle" fill="#333" font-size="8">Read/Write</text>
+    <text x="491" y="219" text-anchor="middle" fill="#aaa" font-size="7">[SQL /</text>
+    <text x="491" y="229" text-anchor="middle" fill="#aaa" font-size="7">Eloquent]</text>
+
+    <!-- Web App → File Storage -->
+    <line x1="695" y1="195" x2="748" y2="195" stroke="#555" stroke-width="1.5" marker-end="url(#arrc)"/>
+    <rect x="696" y="182" width="54" height="20" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="723" y="191" text-anchor="middle" fill="#333" font-size="8">Simpan file</text>
+    <text x="723" y="201" text-anchor="middle" fill="#aaa" font-size="7">[Filesystem]</text>
+
+    <!-- Web App → Queue -->
+    <line x1="310" y1="270" x2="175" y2="330" stroke="#555" stroke-width="1.5" marker-end="url(#arrc)"/>
+    <rect x="195" y="284" width="78" height="22" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="234" y="294" text-anchor="middle" fill="#333" font-size="8">Dispatch job async</text>
+    <text x="234" y="304" text-anchor="middle" fill="#aaa" font-size="7">[Laravel Queue]</text>
+
+    <!-- Queue → Apify -->
+    <line x1="117" y1="440" x2="195" y2="588" stroke="#555" stroke-width="1.5" marker-end="url(#arrc)"/>
+    <rect x="88" y="494" width="98" height="24" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="137" y="504" text-anchor="middle" fill="#333" font-size="8">Minta sinkronisasi</text>
+    <text x="137" y="515" text-anchor="middle" fill="#aaa" font-size="7">[REST API / HTTPS]</text>
+
+    <!-- Queue → SMTP -->
+    <line x1="175" y1="395" x2="598" y2="620" stroke="#555" stroke-width="1.5" marker-end="url(#arrc)"/>
+    <rect x="310" y="480" width="88" height="24" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.95"/>
+    <text x="354" y="490" text-anchor="middle" fill="#333" font-size="8">Kirim email massal</text>
+    <text x="354" y="501" text-anchor="middle" fill="#aaa" font-size="7">[SMTP / TLS]</text>
+
+    <!-- Apify → Web App (webhook) -->
+    <line x1="324" y1="590" x2="360" y2="272" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrd)"/>
+    <rect x="354" y="460" width="84" height="24" rx="3" fill="white" stroke="#ddd" stroke-width="1" opacity="0.9"/>
+    <text x="396" y="470" text-anchor="middle" fill="#888" font-size="8">Kirim hasil scraping</text>
+    <text x="396" y="481" text-anchor="middle" fill="#aaa" font-size="7">[Webhook / REST API]</text>
+  </svg>
+  </div>
+  <div class="legend">
+    <div class="leg-item"><div class="leg-box" style="background:#1168bd"></div> Container (dalam sistem)</div>
+    <div class="leg-item"><div class="leg-box" style="background:#08427b"></div> Person (Pengguna)</div>
+    <div class="leg-item"><div class="leg-box" style="background:#6b6b6b"></div> External System</div>
+    <div class="leg-item" style="gap:.5rem">
+      <svg width="30" height="12"><line x1="0" y1="6" x2="22" y2="6" stroke="#555" stroke-width="2"/><polygon points="22,3 30,6 22,9" fill="#555"/></svg>
+      Relasi / request
+    </div>
+    <div class="leg-item" style="gap:.5rem">
+      <svg width="30" height="12"><line x1="0" y1="6" x2="22" y2="6" stroke="#aaa" stroke-width="2" stroke-dasharray="4,2"/><polygon points="22,3 30,6 22,9" fill="#aaa"/></svg>
+      Respon / balikan
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+<script>
+function show(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>

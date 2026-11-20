@@ -1,0 +1,791 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Activity Diagram Tracer Study UKDW</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+<style>
+:root{--bg:#f8f7f4;--surface:#fff;--border:#e5e2da;--text:#1a1917;--muted:#6b6860;--accent:#2d5c8e;--al:#e8f0f9;--nav:#1e2a3a;--nav-t:#c8d6e8;--nav-a:#fff;--nav-ac:#4a8fd4;color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--surface:#1c2128;--border:#2d333b;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--al:#1c2d42;--nav:#0d1117;--nav-t:#8b949e;--nav-a:#e6edf3;--nav-ac:#58a6ff;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#111418;--surface:#1c2128;--border:#2d333b;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--al:#1c2d42;--nav:#0d1117;--nav-t:#8b949e;--nav-a:#e6edf3;--nav-ac:#58a6ff;color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.layout{display:flex;min-height:100vh}
+.sidebar{width:230px;min-width:230px;background:var(--nav);position:sticky;top:0;height:100vh;overflow-y:auto}
+.sh{padding:1rem 1rem .6rem;border-bottom:1px solid rgba(255,255,255,.08)}
+.st{font-size:.7rem;font-weight:700;color:var(--nav-t);text-transform:uppercase;letter-spacing:.08em;margin:0}
+.ss{font-size:.62rem;color:rgba(200,214,232,.4);margin:.15rem 0 0}
+.ng{padding:.3rem 0}
+.ngl{font-size:.58rem;font-weight:700;color:rgba(200,214,232,.35);text-transform:uppercase;letter-spacing:.1em;padding:.12rem 1rem}
+.ni{display:flex;align-items:center;gap:.4rem;padding:.28rem 1rem;cursor:pointer;color:var(--nav-t);font-size:.75rem;border:none;background:none;width:100%;text-align:left;border-left:3px solid transparent;transition:background .1s;line-height:1.3}
+.ni:hover{background:rgba(255,255,255,.06)}
+.ni.active{background:rgba(74,143,212,.15);border-left-color:var(--nav-ac);color:var(--nav-a);font-weight:600}
+.main{flex:1;padding:1.5rem;max-width:100%;overflow-x:hidden;padding-left:max(1.5rem,env(safe-area-inset-left,0px));padding-right:max(1.5rem,env(safe-area-inset-right,0px))}
+.section{display:none}.section.active{display:block}
+.uc-id{display:inline-block;background:var(--accent);color:#fff;font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:4px;letter-spacing:.05em;margin-bottom:.4rem}
+.uc-title{font-size:1.2rem;font-weight:700;margin:.1rem 0 .3rem}
+.actors{font-size:.78rem;color:var(--muted);margin-bottom:.8rem}
+.actor{display:inline-block;background:var(--al);color:var(--accent);padding:.1rem .45rem;border-radius:4px;font-size:.72rem;font-weight:500;margin:0 .2rem .2rem 0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem;overflow-x:auto;margin-bottom:1rem}
+.note{background:var(--al);border-left:3px solid var(--accent);padding:.6rem .8rem;border-radius:4px;font-size:.78rem;color:var(--muted);margin-bottom:.8rem}
+.mermaid{min-width:400px}
+.mermaid svg{background:transparent!important}
+@media(max-width:640px){.layout{flex-direction:column}.sidebar{width:100%;height:auto;position:static}}
+</style>
+
+<div class="layout">
+<nav class="sidebar">
+  <div class="sh"><div class="st">Activity Diagram</div><div class="ss">Tracer Study UKDW · Suriya 2022</div></div>
+  <div class="ng">
+    <div class="ngl">Semua Pengguna</div>
+    <button class="ni active" onclick="show('uc01',this)">Login & Lupa Kata Sandi</button>
+  </div>
+  <div class="ng">
+    <div class="ngl">Alumni</div>
+    <button class="ni" onclick="show('uc02',this)">Mengisi Profil</button>
+    <button class="ni" onclick="show('uc03',this)">Mengisi Kuesioner Univ</button>
+    <button class="ni" onclick="show('uc04',this)">Mengisi Kuesioner Prodi</button>
+  </div>
+  <div class="ng">
+    <div class="ngl">Pengguna Lulusan (Atasan)</div>
+    <button class="ni" onclick="show('uc05',this)">Evaluasi Kinerja Alumni</button>
+  </div>
+  <div class="ng">
+    <div class="ngl">Admin / Prodi / Biro</div>
+    <button class="ni" onclick="show('uc06',this)">Kelola Data Alumni</button>
+    <button class="ni" onclick="show('uc07',this)">Verifikasi & Rekomendasi Perusahaan</button>
+    <button class="ni" onclick="show('uc08',this)">Sinkronisasi LinkedIn</button>
+    <button class="ni" onclick="show('uc09',this)">Kelola Kuesioner Universitas</button>
+    <button class="ni" onclick="show('uc10',this)">Kelola Kuesioner Prodi</button>
+    <button class="ni" onclick="show('uc11',this)">Kelola Kuesioner Pengguna Lulusan</button>
+    <button class="ni" onclick="show('uc12',this)">Melihat Laporan</button>
+    <button class="ni" onclick="show('uceksp',this)">Ekspor Data Alumni</button>
+    <button class="ni" onclick="show('uc13',this)">Menghubungi Alumni</button>
+  </div>
+  <div class="ng">
+    <div class="ngl">Superadmin (ITC)</div>
+    <button class="ni" onclick="show('uc14',this)">Kelola UMP & Wilayah</button>
+    <button class="ni" onclick="show('uc15',this)">Manajemen Akun</button>
+    <button class="ni" onclick="show('uc16',this)">Log Aktivitas</button>
+    <button class="ni" onclick="show('uc17',this)">Master Pengguna Lulusan</button>
+  </div>
+</nav>
+
+<main class="main">
+
+<div class="note"><strong>Notasi UML Activity Diagram (Suriya, 2022):</strong> ⬤ Initial State &nbsp;|&nbsp; ◎ Final State &nbsp;|&nbsp; ▭ Action State &nbsp;|&nbsp; ◇ Decision — kondisi ditulis di garis keluar [kondisi] &nbsp;|&nbsp; Swimlane = Lane</div>
+
+<!-- ==================== UC01: Login & Lupa Kata Sandi ==================== -->
+<div id="uc01" class="section active">
+  <div class="uc-id">Login</div>
+  <div class="uc-title">Login & Lupa Kata Sandi</div>
+  <div class="actors"><span class="actor">Pengguna</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph P["🧑 Pengguna"]
+    A([●])
+    B[Memasukkan Email & Password]
+    F[Memasukkan Email Terdaftar]
+    EM[Menerima Email Tautan Reset Password]
+    H[Mengisi Password Baru]
+    HC[Mengisi Password Baru - Penggantian Paksa]
+  end
+  subgraph S["⚙️ Sistem"]
+    C[Validasi Kredensial]
+    D1{ }
+    D2{ }
+    D3{ }
+    CE[Mencari Akun via Email]
+    D4{ }
+    GT[Generate Token Reset Password]
+    KE[Mengirim Tautan Reset ke Email]
+    SV[Menyimpan Password Baru]
+    DB[Masuk ke Dashboard]
+    ZZ([◎])
+    ZE([◎])
+  end
+  A --> B --> C --> D1
+  D1 -- "[Tidak Valid]" --> D2
+  D2 -- "[Lupa Password]" --> F
+  D2 -- "[Coba Lagi]" --> B
+  D1 -- "[Valid]" --> D3
+  D3 -- "[Harus Ganti Password]" --> HC
+  D3 -- "[Normal]" --> DB
+  F --> CE --> D4
+  D4 -- "[Tidak Ditemukan]" --> ZE
+  D4 -- "[Ditemukan]" --> GT --> KE --> EM --> H
+  H --> SV
+  HC --> SV
+  SV --> DB --> ZZ
+  </div></div>
+</div>
+
+<!-- ==================== UC02: Alur Utama Alumni - Mengisi Profil ==================== -->
+<div id="uc02" class="section">
+  <div class="uc-id">Alumni</div>
+  <div class="uc-title">Alur Utama Alumni: Mengisi Profil</div>
+  <div class="actors"><span class="actor">Alumni</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph AL["🧑 Alumni"]
+    A([●])
+    B[Melengkapi Profil Alumni]
+    D1{ }
+    TB[Tidak Bekerja / Sedang Mencari Kerja]
+    D2{ }
+    PT[Mengisi Jenjang Pendidikan & Informasi Perguruan Tinggi]
+    SC[Memasukan Pencarian Head Office / Perusahaan]
+    D3{ }
+    PH[Memilih Head Office]
+    NP[Menambahkan Data Perusahaan]
+    D4{ }
+    UP[Memasukan Usulan Perubahan Data Head Office]
+    LF[Lengkapi Form]
+    SP[Simpan Profil]
+    ZZ([◎])
+  end
+  subgraph S["⚙️ Sistem"]
+    FJ[Menampilkan Jabatan Struktural - F2G]
+    FW[Menampilkan Posisi / Jabatan Wiraswasta - F5C]
+    SV[Status Perusahaan = Menunggu Verifikasi]
+    DL{ }
+    SVP[Simpan Profil]
+  end
+  A --> B --> D1
+  D1 -- "[Pekerja/Karyawan]" --> FJ --> SC
+  D1 -- "[Wirausaha]" --> FW --> SC
+  D1 -- "[Tidak Sedang Bekerja]" --> TB --> D2
+  D2 -- "[Melanjutkan Pendidikan]" --> PT --> SC
+  D2 -- "[Tidak Melanjutkan Pendidikan]" --> SC
+  SC --> D3
+  D3 -- "[Perusahaan Ditemukan]" --> PH --> D4
+  D3 -- "[Tidak Ditemukan]" --> NP --> SV --> LF
+  D4 -- "[Data Head Office Sesuai]" --> LF
+  D4 -- "[Ingin Mengusulkan Perubahan]" --> UP --> LF
+  LF --> DL
+  DL -- "[Data Lengkap]" --> SVP --> SP --> ZZ
+  DL -- "[Belum Lengkap]" --> LF
+  </div></div>
+</div>
+
+<!-- ==================== UC03: Mengisi Kuesioner Universitas ==================== -->
+<div id="uc03" class="section">
+  <div class="uc-id">Alumni</div>
+  <div class="uc-title">Mengisi Kuesioner Universitas</div>
+  <div class="actors"><span class="actor">Alumni</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph AL["🧑 Alumni"]
+    A([●])
+    BK[Buka Kuesioner Universitas]
+    QS[Mengisi Seluruh Kuesioner Ditampilkan]
+  end
+  subgraph S["⚙️ Sistem"]
+    ST[Menampilkan Daftar Section / Stepper Pertanyaan]
+    IP[Menampilkan Instrumen Pertanyaan Aktif]
+    D1{ }
+    MT[Menampilkan Form Masa Tunggu - F502 s.d. F505]
+    IP2[Menampilkan Instrumen Pertanyaan Aktif]
+    D2{ }
+    JMP[Jalankan jump_to ke Kode Soal Target & Tandai Soal Lainnya Skipped]
+    NXT[Menampilkan Pertanyaan Berikutnya]
+    HIT[Menghitung Pertanyaan Wajib & Menghilangkan Pertanyaan Skipped]
+    D3{ }
+    SV[Data Lengkap Disimpan]
+    LK[Kuesioner Universitas Berstatus Lengkap]
+    ZZ([◎])
+  end
+  A --> BK --> ST --> IP --> D1
+  D1 -- "[Bekerja / Wiraswasta]" --> MT
+  D1 -- "[Melanjutkan Pendidikan / Tidak Bekerja]" --> IP2
+  MT --> D2
+  IP2 --> D2
+  D2 -- "[Terdapat jump_to pada Kode Opsi Pertanyaan]" --> JMP --> NXT
+  D2 -- "[Tidak Ada jump_to]" --> NXT
+  NXT --> QS --> HIT --> D3
+  D3 -- "[Melengkapi Form]" --> QS
+  D3 -- "[Data Lengkap Disimpan]" --> SV --> LK --> ZZ
+  </div></div>
+</div>
+
+<!-- ==================== UC04: Mengisi Kuesioner Prodi ==================== -->
+<div id="uc04" class="section">
+  <div class="uc-id">Alumni</div>
+  <div class="uc-title">Mengisi Kuesioner Prodi</div>
+  <div class="actors"><span class="actor">Alumni</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph AL["🧑 Alumni"]
+    A([●])
+    BK[Buka Kuesioner Prodi]
+    QS[Mengisi Seluruh Kuesioner Ditampilkan]
+  end
+  subgraph S["⚙️ Sistem"]
+    ST[Menampilkan Daftar Section / Stepper Pertanyaan]
+    IP[Menampilkan Instrumen Pertanyaan Aktif]
+    D1{ }
+    JMP[Jalankan jump_to ke Kode Soal Target & Tandai Soal Lainnya Skipped]
+    NXT[Menampilkan Pertanyaan Berikutnya]
+    HIT[Menghitung Pertanyaan Wajib & Menghilangkan Pertanyaan Skipped]
+    D2{ }
+    SV[Data Lengkap Disimpan]
+    LK[Kuesioner Prodi Berstatus Lengkap]
+    ZZ([◎])
+  end
+  A --> BK --> ST --> IP --> D1
+  D1 -- "[Terdapat jump_to pada Kode Opsi Pertanyaan]" --> JMP --> NXT
+  D1 -- "[Tidak Ada jump_to]" --> NXT
+  NXT --> QS --> HIT --> D2
+  D2 -- "[Melengkapi Form]" --> QS
+  D2 -- "[Data Lengkap Disimpan]" --> SV --> LK --> ZZ
+  </div></div>
+</div>
+
+<!-- ==================== UC05: Evaluasi Kinerja Alumni (Atasan) ==================== -->
+<div id="uc05" class="section">
+  <div class="uc-id">Pengguna Lulusan</div>
+  <div class="uc-title">Pengisian Evaluasi Kinerja Alumni (Tanpa Login)</div>
+  <div class="actors"><span class="actor">Pengguna Lulusan (Atasan)</span><span class="actor">Alumni</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph AL["🧑 Alumni"]
+    A0([●])
+    REQ[Mengisi Data Atasan & Klik Kirim Undangan]
+  end
+  subgraph S["⚙️ Sistem"]
+    GT[Generate Token & URL Evaluasi]
+    KE[Mengirimkan URL ke Email Atasan]
+    D1{ }
+    TMP[Menampilkan Pertanyaan Evaluasi Aktif]
+    SAV[Menyimpan Jawaban Evaluasi]
+    TH[Token Dinyatakan Hangus / Sudah Digunakan]
+    ZZ([◎])
+    ZE([◎])
+  end
+  subgraph AT["👔 Pengguna Lulusan (Atasan)"]
+    OP[Membuka URL dari Email]
+    ANS[Mengisi Penilaian Kinerja per Aspek]
+    SEND[Mengirimkan Jawaban]
+  end
+  A0 --> REQ --> GT --> KE --> OP
+  OP --> D1
+  D1 -- "[Token Tidak Valid / Kadaluarsa]" --> ZE
+  D1 -- "[Token Valid]" --> TMP --> ANS --> SEND --> SAV --> TH --> ZZ
+  </div></div>
+</div>
+
+<!-- ==================== UC06: Kelola Data Alumni (Admin) ==================== -->
+<div id="uc06" class="section">
+  <div class="uc-id">Admin</div>
+  <div class="uc-title">Mengelola Data Alumni</div>
+  <div class="actors"><span class="actor">Admin</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph ADM["👩‍💼 Admin"]
+    A([●])
+    B[Membuka Halaman Kelola Data Alumni]
+    FL[Mengatur Filter: Angkatan / Prodi / Status Kerja / Status Kuesioner]
+    SEL[Memilih Alumni dari Daftar]
+    D1{ }
+    ED[Mengedit Data Alumni Secara Manual]
+    INV[Memilih Template & Kirim Undangan Kuesioner]
+    EX[Memilih Kolom & Format Ekspor Excel]
+  end
+  subgraph S["⚙️ Sistem"]
+    C[Memuat Daftar Alumni Sesuai Filter]
+    DET[Menampilkan Detail: Profil / Kuesioner / Evaluasi]
+    SV[Menyimpan Perubahan & Merekam Log]
+    SE[Mengirim Email Undangan ke Alumni Terpilih]
+    GF[Membuat File Excel & Siap Unduh]
+    ZZ([◎])
+  end
+  A --> B --> FL --> C --> SEL --> DET --> D1
+  D1 -- "[Edit Data]" --> ED --> SV --> ZZ
+  D1 -- "[Kirim Undangan Kuesioner]" --> INV --> SE --> ZZ
+  D1 -- "[Ekspor Data]" --> EX --> GF --> ZZ
+  D1 -- "[Lihat Saja]" --> ZZ
+  </div></div>
+</div>
+
+<!-- ==================== UC07: Verifikasi & Rekomendasi Perusahaan ==================== -->
+<div id="uc07" class="section">
+  <div class="uc-id">Admin</div>
+  <div class="uc-title">Verifikasi & Rekomendasi Kecocokan Perusahaan</div>
+  <div class="actors"><span class="actor">Admin</span><span class="actor">Sistem</span></div>
+  <div class="note">Alumni mengajukan perusahaan baru melalui halaman Profil. Algoritma matching dijalankan otomatis saat admin memilih pengajuan.</div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph ADM["👩‍💼 Admin"]
+    A([●])
+    B[Membuka Daftar Pengajuan Perusahaan Baru]
+    SEL[Memilih Pengajuan untuk Ditinjau]
+    DA{ }
+    REC[Memilih Perusahaan dari Daftar Rekomendasi]
+  end
+  subgraph S["⚙️ Sistem"]
+    MATCH[Cleaning Nama & Algoritma Matching: Exact, Akronim, Substring, Token, Similarity]
+    SC[Hitung Skor & Tampilkan 5 Rekomendasi Teratas]
+    VA[Tambah ke Master Perusahaan]
+    VB[Ganti ke Perusahaan Master Rekomendasi]
+    VC[Update Status: Ditolak]
+    PR[Hapus Pending, Pindahkan Relasi Biodata & Evaluasi]
+    LOG[Simpan Audit Log]
+    ZZ([◎])
+  end
+  A --> B --> SEL --> MATCH --> SC --> DA
+  DA -- "[Verifikasi Langsung sebagai Baru]" --> VA --> PR --> LOG --> ZZ
+  DA -- "[Gunakan Rekomendasi]" --> REC --> VB --> PR
+  DA -- "[Tolak]" --> VC --> LOG
+  </div></div>
+</div>
+
+<!-- ==================== UC08: Sinkronisasi LinkedIn ==================== -->
+<div id="uc08" class="section">
+  <div class="uc-id">Admin / Superadmin</div>
+  <div class="uc-title">Sinkronisasi Data Alumni via LinkedIn (Apify)</div>
+  <div class="actors"><span class="actor">Admin Prodi / Fakultas / Superadmin</span><span class="actor">Sistem</span><span class="actor">Apify</span></div>
+  <div class="note">Free tier Apify: maksimal 10 usage per sesi. Sinkronisasi berhenti otomatis jika batas tercapai atau URL tidak valid.</div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph ADM["👩‍💼 Admin"]
+    A([●])
+    B[Membuka Halaman Sinkronisasi LinkedIn]
+    URL[Memasukkan / Memilih URL Profil Alumni]
+    NEXT[Lanjut ke URL Berikutnya]
+    REV[Meninjau Hasil Scraping - Snapshot]
+    DA{ }
+    MAP[Memetakan Data ke Biodata Alumni]
+    PRO[Menambahkan Pengajuan Perusahaan Baru - jika ada]
+  end
+  subgraph S["⚙️ Sistem"]
+    CU[Cek Jumlah Usage Apify Saat Ini]
+    D1{ }
+    D2{ }
+    PL[Membuat Payload & HTTP POST ke Apify]
+    SN[Simpan Hasil dengan Status Pending Review]
+    SKIP[Mencatat URL Tidak Valid - Lewati]
+    ZL([◎ Batas Tercapai])
+    ZZ([◎])
+  end
+  subgraph AP["🤖 Apify"]
+    SCR[Scraping Profil LinkedIn]
+    SNAP[Menyimpan Snapshot linkedin_sync_results]
+  end
+  A --> B --> URL --> CU --> D1
+  D1 -- "[Usage lebih atau sama dengan 10]" --> ZL
+  D1 -- "[Usage kurang dari 10]" --> D2
+  D2 -- "[URL Tidak Valid]" --> SKIP --> NEXT --> URL
+  D2 -- "[URL Valid]" --> PL --> SCR --> SNAP --> SN --> REV --> DA
+  DA -- "[Terima]" --> MAP --> PRO --> ZZ
+  DA -- "[Tolak]" --> ZZ
+  NEXT --> CU
+  </div></div>
+</div>
+
+<!-- ==================== UC09: Mengelola Kuesioner Universitas ==================== -->
+<div id="uc09" class="section">
+  <div class="uc-id">Superadmin (ITC)</div>
+  <div class="uc-title">Mengelola Kuesioner Universitas</div>
+  <div class="actors"><span class="actor">Superadmin</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph SA["Superadmin (ITC)"]
+    A([●])
+    B[Membuka Menu Kuesioner Universitas]
+    PIL[Pilih Butir Pertanyaan]
+    HPS[Klik Hapus Pertanyaan]
+    EDT[Input atau Ubah Butir Pertanyaan, Opsi, dan Section]
+    SMP[Simpan Pertanyaan]
+    ZZ([◎])
+  end
+  subgraph S["Sistem"]
+    C[Menampilkan Daftar Kuesioner Universitas]
+    DK{ }
+    D2{ }
+    ERR[Menampilkan Pesan Error]
+    D3{ }
+    SV[Menyimpan Section, Pertanyaan, dan Opsi Jawaban]
+  end
+  A --> B --> C --> DK
+  DK -- "[Hapus Butir Kuesioner]" --> PIL --> HPS --> ZZ
+  DK -- "[Tambah atau Edit Pertanyaan]" --> EDT --> D2
+  D2 -- "[Kode Pertanyaan Duplikat]" --> ERR --> EDT
+  D2 -- "[Kode Pertanyaan Valid]" --> D3
+  D3 -- "[Target jump_to Tidak Valid]" --> ERR
+  D3 -- "[Target jump_to Valid]" --> SMP --> SV --> ZZ
+  </div></div>
+</div>
+
+<!-- ==================== UC10: Mengelola Kuesioner Prodi ==================== -->
+<div id="uc10" class="section">
+  <div class="uc-id">Superadmin / Admin Prodi</div>
+  <div class="uc-title">Mengelola Kuesioner Prodi</div>
+  <div class="actors"><span class="actor">Superadmin / Admin Prodi</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph ADM["Superadmin / Admin Prodi"]
+    A([●])
+    B[Membuka Menu Kuesioner Prodi]
+    PIL[Pilih Butir Pertanyaan]
+    HPS[Klik Hapus Pertanyaan]
+    EDT[Input atau Ubah Butir Pertanyaan, Opsi, dan Section]
+    D1{ }
+    BSK[Membuka Daftar Bank Soal]
+    BPIL[Pilih Butir dari Bank Soal]
+    BSE[Sematkan ke Section]
+    BNEW[Mengisi Kode, Teks, Opsi, Tipe, dan Status Pertanyaan Baru]
+    SMP[Simpan Pertanyaan]
+    ZZ([◎])
+  end
+  subgraph S["Sistem"]
+    C[Menampilkan Daftar Kuesioner Prodi]
+    DK{ }
+    D2{ }
+    ERR[Menampilkan Pesan Error]
+    D3{ }
+    SV[Menyimpan Section, Pertanyaan, dan Opsi Jawaban]
+  end
+  A --> B --> C --> DK
+  DK -- "[Hapus Butir Kuesioner]" --> PIL --> HPS --> ZZ
+  DK -- "[Tambah atau Edit Pertanyaan]" --> EDT --> D1
+  D1 -- "[Ambil dari Bank Soal]" --> BSK --> BPIL --> BSE --> D2
+  D1 -- "[Buat Pertanyaan Baru]" --> BNEW --> D2
+  D2 -- "[Kode Pertanyaan Duplikat]" --> ERR --> EDT
+  D2 -- "[Kode Pertanyaan Valid]" --> D3
+  D3 -- "[Target jump_to Tidak Valid]" --> ERR
+  D3 -- "[Target jump_to Valid]" --> SMP --> SV --> ZZ
+  </div></div>
+</div>
+
+<!-- ==================== UC11: Mengelola Kuesioner Pengguna Lulusan ==================== -->
+<div id="uc11" class="section">
+  <div class="uc-id">Superadmin (ITC)</div>
+  <div class="uc-title">Mengelola Kuesioner Pengguna Lulusan</div>
+  <div class="actors"><span class="actor">Superadmin</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph SA["Superadmin (ITC)"]
+    A([●])
+    B[Membuka Menu Kuesioner Pengguna Lulusan]
+    PIL[Pilih Butir Pertanyaan]
+    HPS[Klik Hapus Pertanyaan]
+    EDT[Input atau Ubah Butir Pertanyaan, Opsi, dan Section]
+    D1{ }
+    BSK[Membuka Daftar Bank Soal]
+    BPIL[Pilih Butir dari Bank Soal]
+    BSE[Sematkan ke Section]
+    BNEW[Mengisi Kode, Teks, Opsi, Tipe, dan Status Pertanyaan Baru]
+    SMP[Simpan Pertanyaan]
+    ZZ([◎])
+  end
+  subgraph S["Sistem"]
+    C[Menampilkan Daftar Kuesioner Pengguna Lulusan]
+    DK{ }
+    D2{ }
+    ERR[Menampilkan Pesan Error]
+    D3{ }
+    SV[Menyimpan Section, Pertanyaan, dan Opsi Jawaban]
+  end
+  A --> B --> C --> DK
+  DK -- "[Hapus Butir Kuesioner]" --> PIL --> HPS --> ZZ
+  DK -- "[Tambah atau Edit Pertanyaan]" --> EDT --> D1
+  D1 -- "[Ambil dari Bank Soal]" --> BSK --> BPIL --> BSE --> D2
+  D1 -- "[Buat Pertanyaan Baru]" --> BNEW --> D2
+  D2 -- "[Kode Pertanyaan Duplikat]" --> ERR --> EDT
+  D2 -- "[Kode Pertanyaan Valid]" --> D3
+  D3 -- "[Target jump_to Tidak Valid]" --> ERR
+  D3 -- "[Target jump_to Valid]" --> SMP --> SV --> ZZ
+  </div></div>
+</div>
+
+<!-- ==================== UC12: Melihat Laporan Statistik ==================== -->
+<div id="uc12" class="section">
+  <div class="uc-id">Admin / Biro</div>
+  <div class="uc-title">Melihat Laporan dan Analisis</div>
+  <div class="actors"><span class="actor">Admin / Admin Biro / Superadmin</span><span class="actor">Sistem</span></div>
+  <div class="note">Laporan perbandingan UMP dan sebaran wilayah membutuhkan master data UMP dan Wilayah yang sudah diisi oleh Superadmin (ITC).</div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph ADM["Admin / Biro"]
+    A([●])
+    B[Membuka Halaman Laporan]
+    DA{ }
+    F1[Filter: Angkatan / Prodi / Tahun]
+    F2[Filter: Wilayah / Tahun]
+    F3[Filter: Angkatan / Prodi / Periode Kuesioner]
+    F4[Filter: Wilayah / Angkatan]
+    ZZ([◎])
+  end
+  subgraph S["Sistem"]
+    DB{ }
+    DC{ }
+    DD{ }
+    G1[Hitung Distribusi Status Kerja dan Generate Grafik]
+    G2[Ambil Data UMP dan Hitung Selisih Gaji]
+    G2E[Peringatan: Data UMP Belum Tersedia]
+    G3[Hitung Response Rate per Angkatan dan Prodi]
+    G4[Peta Sebaran Lokasi Kerja Alumni]
+    G4E[Peringatan: Data Wilayah Belum Tersedia]
+  end
+  A --> B --> DA
+  DA -- "[Distribusi Status Kerja]" --> F1 --> G1 --> DB --> ZZ
+  DA -- "[Perbandingan UMP vs Gaji]" --> F2 --> DC
+  DC -- "[Data UMP Tersedia]" --> G2 --> ZZ
+  DC -- "[Data UMP Belum Ada]" --> G2E --> ZZ
+  DA -- "[Response Rate Kuesioner]" --> F3 --> G3 --> ZZ
+  DA -- "[Sebaran Lokasi Kerja]" --> F4 --> DD
+  DD -- "[Data Wilayah Tersedia]" --> G4 --> ZZ
+  DD -- "[Data Wilayah Belum Ada]" --> G4E --> ZZ
+  </div></div>
+</div>
+
+<!-- ==================== UC_EKSP: Ekspor Data Alumni ==================== -->
+<div id="uceksp" class="section">
+  <div class="uc-id">Admin / Biro</div>
+  <div class="uc-title">Ekspor Data Alumni</div>
+  <div class="actors"><span class="actor">Admin / Admin Biro / Superadmin</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph ADM["Admin / Biro"]
+    A([●])
+    B[Membuka Halaman Ekspor Data]
+    FLT[Memilih Filter: Angkatan / Prodi / Status Kerja]
+    PIL[Memilih Kolom Data yang Akan Diekspor]
+    EX[Klik Ekspor Excel]
+    ZZ([◎])
+  end
+  subgraph S["Sistem"]
+    C[Menampilkan Opsi Filter dan Kolom]
+    D1{ }
+    GEN[Membuat File Excel]
+    UND[File Siap Diunduh]
+    ERR[Menampilkan Pesan: Tidak Ada Data]
+  end
+  A --> B --> C --> FLT --> PIL --> EX --> D1
+  D1 -- "[Data Tersedia]" --> GEN --> UND --> ZZ
+  D1 -- "[Tidak Ada Data Sesuai Filter]" --> ERR --> ZZ
+  </div></div>
+</div>
+
+<!-- ==================== UC13: Menghubungi Alumni ==================== -->
+<div id="uc13" class="section">
+  <div class="uc-id">Admin</div>
+  <div class="uc-title">Menghubungi Alumni</div>
+  <div class="actors"><span class="actor">Admin</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph ADM["👩‍💼 Admin"]
+    A([●])
+    B[Membuka Halaman Komunikasi Alumni]
+    TRG[Memilih Target Penerima]
+    DA{ }
+    TI[Individual: Pilih Alumni Tertentu]
+    TG[Grup: Filter Angkatan / Prodi / Status]
+    MSG[Menulis Subjek & Isi Pesan Email]
+    PRV[Preview Pesan]
+    SND[Klik Kirim]
+    STAT[Memantau Status Pengiriman]
+  end
+  subgraph S["⚙️ Sistem"]
+    SL[Menyimpan Riwayat & Merekam Log Pengiriman]
+    SE[Mengirim Email ke Penerima]
+    ST[Menampilkan Status: Terkirim / Gagal / Dibaca]
+    ZZ([◎])
+  end
+  A --> B --> TRG --> DA
+  DA -- "[Individual]" --> TI --> MSG
+  DA -- "[Grup / Broadcast]" --> TG --> MSG
+  MSG --> PRV --> SND --> SE --> SL --> STAT --> ST --> ZZ
+  </div></div>
+</div>
+
+<!-- ==================== UC14: Kelola UMP & Wilayah ==================== -->
+<div id="uc14" class="section">
+  <div class="uc-id">Superadmin (ITC)</div>
+  <div class="uc-title">Kelola Master UMP & Wilayah</div>
+  <div class="actors"><span class="actor">Superadmin (ITC)</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph SA["🔐 Superadmin (ITC)"]
+    A([●])
+    B[Membuka Halaman Master UMP & Wilayah]
+    DA{ }
+    DB{ }
+    W1[Memilih Level: Provinsi / Kabupaten / Kota]
+    W2[Mengisi Nama Wilayah]
+    WE[Mencari & Mengedit Data Wilayah]
+    WD[Mencari & Memilih Wilayah yang Dihapus]
+    DC{ }
+    U1[Memilih Wilayah dari Daftar]
+    U2[Mengisi Nominal UMP & Tahun Berlaku]
+    UE[Mencari & Mengedit Data UMP]
+    UD[Mencari & Memilih Data UMP yang Dihapus]
+  end
+  subgraph S["⚙️ Sistem"]
+    DD{ }
+    SV[Menyimpan Perubahan Data Master]
+    CF[Cek Relasi: Ada Alumni Terhubung?]
+    DE{ }
+    ZZ([◎])
+  end
+  A --> B --> DA
+  DA -- "[Kelola Wilayah]" --> DB
+  DB -- "[Tambah]" --> W1 --> W2 --> SV --> ZZ
+  DB -- "[Edit]" --> WE --> SV
+  DB -- "[Hapus]" --> WD --> CF --> DE
+  DE -- "[Ada Relasi - Tidak Bisa Dihapus]" --> ZZ
+  DE -- "[Tidak Ada Relasi]" --> SV
+  DA -- "[Kelola UMP]" --> DC
+  DC -- "[Tambah]" --> U1 --> U2 --> SV
+  DC -- "[Edit]" --> UE --> SV
+  DC -- "[Hapus]" --> UD --> SV
+  </div></div>
+</div>
+
+<!-- ==================== UC15: Manajemen Akun ==================== -->
+<div id="uc15" class="section">
+  <div class="uc-id">Superadmin (ITC)</div>
+  <div class="uc-title">Manajemen Akun Pengguna</div>
+  <div class="actors"><span class="actor">Superadmin (ITC)</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph SA["🔐 Superadmin (ITC)"]
+    A([●])
+    B[Membuka Halaman Manajemen Akun]
+    DA{ }
+    N1[Mengisi Data Akun: Nama & Email]
+    N2[Memilih Role: Admin / Admin Prodi / Admin Biro]
+    N3[Mengassign Prodi / Biro / Fakultas]
+    ED[Mencari & Mengedit Data Akun]
+    DS[Mencari & Menonaktifkan / Mengaktifkan Akun]
+    RS[Mencari Akun untuk Reset Password]
+  end
+  subgraph S["⚙️ Sistem"]
+    GP[Generate Password Sementara]
+    KA[Mengirim Email Aktivasi ke Akun Baru]
+    SV[Menyimpan Perubahan Akun]
+    ST[Mengubah Status Akun Aktif / Nonaktif]
+    GR[Generate Token Reset & Kirim Email]
+    SY[Periksa Data Lulusan Belum Punya Akun]
+    SD1{ }
+    SAL[Buat Akun Alumni - username NIM, password tgl lahir]
+    SNL[Tampilkan Pesan Semua Akun Sudah Sinkron]
+    ZZ([◎])
+  end
+  A --> B --> DA
+  DA -- "[Tambah Akun Baru]" --> N1 --> N2 --> N3 --> GP --> KA --> SV --> ZZ
+  DA -- "[Edit Data Akun]" --> ED --> SV --> ZZ
+  DA -- "[Nonaktifkan / Aktifkan]" --> DS --> ST --> SV --> ZZ
+  DA -- "[Reset Password]" --> RS --> GR --> ZZ
+  DA -- "[Sinkronisasi Akun Alumni]" --> SY --> SD1
+  SD1 -- "[Ditemukan Lulusan Belum Punya Akun]" --> SAL --> SV --> ZZ
+  SD1 -- "[Semua Sudah Punya Akun]" --> SNL --> ZZ
+  </div></div>
+</div>
+
+<!-- ==================== UC17: Master Pengguna Lulusan ==================== -->
+<div id="uc17" class="section">
+  <div class="uc-id">Superadmin (ITC)</div>
+  <div class="uc-title">Mengelola Master Data Pengguna Lulusan</div>
+  <div class="actors"><span class="actor">Superadmin</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph SA["🔐 Superadmin (ITC)"]
+    A([●])
+    B[Membuka Menu Master Data Pengguna Lulusan]
+    DT[Melihat Detail Data & Evaluasi]
+  end
+  subgraph S["⚙️ Sistem"]
+    C[Menampilkan Daftar Seluruh Pengguna Lulusan]
+    FL[Melakukan Pencarian / Filter Data Atasan]
+    D1{ }
+    DS[Menampilkan Daftar Atasan yang Sesuai]
+    DE[Menampilkan Pesan Data Kosong]
+    D2{ }
+    MR[Menampilkan Menunggu Respon]
+    DK[Menampilkan Detail Kontak Atasan & Seluruh Butir Jawaban Evaluasi]
+    ZZ([◎])
+  end
+  A --> B --> C --> FL --> D1
+  D1 -- "[Data Ditemukan]" --> DS
+  D1 -- "[Data Tidak Ditemukan]" --> DE
+  DS --> DT
+  DE --> DT
+  DT --> D2
+  D2 -- "[Atasan Belum Mengisi Kuesioner]" --> MR --> ZZ
+  D2 -- "[Atasan Sudah Mengisi Kuesioner]" --> DK --> ZZ
+  </div></div>
+</div>
+
+<!-- ==================== UC16: Log Aktivitas ==================== -->
+<div id="uc16" class="section">
+  <div class="uc-id">Superadmin (ITC)</div>
+  <div class="uc-title">Log Aktivitas Sistem</div>
+  <div class="actors"><span class="actor">Superadmin (ITC)</span><span class="actor">Sistem</span></div>
+  <div class="card"><div class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#ddeeff","primaryBorderColor":"#2d5c8e","lineColor":"#555"}}}%%
+flowchart TD
+  subgraph SA["🔐 Superadmin (ITC)"]
+    A([●])
+    B[Membuka Halaman Log Aktivitas]
+    FL[Mengatur Filter: Pengguna / Jenis Aksi / Rentang Tanggal]
+    SEL[Memilih Baris Log untuk Melihat Detail]
+    DA{ }
+    EX[Memilih Format Ekspor: Excel / CSV]
+  end
+  subgraph S["⚙️ Sistem"]
+    C[Memuat Log Aktivitas Sesuai Filter]
+    DET[Menampilkan Detail Log: Waktu / Aksi / Data Sebelum & Sesudah]
+    GF[Membuat File Log & Siap Unduh]
+    ZZ([◎])
+  end
+  A --> B --> FL --> C --> SEL --> DET --> DA
+  DA -- "[Ekspor Log]" --> EX --> GF --> ZZ
+  DA -- "[Selesai]" --> ZZ
+  </div></div>
+</div>
+
+</main>
+</div>
+
+<script>
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  flowchart: { curve: 'basis', htmlLabels: true },
+  themeVariables: { primaryColor: '#ddeeff', primaryBorderColor: '#2d5c8e', lineColor: '#555' }
+});
+
+window.addEventListener('load', async function() {
+  document.querySelectorAll('.section').forEach(s => { s.style.display = 'block'; });
+  try { await mermaid.run({ nodes: document.querySelectorAll('.mermaid') }); }
+  catch(e) { console.warn('mermaid init error', e); }
+  document.querySelectorAll('.section').forEach(s => { s.style.display = ''; });
+  document.getElementById('uc01').classList.add('active');
+});
+
+function show(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+
+</body></html>
