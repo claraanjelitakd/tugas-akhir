@@ -204,7 +204,7 @@ erDiagram
     account_sync_settings {
         bigint id PK
         boolean is_open
-        bigint updated_by FK
+        bigint updated_by FK "→ users.id"
     }
 
     %% ── RELASI ──────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ erDiagram
     users ||--o| biodata : "akun"
     users ||--o{ log_activities : "mencatat"
     users ||--o{ linkedin_sync_results : "mereview"
-    users ||--o| account_sync_settings : "mengatur"
+    users ||--o| account_sync_settings : "memperbarui"
 
     propinsi ||--|{ kabupaten : "membawahi"
     propinsi ||--o{ perusahaan : "lokasi"
