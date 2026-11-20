@@ -21,7 +21,7 @@ SELECT
     biodata.user_id,
     biodata.nim,
     COALESCE(academic.nama, users.name, 'Mahasiswa UKDW') AS nama,
-    biodata.prodi_id,
+    biodata.kode_prodi,
     study_program.nama_prodi,
     academic.tahun_lulus,
     academic.ip_kumulatif AS ipk,
@@ -48,7 +48,7 @@ SELECT
 FROM biodata
 LEFT JOIN users ON users.id = biodata.user_id
 LEFT JOIN data_akademik AS academic ON academic.nim = biodata.nim
-LEFT JOIN prodi AS study_program ON study_program.id = biodata.prodi_id
+LEFT JOIN ref_prodi AS study_program ON study_program.kode_prodi = biodata.kode_prodi
 LEFT JOIN perusahaan AS company ON company.id = biodata.perusahaan_id
 LEFT JOIN ref_negara AS country ON country.kode_negara = company.kode_negara
 LEFT JOIN propinsi AS workplace_province ON workplace_province.kode_provinsi = company.kode_provinsi

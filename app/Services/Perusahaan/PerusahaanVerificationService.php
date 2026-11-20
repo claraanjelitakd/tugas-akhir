@@ -57,20 +57,20 @@ class PerusahaanVerificationService
      *
      * @param  array<string, mixed>  $filters
      */
-    public function getPendingForProdi(int $prodiId, array $filters = []): LengthAwarePaginator
+    public function getPendingForProdi(string $prodiId, array $filters = []): LengthAwarePaginator
     {
         $query = Perusahaan::query()
             ->with([
                 'propinsi',
                 'kabupaten',
                 'creator:id,name,role,username',
-                'creator.biodata.prodi:id,nama_prodi',
+                'creator.biodata.prodi:kode_prodi,nama_prodi',
                 'creator.biodata.dataAkademik:nim,nama,tahun_lulus,angkatan_masuk',
-                'createdProdi:id,nama_prodi',
+                'createdProdi:kode_prodi,nama_prodi',
                 'latestVerificationLog.user:id,name,role,username',
                 'biodata' => function ($q) {
-                    $q->select('id', 'user_id', 'nim', 'prodi_id', 'posisi_jabatan', 'kategori_pekerjaan', 'perusahaan_id')
-                        ->with(['dataAkademik:nim,nama,tahun_lulus,angkatan_masuk', 'prodi:id,nama_prodi']);
+                    $q->select('id', 'user_id', 'nim', 'kode_prodi', 'posisi_jabatan', 'kategori_pekerjaan', 'perusahaan_id')
+                        ->with(['dataAkademik:nim,nama,tahun_lulus,angkatan_masuk', 'prodi:kode_prodi,nama_prodi']);
                 },
             ])
             ->withCount('biodata');
@@ -112,9 +112,9 @@ class PerusahaanVerificationService
         $scope = $filters['scope'] ?? 'prodi';
         if ($scope === 'prodi') {
             $query->where(function ($q) use ($prodiId) {
-                $q->where('created_by_prodi_id', $prodiId)
-                    ->orWhereHas('biodata', fn ($b) => $b->where('prodi_id', $prodiId))
-                    ->orWhereHas('creator', fn ($u) => $u->where('prodi_id', $prodiId));
+                $q->where('created_by_kode_prodi', $prodiId)
+                    ->orWhereHas('biodata', fn ($b) => $b->where('kode_prodi', $prodiId))
+                    ->orWhereHas('creator', fn ($u) => $u->where('kode_prodi', $prodiId));
             });
         }
 
@@ -153,21 +153,21 @@ class PerusahaanVerificationService
      *
      * @param  array<string, mixed>  $filters
      */
-    public function getPendingForFakultas(int $fakultasId, array $filters = []): LengthAwarePaginator
+    public function getPendingForFakultas(string $fakultasId, array $filters = []): LengthAwarePaginator
     {
-        $prodiIds = Prodi::where('fakultas_id', $fakultasId)->pluck('id')->all();
+        $prodiIds = Prodi::where('kode_fakultas', $fakultasId)->pluck('kode_prodi')->all();
 
         $query = Perusahaan::query()
             ->with([
                 'propinsi',
                 'kabupaten',
                 'creator:id,name,role,username',
-                'creator.biodata.prodi:id,nama_prodi',
-                'createdProdi:id,nama_prodi',
+                'creator.biodata.prodi:kode_prodi,nama_prodi',
+                'createdProdi:kode_prodi,nama_prodi',
                 'latestVerificationLog.user:id,name,role,username',
                 'biodata' => function ($q) {
-                    $q->select('id', 'user_id', 'nim', 'prodi_id', 'posisi_jabatan', 'kategori_pekerjaan', 'perusahaan_id')
-                        ->with(['dataAkademik:nim,nama,tahun_lulus', 'prodi:id,nama_prodi']);
+                    $q->select('id', 'user_id', 'nim', 'kode_prodi', 'posisi_jabatan', 'kategori_pekerjaan', 'perusahaan_id')
+                        ->with(['dataAkademik:nim,nama,tahun_lulus', 'prodi:kode_prodi,nama_prodi']);
                 },
             ]);
 
@@ -204,18 +204,18 @@ class PerusahaanVerificationService
             $query->where('kode_kabupaten', $filters['kode_kabupaten']);
         }
 
-        if (! empty($filters['prodi_id']) && in_array((int) $filters['prodi_id'], $prodiIds)) {
-            $targetProdiId = (int) $filters['prodi_id'];
+        if (! empty($filters['kode_prodi']) && in_array($filters['kode_prodi'], $prodiIds)) {
+            $targetProdiId = $filters['kode_prodi'];
             $query->where(function ($q) use ($targetProdiId) {
-                $q->where('created_by_prodi_id', $targetProdiId)
-                    ->orWhereHas('biodata', fn ($b) => $b->where('prodi_id', $targetProdiId))
-                    ->orWhereHas('creator', fn ($u) => $u->where('prodi_id', $targetProdiId));
+                $q->where('created_by_kode_prodi', $targetProdiId)
+                    ->orWhereHas('biodata', fn ($b) => $b->where('kode_prodi', $targetProdiId))
+                    ->orWhereHas('creator', fn ($u) => $u->where('kode_prodi', $targetProdiId));
             });
         } else {
             $query->where(function ($q) use ($prodiIds) {
-                $q->whereIn('created_by_prodi_id', $prodiIds)
-                    ->orWhereHas('biodata', fn ($b) => $b->whereIn('prodi_id', $prodiIds))
-                    ->orWhereHas('creator', fn ($u) => $u->whereIn('prodi_id', $prodiIds));
+                $q->whereIn('created_by_kode_prodi', $prodiIds)
+                    ->orWhereHas('biodata', fn ($b) => $b->whereIn('kode_prodi', $prodiIds))
+                    ->orWhereHas('creator', fn ($u) => $u->whereIn('kode_prodi', $prodiIds));
             });
         }
 
@@ -252,13 +252,13 @@ class PerusahaanVerificationService
     /**
      * Menghitung total pengajuan perusahaan menunggu verifikasi.
      */
-    public function countPendingForProdi(int $prodiId): int
+    public function countPendingForProdi(string $prodiId): int
     {
         return Perusahaan::where('status_verifikasi', 'Menunggu Verifikasi')
             ->where(function ($q) use ($prodiId) {
-                $q->where('created_by_prodi_id', $prodiId)
-                    ->orWhereHas('biodata', fn ($b) => $b->where('prodi_id', $prodiId))
-                    ->orWhereHas('creator', fn ($u) => $u->where('prodi_id', $prodiId));
+                $q->where('created_by_kode_prodi', $prodiId)
+                    ->orWhereHas('biodata', fn ($b) => $b->where('kode_prodi', $prodiId))
+                    ->orWhereHas('creator', fn ($u) => $u->where('kode_prodi', $prodiId));
             })
             ->count();
     }
@@ -266,15 +266,15 @@ class PerusahaanVerificationService
     /**
      * Menghitung total pengajuan perusahaan menunggu verifikasi di tingkat fakultas.
      */
-    public function countPendingForFakultas(int $fakultasId): int
+    public function countPendingForFakultas(string $fakultasId): int
     {
-        $prodiIds = Prodi::where('fakultas_id', $fakultasId)->pluck('id')->all();
+        $prodiIds = Prodi::where('kode_fakultas', $fakultasId)->pluck('kode_prodi')->all();
 
         return Perusahaan::where('status_verifikasi', 'Menunggu Verifikasi')
             ->where(function ($q) use ($prodiIds) {
-                $q->whereIn('created_by_prodi_id', $prodiIds)
-                    ->orWhereHas('biodata', fn ($b) => $b->whereIn('prodi_id', $prodiIds))
-                    ->orWhereHas('creator', fn ($u) => $u->whereIn('prodi_id', $prodiIds));
+                $q->whereIn('created_by_kode_prodi', $prodiIds)
+                    ->orWhereHas('biodata', fn ($b) => $b->whereIn('kode_prodi', $prodiIds))
+                    ->orWhereHas('creator', fn ($u) => $u->whereIn('kode_prodi', $prodiIds));
             })
             ->count();
     }
@@ -328,7 +328,7 @@ class PerusahaanVerificationService
             ->with([
                 'propinsi:kode_provinsi,nama_provinsi',
                 'kabupaten:kode_kabupaten,kode_provinsi,nama_kabupaten',
-                'createdProdi:id,nama_prodi',
+                'createdProdi:kode_prodi,nama_prodi',
                 'creator:id,name,role,username',
             ])
             ->where('status_verifikasi', 'Terverifikasi')

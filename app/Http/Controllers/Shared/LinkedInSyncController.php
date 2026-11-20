@@ -53,7 +53,7 @@ class LinkedInSyncController extends Controller
             return [
                 'role' => 'admin_prodi',
                 'baseRoute' => '/prodi/linkedin-sync',
-                'prodiId' => $user?->prodi_id,
+                'prodiId' => $user?->kode_prodi,
                 'fakultasId' => null,
             ];
         }
@@ -64,7 +64,7 @@ class LinkedInSyncController extends Controller
                 'role' => 'admin_fakultas',
                 'baseRoute' => '/fakultas/linkedin-sync',
                 'prodiId' => null,
-                'fakultasId' => $user?->fakultas_id,
+                'fakultasId' => $user?->kode_fakultas,
             ];
         }
 
@@ -83,12 +83,12 @@ class LinkedInSyncController extends Controller
     private function validateAlumniScope(Biodata $biodata, array $scope): void
     {
         if ($scope['role'] === 'admin_prodi') {
-            if ($biodata->prodi_id != $scope['prodiId']) {
+            if ($biodata->kode_prodi != $scope['prodiId']) {
                 abort(403, 'Anda tidak memiliki wewenang untuk mengelola data alumni di luar program studi Anda.');
             }
         } elseif ($scope['role'] === 'admin_fakultas') {
-            $prodiIdsFakultas = Prodi::where('fakultas_id', $scope['fakultasId'])->pluck('id')->all();
-            if (! in_array($biodata->prodi_id, $prodiIdsFakultas)) {
+            $prodiIdsFakultas = Prodi::where('kode_fakultas', $scope['fakultasId'])->pluck('kode_prodi')->all();
+            if (! in_array($biodata->kode_prodi, $prodiIdsFakultas)) {
                 abort(403, 'Anda tidak memiliki wewenang untuk mengelola data alumni di luar lingkungan fakultas Anda.');
             }
         }
@@ -124,11 +124,11 @@ class LinkedInSyncController extends Controller
 
         // 1. Ambil daftar Program Studi yang diizinkan untuk akun ini
         if ($scope['role'] === 'admin_prodi') {
-            $daftarProdi = Prodi::where('id', $scope['prodiId'])->get();
+            $daftarProdi = Prodi::where('kode_prodi', $scope['prodiId'])->get();
             $prodiIdsScope = [$scope['prodiId']];
         } elseif ($scope['role'] === 'admin_fakultas') {
-            $daftarProdi = Prodi::where('fakultas_id', $scope['fakultasId'])->orderBy('kode_prodi', 'asc')->get();
-            $prodiIdsScope = $daftarProdi->pluck('id')->all();
+            $daftarProdi = Prodi::where('kode_fakultas', $scope['fakultasId'])->orderBy('kode_prodi', 'asc')->get();
+            $prodiIdsScope = $daftarProdi->pluck('kode_prodi')->all();
         } else {
             $daftarProdi = Prodi::orderBy('kode_prodi', 'asc')->get();
             $prodiIdsScope = null;
@@ -137,7 +137,7 @@ class LinkedInSyncController extends Controller
         // 2. Ambil daftar tahun kelulusan unik dari view v_alumni_audit_rekap sesuai scope
         $tahunQuery = DB::table('v_alumni_audit_rekap');
         if ($prodiIdsScope !== null) {
-            $tahunQuery->whereIn('prodi_id', $prodiIdsScope);
+            $tahunQuery->whereIn('kode_prodi', $prodiIdsScope);
         }
         $daftarTahun = $tahunQuery
             ->where(function ($q) {
@@ -161,7 +161,7 @@ class LinkedInSyncController extends Controller
         // 3. Ambil daftar target periode kelulusan unik (Semester & Tahun Lulus)
         $targetQuery = DB::table('v_alumni_audit_rekap');
         if ($prodiIdsScope !== null) {
-            $targetQuery->whereIn('prodi_id', $prodiIdsScope);
+            $targetQuery->whereIn('kode_prodi', $prodiIdsScope);
         }
         $daftarTarget = $targetQuery
             ->whereNotNull('tahun_akademik_lulus')
@@ -184,7 +184,7 @@ class LinkedInSyncController extends Controller
         $targetTerpilih = (string) $request->input('target', 'all');
         $statusTerpilih = (string) $request->input('status', 'all');
         $statusPlotTerpilih = (string) $request->input('status_plot', 'all');
-        $prodiIdTerpilih = (string) $request->input('prodi_id', 'all');
+        $prodiIdTerpilih = (string) $request->input('kode_prodi', 'all');
 
         // Untuk Admin Prodi, kunci filter prodi ke ID prodinya sendiri
         if ($scope['role'] === 'admin_prodi') {
@@ -211,15 +211,15 @@ class LinkedInSyncController extends Controller
 
         // Terapkan batasan wewenang (Role Scope)
         if ($scope['role'] === 'admin_prodi') {
-            $queryAlumni->where('prodi_id', $scope['prodiId']);
+            $queryAlumni->where('kode_prodi', $scope['prodiId']);
         } elseif ($scope['role'] === 'admin_fakultas') {
-            if ($prodiIdTerpilih !== 'all' && in_array((int) $prodiIdTerpilih, $prodiIdsScope, true)) {
-                $queryAlumni->where('prodi_id', (int) $prodiIdTerpilih);
+            if ($prodiIdTerpilih !== 'all' && in_array($prodiIdTerpilih, $prodiIdsScope, true)) {
+                $queryAlumni->where('kode_prodi', $prodiIdTerpilih);
             } else {
-                $queryAlumni->whereIn('prodi_id', $prodiIdsScope);
+                $queryAlumni->whereIn('kode_prodi', $prodiIdsScope);
             }
         } elseif ($prodiIdTerpilih !== 'all') {
-            $queryAlumni->where('prodi_id', (int) $prodiIdTerpilih);
+            $queryAlumni->where('kode_prodi', $prodiIdTerpilih);
         }
 
         // Filter Tahun Kelulusan
@@ -342,7 +342,7 @@ class LinkedInSyncController extends Controller
                     'nama' => $b->nama_alumni ?? 'Nama Alumni Tidak Ditemukan',
                     'prodi' => $b->nama_prodi ?? '-',
                     'prodi_kode' => $b->kode_prodi ?? '',
-                    'prodi_id' => $b->prodi_id,
+                    'kode_prodi' => $b->kode_prodi,
                     'fakultas' => $b->nama_fakultas ?? '-',
                     'tahun_lulus' => $b->tahun_lulus ?: '-',
                     'tahun_akademik_lulus' => $b->tahun_akademik_lulus ?: '-',
@@ -408,7 +408,7 @@ class LinkedInSyncController extends Controller
                     'nama' => $b->nama_alumni ?? 'Nama Alumni Tidak Ditemukan',
                     'prodi' => $b->nama_prodi ?? '-',
                     'prodi_kode' => $b->kode_prodi ?? '',
-                    'prodi_id' => $b->prodi_id,
+                    'prodi_id' => $b->kode_prodi,
                     'fakultas' => $b->nama_fakultas ?? '-',
                     'tahun_lulus' => $b->tahun_lulus ?: '-',
                     'tahun_akademik_lulus' => $b->tahun_akademik_lulus ?: '-',
@@ -475,7 +475,7 @@ class LinkedInSyncController extends Controller
                 'target' => $targetTerpilih,
                 'status' => $statusTerpilih,
                 'status_plot' => $statusPlotTerpilih,
-                'prodi_id' => $prodiIdTerpilih,
+                'kode_prodi' => $prodiIdTerpilih,
             ],
             'stats' => [
                 'total_alumni' => $totalAlumni,
@@ -1039,7 +1039,7 @@ class LinkedInSyncController extends Controller
             if (! $isReplot) {
                 $result->update([
                     'status' => 'approved',
-                    'reviewed_by' => Auth::id(),
+                    'user_id' => Auth::id(),
                     'reviewed_at' => now(),
                 ]);
             }
@@ -1273,7 +1273,7 @@ class LinkedInSyncController extends Controller
             // Data utama TIDAK berubah sama sekali
             $result->update([
                 'status' => 'rejected',
-                'reviewed_by' => Auth::id(),
+                'user_id' => Auth::id(),
                 'reviewed_at' => now(),
             ]);
 
@@ -1374,10 +1374,10 @@ class LinkedInSyncController extends Controller
         });
 
         if ($scope['role'] === 'admin_prodi') {
-            $alumniQuery->where('prodi_id', $scope['prodiId']);
+            $alumniQuery->where('kode_prodi', $scope['prodiId']);
         } elseif ($scope['role'] === 'admin_fakultas') {
-            $prodiIds = Prodi::where('fakultas_id', $scope['fakultasId'])->pluck('id');
-            $alumniQuery->whereIn('prodi_id', $prodiIds);
+            $prodiIds = Prodi::where('kode_fakultas', $scope['fakultasId'])->pluck('kode_prodi');
+            $alumniQuery->whereIn('kode_prodi', $prodiIds);
         }
 
         $biodataIds = $alumniQuery->pluck('id')->all();

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\KonfirmasiEvaluasiAtasanTerkirimMail;
 use App\Models\Atasan;
 use App\Models\EvaluasiAtasan;
+use App\Models\Kuesioner;
 use App\Models\KuesionerJawaban;
 use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
@@ -413,7 +414,7 @@ class EvaluasiAtasanController extends Controller
                     'skala' => $validated['skala_perusahaan'] ?? 'Nasional',
                     'status_verifikasi' => 'Menunggu Verifikasi',
                     'created_by_user_id' => $lockedEvaluation->biodata?->user_id,
-                    'created_by_prodi_id' => $lockedEvaluation->biodata?->prodi_id,
+                    'created_by_kode_prodi' => $lockedEvaluation->biodata?->kode_prodi,
                 ]);
             } else {
                 // Master perusahaan dikelola admin. Respon atasan tidak pernah
@@ -478,6 +479,7 @@ class EvaluasiAtasanController extends Controller
                             'pertanyaan_id' => $pertanyaan->id,
                         ],
                         [
+                            'kuesioner_id' => Kuesioner::where('is_active', true)->value('id') ?? Kuesioner::value('id'),
                             'section_id' => $questionSectionMap->get($pertanyaan->id) ?: ($atasanSectionIds[0] ?? 1),
                             'kode_pertanyaan' => $pertanyaan->kode_pertanyaan,
                             'opsi_id' => $opsi?->id,

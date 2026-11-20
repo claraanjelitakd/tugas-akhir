@@ -77,8 +77,8 @@ class AlumniBatch2022Seeder extends Seeder
                     'email' => $email,
                     'password' => Hash::make($passwordPlain),
                     'role' => 'alumni',
-                    'prodi_id' => $prodi?->id,
-                    'fakultas_id' => $prodi?->fakultas_id ?? 6,
+                    'kode_prodi' => $prodi?->kode_prodi,
+                    'kode_fakultas' => $prodi?->kode_fakultas,
                     'must_change_password' => true,
                 ]
             );
@@ -93,7 +93,7 @@ class AlumniBatch2022Seeder extends Seeder
                 [
                     'nama' => $nama,
                     'email_pribadi' => $email,
-                    'prodi_id' => $prodi?->id,
+                    'kode_prodi' => $prodi?->kode_prodi,
                     'angkatan_masuk' => $angkatan,
                     'tahun_akademik_masuk' => $tahunAkademikMasuk,
                     'status_mahasiswa' => 'Lulus',
@@ -128,8 +128,7 @@ class AlumniBatch2022Seeder extends Seeder
                 ['user_id' => $user->id],
                 [
                     'nim' => $nim,
-                    'yudisium_id' => $yudisium->id,
-                    'prodi_id' => $prodi?->id,
+                    'kode_prodi' => $prodi?->kode_prodi,
                     'email_pribadi' => $email,
                     'nomor_telepon' => null,
                     'alamat_saat_ini' => null,

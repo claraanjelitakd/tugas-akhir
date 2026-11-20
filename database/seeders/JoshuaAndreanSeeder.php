@@ -45,7 +45,7 @@ class JoshuaAndreanSeeder extends Seeder
                 'email' => $personalEmail,
                 'password' => Hash::make('15082004'),
                 'role' => 'alumni',
-                'prodi_id' => $prodi?->id,
+                'kode_prodi' => $prodi?->kode_prodi,
                 'must_change_password' => true,
             ]
         );
@@ -60,7 +60,7 @@ class JoshuaAndreanSeeder extends Seeder
             [
                 'nama' => $nama,
                 'email_pribadi' => $personalEmail,
-                'prodi_id' => $prodi?->id,
+                'kode_prodi' => $prodi?->kode_prodi,
                 // Data Universitas
                 'angkatan_masuk' => $angkatan,
                 'status_mahasiswa' => 'Lulus',
@@ -99,8 +99,7 @@ class JoshuaAndreanSeeder extends Seeder
             ['user_id' => $user->id],
             [
                 'nim' => $nim,
-                'yudisium_id' => $yudisium->id,
-                'prodi_id' => $prodi?->id,
+                'kode_prodi' => $prodi?->kode_prodi,
                 'email_pribadi' => $personalEmail,
                 'nomor_telepon' => '081234567890',
                 'alamat_saat_ini' => 'Jl. Timoho No. 45, RT 02/RW 08',

@@ -38,7 +38,7 @@ class AlumniSimulationSeederTest extends TestCase
         $systemInformation = Prodi::query()->where('kode_prodi', '72')->firstOrFail();
         $answers = KuesionerJawaban::query()
             ->where('kode_pertanyaan', 'PSI-1-04')
-            ->whereHas('biodata', fn ($query) => $query->where('prodi_id', $systemInformation->id))
+            ->whereHas('biodata', fn ($query) => $query->where('kode_prodi', $systemInformation->kode_prodi))
             ->pluck('jawaban_teks');
 
         $this->assertContains('Kunjungan perusahaan', $allowedOptions);
@@ -87,9 +87,9 @@ class AlumniSimulationSeederTest extends TestCase
 
         $graduates = DataAkademik::query()->whereNotNull('tahun_lulus')->get();
 
-        $this->assertSame(100, $graduates->count());
-        $this->assertSame([2026], $graduates->pluck('tahun_lulus')->unique()->sort()->values()->all());
-        $this->assertSame(12, $graduates->pluck('prodi_id')->unique()->count());
+        $this->assertSame(160, $graduates->count());
+        $this->assertSame([2025, 2026], $graduates->pluck('tahun_lulus')->unique()->sort()->values()->all());
+        $this->assertSame(12, $graduates->pluck('kode_prodi')->unique()->count());
         $this->assertSame(0, $graduates->filter(fn (DataAkademik $academic): bool => blank($academic->nama) || $academic->nama === '-')->count());
         $biodataWithSupervisors = Biodata::query()->whereNotNull('atasan_id')->count();
 
@@ -110,10 +110,20 @@ class AlumniSimulationSeederTest extends TestCase
                 ->count()
         );
 
+        $unsyncedNims = ['71220101', '72220601', '11220101'];
+
         foreach ($graduates as $academic) {
             $user = User::query()->where('username', $academic->nim)->first();
             $biodata = Biodata::query()->where('nim', $academic->nim)->first();
             $yudisium = Yudisium::query()->where('nim', $academic->nim)->first();
+
+            if (in_array($academic->nim, $unsyncedNims, true)) {
+                $this->assertNull($user);
+                $this->assertNull($biodata);
+                $this->assertNotNull($yudisium);
+
+                continue;
+            }
 
             $this->assertNotNull($user);
             $this->assertNotNull($biodata);
@@ -189,7 +199,7 @@ class AlumniSimulationSeederTest extends TestCase
                 ->count('jawaban_teks')
         );
         $this->assertSame(
-            99,
+            149,
             KuesionerJawaban::query()
                 ->where('responden_type', 'alumni')
                 ->whereIn('kode_pertanyaan', ['F21', 'F22', 'F23', 'F24', 'F25', 'F26', 'F27'])

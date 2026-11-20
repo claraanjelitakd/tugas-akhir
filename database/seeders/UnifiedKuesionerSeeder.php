@@ -49,14 +49,64 @@ class UnifiedKuesionerSeeder extends Seeder
 
         Schema::disableForeignKeyConstraints();
 
+        $prodiIdMap = [
+            1 => '71',
+            2 => '72',
+            3 => '11',
+            4 => '12',
+            10 => '31',
+        ];
+
+        $prodiNames = [
+            '11' => 'Manajemen',
+            '12' => 'Akuntansi',
+            '21' => 'Arsitektur',
+            '22' => 'Desain Produk',
+            '31' => 'Filsafat Keilahian',
+            '41' => 'Biologi',
+            '42' => 'Teknologi Pangan',
+            '61' => 'Kedokteran',
+            '71' => 'Informatika',
+            '72' => 'Sistem Informasi',
+            '81' => 'Pendidikan Bahasa Inggris',
+            '82' => 'Studi Humanitas',
+        ];
+
         try {
             if (! empty($content['sections'])) {
+                $defaultKuesionerId = null;
+                if (Schema::hasTable('kuesioner')) {
+                    $defaultKuesionerId = DB::table('kuesioner')->where('is_active', true)->value('id')
+                        ?? DB::table('kuesioner')->value('id');
+
+                    if (! $defaultKuesionerId) {
+                        $defaultKuesionerId = DB::table('kuesioner')->insertGetId([
+                            'title' => 'Tracer Study UKDW 2021',
+                            'description' => 'Kuesioner Pelacakan Jejak Alumni Universitas Kristen Duta Wacana (Standar Tracer Study 2021)',
+                            'year' => 2021,
+                            'is_active' => 1,
+                            'target_response_rate' => 60.00,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+                }
+
                 foreach ($content['sections'] as $s) {
-                    if (! empty($s['prodi_id']) && ! DB::table('prodi')->where('id', $s['prodi_id'])->exists()) {
-                        DB::table('prodi')->insertOrIgnore([
-                            'id' => $s['prodi_id'],
-                            'kode_prodi' => 'PR'.$s['prodi_id'],
-                            'nama_prodi' => 'Program Studi '.$s['prodi_id'],
+                    if (array_key_exists('prodi_id', $s)) {
+                        $rawId = $s['prodi_id'];
+                        unset($s['prodi_id']);
+                        $s['kode_prodi'] = $rawId !== null ? ($prodiIdMap[$rawId] ?? (string) $rawId) : null;
+                    }
+
+                    if (! array_key_exists('kuesioner_id', $s) || empty($s['kuesioner_id'])) {
+                        $s['kuesioner_id'] = $defaultKuesionerId;
+                    }
+
+                    if (! empty($s['kode_prodi']) && ! DB::table('ref_prodi')->where('kode_prodi', $s['kode_prodi'])->exists()) {
+                        DB::table('ref_prodi')->insertOrIgnore([
+                            'kode_prodi' => $s['kode_prodi'],
+                            'nama_prodi' => $prodiNames[$s['kode_prodi']] ?? ('Program Studi '.$s['kode_prodi']),
                             'created_at' => now(),
                             'updated_at' => now(),
                         ]);
@@ -71,11 +121,16 @@ class UnifiedKuesionerSeeder extends Seeder
 
             if (! empty($content['pertanyaan'])) {
                 foreach ($content['pertanyaan'] as $p) {
-                    if (! empty($p['pemilik_prodi_id']) && ! DB::table('prodi')->where('id', $p['pemilik_prodi_id'])->exists()) {
-                        DB::table('prodi')->insertOrIgnore([
-                            'id' => $p['pemilik_prodi_id'],
-                            'kode_prodi' => 'PR'.$p['pemilik_prodi_id'],
-                            'nama_prodi' => 'Program Studi '.$p['pemilik_prodi_id'],
+                    if (array_key_exists('pemilik_prodi_id', $p)) {
+                        $rawId = $p['pemilik_prodi_id'];
+                        unset($p['pemilik_prodi_id']);
+                        $p['pemilik_kode_prodi'] = $rawId !== null ? ($prodiIdMap[$rawId] ?? (string) $rawId) : null;
+                    }
+
+                    if (! empty($p['pemilik_kode_prodi']) && ! DB::table('ref_prodi')->where('kode_prodi', $p['pemilik_kode_prodi'])->exists()) {
+                        DB::table('ref_prodi')->insertOrIgnore([
+                            'kode_prodi' => $p['pemilik_kode_prodi'],
+                            'nama_prodi' => $prodiNames[$p['pemilik_kode_prodi']] ?? ('Program Studi '.$p['pemilik_kode_prodi']),
                             'created_at' => now(),
                             'updated_at' => now(),
                         ]);

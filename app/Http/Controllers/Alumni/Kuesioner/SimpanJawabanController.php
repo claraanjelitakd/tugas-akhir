@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Alumni\Kuesioner;
 
 use App\Http\Controllers\Controller;
 use App\Models\Atasan;
+use App\Models\Kuesioner;
 use App\Models\KuesionerJawaban;
 use App\Models\KuesionerPertanyaan;
 use App\Models\KuesionerSection;
@@ -319,6 +320,11 @@ class SimpanJawabanController extends Controller
             }
 
             // Simpan langsung ke kuesioner_jawaban terpadu
+            $activeKuesionerId = $pertanyaan->sections->first()?->kuesioner_id
+                ?? $defaultUnivSection?->kuesioner_id
+                ?? Kuesioner::where('is_active', true)->value('id')
+                ?? Kuesioner::value('id');
+
             KuesionerJawaban::updateOrCreate(
                 [
                     'responden_type' => 'alumni',
@@ -326,6 +332,7 @@ class SimpanJawabanController extends Controller
                     'pertanyaan_id' => $pertanyaan->id,
                 ],
                 [
+                    'kuesioner_id' => $activeKuesionerId,
                     'section_id' => $targetSectionId,
                     'evaluasi_atasan_id' => null,
                     'kode_pertanyaan' => $pertanyaan->kode_pertanyaan,

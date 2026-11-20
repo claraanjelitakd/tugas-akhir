@@ -26,7 +26,7 @@ SELECT
     b.alamat_saat_ini AS alamat, b.kelurahan, b.kecamatan, b.kode_pos,
     b.kode_provinsi, prov.nama_provinsi, b.kode_kabupaten, kab.nama_kabupaten,
     b.instagram_url, b.facebook_url, b.linkedin_url, b.linkedin_username, b.skills, b.experience,
-    b.prodi_id, p.kode_prodi, p.nama_prodi, p.fakultas_id, f.kode_fakultas, f.nama_fakultas,
+    b.kode_prodi, p.nama_prodi, p.kode_fakultas, f.nama_fakultas,
     f.singkatan AS singkatan_fakultas, da.angkatan_masuk, da.tahun_lulus, da.tanggal_lulus,
     da.tahun_akademik_lulus, da.ip_kumulatif AS ipk, da.total_sks, da.total_angka_kualitas,
     da.status_mahasiswa,
@@ -44,8 +44,8 @@ SELECT
 FROM biodata b
 LEFT JOIN users u ON b.user_id = u.id
 LEFT JOIN data_akademik da ON da.nim = b.nim
-LEFT JOIN prodi p ON b.prodi_id = p.id
-LEFT JOIN ref_fakultas f ON p.fakultas_id = f.id
+LEFT JOIN ref_prodi p ON b.kode_prodi = p.kode_prodi
+LEFT JOIN ref_fakultas f ON p.kode_fakultas = f.kode_fakultas
 LEFT JOIN propinsi prov ON b.kode_provinsi = prov.kode_provinsi
 LEFT JOIN kabupaten kab ON b.kode_kabupaten = kab.kode_kabupaten
 LEFT JOIN perusahaan c ON b.perusahaan_id = c.id

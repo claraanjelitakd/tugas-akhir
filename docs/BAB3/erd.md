@@ -3,7 +3,7 @@
 > Notasi: Crow's Foot (Mermaid `erDiagram`).
 > **PK** = Primary Key · **AK** = Alternate Key · **FK** = Foreign Key · **UK** = Unique Key
 >
-> Catatan: Tabel `kuesioner` belum terhubung ke tabel lain melalui FK — koneksi ke `kuesioner_jawaban` dijadwalkan ditambahkan.
+> Seluruh instrumen kuesioner (Universitas, Program Studi, dan Evaluasi Pengguna Lulusan/Atasan) terhubung secara terpadu (*Unified Survey Engine*), dengan relasi langsung periode kuesioner ke respon jawaban.
 
 ---
 
@@ -18,8 +18,8 @@ erDiagram
         varchar username "AK"
         varchar email
         varchar role
-        bigint prodi_id FK
-        bigint fakultas_id FK
+        char kode_prodi FK
+        char kode_fakultas FK
         tinyint must_change_password
         varchar password
     }
@@ -40,26 +40,23 @@ erDiagram
     %% ── MODUL 2: MASTER AKADEMIK & WILAYAH ─────────────────────────
 
     ref_fakultas {
-        bigint id PK
-        varchar kode_fakultas "AK"
+        char kode_fakultas PK
         varchar nama_fakultas
         varchar singkatan
     }
 
-    prodi {
-        bigint id PK
-        varchar kode_prodi "AK"
+    ref_prodi {
+        char kode_prodi PK
         varchar nama_prodi
         varchar jenjang
-        bigint fakultas_id FK
+        char kode_fakultas FK
     }
 
     data_akademik {
-        bigint id PK
-        char nim "AK"
+        char nim PK
         varchar nama
         varchar email_pribadi
-        bigint prodi_id FK
+        char kode_prodi FK
         year angkatan_masuk
         varchar tahun_akademik_masuk
         date tanggal_lahir
@@ -74,8 +71,7 @@ erDiagram
     }
 
     yudisium {
-        bigint id PK
-        char nim "AK,FK"
+        char nim "PK,FK"
         text judul_ta
         text judul_ta_inggris
         varchar url_publikasi
@@ -131,7 +127,7 @@ erDiagram
         varchar kode_negara FK
         varchar jenis_perusahaan
         bigint created_by_user_id FK
-        bigint created_by_prodi_id FK
+        char created_by_kode_prodi FK
     }
 
     atasan {
@@ -147,8 +143,7 @@ erDiagram
         bigint id PK
         char nim "AK,FK"
         bigint user_id FK
-        bigint yudisium_id FK
-        bigint prodi_id FK
+        char kode_prodi FK
         bigint perusahaan_id FK
         bigint atasan_id FK
         varchar kode_provinsi FK
@@ -175,7 +170,7 @@ erDiagram
         varchar linkedin_username
         json scraped_data
         enum status
-        bigint reviewed_by FK "→ users.id"
+        bigint user_id FK "→ users.id"
         timestamp reviewed_at
         timestamp scraped_at
     }
@@ -193,9 +188,10 @@ erDiagram
 
     kuesioner_section {
         bigint id PK
+        bigint kuesioner_id FK
         varchar kode_section "AK"
         varchar target
-        bigint prodi_id FK
+        char kode_prodi FK
         varchar judul
         text deskripsi
         smallint order
@@ -208,7 +204,7 @@ erDiagram
         varchar label_pertanyaan
         text teks_pertanyaan
         varchar tipe
-        bigint pemilik_prodi_id FK
+        char pemilik_kode_prodi FK
         tinyint is_reusable
         varchar keterangan
         tinyint is_active
@@ -237,6 +233,7 @@ erDiagram
 
     kuesioner_jawaban {
         bigint id PK
+        bigint kuesioner_id FK
         varchar responden_type
         bigint biodata_id FK
         bigint evaluasi_atasan_id FK
@@ -266,23 +263,24 @@ erDiagram
     account_sync_settings {
         bigint id PK
         boolean is_open
-        bigint updated_by FK "→ users.id"
+        bigint user_id FK "→ users.id"
     }
 
     %% ── RELASI ──────────────────────────────────────────────────────
 
-    ref_fakultas ||--|{ prodi : "memiliki"
+    ref_fakultas ||--|{ ref_prodi : "memiliki"
     ref_fakultas ||--o{ users : "admin_fakultas"
-    prodi ||--o{ users : "admin_prodi"
-    prodi ||--o{ data_akademik : "studi di"
-    prodi ||--o{ perusahaan : "mengusulkan"
-    prodi ||--o{ kuesioner_section : "memiliki section"
-    prodi ||--o{ kuesioner_pertanyaan : "memiliki pertanyaan"
+    ref_prodi ||--o{ users : "admin_prodi"
+    ref_prodi ||--o{ data_akademik : "studi di"
+    ref_prodi ||--o{ perusahaan : "mengusulkan"
+    ref_prodi ||--o{ kuesioner_section : "memiliki section"
+    ref_prodi ||--o{ kuesioner_pertanyaan : "memiliki pertanyaan"
+    ref_prodi ||--o{ biodata : "program studi"
 
-    data_akademik ||--o| yudisium : "kelulusan"
-    data_akademik ||--o| biodata : "profil"
+    data_akademik ||--o| yudisium : "kelulusan (nim)"
+    data_akademik ||--o| biodata : "profil (nim)"
 
-    yudisium ||--o| biodata : "referensi"
+    kuesioner ||--o{ kuesioner_jawaban : "periode kuesioner"
     users ||--o| biodata : "akun"
     users ||--o{ log_activities : "mencatat"
     users ||--o{ linkedin_sync_results : "mereview"
@@ -303,6 +301,8 @@ erDiagram
     perusahaan ||--o{ evaluasi_atasan : "konteks"
 
     atasan ||--o{ evaluasi_atasan : "menilai"
+    kuesioner ||--o{ kuesioner_section : "memiliki section"
+    kuesioner ||--o{ kuesioner_jawaban : "periode instrumen"
     biodata ||--o{ linkedin_sync_results : "sinkronisasi"
     biodata ||--o{ kuesioner_jawaban : "menjawab"
     biodata ||--o{ evaluasi_atasan : "dinilai"

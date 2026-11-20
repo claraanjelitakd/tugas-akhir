@@ -47,14 +47,14 @@ class DaftarAlumniProdiController extends Controller
         $user = Auth::user();
         $user->load('prodi');
         $prodi = $user->prodi;
-        $prodiId = $user->prodi_id;
+        $prodiId = $user->kode_prodi;
 
         if (! $prodiId) {
             abort(403, 'Akun Anda belum dikaitkan dengan Program Studi.');
         }
 
         $data = $directoryService->getDirectoryData($request, [
-            'prodi_id' => $prodiId,
+            'kode_prodi' => $prodiId,
             'server_pagination' => true,
         ]);
 
@@ -73,7 +73,7 @@ class DaftarAlumniProdiController extends Controller
         $user = Auth::user();
         $user->load('prodi');
         $prodi = $user->prodi;
-        $prodiId = $user->prodi_id;
+        $prodiId = $user->kode_prodi;
 
         if (! $prodiId) {
             abort(403, 'Akun Anda belum dikaitkan dengan Program Studi.');
@@ -93,7 +93,7 @@ class DaftarAlumniProdiController extends Controller
         ]);
 
         if (! $isReadOnly) {
-            $alumniQuery->where('prodi_id', $prodiId);
+            $alumniQuery->where('kode_prodi', $prodiId);
         }
 
         $alumni = $alumniQuery->findOrFail($id);
@@ -171,9 +171,9 @@ class DaftarAlumniProdiController extends Controller
     public function updateProfile(Request $request, int $id): RedirectResponse
     {
         $user = Auth::user();
-        $prodiId = $user->prodi_id;
+        $prodiId = $user->kode_prodi;
 
-        $biodata = Biodata::where('prodi_id', $prodiId)->findOrFail($id);
+        $biodata = Biodata::where('kode_prodi', $prodiId)->findOrFail($id);
 
         // Fix: gunakan only() dengan allowlist agar mencegah mass assignment
         AdminAlumniProfileService::updateProfile($biodata, $request->only(AdminAlumniProfileService::allowedProfileFields()));
@@ -187,10 +187,10 @@ class DaftarAlumniProdiController extends Controller
     public function exportExcel(int $id): StreamedResponse
     {
         $user = Auth::user();
-        $prodiId = $user->prodi_id;
+        $prodiId = $user->kode_prodi;
 
         // Pastikan alumni berada di prodi yang sama
-        Biodata::where('prodi_id', $prodiId)->findOrFail($id);
+        Biodata::where('kode_prodi', $prodiId)->findOrFail($id);
 
         return AlumniTracerExcelExporter::download($id);
     }
@@ -202,7 +202,7 @@ class DaftarAlumniProdiController extends Controller
     {
         /** @var User $user */
         $user = Auth::user();
-        $prodiId = (int) $user->prodi_id;
+        $prodiId = $user->kode_prodi;
 
         if (! $prodiId) {
             abort(403, 'Akun Anda belum dikaitkan dengan Program Studi.');
@@ -221,7 +221,7 @@ class DaftarAlumniProdiController extends Controller
     {
         /** @var User $user */
         $user = Auth::user();
-        $prodiId = (int) $user->prodi_id;
+        $prodiId = $user->kode_prodi;
 
         if (! $prodiId) {
             abort(403, 'Akun Anda belum dikaitkan dengan Program Studi.');
@@ -232,7 +232,7 @@ class DaftarAlumniProdiController extends Controller
         $search = $request->input('search');
 
         $query = DB::table('v_alumni_audit_rekap')
-            ->where('prodi_id', $prodiId)
+            ->where('kode_prodi', $prodiId)
             ->where('is_complete_total', 0);
 
         if ($tahun && $tahun !== 'all') {
@@ -263,7 +263,7 @@ class DaftarAlumniProdiController extends Controller
         SendBlastReminderEmailJob::dispatch($biodataIds, Auth::id(), [
             'tahun' => $tahun ?: 'Semua',
             'semester' => $semester ?: 'Semua',
-            'prodi_id' => $prodiId,
+            'kode_prodi' => $prodiId,
             'search' => $search ?: null,
         ]);
 
@@ -276,13 +276,13 @@ class DaftarAlumniProdiController extends Controller
     public function sendReminderEmail(Request $request, int|string $id): RedirectResponse
     {
         $user = Auth::user();
-        $prodiId = $user->prodi_id;
+        $prodiId = $user->kode_prodi;
 
         if (! $prodiId) {
             abort(403, 'Akun Anda belum dikaitkan dengan Program Studi.');
         }
 
-        $alumni = Biodata::where('prodi_id', $prodiId)
+        $alumni = Biodata::where('kode_prodi', $prodiId)
             ->with(['user', 'dataAkademik'])
             ->findOrFail($id);
 

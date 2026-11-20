@@ -19,6 +19,7 @@ return new class extends Migration
             DB::unprepared(<<<'SQL'
 CREATE TABLE "kuesioner_jawaban" (
     "id" integer primary key autoincrement not null,
+    "kuesioner_id" integer,
     "responden_type" varchar not null default 'alumni',
     "biodata_id" integer,
     "evaluasi_atasan_id" integer,
@@ -31,6 +32,7 @@ CREATE TABLE "kuesioner_jawaban" (
     "jawaban_json" text,
     "created_at" datetime,
     "updated_at" datetime,
+    foreign key("kuesioner_id") references "kuesioner"("id") on delete set null,
     foreign key("biodata_id") references "biodata"("id") on delete cascade,
     foreign key("evaluasi_atasan_id") references "evaluasi_atasan"("id") on delete cascade,
     foreign key("section_id") references "kuesioner_section"("id") on delete cascade,
@@ -53,6 +55,7 @@ SQL
             DB::unprepared(<<<'SQL'
 CREATE TABLE `kuesioner_jawaban` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID unik respon jawaban survei',
+  `kuesioner_id` bigint unsigned DEFAULT NULL COMMENT 'ID kuesioner induk tempat jawaban ini dicatat',
   `responden_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'alumni' COMMENT 'Tipe responden: alumni atau atasan',
   `biodata_id` bigint unsigned DEFAULT NULL COMMENT 'ID biodata alumni pengisi (jika responden = alumni)',
   `evaluasi_atasan_id` bigint unsigned DEFAULT NULL COMMENT 'ID evaluasi atasan (jika responden = atasan)',
@@ -66,6 +69,7 @@ CREATE TABLE `kuesioner_jawaban` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
+  KEY `kuesioner_jawaban_kuesioner_id_foreign` (`kuesioner_id`),
   KEY `kuesioner_jawaban_biodata_id_foreign` (`biodata_id`),
   KEY `kuesioner_jawaban_evaluasi_atasan_id_foreign` (`evaluasi_atasan_id`),
   KEY `kuesioner_jawaban_section_id_foreign` (`section_id`),
@@ -74,6 +78,7 @@ CREATE TABLE `kuesioner_jawaban` (
   KEY `kuesioner_jawaban_opsi_id_foreign` (`opsi_id`),
   KEY `kuesioner_jawaban_lookup_idx` (`responden_type`,`biodata_id`,`pertanyaan_id`),
   KEY `kuesioner_jawaban_analytics_lookup_idx` (`biodata_id`,`responden_type`,`kode_pertanyaan`,`id`),
+  CONSTRAINT `kuesioner_jawaban_kuesioner_id_foreign` FOREIGN KEY (`kuesioner_id`) REFERENCES `kuesioner` (`id`) ON DELETE SET NULL,
   CONSTRAINT `kuesioner_jawaban_biodata_id_foreign` FOREIGN KEY (`biodata_id`) REFERENCES `biodata` (`id`) ON DELETE CASCADE,
   CONSTRAINT `kuesioner_jawaban_evaluasi_atasan_id_foreign` FOREIGN KEY (`evaluasi_atasan_id`) REFERENCES `evaluasi_atasan` (`id`) ON DELETE CASCADE,
   CONSTRAINT `kuesioner_jawaban_section_id_foreign` FOREIGN KEY (`section_id`) REFERENCES `kuesioner_section` (`id`) ON DELETE CASCADE,

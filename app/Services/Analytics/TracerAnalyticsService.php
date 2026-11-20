@@ -202,7 +202,7 @@ class TracerAnalyticsService
      *
      * @return array<string, mixed>
      */
-    public function build(?string $requestedYear = null, ?int $requestedUmpYear = null, ?int $prodiId = null): array
+    public function build(?string $requestedYear = null, ?int $requestedUmpYear = null, ?string $prodiId = null): array
     {
         $availableYears = $this->availableYears();
         $selectedYear = $this->resolveYear($requestedYear, $availableYears);
@@ -222,12 +222,12 @@ class TracerAnalyticsService
                 'selected_year' => $selectedYear,
                 'available_ump_years' => $availableUmpYears,
                 'selected_ump_year' => $selectedUmpYear,
-                'selected_prodi_id' => $prodiId,
+                'selected_kode_prodi' => $prodiId,
                 'prodis' => Prodi::query()
                     ->orderBy('kode_prodi')
-                    ->get(['id', 'kode_prodi', 'nama_prodi'])
+                    ->get(['kode_prodi', 'nama_prodi'])
                     ->map(fn (Prodi $prodi): array => [
-                        'id' => $prodi->id,
+                        'id' => $prodi->kode_prodi,
                         'kode' => $prodi->kode_prodi,
                         'nama' => $prodi->nama_prodi,
                     ])
@@ -256,7 +256,7 @@ class TracerAnalyticsService
         ?string $requestedChart,
         ?string $requestedYear = null,
         ?int $requestedUmpYear = null,
-        ?int $prodiId = null,
+        ?string $prodiId = null,
     ): array {
         $chartKey = $this->resolveChartKey($requestedChart);
         $availableYears = $this->availableYears();
@@ -323,12 +323,12 @@ class TracerAnalyticsService
                 'selected_year' => $selectedYear,
                 'available_ump_years' => $availableUmpYears,
                 'selected_ump_year' => $selectedUmpYear,
-                'selected_prodi_id' => $prodiId,
+                'selected_kode_prodi' => $prodiId,
                 'prodis' => Prodi::query()
                     ->orderBy('kode_prodi')
-                    ->get(['id', 'kode_prodi', 'nama_prodi'])
+                    ->get(['kode_prodi', 'nama_prodi'])
                     ->map(fn (Prodi $prodi): array => [
-                        'id' => $prodi->id,
+                        'id' => $prodi->kode_prodi,
                         'kode' => $prodi->kode_prodi,
                         'nama' => $prodi->nama_prodi,
                     ])
@@ -369,7 +369,7 @@ class TracerAnalyticsService
         string $chartKey,
         string $selectedYear,
         ?int $selectedUmpYear,
-        ?int $prodiId,
+        ?string $prodiId,
         array $availableYears,
         array $availableUmpYears,
     ): array {
@@ -413,12 +413,12 @@ class TracerAnalyticsService
                 'selected_year' => $selectedYear,
                 'available_ump_years' => $availableUmpYears,
                 'selected_ump_year' => $selectedUmpYear,
-                'selected_prodi_id' => $prodiId,
+                'selected_kode_prodi' => $prodiId,
                 'prodis' => Prodi::query()
                     ->orderBy('kode_prodi')
-                    ->get(['id', 'kode_prodi', 'nama_prodi'])
+                    ->get(['kode_prodi', 'nama_prodi'])
                     ->map(fn (Prodi $prodi): array => [
-                        'id' => $prodi->id,
+                        'id' => $prodi->kode_prodi,
                         'kode' => $prodi->kode_prodi,
                         'nama' => $prodi->nama_prodi,
                     ])
@@ -577,12 +577,12 @@ class TracerAnalyticsService
      * Query ini sengaja tidak memakai view indikator agar metadata populasi
      * tidak memicu evaluasi ulang jawaban tracer pada setiap permintaan.
      */
-    private function populationCount(string $selectedYear, ?int $prodiId): int
+    private function populationCount(string $selectedYear, ?string $prodiId): int
     {
         return DB::table('biodata')
             ->join('data_akademik', 'data_akademik.nim', '=', 'biodata.nim')
             ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('data_akademik.tahun_lulus', $selectedYear))
-            ->when($prodiId, fn ($query) => $query->where('biodata.prodi_id', $prodiId))
+            ->when($prodiId, fn ($query) => $query->where('biodata.kode_prodi', $prodiId))
             ->count();
     }
 
@@ -668,7 +668,7 @@ class TracerAnalyticsService
      *
      * @return Collection<int, object>
      */
-    private function analyticsRows(string $chartKey, string $selectedYear, ?int $selectedUmpYear, ?int $prodiId): Collection
+    private function analyticsRows(string $chartKey, string $selectedYear, ?int $selectedUmpYear, ?string $prodiId): Collection
     {
         if ($chartKey === 'response_rate') {
             return $this->responseRateRows($selectedYear, $prodiId);
@@ -678,7 +678,7 @@ class TracerAnalyticsService
             return DB::table('v_analytics_tracer_answers')
                 ->whereIn('kode_pertanyaan', self::QUESTION_CHART_CODES[$chartKey])
                 ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
-                ->when($prodiId, fn ($query) => $query->where('prodi_id', $prodiId))
+                ->when($prodiId, fn ($query) => $query->where('kode_prodi', $prodiId))
                 ->get();
         }
 
@@ -694,7 +694,7 @@ class TracerAnalyticsService
 
         return DB::table($view)
             ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
-            ->when($prodiId, fn ($query) => $query->where('prodi_id', $prodiId))
+            ->when($prodiId, fn ($query) => $query->where('kode_prodi', $prodiId))
             ->when($chartKey === 'salary_vs_ump', fn ($query) => $query->where(function ($umpQuery) use ($selectedUmpYear): void {
                 $umpQuery->where('ump_year', $selectedUmpYear)->orWhereNull('ump_year');
             }))
@@ -712,11 +712,11 @@ class TracerAnalyticsService
      *
      * @return Collection<int, object>
      */
-    private function responseRateRows(string $selectedYear, ?int $prodiId): Collection
+    private function responseRateRows(string $selectedYear, ?string $prodiId): Collection
     {
         return DB::table('v_analytics_response_rate')
             ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
-            ->when($prodiId, fn ($query) => $query->where('prodi_id', $prodiId))
+            ->when($prodiId, fn ($query) => $query->where('kode_prodi', $prodiId))
             ->get();
     }
 
@@ -2040,11 +2040,11 @@ class TracerAnalyticsService
      *
      * @return Collection<int, object>
      */
-    private function alumniRows(string $selectedYear, ?int $prodiId): Collection
+    private function alumniRows(string $selectedYear, ?string $prodiId): Collection
     {
         return DB::table('v_analytics_response_rate')
             ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
-            ->when($prodiId, fn ($query) => $query->where('prodi_id', $prodiId))
+            ->when($prodiId, fn ($query) => $query->where('kode_prodi', $prodiId))
             ->get();
     }
 
@@ -2254,7 +2254,7 @@ class TracerAnalyticsService
                 && $threshold !== null;
 
             return [
-                'prodi_id' => $row->prodi_id,
+                'kode_prodi' => $row->kode_prodi,
                 'biodata_id' => (int) $row->biodata_id,
                 'nim' => $row->nim,
                 'nama' => $row->nama ?: 'Tanpa nama',
@@ -2273,9 +2273,9 @@ class TracerAnalyticsService
 
         return [
             'summary' => $this->salarySummary($comparableRows, $rows->count()),
-            'by_prodi' => $this->aggregateSalary($comparableRows, 'prodi_id', 'nama_prodi'),
+            'by_prodi' => $this->aggregateSalary($comparableRows, 'kode_prodi', 'nama_prodi'),
             'by_province' => $this->aggregateSalary($comparableRows, 'province_code', 'province_name'),
-            'by_prodi_ump' => $this->aggregateUmpStatus($allRows, 'prodi_id', 'nama_prodi'),
+            'by_prodi_ump' => $this->aggregateUmpStatus($allRows, 'kode_prodi', 'nama_prodi'),
             'by_province_ump' => $this->aggregateUmpStatus($allRows, 'province_code', 'province_name'),
             'records' => $allRows->all(),
             'comparable_records' => $comparableRows->all(),
@@ -2544,7 +2544,7 @@ class TracerAnalyticsService
                     'user_id' => (int) $row->user_id,
                     'nim' => $row->nim,
                     'nama' => $row->nama ?: 'Tanpa nama',
-                    'prodi_id' => (int) $row->prodi_id,
+                    'kode_prodi' => $row->kode_prodi,
                     'nama_prodi' => $row->nama_prodi ?: 'Tanpa prodi',
                     'tahun_lulus' => (string) ($row->tahun_lulus ?? ''),
                     'status' => (int) $row->answered > 0 ? 'Sudah Mengisi' : 'Belum Mengisi',
@@ -2719,7 +2719,7 @@ class TracerAnalyticsService
      */
     private function responseByProdi(Collection $rows, float $target = 60.0): array
     {
-        return $rows->groupBy('prodi_id')->map(function (Collection $prodiRows) use ($target): array {
+        return $rows->groupBy('kode_prodi')->map(function (Collection $prodiRows) use ($target): array {
             $population = $prodiRows->count();
             $respondents = $prodiRows->where('answered', '>', 0)->count();
             $unanswered = max($population - $respondents, 0);
@@ -2733,7 +2733,7 @@ class TracerAnalyticsService
                     : ['key' => 'danger', 'label' => 'Perlu Perhatian', 'meaning' => 'Kurang dari 30%', 'color' => '#DC2626']);
 
             return [
-                'prodi_id' => (int) $prodiRows->first()->prodi_id,
+                'kode_prodi' => $prodiRows->first()->kode_prodi,
                 'nama_prodi' => $prodiRows->first()->nama_prodi ?: 'Tanpa prodi',
                 'population' => $population,
                 'respondents' => $respondents,
@@ -2778,11 +2778,11 @@ class TracerAnalyticsService
             ];
         }, $distribution);
 
-        $byProdi = $rows->groupBy('prodi_id')->map(function (Collection $prodiRows) use ($responses): array {
+        $byProdi = $rows->groupBy('kode_prodi')->map(function (Collection $prodiRows) use ($responses): array {
             $prodiValues = $this->waitValues($prodiRows, $responses);
 
             return [
-                'prodi_id' => $prodiRows->first()->prodi_id,
+                'kode_prodi' => $prodiRows->first()->kode_prodi,
                 'nama_prodi' => $prodiRows->first()->nama_prodi ?: 'Tanpa prodi',
                 'response_count' => count($prodiValues),
                 'median_months' => $this->median($prodiValues),
@@ -2837,7 +2837,7 @@ class TracerAnalyticsService
             $isComparable = $salary !== null && $salary > 0 && $threshold !== null;
 
             return [
-                'prodi_id' => $row->prodi_id,
+                'kode_prodi' => $row->kode_prodi,
                 'biodata_id' => (int) $row->biodata_id,
                 'nim' => $row->nim,
                 'nama' => $row->nama ?: 'Tanpa nama',
@@ -2856,9 +2856,9 @@ class TracerAnalyticsService
 
         return [
             'summary' => $this->salarySummary($comparableRows, $rows->count()),
-            'by_prodi' => $this->aggregateSalary($comparableRows, 'prodi_id', 'nama_prodi'),
+            'by_prodi' => $this->aggregateSalary($comparableRows, 'kode_prodi', 'nama_prodi'),
             'by_province' => $this->aggregateSalary($comparableRows, 'province_code', 'province_name'),
-            'by_prodi_ump' => $this->aggregateUmpStatus($allRows, 'prodi_id', 'nama_prodi'),
+            'by_prodi_ump' => $this->aggregateUmpStatus($allRows, 'kode_prodi', 'nama_prodi'),
             'by_province_ump' => $this->aggregateUmpStatus($allRows, 'province_code', 'province_name'),
             'records' => $allRows->all(),
             'comparable_records' => $comparableRows->all(),

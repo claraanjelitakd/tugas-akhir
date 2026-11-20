@@ -19,13 +19,13 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "perusahaan" ("id" integer primary key autoincrement not null, "nama_perusahaan" varchar not null, "kode_provinsi" varchar, "kode_kabupaten" varchar, "alamat" text, "homepage" varchar, "no_telp_fax" varchar, "kode_pos" varchar, "sektor" varchar, "skala" varchar check ("skala" in ('Lokal', 'Regional/Lokal', 'Nasional', 'Internasional')) not null default 'Nasional', "bentuk_perusahaan" varchar, "jumlah_pegawai" varchar, "status_verifikasi" varchar check ("status_verifikasi" in ('Menunggu Verifikasi', 'Terverifikasi', 'Ditolak')) not null default 'Menunggu Verifikasi', "jenis_lokasi" varchar check ("jenis_lokasi" in ('Dalam Negeri', 'Luar Negeri')) not null default 'Dalam Negeri', "kode_negara" varchar not null default 'ID', "jenis_perusahaan" varchar, "jenis_perusahaan_lainnya" text, "created_by_user_id" integer, "created_by_prodi_id" integer, "created_at" datetime, "updated_at" datetime, foreign key("kode_provinsi") references "propinsi"("kode_provinsi") on delete set null, foreign key("kode_kabupaten") references "kabupaten"("kode_kabupaten") on delete set null, foreign key("created_by_user_id") references "users"("id") on delete set null, foreign key("created_by_prodi_id") references "prodi"("id") on delete set null, foreign key("kode_negara") references "ref_negara"("kode_negara") on update cascade on delete restrict);
+CREATE TABLE "perusahaan" ("id" integer primary key autoincrement not null, "nama_perusahaan" varchar not null, "kode_provinsi" varchar, "kode_kabupaten" varchar, "alamat" text, "homepage" varchar, "no_telp_fax" varchar, "kode_pos" varchar, "sektor" varchar, "skala" varchar check ("skala" in ('Lokal', 'Regional/Lokal', 'Nasional', 'Internasional')) not null default 'Nasional', "bentuk_perusahaan" varchar, "jumlah_pegawai" varchar, "status_verifikasi" varchar check ("status_verifikasi" in ('Menunggu Verifikasi', 'Terverifikasi', 'Ditolak')) not null default 'Menunggu Verifikasi', "jenis_lokasi" varchar check ("jenis_lokasi" in ('Dalam Negeri', 'Luar Negeri')) not null default 'Dalam Negeri', "kode_negara" varchar not null default 'ID', "jenis_perusahaan" varchar, "jenis_perusahaan_lainnya" text, "created_by_user_id" integer, "created_by_kode_prodi" varchar, "created_at" datetime, "updated_at" datetime, foreign key("kode_provinsi") references "propinsi"("kode_provinsi") on delete set null, foreign key("kode_kabupaten") references "kabupaten"("kode_kabupaten") on delete set null, foreign key("created_by_user_id") references "users"("id") on delete set null, foreign key("created_by_kode_prodi") references "ref_prodi"("kode_prodi") on delete set null, foreign key("kode_negara") references "ref_negara"("kode_negara") on update cascade on delete restrict);
 SQL
             );
 
             foreach ([
                 <<<'SQL'
-CREATE INDEX "perusahaan_created_by_prodi_id_index" on "perusahaan" ("created_by_prodi_id");
+CREATE INDEX "perusahaan_created_by_kode_prodi_index" on "perusahaan" ("created_by_kode_prodi");
 SQL,
                 <<<'SQL'
 CREATE INDEX "perusahaan_status_verifikasi_index" on "perusahaan" ("status_verifikasi");
@@ -54,18 +54,18 @@ CREATE TABLE `perusahaan` (
   `jenis_perusahaan` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Kategori Dikti F11: Instansi pemerintah, BUMN, Swasta, dll',
   `jenis_perusahaan_lainnya` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'Keterangan jenis instansi jika opsi lainnya',
   `created_by_user_id` bigint unsigned DEFAULT NULL,
-  `created_by_prodi_id` bigint unsigned DEFAULT NULL COMMENT 'Prodi asal pengusul record perusahaan',
+  `created_by_kode_prodi` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Kode prodi asal pengusul record perusahaan',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `perusahaan_kode_provinsi_foreign` (`kode_provinsi`),
   KEY `perusahaan_kode_kabupaten_foreign` (`kode_kabupaten`),
   KEY `perusahaan_created_by_user_id_foreign` (`created_by_user_id`),
-  KEY `perusahaan_created_by_prodi_id_index` (`created_by_prodi_id`),
+  KEY `perusahaan_created_by_kode_prodi_index` (`created_by_kode_prodi`),
   KEY `perusahaan_kode_negara_foreign` (`kode_negara`),
   KEY `perusahaan_status_verifikasi_index` (`status_verifikasi`),
   CONSTRAINT `perusahaan_created_by_user_id_foreign` FOREIGN KEY (`created_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `perusahaan_created_by_prodi_id_foreign` FOREIGN KEY (`created_by_prodi_id`) REFERENCES `prodi` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `perusahaan_created_by_kode_prodi_foreign` FOREIGN KEY (`created_by_kode_prodi`) REFERENCES `ref_prodi` (`kode_prodi`) ON DELETE SET NULL,
   CONSTRAINT `perusahaan_kode_kabupaten_foreign` FOREIGN KEY (`kode_kabupaten`) REFERENCES `kabupaten` (`kode_kabupaten`) ON DELETE SET NULL,
   CONSTRAINT `perusahaan_kode_provinsi_foreign` FOREIGN KEY (`kode_provinsi`) REFERENCES `propinsi` (`kode_provinsi`) ON DELETE SET NULL,
   CONSTRAINT `perusahaan_kode_negara_foreign` FOREIGN KEY (`kode_negara`) REFERENCES `ref_negara` (`kode_negara`) ON UPDATE CASCADE ON DELETE RESTRICT

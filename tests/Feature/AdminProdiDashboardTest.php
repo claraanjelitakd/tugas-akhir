@@ -36,14 +36,14 @@ class AdminProdiDashboardTest extends TestCase
             'name' => 'Admin Prodi SI',
             'password' => Hash::make('password123'),
             'role' => 'admin_prodi',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 
         $section = KuesionerSection::create([
             'kode_section' => 'SEC_TEST_SI',
             'target' => 'prodi',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'judul' => 'Seksi Evaluasi Kurikulum',
             'order' => 1,
             'is_active' => true,
@@ -69,7 +69,7 @@ class AdminProdiDashboardTest extends TestCase
             'email' => 'alumni1@test.com',
             'password' => Hash::make('password123'),
             'role' => 'alumni',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -95,7 +95,7 @@ class AdminProdiDashboardTest extends TestCase
             'user_id' => $alumniUser->id,
             'nim' => '72200001',
             'nama' => 'Alumni SI 1',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'perusahaan_id' => $company->id,
         ]);
 

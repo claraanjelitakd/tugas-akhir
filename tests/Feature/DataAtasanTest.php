@@ -99,7 +99,7 @@ class DataAtasanTest extends TestCase
         $alumniB = $this->createAlumni($this->createUser('alumni-scope-b', 'scope-b@example.test', 'alumni'), $prodiB, '72123458', 'Alumni Scope B');
         $alumniA->update(['atasan_id' => $atasanA->id]);
         $alumniB->update(['atasan_id' => $atasanB->id]);
-        $admin = $this->createUser('admin-prodi-scope', 'admin-prodi-scope@example.test', 'admin_prodi', ['prodi_id' => $prodiA->id]);
+        $admin = $this->createUser('admin-prodi-scope', 'admin-prodi-scope@example.test', 'admin_prodi', ['kode_prodi' => $prodiA->kode_prodi]);
 
         $response = $this->actingAs($admin)->get(route('prodi.atasan.index'));
 
@@ -271,7 +271,7 @@ class DataAtasanTest extends TestCase
         DataAkademik::create([
             'nim' => $nim,
             'nama' => $name,
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'status_mahasiswa' => 'Lulus',
             'tahun_lulus' => 2025,
         ]);
@@ -279,7 +279,7 @@ class DataAtasanTest extends TestCase
         return Biodata::create([
             'user_id' => $user->id,
             'nim' => $nim,
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
         ]);
     }
 }

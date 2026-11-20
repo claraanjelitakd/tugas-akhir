@@ -45,8 +45,8 @@ class AdminAlumniScopeEmailTest extends TestCase
 
         $prodiA = $this->createProdi('PA', 'Program Studi A');
         $prodiB = $this->createProdi('PB', 'Program Studi B');
-        $admin = $this->createUser('admin-prodi-a', 'admin_prodi', $prodiA->id);
-        $alumni = $this->createAlumni($prodiB->id, 'alumni-prodi-b@example.test');
+        $admin = $this->createUser('admin-prodi-a', 'admin_prodi', $prodiA->kode_prodi);
+        $alumni = $this->createAlumni($prodiB->kode_prodi, 'alumni-prodi-b@example.test');
 
         $response = $this->actingAs($admin)->post(route('prodi.alumni.send-email', $alumni->id));
 
@@ -63,9 +63,9 @@ class AdminAlumniScopeEmailTest extends TestCase
 
         $fakultasA = $this->createFakultas('FA', 'Fakultas A');
         $fakultasB = $this->createFakultas('FB', 'Fakultas B');
-        $prodiB = $this->createProdi('PB', 'Program Studi B', $fakultasB->id);
-        $admin = $this->createUser('admin-fakultas-a', 'admin_fakultas', null, $fakultasA->id);
-        $alumni = $this->createAlumni($prodiB->id, 'alumni-fakultas-b@example.test');
+        $prodiB = $this->createProdi('PB', 'Program Studi B', $fakultasB->kode_fakultas);
+        $admin = $this->createUser('admin-fakultas-a', 'admin_fakultas', null, $fakultasA->kode_fakultas);
+        $alumni = $this->createAlumni($prodiB->kode_prodi, 'alumni-fakultas-b@example.test');
 
         $response = $this->actingAs($admin)->post(route('fakultas.alumni.send-email', $alumni->id));
 
@@ -81,8 +81,8 @@ class AdminAlumniScopeEmailTest extends TestCase
         Mail::fake();
 
         $prodi = $this->createProdi('PA', 'Program Studi A');
-        $admin = $this->createUser('admin-prodi-a', 'admin_prodi', $prodi->id);
-        $alumni = $this->createAlumni($prodi->id, 'alumni-prodi-a@example.test');
+        $admin = $this->createUser('admin-prodi-a', 'admin_prodi', $prodi->kode_prodi);
+        $alumni = $this->createAlumni($prodi->kode_prodi, 'alumni-prodi-a@example.test');
 
         $response = $this->actingAs($admin)->post(route('prodi.alumni.send-email', $alumni->id));
 
@@ -100,8 +100,8 @@ class AdminAlumniScopeEmailTest extends TestCase
     {
         $prodiA = $this->createProdi('PA', 'Program Studi A');
         $prodiB = $this->createProdi('PB', 'Program Studi B');
-        $admin = $this->createUser('admin-prodi-a-readonly', 'admin_prodi', $prodiA->id);
-        $alumni = $this->createAlumni($prodiB->id, 'alumni-prodi-b-readonly@example.test');
+        $admin = $this->createUser('admin-prodi-a-readonly', 'admin_prodi', $prodiA->kode_prodi);
+        $alumni = $this->createAlumni($prodiB->kode_prodi, 'alumni-prodi-b-readonly@example.test');
 
         $this->actingAs($admin)
             ->get(route('prodi.analytics.alumni.show', $alumni->id))
@@ -126,7 +126,7 @@ class AdminAlumniScopeEmailTest extends TestCase
     {
         $prodi = $this->createProdi('PB3', 'Program Studi Biro 3');
         $admin = $this->createUser('admin-biro3-readonly', 'admin_biro3');
-        $alumni = $this->createAlumni($prodi->id, 'alumni-biro3-readonly@example.test');
+        $alumni = $this->createAlumni($prodi->kode_prodi, 'alumni-biro3-readonly@example.test');
 
         $this->actingAs($admin)
             ->get(route('biro3.analytics.alumni.show', $alumni->id))
@@ -152,10 +152,10 @@ class AdminAlumniScopeEmailTest extends TestCase
     /**
      * Membuat master Program Studi untuk kebutuhan setup endpoint.
      */
-    private function createProdi(string $kode, string $nama, ?int $fakultasId = null): Prodi
+    private function createProdi(string $kode, string $nama, ?string $fakultasId = null): Prodi
     {
         return Prodi::create([
-            'fakultas_id' => $fakultasId,
+            'kode_fakultas' => $fakultasId,
             'kode_prodi' => $kode,
             'nama_prodi' => $nama,
         ]);
@@ -164,7 +164,7 @@ class AdminAlumniScopeEmailTest extends TestCase
     /**
      * Membuat akun admin dengan scope yang diberikan.
      */
-    private function createUser(string $username, string $role, ?int $prodiId = null, ?int $fakultasId = null): User
+    private function createUser(string $username, string $role, ?string $prodiId = null, ?string $fakultasId = null): User
     {
         return User::create([
             'username' => $username,
@@ -172,8 +172,8 @@ class AdminAlumniScopeEmailTest extends TestCase
             'email' => $username.'@example.test',
             'password' => Hash::make('password123'),
             'role' => $role,
-            'prodi_id' => $prodiId,
-            'fakultas_id' => $fakultasId,
+            'kode_prodi' => $prodiId,
+            'kode_fakultas' => $fakultasId,
             'must_change_password' => false,
         ]);
     }
@@ -181,7 +181,7 @@ class AdminAlumniScopeEmailTest extends TestCase
     /**
      * Membuat akun dan profil alumni pada Program Studi tertentu.
      */
-    private function createAlumni(?int $prodiId, string $email): Biodata
+    private function createAlumni(?string $prodiId, string $email): Biodata
     {
         $nim = 'AL'.str_pad((string) (Biodata::count() + 1), 6, '0', STR_PAD_LEFT);
         $user = User::create([
@@ -190,7 +190,7 @@ class AdminAlumniScopeEmailTest extends TestCase
             'email' => $email,
             'password' => Hash::make('password123'),
             'role' => 'alumni',
-            'prodi_id' => $prodiId,
+            'kode_prodi' => $prodiId,
             'must_change_password' => false,
         ]);
 
@@ -204,7 +204,7 @@ class AdminAlumniScopeEmailTest extends TestCase
             'user_id' => $user->id,
             'nim' => $nim,
             'nama' => 'Alumni '.$nim,
-            'prodi_id' => $prodiId,
+            'kode_prodi' => $prodiId,
             'email_pribadi' => $email,
         ]);
     }

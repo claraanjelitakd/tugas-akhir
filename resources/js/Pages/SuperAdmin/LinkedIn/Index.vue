@@ -94,7 +94,7 @@ const selectedSemester = ref(props.filters.semester || 'all');
 const selectedTarget = ref(props.filters.target || 'all');
 const selectedStatus = ref(props.filters.status || 'all');
 const selectedStatusPlot = ref(props.filters.status_plot || 'all');
-const selectedProdiId = ref(props.filters.prodi_id || 'all');
+const selectedProdiId = ref(props.filters.kode_prodi || 'all');
 const highlightedAlumniId = ref(props.targetAlumniId ? Number(props.targetAlumniId) : null);
 
 // Data Alumni Lokal (Reaktif untuk update status sinkronisasi tanpa reload halaman)
@@ -135,8 +135,8 @@ watch(() => props.filters, (newFilters) => {
         if (newFilters.status_plot !== undefined) {
             selectedStatusPlot.value = newFilters.status_plot || 'all';
         }
-        if (newFilters.prodi_id !== undefined && props.role !== 'admin_prodi') {
-            selectedProdiId.value = newFilters.prodi_id || 'all';
+        if (newFilters.kode_prodi !== undefined && props.role !== 'admin_prodi') {
+            selectedProdiId.value = newFilters.kode_prodi || 'all';
         }
     }
 }, { deep: true });
@@ -244,7 +244,7 @@ const applyFilters = () => {
         target: selectedTarget.value !== 'all' ? selectedTarget.value : undefined,
         status: selectedStatus.value !== 'all' ? selectedStatus.value : undefined,
         status_plot: selectedStatusPlot.value !== 'all' ? selectedStatusPlot.value : undefined,
-        prodi_id: (props.role === 'admin_prodi' ? undefined : (selectedProdiId.value !== 'all' ? selectedProdiId.value : undefined)),
+        kode_prodi: (props.role === 'admin_prodi' ? undefined : (selectedProdiId.value !== 'all' ? selectedProdiId.value : undefined)),
     }, {
         preserveState: true,
         preserveScroll: true,
@@ -266,7 +266,7 @@ const resetFilters = () => {
     selectedTarget.value = 'all';
     selectedStatus.value = 'all';
     selectedStatusPlot.value = 'all';
-    selectedProdiId.value = props.role === 'admin_prodi' ? (props.filters.prodi_id || 'all') : 'all';
+    selectedProdiId.value = props.role === 'admin_prodi' ? (props.filters.kode_prodi || 'all') : 'all';
     currentPage.value = 1;
 
     router.get(props.baseRoute, {

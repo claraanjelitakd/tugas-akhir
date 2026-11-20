@@ -58,7 +58,7 @@ class AnalyticsDemoDistributionSeederTest extends TestCase
 
         $section = KuesionerSection::create([
             'kode_section' => 'SEC_PRODI_72',
-            'prodi_id' => $sistemInformasi->id,
+            'kode_prodi' => $sistemInformasi->kode_prodi,
             'judul' => 'Kontribusi Alumni',
             'target' => 'prodi',
             'order' => 1,
@@ -66,7 +66,7 @@ class AnalyticsDemoDistributionSeederTest extends TestCase
         ]);
 
         $prodiQuestion = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $sistemInformasi->id,
+            'pemilik_kode_prodi' => $sistemInformasi->kode_prodi,
             'kode_pertanyaan' => 'PSI-1-04',
             'teks_pertanyaan' => 'Kontribusi alumni',
             'tipe' => 'multiple_choice',
@@ -185,7 +185,7 @@ class AnalyticsDemoDistributionSeederTest extends TestCase
         return Biodata::create([
             'user_id' => $user->id,
             'nim' => $nim,
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'nomor_telepon' => '081234567890',
             'email_pribadi' => 'demo.'.$nim.'@alumni.ukdw.ac.id',
         ]);

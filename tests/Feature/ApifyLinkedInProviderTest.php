@@ -80,7 +80,7 @@ class ApifyLinkedInProviderTest extends TestCase
         DataAkademik::create([
             'nim' => $nim,
             'nama' => $name,
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'tahun_lulus' => 2024,
             'status_mahasiswa' => 'L',
         ]);
@@ -88,7 +88,7 @@ class ApifyLinkedInProviderTest extends TestCase
         return Biodata::create([
             'user_id' => $user->id,
             'nim' => $nim,
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'email_pribadi' => "{$nim}@personal.com",
             'linkedin_url' => $linkedinUrl,
             'linkedin_username' => $linkedinUsername,
@@ -527,7 +527,7 @@ class ApifyLinkedInProviderTest extends TestCase
             'biodata_id' => $alumni->id,
             'status' => 'pending',
             'linkedin_url' => $alumni->linkedin_url,
-            'reviewed_by' => null,
+            'user_id' => null,
             'reviewed_at' => null,
         ]);
 
@@ -590,7 +590,7 @@ class ApifyLinkedInProviderTest extends TestCase
 
         $result->refresh();
         $this->assertEquals('approved', $result->status);
-        $this->assertEquals($this->superadmin->id, $result->reviewed_by);
+        $this->assertEquals($this->superadmin->id, $result->user_id);
         $this->assertNotNull($result->reviewed_at);
     }
 
@@ -694,7 +694,7 @@ class ApifyLinkedInProviderTest extends TestCase
 
         $result->refresh();
         $this->assertEquals('rejected', $result->status);
-        $this->assertEquals($this->superadmin->id, $result->reviewed_by);
+        $this->assertEquals($this->superadmin->id, $result->user_id);
         $this->assertNotNull($result->reviewed_at);
 
         // KRITIKAL: Data utama alumni TIDAK berubah
@@ -911,7 +911,7 @@ class ApifyLinkedInProviderTest extends TestCase
                 ],
             ]],
             'status' => 'approved',
-            'reviewed_by' => $this->superadmin->id,
+            'user_id' => $this->superadmin->id,
             'reviewed_at' => now(),
             'scraped_at' => now(),
         ]);

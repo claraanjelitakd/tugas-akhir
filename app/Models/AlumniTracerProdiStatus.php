@@ -30,7 +30,7 @@ class AlumniTracerProdiStatus extends Model
     {
         return [
             'biodata_id' => 'integer',
-            'prodi_id' => 'integer',
+            'kode_prodi' => 'string',
             'total_prodi_questions' => 'integer',
             'answered_prodi_questions' => 'integer',
             'prodi_percentage' => 'integer',
@@ -45,6 +45,6 @@ class AlumniTracerProdiStatus extends Model
 
     public function prodi(): BelongsTo
     {
-        return $this->belongsTo(Prodi::class, 'prodi_id');
+        return $this->belongsTo(Prodi::class, 'kode_prodi', 'kode_prodi');
     }
 }

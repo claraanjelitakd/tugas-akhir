@@ -45,13 +45,13 @@ class UnifiedKuesionerManagementTest extends TestCase
         $this->prodiA = Prodi::create([
             'kode_prodi' => 'INF',
             'nama_prodi' => 'Informatika',
-            'fakultas_id' => $fakultas->id,
+            'kode_fakultas' => $fakultas->kode_fakultas,
         ]);
 
         $this->prodiB = Prodi::create([
             'kode_prodi' => 'SI',
             'nama_prodi' => 'Sistem Informasi',
-            'fakultas_id' => $fakultas->id,
+            'kode_fakultas' => $fakultas->kode_fakultas,
         ]);
 
         $this->superadmin = User::create([
@@ -64,7 +64,7 @@ class UnifiedKuesionerManagementTest extends TestCase
 
         $this->sectionProdiA = KuesionerSection::create([
             'target' => 'prodi',
-            'prodi_id' => $this->prodiA->id,
+            'kode_prodi' => $this->prodiA->kode_prodi,
             'kode_section' => 'SEC_INF_1',
             'judul' => 'Kompetensi Lulusan Informatika',
             'order' => 1,
@@ -73,7 +73,7 @@ class UnifiedKuesionerManagementTest extends TestCase
 
         $this->sectionProdiB = KuesionerSection::create([
             'target' => 'prodi',
-            'prodi_id' => $this->prodiB->id,
+            'kode_prodi' => $this->prodiB->kode_prodi,
             'kode_section' => 'SEC_SI_1',
             'judul' => 'Kompetensi Lulusan Sistem Informasi',
             'order' => 1,
@@ -90,7 +90,7 @@ class UnifiedKuesionerManagementTest extends TestCase
             'kode_pertanyaan' => 'U_TEST_01',
             'teks_pertanyaan' => 'Apakah kurikulum mempersiapkan Anda masuk industri?',
             'tipe' => 'single_choice',
-            'pemilik_prodi_id' => $this->prodiA->id,
+            'pemilik_kode_prodi' => $this->prodiA->kode_prodi,
             'is_reusable' => true,
             'is_active' => true,
         ]);
@@ -132,7 +132,7 @@ class UnifiedKuesionerManagementTest extends TestCase
             'kode_pertanyaan' => 'BORROWED_01',
             'teks_pertanyaan' => 'Pertanyaan awal dari Prodi B',
             'tipe' => 'text',
-            'pemilik_prodi_id' => $this->prodiB->id,
+            'pemilik_kode_prodi' => $this->prodiB->kode_prodi,
             'is_reusable' => true,
             'is_active' => true,
         ]);
@@ -146,7 +146,7 @@ class UnifiedKuesionerManagementTest extends TestCase
 
         $this->actingAs($this->superadmin)
             ->put(route('superadmin.prodi-kuesioner.pertanyaan.update', $question->id), [
-                'prodi_id' => $this->prodiA->id,
+                'kode_prodi' => $this->prodiA->kode_prodi,
                 'code' => 'BORROWED_01_EDITED',
                 'question_text' => 'Pertanyaan diperbarui oleh Superadmin',
                 'type' => 'text',
@@ -171,7 +171,7 @@ class UnifiedKuesionerManagementTest extends TestCase
     {
         $response = $this->actingAs($this->superadmin)
             ->post(route('superadmin.prodi-kuesioner.pertanyaan.store'), [
-                'prodi_id' => $this->prodiA->id,
+                'kode_prodi' => $this->prodiA->kode_prodi,
                 'section_id' => $this->sectionProdiA->id,
                 'target_section_ids' => [$this->sectionProdiB->id], // Multi-placement di Prodi B
                 'code' => 'KOMP_CLOUD',
@@ -226,7 +226,7 @@ class UnifiedKuesionerManagementTest extends TestCase
             'kode_pertanyaan' => 'BANK_ETIKA',
             'teks_pertanyaan' => 'Bagaimana penerapan etika profesi di tempat kerja Anda?',
             'tipe' => 'single_choice',
-            'pemilik_prodi_id' => null, // Umum / Universitas
+            'pemilik_kode_prodi' => null, // Umum / Universitas
             'is_reusable' => true,
             'is_active' => true,
         ]);
@@ -240,7 +240,7 @@ class UnifiedKuesionerManagementTest extends TestCase
 
         $response = $this->actingAs($this->superadmin)
             ->post(route('superadmin.prodi-kuesioner.bank.attach'), [
-                'prodi_id' => $this->prodiA->id,
+                'kode_prodi' => $this->prodiA->kode_prodi,
                 'section_id' => $this->sectionProdiA->id,
                 'pertanyaan_ids' => [$bankQuestion->id],
             ]);

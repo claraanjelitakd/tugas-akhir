@@ -72,7 +72,7 @@ class AdminAlumniProfileService
             'email' => $summary?->email ?? ($alumni->email_pribadi ?? ''),
 
             // 2. Data Akademik
-            'prodi_id' => $summary?->prodi_id ?? ($alumni->prodi_id ?? ''),
+            'prodi_id' => $summary?->kode_prodi ?? ($alumni->kode_prodi ?? ''),
             'kode_prodi' => $summary?->kode_prodi ?? ($alumni->prodi?->kode_prodi ?? ''),
             'program_studi' => $summary?->nama_prodi ?? ($alumni->prodi?->nama_prodi ?? ''),
             'fakultas' => $summary?->nama_fakultas ?? ($alumni->prodi?->fakultas?->nama_fakultas ?? ''),

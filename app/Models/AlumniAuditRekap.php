@@ -51,8 +51,8 @@ class AlumniAuditRekap extends Model
         return [
             'biodata_id' => 'integer',
             'user_id' => 'integer',
-            'prodi_id' => 'integer',
-            'fakultas_id' => 'integer',
+            'kode_prodi' => 'string',
+            'kode_fakultas' => 'string',
             'ipk' => 'float',
             'total_sks' => 'integer',
             'is_profile_complete' => 'boolean',
@@ -90,7 +90,7 @@ class AlumniAuditRekap extends Model
      */
     public function prodi(): BelongsTo
     {
-        return $this->belongsTo(Prodi::class, 'prodi_id');
+        return $this->belongsTo(Prodi::class, 'kode_prodi', 'kode_prodi');
     }
 
     /**
@@ -98,7 +98,7 @@ class AlumniAuditRekap extends Model
      */
     public function fakultas(): BelongsTo
     {
-        return $this->belongsTo(RefFakultas::class, 'fakultas_id');
+        return $this->belongsTo(RefFakultas::class, 'kode_fakultas', 'kode_fakultas');
     }
 
     /**
@@ -120,16 +120,16 @@ class AlumniAuditRekap extends Model
     /**
      * Scope filter alumni pada program studi tertentu
      */
-    public function scopeProdi(Builder $query, int $prodiId): Builder
+    public function scopeProdi(Builder $query, string $prodiId): Builder
     {
-        return $query->where('prodi_id', $prodiId);
+        return $query->where('kode_prodi', $prodiId);
     }
 
     /**
      * Scope filter alumni pada fakultas tertentu
      */
-    public function scopeFakultas(Builder $query, int $fakultasId): Builder
+    public function scopeFakultas(Builder $query, string $fakultasId): Builder
     {
-        return $query->where('fakultas_id', $fakultasId);
+        return $query->where('kode_fakultas', $fakultasId);
     }
 }

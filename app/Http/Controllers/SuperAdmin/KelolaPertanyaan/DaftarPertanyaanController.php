@@ -35,23 +35,26 @@ class DaftarPertanyaanController extends Controller
         $user = Auth::user();
 
         // 1. Ambil seluruh section kuesioner universitas berurutan
-        $univSections = KuesionerSection::where('target', 'univ')
+        $univSections = KuesionerSection::with('kuesioner')
+            ->where('target', 'univ')
             ->orderBy('order', 'asc')
             ->get();
 
         $sections = $univSections->map(function ($sec) {
+            $kuesionerModel = $sec->kuesioner;
+
             return [
                 'id' => $sec->id,
-                'kuesioner_id' => 1,
+                'kuesioner_id' => $sec->kuesioner_id ?? 1,
                 'kode_kelompok' => str_replace('SEC_UNIV_', '', $sec->kode_section),
                 'title' => $sec->judul,
                 'description' => $sec->deskripsi,
                 'order' => (int) $sec->order,
                 'subpertanyaans_count' => KuesionerSectionPertanyaan::where('section_id', $sec->id)->count(),
                 'kuesioner' => [
-                    'id' => 1,
-                    'title' => 'Tracer Study UKDW',
-                    'year' => now()->year,
+                    'id' => $kuesionerModel?->id ?? 1,
+                    'title' => $kuesionerModel?->title ?? 'Tracer Study UKDW',
+                    'year' => $kuesionerModel?->year ?? now()->year,
                 ],
             ];
         });
@@ -112,19 +115,22 @@ class DaftarPertanyaanController extends Controller
             ];
         })->filter()->values();
 
-        // 3. Ambil daftar kuesioner induk
-        $kuesioners = Kuesioner::orderBy('year', 'desc')
+        // 3. Ambil daftar kuesioner induk dengan relasi jumlah seksi sesungguhnya
+        $kuesioners = Kuesioner::withCount([
+            'sections' => fn ($q) => $q->where('target', 'univ'),
+        ])
+            ->orderBy('year', 'desc')
             ->orderBy('id', 'desc')
             ->get(['id', 'title', 'description', 'year', 'is_active'])
-            ->map(function ($k) use ($sections) {
+            ->map(function ($k) {
                 $kArr = $k->toArray();
-                $kArr['sections_count'] = $sections->count();
+                $kArr['sections_count'] = (int) ($k->sections_count ?? 0);
 
                 return $kArr;
             });
 
         // 4. Ambil daftar program studi aktif
-        $prodis = Prodi::orderBy('kode_prodi', 'asc')->get(['id', 'kode_prodi', 'nama_prodi']);
+        $prodis = Prodi::orderBy('kode_prodi', 'asc')->get(['kode_prodi', 'nama_prodi']);
 
         // 5. Map kode pertanyaan ke teks pertanyaan untuk label percabangan jump_to
         $targetQuestionMap = $pertanyaans->pluck('teks_pertanyaan', 'kode_pertanyaan')->toArray();
@@ -154,8 +160,8 @@ class DaftarPertanyaanController extends Controller
         $bankQuestions = KuesionerPertanyaan::query()
             ->where('is_active', true)
             ->with([
-                'pemilikProdi:id,nama_prodi,kode_prodi',
-                'sections:id,target,prodi_id,judul',
+                'pemilikProdi:kode_prodi,nama_prodi',
+                'sections:id,target,kode_prodi,judul',
                 'opsi' => fn ($q) => $q->orderBy('order'),
             ])
             ->orderBy('id', 'desc')

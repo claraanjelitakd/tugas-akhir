@@ -30,12 +30,12 @@ class VerifikasiPerusahaanFakultasController extends Controller
 
     private function findCompanyInScope(int $id): Perusahaan
     {
-        $fakultasId = Auth::user()?->fakultas_id;
+        $fakultasId = Auth::user()?->kode_fakultas;
         if (! $fakultasId) {
             abort(403, 'Akun Anda belum terhubung dengan fakultas.');
         }
 
-        $prodiIds = Prodi::where('fakultas_id', $fakultasId)->pluck('id')->all();
+        $prodiIds = Prodi::where('kode_fakultas', $fakultasId)->pluck('kode_prodi')->all();
 
         return $this->companiesInScopeQuery($prodiIds)->whereKey($id)->firstOrFail();
     }
@@ -46,9 +46,9 @@ class VerifikasiPerusahaanFakultasController extends Controller
     private function companiesInScopeQuery(array $prodiIds): Builder
     {
         return Perusahaan::query()->where(function (Builder $query) use ($prodiIds) {
-            $query->whereIn('created_by_prodi_id', $prodiIds)
-                ->orWhereHas('biodata', fn (Builder $biodataQuery) => $biodataQuery->whereIn('prodi_id', $prodiIds))
-                ->orWhereHas('creator', fn (Builder $creatorQuery) => $creatorQuery->whereIn('prodi_id', $prodiIds));
+            $query->whereIn('created_by_kode_prodi', $prodiIds)
+                ->orWhereHas('biodata', fn (Builder $biodataQuery) => $biodataQuery->whereIn('kode_prodi', $prodiIds))
+                ->orWhereHas('creator', fn (Builder $creatorQuery) => $creatorQuery->whereIn('kode_prodi', $prodiIds));
         });
     }
 
@@ -60,7 +60,7 @@ class VerifikasiPerusahaanFakultasController extends Controller
         /** @var User $user */
         $user = Auth::user();
         $user->load('fakultas');
-        $fakultasId = $user->fakultas_id;
+        $fakultasId = $user->kode_fakultas;
 
         $fakultas = $user->fakultas;
 
@@ -68,11 +68,11 @@ class VerifikasiPerusahaanFakultasController extends Controller
             abort(403, 'Akun Anda belum terhubung dengan fakultas.');
         }
 
-        $prodisFakultas = Prodi::where('fakultas_id', $fakultasId)->orderBy('nama_prodi')->get();
+        $prodisFakultas = Prodi::where('kode_fakultas', $fakultasId)->orderBy('nama_prodi')->get();
 
         $filters = [
             'search' => $request->query('search', ''),
-            'prodi_id' => $request->query('prodi_id', ''),
+            'kode_prodi' => $request->query('kode_prodi', ''),
             'status' => $request->query('status', 'all'),
             'kode_negara' => $request->query('kode_negara', ''),
             'kode_provinsi' => $request->query('kode_provinsi', ''),
@@ -88,7 +88,7 @@ class VerifikasiPerusahaanFakultasController extends Controller
             : [];
         $negaras = RefNegara::select('kode_negara', 'nama_negara')->orderBy('nama_negara')->get();
 
-        $prodiIds = $prodisFakultas->pluck('id')->all();
+        $prodiIds = $prodisFakultas->pluck('kode_prodi')->all();
         // Fix: filterNegaras sebelumnya tidak dikirim, menyebabkan dropdown filter negara kosong
         $distinctNegaras = $this->companiesInScopeQuery($prodiIds)
             ->whereNotNull('kode_negara')
@@ -124,7 +124,7 @@ class VerifikasiPerusahaanFakultasController extends Controller
     {
         /** @var User $user */
         $user = Auth::user();
-        $fakultasId = $user->fakultas_id;
+        $fakultasId = $user->kode_fakultas;
 
         if (! $fakultasId) {
             abort(403, 'Akun Anda belum terhubung dengan fakultas.');

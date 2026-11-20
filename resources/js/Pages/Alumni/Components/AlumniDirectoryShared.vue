@@ -104,7 +104,7 @@ const tahun = ref(defaultTahun);
 const semester = ref(props.filters.semester || 'all');
 const target = ref(props.filters.target || 'all');
 const status = ref(props.filters.status || 'all');
-const prodiId = ref(props.filters.prodi_id || 'all');
+const prodiId = ref(props.filters.kode_prodi || 'all');
 const linkedinStatus = ref(props.filters.linkedin_status || 'all');
 const negara = ref(props.filters.kode_negara || 'all');
 const provinsi = ref(props.filters.kode_provinsi || 'all');
@@ -133,8 +133,8 @@ watch(() => props.filters, (newFilters) => {
         if (newFilters.status !== undefined) {
             status.value = newFilters.status || 'all';
         }
-        if (newFilters.prodi_id !== undefined) {
-            prodiId.value = newFilters.prodi_id || 'all';
+        if (newFilters.kode_prodi !== undefined) {
+            prodiId.value = newFilters.kode_prodi || 'all';
         }
         if (newFilters.linkedin_status !== undefined) {
             linkedinStatus.value = newFilters.linkedin_status || 'all';
@@ -341,7 +341,7 @@ const applyFilters = (page = 1) => {
         semester: semester.value !== 'all' ? semester.value : undefined,
         target: target.value !== 'all' ? target.value : undefined,
         status: status.value !== 'all' ? status.value : undefined,
-        prodi_id: prodiId.value !== 'all' ? prodiId.value : undefined,
+        kode_prodi: prodiId.value !== 'all' ? prodiId.value : undefined,
         linkedin_status: linkedinStatus.value !== 'all' ? linkedinStatus.value : undefined,
         kode_negara: negara.value !== 'all' ? negara.value : undefined,
         kode_provinsi: provinsi.value !== 'all' ? provinsi.value : undefined,
@@ -481,13 +481,13 @@ const handleDownloadExcelProdi = () => {
     // Jika peran adalah Admin Prodi, langsung unduh menggunakan prodi terkait
     if (props.role === 'admin_prodi' || (props.prodi && props.prodi.id)) {
         const pId = props.prodi?.id || prodiId.value;
-        const url = `/${props.prefix}/alumni/export-excel-prodi?prodi_id=${pId}&tahun=${encodeURIComponent(selectedYear)}&semester=${encodeURIComponent(selectedSemester)}`;
+        const url = `/${props.prefix}/alumni/export-excel-prodi?kode_prodi=${pId}&tahun=${encodeURIComponent(selectedYear)}&semester=${encodeURIComponent(selectedSemester)}`;
         window.location.href = url;
         return;
     }
 
     if (prodiId.value && prodiId.value !== 'all') {
-        const url = `/${props.prefix}/alumni/export-excel-prodi?prodi_id=${prodiId.value}&tahun=${encodeURIComponent(selectedYear)}&semester=${encodeURIComponent(selectedSemester)}`;
+        const url = `/${props.prefix}/alumni/export-excel-prodi?kode_prodi=${prodiId.value}&tahun=${encodeURIComponent(selectedYear)}&semester=${encodeURIComponent(selectedSemester)}`;
         window.location.href = url;
     } else {
         const prodiOptions = {};
@@ -513,7 +513,7 @@ const handleDownloadExcelProdi = () => {
             },
         }).then((result) => {
             if (result.isConfirmed && result.value) {
-                const url = `/${props.prefix}/alumni/export-excel-prodi?prodi_id=${result.value}&tahun=${encodeURIComponent(selectedYear)}&semester=${encodeURIComponent(selectedSemester)}`;
+                const url = `/${props.prefix}/alumni/export-excel-prodi?kode_prodi=${result.value}&tahun=${encodeURIComponent(selectedYear)}&semester=${encodeURIComponent(selectedSemester)}`;
                 window.location.href = url;
             }
         });
@@ -555,7 +555,7 @@ const handleBlastEmail = () => {
             router.post(`/${props.prefix}/alumni/blast-email`, {
                 tahun: tahun.value,
                 semester: semester.value,
-                prodi_id: prodiId.value,
+                kode_prodi: prodiId.value,
                 search: search.value,
             }, {
                 preserveScroll: true,
@@ -593,7 +593,7 @@ const canContactAlumni = (alumni) => {
     }
 
     return props.role === 'admin_prodi'
-        && String(props.user?.prodi_id || '') === String(alumni?.prodi_id || '');
+        && String(props.user?.kode_prodi || '') === String(alumni?.kode_prodi || '');
 };
 
 const openWhatsAppModal = (alumni) => {

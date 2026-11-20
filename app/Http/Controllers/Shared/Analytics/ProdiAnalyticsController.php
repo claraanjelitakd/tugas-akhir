@@ -23,9 +23,9 @@ class ProdiAnalyticsController extends Controller
     public function index(Request $request, ProdiAnalyticsService $analyticsService): Response
     {
         $user = $request->user();
-        $prodiId = $request->integer('prodi_id') ?: null;
-        if ($user && $user->role === 'admin_prodi' && $user->prodi_id) {
-            $prodiId = (int) $user->prodi_id;
+        $prodiId = $request->string('kode_prodi')->toString() ?: null;
+        if ($user && $user->role === 'admin_prodi' && $user->kode_prodi) {
+            $prodiId = $user->kode_prodi;
         }
 
         $sectionId = $request->input('section_id') ?: null;
@@ -44,9 +44,9 @@ class ProdiAnalyticsController extends Controller
     public function data(Request $request, ProdiAnalyticsService $analyticsService): JsonResponse
     {
         $user = $request->user();
-        $prodiId = $request->integer('prodi_id') ?: null;
-        if ($user && $user->role === 'admin_prodi' && $user->prodi_id) {
-            $prodiId = (int) $user->prodi_id;
+        $prodiId = $request->string('kode_prodi')->toString() ?: null;
+        if ($user && $user->role === 'admin_prodi' && $user->kode_prodi) {
+            $prodiId = $user->kode_prodi;
         }
 
         $sectionId = $request->input('section_id') ?: null;

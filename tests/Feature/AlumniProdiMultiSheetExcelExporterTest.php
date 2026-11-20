@@ -44,7 +44,7 @@ class AlumniProdiMultiSheetExcelExporterTest extends TestCase
         DataAkademik::create([
             'nim' => '72200001',
             'nama' => 'Alumni Test',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'angkatan_masuk' => '2020',
             'tahun_lulus' => '2024',
             'tahun_akademik_lulus' => 'Genap 2023/2024',
@@ -54,7 +54,7 @@ class AlumniProdiMultiSheetExcelExporterTest extends TestCase
         Biodata::create([
             'user_id' => $user->id,
             'nim' => '72200001',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'warga_negara' => 'Indonesia (WNI)',
             'email_pribadi' => 'alumni.test@example.com',
             'nomor_telepon' => '081234567890',
@@ -88,7 +88,7 @@ class AlumniProdiMultiSheetExcelExporterTest extends TestCase
      */
     public function test_it_returns_streamed_response(): void
     {
-        $response = AlumniProdiMultiSheetExcelExporter::download($this->prodi->id);
+        $response = AlumniProdiMultiSheetExcelExporter::download($this->prodi->kode_prodi);
 
         $this->assertInstanceOf(StreamedResponse::class, $response);
         $this->assertEquals('application/vnd.ms-excel; charset=UTF-8', $response->headers->get('Content-Type'));

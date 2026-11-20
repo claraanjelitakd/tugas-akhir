@@ -246,8 +246,8 @@ class AlumniVariasiAnalitikSeeder extends Seeder
                     'email' => $email,
                     'password' => $passwordHash,
                     'role' => 'alumni',
-                    'prodi_id' => $prodiObj->id,
-                    'fakultas_id' => $prodiObj->fakultas_id,
+                    'kode_prodi' => $prodiObj->kode_prodi,
+                    'kode_fakultas' => $prodiObj->kode_fakultas,
                     'must_change_password' => 0,
                 ]
             );
@@ -269,7 +269,7 @@ class AlumniVariasiAnalitikSeeder extends Seeder
                 [
                     'nama' => $nama,
                     'email_pribadi' => $personalEmail,
-                    'prodi_id' => $prodiObj->id,
+                    'kode_prodi' => $prodiObj->kode_prodi,
                     'angkatan_masuk' => 2022,
                     'tahun_akademik_masuk' => '2022/2023 (Semester Ganjil)',
                     'status_mahasiswa' => 'Lulus',
@@ -321,8 +321,7 @@ class AlumniVariasiAnalitikSeeder extends Seeder
                 ['user_id' => $user->id],
                 [
                     'nim' => $nim,
-                    'yudisium_id' => $yudisium->id,
-                    'prodi_id' => $prodiObj->id,
+                    'kode_prodi' => $prodiObj->kode_prodi,
                     'email_pribadi' => $personalEmail,
                     'nomor_telepon' => $nomorTelepon,
                     'alamat_saat_ini' => 'Jl. Kaliurang Km. '.($idx % 10 + 5).' No. '.($idx * 3 + 12).', Condongcatur, Sleman, DI Yogyakarta',

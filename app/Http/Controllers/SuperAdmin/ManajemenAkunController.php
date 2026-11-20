@@ -58,8 +58,8 @@ class ManajemenAkunController extends Controller
     public function index(Request $request): Response
     {
         $roleFilter = $request->input('role', 'all');
-        $prodiFilter = $request->input('prodi_id');
-        $fakultasFilter = $request->input('fakultas_id');
+        $prodiFilter = $request->input('kode_prodi');
+        $fakultasFilter = $request->input('kode_fakultas');
         $search = $request->input('search');
 
         $query = User::with(['prodi.fakultas', 'fakultas', 'biodata.dataAkademik']);
@@ -69,16 +69,16 @@ class ManajemenAkunController extends Controller
         }
 
         if ($prodiFilter) {
-            $query->where('prodi_id', $prodiFilter);
+            $query->where('kode_prodi', $prodiFilter);
         }
 
         if ($fakultasFilter) {
             // Admin Fakultas: memiliki fakultas_id langsung
             // Alumni / Admin Prodi: memiliki prodi_id yang berelasi ke fakultas_id
             $query->where(function ($q) use ($fakultasFilter) {
-                $q->where('fakultas_id', $fakultasFilter)
+                $q->where('kode_fakultas', $fakultasFilter)
                     ->orWhereHas('prodi', function ($pq) use ($fakultasFilter) {
-                        $pq->where('fakultas_id', $fakultasFilter);
+                        $pq->where('kode_fakultas', $fakultasFilter);
                     });
             });
         }
@@ -141,8 +141,8 @@ class ManajemenAkunController extends Controller
             'unsynced_candidates' => $unsyncedCandidates,
             'filters' => [
                 'role' => $roleFilter,
-                'prodi_id' => $prodiFilter,
-                'fakultas_id' => $fakultasFilter,
+                'kode_prodi' => $prodiFilter,
+                'kode_fakultas' => $fakultasFilter,
                 'search' => $search,
             ],
             'stats' => $stats,
@@ -168,7 +168,7 @@ class ManajemenAkunController extends Controller
             ['id' => self::ACCOUNT_SYNC_SETTING_ID],
             [
                 'is_open' => $isOpen,
-                'updated_by' => $request->user()?->id,
+                'user_id' => $request->user()?->id,
                 'updated_at' => now(),
                 'created_at' => now(),
             ]
@@ -206,31 +206,31 @@ class ManajemenAkunController extends Controller
                 Rule::unique('users', 'username')->ignore($user->id),
             ],
             'role' => 'required|string|in:superadmin,admin_biro3,admin_fakultas,admin_prodi,alumni',
-            'prodi_id' => 'nullable|exists:prodi,id',
-            'fakultas_id' => [
+            'kode_prodi' => 'nullable|exists:ref_prodi,kode_prodi',
+            'kode_fakultas' => [
                 'nullable',
-                'exists:ref_fakultas,id',
+                'exists:ref_fakultas,kode_fakultas',
                 Rule::requiredIf(fn (): bool => $request->input('role') === 'admin_fakultas'),
             ],
         ]);
 
-        $oldValues = $user->only(['name', 'email', 'username', 'role', 'prodi_id', 'fakultas_id']);
+        $oldValues = $user->only(['name', 'email', 'username', 'role', 'kode_prodi', 'kode_fakultas']);
 
         $role = $validated['role'];
         $prodiId = in_array($role, ['admin_prodi', 'alumni'], true)
-            ? ($validated['prodi_id'] ?? null)
+            ? ($validated['kode_prodi'] ?? null)
             : null;
         $fakultasId = $role === 'admin_fakultas'
-            ? $validated['fakultas_id']
-            : ($prodiId ? Prodi::find($prodiId)?->fakultas_id : null);
+            ? $validated['kode_fakultas']
+            : ($prodiId ? Prodi::find($prodiId)?->kode_fakultas : null);
 
         $user->update([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'username' => $validated['username'],
             'role' => $role,
-            'prodi_id' => $prodiId,
-            'fakultas_id' => $fakultasId,
+            'kode_prodi' => $prodiId,
+            'kode_fakultas' => $fakultasId,
         ]);
 
         if ($user->biodata) {
@@ -246,7 +246,7 @@ class ManajemenAkunController extends Controller
             "Super Admin memperbarui data akun {$user->name} (@{$user->username}). Email diatur ke {$validated['email']}.",
             $user,
             $oldValues,
-            $user->only(['name', 'email', 'username', 'role', 'prodi_id', 'fakultas_id'])
+            $user->only(['name', 'email', 'username', 'role', 'kode_prodi', 'kode_fakultas'])
         );
 
         return back()->with('success', "Data pengguna {$user->name} berhasil diperbarui.");
@@ -335,8 +335,8 @@ class ManajemenAkunController extends Controller
                     $prodi = Prodi::where('kode_prodi', $parsed['kode_prodi'])->first();
                 }
 
-                $prodiId = $prodi?->id;
-                $fakultasId = $prodi?->fakultas_id;
+                $prodiId = $prodi?->kode_prodi;
+                $fakultasId = $prodi?->kode_fakultas;
 
                 // Tentukan password default dari tanggal lahir (ddmmyyyy)
                 $plainPassword = 'password123';
@@ -363,15 +363,15 @@ class ManajemenAkunController extends Controller
                         'password' => Hash::make($plainPassword),
                         'role' => 'alumni',
                         'must_change_password' => true,
-                        'prodi_id' => $prodiId,
-                        'fakultas_id' => $fakultasId,
+                        'kode_prodi' => $prodiId,
+                        'kode_fakultas' => $fakultasId,
                     ]);
                 } else {
                     $user->update([
                         'email' => $email,
                         'role' => 'alumni',
-                        'prodi_id' => $prodiId,
-                        'fakultas_id' => $fakultasId,
+                        'kode_prodi' => $prodiId,
+                        'kode_fakultas' => $fakultasId,
                     ]);
                 }
 
@@ -383,8 +383,7 @@ class ManajemenAkunController extends Controller
                     ['nim' => $nim],
                     [
                         'user_id' => $user->id,
-                        'yudisium_id' => $yudisium?->id,
-                        'prodi_id' => $prodiId,
+                        'kode_prodi' => $prodiId,
                         'email_pribadi' => $email,
                     ]
                 );
@@ -417,7 +416,7 @@ class ManajemenAkunController extends Controller
             DB::table('account_sync_settings')->insert([
                 'id' => self::ACCOUNT_SYNC_SETTING_ID,
                 'is_open' => true,
-                'updated_by' => null,
+                'user_id' => null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

@@ -19,16 +19,16 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "users" ("id" integer primary key autoincrement not null, "name" varchar, "username" varchar not null, "email" varchar, "role" varchar not null default 'alumni', "prodi_id" integer, "fakultas_id" integer, "must_change_password" tinyint(1) not null default '0', "password" varchar not null, "remember_token" varchar, "created_at" datetime, "updated_at" datetime);
+CREATE TABLE "users" ("id" integer primary key autoincrement not null, "name" varchar, "username" varchar not null, "email" varchar, "role" varchar not null default 'alumni', "kode_prodi" varchar, "kode_fakultas" varchar, "must_change_password" tinyint(1) not null default '0', "password" varchar not null, "remember_token" varchar, "created_at" datetime, "updated_at" datetime);
 SQL
             );
 
             foreach ([
                 <<<'SQL'
-CREATE INDEX "users_fakultas_id_index" on "users" ("fakultas_id");
+CREATE INDEX "users_kode_fakultas_index" on "users" ("kode_fakultas");
 SQL,
                 <<<'SQL'
-CREATE INDEX "users_prodi_id_index" on "users" ("prodi_id");
+CREATE INDEX "users_kode_prodi_index" on "users" ("kode_prodi");
 SQL,
                 <<<'SQL'
 CREATE UNIQUE INDEX "users_username_unique" on "users" ("username");
@@ -44,8 +44,8 @@ CREATE TABLE `users` (
   `username` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Username akun login (NIM untuk alumni, identitas untuk staf)',
   `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Alamat email akun login',
   `role` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'alumni' COMMENT 'Peran pengguna: superadmin, admin_biro3, admin_fakultas, admin_prodi, alumni',
-  `prodi_id` bigint unsigned DEFAULT NULL COMMENT 'Relasi ke prodi jika admin prodi atau alumni',
-  `fakultas_id` bigint unsigned DEFAULT NULL COMMENT 'Relasi ke fakultas jika admin fakultas',
+  `kode_prodi` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Relasi ke prodi jika admin prodi atau alumni',
+  `kode_fakultas` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Relasi ke fakultas jika admin fakultas',
   `must_change_password` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Penanda kewajiban ganti sandi saat pertama login',
   `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Hash kata sandi akun',
   `remember_token` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -53,8 +53,8 @@ CREATE TABLE `users` (
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `users_username_unique` (`username`),
-  KEY `users_prodi_id_index` (`prodi_id`),
-  KEY `users_fakultas_id_index` (`fakultas_id`)
+  KEY `users_kode_prodi_index` (`kode_prodi`),
+  KEY `users_kode_fakultas_index` (`kode_fakultas`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 SQL
             );

@@ -19,7 +19,7 @@ const props = defineProps({
     atasans: { type: Object, default: () => ({ data: [], links: [] }) },
     prodis: { type: Array, default: () => [] },
     provinces: { type: Array, default: () => [] },
-    filters: { type: Object, default: () => ({ search: '', company: '', provinsi: '', prodi_id: '', per_page: 10 }) },
+    filters: { type: Object, default: () => ({ search: '', company: '', provinsi: '', kode_prodi: '', per_page: 10 }) },
     stats: {
         type: Object,
         default: () => ({
@@ -40,7 +40,7 @@ const props = defineProps({
 const search = ref(props.filters.search || '');
 const companySearch = ref(props.filters.company || '');
 const selectedProvinsi = ref(props.filters.provinsi || '');
-const selectedProdiId = ref(props.filters.prodi_id || '');
+const selectedProdiId = ref(props.filters.kode_prodi || '');
 const perPage = ref(Number(props.filters.per_page || 10));
 
 // State searchable dropdown filter perusahaan head office
@@ -250,7 +250,7 @@ watch(() => props.filters, (newFilters) => {
     search.value = newFilters?.search || '';
     companySearch.value = newFilters?.company || '';
     selectedProvinsi.value = newFilters?.provinsi || '';
-    selectedProdiId.value = newFilters?.prodi_id || '';
+    selectedProdiId.value = newFilters?.kode_prodi || '';
     perPage.value = Number(newFilters?.per_page || 10);
 }, { deep: true });
 
@@ -378,7 +378,7 @@ const applyFilters = () => {
         search: search.value || undefined,
         company: companySearch.value || undefined,
         provinsi: selectedProvinsi.value || undefined,
-        prodi_id: props.showProdiFilter ? (selectedProdiId.value || undefined) : undefined,
+        kode_prodi: props.showProdiFilter ? (selectedProdiId.value || undefined) : undefined,
         per_page: perPage.value !== 10 ? perPage.value : undefined,
     }, {
         preserveState: true,
@@ -411,7 +411,7 @@ const exportUrl = computed(() => {
     if (search.value) params.append('search', search.value);
     if (companySearch.value) params.append('company', companySearch.value);
     if (selectedProvinsi.value) params.append('provinsi', selectedProvinsi.value);
-    if (selectedProdiId.value) params.append('prodi_id', selectedProdiId.value);
+    if (selectedProdiId.value) params.append('kode_prodi', selectedProdiId.value);
     const qs = params.toString();
     return `/${props.prefix}/atasan/export-excel${qs ? `?${qs}` : ''}`;
 });

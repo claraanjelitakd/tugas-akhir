@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $linkedin_username
  * @property array $scraped_data
  * @property string $status 'pending'|'approved'|'rejected'
- * @property int|null $reviewed_by
+ * @property int|null $user_id
  * @property Carbon|null $reviewed_at
  * @property Carbon|null $scraped_at
  * @property Carbon $created_at
@@ -38,7 +38,7 @@ class LinkedinSyncResult extends Model
         'linkedin_username',
         'scraped_data',
         'status',
-        'reviewed_by',
+        'user_id',
         'reviewed_at',
         'scraped_at',
     ];
@@ -182,7 +182,7 @@ class LinkedinSyncResult extends Model
      */
     public function reviewer(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'reviewed_by');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function isPending(): bool

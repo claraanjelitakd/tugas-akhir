@@ -70,8 +70,8 @@ class AlumniLinkedinPlot extends Model
         return [
             'biodata_id' => 'integer',
             'user_id' => 'integer',
-            'prodi_id' => 'integer',
-            'fakultas_id' => 'integer',
+            'kode_prodi' => 'string',
+            'kode_fakultas' => 'string',
             'perusahaan_id_biodata' => 'integer',
             'sync_result_id' => 'integer',
             'reviewed_by' => 'integer',
@@ -94,12 +94,12 @@ class AlumniLinkedinPlot extends Model
 
     public function prodi(): BelongsTo
     {
-        return $this->belongsTo(Prodi::class, 'prodi_id');
+        return $this->belongsTo(Prodi::class, 'kode_prodi', 'kode_prodi');
     }
 
     public function fakultas(): BelongsTo
     {
-        return $this->belongsTo(RefFakultas::class, 'fakultas_id');
+        return $this->belongsTo(RefFakultas::class, 'kode_fakultas', 'kode_fakultas');
     }
 
     public function perusahaan(): BelongsTo

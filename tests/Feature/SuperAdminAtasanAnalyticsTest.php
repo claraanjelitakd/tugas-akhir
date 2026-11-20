@@ -61,8 +61,9 @@ class SuperAdminAtasanAnalyticsTest extends TestCase
     {
         $admin = $this->createSuperadmin('supervisor-analytics-data');
         $this->seed(PertanyaanEvaluasiAtasanSeeder::class);
-        $prodi = Prodi::create([
+        $prodi = Prodi::firstOrCreate([
             'kode_prodi' => '72',
+        ], [
             'nama_prodi' => 'Sistem Informasi',
         ]);
         $biodata = $this->createAlumni($prodi, '722026001', 2026);
@@ -152,7 +153,7 @@ class SuperAdminAtasanAnalyticsTest extends TestCase
         return Biodata::create([
             'user_id' => $user->id,
             'nim' => $nim,
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'email_pribadi' => 'alumni@example.test',
             'linkedin_url' => 'https://www.linkedin.com/in/alumni-evaluasi',
         ]);

@@ -49,8 +49,8 @@ class AnjelitaSeeder extends Seeder
                 'email' => $emailKampus,
                 'password' => Hash::make($passwordPlain),
                 'role' => 'alumni',
-                'prodi_id' => $prodi?->id,
-                'fakultas_id' => $prodi?->fakultas_id ?? 6,
+                'kode_prodi' => $prodi?->kode_prodi,
+                'kode_fakultas' => $prodi?->kode_fakultas,
                 'must_change_password' => true,
             ]
         );
@@ -65,7 +65,7 @@ class AnjelitaSeeder extends Seeder
             [
                 'nama' => $nama,
                 'email_pribadi' => $personalEmail,
-                'prodi_id' => $prodi?->id,
+                'kode_prodi' => $prodi?->kode_prodi,
                 'angkatan_masuk' => $angkatan,
                 'tahun_akademik_masuk' => $tahunAkademikMasuk,
                 'status_mahasiswa' => 'Lulus',
@@ -103,8 +103,7 @@ class AnjelitaSeeder extends Seeder
             ['user_id' => $user->id],
             [
                 'nim' => $nim,
-                'yudisium_id' => $yudisium->id,
-                'prodi_id' => $prodi?->id,
+                'kode_prodi' => $prodi?->kode_prodi,
                 'email_pribadi' => $personalEmail,
                 'nomor_telepon' => '081234567888',
                 'alamat_saat_ini' => 'Jl. Dr. Wahidin Sudirohusodo No. 5-25',

@@ -48,14 +48,14 @@ class DetailAlumniFakultasController extends Controller
         /** @var User $user */
         $user = Auth::user();
         $user->load('fakultas');
-        $fakultasId = $user->fakultas_id;
+        $fakultasId = $user->kode_fakultas;
         $isReadOnly = $request->routeIs('fakultas.analytics.alumni.show');
 
         abort_unless($fakultasId, 403, 'Akun Admin Fakultas belum memiliki lingkup fakultas.');
 
         $fakultas = $user->fakultas ?: RefFakultas::findOrFail($fakultasId);
 
-        $prodiIdsFakultas = Prodi::where('fakultas_id', $fakultasId)->pluck('id')->all();
+        $prodiIdsFakultas = Prodi::where('kode_fakultas', $fakultasId)->pluck('kode_prodi')->all();
 
         $alumniQuery = Biodata::with([
             'dataAkademik.yudisium',
@@ -69,7 +69,7 @@ class DetailAlumniFakultasController extends Controller
         ]);
 
         if (! $isReadOnly) {
-            $alumniQuery->whereIn('prodi_id', $prodiIdsFakultas);
+            $alumniQuery->whereIn('kode_prodi', $prodiIdsFakultas);
         }
 
         $alumni = $alumniQuery->findOrFail($id);
@@ -145,10 +145,10 @@ class DetailAlumniFakultasController extends Controller
     public function updateProfile(Request $request, int $id): RedirectResponse
     {
         $user = Auth::user();
-        $fakultasId = $user->fakultas_id;
-        $prodiIdsFakultas = Prodi::where('fakultas_id', $fakultasId)->pluck('id')->all();
+        $fakultasId = $user->kode_fakultas;
+        $prodiIdsFakultas = Prodi::where('kode_fakultas', $fakultasId)->pluck('kode_prodi')->all();
 
-        $biodata = Biodata::whereIn('prodi_id', $prodiIdsFakultas)->findOrFail($id);
+        $biodata = Biodata::whereIn('kode_prodi', $prodiIdsFakultas)->findOrFail($id);
 
         // Fix: gunakan only() dengan allowlist agar mencegah mass assignment
         AdminAlumniProfileService::updateProfile($biodata, $request->only(AdminAlumniProfileService::allowedProfileFields()));
@@ -162,11 +162,11 @@ class DetailAlumniFakultasController extends Controller
     public function exportExcel(int $id): StreamedResponse
     {
         $user = Auth::user();
-        $fakultasId = $user->fakultas_id;
-        $prodiIdsFakultas = Prodi::where('fakultas_id', $fakultasId)->pluck('id')->all();
+        $fakultasId = $user->kode_fakultas;
+        $prodiIdsFakultas = Prodi::where('kode_fakultas', $fakultasId)->pluck('kode_prodi')->all();
 
         // Pastikan alumni berada dalam lingkup fakultas admin yang login
-        Biodata::whereIn('prodi_id', $prodiIdsFakultas)->findOrFail($id);
+        Biodata::whereIn('kode_prodi', $prodiIdsFakultas)->findOrFail($id);
 
         return AlumniTracerExcelExporter::download($id);
     }

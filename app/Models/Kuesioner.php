@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Model Kuesioner (kuesioner)
@@ -36,10 +37,27 @@ class Kuesioner extends Model
     /**
      * Relasi ke bagian kuesioner universitas (KuesionerSection).
      */
-    public function sections()
+    public function sections(): HasMany
     {
         return $this->hasMany(KuesionerSection::class, 'kuesioner_id')
             ->where('target', 'univ')
             ->orderBy('order');
+    }
+
+    /**
+     * Relasi ke seluruh bagian kuesioner (universitas, prodi, maupun atasan).
+     */
+    public function allSections(): HasMany
+    {
+        return $this->hasMany(KuesionerSection::class, 'kuesioner_id')
+            ->orderBy('order');
+    }
+
+    /**
+     * Relasi ke seluruh butir jawaban responden yang terekam pada periode kuesioner ini.
+     */
+    public function jawaban(): HasMany
+    {
+        return $this->hasMany(KuesionerJawaban::class, 'kuesioner_id');
     }
 }

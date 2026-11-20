@@ -41,7 +41,7 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
         $this->prodi = Prodi::create([
             'kode_prodi' => '72',
             'nama_prodi' => 'Sistem Informasi',
-            'fakultas_id' => $this->fakultas->id,
+            'kode_fakultas' => $this->fakultas->kode_fakultas,
         ]);
     }
 
@@ -62,7 +62,7 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
         $responseAll->assertStatus(200);
 
         $responsePerProdi = $this->actingAs($this->superadmin)
-            ->get(route('superadmin.perusahaan.index', ['prodi_id' => $this->prodi->id]));
+            ->get(route('superadmin.perusahaan.index', ['kode_prodi' => $this->prodi->kode_prodi]));
 
         $responsePerProdi->assertStatus(200);
     }
@@ -87,7 +87,7 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
             'kode_negara' => 'ID',
             'status_verifikasi' => 'Terverifikasi',
             'created_by_user_id' => $this->superadmin->id,
-            'created_by_prodi_id' => $this->prodi->id,
+            'created_by_kode_prodi' => $this->prodi->kode_prodi,
         ]);
 
         $response = $this->actingAs($this->superadmin)
@@ -101,7 +101,7 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
             ->where('companies.data.0.jumlah_pegawai', '51 - 100 Orang')
             ->where('companies.data.0.jenis_perusahaan_lainnya', 'Unit teknologi')
             ->where('companies.data.0.created_by_user_id', $this->superadmin->id)
-            ->where('companies.data.0.created_by_prodi_id', $this->prodi->id)
+            ->where('companies.data.0.created_by_kode_prodi', $this->prodi->kode_prodi)
         );
     }
 
@@ -157,14 +157,14 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
     public function test_superadmin_dapat_mengelola_section_kuesioner_prodi(): void
     {
         $responseIndex = $this->actingAs($this->superadmin)
-            ->get(route('superadmin.prodi-kuesioner.index', ['prodi_id' => $this->prodi->id]));
+            ->get(route('superadmin.prodi-kuesioner.index', ['kode_prodi' => $this->prodi->kode_prodi]));
 
         $responseIndex->assertStatus(200);
 
         // Tambah section
         $responseStore = $this->actingAs($this->superadmin)
             ->post(route('superadmin.prodi-kuesioner.sections.store'), [
-                'prodi_id' => $this->prodi->id,
+                'kode_prodi' => $this->prodi->kode_prodi,
                 'title' => 'Evaluasi Kurikulum Prodi SI',
                 'description' => 'Petunjuk pengisian untuk alumni SI',
                 'order' => 1,
@@ -172,7 +172,7 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
 
         $responseStore->assertRedirect();
         $this->assertDatabaseHas('kuesioner_section', [
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'judul' => 'Evaluasi Kurikulum Prodi SI',
         ]);
     }
@@ -183,7 +183,7 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
     public function test_superadmin_dapat_mengelola_pertanyaan_kuesioner_prodi(): void
     {
         $section = KuesionerSection::create([
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'target' => 'prodi',
             'kode_section' => 'SEC-SI-1',
             'judul' => 'Bagian Spesifik SI',
@@ -193,7 +193,7 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
 
         $responseStore = $this->actingAs($this->superadmin)
             ->post(route('superadmin.prodi-kuesioner.pertanyaan.store'), [
-                'prodi_id' => $this->prodi->id,
+                'kode_prodi' => $this->prodi->kode_prodi,
                 'section_id' => $section->id,
                 'code' => 'PSI_01',
                 'question_text' => 'Seberapa relevan mata kuliah basis data di dunia kerja?',
@@ -204,7 +204,7 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
 
         $responseStore->assertRedirect();
         $this->assertDatabaseHas('kuesioner_pertanyaan', [
-            'pemilik_prodi_id' => $this->prodi->id,
+            'pemilik_kode_prodi' => $this->prodi->kode_prodi,
             'kode_pertanyaan' => 'PSI_01',
             'teks_pertanyaan' => 'Seberapa relevan mata kuliah basis data di dunia kerja?',
         ]);

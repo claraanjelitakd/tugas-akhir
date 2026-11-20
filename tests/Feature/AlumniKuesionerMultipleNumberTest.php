@@ -62,7 +62,7 @@ class AlumniKuesionerMultipleNumberTest extends TestCase
 
         $this->alumni = Biodata::create([
             'user_id' => $this->user->id,
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'nim' => '71190001',
             'nama' => 'Alumni Test',
             'skills' => 'Web Development',

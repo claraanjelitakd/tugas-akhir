@@ -51,19 +51,19 @@ class IkuS1AnalyticsTest extends TestCase
         $prodi = Prodi::create(['kode_prodi' => '71', 'nama_prodi' => 'Informatika', 'jenjang' => 'S1']);
 
         DataAkademik::create([
-            'nim' => '71180001', 'nama' => 'Lulus Tepat Waktu', 'prodi_id' => $prodi->id,
+            'nim' => '71180001', 'nama' => 'Lulus Tepat Waktu', 'kode_prodi' => $prodi->kode_prodi,
             'angkatan_masuk' => 2022, 'tahun_akademik_masuk' => '2022/2023 (Semester Ganjil)',
             'status_mahasiswa' => 'Lulus', 'tahun_akademik_lulus' => 'Genap 2025/2026', 'tahun_lulus' => 2026,
         ]);
         DataAkademik::create([
-            'nim' => '71180002', 'nama' => 'Lulus Tidak Tepat Waktu', 'prodi_id' => $prodi->id,
+            'nim' => '71180002', 'nama' => 'Lulus Tidak Tepat Waktu', 'kode_prodi' => $prodi->kode_prodi,
             'angkatan_masuk' => 2022, 'tahun_akademik_masuk' => '2022/2023 (Semester Ganjil)',
             'status_mahasiswa' => 'Lulus', 'tahun_akademik_lulus' => 'Genap 2026/2027', 'tahun_lulus' => 2027,
         ]);
 
         foreach (['Drop Out', 'Pindah', 'Cuti'] as $index => $status) {
             DataAkademik::create([
-                'nim' => '7118000'.($index + 3), 'nama' => $status, 'prodi_id' => $prodi->id,
+                'nim' => '7118000'.($index + 3), 'nama' => $status, 'kode_prodi' => $prodi->kode_prodi,
                 'angkatan_masuk' => 2022, 'tahun_akademik_masuk' => '2022/2023 (Semester Ganjil)',
                 'status_mahasiswa' => $status,
             ]);
@@ -92,17 +92,17 @@ class IkuS1AnalyticsTest extends TestCase
         $prodi = Prodi::create(['kode_prodi' => '73', 'nama_prodi' => 'Manajemen', 'jenjang' => 'S1']);
 
         DataAkademik::create([
-            'nim' => '73180001', 'nama' => 'Lulus Tepat Waktu', 'prodi_id' => $prodi->id,
+            'nim' => '73180001', 'nama' => 'Lulus Tepat Waktu', 'kode_prodi' => $prodi->kode_prodi,
             'angkatan_masuk' => 2022, 'tahun_akademik_masuk' => '2022/2023 (Semester Ganjil)',
             'status_mahasiswa' => 'Lulus', 'tahun_akademik_lulus' => 'Genap 2025/2026', 'tahun_lulus' => 2026,
         ]);
         DataAkademik::create([
-            'nim' => '73180002', 'nama' => 'Lulus Terlambat', 'prodi_id' => $prodi->id,
+            'nim' => '73180002', 'nama' => 'Lulus Terlambat', 'kode_prodi' => $prodi->kode_prodi,
             'angkatan_masuk' => 2022, 'tahun_akademik_masuk' => '2022/2023 (Semester Ganjil)',
             'status_mahasiswa' => 'Lulus', 'tahun_akademik_lulus' => 'Genap 2026/2027', 'tahun_lulus' => 2027,
         ]);
         DataAkademik::create([
-            'nim' => '73180003', 'nama' => 'Status Belum Teridentifikasi', 'prodi_id' => $prodi->id,
+            'nim' => '73180003', 'nama' => 'Status Belum Teridentifikasi', 'kode_prodi' => $prodi->kode_prodi,
             'angkatan_masuk' => 2022, 'tahun_akademik_masuk' => '2022/2023 (Semester Ganjil)',
             'status_mahasiswa' => 'Aktif',
         ]);
@@ -345,18 +345,18 @@ class IkuS1AnalyticsTest extends TestCase
     {
         $user = User::create([
             'username' => $nim, 'name' => 'Alumni '.$nim, 'email' => $nim.'@example.test',
-            'password' => Hash::make('password'), 'role' => 'alumni', 'prodi_id' => $prodi->id,
+            'password' => Hash::make('password'), 'role' => 'alumni', 'kode_prodi' => $prodi->kode_prodi,
             'must_change_password' => false,
         ]);
         DataAkademik::create([
-            'nim' => $nim, 'nama' => $user->name, 'prodi_id' => $prodi->id,
+            'nim' => $nim, 'nama' => $user->name, 'kode_prodi' => $prodi->kode_prodi,
             'angkatan_masuk' => $year - 4, 'tahun_akademik_masuk' => ($year - 4).'/'.$year.' (Semester Ganjil)',
             'status_mahasiswa' => 'Lulus', 'tahun_akademik_lulus' => 'Genap '.($year - 1).'/'.$year,
             'tahun_lulus' => $year, 'tanggal_lulus' => $year.'-06-30',
         ]);
 
         return Biodata::create([
-            'user_id' => $user->id, 'nim' => $nim, 'prodi_id' => $prodi->id,
+            'user_id' => $user->id, 'nim' => $nim, 'kode_prodi' => $prodi->kode_prodi,
             'email_pribadi' => $user->email, 'kategori_pekerjaan' => $career, 'gaji' => $salary,
         ]);
     }

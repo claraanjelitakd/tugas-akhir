@@ -30,7 +30,7 @@ const canContactRecord = (record) => {
     }
 
     return role === 'admin_prodi'
-        && String(props.user?.prodi_id || '') === String(record?.prodi_id || '');
+        && String(props.user?.kode_prodi || '') === String(record?.kode_prodi || '');
 };
 
 // Menyimpan data analytics aktif di memori Vue, otomatis diperbarui saat user mengubah filter tanpa reload halaman.
@@ -85,7 +85,7 @@ const selectedYear = ref(String(props.analytics?.filters?.selected_year || new D
 const selectedUmpYear = ref(String(props.analytics?.filters?.selected_ump_year || ''));
 
 // Nilai filter ID program studi aktif (kosong berarti mencakup seluruh universitas).
-const selectedProdiId = ref(String(props.analytics?.filters?.selected_prodi_id || ''));
+const selectedProdiId = ref(String(props.analytics?.filters?.selected_kode_prodi || ''));
 
 // Kunci indikator analitik aktif yang sedang ditampilkan (misal: 'wait_time', 'salary_vs_ump', 'response_rate').
 const selectedChartKey = ref(String(props.analytics?.selected_chart || 'response_rate'));
@@ -869,7 +869,7 @@ const analyticsBaseUrl = computed(() => {
 const analyticsDataUrl = (chartKey = selectedChartKey.value) => {
     const query = new URLSearchParams({ grafik: chartKey, tahun: selectedYear.value });
     if (selectedUmpYear.value) query.set('tahun_ump', selectedUmpYear.value);
-    if (selectedProdiId.value) query.set('prodi_id', selectedProdiId.value);
+    if (selectedProdiId.value) query.set('kode_prodi', selectedProdiId.value);
     return `${analyticsBaseUrl.value}/analitik/data?${query.toString()}`;
 };
 
@@ -990,7 +990,7 @@ const downloadFilteredExcel = () => {
         tahun: selectedYear.value,
         status: statusFilter.value === 'sudah' ? 'sudah' : (statusFilter.value === 'belum' ? 'belum' : 'all'),
     });
-    if (selectedProdiId.value) params.set('prodi_id', selectedProdiId.value);
+    if (selectedProdiId.value) params.set('kode_prodi', selectedProdiId.value);
     window.location.href = `${analyticsBaseUrl.value}/analitik/export-response-rate?${params.toString()}`;
 };
 
@@ -1000,7 +1000,7 @@ const downloadFullWorkbook = () => {
         tahun: selectedYear.value,
         status: 'all',
     });
-    if (selectedProdiId.value) params.set('prodi_id', selectedProdiId.value);
+    if (selectedProdiId.value) params.set('kode_prodi', selectedProdiId.value);
     window.location.href = `${analyticsBaseUrl.value}/analitik/export-response-rate?${params.toString()}`;
 };
 
@@ -1090,7 +1090,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                         </label>
                         <label class="block min-w-0 text-xs font-bold uppercase tracking-wide text-slate-500">
                             Program studi
-                            <select id="select-prodi" name="prodi_id" v-model="selectedProdiId" class="mt-2 block w-full rounded bg-slate-100 px-3 py-3 text-sm font-bold normal-case text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-[#0D542B]" @change="scheduleLoad()">
+                            <select id="select-prodi" name="kode_prodi" v-model="selectedProdiId" class="mt-2 block w-full rounded bg-slate-100 px-3 py-3 text-sm font-bold normal-case text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-[#0D542B]" @change="scheduleLoad()">
                                 <option value="">Semua program studi</option>
                                 <option v-for="prodi in currentAnalytics.filters?.prodis || []" :key="prodi.id" :value="String(prodi.id)">{{ prodi.nama }}</option>
                             </select>

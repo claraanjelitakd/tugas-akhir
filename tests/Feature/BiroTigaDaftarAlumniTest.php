@@ -61,7 +61,7 @@ class BiroTigaDaftarAlumniTest extends TestCase
 
         $this->alumni = Biodata::create([
             'user_id' => $this->alumniUser->id,
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'nim' => '72200001',
             'nama' => 'Budi Santoso',
             'nomor_telepon' => '081234567890',

@@ -53,7 +53,7 @@ class AlumniProfileEnhancementTest extends TestCase
         ]);
 
         $this->prodi = Prodi::create([
-            'fakultas_id' => $this->fakultas->id,
+            'kode_fakultas' => $this->fakultas->kode_fakultas,
             'kode_prodi' => '71',
             'nama_prodi' => 'Informatika',
         ]);
@@ -65,7 +65,7 @@ class AlumniProfileEnhancementTest extends TestCase
             'username' => '71200001',
             'password' => Hash::make('password123'),
             'role' => 'alumni',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -81,7 +81,7 @@ class AlumniProfileEnhancementTest extends TestCase
         $this->biodata = Biodata::create([
             'user_id' => $this->alumniUser->id,
             'nim' => '71200001',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'nama' => 'Clara Anjelita',
             'email_pribadi' => 'clara.pribadi@gmail.com',
             'nomor_telepon' => '081292090001',
@@ -299,7 +299,7 @@ class AlumniProfileEnhancementTest extends TestCase
             'username' => '71200002',
             'password' => Hash::make('password123'),
             'role' => 'alumni',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -312,7 +312,7 @@ class AlumniProfileEnhancementTest extends TestCase
         $otherBiodata = Biodata::create([
             'user_id' => $otherUser->id,
             'nim' => '71200002',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'atasan_id' => $sharedAtasan->id,
         ]);
 
@@ -383,7 +383,7 @@ class AlumniProfileEnhancementTest extends TestCase
             'username' => $nim,
             'password' => Hash::make('password123'),
             'role' => 'alumni',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -395,7 +395,7 @@ class AlumniProfileEnhancementTest extends TestCase
 
         $biodata = Biodata::create([
             'nim' => $nim,
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'email_pribadi' => null,
         ]);
 
@@ -441,7 +441,7 @@ class AlumniProfileEnhancementTest extends TestCase
             'username' => '71200010',
             'password' => Hash::make('password123'),
             'role' => 'alumni',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -674,11 +674,24 @@ class AlumniProfileEnhancementTest extends TestCase
      */
     public function test_bidang_pekerjaan_dropdown_saves_to_biodata(): void
     {
+        $section = KuesionerSection::firstOrCreate(
+            ['target' => 'univ'],
+            ['kode_section' => 'SEC_BIDANG_TEST', 'judul' => 'Profil Pekerjaan', 'order' => 1, 'is_active' => true]
+        );
+
         $question = KuesionerPertanyaan::create([
             'kode_pertanyaan' => 'BIO_BIDANG_DIVISI',
             'teks_pertanyaan' => 'Bidang pekerjaan atau divisi',
             'tipe' => 'dropdown',
             'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $section->id,
+            'pertanyaan_id' => $question->id,
+            'order' => 1,
+            'wajib' => true,
+            'tampil_di' => 'profile',
         ]);
 
         KuesionerOpsi::updateOrCreate(

@@ -17,6 +17,12 @@ class RefFakultas extends Model
 
     protected $table = 'ref_fakultas';
 
+    protected $primaryKey = 'kode_fakultas';
+
+    protected $keyType = 'string';
+
+    public $incrementing = false;
+
     protected $fillable = [
         'kode_fakultas',
         'nama_fakultas',
@@ -27,7 +33,7 @@ class RefFakultas extends Model
      */
     public function prodi()
     {
-        return $this->hasMany(Prodi::class, 'fakultas_id');
+        return $this->hasMany(Prodi::class, 'kode_fakultas', 'kode_fakultas');
     }
 
     /**

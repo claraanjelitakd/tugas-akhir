@@ -129,16 +129,16 @@ class AnalyticsDemoDistributionSeeder extends Seeder
             ->map(static fn (Collection $rows): object => $rows->first());
 
         $prodiSections = KuesionerSection::where('target', 'prodi')
-            ->whereIn('prodi_id', $demoBiodata->pluck('prodi_id')->filter()->unique())
+            ->whereIn('kode_prodi', $demoBiodata->pluck('kode_prodi')->filter()->unique())
             ->get()
-            ->keyBy('prodi_id');
+            ->keyBy('kode_prodi');
 
         $prodiQuestions = KuesionerPertanyaan::query()
-            ->whereIn('pemilik_prodi_id', $demoBiodata->pluck('prodi_id')->filter()->unique())
+            ->whereIn('pemilik_kode_prodi', $demoBiodata->pluck('kode_prodi')->filter()->unique())
             ->where('tipe', '!=', 'header')
             ->with('opsi')
             ->get()
-            ->groupBy('pemilik_prodi_id');
+            ->groupBy('pemilik_kode_prodi');
 
         $univSection = KuesionerSection::where('target', 'univ')->first();
         $univSectionId = $univSection?->id ?: 1;
@@ -208,7 +208,7 @@ class AnalyticsDemoDistributionSeeder extends Seeder
                 }
 
                 $this->seedTracerAnalyticsAnswers($biodata, $index, $status, $questions, $univSectionId);
-                $this->seedProdiAnalyticsAnswers($biodata, $index, $prodiQuestions->get($biodata->prodi_id, collect()), $prodiSections->get($biodata->prodi_id)?->id);
+                $this->seedProdiAnalyticsAnswers($biodata, $index, $prodiQuestions->get($biodata->kode_prodi, collect()), $prodiSections->get($biodata->kode_prodi)?->id);
             }
 
             $demoBiodataIds = $demoBiodata->pluck('id')->all();

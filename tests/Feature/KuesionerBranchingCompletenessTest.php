@@ -69,7 +69,7 @@ class KuesionerBranchingCompletenessTest extends TestCase
             'user_id' => $this->user->id,
             'nim' => '72220099',
             'nama' => 'Testing Alumni',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'posisi_jabatan' => 'Software Engineer',
             'skills' => 'Web Development',
             'experience' => 'Cloud Computing',

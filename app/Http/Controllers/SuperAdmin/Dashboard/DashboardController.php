@@ -59,8 +59,8 @@ class DashboardController extends Controller
 
         // 4. Pratinjau Log Aktivitas Audit Terbaru dengan Identitas Unit/Prodi
         $recentLogs = LogActivity::with([
-            'user.prodi:id,nama_prodi,kode_prodi',
-            'user.fakultas:id,nama_fakultas',
+            'user.prodi:kode_prodi,nama_prodi',
+            'user.fakultas:kode_fakultas,nama_fakultas',
         ])
             ->latest('id')
             ->take(8)
@@ -92,7 +92,7 @@ class DashboardController extends Controller
             ->whereNotNull('biodata_id')
             ->latest('id')
             ->take(30)
-            ->with(['biodata.prodi:id,nama_prodi', 'biodata.dataAkademik'])
+            ->with(['biodata.prodi:kode_prodi,nama_prodi', 'biodata.dataAkademik'])
             ->get()
             ->unique('biodata_id')
             ->take(6)
@@ -173,7 +173,7 @@ class DashboardController extends Controller
         return Perusahaan::query()
             ->with([
                 'creator:id,name,role,username',
-                'createdProdi:id,nama_prodi',
+                'createdProdi:kode_prodi,nama_prodi',
                 'propinsi:kode_provinsi,nama_provinsi',
                 'kabupaten:kode_kabupaten,nama_kabupaten',
                 'negaraMaster:kode_negara,nama_negara',
@@ -196,7 +196,7 @@ class DashboardController extends Controller
         return Perusahaan::query()
             ->with([
                 'creator:id,name,role,username',
-                'createdProdi:id,nama_prodi',
+                'createdProdi:kode_prodi,nama_prodi',
                 'propinsi:kode_provinsi,nama_provinsi',
                 'kabupaten:kode_kabupaten,nama_kabupaten',
                 'negaraMaster:kode_negara,nama_negara',

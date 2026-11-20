@@ -45,7 +45,7 @@ class AlumniProdiExportAndBlastQueueTest extends TestCase
             'username' => 'admin_prodi_si',
             'name' => 'Admin Prodi SI',
             'role' => 'admin_prodi',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'password' => Hash::make('password123'),
             'must_change_password' => false,
         ]);
@@ -70,7 +70,7 @@ class AlumniProdiExportAndBlastQueueTest extends TestCase
         DataAkademik::create([
             'nim' => '72200002',
             'nama' => 'Alumni Belum Selesai',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'tahun_lulus' => '2024',
             'tahun_akademik_lulus' => 'Genap 2023/2024',
         ]);
@@ -78,7 +78,7 @@ class AlumniProdiExportAndBlastQueueTest extends TestCase
         $this->alumniBelumSelesai = Biodata::create([
             'user_id' => $alumniUser->id,
             'nim' => '72200002',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'email_pribadi' => 'alumni.target@example.com',
         ]);
     }
@@ -102,7 +102,7 @@ class AlumniProdiExportAndBlastQueueTest extends TestCase
     public function test_admin_biro3_can_export_excel_multi_sheet(): void
     {
         $response = $this->actingAs($this->adminBiro3User)
-            ->get('/biro3/alumni/export-excel-prodi?prodi_id='.$this->prodi->id.'&tahun=2024');
+            ->get('/biro3/alumni/export-excel-prodi?kode_prodi='.$this->prodi->kode_prodi.'&tahun=2024');
 
         $response->assertStatus(200);
         $this->assertEquals('application/vnd.ms-excel; charset=UTF-8', $response->headers->get('Content-Type'));
@@ -114,7 +114,7 @@ class AlumniProdiExportAndBlastQueueTest extends TestCase
     public function test_legacy_export_zip_route_returns_single_excel_file(): void
     {
         $response = $this->actingAs($this->adminBiro3User)
-            ->get('/biro3/alumni/export-zip?prodi_id='.$this->prodi->id.'&tahun=2024');
+            ->get('/biro3/alumni/export-zip?kode_prodi='.$this->prodi->kode_prodi.'&tahun=2024');
 
         $response->assertStatus(200);
         $this->assertEquals('application/vnd.ms-excel; charset=UTF-8', $response->headers->get('Content-Type'));
@@ -151,7 +151,7 @@ class AlumniProdiExportAndBlastQueueTest extends TestCase
         $job = new SendBlastReminderEmailJob(
             [$this->alumniBelumSelesai->id],
             $this->adminProdiUser->id,
-            ['tahun' => '2024', 'prodi_id' => $this->prodi->id]
+            ['tahun' => '2024', 'kode_prodi' => $this->prodi->kode_prodi]
         );
 
         $job->handle();

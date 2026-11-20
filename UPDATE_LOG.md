@@ -1,5 +1,27 @@
 # UPDATE LOG - SERU (Sistem Ekosistem Rekam Jejak Alumni)
 
+## [2026-11-21] Refaktorisasi Skema PK/FK, Relasi Kuesioner Induk Terpadu, & Optimasi Database View
+
+- **Refaktorisasi Primary Key & Foreign Key Akademik**:
+  - `ref_fakultas`: Menggunakan `kode_fakultas` (CHAR 2) sebagai Primary Key alami menggantikan `id` auto-increment.
+  - `ref_prodi`: Mengganti nama tabel `prodi` menjadi `ref_prodi` dengan `kode_prodi` (CHAR 2) sebagai Primary Key alami.
+  - Penyeragaman FK: Seluruh tabel dan view (`data_akademik`, `users`, `biodata`, `kuesioner_section`, `kuesioner_pertanyaan`, dsb.) kini menggunakan `kode_prodi` dan `kode_fakultas`.
+  - `data_akademik` & `yudisium`: Menjadikan `nim` (CHAR 8) sebagai Primary Key tunggal kanonik, menghapus `id` auto-increment yang redundan.
+  - Kolom Reviewer: Menyeragamkan `reviewed_by` pada `linkedin_sync_results` dan `updated_by` pada `account_sync_settings` menjadi kanonik `user_id` (FK $\to$ `users.id`).
+- **Keterhubungan Kuesioner Induk ke Anak-anaknya (Unified Survey Engine)**:
+  - Menambahkan kolom `kuesioner_id` (FK $\to$ `kuesioner.id` ON DELETE SET NULL) pada tabel `kuesioner_section` melalui migrasi `2026_11_20_200009_add_kuesioner_id_to_kuesioner_section.php` dan skema pembentuk `2026_09_01_000033_create_kuesioner_section_table.php`.
+  - Melakukan backfill menyeluruh: Seluruh 29 baris pada `kuesioner_section` dan seluruh 10.823 baris pada `kuesioner_jawaban` kini terikat ke kuesioner induk aktif (`kuesioner_id = 1`, Tracer Study UKDW 2021).
+  - Model `Kuesioner`, `KuesionerSection`, dan `KuesionerJawaban` kini saling terhubung penuh via relasi Eloquent (`sections`, `allSections`, `jawaban`, `kuesioner`).
+  - Menyelaraskan seluruh controller penyimpanan jawaban dan manajemen seksi (`SimpanJawabanController`, `KuesionerProdiController`, `EvaluasiAtasanController`, `KelolaSectionController`, `DaftarPertanyaanController`) agar mencatat `kuesioner_id`.
+- **Optimasi Database View (`v_alumni_tracer_univ_status` & `v_alumni_audit_rekap`)**:
+  - Mengeliminasi pemanggilan `UPPER(kode_pertanyaan) = 'F8'` pada subquery status karier menjadi langsung `kode_pertanyaan = 'F8'`, mengembalikan utilitas B-tree index `kuesioner_jawaban_kode_pertanyaan_idx` (waktu eksekusi subquery dipangkas dari ~92 ms menjadi ~3.17 ms, **29x lebih cepat**).
+  - Mengeliminasi 644 correlated subquery berulang dalam `CASE WHEN` pada view universitas dengan teknik precomputed single-row derived table `target_counts`.
+  - Menyelaraskan join `section_id` pada jawaban universitas untuk integritas dataset; hasil data terbukti **100% identik** dengan view sebelumnya.
+- **Pembaruan Kamus Data & Dokumen ERD**:
+  - `docs/BAB3/kamus-data.md`: Menambahkan field `kuesioner_id` pada tabel `kuesioner_section`.
+  - `docs/BAB3/erd.md` dan `ERD.md`: Memperbarui seluruh diagram relasi `kuesioner ||--o{ kuesioner_section` dan entitas skema aktif.
+
+
 ## [2026-11-19] Audit Kritis: Perbaikan Data Loss & Optimisasi Performa Query
 
 - **Fix Data Loss pada Edit Perusahaan (Admin Prodi & Fakultas)**: Controller `updateAndVerify()` di Admin Prodi dan Admin Fakultas sebelumnya tidak memvalidasi 4 field (`bentuk_perusahaan`, `jumlah_pegawai`, `homepage`, `no_telp_fax`), sehingga field tersebut hilang saat admin mengedit dan memverifikasi perusahaan melalui `PerusahaanVerificationService::updateAndVerify()`. SuperAdmin sudah memiliki validasi lengkap sejak awal.

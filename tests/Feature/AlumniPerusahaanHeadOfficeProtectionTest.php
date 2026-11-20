@@ -27,7 +27,7 @@ class AlumniPerusahaanHeadOfficeProtectionTest extends TestCase
             ['kode_prodi' => '72'],
             [
                 'nama_prodi' => 'Sistem Informasi',
-                'fakultas_id' => $fakultas->id,
+                'kode_fakultas' => $fakultas->kode_fakultas,
                 'jenjang' => 'S1',
             ]
         );
@@ -38,7 +38,7 @@ class AlumniPerusahaanHeadOfficeProtectionTest extends TestCase
             'username' => $nim,
             'password' => Hash::make('password123'),
             'role' => 'alumni',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -48,7 +48,7 @@ class AlumniPerusahaanHeadOfficeProtectionTest extends TestCase
             'email_pribadi' => "alumni_{$nim}@example.com",
             'tanggal_lahir' => '2001-01-01',
             'jenis_kelamin' => 'Laki-laki',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'status_mahasiswa' => 'Lulus',
             'tahun_masuk' => 2022,
             'tahun_lulus' => 2026,
@@ -60,7 +60,7 @@ class AlumniPerusahaanHeadOfficeProtectionTest extends TestCase
             'nim' => $nim,
             'nama' => 'Alumni '.$nim,
             'email_pribadi' => "alumni_{$nim}@example.com",
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'data_akademik_id' => $akademik->id,
         ]);
 

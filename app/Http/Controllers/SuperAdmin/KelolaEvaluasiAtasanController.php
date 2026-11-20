@@ -120,8 +120,8 @@ class KelolaEvaluasiAtasanController extends Controller
             ->where('is_active', true)
             ->where('is_reusable', true)
             ->with([
-                'pemilikProdi:id,nama_prodi,kode_prodi',
-                'sections:id,target,prodi_id,judul',
+                'pemilikProdi:kode_prodi,nama_prodi',
+                'sections:id,target,kode_prodi,judul',
                 'opsi' => fn ($query) => $query->orderBy('order'),
             ])
             ->orderByDesc('id')
@@ -362,7 +362,7 @@ class KelolaEvaluasiAtasanController extends Controller
                 'teks_pertanyaan' => $validated['aspek'],
                 'keterangan' => $validated['deskripsi'] ?? null,
                 'tipe' => $tipe,
-                'pemilik_prodi_id' => null,
+                'pemilik_kode_prodi' => null,
                 'is_reusable' => true,
                 'is_active' => true,
             ]);

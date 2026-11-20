@@ -38,16 +38,16 @@ class RefFakultasSeeder extends Seeder
                 ['kode_fakultas' => $f['kode']],
                 ['nama_fakultas' => $f['nama']]
             );
-            $fakultasModels[$f['kode']] = $fakultas->id;
+            $fakultasModels[$f['kode']] = $fakultas->kode_fakultas;
         }
 
-        // 2. Hubungkan fakultas_id ke seluruh record tabel prodi
+        // 2. Hubungkan kode_fakultas ke seluruh record tabel ref_prodi
         $prodis = Prodi::all();
         foreach ($prodis as $prodi) {
             $kodeDepan = substr((string) $prodi->kode_prodi, 0, 1);
             if (isset($fakultasModels[$kodeDepan])) {
                 $prodi->update([
-                    'fakultas_id' => $fakultasModels[$kodeDepan],
+                    'kode_fakultas' => $fakultasModels[$kodeDepan],
                 ]);
             }
         }

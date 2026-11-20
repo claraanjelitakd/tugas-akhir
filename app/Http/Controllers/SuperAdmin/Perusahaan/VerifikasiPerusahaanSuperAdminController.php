@@ -36,7 +36,7 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
         $filters = [
             'search' => $request->query('search', ''),
             'scope' => $request->query('scope', 'all'), // 'all' atau 'prodi'
-            'prodi_id' => $request->query('prodi_id', ''),
+            'kode_prodi' => $request->query('kode_prodi', ''),
             'status' => $request->query('status', 'all'),
             'kode_negara' => $request->query('kode_negara', ''),
             'kode_provinsi' => $request->query('kode_provinsi', ''),
@@ -44,7 +44,7 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             'per_page' => (int) $request->query('per_page', 10),
         ];
 
-        $prodis = Prodi::select('id', 'nama_prodi', 'kode_prodi')
+        $prodis = Prodi::select('kode_prodi', 'nama_prodi')
             ->orderBy('nama_prodi')
             ->get();
 
@@ -53,34 +53,34 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
                 'propinsi',
                 'kabupaten',
                 'creator:id,name,role,username',
-                'creator.biodata.prodi:id,nama_prodi',
+                'creator.biodata.prodi:kode_prodi,nama_prodi',
                 'creator.biodata.dataAkademik:nim,nama,tahun_lulus,angkatan_masuk',
-                'createdProdi:id,nama_prodi',
+                'createdProdi:kode_prodi,nama_prodi',
                 'latestVerificationLog.user:id,name,role,username',
                 'biodata' => function ($q) {
-                    $q->select('id', 'user_id', 'nim', 'prodi_id', 'posisi_jabatan', 'kategori_pekerjaan', 'perusahaan_id')
-                        ->with(['dataAkademik:nim,nama,tahun_lulus,angkatan_masuk', 'prodi:id,nama_prodi']);
+                    $q->select('id', 'user_id', 'nim', 'kode_prodi', 'posisi_jabatan', 'kategori_pekerjaan', 'perusahaan_id')
+                        ->with(['dataAkademik:nim,nama,tahun_lulus,angkatan_masuk', 'prodi:kode_prodi,nama_prodi']);
                 },
             ])
             ->withCount('biodata');
 
-        if (! empty($filters['prodi_id'])) {
-            $prodiId = (int) $filters['prodi_id'];
+        if (! empty($filters['kode_prodi'])) {
+            $prodiId = $filters['kode_prodi'];
             $scope = $filters['scope'] ?? 'all';
 
             if ($scope === 'pengusul') {
                 $query->where(function ($q) use ($prodiId) {
-                    $q->where('created_by_prodi_id', $prodiId)
-                        ->orWhereHas('creator', fn ($u) => $u->where('prodi_id', $prodiId));
+                    $q->where('created_by_kode_prodi', $prodiId)
+                        ->orWhereHas('creator', fn ($u) => $u->where('kode_prodi', $prodiId));
                 });
             } elseif ($scope === 'pekerja') {
-                $query->whereHas('biodata', fn ($b) => $b->where('prodi_id', $prodiId));
+                $query->whereHas('biodata', fn ($b) => $b->where('kode_prodi', $prodiId));
             } else {
                 // 'all' atau 'prodi': cocok jika menjadi pengusul atau ada alumni yang bekerja di sini
                 $query->where(function ($q) use ($prodiId) {
-                    $q->where('created_by_prodi_id', $prodiId)
-                        ->orWhereHas('biodata', fn ($b) => $b->where('prodi_id', $prodiId))
-                        ->orWhereHas('creator', fn ($u) => $u->where('prodi_id', $prodiId));
+                    $q->where('created_by_kode_prodi', $prodiId)
+                        ->orWhereHas('biodata', fn ($b) => $b->where('kode_prodi', $prodiId))
+                        ->orWhereHas('creator', fn ($u) => $u->where('kode_prodi', $prodiId));
                 });
             }
         }

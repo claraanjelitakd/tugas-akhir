@@ -19,7 +19,13 @@ class Yudisium extends Model
 
     protected $table = 'yudisium';
 
-    protected $guarded = ['id'];
+    protected $primaryKey = 'nim';
+
+    protected $keyType = 'string';
+
+    public $incrementing = false;
+
+    protected $guarded = [];
 
     /**
      * Bootstrap model events.

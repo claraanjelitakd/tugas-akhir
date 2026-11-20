@@ -25,6 +25,16 @@ class KuesionerJawaban extends Model
     protected static function booted(): void
     {
         static::saving(function (self $answer): void {
+            if (empty($answer->kuesioner_id)) {
+                $candidateId = $answer->section?->kuesioner_id
+                    ?? Kuesioner::where('is_active', true)->value('id')
+                    ?? Kuesioner::value('id');
+
+                if ($candidateId && Kuesioner::where('id', $candidateId)->exists()) {
+                    $answer->kuesioner_id = $candidateId;
+                }
+            }
+
             $question = $answer->relationLoaded('pertanyaan')
                 ? $answer->pertanyaan
                 : KuesionerPertanyaan::with('opsi')->find($answer->pertanyaan_id);
@@ -80,6 +90,7 @@ class KuesionerJawaban extends Model
     protected $table = 'kuesioner_jawaban';
 
     protected $fillable = [
+        'kuesioner_id',
         'responden_type',
         'biodata_id',
         'evaluasi_atasan_id',
@@ -95,6 +106,14 @@ class KuesionerJawaban extends Model
     protected $casts = [
         'jawaban_json' => 'array',
     ];
+
+    /**
+     * Relasi ke kuesioner induk (jika jawaban terikat satu kuesioner).
+     */
+    public function kuesioner(): BelongsTo
+    {
+        return $this->belongsTo(Kuesioner::class, 'kuesioner_id');
+    }
 
     /**
      * Relasi ke biodata alumni pengisi (jika responden = alumni).

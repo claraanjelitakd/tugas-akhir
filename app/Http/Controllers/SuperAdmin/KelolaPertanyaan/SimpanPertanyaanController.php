@@ -68,7 +68,7 @@ class SimpanPertanyaanController extends Controller
                 'teks_pertanyaan' => trim($validated['subpertanyaan']),
                 'tipe' => $validated['type'],
                 'keterangan' => $validated['keterangan'],
-                'pemilik_prodi_id' => null,
+                'pemilik_kode_prodi' => null,
                 'is_reusable' => true,
                 'is_active' => true,
             ]);

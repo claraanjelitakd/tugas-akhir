@@ -19,19 +19,16 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "data_akademik" ("id" integer primary key autoincrement not null, "nim" varchar not null, "nama" varchar, "email_pribadi" varchar, "prodi_id" integer, "angkatan_masuk" integer, "tahun_akademik_masuk" varchar, "tanggal_lahir" date, "jenis_kelamin" varchar check ("jenis_kelamin" in ('Laki-laki', 'Perempuan')), "warga_negara" varchar not null default 'WNI', "status_mahasiswa" varchar check ("status_mahasiswa" in ('Lulus', 'Aktif', 'Cuti', 'Drop Out', 'Pindah', 'Lainnya', 'AR', 'AK', 'AS', 'L')) not null default 'Lulus', "tahun_akademik_lulus" varchar, "tahun_lulus" integer, "tanggal_lulus" date, "ip_kumulatif" numeric, "total_sks" integer, "total_angka_kualitas" numeric, "created_at" datetime, "updated_at" datetime);
+CREATE TABLE "data_akademik" ("nim" varchar primary key not null, "nama" varchar, "email_pribadi" varchar, "kode_prodi" varchar, "angkatan_masuk" integer, "tahun_akademik_masuk" varchar, "tanggal_lahir" date, "jenis_kelamin" varchar check ("jenis_kelamin" in ('Laki-laki', 'Perempuan')), "warga_negara" varchar not null default 'WNI', "status_mahasiswa" varchar check ("status_mahasiswa" in ('Lulus', 'Aktif', 'Cuti', 'Drop Out', 'Pindah', 'Lainnya', 'AR', 'AK', 'AS', 'L')) not null default 'Lulus', "tahun_akademik_lulus" varchar, "tahun_lulus" integer, "tanggal_lulus" date, "ip_kumulatif" numeric, "total_sks" integer, "total_angka_kualitas" numeric, "created_at" datetime, "updated_at" datetime);
 SQL
             );
 
             foreach ([
                 <<<'SQL'
-CREATE UNIQUE INDEX "data_akademik_nim_unique" on "data_akademik" ("nim");
-SQL,
-                <<<'SQL'
 CREATE INDEX "data_akademik_tahun_lulus_index" on "data_akademik" ("tahun_lulus");
 SQL,
                 <<<'SQL'
-CREATE INDEX "data_akademik_prodi_id_index" on "data_akademik" ("prodi_id");
+CREATE INDEX "data_akademik_kode_prodi_index" on "data_akademik" ("kode_prodi");
 SQL,
             ] as $indexSql) {
                 DB::statement($indexSql);
@@ -39,11 +36,10 @@ SQL,
         } else {
             DB::unprepared(<<<'SQL'
 CREATE TABLE `data_akademik` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID unik rekam data akademik',
   `nim` char(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nomor Induk Mahasiswa (8 karakter unik)',
   `nama` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Nama lengkap mahasiswa',
   `email_pribadi` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Email pribadi dari sumber akademik saat impor awal',
-  `prodi_id` bigint unsigned DEFAULT NULL COMMENT 'Program studi akademik mahasiswa, termasuk mahasiswa non-alumni',
+  `kode_prodi` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Program studi akademik mahasiswa (FK ke ref_prodi)',
   `angkatan_masuk` year DEFAULT NULL COMMENT 'Tahun angkatan masuk perkuliahan (YYYY)',
   `tahun_akademik_masuk` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Periode masuk tetap semester ganjil, contoh: 2023/2024 (Semester Ganjil)',
   `tanggal_lahir` date DEFAULT NULL COMMENT 'Tanggal lahir',
@@ -58,9 +54,8 @@ CREATE TABLE `data_akademik` (
   `total_angka_kualitas` decimal(8,2) DEFAULT NULL COMMENT 'Total angka kualitas kelulusan',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `data_akademik_nim_unique` (`nim`),
-  KEY `data_akademik_prodi_id_index` (`prodi_id`),
+  PRIMARY KEY (`nim`),
+  KEY `data_akademik_kode_prodi_index` (`kode_prodi`),
   KEY `data_akademik_tahun_lulus_index` (`tahun_lulus`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Sumber resmi identitas akademik dan kelulusan.';
 SQL

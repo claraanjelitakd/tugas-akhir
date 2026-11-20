@@ -17,11 +17,10 @@ return new class extends Migration
         DB::statement(<<<'SQL'
 CREATE VIEW v_iku_s1_lulusan AS
 SELECT
-    academic.id AS academic_id,
+    academic.nim AS academic_id,
     academic.nim,
     academic.nama,
-    academic.prodi_id,
-    study_program.kode_prodi,
+    academic.kode_prodi,
     study_program.nama_prodi,
     study_program.jenjang,
     academic.tahun_lulus,
@@ -41,7 +40,7 @@ SELECT
     (SELECT answer.jawaban_teks FROM kuesioner_jawaban AS answer WHERE answer.biodata_id = biodata.id AND answer.responden_type = 'alumni' AND answer.kode_pertanyaan = 'F18d' ORDER BY answer.id DESC LIMIT 1) AS tanggal_mulai_studi,
     (SELECT MAX(answer.updated_at) FROM kuesioner_jawaban AS answer WHERE answer.biodata_id = biodata.id AND answer.responden_type = 'alumni') AS last_tracer_at
 FROM data_akademik AS academic
-INNER JOIN prodi AS study_program ON study_program.id = academic.prodi_id
+INNER JOIN ref_prodi AS study_program ON study_program.kode_prodi = academic.kode_prodi
 LEFT JOIN biodata ON biodata.nim = academic.nim
 LEFT JOIN perusahaan AS company ON company.id = biodata.perusahaan_id
 WHERE academic.status_mahasiswa = 'Lulus'

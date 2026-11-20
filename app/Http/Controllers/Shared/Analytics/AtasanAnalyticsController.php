@@ -20,9 +20,9 @@ class AtasanAnalyticsController extends Controller
     public function index(Request $request, AtasanAnalyticsService $analyticsService): Response
     {
         $user = $request->user();
-        $prodiId = $request->integer('prodi_id') ?: null;
-        if ($user && $user->role === 'admin_prodi' && $user->prodi_id) {
-            $prodiId = (int) $user->prodi_id;
+        $prodiId = $request->string('kode_prodi')->toString() ?: null;
+        if ($user && $user->role === 'admin_prodi' && $user->kode_prodi) {
+            $prodiId = $user->kode_prodi;
         }
 
         return Inertia::render('Shared/Analytics/GrafikAtasan', [
@@ -40,9 +40,9 @@ class AtasanAnalyticsController extends Controller
     public function data(Request $request, AtasanAnalyticsService $analyticsService): JsonResponse
     {
         $user = $request->user();
-        $prodiId = $request->integer('prodi_id') ?: null;
-        if ($user && $user->role === 'admin_prodi' && $user->prodi_id) {
-            $prodiId = (int) $user->prodi_id;
+        $prodiId = $request->string('kode_prodi')->toString() ?: null;
+        if ($user && $user->role === 'admin_prodi' && $user->kode_prodi) {
+            $prodiId = $user->kode_prodi;
         }
 
         return response()->json($analyticsService->build(

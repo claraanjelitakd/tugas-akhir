@@ -80,7 +80,7 @@ class SuperAdminLinkedInSyncTest extends TestCase
         DataAkademik::create([
             'nim' => $nim,
             'nama' => $name,
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'tahun_lulus' => $tahunLulus,
             'tahun_akademik_lulus' => 'Gasal 2024/2025',
             'status_mahasiswa' => 'L',
@@ -89,7 +89,7 @@ class SuperAdminLinkedInSyncTest extends TestCase
         return Biodata::create([
             'user_id' => $user->id,
             'nim' => $nim,
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'email_pribadi' => "{$nim}@personal.com",
             'nomor_telepon' => '081234567890',
             'linkedin_username' => $linkedinUsername,
@@ -214,7 +214,7 @@ class SuperAdminLinkedInSyncTest extends TestCase
         $this->assertEquals('PT Solusi Data Modern', $resolution['company']->nama_perusahaan);
         $this->assertEquals('Menunggu Verifikasi', $resolution['company']->status_verifikasi);
         $this->assertEquals($alumni->user_id, $resolution['company']->created_by_user_id);
-        $this->assertEquals($alumni->prodi_id, $resolution['company']->created_by_prodi_id);
+        $this->assertEquals($alumni->kode_prodi, $resolution['company']->created_by_kode_prodi);
     }
 
     /** Memastikan variasi kecil nama LinkedIn memakai master head office terverifikasi. */

@@ -180,7 +180,7 @@ class SuperAdminAnalyticsTest extends TestCase
         $includedBiodata = Biodata::create([
             'user_id' => $includedUser->id,
             'nim' => '72200011',
-            'prodi_id' => $includedProdi->id,
+            'kode_prodi' => $includedProdi->kode_prodi,
             'nomor_telepon' => '081234567811',
             'email_pribadi' => 'included@example.test',
             'linkedin_url' => 'https://www.linkedin.com/in/alumni-terpilih',
@@ -188,7 +188,7 @@ class SuperAdminAnalyticsTest extends TestCase
         $excludedBiodata = Biodata::create([
             'user_id' => $excludedUser->id,
             'nim' => '71200011',
-            'prodi_id' => $excludedProdi->id,
+            'kode_prodi' => $excludedProdi->kode_prodi,
             'nomor_telepon' => '081234567812',
             'email_pribadi' => 'excluded@example.test',
         ]);
@@ -196,7 +196,7 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->insertUnifiedAnswer($excludedBiodata->id, 'F3', 'Kapan mulai mencari pekerjaan?', 'Setelah lulus', null, $year);
 
         $analytics = app(TracerAnalyticsService::class)
-            ->buildUniversityChart('response_rate', (string) $year, null, $includedProdi->id);
+            ->buildUniversityChart('response_rate', (string) $year, null, $includedProdi->kode_prodi);
 
         $this->assertSame(1, $analytics['chart']['summary']['population']);
         $this->assertSame(1, $analytics['chart']['summary']['respondents']);
@@ -256,7 +256,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'user_id' => $user->id,
             'nim' => '72200001',
             'nama' => 'Alumni Analitik',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'nomor_telepon' => '081234567890',
             'email_pribadi' => 'analytics@example.test',
             'perusahaan_id' => $company->id,
@@ -268,7 +268,7 @@ class SuperAdminAnalyticsTest extends TestCase
 
         $this->assertCount(1, $analytics['salary_vs_ump']['by_prodi']);
         $this->assertSame(1, $analytics['salary_vs_ump']['by_prodi'][0]['meeting_count']);
-        $this->assertSame($biodata->prodi_id, (int) $analytics['salary_vs_ump']['by_prodi'][0]['key']);
+        $this->assertSame($prodi->kode_prodi, $analytics['salary_vs_ump']['by_prodi'][0]['key']);
         $this->assertSame(1, $analytics['salary_vs_ump']['by_prodi_ump'][0]['meets']);
 
         $chart = app(TracerAnalyticsService::class)
@@ -343,7 +343,7 @@ class SuperAdminAnalyticsTest extends TestCase
         DataAkademik::create([
             'nim' => '72220199',
             'nama' => 'Alumni Jawaban Terbaru',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'tahun_lulus' => now()->year,
             'status_mahasiswa' => 'Lulus',
         ]);
@@ -351,7 +351,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'user_id' => $user->id,
             'nim' => '72220199',
             'nama' => 'Alumni Jawaban Terbaru',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'nomor_telepon' => '081234567899',
             'email_pribadi' => 'analytics-latest-answer@example.test',
         ]);
@@ -393,7 +393,7 @@ class SuperAdminAnalyticsTest extends TestCase
         DataAkademik::create([
             'nim' => '72220200',
             'nama' => 'Alumni F3 Normalized',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'tahun_lulus' => now()->year,
             'status_mahasiswa' => 'Lulus',
         ]);
@@ -401,7 +401,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'user_id' => $user->id,
             'nim' => '72220200',
             'nama' => 'Alumni F3 Normalized',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'nomor_telepon' => '081234567890',
             'email_pribadi' => 'analytics-f3-normalized@example.test',
         ]);
@@ -443,14 +443,14 @@ class SuperAdminAnalyticsTest extends TestCase
         DataAkademik::create([
             'nim' => '72220099',
             'nama' => 'Alumni Mismatch',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'tahun_lulus' => now()->year,
             'status_mahasiswa' => 'Lulus',
         ]);
         $biodata = Biodata::create([
             'user_id' => $user->id,
             'nim' => '72220099',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'email_pribadi' => $user->email,
         ]);
         $questionId = $this->insertUnifiedQuestion('F16', 'Alasan pekerjaan tidak sesuai', 'multiple_choice');
@@ -482,14 +482,14 @@ class SuperAdminAnalyticsTest extends TestCase
         DataAkademik::create([
             'nim' => '73220099',
             'nama' => 'Alumni F10 Lainnya',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'tahun_lulus' => now()->year,
             'status_mahasiswa' => 'Lulus',
         ]);
         $biodata = Biodata::create([
             'user_id' => $user->id,
             'nim' => '73220099',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'email_pribadi' => $user->email,
         ]);
         $questionId = $this->insertUnifiedQuestion('F10', 'Keaktifan mencari kerja', 'radio');
@@ -527,14 +527,14 @@ class SuperAdminAnalyticsTest extends TestCase
         DataAkademik::create([
             'nim' => '75220099',
             'nama' => 'Alumni F11 Lainnya',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'tahun_lulus' => now()->year,
             'status_mahasiswa' => 'Lulus',
         ]);
         $biodata = Biodata::create([
             'user_id' => $user->id,
             'nim' => '75220099',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'perusahaan_id' => $company->id,
             'email_pribadi' => $user->email,
         ]);
@@ -599,7 +599,7 @@ class SuperAdminAnalyticsTest extends TestCase
         $biodata = Biodata::create([
             'user_id' => $user->id,
             'nim' => '74200001',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'nomor_telepon' => '081234567899',
             'email_pribadi' => 'analytics-response-rate@example.test',
         ]);
@@ -642,7 +642,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'user_id' => $user->id,
             'nim' => '72200002',
             'nama' => 'Alumni Jawaban',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'nomor_telepon' => '081234567891',
             'email_pribadi' => 'analytics-tracer-answer@example.test',
         ]);
@@ -692,7 +692,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'user_id' => $user->id,
             'nim' => '71200003',
             'nama' => 'Alumni View Khusus',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'nomor_telepon' => '081234567892',
             'email_pribadi' => 'analytics-dedicated@example.test',
         ]);
@@ -726,7 +726,7 @@ class SuperAdminAnalyticsTest extends TestCase
             'user_id' => $secondUser->id,
             'nim' => '71200004',
             'nama' => 'Alumni Keselarasan Berbeda',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'nomor_telepon' => '081234567893',
             'email_pribadi' => 'analytics-alignment-distinct@example.test',
         ]);
@@ -873,7 +873,7 @@ class SuperAdminAnalyticsTest extends TestCase
         $biodata = Biodata::create([
             'user_id' => $user->id,
             'nim' => '71200001',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'nomor_telepon' => '081234567891',
             'email_pribadi' => 'alumni-f2-tester@example.test',
         ]);
@@ -934,7 +934,7 @@ class SuperAdminAnalyticsTest extends TestCase
             $biodata = Biodata::create([
                 'user_id' => $user->id,
                 'nim' => $d['nim'],
-                'prodi_id' => $prodi->id,
+                'kode_prodi' => $prodi->kode_prodi,
                 'nomor_telepon' => '08123456789'.$idx,
                 'email_pribadi' => 'pipeline-'.$idx.'@example.test',
             ]);

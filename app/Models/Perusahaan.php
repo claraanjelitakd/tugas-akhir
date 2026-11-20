@@ -35,7 +35,7 @@ class Perusahaan extends Model
         'kode_negara',
         'status_verifikasi',
         'created_by_user_id',
-        'created_by_prodi_id',
+        'created_by_kode_prodi',
     ];
 
     public function propinsi()
@@ -83,7 +83,7 @@ class Perusahaan extends Model
 
     public function createdProdi()
     {
-        return $this->belongsTo(Prodi::class, 'created_by_prodi_id');
+        return $this->belongsTo(Prodi::class, 'created_by_kode_prodi', 'kode_prodi');
     }
 
     public function creatorProdi()

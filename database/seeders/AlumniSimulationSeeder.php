@@ -280,7 +280,7 @@ class AlumniSimulationSeeder extends Seeder
             $kodeProdiStr = (string) $kodeProdi;
             // Butir pertanyaan spesifik prodi (jika ada)
             $prodiSection = KuesionerSection::where('target', 'prodi')
-                ->where('prodi_id', $prodi->id)
+                ->where('kode_prodi', $prodi->kode_prodi)
                 ->first();
             $prodiQuestions = $prodiSection
                 ? KuesionerPertanyaan::whereHas('sections', fn ($sq) => $sq->where('kuesioner_section.id', $prodiSection->id))
@@ -325,7 +325,7 @@ class AlumniSimulationSeeder extends Seeder
                         'email' => $personalEmail,
                         'password' => $defaultHashedPassword,
                         'role' => 'alumni',
-                        'prodi_id' => $prodi->id,
+                        'kode_prodi' => $prodi->kode_prodi,
                         'must_change_password' => true,
                     ]
                 );
@@ -338,7 +338,7 @@ class AlumniSimulationSeeder extends Seeder
                     [
                         'nama' => $nama,
                         'email_pribadi' => $personalEmail,
-                        'prodi_id' => $prodi->id,
+                        'kode_prodi' => $prodi->kode_prodi,
                         'angkatan_masuk' => (int) $angkatan,
                         'status_mahasiswa' => 'Lulus',
                         'tahun_akademik_lulus' => $cfg['semester'],
@@ -649,8 +649,7 @@ class AlumniSimulationSeeder extends Seeder
             ['user_id' => $user->id],
             [
                 'nim' => $nim,
-                'yudisium_id' => $yudisium->id,
-                'prodi_id' => $prodi->id,
+                'kode_prodi' => $prodi->kode_prodi,
                 'email_pribadi' => $personalEmail,
                 'nomor_telepon' => $nomorTelepon,
                 'alamat_saat_ini' => $alamatSaatIni,
@@ -881,7 +880,7 @@ class AlumniSimulationSeeder extends Seeder
         }
 
         $prodiSection = KuesionerSection::where('target', 'prodi')
-            ->where('prodi_id', $biodata->prodi_id)
+            ->where('kode_prodi', $biodata->kode_prodi)
             ->first();
         $sectionId = $prodiSection?->id ?: 1;
 
@@ -961,8 +960,7 @@ class AlumniSimulationSeeder extends Seeder
             ['user_id' => $user->id],
             [
                 'nim' => $nim,
-                'yudisium_id' => $yudisium->id,
-                'prodi_id' => $prodi->id,
+                'kode_prodi' => $prodi->kode_prodi,
                 'email_pribadi' => $personalEmail,
                 'nomor_telepon' => $nomorTelepon,
                 'alamat_saat_ini' => $alamatSaatIni,
@@ -1039,8 +1037,7 @@ class AlumniSimulationSeeder extends Seeder
             ['user_id' => $user->id],
             [
                 'nim' => $nim,
-                'yudisium_id' => $yudisium->id,
-                'prodi_id' => $prodi->id,
+                'kode_prodi' => $prodi->kode_prodi,
                 'nomor_telepon' => null,
                 'email_pribadi' => null,
                 'alamat_saat_ini' => null,

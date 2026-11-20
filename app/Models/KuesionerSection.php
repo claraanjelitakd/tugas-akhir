@@ -21,9 +21,10 @@ class KuesionerSection extends Model
     protected $table = 'kuesioner_section';
 
     protected $fillable = [
+        'kuesioner_id',
         'kode_section',
         'target',
-        'prodi_id',
+        'kode_prodi',
         'judul',
         'deskripsi',
         'order',
@@ -36,11 +37,19 @@ class KuesionerSection extends Model
     ];
 
     /**
+     * Relasi ke instrumen kuesioner induk periode tracer study.
+     */
+    public function kuesioner(): BelongsTo
+    {
+        return $this->belongsTo(Kuesioner::class, 'kuesioner_id');
+    }
+
+    /**
      * Relasi ke program studi pemilik section (jika kuesioner khusus prodi).
      */
     public function prodi(): BelongsTo
     {
-        return $this->belongsTo(Prodi::class, 'prodi_id');
+        return $this->belongsTo(Prodi::class, 'kode_prodi', 'kode_prodi');
     }
 
     /**

@@ -84,7 +84,7 @@ class DaftarAlumniSuperAdminController extends Controller
      */
     public function exportExcelProdi(Request $request): StreamedResponse|RedirectResponse
     {
-        $prodiId = $request->input('prodi_id');
+        $prodiId = $request->input('kode_prodi');
         $tahun = $request->input('tahun');
         $semester = $request->input('semester');
 
@@ -92,7 +92,7 @@ class DaftarAlumniSuperAdminController extends Controller
             return back()->with('error', 'Silakan pilih Program Studi terlebih dahulu untuk mengunduh berkas Excel.');
         }
 
-        return AlumniProdiMultiSheetExcelExporter::download((int) $prodiId, $tahun, $semester);
+        return AlumniProdiMultiSheetExcelExporter::download($prodiId, $tahun, $semester);
     }
 
     /**
@@ -102,13 +102,13 @@ class DaftarAlumniSuperAdminController extends Controller
     {
         $tahun = $request->input('tahun');
         $semester = $request->input('semester');
-        $prodiId = $request->input('prodi_id');
+        $prodiId = $request->input('kode_prodi');
         $search = $request->input('search');
 
         $query = DB::table('v_alumni_audit_rekap')->where('is_complete_total', 0);
 
         if ($prodiId && $prodiId !== 'all') {
-            $query->where('prodi_id', $prodiId);
+            $query->where('kode_prodi', $prodiId);
         }
 
         if ($tahun && $tahun !== 'all') {
@@ -139,7 +139,7 @@ class DaftarAlumniSuperAdminController extends Controller
         SendBlastReminderEmailJob::dispatch($biodataIds, Auth::id(), [
             'tahun' => $tahun ?: 'Semua',
             'semester' => $semester ?: 'Semua',
-            'prodi_id' => $prodiId ?: 'Semua',
+            'kode_prodi' => $prodiId ?: 'Semua',
             'search' => $search ?: null,
         ]);
 

@@ -26,7 +26,7 @@ class TracerAnalyticsController extends Controller
         $chart = $request->string('grafik')->toString() ?: null;
         $year = $request->string('tahun')->toString() ?: null;
         $umpYear = $request->integer('tahun_ump') ?: null;
-        $prodiId = $request->integer('prodi_id') ?: null;
+        $prodiId = $request->string('kode_prodi')->toString() ?: null;
 
         return Inertia::render('Shared/Analytics/GrafikUniv', [
             'user' => $user,
@@ -44,7 +44,7 @@ class TracerAnalyticsController extends Controller
         $chart = $request->string('grafik')->toString() ?: null;
         $year = $request->string('tahun')->toString() ?: null;
         $umpYear = $request->integer('tahun_ump') ?: null;
-        $prodiId = $request->integer('prodi_id') ?: null;
+        $prodiId = $request->string('kode_prodi')->toString() ?: null;
 
         return response()->json(
             $analyticsService->buildUniversityChart($chart, $year, $umpYear, $prodiId)
@@ -58,7 +58,7 @@ class TracerAnalyticsController extends Controller
     {
         $user = $request->user();
         $year = $request->string('tahun')->toString() ?: (string) now()->year;
-        $prodiId = $request->integer('prodi_id') ?: null;
+        $prodiId = $request->string('kode_prodi')->toString() ?: null;
         $status = $request->string('status')->toString() ?: 'all';
 
         return ResponseRateExcelExporter::download($year, $prodiId, $status);

@@ -45,7 +45,7 @@ class AdminProdiKuesionerTest extends TestCase
             'name' => 'Admin Prodi SI',
             'password' => Hash::make('password123'),
             'role' => 'admin_prodi',
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -54,7 +54,7 @@ class AdminProdiKuesionerTest extends TestCase
             'name' => 'Admin Prodi TI',
             'password' => Hash::make('password123'),
             'role' => 'admin_prodi',
-            'prodi_id' => $this->prodiTI->id,
+            'kode_prodi' => $this->prodiTI->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -63,7 +63,7 @@ class AdminProdiKuesionerTest extends TestCase
             'name' => 'Alumni SI',
             'password' => Hash::make('15082001'),
             'role' => 'alumni',
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -85,12 +85,12 @@ class AdminProdiKuesionerTest extends TestCase
             'user_id' => $this->alumniUser->id,
             'nim' => '72200001',
             'nama' => 'Alumni SI',
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
         ]);
 
         $this->sectionSI = KuesionerSection::create([
             'target' => 'prodi',
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_section' => 'SEC-PSI-1',
             'judul' => 'Evaluasi Kurikulum Prodi SI',
             'deskripsi' => 'Umpan balik relevansi materi dan kompetensi lulusan',
@@ -123,14 +123,14 @@ class AdminProdiKuesionerTest extends TestCase
         $this->assertDatabaseHas('kuesioner_section', [
             'target' => 'prodi',
             'judul' => 'Fasilitas & Lab Komputer SI',
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
         ]);
     }
 
     public function test_admin_prodi_can_create_question_and_options_for_own_prodi(): void
     {
         $response = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'section_id' => $this->sectionSI->id,
             'code' => 'PSI-01',
             'question_text' => 'Bagaimana kepuasan terhadap kurikulum SI?',
@@ -143,7 +143,7 @@ class AdminProdiKuesionerTest extends TestCase
         $response->assertRedirect();
         $this->assertDatabaseHas('kuesioner_pertanyaan', [
             'kode_pertanyaan' => 'PSI-01',
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
         ]);
 
         $this->assertDatabaseHas('kuesioner_opsi', [
@@ -158,7 +158,7 @@ class AdminProdiKuesionerTest extends TestCase
     {
         $additionalSection = KuesionerSection::create([
             'target' => 'prodi',
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_section' => 'SEC-PSI-2',
             'judul' => 'Evaluasi Tambahan',
             'deskripsi' => 'Bagian tambahan untuk pengujian placement',
@@ -167,7 +167,7 @@ class AdminProdiKuesionerTest extends TestCase
         ]);
 
         $question = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_pertanyaan' => 'PSI-MULTI-01',
             'teks_pertanyaan' => 'Pertanyaan multi-placement',
             'tipe' => 'single_choice',
@@ -193,7 +193,7 @@ class AdminProdiKuesionerTest extends TestCase
         $response = $this->actingAs($this->adminSI)->put(
             route('prodi.kuesioner.pertanyaan.update', $question->id),
             [
-                'prodi_id' => $this->prodiSI->id,
+                'kode_prodi' => $this->prodiSI->kode_prodi,
                 'code' => 'PSI-MULTI-01',
                 'question_text' => 'Pertanyaan multi-placement diperbarui',
                 'type' => 'single_choice',
@@ -220,7 +220,7 @@ class AdminProdiKuesionerTest extends TestCase
     {
         $tiSection = KuesionerSection::create([
             'target' => 'prodi',
-            'prodi_id' => $this->prodiTI->id,
+            'kode_prodi' => $this->prodiTI->kode_prodi,
             'kode_section' => 'SEC-PTI-1',
             'judul' => 'Section TI',
             'order' => 1,
@@ -228,7 +228,7 @@ class AdminProdiKuesionerTest extends TestCase
         ]);
 
         $tiQuestion = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiTI->id,
+            'pemilik_kode_prodi' => $this->prodiTI->kode_prodi,
             'kode_pertanyaan' => 'PTI-01',
             'teks_pertanyaan' => 'Pertanyaan Khusus TI',
             'tipe' => 'text',
@@ -243,7 +243,7 @@ class AdminProdiKuesionerTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->adminSI)->put(route('prodi.kuesioner.pertanyaan.update', $tiQuestion->id), [
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'code' => 'PTI-01',
             'question_text' => 'Mencoba meretas pertanyaan TI',
             'type' => 'text',
@@ -262,7 +262,7 @@ class AdminProdiKuesionerTest extends TestCase
     {
         $tiSection = KuesionerSection::create([
             'target' => 'prodi',
-            'prodi_id' => $this->prodiTI->id,
+            'kode_prodi' => $this->prodiTI->kode_prodi,
             'kode_section' => 'SEC-PTI-REORDER',
             'judul' => 'Section Reorder TI',
             'order' => 1,
@@ -270,7 +270,7 @@ class AdminProdiKuesionerTest extends TestCase
         ]);
 
         $tiQuestion = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiTI->id,
+            'pemilik_kode_prodi' => $this->prodiTI->kode_prodi,
             'kode_pertanyaan' => 'PTI-REORDER-01',
             'teks_pertanyaan' => 'Pertanyaan reorder TI',
             'tipe' => 'text',
@@ -285,7 +285,7 @@ class AdminProdiKuesionerTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.reorder'), [
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'placement_id' => $tiPlacement->id,
             'direction' => 'up',
         ]);
@@ -300,14 +300,14 @@ class AdminProdiKuesionerTest extends TestCase
     public function test_legacy_reorder_still_works_for_own_prodi_question(): void
     {
         $firstQuestion = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_pertanyaan' => 'PSI-REORDER-01',
             'teks_pertanyaan' => 'Pertanyaan pertama',
             'tipe' => 'text',
             'is_active' => true,
         ]);
         $secondQuestion = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_pertanyaan' => 'PSI-REORDER-02',
             'teks_pertanyaan' => 'Pertanyaan kedua',
             'tipe' => 'text',
@@ -330,7 +330,7 @@ class AdminProdiKuesionerTest extends TestCase
         $secondPlacement = KuesionerSectionPertanyaan::where('pertanyaan_id', $secondQuestion->id)->firstOrFail();
 
         $response = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.reorder'), [
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'placement_id' => $secondPlacement->id,
             'direction' => 'up',
         ]);
@@ -346,7 +346,7 @@ class AdminProdiKuesionerTest extends TestCase
     public function test_legacy_delete_does_not_remove_other_prodi_placement(): void
     {
         $question = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_pertanyaan' => 'PSI-SHARED-01',
             'teks_pertanyaan' => 'Pertanyaan yang dipakai lintas Prodi',
             'tipe' => 'text',
@@ -362,7 +362,7 @@ class AdminProdiKuesionerTest extends TestCase
 
         $tiSection = KuesionerSection::create([
             'target' => 'prodi',
-            'prodi_id' => $this->prodiTI->id,
+            'kode_prodi' => $this->prodiTI->kode_prodi,
             'kode_section' => 'SEC-PTI-SHARED',
             'judul' => 'Section Shared TI',
             'order' => 1,
@@ -377,7 +377,7 @@ class AdminProdiKuesionerTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->adminSI)->delete(route('prodi.kuesioner.pertanyaan.destroy', $siPlacement->id), [
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
         ]);
 
         $response->assertRedirect();
@@ -389,7 +389,7 @@ class AdminProdiKuesionerTest extends TestCase
     public function test_alumni_can_view_and_submit_prodi_questionnaire(): void
     {
         $qSI = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_pertanyaan' => 'PSI-TEST',
             'teks_pertanyaan' => 'Relevansi materi SI',
             'tipe' => 'single_choice',
@@ -424,7 +424,7 @@ class AdminProdiKuesionerTest extends TestCase
     {
         $sec2 = KuesionerSection::create([
             'target' => 'prodi',
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_section' => 'SEC-PSI-2',
             'judul' => 'Section 2 SI',
             'order' => 2,
@@ -486,7 +486,7 @@ class AdminProdiKuesionerTest extends TestCase
     public function test_academic_questions_are_automatically_synced_for_prodi_questionnaire(): void
     {
         $qNama = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_pertanyaan' => 'PSI-1-01',
             'teks_pertanyaan' => 'Nama Lengkap Mahasiswa',
             'tipe' => 'text',
@@ -494,7 +494,7 @@ class AdminProdiKuesionerTest extends TestCase
         ]);
 
         $qNim = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_pertanyaan' => 'PSI-1-02',
             'teks_pertanyaan' => 'Nomor Induk Mahasiswa (NIM)',
             'tipe' => 'text',
@@ -516,7 +516,7 @@ class AdminProdiKuesionerTest extends TestCase
         ]);
 
         $qTahun = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_pertanyaan' => 'PSI-1-03',
             'teks_pertanyaan' => 'Tahun Kelulusan',
             'tipe' => 'text',
@@ -573,7 +573,7 @@ class AdminProdiKuesionerTest extends TestCase
     public function test_emptying_prodi_question_deletes_response_and_updates_dashboard_percentage(): void
     {
         $q1 = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_pertanyaan' => 'PSI-6-01',
             'teks_pertanyaan' => 'Materi perkuliahan sesuai dengan minat',
             'tipe' => 'text',
@@ -581,7 +581,7 @@ class AdminProdiKuesionerTest extends TestCase
         ]);
 
         $q2 = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_pertanyaan' => 'PSI-6-02',
             'teks_pertanyaan' => 'Mata kuliah pilihan fleksibel',
             'tipe' => 'text',
@@ -648,7 +648,7 @@ class AdminProdiKuesionerTest extends TestCase
     public function test_admin_prodi_can_add_option_without_value(): void
     {
         $question = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_pertanyaan' => 'PSI-OPTION-RT',
             'teks_pertanyaan' => 'Bakat terpendam?',
             'tipe' => 'radio_text',
@@ -677,7 +677,7 @@ class AdminProdiKuesionerTest extends TestCase
     {
         // 1. Tipe radio_text (Radio + Teks) -> hanya membuat pilihan master; Lainnya virtual di form alumni
         $response1 = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'code' => 'PSI-TEST-RT',
             'question_text' => 'Bentuk kontribusi yang ingin diberikan?',
             'type' => 'radio_text',
@@ -696,7 +696,7 @@ class AdminProdiKuesionerTest extends TestCase
 
         // 2. Tipe rating_5 (Skala Rating 1-5) -> otomatis dibuat 5 opsi skala penilaian
         $response2 = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'code' => 'PSI-TEST-R5',
             'question_text' => 'Bagaimana kepuasan Anda terhadap fasilitas laboratorium?',
             'type' => 'rating_5',
@@ -716,7 +716,7 @@ class AdminProdiKuesionerTest extends TestCase
 
         // 3. Tipe radio_input (Radio + Angka) -> otomatis dibuat opsi angka dan opsi 'tidak'
         $response3 = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'code' => 'PSI-TEST-RI',
             'question_text' => 'Berapa bulan Anda menyelesaikan tugas akhir?',
             'type' => 'radio_input',
@@ -735,7 +735,7 @@ class AdminProdiKuesionerTest extends TestCase
 
         // 4. Tipe checkbox_text -> opsi pilihan ganda dengan opsi Lainnya virtual di form alumni
         $response4 = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'code' => 'PSI-TEST-CBT',
             'question_text' => 'Kontribusi apa yang dapat Anda berikan?',
             'type' => 'multiple_choice_text',
@@ -756,7 +756,7 @@ class AdminProdiKuesionerTest extends TestCase
     {
         $this->actingAs($this->adminSI)
             ->post(route('prodi.kuesioner.pertanyaan.store'), [
-                'prodi_id' => $this->prodiSI->id,
+                'kode_prodi' => $this->prodiSI->kode_prodi,
                 'code' => 'PSI-TEST-DISPLAY-BOTH',
                 'question_text' => 'Bagaimana pengalaman belajar Anda?',
                 'type' => 'textarea',
@@ -789,7 +789,7 @@ class AdminProdiKuesionerTest extends TestCase
     public function test_admin_prodi_can_create_question_with_option_jump_to(): void
     {
         $response = $this->actingAs($this->adminSI)->post(route('prodi.kuesioner.pertanyaan.store'), [
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'code' => 'PSI-TEST-CREATE-JUMP',
             'label' => 'Status kontribusi alumni',
             'question_text' => 'Apakah Anda bersedia berkontribusi?',
@@ -818,7 +818,7 @@ class AdminProdiKuesionerTest extends TestCase
     public function test_alumni_can_submit_radio_text_and_radio_input_in_prodi_questionnaire(): void
     {
         $qRadioText = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_pertanyaan' => 'PSI-SUB-RT',
             'teks_pertanyaan' => 'Kontribusi alumni?',
             'tipe' => 'radio_text',
@@ -826,7 +826,7 @@ class AdminProdiKuesionerTest extends TestCase
         ]);
 
         $qRadioInput = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'kode_pertanyaan' => 'PSI-SUB-RI',
             'teks_pertanyaan' => 'Waktu pengerjaan skripsi?',
             'tipe' => 'radio_input',
@@ -887,7 +887,7 @@ class AdminProdiKuesionerTest extends TestCase
             'label_pertanyaan' => 'Label Lama',
             'teks_pertanyaan' => 'Pertanyaan awal lama',
             'tipe' => 'rating_5',
-            'pemilik_prodi_id' => $this->prodiSI->id,
+            'pemilik_kode_prodi' => $this->prodiSI->kode_prodi,
             'is_reusable' => true,
             'is_active' => true,
         ]);
@@ -909,7 +909,7 @@ class AdminProdiKuesionerTest extends TestCase
 
         // 2. Admin prodi melakukan submit penambahan pertanyaan dengan kode sama dan opsi sama
         $response = $this->actingAs($this->adminSI)->post('/prodi/kuesioner/pertanyaan', [
-            'prodi_id' => $this->prodiSI->id,
+            'kode_prodi' => $this->prodiSI->kode_prodi,
             'code' => 'PSI-DUP-01',
             'label' => 'Label Baru',
             'question_text' => 'Pertanyaan terbarukan',

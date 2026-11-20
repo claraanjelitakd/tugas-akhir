@@ -27,14 +27,14 @@ class KelolaSectionProdiController extends Controller
         $user = Auth::user();
         $user->load('prodi');
         $prodi = $user->prodi;
-        $prodiId = $user->prodi_id;
+        $prodiId = $user->kode_prodi;
 
         if (! $prodiId) {
             abort(403, 'Akun Anda belum terhubung dengan program studi.');
         }
 
         $rawSections = KuesionerSection::where('target', 'prodi')
-            ->where('prodi_id', $prodiId)
+            ->where('kode_prodi', $prodiId)
             ->withCount('sectionPertanyaan as questions_count')
             ->orderBy('order', 'asc')
             ->get();
@@ -47,7 +47,7 @@ class KelolaSectionProdiController extends Controller
             'questions_count' => $s->questions_count,
         ]);
 
-        $totalQuestions = KuesionerPertanyaan::where('pemilik_prodi_id', $prodiId)->count();
+        $totalQuestions = KuesionerPertanyaan::where('pemilik_kode_prodi', $prodiId)->count();
 
         return Inertia::render('AdminProdi/Section/Index', [
             'user' => $user,
@@ -66,7 +66,7 @@ class KelolaSectionProdiController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = Auth::user();
-        if (! $user->prodi_id) {
+        if (! $user->kode_prodi) {
             return redirect()->back()->with('error', 'Akun Anda belum terhubung dengan program studi.');
         }
 
@@ -78,19 +78,19 @@ class KelolaSectionProdiController extends Controller
 
         if (empty($validated['order'])) {
             $maxOrder = KuesionerSection::where('target', 'prodi')
-                ->where('prodi_id', $user->prodi_id)
+                ->where('kode_prodi', $user->kode_prodi)
                 ->max('order') ?? 0;
             $validated['order'] = $maxOrder + 1;
         }
 
-        $code = 'PRODI_'.$user->prodi_id.'_'.Str::upper(Str::slug(Str::limit($validated['title'], 15, '')));
+        $code = 'PRODI_'.$user->kode_prodi.'_'.Str::upper(Str::slug(Str::limit($validated['title'], 15, '')));
         if (KuesionerSection::where('kode_section', $code)->exists()) {
             $code .= '_'.Str::upper(Str::random(4));
         }
 
         KuesionerSection::create([
             'target' => 'prodi',
-            'prodi_id' => $user->prodi_id,
+            'kode_prodi' => $user->kode_prodi,
             'kode_section' => $code,
             'judul' => $validated['title'],
             'deskripsi' => $validated['description'] ?? null,
@@ -109,7 +109,7 @@ class KelolaSectionProdiController extends Controller
         $user = Auth::user();
         $section = KuesionerSection::where('id', $id)
             ->where('target', 'prodi')
-            ->where('prodi_id', $user->prodi_id)
+            ->where('kode_prodi', $user->kode_prodi)
             ->firstOrFail();
 
         $validated = $request->validate([
@@ -135,7 +135,7 @@ class KelolaSectionProdiController extends Controller
         $user = Auth::user();
         $section = KuesionerSection::where('id', $id)
             ->where('target', 'prodi')
-            ->where('prodi_id', $user->prodi_id)
+            ->where('kode_prodi', $user->kode_prodi)
             ->firstOrFail();
 
         $section->sectionPertanyaan()->delete();
@@ -150,7 +150,7 @@ class KelolaSectionProdiController extends Controller
     public function reorder(Request $request): RedirectResponse
     {
         $user = Auth::user();
-        $prodiId = $user->prodi_id;
+        $prodiId = $user->kode_prodi;
 
         if ($request->has(['id', 'direction'])) {
             $validated = $request->validate([
@@ -160,14 +160,14 @@ class KelolaSectionProdiController extends Controller
 
             $currentSection = KuesionerSection::where('id', $validated['id'])
                 ->where('target', 'prodi')
-                ->where('prodi_id', $prodiId)
+                ->where('kode_prodi', $prodiId)
                 ->firstOrFail();
 
             $operator = $validated['direction'] === 'up' ? '<' : '>';
             $sortOrder = $validated['direction'] === 'up' ? 'desc' : 'asc';
 
             $adjacentSection = KuesionerSection::where('target', 'prodi')
-                ->where('prodi_id', $prodiId)
+                ->where('kode_prodi', $prodiId)
                 ->where('order', $operator, $currentSection->order)
                 ->orderBy('order', $sortOrder)
                 ->first();
@@ -191,7 +191,7 @@ class KelolaSectionProdiController extends Controller
             foreach ($validated['orders'] as $item) {
                 KuesionerSection::where('id', $item['id'])
                     ->where('target', 'prodi')
-                    ->where('prodi_id', $prodiId)
+                    ->where('kode_prodi', $prodiId)
                     ->update(['order' => $item['order']]);
             }
 

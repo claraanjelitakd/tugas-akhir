@@ -31,8 +31,8 @@ class AlumniProfileSummary extends Model
         return [
             'biodata_id' => 'integer',
             'user_id' => 'integer',
-            'prodi_id' => 'integer',
-            'fakultas_id' => 'integer',
+            'kode_prodi' => 'string',
+            'kode_fakultas' => 'string',
             'perusahaan_id' => 'integer',
             'ipk' => 'float',
             'total_sks' => 'integer',
@@ -52,12 +52,12 @@ class AlumniProfileSummary extends Model
 
     public function prodi(): BelongsTo
     {
-        return $this->belongsTo(Prodi::class, 'prodi_id');
+        return $this->belongsTo(Prodi::class, 'kode_prodi', 'kode_prodi');
     }
 
     public function fakultas(): BelongsTo
     {
-        return $this->belongsTo(RefFakultas::class, 'fakultas_id');
+        return $this->belongsTo(RefFakultas::class, 'kode_fakultas', 'kode_fakultas');
     }
 
     public function perusahaan(): BelongsTo

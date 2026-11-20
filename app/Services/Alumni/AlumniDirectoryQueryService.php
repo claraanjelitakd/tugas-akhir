@@ -49,14 +49,14 @@ class AlumniDirectoryQueryService
         $unitTerpilih = $request->input('unit');
 
         // Scope prodi / fakultas
-        $scopedProdiId = $options['prodi_id'] ?? null;
-        $scopedFakultasId = $options['fakultas_id'] ?? null;
+        $scopedProdiId = $options['kode_prodi'] ?? null;
+        $scopedFakultasId = $options['kode_fakultas'] ?? null;
         $scopedProdiIds = $options['prodi_ids'] ?? null;
         $serverPagination = (bool) ($options['server_pagination'] ?? false);
         $perPage = min(max((int) $request->input('per_page', 10), 5), 50);
 
         // Prodis terpilih dari filter input (jika tidak discoped ketat oleh peran Prodi)
-        $prodiIdTerpilih = $scopedProdiId ?: $request->input('prodi_id');
+        $prodiIdTerpilih = $scopedProdiId ?: $request->input('kode_prodi');
 
         // 2. Ambil metadata tahun dan target dalam satu pembacaan ringan ke view profil.
         $profileOptionsQuery = DB::table('v_alumni_profile_summary')
@@ -133,7 +133,7 @@ class AlumniDirectoryQueryService
         }
 
         if (! $scopedProdiId && $prodiIdTerpilih && $prodiIdTerpilih !== 'all') {
-            $directoryFilterRowsQuery->where('prodi_id', $prodiIdTerpilih);
+            $directoryFilterRowsQuery->where('kode_prodi', $prodiIdTerpilih);
         }
 
         $directoryFilterRows = $directoryFilterRowsQuery->get();
@@ -213,7 +213,7 @@ class AlumniDirectoryQueryService
 
         // Filter Program Studi (hanya berlaku jika bukan scoped prodi tunggal)
         if (! $scopedProdiId && $prodiIdTerpilih && $prodiIdTerpilih !== 'all') {
-            $query->where('prodi_id', $prodiIdTerpilih);
+            $query->where('kode_prodi', $prodiIdTerpilih);
         }
 
         // Filter Target Kelulusan (Semester + Tahun Lulus)
@@ -476,10 +476,10 @@ class AlumniDirectoryQueryService
                 'prodi' => $item->nama_prodi ?? '-',
                 'nama_prodi' => $item->nama_prodi ?? '-',
                 'prodi_kode' => $item->kode_prodi ?? '',
-                'prodi_id' => $item->prodi_id,
+                'prodi_id' => $item->kode_prodi,
                 'fakultas' => $item->nama_fakultas ?? '-',
                 'nama_fakultas' => $item->nama_fakultas ?? '-',
-                'fakultas_id' => $item->fakultas_id,
+                'kode_fakultas' => $item->kode_fakultas,
                 'tahun_akademik_lulus' => $rawSemesterLulus,
                 'semester' => $semesterLabel,
                 'tahun_lulus' => $item->tahun_lulus ?? '-',
@@ -603,7 +603,7 @@ class AlumniDirectoryQueryService
                 'semester' => $semesterTerpilih,
                 'target' => $targetTerpilih ?? 'all',
                 'status' => $statusTerpilih,
-                'prodi_id' => $prodiIdTerpilih,
+                'kode_prodi' => $prodiIdTerpilih,
                 'linkedin_status' => $linkedinStatusTerpilih,
                 'kode_negara' => $kodeNegaraTerpilih ?? 'all',
                 'kode_provinsi' => $kodeProvinsiTerpilih ?? 'all',
@@ -745,11 +745,11 @@ class AlumniDirectoryQueryService
     protected function applyScope($query, $prodiId = null, $fakultasId = null, ?array $prodiIds = null): void
     {
         if ($prodiId) {
-            $query->where('prodi_id', $prodiId);
+            $query->where('kode_prodi', $prodiId);
         } elseif (! empty($prodiIds)) {
-            $query->whereIn('prodi_id', $prodiIds);
+            $query->whereIn('kode_prodi', $prodiIds);
         } elseif ($fakultasId) {
-            $query->where('fakultas_id', $fakultasId);
+            $query->where('kode_fakultas', $fakultasId);
         }
     }
 }

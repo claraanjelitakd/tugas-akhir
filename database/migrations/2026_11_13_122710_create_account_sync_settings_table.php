@@ -18,14 +18,14 @@ return new class extends Migration
         Schema::create('account_sync_settings', function (Blueprint $table): void {
             $table->id();
             $table->boolean('is_open')->default(true);
-            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->unsignedBigInteger('user_id')->nullable();
             $table->timestamps();
         });
 
         DB::table('account_sync_settings')->insert([
             'id' => 1,
             'is_open' => true,
-            'updated_by' => null,
+            'user_id' => null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

@@ -32,17 +32,15 @@ class IkuS1AcademicPopulationSeeder extends Seeder
      */
     private function normalizeExistingAcademicRows(): void
     {
-        DataAkademik::query()->orderBy('id')->chunkById(200, function ($rows): void {
-            foreach ($rows as $academic) {
-                $prodiId = $academic->prodi_id
-                    ?? User::query()->where('username', $academic->nim)->value('prodi_id')
-                    ?? Biodata::query()->where('nim', $academic->nim)->value('prodi_id');
+        DataAkademik::query()->orderBy('nim')->each(function (DataAkademik $academic): void {
+            $kodeProdi = $academic->kode_prodi
+                ?? User::query()->where('username', $academic->nim)->value('kode_prodi')
+                ?? Biodata::query()->where('nim', $academic->nim)->value('kode_prodi');
 
-                $academic->forceFill([
-                    'prodi_id' => $prodiId,
-                    'tahun_akademik_masuk' => DataAkademik::formatAcademicEntryPeriod($academic->angkatan_masuk),
-                ])->saveQuietly();
-            }
+            $academic->forceFill([
+                'kode_prodi' => $kodeProdi,
+                'tahun_akademik_masuk' => DataAkademik::formatAcademicEntryPeriod($academic->angkatan_masuk),
+            ])->saveQuietly();
         });
     }
 
@@ -51,7 +49,6 @@ class IkuS1AcademicPopulationSeeder extends Seeder
      */
     private function seedNonGraduatePopulation(): void
     {
-        $prodiByCode = Prodi::query()->pluck('id', 'kode_prodi');
         $rows = [
             ['nim' => '90110001', 'nama' => 'Mahasiswa Aktif S1', 'kode_prodi' => '11', 'angkatan' => 2024, 'status' => 'Aktif'],
             ['nim' => '90110002', 'nama' => 'Mahasiswa Cuti Panjang S1', 'kode_prodi' => '11', 'angkatan' => 2021, 'status' => 'Cuti'],
@@ -61,18 +58,13 @@ class IkuS1AcademicPopulationSeeder extends Seeder
             ['nim' => '90420001', 'nama' => 'Mahasiswa Administratif AK S1', 'kode_prodi' => '42', 'angkatan' => 2024, 'status' => 'AK'],
         ];
 
-        DB::transaction(function () use ($rows, $prodiByCode): void {
+        DB::transaction(function () use ($rows): void {
             foreach ($rows as $row) {
-                $prodiId = $prodiByCode->get($row['kode_prodi']);
-                if ($prodiId === null) {
-                    continue;
-                }
-
                 DataAkademik::updateOrCreate(
                     ['nim' => $row['nim']],
                     [
                         'nama' => $row['nama'],
-                        'prodi_id' => $prodiId,
+                        'kode_prodi' => $row['kode_prodi'],
                         'angkatan_masuk' => $row['angkatan'],
                         'tahun_akademik_masuk' => DataAkademik::formatAcademicEntryPeriod($row['angkatan']),
                         'status_mahasiswa' => $row['status'],

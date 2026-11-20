@@ -49,7 +49,7 @@ class SuperAdminManajemenAkunTest extends TestCase
         $this->prodi = Prodi::create([
             'kode_prodi' => '72',
             'nama_prodi' => 'Sistem Informasi',
-            'fakultas_id' => $this->fakultas->id,
+            'kode_fakultas' => $this->fakultas->kode_fakultas,
         ]);
     }
 
@@ -104,12 +104,12 @@ class SuperAdminManajemenAkunTest extends TestCase
             'name' => 'Clara Anjelita',
             'role' => 'alumni',
             'must_change_password' => true,
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
         ]);
 
         $this->assertDatabaseHas('biodata', [
             'nim' => '72230002',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
         ]);
 
         $user = User::where('username', '72230002')->first();
@@ -204,11 +204,11 @@ class SuperAdminManajemenAkunTest extends TestCase
                 'email' => $admin->email,
                 'username' => $admin->username,
                 'role' => 'admin_fakultas',
-                'fakultas_id' => null,
+                'kode_fakultas' => null,
             ]);
 
-        $response->assertSessionHasErrors('fakultas_id');
-        $this->assertNull($admin->fresh()->fakultas_id);
+        $response->assertSessionHasErrors('kode_fakultas');
+        $this->assertNull($admin->fresh()->kode_fakultas);
     }
 
     /**
@@ -231,7 +231,7 @@ class SuperAdminManajemenAkunTest extends TestCase
                 'email' => 'admin.fakultas.baru@ukdw.ac.id',
                 'username' => $admin->username,
                 'role' => 'admin_fakultas',
-                'fakultas_id' => $this->fakultas->id,
+                'kode_fakultas' => $this->fakultas->kode_fakultas,
             ]);
 
         $response->assertRedirect();
@@ -240,8 +240,8 @@ class SuperAdminManajemenAkunTest extends TestCase
             'name' => 'Admin Fakultas Baru',
             'email' => 'admin.fakultas.baru@ukdw.ac.id',
             'role' => 'admin_fakultas',
-            'fakultas_id' => $this->fakultas->id,
-            'prodi_id' => null,
+            'kode_fakultas' => $this->fakultas->kode_fakultas,
+            'kode_prodi' => null,
         ]);
     }
 
@@ -348,7 +348,7 @@ class SuperAdminManajemenAkunTest extends TestCase
             ]);
 
             $biodata = Biodata::where('nim', $nim)->first();
-            $this->assertNotNull($biodata->yudisium_id, "Biodata {$nim} harus terhubung ke yudisium_id.");
+            $this->assertNotNull($biodata->yudisium, "Biodata {$nim} harus terhubung ke data yudisium.");
         }
 
         // 5. Verifikasi LogActivity tercatat

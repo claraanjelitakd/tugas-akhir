@@ -40,7 +40,7 @@ let filterTimer = null;
 
 // Filter tahun lulusan dan program studi yang aktif.
 const selectedYear = ref(String(props.analytics?.filters?.selected_year || 'ALL'));
-const selectedProdiId = ref(String(props.analytics?.filters?.selected_prodi_id || ''));
+const selectedProdiId = ref(String(props.analytics?.filters?.selected_kode_prodi || ''));
 
 // Kunci penyimpanan tab analitik agar pilihan Grafik/Data konsisten lintas indikator.
 const ANALYTICS_PANEL_STORAGE_KEY = 'tracer.analytics.atasan.active-panel';
@@ -682,7 +682,7 @@ const scheduleLoad = () => {
         isLoading.value = true;
         loadError.value = '';
         selectedItem.value = null;
-        const params = new URLSearchParams({ tahun: selectedYear.value, prodi_id: selectedProdiId.value });
+        const params = new URLSearchParams({ tahun: selectedYear.value, kode_prodi: selectedProdiId.value });
 
         try {
             const response = await fetch(`${analyticsBaseUrl.value}/analitik-atasan/data?${params.toString()}`, {
@@ -777,7 +777,7 @@ const handleDownloadChart = () => {
 watch(() => props.analytics, (value) => {
     currentAnalytics.value = value;
     selectedYear.value = String(value?.filters?.selected_year || 'ALL');
-    selectedProdiId.value = String(value?.filters?.selected_prodi_id || '');
+    selectedProdiId.value = String(value?.filters?.selected_kode_prodi || '');
 }, { deep: true });
 
 onBeforeUnmount(() => {

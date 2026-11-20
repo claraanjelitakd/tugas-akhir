@@ -86,7 +86,7 @@ class SuperAdminDaftarAlumniTest extends TestCase
             'user_id' => $this->alumniUser->id,
             'nim' => '72200001',
             'nama' => 'Budi Santoso',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'kode_provinsi' => '34',
             'kode_kabupaten' => '3404',
             'posisi_jabatan' => 'Software Engineer',
@@ -348,7 +348,7 @@ class SuperAdminDaftarAlumniTest extends TestCase
     {
         $response = $this->actingAs($this->superadmin)
             ->get(route('superadmin.alumni.export-zip', [
-                'prodi_id' => $this->prodi->id,
+                'kode_prodi' => $this->prodi->kode_prodi,
                 'tahun' => '2024',
             ]));
 
@@ -460,7 +460,7 @@ class SuperAdminDaftarAlumniTest extends TestCase
             'user_id' => $user2022->id,
             'nim' => '72180099',
             'nama' => 'Alumni Angkatan 2018',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'kode_provinsi' => '34',
             'kode_kabupaten' => '3404',
             'skills' => 'Big Data Infrastructure, Hadoop',

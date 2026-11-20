@@ -53,7 +53,7 @@ class ScrapeLinkedInProfileJobTest extends TestCase
         DataAkademik::create([
             'nim' => '72200003',
             'nama' => 'John Doe Alumni',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'angkatan_masuk' => '2020',
             'tahun_lulus' => '2024',
             'tahun_akademik_lulus' => 'Genap 2023/2024',
@@ -62,7 +62,7 @@ class ScrapeLinkedInProfileJobTest extends TestCase
         $this->biodata = Biodata::create([
             'user_id' => $this->user->id,
             'nim' => '72200003',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'linkedin_url' => 'https://www.linkedin.com/in/argo-wibowo-99180935/',
             'linkedin_username' => 'argo-wibowo-99180935',
             'email_pribadi' => 'johndoe@example.com',

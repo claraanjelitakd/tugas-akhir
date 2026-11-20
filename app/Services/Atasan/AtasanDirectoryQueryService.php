@@ -30,7 +30,7 @@ class AtasanDirectoryQueryService
         $search = trim((string) $request->input('search', ''));
         $companySearch = trim((string) $request->input('company', ''));
         $provinsiDomisili = trim((string) $request->input('provinsi', ''));
-        $selectedProdiId = $request->input('prodi_id');
+        $selectedProdiId = $request->input('kode_prodi');
 
         $query = $this->buildQuery($user, $search, $selectedProdiId, $companySearch, $provinsiDomisili);
         $matchedRecords = (clone $query)
@@ -56,20 +56,20 @@ class AtasanDirectoryQueryService
 
         $prodisQuery = Prodi::query()->orderBy('kode_prodi');
         if ($user->role === 'admin_prodi') {
-            $prodisQuery->whereKey($user->prodi_id);
+            $prodisQuery->whereKey($user->kode_prodi);
         } elseif ($user->role === 'admin_fakultas') {
-            $prodisQuery->where('fakultas_id', $user->fakultas_id);
+            $prodisQuery->where('kode_fakultas', $user->kode_fakultas);
         }
 
         return [
             'atasans' => $paginator,
-            'prodis' => $prodisQuery->get(['id', 'kode_prodi', 'nama_prodi']),
+            'prodis' => $prodisQuery->get(['kode_prodi', 'nama_prodi']),
             'provinces' => Propinsi::query()->orderBy('nama_provinsi')->get(['kode_provinsi', 'nama_provinsi']),
             'filters' => [
                 'search' => $search,
                 'company' => $companySearch,
                 'provinsi' => $provinsiDomisili,
-                'prodi_id' => $selectedProdiId ?: '',
+                'kode_prodi' => $selectedProdiId ?: '',
                 'per_page' => $perPage,
             ],
             'stats' => $this->buildStats($matchedRecords),
@@ -91,7 +91,7 @@ class AtasanDirectoryQueryService
         $this->applyRoleScope($query, $user);
 
         if ($user->role !== 'admin_prodi' && filled($selectedProdiId) && $selectedProdiId !== 'all') {
-            $query->where('prodi_id', $selectedProdiId);
+            $query->where('kode_prodi', $selectedProdiId);
         }
 
         if ($companySearch !== '') {
@@ -147,13 +147,13 @@ class AtasanDirectoryQueryService
     private function applyRoleScope(Builder $query, User $user): void
     {
         if ($user->role === 'admin_prodi') {
-            abort_if(! $user->prodi_id, 403, 'Akun Anda belum dikaitkan dengan Program Studi.');
-            $query->where('prodi_id', $user->prodi_id);
+            abort_if(! $user->kode_prodi, 403, 'Akun Anda belum dikaitkan dengan Program Studi.');
+            $query->where('kode_prodi', $user->kode_prodi);
         }
 
         if ($user->role === 'admin_fakultas') {
-            abort_if(! $user->fakultas_id, 403, 'Akun Anda belum dikaitkan dengan Fakultas.');
-            $query->whereHas('prodi', fn (Builder $prodiQuery): Builder => $prodiQuery->where('fakultas_id', $user->fakultas_id));
+            abort_if(! $user->kode_fakultas, 403, 'Akun Anda belum dikaitkan dengan Fakultas.');
+            $query->whereHas('prodi', fn (Builder $prodiQuery): Builder => $prodiQuery->where('kode_fakultas', $user->kode_fakultas));
         }
     }
 
@@ -169,7 +169,7 @@ class AtasanDirectoryQueryService
             'atasan.perusahaan:id,nama_perusahaan,bentuk_perusahaan,skala,jumlah_pegawai',
             'perusahaan:id,nama_perusahaan,bentuk_perusahaan,skala,jumlah_pegawai',
             'dataAkademik:nim,nama,tahun_lulus',
-            'prodi:id,nama_prodi',
+            'prodi:kode_prodi,nama_prodi',
             'propinsi:kode_provinsi,nama_provinsi',
             'kabupaten:kode_kabupaten,nama_kabupaten',
             'evaluasiAtasan.respons.pertanyaan',

@@ -87,9 +87,9 @@ class EvaluasiAtasanTest extends TestCase
         DataAkademik::create(['nim' => '72200001', 'nama' => 'Budi Alumni']);
         $biodata = Biodata::where('nim', '72200001')->first();
         if (! $biodata) {
-            $biodata = Biodata::create(['user_id' => $user->id, 'nim' => '72200001', 'nama' => 'Budi Alumni', 'prodi_id' => $prodi->id]);
+            $biodata = Biodata::create(['user_id' => $user->id, 'nim' => '72200001', 'nama' => 'Budi Alumni', 'kode_prodi' => $prodi->kode_prodi]);
         } else {
-            $biodata->update(['prodi_id' => $prodi->id, 'nama' => 'Budi Alumni']);
+            $biodata->update(['kode_prodi' => $prodi->kode_prodi, 'nama' => 'Budi Alumni']);
         }
 
         $perusahaan = Perusahaan::create([
@@ -169,9 +169,9 @@ class EvaluasiAtasanTest extends TestCase
         DataAkademik::create(['nim' => '72200002', 'nama' => 'Alumni Test']);
         $biodata = Biodata::where('nim', '72200002')->first();
         if (! $biodata) {
-            $biodata = Biodata::create(['user_id' => $user->id, 'nim' => '72200002', 'prodi_id' => $prodi->id]);
+            $biodata = Biodata::create(['user_id' => $user->id, 'nim' => '72200002', 'kode_prodi' => $prodi->kode_prodi]);
         } else {
-            $biodata->update(['prodi_id' => $prodi->id]);
+            $biodata->update(['kode_prodi' => $prodi->kode_prodi]);
         }
 
         $perusahaan = Perusahaan::create([
@@ -328,7 +328,7 @@ class EvaluasiAtasanTest extends TestCase
             'nim' => '73200001',
             'nama' => 'Alumni Head Office',
             'user_id' => $user->id,
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'kode_pos' => '55111',
         ]);
 
@@ -417,11 +417,11 @@ class EvaluasiAtasanTest extends TestCase
             $biodata = Biodata::create([
                 'user_id' => $alumniUser->id,
                 'nim' => '71200001',
-                'prodi_id' => $prodi->id,
+                'kode_prodi' => $prodi->kode_prodi,
             ]);
         } else {
             $biodata->update([
-                'prodi_id' => $prodi->id,
+                'kode_prodi' => $prodi->kode_prodi,
             ]);
         }
 
@@ -456,7 +456,7 @@ class EvaluasiAtasanTest extends TestCase
             'email' => 'admin_te@example.com',
             'password' => bcrypt('password'),
             'role' => 'admin_prodi',
-            'prodi_id' => $prodi1->id,
+            'kode_prodi' => $prodi1->kode_prodi,
         ]);
 
         $userAlumni2 = User::create([
@@ -473,10 +473,10 @@ class EvaluasiAtasanTest extends TestCase
             $alumniProdi2 = Biodata::create([
                 'user_id' => $userAlumni2->id,
                 'nim' => '74200001',
-                'prodi_id' => $prodi2->id,
+                'kode_prodi' => $prodi2->kode_prodi,
             ]);
         } else {
-            $alumniProdi2->update(['prodi_id' => $prodi2->id]);
+            $alumniProdi2->update(['kode_prodi' => $prodi2->kode_prodi]);
         }
 
         // Harus 403 jika prodi tidak cocok
@@ -503,7 +503,7 @@ class EvaluasiAtasanTest extends TestCase
         DataAkademik::create(['nim' => '72200099', 'nama' => 'Alumni With Incomplete Company']);
         $biodata = Biodata::firstOrCreate(
             ['nim' => '72200099'],
-            ['user_id' => $user->id, 'prodi_id' => $prodi->id]
+            ['user_id' => $user->id, 'kode_prodi' => $prodi->kode_prodi]
         );
 
         // Perusahaan dengan metadata kantor pusat belum lengkap (kode_pos null, alamat null)

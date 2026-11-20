@@ -19,8 +19,8 @@
 | `username` | varchar(50) | AK, NOT NULL | Username login (NIM untuk alumni, identitas untuk staf) |
 | `email` | varchar(100) | NULL | Alamat email akun login |
 | `role` | varchar(30) | NOT NULL, default 'alumni' | Peran: `superadmin`, `admin_biro3`, `admin_fakultas`, `admin_prodi`, `alumni` |
-| `prodi_id` | bigint unsigned | FK → `prodi.id`, NULL | Relasi ke prodi (admin prodi atau alumni) |
-| `fakultas_id` | bigint unsigned | FK → `ref_fakultas.id`, NULL | Relasi ke fakultas (admin fakultas) |
+| `kode_prodi` | char(2) | FK → `ref_prodi.kode_prodi`, NULL | Relasi ke prodi (admin prodi atau alumni) |
+| `kode_fakultas` | char(2) | FK → `ref_fakultas.kode_fakultas`, NULL | Relasi ke fakultas (admin fakultas) |
 | `must_change_password` | tinyint(1) | NOT NULL, default 0 | Penanda kewajiban ganti sandi saat pertama login |
 | `password` | varchar(255) | NOT NULL | Hash kata sandi akun |
 | `remember_token` | varchar(100) | NULL | Token sesi remember-me |
@@ -52,44 +52,41 @@
 
 ### Tabel: `ref_fakultas`
 
-> Data master fakultas-fakultas di UKDW. Tabel referensi statis — isinya tidak sering berubah, cukup diisi sekali saat setup. Digunakan untuk mengelompokkan prodi dan membatasi akses admin fakultas.
+> Data master fakultas-fakultas di UKDW. Tabel referensi statis — isinya tidak sering berubah, cukup diisi sekali saat setup. Menggunakan `kode_fakultas` sebagai Primary Key alami. Digunakan untuk mengelompokkan prodi dan membatasi akses admin fakultas.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
-| `id` | bigint unsigned | PK, AI | ID unik master fakultas |
-| `kode_fakultas` | varchar(10) | AK, NOT NULL | Kode resmi fakultas (contoh: 7, 1) |
+| `kode_fakultas` | char(2) | PK | Kode resmi fakultas (contoh: '7', '1') |
 | `nama_fakultas` | varchar(100) | NOT NULL | Nama resmi fakultas |
 | `singkatan` | varchar(20) | NULL | Singkatan nama fakultas (contoh: FTI, FB) |
 | `created_at`, `updated_at` | timestamp | NULL | Timestamp otomatis Laravel |
 
 ---
 
-### Tabel: `prodi`
+### Tabel: `ref_prodi`
 
-> Data master program studi, dipasangkan dengan fakultasnya. Kolom `jenjang` penting untuk perhitungan IKU (Indikator Kinerja Utama) yang membedakan program S1, S2, dan lainnya. Hampir semua tabel di sistem ini berelasi ke prodi.
+> Data master program studi, dipasangkan dengan fakultasnya melalui `kode_fakultas`. Menggunakan `kode_prodi` sebagai Primary Key alami. Kolom `jenjang` penting untuk perhitungan IKU (Indikator Kinerja Utama) yang membedakan program S1, S2, dan lainnya.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
-| `id` | bigint unsigned | PK, AI | ID unik master program studi |
-| `kode_prodi` | varchar(10) | AK, NOT NULL | Kode resmi program studi (contoh: 71, 72) |
+| `kode_prodi` | char(2) | PK | Kode resmi program studi (contoh: '71', '72') |
 | `nama_prodi` | varchar(100) | NOT NULL | Nama resmi program studi |
 | `jenjang` | varchar(10) | NOT NULL, default 'S1' | Jenjang pendidikan untuk perhitungan IKU |
-| `fakultas_id` | bigint unsigned | FK → `ref_fakultas.id`, NULL | Fakultas yang menaungi program studi |
+| `kode_fakultas` | char(2) | FK → `ref_fakultas.kode_fakultas`, NULL | Fakultas yang menaungi program studi |
 | `created_at`, `updated_at` | timestamp | NULL | Timestamp otomatis Laravel |
 
 ---
 
 ### Tabel: `data_akademik`
 
-> Data akademik mahasiswa yang diimpor dari Sistem Informasi Akademik (SIA) UKDW — bukan input manual pengguna. NIM menjadi kunci alami yang menghubungkan data ini dengan profil alumni di sistem tracer study. Tabel ini adalah "sumber kebenaran" identitas akademik.
+> Data akademik mahasiswa yang diimpor dari Sistem Informasi Akademik (SIA) UKDW — bukan input manual pengguna. NIM menjadi Primary Key alami (natural key) tanpa kolom surrogate id. Tabel ini adalah "sumber kebenaran" identitas akademik.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
-| `id` | bigint unsigned | PK, AI | ID unik rekam data akademik |
-| `nim` | char(8) | AK, NOT NULL | Nomor Induk Mahasiswa (8 karakter) |
+| `nim` | char(8) | PK | Nomor Induk Mahasiswa (8 karakter) |
 | `nama` | varchar(100) | NULL | Nama lengkap mahasiswa |
 | `email_pribadi` | varchar(100) | NULL | Email pribadi dari sumber akademik |
-| `prodi_id` | bigint unsigned | FK → `prodi.id`, NULL | Program studi akademik mahasiswa |
+| `kode_prodi` | char(2) | FK → `ref_prodi.kode_prodi`, NULL | Program studi akademik mahasiswa |
 | `angkatan_masuk` | year | NULL | Tahun angkatan masuk perkuliahan |
 | `tahun_akademik_masuk` | varchar(30) | NULL | Periode masuk (contoh: 2023/2024 Semester Ganjil) |
 | `tanggal_lahir` | date | NULL | Tanggal lahir |
@@ -108,12 +105,11 @@
 
 ### Tabel: `yudisium`
 
-> Data kelulusan resmi mahasiswa yang juga berasal dari SIA. Menyimpan detail tugas akhir, publikasi ilmiah, dan predikat kelulusan. Dihubungkan ke `data_akademik` via NIM — bukan surrogate id — karena NIM adalah identitas yang diterbitkan institusi dan bersifat stabil.
+> Data kelulusan resmi mahasiswa yang juga berasal dari SIA. Menyimpan detail tugas akhir, publikasi ilmiah, dan predikat kelulusan. Menggunakan `nim` sebagai Primary Key dan Foreign Key ke `data_akademik.nim` — tanpa surrogate id.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
-| `id` | bigint unsigned | PK, AI | ID unik rekam kelulusan yudisium |
-| `nim` | char(8) | AK, FK → `data_akademik.nim`, NOT NULL | NIM mahasiswa |
+| `nim` | char(8) | PK, FK → `data_akademik.nim` | NIM mahasiswa |
 | `judul_ta` | text | NULL | Judul Skripsi/Thesis/Disertasi |
 | `judul_ta_inggris` | text | NULL | Judul tugas akhir dalam Bahasa Inggris |
 | `url_publikasi` | varchar(200) | NULL | Tautan repositori/jurnal publikasi |
@@ -205,7 +201,7 @@
 | `jenis_perusahaan` | varchar(100) | NULL | Kategori Dikti F11 |
 | `jenis_perusahaan_lainnya` | text | NULL | Keterangan jenis instansi jika opsi lainnya |
 | `created_by_user_id` | bigint unsigned | FK → `users.id`, NULL | Pengguna yang mengusulkan data perusahaan |
-| `created_by_prodi_id` | bigint unsigned | FK → `prodi.id`, NULL | Prodi asal pengusul perusahaan |
+| `created_by_kode_prodi` | char(2) | FK → `ref_prodi.kode_prodi`, NULL | Prodi asal pengusul perusahaan |
 | `kode_provinsi` | varchar(10) | FK → `propinsi.kode_provinsi`, NULL | Provinsi lokasi perusahaan |
 | `kode_kabupaten` | varchar(10) | FK → `kabupaten.kode_kabupaten`, NULL | Kabupaten lokasi perusahaan |
 | `created_at`, `updated_at` | timestamp | NULL | Timestamp otomatis Laravel |
@@ -237,8 +233,7 @@
 | `id` | bigint unsigned | PK, AI | ID unik profil biodata alumni |
 | `nim` | char(8) | AK, FK → `data_akademik.nim`, NOT NULL | NIM alumni |
 | `user_id` | bigint unsigned | FK → `users.id` ON DELETE CASCADE, NULL | Akun pengguna alumni |
-| `yudisium_id` | bigint unsigned | FK → `yudisium.id`, NULL | Data yudisium terkait |
-| `prodi_id` | bigint unsigned | FK → `prodi.id`, NULL | Program studi alumni |
+| `kode_prodi` | char(2) | FK → `ref_prodi.kode_prodi`, NULL | Program studi alumni |
 | `foto` | text | NULL | Path berkas foto profil |
 | `nomor_telepon` | varchar(20) | NULL | Nomor telepon/WhatsApp aktif |
 | `email_pribadi` | varchar(100) | NULL | Alamat email aktif alumni |
@@ -282,7 +277,7 @@
 | `linkedin_username` | varchar(100) | NULL | Username akun LinkedIn |
 | `scraped_data` | json | NOT NULL | Payload data mentah hasil scraping (JSON) |
 | `status` | enum | NOT NULL, default 'pending' | Status: `pending`, `approved`, `rejected` |
-| `reviewed_by` | bigint unsigned | FK → `users.id`, NULL | Administrator yang melakukan peninjauan |
+| `user_id` | bigint unsigned | FK → `users.id`, NULL | Administrator yang melakukan peninjauan |
 | `reviewed_at` | timestamp | NULL | Waktu persetujuan peninjauan |
 | `scraped_at` | timestamp | NULL | Waktu pengambilan data scraping |
 | `created_at`, `updated_at` | timestamp | NULL | Timestamp otomatis Laravel |
@@ -293,7 +288,7 @@
 
 ### Tabel: `kuesioner`
 
-> Tabel induk yang merepresentasikan satu periode Tracer Study (contoh: "Tracer Study 2026"). `is_active` menentukan apakah alumni sekarang bisa mengisi kuesioner atau tidak — hanya satu yang aktif di satu waktu. Catatan desain: koneksi FK ke `kuesioner_jawaban` dijadwalkan ditambahkan agar jawaban bisa difilter per periode.
+> Tabel induk yang merepresentasikan satu periode Tracer Study (contoh: "Tracer Study 2026"). `is_active` menentukan apakah alumni sekarang bisa mengisi kuesioner atau tidak — hanya satu yang aktif di satu waktu. Berelasi langsung ke `kuesioner_jawaban.kuesioner_id`.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -314,9 +309,10 @@
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID unik bagian kuesioner |
+| `kuesioner_id` | bigint unsigned | FK → `kuesioner.id` ON DELETE SET NULL, NULL | ID instrumen kuesioner induk periode tracer |
 | `kode_section` | varchar(50) | AK, NOT NULL | Kode unik bagian (contoh: SEC_UNIV_01, SEC_SI_01) |
 | `target` | varchar(20) | NOT NULL, default 'univ' | Target: `univ`, `prodi`, `atasan` |
-| `prodi_id` | bigint unsigned | FK → `prodi.id` ON DELETE SET NULL, NULL | ID prodi jika section khusus satu prodi |
+| `kode_prodi` | char(2) | FK → `ref_prodi.kode_prodi` ON DELETE SET NULL, NULL | Kode prodi jika section khusus satu prodi |
 | `judul` | varchar(200) | NOT NULL | Judul atau nama bagian kuesioner |
 | `deskripsi` | text | NULL | Deskripsi atau petunjuk pengisian |
 | `order` | smallint | NOT NULL, default 1 | Nomor urut tampil bagian |
@@ -336,7 +332,7 @@
 | `label_pertanyaan` | varchar(255) | NULL | Label ringkas untuk grafik dan analitik |
 | `teks_pertanyaan` | text | NOT NULL | Teks redaksi pertanyaan survei |
 | `tipe` | varchar(50) | NOT NULL, default 'single_choice' | Tipe input: `single_choice`, `multiple_choice`, `text`, `number`, `likert_5` |
-| `pemilik_prodi_id` | bigint unsigned | FK → `prodi.id`, NULL | ID prodi pembuat butir (NULL = milik universitas) |
+| `pemilik_kode_prodi` | char(2) | FK → `ref_prodi.kode_prodi`, NULL | Kode prodi pembuat butir (NULL = milik universitas) |
 | `is_reusable` | tinyint(1) | NOT NULL, default 1 | Status apakah butir dapat dipinjam prodi lain |
 | `keterangan` | varchar(255) | NULL | Keterangan operasional pertanyaan |
 | `is_active` | tinyint(1) | NOT NULL, default 1 | Status keaktifan butir |
@@ -386,6 +382,7 @@
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID unik respon jawaban survei |
+| `kuesioner_id` | bigint unsigned | FK → `kuesioner.id`, NULL | ID instrumen periode kuesioner terkait |
 | `responden_type` | varchar(20) | NOT NULL, default 'alumni' | Tipe responden: `alumni`, `atasan` |
 | `biodata_id` | bigint unsigned | FK → `biodata.id`, NULL | ID biodata alumni (jika responden = alumni) |
 | `evaluasi_atasan_id` | bigint unsigned | FK → `evaluasi_atasan.id`, NULL | ID evaluasi atasan (jika responden = atasan) |
@@ -429,5 +426,5 @@
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID pengaturan (selalu = 1) |
 | `is_open` | boolean | NOT NULL, default true | Status buka (`true`) atau tutup (`false`) sinkronisasi akun |
-| `updated_by` | bigint unsigned | FK → `users.id`, NULL | Superadmin yang terakhir mengubah pengaturan |
+| `user_id` | bigint unsigned | FK → `users.id`, NULL | Superadmin yang terakhir mengubah pengaturan |
 | `created_at`, `updated_at` | timestamp | NULL | Timestamp otomatis Laravel |

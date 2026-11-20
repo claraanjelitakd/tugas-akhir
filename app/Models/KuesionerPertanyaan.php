@@ -25,7 +25,7 @@ class KuesionerPertanyaan extends Model
         'label_pertanyaan',
         'teks_pertanyaan',
         'tipe',
-        'pemilik_prodi_id',
+        'pemilik_kode_prodi',
         'is_reusable',
         'keterangan',
         'is_active',
@@ -41,7 +41,7 @@ class KuesionerPertanyaan extends Model
      */
     public function pemilikProdi(): BelongsTo
     {
-        return $this->belongsTo(Prodi::class, 'pemilik_prodi_id');
+        return $this->belongsTo(Prodi::class, 'pemilik_kode_prodi', 'kode_prodi');
     }
 
     /**

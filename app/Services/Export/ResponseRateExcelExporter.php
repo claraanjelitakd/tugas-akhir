@@ -23,7 +23,7 @@ class ResponseRateExcelExporter
      * @param  int|null  $prodiId  ID program studi (opsional)
      * @param  string  $status  Filter status: 'all', 'sudah', atau 'belum'
      */
-    public static function download(string $year, ?int $prodiId = null, string $status = 'all'): StreamedResponse
+    public static function download(string $year, ?string $prodiId = null, string $status = 'all'): StreamedResponse
     {
         $statusKey = strtolower(trim($status));
         if (! in_array($statusKey, ['all', 'sudah', 'belum'], true)) {
@@ -32,7 +32,7 @@ class ResponseRateExcelExporter
 
         $query = DB::table('v_analytics_response_rate')
             ->when($year !== 'ALL', fn ($q) => $q->where('tahun_lulus', $year))
-            ->when($prodiId, fn ($q) => $q->where('prodi_id', $prodiId));
+            ->when($prodiId, fn ($q) => $q->where('kode_prodi', $prodiId));
 
         if ($statusKey === 'sudah') {
             $query->where('answered', '>', 0);
@@ -69,7 +69,7 @@ class ResponseRateExcelExporter
      *
      * @param  Collection<int, object>  $records
      */
-    public static function generateSpreadsheetXml(string $year, ?int $prodiId, string $status, Collection $records): string
+    public static function generateSpreadsheetXml(string $year, ?string $prodiId, string $status, Collection $records): string
     {
         $exportTime = now()->format('d/m/Y H:i:s');
         $prodiLabel = 'Seluruh Program Studi';
@@ -85,7 +85,7 @@ class ResponseRateExcelExporter
         if ($status === 'all') {
             $summaryQuery = DB::table('v_analytics_response_rate')
                 ->when($year !== 'ALL', fn ($q) => $q->where('tahun_lulus', $year))
-                ->when($prodiId, fn ($q) => $q->where('prodi_id', $prodiId));
+                ->when($prodiId, fn ($q) => $q->where('kode_prodi', $prodiId));
 
             $allRows = $summaryQuery->get();
             $summaryRows = $allRows->groupBy('nama_prodi')->map(function ($prodiList, $pName) {

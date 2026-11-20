@@ -100,7 +100,7 @@ const pageDescription = computed(() => isFaculty.value
 // STATE FILTER & PENCARIAN
 // ========================================================
 const search = ref(props.filters.search || '');
-const selectedProdiId = ref(props.filters.prodi_id || '');
+const selectedProdiId = ref(props.filters.kode_prodi || '');
 const scope = ref(props.filters.scope || 'all');
 const statusFilter = ref(props.filters.status || 'all');
 const selectedKodeNegara = ref(props.filters.kode_negara || '');
@@ -120,7 +120,7 @@ watch(() => props.kabupatens, (newKabupatens) => {
 watch(() => props.filters, (newFilters) => {
     if (!newFilters) return;
     search.value = newFilters.search || '';
-    selectedProdiId.value = newFilters.prodi_id || '';
+    selectedProdiId.value = newFilters.kode_prodi || '';
     scope.value = newFilters.scope || 'all';
     statusFilter.value = newFilters.status || 'all';
     selectedKodeNegara.value = newFilters.kode_negara || '';
@@ -183,7 +183,7 @@ const handlePropinsiChangeFilter = () => {
 const applyFilters = () => {
     router.get(props.basePath, {
         search: search.value || undefined,
-        prodi_id: selectedProdiId.value || undefined,
+        kode_prodi: selectedProdiId.value || undefined,
         scope: scope.value !== 'all' ? scope.value : undefined,
         status: statusFilter.value !== 'all' ? statusFilter.value : undefined,
         kode_negara: selectedKodeNegara.value || undefined,
@@ -272,12 +272,12 @@ const getAlumniProdi = (alumni) => {
 
 const getFilteredProdiAlumni = (company) => {
     if (!selectedProdiId.value || !company?.biodata) return null;
-    return company.biodata.find((b) => String(b.prodi_id) === String(selectedProdiId.value)) || null;
+    return company.biodata.find((b) => String(b.kode_prodi) === String(selectedProdiId.value)) || null;
 };
 
 const getAlumniFromFilteredProdi = (company) => {
     if (!selectedProdiId.value || !company?.biodata) return [];
-    return company.biodata.filter((b) => String(b.prodi_id) === String(selectedProdiId.value));
+    return company.biodata.filter((b) => String(b.kode_prodi) === String(selectedProdiId.value));
 };
 
 const getSelectedProdiName = () => {
@@ -470,7 +470,7 @@ const getCompanyDetailFields = (company) => {
         ['Status Verifikasi', company.status_verifikasi],
         ['Dibuat Oleh', createdBy],
         ['Role Pembuat', creatorRole],
-        ['Prodi Pengusul', company.createdProdi?.nama_prodi || company.created_prodi_name || company.created_by_prodi_id],
+        ['Prodi Pengusul', company.createdProdi?.nama_prodi || company.created_prodi_name || company.created_by_kode_prodi],
         ['Dibuat Pada', formatDate(company.created_at)],
         ['Diperbarui Pada', formatDate(company.updated_at)],
     ].map(([label, value]) => ({ label, value: displayValue(value) }));
@@ -1332,10 +1332,10 @@ const handleVerificationAction = (company, event) => {
                                             <span class="inline-block text-[10px] font-semibold text-[#0D542B] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded leading-tight">
                                                 {{ getAlumniFromFilteredProdi(company).length }} alumni {{ getSelectedProdiName() }} bekerja di sini
                                             </span>
-                                            <span v-if="company.creator?.biodata && String(company.creator.biodata.prodi_id) !== String(selectedProdiId)" class="text-[10px] text-slate-400">
+                                            <span v-if="company.creator?.biodata && String(company.creator.biodata.kode_prodi) !== String(selectedProdiId)" class="text-[10px] text-slate-400">
                                                 Pengusul awal: {{ getAlumniDisplayName(company.creator.biodata) }} ({{ getAlumniProdi(company.creator.biodata) }})
                                             </span>
-                                            <span v-else-if="company.biodata && company.biodata[0] && String(company.biodata[0].prodi_id) !== String(selectedProdiId)" class="text-[10px] text-slate-400">
+                                            <span v-else-if="company.biodata && company.biodata[0] && String(company.biodata[0].kode_prodi) !== String(selectedProdiId)" class="text-[10px] text-slate-400">
                                                 Pengusul awal: {{ getAlumniDisplayName(company.biodata[0]) }} ({{ getAlumniProdi(company.biodata[0]) }})
                                             </span>
                                         </div>

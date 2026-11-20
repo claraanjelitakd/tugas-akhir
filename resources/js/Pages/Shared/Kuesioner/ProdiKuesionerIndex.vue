@@ -102,7 +102,7 @@ const handleProdiChange = () => {
         activeTab.value = 'sections';
         selectedSectionFilter.value = 'all';
         router.get(props.basePath, {
-            prodi_id: selectedProdiId.value,
+            kode_prodi: selectedProdiId.value,
         }, {
             preserveState: true,
             preserveScroll: true,
@@ -148,7 +148,7 @@ const syncPageContext = () => {
 
     const url = new URL(window.location.href);
     url.searchParams.set('tab', activeTab.value);
-    url.searchParams.set('prodi_id', String(selectedProdiId.value));
+    url.searchParams.set('kode_prodi', String(selectedProdiId.value));
 
     if (activeTab.value === 'questions' && selectedSectionFilter.value !== 'all') {
         url.searchParams.set('section_id', String(selectedSectionFilter.value));
@@ -356,7 +356,7 @@ const submitBankSelection = () => {
 
     isSubmittingBank.value = true;
     router.post(`${props.basePath}/bank/attach`, {
-        prodi_id: props.selectedProdi?.id,
+        kode_prodi: props.selectedProdi?.id,
         section_id: targetSectionIdForBank.value,
         pertanyaan_ids: selectedBankQuestionIds.value,
     }, {
@@ -408,7 +408,7 @@ const isSubmittingSection = ref(false);
 
 // Objek data form untuk bagian kuesioner prodi
 const sectionForm = ref({
-    prodi_id: null,
+    kode_prodi: null,
     title: '',
     description: '',
     order: 1,
@@ -428,14 +428,14 @@ const openSectionModal = (sectionToEdit = null) => {
 
     if (sectionToEdit) {
         sectionForm.value = {
-            prodi_id: props.selectedProdi?.id || null,
+            kode_prodi: props.selectedProdi?.id || null,
             title: sectionToEdit.title || '',
             description: sectionToEdit.description || '',
             order: sectionToEdit.order || 1,
         };
     } else {
         sectionForm.value = {
-            prodi_id: props.selectedProdi?.id || null,
+            kode_prodi: props.selectedProdi?.id || null,
             title: '',
             description: '',
             order: props.sections.length + 1,
@@ -472,7 +472,7 @@ const submitSectionForm = () => {
     isSubmittingSection.value = true;
 
     const payload = {
-        prodi_id: props.selectedProdi.id,
+        kode_prodi: props.selectedProdi.id,
         title: sectionForm.value.title.trim(),
         description: sectionForm.value.description.trim(),
         order: sectionForm.value.order ? parseInt(sectionForm.value.order, 10) : null,
@@ -572,7 +572,7 @@ const togglingQuestionId = ref(null);
 
 // Objek data formulir pertanyaan prodi
 const questionForm = ref({
-    prodi_id: null,
+    kode_prodi: null,
     code: '',
     label: '',
     question_text: '',
@@ -718,7 +718,7 @@ const removeOptionFromForm = (idx) => {
 const handleToggleActive = (question) => {
     togglingQuestionId.value = question.id;
     router.post(`${props.basePath}/penempatan/${question.placement_id}/toggle-active`, {
-        prodi_id: props.selectedProdi?.id,
+        kode_prodi: props.selectedProdi?.id,
     }, {
         preserveScroll: true,
         onSuccess: () => {
@@ -744,7 +744,7 @@ const openQuestionModal = (questionToEdit = null) => {
 
     if (questionToEdit) {
         questionForm.value = {
-            prodi_id: props.selectedProdi?.id || null,
+            kode_prodi: props.selectedProdi?.id || null,
             code: questionToEdit.code || '',
             label: questionToEdit.label || '',
             question_text: questionToEdit.question_text || '',
@@ -775,7 +775,7 @@ const openQuestionModal = (questionToEdit = null) => {
         const defaultCode = `P${nextNum}`;
 
         questionForm.value = {
-            prodi_id: props.selectedProdi?.id || null,
+            kode_prodi: props.selectedProdi?.id || null,
             code: defaultCode,
             label: '',
             question_text: '',
@@ -828,7 +828,7 @@ const submitQuestionForm = () => {
     isSubmittingQuestion.value = true;
 
     const payload = {
-        prodi_id: props.selectedProdi.id,
+        kode_prodi: props.selectedProdi.id,
         code: questionForm.value.code.trim().toUpperCase(),
         label: questionForm.value.label.trim(),
         question_text: questionForm.value.question_text.trim(),
@@ -893,7 +893,7 @@ const submitQuestionForm = () => {
 
 const handleReorderQuestion = (placementId, direction) => {
     router.post(`${props.basePath}/pertanyaan/reorder`, {
-        prodi_id: props.selectedProdi?.id,
+        kode_prodi: props.selectedProdi?.id,
         placement_id: placementId,
         direction,
     }, {
@@ -915,7 +915,7 @@ const handleDeleteQuestion = (question) => {
         if (res.isConfirmed) {
             router.delete(`${props.basePath}/pertanyaan/${question.placement_id}`, {
                 data: {
-                    prodi_id: props.selectedProdi?.id,
+                    kode_prodi: props.selectedProdi?.id,
                 },
                 preserveScroll: true,
                 onSuccess: () => Swal.fire('Terhapus', 'Pertanyaan kuesioner prodi berhasil dihapus.', 'success'),

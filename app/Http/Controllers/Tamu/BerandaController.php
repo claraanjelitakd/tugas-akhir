@@ -67,9 +67,9 @@ class BerandaController extends Controller
 
         // 2. Data Alumni & Karya Tugas Akhir Unggulan untuk Showcase Riset & Publikasi
         $featuredAlumni = Biodata::with([
-            'prodi:id,nama_prodi',
+            'prodi:kode_prodi,nama_prodi',
             'perusahaan:id,nama_perusahaan,sektor,skala',
-            'yudisium:id,judul_ta,url_publikasi,jenis_publikasi',
+            'yudisium:nim,judul_ta,url_publikasi,jenis_publikasi',
         ])
             ->whereNotNull('posisi_jabatan')
             ->where('posisi_jabatan', '!=', '')
@@ -191,14 +191,14 @@ class BerandaController extends Controller
 
         // 4. Data Rinci Seluruh Alumni Terdaftar (Termasuk Judul TA & Link Publikasi)
         $alumniList = Biodata::with([
-            'prodi:id,nama_prodi',
+            'prodi:kode_prodi,nama_prodi',
             'perusahaan:id,nama_perusahaan,sektor,kode_negara,kode_provinsi,kode_kabupaten,alamat,kode_pos',
             'perusahaan.negaraMaster:kode_negara,nama_negara',
             'perusahaan.propinsi:kode_provinsi,nama_provinsi',
             'perusahaan.kabupaten:kode_kabupaten,kode_provinsi,nama_kabupaten',
             'propinsi:kode_provinsi,nama_provinsi',
             'kabupaten:kode_kabupaten,kode_provinsi,nama_kabupaten',
-            'yudisium:id,judul_ta,url_publikasi,jenis_publikasi',
+            'yudisium:nim,judul_ta,url_publikasi,jenis_publikasi',
         ])
             // ->whereNotNull('nama')
             ->orderBy('id', 'desc')

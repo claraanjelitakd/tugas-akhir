@@ -21,14 +21,14 @@ return new class extends Migration
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::statement(<<<'SQL'
 CREATE VIEW v_alumni_tracer_prodi_status AS
-SELECT b.id AS biodata_id, b.prodi_id,
+SELECT b.id AS biodata_id, b.kode_prodi,
     COALESCE((
         SELECT COUNT(DISTINCT ksp.pertanyaan_id)
         FROM kuesioner_section_pertanyaan ksp
         INNER JOIN kuesioner_section ks ON ks.id = ksp.section_id
         INNER JOIN kuesioner_pertanyaan kp ON kp.id = ksp.pertanyaan_id
         WHERE ks.target = 'prodi'
-          AND ks.prodi_id = b.prodi_id
+          AND ks.kode_prodi = b.kode_prodi
           AND ks.is_active = 1
           AND ksp.is_active = 1
           AND kp.tipe != 'header'
@@ -52,20 +52,20 @@ LEFT JOIN (
       AND kp.is_active = 1
       AND kp.tipe != 'header'
 ) j ON j.biodata_id = b.id
-GROUP BY b.id, b.prodi_id;
+GROUP BY b.id, b.kode_prodi;
 SQL
             );
         } else {
             DB::statement(<<<'SQL'
 CREATE VIEW `v_alumni_tracer_prodi_status` AS
-SELECT `b`.`id` AS `biodata_id`, `b`.`prodi_id` AS `prodi_id`,
+SELECT `b`.`id` AS `biodata_id`, `b`.`kode_prodi` AS `kode_prodi`,
     COALESCE((
         SELECT COUNT(DISTINCT `ksp`.`pertanyaan_id`)
         FROM `kuesioner_section_pertanyaan` `ksp`
         INNER JOIN `kuesioner_section` `ks` ON `ks`.`id` = `ksp`.`section_id`
         INNER JOIN `kuesioner_pertanyaan` `kp` ON `kp`.`id` = `ksp`.`pertanyaan_id`
         WHERE `ks`.`target` = 'prodi'
-          AND `ks`.`prodi_id` = `b`.`prodi_id`
+          AND `ks`.`kode_prodi` = `b`.`kode_prodi`
           AND `ks`.`is_active` = 1
           AND `ksp`.`is_active` = 1
           AND `kp`.`tipe` <> 'header'
@@ -89,7 +89,7 @@ LEFT JOIN (
       AND `kp`.`is_active` = 1
       AND `kp`.`tipe` <> 'header'
 ) `j` ON `j`.`biodata_id` = `b`.`id`
-GROUP BY `b`.`id`, `b`.`prodi_id`;
+GROUP BY `b`.`id`, `b`.`kode_prodi`;
 SQL
             );
         }

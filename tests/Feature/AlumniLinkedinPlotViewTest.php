@@ -41,7 +41,7 @@ class AlumniLinkedinPlotViewTest extends TestCase
             'email' => "{$nim}@students.ukdw.ac.id",
             'password' => Hash::make('password123'),
             'role' => 'alumni',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -62,7 +62,7 @@ class AlumniLinkedinPlotViewTest extends TestCase
             'user_id' => $user->id,
             'nim' => $nim,
             'nama' => $nama,
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'linkedin_url' => $linkedinUrl,
             'linkedin_username' => $linkedinUrl ? basename($linkedinUrl) : null,
         ]);

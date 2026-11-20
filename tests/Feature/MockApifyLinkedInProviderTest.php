@@ -148,7 +148,7 @@ class MockApifyLinkedInProviderTest extends TestCase
         $biodata = Biodata::create([
             'user_id' => $alumniUser->id,
             'nim' => '722026999',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'linkedin_url' => 'https://www.linkedin.com/in/eunike-alelang/',
             'linkedin_username' => 'eunike-alelang',
         ]);

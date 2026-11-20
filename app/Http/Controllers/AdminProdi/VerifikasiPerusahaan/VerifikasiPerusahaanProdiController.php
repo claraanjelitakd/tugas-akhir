@@ -29,7 +29,7 @@ class VerifikasiPerusahaanProdiController extends Controller
 
     private function findCompanyInScope(int $id): Perusahaan
     {
-        $prodiId = Auth::user()?->prodi_id;
+        $prodiId = Auth::user()?->kode_prodi;
         if (! $prodiId) {
             abort(403, 'Akun Anda belum terhubung dengan program studi.');
         }
@@ -37,12 +37,12 @@ class VerifikasiPerusahaanProdiController extends Controller
         return $this->companiesInScopeQuery($prodiId)->whereKey($id)->firstOrFail();
     }
 
-    private function companiesInScopeQuery(int $prodiId): Builder
+    private function companiesInScopeQuery(string $prodiId): Builder
     {
         return Perusahaan::query()->where(function (Builder $query) use ($prodiId) {
-            $query->where('created_by_prodi_id', $prodiId)
-                ->orWhereHas('biodata', fn (Builder $biodataQuery) => $biodataQuery->where('prodi_id', $prodiId))
-                ->orWhereHas('creator', fn (Builder $creatorQuery) => $creatorQuery->where('prodi_id', $prodiId));
+            $query->where('created_by_kode_prodi', $prodiId)
+                ->orWhereHas('biodata', fn (Builder $biodataQuery) => $biodataQuery->where('kode_prodi', $prodiId))
+                ->orWhereHas('creator', fn (Builder $creatorQuery) => $creatorQuery->where('kode_prodi', $prodiId));
         });
     }
 
@@ -55,7 +55,7 @@ class VerifikasiPerusahaanProdiController extends Controller
         $user = Auth::user();
         $user->load('prodi');
         $prodi = $user->prodi;
-        $prodiId = $user->prodi_id;
+        $prodiId = $user->kode_prodi;
 
         if (! $prodiId) {
             abort(403, 'Akun Anda belum terhubung dengan program studi.');
@@ -113,7 +113,7 @@ class VerifikasiPerusahaanProdiController extends Controller
     {
         /** @var User $user */
         $user = Auth::user();
-        $prodiId = $user->prodi_id;
+        $prodiId = $user->kode_prodi;
 
         if (! $prodiId) {
             abort(403, 'Akun Anda belum terhubung dengan program studi.');
@@ -164,7 +164,7 @@ class VerifikasiPerusahaanProdiController extends Controller
             'no_telp_fax' => $validated['no_telp_fax'] ?? null,
             'status_verifikasi' => 'Terverifikasi',
             'created_by_user_id' => $user->id,
-            'created_by_prodi_id' => $prodiId,
+            'created_by_kode_prodi' => $prodiId,
         ]);
 
         LogActivity::record(
@@ -315,7 +315,7 @@ class VerifikasiPerusahaanProdiController extends Controller
      *
      * @return array{total_all: int, total_pending_all: int, total_verified: int, total_rejected: int}
      */
-    private function buildScopedStats(int $prodiId): array
+    private function buildScopedStats(string $prodiId): array
     {
         $counts = $this->companiesInScopeQuery($prodiId)
             ->selectRaw('COUNT(*) as total_all')

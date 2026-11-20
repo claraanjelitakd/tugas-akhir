@@ -120,7 +120,7 @@ class SimpanProfilController extends Controller
             $alamat = ! empty($dataTervalidasi['company_alamat']) ? $dataTervalidasi['company_alamat'] : (! empty($dataTervalidasi['perusahaan_alamat']) ? $dataTervalidasi['perusahaan_alamat'] : null);
             $kodePos = ! empty($dataTervalidasi['company_kode_pos']) ? $dataTervalidasi['company_kode_pos'] : (! empty($dataTervalidasi['perusahaan_kode_pos']) ? $dataTervalidasi['perusahaan_kode_pos'] : (! empty($dataTervalidasi['zipcode']) ? $dataTervalidasi['zipcode'] : null));
 
-            $prodiIdPengaju = $pengguna?->prodi_id ?? $biodata?->prodi_id;
+            $prodiIdPengaju = $pengguna?->kode_prodi ?? $biodata?->kode_prodi;
             $perusahaan = Perusahaan::firstOrCreate(
                 ['nama_perusahaan' => $dataTervalidasi['nama_perusahaan']],
                 [
@@ -138,7 +138,7 @@ class SimpanProfilController extends Controller
                     'kode_negara' => $kodeNegara,
                     'status_verifikasi' => 'Menunggu Verifikasi',
                     'created_by_user_id' => $pengguna?->id,
-                    'created_by_prodi_id' => $prodiIdPengaju,
+                    'created_by_kode_prodi' => $prodiIdPengaju,
                 ]
             );
 
@@ -350,12 +350,12 @@ class SimpanProfilController extends Controller
             }
 
             // Validasi otorisasi lingkup peran admin
-            if ($user->role === 'admin_prodi' && $user->prodi_id) {
-                if ((int) $biodata->prodi_id !== (int) $user->prodi_id) {
+            if ($user->role === 'admin_prodi' && $user->kode_prodi) {
+                if ((int) $biodata->kode_prodi !== $user->kode_prodi) {
                     abort(403, 'Anda tidak memiliki akses ke data alumni program studi ini.');
                 }
-            } elseif ($user->role === 'admin_fakultas' && $user->fakultas_id) {
-                if ((int) $biodata->prodi?->fakultas_id !== (int) $user->fakultas_id) {
+            } elseif ($user->role === 'admin_fakultas' && $user->kode_fakultas) {
+                if ((int) $biodata->prodi?->kode_fakultas !== $user->kode_fakultas) {
                     abort(403, 'Anda tidak memiliki akses ke data alumni fakultas ini.');
                 }
             }
@@ -479,7 +479,7 @@ class SimpanProfilController extends Controller
 
         $user = Auth::user();
         $biodata = $user?->biodata;
-        $prodiIdPengaju = $user?->prodi_id ?? $biodata?->prodi_id;
+        $prodiIdPengaju = $user?->kode_prodi ?? $biodata?->kode_prodi;
 
         $perusahaan = Perusahaan::create([
             'nama_perusahaan' => $validated['nama_perusahaan'],
@@ -497,7 +497,7 @@ class SimpanProfilController extends Controller
             'jenis_perusahaan_lainnya' => $validated['jenis_perusahaan_lainnya'] ?? null,
             'status_verifikasi' => 'Menunggu Verifikasi',
             'created_by_user_id' => $user?->id,
-            'created_by_prodi_id' => $prodiIdPengaju,
+            'created_by_kode_prodi' => $prodiIdPengaju,
         ]);
 
         if ($user?->role === 'alumni' && $biodata) {

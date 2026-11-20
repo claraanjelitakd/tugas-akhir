@@ -24,7 +24,7 @@ SELECT
     population.user_id,
     population.nim,
     population.nama,
-    population.prodi_id,
+    population.kode_prodi,
     population.nama_prodi,
     population.tahun_lulus,
     population.ipk,

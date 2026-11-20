@@ -30,17 +30,17 @@ class AdminFakultasKuesionerProdiTest extends TestCase
         $prodiA = Prodi::create([
             'kode_prodi' => 'A1',
             'nama_prodi' => 'Program Studi A',
-            'fakultas_id' => $fakultasA->id,
+            'kode_fakultas' => $fakultasA->kode_fakultas,
         ]);
         Prodi::create([
             'kode_prodi' => 'A2',
             'nama_prodi' => 'Program Studi A2',
-            'fakultas_id' => $fakultasA->id,
+            'kode_fakultas' => $fakultasA->kode_fakultas,
         ]);
         $prodiB = Prodi::create([
             'kode_prodi' => 'B1',
             'nama_prodi' => 'Program Studi B',
-            'fakultas_id' => $fakultasB->id,
+            'kode_fakultas' => $fakultasB->kode_fakultas,
         ]);
 
         $admin = User::create([
@@ -48,7 +48,7 @@ class AdminFakultasKuesionerProdiTest extends TestCase
             'name' => 'Admin Fakultas A',
             'password' => Hash::make('password123'),
             'role' => 'admin_fakultas',
-            'fakultas_id' => $fakultasA->id,
+            'kode_fakultas' => $fakultasA->kode_fakultas,
             'must_change_password' => false,
         ]);
 
@@ -64,27 +64,27 @@ class AdminFakultasKuesionerProdiTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('fakultas.prodi-kuesioner.sections.store'), [
-                'prodi_id' => $prodiA->id,
+                'kode_prodi' => $prodiA->kode_prodi,
                 'title' => 'Section Fakultas A',
                 'order' => 1,
             ])
             ->assertRedirect();
 
         $this->assertDatabaseHas('kuesioner_section', [
-            'prodi_id' => $prodiA->id,
+            'kode_prodi' => $prodiA->kode_prodi,
             'judul' => 'Section Fakultas A',
         ]);
 
         $this->actingAs($admin)
             ->post(route('fakultas.prodi-kuesioner.sections.store'), [
-                'prodi_id' => $prodiB->id,
+                'kode_prodi' => $prodiB->kode_prodi,
                 'title' => 'Section Di Luar Fakultas',
                 'order' => 1,
             ])
             ->assertForbidden();
 
         $this->assertDatabaseMissing('kuesioner_section', [
-            'prodi_id' => $prodiB->id,
+            'kode_prodi' => $prodiB->kode_prodi,
             'judul' => 'Section Di Luar Fakultas',
         ]);
     }
@@ -98,12 +98,12 @@ class AdminFakultasKuesionerProdiTest extends TestCase
         $prodi = Prodi::create([
             'kode_prodi' => 'A1',
             'nama_prodi' => 'Program Studi A',
-            'fakultas_id' => $fakultas->id,
+            'kode_fakultas' => $fakultas->kode_fakultas,
         ]);
         $prodiLain = Prodi::create([
             'kode_prodi' => 'A2',
             'nama_prodi' => 'Program Studi A2',
-            'fakultas_id' => $fakultas->id,
+            'kode_fakultas' => $fakultas->kode_fakultas,
         ]);
 
         $admin = User::create([
@@ -111,13 +111,13 @@ class AdminFakultasKuesionerProdiTest extends TestCase
             'name' => 'Admin Prodi A',
             'password' => Hash::make('password123'),
             'role' => 'admin_prodi',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'must_change_password' => false,
         ]);
         $sectionLain = KuesionerSection::create([
             'kode_section' => 'SEC_TEST_A2',
             'target' => 'prodi',
-            'prodi_id' => $prodiLain->id,
+            'kode_prodi' => $prodiLain->kode_prodi,
             'judul' => 'Section Prodi Lain',
             'order' => 1,
             'is_active' => true,
@@ -130,7 +130,7 @@ class AdminFakultasKuesionerProdiTest extends TestCase
             ->where('role', 'admin_prodi')
             ->where('basePath', '/prodi/kuesioner')
             ->has('prodis', 1)
-            ->where('prodis.0.id', $prodi->id)
+            ->where('prodis.0.kode_prodi', $prodi->kode_prodi)
         );
 
         $this->actingAs($admin)
@@ -154,25 +154,25 @@ class AdminFakultasKuesionerProdiTest extends TestCase
         $prodiPemilik = Prodi::create([
             'kode_prodi' => 'OWN',
             'nama_prodi' => 'Prodi Pemilik',
-            'fakultas_id' => $fakultas->id,
+            'kode_fakultas' => $fakultas->kode_fakultas,
         ]);
         $prodiPengguna = Prodi::create([
             'kode_prodi' => 'USE',
             'nama_prodi' => 'Prodi Pengguna',
-            'fakultas_id' => $fakultas->id,
+            'kode_fakultas' => $fakultas->kode_fakultas,
         ]);
         $admin = User::create([
             'username' => 'admin-prodi-use',
             'name' => 'Admin Prodi Pengguna',
             'password' => Hash::make('password123'),
             'role' => 'admin_prodi',
-            'prodi_id' => $prodiPengguna->id,
+            'kode_prodi' => $prodiPengguna->kode_prodi,
             'must_change_password' => false,
         ]);
         $sectionPemilik = KuesionerSection::create([
             'kode_section' => 'SEC_OWN',
             'target' => 'prodi',
-            'prodi_id' => $prodiPemilik->id,
+            'kode_prodi' => $prodiPemilik->kode_prodi,
             'judul' => 'Section Pemilik',
             'order' => 1,
             'is_active' => true,
@@ -180,7 +180,7 @@ class AdminFakultasKuesionerProdiTest extends TestCase
         $sectionPengguna = KuesionerSection::create([
             'kode_section' => 'SEC_USE',
             'target' => 'prodi',
-            'prodi_id' => $prodiPengguna->id,
+            'kode_prodi' => $prodiPengguna->kode_prodi,
             'judul' => 'Section Pengguna',
             'order' => 1,
             'is_active' => true,
@@ -189,7 +189,7 @@ class AdminFakultasKuesionerProdiTest extends TestCase
             'kode_pertanyaan' => 'OWN-01',
             'teks_pertanyaan' => 'Pertanyaan milik prodi pemilik',
             'tipe' => 'text',
-            'pemilik_prodi_id' => $prodiPemilik->id,
+            'pemilik_kode_prodi' => $prodiPemilik->kode_prodi,
             'is_reusable' => true,
             'is_active' => true,
         ]);
@@ -217,7 +217,7 @@ class AdminFakultasKuesionerProdiTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('prodi.kuesioner.penempatan.toggle-active', $borrowedPlacement->id), [
-                'prodi_id' => $prodiPengguna->id,
+                'kode_prodi' => $prodiPengguna->kode_prodi,
             ])
             ->assertRedirect();
 
@@ -232,7 +232,7 @@ class AdminFakultasKuesionerProdiTest extends TestCase
 
         $this->actingAs($admin)
             ->put(route('prodi.kuesioner.pertanyaan.update', $question->id), [
-                'prodi_id' => $prodiPengguna->id,
+                'kode_prodi' => $prodiPengguna->kode_prodi,
                 'code' => 'OWN-UPDATED',
                 'question_text' => 'Tidak boleh diubah oleh prodi pengguna',
                 'type' => 'text',
@@ -251,7 +251,7 @@ class AdminFakultasKuesionerProdiTest extends TestCase
 
         $this->actingAs($admin)
             ->delete(route('prodi.kuesioner.pertanyaan.destroy', $borrowedPlacement->id), [
-                'prodi_id' => $prodiPengguna->id,
+                'kode_prodi' => $prodiPengguna->kode_prodi,
             ])
             ->assertRedirect();
 

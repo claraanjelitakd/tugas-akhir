@@ -62,7 +62,7 @@ class ProfilController extends Controller
             'email_pribadi' => $biodata?->email_pribadi ?? $pengguna->email,
 
             // Data Akademik & Yudisium
-            'prodi_id' => $biodata?->prodi_id,
+            'kode_prodi' => $biodata?->kode_prodi,
             'kode_prodi' => $biodata?->prodi?->kode_prodi ?? '',
             'program_studi' => $biodata?->prodi?->nama_prodi ?? '',
             'fakultas' => $biodata?->prodi?->fakultas?->nama_fakultas ?? '',

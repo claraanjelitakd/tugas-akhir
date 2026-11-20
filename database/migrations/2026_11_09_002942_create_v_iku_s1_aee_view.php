@@ -19,11 +19,10 @@ return new class extends Migration
             DB::statement(<<<'SQL'
 CREATE VIEW v_iku_s1_aee AS
 SELECT
-    academic.id AS academic_id,
+    academic.nim AS academic_id,
     academic.nim,
     academic.nama,
-    academic.prodi_id,
-    study_program.kode_prodi,
+    academic.kode_prodi,
     study_program.nama_prodi,
     study_program.jenjang,
     COALESCE(academic.angkatan_masuk, CAST('20' || SUBSTR(academic.nim, 3, 2) AS INTEGER)) AS angkatan_masuk,
@@ -45,7 +44,7 @@ SELECT
         THEN 1 ELSE 0
     END AS is_lulus_tepat_waktu
 FROM data_akademik AS academic
-INNER JOIN prodi AS study_program ON study_program.id = academic.prodi_id
+INNER JOIN ref_prodi AS study_program ON study_program.kode_prodi = academic.kode_prodi
 WHERE study_program.jenjang = 'S1'
   AND academic.status_mahasiswa = 'Lulus'
 SQL
@@ -54,11 +53,10 @@ SQL
             DB::statement(<<<'SQL'
 CREATE VIEW v_iku_s1_aee AS
 SELECT
-    academic.id AS academic_id,
+    academic.nim AS academic_id,
     academic.nim,
     academic.nama,
-    academic.prodi_id,
-    study_program.kode_prodi,
+    academic.kode_prodi,
     study_program.nama_prodi,
     study_program.jenjang,
     COALESCE(academic.angkatan_masuk, CAST(CONCAT('20', SUBSTRING(academic.nim, 3, 2)) AS UNSIGNED)) AS angkatan_masuk,
@@ -85,7 +83,7 @@ SELECT
         THEN 1 ELSE 0
     END AS is_lulus_tepat_waktu
 FROM data_akademik AS academic
-INNER JOIN prodi AS study_program ON study_program.id = academic.prodi_id
+INNER JOIN ref_prodi AS study_program ON study_program.kode_prodi = academic.kode_prodi
 WHERE study_program.jenjang = 'S1'
   AND academic.status_mahasiswa = 'Lulus'
 SQL

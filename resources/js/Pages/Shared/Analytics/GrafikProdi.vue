@@ -43,7 +43,7 @@ const defaultProdiId = (payload) => {
 };
 
 // ID prodi aktif yang dikirim ke endpoint JSON.
-const selectedProdiId = ref(String(props.analytics?.filters?.selected_prodi_id || defaultProdiId(props.analytics)));
+const selectedProdiId = ref(String(props.analytics?.filters?.selected_kode_prodi || defaultProdiId(props.analytics)));
 // ID bagian pertanyaan aktif yang dikirim ke endpoint JSON.
 const selectedSectionId = ref(String(props.analytics?.filters?.selected_section_id || ''));
 // Tahun lulusan aktif yang dikirim ke endpoint JSON.
@@ -214,7 +214,7 @@ const scheduleLoad = () => {
         selectedItem.value = null;
         activeQuestionContext.value = null;
         const params = new URLSearchParams({
-            prodi_id: selectedProdiId.value,
+            kode_prodi: selectedProdiId.value,
             section_id: selectedSectionId.value,
             tahun: selectedYear.value,
         });
@@ -489,7 +489,7 @@ watch(drillTotalPages, () => {
 // Menyelaraskan filter lokal setelah server mengembalikan payload baru.
 watch(() => props.analytics, (newAnalytics) => {
     currentAnalytics.value = newAnalytics;
-    selectedProdiId.value = String(newAnalytics?.filters?.selected_prodi_id || defaultProdiId(newAnalytics));
+    selectedProdiId.value = String(newAnalytics?.filters?.selected_kode_prodi || defaultProdiId(newAnalytics));
     selectedSectionId.value = String(newAnalytics?.filters?.selected_section_id || '');
     selectedYear.value = String(newAnalytics?.filters?.selected_year || 'ALL');
 }, { deep: true });

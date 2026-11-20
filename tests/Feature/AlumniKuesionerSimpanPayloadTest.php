@@ -52,13 +52,13 @@ class AlumniKuesionerSimpanPayloadTest extends TestCase
             'status_mahasiswa' => 'AR',
             'tahun_lulus' => '2020',
             'ipk' => 3.75,
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
         ]);
 
         $this->alumni = Biodata::create([
             'user_id' => $this->user->id,
             'nim' => '821220001',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'tahun_lulus' => '2020',
         ]);
 

@@ -30,7 +30,7 @@ class RoleDashboardDataService
         $selectedYear = $this->resolveYear($requestedYear, $availableYears);
         $auditRows = $this->scopedAuditQuery($scope, $scopeId, $selectedYear)->get();
         $prodis = $this->scopedProdis($scope, $scopeId);
-        $prodiIds = $prodis->pluck('id')->all();
+        $prodiIds = $prodis->pluck('kode_prodi')->all();
 
         $totalAlumni = $auditRows->count();
         $totalRespondents = $auditRows->where('is_complete_univ', 1)->count();
@@ -43,17 +43,17 @@ class RoleDashboardDataService
             ->count();
 
         $totalQuestions = $scope === 'prodi'
-            ? KuesionerSectionPertanyaan::whereHas('section', fn ($q) => $q->where('target', 'prodi')->where('prodi_id', $scopeId))->distinct('pertanyaan_id')->count('pertanyaan_id')
+            ? KuesionerSectionPertanyaan::whereHas('section', fn ($q) => $q->where('target', 'prodi')->where('kode_prodi', $scopeId))->distinct('pertanyaan_id')->count('pertanyaan_id')
             : KuesionerSectionPertanyaan::whereHas('section', fn ($q) => $q->where('target', 'univ'))->distinct('pertanyaan_id')->count('pertanyaan_id');
         $totalSections = $scope === 'prodi'
-            ? KuesionerSection::where('target', 'prodi')->where('prodi_id', $scopeId)->count()
+            ? KuesionerSection::where('target', 'prodi')->where('kode_prodi', $scopeId)->count()
             : KuesionerSection::where('target', 'univ')->count();
 
         $pendingCompaniesQuery = Perusahaan::where('status_verifikasi', 'Menunggu Verifikasi');
         if ($scope === 'prodi') {
-            $pendingCompaniesQuery->where('created_by_prodi_id', $scopeId);
+            $pendingCompaniesQuery->where('created_by_kode_prodi', $scopeId);
         } elseif ($scope === 'fakultas') {
-            $pendingCompaniesQuery->whereIn('created_by_prodi_id', $prodiIds);
+            $pendingCompaniesQuery->whereIn('created_by_kode_prodi', $prodiIds);
         }
 
         $totalLinkedIn = $auditRows->filter(function (object $row): bool {
@@ -128,8 +128,8 @@ class RoleDashboardDataService
     {
         return DB::table('v_alumni_audit_rekap')
             ->where('tahun_lulus', $selectedYear)
-            ->when($scope === 'prodi', fn ($query) => $query->where('prodi_id', $scopeId))
-            ->when($scope === 'fakultas', fn ($query) => $query->where('fakultas_id', $scopeId));
+            ->when($scope === 'prodi', fn ($query) => $query->where('kode_prodi', $scopeId))
+            ->when($scope === 'fakultas', fn ($query) => $query->where('kode_fakultas', $scopeId));
     }
 
     /**
@@ -139,7 +139,7 @@ class RoleDashboardDataService
     {
         return Prodi::query()
             ->when($scope === 'prodi', fn ($query) => $query->whereKey($scopeId))
-            ->when($scope === 'fakultas', fn ($query) => $query->where('fakultas_id', $scopeId))
+            ->when($scope === 'fakultas', fn ($query) => $query->where('kode_fakultas', $scopeId))
             ->orderBy('kode_prodi')
             ->get();
     }
@@ -153,13 +153,12 @@ class RoleDashboardDataService
     private function buildProdiSummaries(Collection $prodis, Collection $auditRows): Collection
     {
         return $prodis->map(function (Prodi $prodi) use ($auditRows): array {
-            $rows = $auditRows->where('prodi_id', $prodi->id);
+            $rows = $auditRows->where('kode_prodi', $prodi->kode_prodi);
             $total = $rows->count();
             $respondents = $rows->where('is_complete_univ', 1)->count();
             $rate = $this->percentage($respondents, $total);
 
             return [
-                'id' => $prodi->id,
                 'kode_prodi' => $prodi->kode_prodi,
                 'nama_prodi' => $prodi->nama_prodi,
                 'total_alumni' => $total,
@@ -250,7 +249,7 @@ class RoleDashboardDataService
         }
 
         return KuesionerSection::where('target', 'prodi')
-            ->where('prodi_id', $scopeId)
+            ->where('kode_prodi', $scopeId)
             ->withCount('sectionPertanyaan')
             ->orderBy('order')
             ->get()

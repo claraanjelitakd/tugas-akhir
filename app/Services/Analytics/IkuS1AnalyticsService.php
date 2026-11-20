@@ -56,12 +56,12 @@ class IkuS1AnalyticsService
      *
      * @return array<string, mixed> Payload chart, tabel, ringkasan, dan metodologi.
      */
-    public function buildAeeChart(?string $selectedYear = null, ?int $prodiId = null): array
+    public function buildAeeChart(?string $selectedYear = null, ?string $prodiId = null): array
     {
         $query = DB::table('v_iku_s1_aee')->where('status_mahasiswa', 'Lulus');
         $this->applyFilters($query, $selectedYear, $prodiId);
         $records = $query->orderBy('nama_prodi')->orderBy('nim')->get();
-        $series = $records->groupBy('prodi_id')->map(function (Collection $rows): array {
+        $series = $records->groupBy('kode_prodi')->map(function (Collection $rows): array {
             $first = $rows->first();
             $population = $rows->count();
             $excluded = $rows->where('is_excluded', 1)->count();
@@ -81,7 +81,7 @@ class IkuS1AnalyticsService
             $status = $this->aeeStatus($realization);
 
             return [
-                'prodi_id' => (int) $first->prodi_id,
+                'kode_prodi' => $first->kode_prodi,
                 'label' => $first->nama_prodi,
                 'nama_prodi' => $first->nama_prodi,
                 'jenjang' => $first->jenjang,
@@ -130,7 +130,7 @@ class IkuS1AnalyticsService
                 'aee_ideal' => $overallAeeIdeal,
                 'aee_pt' => $programAchievements->isNotEmpty() ? round($programAchievements->avg(), 2) : 0.0,
                 'program_count' => $series->count(),
-                'top_program_id' => $topProgram['prodi_id'] ?? null,
+                'top_program_id' => $topProgram['kode_prodi'] ?? null,
                 'top_program_label' => $topProgram['nama_prodi'] ?? null,
                 'top_program_aee' => $topProgram['aee_realization'] ?? null,
                 'status_target' => (float) config('iku.s1.aee_status_target', 60.0),
@@ -145,7 +145,7 @@ class IkuS1AnalyticsService
                 'academic_id' => (int) $row->academic_id,
                 'nim' => $row->nim,
                 'nama' => $row->nama,
-                'prodi_id' => (int) $row->prodi_id,
+                'kode_prodi' => $row->kode_prodi,
                 'nama_prodi' => $row->nama_prodi,
                 'angkatan_masuk' => $row->angkatan_masuk,
                 'tahun_akademik_masuk' => $row->tahun_akademik_masuk,
@@ -167,7 +167,7 @@ class IkuS1AnalyticsService
      * @param  int|null  $umpYear  Tahun UMP yang dipakai sebagai ambang gaji.
      * @return array<string, mixed> Payload chart bobot karier dan rincian responden.
      */
-    public function buildOutcomeChart(?int $umpYear = null, ?string $selectedYear = null, ?int $prodiId = null): array
+    public function buildOutcomeChart(?int $umpYear = null, ?string $selectedYear = null, ?string $prodiId = null): array
     {
         $classified = $this->classifiedOutcomes($umpYear, $selectedYear, $prodiId);
         $valid = $classified
@@ -240,7 +240,7 @@ class IkuS1AnalyticsService
      * @param  int|null  $umpYear  Tahun UMP yang dipakai sebagai ambang.
      * @return array<string, mixed> Payload perbandingan UMP berbobot.
      */
-    public function buildUmpWeightedChart(?int $umpYear = null, ?string $selectedYear = null, ?int $prodiId = null): array
+    public function buildUmpWeightedChart(?int $umpYear = null, ?string $selectedYear = null, ?string $prodiId = null): array
     {
         $classified = $this->classifiedOutcomes($umpYear, $selectedYear, $prodiId);
         $valid = $classified
@@ -362,7 +362,7 @@ class IkuS1AnalyticsService
      * Mengklasifikasikan seluruh lulusan S1 sekali untuk dipakai oleh dua
      * grafik IKU agar formula dan rincian individu tidak bercabang berbeda.
      */
-    private function classifiedOutcomes(?int $umpYear, ?string $selectedYear = null, ?int $prodiId = null): Collection
+    private function classifiedOutcomes(?int $umpYear, ?string $selectedYear = null, ?string $prodiId = null): Collection
     {
         $umpRows = $this->umpRows($umpYear);
         $query = DB::table('v_iku_s1_lulusan as graduate')
@@ -406,10 +406,10 @@ class IkuS1AnalyticsService
      * @param  int|null  $prodiId  Program studi opsional.
      * @param  string|null  $tableAlias  Alias read-model untuk kolom filter.
      */
-    private function applyFilters(Builder $query, ?string $selectedYear, ?int $prodiId, ?string $tableAlias = null): void
+    private function applyFilters(Builder $query, ?string $selectedYear, ?string $prodiId, ?string $tableAlias = null): void
     {
         $yearColumn = $tableAlias ? $tableAlias.'.tahun_lulus' : 'tahun_lulus';
-        $prodiColumn = $tableAlias ? $tableAlias.'.prodi_id' : 'prodi_id';
+        $prodiColumn = $tableAlias ? $tableAlias.'.kode_prodi' : 'kode_prodi';
 
         if ($selectedYear !== null && $selectedYear !== 'ALL') {
             $query->where($yearColumn, (int) $selectedYear);
@@ -462,7 +462,7 @@ class IkuS1AnalyticsService
             'biodata_id' => $row->biodata_id ? (int) $row->biodata_id : null,
             'nim' => $row->nim,
             'nama' => $row->nama,
-            'prodi_id' => (int) $row->prodi_id,
+            'kode_prodi' => $row->kode_prodi,
             'nama_prodi' => $row->nama_prodi,
             'career_category' => $category,
             'status_karier' => $row->status_karier,

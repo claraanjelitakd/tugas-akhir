@@ -28,18 +28,19 @@ class KelolaOpsiController extends Controller
         $pertanyaan = KuesionerPertanyaan::findOrFail($questionId);
 
         $validated = $request->validate([
-            'code' => 'required|string|max:50',
+            'code' => 'nullable|string|max:50',
             'option_text' => 'required|string',
             'jump_to' => 'nullable|string|max:50',
             'order' => 'nullable|integer',
         ]);
 
         $order = $validated['order'] ?? (($pertanyaan->opsi()->max('order') ?? 0) + 1);
+        $code = trim($validated['code'] ?? '') ?: $pertanyaan->kode_pertanyaan.'-'.str_pad((string) $order, 2, '0', STR_PAD_LEFT);
 
         $option = KuesionerOpsi::updateOrCreate(
             [
                 'pertanyaan_id' => $pertanyaan->id,
-                'kode_opsi' => trim($validated['code']),
+                'kode_opsi' => $code,
             ],
             [
                 'label' => trim($validated['option_text']),

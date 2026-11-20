@@ -90,7 +90,7 @@ class LoginAuthenticationTest extends TestCase
         $prodi = Prodi::create([
             'kode_prodi' => '72',
             'nama_prodi' => 'Sistem Informasi',
-            'fakultas_id' => $fakultas->id,
+            'kode_fakultas' => $fakultas->kode_fakultas,
         ]);
 
         $adminProdi = User::create([
@@ -99,7 +99,7 @@ class LoginAuthenticationTest extends TestCase
             'email' => 'admin_si@ukdw.ac.id',
             'password' => Hash::make('password123'),
             'role' => 'admin_prodi',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 

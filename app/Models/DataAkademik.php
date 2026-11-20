@@ -24,11 +24,17 @@ class DataAkademik extends Model
 
     protected $table = 'data_akademik';
 
+    protected $primaryKey = 'nim';
+
+    protected $keyType = 'string';
+
+    public $incrementing = false;
+
     protected $fillable = [
         'nim',
         'nama',
         'email_pribadi',
-        'prodi_id',
+        'kode_prodi',
         'angkatan_masuk',
         'tahun_akademik_masuk',
         'tanggal_lahir',

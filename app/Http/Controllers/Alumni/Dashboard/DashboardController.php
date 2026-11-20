@@ -63,7 +63,7 @@ class DashboardController extends Controller
             $questionnaireMissing = $eval['questionnaire']['missing_questions'] ?? [];
 
             // Evaluasi Kuesioner Program Studi berbasis view v_alumni_tracer_prodi_status
-            if ($biodata->prodi_id) {
+            if ($biodata->kode_prodi) {
                 $prodiStatus = DB::table('v_alumni_tracer_prodi_status')
                     ->where('biodata_id', $biodata->id)
                     ->first();

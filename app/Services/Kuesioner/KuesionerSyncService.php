@@ -380,7 +380,7 @@ class KuesionerSyncService
      */
     public static function syncProdiResponses(Biodata $biodata): void
     {
-        if (! $biodata->prodi_id) {
+        if (! $biodata->kode_prodi) {
             return;
         }
 
@@ -388,7 +388,7 @@ class KuesionerSyncService
             ->where('is_active', true)
             ->whereHas('sections', function ($query) use ($biodata) {
                 $query->where('kuesioner_section.target', 'prodi')
-                    ->where('kuesioner_section.prodi_id', $biodata->prodi_id)
+                    ->where('kuesioner_section.kode_prodi', $biodata->kode_prodi)
                     ->where('kuesioner_section_pertanyaan.is_active', true);
             })
             ->get();
@@ -408,7 +408,7 @@ class KuesionerSyncService
         ];
 
         $sec = KuesionerSection::where('target', 'prodi')
-            ->where('prodi_id', $biodata->prodi_id)
+            ->where('kode_prodi', $biodata->kode_prodi)
             ->first();
         $secId = $sec?->id ?: 1;
 

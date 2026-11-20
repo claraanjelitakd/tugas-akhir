@@ -29,8 +29,8 @@ const props = defineProps({
 
 const search = ref(props.filters.search || '');
 const selectedRole = ref(props.filters.role || 'all');
-const selectedProdi = ref(props.filters.prodi_id || '');
-const selectedFakultas = ref(props.filters.fakultas_id || '');
+const selectedProdi = ref(props.filters.kode_prodi || '');
+const selectedFakultas = ref(props.filters.kode_fakultas || '');
 const isSyncing = ref(false);
 
 // State Modal Sinkronisasi Akun Lulusan dengan Checklist
@@ -178,8 +178,8 @@ const applyFilters = () => {
     router.get('/superadmin/manajemen-akun', {
         search: search.value || undefined,
         role: selectedRole.value !== 'all' ? selectedRole.value : undefined,
-        prodi_id: selectedProdi.value || undefined,
-        fakultas_id: selectedFakultas.value || undefined,
+        kode_prodi: selectedProdi.value || undefined,
+        kode_fakultas: selectedFakultas.value || undefined,
     }, { preserveState: true, replace: true });
 };
 
@@ -199,8 +199,8 @@ const editForm = ref({
     email: '',
     username: '',
     role: 'alumni',
-    prodi_id: '',
-    fakultas_id: '',
+    kode_prodi: '',
+    kode_fakultas: '',
 });
 // Menampung pesan error validasi input
 const editErrors = ref({});
@@ -221,15 +221,15 @@ const openEditUserModal = (u) => {
     editErrors.value = {};
     editingUserId.value = u.id;
 
-    const currentFakultasId = u.fakultas_id || u.prodi?.fakultas_id || u.prodi?.fakultas?.id || '';
+    const currentFakultasId = u.kode_fakultas || u.prodi?.kode_fakultas || u.prodi?.fakultas?.kode_fakultas || '';
 
     editForm.value = {
         name: u.name || '',
         email: u.email || '',
         username: u.username || '',
         role: u.role || 'alumni',
-        prodi_id: u.prodi_id || '',
-        fakultas_id: currentFakultasId,
+        kode_prodi: u.kode_prodi || '',
+        kode_fakultas: currentFakultasId,
     };
 
     isEditModalOpen.value = true;
@@ -250,10 +250,10 @@ const closeEditUserModal = () => {
  * Saat Program Studi dipilih, Fakultas yang menaunginya akan otomatis terpilih secara cerdas.
  */
 const handleProdiChange = () => {
-    if (!editForm.value.prodi_id) return;
-    const foundProdi = props.prodis.find((p) => p.id == editForm.value.prodi_id);
-    if (foundProdi && foundProdi.fakultas_id) {
-        editForm.value.fakultas_id = foundProdi.fakultas_id;
+    if (!editForm.value.kode_prodi) return;
+    const foundProdi = props.prodis.find((p) => p.kode_prodi == editForm.value.kode_prodi);
+    if (foundProdi && foundProdi.kode_fakultas) {
+        editForm.value.kode_fakultas = foundProdi.kode_fakultas;
     }
 };
 
@@ -273,11 +273,11 @@ const submitEditUser = () => {
     if (!editForm.value.username.trim()) {
         editErrors.value.username = 'Username / NIM wajib diisi.';
     }
-    if (editForm.value.role === 'admin_fakultas' && !editForm.value.fakultas_id) {
-        editErrors.value.fakultas_id = 'Fakultas wajib dipilih untuk Admin Fakultas.';
+    if (editForm.value.role === 'admin_fakultas' && !editForm.value.kode_fakultas) {
+        editErrors.value.kode_fakultas = 'Fakultas wajib dipilih untuk Admin Fakultas.';
     }
-    if (editForm.value.role === 'admin_prodi' && !editForm.value.prodi_id) {
-        editErrors.value.prodi_id = 'Program studi wajib dipilih untuk Admin Prodi.';
+    if (editForm.value.role === 'admin_prodi' && !editForm.value.kode_prodi) {
+        editErrors.value.kode_prodi = 'Program studi wajib dipilih untuk Admin Prodi.';
     }
 
     if (Object.keys(editErrors.value).length > 0) {
@@ -648,7 +648,7 @@ const handleSendPasswordResetLink = (userData) => {
                                     <span v-if="editForm.role === 'admin_prodi'" class="text-rose-600">*</span>
                                 </label>
                                 <select
-                                    v-model="editForm.prodi_id"
+                                    v-model="editForm.kode_prodi"
                                     @change="handleProdiChange"
                                     class="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
                                 >
@@ -657,8 +657,8 @@ const handleSendPasswordResetLink = (userData) => {
                                         {{ p.nama_prodi }}
                                     </option>
                                 </select>
-                                <p v-if="editErrors.prodi_id" class="text-rose-600 text-[11px] mt-1 font-medium">
-                                    {{ editErrors.prodi_id }}
+                                <p v-if="editErrors.kode_prodi" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                    {{ editErrors.kode_prodi }}
                                 </p>
                             </div>
 
@@ -668,7 +668,7 @@ const handleSendPasswordResetLink = (userData) => {
                                     <span v-if="editForm.role === 'admin_fakultas'" class="text-rose-600">*</span>
                                 </label>
                                 <select
-                                    v-model="editForm.fakultas_id"
+                                    v-model="editForm.kode_fakultas"
                                     class="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
                                 >
                                     <option value="">-- Pilih Fakultas --</option>
@@ -676,8 +676,8 @@ const handleSendPasswordResetLink = (userData) => {
                                         {{ f.nama_fakultas }}
                                     </option>
                                 </select>
-                                <p v-if="editErrors.fakultas_id" class="text-rose-600 text-[11px] mt-1 font-medium">
-                                    {{ editErrors.fakultas_id }}
+                                <p v-if="editErrors.kode_fakultas" class="text-rose-600 text-[11px] mt-1 font-medium">
+                                    {{ editErrors.kode_fakultas }}
                                 </p>
                             </div>
                         </div>

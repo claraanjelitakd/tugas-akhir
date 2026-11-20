@@ -158,7 +158,7 @@ const stepperTabs = computed(() => {
         },
     ];
 
-    if (props.alumni?.prodi_id) {
+    if (props.alumni?.kode_prodi) {
         list.push({
             id: 'kuesioner_prodi',
             title: 'Kuesioner Prodi',

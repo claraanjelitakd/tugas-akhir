@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Alumni\Kuesioner;
 
 use App\Http\Controllers\Controller;
+use App\Models\Kuesioner;
 use App\Models\KuesionerJawaban;
 use App\Models\KuesionerSection;
 use App\Services\Kuesioner\KuesionerSyncService;
@@ -29,7 +30,7 @@ class KuesionerProdiController extends Controller
         $user = Auth::user();
         $biodata = $user->biodata;
 
-        if (! $biodata || ! $biodata->prodi_id) {
+        if (! $biodata || ! $biodata->kode_prodi) {
             return Inertia::render('Alumni/KuesionerProdi', [
                 'prodi' => null,
                 'sections' => [],
@@ -47,7 +48,7 @@ class KuesionerProdiController extends Controller
 
         // Ambil section kuesioner khusus prodi aktif
         $rawSections = KuesionerSection::where('target', 'prodi')
-            ->where('prodi_id', $biodata->prodi_id)
+            ->where('kode_prodi', $biodata->kode_prodi)
             ->where('is_active', true)
             ->with(['pertanyaan' => function ($query) {
                 $query->where('kuesioner_pertanyaan.is_active', true)
@@ -167,6 +168,7 @@ class KuesionerProdiController extends Controller
                             'pertanyaan_id' => $qId,
                         ],
                         [
+                            'kuesioner_id' => Kuesioner::where('is_active', true)->value('id') ?? Kuesioner::value('id'),
                             'section_id' => $q['section_id'],
                             'evaluasi_atasan_id' => null,
                             'kode_pertanyaan' => $q['code'],
@@ -210,7 +212,7 @@ class KuesionerProdiController extends Controller
         $user = Auth::user();
         $biodata = $user->biodata;
 
-        if (! $biodata || ! $biodata->prodi_id) {
+        if (! $biodata || ! $biodata->kode_prodi) {
             return redirect()->back()->with('error', 'Profil alumni tidak valid.');
         }
 
@@ -222,7 +224,7 @@ class KuesionerProdiController extends Controller
 
         // Ambil seluruh section kuesioner prodi yang aktif beserta butir pertanyaannya
         $prodiSections = KuesionerSection::where('target', 'prodi')
-            ->where('prodi_id', $biodata->prodi_id)
+            ->where('kode_prodi', $biodata->kode_prodi)
             ->where('is_active', true)
             ->with(['pertanyaan' => function ($query) {
                 $query->where('kuesioner_pertanyaan.is_active', true)
@@ -323,6 +325,7 @@ class KuesionerProdiController extends Controller
                         'pertanyaan_id' => $q->id,
                     ],
                     [
+                        'kuesioner_id' => Kuesioner::where('is_active', true)->value('id') ?? Kuesioner::value('id'),
                         'section_id' => $q->current_section_id ?? $q->pivot?->section_id,
                         'evaluasi_atasan_id' => null,
                         'kode_pertanyaan' => $q->kode_pertanyaan,

@@ -26,7 +26,7 @@ class MultiRoleAnalyticsAndLinkedInAccessTest extends TestCase
         $prodi = Prodi::create([
             'kode_prodi' => '72',
             'nama_prodi' => 'Sistem Informasi',
-            'fakultas_id' => $fakultas->id,
+            'kode_fakultas' => $fakultas->kode_fakultas,
         ]);
 
         $adminProdi = User::create([
@@ -34,7 +34,7 @@ class MultiRoleAnalyticsAndLinkedInAccessTest extends TestCase
             'name' => 'Admin Prodi SI',
             'password' => Hash::make('password123'),
             'role' => 'admin_prodi',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'status_akun' => 'aktif',
             'must_change_password' => false,
         ]);
@@ -44,7 +44,7 @@ class MultiRoleAnalyticsAndLinkedInAccessTest extends TestCase
             'name' => 'Admin FTI',
             'password' => Hash::make('password123'),
             'role' => 'admin_fakultas',
-            'fakultas_id' => $fakultas->id,
+            'kode_fakultas' => $fakultas->kode_fakultas,
             'status_akun' => 'aktif',
             'must_change_password' => false,
         ]);

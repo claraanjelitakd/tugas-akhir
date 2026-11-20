@@ -56,7 +56,7 @@ class AlumniDashboardPercentageTest extends TestCase
             'user_id' => $this->alumniUser->id,
             'nim' => '721220001',
             'nama' => 'Budi Santoso',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'posisi_jabatan' => 'Software Engineer',
             'skills' => 'Fullstack Web',
             'experience' => 'Cloud Computing',

@@ -40,7 +40,7 @@ const canContactRecord = (record) => {
     }
 
     return role === 'admin_prodi'
-        && String(props.user?.prodi_id || '') === String(record?.prodi_id || '');
+        && String(props.user?.kode_prodi || '') === String(record?.kode_prodi || '');
 };
 
 // Event seleksi data diteruskan ke panel induk untuk cross-filtering.
@@ -303,7 +303,7 @@ const stackedBarOption = computed(() => {
                 data: list.map((item) => ({
                     name: item.nama_prodi,
                     value: item.response_rate,
-                    prodi_id: item.prodi_id,
+                    kode_prodi: item.kode_prodi,
                     series_status: 'sudah',
                 })),
             },
@@ -334,7 +334,7 @@ const stackedBarOption = computed(() => {
                 data: list.map((item) => ({
                     name: item.nama_prodi,
                     value: item.unanswered_rate,
-                    prodi_id: item.prodi_id,
+                    kode_prodi: item.kode_prodi,
                     series_status: 'belum',
                 })),
             },
@@ -431,7 +431,7 @@ const rankingChartOption = computed(() => {
                 data: list.map((item) => ({
                     name: item.nama_prodi,
                     value: item.response_rate,
-                    prodi_id: item.prodi_id,
+                    kode_prodi: item.kode_prodi,
                     respondents: item.respondents,
                     population: item.population,
                     series_status: 'all',
@@ -579,7 +579,7 @@ const participationBarOption = computed(() => {
                     value: item.respondents,
                     response_rate: item.response_rate,
                     target: item.target,
-                    prodi_id: item.prodi_id,
+                    kode_prodi: item.kode_prodi,
                     series_status: 'sudah',
                     itemStyle: {
                         color: participationColor(item),
@@ -613,7 +613,7 @@ const participationBarOption = computed(() => {
                     value: item.unanswered,
                     respondents: item.respondents,
                     population: item.population,
-                    prodi_id: item.prodi_id,
+                    kode_prodi: item.kode_prodi,
                     series_status: 'belum',
                     itemStyle: {
                         color: '#CBD5E1',
@@ -644,7 +644,7 @@ const handleChartClick = (params) => {
     selectedProdiName.value = prodi;
     selectedStatus.value = seriesStatus;
     forceShowTable.value = true;
-    emit('select', { label: prodi, status: seriesStatus, prodi_id: params.data?.prodi_id });
+    emit('select', { label: prodi, status: seriesStatus, kode_prodi: params.data?.kode_prodi });
 };
 
 // Reset seleksi kembali ke keadaan awal.
@@ -748,11 +748,11 @@ const detailUrl = (record) => {
 // Unduh file Excel dari endpoint server-side resmi sesuai filter aktif.
 const downloadExcel = (statusTarget = null) => {
     const statusParam = statusTarget || selectedStatus.value || 'all';
-    const prodiIdParam = selectedProdiItem.value?.prodi_id || '';
+    const prodiIdParam = selectedProdiItem.value?.kode_prodi || '';
     // Gunakan tahun aktif dari filter; jika kosong, endpoint menafsirkan ALL.
     const yearParam = activeYear.value || 'ALL';
 
-    const url = `/${routePrefix.value}/analitik/export-response-rate?tahun=${encodeURIComponent(yearParam)}&prodi_id=${encodeURIComponent(prodiIdParam)}&status=${encodeURIComponent(statusParam)}`;
+    const url = `/${routePrefix.value}/analitik/export-response-rate?tahun=${encodeURIComponent(yearParam)}&kode_prodi=${encodeURIComponent(prodiIdParam)}&status=${encodeURIComponent(statusParam)}`;
     window.location.href = url;
 };
 </script>
@@ -835,7 +835,7 @@ const downloadExcel = (statusTarget = null) => {
                         <tbody class="divide-y divide-slate-100 bg-white">
                             <tr
                                 v-for="(item, idx) in [...displaySeries].sort((a, b) => sortAsc ? a.response_rate - b.response_rate : b.response_rate - a.response_rate)"
-                                :key="item.prodi_id || idx"
+                                :key="item.kode_prodi || idx"
                                 class="hover:bg-slate-50/70 transition-colors"
                                 :class="selectedProdiName === item.nama_prodi ? 'bg-emerald-50/40 font-semibold' : ''"
                             >

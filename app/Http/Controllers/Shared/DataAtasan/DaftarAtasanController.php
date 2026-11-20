@@ -57,11 +57,11 @@ class DaftarAtasanController extends Controller
 
         $masterOptions = [
             'alumni' => Biodata::query()
-                ->when($role === 'admin_prodi', fn ($q) => $q->where('prodi_id', $user->prodi_id))
-                ->when($role === 'admin_fakultas', fn ($q) => $q->whereHas('prodi', fn ($pq) => $pq->where('fakultas_id', $user->fakultas_id)))
-                ->with(['dataAkademik:nim,nama,tahun_lulus', 'prodi:id,kode_prodi,nama_prodi'])
+                ->when($role === 'admin_prodi', fn ($q) => $q->where('kode_prodi', $user->kode_prodi))
+                ->when($role === 'admin_fakultas', fn ($q) => $q->whereHas('prodi', fn ($pq) => $pq->where('kode_fakultas', $user->kode_fakultas)))
+                ->with(['dataAkademik:nim,nama,tahun_lulus', 'prodi:kode_prodi,nama_prodi'])
                 ->orderBy('nim')
-                ->get(['id', 'nim', 'prodi_id', 'atasan_id', 'perusahaan_id'])
+                ->get(['id', 'nim', 'kode_prodi', 'atasan_id', 'perusahaan_id'])
                 ->map(fn (Biodata $biodata): array => [
                     'id' => $biodata->id,
                     'nim' => $biodata->nim,
@@ -125,12 +125,12 @@ class DaftarAtasanController extends Controller
         ]);
 
         $biodata = Biodata::query()->findOrFail($validated['biodata_id']);
-        if ($user->role === 'admin_prodi' && (int) $biodata->prodi_id !== (int) $user->prodi_id) {
+        if ($user->role === 'admin_prodi' && $biodata->kode_prodi !== $user->kode_prodi) {
             abort(403, 'Anda tidak berwenang mengelola data atasan alumni di luar program studi Anda.');
         }
         if ($user->role === 'admin_fakultas') {
-            $fakultasProdiIds = Prodi::where('fakultas_id', $user->fakultas_id)->pluck('id')->all();
-            abort_unless(in_array((int) $biodata->prodi_id, $fakultasProdiIds, true), 403, 'Anda tidak berwenang mengelola data atasan alumni di luar fakultas Anda.');
+            $fakultasProdiIds = Prodi::where('kode_fakultas', $user->kode_fakultas)->pluck('kode_prodi')->all();
+            abort_unless(in_array($biodata->kode_prodi, $fakultasProdiIds, true), 403, 'Anda tidak berwenang mengelola data atasan alumni di luar fakultas Anda.');
         }
 
         DB::transaction(function () use ($validated, $biodata): void {
@@ -189,11 +189,11 @@ class DaftarAtasanController extends Controller
         $atasan = Atasan::query()->findOrFail($id);
 
         if ($user->role === 'admin_prodi') {
-            $hasAccess = Biodata::where('atasan_id', $atasan->id)->where('prodi_id', $user->prodi_id)->exists();
+            $hasAccess = Biodata::where('atasan_id', $atasan->id)->where('kode_prodi', $user->kode_prodi)->exists();
             abort_unless($hasAccess, 403, 'Anda tidak berwenang mengelola data atasan alumni di luar program studi Anda.');
         } elseif ($user->role === 'admin_fakultas') {
-            $fakultasProdiIds = Prodi::where('fakultas_id', $user->fakultas_id)->pluck('id')->all();
-            $hasAccess = Biodata::where('atasan_id', $atasan->id)->whereIn('prodi_id', $fakultasProdiIds)->exists();
+            $fakultasProdiIds = Prodi::where('kode_fakultas', $user->kode_fakultas)->pluck('kode_prodi')->all();
+            $hasAccess = Biodata::where('atasan_id', $atasan->id)->whereIn('kode_prodi', $fakultasProdiIds)->exists();
             abort_unless($hasAccess, 403, 'Anda tidak berwenang mengelola data atasan alumni di luar fakultas Anda.');
         }
 
@@ -257,7 +257,7 @@ class DaftarAtasanController extends Controller
             'no_telp_fax' => $validated['no_telp_fax'] ?? null,
             'status_verifikasi' => 'Menunggu Verifikasi',
             'created_by_user_id' => $request->user()?->id,
-            'created_by_prodi_id' => $request->user()?->prodi_id,
+            'created_by_kode_prodi' => $request->user()?->kode_prodi,
         ]);
 
         if ($request->wantsJson()) {

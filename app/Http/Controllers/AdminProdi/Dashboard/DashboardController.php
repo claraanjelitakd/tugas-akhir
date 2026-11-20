@@ -23,7 +23,7 @@ class DashboardController extends Controller
         /** @var User $user */
         $user = Auth::user();
         $user->load('prodi');
-        $dashboard = $dashboardData->build('prodi', $user->prodi_id, $request->string('tahun')->toString());
+        $dashboard = $dashboardData->build('prodi', $user->kode_prodi, $request->string('tahun')->toString());
         $stats = $dashboard['stats'];
 
         return Inertia::render('AdminProdi/Dashboard', [

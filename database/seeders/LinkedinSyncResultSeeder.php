@@ -63,9 +63,9 @@ class LinkedinSyncResultSeeder extends Seeder
                         $biodata->saveQuietly();
                     }
 
-                    $reviewedBy = $item['reviewed_by'] ?? null;
-                    if ($reviewedBy && ! User::where('id', $reviewedBy)->exists()) {
-                        $reviewedBy = User::where('role', 'superadmin')->value('id');
+                    $userId = $item['user_id'] ?? $item['reviewed_by'] ?? null;
+                    if ($userId && ! User::where('id', $userId)->exists()) {
+                        $userId = User::where('role', 'superadmin')->value('id');
                     }
 
                     LinkedinSyncResult::updateOrCreate(
@@ -77,7 +77,7 @@ class LinkedinSyncResultSeeder extends Seeder
                             'linkedin_username' => $item['linkedin_username'] ?? null,
                             'scraped_data' => $item['scraped_data'] ?? [],
                             'status' => $item['status'] ?? 'pending',
-                            'reviewed_by' => $reviewedBy,
+                            'user_id' => $userId,
                             'reviewed_at' => ! empty($item['reviewed_at']) ? Carbon::parse($item['reviewed_at']) : null,
                             'scraped_at' => ! empty($item['scraped_at']) ? Carbon::parse($item['scraped_at']) : now(),
                         ]
@@ -218,7 +218,7 @@ class LinkedinSyncResultSeeder extends Seeder
                     'linkedin_username' => $res->linkedin_username,
                     'scraped_data' => $res->scraped_data,
                     'status' => $res->status,
-                    'reviewed_by' => $res->reviewed_by,
+                    'user_id' => $res->user_id,
                     'reviewed_at' => $res->reviewed_at?->toIso8601String(),
                     'scraped_at' => $res->scraped_at?->toIso8601String(),
                 ];

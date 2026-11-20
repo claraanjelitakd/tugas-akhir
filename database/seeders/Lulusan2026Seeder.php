@@ -160,7 +160,7 @@ class Lulusan2026Seeder extends Seeder
                 [
                     'nama' => $item['nama'],
                     'email_pribadi' => $personalEmail,
-                    'prodi_id' => $item['prodi']?->id,
+                    'kode_prodi' => $item['prodi']?->kode_prodi,
                     'angkatan_masuk' => 2022,
                     'status_mahasiswa' => 'Lulus',
                     'tahun_akademik_lulus' => 'Genap 2025/2026',
@@ -197,7 +197,7 @@ class Lulusan2026Seeder extends Seeder
                     'email' => $personalEmail,
                     'password' => Hash::make($defaultDobPassword),
                     'role' => 'alumni',
-                    'prodi_id' => $item['prodi']?->id,
+                    'kode_prodi' => $item['prodi']?->kode_prodi,
                     'must_change_password' => true,
                 ]
             );
@@ -207,8 +207,7 @@ class Lulusan2026Seeder extends Seeder
                 ['nim' => $nim],
                 [
                     'user_id' => $user->id,
-                    'yudisium_id' => $yudisium->id,
-                    'prodi_id' => $item['prodi']?->id,
+                    'kode_prodi' => $item['prodi']?->kode_prodi,
                     // Seluruh data karier & perusahaan dikosongkan (NULL)
                     'perusahaan_id' => null,
                     'atasan_id' => null,

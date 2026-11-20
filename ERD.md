@@ -109,11 +109,11 @@ Setiap kotak entitas pada diagram di bawah ini **hanya menampilkan kolom kunci (
 
 ```mermaid
 erDiagram
-    ref_fakultas ||--o{ prodi : "menaungi"
+    ref_fakultas ||--o{ ref_prodi : "menaungi"
     ref_fakultas ||--o{ users : "cakupan_fakultas"
-    prodi ||--o{ users : "mengampu_admin"
-    prodi ||--o{ data_akademik : "program_akademik"
-    prodi ||--o{ biodata : "program_studi"
+    ref_prodi ||--o{ users : "mengampu_admin"
+    ref_prodi ||--o{ data_akademik : "program_akademik"
+    ref_prodi ||--o{ biodata : "program_studi"
     users ||--o| biodata : "memiliki_profil"
     users ||--o{ log_activities : "mencatat_audit"
     users ||--o{ linkedin_sync_results : "meninjau"
@@ -121,7 +121,6 @@ erDiagram
     users ||--o| account_sync_settings : "mengubah_pengaturan"
     data_akademik ||--o| biodata : "referensi_nim"
     data_akademik ||--o| yudisium : "kelulusan_nim"
-    yudisium ||--o| biodata : "kelulusan_yudisium"
     propinsi ||--o{ kabupaten : "memiliki_kota"
     propinsi ||--o{ ump : "standar_upah"
     propinsi ||--o{ biodata : "domisili_provinsi"
@@ -133,8 +132,10 @@ erDiagram
     perusahaan ||--o{ atasan : "instansi_atasan"
     atasan ||--o| biodata : "snapshot_atasan_per_alumni"
     biodata ||--o{ linkedin_sync_results : "staging_profil"
-    prodi ||--o{ kuesioner_section : "pemilik_section_prodi"
-    prodi ||--o{ kuesioner_pertanyaan : "pemilik_pertanyaan_prodi"
+    ref_prodi ||--o{ kuesioner_section : "pemilik_section_prodi"
+    ref_prodi ||--o{ kuesioner_pertanyaan : "pemilik_pertanyaan_prodi"
+    kuesioner ||--o{ kuesioner_section : "memiliki_bagian"
+    kuesioner ||--o{ kuesioner_jawaban : "periode_instrumen"
     kuesioner_section ||--o{ kuesioner_section_pertanyaan : "memuat_butir"
     kuesioner_pertanyaan ||--o{ kuesioner_section_pertanyaan : "ditempatkan_pada"
     kuesioner_pertanyaan ||--o{ kuesioner_opsi : "memiliki_opsi"
@@ -156,28 +157,26 @@ Modul ini menangani akun autentikasi multi-peran (`superadmin`, `admin_biro3`, `
 
 ```mermaid
 erDiagram
-    ref_fakultas ||--o{ prodi : "menaungi (fakultas_id)"
-    ref_fakultas ||--o{ users : "cakupan_fakultas (fakultas_id)"
-    prodi ||--o{ users : "cakupan_admin (prodi_id)"
+    ref_fakultas ||--o{ ref_prodi : "menaungi (kode_fakultas)"
+    ref_fakultas ||--o{ users : "cakupan_fakultas (kode_fakultas)"
+    ref_prodi ||--o{ users : "cakupan_admin (kode_prodi)"
     users ||--o{ log_activities : "mencatat (user_id)"
-    users ||--o| account_sync_settings : "mengubah_pengaturan (updated_by)"
+    users ||--o| account_sync_settings : "mengubah_pengaturan (user_id)"
 
     ref_fakultas {
-        bigint id PK
-        varchar kode_fakultas UK
+        char kode_fakultas PK
     }
 
-    prodi {
-        bigint id PK
-        bigint fakultas_id FK
-        varchar kode_prodi UK
+    ref_prodi {
+        char kode_prodi PK
+        char kode_fakultas FK
     }
 
     users {
         bigint id PK
         varchar username UK
-        bigint prodi_id FK
-        bigint fakultas_id FK
+        char kode_prodi FK
+        char kode_fakultas FK
     }
 
     log_activities {
@@ -187,7 +186,7 @@ erDiagram
 
     account_sync_settings {
         bigint id PK
-        bigint updated_by FK
+        bigint user_id FK
     }
 ```
 
@@ -230,42 +229,38 @@ Modul ini mengelola riwayat akademik mahasiswa (`data_akademik`), data yudisium 
 ```mermaid
 erDiagram
     users ||--o| biodata : "akun_login (user_id)"
-    prodi ||--o{ data_akademik : "program_akademik (prodi_id)"
+    ref_prodi ||--o{ data_akademik : "program_akademik (kode_prodi)"
     data_akademik ||--o| biodata : "master_nim (nim)"
     data_akademik ||--o| yudisium : "lulusan_nim (nim)"
-    yudisium ||--o| biodata : "data_skripsi (yudisium_id)"
-    prodi ||--o{ biodata : "jurusan (prodi_id)"
+    ref_prodi ||--o{ biodata : "jurusan (kode_prodi)"
     propinsi ||--o{ biodata : "domisili_provinsi (kode_provinsi)"
     kabupaten ||--o{ biodata : "domisili_kota (kode_kabupaten)"
     ref_negara ||--o{ perusahaan : "negara_asal (kode_negara)"
     propinsi ||--o{ perusahaan : "provinsi_kantor (kode_provinsi)"
     kabupaten ||--o{ perusahaan : "kota_kantor (kode_kabupaten)"
     users ||--o{ perusahaan : "diusulkan_oleh (created_by_user_id)"
-    prodi ||--o{ perusahaan : "asal_prodi (created_by_prodi_id)"
+    ref_prodi ||--o{ perusahaan : "asal_prodi (created_by_kode_prodi)"
     perusahaan ||--o{ biodata : "tempat_kerja (perusahaan_id)"
     perusahaan ||--o{ atasan : "instansi (perusahaan_id)"
     users ||--o{ atasan : "akun_atasan (user_id)"
     atasan ||--o| biodata : "snapshot_atasan_per_alumni (atasan_id)"
     biodata ||--o{ linkedin_sync_results : "riwayat_sync (biodata_id)"
-    users ||--o{ linkedin_sync_results : "diverifikasi_oleh (reviewed_by)"
+    users ||--o{ linkedin_sync_results : "diverifikasi_oleh (user_id)"
 
     data_akademik {
-        bigint id PK
-        char nim UK
-        bigint prodi_id FK
+        char nim PK
+        char kode_prodi FK
     }
 
     yudisium {
-        bigint id PK
-        char nim FK
+        char nim "PK,FK"
     }
 
     biodata {
         bigint id PK
         bigint user_id FK
         char nim FK
-        bigint yudisium_id FK
-        bigint prodi_id FK
+        char kode_prodi FK
         bigint perusahaan_id FK
         bigint atasan_id FK
         varchar kode_provinsi FK
@@ -278,7 +273,7 @@ erDiagram
         varchar kode_provinsi FK
         varchar kode_kabupaten FK
         bigint created_by_user_id FK
-        bigint created_by_prodi_id FK
+        char created_by_kode_prodi FK
     }
 
     atasan {
@@ -290,7 +285,7 @@ erDiagram
     linkedin_sync_results {
         bigint id PK
         bigint biodata_id FK
-        bigint reviewed_by FK
+        bigint user_id FK
     }
 ```
 
@@ -305,8 +300,10 @@ Modul instrumen survei terpadu yang melayani seluruh jenis instrumen kuesioner:
 
 ```mermaid
 erDiagram
-    prodi ||--o{ kuesioner_section : "pemilik_section (prodi_id)"
-    prodi ||--o{ kuesioner_pertanyaan : "pembuat_butir (pemilik_prodi_id)"
+    kuesioner ||--o{ kuesioner_section : "memiliki_bagian (kuesioner_id)"
+    kuesioner ||--o{ kuesioner_jawaban : "periode_survei (kuesioner_id)"
+    ref_prodi ||--o{ kuesioner_section : "pemilik_section (kode_prodi)"
+    ref_prodi ||--o{ kuesioner_pertanyaan : "pembuat_butir (pemilik_kode_prodi)"
     kuesioner_section ||--o{ kuesioner_section_pertanyaan : "memuat (section_id)"
     kuesioner_pertanyaan ||--o{ kuesioner_section_pertanyaan : "dikelompokkan (pertanyaan_id)"
     kuesioner_pertanyaan ||--o{ kuesioner_opsi : "menyediakan (pertanyaan_id)"
@@ -322,9 +319,8 @@ erDiagram
         varchar title "Judul instrumen survei"
     }
 
-    prodi {
-        bigint id PK
-        varchar kode_prodi UK
+    ref_prodi {
+        char kode_prodi PK
     }
 
     biodata {
@@ -340,16 +336,17 @@ erDiagram
 
     kuesioner_section {
         bigint id PK
+        bigint kuesioner_id FK
         varchar kode_section UK
         varchar target "univ/prodi/atasan"
-        bigint prodi_id FK
+        char kode_prodi FK
     }
 
     kuesioner_pertanyaan {
         bigint id PK
         varchar kode_pertanyaan UK
         varchar tipe "Tipe butir pertanyaan"
-        bigint pemilik_prodi_id FK
+        char pemilik_kode_prodi FK
     }
 
     kuesioner_section_pertanyaan {
@@ -366,6 +363,7 @@ erDiagram
 
     kuesioner_jawaban {
         bigint id PK
+        bigint kuesioner_id FK
         varchar responden_type "alumni/atasan"
         bigint biodata_id FK
         bigint evaluasi_atasan_id FK
@@ -501,45 +499,45 @@ Tabel berikut merinci seluruh relasi kunci asing (*Foreign Key*) dan referensi l
 
 | No | Tabel Induk (Parent) | Kunci Induk | Tabel Anak (Child) | Kolom FK / Referensi | Kardinalitas | Aturan `ON DELETE` | Deskripsi Relasi Bisnis |
 | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :--- |
-| 1 | `ref_fakultas` | `id` | `prodi` | `fakultas_id` | `1 : N` | `SET NULL` | Satu fakultas menaungi banyak program studi. |
-| 2 | `ref_fakultas` | `id` | `users` | `fakultas_id` | `1 : N` | `SET NULL` | Satu fakultas dapat dikelola oleh akun Admin Fakultas. |
-| 3 | `prodi` | `id` | `users` | `prodi_id` | `1 : N` | `SET NULL` | Satu prodi dapat dikelola oleh satu atau lebih akun Admin Prodi. |
-| 3a | `prodi` | `id` | `data_akademik` | `prodi_id` | `1 : N` | `SET NULL` | Program studi akademik mahasiswa, termasuk mahasiswa yang belum lulus dan belum memiliki biodata alumni. |
+| 1 | `ref_fakultas` | `kode_fakultas` | `ref_prodi` | `kode_fakultas` | `1 : N` | `SET NULL` | Satu fakultas menaungi banyak program studi. |
+| 2 | `ref_fakultas` | `kode_fakultas` | `users` | `kode_fakultas` | `1 : N` | `SET NULL` | Satu fakultas dapat dikelola oleh akun Admin Fakultas. |
+| 3 | `ref_prodi` | `kode_prodi` | `users` | `kode_prodi` | `1 : N` | `SET NULL` | Satu prodi dapat dikelola oleh satu atau lebih akun Admin Prodi. |
+| 3a | `ref_prodi` | `kode_prodi` | `data_akademik` | `kode_prodi` | `1 : N` | `SET NULL` | Program studi akademik mahasiswa, termasuk mahasiswa yang belum lulus dan belum memiliki biodata alumni. |
 | 4 | `users` | `id` | `log_activities` | `user_id` | `1 : N` | `SET NULL` | Satu akun pengguna dapat menghasilkan banyak catatan audit aktivitas. |
 | 5 | `propinsi` | `kode_provinsi` | `kabupaten` | `kode_provinsi` | `1 : N` | `CASCADE` | Satu provinsi memiliki banyak kabupaten/kota. |
 | 6 | `propinsi` | `kode_provinsi` | `ump` | `kode_provinsi` | `1 : N` | `CASCADE` | Satu provinsi memiliki riwayat besaran UMP per tahun. |
 | 7 | `users` | `id` | `biodata` | `user_id` | `1 : 1` bisnis | `CASCADE` | Satu akun pengguna (`role = alumni`) memiliki satu profil biodata. |
 | 8 | `data_akademik` | `nim` | `biodata` | `nim` | `1 : 1` | `CASCADE` | Master akademik mahasiswa (`nim`) mereferensikan satu biodata alumni. |
-| 9 | `data_akademik` | `nim` | `yudisium` | `nim` | `1 : 1` | `CASCADE` | Data akademik mereferensikan satu data kelulusan tugas akhir yudisium. |
-| 10 | `yudisium` | `id` | `biodata` | `yudisium_id` | `1 : 1` | `SET NULL` | Data yudisium terhubung langsung ke biodata alumni melalui foreign key `yudisium_id`. |
-| 11 | `prodi` | `id` | `biodata` | `prodi_id` | `1 : N` | `SET NULL` | Satu program studi memiliki banyak biodata alumni. |
-| 12 | `propinsi` | `kode_provinsi` | `biodata` | `kode_provinsi` | `1 : N` | `SET NULL` | Provinsi domisili tempat tinggal alumni saat ini. |
-| 13 | `kabupaten` | `kode_kabupaten` | `biodata` | `kode_kabupaten` | `1 : N` | `SET NULL` | Kabupaten/kota domisili tempat tinggal alumni saat ini. |
-| 14 | `ref_negara` | `kode_negara` | `perusahaan` | `kode_negara` | `1 : N` | `RESTRICT` | Negara lokasi kantor perusahaan/instansi (ISO 2-huruf). |
-| 15 | `propinsi` | `kode_provinsi` | `perusahaan` | `kode_provinsi` | `1 : N` | `SET NULL` | Provinsi lokasi kantor perusahaan/instansi tempat kerja. |
-| 16 | `kabupaten` | `kode_kabupaten` | `perusahaan` | `kode_kabupaten` | `1 : N` | `SET NULL` | Kabupaten/kota lokasi kantor perusahaan/instansi tempat kerja. |
-| 17 | `users` | `id` | `perusahaan` | `created_by_user_id` | `1 : N` | `SET NULL` | Pengguna (alumni/admin) mengusulkan atau mendaftarkan entitas perusahaan baru. |
-| 18 | `prodi` | `id` | `perusahaan` | `created_by_prodi_id` | `1 : N` | `SET NULL` | Usulan instansi perusahaan dikelompokkan berdasarkan program studi asal pengusul. |
-| 19 | `perusahaan` | `id` | `biodata` | `perusahaan_id` | `1 : N` | `SET NULL` | Satu perusahaan dapat mempekerjakan banyak alumni UKDW. |
-| 20 | `perusahaan` | `id` | `atasan` | `perusahaan_id` | `1 : N` | `SET NULL` | Satu perusahaan memiliki satu atau beberapa kontak pimpinan/atasan penilai. |
-| 21 | `users` | `id` | `atasan` | `user_id` | `1 : N` | `SET NULL` | Pimpinan/atasan terhubung ke akun login jika terdaftar sebagai pengguna sistem. |
-| 22 | `atasan` | `id` | `biodata` | `atasan_id` | `1 : 0..1` (aturan aplikasi) | `SET NULL` | Setiap isian bebas atasan dibuat sebagai snapshot milik satu alumni; nama atau kontak yang sama tidak dipakai untuk menyatukan beberapa alumni. Skema FK belum memakai indeks unik agar data lama yang terlanjur berbagi atasan tetap dapat dibaca dan dipisahkan saat diperbarui. |
-| 23 | `biodata` | `id` | `linkedin_sync_results` | `biodata_id` | `1 : N` | `CASCADE` | Satu alumni dapat memiliki riwayat staging sinkronisasi profil LinkedIn. |
-| 24 | `users` | `id` | `linkedin_sync_results` | `reviewed_by` | `1 : N` | `SET NULL` | Admin meninjau dan memverifikasi hasil sinkronisasi LinkedIn. |
-| 25 | `prodi` | `id` | `kuesioner_section` | `prodi_id` | `1 : N` | `SET NULL` | Satu program studi dapat memiliki bagian kuesioner prodi spesifik (`target = 'prodi'`). |
-| 26 | `prodi` | `id` | `kuesioner_pertanyaan` | `pemilik_prodi_id` | `1 : N` | `SET NULL` | Mengidentifikasi program studi pemilik/hak cipta butir soal bank pertanyaan. |
-| 27 | `kuesioner_section` | `id` | `kuesioner_section_pertanyaan` | `section_id` | `1 : N` | `CASCADE` | Bagian kuesioner mengelompokkan banyak butir pertanyaan. |
-| 28 | `kuesioner_pertanyaan` | `id` | `kuesioner_section_pertanyaan` | `pertanyaan_id` | `1 : N` | `CASCADE` | Butir pertanyaan dari bank soal ditempatkan ke dalam satu atau lebih bagian kuesioner. |
-| 29 | `kuesioner_pertanyaan` | `id` | `kuesioner_opsi` | `pertanyaan_id` | `1 : N` | `CASCADE` | Satu pertanyaan pilihan ganda memiliki banyak opsi jawaban. |
-| 30 | `biodata` | `id` | `evaluasi_atasan` | `biodata_id` | `1 : N` | `CASCADE` | Satu alumni dapat dinilai dalam lembar evaluasi pengguna lulusan. |
-| 31 | `perusahaan` | `id` | `evaluasi_atasan` | `perusahaan_id` | `1 : N` | `SET NULL` | Evaluasi atasan mencatat instansi perusahaan tempat alumni bekerja. |
-| 32 | `atasan` | `id` | `evaluasi_atasan` | `atasan_id` | `1 : N` | `SET NULL` | Evaluasi atasan mencatat identitas pejabat penilai langsung. |
+| 9 | `data_akademik` | `nim` | `yudisium` | `nim` | `1 : 1` | `CASCADE` | Data akademik mereferensikan satu data kelulusan tugas akhir yudisium berbasis NIM. |
+| 10 | `ref_prodi` | `kode_prodi` | `biodata` | `kode_prodi` | `1 : N` | `SET NULL` | Satu program studi memiliki banyak biodata alumni. |
+| 11 | `propinsi` | `kode_provinsi` | `biodata` | `kode_provinsi` | `1 : N` | `SET NULL` | Provinsi domisili tempat tinggal alumni saat ini. |
+| 12 | `kabupaten` | `kode_kabupaten` | `biodata` | `kode_kabupaten` | `1 : N` | `SET NULL` | Kabupaten/kota domisili tempat tinggal alumni saat ini. |
+| 13 | `ref_negara` | `kode_negara` | `perusahaan` | `kode_negara` | `1 : N` | `RESTRICT` | Negara lokasi kantor perusahaan/instansi (ISO 2-huruf). |
+| 14 | `propinsi` | `kode_provinsi` | `perusahaan` | `kode_provinsi` | `1 : N` | `SET NULL` | Provinsi lokasi kantor perusahaan/instansi tempat kerja. |
+| 15 | `kabupaten` | `kode_kabupaten` | `perusahaan` | `kode_kabupaten` | `1 : N` | `SET NULL` | Kabupaten/kota lokasi kantor perusahaan/instansi tempat kerja. |
+| 16 | `users` | `id` | `perusahaan` | `created_by_user_id` | `1 : N` | `SET NULL` | Pengguna (alumni/admin) mengusulkan atau mendaftarkan entitas perusahaan baru. |
+| 17 | `ref_prodi` | `kode_prodi` | `perusahaan` | `created_by_kode_prodi` | `1 : N` | `SET NULL` | Usulan instansi perusahaan dikelompokkan berdasarkan kode prodi asal pengusul. |
+| 18 | `perusahaan` | `id` | `biodata` | `perusahaan_id` | `1 : N` | `SET NULL` | Satu perusahaan dapat mempekerjakan banyak alumni UKDW. |
+| 19 | `perusahaan` | `id` | `atasan` | `perusahaan_id` | `1 : N` | `SET NULL` | Satu perusahaan memiliki satu atau beberapa kontak pimpinan/atasan penilai. |
+| 20 | `users` | `id` | `atasan` | `user_id` | `1 : N` | `SET NULL` | Pimpinan/atasan terhubung ke akun login jika terdaftar sebagai pengguna sistem. |
+| 21 | `atasan` | `id` | `biodata` | `atasan_id` | `1 : 0..1` (aturan aplikasi) | `SET NULL` | Setiap isian bebas atasan dibuat sebagai snapshot milik satu alumni. |
+| 22 | `biodata` | `id` | `linkedin_sync_results` | `biodata_id` | `1 : N` | `CASCADE` | Satu alumni dapat memiliki riwayat staging sinkronisasi profil LinkedIn. |
+| 23 | `users` | `id` | `linkedin_sync_results` | `user_id` | `1 : N` | `SET NULL` | Admin meninjau dan memverifikasi hasil sinkronisasi LinkedIn. |
+| 24 | `ref_prodi` | `kode_prodi` | `kuesioner_section` | `kode_prodi` | `1 : N` | `SET NULL` | Satu program studi dapat memiliki bagian kuesioner prodi spesifik (`target = 'prodi'`). |
+| 25 | `ref_prodi` | `kode_prodi` | `kuesioner_pertanyaan` | `pemilik_kode_prodi` | `1 : N` | `SET NULL` | Mengidentifikasi program studi pemilik/hak cipta butir soal bank pertanyaan. |
+| 26 | `kuesioner_section` | `id` | `kuesioner_section_pertanyaan` | `section_id` | `1 : N` | `CASCADE` | Bagian kuesioner mengelompokkan banyak butir pertanyaan. |
+| 27 | `kuesioner_pertanyaan` | `id` | `kuesioner_section_pertanyaan` | `pertanyaan_id` | `1 : N` | `CASCADE` | Butir pertanyaan dari bank soal ditempatkan ke dalam satu atau lebih bagian kuesioner. |
+| 28 | `kuesioner_pertanyaan` | `id` | `kuesioner_opsi` | `pertanyaan_id` | `1 : N` | `CASCADE` | Satu pertanyaan pilihan ganda memiliki banyak opsi jawaban. |
+| 29 | `biodata` | `id` | `evaluasi_atasan` | `biodata_id` | `1 : N` | `CASCADE` | Satu alumni dapat dinilai dalam lembar evaluasi pengguna lulusan. |
+| 30 | `perusahaan` | `id` | `evaluasi_atasan` | `perusahaan_id` | `1 : N` | `SET NULL` | Evaluasi atasan mencatat instansi perusahaan tempat alumni bekerja. |
+| 31 | `atasan` | `id` | `evaluasi_atasan` | `atasan_id` | `1 : N` | `SET NULL` | Evaluasi atasan mencatat identitas pejabat penilai langsung. |
+| 32 | `kuesioner` | `id` | `kuesioner_jawaban` | `kuesioner_id` | `1 : N` | `SET NULL` | Periode kuesioner yang dijawab oleh responden. |
 | 33 | `biodata` | `id` | `kuesioner_jawaban` | `biodata_id` | `1 : N` | `CASCADE` | Jawaban survei alumni (Tracer Universitas & Prodi) disimpan terpadu. |
 | 34 | `evaluasi_atasan` | `id` | `kuesioner_jawaban` | `evaluasi_atasan_id` | `1 : N` | `CASCADE` | Jawaban survei kepuasan atasan disimpan terpadu pada entitas jawaban yang sama. |
 | 35 | `kuesioner_section` | `id` | `kuesioner_jawaban` | `section_id` | `1 : N` | `CASCADE` | Setiap jawaban terasosiasi ke bagian kuesioner tempat butir berada. |
 | 36 | `kuesioner_pertanyaan` | `id` | `kuesioner_jawaban` | `pertanyaan_id` | `1 : N` | `CASCADE` | Setiap jawaban merujuk ke master butir pertanyaan yang dijawab. |
 | 37 | `kuesioner_opsi` | `id` | `kuesioner_jawaban` | `opsi_id` | `1 : N` | `SET NULL` | Merujuk ke opsi pilihan jawaban terpilih (untuk pertanyaan pilihan tunggal/ganda). |
-| 38 | `users` | `id` | `account_sync_settings` | `updated_by` | `1 : 0..1` | `SET NULL` | Superadmin yang terakhir mengubah pengaturan buka/tutup sinkronisasi akun alumni. |
+| 38 | `users` | `id` | `account_sync_settings` | `user_id` | `1 : 0..1` | `SET NULL` | Superadmin yang terakhir mengubah pengaturan buka/tutup sinkronisasi akun alumni. |
 
 ---
 
@@ -560,8 +558,8 @@ Menyimpan kredensial autentikasi untuk seluruh peran pengguna (`superadmin`, `ad
 | `email` | `varchar(100)` | - | `NULL` | Alamat email akun login (dapat digunakan sebagai login alternatif). |
 | `password` | `varchar(255)` | - | `NOT NULL` | Hash kata sandi autentikasi akun (bcrypt). |
 | `role` | `varchar(30)` | - | `NOT NULL`, Default `'alumni'` | Peran otorisasi: `superadmin`, `admin_biro3`, `admin_fakultas`, `admin_prodi`, atau `alumni`. |
-| `prodi_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `prodi.id` (khusus pembatasan wewenang `admin_prodi` atau alumni). |
-| `fakultas_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `ref_fakultas.id` (khusus pembatasan wewenang `admin_fakultas`). |
+| `kode_prodi` | `char(2)` | `FK` | `NULL` | Referensi ke `ref_prodi.kode_prodi` (khusus pembatasan wewenang `admin_prodi` atau alumni). |
+| `kode_fakultas` | `char(2)` | `FK` | `NULL` | Referensi ke `ref_fakultas.kode_fakultas` (khusus pembatasan wewenang `admin_fakultas`). |
 | `must_change_password` | `tinyint(1)` | - | `NOT NULL`, Default `'0'` | Penanda wajib ganti sandi saat login pertama (`1` = Wajib, `0` = Tidak). |
 | `remember_token` | `varchar(100)` | - | `NULL` | Token sesi *remember me* Laravel. |
 | `created_at` | `timestamp` | - | `NULL` | Waktu pembuatan rekaman. |
@@ -589,10 +587,10 @@ Menyimpan rekam jejak audit (*audit trail*) atas aksi perubahan data penting yan
 Menyimpan pengaturan tunggal (singleton, `id = 1`) untuk membuka atau menutup proses sinkronisasi data akun alumni dari sistem Data Akademik UKDW.
 
 | Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
-| :--- | :--- | :---: | :---: | :--- |
+| :--- | :--- | :--- | :--- | :--- |
 | `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID rekaman pengaturan (selalu bernilai `1`, singleton). |
 | `is_open` | `tinyint(1)` | - | `NOT NULL`, Default `1` | Status sinkronisasi: `1` = terbuka (sinkronisasi aktif), `0` = tertutup. |
-| `updated_by` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `users.id` Superadmin yang terakhir mengubah pengaturan (`ON DELETE SET NULL`). |
+| `user_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `users.id` Superadmin yang terakhir mengubah pengaturan (`ON DELETE SET NULL`). |
 | `created_at` | `timestamp` | - | `NULL` | Waktu pembuatan rekaman pengaturan. |
 | `updated_at` | `timestamp` | - | `NULL` | Waktu pembaruan terakhir pengaturan. |
 
@@ -601,25 +599,23 @@ Menyimpan pengaturan tunggal (singleton, `id = 1`) untuk membuka atau menutup pr
 ### 3.2 Modul 2: Master Akademik, Wilayah, & Standar UMP
 
 #### 3. Tabel `ref_fakultas`
-Menyimpan data referensi fakultas penaung program studi di UKDW.
+Menyimpan data referensi fakultas penaung program studi di UKDW menggunakan `kode_fakultas` sebagai Primary Key alami.
 
 | Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
-| :--- | :--- | :---: | :---: | :--- |
-| `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik fakultas. |
-| `kode_fakultas` | `varchar(10)` | `UK` | `NOT NULL` | Kode singkatan resmi fakultas (misal: `FTI`, `FB`, `FAD`, `FK`, `FT`, `FBIO`, `FKHUM`). |
+| :--- | :--- | :--- | :--- | :--- |
+| `kode_fakultas` | `char(2)` | `PK` | `NOT NULL` | Kode resmi fakultas (contoh: '7', '1'). |
 | `nama_fakultas` | `varchar(100)` | - | `NOT NULL` | Nama lengkap fakultas di lingkungan UKDW. |
 | `singkatan` | `varchar(20)` | - | `NULL` | Singkatan nama fakultas untuk tampilan ringkas. |
 | `created_at` | `timestamp` | - | `NULL` | Waktu pembuatan rekaman. |
 | `updated_at` | `timestamp` | - | `NULL` | Waktu pembaruan terakhir. |
 
-#### 4. Tabel `prodi`
-Menyimpan data master program studi sarjana/profesi di lingkungan UKDW.
+#### 4. Tabel `ref_prodi`
+Menyimpan data master program studi sarjana/profesi di lingkungan UKDW menggunakan `kode_prodi` sebagai Primary Key alami.
 
 | Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
-| :--- | :--- | :---: | :---: | :--- |
-| `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik program studi. |
-| `fakultas_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `ref_fakultas.id` (`ON DELETE SET NULL`). |
-| `kode_prodi` | `varchar(10)` | `UK` | `NOT NULL` | Kode resmi program studi 2-digit (contoh: `71` Informatika, `72` Sistem Informasi). |
+| :--- | :--- | :--- | :--- | :--- |
+| `kode_prodi` | `char(2)` | `PK` | `NOT NULL` | Kode resmi program studi 2-digit (contoh: '71' Informatika, '72' Sistem Informasi). |
+| `kode_fakultas` | `char(2)` | `FK` | `NULL` | Referensi ke `ref_fakultas.kode_fakultas` (`ON DELETE SET NULL`). |
 | `nama_prodi` | `varchar(100)` | - | `NOT NULL` | Nama program studi. |
 | `jenjang` | `varchar(10)` | - | `NOT NULL`, Default `'S1'` | Jenjang pendidikan (`S1`, `Profesi`, `S2`). |
 | `created_at` | `timestamp` | - | `NULL` | Waktu pembuatan rekaman. |
@@ -679,16 +675,15 @@ Menyimpan data referensi besaran Upah Minimum Provinsi (UMP) per tahun untuk ana
 
 #### 9. Tabel `data_akademik`
 Menyimpan rekaman resmi master akademik seluruh mahasiswa UKDW, termasuk yang
-belum lulus, pindah, cuti, atau drop out. Tabel ini menjadi populasi awal AEE;
-profil tracer hanya dibuat pada `biodata` ketika mahasiswa menjadi alumni.
+belum lulus, pindah, cuti, atau drop out. Menggunakan `nim` sebagai Primary Key alami.
+Tabel ini menjadi populasi awal AEE; profil tracer hanya dibuat pada `biodata` ketika mahasiswa menjadi alumni.
 
 | Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
 | :--- | :--- | :---: | :---: | :--- |
-| `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik rekam akademik. |
-| `nim` | `char(8)` | `UK` | `NOT NULL` | Nomor Induk Mahasiswa 8 karakter (contoh: `'72220001'`). |
+| `nim` | `char(8)` | `PK` | `NOT NULL` | Nomor Induk Mahasiswa 8 karakter (contoh: `'72220001'`). |
 | `nama` | `varchar(100)` | - | `NULL` | Nama resmi mahasiswa. |
 | `email_pribadi` | `varchar(100)` | - | `NULL` | Snapshot email pribadi dari sumber akademik saat impor awal; perubahan kontak aktif disimpan di `biodata.email_pribadi`. |
-| `prodi_id` | `bigint unsigned` | `FK`, `INDEX` | `NULL` | Referensi ke `prodi.id`; dipakai juga untuk populasi mahasiswa non-alumni pada AEE. |
+| `kode_prodi` | `char(2)` | `FK`, `INDEX` | `NULL` | Referensi ke `ref_prodi.kode_prodi`; dipakai juga untuk populasi mahasiswa non-alumni pada AEE. |
 | `angkatan_masuk` | `year` | - | `NULL` | Tahun angkatan pertama kali masuk perkuliahan. |
 | `tahun_akademik_masuk` | `varchar(30)` | - | `NULL` | Periode masuk reguler, misalnya `2023/2024 (Semester Ganjil)`. |
 | `status_mahasiswa` | `varchar(20)` | - | `NULL` | Status akademik terakhir (misal: `'Lulus'`). |
@@ -705,12 +700,11 @@ profil tracer hanya dibuat pada `biodata` ketika mahasiswa menjadi alumni.
 | `updated_at` | `timestamp` | - | `NULL` | Waktu pembaruan terakhir. |
 
 #### 10. Tabel `yudisium`
-Menyimpan riwayat dan metadata kelulusan yudisium serta publikasi tugas akhir/skripsi.
+Menyimpan riwayat dan metadata kelulusan yudisium serta publikasi tugas akhir/skripsi menggunakan `nim` sebagai Primary Key dan Foreign Key ke `data_akademik.nim`.
 
 | Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
 | :--- | :--- | :---: | :---: | :--- |
-| `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik catatan yudisium kelulusan. |
-| `nim` | `char(8)` | `FK`, `UK` | `NOT NULL` | Referensi ke `data_akademik.nim` (`ON DELETE CASCADE`). |
+| `nim` | `char(8)` | `PK`, `FK` | `NOT NULL` | Referensi ke `data_akademik.nim` (`ON DELETE CASCADE`). |
 | `judul_ta` | `text` | - | `NOT NULL` | Judul resmi tugas akhir / skripsi mahasiswa (Bahasa Indonesia). |
 | `judul_ta_inggris` | `text` | - | `NULL` | Judul resmi tugas akhir dalam Bahasa Inggris. |
 | `url_publikasi` | `varchar(255)` | - | `NULL` | Tautan repositori publikasi digital kampus atau jurnal eksternal. |
@@ -744,7 +738,7 @@ Menyimpan master data entitas instansi, institusi, atau perusahaan tempat alumni
 | `jenis_perusahaan` | `varchar(100)` | - | `NULL` | Kategori instansi menurut instrumen Dikti. |
 | `jenis_perusahaan_lainnya` | `text` | - | `NULL` | Keterangan tambahan jika kategori instansi memilih opsi lainnya. |
 | `created_by_user_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `users.id` pembuat/pengusul entitas (`ON DELETE SET NULL`). |
-| `created_by_prodi_id`| `bigint unsigned` | `FK` | `NULL` | Referensi ke `prodi.id` asal pengusul (`ON DELETE SET NULL`). |
+| `created_by_kode_prodi`| `char(2)` | `FK` | `NULL` | Referensi ke `ref_prodi.kode_prodi` asal pengusul (`ON DELETE SET NULL`). |
 | `created_at` | `timestamp` | - | `NULL` | Waktu pembuatan rekaman. |
 | `updated_at` | `timestamp` | - | `NULL` | Waktu pembaruan terakhir. |
 
@@ -772,8 +766,7 @@ Menyimpan profil karier, kontak domisili aktif, serta tautan relasi alumni ke pe
 | `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik profil biodata alumni. |
 | `user_id` | `bigint unsigned` | `FK` | `NOT NULL` | Referensi ke `users.id` pemilik akun (`ON DELETE CASCADE`). |
 | `nim` | `char(8)` | `FK` | `NOT NULL` | Referensi ke `data_akademik.nim` (`ON DELETE CASCADE`). |
-| `yudisium_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `yudisium.id` (`ON DELETE SET NULL`). |
-| `prodi_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `prodi.id` (`ON DELETE SET NULL`). |
+| `kode_prodi` | `char(2)` | `FK` | `NULL` | Referensi ke `ref_prodi.kode_prodi` (`ON DELETE SET NULL`). |
 | `perusahaan_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `perusahaan.id` tempat alumni bekerja (`ON DELETE SET NULL`). |
 | `atasan_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `atasan.id` penilai langsung (`ON DELETE SET NULL`). |
 | `foto` | `text` | - | `NULL` | Path atau URL foto profil alumni. |
@@ -815,7 +808,7 @@ Menyimpan snapshot data staging hasil penarikan profil LinkedIn sebelum diverifi
 | `linkedin_username` | `varchar(100)` | - | `NULL` | Username profil LinkedIn target. |
 | `scraped_data` | `json` | - | `NOT NULL` | Payload JSON hasil scraping LinkedIn. |
 | `status` | `enum` | - | `NOT NULL`, Default `'pending'` | Status verifikasi: `pending`, `approved`, atau `rejected`. |
-| `reviewed_by` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `users.id` admin peninjau hasil sinkronisasi (`ON DELETE SET NULL`). |
+| `user_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `users.id` admin peninjau hasil sinkronisasi (`ON DELETE SET NULL`). |
 | `reviewed_at` | `timestamp` | - | `NULL` | Waktu eksekusi verifikasi atau penolakan oleh admin. |
 | `scraped_at` | `timestamp` | - | `NULL` | Waktu pengambilan data dari penyedia scraping. |
 | `created_at` | `timestamp` | - | `NULL` | Waktu penarikan snapshot profil. |
@@ -847,7 +840,7 @@ Menyimpan bagian-bagian (*section / stepper*) formulir survei untuk skala univer
 | `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik bagian instrumen kuesioner. |
 | `kode_section` | `varchar(50)` | `UK` | `NOT NULL` | Kode unik bagian instrumen (contoh: `SEC_UNIV_01`, `SEC_SI_01`, `SEC_ATASAN_01`). |
 | `target` | `varchar(20)` | `INDEX` | `NOT NULL`, Default `'univ'` | Target peruntukan bagian: `'univ'`, `'prodi'`, atau `'atasan'`. |
-| `prodi_id` | `bigint unsigned` | `FK` | `NULL` | Referensi ke `prodi.id` pemilik jika `target = 'prodi'` (`ON DELETE SET NULL`). |
+| `kode_prodi` | `char(2)` | `FK` | `NULL` | Referensi ke `ref_prodi.kode_prodi` pemilik jika `target = 'prodi'` (`ON DELETE SET NULL`). |
 | `judul` | `varchar(200)` | - | `NOT NULL` | Judul atau label bagian yang ditampilkan pada bilah tahapan formulir. |
 | `deskripsi` | `text` | - | `NULL` | Deskripsi atau petunjuk pengisian butir-butir dalam bagian ini. |
 | `order` | `smallint` | - | `NOT NULL`, Default `'1'` | Urutan penampilan tahapan bagian instrumen. |
@@ -865,7 +858,7 @@ Bank butir pertanyaan survei terpusat untuk seluruh jenis kuesioner di lingkunga
 | `label_pertanyaan` | `varchar(255)` | - | `NULL` | Label ringkas yang dapat diedit admin untuk grafik, tab, dan ringkasan analitik; jika kosong, sistem memakai potongan teks pertanyaan sebagai fallback. |
 | `teks_pertanyaan` | `text` | - | `NOT NULL` | Teks redaksi butir pertanyaan yang terbaca responden. |
 | `tipe` | `varchar(50)` | - | `NOT NULL`, Default `'single_choice'` | Tipe komponen input: `single_choice`, `multiple_choice`, `text`, `textarea`, `number`, `rating_5`, `date`. |
-| `pemilik_prodi_id`| `bigint unsigned` | `FK` | `NULL` | Referensi ke `prodi.id` pembuat butir soal (NULL = milik umum universitas). |
+| `pemilik_kode_prodi`| `char(2)` | `FK` | `NULL` | Referensi ke `ref_prodi.kode_prodi` pembuat butir soal (NULL = milik umum universitas). |
 | `is_reusable` | `tinyint(1)` | - | `NOT NULL`, Default `'1'` | Penanda apakah butir soal dapat digunakan bersama oleh program studi lain. |
 | `keterangan` | `varchar(255)` | - | `NULL` | Keterangan tambahan atau panduan format pengisian bagi responden. |
 | `is_active` | `tinyint(1)` | - | `NOT NULL`, Default `'1'` | Status keaktifan butir pertanyaan (`1` = Aktif, `0` = Diarsipkan). |
@@ -911,6 +904,7 @@ Tabel transaksi terpadu (*Single Source of Truth*) penyimpan seluruh respon jawa
 | Nama Kolom | Tipe Data | Kunci / Indeks | Nullable / Default | Keterangan |
 | :--- | :--- | :---: | :---: | :--- |
 | `id` | `bigint unsigned` | `PK` | `NOT NULL`, `AUTO_INCREMENT` | ID unik respon transaksi jawaban kuesioner. |
+| `kuesioner_id` | `bigint unsigned` | `FK`, `INDEX` | `NULL` | Referensi ke `kuesioner.id` periode instrumen kuesioner (`ON DELETE SET NULL`). |
 | `responden_type` | `varchar(20)` | `INDEX` | `NOT NULL`, Default `'alumni'` | Tipe responden: `'alumni'` (kuesioner tracer) atau `'atasan'` (survei pengguna). |
 | `biodata_id` | `bigint unsigned` | `FK`, `INDEX` | `NULL` | Referensi ke `biodata.id` alumni pengisi (`ON DELETE CASCADE`). |
 | `evaluasi_atasan_id`| `bigint unsigned` | `FK`, `INDEX` | `NULL` | Referensi ke `evaluasi_atasan.id` lembar evaluasi atasan (`ON DELETE CASCADE`). |

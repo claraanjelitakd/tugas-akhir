@@ -66,10 +66,10 @@ class EvaluasiAtasanExcelExporter
         $query = Biodata::query()->whereNotNull('atasan_id');
 
         if ($user) {
-            if ($user->role === 'admin_prodi' && $user->prodi_id) {
-                $query->where('prodi_id', $user->prodi_id);
-            } elseif ($user->role === 'admin_fakultas' && $user->fakultas_id) {
-                $query->whereHas('prodi', fn (Builder $q): Builder => $q->where('fakultas_id', $user->fakultas_id));
+            if ($user->role === 'admin_prodi' && $user->kode_prodi) {
+                $query->where('kode_prodi', $user->kode_prodi);
+            } elseif ($user->role === 'admin_fakultas' && $user->kode_fakultas) {
+                $query->whereHas('prodi', fn (Builder $q): Builder => $q->where('kode_fakultas', $user->kode_fakultas));
             }
         }
 
@@ -77,10 +77,10 @@ class EvaluasiAtasanExcelExporter
             $search = trim((string) $request->input('search', ''));
             $companySearch = trim((string) $request->input('company', ''));
             $provinsiDomisili = trim((string) $request->input('provinsi', ''));
-            $selectedProdiId = $request->input('prodi_id');
+            $selectedProdiId = $request->input('kode_prodi');
 
             if ($user?->role !== 'admin_prodi' && filled($selectedProdiId) && $selectedProdiId !== 'all') {
-                $query->where('prodi_id', $selectedProdiId);
+                $query->where('kode_prodi', $selectedProdiId);
             }
 
             if ($companySearch !== '') {

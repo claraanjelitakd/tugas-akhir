@@ -170,7 +170,7 @@ class LinkedInProfileMapper
         unset($locationName);
 
         $createdByUserId = $biodata?->user_id ?? Auth::id();
-        $createdByProdiId = $biodata?->prodi_id ?? (Auth::user()?->role === 'admin_prodi' ? Auth::user()?->prodi_id : null);
+        $createdByProdiId = $biodata?->kode_prodi ?? (Auth::user()?->role === 'admin_prodi' ? Auth::user()?->kode_prodi : null);
 
         // Kandidat baru tidak langsung dianggap sebagai master resmi.
         return Perusahaan::create([
@@ -182,7 +182,7 @@ class LinkedInProfileMapper
             'sektor' => 'Teknologi Informasi & Jasa Profesional',
             'skala' => 'Nasional',
             'created_by_user_id' => $createdByUserId,
-            'created_by_prodi_id' => $createdByProdiId,
+            'created_by_kode_prodi' => $createdByProdiId,
         ]);
     }
 

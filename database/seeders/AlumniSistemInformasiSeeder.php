@@ -410,7 +410,7 @@ class AlumniSistemInformasiSeeder extends Seeder
                     'email' => $data['email'],
                     'password' => $defaultPassword,
                     'role' => 'alumni',
-                    'prodi_id' => $prodi?->id,
+                    'kode_prodi' => $prodi?->kode_prodi,
                     'must_change_password' => false,
                 ]
             );
@@ -424,7 +424,7 @@ class AlumniSistemInformasiSeeder extends Seeder
                 [
                     'nama' => $nama,
                     'email_pribadi' => $data['email'],
-                    'prodi_id' => $prodi?->id,
+                    'kode_prodi' => $prodi?->kode_prodi,
                     'angkatan_masuk' => $data['angkatan'],
                     'status_mahasiswa' => 'Lulus',
                     'tahun_akademik_lulus' => $data['tahun_akademik_lulus'],
@@ -457,8 +457,7 @@ class AlumniSistemInformasiSeeder extends Seeder
                 ['user_id' => $user->id],
                 [
                     'nim' => $nim,
-                    'yudisium_id' => $yudisium->id,
-                    'prodi_id' => $prodi?->id,
+                    'kode_prodi' => $prodi?->kode_prodi,
                     'email_pribadi' => $data['email'],
                     'nomor_telepon' => $data['telepon'],
                     'alamat_saat_ini' => $data['alamat'],

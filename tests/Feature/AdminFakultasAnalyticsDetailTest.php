@@ -32,7 +32,7 @@ class AdminFakultasAnalyticsDetailTest extends TestCase
             'nama_fakultas' => 'Fakultas B',
         ]);
         $prodiB = Prodi::create([
-            'fakultas_id' => $fakultasB->id,
+            'kode_fakultas' => $fakultasB->kode_fakultas,
             'kode_prodi' => 'PB',
             'nama_prodi' => 'Program Studi B',
         ]);
@@ -41,7 +41,7 @@ class AdminFakultasAnalyticsDetailTest extends TestCase
             'name' => 'Admin Fakultas A',
             'password' => Hash::make('password123'),
             'role' => 'admin_fakultas',
-            'fakultas_id' => $fakultasA->id,
+            'kode_fakultas' => $fakultasA->kode_fakultas,
             'must_change_password' => false,
         ]);
         $alumniUser = User::create([
@@ -49,7 +49,7 @@ class AdminFakultasAnalyticsDetailTest extends TestCase
             'name' => 'Alumni Fakultas B',
             'password' => Hash::make('password123'),
             'role' => 'alumni',
-            'prodi_id' => $prodiB->id,
+            'kode_prodi' => $prodiB->kode_prodi,
             'must_change_password' => false,
         ]);
         DataAkademik::create([
@@ -63,7 +63,7 @@ class AdminFakultasAnalyticsDetailTest extends TestCase
             'user_id' => $alumniUser->id,
             'nim' => 'PB000001',
             'nama' => 'Alumni Fakultas B',
-            'prodi_id' => $prodiB->id,
+            'kode_prodi' => $prodiB->kode_prodi,
         ]);
 
         $this->actingAs($adminFakultasA)

@@ -19,7 +19,7 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             DB::unprepared(<<<'SQL'
-CREATE TABLE "linkedin_sync_results" ("id" integer primary key autoincrement not null, "biodata_id" integer not null, "linkedin_url" varchar not null, "linkedin_username" varchar, "scraped_data" text not null, "status" varchar check ("status" in ('pending', 'approved', 'rejected')) not null default 'pending', "reviewed_by" integer, "reviewed_at" datetime, "scraped_at" datetime, "created_at" datetime, "updated_at" datetime, foreign key("biodata_id") references "biodata"("id") on delete cascade, foreign key("reviewed_by") references "users"("id") on delete set null);
+CREATE TABLE "linkedin_sync_results" ("id" integer primary key autoincrement not null, "biodata_id" integer not null, "linkedin_url" varchar not null, "linkedin_username" varchar, "scraped_data" text not null, "status" varchar check ("status" in ('pending', 'approved', 'rejected')) not null default 'pending', "user_id" integer, "reviewed_at" datetime, "scraped_at" datetime, "created_at" datetime, "updated_at" datetime, foreign key("biodata_id") references "biodata"("id") on delete cascade, foreign key("user_id") references "users"("id") on delete set null);
 SQL
             );
 
@@ -39,16 +39,16 @@ CREATE TABLE `linkedin_sync_results` (
   `linkedin_username` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Username akun LinkedIn',
   `scraped_data` json NOT NULL COMMENT 'Payload data mentah hasil scraping LinkedIn (JSON)',
   `status` enum('pending','approved','rejected') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending' COMMENT 'Status persetujuan hasil sinkronisasi',
-  `reviewed_by` bigint unsigned DEFAULT NULL,
+  `user_id` bigint unsigned DEFAULT NULL,
   `reviewed_at` timestamp NULL DEFAULT NULL COMMENT 'Waktu persetujuan peninjauan',
   `scraped_at` timestamp NULL DEFAULT NULL COMMENT 'Waktu pengambilan data scraping',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `linkedin_sync_results_reviewed_by_foreign` (`reviewed_by`),
+  KEY `linkedin_sync_results_user_id_index` (`user_id`),
   KEY `linkedin_sync_results_biodata_id_status_index` (`biodata_id`,`status`),
   CONSTRAINT `linkedin_sync_results_biodata_id_foreign` FOREIGN KEY (`biodata_id`) REFERENCES `biodata` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `linkedin_sync_results_reviewed_by_foreign` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+  CONSTRAINT `linkedin_sync_results_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 SQL
             );

@@ -74,7 +74,7 @@ class UserSeeder extends Seeder
                         'email' => $userData['username'].'@ukdw.ac.id',
                         'password' => $adminPassword,
                         'role' => 'admin_prodi',
-                        'prodi_id' => $prodi->id,
+                        'kode_prodi' => $prodi->kode_prodi,
                         'must_change_password' => false,
                     ]
                 );
@@ -102,7 +102,7 @@ class UserSeeder extends Seeder
                         'email' => $userData['username'].'@ukdw.ac.id',
                         'password' => $adminPassword,
                         'role' => 'admin_fakultas',
-                        'fakultas_id' => $fakultas->id,
+                        'kode_fakultas' => $fakultas->kode_fakultas,
                         'must_change_password' => false,
                     ]
                 );
@@ -113,7 +113,7 @@ class UserSeeder extends Seeder
             ->where('role', 'admin_fakultas')
             ->get()
             ->filter(function (User $user): bool {
-                return ! $user->fakultas_id
+                return ! $user->kode_fakultas
                     || ! filter_var($user->getRawOriginal('email'), FILTER_VALIDATE_EMAIL);
             });
 
@@ -121,7 +121,7 @@ class UserSeeder extends Seeder
             $usernames = $invalidAdminFakultas->pluck('username')->implode(', ');
 
             throw new RuntimeException(
-                "Setiap akun Admin Fakultas wajib memiliki fakultas_id dan email valid. Periksa: {$usernames}."
+                "Setiap akun Admin Fakultas wajib memiliki kode_fakultas dan email valid. Periksa: {$usernames}."
             );
         }
 

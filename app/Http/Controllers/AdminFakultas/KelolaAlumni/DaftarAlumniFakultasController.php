@@ -38,7 +38,7 @@ class DaftarAlumniFakultasController extends Controller
         /** @var User $user */
         $user = Auth::user();
         $user->load('fakultas');
-        $fakultasId = $user->fakultas_id;
+        $fakultasId = $user->kode_fakultas;
 
         if (! $fakultasId) {
             abort(403, 'Akun Admin Fakultas belum dikaitkan dengan Fakultas.');
@@ -46,15 +46,15 @@ class DaftarAlumniFakultasController extends Controller
             $fakultas = $user->fakultas ?: RefFakultas::find($fakultasId);
         }
 
-        $daftarProdiFakultas = Prodi::where('fakultas_id', $fakultasId)
+        $daftarProdiFakultas = Prodi::where('kode_fakultas', $fakultasId)
             ->orderBy('kode_prodi', 'asc')
             ->get();
 
-        $prodiIdsFakultas = $daftarProdiFakultas->pluck('id')->all();
+        $prodiIdsFakultas = $daftarProdiFakultas->pluck('kode_prodi')->all();
 
         $data = $directoryService->getDirectoryData($request, [
             'prodi_ids' => $prodiIdsFakultas,
-            'fakultas_id' => $fakultasId,
+            'kode_fakultas' => $fakultasId,
             'server_pagination' => true,
         ]);
 
@@ -72,14 +72,14 @@ class DaftarAlumniFakultasController extends Controller
     {
         /** @var User $user */
         $user = Auth::user();
-        $fakultasId = $user->fakultas_id;
+        $fakultasId = $user->kode_fakultas;
 
         if (! $fakultasId) {
             abort(403, 'Akun Anda belum dikaitkan dengan Fakultas.');
         }
 
         $alumni = Biodata::whereHas('prodi', function ($query) use ($fakultasId) {
-            $query->where('fakultas_id', $fakultasId);
+            $query->where('kode_fakultas', $fakultasId);
         })
             ->with(['user', 'dataAkademik'])
             ->findOrFail($id);
@@ -105,8 +105,8 @@ class DaftarAlumniFakultasController extends Controller
     {
         /** @var User $user */
         $user = Auth::user();
-        $fakultasId = (int) $user->fakultas_id;
-        $prodiId = (int) $request->input('prodi_id');
+        $fakultasId = $user->kode_fakultas;
+        $prodiId = $request->input('kode_prodi');
 
         if (! $fakultasId) {
             abort(403, 'Akun Anda belum dikaitkan dengan Fakultas.');
@@ -116,7 +116,7 @@ class DaftarAlumniFakultasController extends Controller
             return back()->with('error', 'Silakan pilih Program Studi terlebih dahulu untuk mengunduh berkas Excel.');
         }
 
-        $prodisFakultas = Prodi::where('fakultas_id', $fakultasId)->pluck('id')->all();
+        $prodisFakultas = Prodi::where('kode_fakultas', $fakultasId)->pluck('kode_prodi')->all();
         if (! in_array($prodiId, $prodisFakultas, true)) {
             abort(403, 'Program studi tidak berada di bawah naungan Fakultas Anda.');
         }
@@ -134,14 +134,14 @@ class DaftarAlumniFakultasController extends Controller
     {
         /** @var User $user */
         $user = Auth::user();
-        $fakultasId = (int) $user->fakultas_id;
+        $fakultasId = $user->kode_fakultas;
 
         if (! $fakultasId) {
             abort(403, 'Akun Anda belum dikaitkan dengan Fakultas.');
         }
 
-        $prodiIdsFakultas = Prodi::where('fakultas_id', $fakultasId)->pluck('id')->all();
-        $prodiIdInput = $request->input('prodi_id');
+        $prodiIdsFakultas = Prodi::where('kode_fakultas', $fakultasId)->pluck('kode_prodi')->all();
+        $prodiIdInput = $request->input('kode_prodi');
         $tahun = $request->input('tahun');
         $semester = $request->input('semester');
         $search = $request->input('search');
@@ -150,13 +150,13 @@ class DaftarAlumniFakultasController extends Controller
             ->where('is_complete_total', 0);
 
         if ($prodiIdInput && $prodiIdInput !== 'all') {
-            $selectedProdiId = (int) $prodiIdInput;
+            $selectedProdiId = $prodiIdInput;
             if (! in_array($selectedProdiId, $prodiIdsFakultas, true)) {
                 abort(403, 'Program studi tidak valid.');
             }
-            $query->where('prodi_id', $selectedProdiId);
+            $query->where('kode_prodi', $selectedProdiId);
         } else {
-            $query->whereIn('prodi_id', $prodiIdsFakultas);
+            $query->whereIn('kode_prodi', $prodiIdsFakultas);
         }
 
         if ($tahun && $tahun !== 'all') {
@@ -187,8 +187,8 @@ class DaftarAlumniFakultasController extends Controller
         SendBlastReminderEmailJob::dispatch($biodataIds, Auth::id(), [
             'tahun' => $tahun ?: 'Semua',
             'semester' => $semester ?: 'Semua',
-            'prodi_id' => $prodiIdInput ?: 'Semua Prodi Fakultas',
-            'fakultas_id' => $fakultasId,
+            'kode_prodi' => $prodiIdInput ?: 'Semua Prodi Fakultas',
+            'kode_fakultas' => $fakultasId,
             'search' => $search ?: null,
         ]);
 

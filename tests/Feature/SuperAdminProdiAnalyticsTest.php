@@ -56,7 +56,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
         ]);
 
         $section = KuesionerSection::create([
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'target' => 'prodi',
             'kode_section' => 'SEC-PSI-1',
             'judul' => 'Pengalaman Belajar Selama Studi',
@@ -65,7 +65,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
         ]);
 
         $question = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $prodi->id,
+            'pemilik_kode_prodi' => $prodi->kode_prodi,
             'kode_pertanyaan' => 'PSI-2-01',
             'teks_pertanyaan' => 'Pemahaman konsep dan praktik Sistem Informasi',
             'tipe' => 'rating_5',
@@ -82,7 +82,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->component('Shared/Analytics/GrafikProdi')
             ->has('analytics')
-            ->where('analytics.prodi.id', $prodi->id)
+            ->where('analytics.prodi.kode_prodi', $prodi->kode_prodi)
             ->where('analytics.has_data', true)
         );
     }
@@ -97,7 +97,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'nama_prodi' => 'Sistem Informasi',
         ]);
         $secondSection = KuesionerSection::create([
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'target' => 'prodi',
             'kode_section' => 'SEC-PSI-2',
             'judul' => 'Bagian Kedua',
@@ -105,7 +105,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'is_active' => true,
         ]);
         $firstSection = KuesionerSection::create([
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'target' => 'prodi',
             'kode_section' => 'SEC-PSI-1',
             'judul' => 'Bagian Pertama',
@@ -113,14 +113,14 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'is_active' => true,
         ]);
         $q2 = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $prodi->id,
+            'pemilik_kode_prodi' => $prodi->kode_prodi,
             'kode_pertanyaan' => 'PSI-2-01',
             'teks_pertanyaan' => 'Pertanyaan bagian kedua',
             'tipe' => 'rating_5',
             'is_active' => true,
         ]);
         $q1 = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $prodi->id,
+            'pemilik_kode_prodi' => $prodi->kode_prodi,
             'kode_pertanyaan' => 'PSI-1-01',
             'teks_pertanyaan' => 'Pertanyaan bagian pertama',
             'tipe' => 'rating_5',
@@ -130,7 +130,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
         $secondSection->pertanyaan()->attach($q2->id, ['order' => 1, 'wajib' => true]);
         $firstSection->pertanyaan()->attach($q1->id, ['order' => 1, 'wajib' => true]);
 
-        $analytics = app(ProdiAnalyticsService::class)->buildProdiChart($prodi->id, null, 'ALL');
+        $analytics = app(ProdiAnalyticsService::class)->buildProdiChart($prodi->kode_prodi, null, 'ALL');
 
         $this->assertSame($firstSection->id, $analytics['filters']['selected_section_id']);
         $this->assertSame('Bagian Pertama', $analytics['chart']['title']);
@@ -147,7 +147,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
         ]);
 
         $section = KuesionerSection::create([
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'target' => 'prodi',
             'kode_section' => 'SEC-PSI-1',
             'judul' => 'Pengalaman Belajar',
@@ -156,7 +156,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
         ]);
 
         $question = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $prodi->id,
+            'pemilik_kode_prodi' => $prodi->kode_prodi,
             'kode_pertanyaan' => 'PSI-2-01',
             'teks_pertanyaan' => 'Pemahaman konsep',
             'tipe' => 'rating_5',
@@ -167,17 +167,17 @@ class SuperAdminProdiAnalyticsTest extends TestCase
 
         $superadmin = $this->createSuperAdmin();
 
-        $response = $this->actingAs($superadmin)->getJson("/superadmin/analitik-prodi/data?prodi_id={$prodi->id}");
+        $response = $this->actingAs($superadmin)->getJson("/superadmin/analitik-prodi/data?kode_prodi={$prodi->kode_prodi}");
 
         $response->assertStatus(200)
             ->assertJsonPath('has_data', true)
-            ->assertJsonPath('prodi.id', $prodi->id)
+            ->assertJsonPath('prodi.kode_prodi', $prodi->kode_prodi)
             ->assertJsonStructure([
                 'has_data',
                 'prodi',
                 'filters' => [
                     'available_prodis',
-                    'selected_prodi_id',
+                    'selected_kode_prodi',
                     'available_years',
                     'selected_year',
                     'sections',
@@ -214,7 +214,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'nama_prodi' => 'Sistem Informasi',
         ]);
         $section = KuesionerSection::create([
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'target' => 'prodi',
             'kode_section' => 'SEC-PSI-1',
             'judul' => 'Pengalaman Belajar',
@@ -222,7 +222,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'is_active' => true,
         ]);
         $question = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $prodi->id,
+            'pemilik_kode_prodi' => $prodi->kode_prodi,
             'kode_pertanyaan' => 'PSI-2-01',
             'teks_pertanyaan' => 'Pemahaman konsep',
             'tipe' => 'rating_5',
@@ -247,7 +247,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             $biodata = Biodata::create([
                 'user_id' => $alumni->id,
                 'nim' => $response['nim'],
-                'prodi_id' => $prodi->id,
+                'kode_prodi' => $prodi->kode_prodi,
             ]);
             KuesionerJawaban::create([
                 'responden_type' => 'alumni',
@@ -259,7 +259,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             ]);
         }
 
-        $analytics = app(ProdiAnalyticsService::class)->buildProdiChart($prodi->id, $section->id, 'ALL');
+        $analytics = app(ProdiAnalyticsService::class)->buildProdiChart($prodi->kode_prodi, $section->id, 'ALL');
 
         $this->assertSame(3, $analytics['chart']['summary']['average_score']);
         $this->assertSame(3, $analytics['chart']['visualizations'][0]['stat']['average']);
@@ -276,7 +276,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'nama_prodi' => 'Sistem Informasi',
         ]);
         $section = KuesionerSection::create([
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'target' => 'prodi',
             'kode_section' => 'SEC-PSI-1',
             'judul' => 'Kontribusi Alumni',
@@ -284,7 +284,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'is_active' => true,
         ]);
         $question = KuesionerPertanyaan::create([
-            'pemilik_prodi_id' => $prodi->id,
+            'pemilik_kode_prodi' => $prodi->kode_prodi,
             'kode_pertanyaan' => 'PSI-1-04',
             'teks_pertanyaan' => 'Kontribusi yang akan diberikan',
             'tipe' => 'multiple_choice',
@@ -307,7 +307,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
         $biodata = Biodata::create([
             'user_id' => $alumni->id,
             'nim' => '72100003',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'nomor_telepon' => '081234567890',
             'email_pribadi' => 'pribadi.lainnya@example.test',
             'linkedin_url' => 'https://www.linkedin.com/in/alumni-lainnya',
@@ -322,7 +322,7 @@ class SuperAdminProdiAnalyticsTest extends TestCase
             'jawaban_json' => ['selected' => ['Other'], 'custom' => 'Menjadi mentor proyek'],
         ]);
 
-        $analytics = app(ProdiAnalyticsService::class)->buildProdiChart($prodi->id, $section->id, 'ALL');
+        $analytics = app(ProdiAnalyticsService::class)->buildProdiChart($prodi->kode_prodi, $section->id, 'ALL');
 
         $visualization = $analytics['chart']['visualizations'][0];
 

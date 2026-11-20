@@ -20,7 +20,7 @@ class AtasanAnalyticsService
      *
      * @return array<string, mixed>
      */
-    public function build(?string $requestedYear = null, ?int $prodiId = null): array
+    public function build(?string $requestedYear = null, ?string $prodiId = null): array
     {
         $availableYears = $this->availableYears();
         $selectedYear = $this->resolveYear($requestedYear, $availableYears);
@@ -74,10 +74,10 @@ class AtasanAnalyticsService
         return [
             'filters' => [
                 'selected_year' => $selectedYear,
-                'selected_prodi_id' => $prodiId ? (string) $prodiId : '',
+                'selected_kode_prodi' => $prodiId ?? '',
                 'available_years' => $availableYears,
-                'prodis' => Prodi::query()->orderBy('nama_prodi')->get(['id', 'kode_prodi', 'nama_prodi'])->map(static fn (Prodi $prodi): array => [
-                    'id' => $prodi->id,
+                'prodis' => Prodi::query()->orderBy('nama_prodi')->get(['kode_prodi', 'nama_prodi'])->map(static fn (Prodi $prodi): array => [
+                    'id' => $prodi->kode_prodi,
                     'kode_prodi' => $prodi->kode_prodi,
                     'nama_prodi' => $prodi->nama_prodi,
                 ])->values()->all(),
@@ -152,7 +152,7 @@ class AtasanAnalyticsService
      *
      * @return Collection<int, EvaluasiAtasan>
      */
-    private function evaluations(string $year, ?int $prodiId): Collection
+    private function evaluations(string $year, ?string $prodiId): Collection
     {
         return EvaluasiAtasan::query()
             ->with([
@@ -163,7 +163,7 @@ class AtasanAnalyticsService
                 'respons.pertanyaan',
             ])
             ->when($year !== 'ALL', static fn ($query) => $query->whereHas('biodata.dataAkademik', static fn ($academic) => $academic->where('tahun_lulus', (int) $year)))
-            ->when($prodiId, static fn ($query) => $query->whereHas('biodata', static fn ($biodata) => $biodata->where('prodi_id', $prodiId)))
+            ->when($prodiId, static fn ($query) => $query->whereHas('biodata', static fn ($biodata) => $biodata->where('kode_prodi', $prodiId)))
             ->latest('updated_at')
             ->get();
     }

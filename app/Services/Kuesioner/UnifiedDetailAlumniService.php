@@ -131,12 +131,12 @@ class UnifiedDetailAlumniService
             ],
         ];
 
-        if (! $alumni->prodi_id) {
+        if (! $alumni->kode_prodi) {
             return $defaultResult;
         }
 
         $prodiSections = KuesionerSection::where('target', 'prodi')
-            ->where('prodi_id', $alumni->prodi_id)
+            ->where('kode_prodi', $alumni->kode_prodi)
             ->where('is_active', true)
             ->with(['pertanyaan' => function ($query) {
                 $query->where('kuesioner_pertanyaan.is_active', true)

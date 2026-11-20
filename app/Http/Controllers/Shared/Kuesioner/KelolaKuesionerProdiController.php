@@ -53,14 +53,14 @@ class KelolaKuesionerProdiController extends Controller
     private function accessibleProdiQuery(User $user): Builder
     {
         return Prodi::query()
-            ->when($user->role === 'admin_prodi', fn (Builder $query) => $query->whereKey($user->prodi_id ?? 0))
-            ->when($user->role === 'admin_fakultas', fn (Builder $query) => $query->where('fakultas_id', $user->fakultas_id ?? 0));
+            ->when($user->role === 'admin_prodi', fn (Builder $query) => $query->whereKey($user->kode_prodi))
+            ->when($user->role === 'admin_fakultas', fn (Builder $query) => $query->where('kode_fakultas', $user->kode_fakultas ?? null));
     }
 
     /**
      * Memastikan Prodi berada dalam lingkup akses akun.
      */
-    private function ensureProdiAccess(User $user, int $prodiId): void
+    private function ensureProdiAccess(User $user, string $prodiId): void
     {
         abort_unless(
             $this->accessibleProdiQuery($user)->whereKey($prodiId)->exists(),
@@ -72,7 +72,7 @@ class KelolaKuesionerProdiController extends Controller
     /**
      * Memastikan pertanyaan hanya dapat diubah oleh prodi yang tercatat sebagai pemilik master.
      */
-    private function ensureQuestionOwner(User $user, KuesionerPertanyaan $question, int $prodiId): void
+    private function ensureQuestionOwner(User $user, KuesionerPertanyaan $question, string $prodiId): void
     {
         $this->ensureProdiAccess($user, $prodiId);
 
@@ -81,7 +81,7 @@ class KelolaKuesionerProdiController extends Controller
         }
 
         abort_unless(
-            (int) $question->pemilik_prodi_id === $prodiId,
+            $question->pemilik_kode_prodi === $prodiId,
             403,
             'Pertanyaan ini berasal dari sumber lain dan hanya dapat digunakan, bukan diubah.'
         );
@@ -90,13 +90,13 @@ class KelolaKuesionerProdiController extends Controller
     /**
      * Memastikan section tujuan berada pada prodi yang sedang dikelola akun.
      */
-    private function findAccessibleProdiSection(User $user, int $prodiId, int $sectionId): KuesionerSection
+    private function findAccessibleProdiSection(User $user, string $prodiId, int $sectionId): KuesionerSection
     {
         $this->ensureProdiAccess($user, $prodiId);
 
         return KuesionerSection::whereKey($sectionId)
             ->where('target', 'prodi')
-            ->where('prodi_id', $prodiId)
+            ->where('kode_prodi', $prodiId)
             ->firstOrFail();
     }
 
@@ -109,9 +109,9 @@ class KelolaKuesionerProdiController extends Controller
             return;
         }
 
-        abort_unless($question->pemilik_prodi_id !== null, 403, 'Opsi pertanyaan umum dikelola dari sumber kanoniknya.');
+        abort_unless($question->pemilik_kode_prodi !== null, 403, 'Opsi pertanyaan umum dikelola dari sumber kanoniknya.');
 
-        $this->ensureQuestionOwner($user, $question, (int) $question->pemilik_prodi_id);
+        $this->ensureQuestionOwner($user, $question, $question->pemilik_kode_prodi);
     }
 
     private function basePath(User $user): string
@@ -142,18 +142,16 @@ class KelolaKuesionerProdiController extends Controller
 
         // Ambil daftar program studi sesuai lingkup akses akun
         $prodis = $this->accessibleProdiQuery($user)
-            ->select('id', 'nama_prodi', 'kode_prodi', 'fakultas_id')
-            ->with('fakultas:id,nama_fakultas')
+            ->select('kode_prodi', 'nama_prodi', 'kode_fakultas')
+            ->with('fakultas:kode_fakultas,nama_fakultas')
             ->orderBy('nama_prodi')
             ->get();
 
         // Tentukan prodi mana yang dipilih
-        $selectedProdiId = $request->query('prodi_id')
-            ? (int) $request->query('prodi_id')
-            : ($prodis->first()?->id ?? 0);
+        $selectedProdiId = $request->query('kode_prodi') ?: ($prodis->first()?->kode_prodi ?? '');
 
-        $selectedProdi = $prodis->firstWhere('id', $selectedProdiId) ?? $prodis->first();
-        $selectedProdiId = (int) ($selectedProdi?->id ?? 0);
+        $selectedProdi = $prodis->firstWhere('kode_prodi', $selectedProdiId) ?? $prodis->first();
+        $selectedProdiId = $selectedProdi?->kode_prodi ?? '';
 
         if ($selectedProdiId) {
             $this->normalizeSectionOrders($selectedProdiId);
@@ -162,7 +160,7 @@ class KelolaKuesionerProdiController extends Controller
         // Ambil Section dari tabel terpadu kuesioner_section
         $rawSections = $selectedProdiId
             ? KuesionerSection::where('target', 'prodi')
-                ->where('prodi_id', $selectedProdiId)
+                ->where('kode_prodi', $selectedProdiId)
                 ->withCount('sectionPertanyaan')
                 ->orderBy('order', 'asc')
                 ->get()
@@ -172,7 +170,7 @@ class KelolaKuesionerProdiController extends Controller
         if ($selectedProdiId && $rawSections->isEmpty()) {
             KuesionerSection::create([
                 'target' => 'prodi',
-                'prodi_id' => $selectedProdiId,
+                'kode_prodi' => $selectedProdiId,
                 'kode_section' => 'PRODI_'.$selectedProdiId.'_SEC1',
                 'judul' => 'Bagian Evaluasi & Relevansi Program Studi',
                 'deskripsi' => 'Kelompok pertanyaan kuesioner khusus Program Studi '.($selectedProdi?->nama_prodi ?? ''),
@@ -181,7 +179,7 @@ class KelolaKuesionerProdiController extends Controller
             ]);
 
             $rawSections = KuesionerSection::where('target', 'prodi')
-                ->where('prodi_id', $selectedProdiId)
+                ->where('kode_prodi', $selectedProdiId)
                 ->withCount('sectionPertanyaan')
                 ->orderBy('order', 'asc')
                 ->get();
@@ -197,7 +195,7 @@ class KelolaKuesionerProdiController extends Controller
         $placementItems = KuesionerSectionPertanyaan::whereIn('section_id', $sectionIds)
             ->with([
                 'pertanyaan.opsi' => fn ($q) => $q->orderBy('order'),
-                'pertanyaan.pemilikProdi:id,nama_prodi,kode_prodi',
+                'pertanyaan.pemilikProdi:kode_prodi,nama_prodi',
                 'section:id,judul,order',
             ])
             ->orderBy('order', 'asc')
@@ -227,9 +225,9 @@ class KelolaKuesionerProdiController extends Controller
                 'is_active' => (bool) $master->is_active,
                 'is_placement_active' => (bool) $placement->is_active,
                 'is_reusable' => (bool) $master->is_reusable,
-                'pemilik_prodi_id' => $master->pemilik_prodi_id,
+                'pemilik_kode_prodi' => $master->pemilik_kode_prodi,
                 'can_edit' => $user->role === 'superadmin'
-                    || (int) $master->pemilik_prodi_id === $selectedProdiId,
+                    || $master->pemilik_kode_prodi === $selectedProdiId,
                 'section_id' => $placement->section_id,
                 'section' => [
                     'id' => $placement->section_id,
@@ -263,19 +261,19 @@ class KelolaKuesionerProdiController extends Controller
         ])->values();
 
         // Seluruh section yang relevan untuk penempatan tambahan (Multi-Placement) dalam lingkup prodi yang dikelola
-        $allSections = KuesionerSection::select('id', 'target', 'prodi_id', 'judul', 'kode_section')
+        $allSections = KuesionerSection::select('id', 'target', 'kode_prodi', 'judul', 'kode_section')
             ->where('target', 'prodi')
-            ->when($user->role === 'admin_prodi', fn ($q) => $q->where('prodi_id', $selectedProdiId))
-            ->when($user->role === 'admin_fakultas', fn ($q) => $q->whereIn('prodi_id', $prodis->pluck('id')))
-            ->when($user->role === 'superadmin', fn ($q) => $q->where('prodi_id', $selectedProdiId))
-            ->with('prodi:id,nama_prodi')
+            ->when($user->role === 'admin_prodi', fn ($q) => $q->where('kode_prodi', $selectedProdiId))
+            ->when($user->role === 'admin_fakultas', fn ($q) => $q->whereIn('kode_prodi', $prodis->pluck('kode_prodi')))
+            ->when($user->role === 'superadmin', fn ($q) => $q->where('kode_prodi', $selectedProdiId))
+            ->with('prodi:kode_prodi,nama_prodi')
             ->orderBy('order')
             ->get()
             ->map(fn (KuesionerSection $s) => [
                 'id' => $s->id,
                 'judul' => $s->judul,
                 'target' => $s->target,
-                'prodi_id' => $s->prodi_id,
+                'kode_prodi' => $s->kode_prodi,
                 'label' => $s->judul,
             ])
             ->values()
@@ -287,8 +285,8 @@ class KelolaKuesionerProdiController extends Controller
             ->where('is_reusable', true)
             ->where('is_active', true)
             ->with([
-                'pemilikProdi:id,nama_prodi,kode_prodi',
-                'sections:id,target,prodi_id,judul',
+                'pemilikProdi:kode_prodi,nama_prodi',
+                'sections:id,target,kode_prodi,judul',
                 'opsi' => fn ($q) => $q->orderBy('order'),
             ])
             ->orderBy('id', 'desc')
@@ -363,14 +361,14 @@ class KelolaKuesionerProdiController extends Controller
     /**
      * Menormalkan urutan section program studi secara berurutan (1..N).
      */
-    private function normalizeSectionOrders(int $prodiId): void
+    private function normalizeSectionOrders(string $prodiId): void
     {
-        if ($prodiId <= 0) {
+        if (empty($prodiId)) {
             return;
         }
 
         $sections = KuesionerSection::where('target', 'prodi')
-            ->where('prodi_id', $prodiId)
+            ->where('kode_prodi', $prodiId)
             ->orderBy('order', 'asc')
             ->orderBy('id', 'asc')
             ->get();
@@ -389,24 +387,24 @@ class KelolaKuesionerProdiController extends Controller
     public function storeSection(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'prodi_id' => 'required|exists:prodi,id',
+            'kode_prodi' => 'required|exists:ref_prodi,kode_prodi',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'order' => 'nullable|integer',
         ]);
 
         $user = $this->authenticatedUser();
-        $prodiId = (int) $validated['prodi_id'];
+        $prodiId = $validated['kode_prodi'];
         $this->ensureProdiAccess($user, $prodiId);
 
-        $maxOrder = KuesionerSection::where('target', 'prodi')->where('prodi_id', $prodiId)->max('order') ?? 0;
+        $maxOrder = KuesionerSection::where('target', 'prodi')->where('kode_prodi', $prodiId)->max('order') ?? 0;
         $order = ! empty($validated['order']) ? (int) $validated['order'] : ($maxOrder + 1);
 
         // Simpan ke skema terpadu kuesioner_section
         $code = 'PRODI_'.$prodiId.'_'.Str::upper(Str::slug(Str::limit($validated['title'], 15, ''))).'_'.time();
         $section = KuesionerSection::create([
             'target' => 'prodi',
-            'prodi_id' => $prodiId,
+            'kode_prodi' => $prodiId,
             'kode_section' => $code,
             'judul' => $validated['title'],
             'deskripsi' => $validated['description'] ?? null,
@@ -429,7 +427,7 @@ class KelolaKuesionerProdiController extends Controller
         $user = $this->authenticatedUser();
 
         $section = KuesionerSection::findOrFail($id);
-        $this->ensureProdiAccess($user, (int) $section->prodi_id);
+        $this->ensureProdiAccess($user, (string) $section->kode_prodi);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -443,7 +441,7 @@ class KelolaKuesionerProdiController extends Controller
             'order' => $validated['order'] ?? $section->order,
         ]);
 
-        $this->normalizeSectionOrders((int) $section->prodi_id);
+        $this->normalizeSectionOrders($section->kode_prodi);
 
         LogActivity::record('KUESIONER_PRODI_SECTION_UPDATED', 'Memperbarui section kuesioner prodi: '.$section->judul.'.', $section, null, $validated);
 
@@ -458,7 +456,7 @@ class KelolaKuesionerProdiController extends Controller
         $user = $this->authenticatedUser();
 
         $section = KuesionerSection::with('sectionPertanyaan')->findOrFail($id);
-        $prodiId = (int) $section->prodi_id;
+        $prodiId = (string) $section->kode_prodi;
         $this->ensureProdiAccess($user, $prodiId);
 
         // Hapus relasi penempatan di section ini
@@ -485,8 +483,8 @@ class KelolaKuesionerProdiController extends Controller
 
             $user = $this->authenticatedUser();
             $currentSection = KuesionerSection::findOrFail($validated['id']);
-            $this->ensureProdiAccess($user, (int) $currentSection->prodi_id);
-            $prodiId = (int) $currentSection->prodi_id;
+            $this->ensureProdiAccess($user, (string) $currentSection->kode_prodi);
+            $prodiId = $currentSection->kode_prodi;
 
             $this->normalizeSectionOrders($prodiId);
             $currentSection->refresh();
@@ -495,7 +493,7 @@ class KelolaKuesionerProdiController extends Controller
             $sortOrder = $validated['direction'] === 'up' ? 'desc' : 'asc';
 
             $adjacentSection = KuesionerSection::where('target', 'prodi')
-                ->where('prodi_id', $prodiId)
+                ->where('kode_prodi', $prodiId)
                 ->where('order', $operator, $currentSection->order)
                 ->orderBy('order', $sortOrder)
                 ->first();
@@ -523,12 +521,12 @@ class KelolaKuesionerProdiController extends Controller
     public function toggleActive(Request $request, int $questionId): RedirectResponse
     {
         $validated = $request->validate([
-            'prodi_id' => 'nullable|exists:prodi,id',
+            'kode_prodi' => 'nullable|exists:ref_prodi,kode_prodi',
         ]);
 
         $user = $this->authenticatedUser();
         $question = KuesionerPertanyaan::findOrFail($questionId);
-        $prodiId = (int) ($validated['prodi_id'] ?? $question->pemilik_prodi_id ?? 0);
+        $prodiId = ($validated['kode_prodi'] ?? $question->pemilik_kode_prodi ?? 0);
         $this->ensureQuestionOwner($user, $question, $prodiId);
 
         $question->is_active = ! $question->is_active;
@@ -545,16 +543,16 @@ class KelolaKuesionerProdiController extends Controller
     public function togglePlacementActive(Request $request, int $placementId): RedirectResponse
     {
         $validated = $request->validate([
-            'prodi_id' => 'required|exists:prodi,id',
+            'kode_prodi' => 'required|exists:ref_prodi,kode_prodi',
         ]);
 
         $user = $this->authenticatedUser();
         $placement = KuesionerSectionPertanyaan::with(['section', 'pertanyaan'])->findOrFail($placementId);
-        $prodiId = (int) $validated['prodi_id'];
+        $prodiId = $validated['kode_prodi'];
 
         $this->ensureProdiAccess($user, $prodiId);
         abort_unless(
-            (int) $placement->section?->prodi_id === $prodiId,
+            $placement->section?->kode_prodi === $prodiId,
             403,
             'Placement pertanyaan tidak berada dalam lingkup program studi ini.'
         );
@@ -571,7 +569,7 @@ class KelolaKuesionerProdiController extends Controller
     public function storeQuestion(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'prodi_id' => 'required|exists:prodi,id',
+            'kode_prodi' => 'required|exists:ref_prodi,kode_prodi',
             'code' => 'required|string|max:50',
             'label' => 'nullable|string|max:255',
             'question_text' => 'required|string',
@@ -589,7 +587,7 @@ class KelolaKuesionerProdiController extends Controller
         ]);
 
         $user = $this->authenticatedUser();
-        $prodiId = (int) $validated['prodi_id'];
+        $prodiId = $validated['kode_prodi'];
         $this->ensureProdiAccess($user, $prodiId);
 
         // Batasi ruang lingkup tampil_di: admin_prodi hanya boleh mengelola pertanyaan untuk kuesioner prodi
@@ -616,13 +614,13 @@ class KelolaKuesionerProdiController extends Controller
 
         if (! $unifiedSection) {
             $unifiedSection = KuesionerSection::where('target', 'prodi')
-                ->where('prodi_id', $prodiId)
+                ->where('kode_prodi', $prodiId)
                 ->first();
 
             if (! $unifiedSection) {
                 $unifiedSection = KuesionerSection::create([
                     'target' => 'prodi',
-                    'prodi_id' => $prodiId,
+                    'kode_prodi' => $prodiId,
                     'kode_section' => 'PRODI_'.$prodiId.'_SEC1',
                     'judul' => 'Bagian Evaluasi & Relevansi Program Studi',
                     'order' => 1,
@@ -644,12 +642,12 @@ class KelolaKuesionerProdiController extends Controller
                     'label_pertanyaan' => filled($validated['label'] ?? null) ? trim($validated['label']) : null,
                     'teks_pertanyaan' => trim($validated['question_text']),
                     'tipe' => $validated['type'],
-                    'pemilik_prodi_id' => $prodiId,
+                    'pemilik_kode_prodi' => $prodiId,
                     'is_reusable' => $request->boolean('is_reusable', true),
                     'is_active' => true,
                 ]);
                 $canManageMaster = true;
-            } elseif ((int) $master->pemilik_prodi_id === $prodiId) {
+            } elseif ($master->pemilik_kode_prodi === $prodiId) {
                 // Pemilik boleh memperbarui master miliknya saat memakai kembali kode yang sama.
                 $master->update([
                     'teks_pertanyaan' => trim($validated['question_text']),
@@ -688,7 +686,7 @@ class KelolaKuesionerProdiController extends Controller
                     if ((int) $extraSecId !== $sectionId) {
                         $extraSection = KuesionerSection::whereKey((int) $extraSecId)
                             ->where('target', 'prodi')
-                            ->when($user->role !== 'superadmin', fn ($q) => $q->where('prodi_id', $prodiId))
+                            ->when($user->role !== 'superadmin', fn ($q) => $q->where('kode_prodi', $prodiId))
                             ->first();
 
                         if (! $extraSection) {
@@ -769,7 +767,7 @@ class KelolaKuesionerProdiController extends Controller
         $master = KuesionerPertanyaan::findOrFail($questionId);
 
         $validated = $request->validate([
-            'prodi_id' => 'required|exists:prodi,id',
+            'kode_prodi' => 'required|exists:ref_prodi,kode_prodi',
             'code' => 'required|string|max:50',
             'label' => 'nullable|string|max:255',
             'question_text' => 'required|string',
@@ -795,7 +793,7 @@ class KelolaKuesionerProdiController extends Controller
         }
 
         $code = Str::upper(trim($validated['code']));
-        $prodiId = (int) $validated['prodi_id'];
+        $prodiId = $validated['kode_prodi'];
         $sectionId = (int) $validated['section_id'];
         $this->ensureQuestionOwner($user, $master, $prodiId);
         $this->findAccessibleProdiSection($user, $prodiId, $sectionId);
@@ -847,12 +845,12 @@ class KelolaKuesionerProdiController extends Controller
                 // Filter hanya section yang sah dalam lingkup program studi ini
                 $targetIds = KuesionerSection::whereIn('id', $rawTargetIds)
                     ->where('target', 'prodi')
-                    ->when($user->role !== 'superadmin', fn ($q) => $q->where('prodi_id', $prodiId))
+                    ->when($user->role !== 'superadmin', fn ($q) => $q->where('kode_prodi', $prodiId))
                     ->pluck('id')
                     ->all();
 
                 $ownedSectionIds = KuesionerSection::where('target', 'prodi')
-                    ->where('prodi_id', $prodiId)
+                    ->where('kode_prodi', $prodiId)
                     ->pluck('id');
 
                 KuesionerSectionPertanyaan::where('pertanyaan_id', $master->id)
@@ -922,11 +920,11 @@ class KelolaKuesionerProdiController extends Controller
     public function destroyQuestion(Request $request, int $placementId): RedirectResponse
     {
         $validated = $request->validate([
-            'prodi_id' => 'required|exists:prodi,id',
+            'kode_prodi' => 'required|exists:ref_prodi,kode_prodi',
         ]);
 
         $user = $this->authenticatedUser();
-        $prodiId = (int) $validated['prodi_id'];
+        $prodiId = $validated['kode_prodi'];
         $this->ensureProdiAccess($user, $prodiId);
 
         // Batasi ruang lingkup tampil_di: admin_prodi hanya boleh mengelola pertanyaan untuk kuesioner prodi
@@ -937,7 +935,7 @@ class KelolaKuesionerProdiController extends Controller
         }
         $placement = KuesionerSectionPertanyaan::with('pertanyaan')->findOrFail($placementId);
         abort_unless(
-            (int) $placement->section()->value('prodi_id') === $prodiId,
+            $placement->section()->value('kode_prodi') === $prodiId,
             403,
             'Placement pertanyaan tidak berada dalam lingkup program studi ini.'
         );
@@ -947,7 +945,7 @@ class KelolaKuesionerProdiController extends Controller
         $placement->delete();
 
         // Master milik sendiri baru boleh dibersihkan jika sudah tidak dipakai dan belum memiliki jawaban.
-        if ((int) $master->pemilik_prodi_id === $prodiId
+        if ($master->pemilik_kode_prodi === $prodiId
             && ! KuesionerSectionPertanyaan::where('pertanyaan_id', $master->id)->exists()
             && $master->jawaban()->count() === 0) {
             $master->opsi()->delete();
@@ -956,7 +954,7 @@ class KelolaKuesionerProdiController extends Controller
 
         LogActivity::record('KUESIONER_PRODI_QUESTION_DETACHED', 'Melepas pertanyaan kuesioner prodi dari section.', $master, null, [
             'placement_id' => $placementId,
-            'prodi_id' => $prodiId,
+            'kode_prodi' => $prodiId,
         ]);
 
         return redirect()->back()->with('success', 'Pertanyaan kuesioner berhasil dihapus dari instrumen.');
@@ -969,17 +967,17 @@ class KelolaKuesionerProdiController extends Controller
     {
         if ($request->has(['placement_id', 'direction'])) {
             $validated = $request->validate([
-                'prodi_id' => 'required|exists:prodi,id',
+                'kode_prodi' => 'required|exists:ref_prodi,kode_prodi',
                 'placement_id' => 'required|exists:kuesioner_section_pertanyaan,id',
                 'direction' => 'required|in:up,down',
             ]);
 
             $user = $this->authenticatedUser();
-            $prodiId = (int) $validated['prodi_id'];
+            $prodiId = $validated['kode_prodi'];
             $this->ensureProdiAccess($user, $prodiId);
             $currentPlacement = KuesionerSectionPertanyaan::with('section')->findOrFail($validated['placement_id']);
             abort_unless(
-                (int) $currentPlacement->section?->prodi_id === $prodiId,
+                $currentPlacement->section?->kode_prodi === $prodiId,
                 403,
                 'Placement pertanyaan tidak berada dalam lingkup program studi ini.'
             );
@@ -1110,15 +1108,15 @@ class KelolaKuesionerProdiController extends Controller
     {
         $user = $this->authenticatedUser();
         $validated = $request->validate([
-            'prodi_id' => 'required|exists:prodi,id',
+            'kode_prodi' => 'required|exists:ref_prodi,kode_prodi',
             'section_id' => 'required|exists:kuesioner_section,id',
             'pertanyaan_ids' => 'required|array|min:1',
             'pertanyaan_ids.*' => 'required|exists:kuesioner_pertanyaan,id',
         ]);
 
-        $this->ensureProdiAccess($user, (int) $validated['prodi_id']);
+        $this->ensureProdiAccess($user, (string) $validated['kode_prodi']);
 
-        $prodiId = (int) $validated['prodi_id'];
+        $prodiId = $validated['kode_prodi'];
         $sectionId = (int) $validated['section_id'];
         $this->findAccessibleProdiSection($user, $prodiId, $sectionId);
 
@@ -1157,7 +1155,7 @@ class KelolaKuesionerProdiController extends Controller
 
         LogActivity::record('KUESIONER_PRODI_BANK_ATTACHED', 'Menyematkan '.$addedCount.' pertanyaan dari Bank Soal ke section kuesioner prodi.', null, null, [
             'section_id' => $sectionId,
-            'prodi_id' => $prodiId,
+            'kode_prodi' => $prodiId,
             'pertanyaan_ids' => $validated['pertanyaan_ids'],
         ], KuesionerSectionPertanyaan::class, $sectionId);
 

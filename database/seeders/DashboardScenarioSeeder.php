@@ -97,7 +97,7 @@ class DashboardScenarioSeeder extends Seeder
             ->get();
 
         // Cache kuesioner prodi dan pertanyaannya
-        $prodiSections = KuesionerSection::where('target', 'prodi')->get()->keyBy('prodi_id');
+        $prodiSections = KuesionerSection::where('target', 'prodi')->get()->keyBy('kode_prodi');
         $prodiQuestionsBySection = KuesionerPertanyaan::query()
             ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'kuesioner_pertanyaan.id')
             ->whereIn('sp.section_id', $prodiSections->pluck('id'))
@@ -202,7 +202,7 @@ class DashboardScenarioSeeder extends Seeder
                     'email' => $email,
                     'password' => $defaultHashedPassword,
                     'role' => 'alumni',
-                    'prodi_id' => $prodi->id,
+                    'kode_prodi' => $prodi->kode_prodi,
                     'must_change_password' => false,
                 ]
             );
@@ -251,8 +251,7 @@ class DashboardScenarioSeeder extends Seeder
                 ['nim' => $nim],
                 [
                     'user_id' => $user->id,
-                    'prodi_id' => $prodi->id,
-                    'yudisium_id' => $yudisium->id,
+                    'kode_prodi' => $prodi->kode_prodi,
                     'email_pribadi' => $email,
                     'nomor_telepon' => '0812'.str_pad((string) (10000000 + $idx), 8, '0', STR_PAD_LEFT),
                     'alamat_saat_ini' => 'Jl. Kaliurang Km. '.(($idx % 9) + 1).' No. '.($idx + 5).', Sleman',
@@ -290,7 +289,7 @@ class DashboardScenarioSeeder extends Seeder
                     $universityQuestions
                 );
 
-                $prodiSection = $prodiSections->get($prodi->id);
+                $prodiSection = $prodiSections->get($prodi->kode_prodi);
                 if ($prodiSection) {
                     $prodiQuestions = $prodiQuestionsBySection->get($prodiSection->id, collect());
                     $this->seedProdiResponses($biodata, $prodiSection->id, $idx, $prodiQuestions);

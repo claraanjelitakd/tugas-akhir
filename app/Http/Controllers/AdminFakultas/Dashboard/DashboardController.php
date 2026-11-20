@@ -24,9 +24,9 @@ class DashboardController extends Controller
         /** @var User $user */
         $user = Auth::user();
         $user->load('fakultas');
-        abort_unless($user->fakultas_id, 403, 'Akun Admin Fakultas belum memiliki lingkup fakultas.');
+        abort_unless($user->kode_fakultas, 403, 'Akun Admin Fakultas belum memiliki lingkup fakultas.');
 
-        $fakultas = $user->fakultas ?: RefFakultas::findOrFail($user->fakultas_id);
+        $fakultas = $user->fakultas ?: RefFakultas::findOrFail($user->kode_fakultas);
         $dashboard = $dashboardData->build('fakultas', $fakultas->id, $request->string('tahun')->toString());
         $stats = $dashboard['stats'];
 

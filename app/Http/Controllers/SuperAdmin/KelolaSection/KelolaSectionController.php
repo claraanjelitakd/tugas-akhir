@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\SuperAdmin\KelolaSection;
 
 use App\Http\Controllers\Controller;
+use App\Models\Kuesioner;
 use App\Models\KuesionerSection;
 use App\Models\LogActivity;
 use Illuminate\Http\RedirectResponse;
@@ -49,10 +50,15 @@ class KelolaSectionController extends Controller
             $code .= '_'.rand(10, 99);
         }
 
+        $activeKuesionerId = $request->input('kuesioner_id')
+            ?? Kuesioner::where('is_active', true)->value('id')
+            ?? Kuesioner::value('id');
+
         $section = KuesionerSection::create([
+            'kuesioner_id' => $activeKuesionerId,
             'kode_section' => $code,
             'target' => 'univ',
-            'prodi_id' => null,
+            'kode_prodi' => null,
             'judul' => $validated['title'],
             'deskripsi' => $validated['description'] ?? null,
             'order' => $validated['order'],

@@ -33,7 +33,7 @@ class AlumniProdiMultiSheetExcelExporter
      * @param  string|null  $tahun  Filter tahun kelulusan kohort (opsional).
      * @param  string|null  $semester  Filter semester kelulusan Gasal/Genap (opsional).
      */
-    public static function download(int $prodiId, ?string $tahun = null, ?string $semester = null): StreamedResponse
+    public static function download(string $prodiId, ?string $tahun = null, ?string $semester = null): StreamedResponse
     {
         $prodi = Prodi::with('fakultas')->findOrFail($prodiId);
         $cleanProdiName = preg_replace('/[^a-zA-Z0-9_-]/', '_', (string) $prodi->nama_prodi);
@@ -62,7 +62,7 @@ class AlumniProdiMultiSheetExcelExporter
     public static function generateSpreadsheetXml(Prodi $prodi, ?string $tahun = null, ?string $semester = null): string
     {
         // 1. Ambil data seluruh alumni prodi melalui view agregat v_alumni_audit_rekap
-        $queryAlumni = DB::table('v_alumni_audit_rekap')->where('prodi_id', $prodi->id);
+        $queryAlumni = DB::table('v_alumni_audit_rekap')->where('kode_prodi', $prodi->kode_prodi);
 
         if ($tahun && $tahun !== 'all') {
             $tahunNormalized = preg_match('/(\d{4})/', (string) $tahun, $matches) ? $matches[1] : $tahun;
@@ -81,7 +81,7 @@ class AlumniProdiMultiSheetExcelExporter
 
         // 2. Ambil master instrumen pertanyaan (Universitas, Prodi, & Atasan) secara batch
         $univQuestions = self::getQuestionsByTarget('univ');
-        $prodiQuestions = self::getQuestionsByTarget('prodi', $prodi->id);
+        $prodiQuestions = self::getQuestionsByTarget('prodi', $prodi->kode_prodi);
         $atasanQuestions = self::getQuestionsByTarget('atasan');
 
         // 3. Ambil data jawaban kuesioner alumni dalam 1 kueri agregat
@@ -837,7 +837,7 @@ class AlumniProdiMultiSheetExcelExporter
      *
      * @return Collection<int, object>
      */
-    private static function getQuestionsByTarget(string $target, ?int $prodiId = null): Collection
+    private static function getQuestionsByTarget(string $target, ?string $prodiId = null): Collection
     {
         $query = KuesionerPertanyaan::query()
             ->join('kuesioner_section_pertanyaan as sp', 'sp.pertanyaan_id', '=', 'kuesioner_pertanyaan.id')
@@ -848,7 +848,7 @@ class AlumniProdiMultiSheetExcelExporter
             ->whereNotIn('kuesioner_pertanyaan.tipe', ['header', 'section_header']);
 
         if ($target === 'prodi' && $prodiId) {
-            $query->where('s.prodi_id', $prodiId);
+            $query->where('s.kode_prodi', $prodiId);
         }
 
         return $query->select([

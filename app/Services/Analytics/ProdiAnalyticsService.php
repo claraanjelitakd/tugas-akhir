@@ -22,28 +22,26 @@ class ProdiAnalyticsService
     /**
      * Mengambil program studi yang tersedia untuk filter analitik.
      *
-     * @return Collection<int, array{id: int, kode_prodi: string|null, nama_prodi: string, has_questions: bool}>
+     * @return Collection<int, array{kode_prodi: string, nama_prodi: string, has_questions: bool}>
      */
     public function getAvailableProdis(): Collection
     {
         $prodisWithQuestions = KuesionerSection::query()
             ->where('target', 'prodi')
-            ->whereNotNull('prodi_id')
+            ->whereNotNull('kode_prodi')
             ->distinct()
-            ->pluck('prodi_id')
-            ->map(static fn ($id): int => (int) $id)
+            ->pluck('kode_prodi')
             ->all();
 
         return Prodi::query()
-            ->select('id', 'kode_prodi', 'nama_prodi')
+            ->select('kode_prodi', 'nama_prodi')
             ->orderBy('nama_prodi')
             ->get()
             ->map(static function (Prodi $prodi) use ($prodisWithQuestions): array {
                 return [
-                    'id' => (int) $prodi->id,
                     'kode_prodi' => $prodi->kode_prodi,
                     'nama_prodi' => $prodi->nama_prodi,
-                    'has_questions' => in_array((int) $prodi->id, $prodisWithQuestions, true),
+                    'has_questions' => in_array($prodi->kode_prodi, $prodisWithQuestions, true),
                 ];
             });
     }
@@ -53,11 +51,11 @@ class ProdiAnalyticsService
      *
      * @return array<int, string>
      */
-    public function getAvailableYears(int $prodiId): array
+    public function getAvailableYears(string $prodiId): array
     {
         $years = DB::table('biodata')
             ->leftJoin('data_akademik', 'data_akademik.nim', '=', 'biodata.nim')
-            ->where('biodata.prodi_id', $prodiId)
+            ->where('biodata.kode_prodi', $prodiId)
             ->whereNotNull('data_akademik.tahun_lulus')
             ->where('data_akademik.tahun_lulus', '!=', '')
             ->distinct()
@@ -79,7 +77,7 @@ class ProdiAnalyticsService
      * @param  string|null  $year  Filter tahun kelulusan atau ALL.
      * @return array<string, mixed>
      */
-    public function buildProdiChart(?int $prodiId = null, $sectionKey = null, ?string $year = null): array
+    public function buildProdiChart(?string $prodiId = null, $sectionKey = null, ?string $year = null): array
     {
         $availableProdis = $this->getAvailableProdis();
         $selectedProdi = $this->resolveProdi($prodiId, $availableProdis);
@@ -88,13 +86,13 @@ class ProdiAnalyticsService
             return $this->emptyPayload($availableProdis);
         }
 
-        $availableYears = $this->getAvailableYears((int) $selectedProdi->id);
+        $availableYears = $this->getAvailableYears($selectedProdi->kode_prodi);
         $selectedYear = $year && in_array($year, $availableYears, true)
             ? $year
             : $this->defaultYear($availableYears);
         $sections = KuesionerSection::query()
             ->where('target', 'prodi')
-            ->where('prodi_id', $selectedProdi->id)
+            ->where('kode_prodi', $selectedProdi->kode_prodi)
             ->where('is_active', true)
             ->withCount(['pertanyaan as questions_count' => function ($q) {
                 $q->where('kuesioner_pertanyaan.is_active', true)
@@ -141,16 +139,16 @@ class ProdiAnalyticsService
 
                 return $q;
             });
-        $responses = $this->getResponses((int) $selectedProdi->id, $questions, $selectedYear);
+        $responses = $this->getResponses($selectedProdi->kode_prodi, $questions, $selectedYear);
         $totalRespondents = $responses->pluck('biodata_id')->unique()->count();
-        $totalPopulation = $this->getPopulationCount((int) $selectedProdi->id, $selectedYear);
+        $totalPopulation = $this->getPopulationCount($selectedProdi->kode_prodi, $selectedYear);
 
         return [
             'has_data' => true,
             'prodi' => $this->prodiPayload($selectedProdi),
             'filters' => [
                 'available_prodis' => $availableProdis->values(),
-                'selected_prodi_id' => (int) $selectedProdi->id,
+                'selected_kode_prodi' => $selectedProdi->kode_prodi,
                 'available_years' => $availableYears,
                 'selected_year' => $selectedYear,
                 'sections' => $sections->map(static fn ($section): array => [
@@ -178,15 +176,15 @@ class ProdiAnalyticsService
      *
      * @param  Collection<int, array{id: int, kode_prodi: string|null, nama_prodi: string, has_questions: bool}>  $availableProdis
      */
-    private function resolveProdi(?int $prodiId, Collection $availableProdis): ?Prodi
+    private function resolveProdi(?string $prodiId, Collection $availableProdis): ?Prodi
     {
         $selected = $prodiId
-            ? $availableProdis->firstWhere('id', $prodiId)
+            ? $availableProdis->firstWhere('kode_prodi', $prodiId)
             : ($availableProdis->firstWhere('kode_prodi', '72')
                 ?? $availableProdis->firstWhere('has_questions', true)
                 ?? $availableProdis->first());
 
-        return $selected ? Prodi::find($selected['id']) : null;
+        return $selected ? Prodi::find($selected['kode_prodi']) : null;
     }
 
     /**
@@ -207,7 +205,7 @@ class ProdiAnalyticsService
      * @param  Collection<int, object>  $questions
      * @return Collection<int, object>
      */
-    private function getResponses(int $prodiId, Collection $questions, string $year): Collection
+    private function getResponses(string $prodiId, Collection $questions, string $year): Collection
     {
         if ($questions->isEmpty()) {
             return collect();
@@ -219,7 +217,7 @@ class ProdiAnalyticsService
             ->leftJoin('users', 'users.id', '=', 'biodata.user_id')
             ->leftJoin('perusahaan', 'perusahaan.id', '=', 'biodata.perusahaan_id')
             ->where('kuesioner_jawaban.responden_type', 'alumni')
-            ->where('biodata.prodi_id', $prodiId)
+            ->where('biodata.kode_prodi', $prodiId)
             ->whereIn('kuesioner_jawaban.pertanyaan_id', $questions->pluck('id'))
             ->select([
                 'kuesioner_jawaban.id as response_id',
@@ -254,11 +252,11 @@ class ProdiAnalyticsService
     /**
      * Menghitung populasi alumni pada program studi dan tahun yang dipilih.
      */
-    private function getPopulationCount(int $prodiId, string $year): int
+    private function getPopulationCount(string $prodiId, string $year): int
     {
         $query = DB::table('biodata')
             ->leftJoin('data_akademik', 'data_akademik.nim', '=', 'biodata.nim')
-            ->where('biodata.prodi_id', $prodiId);
+            ->where('biodata.kode_prodi', $prodiId);
 
         if ($year !== self::ALL_YEARS) {
             $query->where('data_akademik.tahun_lulus', $year);
@@ -926,14 +924,13 @@ class ProdiAnalyticsService
     /**
      * Membuat payload prodi yang aman dikirim ke Inertia.
      *
-     * @return array{id: int, nama_prodi: string, kode_prodi: string|null}
+     * @return array{kode_prodi: string, nama_prodi: string}
      */
     private function prodiPayload(Prodi $prodi): array
     {
         return [
-            'id' => (int) $prodi->id,
-            'nama_prodi' => $prodi->nama_prodi,
             'kode_prodi' => $prodi->kode_prodi,
+            'nama_prodi' => $prodi->nama_prodi,
         ];
     }
 
@@ -956,7 +953,7 @@ class ProdiAnalyticsService
             'prodi' => $prodi ? $this->prodiPayload($prodi) : [],
             'filters' => [
                 'available_prodis' => $availableProdis->values(),
-                'selected_prodi_id' => $prodi?->id,
+                'selected_kode_prodi' => $prodi?->kode_prodi,
                 'available_years' => $availableYears,
                 'selected_year' => $selectedYear,
                 'sections' => [],

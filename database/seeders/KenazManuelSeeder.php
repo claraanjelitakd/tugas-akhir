@@ -47,7 +47,7 @@ class KenazManuelSeeder extends Seeder
                 'email' => $personalEmail,
                 'password' => Hash::make($passwordPlain),
                 'role' => 'alumni',
-                'prodi_id' => $prodi?->id,
+                'kode_prodi' => $prodi?->kode_prodi,
                 'must_change_password' => true,
             ]
         );
@@ -62,7 +62,7 @@ class KenazManuelSeeder extends Seeder
             [
                 'nama' => $nama,
                 'email_pribadi' => $personalEmail,
-                'prodi_id' => $prodi?->id,
+                'kode_prodi' => $prodi?->kode_prodi,
                 'angkatan_masuk' => $angkatan,
                 'tahun_akademik_masuk' => $tahunAkademikMasuk,
                 'status_mahasiswa' => 'Lulus',
@@ -100,8 +100,7 @@ class KenazManuelSeeder extends Seeder
             ['user_id' => $user->id],
             [
                 'nim' => $nim,
-                'yudisium_id' => $yudisium->id,
-                'prodi_id' => $prodi?->id,
+                'kode_prodi' => $prodi?->kode_prodi,
                 'email_pribadi' => $personalEmail,
                 'nomor_telepon' => '081234567892',
                 'alamat_saat_ini' => 'Jl. Dr. Wahidin Sudirohusodo No. 5-25',

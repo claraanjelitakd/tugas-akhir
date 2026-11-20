@@ -48,7 +48,7 @@ class SuperAdminDashboardTest extends TestCase
             'email' => 'alumni1@test.com',
             'password' => Hash::make('password123'),
             'role' => 'alumni',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -69,14 +69,14 @@ class SuperAdminDashboardTest extends TestCase
             'user_id' => $alumniUser->id,
             'nim' => '72200001',
             'nama' => 'Alumni SI 1',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
         ]);
 
         $company = Perusahaan::create([
             'nama_perusahaan' => 'PT Dashboard Operasional',
             'status_verifikasi' => 'Menunggu Verifikasi',
             'created_by_user_id' => $alumniUser->id,
-            'created_by_prodi_id' => $prodi->id,
+            'created_by_kode_prodi' => $prodi->kode_prodi,
         ]);
 
         $atasan = Atasan::create([
@@ -146,7 +146,7 @@ class SuperAdminDashboardTest extends TestCase
                 'name' => $alumniData['nama'],
                 'password' => Hash::make('password123'),
                 'role' => 'alumni',
-                'prodi_id' => $prodi->id,
+                'kode_prodi' => $prodi->kode_prodi,
                 'must_change_password' => false,
             ]);
 
@@ -159,7 +159,7 @@ class SuperAdminDashboardTest extends TestCase
             Biodata::create([
                 'user_id' => $user->id,
                 'nim' => $alumniData['nim'],
-                'prodi_id' => $prodi->id,
+                'kode_prodi' => $prodi->kode_prodi,
                 'atasan_id' => $sharedAtasan->id,
             ]);
         }
@@ -201,7 +201,7 @@ class SuperAdminDashboardTest extends TestCase
             'name' => 'Alumni Tahun Berjalan',
             'password' => Hash::make('password123'),
             'role' => 'alumni',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'must_change_password' => false,
         ]);
         DataAkademik::create([
@@ -213,7 +213,7 @@ class SuperAdminDashboardTest extends TestCase
             'user_id' => $currentYearUser->id,
             'nim' => '72200011',
             'nama' => 'Alumni Tahun Berjalan',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
         ]);
 
         $previousYearUser = User::create([
@@ -221,7 +221,7 @@ class SuperAdminDashboardTest extends TestCase
             'name' => 'Alumni Tahun Lalu',
             'password' => Hash::make('password123'),
             'role' => 'alumni',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'must_change_password' => false,
         ]);
         DataAkademik::create([
@@ -233,7 +233,7 @@ class SuperAdminDashboardTest extends TestCase
             'user_id' => $previousYearUser->id,
             'nim' => '72200012',
             'nama' => 'Alumni Tahun Lalu',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
         ]);
 
         $response = $this->actingAs($superadmin)->get('/superadmin/dashboard?tahun='.$previousYear);
@@ -301,7 +301,7 @@ class SuperAdminDashboardTest extends TestCase
                     'name' => 'Alumni '.$nim,
                     'password' => Hash::make('password123'),
                     'role' => 'alumni',
-                    'prodi_id' => $prodi->id,
+                    'kode_prodi' => $prodi->kode_prodi,
                     'must_change_password' => false,
                 ]);
 
@@ -315,7 +315,7 @@ class SuperAdminDashboardTest extends TestCase
                     'user_id' => $alumniUser->id,
                     'nim' => $nim,
                     'nama' => 'Alumni '.$nim,
-                    'prodi_id' => $prodi->id,
+                    'kode_prodi' => $prodi->kode_prodi,
                 ]);
 
                 if ($index <= $prodiDefinition['responded']) {
@@ -366,7 +366,7 @@ class SuperAdminDashboardTest extends TestCase
             'name' => 'Alumni Dynamic Count',
             'password' => Hash::make('password123'),
             'role' => 'alumni',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -380,7 +380,7 @@ class SuperAdminDashboardTest extends TestCase
             'user_id' => $alumniUser->id,
             'nim' => '72200009',
             'nama' => 'Alumni Dynamic Count',
-            'prodi_id' => $prodi->id,
+            'kode_prodi' => $prodi->kode_prodi,
         ]);
 
         foreach (['F8', 'F504', 'F14', 'F15', 'F502'] as $index => $code) {

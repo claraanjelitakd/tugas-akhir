@@ -43,7 +43,7 @@ class VerifikasiPerusahaanTest extends TestCase
         $this->prodi = Prodi::create([
             'kode_prodi' => '72',
             'nama_prodi' => 'Sistem Informasi',
-            'fakultas_id' => $this->fakultas->id,
+            'kode_fakultas' => $this->fakultas->kode_fakultas,
         ]);
 
         $this->adminProdi = User::create([
@@ -51,7 +51,7 @@ class VerifikasiPerusahaanTest extends TestCase
             'name' => 'Admin SI',
             'password' => Hash::make('password123'),
             'role' => 'admin_prodi',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -60,7 +60,7 @@ class VerifikasiPerusahaanTest extends TestCase
             'name' => 'Admin FTI',
             'password' => Hash::make('password123'),
             'role' => 'admin_fakultas',
-            'fakultas_id' => $this->fakultas->id,
+            'kode_fakultas' => $this->fakultas->kode_fakultas,
             'must_change_password' => false,
         ]);
 
@@ -213,7 +213,7 @@ class VerifikasiPerusahaanTest extends TestCase
         $pendingCompany = Perusahaan::create([
             'nama_perusahaan' => 'gojek',
             'status_verifikasi' => 'Menunggu Verifikasi',
-            'created_by_prodi_id' => $this->prodi->id,
+            'created_by_kode_prodi' => $this->prodi->kode_prodi,
         ]);
 
         $alumniUser = User::create([
@@ -221,7 +221,7 @@ class VerifikasiPerusahaanTest extends TestCase
             'name' => 'Alumni Joshua',
             'password' => Hash::make('secret'),
             'role' => 'alumni',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -234,7 +234,7 @@ class VerifikasiPerusahaanTest extends TestCase
             'user_id' => $alumniUser->id,
             'nim' => '72200001',
             'nama' => 'Alumni Joshua',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'perusahaan_id' => $pendingCompany->id,
         ]);
 
@@ -266,7 +266,7 @@ class VerifikasiPerusahaanTest extends TestCase
             'name' => 'Alumni Studio Kreatif',
             'password' => Hash::make('secret'),
             'role' => 'alumni',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'must_change_password' => false,
         ]);
         DataAkademik::create([
@@ -276,7 +276,7 @@ class VerifikasiPerusahaanTest extends TestCase
         Biodata::create([
             'user_id' => $alumni->id,
             'nim' => '72200006',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'perusahaan_id' => $pendingCompany->id,
         ]);
 
@@ -294,12 +294,12 @@ class VerifikasiPerusahaanTest extends TestCase
         $otherProgram = Prodi::create([
             'kode_prodi' => '99',
             'nama_prodi' => 'Program Studi Lain',
-            'fakultas_id' => $this->fakultas->id,
+            'kode_fakultas' => $this->fakultas->kode_fakultas,
         ]);
         $company = Perusahaan::create([
             'nama_perusahaan' => 'Perusahaan Program Lain',
             'status_verifikasi' => 'Menunggu Verifikasi',
-            'created_by_prodi_id' => $otherProgram->id,
+            'created_by_kode_prodi' => $otherProgram->kode_prodi,
         ]);
 
         $this->actingAs($this->adminProdi)
@@ -314,7 +314,7 @@ class VerifikasiPerusahaanTest extends TestCase
         $pendingCompany = Perusahaan::create([
             'nama_perusahaan' => 'pt tokopedia lama',
             'status_verifikasi' => 'Menunggu Verifikasi',
-            'created_by_prodi_id' => $this->prodi->id,
+            'created_by_kode_prodi' => $this->prodi->kode_prodi,
         ]);
 
         $response = $this->actingAs($this->adminFakultas)->put("/fakultas/perusahaan/{$pendingCompany->id}", [
@@ -342,7 +342,7 @@ class VerifikasiPerusahaanTest extends TestCase
             'name' => 'Vanessa Alumni',
             'password' => Hash::make('secret'),
             'role' => 'alumni',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
             'must_change_password' => false,
         ]);
 
@@ -355,7 +355,7 @@ class VerifikasiPerusahaanTest extends TestCase
             'user_id' => $alumniUser->id,
             'nim' => '72200005',
             'nama' => 'Vanessa Alumni',
-            'prodi_id' => $this->prodi->id,
+            'kode_prodi' => $this->prodi->kode_prodi,
         ]);
 
         // 1. Alumni login dan input perusahaan via modal /alumni/company
@@ -371,12 +371,12 @@ class VerifikasiPerusahaanTest extends TestCase
         $response->assertOk();
         $response->assertJson(['success' => true]);
 
-        // Perusahaan harus tercatat dengan created_by_user_id & created_by_prodi_id
+        // Perusahaan harus tercatat dengan created_by_user_id & created_by_kode_prodi
         $company = Perusahaan::where('nama_perusahaan', 'PT Gameloft Indonesia Jogja')->first();
         $this->assertNotNull($company);
         $this->assertEquals('Menunggu Verifikasi', $company->status_verifikasi);
         $this->assertEquals($alumniUser->id, $company->created_by_user_id);
-        $this->assertEquals($this->prodi->id, $company->created_by_prodi_id);
+        $this->assertEquals($this->prodi->kode_prodi, $company->created_by_kode_prodi);
 
         // 2. Admin Prodi mengakses halaman /prodi/perusahaan dan perusahaan langsung muncul
         $adminResponse = $this->actingAs($this->adminProdi)->get('/prodi/perusahaan');
@@ -408,7 +408,7 @@ class VerifikasiPerusahaanTest extends TestCase
         $this->assertNotNull($company);
         $this->assertEquals('Menunggu Verifikasi', $company->status_verifikasi);
         $this->assertEquals($this->adminProdi->id, $company->created_by_user_id);
-        $this->assertEquals($this->adminProdi->prodi_id, $company->created_by_prodi_id);
+        $this->assertEquals($this->adminProdi->kode_prodi, $company->created_by_kode_prodi);
     }
 
     public function test_async_recommendations_endpoint_returns_json(): void
@@ -423,7 +423,7 @@ class VerifikasiPerusahaanTest extends TestCase
         $pendingCompany = Perusahaan::create([
             'nama_perusahaan' => 'PT Tokopedia',
             'status_verifikasi' => 'Menunggu Verifikasi',
-            'created_by_prodi_id' => $this->prodi->id,
+            'created_by_kode_prodi' => $this->prodi->kode_prodi,
             'kode_provinsi' => $this->propinsi->kode_provinsi,
             'kode_kabupaten' => $this->kabupaten->kode_kabupaten,
         ]);
@@ -471,7 +471,7 @@ class VerifikasiPerusahaanTest extends TestCase
             'nama_perusahaan' => 'PT Teknologi Mitra Mandiri',
             'status_verifikasi' => 'Terverifikasi',
             'created_by_user_id' => $this->adminProdi->id,
-            'created_by_prodi_id' => $this->adminProdi->prodi_id,
+            'created_by_kode_prodi' => $this->adminProdi->kode_prodi,
         ]);
     }
 

@@ -46,7 +46,7 @@ class JovanMarllenSeeder extends Seeder
                 'email' => $personalEmail,
                 'password' => Hash::make('22112004'),
                 'role' => 'alumni',
-                'prodi_id' => $prodi?->id,
+                'kode_prodi' => $prodi?->kode_prodi,
                 'must_change_password' => true,
             ]
         );
@@ -61,7 +61,7 @@ class JovanMarllenSeeder extends Seeder
             [
                 'nama' => $nama,
                 'email_pribadi' => $personalEmail,
-                'prodi_id' => $prodi?->id,
+                'kode_prodi' => $prodi?->kode_prodi,
                 'angkatan_masuk' => $angkatan,
                 'status_mahasiswa' => 'Lulus',
                 'tahun_akademik_lulus' => $tahunAkademikLulus,
@@ -98,8 +98,7 @@ class JovanMarllenSeeder extends Seeder
             ['user_id' => $user->id],
             [
                 'nim' => $nim,
-                'yudisium_id' => $yudisium->id,
-                'prodi_id' => $prodi?->id,
+                'kode_prodi' => $prodi?->kode_prodi,
                 'email_pribadi' => $personalEmail,
                 'nomor_telepon' => '081234567891',
                 'alamat_saat_ini' => 'Jl. Wahidin Sudirohusodo No. 5-25',

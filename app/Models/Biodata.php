@@ -37,16 +37,14 @@ class Biodata extends Model
             if ($biodata->nim) {
                 $dataAkad = DataAkademik::where('nim', $biodata->nim)->first();
 
-                // 1. Hubungkan ke data yudisium jika belum terisi
-                if (empty($biodata->yudisium_id)) {
-                    $biodata->yudisium_id = Yudisium::where('nim', $biodata->nim)->value('id');
-                }
-
-                // 2. Hubungkan ke prodi dari parsing NIM jika belum terisi
-                if (empty($biodata->prodi_id)) {
-                    $parsed = self::parseNim($biodata->nim);
-                    if ($parsed) {
-                        $biodata->prodi_id = Prodi::where('kode_prodi', $parsed['kode_prodi'])->value('id');
+                // 1. Hubungkan ke prodi dari data akademik atau parsing NIM jika belum terisi
+                if (empty($biodata->kode_prodi)) {
+                    $biodata->kode_prodi = $dataAkad?->kode_prodi;
+                    if (empty($biodata->kode_prodi)) {
+                        $parsed = self::parseNim($biodata->nim);
+                        if ($parsed) {
+                            $biodata->kode_prodi = Prodi::where('kode_prodi', $parsed['kode_prodi'])->value('kode_prodi');
+                        }
                     }
                 }
 
@@ -124,8 +122,7 @@ class Biodata extends Model
     protected $fillable = [
         'user_id',
         'nim',
-        'yudisium_id',
-        'prodi_id',
+        'kode_prodi',
         'foto',
         'nomor_telepon',
         'email_pribadi',
@@ -176,11 +173,11 @@ class Biodata extends Model
     }
 
     /**
-     * Relasi ke Yudisium (Kelulusan Akademik & Tugas Akhir).
+     * Relasi ke Yudisium (Kelulusan Akademik & Tugas Akhir) via NIM.
      */
     public function yudisium()
     {
-        return $this->belongsTo(Yudisium::class, 'yudisium_id');
+        return $this->belongsTo(Yudisium::class, 'nim', 'nim');
     }
 
     /**
@@ -188,7 +185,7 @@ class Biodata extends Model
      */
     public function prodi()
     {
-        return $this->belongsTo(Prodi::class);
+        return $this->belongsTo(Prodi::class, 'kode_prodi', 'kode_prodi');
     }
 
     /**
