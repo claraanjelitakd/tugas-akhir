@@ -158,7 +158,7 @@
 | :--- | :--- | :--- | :--- |
 | `kode_negara` | varchar(2) | PK | Kode negara ISO-3166-1 alpha-2 (contoh: ID, SG) |
 | `kode_iso3` | varchar(3) | NULL | Kode 3 huruf ISO-3166-1 alpha-3 (contoh: IDN) |
-| `nama_negara` | varchar(80) | NOT NULL | Nama umum negara dalam Bahasa Indonesia |
+| `nama_negara` | varchar(80) | AK, NOT NULL | Nama umum negara dalam Bahasa Indonesia |
 | `nama_resmi` | varchar(120) | NULL | Nama resmi kenegaraan lengkap |
 | `benua` | varchar(50) | NULL | Benua lokasi negara |
 | `ibu_kota` | varchar(80) | NULL | Nama ibu kota negara |
@@ -174,7 +174,7 @@
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID unik referensi UMP |
 | `kode_provinsi` | varchar(10) | FK → `propinsi.kode_provinsi`, NOT NULL | Provinsi referensi UMP |
-| `tahun` | year | NOT NULL, default 2026 | Tahun penetapan UMP |
+| `tahun` | year | NOT NULL, default 2026 | Tahun penetapan UMP — AK bersama `kode_provinsi` |
 | `besaran` | decimal(15,2) | NULL | Nominal besaran rupiah UMP |
 | `catatan` | varchar(150) | NULL | Dasar hukum SK Gubernur penetapan UMP |
 | `created_at`, `updated_at` | timestamp | NULL | Timestamp otomatis Laravel |
@@ -349,8 +349,8 @@
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID unik relasi penempatan pertanyaan ke bagian |
-| `section_id` | bigint unsigned | FK → `kuesioner_section.id`, NOT NULL | ID bagian kuesioner |
-| `pertanyaan_id` | bigint unsigned | FK → `kuesioner_pertanyaan.id`, NOT NULL | ID butir pertanyaan |
+| `section_id` | bigint unsigned | FK → `kuesioner_section.id`, NOT NULL — AK bersama `pertanyaan_id` | ID bagian kuesioner |
+| `pertanyaan_id` | bigint unsigned | FK → `kuesioner_pertanyaan.id`, NOT NULL — AK bersama `section_id` | ID butir pertanyaan |
 | `order` | smallint | NOT NULL, default 1 | Nomor urut tampil pertanyaan di dalam section |
 | `wajib` | tinyint(1) | NOT NULL, default 1 | Kewajiban pengisian (1 = wajib, 0 = opsional) |
 | `is_active` | tinyint(1) | NOT NULL, default 1 | Status tampil pertanyaan pada section ini |
@@ -367,7 +367,7 @@
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID unik pilihan jawaban |
 | `pertanyaan_id` | bigint unsigned | FK → `kuesioner_pertanyaan.id`, NOT NULL | ID butir pertanyaan pemilik opsi |
-| `kode_opsi` | varchar(50) | NULL | Kode identifikasi opsi (contoh: F501, F502) |
+| `kode_opsi` | varchar(50) | AK bersama `pertanyaan_id`, NULL | Kode identifikasi opsi (contoh: F501, F502) |
 | `label` | text | NOT NULL | Teks label pilihan yang terbaca responden |
 | `label_singkat` | varchar(255) | NULL | Label ringkas untuk visualisasi grafik |
 | `nilai_skor` | smallint | NULL | Nilai bobot numerik/skala Likert (contoh: 1–5) |
