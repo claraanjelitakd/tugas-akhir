@@ -74,7 +74,7 @@
 | `kode_prodi` | varchar(10) | AK, NOT NULL | Kode resmi program studi (contoh: 71, 72) |
 | `nama_prodi` | varchar(100) | NOT NULL | Nama resmi program studi |
 | `jenjang` | varchar(10) | NOT NULL, default 'S1' | Jenjang pendidikan untuk perhitungan IKU |
-| `fakultas_id` | bigint unsigned | FK → `ref_fakultas.id`, NOT NULL | Fakultas yang menaungi program studi |
+| `fakultas_id` | bigint unsigned | FK → `ref_fakultas.id`, NULL | Fakultas yang menaungi program studi |
 | `created_at`, `updated_at` | timestamp | NULL | Timestamp otomatis Laravel |
 
 ---
