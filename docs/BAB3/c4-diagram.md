@@ -14,7 +14,10 @@ C4Context
 
     Person(alumni, "Alumni", "Lulusan UKDW yang mengisi data profil karier, menjawab kuesioner tracer study, dan memperbarui informasi pekerjaan secara mandiri.")
     Person(atasan, "Pengguna Lulusan", "Atasan atau pemberi kerja alumni yang menerima undangan melalui email dan mengisi formulir evaluasi kinerja alumni.")
-    Person(admin, "Admin / Superadmin", "Staf prodi dan ITC UKDW yang mengelola data alumni, kuesioner, perusahaan, laporan, serta konfigurasi dan akun pengguna sistem.")
+    Person(adminProdi, "Admin Prodi", "Staf program studi yang mengelola data alumni per prodi, memverifikasi perusahaan, mengelola kuesioner prodi, dan melihat laporan.")
+    Person(adminFakultas, "Admin Fakultas", "Staf fakultas yang memantau data alumni dan laporan di seluruh program studi dalam satu fakultas.")
+    Person(adminBiro, "Admin Biro", "Staf biro (BAKA/ITC) yang mengakses laporan dan ekspor data alumni lintas prodi untuk keperluan pelaporan institusional.")
+    Person(superadmin, "Superadmin", "Administrator sistem dari ITC UKDW yang mengelola akun pengguna, kuesioner universitas, master data wilayah & UMP, serta konfigurasi sistem.")
 
     System(tracer, "Tracer Study UKDW", "Aplikasi web untuk pelacakan karier alumni, pengisian kuesioner, sinkronisasi LinkedIn, dan analisis data lulusan berbasis prodi.")
 
@@ -23,7 +26,10 @@ C4Context
 
     Rel(alumni, tracer, "Mengisi profil & kuesioner", "HTTPS")
     Rel(atasan, tracer, "Mengisi evaluasi kinerja alumni", "HTTPS")
-    Rel(admin, tracer, "Mengelola data, laporan, akun", "HTTPS")
+    Rel(adminProdi, tracer, "Mengelola alumni, kuesioner prodi, laporan", "HTTPS")
+    Rel(adminFakultas, tracer, "Memantau laporan lintas prodi dalam fakultas", "HTTPS")
+    Rel(adminBiro, tracer, "Mengakses laporan & ekspor data", "HTTPS")
+    Rel(superadmin, tracer, "Mengelola akun, kuesioner, master data, konfigurasi", "HTTPS")
     Rel(tracer, apify, "Request scraping", "REST API")
     Rel(apify, tracer, "Hasil profil LinkedIn", "Webhook")
     Rel(tracer, smtp, "Kirim email notifikasi", "SMTP/TLS")
@@ -41,7 +47,10 @@ C4Container
 
     Person(alumni, "Alumni", "Lulusan UKDW.")
     Person(atasan, "Pengguna Lulusan", "Atasan / pemberi kerja alumni.")
-    Person(admin, "Admin / Superadmin", "Staf prodi dan ITC UKDW.")
+    Person(adminProdi, "Admin Prodi", "Staf program studi.")
+    Person(adminFakultas, "Admin Fakultas", "Staf fakultas.")
+    Person(adminBiro, "Admin Biro", "Staf biro institusional.")
+    Person(superadmin, "Superadmin", "Administrator sistem ITC UKDW.")
 
     System_Ext(apify, "Apify API", "Scraping profil LinkedIn.")
     System_Ext(smtp, "Email Service - SMTP", "Pengiriman email notifikasi.")
@@ -56,7 +65,10 @@ C4Container
 
     Rel(alumni, spa, "Mengisi profil & kuesioner", "HTTPS")
     Rel(atasan, spa, "Mengisi evaluasi kinerja", "HTTPS")
-    Rel(admin, spa, "Mengelola data & laporan", "HTTPS")
+    Rel(adminProdi, spa, "Mengelola alumni & kuesioner prodi", "HTTPS")
+    Rel(adminFakultas, spa, "Memantau laporan fakultas", "HTTPS")
+    Rel(adminBiro, spa, "Mengakses laporan & ekspor", "HTTPS")
+    Rel(superadmin, spa, "Mengelola akun, master data, konfigurasi", "HTTPS")
 
     Rel(spa, webapp, "Mengirim request", "Inertia Protocol / JSON")
     Rel(webapp, spa, "Mengembalikan respons", "Inertia Response")
