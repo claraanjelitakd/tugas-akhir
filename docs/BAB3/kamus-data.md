@@ -10,7 +10,7 @@
 
 ### Tabel: `users`
 
-> Menyimpan akun seluruh pengguna sistem (alumni dan administrator).
+> Tabel pusat akun pengguna. Siapapun yang bisa login ke sistem — mulai dari alumni yang mengisi kuesioner, admin prodi, admin fakultas, sampai superadmin — datanya ada di sini. Kolom `role` menentukan apa yang boleh dilakukan pengguna tersebut di sistem.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -30,7 +30,7 @@
 
 ### Tabel: `log_activities`
 
-> Menyimpan jejak audit aktivitas pengguna dalam sistem.
+> Setiap kali ada aksi penting di sistem (edit data, verifikasi perusahaan, hapus akun, dll.), rekamnya masuk ke sini. Berguna untuk audit trail — kalau ada yang berubah, bisa dilihat siapa yang melakukannya, kapan, dan datanya sebelum/sesudahnya seperti apa.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -52,7 +52,7 @@
 
 ### Tabel: `ref_fakultas`
 
-> Menyimpan data referensi fakultas di UKDW.
+> Data master fakultas-fakultas di UKDW. Tabel referensi statis — isinya tidak sering berubah, cukup diisi sekali saat setup. Digunakan untuk mengelompokkan prodi dan membatasi akses admin fakultas.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -66,7 +66,7 @@
 
 ### Tabel: `prodi`
 
-> Menyimpan data program studi UKDW.
+> Data master program studi, dipasangkan dengan fakultasnya. Kolom `jenjang` penting untuk perhitungan IKU (Indikator Kinerja Utama) yang membedakan program S1, S2, dan lainnya. Hampir semua tabel di sistem ini berelasi ke prodi.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -81,7 +81,7 @@
 
 ### Tabel: `data_akademik`
 
-> Menyimpan data identitas akademik mahasiswa sebagai sumber resmi.
+> Data akademik mahasiswa yang diimpor dari Sistem Informasi Akademik (SIA) UKDW — bukan input manual pengguna. NIM menjadi kunci alami yang menghubungkan data ini dengan profil alumni di sistem tracer study. Tabel ini adalah "sumber kebenaran" identitas akademik.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -108,7 +108,7 @@
 
 ### Tabel: `yudisium`
 
-> Menyimpan data kelulusan, judul tugas akhir, dan publikasi ilmiah mahasiswa.
+> Data kelulusan resmi mahasiswa yang juga berasal dari SIA. Menyimpan detail tugas akhir, publikasi ilmiah, dan predikat kelulusan. Dihubungkan ke `data_akademik` via NIM — bukan surrogate id — karena NIM adalah identitas yang diterbitkan institusi dan bersifat stabil.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -127,7 +127,7 @@
 
 ### Tabel: `propinsi`
 
-> Menyimpan data referensi provinsi (kode BPS/Kemendagri).
+> Tabel referensi provinsi di Indonesia berdasarkan kode BPS/Kemendagri. PK-nya langsung pakai kode provinsi (varchar), bukan surrogate id — karena kode BPS adalah standar nasional yang stabil dan langsung digunakan sebagai acuan di berbagai tabel tanpa perlu konversi.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -139,7 +139,7 @@
 
 ### Tabel: `kabupaten`
 
-> Menyimpan data referensi kabupaten/kota (kode BPS/Kemendagri).
+> Tabel referensi kabupaten/kota, berelasi ke provinsi induknya. Strukturnya sama dengan `propinsi` — natural key sebagai PK langsung. Digunakan untuk melengkapi data domisili alumni dan lokasi perusahaan.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -152,13 +152,12 @@
 
 ### Tabel: `ref_negara`
 
-> Menyimpan data referensi negara (kode ISO-3166-1).
+> Tabel referensi negara berdasarkan standar ISO-3166-1. Digunakan untuk menandai lokasi perusahaan multinasional tempat alumni bekerja. `kode_negara` (alpha-2) adalah PK, sedangkan `kode_iso3` (alpha-3) menjadi alternate key — keduanya diterbitkan oleh lembaga yang sama dan bersifat stabil.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
 | `kode_negara` | varchar(2) | PK | Kode negara ISO-3166-1 alpha-2 (contoh: ID, SG) |
-| `kode_iso3` | varchar(3) | NULL | Kode 3 huruf ISO-3166-1 alpha-3 (contoh: IDN) |
-| `kode_iso3` | varchar(3) | AK, NULL | Kode 3 huruf ISO-3166-1 alpha-3 (contoh: IDN) |
+| `kode_iso3` | varchar(3) | AK, NULL | Kode 3 huruf ISO-3166-1 alpha-3 (contoh: IDN, SGP) |
 | `nama_negara` | varchar(80) | NOT NULL | Nama umum negara dalam Bahasa Indonesia |
 | `nama_resmi` | varchar(120) | NULL | Nama resmi kenegaraan lengkap |
 | `benua` | varchar(50) | NULL | Benua lokasi negara |
@@ -169,7 +168,7 @@
 
 ### Tabel: `ump`
 
-> Menyimpan data Upah Minimum Provinsi per tahun untuk perhitungan IKU 2.
+> Data Upah Minimum Provinsi (UMP) per tahun. Digunakan untuk menghitung apakah gaji alumni sudah di atas atau di bawah UMP — salah satu indikator dalam laporan IKU 2. Composite AK: satu provinsi hanya punya satu nilai UMP per tahun.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -186,7 +185,7 @@
 
 ### Tabel: `perusahaan`
 
-> Menyimpan master data perusahaan/instansi tempat alumni bekerja.
+> Master data perusahaan/instansi tempat alumni bekerja. Perusahaan bisa diusulkan oleh alumni sendiri maupun admin prodi. Sebelum dipakai secara resmi, perusahaan perlu diverifikasi admin — statusnya dicatat di `status_verifikasi`. Mendukung perusahaan dalam negeri maupun luar negeri.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -205,6 +204,7 @@
 | `kode_negara` | varchar(2) | FK → `ref_negara.kode_negara`, NOT NULL, default 'ID' | Kode ISO negara kedudukan |
 | `jenis_perusahaan` | varchar(100) | NULL | Kategori Dikti F11 |
 | `jenis_perusahaan_lainnya` | text | NULL | Keterangan jenis instansi jika opsi lainnya |
+| `created_by_user_id` | bigint unsigned | FK → `users.id`, NULL | Pengguna yang mengusulkan data perusahaan |
 | `created_by_prodi_id` | bigint unsigned | FK → `prodi.id`, NULL | Prodi asal pengusul perusahaan |
 | `kode_provinsi` | varchar(10) | FK → `propinsi.kode_provinsi`, NULL | Provinsi lokasi perusahaan |
 | `kode_kabupaten` | varchar(10) | FK → `kabupaten.kode_kabupaten`, NULL | Kabupaten lokasi perusahaan |
@@ -214,7 +214,7 @@
 
 ### Tabel: `atasan`
 
-> Menyimpan data pengguna lulusan (atasan langsung alumni) yang memberikan evaluasi kinerja.
+> Data pengguna lulusan (atasan langsung alumni) yang akan mengisi formulir evaluasi kinerja. Atasan tidak perlu mendaftar akun — mereka mengakses formulir via token khusus yang dikirim lewat email. Kolom `user_id` opsional, diisi kalau atasan kebetulan juga terdaftar sebagai pengguna sistem.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -223,13 +223,14 @@
 | `email` | varchar(100) | NULL | Alamat email resmi atasan |
 | `telepon` | varchar(20) | NULL | Nomor telepon/WhatsApp atasan |
 | `perusahaan_id` | bigint unsigned | FK → `perusahaan.id`, NULL | Instansi atasan |
+| `user_id` | bigint unsigned | FK → `users.id`, NULL | Akun pengguna atasan (jika terdaftar di sistem) |
 | `created_at`, `updated_at` | timestamp | NULL | Timestamp otomatis Laravel |
 
 ---
 
 ### Tabel: `biodata`
 
-> Tabel sentral profil alumni mencakup kontak, domisili, karier, dan data studi lanjut.
+> Tabel inti profil tracer study alumni. Di sinilah semua informasi karier alumni tersimpan: tempat kerja, jabatan, gaji, domisili, media sosial, sampai riwayat studi lanjut. Alumni mengisi sendiri data ini setelah login. Tabel ini menjadi penghubung antara akun (`users`), data akademik (`data_akademik`), dan seluruh informasi tracer lainnya.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -271,7 +272,7 @@
 
 ### Tabel: `linkedin_sync_results`
 
-> Menyimpan data staging hasil sinkronisasi profil LinkedIn alumni melalui Apify.
+> Menyimpan hasil scraping profil LinkedIn alumni yang dilakukan melalui Apify API. Data yang baru di-scrape statusnya `pending` — admin perlu mereview dan menyetujuinya sebelum data diperbarui ke `biodata`. Ini mencegah data LinkedIn yang salah atau tidak relevan langsung masuk ke profil alumni.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -292,7 +293,7 @@
 
 ### Tabel: `kuesioner`
 
-> Menyimpan instrumen kuesioner induk per periode Tracer Study.
+> Tabel induk yang merepresentasikan satu periode Tracer Study (contoh: "Tracer Study 2026"). `is_active` menentukan apakah alumni sekarang bisa mengisi kuesioner atau tidak — hanya satu yang aktif di satu waktu. Catatan desain: koneksi FK ke `kuesioner_jawaban` dijadwalkan ditambahkan agar jawaban bisa difilter per periode.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -308,7 +309,7 @@
 
 ### Tabel: `kuesioner_section`
 
-> Menyimpan bagian (section) instrumen survei terpadu. Kolom `target` membedakan jenis kuesioner.
+> Instrumen kuesioner dibagi ke dalam section-section (bagian). Ada section untuk alumni universitas, section khusus per prodi, dan section untuk atasan — dibedakan via kolom `target`. Pemisahan ini memungkinkan setiap prodi punya pertanyaan spesifik mereka sendiri, di luar pertanyaan umum universitas.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -326,7 +327,7 @@
 
 ### Tabel: `kuesioner_pertanyaan`
 
-> Menyimpan bank soal butir pertanyaan kuesioner.
+> Bank soal butir pertanyaan kuesioner yang bersifat reusable. Satu pertanyaan bisa dipakai di banyak section — misalnya pertanyaan standar DIKTI yang digunakan bersama oleh semua prodi. Prodi juga bisa membuat pertanyaan sendiri, ditandai dengan mengisi `pemilik_prodi_id`.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -345,7 +346,7 @@
 
 ### Tabel: `kuesioner_section_pertanyaan`
 
-> Tabel junction yang menghubungkan section dengan pertanyaan (many-to-many) beserta logika percabangan.
+> Tabel junction yang menghubungkan section dengan pertanyaan (many-to-many). Di sini juga tersimpan logika branching — kolom `tampil_di` menentukan apakah pertanyaan ditampilkan ke semua responden atau hanya pada kondisi tertentu (contoh: hanya tampil kalau alumni memilih "Bekerja").
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -362,7 +363,7 @@
 
 ### Tabel: `kuesioner_opsi`
 
-> Menyimpan opsi/pilihan jawaban untuk pertanyaan bertipe pilihan.
+> Pilihan jawaban untuk pertanyaan bertipe pilihan ganda atau skala Likert. `lompat_ke_pertanyaan_id` mendukung logika skip — misalnya "kalau memilih opsi ini, langsung lompat ke pertanyaan X" — tanpa harus ke pertanyaan berikutnya secara berurutan.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -380,7 +381,7 @@
 
 ### Tabel: `kuesioner_jawaban`
 
-> Menyimpan data jawaban responden (alumni maupun atasan).
+> Tempat semua jawaban tersimpan, baik dari alumni maupun atasan. Satu baris = satu jawaban untuk satu pertanyaan. Kolom `kode_pertanyaan` dan `kode_opsi` disimpan juga sebagai denormalisasi ringan untuk mempercepat query analitik tanpa harus selalu join ke tabel master pertanyaan dan opsi.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -403,7 +404,7 @@
 
 ### Tabel: `evaluasi_atasan`
 
-> Menyimpan sesi evaluasi kinerja alumni oleh atasan.
+> Sesi evaluasi kinerja alumni oleh atasan langsungnya. Setiap sesi punya token unik yang dikirim ke email atasan — token inilah yang memungkinkan atasan mengisi formulir tanpa harus punya akun di sistem. Satu alumni bisa punya lebih dari satu sesi evaluasi jika atasan atau perusahaannya berubah.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
@@ -422,7 +423,7 @@
 
 ### Tabel: `account_sync_settings`
 
-> Menyimpan pengaturan status buka/tutup sinkronisasi pembuatan akun alumni. Singleton — hanya satu baris (id = 1).
+> Tabel konfigurasi singleton — selalu hanya satu baris (id = 1). Menyimpan status buka/tutup fitur sinkronisasi akun: ketika "buka", alumni baru bisa dibuatkan akun dari data akademik yang masuk. Superadmin yang terakhir mengubah statusnya tercatat di `updated_by`.
 
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
