@@ -12,6 +12,7 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
+import ProfilPertanyaanInput from '@/Components/AlumniProfil/ProfilPertanyaanInput.vue';
 
 // ============================================================================
 // 1. PROPS DARI PARENT (Index.vue)
@@ -288,8 +289,13 @@ const syncPosisiJabatan = () => {
     }
 };
 
+const isProfileQuestionRadio = (question) => {
+    return ['radio', 'single_choice'].includes(question.tipe);
+};
+
 const isProfileQuestionSelect = (question) => {
-    return question.detils?.length > 0;
+    return ['dropdown', 'searchable_select'].includes(question.tipe)
+        || (!question.tipe && (question.detils?.length > 0 || question.opsi?.length > 0));
 };
 
 const isOtherProfileOption = (value) => {
@@ -1844,41 +1850,12 @@ onUnmounted(() => {
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div v-for="question in profileQuestions" :key="question.id" class="space-y-2">
-                    <label class="block text-xs sm:text-sm font-bold text-gray-700">
-                        {{ question.subpertanyaan }}
-                        <span v-if="question.wajib" class="text-rose-500 font-bold">*</span>
-                    </label>
-
-                    <select
-                        v-if="isProfileQuestionSelect(question)"
-                        v-model="form.profile_answers[question.id]"
-                        class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                    >
-                        <option value="">-- Pilih jawaban --</option>
-                        <option v-for="option in question.detils" :key="option.id" :value="option.option_text">
-                            {{ option.option_text }}
-                        </option>
-                    </select>
-
-                    <input
-                        v-else
-                        v-model="form.profile_answers[question.id]"
-                        type="text"
-                        class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="Tulis jawaban"
-                    />
-
-                    <input
-                        v-if="needsProfileQuestionCustomText(question)"
-                        v-model="form.profile_answer_custom[question.id]"
-                        type="text"
-                        class="block w-full border border-gray-300 bg-white text-gray-900 rounded-xl shadow-xs px-4 py-3 text-sm font-medium transition-colors focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B] outline-none"
-                        placeholder="Tuliskan jawaban lainnya"
-                    />
-
-                    <p v-if="question.keterangan" class="text-[11px] text-gray-400">{{ question.keterangan }}</p>
-                </div>
+                <ProfilPertanyaanInput
+                    v-for="question in profileQuestions.filter(q => !q.profil_step || q.profil_step === 2)"
+                    :key="question.id"
+                    :question="question"
+                    :profile-answers="form.profile_answers"
+                />
             </div>
         </div>
 

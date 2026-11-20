@@ -39,6 +39,7 @@ class SimpanPertanyaanController extends Controller
             'keterangan' => 'nullable|string|max:500',
             'wajib' => 'required|boolean',
             'tampil_di' => 'nullable|string|in:kuesioner,profile,profil,both,hidden,none',
+            'profil_step' => 'nullable|integer|in:1,2,3',
             'order' => 'nullable|integer',
             'options' => 'nullable|array',
             'options.*.code' => 'nullable|string|max:50|distinct',
@@ -78,6 +79,7 @@ class SimpanPertanyaanController extends Controller
                 'order' => (int) $validated['order'],
                 'wajib' => (bool) $validated['wajib'],
                 'tampil_di' => $validated['tampil_di'],
+                'profil_step' => isset($validated['profil_step']) ? (int) $validated['profil_step'] : null,
             ]);
 
             if ($request->has('options') && is_array($validated['options'] ?? null) && count($validated['options']) > 0) {
@@ -130,6 +132,7 @@ class SimpanPertanyaanController extends Controller
             'keterangan' => 'nullable|string|max:500',
             'wajib' => 'required|boolean',
             'tampil_di' => 'nullable|string|in:kuesioner,profile,profil,both,hidden,none',
+            'profil_step' => 'nullable|integer|in:1,2,3',
             'order' => 'nullable|integer',
         ]);
 
@@ -145,12 +148,15 @@ class SimpanPertanyaanController extends Controller
             ]);
 
             $sp = KuesionerSectionPertanyaan::where('pertanyaan_id', $pertanyaan->id)->first();
+            $profilStep = array_key_exists('profil_step', $validated) ? ($validated['profil_step'] !== null ? (int) $validated['profil_step'] : null) : null;
+
             if ($sp) {
                 $sp->update([
                     'section_id' => $sectionId,
                     'order' => $validated['order'] ?? $sp->order,
                     'wajib' => (bool) $validated['wajib'],
                     'tampil_di' => $validated['tampil_di'] ?? $sp->tampil_di,
+                    'profil_step' => $profilStep,
                 ]);
             } else {
                 KuesionerSectionPertanyaan::create([
@@ -159,6 +165,7 @@ class SimpanPertanyaanController extends Controller
                     'order' => $validated['order'] ?? 1,
                     'wajib' => (bool) $validated['wajib'],
                     'tampil_di' => $validated['tampil_di'] ?? 'kuesioner',
+                    'profil_step' => $profilStep,
                 ]);
             }
         });
@@ -260,9 +267,11 @@ class SimpanPertanyaanController extends Controller
             $isCurrentlyInProfile = in_array($current, ['profil', 'profile', 'both'], true);
 
             if ($isCurrentlyInProfile) {
-                $newTampilDi = ($current === 'both') ? 'kuesioner' : 'hidden';
+                // 'both' atau 'profil' → 'kuesioner' (tidak pernah jadi hidden)
+                $newTampilDi = 'kuesioner';
                 $message = 'Pertanyaan ['.$pertanyaan->kode_pertanyaan.'] disembunyikan dari Profil Alumni.';
             } else {
+                // 'kuesioner' → 'both'; 'hidden' → 'profil'
                 $newTampilDi = ($current === 'kuesioner') ? 'both' : 'profil';
                 $message = 'Pertanyaan ['.$pertanyaan->kode_pertanyaan.'] kini ditampilkan di Profil Alumni.';
             }
@@ -270,9 +279,11 @@ class SimpanPertanyaanController extends Controller
             $isCurrentlyInTracer = in_array($current, ['kuesioner', 'both'], true) || empty($current);
 
             if ($isCurrentlyInTracer) {
-                $newTampilDi = ($current === 'both') ? 'profil' : 'hidden';
+                // 'both' atau 'kuesioner' → 'profil' (tidak pernah jadi hidden)
+                $newTampilDi = 'profil';
                 $message = 'Pertanyaan ['.$pertanyaan->kode_pertanyaan.'] disembunyikan dari Kuesioner Tracer.';
             } else {
+                // 'profil' → 'both'; 'hidden' → 'kuesioner'
                 $newTampilDi = ($current === 'profil') ? 'both' : 'kuesioner';
                 $message = 'Pertanyaan ['.$pertanyaan->kode_pertanyaan.'] kini ditampilkan di Kuesioner Tracer.';
             }

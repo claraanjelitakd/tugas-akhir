@@ -427,6 +427,7 @@ const questionFormData = ref({
     type: 'radio',
     section_id: '',
     tampil_di: 'kuesioner',
+    profil_step: 2,
     order: 1,
     keterangan: '',
     wajib: true,
@@ -821,6 +822,7 @@ const openQuestionModal = (questionToEdit = null, defaultTarget = 'kuesioner') =
             type: questionToEdit.type || 'radio',
             section_id: questionToEdit.section_id || (props.sections[0]?.id || ''),
             tampil_di: target,
+            profil_step: questionToEdit.profil_step ?? 2,
             order: questionToEdit.order ?? (props.subpertanyaans.length + 1),
             keterangan: questionToEdit.keterangan || getTypeInstruction(questionToEdit.type || 'radio'),
             wajib: questionToEdit.wajib !== undefined ? Boolean(questionToEdit.wajib) : true,
@@ -2344,6 +2346,21 @@ const handleDeleteKuesioner = (k) => {
                                     <option value="kuesioner">Kuesioner Tracer Saja (Sembunyi di Profil)</option>
                                     <option value="hidden">Disembunyikan (Nonaktif dari Keduanya)</option>
                                 </select>
+                            </div>
+
+                            <div v-if="questionFormData.tampil_di === 'profil' || questionFormData.tampil_di === 'both'">
+                                <label class="block font-bold text-gray-700 mb-1">
+                                    Step Profil Alumni
+                                </label>
+                                <select
+                                    v-model="questionFormData.profil_step"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
+                                >
+                                    <option :value="2">Step 2 - Karier &amp; Jejaring (default)</option>
+                                    <option :value="1">Step 1 - Identitas &amp; Alamat</option>
+                                    <option :value="3">Step 3 - Akademik</option>
+                                </select>
+                                <p class="mt-1 text-[10px] text-gray-500">Menentukan di tab mana pertanyaan ini muncul pada halaman Profil alumni.</p>
                             </div>
                         </div>
 

@@ -395,22 +395,22 @@ class SuperAdminKelolaPertanyaanTest extends TestCase
             'order' => 1,
         ]);
 
-        // Toggle pertama: dari profil -> hidden (sembunyikan)
+        // Toggle pertama: dari profil -> kuesioner (sembunyikan dari profil, tidak pernah hidden)
         $response = $this->actingAs($this->superadmin)
             ->patch(route('superadmin.pertanyaan.toggle-visibility', $question->id), [
                 'target' => 'profil',
             ]);
 
         $response->assertRedirect();
-        $this->assertEquals('hidden', KuesionerSectionPertanyaan::where('pertanyaan_id', $question->id)->first()->tampil_di);
+        $this->assertEquals('kuesioner', KuesionerSectionPertanyaan::where('pertanyaan_id', $question->id)->first()->tampil_di);
 
-        // Toggle kedua: dari hidden -> profil (tampilkan kembali)
+        // Toggle kedua: dari kuesioner -> both (tampilkan kembali di profil)
         $response2 = $this->actingAs($this->superadmin)
             ->patch(route('superadmin.pertanyaan.toggle-visibility', $question->id), [
                 'target' => 'profil',
             ]);
 
         $response2->assertRedirect();
-        $this->assertEquals('profil', KuesionerSectionPertanyaan::where('pertanyaan_id', $question->id)->first()->tampil_di);
+        $this->assertEquals('both', KuesionerSectionPertanyaan::where('pertanyaan_id', $question->id)->first()->tampil_di);
     }
 }

@@ -535,6 +535,7 @@ onBeforeUnmount(() => {
                             :kabupatens="kabupatens"
                             :negaras="negaras"
                             :profileQuestionConfigs="profileQuestionConfigs"
+                            :profileQuestions="profileQuestions"
                         />
                     </div>
 
@@ -559,6 +560,7 @@ onBeforeUnmount(() => {
                         <FormAkademik
                             :form="form"
                             :profileQuestionConfigs="profileQuestionConfigs"
+                            :profileQuestions="profileQuestions"
                         />
                     </div>
 

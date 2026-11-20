@@ -117,6 +117,7 @@ class DaftarAlumniProdiController extends Controller
         $kabupatens = Kabupaten::orderBy('nama_kabupaten', 'asc')->get();
         $negaras = RefNegara::orderBy('nama_negara', 'asc')->get();
         $refOptions = AdminAlumniProfileService::getRefOptions();
+        $profileQuestions = KuesionerSyncService::getDynamicProfileQuestions();
         $perusahaans = Perusahaan::select('id', 'nama_perusahaan', 'jenis_lokasi', 'kode_negara', 'kode_provinsi', 'kode_kabupaten', 'alamat', 'kode_pos', 'homepage', 'no_telp_fax', 'skala', 'bentuk_perusahaan', 'jenis_perusahaan', 'jenis_perusahaan_lainnya', 'status_verifikasi')->get();
 
         $latestSync = $alumni->latestLinkedinSyncResult;
@@ -154,6 +155,7 @@ class DaftarAlumniProdiController extends Controller
             'kabupatens' => $kabupatens,
             'negaras' => $negaras,
             'refOptions' => $refOptions,
+            'profileQuestions' => $profileQuestions,
             'perusahaans' => $perusahaans,
             'companies' => $perusahaans,
             'linkedinSyncResult' => $latestSync,

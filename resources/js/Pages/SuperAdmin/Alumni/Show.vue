@@ -20,6 +20,7 @@ defineProps({
     companies: Array,
     negaras: Array,
     refOptions: Object,
+    profileQuestions: Array,
     linkedinSyncResult: Object,
     linkedinTraceMapping: Array,
     linkedinHistory: Array,

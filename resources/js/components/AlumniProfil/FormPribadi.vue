@@ -10,8 +10,9 @@
 -->
 <script setup>
 // Form pribadi alumni: menyimpan identitas dan relasi wilayah dengan field kode kanonik.
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
+import ProfilPertanyaanInput from '@/Components/AlumniProfil/ProfilPertanyaanInput.vue';
 
 /**
  * ====================================================================
@@ -27,7 +28,16 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    profileQuestions: {
+        type: Array,
+        default: () => [],
+    },
 });
+
+// Pertanyaan dinamis yang dikonfigurasi SuperAdmin untuk Step 1 (profil_step = 1)
+const step1Questions = computed(() =>
+    props.profileQuestions.filter((q) => q.profil_step === 1)
+);
 
 // Helper pembacaan konfigurasi pertanyaan dinamis dari Super Admin
 const getQuestionLabel = (code, fallback) => {
@@ -431,6 +441,23 @@ const lockedInputClass = "block w-full border border-gray-200 bg-gray-100 text-g
                         placeholder="Kode Pos (5 digit)"
                     />
                 </div>
+            </div>
+        </div>
+
+        <div v-if="step1Questions.length > 0" class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
+            <div class="flex items-start gap-3 mb-6 pb-4 border-b border-gray-100">
+                <div>
+                    <h2 class="text-base font-bold text-gray-800">Informasi Tambahan</h2>
+                    <p class="text-xs text-gray-400 mt-1">Pertanyaan tambahan yang dikonfigurasi oleh Superadmin.</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <ProfilPertanyaanInput
+                    v-for="question in step1Questions"
+                    :key="question.id"
+                    :question="question"
+                    :profile-answers="form.profile_answers"
+                />
             </div>
         </div>
 

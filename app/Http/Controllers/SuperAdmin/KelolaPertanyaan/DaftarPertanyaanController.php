@@ -87,6 +87,7 @@ class DaftarPertanyaanController extends Controller
                 'wajib' => (bool) $sp->wajib,
                 'order' => (int) $sp->order,
                 'tampil_di' => $sp->tampil_di ?? 'kuesioner',
+                'profil_step' => $sp->profil_step !== null ? (int) $sp->profil_step : null,
                 'keterangan' => $p->keterangan,
                 'is_active' => (bool) $p->is_active,
                 'section' => $sec ? [

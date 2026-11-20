@@ -75,6 +75,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    profileQuestions: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 /** Form state reactive Inertia */
@@ -208,11 +212,12 @@ const scrollToBottom = () => {
                 :disabled="readonly"
                 :class="readonly ? 'pointer-events-none opacity-65 grayscale' : ''"
             >
-                <FormPribadi 
-                    :form="form" 
-                    :provinces="provinces" 
-                    :kabupatens="kabupatens" 
-                    :negaras="negaras" 
+                <FormPribadi
+                    :form="form"
+                    :provinces="provinces"
+                    :kabupatens="kabupatens"
+                    :negaras="negaras"
+                    :profileQuestions="profileQuestions"
                 />
             </fieldset>
 
@@ -222,15 +227,16 @@ const scrollToBottom = () => {
                 :disabled="readonly"
                 :class="readonly ? 'pointer-events-none opacity-65 grayscale' : ''"
             >
-                <FormKarier 
-                    :form="form" 
-                    :provinces="provinces" 
-                    :kabupatens="kabupatens" 
-                    :negaras="negaras" 
-                    :companies="companies" 
-                    :alumniData="alumni" 
-                    :refOptions="refOptions" 
-                    :evaluasiAtasan="evaluasiAtasan" 
+                <FormKarier
+                    :form="form"
+                    :provinces="provinces"
+                    :kabupatens="kabupatens"
+                    :negaras="negaras"
+                    :companies="companies"
+                    :alumniData="alumni"
+                    :refOptions="refOptions"
+                    :profileQuestions="profileQuestions"
+                    :evaluasiAtasan="evaluasiAtasan"
                     :readonly="readonly"
                 />
             </fieldset>
@@ -241,7 +247,7 @@ const scrollToBottom = () => {
                 :disabled="readonly"
                 :class="readonly ? 'pointer-events-none opacity-65 grayscale' : ''"
             >
-                <FormAkademik :form="form" />
+                <FormAkademik :form="form" :profileQuestions="profileQuestions" />
             </fieldset>
 
             <!-- Navigasi Bawah Formulir Profil Ala /alumni -->

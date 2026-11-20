@@ -9,6 +9,9 @@
   - Controller: App\Http\Controllers\Alumni\Profil\ProfilController.php
 -->
 <script setup>
+import { computed } from 'vue';
+import ProfilPertanyaanInput from '@/Components/AlumniProfil/ProfilPertanyaanInput.vue';
+
 /**
  * ====================================================================
  * MENERIMA DATA (PROPS) DARI PARENT (Index.vue)
@@ -41,7 +44,15 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    profileQuestions: {
+        type: Array,
+        default: () => [],
+    },
 });
+
+const step3Questions = computed(() =>
+    props.profileQuestions.filter((q) => q.profil_step === 3)
+);
 
 const getQuestionLabel = (code, fallback) => {
     return props.profileQuestionConfigs?.[code]?.subpertanyaan || fallback;
@@ -136,6 +147,23 @@ const labelClass = "block text-sm font-semibold text-gray-700 mb-1.5";
                     <label :class="labelClass">{{ getQuestionLabel('BIO_TGL_LULUS', 'Tanggal Kelulusan') }}</label>
                     <input type="date" :value="form.tanggal_lulus" disabled :class="lockedInputClass" />
                 </div>
+            </div>
+        </div>
+
+        <div v-if="step3Questions.length > 0" class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-gray-100">
+            <div class="flex items-start gap-3 mb-6 pb-4 border-b border-gray-100">
+                <div>
+                    <h2 class="text-base font-bold text-gray-800">Informasi Tambahan</h2>
+                    <p class="text-xs text-gray-400 mt-1">Pertanyaan tambahan yang dikonfigurasi oleh Superadmin.</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <ProfilPertanyaanInput
+                    v-for="question in step3Questions"
+                    :key="question.id"
+                    :question="question"
+                    :profile-answers="form.profile_answers"
+                />
             </div>
         </div>
     </div>

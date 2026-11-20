@@ -96,6 +96,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    profileQuestions: {
+        type: Array,
+        default: () => [],
+    },
     linkedinSyncResult: {
         type: Object,
         default: null,
@@ -305,6 +309,7 @@ const isSuperAdminRole = computed(() => {
                     :negaras="negaras"
                     :companies="companies"
                     :ref-options="refOptions"
+                    :profile-questions="profileQuestions"
                     :evaluasi-atasan="evaluasiAtasan"
                     :update-route="`/${prefix}/alumni/${alumni.id}/profile`"
                     :readonly="readonly"

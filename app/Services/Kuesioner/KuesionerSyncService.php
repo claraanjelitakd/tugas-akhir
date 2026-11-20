@@ -27,7 +27,7 @@ class KuesionerSyncService
     {
         $profileCodes = array_merge(
             array_map('strtoupper', KelengkapanTracerService::PROFILE_MANAGED_CODES),
-            ['BIO_BIDANG_DIVISI']
+            ['BIO_BIDANG_DIVISI', 'F8']
         );
 
         return KuesionerPertanyaan::query()
@@ -38,7 +38,7 @@ class KuesionerSyncService
             ->where('kuesioner_pertanyaan.tipe', '!=', 'header')
             ->where('kuesioner_pertanyaan.is_active', true)
             ->with('opsi')
-            ->select('kuesioner_pertanyaan.*', 'sp.wajib as pivot_wajib')
+            ->select('kuesioner_pertanyaan.*', 'sp.wajib as pivot_wajib', 'sp.profil_step')
             ->orderBy('sp.order')
             ->orderBy('kuesioner_pertanyaan.id')
             ->get();
