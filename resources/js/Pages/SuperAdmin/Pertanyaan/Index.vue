@@ -2020,21 +2020,6 @@ const handleDeleteKuesioner = (k) => {
                                         <div class="flex items-center justify-end gap-1">
                                             <button
                                                 type="button"
-                                                @click="handleToggleVisibility(q, 'profil')"
-                                                :class="isShownInProfile(q) ? 'text-[#0D542B] hover:text-[#08381c] hover:bg-emerald-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'"
-                                                class="p-1.5 rounded-lg transition-colors cursor-pointer"
-                                                :title="isShownInProfile(q) ? 'Pertanyaan aktif di profil (klik untuk menyembunyikan)' : 'Pertanyaan disembunyikan (klik untuk menampilkan di profil)'"
-                                            >
-                                                <svg v-if="isShownInProfile(q)" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                </svg>
-                                                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
-                                                </svg>
-                                            </button>
-                                            <button
-                                                type="button"
                                                 @click="openQuestionModal(q, 'profil')"
                                                 class="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
                                                 title="Edit Pertanyaan"
