@@ -126,9 +126,11 @@ const sectionForm = ref({
 });
 
 const filteredSections = computed(() => {
-    if (!sectionSearchQuery.value.trim()) return props.sections;
+    // Section 'instansi' berisi field hardcoded (nama perusahaan, alamat, atasan), bukan pertanyaan DB.
+    const manageable = props.sections.filter(s => s.key !== 'instansi');
+    if (!sectionSearchQuery.value.trim()) return manageable;
     const q = sectionSearchQuery.value.toLowerCase();
-    return props.sections.filter(s =>
+    return manageable.filter(s =>
         s.title?.toLowerCase().includes(q) ||
         s.description?.toLowerCase().includes(q)
     );
