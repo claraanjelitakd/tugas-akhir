@@ -2,7 +2,7 @@
 
 > Dihasilkan dari schema migration Laravel aktif.
 > Semua PK bertipe `bigint unsigned AUTO_INCREMENT` kecuali yang disebutkan lain.
-> **FK** = Foreign Key, **UK** = Unique Key, **PK** = Primary Key, **AI** = Auto Increment
+> **FK** = Foreign Key, **UK** = Unique Key, **AK** = Alternate Key (natural identifier), **PK** = Primary Key, **AI** = Auto Increment
 
 ---
 
@@ -16,7 +16,7 @@
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID unik akun pengguna |
 | `name` | varchar(100) | NULL | Nama pengguna / alumni |
-| `username` | varchar(50) | UK, NOT NULL | Username login (NIM untuk alumni, identitas untuk staf) |
+| `username` | varchar(50) | AK, NOT NULL | Username login (NIM untuk alumni, identitas untuk staf) |
 | `email` | varchar(100) | NULL | Alamat email akun login |
 | `role` | varchar(30) | NOT NULL, default 'alumni' | Peran: `superadmin`, `admin_biro3`, `admin_fakultas`, `admin_prodi`, `alumni` |
 | `prodi_id` | bigint unsigned | FK → `prodi.id`, NULL | Relasi ke prodi (admin prodi atau alumni) |
@@ -57,7 +57,7 @@
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID unik master fakultas |
-| `kode_fakultas` | varchar(10) | UK, NOT NULL | Kode resmi fakultas (contoh: 7, 1) |
+| `kode_fakultas` | varchar(10) | AK, NOT NULL | Kode resmi fakultas (contoh: 7, 1) |
 | `nama_fakultas` | varchar(100) | NOT NULL | Nama resmi fakultas |
 | `singkatan` | varchar(20) | NULL | Singkatan nama fakultas (contoh: FTI, FB) |
 | `created_at`, `updated_at` | timestamp | NULL | Timestamp otomatis Laravel |
@@ -71,7 +71,7 @@
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID unik master program studi |
-| `kode_prodi` | varchar(10) | UK, NOT NULL | Kode resmi program studi (contoh: 71, 72) |
+| `kode_prodi` | varchar(10) | AK, NOT NULL | Kode resmi program studi (contoh: 71, 72) |
 | `nama_prodi` | varchar(100) | NOT NULL | Nama resmi program studi |
 | `jenjang` | varchar(10) | NOT NULL, default 'S1' | Jenjang pendidikan untuk perhitungan IKU |
 | `fakultas_id` | bigint unsigned | FK → `ref_fakultas.id`, NOT NULL | Fakultas yang menaungi program studi |
@@ -86,7 +86,7 @@
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID unik rekam data akademik |
-| `nim` | char(8) | UK, NOT NULL | Nomor Induk Mahasiswa (8 karakter) |
+| `nim` | char(8) | AK, NOT NULL | Nomor Induk Mahasiswa (8 karakter) |
 | `nama` | varchar(100) | NULL | Nama lengkap mahasiswa |
 | `email_pribadi` | varchar(100) | NULL | Email pribadi dari sumber akademik |
 | `prodi_id` | bigint unsigned | FK → `prodi.id`, NULL | Program studi akademik mahasiswa |
@@ -113,7 +113,7 @@
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID unik rekam kelulusan yudisium |
-| `nim` | char(8) | UK, FK → `data_akademik.nim`, NOT NULL | NIM mahasiswa |
+| `nim` | char(8) | AK, FK → `data_akademik.nim`, NOT NULL | NIM mahasiswa |
 | `judul_ta` | text | NULL | Judul Skripsi/Thesis/Disertasi |
 | `judul_ta_inggris` | text | NULL | Judul tugas akhir dalam Bahasa Inggris |
 | `url_publikasi` | varchar(200) | NULL | Tautan repositori/jurnal publikasi |
@@ -233,7 +233,7 @@
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID unik profil biodata alumni |
-| `nim` | char(8) | UK, FK → `data_akademik.nim`, NOT NULL | NIM alumni |
+| `nim` | char(8) | AK, FK → `data_akademik.nim`, NOT NULL | NIM alumni |
 | `user_id` | bigint unsigned | FK → `users.id` ON DELETE CASCADE, NULL | Akun pengguna alumni |
 | `yudisium_id` | bigint unsigned | FK → `yudisium.id`, NULL | Data yudisium terkait |
 | `prodi_id` | bigint unsigned | FK → `prodi.id`, NULL | Program studi alumni |
@@ -312,7 +312,7 @@
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID unik bagian kuesioner |
-| `kode_section` | varchar(50) | UK, NOT NULL | Kode unik bagian (contoh: SEC_UNIV_01, SEC_SI_01) |
+| `kode_section` | varchar(50) | AK, NOT NULL | Kode unik bagian (contoh: SEC_UNIV_01, SEC_SI_01) |
 | `target` | varchar(20) | NOT NULL, default 'univ' | Target: `univ`, `prodi`, `atasan` |
 | `prodi_id` | bigint unsigned | FK → `prodi.id` ON DELETE SET NULL, NULL | ID prodi jika section khusus satu prodi |
 | `judul` | varchar(200) | NOT NULL | Judul atau nama bagian kuesioner |
@@ -330,7 +330,7 @@
 | Kolom | Tipe | Constraint | Keterangan |
 | :--- | :--- | :--- | :--- |
 | `id` | bigint unsigned | PK, AI | ID unik butir pertanyaan |
-| `kode_pertanyaan` | varchar(50) | UK, NOT NULL | Kode unik butir (contoh: F5B, PSI-01, ATASAN-01) |
+| `kode_pertanyaan` | varchar(50) | AK, NOT NULL | Kode unik butir (contoh: F5B, PSI-01, ATASAN-01) |
 | `label_pertanyaan` | varchar(255) | NULL | Label ringkas untuk grafik dan analitik |
 | `teks_pertanyaan` | text | NOT NULL | Teks redaksi pertanyaan survei |
 | `tipe` | varchar(50) | NOT NULL, default 'single_choice' | Tipe input: `single_choice`, `multiple_choice`, `text`, `number`, `likert_5` |

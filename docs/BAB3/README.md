@@ -11,6 +11,7 @@
 | [deskripsi-usecase.md](deskripsi-usecase.md) | Deskripsi Use Case — format Sundaramoorthy (2022) |
 | [kamus-data.md](kamus-data.md) | Kamus Data / Data Dictionary — seluruh tabel database |
 | [sequence-diagram.md](sequence-diagram.md) | Sequence Diagram — UC-07 Verifikasi Perusahaan, UC-08 Sinkronisasi LinkedIn |
+| [dfd.md](dfd.md) | Data Flow Diagram — Konteks (Level 0) & Level 1, notasi Kendall & Kendall (2020) |
 
 ## Peta Use Case
 
