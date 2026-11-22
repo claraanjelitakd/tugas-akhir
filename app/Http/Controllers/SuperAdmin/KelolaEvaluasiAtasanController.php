@@ -109,6 +109,7 @@ class KelolaEvaluasiAtasanController extends Controller
                 ])->values()->all(),
                 'section' => [
                     'id' => $pivot->section?->id,
+                    'order' => (int) ($pivot->section?->order ?? 1),
                     'title' => $pivot->section?->judul,
                     'key' => strtolower(str_replace(['SEC_EVA_', 'SEC_'], '', $pivot->section?->kode_section ?? '')),
                 ],

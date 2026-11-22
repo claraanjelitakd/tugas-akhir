@@ -130,7 +130,7 @@ class EvaluasiAtasanTest extends TestCase
                     'EVA_kreativitas',
                     'EVA_bahasa_asing',
                     'EVA_penggunaan_teknologi',
-                    'EVA_891',
+                    'EVA_kepemimpinan',
                     'EVA_kemampuan_manajerial',
                     'EVA_kemampuan_analisis',
                     'EVA_menulis_laporan',

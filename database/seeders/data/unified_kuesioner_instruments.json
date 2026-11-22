@@ -1984,7 +1984,7 @@
         },
         {
             "id": 142,
-            "kode_pertanyaan": "EVA_891",
+            "kode_pertanyaan": "EVA_kepemimpinan",
             "teks_pertanyaan": "Kepemimpinan dan Pengambilan Keputusan",
             "tipe": "likert_5",
             "pemilik_prodi_id": null,
@@ -8666,7 +8666,7 @@
         {
             "id": 10001,
             "pertanyaan_id": 142,
-            "kode_opsi": "EVA_891_1",
+            "kode_opsi": "EVA_kepemimpinan_1",
             "label": "Sangat Tinggi",
             "nilai_skor": 5,
             "order": 1,
@@ -8676,7 +8676,7 @@
         {
             "id": 10002,
             "pertanyaan_id": 142,
-            "kode_opsi": "EVA_891_2",
+            "kode_opsi": "EVA_kepemimpinan_2",
             "label": "Tinggi",
             "nilai_skor": 4,
             "order": 2,
@@ -8686,7 +8686,7 @@
         {
             "id": 10003,
             "pertanyaan_id": 142,
-            "kode_opsi": "EVA_891_3",
+            "kode_opsi": "EVA_kepemimpinan_3",
             "label": "Cukup",
             "nilai_skor": 3,
             "order": 3,
@@ -8696,7 +8696,7 @@
         {
             "id": 10004,
             "pertanyaan_id": 142,
-            "kode_opsi": "EVA_891_4",
+            "kode_opsi": "EVA_kepemimpinan_4",
             "label": "Kurang",
             "nilai_skor": 2,
             "order": 4,
@@ -8706,7 +8706,7 @@
         {
             "id": 10005,
             "pertanyaan_id": 142,
-            "kode_opsi": "EVA_891_5",
+            "kode_opsi": "EVA_kepemimpinan_5",
             "label": "Sangat Kurang",
             "nilai_skor": 1,
             "order": 5,

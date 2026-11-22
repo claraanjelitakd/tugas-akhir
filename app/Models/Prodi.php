@@ -30,6 +30,21 @@ class Prodi extends Model
     ];
 
     /**
+     * Atribut tambahan virtual untuk kompatibilitas kode antarmuka.
+     *
+     * @var array<int, string>
+     */
+    protected $appends = ['id'];
+
+    /**
+     * Accessor id untuk menjaga keselarasan dengan kode yang merujuk primary key via id.
+     */
+    public function getIdAttribute(): string
+    {
+        return (string) ($this->attributes['kode_prodi'] ?? '');
+    }
+
+    /**
      * Relasi ke Fakultas penaung Program Studi.
      */
     public function fakultas()

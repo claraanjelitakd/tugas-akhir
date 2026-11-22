@@ -147,11 +147,36 @@ class KelolaKuesionerProdiController extends Controller
             ->orderBy('nama_prodi')
             ->get();
 
-        // Tentukan prodi mana yang dipilih
-        $selectedProdiId = $request->query('kode_prodi') ?: ($prodis->first()?->kode_prodi ?? '');
+        // Hitung ringkasan jumlah section dan pertanyaan per program studi
+        $questionCounts = KuesionerSectionPertanyaan::query()
+            ->join('kuesioner_section', 'kuesioner_section_pertanyaan.section_id', '=', 'kuesioner_section.id')
+            ->where('kuesioner_section.target', 'prodi')
+            ->groupBy('kuesioner_section.kode_prodi')
+            ->selectRaw('kuesioner_section.kode_prodi, count(distinct kuesioner_section_pertanyaan.pertanyaan_id) as total')
+            ->pluck('total', 'kuesioner_section.kode_prodi');
 
-        $selectedProdi = $prodis->firstWhere('kode_prodi', $selectedProdiId) ?? $prodis->first();
-        $selectedProdiId = $selectedProdi?->kode_prodi ?? '';
+        $sectionCounts = KuesionerSection::query()
+            ->where('target', 'prodi')
+            ->groupBy('kode_prodi')
+            ->selectRaw('kode_prodi, count(*) as total')
+            ->pluck('total', 'kode_prodi');
+
+        $prodis->each(function (Prodi $p) use ($questionCounts, $sectionCounts) {
+            $p->sections_count = (int) ($sectionCounts->get($p->kode_prodi, 0));
+            $p->questions_count = (int) ($questionCounts->get($p->kode_prodi, 0));
+        });
+
+        // Tentukan prodi mana yang dipilih.
+        // Jika parameter URL kosong, prioritaskan prodi yang sudah memiliki instrumen agar data langsung tampil.
+        $selectedProdiId = (string) $request->query('kode_prodi', '');
+        if ($selectedProdiId === '') {
+            $preferredProdi = $prodis->first(fn (Prodi $p): bool => ($p->questions_count ?? 0) > 0 || ($p->sections_count ?? 0) > 0);
+            $selectedProdi = $preferredProdi ?? $prodis->first();
+            $selectedProdiId = $selectedProdi?->kode_prodi ?? '';
+        } else {
+            $selectedProdi = $prodis->firstWhere('kode_prodi', $selectedProdiId) ?? $prodis->first();
+            $selectedProdiId = $selectedProdi?->kode_prodi ?? '';
+        }
 
         // Normalisasi urutan hanya dilakukan pada operasi mutasi (store/update/delete/reorder), bukan pada query baca (GET)
 
@@ -345,6 +370,7 @@ class KelolaKuesionerProdiController extends Controller
             'bankQuestions' => $bankQuestions,
             'availableJumpTargets' => $availableJumpTargets,
             'stats' => [
+                'total_prodis' => $prodis->count(),
                 'total_sections' => $sections->count(),
                 'total_questions' => $questions->count(),
                 'total_bank_questions' => count($bankQuestions),

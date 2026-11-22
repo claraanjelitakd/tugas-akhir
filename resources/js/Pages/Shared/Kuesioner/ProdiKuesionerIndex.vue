@@ -81,34 +81,79 @@ const pageTitle = computed(() => isFaculty.value
         ? 'Pengaturan Kuesioner Prodi - Admin Prodi'
         : 'Pengaturan Kuesioner Prodi - Super Admin UKDW');
 
-// Menentukan tab aktif dari URL agar konteks tab tidak hilang setelah CRUD.
+// Menentukan tab aktif dari URL agar konteks tab tidak hilang setelah navigasi.
 const getInitialTab = () => {
     if (typeof window !== 'undefined') {
         const tab = new URLSearchParams(window.location.search).get('tab');
-        if (tab === 'questions' || tab === 'sections') return tab;
+        if (tab === 'summary' || tab === 'questions' || tab === 'sections') {
+            if (tab === 'summary' && (isProdi.value || props.prodis.length <= 1)) {
+                return 'sections';
+            }
+            return tab;
+        }
     }
 
     return 'sections';
 };
 
-// Tab aktif: 'sections' atau 'questions'.
+// Tab aktif: 'summary', 'sections', atau 'questions'.
 const activeTab = ref(getInitialTab());
 
-// Selected Prodi State
-const selectedProdiId = ref(props.selectedProdi?.id || (props.prodis[0]?.id || ''));
+// Selected Prodi State berbasis kode_prodi resmi
+const selectedProdiId = ref(props.selectedProdi?.kode_prodi || (props.prodis[0]?.kode_prodi || ''));
 
-const handleProdiChange = () => {
-    if (selectedProdiId.value) {
-        activeTab.value = 'sections';
+// Sinkronkan selectedProdiId ketika props.selectedProdi diperbarui oleh Inertia
+watch(() => props.selectedProdi, (newProdi) => {
+    if (newProdi?.kode_prodi) {
+        selectedProdiId.value = newProdi.kode_prodi;
+    }
+}, { deep: true });
+
+// Pindah program studi target dan muat ulang instrumen kuesioner terkait
+const handleProdiChange = (customProdiId = null) => {
+    const targetProdiId = customProdiId || selectedProdiId.value;
+    if (targetProdiId) {
+        selectedProdiId.value = targetProdiId;
         selectedSectionFilter.value = 'all';
+        questionSearchQuery.value = '';
         router.get(props.basePath, {
-            kode_prodi: selectedProdiId.value,
+            kode_prodi: targetProdiId,
+            tab: activeTab.value === 'summary' ? 'sections' : activeTab.value,
         }, {
-            preserveState: true,
+            preserveState: false,
             preserveScroll: true,
         });
     }
 };
+
+// Memilih program studi dari tab ringkasan dan langsung beralih ke tab tujuan
+const selectProdiAndSwitchTab = (kodeProdi, targetTab = 'sections') => {
+    if (kodeProdi) {
+        selectedProdiId.value = kodeProdi;
+        activeTab.value = targetTab;
+        selectedSectionFilter.value = 'all';
+        questionSearchQuery.value = '';
+        router.get(props.basePath, {
+            kode_prodi: kodeProdi,
+            tab: targetTab,
+        }, {
+            preserveState: false,
+            preserveScroll: true,
+        });
+    }
+};
+
+// Pencarian program studi pada tab ringkasan
+const prodiSearchQuery = ref('');
+const filteredProdisSummary = computed(() => {
+    if (!prodiSearchQuery.value.trim()) return props.prodis;
+    const q = prodiSearchQuery.value.toLowerCase();
+    return props.prodis.filter(p =>
+        p.nama_prodi?.toLowerCase().includes(q) ||
+        p.kode_prodi?.toLowerCase().includes(q) ||
+        p.fakultas?.nama_fakultas?.toLowerCase().includes(q)
+    );
+});
 
 // ========================================================
 // SECTION STATE & FILTERS
@@ -279,6 +324,17 @@ const targetSectionIdForBank = ref(props.sections[0]?.id || '');
 const selectedBankQuestionIds = ref([]);
 const isSubmittingBank = ref(false);
 
+// Menyelaraskan targetSectionIdForBank saat daftar bagian berubah
+watch(() => props.sections, (newSections) => {
+    if (newSections && newSections.length > 0) {
+        if (!newSections.some(s => s.id === targetSectionIdForBank.value)) {
+            targetSectionIdForBank.value = newSections[0]?.id || '';
+        }
+    } else {
+        targetSectionIdForBank.value = '';
+    }
+}, { deep: true, immediate: true });
+
 const availableOrigins = computed(() => {
     const list = new Set();
     props.bankQuestions.forEach(q => {
@@ -356,7 +412,7 @@ const submitBankSelection = () => {
 
     isSubmittingBank.value = true;
     router.post(`${props.basePath}/bank/attach`, {
-        kode_prodi: props.selectedProdi?.id,
+        kode_prodi: props.selectedProdi?.kode_prodi || selectedProdiId.value,
         section_id: targetSectionIdForBank.value,
         pertanyaan_ids: selectedBankQuestionIds.value,
     }, {
@@ -428,14 +484,14 @@ const openSectionModal = (sectionToEdit = null) => {
 
     if (sectionToEdit) {
         sectionForm.value = {
-            kode_prodi: props.selectedProdi?.id || null,
+            kode_prodi: props.selectedProdi?.kode_prodi || selectedProdiId.value || null,
             title: sectionToEdit.title || '',
             description: sectionToEdit.description || '',
             order: sectionToEdit.order || 1,
         };
     } else {
         sectionForm.value = {
-            kode_prodi: props.selectedProdi?.id || null,
+            kode_prodi: props.selectedProdi?.kode_prodi || selectedProdiId.value || null,
             title: '',
             description: '',
             order: props.sections.length + 1,
@@ -472,7 +528,7 @@ const submitSectionForm = () => {
     isSubmittingSection.value = true;
 
     const payload = {
-        kode_prodi: props.selectedProdi.id,
+        kode_prodi: props.selectedProdi?.kode_prodi || selectedProdiId.value,
         title: sectionForm.value.title.trim(),
         description: sectionForm.value.description.trim(),
         order: sectionForm.value.order ? parseInt(sectionForm.value.order, 10) : null,
@@ -718,7 +774,7 @@ const removeOptionFromForm = (idx) => {
 const handleToggleActive = (question) => {
     togglingQuestionId.value = question.id;
     router.post(`${props.basePath}/penempatan/${question.placement_id}/toggle-active`, {
-        kode_prodi: props.selectedProdi?.id,
+        kode_prodi: props.selectedProdi?.kode_prodi || selectedProdiId.value,
     }, {
         preserveScroll: true,
         onSuccess: () => {
@@ -744,7 +800,7 @@ const openQuestionModal = (questionToEdit = null) => {
 
     if (questionToEdit) {
         questionForm.value = {
-            kode_prodi: props.selectedProdi?.id || null,
+            kode_prodi: props.selectedProdi?.kode_prodi || selectedProdiId.value || null,
             code: questionToEdit.code || '',
             label: questionToEdit.label || '',
             question_text: questionToEdit.question_text || '',
@@ -775,7 +831,7 @@ const openQuestionModal = (questionToEdit = null) => {
         const defaultCode = `P${nextNum}`;
 
         questionForm.value = {
-            kode_prodi: props.selectedProdi?.id || null,
+            kode_prodi: props.selectedProdi?.kode_prodi || selectedProdiId.value || null,
             code: defaultCode,
             label: '',
             question_text: '',
@@ -828,7 +884,7 @@ const submitQuestionForm = () => {
     isSubmittingQuestion.value = true;
 
     const payload = {
-        kode_prodi: props.selectedProdi.id,
+        kode_prodi: props.selectedProdi?.kode_prodi || selectedProdiId.value,
         code: questionForm.value.code.trim().toUpperCase(),
         label: questionForm.value.label.trim(),
         question_text: questionForm.value.question_text.trim(),
@@ -893,7 +949,7 @@ const submitQuestionForm = () => {
 
 const handleReorderQuestion = (placementId, direction) => {
     router.post(`${props.basePath}/pertanyaan/reorder`, {
-        kode_prodi: props.selectedProdi?.id,
+        kode_prodi: props.selectedProdi?.kode_prodi || selectedProdiId.value,
         placement_id: placementId,
         direction,
     }, {
@@ -915,7 +971,7 @@ const handleDeleteQuestion = (question) => {
         if (res.isConfirmed) {
             router.delete(`${props.basePath}/pertanyaan/${question.placement_id}`, {
                 data: {
-                    kode_prodi: props.selectedProdi?.id,
+                    kode_prodi: props.selectedProdi?.kode_prodi || selectedProdiId.value,
                 },
                 preserveScroll: true,
                 onSuccess: () => Swal.fire('Terhapus', 'Pertanyaan kuesioner prodi berhasil dihapus.', 'success'),
@@ -1119,7 +1175,7 @@ const handleDeleteOption = (opt) => {
                             Pengaturan Kuesioner Program Studi
                         </h1>
                         <p class="text-emerald-100/90 text-xs sm:text-sm font-normal mt-1.5 max-w-2xl leading-relaxed">
-                            Pilih program studi untuk mengelola struktur bagian (section) dan butir pertanyaan kuesioner spesifik prodi.
+                            {{ isProdi ? `Pengaturan struktur bagian (section) dan butir pertanyaan kuesioner Program Studi ${selectedProdi?.nama_prodi || ''}.` : 'Pilih program studi untuk mengelola struktur bagian (section) dan butir pertanyaan kuesioner spesifik prodi.' }}
                         </p>
                     </div>
                 </div>
@@ -1131,20 +1187,33 @@ const handleDeleteOption = (opt) => {
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div class="flex-1">
                             <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                                Program Studi Target
+                                {{ isProdi || prodis.length <= 1 ? 'Program Studi Aktif' : 'Program Studi Target' }}
                             </label>
+                            <div v-if="isProdi || prodis.length <= 1" class="flex items-center gap-2">
+                                <div class="px-3.5 py-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2">
+                                    <span class="text-xs font-bold text-emerald-800 font-mono" v-if="selectedProdi?.kode_prodi">[{{ selectedProdi.kode_prodi }}]</span>
+                                    <span class="text-sm font-bold text-emerald-950">{{ selectedProdi?.nama_prodi || 'Program Studi' }}</span>
+                                    <span v-if="selectedProdi?.fakultas" class="text-xs text-emerald-700 font-medium">({{ selectedProdi.fakultas.nama_fakultas }})</span>
+                                </div>
+                            </div>
                             <select
+                                v-else
                                 v-model="selectedProdiId"
-                                @change="handleProdiChange"
+                                @change="handleProdiChange()"
                                 class="w-full md:w-96 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-bold text-gray-900 focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] focus:outline-none"
                             >
-                                <option v-for="p in prodis" :key="p.id" :value="p.id">
-                                    {{ p.kode_prodi ? `[${p.kode_prodi}] ` : '' }}{{ p.nama_prodi }} {{ p.fakultas ? `(${p.fakultas.nama_fakultas})` : '' }}
+                                <option v-for="p in prodis" :key="p.kode_prodi" :value="p.kode_prodi">
+                                    [{{ p.kode_prodi }}] {{ p.nama_prodi }} {{ p.fakultas ? `(${p.fakultas.nama_fakultas})` : '' }} — {{ p.questions_count ?? 0 }} Pertanyaan
                                 </option>
                             </select>
                         </div>
 
                         <div class="flex items-center gap-3 bg-gray-50/80 p-3 rounded-lg border border-gray-200">
+                            <div v-if="!isProdi && prodis.length > 1" class="text-center px-2">
+                                <span class="block text-lg font-extrabold text-slate-900">{{ stats.total_prodis || prodis.length }}</span>
+                                <span class="text-[10px] text-gray-500 font-semibold uppercase">Total Prodi</span>
+                            </div>
+                            <div v-if="!isProdi && prodis.length > 1" class="h-8 w-px bg-gray-200"></div>
                             <div class="text-center px-2">
                                 <span class="block text-lg font-extrabold text-slate-900">{{ stats.total_sections }}</span>
                                 <span class="text-[10px] text-gray-500 font-semibold uppercase">Bagian / Section</span>
@@ -1160,6 +1229,21 @@ const handleDeleteOption = (opt) => {
 
                 <!-- Navigasi Tab -->
                 <div class="flex border-b border-slate-200 space-x-4">
+                    <button
+                        v-if="!isProdi && prodis.length > 1"
+                        @click="switchTab('summary')"
+                        class="pb-3 px-3 text-sm font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
+                        :class="[
+                            activeTab === 'summary'
+                                ? 'border-[#0D542B] text-[#0D542B]'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                        ]"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                        </svg>
+                        <span>Ringkasan Per Prodi ({{ prodis.length }})</span>
+                    </button>
                     <button
                         @click="switchTab('sections')"
                         class="pb-3 px-3 text-sm font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2"
@@ -1188,6 +1272,106 @@ const handleDeleteOption = (opt) => {
                         </svg>
                         <span>Daftar Pertanyaan (Kuesioner)</span>
                     </button>
+                </div>
+
+                <!-- TAB 0: RINGKASAN STATUS KUESIONER SELURUH PRODI (SUPERADMIN & FAKULTAS) -->
+                <div v-if="activeTab === 'summary' && !isProdi && prodis.length > 1" class="space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="w-full sm:w-80">
+                            <input
+                                type="text"
+                                v-model="prodiSearchQuery"
+                                placeholder="Cari kode atau nama program studi..."
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-[#0D542B] focus:border-[#0D542B] focus:outline-none bg-white"
+                            />
+                        </div>
+                        <div class="text-xs text-gray-600 font-medium">
+                            Menampilkan <span class="font-bold text-gray-900">{{ filteredProdisSummary.length }}</span> program studi
+                        </div>
+                    </div>
+
+                    <!-- Tabel Ringkasan Prodi -->
+                    <div class="bg-white rounded-xl border border-gray-300 shadow-2xs overflow-hidden">
+                        <table class="w-full text-xs text-left">
+                            <thead class="bg-gray-100 text-gray-800 font-semibold border-b border-gray-300 text-[11px]">
+                                <tr>
+                                    <th class="px-4 py-3 text-center w-16">No</th>
+                                    <th class="px-4 py-3 w-24">Kode</th>
+                                    <th class="px-4 py-3">Program Studi</th>
+                                    <th class="px-4 py-3">Fakultas</th>
+                                    <th class="px-4 py-3 text-center">Jumlah Bagian</th>
+                                    <th class="px-4 py-3 text-center">Jumlah Pertanyaan</th>
+                                    <th class="px-4 py-3 text-center">Status Instrumen</th>
+                                    <th class="px-4 py-3 text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <tr v-if="filteredProdisSummary.length === 0">
+                                    <td colspan="8" class="p-8 text-center text-gray-400 italic">
+                                        Tidak ada program studi yang sesuai dengan pencarian.
+                                    </td>
+                                </tr>
+                                <tr
+                                    v-for="(p, idx) in filteredProdisSummary"
+                                    :key="p.kode_prodi"
+                                    :class="[
+                                        'transition-colors',
+                                        p.kode_prodi === selectedProdi?.kode_prodi ? 'bg-emerald-50/60 font-semibold' : 'hover:bg-gray-50/80'
+                                    ]"
+                                >
+                                    <td class="px-4 py-3 text-center text-gray-500">
+                                        {{ idx + 1 }}
+                                    </td>
+                                    <td class="px-4 py-3 font-mono font-bold text-gray-900">
+                                        {{ p.kode_prodi }}
+                                    </td>
+                                    <td class="px-4 py-3 font-bold text-gray-900">
+                                        <div class="flex items-center gap-2">
+                                            <span>{{ p.nama_prodi }}</span>
+                                            <span
+                                                v-if="p.kode_prodi === selectedProdi?.kode_prodi"
+                                                class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800"
+                                            >
+                                                Sedang Dipilih
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-600">
+                                        {{ p.fakultas?.nama_fakultas || '-' }}
+                                    </td>
+                                    <td class="px-4 py-3 text-center text-gray-700 font-medium">
+                                        {{ p.sections_count ?? 0 }} Section
+                                    </td>
+                                    <td class="px-4 py-3 text-center font-bold" :class="(p.questions_count ?? 0) > 0 ? 'text-[#0D542B]' : 'text-gray-400'">
+                                        {{ p.questions_count ?? 0 }} Pertanyaan
+                                    </td>
+                                    <td class="px-4 py-3 text-center">
+                                        <span
+                                            v-if="(p.questions_count ?? 0) > 0"
+                                            class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                        >
+                                            Terkonfigurasi
+                                        </span>
+                                        <span
+                                            v-else
+                                            class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
+                                        >
+                                            Belum Ada Pertanyaan
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right">
+                                        <button
+                                            type="button"
+                                            @click="selectProdiAndSwitchTab(p.kode_prodi, 'sections')"
+                                            class="px-3 py-1 bg-[#0D542B] hover:bg-[#08381c] text-white text-[11px] font-bold rounded-lg transition-colors cursor-pointer"
+                                        >
+                                            Kelola Kuesioner
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <!-- TAB 1: SECTION PRODI MANAGEMENT -->
@@ -1225,7 +1409,7 @@ const handleDeleteOption = (opt) => {
                             <tbody class="divide-y divide-gray-200">
                                 <tr v-if="filteredSections.length === 0">
                                     <td colspan="5" class="p-8 text-center text-gray-400 italic">
-                                        Belum ada bagian (section) kuesioner yang dibuat untuk {{ selectedProdi.nama_prodi }}.
+                                        Belum ada bagian (section) kuesioner yang dibuat untuk {{ selectedProdi?.nama_prodi || 'Program Studi Terpilih' }}.
                                     </td>
                                 </tr>
                                 <tr v-for="(sec, idx) in filteredSections" :key="sec.id" class="hover:bg-gray-50/80 transition-colors">
@@ -1361,7 +1545,7 @@ const handleDeleteOption = (opt) => {
                             <tbody class="divide-y divide-gray-200">
                                 <tr v-if="filteredQuestions.length === 0">
                                     <td colspan="7" class="p-8 text-center text-gray-400 italic">
-                                        Belum ada butir pertanyaan kuesioner untuk {{ selectedProdi.nama_prodi }}.
+                                        Belum ada butir pertanyaan kuesioner untuk {{ selectedProdi?.nama_prodi || 'Program Studi Terpilih' }}.
                                     </td>
                                 </tr>
                                 <tr v-for="(q, idx) in filteredQuestions" :key="q.id" class="hover:bg-gray-50/80 transition-colors">

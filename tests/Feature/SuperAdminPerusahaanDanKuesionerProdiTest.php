@@ -209,4 +209,44 @@ class SuperAdminPerusahaanDanKuesionerProdiTest extends TestCase
             'teks_pertanyaan' => 'Seberapa relevan mata kuliah basis data di dunia kerja?',
         ]);
     }
+
+    /**
+     * Test superadmin dapat melihat ringkasan kuesioner seluruh prodi dan berganti prodi target.
+     */
+    public function test_superadmin_dapat_melihat_ringkasan_prodi_dan_berganti_prodi(): void
+    {
+        $prodi2 = Prodi::create([
+            'kode_prodi' => '71',
+            'nama_prodi' => 'Informatika',
+            'kode_fakultas' => $this->fakultas->kode_fakultas,
+        ]);
+
+        $section = KuesionerSection::create([
+            'kode_prodi' => $prodi2->kode_prodi,
+            'target' => 'prodi',
+            'kode_section' => 'SEC-TI-1',
+            'judul' => 'Bagian Informatika',
+            'order' => 1,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->get(route('superadmin.prodi-kuesioner.index'));
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Shared/Kuesioner/ProdiKuesionerIndex')
+            ->has('prodis', 2)
+            ->where('prodis.0.kode_prodi', fn ($val) => ! empty($val))
+            ->where('selectedProdi.kode_prodi', $prodi2->kode_prodi)
+        );
+
+        $responseSwitch = $this->actingAs($this->superadmin)
+            ->get(route('superadmin.prodi-kuesioner.index', ['kode_prodi' => $this->prodi->kode_prodi]));
+
+        $responseSwitch->assertStatus(200);
+        $responseSwitch->assertInertia(fn ($page) => $page
+            ->where('selectedProdi.kode_prodi', $this->prodi->kode_prodi)
+        );
+    }
 }
