@@ -241,6 +241,13 @@ class KuesionerProdiController extends Controller
             }
         }
 
+        $activeKuesionerId = Kuesioner::where('is_active', true)->value('id') ?? Kuesioner::value('id');
+        $existingAnswers = KuesionerJawaban::where('biodata_id', $biodata->id)
+            ->where('responden_type', 'alumni')
+            ->whereIn('pertanyaan_id', array_keys($pertanyaanMap))
+            ->get()
+            ->keyBy('pertanyaan_id');
+
         foreach ($pertanyaanMap as $qId => $q) {
             $jawaban = $jawabanMasuk[$qId] ?? null;
             $customText = isset($jawabanMasuk[$qId.'_custom']) ? trim((string) $jawabanMasuk[$qId.'_custom']) : '';
@@ -318,28 +325,39 @@ class KuesionerProdiController extends Controller
                     }
                 }
 
-                KuesionerJawaban::updateOrCreate(
-                    [
+                $existing = $existingAnswers->get($q->id);
+                $payloadJawaban = [
+                    'kuesioner_id' => $activeKuesionerId,
+                    'section_id' => $q->current_section_id ?? $q->pivot?->section_id,
+                    'evaluasi_atasan_id' => null,
+                    'kode_pertanyaan' => $q->kode_pertanyaan,
+                    'opsi_id' => $opsi?->id,
+                    'kode_opsi' => $kodeOpsiResult,
+                    'jawaban_teks' => $answerValue,
+                    'jawaban_json' => $answerJson,
+                ];
+
+                if ($existing) {
+                    $isIdentical = (string) $existing->jawaban_teks === (string) $answerValue
+                        && $existing->jawaban_json == $answerJson
+                        && (int) $existing->opsi_id === (int) ($opsi?->id ?? 0)
+                        && (string) $existing->kode_opsi === (string) ($kodeOpsiResult ?? '');
+
+                    if (! $isIdentical) {
+                        $existing->update($payloadJawaban);
+                    }
+                } else {
+                    KuesionerJawaban::create(array_merge([
                         'responden_type' => 'alumni',
                         'biodata_id' => $biodata->id,
                         'pertanyaan_id' => $q->id,
-                    ],
-                    [
-                        'kuesioner_id' => Kuesioner::where('is_active', true)->value('id') ?? Kuesioner::value('id'),
-                        'section_id' => $q->current_section_id ?? $q->pivot?->section_id,
-                        'evaluasi_atasan_id' => null,
-                        'kode_pertanyaan' => $q->kode_pertanyaan,
-                        'opsi_id' => $opsi?->id,
-                        'kode_opsi' => $kodeOpsiResult,
-                        'jawaban_teks' => $answerValue,
-                        'jawaban_json' => $answerJson,
-                    ]
-                );
+                    ], $payloadJawaban));
+                }
             } else {
-                KuesionerJawaban::where('responden_type', 'alumni')
-                    ->where('biodata_id', $biodata->id)
-                    ->where('pertanyaan_id', $q->id)
-                    ->delete();
+                $existing = $existingAnswers->get($q->id);
+                if ($existing) {
+                    $existing->delete();
+                }
             }
         }
 

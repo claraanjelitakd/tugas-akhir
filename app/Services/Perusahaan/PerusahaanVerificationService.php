@@ -53,6 +53,20 @@ class PerusahaanVerificationService
     ];
 
     /**
+     * Cache memori master perusahaan terverifikasi dalam siklus proses
+     * untuk mencegah query berulang saat beberapa rekomendasi dipanggil bersamaan.
+     */
+    protected static ?Collection $cachedVerifiedCompanies = null;
+
+    /**
+     * Mengosongkan cache memori perusahaan terverifikasi.
+     */
+    public static function flushCache(): void
+    {
+        static::$cachedVerifiedCompanies = null;
+    }
+
+    /**
      * Mengambil daftar perusahaan yang menunggu verifikasi untuk Program Studi tertentu.
      *
      * @param  array<string, mixed>  $filters
@@ -322,18 +336,24 @@ class PerusahaanVerificationService
         $pendingAcronyms = $this->getAcronyms($rawPendingName);
         $pendingAcronym = $this->makeAcronym($rawPendingName);
 
-        // [BARIS 6] Menjalankan query Eloquent untuk mengambil seluruh data master perusahaan yang sudah 'Terverifikasi'
-        // Variabel $verifiedCompanies (Collection): Kumpulan objek model Perusahaan terverifikasi dari tabel database.
-        $verifiedCompanies = Perusahaan::query()
-            ->with([
-                'propinsi:kode_provinsi,nama_provinsi',
-                'kabupaten:kode_kabupaten,kode_provinsi,nama_kabupaten',
-                'createdProdi:kode_prodi,nama_prodi',
-                'creator:id,name,role,username',
-            ])
-            ->where('status_verifikasi', 'Terverifikasi')
-            ->where('id', '!=', $pendingCompany->id)
-            ->get();
+        // [BARIS 6] Menjalankan query Eloquent (atau membaca memori cache) master perusahaan terverifikasi
+        if (app()->runningUnitTests()) {
+            self::flushCache();
+        }
+
+        if (static::$cachedVerifiedCompanies === null) {
+            static::$cachedVerifiedCompanies = Perusahaan::query()
+                ->with([
+                    'propinsi:kode_provinsi,nama_provinsi',
+                    'kabupaten:kode_kabupaten,kode_provinsi,nama_kabupaten',
+                    'createdProdi:kode_prodi,nama_prodi',
+                    'creator:id,name,role,username',
+                ])
+                ->where('status_verifikasi', 'Terverifikasi')
+                ->get();
+        }
+
+        $verifiedCompanies = static::$cachedVerifiedCompanies->where('id', '!=', $pendingCompany->id);
 
         // [BARIS 7] Inisialisasi wadah penampung array hasil perhitungan skor kemiripan
         // Variabel $scored (array): Tempat menyimpan daftar calon perusahaan rekomendasi yang lolos seleksi.
@@ -668,6 +688,8 @@ class PerusahaanVerificationService
                 ['verified_id' => $verifiedCompany->id, 'verified_name' => $verifiedName, 'alumni_dialihkan' => $affectedCount]
             );
 
+            self::flushCache();
+
             return [
                 'status' => 'success',
                 'affected_count' => $affectedCount,
@@ -681,6 +703,7 @@ class PerusahaanVerificationService
      */
     public function verifyDirectly(Perusahaan $company): bool
     {
+        self::flushCache();
         $res = $company->update([
             'status_verifikasi' => 'Terverifikasi',
         ]);
@@ -702,6 +725,7 @@ class PerusahaanVerificationService
      */
     public function updateAndVerify(Perusahaan $company, array $validatedData, bool $verifyNow = true): Perusahaan
     {
+        self::flushCache();
         $oldValues = $company->only(array_keys($validatedData));
 
         if ($verifyNow) {
@@ -727,6 +751,7 @@ class PerusahaanVerificationService
      */
     public function rejectCompany(Perusahaan $company, ?string $alasan = null): bool
     {
+        self::flushCache();
         $res = $company->update([
             'status_verifikasi' => 'Ditolak',
         ]);

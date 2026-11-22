@@ -40,9 +40,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user() ? array_merge(
                     $request->user()->only('id', 'name', 'username', 'email', 'role', 'must_change_password'),
-                    // Optimisasi: eager-load biodata hanya untuk role alumni, role lain tidak membutuhkan data ini
+                    // Optimisasi: Ambil profil dasar alumni (nim, foto) tanpa eager loading relasi berat pada setiap navigasi request
                     ['alumni' => $request->user()->role === 'alumni'
-                        ? $request->user()->biodata()->with(['prodi', 'perusahaan', 'perusahaan.propinsi', 'perusahaan.kabupaten', 'dataAkademik'])->first()
+                        ? $request->user()->biodata()->select(['id', 'user_id', 'nim', 'foto'])->first()
                         : null]
                 ) : null,
             ],

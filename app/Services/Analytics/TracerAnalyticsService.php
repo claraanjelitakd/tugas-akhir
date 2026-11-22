@@ -2484,10 +2484,22 @@ class TracerAnalyticsService
     }
 
     /**
+     * Cache memori lokal target response rate per tahun dalam satu lifecycle request.
+     *
+     * @var array<string, float>
+     */
+    protected array $targetResponseRateCache = [];
+
+    /**
      * Mengambil target response rate dinamis berdasarkan tahun atau kuesioner aktif.
      */
     public function resolveTargetResponseRate(?string $year = null): float
     {
+        $cacheKey = (string) ($year ?? 'active');
+        if (isset($this->targetResponseRateCache[$cacheKey])) {
+            return $this->targetResponseRateCache[$cacheKey];
+        }
+
         $target = null;
         if ($year !== null && is_numeric($year)) {
             $target = Kuesioner::where('year', (int) $year)->value('target_response_rate');
@@ -2497,7 +2509,7 @@ class TracerAnalyticsService
             $target = Kuesioner::where('is_active', true)->value('target_response_rate');
         }
 
-        return (float) ($target ?? 60.0);
+        return $this->targetResponseRateCache[$cacheKey] = (float) ($target ?? 60.0);
     }
 
     /**

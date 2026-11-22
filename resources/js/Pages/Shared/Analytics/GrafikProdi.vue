@@ -31,13 +31,17 @@ const loadError = ref('');
 // Menahan request filter selama 250 ms agar perubahan dropdown tidak bertubi-tubi.
 let filterTimer = null;
 
-// Mengambil ID Sistem Informasi dari metadata prodi, bukan mengunci ID database.
+// Mengambil kode program studi yang sesuai dengan login peran atau data instrumen.
 const defaultProdiId = (payload) => {
+    if (props.user?.role === 'admin_prodi' && props.user?.kode_prodi) {
+        return String(props.user.kode_prodi);
+    }
     const prodis = payload?.filters?.available_prodis || [];
     return String(
-        prodis.find((prodi) => String(prodi.kode_prodi) === '72')?.id
-        || prodis.find((prodi) => prodi.has_questions)?.id
-        || prodis[0]?.id
+        payload?.filters?.selected_kode_prodi
+        || prodis.find((prodi) => String(prodi.kode_prodi) === '72')?.kode_prodi
+        || prodis.find((prodi) => prodi.has_questions)?.kode_prodi
+        || prodis[0]?.kode_prodi
         || '',
     );
 };
@@ -246,9 +250,11 @@ const handleProdiChange = () => {
     scheduleLoad();
 };
 
-// Mengembalikan filter ke Sistem Informasi, bagian default, dan tahun berjalan.
+// Mengembalikan filter ke program studi aktif, bagian default, dan tahun berjalan.
 const resetFilters = () => {
-    selectedProdiId.value = defaultProdiId(currentAnalytics.value);
+    selectedProdiId.value = (props.user?.role === 'admin_prodi' && props.user?.kode_prodi)
+        ? String(props.user.kode_prodi)
+        : defaultProdiId(currentAnalytics.value);
     selectedSectionId.value = '';
     selectedYear.value = defaultYear();
     selectedItem.value = null;
@@ -527,8 +533,19 @@ watch(() => props.analytics, (newAnalytics) => {
                     <div class="grid gap-4 xl:grid-cols-[minmax(18rem,2fr)_minmax(18rem,2fr)_10rem_auto] xl:items-end">
                         <label class="block min-w-0 text-xs font-bold uppercase tracking-wide text-slate-500">
                             Program studi
-                            <select v-model="selectedProdiId" class="mt-2 block w-full rounded bg-slate-100 px-3 py-3 text-sm font-bold normal-case text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-[#0D542B]" @change="handleProdiChange">
-                                <option v-for="prodi in filters.available_prodis || []" :key="prodi.id" :value="String(prodi.id)">{{ prodi.nama_prodi }}</option>
+                            <select
+                                v-model="selectedProdiId"
+                                :disabled="props.user?.role === 'admin_prodi'"
+                                class="mt-2 block w-full rounded bg-slate-100 px-3 py-3 text-sm font-bold normal-case text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-[#0D542B] disabled:cursor-not-allowed disabled:bg-slate-200"
+                                @change="handleProdiChange"
+                            >
+                                <option
+                                    v-for="prodi in filters.available_prodis || []"
+                                    :key="prodi.kode_prodi"
+                                    :value="String(prodi.kode_prodi)"
+                                >
+                                    {{ prodi.nama_prodi }}
+                                </option>
                             </select>
                         </label>
                         <label class="block min-w-0 text-xs font-bold uppercase tracking-wide text-slate-500">

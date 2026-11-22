@@ -8,14 +8,14 @@ const isNavigating = ref(false);
 let navigationTimer = null;
 let navigationSequence = 0;
 
-// Listen to Inertia router events: abaikan background request / autosave formulir agar PigoLoader tidak menutupi layar alumni
+// Listen to Inertia router events: abaikan background request, form in-place, atau filter dengan preserveState agar PigoLoader tidak menutupi layar
 router.on('start', (event) => {
     const visit = event?.detail?.visit;
     if (visit?.showProgress === false) {
         return;
     }
-    // Jika preserveState aktif pada request form (POST/PUT/PATCH) atau partial props reload, jangan munculkan Pigo fullscreen
-    if (visit?.preserveState && (['post', 'put', 'patch', 'delete'].includes(visit?.method?.toLowerCase()) || (visit?.only && visit?.only?.length > 0))) {
+    // Jika preserveState aktif (filter tabel in-place, partial reload, atau mutasi form), jangan munculkan Pigo fullscreen
+    if (visit?.preserveState) {
         return;
     }
 
@@ -27,11 +27,14 @@ router.on('start', (event) => {
         }
     }, 180);
 });
-router.on('finish', () => {
+const resetNavigation = () => {
     window.clearTimeout(navigationTimer);
     navigationSequence += 1;
     isNavigating.value = false;
-});
+};
+router.on('finish', resetNavigation);
+router.on('cancel', resetNavigation);
+router.on('error', resetNavigation);
 
 // Tangani otomatis error chunk modul gagal dimuat akibat hash aset berubah setelah build baru
 window.addEventListener('vite:preloadError', (event) => {

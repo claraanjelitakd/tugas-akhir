@@ -33,7 +33,7 @@ class ProdiAnalyticsController extends Controller
 
         return Inertia::render('Shared/Analytics/GrafikProdi', [
             'user' => $user,
-            'analytics' => $analyticsService->buildProdiChart($prodiId, $sectionId, $year),
+            'analytics' => $analyticsService->buildProdiChart($prodiId, $sectionId, $year, $user),
         ]);
     }
 
@@ -53,7 +53,7 @@ class ProdiAnalyticsController extends Controller
         $year = $request->string('tahun')->toString() ?: null;
 
         return response()->json(
-            $analyticsService->buildProdiChart($prodiId, $sectionId, $year)
+            $analyticsService->buildProdiChart($prodiId, $sectionId, $year, $user)
         );
     }
 }

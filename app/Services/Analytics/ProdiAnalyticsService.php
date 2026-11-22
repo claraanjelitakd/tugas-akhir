@@ -4,6 +4,7 @@ namespace App\Services\Analytics;
 
 use App\Models\KuesionerSection;
 use App\Models\Prodi;
+use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -20,11 +21,11 @@ class ProdiAnalyticsService
     public const ALL_YEARS = 'ALL';
 
     /**
-     * Mengambil program studi yang tersedia untuk filter analitik.
+     * Mengambil program studi yang tersedia untuk filter analitik sesuai lingkup akun pengguna.
      *
      * @return Collection<int, array{kode_prodi: string, nama_prodi: string, has_questions: bool}>
      */
-    public function getAvailableProdis(): Collection
+    public function getAvailableProdis(?User $user = null): Collection
     {
         $prodisWithQuestions = KuesionerSection::query()
             ->where('target', 'prodi')
@@ -33,10 +34,17 @@ class ProdiAnalyticsService
             ->pluck('kode_prodi')
             ->all();
 
-        return Prodi::query()
+        $query = Prodi::query()
             ->select('kode_prodi', 'nama_prodi')
-            ->orderBy('nama_prodi')
-            ->get()
+            ->orderBy('nama_prodi');
+
+        if ($user && $user->role === 'admin_prodi' && $user->kode_prodi) {
+            $query->where('kode_prodi', $user->kode_prodi);
+        } elseif ($user && $user->role === 'admin_fakultas' && $user->kode_fakultas) {
+            $query->where('kode_fakultas', $user->kode_fakultas);
+        }
+
+        return $query->get()
             ->map(static function (Prodi $prodi) use ($prodisWithQuestions): array {
                 return [
                     'kode_prodi' => $prodi->kode_prodi,
@@ -72,14 +80,19 @@ class ProdiAnalyticsService
     /**
      * Menyusun payload lengkap untuk halaman analitik program studi.
      *
-     * @param  int|null  $prodiId  ID program studi yang dipilih.
+     * @param  string|null  $prodiId  ID program studi yang dipilih.
      * @param  int|string|null  $sectionKey  ID bagian pertanyaan yang dipilih.
      * @param  string|null  $year  Filter tahun kelulusan atau ALL.
+     * @param  User|null  $user  Pengguna yang sedang terautentikasi untuk scoping akses.
      * @return array<string, mixed>
      */
-    public function buildProdiChart(?string $prodiId = null, $sectionKey = null, ?string $year = null): array
+    public function buildProdiChart(?string $prodiId = null, $sectionKey = null, ?string $year = null, ?User $user = null): array
     {
-        $availableProdis = $this->getAvailableProdis();
+        if ($user && $user->role === 'admin_prodi' && $user->kode_prodi) {
+            $prodiId = $user->kode_prodi;
+        }
+
+        $availableProdis = $this->getAvailableProdis($user);
         $selectedProdi = $this->resolveProdi($prodiId, $availableProdis);
 
         if (! $selectedProdi) {

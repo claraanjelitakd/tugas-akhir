@@ -402,10 +402,13 @@ const fetchCompanyRecommendations = async (company) => {
     return request;
 };
 
-// Memuat rekomendasi untuk seluruh perusahaan pada halaman aktif tanpa tombol perantara.
+// Memuat rekomendasi hanya untuk perusahaan yang masih berstatus Menunggu Verifikasi pada halaman aktif.
 const loadPageRecommendations = async () => {
-    const pageCompanies = props.companies?.data || [];
-    await Promise.all(pageCompanies.map((company) => fetchCompanyRecommendations(company)));
+    const pendingCompanies = (props.companies?.data || []).filter(
+        (company) => company.status_verifikasi === 'Menunggu Verifikasi'
+    );
+    if (pendingCompanies.length === 0) return;
+    await Promise.all(pendingCompanies.map((company) => fetchCompanyRecommendations(company)));
 };
 
 // Mengulang pemuatan hanya saat isi halaman berubah, misalnya setelah filter atau pindah halaman.

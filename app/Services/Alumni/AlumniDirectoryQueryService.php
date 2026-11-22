@@ -58,15 +58,22 @@ class AlumniDirectoryQueryService
         // Prodis terpilih dari filter input (jika tidak discoped ketat oleh peran Prodi)
         $prodiIdTerpilih = $scopedProdiId ?: $request->input('kode_prodi');
 
-        // 2. Ambil metadata tahun dan target dalam satu pembacaan ringan ke view profil.
-        $profileOptionsQuery = DB::table('v_alumni_profile_summary')
-            ->select(['tahun_lulus', 'tahun_akademik_lulus'])
+        // 2. Ambil metadata tahun dan target langsung dari tabel kanonik data_akademik untuk performa instan
+        $profileOptionsQuery = DB::table('data_akademik as da')
+            ->select(['da.tahun_lulus', 'da.tahun_akademik_lulus'])
             ->where(function ($q) {
-                $q->whereNotNull('tahun_lulus')
-                    ->orWhereNotNull('tahun_akademik_lulus');
+                $q->whereNotNull('da.tahun_lulus')
+                    ->orWhereNotNull('da.tahun_akademik_lulus');
             });
 
-        $this->applyScope($profileOptionsQuery, $scopedProdiId, $scopedFakultasId, $scopedProdiIds);
+        if ($scopedProdiId) {
+            $profileOptionsQuery->where('da.kode_prodi', $scopedProdiId);
+        } elseif (! empty($scopedProdiIds)) {
+            $profileOptionsQuery->whereIn('da.kode_prodi', $scopedProdiIds);
+        } elseif ($scopedFakultasId) {
+            $profileOptionsQuery->join('ref_prodi as rp', 'rp.kode_prodi', '=', 'da.kode_prodi')
+                ->where('rp.kode_fakultas', $scopedFakultasId);
+        }
 
         $profileOptions = $profileOptionsQuery->get();
 
@@ -324,16 +331,39 @@ class AlumniDirectoryQueryService
             $totalSelesai = (int) ($summary->total_selesai ?? 0);
             $totalBelumSelesai = $totalSemua - $totalSelesai;
 
-            $matchingBiodataIds = (clone $query)->select('biodata_id');
-            $latestSyncIds = DB::table('linkedin_sync_results as latest_sync')
-                ->selectRaw('MAX(latest_sync.id)')
-                ->whereIn('latest_sync.biodata_id', $matchingBiodataIds)
-                ->groupBy('latest_sync.biodata_id');
+            // Optimasi kueri LinkedIn: Ambil biodata_id dengan sinkronisasi terakhir berstatus approved
+            $approvedSyncBiodataIds = DB::table('linkedin_sync_results as l1')
+                ->where('l1.status', 'approved')
+                ->whereNotExists(function ($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from('linkedin_sync_results as l2')
+                        ->whereColumn('l2.biodata_id', 'l1.biodata_id')
+                        ->whereColumn('l2.id', '>', 'l1.id');
+                })
+                ->pluck('l1.biodata_id')
+                ->all();
 
-            $totalLinkedinSynced = (int) DB::table('linkedin_sync_results')
-                ->whereIn('id', $latestSyncIds)
-                ->where('status', 'approved')
-                ->count();
+            if (empty($approvedSyncBiodataIds)) {
+                $totalLinkedinSynced = 0;
+            } elseif ($statusTerpilih === 'selesai' || $statusTerpilih === 'belum_selesai') {
+                $totalLinkedinSynced = (int) (clone $query)
+                    ->whereIn('biodata_id', $approvedSyncBiodataIds)
+                    ->count();
+            } else {
+                $linkedinCountQuery = DB::table('v_alumni_profile_summary')
+                    ->whereIn('biodata_id', $approvedSyncBiodataIds);
+                $this->applyScope($linkedinCountQuery, $scopedProdiId, $scopedFakultasId, $scopedProdiIds);
+                if ($tahunTerpilih && $tahunTerpilih !== 'all') {
+                    $linkedinCountQuery->where(function ($q) use ($tahunTerpilih, $tahunNormalized) {
+                        $q->where('tahun_lulus', $tahunNormalized)
+                            ->orWhere('tahun_lulus', $tahunTerpilih);
+                    });
+                }
+                if (! $scopedProdiId && $prodiIdTerpilih && $prodiIdTerpilih !== 'all') {
+                    $linkedinCountQuery->where('kode_prodi', $prodiIdTerpilih);
+                }
+                $totalLinkedinSynced = (int) $linkedinCountQuery->count();
+            }
 
             $requestedPage = max((int) $request->input('page', 1), 1);
             $lastPage = max((int) ceil($totalSemua / $perPage), 1);
@@ -475,6 +505,7 @@ class AlumniDirectoryQueryService
                 'linkedin_username' => $item->linkedin_username ?? null,
                 'prodi' => $item->nama_prodi ?? '-',
                 'nama_prodi' => $item->nama_prodi ?? '-',
+                'kode_prodi' => $item->kode_prodi ?? '',
                 'prodi_kode' => $item->kode_prodi ?? '',
                 'prodi_id' => $item->kode_prodi,
                 'fakultas' => $item->nama_fakultas ?? '-',

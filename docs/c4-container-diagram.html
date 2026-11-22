@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C4 Architecture Diagrams - Tracer Study UKDW</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #cbd5e1;
+      --text: #0f172a;
+      --muted: #475569;
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --green: #047857;
+    }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .header h1 {
+      margin: 0 0 6px 0;
+      font-size: 24px;
+      color: var(--text);
+      font-weight: 700;
+    }
+    .header p {
+      margin: 0;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    
+    /* TAB NAVIGATION ALA BROWSER */
+    .tab-nav {
+      display: flex;
+      gap: 8px;
+      border-bottom: 2px solid #e2e8f0;
+      width: 100%;
+      max-width: 1260px;
+      margin-bottom: 16px;
+    }
+    .tab-btn {
+      padding: 10px 20px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      font-size: 14px;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: -2px;
+    }
+    .tab-btn:hover {
+      color: var(--primary);
+    }
+    .tab-btn.active {
+      color: var(--primary-dark);
+      border-bottom-color: var(--primary);
+      font-weight: 700;
+    }
+    
+    .canvas-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+      padding: 20px;
+      max-width: 1260px;
+      width: 100%;
+      overflow-x: auto;
+      box-sizing: border-box;
+    }
+    .tab-pane {
+      display: none;
+    }
+    .tab-pane.active {
+      display: block;
+    }
+    svg {
+      display: block;
+      margin: 0 auto;
+      max-width: 100%;
+      height: auto;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 20px;
+      font-size: 12.5px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-box {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>C4 Model Architecture — Tracer Study UKDW</h1>
+    <p>Visualisasi Arsitektur Bertingkat: System Context (Level 1) &amp; Container (Level 2)</p>
+  </div>
+
+  <!-- NAVIGATION TABS -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('c4-level1', this)">Level 1 — System Context</button>
+    <button class="tab-btn" onclick="switchTab('c4-level2', this)">Level 2 — Container</button>
+  </div>
+
+  <div class="canvas-container">
+
+    <!-- ============================================================== -->
+    <!-- TAB 1: LEVEL 1 — SYSTEM CONTEXT (SESUAI POSISI GAMBAR KEDUA) -->
+    <!-- ============================================================== -->
+    <div id="c4-level1" class="tab-pane active">
+      <svg viewBox="0 0 1200 960" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+        <defs>
+          <marker id="arr1-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#334155" />
+          </marker>
+          <marker id="arr1-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#0284c7" />
+          </marker>
+          <marker id="arr1-email" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#047857" />
+          </marker>
+          <filter id="shadow1" x="-5%" y="-5%" width="110%" height="110%">
+            <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.1" />
+          </filter>
+        </defs>
+
+        <!-- === AKTOR SISI KIRI (SESUAI GAMBAR CONTAINER KEDUA) === -->
+        
+        <!-- 1. Pengguna Lulusan (Top Left: cx = 240, cy = 110) -->
+        <g transform="translate(170, 40)">
+          <circle cx="70" cy="20" r="18" fill="#0369a1" />
+          <path d="M 5 45 C 5 32, 25 32, 70 32 C 115 32, 135 32, 135 45 L 135 140 L 5 140 Z" fill="#0284c7" filter="url(#shadow1)" />
+          <text x="70" y="55" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Pengguna Lulusan</text>
+          <text x="70" y="70" text-anchor="middle" fill="#bae6fd" font-size="9.5">[Person]</text>
+          <line x1="15" y1="77" x2="125" y2="77" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="70" y="92" text-anchor="middle" fill="#ffffff" font-size="8.5">Atasan atau pemberi kerja</text>
+          <text x="70" y="105" text-anchor="middle" fill="#ffffff" font-size="8.5">alumni yang menerima email</text>
+          <text x="70" y="118" text-anchor="middle" fill="#ffffff" font-size="8.5">undangan evaluasi ber-token,</text>
+          <text x="70" y="131" text-anchor="middle" fill="#ffffff" font-size="8.5">isi evaluasi kinerja alumni.</text>
+        </g>
+
+        <!-- 2. Alumni (Bottom Left: cx = 110, cy = 250) -->
+        <g transform="translate(40, 180)">
+          <circle cx="70" cy="20" r="18" fill="#0369a1" />
+          <path d="M 5 45 C 5 32, 25 32, 70 32 C 115 32, 135 32, 135 45 L 135 135 L 5 135 Z" fill="#0284c7" filter="url(#shadow1)" />
+          <text x="70" y="55" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Alumni</text>
+          <text x="70" y="70" text-anchor="middle" fill="#bae6fd" font-size="9.5">[Person]</text>
+          <line x1="15" y1="77" x2="125" y2="77" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="70" y="92" text-anchor="middle" fill="#ffffff" font-size="8.5">Lulusan UKDW yang mengisi</text>
+          <text x="70" y="105" text-anchor="middle" fill="#ffffff" font-size="8.5">kuesioner tracer &amp; prodi,</text>
+          <text x="70" y="118" text-anchor="middle" fill="#ffffff" font-size="8.5">kelola profil &amp; karier,</text>
+          <text x="70" y="131" text-anchor="middle" fill="#ffffff" font-size="8.5">ajukan atasan &amp; instansi.</text>
+        </g>
+
+        <!-- === AKTOR SISI ATAS (4 ROLE ADMIN SESUAI GAMBAR CONTAINER KEDUA) === -->
+
+        <!-- 3. Superadmin (ITC) (cx = 455) -->
+        <g transform="translate(380, 40)">
+          <circle cx="75" cy="20" r="18" fill="#0369a1" />
+          <path d="M 5 45 C 5 32, 25 32, 75 32 C 125 32, 145 32, 145 45 L 145 140 L 5 140 Z" fill="#0284c7" filter="url(#shadow1)" />
+          <text x="75" y="55" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Superadmin (ITC)</text>
+          <text x="75" y="70" text-anchor="middle" fill="#bae6fd" font-size="9.5">[Person]</text>
+          <line x1="15" y1="77" x2="135" y2="77" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="75" y="92" text-anchor="middle" fill="#ffffff" font-size="8.5">Admin ITC yang mengelola</text>
+          <text x="75" y="105" text-anchor="middle" fill="#ffffff" font-size="8.5">instrumen kuesioner tracer,</text>
+          <text x="75" y="118" text-anchor="middle" fill="#ffffff" font-size="8.5">manajemen akun pengguna,</text>
+          <text x="75" y="131" text-anchor="middle" fill="#ffffff" font-size="8.5">verifikasi data &amp; sync LinkedIn.</text>
+        </g>
+
+        <!-- 4. Admin Prodi (cx = 625) -->
+        <g transform="translate(550, 40)">
+          <circle cx="75" cy="20" r="18" fill="#0369a1" />
+          <path d="M 5 45 C 5 32, 25 32, 75 32 C 125 32, 145 32, 145 45 L 145 140 L 5 140 Z" fill="#0284c7" filter="url(#shadow1)" />
+          <text x="75" y="55" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Admin Prodi</text>
+          <text x="75" y="70" text-anchor="middle" fill="#bae6fd" font-size="9.5">[Person]</text>
+          <line x1="15" y1="77" x2="135" y2="77" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="75" y="92" text-anchor="middle" fill="#ffffff" font-size="8.5">Admin Prodi &amp; Kaprodi:</text>
+          <text x="75" y="105" text-anchor="middle" fill="#ffffff" font-size="8.5">pantau partisipasi prodi,</text>
+          <text x="75" y="118" text-anchor="middle" fill="#ffffff" font-size="8.5">kelola kuesioner prodi,</text>
+          <text x="75" y="131" text-anchor="middle" fill="#ffffff" font-size="8.5">validasi instansi &amp; ekspor.</text>
+        </g>
+
+        <!-- 5. Admin Fakultas (cx = 795) -->
+        <g transform="translate(720, 40)">
+          <circle cx="75" cy="20" r="18" fill="#0369a1" />
+          <path d="M 5 45 C 5 32, 25 32, 75 32 C 125 32, 145 32, 145 45 L 145 140 L 5 140 Z" fill="#0284c7" filter="url(#shadow1)" />
+          <text x="75" y="55" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Admin Fakultas</text>
+          <text x="75" y="70" text-anchor="middle" fill="#bae6fd" font-size="9.5">[Person]</text>
+          <line x1="15" y1="77" x2="135" y2="77" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="75" y="92" text-anchor="middle" fill="#ffffff" font-size="8.5">Admin Fakultas &amp; WD 3:</text>
+          <text x="75" y="105" text-anchor="middle" fill="#ffffff" font-size="8.5">pantau partisipasi prodi,</text>
+          <text x="75" y="118" text-anchor="middle" fill="#ffffff" font-size="8.5">analitik lintas prodi,</text>
+          <text x="75" y="131" text-anchor="middle" fill="#ffffff" font-size="8.5">direktori alumni se-fakultas.</text>
+        </g>
+
+        <!-- 6. Admin Biro 3 (cx = 965) -->
+        <g transform="translate(890, 40)">
+          <circle cx="75" cy="20" r="18" fill="#0369a1" />
+          <path d="M 5 45 C 5 32, 25 32, 75 32 C 125 32, 145 32, 145 45 L 145 140 L 5 140 Z" fill="#0284c7" filter="url(#shadow1)" />
+          <text x="75" y="55" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Admin Biro 3</text>
+          <text x="75" y="70" text-anchor="middle" fill="#bae6fd" font-size="9.5">[Person]</text>
+          <line x1="15" y1="77" x2="135" y2="77" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="75" y="92" text-anchor="middle" fill="#ffffff" font-size="8.5">Staf Biro 3 (Tim Analis):</text>
+          <text x="75" y="105" text-anchor="middle" fill="#ffffff" font-size="8.5">pantau capaian IKU-1 kampus,</text>
+          <text x="75" y="118" text-anchor="middle" fill="#ffffff" font-size="8.5">blast email reminder alumni,</text>
+          <text x="75" y="131" text-anchor="middle" fill="#ffffff" font-size="8.5">laporan &amp; ekspor rekap.</text>
+        </g>
+
+        <!-- === CENTER: SOFTWARE SYSTEM (TRACER STUDY UKDW) === -->
+        <g transform="translate(360, 360)">
+          <rect width="560" height="190" rx="10" fill="#0369a1" filter="url(#shadow1)" />
+          <text x="280" y="32" text-anchor="middle" fill="#bae6fd" font-size="12" font-weight="600">[Software System]</text>
+          <text x="280" y="60" text-anchor="middle" fill="#ffffff" font-size="20" font-weight="700">Tracer Study UKDW</text>
+          <line x1="40" y1="72" x2="520" y2="72" stroke="#38bdf8" stroke-width="1" />
+          <text x="280" y="96" text-anchor="middle" fill="#ffffff" font-size="11.5">Sistem informasi pelacakan rekam jejak karier alumni, pengisian instrumen</text>
+          <text x="280" y="116" text-anchor="middle" fill="#ffffff" font-size="11.5">kuesioner universitas &amp; prodi, evaluasi kinerja atasan langsung berbasis token,</text>
+          <text x="280" y="136" text-anchor="middle" fill="#ffffff" font-size="11.5">sinkronisasi profil LinkedIn terintegrasi Apify, dan analitik capaian IKU institusi.</text>
+          <rect x="140" y="152" width="280" height="24" rx="4" fill="#0284c7" />
+          <text x="280" y="168" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="600">[Vue 3 / Inertia.js / Laravel 13 / MySQL 8.4 LTS]</text>
+        </g>
+
+        <!-- === BOTTOM: EXTERNAL SYSTEMS === -->
+
+        <!-- Apify API (Bottom Left: x = 160) -->
+        <g transform="translate(160, 770)">
+          <rect width="280" height="110" rx="8" fill="#475569" filter="url(#shadow1)" />
+          <text x="140" y="28" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="700">APIFY API</text>
+          <text x="140" y="46" text-anchor="middle" fill="#cbd5e1" font-size="11">[External System: Cloud Scraper]</text>
+          <line x1="20" y1="54" x2="260" y2="54" stroke="#64748b" stroke-width="0.75" />
+          <text x="140" y="74" text-anchor="middle" fill="#ffffff" font-size="10">Layanan cloud scraping pihak ketiga untuk</text>
+          <text x="140" y="90" text-anchor="middle" fill="#ffffff" font-size="10">ekstraksi data profil publik LinkedIn alumni.</text>
+        </g>
+
+        <!-- Email Platform (SMTP) (Bottom Right: x = 760) -->
+        <g transform="translate(760, 770)">
+          <rect width="280" height="110" rx="8" fill="#475569" filter="url(#shadow1)" />
+          <text x="140" y="28" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="700">Email Platform (SMTP)</text>
+          <text x="140" y="46" text-anchor="middle" fill="#cbd5e1" font-size="11">[External System: Mail Server]</text>
+          <line x1="20" y1="54" x2="260" y2="54" stroke="#64748b" stroke-width="0.75" />
+          <text x="140" y="74" text-anchor="middle" fill="#ffffff" font-size="10">Layanan server SMTP pengiriman notifikasi,</text>
+          <text x="140" y="90" text-anchor="middle" fill="#ffffff" font-size="10">reset password &amp; undangan survei alumni/atasan.</text>
+        </g>
+
+        <!-- === HUBUNGAN AKTOR KE SISTEM (PANAH RAPI TANPA TABRAKAN) === -->
+
+        <!-- Alumni -> Tracer Study UKDW -->
+        <path d="M 175 250 L 360 460" fill="none" stroke="#334155" stroke-width="1.75" marker-end="url(#arr1-gray)" />
+        <rect x="180" y="360" width="150" height="26" rx="4" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="255" y="377" text-anchor="middle" font-size="8.5" fill="#1e293b" font-weight="600">Form &amp; profil [HTTPS]</text>
+
+        <!-- Pengguna Lulusan -> Tracer Study UKDW -->
+        <path d="M 305 150 L 330 150 L 330 400 L 360 400" fill="none" stroke="#334155" stroke-width="1.75" marker-end="url(#arr1-gray)" />
+        <rect x="235" y="260" width="140" height="26" rx="4" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="305" y="277" text-anchor="middle" font-size="8.5" fill="#1e293b" font-weight="600">Evaluasi token [HTTPS]</text>
+
+        <!-- Superadmin -> Tracer Study UKDW -->
+        <line x1="455" y1="180" x2="455" y2="360" stroke="#334155" stroke-width="1.75" marker-end="url(#arr1-gray)" />
+        <rect x="385" y="250" width="140" height="26" rx="4" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="455" y="267" text-anchor="middle" font-size="8.5" fill="#1e293b" font-weight="600">Konsol Admin [HTTPS]</text>
+
+        <!-- Admin Prodi -> Tracer Study UKDW -->
+        <line x1="625" y1="180" x2="625" y2="360" stroke="#334155" stroke-width="1.75" marker-end="url(#arr1-gray)" />
+        <rect x="560" y="250" width="130" height="26" rx="4" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="625" y="267" text-anchor="middle" font-size="8.5" fill="#1e293b" font-weight="600">Portal Prodi [HTTPS]</text>
+
+        <!-- Admin Fakultas -> Tracer Study UKDW -->
+        <line x1="795" y1="180" x2="795" y2="360" stroke="#334155" stroke-width="1.75" marker-end="url(#arr1-gray)" />
+        <rect x="725" y="250" width="140" height="26" rx="4" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="795" y="267" text-anchor="middle" font-size="8.5" fill="#1e293b" font-weight="600">Portal Fakultas [HTTPS]</text>
+
+        <!-- Admin Biro 3 -> Tracer Study UKDW -->
+        <path d="M 965 180 L 965 290 L 870 290 L 870 360" fill="none" stroke="#334155" stroke-width="1.75" marker-end="url(#arr1-gray)" />
+        <rect x="880" y="250" width="135" height="26" rx="4" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="947" y="267" text-anchor="middle" font-size="8.5" fill="#1e293b" font-weight="600">Portal Biro 3 [HTTPS]</text>
+
+
+        <!-- === HUBUNGAN SISTEM KE EXTERNAL (DUA ARAH) === -->
+
+        <!-- Tracer -> Apify (Kirim URL) -->
+        <line x1="420" y1="550" x2="280" y2="770" stroke="#334155" stroke-width="1.75" marker-end="url(#arr1-gray)" />
+        <rect x="230" y="640" width="170" height="26" rx="4" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="315" y="657" text-anchor="middle" font-size="8.5" fill="#1e293b" font-weight="600">Kirim URL LinkedIn [REST/HTTPS]</text>
+
+        <!-- Apify -> Tracer (Data JSON) -->
+        <line x1="340" y1="770" x2="480" y2="550" stroke="#0284c7" stroke-width="1.75" stroke-dasharray="4 3" marker-end="url(#arr1-blue)" />
+        <rect x="365" y="685" width="155" height="26" rx="4" fill="#ffffff" stroke="#93c5fd" />
+        <text x="442" y="702" text-anchor="middle" font-size="8.5" fill="#0369a1" font-weight="700">Data profil alumni [JSON]</text>
+
+        <!-- Tracer -> Email Platform -->
+        <line x1="780" y1="550" x2="880" y2="770" stroke="#334155" stroke-width="1.75" marker-end="url(#arr1-gray)" />
+        <rect x="745" y="640" width="170" height="26" rx="4" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="830" y="657" text-anchor="middle" font-size="8.5" fill="#1e293b" font-weight="600">Kirim antrean email [SMTP/TLS]</text>
+
+
+        <!-- === NOTIFIKASI EMAIL KE AKTOR (JALUR HIJAU MEMUTAR DI MARGIN SISI KIRI) === -->
+        
+        <!-- Dari Email Platform ke Pengguna Lulusan & Alumni (Memutar lewat bawah ke kiri luar) -->
+        <path d="M 760 830 L 20 830 L 20 110 L 170 110" fill="none" stroke="#047857" stroke-width="1.75" stroke-dasharray="6 4" marker-end="url(#arr1-email)" />
+        <rect x="35" y="818" width="230" height="24" rx="4" fill="#ecfdf5" stroke="#10b981" />
+        <text x="150" y="834" text-anchor="middle" font-size="8.5" fill="#065f46" font-weight="700">Sends email: Undangan evaluasi token [SMTP]</text>
+
+        <!-- Cabang ke Alumni -->
+        <path d="M 20 250 L 40 250" fill="none" stroke="#047857" stroke-width="1.75" stroke-dasharray="6 4" marker-end="url(#arr1-email)" />
+        <rect x="25" y="295" width="155" height="24" rx="4" fill="#ecfdf5" stroke="#10b981" />
+        <text x="102" y="311" text-anchor="middle" font-size="8.5" fill="#065f46" font-weight="700">Sends email: Blast reminder</text>
+
+      </svg>
+    </div>
+
+
+    <!-- ============================================================== -->
+    <!-- TAB 2: LEVEL 2 — CONTAINER (SESUAI GAMBAR KEDUA PERSIS)       -->
+    <!-- ============================================================== -->
+    <div id="c4-level2" class="tab-pane">
+      <svg viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+        <defs>
+          <marker id="arr2-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#334155" />
+          </marker>
+          <marker id="arr2-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#0284c7" />
+          </marker>
+          <marker id="arr2-email" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#047857" />
+          </marker>
+          <filter id="shadow2" x="-5%" y="-5%" width="110%" height="110%">
+            <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.1" />
+          </filter>
+        </defs>
+
+        <!-- === SYSTEM BOUNDARY (TRACER STUDY UKDW) === -->
+        <rect x="230" y="220" width="760" height="580" rx="12" fill="#f8fafc" stroke="#0284c7" stroke-width="2" stroke-dasharray="8 6" />
+        <text x="250" y="248" font-size="14" font-weight="700" fill="#0369a1">Tracer Study UKDW</text>
+        <text x="395" y="248" font-size="12" fill="#64748b">[Software System Boundary]</text>
+
+        <!-- === AKTOR SISI KIRI (SESUAI GAMBAR 2) === -->
+        
+        <!-- 1. Pengguna Lulusan (Top Left: cx = 250, cy = 110) -->
+        <g transform="translate(170, 40)">
+          <circle cx="70" cy="20" r="18" fill="#0369a1" />
+          <path d="M 5 45 C 5 32, 25 32, 70 32 C 115 32, 135 32, 135 45 L 135 140 L 5 140 Z" fill="#0284c7" filter="url(#shadow2)" />
+          <text x="70" y="55" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Pengguna Lulusan</text>
+          <text x="70" y="70" text-anchor="middle" fill="#bae6fd" font-size="9.5">[Person]</text>
+          <line x1="15" y1="77" x2="125" y2="77" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="70" y="92" text-anchor="middle" fill="#ffffff" font-size="8.5">Atasan atau pemberi kerja</text>
+          <text x="70" y="105" text-anchor="middle" fill="#ffffff" font-size="8.5">alumni yang menerima email</text>
+          <text x="70" y="118" text-anchor="middle" fill="#ffffff" font-size="8.5">undangan evaluasi ber-token,</text>
+          <text x="70" y="131" text-anchor="middle" fill="#ffffff" font-size="8.5">isi evaluasi kinerja alumni.</text>
+        </g>
+
+        <!-- 2. Alumni (Bottom Left: cx = 110, cy = 250) -->
+        <g transform="translate(40, 180)">
+          <circle cx="70" cy="20" r="18" fill="#0369a1" />
+          <path d="M 5 45 C 5 32, 25 32, 70 32 C 115 32, 135 32, 135 45 L 135 135 L 5 135 Z" fill="#0284c7" filter="url(#shadow2)" />
+          <text x="70" y="55" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Alumni</text>
+          <text x="70" y="70" text-anchor="middle" fill="#bae6fd" font-size="9.5">[Person]</text>
+          <line x1="15" y1="77" x2="125" y2="77" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="70" y="92" text-anchor="middle" fill="#ffffff" font-size="8.5">Lulusan UKDW yang mengisi</text>
+          <text x="70" y="105" text-anchor="middle" fill="#ffffff" font-size="8.5">kuesioner tracer &amp; prodi,</text>
+          <text x="70" y="118" text-anchor="middle" fill="#ffffff" font-size="8.5">kelola profil &amp; karier,</text>
+          <text x="70" y="131" text-anchor="middle" fill="#ffffff" font-size="8.5">ajukan atasan &amp; instansi.</text>
+        </g>
+
+        <!-- === AKTOR SISI ATAS (4 ROLE ADMIN SESUAI GAMBAR 2) === -->
+
+        <!-- 3. Superadmin (ITC) (cx = 455) -->
+        <g transform="translate(380, 40)">
+          <circle cx="75" cy="20" r="18" fill="#0369a1" />
+          <path d="M 5 45 C 5 32, 25 32, 75 32 C 125 32, 145 32, 145 45 L 145 140 L 5 140 Z" fill="#0284c7" filter="url(#shadow2)" />
+          <text x="75" y="55" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Superadmin (ITC)</text>
+          <text x="75" y="70" text-anchor="middle" fill="#bae6fd" font-size="9.5">[Person]</text>
+          <line x1="15" y1="77" x2="135" y2="77" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="75" y="92" text-anchor="middle" fill="#ffffff" font-size="8.5">Admin ITC yang mengelola</text>
+          <text x="75" y="105" text-anchor="middle" fill="#ffffff" font-size="8.5">instrumen kuesioner tracer,</text>
+          <text x="75" y="118" text-anchor="middle" fill="#ffffff" font-size="8.5">manajemen akun pengguna,</text>
+          <text x="75" y="131" text-anchor="middle" fill="#ffffff" font-size="8.5">verifikasi data &amp; sync LinkedIn.</text>
+        </g>
+
+        <!-- 4. Admin Prodi (cx = 625) -->
+        <g transform="translate(550, 40)">
+          <circle cx="75" cy="20" r="18" fill="#0369a1" />
+          <path d="M 5 45 C 5 32, 25 32, 75 32 C 125 32, 145 32, 145 45 L 145 140 L 5 140 Z" fill="#0284c7" filter="url(#shadow2)" />
+          <text x="75" y="55" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Admin Prodi</text>
+          <text x="75" y="70" text-anchor="middle" fill="#bae6fd" font-size="9.5">[Person]</text>
+          <line x1="15" y1="77" x2="135" y2="77" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="75" y="92" text-anchor="middle" fill="#ffffff" font-size="8.5">Admin Prodi &amp; Kaprodi:</text>
+          <text x="75" y="105" text-anchor="middle" fill="#ffffff" font-size="8.5">pantau partisipasi prodi,</text>
+          <text x="75" y="118" text-anchor="middle" fill="#ffffff" font-size="8.5">kelola kuesioner prodi,</text>
+          <text x="75" y="131" text-anchor="middle" fill="#ffffff" font-size="8.5">validasi instansi &amp; ekspor.</text>
+        </g>
+
+        <!-- 5. Admin Fakultas (cx = 795) -->
+        <g transform="translate(720, 40)">
+          <circle cx="75" cy="20" r="18" fill="#0369a1" />
+          <path d="M 5 45 C 5 32, 25 32, 75 32 C 125 32, 145 32, 145 45 L 145 140 L 5 140 Z" fill="#0284c7" filter="url(#shadow2)" />
+          <text x="75" y="55" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Admin Fakultas</text>
+          <text x="75" y="70" text-anchor="middle" fill="#bae6fd" font-size="9.5">[Person]</text>
+          <line x1="15" y1="77" x2="135" y2="77" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="75" y="92" text-anchor="middle" fill="#ffffff" font-size="8.5">Admin Fakultas &amp; WD 3:</text>
+          <text x="75" y="105" text-anchor="middle" fill="#ffffff" font-size="8.5">pantau partisipasi prodi,</text>
+          <text x="75" y="118" text-anchor="middle" fill="#ffffff" font-size="8.5">analitik lintas prodi,</text>
+          <text x="75" y="131" text-anchor="middle" fill="#ffffff" font-size="8.5">direktori alumni se-fakultas.</text>
+        </g>
+
+        <!-- 6. Admin Biro 3 (cx = 965) -->
+        <g transform="translate(890, 40)">
+          <circle cx="75" cy="20" r="18" fill="#0369a1" />
+          <path d="M 5 45 C 5 32, 25 32, 75 32 C 125 32, 145 32, 145 45 L 145 140 L 5 140 Z" fill="#0284c7" filter="url(#shadow2)" />
+          <text x="75" y="55" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Admin Biro 3</text>
+          <text x="75" y="70" text-anchor="middle" fill="#bae6fd" font-size="9.5">[Person]</text>
+          <line x1="15" y1="77" x2="135" y2="77" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="75" y="92" text-anchor="middle" fill="#ffffff" font-size="8.5">Staf Biro 3 (Tim Analis):</text>
+          <text x="75" y="105" text-anchor="middle" fill="#ffffff" font-size="8.5">pantau capaian IKU-1 kampus,</text>
+          <text x="75" y="118" text-anchor="middle" fill="#ffffff" font-size="8.5">blast email reminder alumni,</text>
+          <text x="75" y="131" text-anchor="middle" fill="#ffffff" font-size="8.5">laporan &amp; ekspor rekap.</text>
+        </g>
+
+
+        <!-- === INTERNAL CONTAINERS DI DALAM BOUNDARY === -->
+
+        <!-- Container 1: Single Page App (SPA) (cx = 530, cy = 330) -->
+        <g transform="translate(440, 275)">
+          <rect width="180" height="95" rx="8" fill="#0284c7" filter="url(#shadow2)" />
+          <text x="90" y="24" text-anchor="middle" fill="#ffffff" font-size="12.5" font-weight="700">Single Page App (SPA)</text>
+          <text x="90" y="38" text-anchor="middle" fill="#e0f2fe" font-size="9.5">[Container: Vue 3, Inertia.js]</text>
+          <line x1="10" y1="44" x2="170" y2="44" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="90" y="58" text-anchor="middle" fill="#ffffff" font-size="8">Antarmuka web interaktif berbasis</text>
+          <text x="90" y="70" text-anchor="middle" fill="#ffffff" font-size="8">browser. Merender form, analitik</text>
+          <text x="90" y="82" text-anchor="middle" fill="#ffffff" font-size="8">grafik, &amp; kirim request pengguna.</text>
+        </g>
+
+        <!-- Container 2: Web Application (Backend Core) (cx = 530, cy = 460) -->
+        <g transform="translate(440, 420)">
+          <rect width="180" height="95" rx="8" fill="#0284c7" filter="url(#shadow2)" />
+          <text x="90" y="22" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Web Application</text>
+          <text x="90" y="36" text-anchor="middle" fill="#e0f2fe" font-size="9.5">[Container: Laravel 13, PHP 8.3]</text>
+          <line x1="10" y1="42" x2="170" y2="42" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="90" y="56" text-anchor="middle" fill="#ffffff" font-size="8">Routing, autentikasi, otorisasi RBAC,</text>
+          <text x="90" y="68" text-anchor="middle" fill="#ffffff" font-size="8">logika bisnis, validasi kuesioner,</text>
+          <text x="90" y="80" text-anchor="middle" fill="#ffffff" font-size="8">kalkulasi &amp; respons data Inertia.</text>
+        </g>
+
+        <!-- Container 3: Queue Worker (Kiri Bawah di dalam Boundary: cx = 330) -->
+        <g transform="translate(250, 570)">
+          <rect width="160" height="90" rx="8" fill="#0284c7" filter="url(#shadow2)" />
+          <text x="80" y="22" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">Queue Worker</text>
+          <text x="80" y="36" text-anchor="middle" fill="#e0f2fe" font-size="9">[Laravel Queue, Supervisor]</text>
+          <line x1="10" y1="42" x2="150" y2="42" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="80" y="56" text-anchor="middle" fill="#ffffff" font-size="8">Job async background: blast email</text>
+          <text x="80" y="68" text-anchor="middle" fill="#ffffff" font-size="8">pengingat massal, scraping LinkedIn,</text>
+          <text x="80" y="80" text-anchor="middle" fill="#ffffff" font-size="8">normalisasi DTO &amp; antrean batch.</text>
+        </g>
+
+        <!-- Container 4: Database (Tengah Bawah di dalam Boundary: cx = 530) -->
+        <g transform="translate(440, 565)">
+          <path d="M 0 14 A 90 14 0 0 0 180 14 L 180 95 A 90 14 0 0 1 0 95 Z" fill="#0369a1" filter="url(#shadow2)" />
+          <ellipse cx="90" cy="14" rx="90" ry="14" fill="#0284c7" />
+          <text x="90" y="38" text-anchor="middle" fill="#ffffff" font-size="12.5" font-weight="700">Database</text>
+          <text x="90" y="52" text-anchor="middle" fill="#e0f2fe" font-size="9.5">[Container: MySQL 8.4 LTS]</text>
+          <line x1="15" y1="58" x2="165" y2="58" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="90" y="70" text-anchor="middle" fill="#ffffff" font-size="7.5">Data profil alumni, riwayat karier,</text>
+          <text x="90" y="80" text-anchor="middle" fill="#ffffff" font-size="7.5">master perusahaan, instrumen &amp; respon</text>
+          <text x="90" y="90" text-anchor="middle" fill="#ffffff" font-size="7.5">kuesioner, evaluasi atasan, &amp; audit log.</text>
+        </g>
+
+        <!-- Container 5: File Storage (Kanan Bawah di dalam Boundary: cx = 730) -->
+        <g transform="translate(680, 570)">
+          <rect width="160" height="90" rx="8" fill="#0284c7" filter="url(#shadow2)" />
+          <text x="80" y="22" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="700">File Storage</text>
+          <text x="80" y="36" text-anchor="middle" fill="#e0f2fe" font-size="9">[Container: Laravel Storage]</text>
+          <line x1="10" y1="42" x2="150" y2="42" stroke="#38bdf8" stroke-width="0.75" />
+          <text x="80" y="56" text-anchor="middle" fill="#ffffff" font-size="8">Menyimpan berkas unduhan rekap</text>
+          <text x="80" y="68" text-anchor="middle" fill="#ffffff" font-size="8">Excel (.xlsx), arsip ZIP kuesioner,</text>
+          <text x="80" y="80" text-anchor="middle" fill="#ffffff" font-size="8">foto profil alumni, &amp; cadangan JSON.</text>
+        </g>
+
+
+        <!-- === BOTTOM: EXTERNAL SYSTEMS (LUAR BOUNDARY) === -->
+
+        <!-- Apify API (Bottom Left: x = 250) -->
+        <g transform="translate(250, 830)">
+          <rect width="180" height="90" rx="8" fill="#475569" filter="url(#shadow2)" />
+          <text x="90" y="24" text-anchor="middle" fill="#ffffff" font-size="12.5" font-weight="700">APIFY API</text>
+          <text x="90" y="38" text-anchor="middle" fill="#cbd5e1" font-size="9.5">[External System: Cloud Scraper]</text>
+          <line x1="10" y1="44" x2="170" y2="44" stroke="#64748b" stroke-width="0.75" />
+          <text x="90" y="58" text-anchor="middle" fill="#ffffff" font-size="8">Layanan scraping cloud eksternal</text>
+          <text x="90" y="70" text-anchor="middle" fill="#ffffff" font-size="8">untuk ekstraksi data riwayat karier</text>
+          <text x="90" y="82" text-anchor="middle" fill="#ffffff" font-size="8">profil publik LinkedIn alumni.</text>
+        </g>
+
+        <!-- Email Platform (SMTP) (Bottom Right: x = 600) -->
+        <g transform="translate(600, 830)">
+          <rect width="200" height="90" rx="8" fill="#475569" filter="url(#shadow2)" />
+          <text x="100" y="24" text-anchor="middle" fill="#ffffff" font-size="12.5" font-weight="700">Email Platform (SMTP)</text>
+          <text x="100" y="38" text-anchor="middle" fill="#cbd5e1" font-size="9.5">[External System: Mail Server]</text>
+          <line x1="10" y1="44" x2="190" y2="44" stroke="#64748b" stroke-width="0.75" />
+          <text x="100" y="58" text-anchor="middle" fill="#ffffff" font-size="8">Layanan server SMTP pengiriman</text>
+          <text x="100" y="70" text-anchor="middle" fill="#ffffff" font-size="8">email notifikasi, reset sandi &amp;</text>
+          <text x="100" y="82" text-anchor="middle" fill="#ffffff" font-size="8">undangan survei ber-token.</text>
+        </g>
+
+
+        <!-- === RELASI ANTAR KOMPONEN CONTAINER (SESUAI GAMBAR 2) === -->
+
+        <!-- Alumni -> SPA -->
+        <path d="M 175 250 L 220 250 L 220 340 L 440 340" fill="none" stroke="#334155" stroke-width="1.75" marker-end="url(#arr2-gray)" />
+        <rect x="235" y="325" width="130" height="22" rx="3" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="300" y="339" text-anchor="middle" font-size="8" fill="#1e293b" font-weight="600">Form &amp; profil [HTTPS]</text>
+
+        <!-- Pengguna Lulusan -> SPA -->
+        <path d="M 305 140 L 370 140 L 370 310 L 440 310" fill="none" stroke="#334155" stroke-width="1.75" marker-end="url(#arr2-gray)" />
+        <rect x="305" y="215" width="130" height="22" rx="3" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="370" y="229" text-anchor="middle" font-size="8" fill="#1e293b" font-weight="600">Evaluasi token [HTTPS]</text>
+
+        <!-- Superadmin -> SPA -->
+        <path d="M 455 180 L 455 230 L 490 230 L 490 275" fill="none" stroke="#334155" stroke-width="1.75" marker-end="url(#arr2-gray)" />
+        <rect x="425" y="220" width="130" height="20" rx="3" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="490" y="233" text-anchor="middle" font-size="7.5" fill="#1e293b" font-weight="600">Konsol Admin [HTTPS]</text>
+
+        <!-- Admin Prodi -> SPA -->
+        <path d="M 625 180 L 625 240 L 570 240 L 570 275" fill="none" stroke="#334155" stroke-width="1.75" marker-end="url(#arr2-gray)" />
+        <rect x="580" y="240" width="120" height="20" rx="3" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="640" y="253" text-anchor="middle" font-size="7.5" fill="#1e293b" font-weight="600">Portal Prodi [HTTPS]</text>
+
+        <!-- Admin Fakultas -> SPA -->
+        <path d="M 795 180 L 795 320 L 620 320" fill="none" stroke="#334155" stroke-width="1.75" marker-end="url(#arr2-gray)" />
+        <rect x="670" y="310" width="130" height="20" rx="3" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="735" y="323" text-anchor="middle" font-size="7.5" fill="#1e293b" font-weight="600">Portal Fakultas [HTTPS]</text>
+
+        <!-- Admin Biro 3 -> SPA -->
+        <path d="M 965 180 L 965 350 L 620 350" fill="none" stroke="#334155" stroke-width="1.75" marker-end="url(#arr2-gray)" />
+        <rect x="790" y="340" width="120" height="20" rx="3" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="850" y="353" text-anchor="middle" font-size="7.5" fill="#1e293b" font-weight="600">Portal Biro 3 [HTTPS]</text>
+
+        <!-- SPA <-> Web App (Bidirectional Vertikal) -->
+        <line x1="510" y1="370" x2="510" y2="420" stroke="#0284c7" stroke-width="1.75" marker-end="url(#arr2-blue)" />
+        <line x1="550" y1="420" x2="550" y2="370" stroke="#0284c7" stroke-width="1.75" stroke-dasharray="4 3" marker-end="url(#arr2-blue)" />
+        <rect x="465" y="380" width="130" height="24" rx="3" fill="#ffffff" stroke="#93c5fd" />
+        <text x="530" y="392" text-anchor="middle" font-size="7.5" fill="#0369a1" font-weight="700">Request ➔ | ↵ Response</text>
+        <text x="530" y="401" text-anchor="middle" font-size="7" fill="#64748b">Inertia JSON / HTTPS</text>
+
+        <!-- Web App -> Queue Worker -->
+        <path d="M 440 480 L 330 480 L 330 570" fill="none" stroke="#334155" stroke-width="1.75" marker-end="url(#arr2-gray)" />
+        <rect x="270" y="495" width="115" height="22" rx="3" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="327" y="509" text-anchor="middle" font-size="7.5" fill="#1e293b" font-weight="600">Dispatch jobs [Queue]</text>
+
+        <!-- Web App <-> Database (Kiri Query Down, Kanan Result Up) -->
+        <line x1="510" y1="515" x2="510" y2="565" stroke="#334155" stroke-width="1.75" marker-end="url(#arr2-gray)" />
+        <line x1="550" y1="565" x2="550" y2="515" stroke="#0284c7" stroke-width="1.75" stroke-dasharray="4 3" marker-end="url(#arr2-blue)" />
+        <rect x="445" y="525" width="170" height="26" rx="3" fill="#ffffff" stroke="#93c5fd" />
+        <text x="530" y="537" text-anchor="middle" font-size="7.5" fill="#0369a1" font-weight="700">Query SQL ➔ | ↵ Result Set</text>
+        <text x="530" y="547" text-anchor="middle" font-size="6.5" fill="#64748b">[SQL / Eloquent ORM]</text>
+
+        <!-- Web App <-> File Storage (Simpan Down, Stream Up) -->
+        <path d="M 620 480 L 760 480 L 760 570" fill="none" stroke="#334155" stroke-width="1.75" marker-end="url(#arr2-gray)" />
+        <path d="M 720 570 L 720 500 L 620 500" fill="none" stroke="#0284c7" stroke-width="1.75" stroke-dasharray="4 3" marker-end="url(#arr2-blue)" />
+        <rect x="670" y="475" width="130" height="24" rx="3" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="735" y="487" text-anchor="middle" font-size="7.5" fill="#1e293b" font-weight="600">Simpan [Storage API]</text>
+        <text x="735" y="496" text-anchor="middle" font-size="6.5" fill="#0369a1">File Stream [Unduhan]</text>
+
+        <!-- Queue Worker <-> Apify API -->
+        <line x1="310" y1="660" x2="310" y2="830" stroke="#334155" stroke-width="1.75" marker-end="url(#arr2-gray)" />
+        <line x1="350" y1="830" x2="350" y2="660" stroke="#0284c7" stroke-width="1.75" stroke-dasharray="4 3" marker-end="url(#arr2-blue)" />
+        <rect x="235" y="730" width="170" height="26" rx="3" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="320" y="742" text-anchor="middle" font-size="7.5" fill="#1e293b" font-weight="600">Kirim URL LinkedIn [REST]</text>
+        <text x="320" y="752" text-anchor="middle" font-size="7" fill="#0369a1" font-weight="700">Data Profil Alumni [JSON]</text>
+
+        <!-- Queue Worker -> Email Platform -->
+        <path d="M 370 660 L 370 700 L 680 700 L 680 830" fill="none" stroke="#334155" stroke-width="1.75" marker-end="url(#arr2-gray)" />
+        <rect x="470" y="688" width="150" height="22" rx="3" fill="#ffffff" stroke="#cbd5e1" />
+        <text x="545" y="702" text-anchor="middle" font-size="7.5" fill="#1e293b" font-weight="600">Kirim email antrean [SMTP/TLS]</text>
+
+        <!-- === NOTIFIKASI EMAIL KE AKTOR (JALUR HIJAU MEMUTAR SISI KIRI) === -->
+        <path d="M 600 875 L 20 875 L 20 110 L 170 110" fill="none" stroke="#047857" stroke-width="1.75" stroke-dasharray="6 4" marker-end="url(#arr2-email)" />
+        <rect x="35" y="863" width="220" height="22" rx="3" fill="#ecfdf5" stroke="#10b981" />
+        <text x="145" y="877" text-anchor="middle" font-size="8" fill="#065f46" font-weight="700">Sends email: Undangan evaluasi [token SMTP]</text>
+
+        <!-- Cabang ke Alumni -->
+        <path d="M 20 250 L 40 250" fill="none" stroke="#047857" stroke-width="1.75" stroke-dasharray="6 4" marker-end="url(#arr2-email)" />
+        <rect x="25" y="295" width="145" height="22" rx="3" fill="#ecfdf5" stroke="#10b981" />
+        <text x="97" y="309" text-anchor="middle" font-size="8" fill="#065f46" font-weight="700">Sends email [Blast reminder]</text>
+
+      </svg>
+    </div>
+
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-box" style="background: #0284c7;"></div>
+      <span><strong>Container / Software System</strong> (Komponen software aplikasi)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-box" style="background: #0369a1;"></div>
+      <span><strong>Person</strong> (Aktor pengguna sistem)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-box" style="background: #475569;"></div>
+      <span><strong>External System</strong> (Layanan pihak ketiga di luar kampus)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-box" style="border: 2px dashed #047857; background: #ecfdf5;"></div>
+      <span><strong>Email Notification Flow</strong> (Alur pengiriman email asinkron ke pengguna)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-box" style="border: 2px dashed #0284c7; background: #f8fafc;"></div>
+      <span><strong>System Boundary</strong> (Batas sistem Tracer Study UKDW)</span>
+    </div>
+  </div>
+
+  <!-- SCRIPT SWITCH TAB -->
+  <script>
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+    }
+  </script>
+
+</body>
+</html>

@@ -153,9 +153,7 @@ class KelolaKuesionerProdiController extends Controller
         $selectedProdi = $prodis->firstWhere('kode_prodi', $selectedProdiId) ?? $prodis->first();
         $selectedProdiId = $selectedProdi?->kode_prodi ?? '';
 
-        if ($selectedProdiId) {
-            $this->normalizeSectionOrders($selectedProdiId);
-        }
+        // Normalisasi urutan hanya dilakukan pada operasi mutasi (store/update/delete/reorder), bukan pada query baca (GET)
 
         // Ambil Section dari tabel terpadu kuesioner_section
         $rawSections = $selectedProdiId

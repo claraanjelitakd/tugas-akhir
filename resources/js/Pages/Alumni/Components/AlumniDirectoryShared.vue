@@ -588,12 +588,13 @@ const formatPhoneForWA = (rawPhone) => {
 
 // Menentukan apakah admin boleh menghubungi alumni berdasarkan lingkup prodi.
 const canContactAlumni = (alumni) => {
-    if (props.role === 'superadmin' || props.role === 'admin_fakultas') {
+    if (props.role === 'superadmin' || props.role === 'admin_fakultas' || props.role === 'admin_biro3') {
         return true;
     }
 
+    const alumniProdi = String(alumni?.kode_prodi || alumni?.prodi_kode || alumni?.prodi_id || '');
     return props.role === 'admin_prodi'
-        && String(props.user?.kode_prodi || '') === String(alumni?.kode_prodi || '');
+        && String(props.user?.kode_prodi || '') === alumniProdi;
 };
 
 const openWhatsAppModal = (alumni) => {

@@ -948,6 +948,7 @@ const handleNextOrSubmit = () => {
             preserveScroll: true,
             preserveState: true,
             showProgress: false,
+            only: ['initialAnswers'],
             onSuccess: () => {
                 syncSectionCompletion();
             }

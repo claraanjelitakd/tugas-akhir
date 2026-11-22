@@ -22,6 +22,7 @@ erDiagram
         char kode_fakultas FK
         tinyint must_change_password
         varchar password
+        varchar remember_token
     }
 
     log_activities {
@@ -68,6 +69,7 @@ erDiagram
         date tanggal_lulus
         decimal ip_kumulatif
         smallint total_sks
+        decimal total_angka_kualitas
     }
 
     yudisium {
@@ -117,6 +119,8 @@ erDiagram
         varchar kode_provinsi FK
         varchar kode_kabupaten FK
         text alamat
+        varchar no_telp_fax
+        varchar kode_pos
         varchar homepage
         varchar sektor
         enum skala
@@ -126,6 +130,7 @@ erDiagram
         enum jenis_lokasi
         varchar kode_negara FK
         varchar jenis_perusahaan
+        varchar jenis_perusahaan_lainnya
         bigint created_by_user_id FK
         char created_by_kode_prodi FK
     }
@@ -152,15 +157,25 @@ erDiagram
         varchar nomor_telepon
         varchar email_pribadi
         text alamat_saat_ini
+        varchar kelurahan
+        varchar kecamatan
+        varchar kode_pos
+        varchar instagram_url
+        varchar facebook_url
+        varchar linkedin_url
+        varchar linkedin_username
+        text skills
+        text experience
         varchar kategori_pekerjaan
         varchar posisi_jabatan
         varchar bidang_pekerjaan
+        varchar divisi
+        varchar posisi_wiraswasta
         decimal gaji
-        varchar linkedin_url
-        text skills
-        text experience
+        varchar jenis_pekerjaan
         varchar pendidikan_tingkat
         varchar perguruan_tinggi
+        varchar pendidikan_prodi
     }
 
     linkedin_sync_results {
@@ -218,6 +233,7 @@ erDiagram
         tinyint wajib
         tinyint is_active
         varchar tampil_di
+        tinyint profil_step
     }
 
     kuesioner_opsi {

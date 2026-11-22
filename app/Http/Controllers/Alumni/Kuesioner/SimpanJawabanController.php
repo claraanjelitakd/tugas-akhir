@@ -125,6 +125,16 @@ class SimpanJawabanController extends Controller
         $kolomAtasan = (new Atasan)->getFillable();
 
         $defaultUnivSection = KuesionerSection::where('target', 'univ')->first();
+        $activeKuesionerId = Kuesioner::where('is_active', true)->value('id') ?? Kuesioner::value('id');
+
+        // Ambil riwayat respon kuesioner yang sudah tersimpan untuk mencegah N+1 query updateOrCreate
+        $existingAnswers = KuesionerJawaban::where('biodata_id', $biodata->id)
+            ->where('responden_type', 'alumni')
+            ->whereIn('pertanyaan_id', $kumpulanIdPertanyaan)
+            ->get()
+            ->keyBy('pertanyaan_id');
+
+        $hasProfileFieldChanges = false;
 
         foreach ($jawabanMasuk as $idPertanyaan => $jawaban) {
             if (is_string($idPertanyaan) && str_ends_with($idPertanyaan, '_custom')) {
@@ -319,29 +329,39 @@ class SimpanJawabanController extends Controller
                 }
             }
 
-            // Simpan langsung ke kuesioner_jawaban terpadu
-            $activeKuesionerId = $pertanyaan->sections->first()?->kuesioner_id
+            // Simpan langsung ke kuesioner_jawaban terpadu (lewati query jika data jawaban identik)
+            $targetKuesionerId = $pertanyaan->sections->first()?->kuesioner_id
                 ?? $defaultUnivSection?->kuesioner_id
-                ?? Kuesioner::where('is_active', true)->value('id')
-                ?? Kuesioner::value('id');
+                ?? $activeKuesionerId;
 
-            KuesionerJawaban::updateOrCreate(
-                [
+            $existing = $existingAnswers->get($pertanyaan->id);
+            $payloadJawaban = [
+                'kuesioner_id' => $targetKuesionerId,
+                'section_id' => $targetSectionId,
+                'evaluasi_atasan_id' => null,
+                'kode_pertanyaan' => $pertanyaan->kode_pertanyaan,
+                'opsi_id' => $opsi?->id,
+                'kode_opsi' => $kodeOpsiResult,
+                'jawaban_teks' => $answerText,
+                'jawaban_json' => $answerJson,
+            ];
+
+            if ($existing) {
+                $isIdentical = (string) $existing->jawaban_teks === (string) $answerText
+                    && $existing->jawaban_json == $answerJson
+                    && (int) $existing->opsi_id === (int) ($opsi?->id ?? 0)
+                    && (string) $existing->kode_opsi === (string) ($kodeOpsiResult ?? '');
+
+                if (! $isIdentical) {
+                    $existing->update($payloadJawaban);
+                }
+            } else {
+                KuesionerJawaban::create(array_merge([
                     'responden_type' => 'alumni',
                     'biodata_id' => $biodata->id,
                     'pertanyaan_id' => $pertanyaan->id,
-                ],
-                [
-                    'kuesioner_id' => $activeKuesionerId,
-                    'section_id' => $targetSectionId,
-                    'evaluasi_atasan_id' => null,
-                    'kode_pertanyaan' => $pertanyaan->kode_pertanyaan,
-                    'opsi_id' => $opsi?->id,
-                    'kode_opsi' => $kodeOpsiResult,
-                    'jawaban_teks' => $answerText,
-                    'jawaban_json' => $answerJson,
-                ]
-            );
+                ], $payloadJawaban));
+            }
 
             // Jika pertanyaan adalah F8, sinkronkan kategori_pekerjaan
             $kodeUpper = strtoupper(trim((string) $pertanyaan->kode_pertanyaan));
@@ -430,8 +450,10 @@ class SimpanJawabanController extends Controller
             }
         }
 
-        // Sinkronisasi field profil ke kuesioner_jawaban
-        KuesionerSyncService::syncProfileResponses($biodata);
+        // Sinkronisasi field profil ke kuesioner_jawaban hanya jika ada pembaruan pada data profil
+        if (! empty($dataUpdateBiodata) || ! empty($dataUpdatePerusahaan) || ! empty($dataUpdateAtasan)) {
+            KuesionerSyncService::syncProfileResponses($biodata);
+        }
 
         return redirect()->back()->with('success', 'Jawaban berhasil disimpan.');
     }
