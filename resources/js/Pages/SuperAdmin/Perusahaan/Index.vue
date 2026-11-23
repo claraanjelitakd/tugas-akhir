@@ -79,6 +79,10 @@ const props = defineProps({
             total_rejected: 0,
         }),
     },
+    refOptions: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const isSuperAdmin = computed(() => props.role === 'superadmin');
@@ -661,6 +665,92 @@ const confirmDeleteCompany = (company) => {
 };
 
 // ========================================================
+// PILIHAN BENTUK PERUSAHAAN (100% SINKRON DENGAN ALUMNI & DATABASE)
+// ========================================================
+const bentukPerusahaanOptions = computed(() => {
+    const configured = props.refOptions?.BIO_INST_BENTUK || [];
+    if (configured.length > 0) {
+        return configured.map(opt => opt.option_text);
+    }
+    return [
+        'BUMN',
+        'Perusahaan Terbatas',
+        'Koperasi',
+        'CV',
+        'Firma',
+        'Lainnya',
+    ];
+});
+
+const availableBentukOptionsForEdit = computed(() => {
+    const list = [...bentukPerusahaanOptions.value];
+    if (editForm.value.bentuk_perusahaan && !list.includes(editForm.value.bentuk_perusahaan)) {
+        list.unshift(editForm.value.bentuk_perusahaan);
+    }
+    return list;
+});
+
+// Pilihan Jenis Perusahaan / Instansi (F11) (100% Sinkron dengan Alumni)
+const jenisPerusahaanOptions = computed(() => {
+    const configured = props.refOptions?.F11 || [];
+    if (configured.length > 0) {
+        return configured.map(opt => ({
+            value: opt.option_text,
+            label: `${opt.kode_opsi} - ${opt.option_text}`,
+        }));
+    }
+    return [
+        { value: 'Instansi pemerintah', label: '1 - Instansi pemerintah' },
+        { value: 'Organisasi non-profit/LSM', label: '2 - Organisasi non-profit/LSM' },
+        { value: 'Perusahaan swasta', label: '3 - Perusahaan swasta' },
+        { value: 'Wiraswasta/perusahaan sendiri', label: '4 - Wiraswasta/perusahaan sendiri' },
+        { value: 'Lainnya', label: '5 - Lainnya' },
+        { value: 'BUMN/BUMD', label: '6 - BUMN/BUMD' },
+        { value: 'Institusi/Organisasi Multilateral', label: '7 - Institusi/Organisasi Multilateral' },
+    ];
+});
+
+const availableJenisPerusahaanOptionsForCreate = computed(() => jenisPerusahaanOptions.value);
+
+const availableJenisPerusahaanOptionsForEdit = computed(() => {
+    const list = [...jenisPerusahaanOptions.value];
+    if (editForm.value.jenis_perusahaan && !list.some(o => o.value === editForm.value.jenis_perusahaan)) {
+        list.unshift({
+            value: editForm.value.jenis_perusahaan,
+            label: editForm.value.jenis_perusahaan,
+        });
+    }
+    return list;
+});
+
+// Pilihan Skala Perusahaan (100% Sinkron dengan Alumni)
+const skalaOptions = computed(() => {
+    const configured = props.refOptions?.F2H || [];
+    if (configured.length > 0) {
+        return configured.map(opt => ({
+            value: opt.option_text,
+            label: opt.option_text,
+        }));
+    }
+    return [
+        { value: 'Regional/Lokal', label: 'Regional / Lokal' },
+        { value: 'Nasional', label: 'Nasional' },
+        { value: 'Internasional', label: 'Internasional' },
+    ];
+});
+
+const availableSkalaOptionsForEdit = computed(() => {
+    const list = [...skalaOptions.value];
+    if (editForm.value.skala && !list.some(o => o.value === editForm.value.skala)) {
+        list.unshift({
+            value: editForm.value.skala,
+            label: editForm.value.skala,
+        });
+    }
+    return list;
+});
+
+// ========================================================
 // MODAL 5: TAMBAH PERUSAHAAN BARU (IDENTIK GAMBAR 1 & 2)
 // ========================================================
 const showCreateModal = ref(false);
@@ -668,12 +758,12 @@ const isSubmittingCreate = ref(false);
 const createForm = ref({
     jenis_lokasi: 'Dalam Negeri',
     nama_perusahaan: '',
-    jenis_perusahaan: '3 - Perusahaan swasta',
+    jenis_perusahaan: 'Perusahaan swasta',
     jenis_perusahaan_lainnya: '',
     homepage: '',
     no_telp_fax: '',
     sektor: '',
-    bentuk_perusahaan: '',
+    bentuk_perusahaan: 'Perusahaan Terbatas',
     jumlah_pegawai: '',
     kode_provinsi: '',
     kode_kabupaten: '',
@@ -687,12 +777,12 @@ const openCreateModal = () => {
     createForm.value = {
         jenis_lokasi: 'Dalam Negeri',
         nama_perusahaan: '',
-        jenis_perusahaan: '3 - Perusahaan swasta',
+        jenis_perusahaan: 'Perusahaan swasta',
         jenis_perusahaan_lainnya: '',
         homepage: '',
         no_telp_fax: '',
         sektor: '',
-        bentuk_perusahaan: '',
+        bentuk_perusahaan: 'Perusahaan Terbatas',
         jumlah_pegawai: '',
         kode_provinsi: '',
         kode_kabupaten: '',
@@ -847,12 +937,12 @@ const editForm = ref({
     id: null,
     jenis_lokasi: 'Dalam Negeri',
     nama_perusahaan: '',
-    jenis_perusahaan: '3 - Perusahaan swasta',
+    jenis_perusahaan: 'Perusahaan swasta',
     jenis_perusahaan_lainnya: '',
     homepage: '',
     no_telp_fax: '',
     sektor: '',
-    bentuk_perusahaan: '',
+    bentuk_perusahaan: 'Perusahaan Terbatas',
     jumlah_pegawai: '',
     kode_provinsi: '',
     kode_kabupaten: '',
@@ -867,12 +957,12 @@ const openEditModal = async (company) => {
         id: company.id,
         jenis_lokasi: company.jenis_lokasi || 'Dalam Negeri',
         nama_perusahaan: company.nama_perusahaan || '',
-        jenis_perusahaan: company.jenis_perusahaan || '3 - Perusahaan swasta',
+        jenis_perusahaan: company.jenis_perusahaan || 'Perusahaan swasta',
         jenis_perusahaan_lainnya: company.jenis_perusahaan_lainnya || '',
         homepage: company.homepage || '',
         no_telp_fax: company.no_telp_fax || '',
         sektor: company.sektor || '',
-        bentuk_perusahaan: company.bentuk_perusahaan || '',
+        bentuk_perusahaan: company.bentuk_perusahaan || 'Perusahaan Terbatas',
         jumlah_pegawai: company.jumlah_pegawai || '',
         kode_provinsi: company.kode_provinsi ? String(company.kode_provinsi) : '',
         kode_kabupaten: company.kode_kabupaten ? String(company.kode_kabupaten) : '',
@@ -2129,23 +2219,43 @@ const handleVerificationAction = (company, event) => {
     </div>
 
     <!-- ======================================================== -->
-    <!-- MODAL 5: TAMBAH PERUSAHAAN BARU (IDENTIK GAMBAR 1 & 2)   -->
+    <!-- MODAL 5: TAMBAH PERUSAHAAN BARU (SELARAS FORM ALUMNI)   -->
     <!-- ======================================================== -->
     <div
         v-if="showCreateModal"
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-add-company-title"
     >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col">
-            <!-- Header Modal: Centered Title persis Gambar 1 & 2 -->
-            <div class="pt-6 pb-2 px-6 text-center">
-                <h3 class="text-xl font-bold text-slate-900 tracking-tight">
-                    Tambah Perusahaan Baru
-                </h3>
+        <div class="relative bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 z-10 animate-in fade-in zoom-in-95 duration-150">
+            <!-- Header Modal: Selaras Gambar 1 Alumni -->
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                <div>
+                    <h3 id="modal-add-company-title" class="text-base font-bold text-slate-800">
+                        Tambah Perusahaan Baru
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Daftarkan perusahaan atau instansi baru ke referensi profil karier
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    @click="closeCreateModal"
+                    :disabled="isSubmittingCreate"
+                    class="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    title="Tutup dialog"
+                >
+                    <span class="sr-only">Tutup</span>
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
 
             <!-- Form Badan Modal Scrollable -->
-            <form @submit.prevent="submitCreateForm" class="overflow-y-auto px-6 py-4 space-y-4 text-xs flex-1">
-                <!-- 1. Jenis Lokasi Perusahaan (Radio Button Sesuai Gambar 1 & 2) -->
+            <form @submit.prevent="submitCreateForm" class="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+                <!-- 1. Jenis Lokasi Perusahaan -->
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1.5">
                         Jenis Lokasi Perusahaan <span class="text-rose-600">*</span>
@@ -2186,47 +2296,50 @@ const handleVerificationAction = (company, event) => {
                     />
                 </div>
 
-                <!-- 3. Jenis Perusahaan / Instansi (F11) -->
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">
-                        Jenis Perusahaan / Instansi (F11)
-                    </label>
-                    <select
-                        v-model="createForm.jenis_perusahaan"
-                        class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
-                    >
-                        <option value="1 - Instansi pemerintah">1 - Instansi pemerintah</option>
-                        <option value="2 - Organisasi non-profit/LSM">2 - Organisasi non-profit/LSM</option>
-                        <option value="3 - Perusahaan swasta">3 - Perusahaan swasta</option>
-                        <option value="4 - BUMN / BUMD">4 - BUMN / BUMD</option>
-                        <option value="5 - Institusi / Organisasi Multilateral">5 - Institusi / Organisasi Multilateral</option>
-                        <option value="6 - Perguruan Tinggi / Lembaga Pendidikan">6 - Perguruan Tinggi / Lembaga Pendidikan</option>
-                        <option value="7 - Usaha Mandiri / Wirausaha">7 - Usaha Mandiri / Wirausaha</option>
-                        <option value="8 - Lainnya">8 - Lainnya</option>
-                    </select>
+                <!-- 3. Bentuk Perusahaan (Dropdown) & Jenis Perusahaan (F11) (Dropdown) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">
+                            Bentuk Perusahaan / Institusi
+                        </label>
+                        <select
+                            v-model="createForm.bentuk_perusahaan"
+                            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
+                        >
+                            <option v-for="opt in bentukPerusahaanOptions" :key="opt" :value="opt">
+                                {{ opt }}
+                            </option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">
+                            Jenis Perusahaan / Instansi (F11)
+                        </label>
+                        <select
+                            v-model="createForm.jenis_perusahaan"
+                            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
+                        >
+                            <option
+                                v-for="opt in availableJenisPerusahaanOptionsForCreate"
+                                :key="opt.value"
+                                :value="opt.value"
+                            >
+                                {{ opt.label }}
+                            </option>
+                        </select>
+                    </div>
                 </div>
 
-                <div v-if="createForm.jenis_perusahaan === '8 - Lainnya'">
+                <div v-if="createForm.jenis_perusahaan === 'Lainnya' || createForm.jenis_perusahaan === '5 - Lainnya'">
                     <label class="block font-semibold text-slate-700 mb-1">Jenis Perusahaan / Instansi Lainnya</label>
                     <input v-model="createForm.jenis_perusahaan_lainnya" type="text" maxlength="150" placeholder="Tuliskan jenis perusahaan / instansi" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                 </div>
 
-                <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                    <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Homepage / Website</label>
-                        <input v-model="createForm.homepage" type="url" placeholder="https://contoh.id" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                    </div>
-                    <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Nomor Telepon / Fax</label>
-                        <input v-model="createForm.no_telp_fax" type="text" placeholder="0274-123456" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                    </div>
+                <!-- 4. Sektor & Jumlah Pegawai -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
                         <label class="mb-1 block font-semibold text-slate-700">Sektor</label>
                         <input v-model="createForm.sektor" type="text" placeholder="Teknologi Informasi" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                    </div>
-                    <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Bentuk Perusahaan</label>
-                        <input v-model="createForm.bentuk_perusahaan" type="text" placeholder="Perseroan Terbatas" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                     </div>
                     <div>
                         <label class="mb-1 block font-semibold text-slate-700">Jumlah Pegawai</label>
@@ -2234,7 +2347,7 @@ const handleVerificationAction = (company, event) => {
                     </div>
                 </div>
 
-                <!-- 4. Kondisional: Provinsi & Kabupaten (Dalam Negeri) vs Negara Tempat Bekerja (Luar Negeri) -->
+                <!-- 5. Wilayah: Luar Negeri vs Dalam Negeri -->
                 <div v-if="createForm.jenis_lokasi === 'Dalam Negeri'" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
                         <label class="block font-semibold text-slate-700 mb-1">
@@ -2271,7 +2384,6 @@ const handleVerificationAction = (company, event) => {
                     </div>
                 </div>
 
-                <!-- Luar Negeri: Dropdown Negara Tempat Bekerja (Persis Gambar 2) -->
                 <div v-else>
                     <label class="block font-semibold text-slate-700 mb-1">
                         Negara Tempat Bekerja <span class="text-rose-600">*</span>
@@ -2288,7 +2400,7 @@ const handleVerificationAction = (company, event) => {
                     </select>
                 </div>
 
-                <!-- 5. Kode Pos Perusahaan & Skala Perusahaan (Grid 2 Kolom Persis Gambar 1 & 2) -->
+                <!-- 6. Kode Pos & Skala -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
                         <label class="block font-semibold text-slate-700 mb-1">
@@ -2310,41 +2422,58 @@ const handleVerificationAction = (company, event) => {
                             v-model="createForm.skala"
                             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
                         >
-                            <option value="Lokal">Lokal</option>
-                            <option value="Nasional">Nasional</option>
-                            <option value="Internasional">Internasional</option>
+                            <option v-for="s in skalaOptions" :key="s.value" :value="s.value">
+                                {{ s.label }}
+                            </option>
                         </select>
                     </div>
                 </div>
 
-                <!-- 6. Alamat Jalan / Gedung Perusahaan (Textarea Persis Gambar 1 & 2) -->
+                <!-- 7. Alamat Jalan / Gedung Perusahaan -->
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1">
                         Alamat Jalan / Gedung Perusahaan
                     </label>
                     <textarea
                         v-model="createForm.alamat"
-                        rows="3"
+                        rows="2"
                         placeholder="Nama Jalan, Gedung, Nomor..."
                         class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                     ></textarea>
                 </div>
 
-                <!-- 7. Tombol Footer Centered (Persis Gambar 1 & 2) -->
-                <div class="pt-3 pb-2 flex items-center justify-center gap-3">
-                    <button
-                        type="submit"
-                        :disabled="isSubmittingCreate"
-                        class="px-6 py-2.5 bg-[#005833] hover:bg-[#004226] text-white font-bold rounded-lg text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
-                    >
-                        {{ isSubmittingCreate ? 'Menyimpan...' : 'Simpan Perusahaan' }}
-                    </button>
+                <!-- 8. Telepon & Website -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Nomor Telepon / Fax</label>
+                        <input v-model="createForm.no_telp_fax" type="text" placeholder="0274-123456" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Homepage / Website</label>
+                        <input v-model="createForm.homepage" type="url" placeholder="https://contoh.id" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                </div>
+
+                <!-- Footer Tombol -->
+                <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
                     <button
                         type="button"
                         @click="closeCreateModal"
-                        class="px-6 py-2.5 bg-[#8C98A4] hover:bg-[#788592] text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                        :disabled="isSubmittingCreate"
+                        class="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
                     >
                         Batal
+                    </button>
+                    <button
+                        type="submit"
+                        :disabled="isSubmittingCreate"
+                        class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#0D542B] hover:bg-[#093d1f] transition-all shadow-xs shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <svg v-if="isSubmittingCreate" class="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>{{ isSubmittingCreate ? 'Menyimpan...' : 'Simpan Perusahaan' }}</span>
                     </button>
                 </div>
             </form>
@@ -2352,23 +2481,43 @@ const handleVerificationAction = (company, event) => {
     </div>
 
     <!-- ======================================================== -->
-    <!-- MODAL 6: SUNTING DATA PERUSAHAAN                         -->
+    <!-- MODAL 6: SUNTING DATA PERUSAHAAN (SELARAS FORM ALUMNI)   -->
     <!-- ======================================================== -->
     <div
         v-if="showEditModal && editForm.id"
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-edit-company-title"
     >
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col">
+        <div class="relative bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 z-10 animate-in fade-in zoom-in-95 duration-150">
             <!-- Header Modal -->
-            <div class="pt-6 pb-2 px-6 text-center">
-                <h3 class="text-xl font-bold text-slate-900 tracking-tight">
-                    Sunting Data Perusahaan
-                </h3>
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                <div>
+                    <h3 id="modal-edit-company-title" class="text-base font-bold text-slate-800">
+                        Sunting Data Perusahaan
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Perbarui informasi data master institusi / perusahaan
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    @click="closeEditModal"
+                    :disabled="isSubmittingEdit"
+                    class="text-slate-400 hover:text-slate-600 rounded-lg p-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    title="Tutup dialog"
+                >
+                    <span class="sr-only">Tutup</span>
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
 
             <!-- Form Badan Modal -->
-            <form @submit.prevent="submitEditForm" class="overflow-y-auto px-6 py-4 space-y-4 text-xs flex-1">
-                <!-- Jenis Lokasi -->
+            <form @submit.prevent="submitEditForm" class="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+                <!-- 1. Jenis Lokasi -->
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1.5">
                         Jenis Lokasi Perusahaan <span class="text-rose-600">*</span>
@@ -2395,7 +2544,7 @@ const handleVerificationAction = (company, event) => {
                     </div>
                 </div>
 
-                <!-- Nama Perusahaan -->
+                <!-- 2. Nama Perusahaan -->
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1">
                         Nama Perusahaan / Instansi <span class="text-rose-600">*</span>
@@ -2408,47 +2557,50 @@ const handleVerificationAction = (company, event) => {
                     />
                 </div>
 
-                <!-- Jenis F11 -->
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">
-                        Jenis Perusahaan / Instansi (F11)
-                    </label>
-                    <select
-                        v-model="editForm.jenis_perusahaan"
-                        class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
-                    >
-                        <option value="1 - Instansi pemerintah">1 - Instansi pemerintah</option>
-                        <option value="2 - Organisasi non-profit/LSM">2 - Organisasi non-profit/LSM</option>
-                        <option value="3 - Perusahaan swasta">3 - Perusahaan swasta</option>
-                        <option value="4 - BUMN / BUMD">4 - BUMN / BUMD</option>
-                        <option value="5 - Institusi / Organisasi Multilateral">5 - Institusi / Organisasi Multilateral</option>
-                        <option value="6 - Perguruan Tinggi / Lembaga Pendidikan">6 - Perguruan Tinggi / Lembaga Pendidikan</option>
-                        <option value="7 - Usaha Mandiri / Wirausaha">7 - Usaha Mandiri / Wirausaha</option>
-                        <option value="8 - Lainnya">8 - Lainnya</option>
-                    </select>
+                <!-- 3. Bentuk Perusahaan (Dropdown) & Jenis F11 (Dropdown) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">
+                            Bentuk Perusahaan / Institusi
+                        </label>
+                        <select
+                            v-model="editForm.bentuk_perusahaan"
+                            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
+                        >
+                            <option v-for="opt in availableBentukOptionsForEdit" :key="opt" :value="opt">
+                                {{ opt }}
+                            </option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">
+                            Jenis Perusahaan / Instansi (F11)
+                        </label>
+                        <select
+                            v-model="editForm.jenis_perusahaan"
+                            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
+                        >
+                            <option
+                                v-for="opt in availableJenisPerusahaanOptionsForEdit"
+                                :key="opt.value"
+                                :value="opt.value"
+                            >
+                                {{ opt.label }}
+                            </option>
+                        </select>
+                    </div>
                 </div>
 
-                <div v-if="editForm.jenis_perusahaan === '8 - Lainnya'">
+                <div v-if="editForm.jenis_perusahaan === 'Lainnya' || editForm.jenis_perusahaan === '5 - Lainnya'">
                     <label class="block font-semibold text-slate-700 mb-1">Jenis Perusahaan / Instansi Lainnya</label>
                     <input v-model="editForm.jenis_perusahaan_lainnya" type="text" maxlength="150" placeholder="Tuliskan jenis perusahaan / instansi" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                 </div>
 
-                <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                    <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Homepage / Website</label>
-                        <input v-model="editForm.homepage" type="url" placeholder="https://contoh.id" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                    </div>
-                    <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Nomor Telepon / Fax</label>
-                        <input v-model="editForm.no_telp_fax" type="text" placeholder="0274-123456" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                    </div>
+                <!-- 4. Sektor & Jumlah Pegawai -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
                         <label class="mb-1 block font-semibold text-slate-700">Sektor</label>
                         <input v-model="editForm.sektor" type="text" placeholder="Teknologi Informasi" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                    </div>
-                    <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Bentuk Perusahaan</label>
-                        <input v-model="editForm.bentuk_perusahaan" type="text" placeholder="Perseroan Terbatas" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                     </div>
                     <div>
                         <label class="mb-1 block font-semibold text-slate-700">Jumlah Pegawai</label>
@@ -2456,7 +2608,7 @@ const handleVerificationAction = (company, event) => {
                     </div>
                 </div>
 
-                <!-- Provinsi & Kabupaten vs Negara -->
+                <!-- 5. Provinsi & Kabupaten vs Negara -->
                 <div v-if="editForm.jenis_lokasi === 'Dalam Negeri'" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
                         <label class="block font-semibold text-slate-700 mb-1">
@@ -2509,7 +2661,7 @@ const handleVerificationAction = (company, event) => {
                     </select>
                 </div>
 
-                <!-- Kode Pos & Skala -->
+                <!-- 6. Kode Pos & Skala -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
                         <label class="block font-semibold text-slate-700 mb-1">
@@ -2530,40 +2682,57 @@ const handleVerificationAction = (company, event) => {
                             v-model="editForm.skala"
                             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
                         >
-                            <option value="Lokal">Lokal</option>
-                            <option value="Nasional">Nasional</option>
-                            <option value="Internasional">Internasional</option>
+                            <option v-for="s in availableSkalaOptionsForEdit" :key="s.value" :value="s.value">
+                                {{ s.label }}
+                            </option>
                         </select>
                     </div>
                 </div>
 
-                <!-- Alamat -->
+                <!-- 7. Alamat -->
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1">
                         Alamat Jalan / Gedung Perusahaan
                     </label>
                     <textarea
                         v-model="editForm.alamat"
-                        rows="3"
+                        rows="2"
                         class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                     ></textarea>
                 </div>
 
-                <!-- Footer Centered -->
-                <div class="pt-3 pb-2 flex items-center justify-center gap-3">
-                    <button
-                        type="submit"
-                        :disabled="isSubmittingEdit"
-                        class="px-6 py-2.5 bg-[#005833] hover:bg-[#004226] text-white font-bold rounded-lg text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
-                    >
-                        {{ isSubmittingEdit ? 'Menyimpan...' : 'Simpan Perubahan' }}
-                    </button>
+                <!-- 8. Telepon & Website -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Nomor Telepon / Fax</label>
+                        <input v-model="editForm.no_telp_fax" type="text" placeholder="0274-123456" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                    <div>
+                        <label class="mb-1 block font-semibold text-slate-700">Homepage / Website</label>
+                        <input v-model="editForm.homepage" type="url" placeholder="https://contoh.id" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                    </div>
+                </div>
+
+                <!-- Footer Tombol -->
+                <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
                     <button
                         type="button"
                         @click="closeEditModal"
-                        class="px-6 py-2.5 bg-[#8C98A4] hover:bg-[#788592] text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                        :disabled="isSubmittingEdit"
+                        class="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
                     >
                         Batal
+                    </button>
+                    <button
+                        type="submit"
+                        :disabled="isSubmittingEdit"
+                        class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#0D542B] hover:bg-[#093d1f] transition-all shadow-xs shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <svg v-if="isSubmittingEdit" class="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>{{ isSubmittingEdit ? 'Menyimpan...' : 'Simpan Perubahan' }}</span>
                     </button>
                 </div>
             </form>

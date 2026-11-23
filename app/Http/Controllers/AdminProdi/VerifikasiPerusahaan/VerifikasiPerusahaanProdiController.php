@@ -9,6 +9,7 @@ use App\Models\Perusahaan;
 use App\Models\Propinsi;
 use App\Models\RefNegara;
 use App\Models\User;
+use App\Services\Alumni\AdminAlumniProfileService;
 use App\Services\Perusahaan\PerusahaanVerificationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -103,6 +104,7 @@ class VerifikasiPerusahaanProdiController extends Controller
             'filterNegaras' => $distinctNegaras,
             'filters' => $filters,
             'stats' => $this->buildScopedStats($prodiId),
+            'refOptions' => AdminAlumniProfileService::getRefOptions(),
         ]);
     }
 

@@ -9,6 +9,7 @@ use App\Models\Perusahaan;
 use App\Models\Prodi;
 use App\Models\Propinsi;
 use App\Models\RefNegara;
+use App\Services\Alumni\AdminAlumniProfileService;
 use App\Services\Perusahaan\PerusahaanVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -170,6 +171,7 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             'filterNegaras' => $distinctNegaras,
             'filters' => $filters,
             'stats' => $this->buildStats(),
+            'refOptions' => AdminAlumniProfileService::getRefOptions(),
         ]);
     }
 
@@ -188,7 +190,7 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             'kode_kabupaten' => $jenisLokasi === 'Dalam Negeri' ? 'nullable|exists:kabupaten,kode_kabupaten' : 'nullable',
             'alamat' => 'nullable|string|max:500',
             'kode_pos' => 'nullable|string|max:15',
-            'skala' => 'nullable|string|in:Lokal,Nasional,Internasional',
+            'skala' => 'nullable|string|in:Lokal,Regional/Lokal,Nasional,Internasional',
             'jenis_perusahaan' => 'nullable|string|max:100',
             'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
             'sektor' => 'nullable|string|max:100',
@@ -283,7 +285,7 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             'kode_kabupaten' => 'nullable|exists:kabupaten,kode_kabupaten',
             'kode_pos' => 'nullable|string|max:15',
             'sektor' => 'nullable|string|max:100',
-            'skala' => 'nullable|string|in:Lokal,Nasional,Internasional',
+            'skala' => 'nullable|string|in:Lokal,Regional/Lokal,Nasional,Internasional',
             'jenis_perusahaan' => 'nullable|string|max:100',
             'jenis_perusahaan_lainnya' => 'nullable|string|max:150',
             'bentuk_perusahaan' => 'nullable|string|max:60',

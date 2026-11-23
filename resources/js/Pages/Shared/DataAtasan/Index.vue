@@ -142,28 +142,22 @@ const newCompanyForm = ref({
 });
 
 const bentukPerusahaanOptions = [
-    'PT (Perseroan Terbatas)',
-    'CV (Commanditaire Vennootschap)',
-    'Firma',
-    'BUMN (Badan Usaha Milik Negara)',
-    'BUMD (Badan Usaha Milik Daerah)',
-    'Instansi Pemerintah / Kementerian',
-    'Lembaga Non-Profit / Yayasan / LSM',
-    'Organisasi Internasional / Multilateral',
+    'BUMN',
+    'Perusahaan Terbatas',
     'Koperasi',
-    'Usaha Dagang (UD) / Perorangan',
+    'CV',
+    'Firma',
     'Lainnya',
 ];
 
 const jenisPerusahaanOptions = [
     '1 - Instansi pemerintah',
-    '2 - Organisasi non-profit / Lembaga Swadaya Masyarakat',
+    '2 - Organisasi non-profit/LSM',
     '3 - Perusahaan swasta',
-    '4 - Perusahaan BUMN / BUMD',
-    '5 - Institusi / Organisasi Multilateral',
-    '6 - Lembaga Pendidikan',
-    '7 - Wirausaha / Perusahaan sendiri',
-    '8 - Lainnya',
+    '4 - Wiraswasta/perusahaan sendiri',
+    '5 - Lainnya',
+    '6 - BUMN/BUMD',
+    '7 - Institusi/Organisasi Multilateral',
 ];
 
 const availableKabupatens = computed(() => {
@@ -177,7 +171,7 @@ const openCreateCompanyModal = () => {
     newCompanyForm.value = {
         jenis_lokasi: 'Dalam Negeri',
         nama_perusahaan: '',
-        bentuk_perusahaan: 'PT (Perseroan Terbatas)',
+        bentuk_perusahaan: 'Perusahaan Terbatas',
         jenis_perusahaan: '3 - Perusahaan swasta',
         jenis_perusahaan_lainnya: '',
         kode_negara: '',
