@@ -726,6 +726,11 @@ class PerusahaanVerificationService
     public function updateAndVerify(Perusahaan $company, array $validatedData, bool $verifyNow = true): Perusahaan
     {
         self::flushCache();
+
+        if (empty($validatedData['bentuk_perusahaan']) && ! empty($validatedData['jenis_perusahaan'])) {
+            $validatedData['bentuk_perusahaan'] = $validatedData['jenis_perusahaan'];
+        }
+
         $oldValues = $company->only(array_keys($validatedData));
 
         if ($verifyNow) {

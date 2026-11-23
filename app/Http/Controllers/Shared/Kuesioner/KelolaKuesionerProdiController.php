@@ -474,17 +474,28 @@ class KelolaKuesionerProdiController extends Controller
 
     /**
      * Menghapus section kuesioner prodi.
+     * Diberi proteksi keamanan data: dilarang menghapus section jika masih memuat butir pertanyaan atau memiliki respon jawaban.
      */
     public function destroySection(int $id): RedirectResponse
     {
         $user = $this->authenticatedUser();
 
-        $section = KuesionerSection::with('sectionPertanyaan')->findOrFail($id);
+        $section = KuesionerSection::withCount(['sectionPertanyaan', 'jawaban'])->findOrFail($id);
         $prodiId = (string) $section->kode_prodi;
         $this->ensureProdiAccess($user, $prodiId);
 
-        // Hapus relasi penempatan di section ini
-        $section->sectionPertanyaan()->delete();
+        if ($section->section_pertanyaan_count > 0) {
+            return redirect()->back()->withErrors([
+                'message' => 'Bagian (section) "'.$section->judul.'" tidak dapat dihapus karena masih memuat '.$section->section_pertanyaan_count.' butir pertanyaan. Silakan pindahkan atau hapus butir pertanyaan terlebih dahulu.',
+            ]);
+        }
+
+        if ($section->jawaban_count > 0) {
+            return redirect()->back()->withErrors([
+                'message' => 'Bagian (section) "'.$section->judul.'" tidak dapat dihapus karena telah memiliki data respon jawaban alumni yang terekam.',
+            ]);
+        }
+
         $section->delete();
 
         $this->normalizeSectionOrders($prodiId);

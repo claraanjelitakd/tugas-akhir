@@ -184,6 +184,37 @@ const tableData = computed(() => ({
     })),
 }));
 
+// Tabel pivot ringkasan distribusi masa tunggu per role karier.
+const waitTableData = computed(() => ({
+    columns: [
+        { key: 'name', label: 'Role Karier' },
+        { key: 'total', label: 'Responden', align: 'right' },
+        { key: 'before', label: 'Sebelum Lulus', align: 'right' },
+        { key: 'under_6', label: '<6 Bulan', align: 'right' },
+        { key: 'under_12', label: '6–<12 Bulan', align: 'right' },
+        { key: 'over_12', label: '≥12 Bulan', align: 'right' },
+        { key: 'unavailable', label: 'Tidak Tersedia', align: 'right' },
+    ],
+    rows: waitStats.value.map((item) => {
+        const total = Number(item.total || 0);
+        const fmt = (cat) => {
+            const cnt = Number(item.counts?.[cat] || 0);
+            const pct = Number(item.percentages?.[cat] || 0);
+            return cnt > 0 ? `${formatNumber(cnt, 0)} (${formatPercentage(pct)})` : '0';
+        };
+
+        return {
+            name: item.role,
+            total: formatNumber(total, 0),
+            before: fmt('Sebelum Lulus'),
+            under_6: fmt('<6 bulan'),
+            under_12: fmt('6–<12 bulan'),
+            over_12: fmt('≥12 bulan'),
+            unavailable: fmt('Masa Tunggu Tidak Tersedia'),
+        };
+    }),
+}));
+
 // Narasi ringkas menjelaskan cakupan seluruh data, bukan hanya baris berbobot positif.
 const analysis = computed(() => ({
     title: 'Kilas Pendapatan, Masa Tunggu, dan Bobot IKU S1',
@@ -225,7 +256,7 @@ const views = computed(() => [
         title: 'Distribusi Masa Tunggu per Role Karier',
         description: 'Panjang bar menunjukkan jumlah alumni; label segmen menunjukkan persentase dalam role karier.',
         option: waitTimeOption.value,
-        tableData: tableData.value,
+        tableData: waitTableData.value,
         height: Math.max(360, Math.min(waitStats.value.length * 54 + 120, 650)),
         analysis: analysis.value,
         drillDownColumns: [

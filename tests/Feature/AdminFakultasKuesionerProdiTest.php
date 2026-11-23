@@ -267,4 +267,108 @@ class AdminFakultasKuesionerProdiTest extends TestCase
             'id' => $question->id,
         ]);
     }
+
+    /**
+     * Memastikan section kuesioner prodi dilarang dihapus jika masih memuat butir pertanyaan.
+     */
+    public function test_admin_cannot_delete_section_when_it_contains_questions(): void
+    {
+        $fakultas = RefFakultas::create([
+            'kode_fakultas' => 'FTI',
+            'nama_fakultas' => 'Fakultas Teknologi Informasi',
+        ]);
+        $prodi = Prodi::create([
+            'kode_prodi' => '72',
+            'nama_prodi' => 'Sistem Informasi',
+            'kode_fakultas' => $fakultas->kode_fakultas,
+        ]);
+        $admin = User::create([
+            'name' => 'Admin SI',
+            'username' => 'admin_si_sec',
+            'email' => 'admin_si_sec@ukdw.ac.id',
+            'password' => Hash::make('password'),
+            'role' => 'admin_prodi',
+            'kode_prodi' => $prodi->kode_prodi,
+        ]);
+
+        $section = KuesionerSection::create([
+            'target' => 'prodi',
+            'kode_prodi' => $prodi->kode_prodi,
+            'kode_section' => 'PRODI_72_SEC1',
+            'judul' => 'Bagian Relevansi',
+            'order' => 1,
+            'is_active' => true,
+        ]);
+
+        $question = KuesionerPertanyaan::create([
+            'kode_pertanyaan' => 'PRODI-72-Q1',
+            'teks_pertanyaan' => 'Pertanyaan di dalam section',
+            'tipe' => 'text',
+            'pemilik_kode_prodi' => $prodi->kode_prodi,
+            'is_reusable' => true,
+            'is_active' => true,
+        ]);
+
+        KuesionerSectionPertanyaan::create([
+            'section_id' => $section->id,
+            'pertanyaan_id' => $question->id,
+            'order' => 1,
+            'wajib' => false,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->delete(route('prodi.kuesioner.sections.destroy', $section->id));
+
+        $response->assertSessionHasErrors(['message']);
+        $this->assertDatabaseHas('kuesioner_section', [
+            'id' => $section->id,
+        ]);
+        $this->assertDatabaseHas('kuesioner_section_pertanyaan', [
+            'section_id' => $section->id,
+            'pertanyaan_id' => $question->id,
+        ]);
+    }
+
+    /**
+     * Memastikan section kuesioner prodi yang kosong (tanpa pertanyaan) dapat dihapus.
+     */
+    public function test_admin_can_delete_empty_section(): void
+    {
+        $fakultas = RefFakultas::create([
+            'kode_fakultas' => 'FTI2',
+            'nama_fakultas' => 'Fakultas Teknologi Informasi 2',
+        ]);
+        $prodi = Prodi::create([
+            'kode_prodi' => '71',
+            'nama_prodi' => 'Informatika',
+            'kode_fakultas' => $fakultas->kode_fakultas,
+        ]);
+        $admin = User::create([
+            'name' => 'Admin Inf',
+            'username' => 'admin_inf_sec',
+            'email' => 'admin_inf_sec@ukdw.ac.id',
+            'password' => Hash::make('password'),
+            'role' => 'admin_prodi',
+            'kode_prodi' => $prodi->kode_prodi,
+        ]);
+
+        $section = KuesionerSection::create([
+            'target' => 'prodi',
+            'kode_prodi' => $prodi->kode_prodi,
+            'kode_section' => 'PRODI_71_SEC1',
+            'judul' => 'Bagian Kosong',
+            'order' => 1,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->delete(route('prodi.kuesioner.sections.destroy', $section->id));
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $this->assertDatabaseMissing('kuesioner_section', [
+            'id' => $section->id,
+        ]);
+    }
 }

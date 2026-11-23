@@ -196,7 +196,7 @@ const getLikertLevelFromLabel = (label) => {
 
 // -----------------------------------------------------------------------------
 // 1. GRAFIK INDIKATOR 01: STACKED BAR ASPEK KINERJA LULUSAN
-// Sumbu Y = Aspek Kinerja, Sumbu X = Jumlah Respon Atasan (n), Segmen = Skala Likert 1-5, Ujung Batang = Total Respon
+// Sumbu Y = Aspek Kinerja, Sumbu X = Jumlah Respon Atasan (n), Segmen = Skala Likert 1-5 (%)
 // Legenda diposisikan di sisi kanan grafik dengan warna yang sinkron 100%.
 // -----------------------------------------------------------------------------
 const kinerjaStackedOption = computed(() => {
@@ -249,8 +249,8 @@ const kinerjaStackedOption = computed(() => {
                 formatter: (param) => {
                     const cnt = Number(param.value ?? 0);
                     if (cnt <= 0) return '';
-                    const pct = param.data?.percentage ?? 0;
-                    return pct >= 12 ? `${cnt} (${Math.round(pct)}%)` : `${cnt}`;
+                    const pct = Math.round(param.data?.percentage ?? 0);
+                    return pct >= 5 ? `${pct}%` : '';
                 },
                 color: scale.textColor,
                 fontSize: 10,
@@ -258,39 +258,6 @@ const kinerjaStackedOption = computed(() => {
             },
             data,
         };
-    });
-
-    // Series transparan di ujung kanan bar untuk menampilkan label total respon
-    seriesList.push({
-        name: 'Total Respon',
-        type: 'bar',
-        stack: 'total',
-        stackOrder: 99,
-        barMaxWidth: 26,
-        data: items.map((item) => ({
-            value: 0,
-            total: item.valid_count,
-            aspek: item.label || item.aspek,
-            kode: item.kode,
-        })),
-        label: {
-            show: true,
-            position: 'right',
-            distance: 8,
-            formatter: (params) => {
-                const total = params.data?.total ?? 0;
-                return total > 0 ? `${total} respon` : '';
-            },
-            color: '#0F172A',
-            fontSize: 11,
-            fontWeight: 700,
-        },
-        itemStyle: {
-            color: 'rgba(0, 0, 0, 0)',
-        },
-        tooltip: {
-            show: false,
-        },
     });
 
     return {
@@ -314,7 +281,7 @@ const kinerjaStackedOption = computed(() => {
             ],
             textStyle: { color: '#334155', fontSize: 11, fontWeight: 600 },
         },
-        grid: { left: 24, right: 210, top: 20, bottom: 36, containLabel: true },
+        grid: { left: 24, right: 180, top: 20, bottom: 36, containLabel: true },
         xAxis: {
             type: 'value',
             min: 0,
@@ -413,8 +380,8 @@ const kinerjaSummaryTable = computed(() => {
 });
 
 // -----------------------------------------------------------------------------
-// 2. GRAFIK INDIKATOR 02: KESIAPAN KERJA ALUMNI (HORIZONTAL BAR DENGAN JUMLAH & %)
-// Sumbu Y = Kategori Kesiapan, Sumbu X = Jumlah Jawaban Atasan, Label = n (persentase)
+// 2. GRAFIK INDIKATOR 02: KESIAPAN KERJA ALUMNI (HORIZONTAL BAR DENGAN PERSENTASE)
+// Sumbu Y = Kategori Kesiapan, Sumbu X = Jumlah Jawaban Atasan, Label = Persentase (%)
 // -----------------------------------------------------------------------------
 const readinessColors = {
     'sangat siap': '#0D542B',
@@ -452,7 +419,7 @@ const readinessOption = computed(() => {
 
     return {
         ...baseOption(total),
-        grid: { left: 24, right: 90, top: 20, bottom: 36, containLabel: true },
+        grid: { left: 24, right: 60, top: 20, bottom: 36, containLabel: true },
         xAxis: {
             type: 'value',
             minInterval: 1,
@@ -494,7 +461,7 @@ const readinessOption = computed(() => {
             label: {
                 show: true,
                 position: 'right',
-                formatter: ({ data }) => `${formatNumber(data.value, 0)} (${data.percentage}%)`,
+                formatter: ({ data }) => `${data.percentage}%`,
                 color: '#1E293B',
                 fontWeight: 700,
                 fontSize: 11,

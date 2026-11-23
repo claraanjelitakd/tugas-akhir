@@ -120,7 +120,6 @@ class AlumniPerusahaanHeadOfficeProtectionTest extends TestCase
         $masterCompany = Perusahaan::create([
             'nama_perusahaan' => 'PT Master Belum Lengkap',
             'status_verifikasi' => 'Terverifikasi',
-            'jenis_perusahaan' => 'Perusahaan swasta',
         ]);
 
         $response = $this->actingAs($user)->post('/alumni/profile', [
@@ -131,6 +130,20 @@ class AlumniPerusahaanHeadOfficeProtectionTest extends TestCase
         $response->assertRedirect();
         $this->assertSame($masterCompany->id, $biodata->fresh()->perusahaan_id);
         $this->assertNull($masterCompany->fresh()->bentuk_perusahaan);
+    }
+
+    /**
+     * Memastikan bentuk_perusahaan otomatis disinkronkan dengan jenis_perusahaan (Opsi 1).
+     */
+    public function test_bentuk_perusahaan_automatically_synced_with_jenis_perusahaan(): void
+    {
+        $company = Perusahaan::create([
+            'nama_perusahaan' => 'PT Sinkron Otomatis',
+            'status_verifikasi' => 'Terverifikasi',
+            'jenis_perusahaan' => 'Perusahaan swasta',
+        ]);
+
+        $this->assertSame('Perusahaan swasta', $company->fresh()->bentuk_perusahaan);
     }
 
     /**

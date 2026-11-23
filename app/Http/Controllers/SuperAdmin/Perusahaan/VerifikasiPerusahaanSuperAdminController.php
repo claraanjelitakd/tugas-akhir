@@ -219,7 +219,7 @@ class VerifikasiPerusahaanSuperAdminController extends Controller
             'jenis_perusahaan' => $validated['jenis_perusahaan'] ?? null,
             'jenis_perusahaan_lainnya' => $validated['jenis_perusahaan_lainnya'] ?? null,
             'sektor' => $validated['sektor'] ?? null,
-            'bentuk_perusahaan' => $validated['bentuk_perusahaan'] ?? null,
+            'bentuk_perusahaan' => $validated['bentuk_perusahaan'] ?? $validated['jenis_perusahaan'] ?? null,
             'jumlah_pegawai' => $validated['jumlah_pegawai'] ?? null,
             'homepage' => $validated['homepage'] ?? null,
             'no_telp_fax' => $validated['no_telp_fax'] ?? null,

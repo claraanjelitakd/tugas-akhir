@@ -129,7 +129,7 @@ const companyError = ref('');
 const newCompanyForm = ref({
     jenis_lokasi: 'Dalam Negeri',
     nama_perusahaan: '',
-    bentuk_perusahaan: 'PT (Perseroan Terbatas)',
+    bentuk_perusahaan: '3 - Perusahaan swasta',
     jenis_perusahaan: '3 - Perusahaan swasta',
     jenis_perusahaan_lainnya: '',
     kode_negara: '',
@@ -140,15 +140,6 @@ const newCompanyForm = ref({
     skala: 'Nasional',
     no_telp_fax: '',
 });
-
-const bentukPerusahaanOptions = [
-    'BUMN',
-    'Perusahaan Terbatas',
-    'Koperasi',
-    'CV',
-    'Firma',
-    'Lainnya',
-];
 
 const jenisPerusahaanOptions = [
     '1 - Instansi pemerintah',
@@ -171,7 +162,7 @@ const openCreateCompanyModal = () => {
     newCompanyForm.value = {
         jenis_lokasi: 'Dalam Negeri',
         nama_perusahaan: '',
-        bentuk_perusahaan: 'Perusahaan Terbatas',
+        bentuk_perusahaan: '3 - Perusahaan swasta',
         jenis_perusahaan: '3 - Perusahaan swasta',
         jenis_perusahaan_lainnya: '',
         kode_negara: '',
@@ -202,6 +193,7 @@ const submitNewCompany = async () => {
         return;
     }
 
+    newCompanyForm.value.bentuk_perusahaan = newCompanyForm.value.jenis_perusahaan;
     isSubmittingCompany.value = true;
     companyError.value = '';
 
@@ -804,20 +796,12 @@ const exportUrl = computed(() => {
                         <input type="text" v-model="newCompanyForm.nama_perusahaan" required placeholder="Contoh: PT Teknologi Nusantara / Google Singapore" class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                     </div>
 
-                    <!-- 3. Bentuk & Jenis Perusahaan -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Bentuk Perusahaan / Institusi</label>
-                            <select v-model="newCompanyForm.bentuk_perusahaan" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer">
-                                <option v-for="opt in bentukPerusahaanOptions" :key="opt" :value="opt">{{ opt }}</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Jenis Instansi (F11)</label>
-                            <select v-model="newCompanyForm.jenis_perusahaan" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer">
-                                <option v-for="opt in jenisPerusahaanOptions" :key="opt" :value="opt">{{ opt }}</option>
-                            </select>
-                        </div>
+                    <!-- 3. Jenis Perusahaan / Instansi (F11) -->
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Jenis Perusahaan / Instansi (F11)</label>
+                        <select v-model="newCompanyForm.jenis_perusahaan" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer">
+                            <option v-for="opt in jenisPerusahaanOptions" :key="opt" :value="opt">{{ opt }}</option>
+                        </select>
                     </div>
 
                     <!-- 4. Wilayah: Luar Negeri vs Dalam Negeri -->
@@ -845,28 +829,37 @@ const exportUrl = computed(() => {
                         </div>
                     </div>
 
-                    <!-- 5. Alamat Kantor & Kode Pos -->
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1">Alamat Kantor / Head Office</label>
-                        <textarea v-model="newCompanyForm.alamat" rows="2" placeholder="Nama gedung, jalan, nomor kantor..." class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]"></textarea>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <!-- 5. Kode Pos & Skala Perusahaan -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Skala Organisasi</label>
+                            <label class="block font-semibold text-slate-700 mb-1">Kode Pos Perusahaan</label>
+                            <input type="text" v-model="newCompanyForm.kode_pos" placeholder="55222" maxlength="10" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Skala Perusahaan</label>
                             <select v-model="newCompanyForm.skala" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer">
                                 <option value="Lokal">Lokal</option>
                                 <option value="Nasional">Nasional</option>
                                 <option value="Internasional">Internasional</option>
                             </select>
                         </div>
+                    </div>
+
+                    <!-- 6. Alamat Jalan / Gedung Perusahaan -->
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Alamat Jalan / Gedung Perusahaan</label>
+                        <textarea v-model="newCompanyForm.alamat" rows="2" placeholder="Nama Jalan, Gedung, Nomor..." class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]"></textarea>
+                    </div>
+
+                    <!-- 7. No. Telp / Fax Perusahaan & Website / Homepage Perusahaan -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Kode Pos</label>
-                            <input type="text" v-model="newCompanyForm.kode_pos" placeholder="55224" maxlength="10" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                            <label class="block font-semibold text-slate-700 mb-1">No. Telp / Fax Perusahaan</label>
+                            <input type="text" v-model="newCompanyForm.no_telp_fax" placeholder="Contoh: 0274-563929" maxlength="50" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                         </div>
                         <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Telepon / Fax</label>
-                            <input type="text" v-model="newCompanyForm.no_telp_fax" placeholder="021-xxxxxxx" maxlength="50" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                            <label class="block font-semibold text-slate-700 mb-1">Website / Homepage Perusahaan</label>
+                            <input type="url" v-model="newCompanyForm.homepage" placeholder="Contoh: https://perusahaan.com" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:border-[#0D542B] focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                         </div>
                     </div>
 

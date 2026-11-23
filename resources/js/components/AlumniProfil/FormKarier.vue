@@ -1164,7 +1164,7 @@ const submitNewCompany = async () => {
             },
             body: JSON.stringify({
                 nama_perusahaan: nama,
-                bentuk_perusahaan: formVal.bentuk_perusahaan || null,
+                bentuk_perusahaan: formVal.jenis_perusahaan || formVal.bentuk_perusahaan || null,
                 jenis_lokasi: formVal.jenis_lokasi,
                 kode_negara: isLuar ? formVal.kode_negara : 'ID',
                 kode_provinsi: isLuar ? null : formVal.kode_provinsi,
@@ -1342,7 +1342,7 @@ const submitRequestUpdate = async () => {
                 kode_kabupaten: requestUpdateForm.value.kode_kabupaten || null,
                 jenis_perusahaan: requestUpdateForm.value.jenis_perusahaan || null,
                 jenis_perusahaan_lainnya: requestUpdateForm.value.jenis_perusahaan_lainnya?.trim() || null,
-                bentuk_perusahaan: requestUpdateForm.value.bentuk_perusahaan || null,
+                bentuk_perusahaan: requestUpdateForm.value.jenis_perusahaan || requestUpdateForm.value.bentuk_perusahaan || null,
                 skala: requestUpdateForm.value.skala || null,
                 alamat: requestUpdateForm.value.alamat?.trim() || null,
                 kode_pos: requestUpdateForm.value.kode_pos?.trim() || null,
@@ -2204,30 +2204,17 @@ onUnmounted(() => {
                             />
                         </div>
 
-                        <!-- Jenis Perusahaan / Instansi (F11) & Bentuk Lembaga / Perusahaan -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold text-gray-700 mb-1">
-                                    Apa jenis perusahaan/instansi/institusi tempat Anda bekerja sekarang? (F11)
-                                </label>
-                                <input
-                                    type="text"
-                                    disabled
-                                    :value="form.company_jenis_perusahaan || form.perusahaan_jenis_perusahaan || 'Perusahaan swasta'"
-                                    :class="lockedInputClass"
-                                />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-gray-700 mb-1">
-                                    Bentuk Lembaga / Perusahaan
-                                </label>
-                                <input
-                                    type="text"
-                                    disabled
-                                    :value="form.company_bentuk || form.perusahaan_bentuk || 'Perusahaan Terbatas'"
-                                    :class="lockedInputClass"
-                                />
-                            </div>
+                        <!-- Jenis Perusahaan / Instansi (F11) -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">
+                                Apa jenis perusahaan/instansi/institusi tempat Anda bekerja sekarang? (F11)
+                            </label>
+                            <input
+                                type="text"
+                                disabled
+                                :value="form.company_jenis_perusahaan || form.perusahaan_jenis_perusahaan || 'Perusahaan swasta'"
+                                :class="lockedInputClass"
+                            />
                         </div>
 
                         <!-- Skala Perusahaan / Instansi / Institusi (F2H / F5D) -->
@@ -2544,42 +2531,23 @@ onUnmounted(() => {
                             />
                         </div>
 
-                        <!-- Bentuk Perusahaan & Jenis Perusahaan (F11) -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
-                                    Bentuk Perusahaan / Institusi
-                                </label>
-                                <select
-                                    v-model="newCompanyForm.bentuk_perusahaan"
-                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                        <!-- Jenis Perusahaan / Instansi (F11) -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                Jenis Perusahaan / Instansi (F11)
+                            </label>
+                            <select
+                                v-model="newCompanyForm.jenis_perusahaan"
+                                class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                            >
+                                <option
+                                    v-for="opt in jenisPerusahaanOptions"
+                                    :key="opt.value"
+                                    :value="opt.value"
                                 >
-                                    <option
-                                        v-for="opt in bentukPerusahaanOptions"
-                                        :key="opt.value"
-                                        :value="opt.value"
-                                    >
-                                        {{ opt.label }}
-                                    </option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
-                                    Jenis Perusahaan / Instansi (F11)
-                                </label>
-                                <select
-                                    v-model="newCompanyForm.jenis_perusahaan"
-                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
-                                >
-                                    <option
-                                        v-for="opt in jenisPerusahaanOptions"
-                                        :key="opt.value"
-                                        :value="opt.value"
-                                    >
-                                        {{ opt.label }}
-                                    </option>
-                                </select>
-                            </div>
+                                    {{ opt.label }}
+                                </option>
+                            </select>
                         </div>
 
                         <!-- Input Tambahan jika Jenis Perusahaan 'Lainnya' -->
@@ -2910,42 +2878,23 @@ onUnmounted(() => {
                             />
                         </div>
 
-                        <!-- Bentuk Perusahaan & Jenis Perusahaan (F11) -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
-                                    Bentuk Perusahaan / Institusi
-                                </label>
-                                <select
-                                    v-model="requestUpdateForm.bentuk_perusahaan"
-                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                        <!-- Jenis Perusahaan / Instansi (F11) -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+                                Jenis Perusahaan / Instansi (F11)
+                            </label>
+                            <select
+                                v-model="requestUpdateForm.jenis_perusahaan"
+                                class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
+                            >
+                                <option
+                                    v-for="opt in jenisPerusahaanOptions"
+                                    :key="opt.value"
+                                    :value="opt.value"
                                 >
-                                    <option
-                                        v-for="opt in bentukPerusahaanOptions"
-                                        :key="opt.value"
-                                        :value="opt.value"
-                                    >
-                                        {{ opt.label }}
-                                    </option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1.5">
-                                    Jenis Perusahaan / Instansi (F11)
-                                </label>
-                                <select
-                                    v-model="requestUpdateForm.jenis_perusahaan"
-                                    class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#0D542B]/20 focus:border-[#0D542B] transition-all"
-                                >
-                                    <option
-                                        v-for="opt in jenisPerusahaanOptions"
-                                        :key="opt.value"
-                                        :value="opt.value"
-                                    >
-                                        {{ opt.label }}
-                                    </option>
-                                </select>
-                            </div>
+                                    {{ opt.label }}
+                                </option>
+                            </select>
                         </div>
 
                         <!-- Input Tambahan jika Jenis Perusahaan 'Lainnya' -->

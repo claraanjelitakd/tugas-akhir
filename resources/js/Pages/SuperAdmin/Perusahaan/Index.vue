@@ -665,32 +665,8 @@ const confirmDeleteCompany = (company) => {
 };
 
 // ========================================================
-// PILIHAN BENTUK PERUSAHAAN (100% SINKRON DENGAN ALUMNI & DATABASE)
+// PILIHAN JENIS PERUSAHAAN & SKALA (SINKRON DENGAN ALUMNI & DIKTI F11)
 // ========================================================
-const bentukPerusahaanOptions = computed(() => {
-    const configured = props.refOptions?.BIO_INST_BENTUK || [];
-    if (configured.length > 0) {
-        return configured.map(opt => opt.option_text);
-    }
-    return [
-        'BUMN',
-        'Perusahaan Terbatas',
-        'Koperasi',
-        'CV',
-        'Firma',
-        'Lainnya',
-    ];
-});
-
-const availableBentukOptionsForEdit = computed(() => {
-    const list = [...bentukPerusahaanOptions.value];
-    if (editForm.value.bentuk_perusahaan && !list.includes(editForm.value.bentuk_perusahaan)) {
-        list.unshift(editForm.value.bentuk_perusahaan);
-    }
-    return list;
-});
-
-// Pilihan Jenis Perusahaan / Instansi (F11) (100% Sinkron dengan Alumni)
 const jenisPerusahaanOptions = computed(() => {
     const configured = props.refOptions?.F11 || [];
     if (configured.length > 0) {
@@ -861,6 +837,8 @@ const handlePropinsiChangeEdit = async () => {
 };
 
 const submitCreateForm = () => {
+    createForm.value.bentuk_perusahaan = createForm.value.jenis_perusahaan;
+
     if (!createForm.value.nama_perusahaan.trim()) {
         Swal.fire({
             icon: 'error',
@@ -990,6 +968,8 @@ const closeEditModal = () => {
 };
 
 const submitEditForm = () => {
+    editForm.value.bentuk_perusahaan = editForm.value.jenis_perusahaan;
+
     if (!editForm.value.nama_perusahaan.trim()) {
         Swal.fire({
             icon: 'error',
@@ -2296,108 +2276,28 @@ const handleVerificationAction = (company, event) => {
                     />
                 </div>
 
-                <!-- 3. Bentuk Perusahaan (Dropdown) & Jenis Perusahaan (F11) (Dropdown) -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1">
-                            Bentuk Perusahaan / Institusi
-                        </label>
-                        <select
-                            v-model="createForm.bentuk_perusahaan"
-                            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
+                <!-- 3. Jenis Perusahaan / Instansi (F11) -->
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">
+                        Jenis Perusahaan / Instansi (F11)
+                    </label>
+                    <select
+                        v-model="createForm.jenis_perusahaan"
+                        class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
+                    >
+                        <option
+                            v-for="opt in availableJenisPerusahaanOptionsForCreate"
+                            :key="opt.value"
+                            :value="opt.value"
                         >
-                            <option v-for="opt in bentukPerusahaanOptions" :key="opt" :value="opt">
-                                {{ opt }}
-                            </option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1">
-                            Jenis Perusahaan / Instansi (F11)
-                        </label>
-                        <select
-                            v-model="createForm.jenis_perusahaan"
-                            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
-                        >
-                            <option
-                                v-for="opt in availableJenisPerusahaanOptionsForCreate"
-                                :key="opt.value"
-                                :value="opt.value"
-                            >
-                                {{ opt.label }}
-                            </option>
-                        </select>
-                    </div>
+                            {{ opt.label }}
+                        </option>
+                    </select>
                 </div>
 
                 <div v-if="createForm.jenis_perusahaan === 'Lainnya' || createForm.jenis_perusahaan === '5 - Lainnya'">
                     <label class="block font-semibold text-slate-700 mb-1">Jenis Perusahaan / Instansi Lainnya</label>
                     <input v-model="createForm.jenis_perusahaan_lainnya" type="text" maxlength="150" placeholder="Tuliskan jenis perusahaan / instansi" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                </div>
-
-                <!-- 4. Sektor & Jumlah Pegawai -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Sektor</label>
-                        <input v-model="createForm.sektor" type="text" placeholder="Teknologi Informasi" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                    </div>
-                    <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Jumlah Pegawai</label>
-                        <input v-model="createForm.jumlah_pegawai" type="text" placeholder="51 - 100 Orang" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                    </div>
-                </div>
-
-                <!-- 5. Wilayah: Luar Negeri vs Dalam Negeri -->
-                <div v-if="createForm.jenis_lokasi === 'Dalam Negeri'" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1">
-                            Provinsi <span class="text-rose-600">*</span>
-                        </label>
-                        <select
-                            v-model="createForm.kode_provinsi"
-                            @change="handlePropinsiChangeCreate"
-                            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
-                        >
-                            <option value="">-- Pilih Provinsi --</option>
-                            <option v-for="p in propinsis" :key="p.kode_provinsi" :value="p.kode_provinsi">
-                                {{ p.nama_provinsi }}
-                            </option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1">
-                            Kabupaten / Kota <span class="text-rose-600">*</span>
-                        </label>
-                        <select
-                            v-model="createForm.kode_kabupaten"
-                            :disabled="!createForm.kode_provinsi || isLoadingKabupatenCreate"
-                            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
-                        >
-                            <option value="">
-                                {{ isLoadingKabupatenCreate ? 'Memuat kabupaten/kota...' : (createForm.kode_provinsi ? '-- Pilih Kabupaten / Kota --' : '-- Pilih Provinsi Dahulu --') }}
-                            </option>
-                            <option v-for="k in availableKabupatensForCreate" :key="k.kode_kabupaten" :value="k.kode_kabupaten">
-                                {{ k.nama_kabupaten }}
-                            </option>
-                        </select>
-                    </div>
-                </div>
-
-                <div v-else>
-                    <label class="block font-semibold text-slate-700 mb-1">
-                        Negara Tempat Bekerja <span class="text-rose-600">*</span>
-                    </label>
-                    <select
-                        v-model="createForm.kode_negara"
-                        required
-                        class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
-                    >
-                        <option value="">-- Pilih Negara di Luar Negeri --</option>
-                        <option v-for="n in negaras" :key="n.kode_negara" :value="n.kode_negara">
-                            {{ n.nama_negara }}
-                        </option>
-                    </select>
                 </div>
 
                 <!-- 6. Kode Pos & Skala -->
@@ -2409,7 +2309,7 @@ const handleVerificationAction = (company, event) => {
                         <input
                             type="text"
                             v-model="createForm.kode_pos"
-                            placeholder="55281"
+                            placeholder="55222"
                             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                         />
                     </div>
@@ -2442,15 +2342,15 @@ const handleVerificationAction = (company, event) => {
                     ></textarea>
                 </div>
 
-                <!-- 8. Telepon & Website -->
+                <!-- 8. No. Telp / Fax Perusahaan & Website / Homepage Perusahaan -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Nomor Telepon / Fax</label>
-                        <input v-model="createForm.no_telp_fax" type="text" placeholder="0274-123456" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                        <label class="mb-1 block font-semibold text-slate-700">No. Telp / Fax Perusahaan</label>
+                        <input v-model="createForm.no_telp_fax" type="text" placeholder="Contoh: 0274-563929" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                     </div>
                     <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Homepage / Website</label>
-                        <input v-model="createForm.homepage" type="url" placeholder="https://contoh.id" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                        <label class="mb-1 block font-semibold text-slate-700">Website / Homepage Perusahaan</label>
+                        <input v-model="createForm.homepage" type="url" placeholder="Contoh: https://perusahaan.com" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                     </div>
                 </div>
 
@@ -2557,55 +2457,28 @@ const handleVerificationAction = (company, event) => {
                     />
                 </div>
 
-                <!-- 3. Bentuk Perusahaan (Dropdown) & Jenis F11 (Dropdown) -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1">
-                            Bentuk Perusahaan / Institusi
-                        </label>
-                        <select
-                            v-model="editForm.bentuk_perusahaan"
-                            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
+                <!-- 3. Jenis Perusahaan / Instansi (F11) -->
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">
+                        Jenis Perusahaan / Instansi (F11)
+                    </label>
+                    <select
+                        v-model="editForm.jenis_perusahaan"
+                        class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
+                    >
+                        <option
+                            v-for="opt in availableJenisPerusahaanOptionsForEdit"
+                            :key="opt.value"
+                            :value="opt.value"
                         >
-                            <option v-for="opt in availableBentukOptionsForEdit" :key="opt" :value="opt">
-                                {{ opt }}
-                            </option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1">
-                            Jenis Perusahaan / Instansi (F11)
-                        </label>
-                        <select
-                            v-model="editForm.jenis_perusahaan"
-                            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0D542B] cursor-pointer"
-                        >
-                            <option
-                                v-for="opt in availableJenisPerusahaanOptionsForEdit"
-                                :key="opt.value"
-                                :value="opt.value"
-                            >
-                                {{ opt.label }}
-                            </option>
-                        </select>
-                    </div>
+                            {{ opt.label }}
+                        </option>
+                    </select>
                 </div>
 
                 <div v-if="editForm.jenis_perusahaan === 'Lainnya' || editForm.jenis_perusahaan === '5 - Lainnya'">
                     <label class="block font-semibold text-slate-700 mb-1">Jenis Perusahaan / Instansi Lainnya</label>
                     <input v-model="editForm.jenis_perusahaan_lainnya" type="text" maxlength="150" placeholder="Tuliskan jenis perusahaan / instansi" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                </div>
-
-                <!-- 4. Sektor & Jumlah Pegawai -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Sektor</label>
-                        <input v-model="editForm.sektor" type="text" placeholder="Teknologi Informasi" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                    </div>
-                    <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Jumlah Pegawai</label>
-                        <input v-model="editForm.jumlah_pegawai" type="text" placeholder="51 - 100 Orang" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
-                    </div>
                 </div>
 
                 <!-- 5. Provinsi & Kabupaten vs Negara -->
@@ -2670,6 +2543,7 @@ const handleVerificationAction = (company, event) => {
                         <input
                             type="text"
                             v-model="editForm.kode_pos"
+                            placeholder="55222"
                             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                         />
                     </div>
@@ -2697,19 +2571,20 @@ const handleVerificationAction = (company, event) => {
                     <textarea
                         v-model="editForm.alamat"
                         rows="2"
+                        placeholder="Nama Jalan, Gedung, Nomor..."
                         class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#0D542B]"
                     ></textarea>
                 </div>
 
-                <!-- 8. Telepon & Website -->
+                <!-- 8. No. Telp / Fax Perusahaan & Website / Homepage Perusahaan -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Nomor Telepon / Fax</label>
-                        <input v-model="editForm.no_telp_fax" type="text" placeholder="0274-123456" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                        <label class="mb-1 block font-semibold text-slate-700">No. Telp / Fax Perusahaan</label>
+                        <input v-model="editForm.no_telp_fax" type="text" placeholder="Contoh: 0274-563929" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                     </div>
                     <div>
-                        <label class="mb-1 block font-semibold text-slate-700">Homepage / Website</label>
-                        <input v-model="editForm.homepage" type="url" placeholder="https://contoh.id" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
+                        <label class="mb-1 block font-semibold text-slate-700">Website / Homepage Perusahaan</label>
+                        <input v-model="editForm.homepage" type="url" placeholder="Contoh: https://perusahaan.com" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0D542B]" />
                     </div>
                 </div>
 

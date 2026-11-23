@@ -38,6 +38,20 @@ class Perusahaan extends Model
         'created_by_kode_prodi',
     ];
 
+    /**
+     * The "booted" method of the model.
+     * Otomatis melakukan sinkronisasi bentuk_perusahaan = jenis_perusahaan
+     * apabila bentuk_perusahaan kosong saat penyimpanan.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Perusahaan $model): void {
+            if (empty($model->bentuk_perusahaan) && ! empty($model->jenis_perusahaan)) {
+                $model->bentuk_perusahaan = $model->jenis_perusahaan;
+            }
+        });
+    }
+
     public function propinsi()
     {
         return $this->belongsTo(Propinsi::class, 'kode_provinsi', 'kode_provinsi');
