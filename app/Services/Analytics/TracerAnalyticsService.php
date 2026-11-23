@@ -1981,13 +1981,15 @@ class TracerAnalyticsService
             }
         }
         $series = $records->groupBy('competency')->map(function (Collection $group, string $label): array {
-            $gap = $this->averageInteger($group->pluck('gap')->all());
+            $gradScore = $this->averageInteger($group->pluck('graduation_score')->all());
+            $needScore = $this->averageInteger($group->pluck('need_score')->all());
+            $gap = ($gradScore !== null && $needScore !== null) ? ($gradScore - $needScore) : 0;
 
             return [
                 'label' => $label,
                 'count' => $group->count(),
-                'graduation_score' => $this->averageInteger($group->pluck('graduation_score')->all()),
-                'need_score' => $this->averageInteger($group->pluck('need_score')->all()),
+                'graduation_score' => $gradScore,
+                'need_score' => $needScore,
                 'gap' => $gap,
                 'is_deficit' => $gap < 0,
                 'is_neutral' => $gap === 0,
@@ -2005,7 +2007,7 @@ class TracerAnalyticsService
             'visual_plan' => $this->visualPlan('competency_gap'),
             'summary' => [
                 'answered_count' => $records->pluck('biodata_id')->unique()->count(),
-                'average_gap' => $this->averageInteger($records->pluck('gap')->all()),
+                'average_gap' => $this->averageInteger(collect($series)->pluck('gap')->all()),
                 'largest_gap_label' => $largestGapItem['label'] ?? null,
                 'largest_gap' => $largestGapItem['gap'] ?? null,
                 'leading_category' => $largestGapItem['label'] ?? null,

@@ -89,7 +89,7 @@ const gapDiagramOption = computed(() => {
     const gap = item.gap;
     const isDeficit = item.isDeficit;
     // Satu label gabungan mencegah teks Potential dan Performance bertumpuk saat nilainya sama.
-    const isNeutral = gap === 0;
+    const isNeutral = gap === 0 || needScore === gradScore;
     const gapSign = gap > 0 ? `+${gap}` : `${gap}`;
     const statusText = isNeutral
         ? 'Selaras (Tidak ada gap)'
@@ -181,6 +181,13 @@ const gapDiagramOption = computed(() => {
                 type: 'custom',
                 z: 2,
                 renderItem: (params, api) => {
+                    if (isNeutral) {
+                        return {
+                            type: 'group',
+                            children: [],
+                        };
+                    }
+
                     const p0 = api.coord([0, baselineY]);
                     const pPotential = api.coord([1, needScore]);
                     const pPerformance = api.coord([1, gradScore]);
@@ -611,7 +618,7 @@ const views = computed(() => [
                                 class="text-[10px] px-1.5 py-0.2 rounded-md font-mono"
                                 :class="selectedAspectIndex === idx
                                     ? 'bg-white/20 text-white'
-                                    : (asp.isDeficit ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800')"
+                                    : (asp.gap === 0 ? 'bg-slate-100 text-slate-700' : (asp.isDeficit ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'))"
                             >
                                 {{ asp.gap > 0 ? `+${asp.gap}` : asp.gap }}
                             </span>
@@ -643,16 +650,16 @@ const views = computed(() => [
                     <div class="flex items-center gap-2.5 sm:border-l sm:border-slate-200 sm:pl-3">
                         <div
                             class="w-2.5 h-2.5 rounded-full shrink-0"
-                            :class="activeAspect.isDeficit ? 'bg-amber-600' : 'bg-[#0D542B]'"
+                            :class="activeAspect.gap === 0 ? 'bg-slate-400' : (activeAspect.isDeficit ? 'bg-amber-600' : 'bg-[#0D542B]')"
                         ></div>
                         <div>
                             <span class="block text-slate-500 text-[11px] font-semibold">THE GAP (Selisih Evaluasi)</span>
                             <span
                                 class="font-extrabold text-sm"
-                                :class="activeAspect.isDeficit ? 'text-amber-800' : 'text-[#0D542B]'"
+                                :class="activeAspect.gap === 0 ? 'text-slate-700' : (activeAspect.isDeficit ? 'text-amber-800' : 'text-[#0D542B]')"
                             >
                                 {{ activeAspect.gap > 0 ? `+${activeAspect.gap}` : activeAspect.gap }} Poin
-                                ({{ activeAspect.isDeficit ? 'Defisit' : 'Surplus' }})
+                                ({{ activeAspect.gap === 0 ? 'Selaras' : (activeAspect.isDeficit ? 'Defisit' : 'Surplus') }})
                             </span>
                         </div>
                     </div>
