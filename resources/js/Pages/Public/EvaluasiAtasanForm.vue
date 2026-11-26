@@ -72,8 +72,19 @@ const alumniInitials = computed(() => {
     return rawName.slice(0, 2).toUpperCase();
 });
 
-// Step pertama berisi metadata master yang sudah diringkas di banner, sehingga form dimulai dari karakteristik.
-const activeStep = ref('karakteristik');
+// Inisialisasi langkah aktif: default langsung ke 'penilaian' (Skala Likert) atau mengikuti query param ?step=
+const getInitialStep = () => {
+    if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const stepParam = urlParams.get('step');
+        if (stepParam && ['karakteristik', 'penilaian', 'instansi'].includes(stepParam)) {
+            return stepParam;
+        }
+    }
+    return 'penilaian';
+};
+
+const activeStep = ref(getInitialStep());
 
 // Daftar langkah publik menyembunyikan metadata master dan menomori ulang dua langkah yang benar-benar diisi atasan.
 const steps = computed(() => {

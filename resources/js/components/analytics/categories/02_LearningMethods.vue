@@ -350,16 +350,26 @@ const drilldownAnalysis = computed(() => {
 // -----------------------------------------------------------------------------
 const methodsRadarOption = computed(() => {
     const list = series.value;
-    const indicators = list.map((item) => ({
+    const indicators = list.map((item, index) => ({
         name: seriesLabel(item),
         max: 5,
-        min: 1,
+        min: 0,
+        // Menampilkan angka skala 1-5 di setiap 5 garis cincin radar pada sumbu utama vertikal
+        ...(index === 0 ? {
+            axisLabel: {
+                show: true,
+                color: '#64748B',
+                fontSize: 10,
+                fontWeight: 600,
+                formatter: (val) => val === 0 ? '' : String(val),
+            },
+        } : {}),
     }));
 
-    // Memetakan nilai desimal aktual (average) agar bentuk radar berlekuk dinamis dan tidak flat di angka 3 bulat.
+    // Memetakan skor bulat integer (INT) agar simpul data menempel pas di atas garis skala cincin radar.
     const visualValues = list.map((item) => {
-        const rawVal = Number(item.average ?? item.score ?? 3);
-        return Math.max(1, Math.min(5, Number(rawVal.toFixed(2))));
+        const scoreInt = Number(item.score ?? Math.round(item.average ?? 3));
+        return Math.max(1, Math.min(5, scoreInt));
     });
 
     const rawAverages = list.map((item) => Number(item.average ?? item.score ?? 3));
@@ -371,7 +381,7 @@ const methodsRadarOption = computed(() => {
             shape: 'polygon',
             indicator: indicators,
             triggerEvent: true,
-            splitNumber: 4,
+            splitNumber: 5,
             radius: '78%',
             center: ['50%', '50%'],
             axisName: {

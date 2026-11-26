@@ -441,11 +441,14 @@ class DashboardScenarioSeeder extends Seeder
                     $kodeOpsi = $chosenChannel1['kode'];
                 }
             } elseif ($code === 'F6') {
-                $answer = (string) (3 + ($index % 12));
+                $answer = (string) (6 + ($index % 10));
             } elseif ($code === 'F7') {
-                $answer = (string) max(1, (int) floor((3 + ($index % 12)) * 0.45));
+                $appCount = 6 + ($index % 10);
+                $answer = (string) max(2, min($appCount - 2, (int) round($appCount * 0.45)));
             } elseif ($code === 'F7A') {
-                $answer = (string) max(1, (int) floor((3 + ($index % 12)) * 0.25));
+                $appCount = 6 + ($index % 10);
+                $respCount = max(2, min($appCount - 2, (int) round($appCount * 0.45)));
+                $answer = (string) max(1, min($respCount - 1, (int) round($respCount * 0.5)));
             } elseif ($code === 'F10') {
                 if ($hasCareer) {
                     $answer = 'Tidak';

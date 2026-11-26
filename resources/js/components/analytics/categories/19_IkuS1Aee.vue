@@ -76,10 +76,10 @@ const chartOption = computed(() => {
     const rows = chartRows.value;
     const maxDenominator = Math.max(...rows.map((item) => item.denominator), 0);
     const axisMax = Math.max(10, Math.ceil(maxDenominator / 10) * 10);
-    // Segmen menempatkan lulusan tepat waktu di urutan pertama (baseline kiri) dan belum tepat waktu di sisi kanan.
+    // Segmen menempatkan belum tepat waktu (merah) di urutan pertama (sisi kiri) dan lulusan tepat waktu (hijau) di sisi kanan.
     const segmentDefinitions = [
-        { key: 'on_time', valueKey: 'onTime', label: 'Hijau: Tepat Waktu (<= 4 Thn)', color: '#0D542B', stackOrder: 0 },
-        { key: 'late', valueKey: 'late', label: 'Merah: Belum Tepat Waktu (> 4 Thn)', color: '#DC2626', stackOrder: 1 },
+        { key: 'late', valueKey: 'late', label: 'Merah: Belum Tepat Waktu (> 4 Thn)', color: '#DC2626', stackOrder: 0 },
+        { key: 'on_time', valueKey: 'onTime', label: 'Hijau: Tepat Waktu (<= 4 Thn)', color: '#0D542B', stackOrder: 1 },
     ];
 
     return {
@@ -135,14 +135,9 @@ const chartOption = computed(() => {
                     show: true,
                     position: 'inside',
                     formatter: ({ data }) => {
-                        if (!data?.value || data.percentage < 4) return '';
+                        if (!data?.value || data.percentage < 7) return '';
 
-                        // Segmen tepat waktu menampilkan persentase dan rasio jumlah (misal: 100% (8/8))
-                        if (definition.key === 'on_time') {
-                            return `${formatPercentage(data.percentage)} (${data.count}/${data.total})`;
-                        }
-
-                        // Segmen belum tepat waktu menampilkan rasio jumlah jika segmen cukup lebar
+                        // Tampilkan rasio jumlah jika segmen cukup lebar (>= 16%), atau persentase saja jika sedang
                         return data.percentage >= 16
                             ? `${formatPercentage(data.percentage)} (${data.count}/${data.total})`
                             : `${formatPercentage(data.percentage)}`;
@@ -251,12 +246,12 @@ const views = computed(() => [{
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                         <span class="font-bold text-slate-800">Status Capaian:</span>
                         <span class="inline-flex items-center gap-1.5">
-                            <span class="h-2.5 w-2.5 rounded-xs bg-[#0D542B]"></span>
-                            <strong>Hijau:</strong> Tepat Waktu (&le; 4 Tahun)
+                            <span class="h-2.5 w-2.5 rounded-xs bg-[#DC2626]"></span>
+                            <strong>Merah (Kiri):</strong> Belum Tepat Waktu (&gt; 4 Tahun)
                         </span>
                         <span class="inline-flex items-center gap-1.5">
-                            <span class="h-2.5 w-2.5 rounded-xs bg-[#DC2626]"></span>
-                            <strong>Merah:</strong> Belum Tepat Waktu (&gt; 4 Tahun)
+                            <span class="h-2.5 w-2.5 rounded-xs bg-[#0D542B]"></span>
+                            <strong>Hijau (Kanan):</strong> Tepat Waktu (&le; 4 Tahun)
                         </span>
                     </div>
                 </div>

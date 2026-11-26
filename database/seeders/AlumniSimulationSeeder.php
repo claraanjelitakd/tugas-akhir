@@ -40,6 +40,58 @@ use Illuminate\Support\Facades\Hash;
 class AlumniSimulationSeeder extends Seeder
 {
     /**
+     * Daftar NIM alumni yang sengaja tidak mengisi kuesioner agar sebaran response rate analitik
+     * merepresentasikan seluruh rentang capaian target:
+     * - Hijau: >= 50% (Baik)
+     * - Kuning: 30% - < 50% (Perlu Ditingkatkan)
+     * - Merah: < 30% (Perlu Perhatian)
+     * - Abu-abu: Belum Mengisi (ditampilkan pada segmen kiri grafik stacked bar)
+     *
+     * @var array<int, string>
+     */
+    public const UNANSWERED_NIMS = [
+        // Desain Produk (22) -> 3 terisi dari 12 (25.0% - Merah)
+        '22220004', '22220005', '22220006', '22220007', '22220008',
+        '22220010', '22220011', '22220012', '22220013',
+
+        // Studi Humanitas (82) -> 2 terisi dari 12 (16.7% - Merah)
+        '82220003', '82220004', '82220005', '82220006', '82220007', '82220008',
+        '82220010', '82220011', '82220012', '82220013',
+
+        // Informatika (71) -> 6 terisi dari 14 (42.9% - Kuning)
+        '71220007', '71220008', '71220009',
+        '71220010', '71220011', '71220012', '71220013',
+        '71220101',
+
+        // Sistem Informasi (72) -> 8 terisi dari 22 (36.4% - Kuning)
+        '72220003', '72220007', '72220008', '72220009',
+        '72220010', '72220011', '72220012', '72220013',
+        '72220099', '72220521', '72220552', '72220582',
+        '72220601', '72230656',
+
+        // Arsitektur (21) -> 11 terisi dari 12 (91.7% - Hijau)
+        '21220013',
+
+        // Manajemen (11) -> 11 terisi dari 14 (78.6% - Hijau)
+        '11220009', '11220013', '11220101',
+
+        // Kedokteran (61) -> 10 terisi dari 13 (76.9% - Hijau)
+        '61220008', '61220013', '61220014',
+
+        // Biologi (41) -> 9 terisi dari 12 (75.0% - Hijau)
+        '41220008', '41220012', '41220013',
+
+        // Pendidikan Bahasa Inggris (81) -> 9 terisi dari 13 (69.2% - Hijau)
+        '81220008', '81220012', '81220013', '81220014',
+
+        // Filsafat Keilahian (31) -> 8 terisi dari 12 (66.7% - Hijau)
+        '31220008', '31220011', '31220012', '31220013',
+
+        // Teknologi Pangan (42) -> 7 terisi dari 12 (58.3% - Hijau)
+        '42220007', '42220008', '42220011', '42220012', '42220013',
+    ];
+
+    /**
      * Jalankan database seeds simulasi alumni.
      */
     public function run(): void
@@ -682,6 +734,11 @@ class AlumniSimulationSeeder extends Seeder
             return;
         }
 
+        // Jangan isi kuesioner jika NIM terdaftar dalam daftar belum mengisi untuk kalibrasi sebaran response rate analitik
+        if (in_array($nim, self::UNANSWERED_NIMS, true)) {
+            return;
+        }
+
         // Isi Jawaban Kuesioner Universitas Lengkap (100% Wajib Terpenuhi)
         $this->seedTracerAnswersLengkap($biodata, $kategoriIdx, $seedIndex, $univQuestions);
 
@@ -785,9 +842,12 @@ class AlumniSimulationSeeder extends Seeder
             $f4Options = $f4Question?->opsi?->sortBy('order')->values();
             $answers['F4'] = $f4Options?->get($variation % max(1, $f4Options->count()))?->label
                 ?? 'Mencari lewat internet/iklan online/milis';
-            $applications = 2 + ($variation % 6);
-            $responses = max(1, $applications - ($variation % 3));
-            $interviews = max(1, $responses - 1);
+            // F6: Berkas lamaran terkirim (basis penuh: 6 s/d 15 lamaran)
+            $applications = 6 + ($variation % 10);
+            // F7: Respons perusahaan diterima (selalu di bawah lamaran, rasio 35%-55%)
+            $responses = max(2, min($applications - 2, (int) round($applications * (0.35 + (($variation % 3) * 0.1)))));
+            // F7A: Undangan wawancara (selalu di bawah respons, karena wawancara otomatis adalah respons)
+            $interviews = max(1, min($responses - 1, (int) round($responses * 0.5)));
             $answers['F6'] = (string) $applications;
             $answers['F7'] = (string) $responses;
             $answers['F7A'] = (string) $interviews;
@@ -818,7 +878,7 @@ class AlumniSimulationSeeder extends Seeder
                 ?? 'Beasiswa Pemerintah';
             $answers['F18b'] = 'Universitas Gadjah Mada';
             $answers['F18c'] = 'Program Magister Pascasarjana';
-            $answers['F18d'] = $variation % 2 === 0 ? '2026-08-01' : '2026-09-01';
+            $answers['F18d'] = $seedIndex % 2 === 0 ? '2026-08-01' : '2026-09-01';
         }
 
         // Simpan seluruh record ke tabel kuesioner_jawaban terpadu

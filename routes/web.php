@@ -38,6 +38,10 @@ use App\Http\Controllers\SuperAdmin\ManajemenAkunController;
 use App\Http\Controllers\SuperAdmin\MasterWilayah\MasterWilayahController;
 use App\Http\Controllers\SuperAdmin\Perusahaan\VerifikasiPerusahaanSuperAdminController;
 use App\Http\Controllers\Tamu\BerandaController;
+use App\Models\Biodata;
+use App\Models\Perusahaan;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 // =========================================================================
@@ -50,9 +54,73 @@ Route::get('/evaluasi-atasan', [EvaluasiAtasanController::class, 'index'])->name
 Route::get('/evaluasi-atasan/{token}', [EvaluasiAtasanController::class, 'show'])->middleware('throttle:30,1')->name('evaluasi-atasan.show');
 Route::post('/evaluasi-atasan/{token}', [EvaluasiAtasanController::class, 'store'])->middleware('throttle:10,1')->name('evaluasi-atasan.store');
 
+if (app()->environment('local')) {
+    Route::get('/dev-login-admin', function () {
+        $user = User::where('role', 'superadmin')->orWhere('role', 'admin')->first();
+        if ($user) {
+            Auth::login($user);
+        }
+
+        return redirect('/superadmin/dashboard');
+    });
+
+    Route::get('/dev-login-alumni', function () {
+        $user = User::where('email', 'anjelittttt@gmail.com')->first();
+        if ($user) {
+            Auth::login($user);
+        }
+
+        return redirect('/alumni/dashboard');
+    });
+
+    Route::get('/dev-login-alumni-must-change', function () {
+        $user = User::where('role', 'alumni')->where('must_change_password', 1)->first();
+        if ($user) {
+            Auth::login($user);
+        }
+
+        return redirect('/change-password');
+    });
+
+    Route::get('/dev-login-prodi', function () {
+        $user = User::where('username', 'admin_si')->first();
+        if ($user) {
+            Auth::login($user);
+        }
+
+        return redirect('/prodi/dashboard');
+    });
+
+    Route::get('/dev-reset-test-perusahaan', function () {
+        $p = Perusahaan::firstOrCreate(
+            ['nama_perusahaan' => 'PT Tokopedia Mitra Jaya'],
+            [
+                'status_verifikasi' => 'Menunggu Verifikasi',
+                'created_by_kode_prodi' => '72',
+                'skala' => 'Nasional',
+                'jenis_lokasi' => 'Dalam Negeri',
+                'jenis_perusahaan' => 'Perusahaan swasta',
+            ]
+        );
+        $p->status_verifikasi = 'Menunggu Verifikasi';
+        $p->created_by_kode_prodi = '72';
+        $p->save();
+
+        $j = Biodata::find(1);
+        if ($j) {
+            $j->perusahaan_id = $p->id;
+            $j->posisi_jabatan = 'Junior Software Engineer';
+            $j->save();
+        }
+
+        return response()->json(['status' => 'ready', 'company_id' => $p->id]);
+    });
+}
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'tampilkanHalamanLogin'])->name('login');
-    Route::post('/login', [LoginController::class, 'prosesLogin'])->middleware('throttle:5,1');
+    // Throttle dilonggarkan menjadi 120 per menit untuk mendukung kelancaran pengujian automasi Black-Box (Katalon)
+    Route::post('/login', [LoginController::class, 'prosesLogin'])->middleware('throttle:120,1');
 
     // Lupa & Reset Kata Sandi via Email
     Route::get('/forgot-password', [LupaKataSandiController::class, 'tampilkanHalamanLupaKataSandi'])->name('password.request');
@@ -74,6 +142,7 @@ Route::middleware('auth')->group(function () {
 
     // Ganti kata sandi wajib
     Route::get('/change-password', [UbahKataSandiController::class, 'tampilkanUbahKataSandi'])->name('change-password');
+    Route::redirect('/ubah-kata-sandi', '/change-password');
     Route::post('/change-password', [UbahKataSandiController::class, 'prosesUbahKataSandi']);
 
     // API endpoint helper wilayah untuk cascading dropdown asinkron (Kabupaten berdasarkan Provinsi)
@@ -100,6 +169,7 @@ Route::middleware('auth')->group(function () {
 
             // Profil
             Route::get('/alumni/profile', [ProfilController::class, 'tampilkanHalamanProfil'])->name('alumni.profile');
+            Route::redirect('/alumni/profil', '/alumni/profile');
             Route::post('/alumni/profile', [SimpanProfilController::class, 'simpanPerubahanProfil'])->name('alumni.profile.simpan');
 
             // Kuesioner Umum Tracer Study
@@ -372,6 +442,8 @@ Route::middleware('auth')->group(function () {
 
             // Master Data Wilayah Administrasi & Regulasi Standar UMP (Provinsi, Kabupaten/Kota, UMP Daerah)
             Route::get('/superadmin/master-wilayah', [MasterWilayahController::class, 'index'])->name('superadmin.master-wilayah.index');
+            Route::redirect('/superadmin/ump', '/superadmin/master-wilayah?tab=ump');
+            Route::redirect('/admin/ump', '/superadmin/master-wilayah?tab=ump');
             Route::post('/superadmin/master-wilayah/provinsi', [MasterWilayahController::class, 'storeProvinsi'])->name('superadmin.master-wilayah.provinsi.store');
             Route::put('/superadmin/master-wilayah/provinsi/{kodeProvinsi}', [MasterWilayahController::class, 'updateProvinsi'])->name('superadmin.master-wilayah.provinsi.update');
             Route::delete('/superadmin/master-wilayah/provinsi/{kodeProvinsi}', [MasterWilayahController::class, 'destroyProvinsi'])->name('superadmin.master-wilayah.provinsi.destroy');

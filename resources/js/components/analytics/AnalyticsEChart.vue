@@ -132,7 +132,7 @@ const renderChart = async () => {
     };
 
     try {
-        chartInstance.setOption(chartOption, { notMerge: true, lazyUpdate: true });
+        chartInstance.setOption(chartOption, { notMerge: true });
     } catch (error) {
         console.error('[AnalyticsEChart] Gagal merender opsi grafik, memakai opsi asli.', error);
         chartInstance.clear();
@@ -142,7 +142,7 @@ const renderChart = async () => {
             animationDurationUpdate: prefersReducedMotion() ? 0 : 280,
             animationEasingUpdate: 'cubicOut',
             ...props.option,
-        }, { notMerge: true, lazyUpdate: true });
+        }, { notMerge: true });
     }
     syncLoading();
 };

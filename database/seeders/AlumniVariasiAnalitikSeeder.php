@@ -338,6 +338,11 @@ class AlumniVariasiAnalitikSeeder extends Seeder
                 ]
             );
 
+            // Jangan isi kuesioner jika NIM terdaftar dalam kalibrasi unanswered
+            if (in_array($item['nim'], AlumniSimulationSeeder::UNANSWERED_NIMS, true)) {
+                continue;
+            }
+
             // 6. Jawaban Kuesioner Universitas Lengkap
             $answers = [];
 
@@ -453,6 +458,12 @@ class AlumniVariasiAnalitikSeeder extends Seeder
                     ]
                 );
             }
+        }
+
+        // Pastikan alumni dalam daftar target belum mengisi tidak memiliki kuesioner_jawaban
+        $unansweredBiodataIds = Biodata::whereIn('nim', AlumniSimulationSeeder::UNANSWERED_NIMS)->pluck('id');
+        if ($unansweredBiodataIds->isNotEmpty()) {
+            KuesionerJawaban::whereIn('biodata_id', $unansweredBiodataIds)->delete();
         }
     }
 }

@@ -176,8 +176,10 @@ const gapDiagramOption = computed(() => {
             `,
         },
         series: [
-            // Series 1: Area Segitiga Arsiran "THE GAP"
+            // Series 1: Area Segitiga Arsiran "THE GAP" (Hanya jika ada selisih gap/tidak netral)
             {
+                id: 'gap_triangle_area',
+                name: 'The Gap Area',
                 type: 'custom',
                 z: 2,
                 renderItem: (params, api) => {
@@ -258,10 +260,11 @@ const gapDiagramOption = computed(() => {
                         ],
                     };
                 },
-                data: [0],
+                data: isNeutral ? [] : [[needScore, gradScore, gap, item.key, selectedAspectIndex.value]],
             },
             // Series 2: Garis Potential (Where We Want To Be) - Tuntutan Kerja
             {
+                id: 'line_potential',
                 name: 'Potential (Where We Want To Be) - Tuntutan Kerja',
                 type: 'line',
                 z: 5,
@@ -299,6 +302,7 @@ const gapDiagramOption = computed(() => {
             },
             // Series 3: Garis Performance (Where We Are) - Bekal Saat Lulus
             {
+                id: 'line_performance',
                 name: 'Performance (Where We Are) - Bekal Saat Lulus',
                 type: 'line',
                 z: 5,

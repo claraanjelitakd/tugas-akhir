@@ -53,7 +53,7 @@ const selectedStatus = ref('all'); // 'all', 'sudah', atau 'belum'
 // Kontrak grafik tunggal response rate, target, dan jumlah responden.
 const activeChartTab = ref('ranking');
 const activeChartType = 'Batang partisipasi alumni';
-const activeChartReason = 'Panjang batang menunjukkan total alumni; warna menunjukkan alumni yang sudah mengisi, sedangkan abu-abu menunjukkan yang belum mengisi.';
+const activeChartReason = 'Panjang batang menunjukkan total alumni; segmen abu-abu di sisi kiri menunjukkan alumni yang belum mengisi, sedangkan segmen berwarna menunjukkan alumni yang sudah mengisi.';
 
 // Pengurutan capaian pada grafik.
 const sortAsc = ref(false);
@@ -238,7 +238,7 @@ const stackedBarOption = computed(() => {
         ...baseOption(),
         themePalette: responseRatePalette,
         legend: {
-            data: ['Sudah Mengisi', 'Belum Mengisi'],
+            data: ['Belum Mengisi', 'Sudah Mengisi'],
             top: 6,
             textStyle: { color: '#334155', fontWeight: 600, fontSize: 12 },
         },
@@ -269,52 +269,25 @@ const stackedBarOption = computed(() => {
                     <div style="font-family: inherit; font-size: 12px; line-height: 1.5;">
                         <div style="font-weight: 700; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; margin-bottom: 6px; color: #0F172A;">${escapeHtml(prodi)}</div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; color: #475569;"><span>Populasi Kohort:</span><strong>${formatNumber(item.population, 0)} alumni</strong></div>
-                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #0D542B; margin-top: 2px;"><span>Sudah Mengisi:</span><strong>${formatNumber(item.respondents, 0)} alumni (${formatNumber(item.response_rate, 1)}%)</strong></div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; color: #64748B; margin-top: 2px;"><span>Belum Mengisi:</span><strong>${formatNumber(item.unanswered, 0)} alumni (${formatNumber(item.unanswered_rate, 1)}%)</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: #0D542B; margin-top: 2px;"><span>Sudah Mengisi:</span><strong>${formatNumber(item.respondents, 0)} alumni (${formatNumber(item.response_rate, 1)}%)</strong></div>
                     </div>
                 `;
             },
         },
         series: [
             {
-                name: 'Sudah Mengisi',
-                type: 'bar',
-                stack: 'total',
-                barMaxWidth: 26,
-                itemStyle: {
-                    color: '#0D542B',
-                    borderRadius: [3, 0, 0, 3],
-                    opacity: (params) => {
-                        if (!selectedProdiName.value) return 1;
-                        if (params.name === selectedProdiName.value) {
-                            return selectedStatus.value === 'belum' ? 0.35 : 1;
-                        }
-                        return 0.22;
-                    },
-                },
-                label: {
-                    show: true,
-                    position: 'inside',
-                    formatter: ({ value }) => (value >= 10 ? `${formatNumber(value, 1)}%` : ''),
-                    color: '#FFFFFF',
-                    fontWeight: 600,
-                    fontSize: 10,
-                },
-                data: list.map((item) => ({
-                    name: item.nama_prodi,
-                    value: item.response_rate,
-                    kode_prodi: item.kode_prodi,
-                    series_status: 'sudah',
-                })),
-            },
-            {
                 name: 'Belum Mengisi',
                 type: 'bar',
                 stack: 'total',
+                stackOrder: 0,
                 barMaxWidth: 26,
                 itemStyle: {
                     color: responseRatePalette[1],
-                    borderRadius: [0, 3, 3, 0],
+                    borderRadius: (params) => {
+                        const row = list[params.dataIndex];
+                        return (row?.response_rate === 0) ? [3, 3, 3, 3] : [3, 0, 0, 3];
+                    },
                     opacity: (params) => {
                         if (!selectedProdiName.value) return 1;
                         if (params.name === selectedProdiName.value) {
@@ -336,6 +309,41 @@ const stackedBarOption = computed(() => {
                     value: item.unanswered_rate,
                     kode_prodi: item.kode_prodi,
                     series_status: 'belum',
+                })),
+            },
+            {
+                name: 'Sudah Mengisi',
+                type: 'bar',
+                stack: 'total',
+                stackOrder: 1,
+                barMaxWidth: 26,
+                itemStyle: {
+                    color: '#0D542B',
+                    borderRadius: (params) => {
+                        const row = list[params.dataIndex];
+                        return (row?.unanswered_rate === 0) ? [3, 3, 3, 3] : [0, 3, 3, 0];
+                    },
+                    opacity: (params) => {
+                        if (!selectedProdiName.value) return 1;
+                        if (params.name === selectedProdiName.value) {
+                            return selectedStatus.value === 'belum' ? 0.35 : 1;
+                        }
+                        return 0.22;
+                    },
+                },
+                label: {
+                    show: true,
+                    position: 'inside',
+                    formatter: ({ value }) => (value >= 10 ? `${formatNumber(value, 1)}%` : ''),
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    fontSize: 10,
+                },
+                data: list.map((item) => ({
+                    name: item.nama_prodi,
+                    value: item.response_rate,
+                    kode_prodi: item.kode_prodi,
+                    series_status: 'sudah',
                 })),
             },
         ],
@@ -503,11 +511,11 @@ const participationBarOption = computed(() => {
 
     return {
         ...baseOption(),
-        grid: { left: 18, right: 108, top: 20, bottom: 48, containLabel: true },
+        grid: { left: 18, right: 36, top: 20, bottom: 48, containLabel: true },
         xAxis: {
             type: 'value',
             min: 0,
-            max: Math.ceil(maxPopulation * 1.1),
+            max: Math.ceil(maxPopulation * 1.05),
             name: 'Jumlah alumni (orang)',
             nameLocation: 'middle',
             nameGap: 30,
@@ -544,8 +552,8 @@ const participationBarOption = computed(() => {
                         <div style="display: flex; justify-content: space-between; gap: 16px;"><span>Partisipasi:</span><strong>${formatNumber(item.response_rate, 1)}%</strong></div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; margin: 2px 0;"><span>Status Capaian:</span><strong style="color: ${status.color};">${escapeHtml(status.label)}</strong></div>
                         <div style="font-size: 11px; color: #64748B; margin-bottom: 4px;">(${escapeHtml(status.meaning)})</div>
-                        <div style="display: flex; justify-content: space-between; gap: 16px; color: ${status.color};"><span>Sudah mengisi:</span><strong>${formatNumber(item.respondents, 0)} alumni</strong></div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; color: #64748B;"><span>Belum mengisi:</span><strong>${formatNumber(item.unanswered, 0)} alumni</strong></div>
+                        <div style="display: flex; justify-content: space-between; gap: 16px; color: ${status.color};"><span>Sudah mengisi:</span><strong>${formatNumber(item.respondents, 0)} alumni</strong></div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; color: #475569;"><span>N:</span><strong>${formatNumber(item.respondents, 0)}/${formatNumber(item.population, 0)}</strong></div>
                         <div style="display: flex; justify-content: space-between; gap: 16px; color: #64748B; font-size: 11px; margin-top: 4px; border-top: 1px dashed #E2E8F0; padding-top: 4px;"><span>Target:</span><span>${formatNumber(targetVal, 0)}% (Batas warna: 30% / 50%)</span></div>
                     </div>
@@ -554,12 +562,63 @@ const participationBarOption = computed(() => {
         },
         series: [
             {
+                name: 'Belum Mengisi',
+                type: 'bar',
+                stack: 'population',
+                stackOrder: 0,
+                barMaxWidth: 28,
+                itemStyle: {
+                    color: '#CBD5E1',
+                    borderRadius: (params) => {
+                        const row = list[params.dataIndex];
+                        return (row?.respondents === 0) ? [3, 3, 3, 3] : [3, 0, 0, 3];
+                    },
+                    opacity: (params) => !selectedProdiName.value || params.name === selectedProdiName.value ? 1 : 0.28,
+                },
+                label: {
+                    show: true,
+                    position: 'inside',
+                    color: '#0F172A',
+                    fontWeight: 700,
+                    fontSize: 10,
+                    formatter: ({ data }) => {
+                        if (!data || !data.value || data.value <= 0) return '';
+                        const unans = Number(data.value);
+                        const pop = Number(data.population || 0);
+                        const rate = pop > 0 ? formatNumber((unans / pop) * 100, 1) : '0';
+                        if (pop > 0 && (unans / pop) >= 0.25) {
+                            return `${rate}% (${unans})`;
+                        }
+                        return `${unans}`;
+                    },
+                },
+                data: list.map((item) => ({
+                    name: item.nama_prodi,
+                    value: item.unanswered,
+                    respondents: item.respondents,
+                    population: item.population,
+                    kode_prodi: item.kode_prodi,
+                    series_status: 'belum',
+                    itemStyle: {
+                        color: '#CBD5E1',
+                        borderRadius: (item.respondents === 0) ? [3, 3, 3, 3] : [3, 0, 0, 3],
+                        opacity: !selectedProdiName.value || item.nama_prodi === selectedProdiName.value ? 1 : 0.22,
+                        borderWidth: selectedProdiName.value === item.nama_prodi ? 2 : 0,
+                        borderColor: '#475569',
+                    },
+                })),
+            },
+            {
                 name: 'Sudah Mengisi',
                 type: 'bar',
                 stack: 'population',
+                stackOrder: 1,
                 barMaxWidth: 28,
                 itemStyle: {
-                    borderRadius: [3, 0, 0, 3],
+                    borderRadius: (params) => {
+                        const row = list[params.dataIndex];
+                        return (row?.unanswered === 0) ? [3, 3, 3, 3] : [0, 3, 3, 0];
+                    },
                     color: (params) => {
                         const row = list[params.dataIndex];
                         return participationColor(row);
@@ -572,55 +631,29 @@ const participationBarOption = computed(() => {
                     color: '#FFFFFF',
                     fontWeight: 700,
                     fontSize: 11,
-                    formatter: ({ data }) => data?.response_rate >= 10 ? `${formatNumber(data.response_rate, 1)}%` : '',
+                    formatter: ({ data }) => {
+                        if (!data) return '';
+                        const rate = formatNumber(data.response_rate, 1);
+                        const resp = formatNumber(data.respondents, 0);
+                        const pop = formatNumber(data.population, 0);
+                        return `${rate}% (${resp}/${pop})`;
+                    },
                 },
                 data: list.map((item) => ({
                     name: item.nama_prodi,
                     value: item.respondents,
                     response_rate: item.response_rate,
                     target: item.target,
+                    respondents: item.respondents,
+                    population: item.population,
                     kode_prodi: item.kode_prodi,
                     series_status: 'sudah',
                     itemStyle: {
                         color: participationColor(item),
-                        borderRadius: [3, 0, 0, 3],
+                        borderRadius: (item.unanswered === 0) ? [3, 3, 3, 3] : [0, 3, 3, 0],
                         opacity: !selectedProdiName.value || item.nama_prodi === selectedProdiName.value ? 1 : 0.22,
                         borderWidth: selectedProdiName.value === item.nama_prodi ? 2 : 0,
                         borderColor: '#0D542B',
-                    },
-                })),
-            },
-            {
-                name: 'Belum Mengisi',
-                type: 'bar',
-                stack: 'population',
-                barMaxWidth: 28,
-                itemStyle: {
-                    color: '#CBD5E1',
-                    borderRadius: [0, 3, 3, 0],
-                    opacity: (params) => !selectedProdiName.value || params.name === selectedProdiName.value ? 1 : 0.28,
-                },
-                label: {
-                    show: true,
-                    position: 'right',
-                    color: '#475569',
-                    fontWeight: 600,
-                    fontSize: 11,
-                    formatter: ({ data }) => `${formatNumber(data?.respondents, 0)}/${formatNumber(data?.population, 0)}`,
-                },
-                data: list.map((item) => ({
-                    name: item.nama_prodi,
-                    value: item.unanswered,
-                    respondents: item.respondents,
-                    population: item.population,
-                    kode_prodi: item.kode_prodi,
-                    series_status: 'belum',
-                    itemStyle: {
-                        color: '#CBD5E1',
-                        borderRadius: [0, 3, 3, 0],
-                        opacity: !selectedProdiName.value || item.nama_prodi === selectedProdiName.value ? 1 : 0.22,
-                        borderWidth: selectedProdiName.value === item.nama_prodi ? 2 : 0,
-                        borderColor: '#475569',
                     },
                 })),
             },
@@ -898,23 +931,26 @@ const downloadExcel = (statusTarget = null) => {
                 </div>
 
                 <!-- Legenda Keterangan Warna Capaian Target -->
-                <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs text-slate-700">
-                    <span class="font-bold text-slate-800">Status Capaian (Target {{ formatNumber(currentTarget, 0) }}%; batas warna 30% / 50%):</span>
+                <div class="mt-3 flex flex-wrap items-center gap-x-3.5 gap-y-2 rounded-lg bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs text-slate-700">
+                    <span class="font-bold text-slate-900 pr-3 border-r border-slate-300">Target Universitas: {{ formatNumber(currentTarget, 0) }}%</span>
                     <div class="flex items-center gap-1.5">
-                        <span class="inline-block h-3 w-3 rounded-xs bg-[#0D542B]"></span>
-                        <span><strong>Hijau:</strong> &ge; 50% (Capaian baik)</span>
-                    </div>
-                    <div class="flex items-center gap-1.5">
-                        <span class="inline-block h-3 w-3 rounded-xs bg-[#D97706]"></span>
-                        <span><strong>Kuning:</strong> 30%–&lt;50% (Perlu ditingkatkan)</span>
-                    </div>
-                    <div class="flex items-center gap-1.5">
-                        <span class="inline-block h-3 w-3 rounded-xs bg-[#DC2626]"></span>
-                        <span><strong>Merah:</strong> &lt; 30% (Perlu perhatian)</span>
-                    </div>
-                    <div class="flex items-center gap-1.5 border-l border-slate-300 pl-3">
                         <span class="inline-block h-3 w-3 rounded-xs bg-[#CBD5E1]"></span>
                         <span><strong>Abu-abu:</strong> Belum Mengisi</span>
+                    </div>
+                    <span class="text-slate-300 hidden sm:inline">|</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="inline-block h-3 w-3 rounded-xs bg-[#0D542B]"></span>
+                        <span><strong>Hijau:</strong> &ge; 50% (Baik)</span>
+                    </div>
+                    <span class="text-slate-300 hidden sm:inline">|</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="inline-block h-3 w-3 rounded-xs bg-[#D97706]"></span>
+                        <span><strong>Kuning:</strong> 30%–&lt;50% (Perlu Ditingkatkan)</span>
+                    </div>
+                    <span class="text-slate-300 hidden sm:inline">|</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="inline-block h-3 w-3 rounded-xs bg-[#DC2626]"></span>
+                        <span><strong>Merah:</strong> &lt; 30% (Perlu Perhatian)</span>
                     </div>
                 </div>
 
@@ -956,7 +992,7 @@ const downloadExcel = (statusTarget = null) => {
                         />
                         <p class="px-1 text-xs leading-relaxed text-slate-500">
                             <span class="font-semibold text-slate-700">Caption:</span>
-                            Partisipasi alumni per program studi. Warna batang menunjukkan status capaian partisipasi (Hijau: &ge; 50%, Kuning: 30%–&lt;50%, Merah: &lt; 30%). Label di dalam batang menunjukkan persentase, sedangkan label di ujung batang menunjukkan N responden dari total alumni.
+                            Partisipasi alumni per program studi. Segmen abu-abu di sisi kiri menunjukkan alumni yang belum mengisi kuesioner (beserta jumlahnya), sedangkan segmen berwarna di sisi kanan menunjukkan alumni yang sudah mengisi (persentase dan rasio responden terhadap total alumni).
                         </p>
 
                         <!-- Kotak ringkasan partisipasi -->

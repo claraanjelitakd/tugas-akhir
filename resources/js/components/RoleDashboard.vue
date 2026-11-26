@@ -77,7 +77,7 @@ const roleConfig = computed(() => {
             contextLabel: 'Program Studi',
             contextValue: `${props.prodi?.nama_prodi || 'Program Studi'} (Kode: ${props.prodi?.kode_prodi || '-'})`,
             prefix: '/prodi',
-            links: { alumni: '/prodi/alumni', company: '/prodi/perusahaan', linkedin: '/prodi/linkedin-sync', questionnaire: '/prodi/kuesioner', sections: '/prodi/sections' },
+            links: { alumni: '/prodi/alumni', company: '/prodi/perusahaan', questionnaire: '/prodi/kuesioner', sections: '/prodi/sections' },
         },
         admin_fakultas: {
             label: 'Admin Fakultas',
@@ -86,7 +86,7 @@ const roleConfig = computed(() => {
             contextLabel: 'Fakultas',
             contextValue: props.fakultas?.nama_fakultas || 'Fakultas',
             prefix: '/fakultas',
-            links: { alumni: '/fakultas/alumni', company: '/fakultas/perusahaan', linkedin: '/fakultas/linkedin-sync', questionnaire: '/fakultas/prodi-kuesioner' },
+            links: { alumni: '/fakultas/alumni', company: '/fakultas/perusahaan', questionnaire: '/fakultas/prodi-kuesioner' },
         },
         admin_biro3: {
             label: 'Biro 3 Kemahasiswaan',
@@ -104,7 +104,7 @@ const roleConfig = computed(() => {
             contextLabel: 'Lingkup',
             contextValue: 'Universitas',
             prefix: '/superadmin',
-            links: { alumni: '/superadmin/alumni', company: '/superadmin/perusahaan', linkedin: '/superadmin/linkedin-sync', questionnaire: '/superadmin/prodi-kuesioner', accounts: '/superadmin/manajemen-akun' },
+            links: { alumni: '/superadmin/alumni', company: '/superadmin/perusahaan', questionnaire: '/superadmin/prodi-kuesioner', accounts: '/superadmin/manajemen-akun' },
         },
     };
 
@@ -261,10 +261,9 @@ const scopeLabel = computed(() => roleConfig.value.contextValue);
                         <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Akses cepat</h2>
                         <span v-if="role !== 'admin_biro3'" class="text-xs text-slate-400">{{ dashboardStats.total_pending_perusahaan || 0 }} perusahaan menunggu verifikasi</span>
                     </div>
-                    <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                    <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <Link :href="roleConfig.links.alumni" class="rounded-xl bg-slate-50 px-3 py-3 text-center text-xs font-bold text-slate-700 transition-colors hover:bg-[#0D542B] hover:text-white">Direktori Alumni</Link>
                         <Link v-if="roleConfig.links.company" :href="roleConfig.links.company" class="rounded-xl bg-slate-50 px-3 py-3 text-center text-xs font-bold text-slate-700 transition-colors hover:bg-[#0D542B] hover:text-white">Master Perusahaan</Link>
-                        <Link v-if="roleConfig.links.linkedin" :href="roleConfig.links.linkedin" class="rounded-xl bg-slate-50 px-3 py-3 text-center text-xs font-bold text-slate-700 transition-colors hover:bg-[#0D542B] hover:text-white">Sinkronisasi LinkedIn</Link>
                         <Link v-if="roleConfig.links.questionnaire" :href="roleConfig.links.questionnaire" class="rounded-xl bg-slate-50 px-3 py-3 text-center text-xs font-bold text-slate-700 transition-colors hover:bg-[#0D542B] hover:text-white">Kuesioner</Link>
                         <Link v-if="roleConfig.links.accounts" :href="roleConfig.links.accounts" class="rounded-xl bg-slate-50 px-3 py-3 text-center text-xs font-bold text-slate-700 transition-colors hover:bg-[#0D542B] hover:text-white">Manajemen Akun</Link>
                     </div>

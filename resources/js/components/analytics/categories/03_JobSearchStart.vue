@@ -156,15 +156,68 @@ const timingRangeTable = computed(() => ({
     })),
 }));
 
-// Segmen warna tetap terbatas pada fase dan rentang yang telah disepakati.
+// 4 segmen kanonik diselaraskan dengan standar palet Masa Tunggu (Abu-abu kiri -> Merah -> Kuning -> Hijau kanan).
 const timingStackSegments = [
-    { key: 'before_graduation', label: 'Sebelum Lulus', color: '#0D542B', labelColor: '#FFFFFF' },
-    { key: 'after_under_6', label: '<6 bulan', color: '#FACC15', labelColor: '#334155' },
-    { key: 'after_6_to_12', label: '6–12 bulan', color: '#F97316', labelColor: '#FFFFFF' },
-    { key: 'after_over_12', label: '>12 bulan', color: '#B91C1C', labelColor: '#FFFFFF' },
-    { key: 'after_unavailable', label: 'Masa tunggu tidak tersedia', color: '#CBD5E1', labelColor: '#334155' },
-    { key: 'not_searching', label: 'Tidak mencari kerja', color: '#B91C1C', labelColor: '#FFFFFF' },
+    {
+        key: 'unavailable',
+        label: 'Masa tunggu tidak tersedia',
+        shortLabel: 'Belum Tersedia',
+        color: '#CBD5E1',
+        labelColor: '#0F172A',
+        stackOrder: 0,
+        getCount: (group) => Number(group.counts?.['after_unavailable'] || 0),
+    },
+    {
+        key: 'over_12_or_not_searching',
+        label: '≥12 bulan / Tidak mencari kerja',
+        shortLabel: '≥12 bulan (Tidak Berbobot)',
+        color: '#DC2626',
+        labelColor: '#FFFFFF',
+        stackOrder: 1,
+        getCount: (group) => Number(group.counts?.['after_over_12'] || 0) + Number(group.counts?.['not_searching'] || 0),
+    },
+    {
+        key: '6_to_12',
+        label: '6–12 bulan',
+        shortLabel: '6–<12 bulan (Menengah)',
+        color: '#D97706',
+        labelColor: '#FFFFFF',
+        stackOrder: 2,
+        getCount: (group) => Number(group.counts?.['after_6_to_12'] || 0),
+    },
+    {
+        key: 'under_6_or_before',
+        label: '<6 bulan / Sebelum Lulus',
+        shortLabel: '<6 bulan / Sebelum Lulus (Utama)',
+        color: '#0D542B',
+        labelColor: '#FFFFFF',
+        stackOrder: 3,
+        getCount: (group) => Number(group.counts?.['after_under_6'] || 0) + Number(group.counts?.['before_graduation'] || 0),
+    },
 ];
+
+// Menampilkan persentase dan rasio jumlah secara proporsional agar tidak bertubrukan pada segmen sempit.
+const formatStackPercentageLabel = ({ data }) => {
+    const count = Number(data?.count || 0);
+    const total = Number(data?.total || 0);
+    const percentage = Number(data?.percentage || 0);
+    const axisMax = Number(data?.axisMax || 0);
+    if (!count || percentage < 7) return '';
+
+    const widthRatio = axisMax > 0 ? (count / axisMax) : (percentage / 100);
+
+    // Sembunyikan label jika segmen terlalu sempit (< 6% lebar chart)
+    if (widthRatio < 0.06 || (axisMax >= 40 && count < 3)) {
+        return '';
+    }
+
+    // Tampilkan persentase dan rasio jumlah jika segmen cukup lebar (>= 14% lebar chart dan >= 15% dari total baris)
+    if (widthRatio >= 0.14 && percentage >= 15 && total > 0) {
+        return `${formatPercentage(percentage)} (${formatNumber(count, 0)}/${formatNumber(total, 0)})`;
+    }
+
+    return formatPercentage(percentage);
+};
 
 // Mengagregasi tepat tiga batang fase dengan panjang bar berbasis jumlah alumni.
 const timingStackGroups = computed(() => {
@@ -172,10 +225,11 @@ const timingStackGroups = computed(() => {
         return props.chart.timing_stack_groups;
     }
 
+    const legacyKeys = ['before_graduation', 'after_under_6', 'after_6_to_12', 'after_over_12', 'after_unavailable', 'not_searching'];
     const groups = [
-        { phase: 'Sebelum lulus', counts: Object.fromEntries(timingStackSegments.map((segment) => [segment.key, 0])) },
-        { phase: 'Setelah lulus', counts: Object.fromEntries(timingStackSegments.map((segment) => [segment.key, 0])) },
-        { phase: 'Tidak mencari kerja', counts: Object.fromEntries(timingStackSegments.map((segment) => [segment.key, 0])) },
+        { phase: 'Sebelum lulus', counts: Object.fromEntries(legacyKeys.map((k) => [k, 0])) },
+        { phase: 'Setelah lulus', counts: Object.fromEntries(legacyKeys.map((k) => [k, 0])) },
+        { phase: 'Tidak mencari kerja', counts: Object.fromEntries(legacyKeys.map((k) => [k, 0])) },
     ];
 
     series.value.forEach((item) => {
@@ -187,17 +241,23 @@ const timingStackGroups = computed(() => {
     return groups;
 });
 
-// Diagram batang horizontal berbasis jumlah dengan warna fase dan masa tunggu.
+// Diagram batang horizontal berbasis jumlah alumni selaras dengan Masa Tunggu IKU S1.
 const timingStackedOption = computed(() => {
+    const rows = timingStackGroups.value;
+    const maxVal = Math.max(1, ...rows.map((group) => Object.values(group.counts).reduce((total, count) => total + count, 0)));
+    const axisMax = Math.max(10, Math.ceil(maxVal / 10) * 10);
+
     return {
         ...baseOption(validResponses.value),
         themePalette: timingStackSegments.map((segment) => segment.color),
-        grid: { left: 24, right: 48, top: 28, bottom: 64, containLabel: true },
+        grid: { left: 24, right: 60, top: 20, bottom: 44, containLabel: true },
         xAxis: {
             type: 'value',
             min: 0,
-            max: Math.max(1, ...timingStackGroups.value.map((group) => Object.values(group.counts).reduce((total, count) => total + count, 0))),
-            name: 'Jumlah alumni',
+            max: axisMax,
+            name: 'Jumlah alumni (orang)',
+            nameLocation: 'middle',
+            nameGap: 30,
             nameTextStyle: { color: '#64748B' },
             axisLabel: { formatter: (value) => formatNumber(value, 0), color: '#64748B' },
             splitLine: { lineStyle: { color: '#E2E8F0', type: 'dashed' } },
@@ -205,39 +265,43 @@ const timingStackedOption = computed(() => {
         yAxis: {
             type: 'category',
             inverse: true,
-            data: timingStackGroups.value.map((group) => group.phase),
+            data: rows.map((group) => group.phase),
             axisLabel: { color: '#334155', fontWeight: 600, fontSize: 12 },
             axisTick: { show: false },
             axisLine: { lineStyle: { color: '#CBD5E1' } },
         },
-        legend: { data: timingStackSegments.map((segment) => segment.label), bottom: 0, type: 'scroll', textStyle: { color: '#475569', fontSize: 11 } },
+        legend: { show: false },
         tooltip: {
             ...baseOption().tooltip,
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
             formatter: (params) => {
-                const group = timingStackGroups.value[params[0]?.dataIndex];
+                const group = rows[params[0]?.dataIndex];
                 if (!group) return '';
 
                 const total = Object.values(group.counts).reduce((sum, count) => sum + count, 0);
-                return `<strong>${escapeHtml(group.phase)}</strong><br>${params.filter((param) => Number(param.value) > 0).map((param) => {
-                    const count = Number(param.value) || 0;
-                    const percentage = total > 0 ? (count / total) * 100 : 0;
+                const lines = params
+                    .filter((param) => Number(param.value) > 0)
+                    .map((param) => {
+                        const count = Number(param.value) || 0;
+                        const percentage = total > 0 ? (count / total) * 100 : 0;
+                        return `${escapeHtml(param.seriesName)}: <strong>${formatPercentage(percentage)}</strong> (${formatNumber(count, 0)} alumni)`;
+                    });
 
-                    return `${escapeHtml(param.seriesName)}: <strong>${formatNumber(percentage, 1)}%</strong> (${formatNumber(count, 0)} alumni)`;
-                }).join('<br>')}`;
+                return `<strong>${escapeHtml(group.phase)}</strong> (Total: ${formatNumber(total, 0)} alumni)<br>${lines.join('<br>')}`;
             },
         },
         series: timingStackSegments.map((segment) => ({
             name: segment.label,
             type: 'bar',
             stack: 'total',
-            stackOrder: timingStackSegments.findIndex((candidate) => candidate.key === segment.key),
-            barMaxWidth: 34,
+            stackOrder: segment.stackOrder,
+            barMaxWidth: 30,
             itemStyle: { color: segment.color },
-            data: timingStackGroups.value.map((group) => {
-                const count = group.counts[segment.key] || 0;
+            data: rows.map((group) => {
+                const count = segment.getCount(group);
                 const total = Object.values(group.counts).reduce((sum, value) => sum + value, 0);
+                const percentage = total > 0 ? (count / total) * 100 : 0;
 
                 return {
                     name: group.phase,
@@ -246,26 +310,28 @@ const timingStackedOption = computed(() => {
                     phase: group.phase,
                     value: count,
                     count,
-                    percentage: total > 0 ? (count / total) * 100 : 0,
+                    total,
+                    percentage,
+                    axisMax,
                 };
             }),
             label: {
                 show: true,
                 position: 'inside',
-                formatter: ({ data }) => data?.percentage >= 10 ? `${formatNumber(data.percentage, 1)}%` : '',
+                formatter: formatStackPercentageLabel,
                 color: segment.labelColor,
-                fontWeight: 600,
+                fontWeight: 700,
                 fontSize: 10,
             },
         })),
     };
 });
 
-// Tabel ringkas mengikuti urutan fase dan segmen pada diagram batang.
+// Tabel ringkas mengikuti urutan 4 kategori kanonik masa tunggu.
 const timingStackedTable = computed(() => ({
     columns: [
-        { key: 'phase', label: 'Fase' },
-        { key: 'segment', label: 'Rentang Waktu' },
+        { key: 'phase', label: 'Fase Pencarian' },
+        { key: 'segment', label: 'Kategori Masa Tunggu' },
         { key: 'count', label: 'Jumlah Alumni', align: 'right' },
         { key: 'percentage', label: 'Persentase', align: 'right' },
     ],
@@ -273,12 +339,12 @@ const timingStackedTable = computed(() => ({
         const total = Object.values(group.counts).reduce((sum, count) => sum + count, 0);
 
         return timingStackSegments
-            .filter((segment) => group.counts[segment.key] > 0)
+            .filter((segment) => segment.getCount(group) > 0)
             .map((segment) => ({
                 phase: group.phase,
                 segment: segment.label,
-                count: formatNumber(group.counts[segment.key], 0),
-                percentage: `${formatNumber(total > 0 ? (group.counts[segment.key] / total) * 100 : 0, 1)}%`,
+                count: formatNumber(segment.getCount(group), 0),
+                percentage: `${formatPercentage(total > 0 ? (segment.getCount(group) / total) * 100 : 0)}`,
             }));
     }),
 }));
@@ -456,10 +522,10 @@ const views = computed(() => [
         chartType: 'stacked_horizontal',
         tabLabel: 'Rentang Waktu Bertumpuk',
         title: 'Sebaran rentang waktu mulai mencari pekerjaan',
-        description: 'Panjang batang menunjukkan jumlah alumni. Sebelum lulus ditampilkan hijau, tidak mencari kerja merah, sedangkan setelah lulus dibagi menjadi <6 bulan kuning, 6–12 bulan oranye, dan >12 bulan merah. Tidak ada kategori studi lanjut atau abu-abu.',
+        description: 'Panjang bar menunjukkan jumlah alumni; label segmen menunjukkan persentase dalam fase pencarian kerja.',
         option: timingStackedOption.value,
         tableData: timingStackedTable.value,
-        height: 420,
+        height: 380,
         analysis: {
             title: 'Kilas Kesiapan Karir Alumni UKDW',
             statusBadge: 'Perilaku Kesiapan',
@@ -489,5 +555,34 @@ const views = computed(() => [
         indicator-badge="Indikator 06"
         @select="emit('select', $event)"
         @reset="emit('reset')"
-    />
+    >
+        <template #before-chart="{ view }">
+            <div v-if="view?.key === 'timing_stacked'" class="mb-3">
+                <div
+                    class="flex flex-wrap items-center gap-x-3.5 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-700"
+                >
+                    <span class="font-bold text-slate-900 pr-3 border-r border-slate-300">Kategori Masa Tunggu:</span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="h-3 w-3 rounded-xs bg-[#CBD5E1]"></span>
+                        <span><strong>Abu-abu:</strong> Belum Tersedia</span>
+                    </span>
+                    <span class="text-slate-300 hidden sm:inline">|</span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="h-3 w-3 rounded-xs bg-[#DC2626]"></span>
+                        <span><strong>Merah:</strong> &ge;12 bulan (Tidak Berbobot)</span>
+                    </span>
+                    <span class="text-slate-300 hidden sm:inline">|</span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="h-3 w-3 rounded-xs bg-[#D97706]"></span>
+                        <span><strong>Kuning:</strong> 6–&lt;12 bulan (Menengah)</span>
+                    </span>
+                    <span class="text-slate-300 hidden sm:inline">|</span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="h-3 w-3 rounded-xs bg-[#0D542B]"></span>
+                        <span><strong>Hijau:</strong> &lt;6 bulan / Sebelum Lulus (Utama)</span>
+                    </span>
+                </div>
+            </div>
+        </template>
+    </AnalyticsTabbedContainer>
 </template>

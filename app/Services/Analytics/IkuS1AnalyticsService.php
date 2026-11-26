@@ -56,10 +56,10 @@ class IkuS1AnalyticsService
      *
      * @return array<string, mixed> Payload chart, tabel, ringkasan, dan metodologi.
      */
-    public function buildAeeChart(?string $selectedYear = null, ?string $prodiId = null): array
+    public function buildAeeChart(?string $selectedYear = null, ?string $prodiId = null, ?string $selectedAngkatan = null): array
     {
         $query = DB::table('v_iku_s1_aee')->where('status_mahasiswa', 'Lulus');
-        $this->applyFilters($query, $selectedYear, $prodiId);
+        $this->applyFilters($query, $selectedYear, $prodiId, null, $selectedAngkatan);
         $records = $query->orderBy('nama_prodi')->orderBy('nim')->get();
         $series = $records->groupBy('kode_prodi')->map(function (Collection $rows): array {
             $first = $rows->first();
@@ -167,9 +167,9 @@ class IkuS1AnalyticsService
      * @param  int|null  $umpYear  Tahun UMP yang dipakai sebagai ambang gaji.
      * @return array<string, mixed> Payload chart bobot karier dan rincian responden.
      */
-    public function buildOutcomeChart(?int $umpYear = null, ?string $selectedYear = null, ?string $prodiId = null): array
+    public function buildOutcomeChart(?int $umpYear = null, ?string $selectedYear = null, ?string $prodiId = null, ?string $selectedAngkatan = null): array
     {
-        $classified = $this->classifiedOutcomes($umpYear, $selectedYear, $prodiId);
+        $classified = $this->classifiedOutcomes($umpYear, $selectedYear, $prodiId, $selectedAngkatan);
         $valid = $classified
             ->whereIn('career_category', self::VALID_CAREER_CATEGORIES)
             ->filter(fn (array $row): bool => $row['weight'] > 0);
@@ -240,9 +240,9 @@ class IkuS1AnalyticsService
      * @param  int|null  $umpYear  Tahun UMP yang dipakai sebagai ambang.
      * @return array<string, mixed> Payload perbandingan UMP berbobot.
      */
-    public function buildUmpWeightedChart(?int $umpYear = null, ?string $selectedYear = null, ?string $prodiId = null): array
+    public function buildUmpWeightedChart(?int $umpYear = null, ?string $selectedYear = null, ?string $prodiId = null, ?string $selectedAngkatan = null): array
     {
-        $classified = $this->classifiedOutcomes($umpYear, $selectedYear, $prodiId);
+        $classified = $this->classifiedOutcomes($umpYear, $selectedYear, $prodiId, $selectedAngkatan);
         $valid = $classified
             ->whereIn('career_category', self::VALID_CAREER_CATEGORIES)
             ->filter(fn (array $row): bool => $row['weight'] > 0);
@@ -270,6 +270,10 @@ class IkuS1AnalyticsService
                     'average_weight' => $weightedCount > 0 ? round($weightedScore / $weightedCount, 4) : 0.0,
                 ];
             });
+        $categoryOrder = array_merge(self::DISPLAY_CAREER_CATEGORIES, ['Tidak memenuhi klasifikasi']);
+        $sortByCategoryOrder = static fn (string $label): int => array_search($label, $categoryOrder, true) === false
+            ? 99
+            : (int) array_search($label, $categoryOrder, true);
         $waitCategories = ['Sebelum Lulus', '<6 bulan', '6–<12 bulan', '≥12 bulan', 'Masa Tunggu Tidak Tersedia'];
         $waitStats = $classified->groupBy(fn (array $row): string => $row['career_category'] ?: 'Tidak memenuhi klasifikasi')
             ->map(function (Collection $roleRows, string $role) use ($waitCategories): array {
@@ -291,7 +295,10 @@ class IkuS1AnalyticsService
                         ->map(fn (int $count): float => $this->percentage($count, $roleRows->count()))
                         ->all(),
                 ];
-            })->values()->all();
+            })
+            ->sortBy(fn (array $item): int => $sortByCategoryOrder($item['role']))
+            ->values()
+            ->all();
         $series = $valid->groupBy('career_category')->map(function (Collection $categoryRows, string $label) use ($valid): array {
             $comparableRows = $categoryRows->filter(fn (array $row): bool => $row['salary_above_threshold'] !== null);
             $aboveRows = $comparableRows->filter(fn (array $row): bool => $row['salary_above_threshold'] === true);
@@ -362,10 +369,11 @@ class IkuS1AnalyticsService
      * Mengklasifikasikan seluruh lulusan S1 sekali untuk dipakai oleh dua
      * grafik IKU agar formula dan rincian individu tidak bercabang berbeda.
      */
-    private function classifiedOutcomes(?int $umpYear, ?string $selectedYear = null, ?string $prodiId = null): Collection
+    private function classifiedOutcomes(?int $umpYear, ?string $selectedYear = null, ?string $prodiId = null, ?string $selectedAngkatan = null): Collection
     {
         $umpRows = $this->umpRows($umpYear);
         $query = DB::table('v_iku_s1_lulusan as graduate')
+            ->leftJoin('data_akademik as academic', 'academic.nim', '=', 'graduate.nim')
             ->leftJoin('biodata', 'biodata.id', '=', 'graduate.biodata_id')
             ->leftJoin('perusahaan as workplace', 'workplace.id', '=', 'biodata.perusahaan_id')
             ->leftJoin('atasan as supervisor', 'supervisor.id', '=', 'biodata.atasan_id')
@@ -373,6 +381,7 @@ class IkuS1AnalyticsService
             ->leftJoin('kabupaten as workplace_city', 'workplace_city.kode_kabupaten', '=', 'workplace.kode_kabupaten')
             ->select([
                 'graduate.*',
+                'academic.angkatan_masuk',
                 'biodata.posisi_jabatan',
                 'biodata.bidang_pekerjaan',
                 'biodata.divisi',
@@ -392,24 +401,28 @@ class IkuS1AnalyticsService
                 'supervisor.email as supervisor_email',
                 'supervisor.telepon as supervisor_phone',
             ]);
-        $this->applyFilters($query, $selectedYear, $prodiId, 'graduate');
+        $this->applyFilters($query, $selectedYear, $prodiId, 'graduate', $selectedAngkatan);
 
         return $query->get()
             ->map(fn (object $row): array => $this->classifyOutcome($row, $umpRows));
     }
 
     /**
-     * Menerapkan filter periode dan program studi pada read-model IKU.
+     * Menerapkan filter periode, program studi, dan angkatan masuk pada read-model IKU.
      *
      * @param  Builder  $query  Query read-model.
      * @param  string|null  $selectedYear  Tahun kelulusan atau ALL.
-     * @param  int|null  $prodiId  Program studi opsional.
+     * @param  string|null  $prodiId  Program studi opsional.
      * @param  string|null  $tableAlias  Alias read-model untuk kolom filter.
+     * @param  string|null  $selectedAngkatan  Tahun angkatan masuk atau ALL.
      */
-    private function applyFilters(Builder $query, ?string $selectedYear, ?string $prodiId, ?string $tableAlias = null): void
+    private function applyFilters(Builder $query, ?string $selectedYear, ?string $prodiId, ?string $tableAlias = null, ?string $selectedAngkatan = null): void
     {
         $yearColumn = $tableAlias ? $tableAlias.'.tahun_lulus' : 'tahun_lulus';
         $prodiColumn = $tableAlias ? $tableAlias.'.kode_prodi' : 'kode_prodi';
+        $angkatanColumn = $tableAlias === 'graduate'
+            ? 'academic.angkatan_masuk'
+            : ($tableAlias ? $tableAlias.'.angkatan_masuk' : 'angkatan_masuk');
 
         if ($selectedYear !== null && $selectedYear !== 'ALL') {
             $query->where($yearColumn, (int) $selectedYear);
@@ -417,6 +430,10 @@ class IkuS1AnalyticsService
 
         if ($prodiId !== null) {
             $query->where($prodiColumn, $prodiId);
+        }
+
+        if ($selectedAngkatan !== null && $selectedAngkatan !== 'ALL' && $selectedAngkatan !== '') {
+            $query->where($angkatanColumn, (int) $selectedAngkatan);
         }
     }
 
@@ -464,6 +481,7 @@ class IkuS1AnalyticsService
             'nama' => $row->nama,
             'kode_prodi' => $row->kode_prodi,
             'nama_prodi' => $row->nama_prodi,
+            'angkatan_masuk' => isset($row->angkatan_masuk) && $row->angkatan_masuk !== null ? (int) $row->angkatan_masuk : null,
             'career_category' => $category,
             'status_karier' => $row->status_karier,
             'before_graduation' => $beforeGraduation,
@@ -737,14 +755,14 @@ class IkuS1AnalyticsService
      */
     private function resolveWeight(string $category, ?bool $beforeGraduation, ?float $months, ?bool $salaryAboveThreshold, object $row): float
     {
-        // Hitung kelayakan bobot studi lanjut jika ada data tanggal mulai studi
+        // Hitung kelayakan bobot studi lanjut jika ada data tanggal mulai studi (sebelum lulus atau maksimal 1 tahun setelah lulus)
         $studyWeight = 0.0;
         $studyStart = $this->validStudyStart($row->tanggal_mulai_studi);
         if ($studyStart && $row->tanggal_lulus) {
             try {
                 $start = Carbon::parse($studyStart);
                 $graduated = Carbon::parse($row->tanggal_lulus);
-                if ($start->greaterThanOrEqualTo($graduated) && $start->lessThan($graduated->copy()->addYear())) {
+                if ($start->lessThan($graduated->copy()->addYear())) {
                     $studyWeight = (float) config('iku.s1.weights.study_continuation', 0.6);
                 }
             } catch (\Throwable) {

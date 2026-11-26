@@ -27,10 +27,11 @@ class TracerAnalyticsController extends Controller
         $year = $request->string('tahun')->toString() ?: null;
         $umpYear = $request->integer('tahun_ump') ?: null;
         $prodiId = $request->string('kode_prodi')->toString() ?: null;
+        $angkatan = $request->string('angkatan')->toString() ?: null;
 
         return Inertia::render('Shared/Analytics/GrafikUniv', [
             'user' => $user,
-            'analytics' => $analyticsService->buildUniversityChart($chart, $year, $umpYear, $prodiId),
+            'analytics' => $analyticsService->buildUniversityChart($chart, $year, $umpYear, $prodiId, $angkatan),
         ]);
     }
 
@@ -45,9 +46,10 @@ class TracerAnalyticsController extends Controller
         $year = $request->string('tahun')->toString() ?: null;
         $umpYear = $request->integer('tahun_ump') ?: null;
         $prodiId = $request->string('kode_prodi')->toString() ?: null;
+        $angkatan = $request->string('angkatan')->toString() ?: null;
 
         return response()->json(
-            $analyticsService->buildUniversityChart($chart, $year, $umpYear, $prodiId)
+            $analyticsService->buildUniversityChart($chart, $year, $umpYear, $prodiId, $angkatan)
         );
     }
 

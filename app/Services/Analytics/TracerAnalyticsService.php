@@ -257,18 +257,21 @@ class TracerAnalyticsService
         ?string $requestedYear = null,
         ?int $requestedUmpYear = null,
         ?string $prodiId = null,
+        ?string $requestedAngkatan = null,
     ): array {
         $chartKey = $this->resolveChartKey($requestedChart);
         $availableYears = $this->availableYears();
         $selectedYear = $this->resolveYear($requestedYear, $availableYears);
         $availableUmpYears = $this->availableUmpYears();
         $selectedUmpYear = $this->resolveUmpYear($requestedUmpYear, $selectedYear, $availableUmpYears);
+        $availableAngkatan = $this->availableAngkatan();
+        $selectedAngkatan = $this->resolveAngkatan($requestedAngkatan, $availableAngkatan);
 
         if ($this->ikuS1Analytics->supports($chartKey)) {
-            return $this->buildIkuChartPayload($chartKey, $selectedYear, $selectedUmpYear, $prodiId, $availableYears, $availableUmpYears);
+            return $this->buildIkuChartPayload($chartKey, $selectedYear, $selectedUmpYear, $prodiId, $availableYears, $availableUmpYears, $availableAngkatan, $selectedAngkatan);
         }
 
-        $rows = $this->analyticsRows($chartKey, $selectedYear, $selectedUmpYear, $prodiId);
+        $rows = $this->analyticsRows($chartKey, $selectedYear, $selectedUmpYear, $prodiId, $selectedAngkatan);
         $responses = $chartKey === 'employment_status'
             ? $this->responsesByAlumni($rows->pluck('biodata_id')->all(), ['F8', 'F18a', 'F18b', 'F18c', 'F18d', 'F11', 'F5B', 'F5C', 'F2E', 'F2G'])
             : [];
@@ -295,7 +298,7 @@ class TracerAnalyticsService
             'job_search_activity', 'workplace_type', 'further_study', 'mismatch_reasons', 'competency_gap' => $this->questionChart($rows, $chartKey),
             default => throw new \LogicException('Grafik analitik tidak tersedia.'),
         };
-        $populationCount = $this->populationCount($selectedYear, $prodiId);
+        $populationCount = $this->populationCount($selectedYear, $prodiId, $selectedAngkatan);
         $chart['methodology'] = array_merge(
             $chart['methodology'] ?? [],
             $this->chartMethodology($chartKey, $this->resolveTargetResponseRate($selectedYear), $selectedUmpYear),
@@ -323,6 +326,8 @@ class TracerAnalyticsService
                 'selected_year' => $selectedYear,
                 'available_ump_years' => $availableUmpYears,
                 'selected_ump_year' => $selectedUmpYear,
+                'available_angkatan' => $availableAngkatan,
+                'selected_angkatan' => $selectedAngkatan,
                 'selected_kode_prodi' => $prodiId,
                 'prodis' => Prodi::query()
                     ->orderBy('kode_prodi')
@@ -372,11 +377,13 @@ class TracerAnalyticsService
         ?string $prodiId,
         array $availableYears,
         array $availableUmpYears,
+        array $availableAngkatan = [self::ALL_YEARS],
+        string $selectedAngkatan = self::ALL_YEARS,
     ): array {
         $chart = match ($chartKey) {
-            'iku_s1_aee' => $this->ikuS1Analytics->buildAeeChart($selectedYear, $prodiId),
-            'iku_s1_ump_weighted' => $this->ikuS1Analytics->buildUmpWeightedChart($selectedUmpYear, $selectedYear, $prodiId),
-            default => $this->ikuS1Analytics->buildOutcomeChart($selectedUmpYear, $selectedYear, $prodiId),
+            'iku_s1_aee' => $this->ikuS1Analytics->buildAeeChart($selectedYear, $prodiId, $selectedAngkatan),
+            'iku_s1_ump_weighted' => $this->ikuS1Analytics->buildUmpWeightedChart($selectedUmpYear, $selectedYear, $prodiId, $selectedAngkatan),
+            default => $this->ikuS1Analytics->buildOutcomeChart($selectedUmpYear, $selectedYear, $prodiId, $selectedAngkatan),
         };
         $populationCount = (int) ($chart['summary']['population'] ?? 0);
         $validRespondentCount = in_array($chartKey, ['iku_s1_outcomes', 'iku_s1_ump_weighted'], true)
@@ -413,6 +420,8 @@ class TracerAnalyticsService
                 'selected_year' => $selectedYear,
                 'available_ump_years' => $availableUmpYears,
                 'selected_ump_year' => $selectedUmpYear,
+                'available_angkatan' => $availableAngkatan,
+                'selected_angkatan' => $selectedAngkatan,
                 'selected_kode_prodi' => $prodiId,
                 'prodis' => Prodi::query()
                     ->orderBy('kode_prodi')
@@ -572,17 +581,52 @@ class TracerAnalyticsService
     }
 
     /**
+     * Mengambil daftar tahun angkatan masuk (tahun masuk) yang tersedia pada populasi akademik.
+     *
+     * @return array<int, string>
+     */
+    private function availableAngkatan(): array
+    {
+        $angkatan = DB::table('data_akademik')
+            ->whereNotNull('angkatan_masuk')
+            ->pluck('angkatan_masuk')
+            ->filter()
+            ->map(fn (mixed $year): string => (string) $year)
+            ->unique()
+            ->sortDesc()
+            ->values()
+            ->all();
+
+        return [self::ALL_YEARS, ...$angkatan];
+    }
+
+    /**
+     * Menentukan angkatan masuk aktif dengan default seluruh angkatan (ALL).
+     *
+     * @param  array<int, string>  $availableAngkatan
+     */
+    private function resolveAngkatan(?string $requestedAngkatan, array $availableAngkatan): string
+    {
+        $angkatan = trim((string) ($requestedAngkatan ?: self::ALL_YEARS));
+
+        return in_array($angkatan, $availableAngkatan, true)
+            ? $angkatan
+            : self::ALL_YEARS;
+    }
+
+    /**
      * Menghitung denominator kohort langsung dari sumber akademik dan biodata.
      *
      * Query ini sengaja tidak memakai view indikator agar metadata populasi
      * tidak memicu evaluasi ulang jawaban tracer pada setiap permintaan.
      */
-    private function populationCount(string $selectedYear, ?string $prodiId): int
+    private function populationCount(string $selectedYear, ?string $prodiId, string $selectedAngkatan = self::ALL_YEARS): int
     {
         return DB::table('biodata')
             ->join('data_akademik', 'data_akademik.nim', '=', 'biodata.nim')
             ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('data_akademik.tahun_lulus', $selectedYear))
             ->when($prodiId, fn ($query) => $query->where('biodata.kode_prodi', $prodiId))
+            ->when($selectedAngkatan !== self::ALL_YEARS, fn ($query) => $query->where('data_akademik.angkatan_masuk', (int) $selectedAngkatan))
             ->count();
     }
 
@@ -668,10 +712,21 @@ class TracerAnalyticsService
      *
      * @return Collection<int, object>
      */
-    private function analyticsRows(string $chartKey, string $selectedYear, ?int $selectedUmpYear, ?string $prodiId): Collection
+    private function analyticsRows(string $chartKey, string $selectedYear, ?int $selectedUmpYear, ?string $prodiId, string $selectedAngkatan = self::ALL_YEARS): Collection
     {
+        $allowedNims = $selectedAngkatan !== self::ALL_YEARS
+            ? DB::table('data_akademik')
+                ->where('angkatan_masuk', (int) $selectedAngkatan)
+                ->pluck('nim')
+                ->all()
+            : null;
+
         if ($chartKey === 'response_rate') {
-            return $this->responseRateRows($selectedYear, $prodiId);
+            $rows = $this->responseRateRows($selectedYear, $prodiId);
+
+            return $allowedNims !== null
+                ? $rows->whereIn('nim', $allowedNims)->values()
+                : $rows;
         }
 
         if (isset(self::QUESTION_CHART_CODES[$chartKey])) {
@@ -679,6 +734,7 @@ class TracerAnalyticsService
                 ->whereIn('kode_pertanyaan', self::QUESTION_CHART_CODES[$chartKey])
                 ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
                 ->when($prodiId, fn ($query) => $query->where('kode_prodi', $prodiId))
+                ->when($allowedNims !== null, fn ($query) => $query->whereIn('nim', $allowedNims ?: ['__NONE__']))
                 ->get();
         }
 
@@ -695,6 +751,7 @@ class TracerAnalyticsService
         return DB::table($view)
             ->when($selectedYear !== self::ALL_YEARS, fn ($query) => $query->where('tahun_lulus', $selectedYear))
             ->when($prodiId, fn ($query) => $query->where('kode_prodi', $prodiId))
+            ->when($allowedNims !== null, fn ($query) => $query->whereIn('nim', $allowedNims ?: ['__NONE__']))
             ->when($chartKey === 'salary_vs_ump', fn ($query) => $query->where(function ($umpQuery) use ($selectedUmpYear): void {
                 $umpQuery->where('ump_year', $selectedUmpYear)->orWhereNull('ump_year');
             }))
@@ -1290,7 +1347,7 @@ class TracerAnalyticsService
             'key' => 'application_pipeline',
             'type' => 'application_pipeline',
             'title' => 'Lamaran, respons, dan wawancara',
-            'subtitle' => 'Analisis proses pencarian kerja alumni, korelasi IPK, serta konversi tahapan lamaran hingga wawancara.',
+            'subtitle' => 'Analisis proses pencarian kerja alumni serta efisiensi konversi tahapan lamaran hingga wawancara.',
             'visual_plan' => $this->visualPlan('application_pipeline'),
             'summary' => [
                 'answered_count' => count($alumniList),
@@ -1429,10 +1486,9 @@ class TracerAnalyticsService
                 ];
             })->sortByDesc(fn (array $row): float => $row['persentase'] ?? -1)->values();
 
-        // 1. Pivot per Program Studi (Tanpa menyebutkan alumni/skor tertinggi)
+        // 1. Pivot per Program Studi (Tanpa metrik IPK)
         $pivot = $detail->groupBy('prodi')->map(function (Collection $rows, string $prodi): array {
             $validPercentages = $rows->pluck('persentase')->filter(fn (mixed $value): bool => $value !== null)->all();
-            $ipkValues = $rows->pluck('ipk')->filter(fn (mixed $value): bool => $value !== null)->all();
 
             $avgAwal = $this->average($rows->pluck('tahap_awal')->all());
             $avgAkhir = $this->average($rows->pluck('tahap_akhir')->all());
@@ -1440,7 +1496,6 @@ class TracerAnalyticsService
             return [
                 'prodi' => $prodi,
                 'alumni_valid' => $rows->count(),
-                'rata_ipk' => $this->average($ipkValues) !== null ? round($this->average($ipkValues), 2) : null,
                 'rata_awal' => $avgAwal !== null ? (int) round($avgAwal) : null,
                 'rata_akhir' => $avgAkhir !== null ? (int) round($avgAkhir) : null,
                 'rata_persentase' => $this->average($validPercentages) !== null ? round($this->average($validPercentages), 1) : null,
@@ -1448,7 +1503,6 @@ class TracerAnalyticsService
         })->sortByDesc('alumni_valid')->values()->all();
 
         // Baris Total Universitas untuk Pivot Program Studi
-        $allIpkValues = $detail->pluck('ipk')->filter(fn (mixed $value): bool => $value !== null)->all();
         $allValidPercentages = $detail->pluck('persentase')->filter(fn (mixed $value): bool => $value !== null)->all();
         $allAvgAwal = $this->average($detail->pluck('tahap_awal')->all());
         $allAvgAkhir = $this->average($detail->pluck('tahap_akhir')->all());
@@ -1456,47 +1510,6 @@ class TracerAnalyticsService
         $totalProdiRow = [
             'prodi' => 'Semua Program Studi (Universitas)',
             'alumni_valid' => $detail->count(),
-            'rata_ipk' => $this->average($allIpkValues) !== null ? round($this->average($allIpkValues), 2) : null,
-            'rata_awal' => $allAvgAwal !== null ? (int) round($allAvgAwal) : null,
-            'rata_akhir' => $allAvgAkhir !== null ? (int) round($allAvgAkhir) : null,
-            'rata_persentase' => $this->average($allValidPercentages) !== null ? round($this->average($allValidPercentages), 1) : null,
-            'is_total' => true,
-        ];
-
-        // 2. Pivot per Kategori IPK (Standard Akademik: >= 3.50, 3.00-3.49, 2.50-2.99, < 2.50, Tidak Tersedia)
-        $ipkBands = [
-            ['label' => 'IPK ≥ 3.50 (Dengan Pujian)', 'filter' => fn ($ipk): bool => $ipk !== null && $ipk >= 3.50],
-            ['label' => 'IPK 3.00 – 3.49 (Sangat Memuaskan)', 'filter' => fn ($ipk): bool => $ipk !== null && $ipk >= 3.00 && $ipk < 3.50],
-            ['label' => 'IPK 2.50 – 2.99 (Memuaskan)', 'filter' => fn ($ipk): bool => $ipk !== null && $ipk >= 2.50 && $ipk < 3.00],
-            ['label' => 'IPK < 2.50 (Cukup)', 'filter' => fn ($ipk): bool => $ipk !== null && $ipk < 2.50],
-            ['label' => 'IPK Tidak Tersedia', 'filter' => fn ($ipk): bool => $ipk === null],
-        ];
-
-        $ipkRows = [];
-        foreach ($ipkBands as $band) {
-            $bandRows = $detail->filter(fn (array $r): bool => ($band['filter'])($r['ipk']));
-            if ($bandRows->isEmpty()) {
-                continue;
-            }
-            $bandPercentages = $bandRows->pluck('persentase')->filter(fn ($v): bool => $v !== null)->all();
-            $bandIpkValues = $bandRows->pluck('ipk')->filter(fn ($v): bool => $v !== null)->all();
-            $bandAwal = $this->average($bandRows->pluck('tahap_awal')->all());
-            $bandAkhir = $this->average($bandRows->pluck('tahap_akhir')->all());
-
-            $ipkRows[] = [
-                'kategori_ipk' => $band['label'],
-                'alumni_valid' => $bandRows->count(),
-                'rata_ipk' => $this->average($bandIpkValues) !== null ? round($this->average($bandIpkValues), 2) : '-',
-                'rata_awal' => $bandAwal !== null ? (int) round($bandAwal) : null,
-                'rata_akhir' => $bandAkhir !== null ? (int) round($bandAkhir) : null,
-                'rata_persentase' => $this->average($bandPercentages) !== null ? round($this->average($bandPercentages), 1) : null,
-            ];
-        }
-
-        $totalIpkRow = [
-            'kategori_ipk' => 'Total Seluruh Kategori IPK',
-            'alumni_valid' => $detail->count(),
-            'rata_ipk' => $this->average($allIpkValues) !== null ? round($this->average($allIpkValues), 2) : null,
             'rata_awal' => $allAvgAwal !== null ? (int) round($allAvgAwal) : null,
             'rata_akhir' => $allAvgAkhir !== null ? (int) round($allAvgAkhir) : null,
             'rata_persentase' => $this->average($allValidPercentages) !== null ? round($this->average($allValidPercentages), 1) : null,
@@ -1508,7 +1521,6 @@ class TracerAnalyticsService
                 ['key' => 'nama_alumni', 'label' => 'Nama Alumni'],
                 ['key' => 'nim', 'label' => 'NIM'],
                 ['key' => 'prodi', 'label' => 'Program Studi'],
-                ['key' => 'ipk', 'label' => 'IPK', 'align' => 'right'],
                 ['key' => 'tahap_awal', 'label' => $firstLabel, 'align' => 'right'],
                 ['key' => 'tahap_akhir', 'label' => $secondLabel, 'align' => 'right'],
                 ['key' => 'persentase', 'label' => 'Persentase (%)', 'align' => 'right'],
@@ -1518,23 +1530,12 @@ class TracerAnalyticsService
                 'columns' => [
                     ['key' => 'prodi', 'label' => 'Program Studi'],
                     ['key' => 'alumni_valid', 'label' => 'Alumni Valid', 'align' => 'right'],
-                    ['key' => 'rata_ipk', 'label' => 'Rata-rata IPK', 'align' => 'right'],
                     ['key' => 'rata_awal', 'label' => 'Rata-rata '.$firstLabel, 'align' => 'right'],
                     ['key' => 'rata_akhir', 'label' => 'Rata-rata '.$secondLabel, 'align' => 'right'],
                     ['key' => 'rata_persentase', 'label' => 'Rata-rata Persentase', 'align' => 'right'],
                 ],
                 'rows' => $pivot,
                 'total_row' => $totalProdiRow,
-                'ipk_columns' => [
-                    ['key' => 'kategori_ipk', 'label' => 'Kategori IPK'],
-                    ['key' => 'alumni_valid', 'label' => 'Alumni Valid', 'align' => 'right'],
-                    ['key' => 'rata_ipk', 'label' => 'Rata-rata IPK', 'align' => 'right'],
-                    ['key' => 'rata_awal', 'label' => 'Rata-rata '.$firstLabel, 'align' => 'right'],
-                    ['key' => 'rata_akhir', 'label' => 'Rata-rata '.$secondLabel, 'align' => 'right'],
-                    ['key' => 'rata_persentase', 'label' => 'Rata-rata Persentase', 'align' => 'right'],
-                ],
-                'ipk_rows' => $ipkRows,
-                'ipk_total_row' => $totalIpkRow,
             ],
         ];
     }

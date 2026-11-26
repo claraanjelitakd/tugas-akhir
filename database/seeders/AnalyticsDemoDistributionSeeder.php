@@ -303,9 +303,9 @@ class AnalyticsDemoDistributionSeeder extends Seeder
                 'Mencari lewat internet/iklan online/milis',
                 $index % 2 === 0 ? 'Melalui relasi (misalnya dosen, orang tua, saudara, teman, dll)' : 'Melalui penempatan kerja atau magang',
             ];
-            $applications = 4 + ($index % 18);
-            $responses = max(1, (int) floor($applications * (0.35 + (($index % 3) * 0.1))));
-            $interviews = max(1, min($responses, (int) floor($responses * 0.6)));
+            $applications = 6 + ($index % 12);
+            $responses = max(2, min($applications - 2, (int) round($applications * (0.35 + (($index % 3) * 0.1)))));
+            $interviews = max(1, min($responses - 1, (int) round($responses * 0.5)));
             $alignment = $alignments[$index % count($alignments)];
 
             $this->saveAnswer($biodata, $questions, 'F3', $jobSearchStart, $univSectionId);

@@ -23,6 +23,7 @@ const page = usePage();
 // State buka/tutup menu dropdown profil di kanan atas
 const isDropdownOpen = ref(false);
 const dropdownRef = ref(null);
+const imageLoadError = ref(false);
 
 // Mengambil objek user aktif dari prop atau shared Inertia auth
 const currentUser = computed(() => {
@@ -167,9 +168,10 @@ const handleLogout = () => {
                         <!-- Lingkaran Foto Profil (Otomatis Terisi) atau Inisial -->
                         <span class="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E7F3ED] text-xs font-bold text-[#0D542B] ring-1 ring-[#0D542B]/15">
                             <img
-                                v-if="userPhotoUrl"
+                                v-if="userPhotoUrl && !imageLoadError"
                                 :src="userPhotoUrl"
-                                :alt="currentUser.name"
+                                alt=""
+                                @error="imageLoadError = true"
                                 class="h-full w-full object-cover object-top"
                             />
                             <span v-else>{{ userInitials }}</span>

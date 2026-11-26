@@ -367,16 +367,16 @@ class SuperAdminLinkedInSyncTest extends TestCase
     }
 
     /**
-     * Test 11: Superadmin Index Halaman LinkedIn Sync
+     * Test 11: Rute LinkedIn Sync dialihkan ke Data Alumni
      */
-    public function test_superadmin_can_view_linkedin_sync_index(): void
+    public function test_superadmin_linkedin_sync_index_redirects_to_alumni_directory(): void
     {
         $this->actingAs($this->superadmin);
 
         $this->createAlumni('71200009', 'Alumni Index', 'alumniindex', 2024);
 
         $response = $this->get('/superadmin/linkedin-sync?tahun=2024');
-        $response->assertOk();
+        $response->assertRedirect(route('superadmin.alumni.index'));
     }
 
     /**

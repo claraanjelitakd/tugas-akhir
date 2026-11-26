@@ -483,20 +483,66 @@ const formatDetailValue = (value, key = '') => {
     return String(value);
 };
 
-// Filter terpadu kelayakan IKU dan aktivitas/karier
+// Filter terpadu kelayakan IKU, aktivitas/karier, dan angkatan masuk
 const globalQualFilter = ref('all');
 const globalCareerFilter = ref('all');
+const globalAngkatanFilter = ref('all');
 
-// Helper penentuan apakah satu record berstatus kombinasi (bekerja/wirausaha + studi lanjut)
+// Mengecek apakah nama instansi merupakan perguruan tinggi studi lanjut, bukan tempat kerja komersial.
+const isCampusInstitution = (name) => {
+    const val = String(name || '').trim().toLowerCase();
+    if (!val || val === '-') return true;
+    return val.includes('universitas')
+        || val.includes('pascasarjana')
+        || val.includes('institut')
+        || val.includes('politeknik')
+        || val.includes('sekolah tinggi')
+        || val.includes('akademi')
+        || val.includes('fakultas');
+};
+
+// Mengecek apakah jabatan merupakan peran mahasiswa studi lanjut/beasiswa, bukan jabatan kerja.
+const isStudentPosition = (pos) => {
+    const val = String(pos || '').trim().toLowerCase();
+    if (!val || val === '-') return true;
+    return val.includes('mahasiswa')
+        || val.includes('pascasarjana')
+        || val.includes('awardee')
+        || val.includes('beasiswa')
+        || val.includes('student');
+};
+
+// Helper penentuan apakah satu record berstatus kombinasi nyata (bekerja/wirausaha sekaligus studi lanjut).
 const recordIsCombination = (record) => {
-    const statusLabel = String(record?.career_status_label || record?.status_karier || '').toLowerCase();
-    const hasStudy = Boolean(record?.study_detail) || statusLabel.includes('studi') || statusLabel.includes('pendidikan');
-    const hasWork = Boolean(record?.nama_perusahaan) || Boolean(record?.posisi_jabatan) || statusLabel.includes('bekerja') || statusLabel.includes('karyawan') || statusLabel.includes('founder') || statusLabel.includes('freelance');
-    return statusLabel.includes('+') || statusLabel.includes('kombinasi') || (hasStudy && hasWork);
+    const statusLabel = String(record?.career_status_label || record?.status_karier || '').trim().toLowerCase();
+    if (statusLabel.includes('+') || statusLabel.includes('kombinasi')) {
+        return true;
+    }
+    if (record?.career_status_label) {
+        return false;
+    }
+    const studyDetail = String(record?.study_detail || '').trim();
+    const hasStudy = (Boolean(studyDetail) && studyDetail !== '-') || statusLabel.includes('studi') || statusLabel.includes('pendidikan');
+    const hasRealWorkCompany = Boolean(record?.nama_perusahaan) && !isCampusInstitution(record?.nama_perusahaan);
+    const hasRealWorkPosition = Boolean(record?.posisi_jabatan) && !isStudentPosition(record?.posisi_jabatan);
+    const hasWorkStatus = statusLabel.includes('bekerja')
+        || statusLabel.includes('karyawan')
+        || statusLabel.includes('founder')
+        || statusLabel.includes('wirausaha')
+        || statusLabel.includes('wiraswasta')
+        || statusLabel.includes('freelance');
+    return hasStudy && (hasRealWorkCompany || hasRealWorkPosition || hasWorkStatus);
 };
 
 // Evaluasi apakah record memenuhi kriteria filter aktif
 const matchCriteria = (record) => {
+    // 0. Filter Angkatan Masuk (Tahun Masuk)
+    if (globalAngkatanFilter.value !== 'all') {
+        if (String(record.angkatan_masuk || '') !== String(globalAngkatanFilter.value)) {
+            return false;
+        }
+    }
+
     // 1. Filter Kelayakan IKU (Sudah Memenuhi vs Belum Memenuhi)
     if (globalQualFilter.value === 'qualified') {
         const isQualified = Number(record.weight || 0) > 0 || record.qualifies === true || record.qualifies === 'Ya';
@@ -530,6 +576,29 @@ const matchCriteria = (record) => {
 
 const hasIkuOutcomeFields = computed(() => {
     return props.rows.some((r) => r.career_category !== undefined || r.weight !== undefined || r.career_status_label !== undefined);
+});
+
+const hasAngkatanField = computed(() => {
+    return props.rows.some((r) => r.angkatan_masuk !== undefined && r.angkatan_masuk !== null && r.angkatan_masuk !== '');
+});
+
+const angkatanFilterOptions = computed(() => {
+    const base = (selectedPoint.value?.label || props.selectedLabel) ? drillDownRecords.value : props.rows;
+    const counts = new Map();
+    base.forEach((r) => {
+        if (r.angkatan_masuk !== undefined && r.angkatan_masuk !== null && r.angkatan_masuk !== '') {
+            const key = String(r.angkatan_masuk);
+            counts.set(key, (counts.get(key) || 0) + 1);
+        }
+    });
+    const sortedYears = Array.from(counts.keys()).sort((a, b) => Number(b) - Number(a));
+    return [
+        { value: 'all', label: `Semua Angkatan (${base.length})` },
+        ...sortedYears.map((yr) => ({
+            value: yr,
+            label: `Angkatan ${yr} (${counts.get(yr)})`,
+        })),
+    ];
 });
 
 const qualFilterOptions = computed(() => {
@@ -807,10 +876,25 @@ const drillDownRecords = computed(() => {
                 if (!matchRole) return false;
             }
 
-            // 1.1 Status Bobot IKU (> 0 vs = 0)
+            // 1.1 Status Bobot IKU (> 0 vs = 0, atau tier spesifik per bobot)
             if (catCandidate.includes('bobot')) {
-                if (catCandidate.includes('tidak') || catCandidate.includes('= 0') || catCandidate.includes('tanpa')) {
+                if (catCandidate.includes('tidak') || catCandidate.includes('= 0') || catCandidate.includes('tanpa') || catCandidate.includes('0.0')) {
                     return Number(r.weight || 0) === 0 || r.qualifies === false;
+                }
+                if (catCandidate.includes('1.2')) {
+                    return Number(r.weight || 0) === 1.2;
+                }
+                if (catCandidate.includes('1.0') || (catCandidate.includes('1') && !catCandidate.includes('1.2'))) {
+                    return Number(r.weight || 0) === 1.0;
+                }
+                if (catCandidate.includes('0.8')) {
+                    return Number(r.weight || 0) === 0.8;
+                }
+                if (catCandidate.includes('0.6')) {
+                    return Number(r.weight || 0) === 0.6;
+                }
+                if (catCandidate.includes('0.2') || catCandidate.includes('0.5')) {
+                    return Number(r.weight || 0) >= 0.2 && Number(r.weight || 0) <= 0.5;
                 }
                 if (catCandidate.includes('memenuhi') || catCandidate.includes('> 0')) {
                     return Number(r.weight || 0) > 0 || r.qualifies === true;
@@ -1558,6 +1642,17 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                         </p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
+                        <!-- Filter Angkatan Masuk (Tahun Masuk) -->
+                        <select
+                            v-if="hasAngkatanField"
+                            v-model="globalAngkatanFilter"
+                            class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 outline-none focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B]"
+                            aria-label="Filter angkatan masuk"
+                        >
+                            <option v-for="option in angkatanFilterOptions" :key="option.value" :value="option.value">
+                                {{ option.label }}
+                            </option>
+                        </select>
                         <!-- Filter Terpadu Kelayakan & Kategori Karier -->
                         <template v-if="hasIkuOutcomeFields">
                             <select
@@ -1924,6 +2019,17 @@ watch([drillDownSearch, drillDownCareerFilter], () => {
                         </p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
+                        <!-- Filter Angkatan Masuk (Tahun Masuk) -->
+                        <select
+                            v-if="hasAngkatanField"
+                            v-model="globalAngkatanFilter"
+                            class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 outline-none focus:border-[#0D542B] focus:ring-1 focus:ring-[#0D542B]"
+                            aria-label="Filter angkatan masuk"
+                        >
+                            <option v-for="option in angkatanFilterOptions" :key="option.value" :value="option.value">
+                                {{ option.label }}
+                            </option>
+                        </select>
                         <!-- Filter Terpadu Kelayakan & Kategori Karier -->
                         <template v-if="hasIkuOutcomeFields">
                             <select

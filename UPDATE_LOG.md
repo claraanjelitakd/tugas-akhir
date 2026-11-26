@@ -1,5 +1,19 @@
 # UPDATE LOG - SERU (Sistem Ekosistem Rekam Jejak Alumni)
 
+## [2026-11-23] Kalibrasi Sebaran Response Rate Kohort 2026 & Pembaruan Legenda Analitik
+
+- **Kalibrasi Sebaran Response Rate Kohort 2026**:
+  - Menyelaraskan sebaran pengisian kuesioner kohort 2026 pada `AlumniSimulationSeeder.php` dan `AlumniVariasiAnalitikSeeder.php` agar merepresentasikan seluruh kategori status capaian target universitas secara proporsional dan realistis:
+    - **Hijau ($\ge 50\%$, Capaian Baik)**: 8 program studi (Akuntansi 100%, Arsitektur 91.7%, Manajemen 78.6%, Kedokteran 76.9%, Biologi 75.0%, Pendidikan Bahasa Inggris 69.2%, Filsafat Keilahian 66.7%, Teknologi Pangan 58.3%).
+    - **Kuning ($30\% - <50\%$, Perlu Ditingkatkan)**: 2 program studi (Informatika 42.9%, Sistem Informasi 36.4%), mencerminkan dinamika kohort besar FTI.
+    - **Merah ($< 30\%$, Perlu Perhatian)**: 2 program studi (Desain Produk 25.0%, Studi Humanitas 16.7%).
+    - **Abu-abu (Belum Mengisi)**: Tampil di sisi paling kiri batang horizontal stacked bar pada seluruh 11 program studi yang memiliki lulusan belum mengisi kuesioner.
+    - **Capaian Total Universitas**: Tepat 60.0% (96 responden dari total 160 alumni kohort 2026), selaras sempurna dengan garis Target Universitas 60%.
+- **Penyelarasan Legenda Komponen `01_ResponseRate.vue`**:
+  - Menyederhanakan header keterangan legenda menjadi format yang lugas dan informatif:
+    `Target Universitas: 60% | Abu-abu: Belum Mengisi | Hijau: >= 50% (Baik) | Kuning: 30%–<50% (Perlu Ditingkatkan) | Merah: < 30% (Perlu Perhatian)`.
+  - Memastikan seluruh indikator visual menggunakan kotak warna Tailwind CSS bersih (`rounded-xs`) tanpa ikon dekoratif atau emoji.
+
 ## [2026-11-21] Refaktorisasi Skema PK/FK, Relasi Kuesioner Induk Terpadu, & Optimasi Database View
 
 - **Refaktorisasi Primary Key & Foreign Key Akademik**:

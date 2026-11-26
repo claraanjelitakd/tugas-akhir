@@ -66,7 +66,7 @@ class MultiRoleAnalyticsAndLinkedInAccessTest extends TestCase
         $this->actingAs($adminProdi)->get('/prodi/analitik-prodi/data')->assertStatus(200);
         $this->actingAs($adminProdi)->get('/prodi/analitik-atasan')->assertStatus(200);
         $this->actingAs($adminProdi)->get('/prodi/analitik-atasan/data')->assertStatus(200);
-        $this->actingAs($adminProdi)->get('/prodi/linkedin-sync')->assertStatus(200);
+        $this->actingAs($adminProdi)->get('/prodi/linkedin-sync')->assertRedirect(route('prodi.alumni.index'));
 
         // 2. Verifikasi Admin Fakultas
         $this->actingAs($adminFakultas)->get('/fakultas/analitik')->assertStatus(200);
@@ -75,7 +75,7 @@ class MultiRoleAnalyticsAndLinkedInAccessTest extends TestCase
         $this->actingAs($adminFakultas)->get('/fakultas/analitik-prodi/data')->assertStatus(200);
         $this->actingAs($adminFakultas)->get('/fakultas/analitik-atasan')->assertStatus(200);
         $this->actingAs($adminFakultas)->get('/fakultas/analitik-atasan/data')->assertStatus(200);
-        $this->actingAs($adminFakultas)->get('/fakultas/linkedin-sync')->assertStatus(200);
+        $this->actingAs($adminFakultas)->get('/fakultas/linkedin-sync')->assertRedirect(route('fakultas.alumni.index'));
 
         // 3. Verifikasi Biro 3
         $this->actingAs($adminBiro3)->get('/biro3/analitik')->assertStatus(200);

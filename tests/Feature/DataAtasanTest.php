@@ -234,6 +234,9 @@ class DataAtasanTest extends TestCase
         $response->assertOk();
         $this->assertStringContainsString('application/vnd.ms-excel', (string) $response->headers->get('Content-Type'));
         $this->assertStringContainsString('Rekap_Evaluasi_Atasan_', (string) $response->headers->get('Content-Disposition'));
+        $content = $response->streamedContent();
+        $this->assertStringContainsString('REKAPITULASI HASIL EVALUASI PENGGUNA LULUSAN', $content);
+        $this->assertStringContainsString('Universitas Kristen Duta Wacana', $content);
     }
 
     /**

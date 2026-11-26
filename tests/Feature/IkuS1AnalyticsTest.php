@@ -339,6 +339,38 @@ class IkuS1AnalyticsTest extends TestCase
     }
 
     /**
+     * Filter angkatan masuk menyaring populasi AEE dan studi lanjut yang dimulai
+     * pada periode kelulusan (termasuk awal semester sebelum tanggal wisuda) tetap berbobot 0,6.
+     */
+    public function test_aee_angkatan_filter_and_study_continuation_weight_before_or_after_graduation(): void
+    {
+        $prodi = Prodi::create(['kode_prodi' => '11', 'nama_prodi' => 'Manajemen', 'jenjang' => 'S1']);
+
+        $studentAfter = $this->createGraduate($prodi, '11220003', 'Melanjutkan Pendidikan', 5000000, 2026);
+        DataAkademik::where('nim', '11220003')->update(['angkatan_masuk' => 2022, 'tanggal_lulus' => '2026-02-15']);
+
+        $studentBefore = $this->createGraduate($prodi, '11220008', 'Melanjutkan Pendidikan', 5000000, 2026);
+        DataAkademik::where('nim', '11220008')->update(['angkatan_masuk' => 2023, 'tanggal_lulus' => '2026-08-20']);
+
+        $section = KuesionerSection::create(['kode_section' => 'IKU-S1-STUDY', 'target' => 'univ', 'judul' => 'IKU S1 Study']);
+        $this->answer($studentAfter, $section, 'F18d', '2026-08-01');
+        $this->answer($studentBefore, $section, 'F18d', '2026-08-01');
+
+        $aeeFiltered = app(TracerAnalyticsService::class)->buildUniversityChart('iku_s1_aee', '2026', 2026, null, '2022');
+        $this->assertSame(['ALL', '2023', '2022'], $aeeFiltered['filters']['available_angkatan']);
+        $this->assertSame('2022', $aeeFiltered['filters']['selected_angkatan']);
+        $this->assertSame(1, $aeeFiltered['chart']['summary']['population']);
+        $this->assertSame('11220003', $aeeFiltered['chart']['records'][0]['nim']);
+
+        $outcomes = app(TracerAnalyticsService::class)->buildUniversityChart('iku_s1_outcomes', '2026', 2026);
+        $records = collect($outcomes['chart']['records'])->keyBy('nim');
+        $this->assertSame(0.6, (float) $records['11220003']['weight']);
+        $this->assertTrue($records['11220003']['qualifies']);
+        $this->assertSame(0.6, (float) $records['11220008']['weight']);
+        $this->assertTrue($records['11220008']['qualifies']);
+    }
+
+    /**
      * Membuat lulusan S1 beserta profil karier minimal untuk fixture indikator.
      */
     private function createGraduate(Prodi $prodi, string $nim, string $career, ?float $salary, int $year): Biodata

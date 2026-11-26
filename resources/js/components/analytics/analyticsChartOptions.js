@@ -507,7 +507,7 @@ export const normalizeAnalyticsOption = (option) => {
 
                 series.label = {
                     ...(series.label || {}),
-                    show: true,
+                    show: typeof series.label?.show === 'boolean' ? series.label.show : true,
                     position: series.label?.position || 'inside',
                     color: readableLabelColor(seriesColor),
                     formatter: typeof originalFormatter === 'string' ? originalFormatter : stackedLabelFormatter,

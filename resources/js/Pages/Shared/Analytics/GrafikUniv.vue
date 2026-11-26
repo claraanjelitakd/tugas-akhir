@@ -87,6 +87,9 @@ const selectedUmpYear = ref(String(props.analytics?.filters?.selected_ump_year |
 // Nilai filter ID program studi aktif (kosong berarti mencakup seluruh universitas).
 const selectedProdiId = ref(String(props.analytics?.filters?.selected_kode_prodi || ''));
 
+// Nilai filter angkatan masuk (tahun masuk) aktif (default 'ALL' mencakup seluruh angkatan).
+const selectedAngkatan = ref(String(props.analytics?.filters?.selected_angkatan || 'ALL'));
+
 // Kunci indikator analitik aktif yang sedang ditampilkan (misal: 'wait_time', 'salary_vs_ump', 'response_rate').
 const selectedChartKey = ref(String(props.analytics?.selected_chart || 'response_rate'));
 
@@ -870,6 +873,7 @@ const analyticsDataUrl = (chartKey = selectedChartKey.value) => {
     const query = new URLSearchParams({ grafik: chartKey, tahun: selectedYear.value });
     if (selectedUmpYear.value) query.set('tahun_ump', selectedUmpYear.value);
     if (selectedProdiId.value) query.set('kode_prodi', selectedProdiId.value);
+    if (selectedAngkatan.value && selectedAngkatan.value !== 'ALL') query.set('angkatan', selectedAngkatan.value);
     return `${analyticsBaseUrl.value}/analitik/data?${query.toString()}`;
 };
 
@@ -890,6 +894,7 @@ const loadAnalytics = async (chartKey = selectedChartKey.value) => {
             selectedChartKey.value = data.selected_chart;
             selectedYear.value = String(data.filters?.selected_year || selectedYear.value);
             selectedUmpYear.value = String(data.filters?.selected_ump_year || selectedUmpYear.value);
+            selectedAngkatan.value = String(data.filters?.selected_angkatan || 'ALL');
             selectedItem.value = null;
             selectedProvince.value = null;
             statusFilter.value = 'all';
@@ -1034,9 +1039,10 @@ const sortTable = (columnIndex) => {
     currentPage.value = 1;
 };
 
-// Reset filter mengembalikan prodi ke seluruh universitas tanpa mengubah indikator.
+// Reset filter mengembalikan prodi dan angkatan ke seluruh universitas tanpa mengubah indikator.
 const resetGlobalFilters = () => {
     selectedProdiId.value = '';
+    selectedAngkatan.value = 'ALL';
     selectedUmpYear.value = String(currentAnalytics.value?.filters?.available_ump_years?.[0] || selectedYear.value);
     scheduleLoad();
 };
@@ -1073,7 +1079,7 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
             <div class="mt-5 space-y-5 px-5 pb-8 sm:px-8 w-full">
                 <!-- Global filter bar memperbarui data tanpa reload halaman penuh. -->
                 <section class="bg-white p-5 shadow-lg shadow-slate-900/5">
-                    <div class="grid gap-4 xl:grid-cols-[minmax(18rem,2fr)_10rem_minmax(13rem,1fr)_auto] xl:items-end">
+                    <div class="grid gap-4 xl:grid-cols-[minmax(18rem,2fr)_10rem_11rem_minmax(13rem,1fr)_auto] xl:items-end">
                         <label class="block min-w-0 text-xs font-bold uppercase tracking-wide text-slate-500">
                             Indikator analisis
                             <select id="select-chart-key" name="chart_key" :value="selectedChartKey" class="mt-2 block w-full rounded bg-slate-100 px-3 py-3 text-sm font-bold normal-case text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-[#0D542B]" @change="changeChart">
@@ -1086,6 +1092,12 @@ watch(pageCount, () => { if (currentPage.value > pageCount.value) currentPage.va
                             Tahun lulusan
                             <select id="select-year" name="year" v-model="selectedYear" class="mt-2 block w-full rounded bg-slate-100 px-3 py-3 text-sm font-bold normal-case text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-[#0D542B]" @change="scheduleLoad()">
                                 <option v-for="year in currentAnalytics.filters?.available_years || []" :key="year" :value="String(year)">{{ year === 'ALL' ? 'Semua Tahun' : year }}</option>
+                            </select>
+                        </label>
+                        <label class="block text-xs font-bold uppercase tracking-wide text-slate-500">
+                            Angkatan masuk
+                            <select id="select-angkatan" name="angkatan" v-model="selectedAngkatan" class="mt-2 block w-full rounded bg-slate-100 px-3 py-3 text-sm font-bold normal-case text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-[#0D542B]" @change="scheduleLoad()">
+                                <option v-for="angkatan in currentAnalytics.filters?.available_angkatan || ['ALL']" :key="angkatan" :value="String(angkatan)">{{ angkatan === 'ALL' ? 'Semua Angkatan' : `Angkatan ${angkatan}` }}</option>
                             </select>
                         </label>
                         <label class="block min-w-0 text-xs font-bold uppercase tracking-wide text-slate-500">

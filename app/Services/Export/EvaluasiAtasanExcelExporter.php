@@ -3,7 +3,8 @@
 namespace App\Services\Export;
 
 use App\Models\Biodata;
-use App\Models\KuesionerPertanyaan;
+use App\Models\KuesionerSection;
+use App\Models\KuesionerSectionPertanyaan;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -49,17 +50,16 @@ class EvaluasiAtasanExcelExporter
     public static function generateSpreadsheetXml(?User $user = null, ?Request $request = null): string
     {
         // 1. Ambil pertanyaan evaluasi atasan aktif sesuai urutan bagian dan urutan soal
-        $questions = KuesionerPertanyaan::query()
-            ->whereHas('sections', function ($q) {
-                $q->where('target', 'atasan');
-            })
-            ->with(['sectionPertanyaans' => function ($q) {
-                $q->whereHas('section', fn ($sq) => $sq->where('target', 'atasan'))->orderBy('order');
-            }])
+        $atasanSectionIds = KuesionerSection::where('target', 'atasan')->pluck('id')->all();
+        $questions = KuesionerSectionPertanyaan::with('pertanyaan')
+            ->whereIn('section_id', $atasanSectionIds)
+            ->where('is_active', true)
+            ->whereHas('pertanyaan', fn ($q) => $q->where('is_active', true))
+            ->orderBy('order', 'asc')
             ->get()
-            ->sortBy(function ($q) {
-                return $q->sectionPertanyaans->first()?->order ?? 999;
-            })
+            ->pluck('pertanyaan')
+            ->filter()
+            ->unique('id')
             ->values();
 
         // 2. Ambil data relasi profil alumni-atasan dengan scope peran pengguna & filter
@@ -117,8 +117,8 @@ class EvaluasiAtasanExcelExporter
                                 ->orWhere('email', 'like', "%{$search}%")
                                 ->orWhere('telepon', 'like', "%{$search}%");
                         })
-                        ->orWhereHas('atasan.perusahaan', fn (Builder $cq) => $cq->where('nama_perusahaan', 'like', "%{$companySearch}%"))
-                        ->orWhereHas('perusahaan', fn (Builder $cq) => $cq->where('nama_perusahaan', 'like', "%{$companySearch}%"));
+                        ->orWhereHas('atasan.perusahaan', fn (Builder $cq) => $cq->where('nama_perusahaan', 'like', "%{$search}%"))
+                        ->orWhereHas('perusahaan', fn (Builder $cq) => $cq->where('nama_perusahaan', 'like', "%{$search}%"));
                 });
             }
         }
@@ -267,7 +267,7 @@ class EvaluasiAtasanExcelExporter
     <Cell ss:MergeAcross="<?= 12 + count($questions) ?>" ss:StyleID="Title"><Data ss:Type="String">REKAPITULASI HASIL EVALUASI PENGGUNA LULUSAN (ATASAN ALUMNI)</Data></Cell>
    </Row>
    <Row ss:Height="18">
-    <Cell ss:MergeAcross="<?= 12 + count($questions) ?>" ss:StyleID="SubTitle"><Data ss:Type="String">Universitas Kristen Duta Wacana (UKDW) | Waktu Ekspor: <?= self::xmlEscape($exportTime) ?> | Total Data: <?= count($evaluasis) ?> Responden</Data></Cell>
+    <Cell ss:MergeAcross="<?= 12 + count($questions) ?>" ss:StyleID="SubTitle"><Data ss:Type="String">Universitas Kristen Duta Wacana (UKDW) | Waktu Ekspor: <?= self::xmlEscape($exportTime) ?> | Total Data: <?= count($records) ?> Responden</Data></Cell>
    </Row>
    <Row ss:Height="12"/>
 
